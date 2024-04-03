@@ -1,0 +1,39 @@
+PODS:
+  - Flutter (1.0.0)
+  - flutter_gemma (0.0.1):
+    - Flutter
+    - MediaPipeTasksGenAI
+  - integration_test (0.0.1):
+    - Flutter
+  - MediaPipeTasksGenAI (0.10.12):
+    - MediaPipeTasksGenAIC (= 0.10.12)
+  - MediaPipeTasksGenAIC (0.10.12)
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_gemma (from `.symlinks/plugins/flutter_gemma/ios`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+
+SPEC REPOS:
+  trunk:
+    - MediaPipeTasksGenAI
+    - MediaPipeTasksGenAIC
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_gemma:
+    :path: ".symlinks/plugins/flutter_gemma/ios"
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+
+SPEC CHECKSUMS:
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  flutter_gemma: 060fdc60736feba40630f9ed47a59e6ea253abf8
+  integration_test: 13825b8a9334a850581300559b8839134b124670
+  MediaPipeTasksGenAI: efd6d1177fcb6455a5460466c99229da4afe35bb
+  MediaPipeTasksGenAIC: ed29bc83f4f39276505abfe956f4ff25f9c6a93a
+
+PODFILE CHECKSUM: 19485bd951c437a6eeced352ccf0c862857d0007
+
+COCOAPODS: 1.15.2

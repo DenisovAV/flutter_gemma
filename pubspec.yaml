@@ -1,6 +1,6 @@
 name: flutter_gemma
-description: "The plugin allows running the Gemma model locally on a device from a Flutter application. The version is still under development, so a detailed description is not available yet. Please wait, as it will be added soon."
-version: 0.0.1
+description: "The plugin allows running the Gemma AI model locally on a device from a Flutter application."
+version: 0.0.2
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
 

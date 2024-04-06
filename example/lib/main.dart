@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/flutter_gemma_platform_interface.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Gemma.instance.init(maxTokens: 50);
   runApp(const MyApp());
 }
 
@@ -17,7 +19,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _exampleAnswer = 'No answer yet';
-  final _flutterGemmaPlugin = FlutterGemma();
+  final _gemma = Gemma.instance;
 
   @override
   void initState() {
@@ -32,7 +34,7 @@ class _MyAppState extends State<MyApp> {
     // We also handle the message potentially returning null.
     try {
       exampleAnswer =
-          await _flutterGemmaPlugin.getResponse('Tell me something interesting.') ?? 'Model doesn''t work';
+          await _gemma.getResponse(prompt: 'Tell me something interesting.') ?? 'Model doesn''t work';
     } on PlatformException {
       exampleAnswer = 'Failed to get Gemma answer.';
     }

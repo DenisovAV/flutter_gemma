@@ -4,7 +4,7 @@ import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import java.io.File
 
-class InferenceModel private constructor(context: Context) {
+class InferenceModel private constructor(context: Context, maxTokens: Int) {
     private var llmInference: LlmInference
 
     private val modelExists: Boolean
@@ -17,7 +17,7 @@ class InferenceModel private constructor(context: Context) {
 
         val options = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(MODEL_PATH)
-            .setMaxTokens(50)
+            .setMaxTokens(maxTokens)
             .build()
 
         llmInference = LlmInference.createFromOptions(context, options)
@@ -31,11 +31,11 @@ class InferenceModel private constructor(context: Context) {
         private const val MODEL_PATH = "/data/local/tmp/llm/model.bin"
         private var instance: InferenceModel? = null
 
-        fun getInstance(context: Context): InferenceModel {
+        fun getInstance(context: Context, maxTokens: Int): InferenceModel {
             return if (instance != null) {
                 instance!!
             } else {
-                InferenceModel(context).also { instance = it }
+                InferenceModel(context, maxTokens).also { instance = it }
             }
         }
     }

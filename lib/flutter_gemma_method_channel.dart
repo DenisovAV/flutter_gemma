@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-import 'flutter_gemma_platform_interface.dart';
+import 'flutter_gemma.dart';
 
 /// An implementation of [Gemma] that uses method channels.
 class MethodChannelFlutterGemma extends Gemma {

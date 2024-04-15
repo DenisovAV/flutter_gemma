@@ -17,4 +17,12 @@ final class InferenceModel {
     func generateResponse(prompt: String) throws -> String {
         return try inference.generateResponse(inputText: prompt)
     }
+    
+    func generateResponseAsync(prompt: String, progress: @escaping (_ partialResponse: String?, _ error: Error?) -> Void, completion: @escaping (() -> Void)) throws {
+        do {
+            try inference.generateResponseAsync(inputText: prompt, progress: progress, completion: completion)
+        } catch {
+            throw error
+        }
+    }
 }

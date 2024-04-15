@@ -23,12 +23,12 @@ abstract class Gemma extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> init({int maxTokens = 1024}) async {
-    await MethodChannelFlutterGemma().init(maxTokens: maxTokens);
-  }
+  Future<void> init({int maxTokens = 1024}) =>
+      MethodChannelFlutterGemma().init(maxTokens: maxTokens);
 
-  Future<String?> getResponse({required String prompt}) async {
-    final version = await MethodChannelFlutterGemma().getResponse(prompt: prompt);
-    return version;
-  }
+  Future<String?> getResponse({required String prompt}) =>
+      MethodChannelFlutterGemma().getResponse(prompt: prompt);
+
+  Stream<String?> getResponseAsync({required String prompt}) =>
+      MethodChannelFlutterGemma().getResponseAsync(prompt: prompt);
 }

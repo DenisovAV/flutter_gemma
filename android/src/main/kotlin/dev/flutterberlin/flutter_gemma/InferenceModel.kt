@@ -3,9 +3,20 @@ package dev.flutterberlin.flutter_gemma
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import java.io.File
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 class InferenceModel private constructor(context: Context, maxTokens: Int) {
     private var llmInference: LlmInference
+
+    private val _partialResults = MutableSharedFlow<Pair<String, Boolean>>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    val partialResults: SharedFlow<Pair<String, Boolean>> = _partialResults.asSharedFlow()
 
     private val modelExists: Boolean
         get() = File(MODEL_PATH).exists()
@@ -18,6 +29,9 @@ class InferenceModel private constructor(context: Context, maxTokens: Int) {
         val options = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(MODEL_PATH)
             .setMaxTokens(maxTokens)
+            .setResultListener { partialResult, done ->
+                _partialResults.tryEmit(partialResult to done)
+            }
             .build()
 
         llmInference = LlmInference.createFromOptions(context, options)
@@ -25,6 +39,10 @@ class InferenceModel private constructor(context: Context, maxTokens: Int) {
 
     fun generateResponse(prompt: String): String? {
         return llmInference.generateResponse(prompt)
+    }
+
+    fun generateResponseAsync(prompt: String) {
+        llmInference.generateResponseAsync(prompt)
     }
 
     companion object {

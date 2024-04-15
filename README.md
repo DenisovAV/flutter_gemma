@@ -78,6 +78,13 @@ String response = await gemma.getResponse(prompt: 'Tell me something interesting
 print(response);
 ```
 
+2. **Generate response as a stream**
+
+```dart
+final gemma = Gemma.instance;
+String response = gemma.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
+```
+
 **Important Considerations**
 
 * Currently, models must be manually transferred to devices for testing. Network download functionality will be included in future versions.
@@ -85,6 +92,5 @@ print(response);
 
 **Coming Soon**
 
-* Streaming responses for faster user interactions.
 * Network-based model download for seamless updates.
 

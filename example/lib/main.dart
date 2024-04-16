@@ -23,7 +23,7 @@ class ChatApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.dark,
-      home: const ChatScreen(),
+      home: const SafeArea(child: ChatScreen()),
     );
   }
 }

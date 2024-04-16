@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 class ChatInputField extends StatefulWidget {
-
   final ValueChanged<String> handleSubmitted;
 
   const ChatInputField({super.key, required this.handleSubmitted});

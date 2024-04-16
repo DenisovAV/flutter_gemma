@@ -16,8 +16,9 @@ class MethodChannelFlutterGemma extends Gemma {
 
   @override
   Future<void> init({int maxTokens = 50}) async {
-    final result =
-        await methodChannel.invokeMethod<bool>('init', {'maxTokens': maxTokens}) ?? false;
+    final result = await methodChannel
+            .invokeMethod<bool>('init', {'maxTokens': maxTokens}) ??
+        false;
     if (result) {
       _initialized = true;
     }
@@ -26,7 +27,8 @@ class MethodChannelFlutterGemma extends Gemma {
   @override
   Future<String?> getResponse({required String prompt}) async {
     if (_initialized) {
-      return await methodChannel.invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
+      return await methodChannel
+          .invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
     } else {
       return 'Gemma is not initialized yet';
     }
@@ -36,7 +38,9 @@ class MethodChannelFlutterGemma extends Gemma {
   Stream<String?> getResponseAsync({required String prompt}) {
     if (_initialized) {
       methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt});
-      return eventChannel.receiveBroadcastStream().map<String?>((event) => event as String?);
+      return eventChannel
+          .receiveBroadcastStream()
+          .map<String?>((event) => event as String?);
     } else {
       throw Exception('Gemma is not initialized yet');
     }

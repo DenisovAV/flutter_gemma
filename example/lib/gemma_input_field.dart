@@ -31,7 +31,8 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   }
 
   void _processMessages() {
-    _subscription = _gemma.processMessageAsync(widget.messages).listen((String? token) {
+    _subscription =
+        _gemma.processMessageAsync(widget.messages).listen((String? token) {
       if (token == null) {
         widget.streamHandled(_message);
       } else {

@@ -11,7 +11,8 @@ class ChatMessageWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
-        mainAxisAlignment: message.isHuman ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            message.isHuman ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: <Widget>[
           message.isHuman ? const SizedBox() : _buildAvatar(),
           const SizedBox(
@@ -43,9 +44,11 @@ class ChatMessageWidget extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    return message.isHuman ? const Icon(Icons.person) : _circled('assets/gemma.png');
+    return message.isHuman
+        ? const Icon(Icons.person)
+        : _circled('assets/gemma.png');
   }
 
-  Widget _circled(String image) =>
-      CircleAvatar(backgroundColor: Colors.transparent, foregroundImage: AssetImage(image));
+  Widget _circled(String image) => CircleAvatar(
+      backgroundColor: Colors.transparent, foregroundImage: AssetImage(image));
 }

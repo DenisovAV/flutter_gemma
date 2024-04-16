@@ -3,4 +3,9 @@
 ## 0.0.2
 - Added description in Readme.md
 - Added opportunity to setup a model before initiation
+## 0.0.3
+- Added getResponseAsync method
+## 0.0.4
+- Updated example
+- Updated readme
 

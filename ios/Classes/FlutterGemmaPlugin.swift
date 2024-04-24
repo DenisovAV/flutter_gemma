@@ -20,16 +20,16 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "init":
-            if let prompt = call.arguments as? [String: Any], let maxTokens = prompt["maxTokens"] as? Int {
-                inferenceModel = InferenceModel(maxTokens: maxTokens)
+            if let arguments = call.arguments as? [String: Any], let maxTokens = arguments["maxTokens"] as? Int, let temperature = arguments["temperature"] as? Float, let randomSeed = arguments["randomSeed"] as? Int, let topK = arguments["topK"] as? Int {
+                inferenceModel = InferenceModel(maxTokens: maxTokens, temperature: temperature, randomSeed: randomSeed, topK: topK)
                 result(true)
             } else {
                 result(FlutterError(code: "ERROR", message: "Failed to initialize gemma", details: nil))
             }
         case "getGemmaResponse":
-            if let prompt = call.arguments as? [String: Any], let text = prompt["prompt"] as? String {
+            if let arguments = call.arguments as? [String: Any], let prompt = arguments["prompt"] as? String {
                 do {
-                    if let response = try inferenceModel?.generateResponse(prompt: text) {
+                    if let response = try inferenceModel?.generateResponse(prompt: prompt) {
                         result(response)
                     } else {
                         result(FlutterError(code: "UNAVAILABLE", message: "Inference model could not generate a response", details: nil))
@@ -41,9 +41,9 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
                 result(FlutterError(code: "BAD_ARGS", message: "Bad arguments for 'getGemmaResponse' method", details: nil))
             }
         case "getGemmaResponseAsync":
-            if let prompt = call.arguments as? [String: Any], let text = prompt["prompt"] as? String {
+            if let arguments = call.arguments as? [String: Any], let prompt = arguments["prompt"] as? String {
                 do {
-                    try inferenceModel?.generateResponseAsync(prompt: text, progress: { partialResponse, error in
+                    try inferenceModel?.generateResponseAsync(prompt: prompt, progress: { partialResponse, error in
                         DispatchQueue.main.async {
                             if let error = error {
                                 self.eventSink?(FlutterError(code: "ERROR", message: "Error during getting Gemma response", details: error.localizedDescription))

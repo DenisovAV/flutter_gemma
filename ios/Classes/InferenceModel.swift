@@ -4,13 +4,16 @@ import MediaPipeTasksGenAI
 final class InferenceModel {
     private var inference: LlmInference!
 
-    init(maxTokens: Int) {
+    init(maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int) {
         let fileManager = FileManager.default
         let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         let filePath = documentDirectory.appendingPathComponent("model.bin").path
 
         let llmOptions = LlmInference.Options(modelPath: filePath)
         llmOptions.maxTokens = maxTokens
+        llmOptions.temperature = temperature
+        llmOptions.randomSeed = randomSeed
+        llmOptions.topk = topK
         self.inference = LlmInference(options: llmOptions)
     }
 

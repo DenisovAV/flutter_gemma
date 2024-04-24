@@ -1,6 +1,6 @@
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'flutter_gemma_method_channel.dart';
+import 'flutter_gemma_mobile.dart' if (dart.library.html) 'flutter_gemma_web.dart';
 
 abstract class Gemma extends PlatformInterface {
   /// Constructs a FlutterGemmaPlatform.
@@ -8,11 +8,11 @@ abstract class Gemma extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static Gemma _instance = MethodChannelFlutterGemma();
+  static Gemma _instance = GemmaMobile();
 
   /// The default instance of [Gemma] to use.
   ///
-  /// Defaults to [MethodChannelFlutterGemma].
+  /// Defaults to [GemmaMobile].
   static Gemma get instance => _instance;
 
   /// Platform-specific implementations should set this with their own
@@ -23,12 +23,22 @@ abstract class Gemma extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> init({int maxTokens = 1024}) =>
-      MethodChannelFlutterGemma().init(maxTokens: maxTokens);
+  Future<void> init({
+    int maxTokens = 1024,
+    double temperature = 1.0,
+    int randomSeed = 1,
+    int topK = 1,
+  }) =>
+      GemmaMobile().init(
+        maxTokens: maxTokens,
+        temperature: temperature,
+        randomSeed: randomSeed,
+        topK: topK,
+      );
 
   Future<String?> getResponse({required String prompt}) =>
-      MethodChannelFlutterGemma().getResponse(prompt: prompt);
+      GemmaMobile().getResponse(prompt: prompt);
 
   Stream<String?> getResponseAsync({required String prompt}) =>
-      MethodChannelFlutterGemma().getResponseAsync(prompt: prompt);
+      GemmaMobile().getResponseAsync(prompt: prompt);
 }

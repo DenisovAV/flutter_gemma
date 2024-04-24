@@ -1,6 +1,7 @@
 package dev.flutterberlin.flutter_gemma
 
 import android.content.Context
+import android.health.connect.datatypes.units.Temperature
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import java.io.File
 import kotlinx.coroutines.channels.BufferOverflow
@@ -8,7 +9,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-class InferenceModel private constructor(context: Context, maxTokens: Int) {
+class InferenceModel private constructor(context: Context, maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int) {
     private var llmInference: LlmInference
 
     private val _partialResults = MutableSharedFlow<Pair<String, Boolean>>(
@@ -29,6 +30,9 @@ class InferenceModel private constructor(context: Context, maxTokens: Int) {
         val options = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(MODEL_PATH)
             .setMaxTokens(maxTokens)
+            .setTemperature(temperature)
+            .setRandomSeed(randomSeed)
+            .setTopK(topK)
             .setResultListener { partialResult, done ->
                 _partialResults.tryEmit(partialResult to done)
             }
@@ -49,11 +53,11 @@ class InferenceModel private constructor(context: Context, maxTokens: Int) {
         private const val MODEL_PATH = "/data/local/tmp/llm/model.bin"
         private var instance: InferenceModel? = null
 
-        fun getInstance(context: Context, maxTokens: Int): InferenceModel {
+        fun getInstance(context: Context, maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int): InferenceModel {
             return if (instance != null) {
                 instance!!
             } else {
-                InferenceModel(context, maxTokens).also { instance = it }
+                InferenceModel(context, maxTokens, temperature, randomSeed, topK).also { instance = it }
             }
         }
     }

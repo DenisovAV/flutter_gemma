@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/chat_input_field.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
@@ -41,30 +42,18 @@ class ChatScreenState extends State<ChatScreen> {
             future: FlutterGemmaPlugin.instance.isInitialized,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.waiting && snapshot.data == true) {
-                return Column(
-                  children: <Widget>[
-                    Flexible(
-                        child: ChatListWidget(
-                      messages: _messages,
-                    )),
-                    const Divider(height: 1.0),
-                    if (_messages.isEmpty || !_messages.last.isHuman)
-                      ChatInputField(
-                        handleSubmitted: (text) {
-                          setState(() {
-                            _messages.add(Message(text: text, isHuman: true));
-                          });
-                        },
-                      ),
-                    if (_messages.isNotEmpty && _messages.last.isHuman)
-                      GemmaInputField(
-                          messages: _messages,
-                          streamHandled: (message) {
-                            setState(() {
-                              _messages.add(message);
-                            });
-                          }),
-                  ],
+                return ChatListWidget(
+                  gemmaHandler: (message) {
+                    setState(() {
+                      _messages.add(message);
+                    });
+                  },
+                  humanHandler: (text) {
+                    setState(() {
+                      _messages.add(Message(text: text, isHuman: true));
+                    });
+                  },
+                  messages: _messages,
                 );
               } else {
                 return const Center(

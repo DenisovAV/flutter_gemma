@@ -12,4 +12,6 @@
 - Added web support
 - Added opportunity to set *randomSeed*, *topK* and temperature
 - Example updated
+## 0.1.1
+- Updated example
 

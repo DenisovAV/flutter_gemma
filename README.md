@@ -82,7 +82,12 @@ There is an example of using:
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Gemma.instance.init(maxTokens: 50);   /// maxTokens is optional, by default the value is 1024
+  await FlutterGemmaPlugin.instanceinit(
+    maxTokens: 512,  /// maxTokens is optional, by default the value is 1024
+    temperature: 1.0,   /// temperature is optional, by default the value is 1.0
+    topK: 1,   /// topK is optional, by default the value is 1
+    randomSeed: 1,   /// randomSeed is optional, by default the value is 1
+  );  
   
   runApp(const MyApp());
 }
@@ -91,16 +96,16 @@ void main() async {
 2. **Generate response**
 
 ```dart
-final gemma = Gemma.instance;
-String response = await gemma.getResponse(prompt: 'Tell me something interesting');
+final flutterGemma = FlutterGemmaPlugin.instance;
+String response = await flutterGemma.getResponse(prompt: 'Tell me something interesting');
 print(response);
 ```
 
 2. **Generate response as a stream**
 
 ```dart
-final gemma = Gemma.instance;
-String response = gemma.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
+final flutterGemma = FlutterGemmaPlugin.instance;
+flutterGemma.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
 ```
 
 **Important Considerations**

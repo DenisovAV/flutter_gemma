@@ -1,6 +1,6 @@
 name: flutter_gemma
 description: "The plugin allows running the Gemma AI model locally on a device from a Flutter application."
-version: 0.1.0
+version: 0.1.1
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
 
@@ -48,7 +48,7 @@ flutter:
       ios:
         pluginClass: FlutterGemmaPlugin
       web:
-        pluginClass: FlutterGemmaPlugin
+        pluginClass: FlutterGemma
         fileName: flutter_gemma_web.dart
 
   # To add assets to your plugin package, add an assets section, like this:

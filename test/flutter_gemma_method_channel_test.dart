@@ -5,7 +5,7 @@ import 'package:flutter_gemma/flutter_gemma_mobile.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  Gemma platform = Gemma();
+  FlutterGemma platform = FlutterGemma();
   const MethodChannel channel = MethodChannel('flutter_gemma');
 
   setUp(() {

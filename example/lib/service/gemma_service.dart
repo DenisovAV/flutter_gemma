@@ -5,11 +5,11 @@ import 'package:flutter_gemma_example/core/message_utils.dart';
 class GemmaLocalService {
   Future<String?> processMessage(List<Message> messages) {
     final prompt = messages.last.text.prepareQuestion();
-    return Gemma.instance.getResponse(prompt: prompt);
+    return GemmaPlugin.instance.getResponse(prompt: prompt);
   }
 
   Stream<String?> processMessageAsync(List<Message> messages) {
     final prompt = messages.last.text.prepareQuestion();
-    return Gemma.instance.getResponseAsync(prompt: prompt);
+    return GemmaPlugin.instance.getResponseAsync(prompt: prompt);
   }
 }

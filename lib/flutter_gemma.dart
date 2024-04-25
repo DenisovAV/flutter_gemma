@@ -1,24 +1,28 @@
+import 'dart:async';
+
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'flutter_gemma_mobile.dart' if (dart.library.html) 'flutter_gemma_web.dart';
 
-abstract class Gemma extends PlatformInterface {
+abstract class GemmaPlugin extends PlatformInterface {
   /// Constructs a FlutterGemmaPlatform.
-  Gemma() : super(token: _token);
+  GemmaPlugin() : super(token: _token);
 
   static final Object _token = Object();
 
-  static Gemma _instance = GemmaMobile();
+  static GemmaPlugin _instance = Gemma();
 
-  /// The default instance of [Gemma] to use.
+  Future<bool> get isInitialized;
+
+  /// The default instance of [GemmaPlugin] to use.
   ///
-  /// Defaults to [GemmaMobile].
-  static Gemma get instance => _instance;
+  /// Defaults to [Gemma].
+  static GemmaPlugin get instance => _instance;
 
   /// Platform-specific implementations should set this with their own
-  /// platform-specific class that extends [Gemma] when
+  /// platform-specific class that extends [GemmaPlugin] when
   /// they register themselves.
-  static set instance(Gemma instance) {
+  static set instance(GemmaPlugin instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }
@@ -28,17 +32,9 @@ abstract class Gemma extends PlatformInterface {
     double temperature = 1.0,
     int randomSeed = 1,
     int topK = 1,
-  }) =>
-      GemmaMobile().init(
-        maxTokens: maxTokens,
-        temperature: temperature,
-        randomSeed: randomSeed,
-        topK: topK,
-      );
+  });
 
-  Future<String?> getResponse({required String prompt}) =>
-      GemmaMobile().getResponse(prompt: prompt);
+  Future<String?> getResponse({required String prompt});
 
-  Stream<String?> getResponseAsync({required String prompt}) =>
-      GemmaMobile().getResponseAsync(prompt: prompt);
+  Stream<String?> getResponseAsync({required String prompt});
 }

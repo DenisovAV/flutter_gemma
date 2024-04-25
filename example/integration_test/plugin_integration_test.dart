@@ -14,7 +14,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('getPlatformVersion test', (WidgetTester tester) async {
-    final Gemma gemma = Gemma.instance;
+    final GemmaPlugin gemma = GemmaPlugin.instance;
     await gemma.init();
     final String? response = await gemma.getResponse(prompt: 'prompt');
     // The version string depends on the host platform running the test, so

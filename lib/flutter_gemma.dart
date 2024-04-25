@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'flutter_gemma_mobile.dart' if (dart.library.html) 'flutter_gemma_web.dart';
+import 'flutter_gemma_mobile.dart';
 
 abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Constructs a FlutterGemmaPlatform.

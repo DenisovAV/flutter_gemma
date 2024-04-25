@@ -64,6 +64,16 @@ There is an example of using:
  adb push output_path /data/local/tmp/llm/model.bin
  ```
 
+**Web**
+* Add dependencies to `index.html` file in web folder
+```html
+  <script type="module">
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai';
+  window.FilesetResolver = FilesetResolver;
+  window.LlmInference = LlmInference;
+  </script>
+```
+* Copy `model.bin` to your web folder
 
 ## Usage
 
@@ -100,6 +110,5 @@ String response = gemma.getAsyncResponse(prompt: 'Tell me something interesting'
 
 **Coming Soon**
 
-* Support of Flutter for Web
-* Network-based model download for seamless updates.
+* Network-based model using/downloading for seamless updates.
 

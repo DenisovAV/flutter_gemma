@@ -2,6 +2,7 @@
 // of your plugin as a separate package, instead of inlining it in the same
 // package as the core of your plugin.
 // ignore: avoid_web_libraries_in_flutter
+import 'dart:async';
 import 'dart:js_util';
 
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -9,14 +10,20 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'flutter_gemma.dart';
 import 'llm_inference_web.dart';
 
-class GemmaWeb extends Gemma {
-  GemmaWeb();
+class Gemma extends GemmaPlugin {
+  Gemma();
 
   static void registerWith(Registrar registrar) {
-    Gemma.instance = GemmaWeb();
+    GemmaPlugin.instance = Gemma();
   }
 
   LlmInference? llmInference;
+  StreamController<String?>? _controller;
+
+  final Completer<bool> _initCompleter = Completer<bool>();
+
+  @override
+  Future<bool> get isInitialized => _initCompleter.future;
 
   @override
   Future<void> init({
@@ -25,24 +32,65 @@ class GemmaWeb extends Gemma {
     randomSeed = 1,
     topK = 1,
   }) async {
-    final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm');
-    llmInference = await LlmInference.createFromOptions(
-        fileset,
-        jsify({
-          'baseOptions': {'modelAssetPath': 'https://firebasestorage.googleapis.com/v0/b/test-bf329.appspot.com/o/model.bin?alt=media&token=b2264a47-ab39-4282-8b3d-b26e46cec8c1'},
-          'maxTokens': maxTokens,
-          'randomSeed': randomSeed,
-          'topK': topK,
-          'temperature': temperature
-        }));
+    try {
+      final fileset = await promiseToFuture<FilesetResolver>(
+        FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
+      );
+      llmInference = await promiseToFuture<LlmInference>(
+        LlmInference.createFromOptions(
+          fileset,
+          jsify(
+            {
+              'baseOptions': {'modelAssetPath': 'model.bin'},
+              'maxTokens': maxTokens,
+              'randomSeed': randomSeed,
+              'topK': topK,
+              'temperature': temperature
+            },
+          ),
+        ),
+      );
+      if (!_initCompleter.isCompleted) {
+        _initCompleter.complete(true);
+      }
+    } catch (e) {
+      throw Exception("Failed to initialize inference: $e");
+    }
+  }
+
+  void streamPartialResults(dynamic partialResults, bool complete) {
+    if (_controller != null) {
+      if (complete) {
+        _controller!
+          ..add(null)
+          ..close();
+        _controller = null;
+      } else {
+        _controller!.add(partialResults);
+      }
+    }
   }
 
   @override
   Future<String?> getResponse({required String prompt}) async {
     if (llmInference != null) {
-      return await llmInference!.generateResponse(prompt);
+      return await promiseToFuture<String>(llmInference!.generateResponse(prompt, null));
     } else {
-      return 'Gemma is not initialized yet';
+      throw Exception("Gemma is not initialized yet");
+    }
+  }
+
+  @override
+  Stream<String?> getResponseAsync({required String prompt}) {
+    if (llmInference != null) {
+      _controller = StreamController<String?>();
+      llmInference!.generateResponse(
+        prompt,
+        allowInterop(streamPartialResults),
+      );
+      return _controller!.stream;
+    } else {
+      throw Exception("Gemma is not initialized yet");
     }
   }
 }

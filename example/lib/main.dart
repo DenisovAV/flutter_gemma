@@ -4,7 +4,12 @@ import 'package:flutter_gemma_example/chat_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Gemma.instance.init(maxTokens: 200);
+  GemmaPlugin.instance.init(
+    maxTokens: 512,
+    temperature: 1.0,
+    topK: 1,
+    randomSeed: 1,
+  );
   runApp(const ChatApp());
 }
 

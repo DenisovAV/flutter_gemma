@@ -11,6 +11,5 @@ class FilesetResolver {
 @JS()
 class LlmInference {
   external static Future<LlmInference> createFromOptions(FilesetResolver fileset, dynamic options);
-//  external void generateResponse(String text, Function(String, bool) callback);
-  external Future<String> generateResponse(String text);
+  external Future<String> generateResponse(String text, Function(String, bool)? callback);
 }

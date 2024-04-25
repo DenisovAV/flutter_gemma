@@ -8,4 +8,8 @@
 ## 0.0.4
 - Updated example
 - Updated readme
+## 0.1.0
+- Added web support
+- Added opportunity to set *randomSeed*, *topK* and temperature
+- Example updated
 

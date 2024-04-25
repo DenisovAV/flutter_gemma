@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'flutter_gemma.dart';
 
-/// An implementation of [Gemma] that uses method channels.
-class GemmaMobile extends Gemma {
+/// An implementation of [GemmaPlugin] that uses method channels.
+class Gemma extends GemmaPlugin {
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_gemma');
@@ -12,7 +14,10 @@ class GemmaMobile extends Gemma {
   @visibleForTesting
   final eventChannel = const EventChannel('flutter_gemma_stream');
 
-  bool _initialized = false;
+  final Completer<bool> _initCompleter = Completer<bool>();
+
+  @override
+  Future<bool> get isInitialized => _initCompleter.future;
 
   @override
   Future<void> init({
@@ -31,14 +36,14 @@ class GemmaMobile extends Gemma {
           },
         ) ??
         false;
-    if (result) {
-      _initialized = true;
+    if (result && !_initCompleter.isCompleted) {
+        _initCompleter.complete(true);
     }
   }
 
   @override
   Future<String?> getResponse({required String prompt}) async {
-    if (_initialized) {
+    if (_initCompleter.isCompleted) {
       return await methodChannel.invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
     } else {
       return 'Gemma is not initialized yet';
@@ -47,7 +52,7 @@ class GemmaMobile extends Gemma {
 
   @override
   Stream<String?> getResponseAsync({required String prompt}) {
-    if (_initialized) {
+    if (_initCompleter.isCompleted) {
       methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt});
       return eventChannel.receiveBroadcastStream().map<String?>((event) => event as String?);
     } else {

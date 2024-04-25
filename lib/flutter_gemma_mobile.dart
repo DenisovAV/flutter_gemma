@@ -5,8 +5,8 @@ import 'package:flutter/services.dart';
 
 import 'flutter_gemma.dart';
 
-/// An implementation of [GemmaPlugin] that uses method channels.
-class Gemma extends GemmaPlugin {
+/// An implementation of [FlutterGemmaPlugin] that uses method channels.
+class FlutterGemma extends FlutterGemmaPlugin {
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_gemma');

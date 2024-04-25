@@ -38,7 +38,7 @@ class ChatScreenState extends State<ChatScreen> {
             ),
           ),
           FutureBuilder(
-            future: GemmaPlugin.instance.isInitialized,
+            future: FlutterGemmaPlugin.instance.isInitialized,
             builder: (context, snapshot) {
               if (snapshot.connectionState != ConnectionState.waiting && snapshot.data == true) {
                 return Column(

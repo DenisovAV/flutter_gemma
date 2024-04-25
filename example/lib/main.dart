@@ -4,7 +4,7 @@ import 'package:flutter_gemma_example/chat_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  GemmaPlugin.instance.init(
+  FlutterGemmaPlugin.instance.init(
     maxTokens: 512,
     temperature: 1.0,
     topK: 1,

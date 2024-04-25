@@ -4,25 +4,25 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'flutter_gemma_mobile.dart' if (dart.library.html) 'flutter_gemma_web.dart';
 
-abstract class GemmaPlugin extends PlatformInterface {
+abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Constructs a FlutterGemmaPlatform.
-  GemmaPlugin() : super(token: _token);
+  FlutterGemmaPlugin() : super(token: _token);
 
   static final Object _token = Object();
 
-  static GemmaPlugin _instance = Gemma();
+  static FlutterGemmaPlugin _instance = FlutterGemma();
 
   Future<bool> get isInitialized;
 
-  /// The default instance of [GemmaPlugin] to use.
+  /// The default instance of [FlutterGemmaPlugin] to use.
   ///
-  /// Defaults to [Gemma].
-  static GemmaPlugin get instance => _instance;
+  /// Defaults to [FlutterGemma].
+  static FlutterGemmaPlugin get instance => _instance;
 
   /// Platform-specific implementations should set this with their own
-  /// platform-specific class that extends [GemmaPlugin] when
+  /// platform-specific class that extends [FlutterGemmaPlugin] when
   /// they register themselves.
-  static set instance(GemmaPlugin instance) {
+  static set instance(FlutterGemmaPlugin instance) {
     PlatformInterface.verifyToken(instance, _token);
     _instance = instance;
   }

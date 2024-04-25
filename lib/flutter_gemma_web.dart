@@ -10,11 +10,11 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'flutter_gemma.dart';
 import 'llm_inference_web.dart';
 
-class Gemma extends GemmaPlugin {
-  Gemma();
+class FlutterGemma extends FlutterGemmaPlugin {
+  FlutterGemma();
 
   static void registerWith(Registrar registrar) {
-    GemmaPlugin.instance = Gemma();
+    FlutterGemmaPlugin.instance = FlutterGemma();
   }
 
   LlmInference? llmInference;

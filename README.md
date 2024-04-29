@@ -44,6 +44,7 @@ There is an example of using:
 <key>UIFileSharingEnabled</key>
 <true/>
 ```
+* Change the linking type of pods to static, replace `use_frameworks!` in Podfile with `use_frameworks! :linkage => :static`
 * Transfer `model.bin` to your device
   1. Connect your iPhone
   2. Open Finder, your iPhone should appear in the Finder's sidebar under "Locations." Click on it.
@@ -82,7 +83,7 @@ There is an example of using:
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FlutterGemmaPlugin.instanceinit(
+  await FlutterGemmaPlugin.instance.init(
     maxTokens: 512,  /// maxTokens is optional, by default the value is 1024
     temperature: 1.0,   /// temperature is optional, by default the value is 1.0
     topK: 1,   /// topK is optional, by default the value is 1

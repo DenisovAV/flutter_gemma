@@ -15,4 +15,5 @@
 - Updated example
 ## 0.1.2
 - Updated example
-
+## 0.1.3
+- Updated readme

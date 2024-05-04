@@ -17,3 +17,6 @@
 - Updated example
 ## 0.1.3
 - Updated readme
+## 0.1.4
+- Updated readme for GPU models on Android devices
+- Updated example

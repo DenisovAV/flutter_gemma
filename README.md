@@ -64,6 +64,16 @@ There is an example of using:
  adb shell mkdir -p /data/local/tmp/llm/
  adb push output_path /data/local/tmp/llm/model.bin
  ```
+* If you want to use a GPU to work with the model, you need to add OpenCL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
+  1. Add to 'AndroidManifest.xml' above tag `</application>`
+
+```AndroidManifest.xml
+ <uses-native-library
+     android:name="libOpenCL.so"
+     android:required="false"/>
+ <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+ <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+```
 
 **Web**
 * Add dependencies to `index.html` file in web folder

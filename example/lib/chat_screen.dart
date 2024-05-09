@@ -1,9 +1,5 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma_example/chat_input_field.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
-import 'package:flutter_gemma_example/core/message.dart';
-import 'package:flutter_gemma_example/gemma_input_field.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -50,7 +46,7 @@ class ChatScreenState extends State<ChatScreen> {
                   },
                   humanHandler: (text) {
                     setState(() {
-                      _messages.add(Message(text: text, isHuman: true));
+                      _messages.add(Message(text: text, isUser: true));
                     });
                   },
                   messages: _messages,

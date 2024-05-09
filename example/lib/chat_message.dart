@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma_example/core/message.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class ChatMessageWidget extends StatelessWidget {
   const ChatMessageWidget({super.key, required this.message});
@@ -11,9 +12,9 @@ class ChatMessageWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
-        mainAxisAlignment: message.isHuman ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: <Widget>[
-          message.isHuman ? const SizedBox() : _buildAvatar(),
+          message.isUser ? const SizedBox() : _buildAvatar(),
           const SizedBox(
             width: 10,
           ),
@@ -27,23 +28,22 @@ class ChatMessageWidget extends StatelessWidget {
               borderRadius: BorderRadius.circular(8.0),
             ),
             child: message.text.isNotEmpty
-                ? Text(
-                    message.text,
-                    style: const TextStyle(fontSize: 16.0),
+                ? MarkdownBody(
+                    data: message.text,
                   )
                 : const Center(child: CircularProgressIndicator()),
           ),
           const SizedBox(
             width: 10,
           ),
-          message.isHuman ? _buildAvatar() : const SizedBox(),
+          message.isUser ? _buildAvatar() : const SizedBox(),
         ],
       ),
     );
   }
 
   Widget _buildAvatar() {
-    return message.isHuman ? const Icon(Icons.person) : _circled('assets/gemma.png');
+    return message.isUser ? const Icon(Icons.person) : _circled('assets/gemma.png');
   }
 
   Widget _circled(String image) =>

@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
-import 'package:flutter_gemma_example/core/message.dart';
 import 'package:flutter_gemma_example/service/gemma_service.dart';
 
 class GemmaInputField extends StatefulWidget {

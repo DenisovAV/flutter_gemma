@@ -112,12 +112,37 @@ String response = await flutterGemma.getResponse(prompt: 'Tell me something inte
 print(response);
 ```
 
-2. **Generate response as a stream**
+3. **Generate response as a stream**
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
 flutterGemma.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
 ```
+
+2. **Generate chat response** This method works properly only for instruction tuned models
+
+```dart
+final flutterGemma = FlutterGemmaPlugin.instance;
+final messages = <Message>[];
+messages.add(Message(text: 'Who are you?', isUser: true);
+String response = await flutterGemma.getChatResponse(messages: messages);
+print(response);
+messages.add(Message(text: response));
+messages.add(Message(text: 'Really?', isUser: true));
+String response = await flutterGemma.getChatResponse(messages: messages);
+print(response);
+```
+
+3. **Generate chat response as a stream** This method works properly only for instruction tuned models
+
+```dart
+final flutterGemma = FlutterGemmaPlugin.instance;
+final messages = <Message>[];
+messages.add(Message(text: 'Who are you?', isUser: true);
+flutterGemma.getAsyncChatResponse(messages: messages).listen((String? token) => print(token));
+```
+
+The full and complete example you can find in `example` folder
 
 **Important Considerations**
 

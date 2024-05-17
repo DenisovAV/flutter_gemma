@@ -23,3 +23,6 @@
 ## 0.2.0
 - Added chat functionality for instruction tuned model
 - Updated example
+## 0.2.1
+- Updated chat functionality for instruction tuned model
+- Updated readme

@@ -76,6 +76,9 @@ There is an example of using:
 ```
 
 **Web**
+
+* Web currently works only GPU backend models, CPU backend models are not suported by Mediapipe yet
+
 * Add dependencies to `index.html` file in web folder
 ```html
   <script type="module">

@@ -5,7 +5,7 @@ const modelPrefix = "model";
 const startTurn = "<start_of_turn>";
 const endTurn = "<end_of_turn>";
 
-extension MessageExtension on List<Message> {
+extension MessageExtension on Iterable<Message> {
   String transformToChatPrompt({
     int contextLength = 4,
   }) =>

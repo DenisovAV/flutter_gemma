@@ -30,6 +30,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   }
 
   Future<void> init({
+    String modelPath = "/data/local/tmp/llm/model.bin",
     int maxTokens = 1024,
     double temperature = 1.0,
     int randomSeed = 1,
@@ -41,12 +42,17 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Stream<String?> getResponseAsync({required String prompt});
 
   //These methods works fine with instruction tuned models only
-  Future<String?> getChatResponse({required Iterable<Message> messages, int chatContextLength = 4}) =>
-      getResponse(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
+  Future<String?> getChatResponse(
+          {required Iterable<Message> messages, int chatContextLength = 4}) =>
+      getResponse(
+          prompt:
+              messages.transformToChatPrompt(contextLength: chatContextLength));
 
   Stream<String?> getChatResponseAsync(
-          {required Iterable<Message> messages, int chatContextLength = 4}) {
+      {required Iterable<Message> messages, int chatContextLength = 4}) {
     print(messages.transformToChatPrompt(contextLength: chatContextLength));
-    return getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
+    return getResponseAsync(
+        prompt:
+            messages.transformToChatPrompt(contextLength: chatContextLength));
   }
 }

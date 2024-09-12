@@ -50,10 +50,12 @@ class InferenceModel private constructor(context: Context, maxTokens: Int, tempe
     }
 
     companion object {
-        private const val MODEL_PATH = "/data/local/tmp/llm/model.bin"
+//        private const val MODEL_PATH = "/data/local/tmp/llm/model.bin"
+        private lateinit var MODEL_PATH : String
         private var instance: InferenceModel? = null
 
-        fun getInstance(context: Context, maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int): InferenceModel {
+        fun getInstance(context: Context, modelPath: String, maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int): InferenceModel {
+            MODEL_PATH = modelPath
             return if (instance != null) {
                 instance!!
             } else {

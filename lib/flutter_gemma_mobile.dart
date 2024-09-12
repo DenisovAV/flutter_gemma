@@ -21,6 +21,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   @override
   Future<void> init({
+    String modelPath = "/data/local/tmp/llm/model.bin",
     int maxTokens = 1024,
     temperature = 1.0,
     randomSeed = 1,
@@ -29,6 +30,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
     final result = await methodChannel.invokeMethod<bool>(
           'init',
           {
+            'modelPath': modelPath,
             'maxTokens': maxTokens,
             'temperature': temperature,
             'randomSeed': randomSeed,

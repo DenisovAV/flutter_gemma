@@ -35,11 +35,12 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
   override fun onMethodCall(call: MethodCall, result: Result) {
     if (call.method == "init") {
       try {
+        val modelPath = call.argument<String>("modelPath")!!
         val maxTokens = call.argument<Int>("maxTokens")!!
         val temperature = call.argument<Float>("temperature")!!
         val randomSeed = call.argument<Int>("maxTokens")!!
         val topK = call.argument<Int>("topK")!!
-        inferenceModel = InferenceModel.getInstance(context, maxTokens, temperature, randomSeed, topK)
+        inferenceModel = InferenceModel.getInstance(context, modelPath, maxTokens, temperature, randomSeed, topK)
         result.success(true)
       } catch (e: Exception) {
         result.error("ERROR", "Failed to initialize gemma", e.localizedMessage)

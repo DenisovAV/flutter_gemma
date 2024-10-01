@@ -28,6 +28,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<void> init({
+    String modelPath = "/data/local/tmp/llm/model.bin",
     int maxTokens = 1024,
     temperature = 1.0,
     randomSeed = 1,

@@ -14,7 +14,7 @@ final class InferenceModel {
         llmOptions.temperature = temperature
         llmOptions.randomSeed = randomSeed
         llmOptions.topk = topK
-        self.inference = LlmInference(options: llmOptions)
+        self.inference = try! LlmInference(options: llmOptions)
     }
 
     func generateResponse(prompt: String) throws -> String {

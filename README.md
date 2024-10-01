@@ -33,8 +33,8 @@ There is an example of using:
 
 ## Setup
 
-1. **Download Model:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/) 
-    * Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
+1. **Download Model:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
+  * Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
 2. **Rename Model:** Rename the downloaded file to `model.bin`.
 3. **Integrate Model into Your App:**
 
@@ -56,13 +56,13 @@ There is an example of using:
 * Transfer `model.bin` to your device (for testing purposes only, uploading by network will be implemented in next versions)
   1. Install adb tool, if you didn't install it before
   2. Connect your Android device
-  3. Copy `model.bin` to the output_path folder
-  4. Push the content of the output_path folder to the Android device
+  3. Copy `model.bin` to the 'android' folder (you can use any other folder instead of android)
+  4. Push the model to the Android device
 
 ```shell
  adb shell rm -r /data/local/tmp/llm/ # Remove any previously loaded models
  adb shell mkdir -p /data/local/tmp/llm/
- adb push output_path /data/local/tmp/llm/model.bin
+ adb push android/model.bin /data/local/tmp/llm/model.bin
  ```
 * If you want to use a GPU to work with the model, you need to add OpenCL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
   1. Add to 'AndroidManifest.xml' above tag `</application>`
@@ -101,8 +101,8 @@ void main() async {
     temperature: 1.0,   /// temperature is optional, by default the value is 1.0
     topK: 1,   /// topK is optional, by default the value is 1
     randomSeed: 1,   /// randomSeed is optional, by default the value is 1
-  );  
-  
+  );
+
   runApp(const MyApp());
 }
 ```

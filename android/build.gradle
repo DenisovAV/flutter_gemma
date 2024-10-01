@@ -47,10 +47,11 @@ android {
 
     defaultConfig {
         minSdkVersion 19
+        consumerProguardFiles 'consumer-proguard-rules.pro'
     }
 
     dependencies {
-        implementation ("com.google.mediapipe:tasks-genai:0.10.11")
+        implementation ("com.google.mediapipe:tasks-genai:0.10.16")
         implementation("androidx.core:core-ktx:1.12.0")
         implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
         testImplementation 'org.jetbrains.kotlin:kotlin-test'
@@ -62,9 +63,9 @@ android {
             useJUnitPlatform()
 
             testLogging {
-               events "passed", "skipped", "failed", "standardOut", "standardError"
-               outputs.upToDateWhen {false}
-               showStandardStreams = true
+                events "passed", "skipped", "failed", "standardOut", "standardError"
+                outputs.upToDateWhen {false}
+                showStandardStreams = true
             }
         }
     }

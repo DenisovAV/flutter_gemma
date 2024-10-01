@@ -26,3 +26,8 @@
 ## 0.2.1
 - Updated chat functionality for instruction tuned model
 - Updated readme
+## 0.2.2
+- Added opportunity to configure folder (Android only)
+- Fixed android release issue
+- Updated Mediapipe for Android
+- Updated readme

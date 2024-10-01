@@ -45,7 +45,7 @@ There is an example of using:
 <true/>
 ```
 * Change the linking type of pods to static, replace `use_frameworks!` in Podfile with `use_frameworks! :linkage => :static`
-* Transfer `model.bin` to your device
+* Transfer `model.bin` to your device's document directory
   1. Connect your iPhone
   2. Open Finder, your iPhone should appear in the Finder's sidebar under "Locations." Click on it.
   3. Access Files. In the button bar, click on "Files" to see apps that can transfer files between your iPhone and Mac.
@@ -56,13 +56,13 @@ There is an example of using:
 * Transfer `model.bin` to your device (for testing purposes only, uploading by network will be implemented in next versions)
   1. Install adb tool, if you didn't install it before
   2. Connect your Android device
-  3. Copy `model.bin` to the 'android' folder (you can use any other folder instead of android)
+  3. Copy `model.bin` to the 'assets' folder (you can use any other folder instead of assets)
   4. Push the model to the Android device
 
 ```shell
  adb shell rm -r /data/local/tmp/llm/ # Remove any previously loaded models
  adb shell mkdir -p /data/local/tmp/llm/
- adb push android/model.bin /data/local/tmp/llm/model.bin
+ adb push assets/model.bin /data/local/tmp/llm/model.bin
  ```
 * If you want to use a GPU to work with the model, you need to add OpenCL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
   1. Add to 'AndroidManifest.xml' above tag `</application>`
@@ -97,6 +97,7 @@ There is an example of using:
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FlutterGemmaPlugin.instance.init(
+    modelPath: '/data/local/tmp/llm/model.bin', //modelPath is optional, and works with Android devices only, by default this value is '/data/local/tmp/llm/model.bin'
     maxTokens: 512,  /// maxTokens is optional, by default the value is 1024
     temperature: 1.0,   /// temperature is optional, by default the value is 1.0
     topK: 1,   /// topK is optional, by default the value is 1

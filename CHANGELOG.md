@@ -31,3 +31,5 @@
 - Fixed android release issue
 - Updated Mediapipe for Android
 - Updated readme
+## 0.2.3
+- Fixed Mediapipe ios version

@@ -1,17 +1,13 @@
-// In order to *not* need this ignore, consider extracting the "web" version
-// of your plugin as a separate package, instead of inlining it in the same
-// package as the core of your plugin.
-// ignore: avoid_web_libraries_in_flutter
 import 'dart:async';
 import 'dart:js_util';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'flutter_gemma.dart';
 import 'llm_inference_web.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
-
   FlutterGemmaWeb();
 
   static void registerWith(Registrar registrar) {
@@ -20,15 +16,72 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   LlmInference? llmInference;
   StreamController<String?>? _controller;
+  String? _path;
 
   final Completer<bool> _initCompleter = Completer<bool>();
+  Completer<bool>? _loadCompleter;
 
   @override
   Future<bool> get isInitialized => _initCompleter.future;
 
   @override
+  Future<bool> get isLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
+
+  Future<void> _loadModel(String path) async {
+    if (_loadCompleter == null || _loadCompleter!.isCompleted) {
+      _path = path;
+      _loadCompleter = Completer<bool>();
+      _loadCompleter!.complete(true);
+    } else {
+      throw Exception('Gemma is already loading');
+    }
+  }
+
+  Stream<int> _loadModelWithProgress(String path) {
+    if (_loadCompleter == null || _loadCompleter!.isCompleted) {
+      _path = path;
+      return Stream<int>.periodic(
+        const Duration(milliseconds: 10),
+            (count) => count + 1,
+      ).take(100).map((progress) {
+        if (progress == 100 && !_loadCompleter!.isCompleted) {
+          _loadCompleter!.complete(true);
+        }
+        return progress;
+      }).asBroadcastStream();
+    } else {
+      throw Exception('Gemma is already loading');
+    }
+  }
+
+  @override
+  Future<void> loadAssetModel({required String fullPath}) async {
+    if (kReleaseMode) {
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+    }
+    await _loadModel('assets/$fullPath');
+  }
+
+  @override
+  Future<void> loadNetworkModel({required String url}) async {
+    await _loadModel(url);
+  }
+
+  @override
+  Stream<int> loadNetworkModelWithProgress({required String url}) {
+    return _loadModelWithProgress(url);
+  }
+
+  @override
+  Stream<int> loadAssetModelWithProgress({required String fullPath}) {
+    if (kReleaseMode) {
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+    }
+    return _loadModelWithProgress('assets/$fullPath');
+  }
+
+  @override
   Future<void> init({
-    String modelPath = "/data/local/tmp/llm/model.bin",
     int maxTokens = 1024,
     temperature = 1.0,
     randomSeed = 1,
@@ -43,7 +96,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
           fileset,
           jsify(
             {
-              'baseOptions': {'modelAssetPath': 'model.bin'},
+              'baseOptions': {'modelAssetPath': _path},
               'maxTokens': maxTokens,
               'randomSeed': randomSeed,
               'topK': topK,

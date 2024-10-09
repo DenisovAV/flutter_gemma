@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_example/loading_widge.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -11,6 +12,22 @@ class ChatScreen extends StatefulWidget {
 
 class ChatScreenState extends State<ChatScreen> {
   final _messages = <Message>[];
+  late Stream<int> loadingProgress;
+
+  @override
+  void initState() {
+    super.initState();
+    loadingProgress = FlutterGemmaPlugin.instance.loadAssetModelWithProgress(fullPath: 'model.bin')
+      ..listen(
+        (_) => {},
+        onDone: () => FlutterGemmaPlugin.instance.init(
+          maxTokens: 512,
+          temperature: 1.0,
+          topK: 1,
+          randomSeed: 1,
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,26 +51,37 @@ class ChatScreenState extends State<ChatScreen> {
               height: 200,
             ),
           ),
-          FutureBuilder(
-            future: FlutterGemmaPlugin.instance.isInitialized,
+          StreamBuilder<int>(
+            stream: loadingProgress,
             builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.waiting && snapshot.data == true) {
-                return ChatListWidget(
-                  gemmaHandler: (message) {
-                    setState(() {
-                      _messages.add(message);
-                    });
+              if (snapshot.connectionState == ConnectionState.done) {
+                return FutureBuilder(
+                  future: FlutterGemmaPlugin.instance.isInitialized,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.waiting &&
+                        snapshot.data == true) {
+                      return ChatListWidget(
+                        gemmaHandler: (message) {
+                          setState(() {
+                            _messages.add(message);
+                          });
+                        },
+                        humanHandler: (text) {
+                          setState(() {
+                            _messages.add(Message(text: text, isUser: true));
+                          });
+                        },
+                        messages: _messages,
+                      );
+                    } else {
+                      return const LoadingWidget(message: 'Model is initializing');
+                    }
                   },
-                  humanHandler: (text) {
-                    setState(() {
-                      _messages.add(Message(text: text, isUser: true));
-                    });
-                  },
-                  messages: _messages,
                 );
               } else {
-                return const Center(
-                  child: CircularProgressIndicator(),
+                return LoadingWidget(
+                  message: 'Model is loading',
+                  progress: snapshot.data ?? 0,
                 );
               }
             },

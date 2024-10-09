@@ -35,8 +35,7 @@ There is an example of using:
 
 1. **Download Model:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
   * Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
-2. **Rename Model:** Rename the downloaded file to `model.bin`.
-3. **Integrate Model into Your App:**
+2. **Platfrom specific setup:**
 
 **iOS**
 * Enable file sharing in `info.plist`:
@@ -45,27 +44,12 @@ There is an example of using:
 <true/>
 ```
 * Change the linking type of pods to static, replace `use_frameworks!` in Podfile with `use_frameworks! :linkage => :static`
-* Transfer `model.bin` to your device's document directory
-  1. Connect your iPhone
-  2. Open Finder, your iPhone should appear in the Finder's sidebar under "Locations." Click on it.
-  3. Access Files. In the button bar, click on "Files" to see apps that can transfer files between your iPhone and Mac.
-  4. Drag and Drop or Add Files. You can drag `model.bin` directly to an app under the "Files" section to transfer them. Alternatively, click the "Add" button to browse and select `model.bin` to upload.
 
 **Android**
 
-* Transfer `model.bin` to your device (for testing purposes only, uploading by network will be implemented in next versions)
-  1. Install adb tool, if you didn't install it before
-  2. Connect your Android device
-  3. Copy `model.bin` to the 'assets' folder (you can use any other folder instead of assets)
-  4. Push the model to the Android device
+* If you want to use a GPU to work with the model, you need to add OpenGL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
 
-```shell
- adb shell rm -r /data/local/tmp/llm/ # Remove any previously loaded models
- adb shell mkdir -p /data/local/tmp/llm/
- adb push assets/model.bin /data/local/tmp/llm/model.bin
- ```
-* If you want to use a GPU to work with the model, you need to add OpenCL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
-  1. Add to 'AndroidManifest.xml' above tag `</application>`
+Add to 'AndroidManifest.xml' above tag `</application>`
 
 ```AndroidManifest.xml
  <uses-native-library
@@ -87,17 +71,66 @@ There is an example of using:
   window.LlmInference = LlmInference;
   </script>
 ```
-* Copy `model.bin` to your web folder
+
+3. **Prepare Model:**
+
+Place the model in the assets or upload it to a network drive, such as Firebase
 
 ## Usage
+1.**Loading Models from assets (available only in debug mode):**
 
-1. **Initialize:**
+Dont forget to add your model to pubspec.yaml
+
+  1) Loading from assets 
+```dart
+    await FlutterGemmaPlugin.instance.loadAssetModel(fullPath: 'model.bin');
+```
+
+  2) Loading froms assets with Progress Status 
+```dart
+    FlutterGemmaPlugin.instance.loadAssetModelWithProgress(fullPath: 'model.bin').listen(
+    (progress) {
+      print('Loading progress: $progress%');
+    },
+    onDone: () {
+      print('Model loading complete.');
+    },
+    onError: (error) {
+      print('Error loading model: $error');
+    },
+  );
+```
+
+1.**Loading Models from network:**
+
+* For web usage, you will also need to enable CORS (Cross-Origin Resource Sharing) for your network resource. To enable CORS in Firebase, you can follow the guide in the Firebase documentation: [Setting up CORS](https://firebase.google.com/docs/storage/web/download-files#cors_configuration)
+
+  1) Loading from the network.
+```dart
+   await FlutterGemmaPlugin.instance.loadNetworkModel(url: 'https://example.com/model.bin');
+```
+
+  2) Loading froms the network with Progress Status
+```dart
+    FlutterGemmaPlugin.instance.loadNetworkModelWithProgress(url: 'https://example.com/model.bin').listen(
+    (progress) {
+      print('Loading progress: $progress%');
+    },
+    onDone: () {
+      print('Model loading complete.');
+    },
+    onError: (error) {
+      print('Error loading model: $error');
+    },
+);
+```
+
+3.**Initialize:**
 
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FlutterGemmaPlugin.instance.init(
-    modelPath: '/data/local/tmp/llm/model.bin', //modelPath is optional, and works with Android devices only, by default this value is '/data/local/tmp/llm/model.bin'
     maxTokens: 512,  /// maxTokens is optional, by default the value is 1024
     temperature: 1.0,   /// temperature is optional, by default the value is 1.0
     topK: 1,   /// topK is optional, by default the value is 1
@@ -108,7 +141,7 @@ void main() async {
 }
 ```
 
-2. **Generate response**
+4.**Generate response**
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
@@ -116,14 +149,14 @@ String response = await flutterGemma.getResponse(prompt: 'Tell me something inte
 print(response);
 ```
 
-3. **Generate response as a stream**
+5.**Generate response as a stream**
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
 flutterGemma.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
 ```
 
-2. **Generate chat response** This method works properly only for instruction tuned models
+6.**Generate chat response** This method works properly only for instruction tuned models
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
@@ -137,7 +170,7 @@ String response = await flutterGemma.getChatResponse(messages: messages);
 print(response);
 ```
 
-3. **Generate chat response as a stream** This method works properly only for instruction tuned models
+7.**Generate chat response as a stream** This method works properly only for instruction tuned models
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
@@ -150,10 +183,9 @@ The full and complete example you can find in `example` folder
 
 **Important Considerations**
 
-* Currently, models must be manually transferred to devices for testing. Network download functionality will be included in future versions.
 * Larger models (like 7b and 7b-it) may be too resource-intensive for on-device use.
 
 **Coming Soon**
 
-* Network-based model using/downloading for seamless updates.
+* LoRA (Low Rank Adaptation) support
 

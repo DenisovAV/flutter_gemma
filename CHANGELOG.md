@@ -33,3 +33,6 @@
 - Updated readme
 ## 0.2.3
 - Fixed Mediapipe ios version
+## 0.3.0
+- Added support for loading models from assets and network.
+- Added progress updates for model loading.

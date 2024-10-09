@@ -40,6 +40,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
         val temperature = call.argument<Float>("temperature")!!
         val randomSeed = call.argument<Int>("maxTokens")!!
         val topK = call.argument<Int>("topK")!!
+
         inferenceModel = InferenceModel.getInstance(context, modelPath, maxTokens, temperature, randomSeed, topK)
         result.success(true)
       } catch (e: Exception) {

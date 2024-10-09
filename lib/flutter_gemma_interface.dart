@@ -16,6 +16,8 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   Future<bool> get isInitialized;
 
+  Future<bool> get isLoaded;
+
   /// The default instance of [FlutterGemmaPlugin] to use.
   ///
   /// Defaults to [FlutterGemma].
@@ -29,8 +31,15 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     _instance = instance;
   }
 
+  Future<void> loadAssetModel({required String fullPath});
+
+  Future<void> loadNetworkModel({required String url});
+
+  Stream<int> loadAssetModelWithProgress({required String fullPath});
+
+  Stream<int> loadNetworkModelWithProgress({required String url});
+
   Future<void> init({
-    String modelPath = "/data/local/tmp/llm/model.bin",
     int maxTokens = 1024,
     double temperature = 1.0,
     int randomSeed = 1,
@@ -50,7 +59,6 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   Stream<String?> getChatResponseAsync(
       {required Iterable<Message> messages, int chatContextLength = 4}) {
-    print(messages.transformToChatPrompt(contextLength: chatContextLength));
     return getResponseAsync(
         prompt:
             messages.transformToChatPrompt(contextLength: chatContextLength));

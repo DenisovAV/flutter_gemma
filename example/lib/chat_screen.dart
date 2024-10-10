@@ -13,6 +13,12 @@ class ChatScreenState extends State<ChatScreen> {
   final _messages = <Message>[];
 
   @override
+  void dispose() {
+    super.dispose();
+    FlutterGemmaPlugin.instance.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: const Color(0xFF0b2351),

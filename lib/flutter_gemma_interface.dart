@@ -55,4 +55,11 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
         prompt:
             messages.transformToChatPrompt(contextLength: chatContextLength));
   }
+
+  /// Release resources.
+  /// Only available for mobile.
+  Future<bool> dispose();
+
+  /// Only available for mobile.
+  Future<int?> inputSize(String text);
 }

@@ -61,6 +61,23 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
       } catch (e: Exception) {
         result.error("ERROR", "Failed to get async gemma response", e.localizedMessage)
       }
+    } else if(call.method == "dispose"){
+      try {
+        inferenceModel.dispose()
+        result.success(true)
+      }catch (e: Exception){
+        result.error("ERROR", "Failed to dispose inference", e.localizedMessage)
+      }
+    } else if(call.method == "inputSize"){
+     try {
+        val inputText = requireNotNull(call.argument<String>("text")) { "Input text cannot be null" }
+        val size = inferenceModel.inputSize(inputText)
+        result.success(size)
+      } catch (e: IllegalArgumentException) {
+          result.error("ERROR", "Input text is null", e.localizedMessage)
+      } catch (e: Exception) {
+          result.error("ERROR", "Failed to get input size", e.localizedMessage)
+      }
     } else {
       result.notImplemented()
     }

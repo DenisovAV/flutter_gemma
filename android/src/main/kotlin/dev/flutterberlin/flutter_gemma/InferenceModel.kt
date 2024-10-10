@@ -16,7 +16,7 @@ class InferenceModel private constructor(
     randomSeed: Int,
     topK: Int
 ) {
-    private var llmInference: LlmInference
+    private var llmInference: LlmInference?
 
     private val _partialResults = MutableSharedFlow<Pair<String, Boolean>>(
         extraBufferCapacity = 1,
@@ -51,12 +51,22 @@ class InferenceModel private constructor(
         }
     }
 
+    fun dispose() {
+        llmInference?.close()
+        llmInference = null
+        instance = null
+    }
+
+    fun inputSize(text:String):Int{
+       return llmInference?.sizeInTokens(text) ?: throw IllegalStateException("LlmInference is not initialized")
+    }
+
     fun generateResponse(prompt: String): String? {
-        return llmInference.generateResponse(prompt)
+        return llmInference?.generateResponse(prompt) ?: throw IllegalStateException("LlmInference is not initialized")
     }
 
     fun generateResponseAsync(prompt: String) {
-        llmInference.generateResponseAsync(prompt)
+        llmInference?.generateResponseAsync(prompt) ?: throw IllegalStateException("LlmInference is not initialized")
     }
 
     companion object {

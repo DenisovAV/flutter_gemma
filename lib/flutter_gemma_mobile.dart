@@ -39,14 +39,15 @@ class FlutterGemma extends FlutterGemmaPlugin {
         ) ??
         false;
     if (result && !_initCompleter.isCompleted) {
-        _initCompleter.complete(true);
+      _initCompleter.complete(true);
     }
   }
 
   @override
   Future<String?> getResponse({required String prompt}) async {
     if (_initCompleter.isCompleted) {
-      return await methodChannel.invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
+      return await methodChannel
+          .invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
     } else {
       return 'Gemma is not initialized yet';
     }
@@ -56,9 +57,32 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Stream<String?> getResponseAsync({required String prompt}) {
     if (_initCompleter.isCompleted) {
       methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt});
-      return eventChannel.receiveBroadcastStream().map<String?>((event) => event as String?);
+      return eventChannel
+          .receiveBroadcastStream()
+          .map<String?>((event) => event as String?);
     } else {
       throw Exception('Gemma is not initialized yet');
+    }
+  }
+
+  @override
+  Future<int?> inputSize(String text) async {
+    if (_initCompleter.isCompleted) {
+      return await methodChannel.invokeMethod<int>('inputSize', {'text': text});
+    } else {
+      print("Gemma is not initialized yet");
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> dispose() async {
+    if (_initCompleter.isCompleted) {
+      final res = await methodChannel.invokeMethod<bool>("dispose");
+      return res ?? false;
+    } else {
+      print("Gemma is not initialized yet");
+      return false;
     }
   }
 }

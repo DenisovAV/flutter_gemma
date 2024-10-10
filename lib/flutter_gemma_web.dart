@@ -11,7 +11,6 @@ import 'flutter_gemma.dart';
 import 'llm_inference_web.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
-
   FlutterGemmaWeb();
 
   static void registerWith(Registrar registrar) {
@@ -36,7 +35,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   }) async {
     try {
       final fileset = await promiseToFuture<FilesetResolver>(
-        FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
+        FilesetResolver.forGenAiTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
       );
       llmInference = await promiseToFuture<LlmInference>(
         LlmInference.createFromOptions(
@@ -76,7 +76,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<String?> getResponse({required String prompt}) async {
     if (llmInference != null) {
-      return await promiseToFuture<String>(llmInference!.generateResponse(prompt, null));
+      return await promiseToFuture<String>(
+          llmInference!.generateResponse(prompt, null));
     } else {
       throw Exception("Gemma is not initialized yet");
     }
@@ -94,5 +95,17 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     } else {
       throw Exception("Gemma is not initialized yet");
     }
+  }
+
+  @override
+  Future<bool> dispose() async {
+    //TODO: Implement disposing llminference for web
+    return false;
+  }
+
+  @override
+  Future<int?> inputSize(String text) async {
+    //TODO: Implement input text size for web
+    return null;
   }
 }

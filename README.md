@@ -74,7 +74,9 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 
 3. **Prepare Model:**
 
-Place the model in the assets or upload it to a network drive, such as Firebase
+Place the model in the assets or upload it to a network drive, such as Firebase.
+
+#### ATTENTION!! You do not need to load the model every time the application starts; it is stored in the system files and only needs to be done once. Please carefully review the example application. You should use loadAssetModel and loadNetworkModel methods only when you need to upload the model to device
 
 ## Usage
 1.**Loading Models from assets (available only in debug mode):**

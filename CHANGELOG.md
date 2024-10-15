@@ -32,6 +32,8 @@
 - Updated Mediapipe for Android
 - Updated readme
 ## 0.2.3
+- Updated Mediapipe ios version
+## 0.2.4
 - Fixed Mediapipe ios version
 ## 0.3.0
 - Added support for loading models from assets and network.

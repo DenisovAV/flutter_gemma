@@ -7,6 +7,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'flutter_gemma.dart';
 
+const _modelPath = 'model.bin';
+
 class FlutterGemma extends FlutterGemmaPlugin {
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_gemma');
@@ -21,7 +23,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Future<bool> get isInitialized => _initCompleter.future;
 
   @override
-  Future<bool> get isLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isLoaded async => _loadCompleter != null
+      ? await _loadCompleter!.future
+      : await _largeFileHandler.fileExists(targetPath: _modelPath);
 
   Future<void> _loadModel({
     required Future<void> Function() loadFunction,
@@ -69,7 +73,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
     return _loadModel(
       loadFunction: () => _largeFileHandler.copyAssetToLocalStorage(
         assetName: fullPath,
-        targetPath: 'model.bin',
+        targetPath: _modelPath,
       ),
     );
   }
@@ -79,7 +83,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
     return _loadModel(
       loadFunction: () => _largeFileHandler.copyNetworkAssetToLocalStorage(
         assetUrl: url,
-        targetPath: 'model.bin',
+        targetPath: _modelPath,
       ),
     );
   }
@@ -93,7 +97,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
     return _loadModelWithProgress(
       loadFunction: () => _largeFileHandler.copyAssetToLocalStorageWithProgress(
         assetName: fullPath,
-        targetPath: 'model.bin',
+        targetPath: _modelPath,
       ),
     );
   }
@@ -103,7 +107,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
     return _loadModelWithProgress(
       loadFunction: () => _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
         assetUrl: url,
-        targetPath: 'model.bin',
+        targetPath: _modelPath,
       ),
     );
   }
@@ -115,13 +119,14 @@ class FlutterGemma extends FlutterGemmaPlugin {
     int randomSeed = 1,
     int topK = 1,
   }) async {
-    if (_loadCompleter != null && _loadCompleter!.isCompleted) {
+    if (((await _largeFileHandler.fileExists(targetPath: _modelPath)) && _loadCompleter == null) ||
+        (_loadCompleter != null && _loadCompleter!.isCompleted)) {
       try {
         final directory = await getApplicationDocumentsDirectory();
         final result = await methodChannel.invokeMethod<bool>(
               'init',
               {
-                'modelPath': '${directory.path}/model.bin',
+                'modelPath': '${directory.path}/$_modelPath',
                 'maxTokens': maxTokens,
                 'temperature': temperature,
                 'randomSeed': randomSeed,

@@ -1,5 +1,5 @@
-import Flutter
-import UIKit
+import Cocoa
+import FlutterMacOS
 
 public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
    

@@ -9,15 +9,17 @@ platforms:
   ios:
 
 environment:
-  sdk: '>=3.3.3 <4.0.0'
-  flutter: '>=3.19.0'
+  sdk: ">=3.3.3 <4.0.0"
+  flutter: ">=3.19.0"
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
-  large_file_handler: ^0.3.0
+  # large_file_handler: ^0.3.0
+  large_file_handler:
+    path: ../large_file_handler
   path: ^1.9.0
   path_provider: ^2.1.4
   plugin_platform_interface: ^2.0.2
@@ -49,6 +51,8 @@ flutter:
         package: dev.flutterberlin.flutter_gemma
         pluginClass: FlutterGemmaPlugin
       ios:
+        pluginClass: FlutterGemmaPlugin
+      macos:
         pluginClass: FlutterGemmaPlugin
       web:
         pluginClass: FlutterGemmaWeb

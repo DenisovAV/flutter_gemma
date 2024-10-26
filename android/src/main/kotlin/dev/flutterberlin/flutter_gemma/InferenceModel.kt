@@ -14,7 +14,10 @@ class InferenceModel private constructor(
     maxTokens: Int,
     temperature: Float,
     randomSeed: Int,
-    topK: Int
+    topK: Int,
+    loraPath: String?,
+    numOfSupportedLoraRanks: Int?,
+    supportedLoraRanks: List<Int>?,
 ) {
     private var llmInference: LlmInference
 
@@ -33,7 +36,7 @@ class InferenceModel private constructor(
             throw IllegalArgumentException("Model not found at path: $modelPath")
         }
 
-        val options = LlmInference.LlmInferenceOptions.builder()
+        val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath)
             .setMaxTokens(maxTokens)
             .setTemperature(temperature)
@@ -42,7 +45,12 @@ class InferenceModel private constructor(
             .setResultListener { partialResult, done ->
                 _partialResults.tryEmit(partialResult to done)
             }
-            .build()
+
+        numOfSupportedLoraRanks?.let { optionsBuilder.setNumOfSupportedLoraRanks(it) }
+        supportedLoraRanks?.let { optionsBuilder.setSupportedLoraRanks(it) }
+        loraPath?.let { optionsBuilder.setLoraPath(it) }
+
+        val options = optionsBuilder.build()
 
         llmInference = try {
             LlmInference.createFromOptions(context, options)
@@ -68,12 +76,25 @@ class InferenceModel private constructor(
             maxTokens: Int,
             temperature: Float,
             randomSeed: Int,
-            topK: Int
+            topK: Int,
+            loraPath: String?,
+            numOfSupportedLoraRanks: Int?,
+            supportedLoraRanks: List<Int>?
         ): InferenceModel {
             return if (instance != null) {
                 instance!!
             } else {
-                InferenceModel(context, modelPath, maxTokens, temperature, randomSeed, topK).also { instance = it }
+                InferenceModel(
+                    context,
+                    modelPath,
+                    maxTokens,
+                    temperature,
+                    randomSeed,
+                    topK,
+                    loraPath,
+                    numOfSupportedLoraRanks,
+                    supportedLoraRanks
+                ).also { instance = it }
             }
         }
     }

@@ -118,6 +118,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
     double temperature = 1.0,
     int randomSeed = 1,
     int topK = 1,
+    int? numOfSupportedLoraRanks,
+    List<int>? supportedLoraRanks,
+    String? loraPath,
   }) async {
     if (((await _largeFileHandler.fileExists(targetPath: _modelPath)) && _loadCompleter == null) ||
         (_loadCompleter != null && _loadCompleter!.isCompleted)) {
@@ -131,6 +134,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
                 'temperature': temperature,
                 'randomSeed': randomSeed,
                 'topK': topK,
+                'numOfSupportedLoraRanks': numOfSupportedLoraRanks,
+                'supportedLoraRanks': supportedLoraRanks,
+                'loraPath': loraPath,
               },
             ) ??
             false;

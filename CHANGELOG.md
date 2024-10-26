@@ -40,3 +40,7 @@
 - Added progress updates for model loading.
 ## 0.3.1
 - Updated example and readme
+## 0.4.0
+- Upgraded Mediapipe to 0.10.16
+- Added LoRA support
+- Fixed some issues

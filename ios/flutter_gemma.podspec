@@ -15,8 +15,8 @@ A new Flutter project.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/**/*'
   s.dependency 'Flutter'
-  s.dependency 'MediaPipeTasksGenAI', '= 0.10.12'
-  s.dependency 'MediaPipeTasksGenAIC', '= 0.10.12'
+  s.dependency 'MediaPipeTasksGenAI', '= 0.10.16'
+  s.dependency 'MediaPipeTasksGenAIC', '= 0.10.16'
   s.platform = :ios, '12.0'
 
   # Flutter.framework does not contain a i386 slice.

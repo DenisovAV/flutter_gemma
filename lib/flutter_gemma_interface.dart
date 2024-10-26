@@ -44,6 +44,9 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     double temperature = 1.0,
     int randomSeed = 1,
     int topK = 1,
+    int? numOfSupportedLoraRanks,
+    List<int>? supportedLoraRanks,
+    String? loraPath,
   });
 
   Future<String?> getResponse({required String prompt});

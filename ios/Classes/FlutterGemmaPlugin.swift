@@ -21,7 +21,11 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
         switch call.method {
         case "init":
             if let arguments = call.arguments as? [String: Any], let maxTokens = arguments["maxTokens"] as? Int, let temperature = arguments["temperature"] as? Float, let randomSeed = arguments["randomSeed"] as? Int, let topK = arguments["topK"] as? Int {
-                inferenceModel = InferenceModel(maxTokens: maxTokens, temperature: temperature, randomSeed: randomSeed, topK: topK)
+                do {
+                    inferenceModel = try InferenceModel(maxTokens: maxTokens, temperature: temperature, randomSeed: randomSeed, topK: topK)
+                } catch {
+                    result(FlutterError(code: "ERROR", message: "Failed to generate response: \(error.localizedDescription)", details: nil))
+                }
                 result(true)
             } else {
                 result(FlutterError(code: "ERROR", message: "Failed to initialize gemma", details: nil))
@@ -52,6 +56,7 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
                             }
                         }
                     }, completion: {
+
                         DispatchQueue.main.async {
                             self.eventSink?(nil)
                             result(nil)

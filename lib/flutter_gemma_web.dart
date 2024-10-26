@@ -39,6 +39,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   Stream<int> _loadModelWithProgress(String path) {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
+      _loadCompleter = Completer<bool>();
       _path = path;
       return Stream<int>.periodic(
         const Duration(milliseconds: 10),
@@ -86,6 +87,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     temperature = 1.0,
     randomSeed = 1,
     topK = 1,
+    int? numOfSupportedLoraRanks,
+    List<int>? supportedLoraRanks,
+    String? loraPath,
   }) async {
     try {
       final fileset = await promiseToFuture<FilesetResolver>(
@@ -100,7 +104,10 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
               'maxTokens': maxTokens,
               'randomSeed': randomSeed,
               'topK': topK,
-              'temperature': temperature
+              'temperature': temperature,
+              if (numOfSupportedLoraRanks != null) 'numOfSupportedLoraRanks': numOfSupportedLoraRanks,
+              if (supportedLoraRanks != null) 'supportedLoraRanks': supportedLoraRanks,
+              if (loraPath != null) 'loraPath': loraPath,
             },
           ),
         ),

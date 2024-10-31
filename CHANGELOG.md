@@ -44,3 +44,5 @@
 - Upgraded Mediapipe to 0.10.16
 - Added LoRA support
 - Fixed some issues
+## 0.4.1
+- Fixed ios issue

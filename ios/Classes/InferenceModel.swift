@@ -39,6 +39,6 @@ final class InferenceModel {
     
     func generateResponseAsync(prompt: String, progress: @escaping (_ partialResponse: String?, _ error: Error?) -> Void, completion: @escaping (() -> Void)) throws {
         try session?.addQueryChunk(inputText: prompt)
-        try session?.generateResponseAsync(progress: progress, completion: completion, )
+        try session?.generateResponseAsync(progress: progress, completion: completion)
     }
 }

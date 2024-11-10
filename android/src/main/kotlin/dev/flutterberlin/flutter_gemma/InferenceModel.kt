@@ -28,6 +28,13 @@ class InferenceModel private constructor(
 
     val partialResults: SharedFlow<Pair<String, Boolean>> = _partialResults.asSharedFlow()
 
+    private val _errors = MutableSharedFlow<Throwable>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
+    val errors: SharedFlow<Throwable> = _errors.asSharedFlow()
+
     private val modelExists: Boolean
         get() = File(modelPath).exists()
 
@@ -42,6 +49,9 @@ class InferenceModel private constructor(
             .setTemperature(temperature)
             .setRandomSeed(randomSeed)
             .setTopK(topK)
+            .setErrorListener { error ->
+                _errors.tryEmit(error)
+            }
             .setResultListener { partialResult, done ->
                 _partialResults.tryEmit(partialResult to done)
             }

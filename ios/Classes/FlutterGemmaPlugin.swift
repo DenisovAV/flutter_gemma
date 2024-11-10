@@ -50,7 +50,12 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
                     try inferenceModel?.generateResponseAsync(prompt: prompt, progress: { partialResponse, error in
                         DispatchQueue.main.async {
                             if let error = error {
-                                self.eventSink?(FlutterError(code: "ERROR", message: "Error during getting Gemma response", details: error.localizedDescription))
+                                let errorMap: [String: Any] = [
+                                    "code": "ASYNC_ERROR",
+                                    "message": error.localizedDescription,
+                                    "details": NSNull(),
+                                ]
+                                self.eventSink?(errorMap)
                             } else if let partialResponse = partialResponse {
                                 self.eventSink?(partialResponse)
                             }

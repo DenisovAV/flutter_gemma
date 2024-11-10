@@ -9,7 +9,7 @@ extension MessageExtension on Iterable<Message> {
   String transformToChatPrompt({
     int contextLength = 4,
   }) =>
-      skip(length <= contextLength ? 0 : length - contextLength)
+      '${skip(length <= contextLength ? 0 : length - contextLength)
           .map((e) => '$startTurn${e.isUser ? userPrefix : modelPrefix}\n${e.text}$endTurn')
-          .join('\n');
+          .join('\n')}\n$startTurn$modelPrefix\n';
 }

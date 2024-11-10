@@ -163,7 +163,13 @@ class FlutterGemma extends FlutterGemmaPlugin {
   @override
   Future<String?> getResponse({required String prompt}) async {
     if (_initCompleter.isCompleted) {
-      return await methodChannel.invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
+      try {
+        return await methodChannel.invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
+      } on PlatformException catch (e) {
+        throw Exception('Platform error: ${e.message}');
+      } catch (e) {
+        throw Exception('Error: $e');
+      }
     } else {
       throw Exception('Gemma is not initialized yet');
     }
@@ -172,8 +178,28 @@ class FlutterGemma extends FlutterGemmaPlugin {
   @override
   Stream<String?> getResponseAsync({required String prompt}) {
     if (_initCompleter.isCompleted) {
-      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt});
-      return eventChannel.receiveBroadcastStream().map<String?>((event) => event as String?);
+      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((e) {
+        if (e is PlatformException) {
+          throw Exception('Platform error: ${e.message}');
+        } else {
+          throw Exception('Error: $e');
+        }
+      });
+
+      return eventChannel.receiveBroadcastStream().transform(
+            StreamTransformer.fromHandlers(
+              handleData: (event, sink) {
+                if (event is Map && event.containsKey('code') && event['code'] == "ASYNC_ERROR") {
+                  sink.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+                } else {
+                  sink.add(event as String?);
+                }
+              },
+              handleError: (error, stackTrace, sink) {
+                sink.addError(Exception('Stream error: $error'));
+              },
+            ),
+          );
     } else {
       throw Exception('Gemma is not initialized yet');
     }

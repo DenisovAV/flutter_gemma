@@ -31,15 +31,28 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   }
 
   void _processMessages() {
-    _subscription = _gemma.processMessageAsync(widget.messages).listen((String? token) {
-      if (token == null) {
-        widget.streamHandled(_message);
-      } else {
+    _subscription = _gemma.processMessageAsync(widget.messages).listen(
+      (String? token) {
         setState(() {
-          _message = Message(text: '${_message.text}$token');
+          if (token == null) {
+            if (_message.text.isEmpty) {
+              _message = const Message(text: '...');
+            }
+            widget.streamHandled(_message);
+          } else {
+            _message = Message(text: '${_message.text}$token');
+          }
         });
-      }
-    });
+      },
+      onDone: () {
+        widget.streamHandled(_message);
+      },
+      onError: (error) {
+        setState(() {
+          _message = Message(text: 'An error occurred: $error');
+        });
+      },
+    );
   }
 
   @override

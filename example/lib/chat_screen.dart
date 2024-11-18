@@ -14,6 +14,7 @@ class ChatScreenState extends State<ChatScreen> {
   final _messages = <Message>[];
   bool _isModelInitialized = false;
   int? _loadingProgress;
+  String? _error;
 
   @override
   void initState() {
@@ -24,8 +25,7 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeModel() async {
     bool isLoaded = await FlutterGemmaPlugin.instance.isLoaded;
     if (!isLoaded) {
-      await for (int progress in FlutterGemmaPlugin.instance
-          .loadAssetModelWithProgress(fullPath: 'model.bin')) {
+      await for (int progress in FlutterGemmaPlugin.instance.loadAssetModelWithProgress(fullPath: 'model.bin')) {
         setState(() {
           _loadingProgress = progress;
         });
@@ -65,26 +65,48 @@ class ChatScreenState extends State<ChatScreen> {
           ),
         ),
         _isModelInitialized
-            ? ChatListWidget(
-          gemmaHandler: (message) {
-            setState(() {
-              _messages.add(message);
-            });
-          },
-          humanHandler: (text) {
-            setState(() {
-              _messages.add(Message(text: text, isUser: true));
-            });
-          },
-          messages: _messages,
-        )
+            ? Column(children: [
+                if (_error != null) _buildErrorBanner(_error!),
+                Expanded(
+                  child: ChatListWidget(
+                    gemmaHandler: (message) {
+                      setState(() {
+                        _messages.add(message);
+                      });
+                    },
+                    humanHandler: (text) {
+                      setState(() {
+                        _error = null;
+                        _messages.add(Message(text: text, isUser: true));
+                      });
+                    },
+                    errorHandler: (err) {
+                      setState(() {
+                        _error = err;
+                      });
+                    },
+                    messages: _messages,
+                  ),
+                )
+              ])
             : LoadingWidget(
-          message: _loadingProgress == null
-              ? 'Model is checking'
-              : 'Model loading progress:',
-          progress: _loadingProgress,
-        ),
+                message: _loadingProgress == null ? 'Model is checking' : 'Model loading progress:',
+                progress: _loadingProgress,
+              ),
       ]),
+    );
+  }
+
+  Widget _buildErrorBanner(String errorMessage) {
+    return Container(
+      width: double.infinity,
+      color: Colors.red,
+      padding: const EdgeInsets.all(8.0),
+      child: Text(
+        errorMessage,
+        style: const TextStyle(color: Colors.white),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }

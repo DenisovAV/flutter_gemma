@@ -9,11 +9,13 @@ class GemmaInputField extends StatefulWidget {
   const GemmaInputField({
     super.key,
     required this.messages,
-    required this.streamHandled,
+    required this.streamHandler,
+    required this.errorHandler,
   });
 
   final List<Message> messages;
-  final ValueChanged<Message> streamHandled;
+  final ValueChanged<Message> streamHandler;
+  final ValueChanged<String> errorHandler;
 
   @override
   GemmaInputFieldState createState() => GemmaInputFieldState();
@@ -38,19 +40,23 @@ class GemmaInputFieldState extends State<GemmaInputField> {
             if (_message.text.isEmpty) {
               _message = const Message(text: '...');
             }
-            widget.streamHandled(_message);
+            widget.streamHandler(_message);
           } else {
             _message = Message(text: '${_message.text}$token');
           }
         });
       },
       onDone: () {
-        widget.streamHandled(_message);
+        widget.streamHandler(_message);
+        _subscription?.cancel();
       },
       onError: (error) {
-        setState(() {
-          _message = Message(text: 'An error occurred: $error');
-        });
+        if (_message.text.isEmpty) {
+          _message = const Message(text: '...');
+        }
+        widget.streamHandler(_message);
+        widget.errorHandler(error.toString());
+        _subscription?.cancel();
       },
     );
   }

@@ -23,9 +23,10 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Future<bool> get isInitialized => _initCompleter.future;
 
   @override
-  Future<bool> get isLoaded async => _loadCompleter != null
-      ? await _loadCompleter!.future
-      : await _largeFileHandler.fileExists(targetPath: _modelPath);
+  Future<bool> get isLoaded async =>
+      _loadCompleter != null
+          ? await _loadCompleter!.future
+          : await _largeFileHandler.fileExists(targetPath: _modelPath);
 
   Future<void> _loadModel({
     required Future<void> Function() loadFunction,
@@ -51,7 +52,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
       _loadCompleter = Completer<bool>();
       final stream = loadFunction().asBroadcastStream()
         ..listen(
-          (_) {},
+              (_) {},
           onDone: () {
             _loadCompleter?.complete(true);
           },
@@ -71,20 +72,22 @@ class FlutterGemma extends FlutterGemmaPlugin {
       throw UnsupportedError("Method loadAssetModel should not be used in the release build");
     }
     return _loadModel(
-      loadFunction: () => _largeFileHandler.copyAssetToLocalStorage(
-        assetName: fullPath,
-        targetPath: _modelPath,
-      ),
+      loadFunction: () =>
+          _largeFileHandler.copyAssetToLocalStorage(
+            assetName: fullPath,
+            targetPath: _modelPath,
+          ),
     );
   }
 
   @override
   Future<void> loadNetworkModel({required String url}) async {
     return _loadModel(
-      loadFunction: () => _largeFileHandler.copyNetworkAssetToLocalStorage(
-        assetUrl: url,
-        targetPath: _modelPath,
-      ),
+      loadFunction: () =>
+          _largeFileHandler.copyNetworkAssetToLocalStorage(
+            assetUrl: url,
+            targetPath: _modelPath,
+          ),
     );
   }
 
@@ -95,20 +98,22 @@ class FlutterGemma extends FlutterGemmaPlugin {
           "Method loadAssetModelWithProgress should not be used in the release build");
     }
     return _loadModelWithProgress(
-      loadFunction: () => _largeFileHandler.copyAssetToLocalStorageWithProgress(
-        assetName: fullPath,
-        targetPath: _modelPath,
-      ),
+      loadFunction: () =>
+          _largeFileHandler.copyAssetToLocalStorageWithProgress(
+            assetName: fullPath,
+            targetPath: _modelPath,
+          ),
     );
   }
 
   @override
   Stream<int> loadNetworkModelWithProgress({required String url}) {
     return _loadModelWithProgress(
-      loadFunction: () => _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
-        assetUrl: url,
-        targetPath: _modelPath,
-      ),
+      loadFunction: () =>
+          _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
+            assetUrl: url,
+            targetPath: _modelPath,
+          ),
     );
   }
 
@@ -122,23 +127,23 @@ class FlutterGemma extends FlutterGemmaPlugin {
     List<int>? supportedLoraRanks,
     String? loraPath,
   }) async {
-    if (((await _largeFileHandler.fileExists(targetPath: _modelPath)) && _loadCompleter == null) ||
+   if (((await _largeFileHandler.fileExists(targetPath: _modelPath)) && _loadCompleter == null) ||
         (_loadCompleter != null && _loadCompleter!.isCompleted)) {
       try {
         final directory = await getApplicationDocumentsDirectory();
         final result = await methodChannel.invokeMethod<bool>(
-              'init',
-              {
-                'modelPath': '${directory.path}/$_modelPath',
-                'maxTokens': maxTokens,
-                'temperature': temperature,
-                'randomSeed': randomSeed,
-                'topK': topK,
-                'numOfSupportedLoraRanks': numOfSupportedLoraRanks,
-                'supportedLoraRanks': supportedLoraRanks,
-                'loraPath': loraPath,
-              },
-            ) ??
+          'init',
+          {
+            'modelPath': '${directory.path}/$_modelPath',
+            'maxTokens': maxTokens,
+            'temperature': temperature,
+            'randomSeed': randomSeed,
+            'topK': topK,
+            'numOfSupportedLoraRanks': numOfSupportedLoraRanks,
+            'supportedLoraRanks': supportedLoraRanks,
+            'loraPath': loraPath,
+          },
+        ) ??
             false;
 
         if (result && !_initCompleter.isCompleted) {
@@ -178,28 +183,31 @@ class FlutterGemma extends FlutterGemmaPlugin {
   @override
   Stream<String?> getResponseAsync({required String prompt}) {
     if (_initCompleter.isCompleted) {
-      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((e) {
-        if (e is PlatformException) {
-          throw Exception('Platform error: ${e.message}');
+      final StreamController<String?> controller = StreamController<String?>();
+
+      eventChannel.receiveBroadcastStream().listen(
+            (event) {
+          if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
+            controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+          } else {
+            controller.add(event as String?);
+          }
+        },
+        onError: (error) {
+          controller.addError(Exception('Stream error: $error'));
+        },
+        onDone: controller.close,
+      );
+
+      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((error) {
+        if (error is PlatformException) {
+          controller.addError(Exception('Platform error: ${error.message}'));
         } else {
-          throw Exception('Error: $e');
+          controller.addError(Exception('Unknown invoke error: $error'));
         }
       });
 
-      return eventChannel.receiveBroadcastStream().transform(
-            StreamTransformer.fromHandlers(
-              handleData: (event, sink) {
-                if (event is Map && event.containsKey('code') && event['code'] == "ASYNC_ERROR") {
-                  sink.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
-                } else {
-                  sink.add(event as String?);
-                }
-              },
-              handleError: (error, stackTrace, sink) {
-                sink.addError(Exception('Stream error: $error'));
-              },
-            ),
-          );
+      return controller.stream;
     } else {
       throw Exception('Gemma is not initialized yet');
     }

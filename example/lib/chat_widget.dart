@@ -6,15 +6,17 @@ import 'package:flutter_gemma_example/gemma_input_field.dart';
 
 class ChatListWidget extends StatelessWidget {
   const ChatListWidget({
-    super.key,
     required this.messages,
     required this.gemmaHandler,
     required this.humanHandler,
+    required this.errorHandler,
+    super.key,
   });
 
   final List<Message> messages;
   final ValueChanged<Message> gemmaHandler;
   final ValueChanged<String> humanHandler;
+  final ValueChanged<String> errorHandler;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,8 @@ class ChatListWidget extends StatelessWidget {
           if (messages.isNotEmpty && messages.last.isUser) {
             return GemmaInputField(
               messages: messages,
-              streamHandled: gemmaHandler,
+              streamHandler: gemmaHandler,
+              errorHandler: errorHandler,
             );
           }
           if (messages.isEmpty || !messages.last.isUser) {

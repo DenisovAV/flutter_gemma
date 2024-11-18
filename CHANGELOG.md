@@ -46,3 +46,8 @@
 - Fixed some issues
 ## 0.4.1
 - Fixed ios issue
+## 0.4.2
+- Added error handling
+- Updated example for error handling
+- Upgraded Mediapipe to 0.10.18 for iOS
+- Fixed ios issue with model freezing

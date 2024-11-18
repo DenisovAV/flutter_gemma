@@ -40,7 +40,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Stream<int> loadNetworkModelWithProgress({required String url});
 
   Future<void> init({
-    int maxTokens = 1024,
+    int maxTokens = 50,
     double temperature = 1.0,
     int randomSeed = 1,
     int topK = 1,
@@ -55,13 +55,13 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   //These methods works fine with instruction tuned models only
   Future<String?> getChatResponse(
-          {required Iterable<Message> messages, int chatContextLength = 4}) =>
+          {required Iterable<Message> messages, int chatContextLength = 3}) =>
       getResponse(
           prompt:
               messages.transformToChatPrompt(contextLength: chatContextLength));
 
   Stream<String?> getChatResponseAsync(
-      {required Iterable<Message> messages, int chatContextLength = 4}) {
+      {required Iterable<Message> messages, int chatContextLength = 3}) {
     return getResponseAsync(
         prompt:
             messages.transformToChatPrompt(contextLength: chatContextLength));

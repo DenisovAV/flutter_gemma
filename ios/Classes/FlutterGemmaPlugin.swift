@@ -1,11 +1,11 @@
 import Flutter
 import UIKit
 
+@available(iOS 13.0, *)
 public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
-   
-    private var inferenceModel: InferenceModel?
+    private var inferenceController: InferenceController?
     private var eventSink: FlutterEventSink?
-
+    
     // This static function correctly initializes the plugin with the Flutter engine
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_gemma", binaryMessenger: registrar.messenger())
@@ -15,14 +15,14 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
         let eventChannel = FlutterEventChannel(name: "flutter_gemma_stream", binaryMessenger: registrar.messenger())
         eventChannel.setStreamHandler(instance)
     }
-
+    
     // This method correctly handles method calls from Flutter
-    public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    @MainActor public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "init":
             if let arguments = call.arguments as? [String: Any], let maxTokens = arguments["maxTokens"] as? Int, let temperature = arguments["temperature"] as? Float, let randomSeed = arguments["randomSeed"] as? Int, let topK = arguments["topK"] as? Int {
                 do {
-                    inferenceModel = try InferenceModel(maxTokens: maxTokens, temperature: temperature, randomSeed: randomSeed, topK: topK)
+                    inferenceController = try InferenceController(maxTokens: maxTokens, temperature: temperature, randomSeed: randomSeed, topK: topK)
                 } catch {
                     result(FlutterError(code: "ERROR", message: "Failed to generate response: \(error.localizedDescription)", details: nil))
                 }
@@ -33,7 +33,7 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
         case "getGemmaResponse":
             if let arguments = call.arguments as? [String: Any], let prompt = arguments["prompt"] as? String {
                 do {
-                    if let response = try inferenceModel?.generateResponse(prompt: prompt) {
+                    if let response = try inferenceController?.sendMesssage(prompt) {
                         result(response)
                     } else {
                         result(FlutterError(code: "UNAVAILABLE", message: "Inference model could not generate a response", details: nil))
@@ -46,45 +46,53 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
             }
         case "getGemmaResponseAsync":
             if let arguments = call.arguments as? [String: Any], let prompt = arguments["prompt"] as? String {
-                do {
-                    try inferenceModel?.generateResponseAsync(prompt: prompt, progress: { partialResponse, error in
+                Task.detached {
+                    do {
+                        try await self.inferenceController?.sendMesssageAsync(prompt)
                         DispatchQueue.main.async {
-                            if let error = error {
-                                let errorMap: [String: Any] = [
-                                    "code": "ASYNC_ERROR",
-                                    "message": error.localizedDescription,
-                                    "details": NSNull(),
-                                ]
-                                self.eventSink?(errorMap)
-                            } else if let partialResponse = partialResponse {
-                                self.eventSink?(partialResponse)
-                            }
-                        }
-                    }, completion: {
-
-                        DispatchQueue.main.async {
-                            self.eventSink?(nil)
                             result(nil)
                         }
-                    })
-                } catch {
-                    result(FlutterError(code: "ERROR", message: "Failed to get async gemma response", details: error.localizedDescription))
+                    } catch {
+                        DispatchQueue.main.async {
+                            result(FlutterError(code: "ERROR", message: "Failed to generate response: \(error.localizedDescription)", details: nil))
+                        }
+                    }
                 }
+                
             } else {
-                result(FlutterError(code: "BAD_ARGS", message: "Bad arguments for 'getGemmaResponseAsync' method", details: nil))
+                result(FlutterError(code: "INVALID_ARGUMENTS", message: "Invalid arguments provided", details: nil))
             }
+            
         default:
             result(FlutterMethodNotImplemented)
         }
     }
 }
 
+@available(iOS 13.0, *)
 extension FlutterGemmaPlugin: FlutterStreamHandler {
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
+        
+        if let viewModel = inferenceController {
+            Task {
+                for await result in viewModel.eventStream {
+
+                    DispatchQueue.main.async {
+                        switch result {
+                        case .success(let token):
+                            events(token)
+                        case .failure(let error):
+                            events(FlutterError(code: "ERROR", message: error.localizedDescription, details: nil))
+                            events(nil)
+                        }
+                    }
+                }
+            }
+        }
         return nil
     }
-
+    
     public func onCancel(withArguments arguments: Any?) -> FlutterError? {
         self.eventSink = nil
         return nil

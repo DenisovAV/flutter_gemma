@@ -42,7 +42,7 @@ class InferenceModel private constructor(
         if (!modelExists) {
             throw IllegalArgumentException("Model not found at path: $modelPath")
         }
-
+        try {
         val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
             .setModelPath(modelPath)
             .setMaxTokens(maxTokens)
@@ -62,7 +62,7 @@ class InferenceModel private constructor(
 
         val options = optionsBuilder.build()
 
-        llmInference = try {
+        llmInference =
             LlmInference.createFromOptions(context, options)
         } catch (e: Exception) {
             throw RuntimeException("Failed to create LlmInference instance: ${e.message}", e)
@@ -76,6 +76,7 @@ class InferenceModel private constructor(
     fun generateResponseAsync(prompt: String) {
         llmInference.generateResponseAsync(prompt)
     }
+
 
     companion object {
         private var instance: InferenceModel? = null

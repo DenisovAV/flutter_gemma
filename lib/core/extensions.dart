@@ -7,7 +7,7 @@ const endTurn = "<end_of_turn>";
 
 extension MessageExtension on Iterable<Message> {
   String transformToChatPrompt({
-    int contextLength = 4,
+    int contextLength = 3,
   }) =>
       '${skip(length <= contextLength ? 0 : length - contextLength)
           .map((e) => '$startTurn${e.isUser ? userPrefix : modelPrefix}\n${e.text}$endTurn')

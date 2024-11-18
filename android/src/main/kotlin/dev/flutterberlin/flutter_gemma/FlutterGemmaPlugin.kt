@@ -65,7 +65,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
         inferenceModel.generateResponseAsync(prompt)
         result.success(null)
       } catch (e: Exception) {
-        result.error("ERROR", "Failed to get async gemma response", e.localizedMessage)
+        result.error("ERROR", e.localizedMessage, null)
       }
     } else {
       result.notImplemented()
@@ -89,7 +89,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
 
       launch {
         inferenceModel.errors.collect { error ->
-          events?.error("ASYNC_ERROR", error.message, null)
+          events?.error("ERROR", error.message, null)
         }
       }
     }

@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'flutter_gemma.dart';
 
 const _modelPath = 'model.bin';
+const _loraPath = 'lora.bin';
 
 class FlutterGemma extends FlutterGemmaPlugin {
   @visibleForTesting
@@ -24,9 +25,30 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   @override
   Future<bool> get isLoaded async =>
-      _loadCompleter != null
-          ? await _loadCompleter!.future
-          : await _largeFileHandler.fileExists(targetPath: _modelPath);
+      _loadCompleter != null ? await _loadCompleter!.future : await _largeFileHandler.fileExists(targetPath: _modelPath);
+
+  @override
+  Future<bool> get isLoraLoaded async => await isLoaded && await _largeFileHandler.fileExists(targetPath: _loraPath);
+
+  Future<void> _loadNetwork(String url, String target) => _largeFileHandler.copyNetworkAssetToLocalStorage(
+        assetUrl: url,
+        targetPath: target,
+      );
+
+  Future<void> _loadAsset(String path, String target) => _largeFileHandler.copyAssetToLocalStorage(
+        assetName: path,
+        targetPath: target,
+      );
+
+  Stream<int> _streamNetwork(String url, String target) => _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
+        assetUrl: url,
+        targetPath: target,
+      );
+
+  Stream<int> _streamAsset(String path, String target) => _largeFileHandler.copyAssetToLocalStorageWithProgress(
+        assetName: path,
+        targetPath: target,
+      );
 
   Future<void> _loadModel({
     required Future<void> Function() loadFunction,
@@ -47,13 +69,15 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   Stream<int> _loadModelWithProgress({
     required Stream<int> Function() loadFunction,
+    Future<void> Function()? postLoadFunction,
   }) {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
       _loadCompleter = Completer<bool>();
       final stream = loadFunction().asBroadcastStream()
         ..listen(
-              (_) {},
-          onDone: () {
+          (_) {},
+          onDone: () async {
+            await postLoadFunction?.call();
             _loadCompleter?.complete(true);
           },
           onError: (error) {
@@ -67,54 +91,54 @@ class FlutterGemma extends FlutterGemmaPlugin {
   }
 
   @override
-  Future<void> loadAssetModel({required String fullPath}) async {
+  Future<void> loadAssetLoraWeights({required String loraPath}) => _loadAsset(loraPath, _loraPath);
+
+  @override
+  Future<void> loadNetworkLoraWeights({required String loraUrl}) => _loadNetwork(loraUrl, _loraPath);
+
+  @override
+  Future<void> loadAssetModel({required String fullPath, String? loraPath}) async {
     if (kReleaseMode) {
       throw UnsupportedError("Method loadAssetModel should not be used in the release build");
     }
     return _loadModel(
-      loadFunction: () =>
-          _largeFileHandler.copyAssetToLocalStorage(
-            assetName: fullPath,
-            targetPath: _modelPath,
-          ),
-    );
+        loadFunction: () => Future.wait([
+              _loadAsset(fullPath, _modelPath),
+              if (loraPath != null) _loadAsset(loraPath, _loraPath),
+            ]));
   }
 
   @override
-  Future<void> loadNetworkModel({required String url}) async {
+  Future<void> loadNetworkModel({required String url, String? loraUrl}) async {
     return _loadModel(
-      loadFunction: () =>
-          _largeFileHandler.copyNetworkAssetToLocalStorage(
-            assetUrl: url,
-            targetPath: _modelPath,
-          ),
+      loadFunction: () => Future.wait([
+        _loadNetwork(url, _modelPath),
+        if (loraUrl != null) _loadAsset(loraUrl, _loraPath),
+      ]),
     );
   }
 
   @override
-  Stream<int> loadAssetModelWithProgress({required String fullPath}) {
+  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
     return _loadModelWithProgress(
-      loadFunction: () =>
-          _largeFileHandler.copyAssetToLocalStorageWithProgress(
-            assetName: fullPath,
-            targetPath: _modelPath,
-          ),
-    );
+        loadFunction: () => _streamAsset(
+              fullPath,
+              _modelPath,
+            ),
+        postLoadFunction: loraPath != null ? () => _loadAsset(loraPath, _loraPath) : null);
   }
 
   @override
-  Stream<int> loadNetworkModelWithProgress({required String url}) {
+  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl}) {
     return _loadModelWithProgress(
-      loadFunction: () =>
-          _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
-            assetUrl: url,
-            targetPath: _modelPath,
-          ),
-    );
+        loadFunction: () => _streamNetwork(
+              url,
+              _modelPath,
+            ),
+        postLoadFunction: loraUrl != null ? () => _loadNetwork(loraUrl, _loraPath) : null);
   }
 
   @override
@@ -123,27 +147,24 @@ class FlutterGemma extends FlutterGemmaPlugin {
     double temperature = 1.0,
     int randomSeed = 1,
     int topK = 1,
-    int? numOfSupportedLoraRanks,
     List<int>? supportedLoraRanks,
-    String? loraPath,
   }) async {
-   if (((await _largeFileHandler.fileExists(targetPath: _modelPath)) && _loadCompleter == null) ||
-        (_loadCompleter != null && _loadCompleter!.isCompleted)) {
+    if (await isLoaded) {
       try {
         final directory = await getApplicationDocumentsDirectory();
+        final loraPath = await isLoraLoaded ? '${directory.path}/$_loraPath' : null;
         final result = await methodChannel.invokeMethod<bool>(
-          'init',
-          {
-            'modelPath': '${directory.path}/$_modelPath',
-            'maxTokens': maxTokens,
-            'temperature': temperature,
-            'randomSeed': randomSeed,
-            'topK': topK,
-            'numOfSupportedLoraRanks': numOfSupportedLoraRanks,
-            'supportedLoraRanks': supportedLoraRanks,
-            'loraPath': loraPath,
-          },
-        ) ??
+              'init',
+              {
+                'modelPath': '${directory.path}/$_modelPath',
+                'maxTokens': maxTokens,
+                'temperature': temperature,
+                'randomSeed': randomSeed,
+                'topK': topK,
+                'supportedLoraRanks': supportedLoraRanks,
+                'loraPath': loraPath,
+              },
+            ) ??
             false;
 
         if (result && !_initCompleter.isCompleted) {
@@ -186,7 +207,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
       final StreamController<String?> controller = StreamController<String?>();
 
       eventChannel.receiveBroadcastStream().listen(
-            (event) {
+        (event) {
           if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
             controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
           } else {

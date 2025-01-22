@@ -2,6 +2,7 @@ package dev.flutterberlin.flutter_gemma
 
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import java.io.File
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -16,10 +17,10 @@ class InferenceModel private constructor(
     randomSeed: Int,
     topK: Int,
     loraPath: String?,
-    numOfSupportedLoraRanks: Int?,
-    supportedLoraRanks: List<Int>?,
+    supportedLoraRanks: List<Int>
 ) {
-    private var llmInference: LlmInference
+    private val llmInference: LlmInference
+    private var session: LlmInferenceSession? = null
 
     private val _partialResults = MutableSharedFlow<Pair<String, Boolean>>(
         extraBufferCapacity = 1,
@@ -43,38 +44,53 @@ class InferenceModel private constructor(
             throw IllegalArgumentException("Model not found at path: $modelPath")
         }
         try {
-        val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
-            .setModelPath(modelPath)
-            .setMaxTokens(maxTokens)
-            .setTemperature(temperature)
-            .setRandomSeed(randomSeed)
-            .setTopK(topK)
-            .setErrorListener { error ->
-                _errors.tryEmit(error)
-            }
-            .setResultListener { partialResult, done ->
-                _partialResults.tryEmit(partialResult to done)
-            }
+            val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
+                .setModelPath(modelPath)
+                .setMaxTokens(maxTokens)
+                .setSupportedLoraRanks(supportedLoraRanks)
+                .setResultListener { result, done ->
+                    _partialResults.tryEmit(result to done)
+                }
+                .setErrorListener { error ->
+                    _errors.tryEmit(Exception(error.message))
+                }
 
-        numOfSupportedLoraRanks?.let { optionsBuilder.setNumOfSupportedLoraRanks(it) }
-        supportedLoraRanks?.let { optionsBuilder.setSupportedLoraRanks(it) }
-        loraPath?.let { optionsBuilder.setLoraPath(it) }
+            val options = optionsBuilder.build()
+            llmInference = LlmInference.createFromOptions(context, options)
 
-        val options = optionsBuilder.build()
+            val sessionOptionsBuilder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+                .setTemperature(temperature)
+                .setRandomSeed(randomSeed)
+                .setTopK(topK)
 
-        llmInference =
-            LlmInference.createFromOptions(context, options)
+            loraPath?.let { sessionOptionsBuilder.setLoraPath(it) }
+
+            val sessionOptions = sessionOptionsBuilder.build()
+
+            session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
+
         } catch (e: Exception) {
-            throw RuntimeException("Failed to create LlmInference instance: ${e.message}", e)
+            throw RuntimeException("Failed to initialize LlmInference or Session: ${e.message}", e)
         }
     }
 
     fun generateResponse(prompt: String): String? {
-        return llmInference.generateResponse(prompt)
+        return try {
+            session?.addQueryChunk(prompt)
+            session?.generateResponse()
+        } catch (e: Exception) {
+            _errors.tryEmit(e)
+            null
+        }
     }
 
     fun generateResponseAsync(prompt: String) {
-        llmInference.generateResponseAsync(prompt)
+        try {
+            session?.addQueryChunk(prompt)
+            session?.generateResponseAsync()
+        } catch (e: Exception) {
+            _errors.tryEmit(e)
+        }
     }
 
 
@@ -89,8 +105,7 @@ class InferenceModel private constructor(
             randomSeed: Int,
             topK: Int,
             loraPath: String?,
-            numOfSupportedLoraRanks: Int?,
-            supportedLoraRanks: List<Int>?
+            supportedLoraRanks: List<Int>
         ): InferenceModel {
             return if (instance != null) {
                 instance!!
@@ -103,7 +118,6 @@ class InferenceModel private constructor(
                     randomSeed,
                     topK,
                     loraPath,
-                    numOfSupportedLoraRanks,
                     supportedLoraRanks
                 ).also { instance = it }
             }

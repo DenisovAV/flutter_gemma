@@ -6,6 +6,8 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'flutter_gemma_mobile.dart';
 
+const supportedLoraRanks = [4, 8, 16];
+
 abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Constructs a FlutterGemmaPlatform.
   FlutterGemmaPlugin() : super(token: _token);
@@ -17,6 +19,8 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Future<bool> get isInitialized;
 
   Future<bool> get isLoaded;
+
+  Future<bool> get isLoraLoaded;
 
   /// The default instance of [FlutterGemmaPlugin] to use.
   ///
@@ -31,22 +35,23 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<void> loadAssetModel({required String fullPath});
+  Future<void> loadAssetModel({required String fullPath, String? loraPath});
 
-  Future<void> loadNetworkModel({required String url});
+  Future<void> loadAssetLoraWeights({required String loraPath});
 
-  Stream<int> loadAssetModelWithProgress({required String fullPath});
+  Future<void> loadNetworkModel({required String url, String? loraUrl});
 
-  Stream<int> loadNetworkModelWithProgress({required String url});
+  Future<void> loadNetworkLoraWeights({required String loraUrl});
+
+  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath});
+
+  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl});
 
   Future<void> init({
-    int maxTokens = 50,
-    double temperature = 1.0,
-    int randomSeed = 1,
-    int topK = 1,
-    int? numOfSupportedLoraRanks,
-    List<int>? supportedLoraRanks,
-    String? loraPath,
+    int maxTokens,
+    double temperature,
+    int randomSeed,
+    int topK,
   });
 
   Future<String?> getResponse({required String prompt});
@@ -54,16 +59,10 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Stream<String?> getResponseAsync({required String prompt});
 
   //These methods works fine with instruction tuned models only
-  Future<String?> getChatResponse(
-          {required Iterable<Message> messages, int chatContextLength = 3}) =>
-      getResponse(
-          prompt:
-              messages.transformToChatPrompt(contextLength: chatContextLength));
+  Future<String?> getChatResponse({required Iterable<Message> messages, int chatContextLength = 3}) =>
+      getResponse(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
 
-  Stream<String?> getChatResponseAsync(
-      {required Iterable<Message> messages, int chatContextLength = 3}) {
-    return getResponseAsync(
-        prompt:
-            messages.transformToChatPrompt(contextLength: chatContextLength));
+  Stream<String?> getChatResponseAsync({required Iterable<Message> messages, int chatContextLength = 3}) {
+    return getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
   }
 }

@@ -51,3 +51,6 @@
 - Updated example for error handling
 - Upgraded Mediapipe to 0.10.18 for iOS
 - Fixed ios issue with model freezing
+## 0.4.3
+- Upgraded Mediapipe to 0.10.20
+- Updated LoRA support

@@ -17,9 +17,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   LlmInference? llmInference;
   StreamController<String?>? _controller;
   String? _path;
+  String? _loraPath;
 
   final Completer<bool> _initCompleter = Completer<bool>();
   Completer<bool>? _loadCompleter;
+  Completer<bool>? _loadLoraCompleter;
 
   @override
   Future<bool> get isInitialized => _initCompleter.future;
@@ -27,9 +29,13 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<bool> get isLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
 
-  Future<void> _loadModel(String path) async {
+  @override
+  Future<bool> get isLoraLoaded async => await isLoaded;
+
+  Future<void> _loadModel(String path, String? loraPath) async {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
       _path = path;
+      _loraPath = loraPath;
       _loadCompleter = Completer<bool>();
       _loadCompleter!.complete(true);
     } else {
@@ -37,13 +43,14 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
   }
 
-  Stream<int> _loadModelWithProgress(String path) {
+  Stream<int> _loadModelWithProgress(String path, String? loraPath) {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
       _loadCompleter = Completer<bool>();
       _path = path;
+      _loraPath = loraPath;
       return Stream<int>.periodic(
         const Duration(milliseconds: 10),
-            (count) => count + 1,
+        (count) => count + 1,
       ).take(100).map((progress) {
         if (progress == 100 && !_loadCompleter!.isCompleted) {
           _loadCompleter!.complete(true);
@@ -56,29 +63,39 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   }
 
   @override
-  Future<void> loadAssetModel({required String fullPath}) async {
+  Future<void> loadAssetLoraWeights({required String loraPath}) async {
+    _loraPath = 'assets/$loraPath';
+  }
+
+  @override
+  Future<void> loadNetworkLoraWeights({required String loraUrl}) async {
+    _loraPath = loraUrl;
+  }
+
+  @override
+  Future<void> loadAssetModel({required String fullPath, String? loraPath}) async {
     if (kReleaseMode) {
       throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
-    await _loadModel('assets/$fullPath');
+    await _loadModel('assets/$fullPath', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
-  Future<void> loadNetworkModel({required String url}) async {
-    await _loadModel(url);
+  Future<void> loadNetworkModel({required String url, String? loraUrl}) async {
+    await _loadModel(url, loraUrl);
   }
 
   @override
-  Stream<int> loadNetworkModelWithProgress({required String url}) {
-    return _loadModelWithProgress(url);
+  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl}) {
+    return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> loadAssetModelWithProgress({required String fullPath}) {
+  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath}) {
     if (kReleaseMode) {
       throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
-    return _loadModelWithProgress('assets/$fullPath');
+    return _loadModelWithProgress('assets/$fullPath', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
@@ -87,9 +104,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     temperature = 1.0,
     randomSeed = 1,
     topK = 1,
-    int? numOfSupportedLoraRanks,
     List<int>? supportedLoraRanks,
-    String? loraPath,
   }) async {
     try {
       final fileset = await promiseToFuture<FilesetResolver>(
@@ -105,9 +120,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
               'randomSeed': randomSeed,
               'topK': topK,
               'temperature': temperature,
-              if (numOfSupportedLoraRanks != null) 'numOfSupportedLoraRanks': numOfSupportedLoraRanks,
-              if (supportedLoraRanks != null) 'supportedLoraRanks': supportedLoraRanks,
-              if (loraPath != null) 'loraPath': loraPath,
+              if (_loraPath != null) 'supportedLoraRanks': supportedLoraRanks,
+              'loraPath': _loraPath,
             },
           ),
         ),

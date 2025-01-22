@@ -10,17 +10,19 @@ class InferenceController {
     private var temperature: Float
     private var randomSeed: Int
     private var topK: Int
+    private var supportedLoraRanks: [Int]?
     private var loraPath: String?
     
     private var inferenceSession: InferenceSession?
     
     
-    init(maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int, loraPath: String? = nil) throws {
-        self.inferenceModel = try InferenceModel(maxTokens: maxTokens)
+    init(maxTokens: Int, temperature: Float, randomSeed: Int, topK: Int, loraPath: String? = nil, supportedLoraRanks: [Int]? = nil) throws {
+        self.inferenceModel = try InferenceModel(maxTokens: maxTokens, supportedLoraRanks: supportedLoraRanks)
         self.temperature = temperature
         self.topK = topK
         self.randomSeed = randomSeed
         self.loraPath = loraPath
+        self.supportedLoraRanks = supportedLoraRanks
         
         self.eventStream = AsyncStream { continuation in
             self.continuation = continuation
@@ -28,14 +30,14 @@ class InferenceController {
     }
         
     func sendMesssage(_ text: String) throws -> String {
-        inferenceSession = try InferenceSession(inference: inferenceModel!.inference, temperature: temperature, randomSeed: randomSeed, topK: topK)
+        inferenceSession = try InferenceSession(inference: inferenceModel!.inference, temperature: temperature, randomSeed: randomSeed, topK: topK, loraPath: loraPath)
         let response = try inferenceSession!.generateResponse(prompt: text)
         return response
     }
     
     
     func sendMesssageAsync(_ text: String) async throws {
-        inferenceSession = try InferenceSession(inference: inferenceModel!.inference, temperature: temperature, randomSeed: randomSeed, topK: topK)
+        inferenceSession = try InferenceSession(inference: inferenceModel!.inference, temperature: temperature, randomSeed: randomSeed, topK: topK, loraPath: loraPath)
         let responseStream = try inferenceSession!.generateResponseAsync(prompt: text)
         Task.detached {
             [weak self] in

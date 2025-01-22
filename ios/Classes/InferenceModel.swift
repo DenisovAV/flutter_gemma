@@ -6,7 +6,7 @@ import MediaPipeTasksGenAIC
 struct InferenceModel {
     private (set) var inference: LlmInference
 
-    init(maxTokens: Int) throws {
+    init(maxTokens: Int, supportedLoraRanks: [Int]) throws {
         
         let fileManager = FileManager.default
         let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -14,6 +14,7 @@ struct InferenceModel {
 
         let llmOptions = LlmInference.Options(modelPath: filePath)
         llmOptions.maxTokens = maxTokens
+        llmOptions.supportedLoraRanks = supportedLoraRanks
     
         self.inference = try LlmInference(options: llmOptions)
     }

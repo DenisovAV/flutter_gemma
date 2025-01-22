@@ -42,11 +42,10 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
         val randomSeed = call.argument<Int>("maxTokens")!!
         val topK = call.argument<Int>("topK")!!
         val loraPath = call.argument<String?>("loraPath")
-        val numOfSupportedLoraRanks = call.argument<Int?>("numOfSupportedLoraRanks")
         val supportedLoraRanks = call.argument<List<Int>?>("supportedLoraRanks")
 
         inferenceModel = InferenceModel.getInstance(context, modelPath, maxTokens, temperature,
-          randomSeed, topK, loraPath, numOfSupportedLoraRanks, supportedLoraRanks)
+          randomSeed, topK, loraPath, supportedLoraRanks)
         result.success(true)
       } catch (e: Exception) {
         result.error("ERROR", "Failed to initialize gemma", e.localizedMessage)

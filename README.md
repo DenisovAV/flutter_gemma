@@ -18,6 +18,7 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with both iOS and Android platforms.
+- **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **Ease of Use:** Simple interface for integrating Gemma models into your Flutter projects.
 
 ## Installation
@@ -33,7 +34,7 @@ There is an example of using:
 
 ## Setup
 
-1. **Download Model:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
+1. **Download Model and optionally LoRA Weights:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
   * Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
 2. **Platfrom specific setup:**
 
@@ -83,14 +84,14 @@ Place the model in the assets or upload it to a network drive, such as Firebase.
 
 Dont forget to add your model to pubspec.yaml
 
-  1) Loading from assets 
+  1) Loading from assets (loraUrl is optional)
 ```dart
-    await FlutterGemmaPlugin.instance.loadAssetModel(fullPath: 'model.bin');
+    await FlutterGemmaPlugin.instance.loadAssetModel(fullPath: 'model.bin', loraPath: 'lora_weights.bin');
 ```
 
-  2) Loading froms assets with Progress Status 
+  2) Loading froms assets with Progress Status (loraUrl is optional)
 ```dart
-    FlutterGemmaPlugin.instance.loadAssetModelWithProgress(fullPath: 'model.bin').listen(
+    FlutterGemmaPlugin.instance.loadAssetModelWithProgress(fullPath: 'model.bin', loraPath: 'lora_weights.bin').listen(
     (progress) {
       print('Loading progress: $progress%');
     },
@@ -107,14 +108,14 @@ Dont forget to add your model to pubspec.yaml
 
 * For web usage, you will also need to enable CORS (Cross-Origin Resource Sharing) for your network resource. To enable CORS in Firebase, you can follow the guide in the Firebase documentation: [Setting up CORS](https://firebase.google.com/docs/storage/web/download-files#cors_configuration)
 
-  1) Loading from the network.
+  1) Loading from the network (loraUrl is optional).
 ```dart
-   await FlutterGemmaPlugin.instance.loadNetworkModel(url: 'https://example.com/model.bin');
+   await FlutterGemmaPlugin.instance.loadNetworkModel(url: 'https://example.com/model.bin', loraUrl: 'https://example.com/lora_weights.bin');
 ```
 
-  2) Loading froms the network with Progress Status
+  2) Loading froms the network with Progress Status (loraUrl is optional)
 ```dart
-    FlutterGemmaPlugin.instance.loadNetworkModelWithProgress(url: 'https://example.com/model.bin').listen(
+    FlutterGemmaPlugin.instance.loadNetworkModelWithProgress(url: 'https://example.com/model.bin', loraUrl: 'https://example.com/lora_weights.bin').listen(
     (progress) {
       print('Loading progress: $progress%');
     },
@@ -158,7 +159,7 @@ final flutterGemma = FlutterGemmaPlugin.instance;
 flutterGemma.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
 ```
 
-6.**Generate chat response** This method works properly only for instruction tuned models
+6.**Generate chat response** This method works properly only for instruction tuned (like gemma2b-it) models
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
@@ -172,7 +173,7 @@ String response = await flutterGemma.getChatResponse(messages: messages);
 print(response);
 ```
 
-7.**Generate chat response as a stream** This method works properly only for instruction tuned models
+7.**Generate chat response as a stream** This method works properly only for instruction tuned (like gemma2b-it) models
 
 ```dart
 final flutterGemma = FlutterGemmaPlugin.instance;
@@ -186,8 +187,5 @@ The full and complete example you can find in `example` folder
 **Important Considerations**
 
 * Larger models (like 7b and 7b-it) may be too resource-intensive for on-device use.
-
-**Coming Soon**
-
-* LoRA (Low Rank Adaptation) support
+* LoRA weights allow efficient customization without the need for full model retraining.
 

@@ -54,3 +54,5 @@
 ## 0.4.3
 - Upgraded Mediapipe to 0.10.20
 - Updated LoRA support
+## 0.4.4
+- Small fixes

@@ -152,19 +152,20 @@ class FlutterGemma extends FlutterGemmaPlugin {
       try {
         final directory = await getApplicationDocumentsDirectory();
         final loraPath = await isLoraLoaded ? '${directory.path}/$_loraPath' : null;
-        final result = await methodChannel.invokeMethod<bool>(
-              'init',
-              {
-                'modelPath': '${directory.path}/$_modelPath',
-                'maxTokens': maxTokens,
-                'temperature': temperature,
-                'randomSeed': randomSeed,
-                'topK': topK,
-                if(loraPath != null) 'supportedLoraRanks':  supportedLoraRanks,
-                'loraPath': loraPath,
-              },
-            ) ??
-            false;
+
+        final arguments = {
+          'modelPath': '${directory.path}/$_modelPath',
+          'maxTokens': maxTokens,
+          'temperature': temperature,
+          'randomSeed': randomSeed,
+          'topK': topK,
+          if (loraPath != null) ...{
+            'loraPath': loraPath,
+            'supportedLoraRanks': supportedLoraRanks,
+          },
+        };
+
+        final result = await methodChannel.invokeMethod<bool>('init', arguments) ?? false;
 
         if (result && !_initCompleter.isCompleted) {
           _initCompleter.complete(true);

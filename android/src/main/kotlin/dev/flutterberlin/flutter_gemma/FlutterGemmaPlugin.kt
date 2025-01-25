@@ -39,7 +39,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
         val modelPath = call.argument<String>("modelPath")!!
         val maxTokens = call.argument<Int>("maxTokens")!!
         val temperature = call.argument<Float>("temperature")!!
-        val randomSeed = call.argument<Int>("maxTokens")!!
+        val randomSeed = call.argument<Int>("randomSeed")!!
         val topK = call.argument<Int>("topK")!!
         val loraPath = call.argument<String?>("loraPath")
         val supportedLoraRanks = call.argument<List<Int>?>("supportedLoraRanks")

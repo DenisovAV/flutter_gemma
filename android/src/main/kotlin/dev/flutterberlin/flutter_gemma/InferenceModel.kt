@@ -47,13 +47,14 @@ class InferenceModel private constructor(
             val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
                 .setMaxTokens(maxTokens)
-                .setSupportedLoraRanks(supportedLoraRanks)
                 .setResultListener { result, done ->
                     _partialResults.tryEmit(result to done)
                 }
                 .setErrorListener { error ->
                     _errors.tryEmit(Exception(error.message))
                 }
+
+            supportedLoraRanks?.let { optionsBuilder.setSupportedLoraRanks(it) }
 
             val options = optionsBuilder.build()
             llmInference = LlmInference.createFromOptions(context, options)

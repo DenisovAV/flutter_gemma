@@ -169,4 +169,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       throw Exception("Gemma is not initialized yet");
     }
   }
+  
+  @override
+  Future<void> close() {
+    throw UnimplementedError();
+  }
 }

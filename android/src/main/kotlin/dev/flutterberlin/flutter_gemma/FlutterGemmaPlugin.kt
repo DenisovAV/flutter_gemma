@@ -21,7 +21,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
   private lateinit var channel : MethodChannel
   private lateinit var eventChannel: EventChannel
   private var eventSink: EventChannel.EventSink? = null
-  private lateinit var inferenceModel : InferenceModel
+  private var inferenceModel : InferenceModel? = null
   private lateinit var context : Context
   private val scope = CoroutineScope(Dispatchers.Main)
 
@@ -53,7 +53,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
     } else if (call.method == "getGemmaResponse") {
       try {
         val prompt = call.argument<String>("prompt")!!
-        val answer = inferenceModel.generateResponse(prompt)
+        val answer = inferenceModel?.generateResponse(prompt)
         result.success(answer)
       } catch (e: Exception) {
         result.error("ERROR", "Failed to get gemma response", e.localizedMessage)
@@ -61,12 +61,16 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
     } else if (call.method == "getGemmaResponseAsync") {
       try {
         val prompt = call.argument<String>("prompt")!!
-        inferenceModel.generateResponseAsync(prompt)
+        inferenceModel?.generateResponseAsync(prompt)
         result.success(null)
       } catch (e: Exception) {
         result.error("ERROR", e.localizedMessage, null)
       }
-    } else {
+    } else if (call.method == "close") {
+      inferenceModel?.close()
+      inferenceModel = null
+    }
+    else {
       result.notImplemented()
     }
   }
@@ -76,7 +80,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
     scope.launch {
 
       launch {
-        inferenceModel.partialResults.collect { pair ->
+        inferenceModel?.partialResults?.collect { pair ->
           if (pair.second) {
             events?.success(pair.first)
             events?.success(null)
@@ -87,7 +91,7 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
       }
 
       launch {
-        inferenceModel.errors.collect { error ->
+        inferenceModel?.errors?.collect { error ->
           events?.error("ERROR", error.message, null)
         }
       }

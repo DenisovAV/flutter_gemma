@@ -16,12 +16,6 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   static FlutterGemmaPlugin _instance = FlutterGemma();
 
-  Future<bool> get isInitialized;
-
-  Future<bool> get isLoaded;
-
-  Future<bool> get isLoraLoaded;
-
   /// The default instance of [FlutterGemmaPlugin] to use.
   ///
   /// Defaults to [FlutterGemma].
@@ -35,6 +29,32 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     _instance = instance;
   }
 
+  ModelManager get modelManager;
+
+  /// Returns [InferenceModel] instance created by [init] method.
+  InferenceModel? get initializedModel;
+
+  /// Initialize loaded model and return [InferenceModel] instance.
+  ///
+  /// [InferenceModel] should be used to get responses from the model.
+  /// It can be obtained from the [initializedModel] getter after initialization.
+  ///
+  /// Only one model can be initialized at a time.
+  /// To initialize a new model, call [InferenceModel.close] first.
+  Future<InferenceModel> init({
+    int maxTokens,
+    double temperature,
+    int randomSeed,
+    int topK,
+  });
+}
+
+abstract class ModelManager {
+  Future<bool> get isLoaded;
+
+  Future<bool> get isLoraLoaded;
+
+  /// For development purposes only. Works only in debug mode.
   Future<void> loadAssetModel({required String fullPath, String? loraPath});
 
   Future<void> loadAssetLoraWeights({required String loraPath});
@@ -47,24 +67,26 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl});
 
-  Future<void> init({
-    int maxTokens,
-    double temperature,
-    int randomSeed,
-    int topK,
-  });
+  Future<void> deleteModel();
+}
 
-  Future<String?> getResponse({required String prompt});
+abstract class InferenceModel {
+  Future<String> getResponse({required String prompt});
 
-  Stream<String?> getResponseAsync({required String prompt});
+  Stream<String> getResponseAsync({required String prompt});
 
-  //These methods works fine with instruction tuned models only
-  Future<String?> getChatResponse({required Iterable<Message> messages, int chatContextLength = 3}) =>
+  /// These methods works fine with instruction tuned models only
+  Future<String> getChatResponse({
+    required Iterable<Message> messages,
+    int chatContextLength = 3,
+  }) =>
       getResponse(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
 
-  Stream<String?> getChatResponseAsync({required Iterable<Message> messages, int chatContextLength = 3}) {
-    return getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
-  }
+  Stream<String> getChatResponseAsync({
+    required Iterable<Message> messages,
+    int chatContextLength = 3,
+  }) =>
+      getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
 
   /// Closes and cleans up the llm inference.
   /// This method should be called when the inference is no longer needed.

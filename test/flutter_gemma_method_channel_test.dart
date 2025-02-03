@@ -24,6 +24,6 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    expect(await platform.getResponse(prompt: 'prompt'), 'response');
+    expect(await (await platform.init()).getResponse(prompt: 'prompt'), 'response');
   });
 }

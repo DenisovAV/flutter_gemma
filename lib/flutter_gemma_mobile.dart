@@ -10,27 +10,93 @@ import 'flutter_gemma.dart';
 const _modelPath = 'model.bin';
 const _loraPath = 'lora.bin';
 
-class FlutterGemma extends FlutterGemmaPlugin {
-  @visibleForTesting
-  final methodChannel = const MethodChannel('flutter_gemma');
-  @visibleForTesting
-  final eventChannel = const EventChannel('flutter_gemma_stream');
+@visibleForTesting
+const methodChannel = MethodChannel('flutter_gemma');
+@visibleForTesting
+const eventChannel = EventChannel('flutter_gemma_stream');
 
-  Completer<bool> _initCompleter = Completer<bool>();
+class FlutterGemma extends FlutterGemmaPlugin {
+  Completer<InferenceModel>? _initCompleter;
+  InferenceModel? _initializedModel;
+
+  @override
+  final modelManager = MobileModelManager();
+
+  @override
+  InferenceModel? get initializedModel => _initializedModel;
+
+  @override
+  Future<InferenceModel> init({
+    int maxTokens = 1024,
+    double temperature = 1.0,
+    int randomSeed = 1,
+    int topK = 1,
+  }) async {
+    if (_initCompleter case Completer<InferenceModel> completer) {
+      return completer.future;
+    }
+    final completer = _initCompleter = Completer<InferenceModel>();
+    if (await modelManager.isLoaded) {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        final loraPath = await modelManager.isLoraLoaded ? '${directory.path}/$_loraPath' : null;
+
+        final arguments = {
+          'modelPath': '${directory.path}/$_modelPath',
+          'maxTokens': maxTokens,
+          'temperature': temperature,
+          'randomSeed': randomSeed,
+          'topK': topK,
+          if (loraPath != null) ...{
+            'loraPath': loraPath,
+            'supportedLoraRanks': supportedLoraRanks,
+          },
+        };
+
+        final result = await methodChannel.invokeMethod<bool>('init', arguments) ?? false;
+        if (!result) {
+          throw Exception('Initialization failed');
+        }
+        final model = _initializedModel = MobileInferenceModel(
+          onClose: () {
+            _initializedModel = null;
+            _initCompleter = null;
+          },
+        );
+        completer.complete(model);
+        return model;
+      } catch (e, st) {
+        completer.completeError(e, st);
+        Error.throwWithStackTrace(e, st);
+      }
+    } else {
+      throw Exception(
+        'Gemma Model is not loaded yet. User the `modelManager` to load the model first',
+      );
+    }
+  }
+}
+
+class MobileModelManager extends ModelManager {
   Completer<bool>? _loadCompleter;
   final _largeFileHandler = LargeFileHandler();
 
   @override
-  Future<bool> get isInitialized => _initCompleter.future;
+  Future<void> deleteModel() {
+    throw UnimplementedError();
+  }
 
   @override
-  Future<bool> get isLoaded async =>
-      _loadCompleter != null ? await _loadCompleter!.future : await _largeFileHandler.fileExists(targetPath: _modelPath);
+  Future<bool> get isLoaded async => _loadCompleter != null
+      ? await _loadCompleter!.future
+      : await _largeFileHandler.fileExists(targetPath: _modelPath);
 
   @override
-  Future<bool> get isLoraLoaded async => await isLoaded && await _largeFileHandler.fileExists(targetPath: _loraPath);
+  Future<bool> get isLoraLoaded async =>
+      await isLoaded && await _largeFileHandler.fileExists(targetPath: _loraPath);
 
-  Future<void> _loadNetwork(String url, String target) => _largeFileHandler.copyNetworkAssetToLocalStorage(
+  Future<void> _loadNetwork(String url, String target) =>
+      _largeFileHandler.copyNetworkAssetToLocalStorage(
         assetUrl: url,
         targetPath: target,
       );
@@ -40,12 +106,14 @@ class FlutterGemma extends FlutterGemmaPlugin {
         targetPath: target,
       );
 
-  Stream<int> _streamNetwork(String url, String target) => _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
+  Stream<int> _streamNetwork(String url, String target) =>
+      _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
         assetUrl: url,
         targetPath: target,
       );
 
-  Stream<int> _streamAsset(String path, String target) => _largeFileHandler.copyAssetToLocalStorageWithProgress(
+  Stream<int> _streamAsset(String path, String target) =>
+      _largeFileHandler.copyAssetToLocalStorageWithProgress(
         assetName: path,
         targetPath: target,
       );
@@ -94,7 +162,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Future<void> loadAssetLoraWeights({required String loraPath}) => _loadAsset(loraPath, _loraPath);
 
   @override
-  Future<void> loadNetworkLoraWeights({required String loraUrl}) => _loadNetwork(loraUrl, _loraPath);
+  Future<void> loadNetworkLoraWeights({required String loraUrl}) =>
+      _loadNetwork(loraUrl, _loraPath);
 
   @override
   Future<void> loadAssetModel({required String fullPath, String? loraPath}) async {
@@ -121,7 +190,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
   @override
   Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
     return _loadModelWithProgress(
         loadFunction: () => _streamAsset(
@@ -140,107 +210,68 @@ class FlutterGemma extends FlutterGemmaPlugin {
             ),
         postLoadFunction: loraUrl != null ? () => _loadNetwork(loraUrl, _loraPath) : null);
   }
+}
 
-  @override
-  Future<void> init({
-    int maxTokens = 1024,
-    double temperature = 1.0,
-    int randomSeed = 1,
-    int topK = 1,
-  }) async {
-    if (await isLoaded) {
-      try {
-        final directory = await getApplicationDocumentsDirectory();
-        final loraPath = await isLoraLoaded ? '${directory.path}/$_loraPath' : null;
+class MobileInferenceModel extends InferenceModel {
+  final VoidCallback onClose;
+  bool _isClosed = false;
 
-        final arguments = {
-          'modelPath': '${directory.path}/$_modelPath',
-          'maxTokens': maxTokens,
-          'temperature': temperature,
-          'randomSeed': randomSeed,
-          'topK': topK,
-          if (loraPath != null) ...{
-            'loraPath': loraPath,
-            'supportedLoraRanks': supportedLoraRanks,
-          },
-        };
+  MobileInferenceModel({required this.onClose});
 
-        final result = await methodChannel.invokeMethod<bool>('init', arguments) ?? false;
-
-        if (result && !_initCompleter.isCompleted) {
-          _initCompleter.complete(true);
-        } else if (!_initCompleter.isCompleted) {
-          _initCompleter.completeError('Initialization failed');
-        }
-      } on PlatformException catch (e) {
-        if (!_initCompleter.isCompleted) {
-          _initCompleter.completeError('Platform error: ${e.message}');
-        }
-      } catch (e) {
-        if (!_initCompleter.isCompleted) {
-          _initCompleter.completeError('Error: $e');
-        }
-      }
-    } else {
-      throw Exception('Gemma is not loaded yet');
+  void _assertNotClosed() {
+    if (_isClosed) {
+      throw Exception('Model is closed. Create a new instance to use it again');
     }
   }
 
   @override
-  Future<String?> getResponse({required String prompt}) async {
-    if (_initCompleter.isCompleted) {
-      try {
-        return await methodChannel.invokeMethod<String>('getGemmaResponse', {'prompt': prompt});
-      } on PlatformException catch (e) {
-        throw Exception('Platform error: ${e.message}');
-      } catch (e) {
-        throw Exception('Error: $e');
-      }
-    } else {
-      throw Exception('Gemma is not initialized yet');
+  Future<String> getResponse({required String prompt}) async {
+    _assertNotClosed();
+    final response = await methodChannel.invokeMethod<String>(
+      'getGemmaResponse',
+      {'prompt': prompt},
+    );
+    if (response == null) {
+      throw Exception('Response is null. This should not happen');
     }
+    return response;
   }
 
   @override
-  Stream<String?> getResponseAsync({required String prompt}) {
-    if (_initCompleter.isCompleted) {
-      final StreamController<String?> controller = StreamController<String?>();
+  Stream<String> getResponseAsync({required String prompt}) {
+    final StreamController<String> controller = StreamController<String>();
 
-      eventChannel.receiveBroadcastStream().listen(
-        (event) {
-          if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
-            controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
-          } else {
-            controller.add(event as String?);
-          }
-        },
-        onError: (error) {
-          controller.addError(Exception('Stream error: $error'));
-        },
-        onDone: controller.close,
-      );
-
-      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((error) {
-        if (error is PlatformException) {
-          controller.addError(Exception('Platform error: ${error.message}'));
+    eventChannel.receiveBroadcastStream().listen(
+      (event) {
+        if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
+          controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+        } else if (event is String) {
+          controller.add(event);
         } else {
-          controller.addError(Exception('Unknown invoke error: $error'));
+          controller.addError(Exception('Unknown event type: $event'));
         }
-      });
+      },
+      onError: (error, st) {
+        controller.addError(error, st);
+      },
+      onDone: controller.close,
+    );
 
-      return controller.stream;
-    } else {
-      throw Exception('Gemma is not initialized yet');
-    }
+    methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((error) {
+      if (error is PlatformException) {
+        controller.addError(Exception('Platform error: ${error.message}'));
+      } else {
+        controller.addError(Exception('Unknown invoke error: $error'));
+      }
+    });
+
+    return controller.stream;
   }
-  
+
   @override
   Future<void> close() async {
-    if (_initCompleter.isCompleted) {
-      await methodChannel.invokeMethod('close');
-      _initCompleter = Completer<bool>();
-    } else {
-      throw Exception('Gemma is not initialized yet');
-    }
+    _isClosed = true;
+    onClose();
+    await methodChannel.invokeMethod('close');
   }
 }

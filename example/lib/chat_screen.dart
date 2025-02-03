@@ -11,6 +11,7 @@ class ChatScreen extends StatefulWidget {
 }
 
 class ChatScreenState extends State<ChatScreen> {
+  final _gemma = FlutterGemmaPlugin.instance;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
   int? _loadingProgress;
@@ -23,9 +24,10 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeModel() async {
-    bool isLoaded = await FlutterGemmaPlugin.instance.isLoaded;
+    bool isLoaded = await _gemma.modelManager.isLoaded;
     if (!isLoaded) {
-      await for (int progress in FlutterGemmaPlugin.instance.loadAssetModelWithProgress(fullPath: 'model.bin')) {
+      await for (int progress
+          in _gemma.modelManager.loadAssetModelWithProgress(fullPath: 'model.bin')) {
         setState(() {
           _loadingProgress = progress;
         });

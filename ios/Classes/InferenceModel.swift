@@ -4,7 +4,7 @@ import MediaPipeTasksGenAIC
 
 
 struct InferenceModel {
-    private (set) var inference: LlmInference
+    private(set) var inference: LlmInference
 
     init(maxTokens: Int, supportedLoraRanks: [Int]?) throws {
         let fileManager = FileManager.default

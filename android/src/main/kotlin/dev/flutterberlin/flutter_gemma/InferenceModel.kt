@@ -40,6 +40,7 @@ class InferenceModel private constructor(
         get() = File(modelPath).exists()
 
     init {
+        println("Creating model")
         if (!modelExists) {
             throw IllegalArgumentException("Model not found at path: $modelPath")
         }
@@ -57,6 +58,7 @@ class InferenceModel private constructor(
             supportedLoraRanks?.let { optionsBuilder.setSupportedLoraRanks(it) }
 
             val options = optionsBuilder.build()
+            println("Creating inference")
             llmInference = LlmInference.createFromOptions(context, options)
 
             val sessionOptionsBuilder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
@@ -67,9 +69,9 @@ class InferenceModel private constructor(
             loraPath?.let { sessionOptionsBuilder.setLoraPath(it) }
 
             val sessionOptions = sessionOptionsBuilder.build()
-
+            println("Creating session")
             session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
-
+            println("Model is created")
         } catch (e: Exception) {
             throw RuntimeException("Failed to initialize LlmInference or Session: ${e.message}", e)
         }
@@ -92,6 +94,14 @@ class InferenceModel private constructor(
         } catch (e: Exception) {
             _errors.tryEmit(e)
         }
+    }
+
+    fun close() {
+        println("Model is closing")
+        session?.close()
+        llmInference.close()
+        instance = null
+        println("Model is closed")
     }
 
 

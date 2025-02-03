@@ -94,6 +94,9 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
           FlutterError(
             code: "INVALID_ARGUMENTS", message: "Invalid arguments provided", details: nil))
       }
+    case "close":
+        inferenceController?.close()
+        inferenceController = nil
 
     default:
       result(FlutterMethodNotImplemented)

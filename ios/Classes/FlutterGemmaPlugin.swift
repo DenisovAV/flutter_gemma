@@ -121,7 +121,6 @@ extension FlutterGemmaPlugin: FlutterStreamHandler {
               events(token)
             case .failure(let error):
               events(FlutterError(code: "ERROR", message: error.localizedDescription, details: nil))
-              events(nil)
             }
           }
         }

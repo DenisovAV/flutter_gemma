@@ -83,7 +83,6 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
         inferenceModel?.partialResults?.collect { pair ->
           if (pair.second) {
             events?.success(pair.first)
-            events?.success(null)
           } else {
             events?.success(pair.first)
           }

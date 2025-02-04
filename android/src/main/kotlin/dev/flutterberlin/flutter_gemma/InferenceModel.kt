@@ -67,9 +67,7 @@ class InferenceModel private constructor(
             loraPath?.let { sessionOptionsBuilder.setLoraPath(it) }
 
             val sessionOptions = sessionOptionsBuilder.build()
-
             session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
-
         } catch (e: Exception) {
             throw RuntimeException("Failed to initialize LlmInference or Session: ${e.message}", e)
         }
@@ -92,6 +90,12 @@ class InferenceModel private constructor(
         } catch (e: Exception) {
             _errors.tryEmit(e)
         }
+    }
+
+    fun close() {
+        session?.close()
+        llmInference.close()
+        instance = null
     }
 
 

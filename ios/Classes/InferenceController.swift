@@ -55,6 +55,11 @@ class InferenceController {
         }
     }
     
+    func close() {
+        inferenceModel = nil
+        inferenceSession = nil
+    }
+    
     func finishStream() {
         continuation?.finish()
     }

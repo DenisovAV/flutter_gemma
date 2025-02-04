@@ -111,7 +111,7 @@ class WebInferenceModel extends InferenceModel {
   }
 }
 
-class WebModelManager extends ModelManager {
+class WebModelManager extends ModelFileManager {
   Completer<bool>? _loadCompleter;
   String? _path;
   String? _loraPath;
@@ -154,41 +154,41 @@ class WebModelManager extends ModelManager {
   }
 
   @override
-  Future<void> loadAssetLoraWeights({required String loraPath}) async {
-    _loraPath = 'assets/$loraPath';
+  Future<void> loadLoraWeightsFromAsset(String path) async {
+    _loraPath = 'assets/$path';
   }
 
   @override
-  Future<void> loadNetworkLoraWeights({required String loraUrl}) async {
+  Future<void> loadLoraWeightsFromNetwork(String loraUrl) async {
     _loraPath = loraUrl;
   }
 
   @override
-  Future<void> loadAssetModel({required String fullPath, String? loraPath}) async {
+  Future<void> loadModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
       throw UnsupportedError(
           "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    await _loadModel('assets/$fullPath', loraPath != null ? 'assets/$loraPath' : null);
+    await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
-  Future<void> loadNetworkModel({required String url, String? loraUrl}) async {
+  Future<void> loadModelFromNetwork(String url, {String? loraUrl}) async {
     await _loadModel(url, loraUrl);
   }
 
   @override
-  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl}) {
+  Stream<int> loadModelFromNetworkWithProgress(String url, {String? loraUrl}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath}) {
+  Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath}) {
     if (kReleaseMode) {
       throw UnsupportedError(
           "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    return _loadModelWithProgress('assets/$fullPath', loraPath != null ? 'assets/$loraPath' : null);
+    return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
@@ -201,6 +201,19 @@ class WebModelManager extends ModelManager {
   @override
   Future<void> deleteLoraWeights() {
     _loraPath = null;
+    return Future.value();
+  }
+
+  @override
+  Future<void> setLoraWeightsPath(String path) {
+    _loraPath = path;
+    return Future.value();
+  }
+
+  @override
+  Future<void> setModelPath(String path, {String? loraPath}) {
+    _path = path;
+    _loraPath = loraPath;
     return Future.value();
   }
 }

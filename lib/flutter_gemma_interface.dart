@@ -29,7 +29,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     _instance = instance;
   }
 
-  ModelManager get modelManager;
+  ModelFileManager get modelManager;
 
   /// Returns [InferenceModel] instance created by [init] method.
   InferenceModel? get initializedModel;
@@ -49,10 +49,22 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   });
 }
 
-abstract class ModelManager {
+abstract class ModelFileManager {
   Future<bool> get isModelLoaded;
 
   Future<bool> get isLoraLoaded;
+
+  /// Sets the path to the model and lora weights files.
+  /// Use this method to manage the files manually.
+  ///
+  /// {@macro gemma.load_model}
+  Future<void> setModelPath(String path, {String? loraPath});
+
+  /// Sets the path to the lora weights file.
+  /// Use this method to manage the lora weights file manually.
+  ///
+  /// {@macro gemma.load_weights}
+  Future<void> setLoraWeightsPath(String path);
 
   /// Loads the model and lora weights from the network.
   ///
@@ -63,12 +75,12 @@ abstract class ModelManager {
   ///
   /// To reload the model, call [deleteModel] first. To reload the lora weights, call [deleteLoraWeights] first.
   /// {@endtemplate}
-  Future<void> loadNetworkModel({required String url, String? loraUrl});
+  Future<void> loadModelFromNetwork(String url, {String? loraUrl});
 
   /// Loads the model and lora weights from the network with progress.
   ///
   /// {@macro gemma.load_model}
-  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl});
+  Stream<int> loadModelFromNetworkWithProgress(String url, {String? loraUrl});
 
   /// Loads the lora weights from the network.
   ///
@@ -77,7 +89,7 @@ abstract class ModelManager {
   ///
   /// To reload the lora weights, call [deleteLoraWeights] first.
   /// {@endtemplate}
-  Future<void> loadNetworkLoraWeights({required String loraUrl});
+  Future<void> loadLoraWeightsFromNetwork(String loraUrl);
 
   /// Loads the model and lora weights from the asset.
   ///
@@ -87,21 +99,21 @@ abstract class ModelManager {
   /// This method should be used only for development purpose.
   /// Never embed neither model nor lora weights in the production app.
   /// {@endtemplate}
-  Future<void> loadAssetModel({required String fullPath, String? loraPath});
+  Future<void> loadModelFromAsset(String path, {String? loraPath});
 
   /// Loads the lora weights from the asset.
   ///
   /// {@macro gemma.load_weights}
   ///
   /// {@macro gemma.asset_model}
-  Future<void> loadAssetLoraWeights({required String loraPath});
+  Future<void> loadLoraWeightsFromAsset(String path);
 
   /// Loads the model and lora weights from the asset with progress.
   ///
   /// {@macro gemma.load_model}
   ///
   /// {@macro gemma.asset_model}
-  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath});
+  Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath});
 
   /// Deletes the loaded model. Nothing happens if the model is not loaded.
   ///
@@ -114,9 +126,21 @@ abstract class ModelManager {
   Future<void> deleteLoraWeights();
 }
 
+/// Inference model for generating responses from the LLM.
 abstract class InferenceModel {
+  /// Generates a response for the given prompt.
+  ///
+  /// {@template gemma.response}
+  /// Only one response can be generated at a time.
+  /// But it is safe to call this method multiple times. It will wait for the previous response to be generated.
+  /// {@endtemplate}
   Future<String> getResponse({required String prompt});
 
+  /// Generates a response for the given prompt. Returns a stream of tokens as they are generated.
+  /// 
+  /// Stream will be closed when the response is generated.
+  /// 
+  /// {@macro gemma.response}
   Stream<String> getResponseAsync({required String prompt});
 
   /// These methods works fine with instruction tuned models only
@@ -133,7 +157,9 @@ abstract class InferenceModel {
       getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
 
   /// Closes and cleans up the llm inference.
-  /// This method should be called when the inference is no longer needed.
-  /// [init] should be called again to use the inference.
+  ///
+  /// Call this method when the inference is no longer needed or to stop the response generation.
+  ///
+  /// [FlutterGemmaPlugin.init] should be called again to use a new [InferenceModel].
   Future<void> close();
 }

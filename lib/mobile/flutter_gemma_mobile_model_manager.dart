@@ -173,18 +173,31 @@ class MobileModelManager extends ModelFileManager {
 
   @override
   Future<void> deleteLoraWeights() async {
-    final lora = await _loraFile;
-    if (await lora.exists()) {
-      await lora.delete();
+    _loraCompleter = null;
+    if (_userSetLoraPath != null) {
+      onDeleteLora();
+      _userSetLoraPath = null;
+    } else {
+      final lora = await _loraFile;
+      if (await lora.exists()) {
+        onDeleteLora();
+        await lora.delete();
+      }
     }
   }
 
   @override
   Future<void> deleteModel() async {
-    final model = await _modelFile;
-    if (await model.exists()) {
+    _modelCompleter = null;
+    if (_userSetModelPath != null) {
       await onDeleteModel();
-      await model.delete();
+      _userSetModelPath = null;
+    } else {
+      final model = await _modelFile;
+      if (await model.exists()) {
+        await onDeleteModel();
+        await model.delete();
+      }
     }
   }
 }

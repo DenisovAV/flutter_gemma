@@ -78,11 +78,11 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
     eventSink = events
     scope.launch {
-
       launch {
         inferenceModel?.partialResults?.collect { pair ->
           if (pair.second) {
             events?.success(pair.first)
+            events?.endOfStream()
           } else {
             events?.success(pair.first)
           }

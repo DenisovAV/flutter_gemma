@@ -1,6 +1,6 @@
 part of 'flutter_gemma_mobile.dart';
 
-class MobileModelManager extends ModelManager {
+class MobileModelManager extends ModelFileManager {
   MobileModelManager({
     required this.onDeleteModel,
     required this.onDeleteLora,
@@ -12,15 +12,20 @@ class MobileModelManager extends ModelManager {
   final _largeFileHandler = LargeFileHandler();
   late final _docsDirectory = getApplicationDocumentsDirectory();
 
+  String? _userSetModelPath;
+  String? _userSetLoraPath;
+
   Completer<bool>? _modelCompleter;
   Completer<bool>? _loraCompleter;
 
   Future<File> get _modelFile async {
+    if (_userSetModelPath case String path) return File(path);
     final directory = await _docsDirectory;
     return File('${directory.path}/$_modelPath');
   }
 
   Future<File> get _loraFile async {
+    if (_userSetLoraPath case String path) return File(path);
     final directory = await _docsDirectory;
     return File('${directory.path}/$_loraPath');
   }
@@ -81,16 +86,16 @@ class MobileModelManager extends ModelManager {
   }
 
   @override
-  Future<void> loadAssetLoraWeights({required String loraPath}) {
-    return _loadLora(() => _loadAsset(loraPath, _loraPath));
+  Future<void> loadLoraWeightsFromAsset(String path) {
+    return _loadLoraIfNeeded(() => _loadAsset(path, _loraPath));
   }
 
   @override
-  Future<void> loadNetworkLoraWeights({required String loraUrl}) {
-    return _loadLora(() => _loadNetwork(loraUrl, _loraPath));
+  Future<void> loadLoraWeightsFromNetwork(String loraUrl) {
+    return _loadLoraIfNeeded(() => _loadNetwork(loraUrl, _loraPath));
   }
 
-  Future<void> _loadModel(AsyncCallback loadCallback) async {
+  Future<void> _loadModelIfNeeded(AsyncCallback loadCallback) async {
     if (await _shouldLoadModel) {
       final completer = _modelCompleter = Completer<bool>();
       completer.complete(loadCallback().then((_) => true));
@@ -98,7 +103,7 @@ class MobileModelManager extends ModelManager {
     }
   }
 
-  Stream<int> _loadModelWithProgress(Stream<int> Function() loadCallback) async* {
+  Stream<int> _loadModelWithProgressIfNeeded(Stream<int> Function() loadCallback) async* {
     if (await _shouldLoadModel) {
       final completer = _modelCompleter = Completer<bool>();
       try {
@@ -113,7 +118,7 @@ class MobileModelManager extends ModelManager {
     }
   }
 
-  Future<void> _loadLora(AsyncCallback loadCallback) async {
+  Future<void> _loadLoraIfNeeded(AsyncCallback loadCallback) async {
     if (await _shouldLoadLora) {
       final completer = _loraCompleter = Completer<bool>();
       completer.complete(loadCallback().then((_) => true));
@@ -122,34 +127,47 @@ class MobileModelManager extends ModelManager {
   }
 
   @override
-  Future<void> loadAssetModel({required String fullPath, String? loraPath}) async {
+  Future<void> setModelPath(String path, {String? loraPath}) async {
     await Future.wait([
-      _loadModel(() => _loadAsset(fullPath, _modelPath)),
-      if (loraPath != null) _loadLora(() => _loadAsset(loraPath, _loraPath)),
+      _loadModelIfNeeded(() async => _userSetModelPath = path),
+      if (loraPath != null) _loadLoraIfNeeded(() async => _userSetLoraPath = loraPath),
     ]);
   }
 
   @override
-  Future<void> loadNetworkModel({required String url, String? loraUrl}) async {
+  Future<void> setLoraWeightsPath(String path) {
+    return _loadLoraIfNeeded(() async => _userSetLoraPath = path);
+  }
+
+  @override
+  Future<void> loadModelFromAsset(String path, {String? loraPath}) async {
     await Future.wait([
-      _loadModel(() => _loadNetwork(url, _modelPath)),
-      if (loraUrl != null) _loadLora(() => _loadAsset(loraUrl, _loraPath)),
+      _loadModelIfNeeded(() => _loadAsset(path, _modelPath)),
+      if (loraPath != null) _loadLoraIfNeeded(() => _loadAsset(loraPath, _loraPath)),
     ]);
   }
 
   @override
-  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath}) async* {
-    yield* _loadModelWithProgress(() => _streamAsset(fullPath, _modelPath));
+  Future<void> loadModelFromNetwork(String url, {String? loraUrl}) async {
+    await Future.wait([
+      _loadModelIfNeeded(() => _loadNetwork(url, _modelPath)),
+      if (loraUrl != null) _loadLoraIfNeeded(() => _loadAsset(loraUrl, _loraPath)),
+    ]);
+  }
+
+  @override
+  Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath}) async* {
+    yield* _loadModelWithProgressIfNeeded(() => _streamAsset(path, _modelPath));
     if (loraPath != null) {
-      await loadAssetLoraWeights(loraPath: loraPath);
+      await loadLoraWeightsFromAsset(loraPath);
     }
   }
 
   @override
-  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl}) async* {
-    yield* _loadModelWithProgress(() => _streamNetwork(url, _modelPath));
+  Stream<int> loadModelFromNetworkWithProgress(String url, {String? loraUrl}) async* {
+    yield* _loadModelWithProgressIfNeeded(() => _streamNetwork(url, _modelPath));
     if (loraUrl != null) {
-      await loadNetworkLoraWeights(loraUrl: loraUrl);
+      await loadLoraWeightsFromNetwork(loraUrl);
     }
   }
 

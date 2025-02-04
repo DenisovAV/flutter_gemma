@@ -114,11 +114,14 @@ extension FlutterGemmaPlugin: FlutterStreamHandler {
     if let viewModel = inferenceController {
       Task {
         for await result in viewModel.eventStream {
-
           DispatchQueue.main.async {
             switch result {
             case .success(let token):
-              events(token)
+              if (token == nil) {
+                events(FlutterEndOfEventStream)
+              } else {
+                events(token)
+              }
             case .failure(let error):
               events(FlutterError(code: "ERROR", message: error.localizedDescription, details: nil))
             }

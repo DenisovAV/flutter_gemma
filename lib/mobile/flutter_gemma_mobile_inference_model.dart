@@ -1,10 +1,12 @@
 part of 'flutter_gemma_mobile.dart';
 
 class MobileInferenceModel extends InferenceModel {
+  MobileInferenceModel({required this.onClose});
+
   final VoidCallback onClose;
   bool _isClosed = false;
-
-  MobileInferenceModel({required this.onClose});
+  Completer<void>? _responseCompleter;
+  StreamController<String>? _asyncResponseController;
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -12,54 +14,74 @@ class MobileInferenceModel extends InferenceModel {
     }
   }
 
-  @override
-  Future<String> getResponse({required String prompt}) async {
-    _assertNotClosed();
-    final response = await methodChannel.invokeMethod<String>(
-      'getGemmaResponse',
-      {'prompt': prompt},
-    );
-    if (response == null) {
-      throw Exception('Response is null. This should not happen');
+  Future<void> _awaitLastResponse() async {
+    if (_responseCompleter case Completer<void> completer) {
+      await completer.future;
     }
-    return response;
   }
 
   @override
-  Stream<String> getResponseAsync({required String prompt}) {
-    final StreamController<String> controller = StreamController<String>();
-
-    eventChannel.receiveBroadcastStream().listen(
-      (event) {
-        if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
-          controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
-        } else if (event is String) {
-          controller.add(event);
-        } else {
-          controller.addError(Exception('Unknown event type: $event'));
-        }
-      },
-      onError: (error, st) {
-        controller.addError(error, st);
-      },
-      onDone: controller.close,
-    );
-
-    methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((error) {
-      if (error is PlatformException) {
-        controller.addError(Exception('Platform error: ${error.message}'));
-      } else {
-        controller.addError(Exception('Unknown invoke error: $error'));
+  Future<String> getResponse({required String prompt}) async {
+    _assertNotClosed();
+    await _awaitLastResponse();
+    final completer = _responseCompleter = Completer<void>();
+    try {
+      final response = await methodChannel.invokeMethod<String>(
+        'getGemmaResponse',
+        {'prompt': prompt},
+      );
+      if (response == null) {
+        throw Exception('Response is null. This should not happen');
       }
-    });
+      return response;
+    } finally {
+      completer.complete();
+    }
+  }
 
-    return controller.stream;
+  @override
+  Stream<String> getResponseAsync({required String prompt}) async* {
+    _assertNotClosed();
+    await _awaitLastResponse();
+    final completer = _responseCompleter = Completer<void>();
+    try {
+      final controller = _asyncResponseController = StreamController<String>();
+      eventChannel.receiveBroadcastStream().listen(
+        (event) {
+          if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
+            controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+          } else if (event is String) {
+            controller.add(event);
+          } else {
+            controller.addError(Exception('Unknown event type: $event'));
+          }
+        },
+        onError: (error, st) {
+          controller.addError(error, st);
+        },
+        onDone: controller.close,
+      );
+
+      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((error) {
+        if (error is PlatformException) {
+          controller.addError(Exception('Platform error: ${error.message}'));
+        } else {
+          controller.addError(Exception('Unknown invoke error: $error'));
+        }
+      });
+
+      yield* controller.stream;
+    } finally {
+      completer.complete();
+      _asyncResponseController = null;
+    }
   }
 
   @override
   Future<void> close() async {
     _isClosed = true;
     onClose();
+    _asyncResponseController?.close();
     await methodChannel.invokeMethod('close');
   }
 }

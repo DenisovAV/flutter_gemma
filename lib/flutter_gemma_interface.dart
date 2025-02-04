@@ -65,4 +65,9 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Stream<String?> getChatResponseAsync({required Iterable<Message> messages, int chatContextLength = 3}) {
     return getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
   }
+
+  /// Closes and cleans up the llm inference.
+  /// This method should be called when the inference is no longer needed.
+  /// [init] should be called again to use the inference.
+  Future<void> close();
 }

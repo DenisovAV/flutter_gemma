@@ -16,7 +16,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
   @visibleForTesting
   final eventChannel = const EventChannel('flutter_gemma_stream');
 
-  final Completer<bool> _initCompleter = Completer<bool>();
+  Completer<bool> _initCompleter = Completer<bool>();
   Completer<bool>? _loadCompleter;
   final _largeFileHandler = LargeFileHandler();
 
@@ -229,6 +229,16 @@ class FlutterGemma extends FlutterGemmaPlugin {
       });
 
       return controller.stream;
+    } else {
+      throw Exception('Gemma is not initialized yet');
+    }
+  }
+  
+  @override
+  Future<void> close() async {
+    if (_initCompleter.isCompleted) {
+      await methodChannel.invokeMethod('close');
+      _initCompleter = Completer<bool>();
     } else {
       throw Exception('Gemma is not initialized yet');
     }

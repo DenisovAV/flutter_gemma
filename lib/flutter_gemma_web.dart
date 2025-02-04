@@ -25,7 +25,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<InferenceModel> init({
     int maxTokens = 1024,
-    temperature = 1.0,
+    temperature = .8,
     randomSeed = 1,
     topK = 1,
     List<int>? supportedLoraRanks,
@@ -117,10 +117,11 @@ class WebModelManager extends ModelManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelLoaded async =>
+      _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
-  Future<bool> get isLoraLoaded async => await isLoaded;
+  Future<bool> get isLoraLoaded async => await isModelLoaded;
 
   Future<void> _loadModel(String path, String? loraPath) async {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
@@ -192,9 +193,14 @@ class WebModelManager extends ModelManager {
 
   @override
   Future<void> deleteModel() {
-    _loraPath = null;
     _path = null;
     _loadCompleter = null;
+    return Future.value();
+  }
+
+  @override
+  Future<void> deleteLoraWeights() {
+    _loraPath = null;
     return Future.value();
   }
 }

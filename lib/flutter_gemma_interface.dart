@@ -4,7 +4,7 @@ import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'flutter_gemma_mobile.dart';
+import 'mobile/flutter_gemma_mobile.dart';
 
 const supportedLoraRanks = [4, 8, 16];
 
@@ -50,24 +50,68 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 }
 
 abstract class ModelManager {
-  Future<bool> get isLoaded;
+  Future<bool> get isModelLoaded;
 
   Future<bool> get isLoraLoaded;
 
-  /// For development purposes only. Works only in debug mode.
-  Future<void> loadAssetModel({required String fullPath, String? loraPath});
-
-  Future<void> loadAssetLoraWeights({required String loraPath});
-
+  /// Loads the model and lora weights from the network.
+  ///
+  /// {@template gemma.load_model}
+  /// Model should be loaded before initialization.
+  ///
+  /// This method can be safely called multiple times. Model and lora weights will be loaded only if they doesn't exist.
+  ///
+  /// To reload the model, call [deleteModel] first. To reload the lora weights, call [deleteLoraWeights] first.
+  /// {@endtemplate}
   Future<void> loadNetworkModel({required String url, String? loraUrl});
 
-  Future<void> loadNetworkLoraWeights({required String loraUrl});
-
-  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath});
-
+  /// Loads the model and lora weights from the network with progress.
+  ///
+  /// {@macro gemma.load_model}
   Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl});
 
+  /// Loads the lora weights from the network.
+  ///
+  /// {@template gemma.load_weights}
+  /// This method can be safely called multiple times. Lora weights will be loaded only if they doesn't exist.
+  ///
+  /// To reload the lora weights, call [deleteLoraWeights] first.
+  /// {@endtemplate}
+  Future<void> loadNetworkLoraWeights({required String loraUrl});
+
+  /// Loads the model and lora weights from the asset.
+  ///
+  /// {@macro gemma.load_model}
+  ///
+  /// {@template gemma.asset_model}
+  /// This method should be used only for development purpose.
+  /// Never embed neither model nor lora weights in the production app.
+  /// {@endtemplate}
+  Future<void> loadAssetModel({required String fullPath, String? loraPath});
+
+  /// Loads the lora weights from the asset.
+  ///
+  /// {@macro gemma.load_weights}
+  ///
+  /// {@macro gemma.asset_model}
+  Future<void> loadAssetLoraWeights({required String loraPath});
+
+  /// Loads the model and lora weights from the asset with progress.
+  ///
+  /// {@macro gemma.load_model}
+  ///
+  /// {@macro gemma.asset_model}
+  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath});
+
+  /// Deletes the loaded model. Nothing happens if the model is not loaded.
+  ///
+  /// Also, closes the inference if it is initialized.
   Future<void> deleteModel();
+
+  /// Deletes the loaded lora weights. Nothing happens if the lora weights are not loaded.
+  ///
+  /// Also, closes the inference if it is initialized.
+  Future<void> deleteLoraWeights();
 }
 
 abstract class InferenceModel {

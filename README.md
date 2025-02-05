@@ -182,6 +182,17 @@ messages.add(Message(text: 'Who are you?', isUser: true);
 flutterGemma.getAsyncChatResponse(messages: messages).listen((String? token) => print(token));
 ```
 
+8.**Close** 
+
+When you no longer need to perform any further inferences, call the close method to release resources:
+
+```dart 
+await FlutterGemmaPlugin.instance.close();
+```
+
+If you need to use the inference again later, remember to call init() again before generating responses.
+
+
 The full and complete example you can find in `example` folder
 
 **Important Considerations**

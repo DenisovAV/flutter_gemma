@@ -58,3 +58,5 @@
 - Small fixes for iOS
 ## 0.4.5
 - Small fixes for Android
+## 0.4.6
+- Added close method

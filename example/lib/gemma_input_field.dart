@@ -34,19 +34,15 @@ class GemmaInputFieldState extends State<GemmaInputField> {
 
   void _processMessages() {
     _subscription = _gemma.processMessageAsync(widget.messages).listen(
-      (String? token) {
+      (String token) {
         setState(() {
-          if (token == null) {
-            if (_message.text.isEmpty) {
-              _message = const Message(text: '...');
-            }
-            widget.streamHandler(_message);
-          } else {
-            _message = Message(text: '${_message.text}$token');
-          }
+          _message = Message(text: '${_message.text}$token');
         });
       },
       onDone: () {
+        if (_message.text.isEmpty) {
+          _message = const Message(text: '...');
+        }
         widget.streamHandler(_message);
         _subscription?.cancel();
       },

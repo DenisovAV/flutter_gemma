@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -24,6 +24,6 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    expect(await platform.getResponse(prompt: 'prompt'), 'response');
+    expect(await (await platform.init()).getResponse(prompt: 'prompt'), 'response');
   });
 }

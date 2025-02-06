@@ -135,7 +135,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FlutterGemmaPlugin.instance.init(
     maxTokens: 512,  /// maxTokens is optional, by default the value is 1024
-    temperature: 1.0,   /// temperature is optional, by default the value is 1.0
+    temperature: 1.0,   /// temperature is optional, by default the value is 0.8
     topK: 1,   /// topK is optional, by default the value is 1
     randomSeed: 1,   /// randomSeed is optional, by default the value is 1
   );

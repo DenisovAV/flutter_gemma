@@ -14,23 +14,114 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     FlutterGemmaPlugin.instance = FlutterGemmaWeb();
   }
 
-  LlmInference? llmInference;
-  StreamController<String?>? _controller;
+  @override
+  final WebModelManager modelManager = WebModelManager();
+  @override
+  InferenceModel? get initializedModel => _initializedModel;
+
+  Completer<InferenceModel>? _initCompleter;
+  InferenceModel? _initializedModel;
+
+  @override
+  Future<InferenceModel> init({
+    int maxTokens = 1024,
+    temperature = .8,
+    randomSeed = 1,
+    topK = 1,
+    List<int>? supportedLoraRanks,
+  }) async {
+    if (_initCompleter case Completer<InferenceModel> completer) {
+      return completer.future;
+    }
+    final completer = _initCompleter = Completer<InferenceModel>();
+    try {
+      final fileset = await promiseToFuture<FilesetResolver>(
+        FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
+      );
+      final llmInference = await promiseToFuture<LlmInference>(
+        LlmInference.createFromOptions(
+          fileset,
+          jsify(
+            {
+              'baseOptions': {'modelAssetPath': modelManager._path},
+              'maxTokens': maxTokens,
+              'randomSeed': randomSeed,
+              'topK': topK,
+              'temperature': temperature,
+              if (modelManager._loraPath != null) ...{
+                'supportedLoraRanks': supportedLoraRanks,
+                'loraPath': modelManager._loraPath,
+              },
+            },
+          ),
+        ),
+      );
+      final model = _initializedModel = WebInferenceModel(
+        llmInference: llmInference,
+        onClose: () {
+          _initCompleter = null;
+          _initializedModel = null;
+        },
+      );
+      completer.complete(model);
+      return model;
+    } catch (e) {
+      throw Exception("Failed to initialize inference: $e");
+    }
+  }
+}
+
+class WebInferenceModel extends InferenceModel {
+  final LlmInference llmInference;
+  final VoidCallback onClose;
+  StreamController<String>? _controller;
+
+  WebInferenceModel({required this.llmInference, required this.onClose});
+
+  @override
+  Future<String> getResponse({required String prompt}) async {
+    return await promiseToFuture<String>(llmInference.generateResponse(prompt, null));
+  }
+
+  @override
+  Stream<String> getResponseAsync({required String prompt}) {
+    _controller = StreamController<String>();
+    llmInference.generateResponse(
+      prompt,
+      allowInterop(_streamPartialResults),
+    );
+    return _controller!.stream;
+  }
+
+  void _streamPartialResults(dynamic partialResults, bool complete) {
+    if (_controller != null) {
+      if (complete) {
+        _controller!.close();
+        _controller = null;
+      } else {
+        _controller!.add(partialResults);
+      }
+    }
+  }
+
+  @override
+  Future<void> close() {
+    onClose();
+    throw UnimplementedError();
+  }
+}
+
+class WebModelManager extends ModelFileManager {
+  Completer<bool>? _loadCompleter;
   String? _path;
   String? _loraPath;
 
-  final Completer<bool> _initCompleter = Completer<bool>();
-  Completer<bool>? _loadCompleter;
-  Completer<bool>? _loadLoraCompleter;
+  @override
+  Future<bool> get isModelLoaded async =>
+      _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
-  Future<bool> get isInitialized => _initCompleter.future;
-
-  @override
-  Future<bool> get isLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
-
-  @override
-  Future<bool> get isLoraLoaded async => await isLoaded;
+  Future<bool> get isLoraLoaded async => await isModelLoaded;
 
   Future<void> _loadModel(String path, String? loraPath) async {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
@@ -63,115 +154,66 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   }
 
   @override
-  Future<void> loadAssetLoraWeights({required String loraPath}) async {
-    _loraPath = 'assets/$loraPath';
+  Future<void> loadLoraWeightsFromAsset(String path) async {
+    _loraPath = 'assets/$path';
   }
 
   @override
-  Future<void> loadNetworkLoraWeights({required String loraUrl}) async {
+  Future<void> loadLoraWeightsFromNetwork(String loraUrl) async {
     _loraPath = loraUrl;
   }
 
   @override
-  Future<void> loadAssetModel({required String fullPath, String? loraPath}) async {
+  Future<void> loadModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    await _loadModel('assets/$fullPath', loraPath != null ? 'assets/$loraPath' : null);
+    await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
-  Future<void> loadNetworkModel({required String url, String? loraUrl}) async {
+  Future<void> loadModelFromNetwork(String url, {String? loraUrl}) async {
     await _loadModel(url, loraUrl);
   }
 
   @override
-  Stream<int> loadNetworkModelWithProgress({required String url, String? loraUrl}) {
+  Stream<int> loadModelFromNetworkWithProgress(String url, {String? loraUrl}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> loadAssetModelWithProgress({required String fullPath, String? loraPath}) {
+  Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    return _loadModelWithProgress('assets/$fullPath', loraPath != null ? 'assets/$loraPath' : null);
+    return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
-  Future<void> init({
-    int maxTokens = 1024,
-    temperature = 1.0,
-    randomSeed = 1,
-    topK = 1,
-    List<int>? supportedLoraRanks,
-  }) async {
-    try {
-      final fileset = await promiseToFuture<FilesetResolver>(
-        FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
-      );
-      llmInference = await promiseToFuture<LlmInference>(
-        LlmInference.createFromOptions(
-          fileset,
-          jsify(
-            {
-              'baseOptions': {'modelAssetPath': _path},
-              'maxTokens': maxTokens,
-              'randomSeed': randomSeed,
-              'topK': topK,
-              'temperature': temperature,
-              if (_loraPath != null) 'supportedLoraRanks': supportedLoraRanks,
-              'loraPath': _loraPath,
-            },
-          ),
-        ),
-      );
-      if (!_initCompleter.isCompleted) {
-        _initCompleter.complete(true);
-      }
-    } catch (e) {
-      throw Exception("Failed to initialize inference: $e");
-    }
-  }
-
-  void streamPartialResults(dynamic partialResults, bool complete) {
-    if (_controller != null) {
-      if (complete) {
-        _controller!
-          ..add(null)
-          ..close();
-        _controller = null;
-      } else {
-        _controller!.add(partialResults);
-      }
-    }
+  Future<void> deleteModel() {
+    _path = null;
+    _loadCompleter = null;
+    return Future.value();
   }
 
   @override
-  Future<String?> getResponse({required String prompt}) async {
-    if (llmInference != null) {
-      return await promiseToFuture<String>(llmInference!.generateResponse(prompt, null));
-    } else {
-      throw Exception("Gemma is not initialized yet");
-    }
+  Future<void> deleteLoraWeights() {
+    _loraPath = null;
+    return Future.value();
   }
 
   @override
-  Stream<String?> getResponseAsync({required String prompt}) {
-    if (llmInference != null) {
-      _controller = StreamController<String?>();
-      llmInference!.generateResponse(
-        prompt,
-        allowInterop(streamPartialResults),
-      );
-      return _controller!.stream;
-    } else {
-      throw Exception("Gemma is not initialized yet");
-    }
+  Future<void> setLoraWeightsPath(String path) {
+    _loraPath = path;
+    return Future.value();
   }
-  
+
   @override
-  Future<void> close() {
-    throw UnimplementedError();
+  Future<void> setModelPath(String path, {String? loraPath}) {
+    _path = path;
+    _loraPath = loraPath;
+    return Future.value();
   }
 }

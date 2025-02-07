@@ -21,14 +21,15 @@ class MobileInferenceModel extends InferenceModel {
   }
 
   @override
-  Future<String> getResponse({required String prompt}) async {
+  Future<String> getResponse({required String prompt, bool isChat = true}) async {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
+      final finalPrompt = isChat ? prompt.transformToChatPrompt() : prompt;
       final response = await methodChannel.invokeMethod<String>(
         'getGemmaResponse',
-        {'prompt': prompt},
+        {'prompt': finalPrompt},
       );
       if (response == null) {
         throw Exception('Response is null. This should not happen');
@@ -40,11 +41,12 @@ class MobileInferenceModel extends InferenceModel {
   }
 
   @override
-  Stream<String> getResponseAsync({required String prompt}) async* {
+  Stream<String> getResponseAsync({required String prompt, bool isChat = true}) async* {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
+      final finalPrompt = isChat ? prompt.transformToChatPrompt() : prompt;
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {
@@ -62,7 +64,7 @@ class MobileInferenceModel extends InferenceModel {
         onDone: controller.close,
       );
 
-      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': prompt}).catchError((error) {
+      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': finalPrompt}).catchError((error) {
         if (error is PlatformException) {
           controller.addError(Exception('Platform error: ${error.message}'));
         } else {

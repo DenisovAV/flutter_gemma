@@ -19,7 +19,7 @@ public class FlutterGemmaPlugin: NSObject, FlutterPlugin {
   }
 
   // This method correctly handles method calls from Flutter
-  @MainActor public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "init":
       if let arguments = call.arguments as? [String: Any],

@@ -1,15 +1,8 @@
-import 'package:flutter_gemma/core/message.dart';
-
 const userPrefix = "user";
 const modelPrefix = "model";
 const startTurn = "<start_of_turn>";
 const endTurn = "<end_of_turn>";
 
-extension MessageExtension on Iterable<Message> {
-  String transformToChatPrompt({
-    int contextLength = 3,
-  }) =>
-      '${skip(length <= contextLength ? 0 : length - contextLength)
-          .map((e) => '$startTurn${e.isUser ? userPrefix : modelPrefix}\n${e.text}$endTurn')
-          .join('\n')}\n$startTurn$modelPrefix\n';
+extension MessageExtension on String {
+  String transformToChatPrompt() => '$startTurn$userPrefix\n$this$endTurn$startTurn$modelPrefix';
 }

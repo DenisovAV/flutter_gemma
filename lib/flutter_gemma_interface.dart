@@ -134,27 +134,14 @@ abstract class InferenceModel {
   /// Only one response can be generated at a time.
   /// But it is safe to call this method multiple times. It will wait for the previous response to be generated.
   /// {@endtemplate}
-  Future<String> getResponse({required String prompt});
+  Future<String> getResponse({required String prompt, bool isChat});
 
   /// Generates a response for the given prompt. Returns a stream of tokens as they are generated.
   ///
   /// Stream will be closed when the response is generated.
   ///
   /// {@macro gemma.response}
-  Stream<String> getResponseAsync({required String prompt});
-
-  /// These methods works fine with instruction tuned models only
-  Future<String> getChatResponse({
-    required Iterable<Message> messages,
-    int chatContextLength = 3,
-  }) =>
-      getResponse(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
-
-  Stream<String> getChatResponseAsync({
-    required Iterable<Message> messages,
-    int chatContextLength = 3,
-  }) =>
-      getResponseAsync(prompt: messages.transformToChatPrompt(contextLength: chatContextLength));
+  Stream<String> getResponseAsync({required String prompt, bool isChat});
 
   /// Closes and cleans up the llm inference.
   ///

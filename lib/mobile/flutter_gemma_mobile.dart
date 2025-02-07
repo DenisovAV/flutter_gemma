@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gemma/core/extensions.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 

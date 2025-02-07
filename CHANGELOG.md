@@ -68,3 +68,5 @@
 - Added opportunity to set model and LoRA weights paths manually
 - Added opportunity to delete model and LoRA weights
 - Added opportunity to load LoRA weights from assets and network
+## 0.5.1
+- Fixed crash on generation for Android

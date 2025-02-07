@@ -79,12 +79,12 @@ class WebInferenceModel extends InferenceModel {
   WebInferenceModel({required this.llmInference, required this.onClose});
 
   @override
-  Future<String> getResponse({required String prompt}) async {
+  Future<String> getResponse({required String prompt, bool isChat = true}) async {
     return await promiseToFuture<String>(llmInference.generateResponse(prompt, null));
   }
 
   @override
-  Stream<String> getResponseAsync({required String prompt}) {
+  Stream<String> getResponseAsync({required String prompt, bool isChat = true}) {
     _controller = StreamController<String>();
     llmInference.generateResponse(
       prompt,
@@ -117,8 +117,7 @@ class WebModelManager extends ModelFileManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isModelLoaded async =>
-      _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
   Future<bool> get isLoraLoaded async => await isModelLoaded;
@@ -166,8 +165,7 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> loadModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
     await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
@@ -185,8 +183,7 @@ class WebModelManager extends ModelFileManager {
   @override
   Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
     return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }

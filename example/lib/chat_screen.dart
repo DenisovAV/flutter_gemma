@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/loading_widge.dart';
+import 'package:flutter_gemma_example/loading_widget.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});

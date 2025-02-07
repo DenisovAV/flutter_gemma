@@ -137,9 +137,9 @@ abstract class InferenceModel {
   Future<String> getResponse({required String prompt});
 
   /// Generates a response for the given prompt. Returns a stream of tokens as they are generated.
-  /// 
+  ///
   /// Stream will be closed when the response is generated.
-  /// 
+  ///
   /// {@macro gemma.response}
   Stream<String> getResponseAsync({required String prompt});
 

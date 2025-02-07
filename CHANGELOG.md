@@ -60,3 +60,11 @@
 - Small fixes for Android
 ## 0.4.6
 - Added close method
+## 0.5.0
+- IMPORTANT: Breaking changes in the API
+- FlutterGemma instance was replaced with ModelManager and InferenceModel
+- ModelManager to manage models and LoRA weights
+- InferenceModel to manage inference
+- Added opportunity to set model and LoRA weights paths manually
+- Added opportunity to delete model and LoRA weights
+- Added opportunity to load LoRA weights from assets and network

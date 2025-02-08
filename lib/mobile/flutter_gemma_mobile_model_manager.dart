@@ -1,5 +1,8 @@
 part of 'flutter_gemma_mobile.dart';
 
+const _modelPath = 'model.bin';
+const _loraPath = 'lora.bin';
+
 class MobileModelManager extends ModelFileManager {
   MobileModelManager({
     required this.onDeleteModel,
@@ -31,12 +34,12 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Future<bool> get isModelLoaded async => _modelCompleter != null
+  Future<bool> get isModelInstalled async => _modelCompleter != null
       ? await _modelCompleter!.future
       : await _largeFileHandler.fileExists(targetPath: _modelPath);
 
   @override
-  Future<bool> get isLoraLoaded async => _loraCompleter != null
+  Future<bool> get isLoraInstalled async => _loraCompleter != null
       ? await _loraCompleter!.future
       : await _largeFileHandler.fileExists(targetPath: _loraPath);
 
@@ -86,12 +89,12 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Future<void> loadLoraWeightsFromAsset(String path) {
+  Future<void> installLoraWeightsFromAsset(String path) {
     return _loadLoraIfNeeded(() => _loadAsset(path, _loraPath));
   }
 
   @override
-  Future<void> loadLoraWeightsFromNetwork(String loraUrl) {
+  Future<void> downloadLoraWeightsFromNetwork(String loraUrl) {
     return _loadLoraIfNeeded(() => _loadNetwork(loraUrl, _loraPath));
   }
 
@@ -140,7 +143,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Future<void> loadModelFromAsset(String path, {String? loraPath}) async {
+  Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     await Future.wait([
       _loadModelIfNeeded(() => _loadAsset(path, _modelPath)),
       if (loraPath != null) _loadLoraIfNeeded(() => _loadAsset(loraPath, _loraPath)),
@@ -148,7 +151,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Future<void> loadModelFromNetwork(String url, {String? loraUrl}) async {
+  Future<void> downloadModelFromNetwork(String url, {String? loraUrl}) async {
     await Future.wait([
       _loadModelIfNeeded(() => _loadNetwork(url, _modelPath)),
       if (loraUrl != null) _loadLoraIfNeeded(() => _loadAsset(loraUrl, _loraPath)),
@@ -156,18 +159,18 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath}) async* {
+  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
     yield* _loadModelWithProgressIfNeeded(() => _streamAsset(path, _modelPath));
     if (loraPath != null) {
-      await loadLoraWeightsFromAsset(loraPath);
+      await installLoraWeightsFromAsset(loraPath);
     }
   }
 
   @override
-  Stream<int> loadModelFromNetworkWithProgress(String url, {String? loraUrl}) async* {
+  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl}) async* {
     yield* _loadModelWithProgressIfNeeded(() => _streamNetwork(url, _modelPath));
     if (loraUrl != null) {
-      await loadLoraWeightsFromNetwork(loraUrl);
+      await downloadLoraWeightsFromNetwork(loraUrl);
     }
   }
 

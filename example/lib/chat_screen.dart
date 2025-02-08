@@ -24,16 +24,19 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeModel() async {
-    bool isLoaded = await _gemma.modelManager.isModelLoaded;
+    bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
-      await for (int progress in _gemma.modelManager.loadModelFromAssetWithProgress('model.bin')) {
+      await for (int progress
+          in _gemma.modelManager.installModelFromAssetWithProgress('model.bin')) {
         setState(() {
           _loadingProgress = progress;
         });
       }
     }
-    await FlutterGemmaPlugin.instance.init(
+    final model = await FlutterGemmaPlugin.instance.createModel(
       maxTokens: 512,
+    );
+    await model.createSession(
       temperature: 1.0,
       topK: 1,
       randomSeed: 1,

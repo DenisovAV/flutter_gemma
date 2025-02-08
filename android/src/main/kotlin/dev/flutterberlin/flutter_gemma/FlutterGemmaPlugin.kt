@@ -3,75 +3,115 @@ package dev.flutterberlin.flutter_gemma
 import android.content.Context
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.plugin.common.MethodCall
-import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.common.MethodChannel.Result
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import android.util.Log
 
 /** FlutterGemmaPlugin */
-class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamHandler {
+class FlutterGemmaPlugin: FlutterPlugin {
   /// The MethodChannel that will the communication between Flutter and native Android
   ///
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
-  private lateinit var channel : MethodChannel
   private lateinit var eventChannel: EventChannel
-  private var eventSink: EventChannel.EventSink? = null
-  private var inferenceModel : InferenceModel? = null
-  private lateinit var context : Context
-  private val scope = CoroutineScope(Dispatchers.Main)
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    context = flutterPluginBinding.applicationContext
-    channel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_gemma")
-    channel.setMethodCallHandler(this)
+    val service = PlatformServiceImpl(flutterPluginBinding.applicationContext);
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "flutter_gemma_stream")
-    eventChannel.setStreamHandler(this)
+    eventChannel.setStreamHandler(service)
+    PlatformService.setUp(flutterPluginBinding.binaryMessenger, service)
   }
 
-  override fun onMethodCall(call: MethodCall, result: Result) {
-    if (call.method == "init") {
-      try {
-        val modelPath = call.argument<String>("modelPath")!!
-        val maxTokens = call.argument<Int>("maxTokens")!!
-        val temperature = call.argument<Float>("temperature")!!
-        val randomSeed = call.argument<Int>("randomSeed")!!
-        val topK = call.argument<Int>("topK")!!
-        val loraPath = call.argument<String?>("loraPath")
-        val supportedLoraRanks = call.argument<List<Int>?>("supportedLoraRanks")
 
-        inferenceModel = InferenceModel.getInstance(context, modelPath, maxTokens, temperature,
-          randomSeed, topK, loraPath, supportedLoraRanks)
-        result.success(true)
-      } catch (e: Exception) {
-        result.error("ERROR", "Failed to initialize gemma", e.localizedMessage)
-      }
-    } else if (call.method == "getGemmaResponse") {
-      try {
-        val prompt = call.argument<String>("prompt")!!
-        val answer = inferenceModel?.generateResponse(prompt)
-        result.success(answer)
-      } catch (e: Exception) {
-        result.error("ERROR", "Failed to get gemma response", e.localizedMessage)
-      }
-    } else if (call.method == "getGemmaResponseAsync") {
-      try {
-        val prompt = call.argument<String>("prompt")!!
-        inferenceModel?.generateResponseAsync(prompt)
-        result.success(null)
-      } catch (e: Exception) {
-        result.error("ERROR", e.localizedMessage, null)
-      }
-    } else if (call.method == "close") {
-      inferenceModel?.close()
-      inferenceModel = null
+  override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+    eventChannel.setStreamHandler(null)
+  }
+}
+
+private class PlatformServiceImpl(
+  var context : Context
+): PlatformService, EventChannel.StreamHandler {
+  private val scope = CoroutineScope(Dispatchers.Main)
+  private var eventSink: EventChannel.EventSink? = null
+  private var inferenceModel : InferenceModel? = null
+  private var session: InferenceModelSession? = null
+
+  override fun createModel(
+    maxTokens: Long,
+    modelPath: String,
+    loraRanks: List<Long>?,
+    callback: (Result<Unit>) -> Unit
+  ) {
+    try {
+      inferenceModel = InferenceModel(
+        context,
+        modelPath,
+        maxTokens.toInt(),
+        loraRanks?.map { it.toInt() },
+      )
+      callback(Result.success(Unit))
+    } catch (e: Exception) {
+      callback(Result.failure(e));
     }
-    else {
-      result.notImplemented()
+  }
+
+  override fun closeModel(callback: (Result<Unit>) -> Unit) {
+    try {
+      inferenceModel?.close()
+      callback(Result.success(Unit))
+    } catch (e: Exception) {
+      callback(Result.failure(e))
+    }
+  }
+
+  override fun createSession(
+    temperature: Double,
+    randomSeed: Long,
+    loraPath: String?,
+    topK: Long,
+    callback: (Result<Unit>) -> Unit
+  ) {
+    try {
+      if (inferenceModel == null) throw Exception("Inference model is not created")
+      session = InferenceModelSession(
+        inferenceModel!!.llmInference,
+        temperature.toFloat(),
+        randomSeed.toInt(),
+        topK.toInt(),
+        loraPath,
+      )
+    } catch (e: Exception) {
+      callback(Result.failure(e))
+    }
+  }
+
+  override fun closeSession(callback: (Result<Unit>) -> Unit) {
+    try {
+      session?.close()
+      callback(Result.success(Unit))
+    } catch (e: Exception) {
+      callback(Result.failure(e))
+    }
+  }
+
+  override fun generateResponse(prompt: String, callback: (Result<String>) -> Unit) {
+    try {
+      if (session == null) throw Exception("Inference model session is not created")
+      val result = session!!.generateResponse(prompt)
+      callback(Result.success(result))
+    } catch (e: Exception) {
+      callback(Result.failure(e))
+    }
+  }
+
+  override fun generateResponseAsync(prompt: String, callback: (Result<Unit>) -> Unit) {
+    try {
+      if (session == null) throw Exception("Inference model session is not created")
+      session!!.generateResponseAsync(prompt)
+
+    } catch (e: Exception) {
+      callback(Result.failure(e))
     }
   }
 
@@ -99,10 +139,5 @@ class FlutterGemmaPlugin: FlutterPlugin, MethodCallHandler, EventChannel.StreamH
 
   override fun onCancel(arguments: Any?) {
     eventSink = null
-  }
-
-  override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-    channel.setMethodCallHandler(null)
-    eventChannel.setStreamHandler(null)
   }
 }

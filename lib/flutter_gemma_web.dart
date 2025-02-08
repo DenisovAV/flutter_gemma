@@ -19,21 +19,51 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   InferenceModel? get initializedModel => _initializedModel;
 
-  Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
 
   @override
-  Future<InferenceModel> init({
+  Future<InferenceModel> createModel({
     int maxTokens = 1024,
+    List<int>? supportedLoraRanks,
+  }) {
+    final model = _initializedModel ??= WebInferenceModel(
+      maxTokens: maxTokens,
+      supportedLoraRanks: supportedLoraRanks,
+      modelManager: modelManager,
+      onClose: () {
+        _initializedModel = null;
+      },
+    );
+    return Future.value(model);
+  }
+}
+
+class WebInferenceModel extends InferenceModel {
+  final VoidCallback onClose;
+  final int maxTokens;
+  final List<int>? supportedLoraRanks;
+  final WebModelManager modelManager;
+  Completer<InferenceModelSession>? _initCompleter;
+  @override
+  InferenceModelSession? session;
+
+  WebInferenceModel({
+    required this.onClose,
+    required this.maxTokens,
+    this.supportedLoraRanks,
+    required this.modelManager,
+  });
+
+  @override
+  Future<InferenceModelSession> createSession({
     temperature = .8,
     randomSeed = 1,
     topK = 1,
-    List<int>? supportedLoraRanks,
   }) async {
-    if (_initCompleter case Completer<InferenceModel> completer) {
+    if (_initCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
     }
-    final completer = _initCompleter = Completer<InferenceModel>();
+    final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
       final fileset = await promiseToFuture<FilesetResolver>(
         FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
@@ -41,42 +71,42 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       final llmInference = await promiseToFuture<LlmInference>(
         LlmInference.createFromOptions(
           fileset,
-          jsify(
-            {
-              'baseOptions': {'modelAssetPath': modelManager._path},
-              'maxTokens': maxTokens,
-              'randomSeed': randomSeed,
-              'topK': topK,
-              'temperature': temperature,
-              if (modelManager._loraPath != null) ...{
-                'supportedLoraRanks': supportedLoraRanks,
-                'loraPath': modelManager._loraPath,
-              },
+          jsify({
+            'baseOptions': {'modelAssetPath': modelManager._path},
+            'maxTokens': maxTokens,
+            'randomSeed': randomSeed,
+            'topK': topK,
+            'temperature': temperature,
+            if (modelManager._loraPath != null) ...{
+              'supportedLoraRanks': supportedLoraRanks,
+              'loraPath': modelManager._loraPath,
             },
-          ),
+          }),
         ),
       );
-      final model = _initializedModel = WebInferenceModel(
+      final session = this.session = WebModelSession(
         llmInference: llmInference,
-        onClose: () {
-          _initCompleter = null;
-          _initializedModel = null;
-        },
+        onClose: onClose,
       );
-      completer.complete(model);
-      return model;
+      completer.complete(session);
+      return session;
     } catch (e) {
-      throw Exception("Failed to initialize inference: $e");
+      throw Exception("Failed to create session: $e");
     }
+  }
+
+  @override
+  Future<void> close() async {
+    await session?.close();
   }
 }
 
-class WebInferenceModel extends InferenceModel {
+class WebModelSession extends InferenceModelSession {
   final LlmInference llmInference;
   final VoidCallback onClose;
   StreamController<String>? _controller;
 
-  WebInferenceModel({required this.llmInference, required this.onClose});
+  WebModelSession({required this.llmInference, required this.onClose});
 
   @override
   Future<String> getResponse({required String prompt, bool isChat = true}) async {
@@ -117,10 +147,11 @@ class WebModelManager extends ModelFileManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isModelLoaded async => _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelInstalled async =>
+      _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
-  Future<bool> get isLoraLoaded async => await isModelLoaded;
+  Future<bool> get isLoraInstalled async => await isModelInstalled;
 
   Future<void> _loadModel(String path, String? loraPath) async {
     if (_loadCompleter == null || _loadCompleter!.isCompleted) {
@@ -153,37 +184,39 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Future<void> loadLoraWeightsFromAsset(String path) async {
+  Future<void> installLoraWeightsFromAsset(String path) async {
     _loraPath = 'assets/$path';
   }
 
   @override
-  Future<void> loadLoraWeightsFromNetwork(String loraUrl) async {
+  Future<void> downloadLoraWeightsFromNetwork(String loraUrl) async {
     _loraPath = loraUrl;
   }
 
   @override
-  Future<void> loadModelFromAsset(String path, {String? loraPath}) async {
+  Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
     await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
-  Future<void> loadModelFromNetwork(String url, {String? loraUrl}) async {
+  Future<void> downloadModelFromNetwork(String url, {String? loraUrl}) async {
     await _loadModel(url, loraUrl);
   }
 
   @override
-  Stream<int> loadModelFromNetworkWithProgress(String url, {String? loraUrl}) {
+  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> loadModelFromAssetWithProgress(String path, {String? loraPath}) {
+  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
     return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }

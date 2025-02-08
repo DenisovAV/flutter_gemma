@@ -23,8 +23,8 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    final model = await platform.createModel();
+    final model = await platform.createModel(isInstructionTuned: false);
     final session = await model.createSession();
-    expect(await session.getResponse(prompt: 'prompt'), 'response');
+    expect(await session.getResponse('prompt'), 'response');
   });
 }

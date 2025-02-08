@@ -15,9 +15,9 @@ void main() {
 
   testWidgets('getPlatformVersion test', (WidgetTester tester) async {
     final FlutterGemmaPlugin gemma = FlutterGemmaPlugin.instance;
-    final InferenceModel model = await gemma.createModel();
+    final InferenceModel model = await gemma.createModel(isInstructionTuned: false);
     final InferenceModelSession session = await model.createSession();
-    final String response = await session.getResponse(prompt: 'prompt');
+    final String response = await session.getResponse('prompt');
     // The version string depends on the host platform running the test, so
     // just assert that some non-empty string is returned.
     expect(response.isNotEmpty, true);

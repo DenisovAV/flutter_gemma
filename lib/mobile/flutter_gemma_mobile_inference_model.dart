@@ -1,8 +1,13 @@
 part of 'flutter_gemma_mobile.dart';
 
 class MobileInferenceModel extends InferenceModel {
-  MobileInferenceModel({required this.onClose, required this.modelManager});
+  MobileInferenceModel({
+    required this.onClose,
+    required this.modelManager,
+    required this.isInstructionTuned,
+  });
 
+  final bool isInstructionTuned;
   final VoidCallback onClose;
   final MobileModelManager modelManager;
   bool _isClosed = false;
@@ -37,6 +42,7 @@ class MobileInferenceModel extends InferenceModel {
         loraPath: isLoraInstalled ? loraFile.path : null,
       );
       final session = _session = MobileInferenceModelSession(
+        isInstructionTuned: isInstructionTuned,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -59,13 +65,14 @@ class MobileInferenceModel extends InferenceModel {
 }
 
 class MobileInferenceModelSession extends InferenceModelSession {
+  final bool isInstructionTuned;
   final VoidCallback onClose;
   bool _isClosed = false;
 
   Completer<void>? _responseCompleter;
   StreamController<String>? _asyncResponseController;
 
-  MobileInferenceModelSession({required this.onClose});
+  MobileInferenceModelSession({required this.onClose, required this.isInstructionTuned});
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -80,12 +87,12 @@ class MobileInferenceModelSession extends InferenceModelSession {
   }
 
   @override
-  Future<String> getResponse({required String prompt, bool isChat = true}) async {
+  Future<String> getResponse(String prompt) async {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
-      final finalPrompt = isChat ? prompt.transformToChatPrompt() : prompt;
+      final finalPrompt = isInstructionTuned ? prompt.transformToChatPrompt() : prompt;
       return await _platformService.generateResponse(finalPrompt);
     } finally {
       completer.complete();
@@ -93,12 +100,12 @@ class MobileInferenceModelSession extends InferenceModelSession {
   }
 
   @override
-  Stream<String> getResponseAsync({required String prompt, bool isChat = true}) async* {
+  Stream<String> getResponseAsync(String prompt) async* {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
-      final finalPrompt = isChat ? prompt.transformToChatPrompt() : prompt;
+      final finalPrompt = isInstructionTuned ? prompt.transformToChatPrompt() : prompt;
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {

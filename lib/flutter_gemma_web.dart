@@ -23,6 +23,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<InferenceModel> createModel({
+    required bool isInstructionTuned,
     int maxTokens = 1024,
     List<int>? supportedLoraRanks,
   }) {
@@ -109,12 +110,12 @@ class WebModelSession extends InferenceModelSession {
   WebModelSession({required this.llmInference, required this.onClose});
 
   @override
-  Future<String> getResponse({required String prompt, bool isChat = true}) async {
+  Future<String> getResponse(String prompt) async {
     return await promiseToFuture<String>(llmInference.generateResponse(prompt, null));
   }
 
   @override
-  Stream<String> getResponseAsync({required String prompt, bool isChat = true}) {
+  Stream<String> getResponseAsync(String prompt) {
     _controller = StreamController<String>();
     llmInference.generateResponse(
       prompt,

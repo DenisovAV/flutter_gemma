@@ -34,6 +34,7 @@ class ChatScreenState extends State<ChatScreen> {
       }
     }
     final model = await FlutterGemmaPlugin.instance.createModel(
+      isInstructionTuned: true,
       maxTokens: 512,
     );
     await model.createSession(

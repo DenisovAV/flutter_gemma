@@ -185,38 +185,49 @@ await modelManager.deleteLoraWeights();
   );
 ```
 
-4.**Generate response**
+4.**Generate a single response**
 
 ```dart
-String response = await inferenceModel.getResponse(prompt: 'Tell me something interesting');
-print(response);
+String response = await inferenceModel.getResponse(
+  prompt: 'Tell me something interesting',
+  isChat: false, // isChat indicates whether you're using chat-style context
+);
 ```
 
-5.**Generate response as a stream**
+5.**Generate a Streamed Response (Async)**
 
 ```dart
-inferenceModel.getAsyncResponse(prompt: 'Tell me something interesting').listen((String? token) => print(token));
+inferenceModel.getResponseAsync(prompt: 'Tell me something interesting',isChat: false,)
+    .listen((String token) {
+      print(token);
+    },
+    onDone: () {
+      print('Stream closed');
+    },
+    onError: (error) {
+      print('Error: $error');
+    },
+);
 ```
 
-6.**Generate chat response** This method works properly only for instruction tuned (like gemma2b-it) models
+6.**Chat Scenario** This method works properly only for instruction tuned (like gemma2b-it) models
 
 ```dart
-final messages = <Message>[];
-messages.add(Message(text: 'Who are you?', isUser: true);
-String response = await inferenceModel.getChatResponse(messages: messages);
+String conversation = 'User: Hello, who are you?';
+String response = await inferenceModel.getResponse(prompt: conversation);
 print(response);
-messages.add(Message(text: response));
-messages.add(Message(text: 'Really?', isUser: true));
-String response = await inferenceModel.getChatResponse(messages: messages);
+// Next question
+conversation = 'User: Are you sure?';
+String response = await inferenceModel.getResponse(prompt: conversation);
 print(response);
+
 ```
 
-7.**Generate chat response as a stream** This method works properly only for instruction tuned (like gemma2b-it) models
+7.**Chat Scenario as a S tream** This method works properly only for instruction tuned (like gemma2b-it) models
 
 ```dart
-final messages = <Message>[];
-messages.add(Message(text: 'Who are you?', isUser: true);
-inferenceModel.getAsyncChatResponse(messages: messages).listen((String? token) => print(token));
+String conversation = 'User: Hello, who are you?';
+inferenceModel.getResponseAsync(prompt: conversation);.listen((String? token) => print(token));
 ```
 
 8.**Close** 

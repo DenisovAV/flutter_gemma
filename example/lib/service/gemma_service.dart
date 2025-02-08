@@ -4,10 +4,10 @@ class GemmaLocalService {
   InferenceModelSession get _session => FlutterGemmaPlugin.instance.initializedModel!.session!;
   
   Future<String> processMessage(Message message) {
-    return _session.getResponse(prompt: message.text);
+    return _session.getResponse(message.text);
   }
 
   Stream<String> processMessageAsync(Message message) {
-    return _session.getResponseAsync(prompt: message.text);
+    return _session.getResponseAsync(message.text);
   }
 }

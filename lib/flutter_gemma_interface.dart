@@ -40,7 +40,11 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   ///
   /// Only one model can be created at a time.
   /// To create a new model, call [InferenceModel.close] first.
+  ///
+  /// [isInstructionTuned] should be set to `true` when you use a gemma model specially tuned for instructions.
+  /// These models has `it` in their names. For example gemma-2b-**it**-gpu-int8 is an instruction tuned model.
   Future<InferenceModel> createModel({
+    required bool isInstructionTuned,
     int maxTokens,
   });
 }
@@ -51,7 +55,7 @@ abstract class InferenceModel {
   /// Creates a session for generating responses from the LLM.
   ///
   /// Only one session can be created at a time.
-  /// 
+  ///
   /// {@macro gemma.session}
   Future<InferenceModelSession> createSession({
     double temperature,
@@ -81,14 +85,14 @@ abstract class InferenceModelSession {
   /// Only one response can be generated at a time.
   /// But it is safe to call this method multiple times. It will wait for the previous response to be generated.
   /// {@endtemplate}
-  Future<String> getResponse({required String prompt, bool isChat});
+  Future<String> getResponse(String prompt);
 
   /// Generates a response for the given prompt. Returns a stream of tokens as they are generated.
   ///
   /// Stream will be closed when the response is generated.
   ///
   /// {@macro gemma.response}
-  Stream<String> getResponseAsync({required String prompt, bool isChat});
+  Stream<String> getResponseAsync(String prompt);
 
   /// Closes and cleans up the model session.
   ///

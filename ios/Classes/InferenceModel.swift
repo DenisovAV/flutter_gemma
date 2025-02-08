@@ -6,7 +6,7 @@ import MediaPipeTasksGenAIC
 struct InferenceModel {
     private(set) var inference: LlmInference
 
-    init(maxTokens: Int, supportedLoraRanks: [Int]?) throws {
+    init(modelPath: String, maxTokens: Int, supportedLoraRanks: [Int]?) throws {
         let fileManager = FileManager.default
         let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         let filePath = documentDirectory.appendingPathComponent("model.bin").path
@@ -31,8 +31,8 @@ final class InferenceSession {
         self.session = try LlmInference.Session(llmInference: inference, options: options)
     }
 
-func generateResponse(prompt: String) throws -> String {
-    try session.addQueryChunk(inputText: prompt)
+    func generateResponse(prompt: String) throws -> String {
+        try session.addQueryChunk(inputText: prompt)
         return try session.generateResponse()
     }
 

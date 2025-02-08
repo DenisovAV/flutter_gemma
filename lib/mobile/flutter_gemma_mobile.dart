@@ -33,6 +33,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   @override
   Future<InferenceModel> createModel({
+    required bool isInstructionTuned,
     int maxTokens = 1024,
   }) async {
     if (_initCompleter case Completer<InferenceModel> completer) {
@@ -53,6 +54,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
           loraRanks: supportedLoraRanks,
         );
         final model = _initializedModel = MobileInferenceModel(
+          isInstructionTuned: true,
           modelManager: modelManager,
           onClose: () {
             _initializedModel = null;

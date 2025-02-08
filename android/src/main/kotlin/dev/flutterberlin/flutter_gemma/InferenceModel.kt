@@ -9,18 +9,13 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-class InferenceModel private constructor(
+class InferenceModel(
     context: Context,
     private val modelPath: String,
     maxTokens: Int,
-    temperature: Float,
-    randomSeed: Int,
-    topK: Int,
-    loraPath: String?,
     supportedLoraRanks: List<Int>?
 ) {
-    private val llmInference: LlmInference
-    private var session: LlmInferenceSession? = null
+    val llmInference: LlmInference
 
     private val _partialResults = MutableSharedFlow<Pair<String, Boolean>>(
         extraBufferCapacity = 1,
@@ -54,78 +49,52 @@ class InferenceModel private constructor(
                     _errors.tryEmit(Exception(error.message))
                 }
 
-            supportedLoraRanks?.let { optionsBuilder.setSupportedLoraRanks(it) }
+            supportedLoraRanks?.let(optionsBuilder::setSupportedLoraRanks)
 
             val options = optionsBuilder.build()
             llmInference = LlmInference.createFromOptions(context, options)
-
-            val sessionOptionsBuilder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-                .setTemperature(temperature)
-                .setRandomSeed(randomSeed)
-                .setTopK(topK)
-
-            loraPath?.let { sessionOptionsBuilder.setLoraPath(it) }
-
-            val sessionOptions = sessionOptionsBuilder.build()
-            session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
         } catch (e: Exception) {
             throw RuntimeException("Failed to initialize LlmInference or Session: ${e.message}", e)
         }
     }
 
-    fun generateResponse(prompt: String): String? {
-        return try {
-            session?.addQueryChunk(prompt)
-            session?.generateResponse()
-        } catch (e: Exception) {
-            _errors.tryEmit(e)
-            null
-        }
+    fun close() {
+        llmInference.close()
+    }
+}
+
+class InferenceModelSession(
+    llmInference: LlmInference,
+    temperature: Float,
+    randomSeed: Int,
+    topK: Int,
+    loraPath: String?,
+) {
+    private var session: LlmInferenceSession
+
+    init {
+       val sessionOptionsBuilder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+           .setTemperature(temperature)
+           .setRandomSeed(randomSeed)
+           .setTopK(topK)
+
+       loraPath?.let(sessionOptionsBuilder::setLoraPath)
+
+       val sessionOptions = sessionOptionsBuilder.build()
+       session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
+    }
+
+    fun generateResponse(prompt: String): String {
+        session.addQueryChunk(prompt)
+        return session.generateResponse()
     }
 
     fun generateResponseAsync(prompt: String) {
-        try {
-            session?.addQueryChunk(prompt)
-            session?.generateResponseAsync()
-        } catch (e: Exception) {
-            _errors.tryEmit(e)
-        }
+        session.addQueryChunk(prompt)
+        session.generateResponseAsync()
     }
 
     fun close() {
-        session?.close()
-        llmInference.close()
-        instance = null
-    }
-
-
-    companion object {
-        private var instance: InferenceModel? = null
-
-        fun getInstance(
-            context: Context,
-            modelPath: String,
-            maxTokens: Int,
-            temperature: Float,
-            randomSeed: Int,
-            topK: Int,
-            loraPath: String?,
-            supportedLoraRanks: List<Int>?
-        ): InferenceModel {
-            return if (instance != null) {
-                instance!!
-            } else {
-                InferenceModel(
-                    context,
-                    modelPath,
-                    maxTokens,
-                    temperature,
-                    randomSeed,
-                    topK,
-                    loraPath,
-                    supportedLoraRanks
-                ).also { instance = it }
-            }
-        }
+        session.close()
     }
 }

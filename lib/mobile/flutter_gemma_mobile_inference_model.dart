@@ -1,12 +1,78 @@
 part of 'flutter_gemma_mobile.dart';
 
 class MobileInferenceModel extends InferenceModel {
-  MobileInferenceModel({required this.onClose});
+  MobileInferenceModel({
+    required this.onClose,
+    required this.modelManager,
+    required this.isInstructionTuned,
+  });
 
+  final bool isInstructionTuned;
+  final VoidCallback onClose;
+  final MobileModelManager modelManager;
+  bool _isClosed = false;
+  MobileInferenceModelSession? _session;
+  Completer<InferenceModelSession>? _createCompleter;
+
+  @override
+  InferenceModelSession? get session => _session;
+
+  @override
+  Future<InferenceModelSession> createSession({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+  }) async {
+    if (_isClosed) {
+      throw Exception('Model is closed. Create a new instance to use it again');
+    }
+    if (_createCompleter case Completer<InferenceModelSession> completer) {
+      return completer.future;
+    }
+    final completer = _createCompleter = Completer<InferenceModelSession>();
+    try {
+      final (isLoraInstalled, loraFile) = await (
+        modelManager.isLoraInstalled,
+        modelManager._loraFile,
+      ).wait;
+      await _platformService.createSession(
+        randomSeed: randomSeed,
+        temperature: temperature,
+        topK: topK,
+        loraPath: isLoraInstalled ? loraFile.path : null,
+      );
+      final session = _session = MobileInferenceModelSession(
+        isInstructionTuned: isInstructionTuned,
+        onClose: () {
+          _session = null;
+          _createCompleter = null;
+        },
+      );
+      return session;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    _isClosed = true;
+    await _session?.close();
+    onClose();
+    await _platformService.closeModel();
+  }
+}
+
+class MobileInferenceModelSession extends InferenceModelSession {
+  final bool isInstructionTuned;
   final VoidCallback onClose;
   bool _isClosed = false;
+
   Completer<void>? _responseCompleter;
   StreamController<String>? _asyncResponseController;
+
+  MobileInferenceModelSession({required this.onClose, required this.isInstructionTuned});
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -21,32 +87,25 @@ class MobileInferenceModel extends InferenceModel {
   }
 
   @override
-  Future<String> getResponse({required String prompt, bool isChat = true}) async {
+  Future<String> getResponse(String prompt) async {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
-      final finalPrompt = isChat ? prompt.transformToChatPrompt() : prompt;
-      final response = await methodChannel.invokeMethod<String>(
-        'getGemmaResponse',
-        {'prompt': finalPrompt},
-      );
-      if (response == null) {
-        throw Exception('Response is null. This should not happen');
-      }
-      return response;
+      final finalPrompt = isInstructionTuned ? prompt.transformToChatPrompt() : prompt;
+      return await _platformService.generateResponse(finalPrompt);
     } finally {
       completer.complete();
     }
   }
 
   @override
-  Stream<String> getResponseAsync({required String prompt, bool isChat = true}) async* {
+  Stream<String> getResponseAsync(String prompt) async* {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
-      final finalPrompt = isChat ? prompt.transformToChatPrompt() : prompt;
+      final finalPrompt = isInstructionTuned ? prompt.transformToChatPrompt() : prompt;
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {
@@ -64,13 +123,7 @@ class MobileInferenceModel extends InferenceModel {
         onDone: controller.close,
       );
 
-      methodChannel.invokeMethod('getGemmaResponseAsync', {'prompt': finalPrompt}).catchError((error) {
-        if (error is PlatformException) {
-          controller.addError(Exception('Platform error: ${error.message}'));
-        } else {
-          controller.addError(Exception('Unknown invoke error: $error'));
-        }
-      });
+      unawaited(_platformService.generateResponseAsync(finalPrompt));
 
       yield* controller.stream;
     } finally {
@@ -84,6 +137,6 @@ class MobileInferenceModel extends InferenceModel {
     _isClosed = true;
     onClose();
     _asyncResponseController?.close();
-    await methodChannel.invokeMethod('close');
+    await _platformService.closeSession();
   }
 }

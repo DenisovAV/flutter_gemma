@@ -9,8 +9,7 @@ void main() {
   const MethodChannel channel = MethodChannel('flutter_gemma');
 
   setUp(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
       channel,
       (MethodCall methodCall) async {
         return 'response';
@@ -24,6 +23,8 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    expect(await (await platform.init()).getResponse(prompt: 'prompt'), 'response');
+    final model = await platform.createModel(isInstructionTuned: false);
+    final session = await model.createSession();
+    expect(await session.getResponse('prompt'), 'response');
   });
 }

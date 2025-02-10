@@ -19,15 +19,17 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var session: InferenceSession?
     
     func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, completion: @escaping (Result<Void, any Error>) -> Void) {
-        do {
-            model = try InferenceModel(
-                modelPath: modelPath,
-                maxTokens: Int(maxTokens),
-                supportedLoraRanks: loraRanks?.map(Int.init)
-            )
-            completion(.success(()))
-        } catch {
-            completion(.failure(error))
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                self.model = try InferenceModel(modelPath: modelPath, maxTokens: Int(maxTokens), supportedLoraRanks: loraRanks?.map(Int.init))
+                DispatchQueue.main.async {
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
         }
     }
     
@@ -37,63 +39,92 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     }
     
     func createSession(temperature: Double, randomSeed: Int64, loraPath: String?, topK: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
-        do {
-            if let inference = model?.inference {
-                session = try InferenceSession(
+        guard let inference = model?.inference else {
+            completion(.failure(PigeonError(code: "Inference model not created", message: nil, details: nil)))
+            return
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let newSession = try InferenceSession(
                     inference: inference,
                     temperature: Float(temperature),
                     randomSeed: Int(randomSeed),
                     topK: Int(topK),
                     loraPath: loraPath
                 )
-                completion(.success(()))
-            } else {
-                completion(.failure(PigeonError(code: "Inference model not created", message: nil, details: nil)))
+                
+                DispatchQueue.main.async {
+                    self.session = newSession
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
             }
-        } catch {
-            completion(.failure(error))
         }
     }
     
     func closeSession(completion: @escaping (Result<Void, any Error>) -> Void) {
         session = nil
+        completion(.success(()))
     }
     
     func generateResponse(prompt: String, completion: @escaping (Result<String, any Error>) -> Void) {
-        do {
-            if let session = session {
-                let response = try session.generateResponse(prompt: prompt)
-                completion(.success(response))
-            } else {
-                completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                if let session = self.session {
+                    let response = try session.generateResponse(prompt: prompt)
+                    DispatchQueue.main.async {
+                        completion(.success(response))
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
             }
-        } catch {
-            completion(.failure(error))
         }
     }
     
     func generateResponseAsync(prompt: String, completion: @escaping (Result<Void, any Error>) -> Void) {
-        do {
-            if let session = session, let eventSink = eventSink {
-                let stream = try session.generateResponseAsync(prompt: prompt)
-                Task.detached {
-                    [weak self] in
-                    guard let self = self else {
-                        return }
-                    do {
-                        for try await token in stream {
-                            eventSink(token)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                if let session = self.session, let eventSink = self.eventSink {
+                    let stream = try session.generateResponseAsync(prompt: prompt)
+                    Task.detached {
+                        [weak self] in
+                        guard let self = self else { return }
+                        do {
+                            for try await token in stream {
+                                DispatchQueue.main.async {
+                                    eventSink(token)
+                                }
+                            }
+                            DispatchQueue.main.async {
+                                eventSink(FlutterEndOfEventStream)
+                            }
+                        } catch {
+                            DispatchQueue.main.async {
+                                eventSink(FlutterError(code: error.localizedDescription, message: nil, details: nil))
+                            }
                         }
-                        eventSink(FlutterEndOfEventStream)
-                    } catch {
-                        eventSink(FlutterError(code: error.localizedDescription, message: nil, details: nil))
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
                     }
                 }
-            } else {
-                completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
             }
-        } catch {
-            completion(.failure(error))
         }
     }
     

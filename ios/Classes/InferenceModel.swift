@@ -13,6 +13,7 @@ struct InferenceModel {
 
         let llmOptions = LlmInference.Options(modelPath: filePath)
         llmOptions.maxTokens = maxTokens
+        llmOptions.waitForWeightUploads = true
         if let supportedLoraRanks = supportedLoraRanks {
           llmOptions.supportedLoraRanks = supportedLoraRanks
         }

@@ -43,16 +43,22 @@ private class PlatformServiceImpl(
     loraRanks: List<Long>?,
     callback: (Result<Unit>) -> Unit
   ) {
-    try {
-      inferenceModel = InferenceModel(
-        context,
-        modelPath,
-        maxTokens.toInt(),
-        loraRanks?.map { it.toInt() },
-      )
-      callback(Result.success(Unit))
-    } catch (e: Exception) {
-      callback(Result.failure(e));
+    scope.launch(Dispatchers.IO) {
+      try {
+        inferenceModel = InferenceModel(
+          context,
+          modelPath,
+          maxTokens.toInt(),
+          loraRanks?.map { it.toInt() },
+        )
+        withContext(Dispatchers.Main) {
+          callback(Result.success(Unit))
+        }
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+          callback(Result.failure(e))
+        }
+      }
     }
   }
 
@@ -72,19 +78,27 @@ private class PlatformServiceImpl(
     topK: Long,
     callback: (Result<Unit>) -> Unit
   ) {
-    try {
-      if (inferenceModel == null) throw Exception("Inference model is not created")
-      session = InferenceModelSession(
-        inferenceModel!!.llmInference,
-        temperature.toFloat(),
-        randomSeed.toInt(),
-        topK.toInt(),
-        loraPath,
-      )
-    } catch (e: Exception) {
-      callback(Result.failure(e))
+    scope.launch(Dispatchers.IO) {
+      try {
+        if (inferenceModel == null) throw Exception("Inference model is not created")
+        session = InferenceModelSession(
+          inferenceModel!!.llmInference,
+          temperature.toFloat(),
+          randomSeed.toInt(),
+          topK.toInt(),
+          loraPath,
+        )
+        withContext(Dispatchers.Main) {
+          callback(Result.success(Unit))
+        }
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+          callback(Result.failure(e))
+        }
+      }
     }
   }
+
 
   override fun closeSession(callback: (Result<Unit>) -> Unit) {
     try {
@@ -96,22 +110,31 @@ private class PlatformServiceImpl(
   }
 
   override fun generateResponse(prompt: String, callback: (Result<String>) -> Unit) {
-    try {
-      if (session == null) throw Exception("Inference model session is not created")
-      val result = session!!.generateResponse(prompt)
-      callback(Result.success(result))
-    } catch (e: Exception) {
-      callback(Result.failure(e))
+    scope.launch(Dispatchers.IO) {
+      try {
+        if (session == null) throw Exception("Inference model session is not created")
+        val result = session!!.generateResponse(prompt)
+        withContext(Dispatchers.Main) {
+          callback(Result.success(result))
+        }
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+          callback(Result.failure(e))
+        }
+      }
     }
   }
 
   override fun generateResponseAsync(prompt: String, callback: (Result<Unit>) -> Unit) {
-    try {
-      if (session == null) throw Exception("Inference model session is not created")
-      session!!.generateResponseAsync(prompt)
-
-    } catch (e: Exception) {
-      callback(Result.failure(e))
+    scope.launch(Dispatchers.IO) {
+      try {
+        if (session == null) throw Exception("Inference model session is not created")
+        session!!.generateResponseAsync(prompt)
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+          callback(Result.failure(e))
+        }
+      }
     }
   }
 

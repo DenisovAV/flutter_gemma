@@ -3,10 +3,8 @@ package dev.flutterberlin.flutter_gemma
 import android.content.Context
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.EventChannel
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.*
 
 /** FlutterGemmaPlugin */
 class FlutterGemmaPlugin: FlutterPlugin {
@@ -45,12 +43,21 @@ private class PlatformServiceImpl(
   ) {
     scope.launch(Dispatchers.IO) {
       try {
-        inferenceModel = InferenceModel(
-          context,
+        val config = InferenceModelConfig(
           modelPath,
           maxTokens.toInt(),
           loraRanks?.map { it.toInt() },
         )
+        // Recreate model only if it's needed. Useful for hot restart
+        if (config != inferenceModel?.config) {
+          inferenceModel?.close()
+          inferenceModel = InferenceModel(
+            context,
+            config,
+          )
+        } else {
+          println("Inference model with given parameters is already created")
+        }
         withContext(Dispatchers.Main) {
           callback(Result.success(Unit))
         }
@@ -65,6 +72,7 @@ private class PlatformServiceImpl(
   override fun closeModel(callback: (Result<Unit>) -> Unit) {
     try {
       inferenceModel?.close()
+      inferenceModel = null
       callback(Result.success(Unit))
     } catch (e: Exception) {
       callback(Result.failure(e))
@@ -81,13 +89,15 @@ private class PlatformServiceImpl(
     scope.launch(Dispatchers.IO) {
       try {
         if (inferenceModel == null) throw Exception("Inference model is not created")
-        session = InferenceModelSession(
-          inferenceModel!!.llmInference,
+        val config = InferenceSessionConfig(
           temperature.toFloat(),
           randomSeed.toInt(),
           topK.toInt(),
           loraPath,
         )
+        // Always recreate session to 
+        session?.close()
+        session = InferenceModelSession(inferenceModel!!.llmInference, config)
         withContext(Dispatchers.Main) {
           callback(Result.success(Unit))
         }
@@ -103,6 +113,7 @@ private class PlatformServiceImpl(
   override fun closeSession(callback: (Result<Unit>) -> Unit) {
     try {
       session?.close()
+      session = null
       callback(Result.success(Unit))
     } catch (e: Exception) {
       callback(Result.failure(e))

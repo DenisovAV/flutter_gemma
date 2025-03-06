@@ -9,11 +9,17 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
+data class InferenceModelConfig(val modelPath: String, val maxTokens: Int, val supportedLoraRanks: List<Int>?)
+data class InferenceSessionConfig(
+    val temperature: Float,
+    val randomSeed: Int,
+    val topK: Int,
+    val loraPath: String?,
+)
+
 class InferenceModel(
     context: Context,
-    private val modelPath: String,
-    maxTokens: Int,
-    supportedLoraRanks: List<Int>?
+    val config: InferenceModelConfig
 ) {
     val llmInference: LlmInference
 
@@ -32,16 +38,16 @@ class InferenceModel(
     val errors: SharedFlow<Throwable> = _errors.asSharedFlow()
 
     private val modelExists: Boolean
-        get() = File(modelPath).exists()
+        get() = File(config.modelPath).exists()
 
     init {
         if (!modelExists) {
-            throw IllegalArgumentException("Model not found at path: $modelPath")
+            throw IllegalArgumentException("Model not found at path: $config.modelPath")
         }
         try {
             val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(modelPath)
-                .setMaxTokens(maxTokens)
+                .setModelPath(config.modelPath)
+                .setMaxTokens(config.maxTokens)
                 .setResultListener { result, done ->
                     _partialResults.tryEmit(result to done)
                 }
@@ -49,7 +55,7 @@ class InferenceModel(
                     _errors.tryEmit(Exception(error.message))
                 }
 
-            supportedLoraRanks?.let(optionsBuilder::setSupportedLoraRanks)
+            config.supportedLoraRanks?.let(optionsBuilder::setSupportedLoraRanks)
 
             val options = optionsBuilder.build()
             llmInference = LlmInference.createFromOptions(context, options)
@@ -65,20 +71,17 @@ class InferenceModel(
 
 class InferenceModelSession(
     llmInference: LlmInference,
-    temperature: Float,
-    randomSeed: Int,
-    topK: Int,
-    loraPath: String?,
+    val config: InferenceSessionConfig,
 ) {
     private var session: LlmInferenceSession
 
     init {
        val sessionOptionsBuilder = LlmInferenceSession.LlmInferenceSessionOptions.builder()
-           .setTemperature(temperature)
-           .setRandomSeed(randomSeed)
-           .setTopK(topK)
+           .setTemperature(config.temperature)
+           .setRandomSeed(config.randomSeed)
+           .setTopK(config.topK)
 
-       loraPath?.let(sessionOptionsBuilder::setLoraPath)
+       config.loraPath?.let(sessionOptionsBuilder::setLoraPath)
 
        val sessionOptions = sessionOptionsBuilder.build()
        session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)

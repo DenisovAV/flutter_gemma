@@ -176,61 +176,107 @@ await modelManager.deleteLoraWeights();
 
 5.**Initialize:**
 
-```dart
- final inferenceModel = await FlutterGemmaPlugin.instance.init(
-    maxTokens: 512,  /// maxTokens is optional, by default the value is 1024
-    temperature: 1.0,   /// temperature is optional, by default the value is 0.8
-    topK: 1,   /// topK is optional, by default the value is 1
-    randomSeed: 1,   /// randomSeed is optional, by default the value is 1
-  );
-```
-
-4.**Generate a single response**
+Before performing any inference, you need to create a model instance. This ensures that your application is ready to handle requests efficiently.
 
 ```dart
-String response = await inferenceModel.getResponse(
-  prompt: 'Tell me something interesting',
-  isChat: false, // isChat indicates whether you're using chat-style context
+final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
+isInstructionTuned: true, // Set to true if using instruction-tuned models like Gemma-2b-it
+maxTokens: 512, // Optional, default is 1024
 );
 ```
 
-5.**Generate a Streamed Response (Async)**
+6.**Using Sessions for Single Inferences:**
+
+If you need to generate individual responses without maintaining a conversation history, use sessions. Sessions allow precise control over inference and must be properly closed to avoid memory leaks.
+
+1) Synchronous Response Generation
 
 ```dart
-inferenceModel.getResponseAsync(prompt: 'Tell me something interesting',isChat: false,)
-    .listen((String token) {
-      print(token);
-    },
-    onDone: () {
-      print('Stream closed');
-    },
-    onError: (error) {
-      print('Error: $error');
-    },
+final session = await inferenceModel.createSession(
+  temperature: 1.0, // Optional, default is 0.8
+  randomSeed: 1, // Optional, default is 1
+  topK: 1, // Optional, default is 1
+);
+
+await session.addQueryChunk(Message(text: 'Tell me something interesting'));
+String response = await session.getResponse();
+print(response);
+
+await session.close(); // Always close the session when done
+```
+2) Asynchronous Response Generation
+
+```dart
+final session = await inferenceModel.createSession();
+await session.addQueryChunk(Message(text: 'Tell me something interesting'));
+
+session.getResponseAsync().listen((String token) {
+print(token);
+}, onDone: () {
+print('Stream closed');
+}, onError: (error) {
+print('Error: $error');
+});
+
+await session.close();  // Always close the session when done
+```
+
+7.**Chat Scenario with Automatic Session Management**
+
+For chat-based applications, you can create a chat instance. Unlike sessions, the chat instance manages the conversation context and refreshes sessions when necessary.
+
+```dart
+final chat = await inferenceModel.createChat(
+  temperature: 0.8, // Controls response randomness
+  randomSeed: 1, // Ensures reproducibility
+  topK: 1, // Limits vocabulary scope
 );
 ```
 
-6.**Chat Scenario** This method works properly only for instruction tuned (like gemma2b-it) models
+1) Synchronous Chat
 
 ```dart
-String conversation = 'User: Hello, who are you?';
-String response = await inferenceModel.getResponse(prompt: conversation);
-print(response);
-// Next question
-conversation = 'User: Are you sure?';
-String response = await inferenceModel.getResponse(prompt: conversation);
+await chat.addQueryChunk(Message(text: 'User: Hello, who are you?'));
+String response = await chat.getResponse();
 print(response);
 
+await chat.addQueryChunk(Message(text: 'User: Are you sure?'));
+String response2 = await chat.getResponse();
+print(response2);
 ```
 
-7.**Chat Scenario as a S tream** This method works properly only for instruction tuned (like gemma2b-it) models
+2) Asynchronous Chat (Streaming)
 
 ```dart
-String conversation = 'User: Hello, who are you?';
-inferenceModel.getResponseAsync(prompt: conversation);.listen((String? token) => print(token));
+await chat.addQueryChunk(Message(text: 'User: Hello, who are you?'));
+
+chat.getResponseAsync().listen((String token) {
+  print(token);
+}, onDone: () {
+  print('Chat stream closed');
+}, onError: (error) {
+  print('Chat error: $error');
+});
+
+await chat.addQueryChunk(Message(text: 'User: Are you sure?'));
+chat.getResponseAsync().listen((String token) {
+  print(token);
+}, onDone: () {
+  print('Chat stream closed');
+}, onError: (error) {
+  print('Chat error: $error');
+});
 ```
 
-8.**Close** 
+8.**Checking Token Usage**
+You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
+
+```dart
+int tokenCount = await session.sizeInTokens('Your prompt text here');
+print('Prompt size in tokens: $tokenCount');
+```
+
+9.**Closing the Model** 
 
 When you no longer need to perform any further inferences, call the close method to release resources:
 
@@ -238,7 +284,7 @@ When you no longer need to perform any further inferences, call the close method
 await inferenceModel.close();
 ```
 
-If you need to use the inference again later, remember to call init() again before generating responses.
+If you need to use the inference again later, remember to call `createModel` again before generating responses.
 
 
 The full and complete example you can find in `example` folder
@@ -249,4 +295,8 @@ The full and complete example you can find in `example` folder
 * LoRA Weights: They provide efficient customization without the need for full model retraining.
 * Development vs. Production: For production apps, do not embed the model or LoRA weights within your assets. Instead, load them once and store them securely on the device or via a network drive.
 * Web Models: Currently, Web support is available only for GPU backend models.
+
+**Upcoming Features**
+
+In the next version, expect support for multimodality with Gemma 3, enabling text, image, and potentially other input types for even more advanced AI-powered applications.
 

@@ -1,13 +1,15 @@
+import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 class GemmaLocalService {
-  InferenceModelSession get _session => FlutterGemmaPlugin.instance.initializedModel!.session!;
-  
-  Future<String> processMessage(Message message) {
-    return _session.getResponse(message.text);
-  }
+  final InferenceChat _chat;
 
-  Stream<String> processMessageAsync(Message message) {
-    return _session.getResponseAsync(message.text);
+  GemmaLocalService(this._chat);
+
+  Future<void> addQueryChunk(Message message) => _chat.addQueryChunk(message);
+
+  Stream<String> processMessageAsync(Message message) async* {
+    await _chat.addQueryChunk(message);
+    yield* _chat.generateChatResponseAsync();
   }
 }

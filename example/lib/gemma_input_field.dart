@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
 import 'package:flutter_gemma_example/service/gemma_service.dart';
@@ -11,8 +12,10 @@ class GemmaInputField extends StatefulWidget {
     required this.messages,
     required this.streamHandler,
     required this.errorHandler,
+    this.chat,
   });
 
+  final InferenceChat? chat;
   final List<Message> messages;
   final ValueChanged<Message> streamHandler;
   final ValueChanged<String> errorHandler;
@@ -22,18 +25,20 @@ class GemmaInputField extends StatefulWidget {
 }
 
 class GemmaInputFieldState extends State<GemmaInputField> {
-  final _gemma = GemmaLocalService();
+  GemmaLocalService? _gemma;
   StreamSubscription<String?>? _subscription;
   var _message = const Message(text: '');
 
   @override
   void initState() {
     super.initState();
+    _gemma = GemmaLocalService(widget.chat!);
     _processMessages();
   }
 
   void _processMessages() {
-    _subscription = _gemma.processMessageAsync(widget.messages.last).listen(
+
+    _subscription = _gemma?.processMessageAsync(widget.messages.last).listen(
       (String token) {
         setState(() {
           _message = Message(text: '${_message.text}$token');

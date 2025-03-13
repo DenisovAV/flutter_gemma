@@ -2,12 +2,14 @@ part of 'flutter_gemma_mobile.dart';
 
 class MobileInferenceModel extends InferenceModel {
   MobileInferenceModel({
+    required this.maxTokens,
     required this.onClose,
     required this.modelManager,
     required this.isInstructionTuned,
   });
 
   final bool isInstructionTuned;
+  final int maxTokens;
   final VoidCallback onClose;
   final MobileModelManager modelManager;
   bool _isClosed = false;
@@ -42,7 +44,7 @@ class MobileInferenceModel extends InferenceModel {
         loraPath: isLoraInstalled ? loraFile.path : null,
       );
       final session = _session = MobileInferenceModelSession(
-        isInstructionTuned: isInstructionTuned,
+        isInstructionTuned: true,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -87,25 +89,35 @@ class MobileInferenceModelSession extends InferenceModelSession {
   }
 
   @override
-  Future<String> getResponse(String prompt) async {
+  Future<int> sizeInTokens(String text) => _platformService.sizeInTokens(text);
+
+  @override
+  Future<void> addQueryChunk(Message message) async {
+    final finalPrompt = isInstructionTuned ? message.transformToChatPrompt() : message.text;
+    await _platformService.addQueryChunk(finalPrompt);
+  }
+
+  @override
+  Future<String> getResponse({Message? message}) async {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
-      final finalPrompt = isInstructionTuned ? prompt.transformToChatPrompt() : prompt;
-      return await _platformService.generateResponse(finalPrompt);
+      if (message != null) {
+        await addQueryChunk(message);
+      }
+      return await _platformService.generateResponse();
     } finally {
       completer.complete();
     }
   }
 
   @override
-  Stream<String> getResponseAsync(String prompt) async* {
+  Stream<String> getResponseAsync({Message? message}) async* {
     _assertNotClosed();
     await _awaitLastResponse();
     final completer = _responseCompleter = Completer<void>();
     try {
-      final finalPrompt = isInstructionTuned ? prompt.transformToChatPrompt() : prompt;
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {
@@ -123,7 +135,10 @@ class MobileInferenceModelSession extends InferenceModelSession {
         onDone: controller.close,
       );
 
-      unawaited(_platformService.generateResponseAsync(finalPrompt));
+      if (message != null) {
+        await addQueryChunk(message);
+      }
+      unawaited(_platformService.generateResponseAsync());
 
       yield* controller.stream;
     } finally {

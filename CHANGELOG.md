@@ -70,3 +70,8 @@
 - Added opportunity to load LoRA weights from assets and network
 ## 0.5.1
 - Fixed crash on generation for Android
+## 0.6.0
+- Added opportunity to manage inference session
+## 0.7.0
+- Added Chat functionality for instruction tuned model
+- Added sizeIn

@@ -120,11 +120,33 @@ private class PlatformServiceImpl(
     }
   }
 
-  override fun generateResponse(prompt: String, callback: (Result<String>) -> Unit) {
+  override fun sizeInTokens(prompt: String, callback: (Result<Long>) -> Unit) {
+    scope.launch {
+      try {
+        val size = session?.sizeInTokens(prompt) ?: throw Exception("Session not created")
+        withContext(Dispatchers.Main) { callback(Result.success(size.toLong())) }
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) { callback(Result.failure(e)) }
+      }
+    }
+  }
+
+  override fun addQueryChunk(prompt: String, callback: (Result<Unit>) -> Unit) {
+    scope.launch {
+      try {
+        session?.addQueryChunk(prompt) ?: throw Exception("Session not created")
+        withContext(Dispatchers.Main) { callback(Result.success(Unit)) }
+      } catch (e: Exception) {
+        withContext(Dispatchers.Main) { callback(Result.failure(e)) }
+      }
+    }
+  }
+
+  override fun generateResponse(callback: (Result<String>) -> Unit) {
     scope.launch(Dispatchers.IO) {
       try {
         if (session == null) throw Exception("Inference model session is not created")
-        val result = session!!.generateResponse(prompt)
+        val result = session!!.generateResponse()
         withContext(Dispatchers.Main) {
           callback(Result.success(result))
         }
@@ -136,11 +158,11 @@ private class PlatformServiceImpl(
     }
   }
 
-  override fun generateResponseAsync(prompt: String, callback: (Result<Unit>) -> Unit) {
+  override fun generateResponseAsync(callback: (Result<Unit>) -> Unit) {
     scope.launch(Dispatchers.IO) {
       try {
         if (session == null) throw Exception("Inference model session is not created")
-        session!!.generateResponseAsync(prompt)
+        session!!.generateResponseAsync()
       } catch (e: Exception) {
         withContext(Dispatchers.Main) {
           callback(Result.failure(e))

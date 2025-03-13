@@ -91,8 +91,10 @@ protocol PlatformService {
   func closeModel(completion: @escaping (Result<Void, Error>) -> Void)
   func createSession(temperature: Double, randomSeed: Int64, loraPath: String?, topK: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   func closeSession(completion: @escaping (Result<Void, Error>) -> Void)
-  func generateResponse(prompt: String, completion: @escaping (Result<String, Error>) -> Void)
-  func generateResponseAsync(prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
+  func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, Error>) -> Void)
+  func addQueryChunk(prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
+  func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
+  func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -170,12 +172,44 @@ class PlatformServiceSetup {
     } else {
       closeSessionChannel.setMessageHandler(nil)
     }
-    let generateResponseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponse\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    let sizeInTokensChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.sizeInTokens\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
-      generateResponseChannel.setMessageHandler { message, reply in
+      sizeInTokensChannel.setMessageHandler { message, reply in
         let args = message as! [Any?]
         let promptArg = args[0] as! String
-        api.generateResponse(prompt: promptArg) { result in
+        api.sizeInTokens(prompt: promptArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      sizeInTokensChannel.setMessageHandler(nil)
+    }
+    let addQueryChunkChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addQueryChunk\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addQueryChunkChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let promptArg = args[0] as! String
+        api.addQueryChunk(prompt: promptArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addQueryChunkChannel.setMessageHandler(nil)
+    }
+    let generateResponseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponse\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      generateResponseChannel.setMessageHandler { _, reply in
+        api.generateResponse { result in
           switch result {
           case .success(let res):
             reply(wrapResult(res))
@@ -189,10 +223,8 @@ class PlatformServiceSetup {
     }
     let generateResponseAsyncChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseAsync\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {
-      generateResponseAsyncChannel.setMessageHandler { message, reply in
-        let args = message as! [Any?]
-        let promptArg = args[0] as! String
-        api.generateResponseAsync(prompt: promptArg) { result in
+      generateResponseAsyncChannel.setMessageHandler { _, reply in
+        api.generateResponseAsync { result in
           switch result {
           case .success:
             reply(wrapResult(nil))

@@ -17,7 +17,7 @@ void main() {
     final FlutterGemmaPlugin gemma = FlutterGemmaPlugin.instance;
     final InferenceModel model = await gemma.createModel(isInstructionTuned: false);
     final InferenceModelSession session = await model.createSession();
-    final String response = await session.getResponse('prompt');
+    final String response = await session.getResponse();
     // The version string depends on the host platform running the test, so
     // just assert that some non-empty string is returned.
     expect(response.isNotEmpty, true);

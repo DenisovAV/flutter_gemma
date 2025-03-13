@@ -87,13 +87,19 @@ class InferenceModelSession(
        session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
     }
 
-    fun generateResponse(prompt: String): String {
+    fun sizeInTokens(prompt: String): Int {
+        return session.sizeInTokens(prompt)
+    }
+
+    fun addQueryChunk(prompt: String) {
         session.addQueryChunk(prompt)
+    }
+
+    fun generateResponse(): String {
         return session.generateResponse()
     }
 
-    fun generateResponseAsync(prompt: String) {
-        session.addQueryChunk(prompt)
+    fun generateResponseAsync() {
         session.generateResponseAsync()
     }
 

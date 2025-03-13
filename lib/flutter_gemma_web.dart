@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_util';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'flutter_gemma.dart';
@@ -28,6 +29,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     List<int>? supportedLoraRanks,
   }) {
     final model = _initializedModel ??= WebInferenceModel(
+      isInstructionTuned: isInstructionTuned,
       maxTokens: maxTokens,
       supportedLoraRanks: supportedLoraRanks,
       modelManager: modelManager,
@@ -41,7 +43,10 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
 class WebInferenceModel extends InferenceModel {
   final VoidCallback onClose;
+  @override
   final int maxTokens;
+
+  final bool isInstructionTuned;
   final List<int>? supportedLoraRanks;
   final WebModelManager modelManager;
   Completer<InferenceModelSession>? _initCompleter;
@@ -49,6 +54,7 @@ class WebInferenceModel extends InferenceModel {
   InferenceModelSession? session;
 
   WebInferenceModel({
+    required this.isInstructionTuned,
     required this.onClose,
     required this.maxTokens,
     this.supportedLoraRanks,
@@ -86,6 +92,7 @@ class WebInferenceModel extends InferenceModel {
         ),
       );
       final session = this.session = WebModelSession(
+        isInstructionTuned: isInstructionTuned,
         llmInference: llmInference,
         onClose: onClose,
       );
@@ -103,24 +110,62 @@ class WebInferenceModel extends InferenceModel {
 }
 
 class WebModelSession extends InferenceModelSession {
+  final bool isInstructionTuned;
   final LlmInference llmInference;
   final VoidCallback onClose;
   StreamController<String>? _controller;
+  final List<String> _queryChunks = [];
 
-  WebModelSession({required this.llmInference, required this.onClose});
+  WebModelSession({
+    required this.llmInference,
+    required this.onClose,
+    required this.isInstructionTuned,
+  });
 
   @override
-  Future<String> getResponse(String prompt) async {
-    return await promiseToFuture<String>(llmInference.generateResponse(prompt, null));
+  Future<int> sizeInTokens(String text) async {
+    return llmInference.sizeInTokens(text);
   }
 
   @override
-  Stream<String> getResponseAsync(String prompt) {
-    _controller = StreamController<String>();
-    llmInference.generateResponse(
-      prompt,
-      allowInterop(_streamPartialResults),
+  Future<void> addQueryChunk(Message message) async {
+    final finalPrompt = isInstructionTuned ? message.transformToChatPrompt() : message.text;
+    _queryChunks.add(finalPrompt);
+  }
+
+  @override
+  Future<String> getResponse() async {
+    final String fullPrompt = _queryChunks.join(" ");
+    final response = await promiseToFuture<String>(
+      llmInference.generateResponse(fullPrompt, null),
     );
+    addQueryChunk(
+      Message(text: response, isUser: false),
+    );
+    return response;
+  }
+
+  @override
+  Stream<String> getResponseAsync() {
+    _controller = StreamController<String>();
+
+    final String fullPrompt = _queryChunks.join(" ");
+    final List<String> responseBuffer = [];
+
+    llmInference.generateResponse(
+      fullPrompt,
+      allowInterop((String partial, bool complete) {
+        responseBuffer.add(partial);
+        _controller?.add(partial);
+        if (complete) {
+          final String fullResponse = responseBuffer.join("");
+          addQueryChunk(Message(text: fullResponse, isUser: false));
+          _controller?.close();
+          _controller = null;
+        }
+      }),
+    );
+
     return _controller!.stream;
   }
 
@@ -136,9 +181,9 @@ class WebModelSession extends InferenceModelSession {
   }
 
   @override
-  Future<void> close() {
+  Future<void> close() async {
+    _queryChunks.clear();
     onClose();
-    throw UnimplementedError();
   }
 }
 
@@ -148,8 +193,7 @@ class WebModelManager extends ModelFileManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isModelInstalled async =>
-      _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelInstalled async => _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
   Future<bool> get isLoraInstalled async => await isModelInstalled;
@@ -197,8 +241,7 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
     await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
@@ -216,8 +259,7 @@ class WebModelManager extends ModelFileManager {
   @override
   Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
     return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }

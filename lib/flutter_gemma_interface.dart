@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
@@ -52,6 +54,10 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 abstract class InferenceModel {
   InferenceModelSession? get session;
 
+  InferenceChat? chat;
+
+  int get maxTokens;
+
   /// Creates a session for generating responses from the LLM.
   ///
   /// Only one session can be created at a time.
@@ -62,6 +68,30 @@ abstract class InferenceModel {
     int randomSeed,
     int topK,
   });
+
+  /// Creates a chat for generating chat responses from the LLM.
+  ///
+  /// Only one chat can be created at a time.
+  ///
+  /// {@macro gemma.chat}
+  Future<InferenceChat> createChat({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+    int tokenBuffer = 256,
+  }) async {
+    chat = InferenceChat(
+      sessionCreator: (() => createSession(
+            temperature: temperature,
+            randomSeed: randomSeed,
+            topK: topK,
+          )),
+      maxTokens: maxTokens,
+      tokenBuffer: tokenBuffer,
+    );
+    await chat!.initSession();
+    return chat!;
+  }
 
   /// Closes and cleans up the llm inference.
   ///
@@ -85,14 +115,18 @@ abstract class InferenceModelSession {
   /// Only one response can be generated at a time.
   /// But it is safe to call this method multiple times. It will wait for the previous response to be generated.
   /// {@endtemplate}
-  Future<String> getResponse(String prompt);
+  Future<String> getResponse();
 
   /// Generates a response for the given prompt. Returns a stream of tokens as they are generated.
   ///
   /// Stream will be closed when the response is generated.
   ///
   /// {@macro gemma.response}
-  Stream<String> getResponseAsync(String prompt);
+  Stream<String> getResponseAsync();
+
+  Future<int> sizeInTokens(String text);
+
+  Future<void> addQueryChunk(Message message);
 
   /// Closes and cleans up the model session.
   ///

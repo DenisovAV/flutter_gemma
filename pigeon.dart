@@ -33,8 +33,14 @@ abstract class PlatformService {
   void closeSession();
 
   @async
-  String generateResponse(String prompt);
+  int sizeInTokens(String prompt);
 
   @async
-  void generateResponseAsync(String prompt);
+  void addQueryChunk(String prompt);
+
+  @async
+  String generateResponse();
+
+  @async
+  void generateResponseAsync();
 }

@@ -32,14 +32,26 @@ final class InferenceSession {
         self.session = try LlmInference.Session(llmInference: inference, options: options)
     }
 
-    func generateResponse(prompt: String) throws -> String {
+    func sizeInTokens(prompt: String) throws -> Int {
+        return try session.sizeInTokens(inputText: prompt)
+    }
+
+    func addQueryChunk(prompt: String) throws {
         try session.addQueryChunk(inputText: prompt)
+    }
+
+    func generateResponse(prompt: String? = nil) throws -> String {
+        if let prompt = prompt {
+            try session.addQueryChunk(inputText: prompt)
+        }
         return try session.generateResponse()
     }
 
     @available(iOS 13.0.0, *)
-    func generateResponseAsync(prompt: String) throws -> AsyncThrowingStream<String, any Error> {
-        try session.addQueryChunk(inputText: prompt)
+    func generateResponseAsync(prompt: String? = nil) throws -> AsyncThrowingStream<String, any Error> {
+        if let prompt = prompt {
+            try session.addQueryChunk(inputText: prompt)
+        }
         return session.generateResponseAsync()
     }
 }

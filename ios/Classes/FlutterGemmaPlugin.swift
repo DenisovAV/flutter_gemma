@@ -65,65 +65,79 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             }
         }
     }
-    
+
+    func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, any Error>) -> Void) {
+        guard let session = session else {
+            completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let tokenCount = try session.sizeInTokens(inputText: prompt)
+                DispatchQueue.main.async { completion(.success(Int64(tokenCount))) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func addQueryChunk(prompt: String, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = session else {
+            completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try session.addQueryChunk(inputText: prompt)
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
     func closeSession(completion: @escaping (Result<Void, any Error>) -> Void) {
         session = nil
         completion(.success(()))
     }
     
-    func generateResponse(prompt: String, completion: @escaping (Result<String, any Error>) -> Void) {
+func generateResponse(completion: @escaping (Result<String, any Error>) -> Void) {
+        guard let session = session else {
+            completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            return
+        }
+
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                if let session = self.session {
-                    let response = try session.generateResponse(prompt: prompt)
-                    DispatchQueue.main.async {
-                        completion(.success(response))
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
-                    }
-                }
+                let response = try session.generateResponse()
+                DispatchQueue.main.async { completion(.success(response)) }
             } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }
-    
-    func generateResponseAsync(prompt: String, completion: @escaping (Result<Void, any Error>) -> Void) {
+
+    func generateResponseAsync(completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = session, let eventSink = eventSink else {
+            completion(.failure(PigeonError(code: "Session or eventSink not created", message: nil, details: nil)))
+            return
+        }
+
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                if let session = self.session, let eventSink = self.eventSink {
-                    let stream = try session.generateResponseAsync(prompt: prompt)
-                    Task.detached {
-                        [weak self] in
-                        guard let self = self else { return }
-                        do {
-                            for try await token in stream {
-                                DispatchQueue.main.async {
-                                    eventSink(token)
-                                }
-                            }
-                            DispatchQueue.main.async {
-                                eventSink(FlutterEndOfEventStream)
-                            }
-                        } catch {
-                            DispatchQueue.main.async {
-                                eventSink(FlutterError(code: error.localizedDescription, message: nil, details: nil))
-                            }
-                        }
+                let stream = try session.generateResponseAsync()
+                Task.detached { [weak self] in
+                    guard let self = self else { return }
+                    for try await token in stream {
+                        DispatchQueue.main.async { eventSink(token) }
                     }
-                } else {
-                    DispatchQueue.main.async {
-                        completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
-                    }
+                    DispatchQueue.main.async { eventSink(FlutterEndOfEventStream) }
                 }
+                DispatchQueue.main.async { completion(.success(())) }
             } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(error))
-                }
+                DispatchQueue.main.async { completion(.failure(error)) }
             }
         }
     }

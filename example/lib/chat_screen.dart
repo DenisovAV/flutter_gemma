@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
@@ -12,6 +13,7 @@ class ChatScreen extends StatefulWidget {
 
 class ChatScreenState extends State<ChatScreen> {
   final _gemma = FlutterGemmaPlugin.instance;
+  InferenceChat? chat;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
   int? _loadingProgress;
@@ -26,21 +28,21 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeModel() async {
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
-      await for (int progress
-          in _gemma.modelManager.installModelFromAssetWithProgress('model.bin')) {
+      await for (int progress in _gemma.modelManager.installModelFromAssetWithProgress('model.bin')) {
         setState(() {
           _loadingProgress = progress;
         });
       }
     }
-    final model = await FlutterGemmaPlugin.instance.createModel(
+    final model = await _gemma.createModel(
       isInstructionTuned: true,
       maxTokens: 512,
     );
-    await model.createSession(
+    chat = await model.createChat(
       temperature: 1.0,
-      topK: 1,
       randomSeed: 1,
+      topK: 1,
+      tokenBuffer: 128,
     );
     setState(() {
       _isModelInitialized = true;
@@ -74,6 +76,7 @@ class ChatScreenState extends State<ChatScreen> {
                 if (_error != null) _buildErrorBanner(_error!),
                 Expanded(
                   child: ChatListWidget(
+                    chat: chat,
                     gemmaHandler: (message) {
                       setState(() {
                         _messages.add(message);

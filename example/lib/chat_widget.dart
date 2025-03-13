@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_input_field.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
@@ -10,9 +11,11 @@ class ChatListWidget extends StatelessWidget {
     required this.gemmaHandler,
     required this.humanHandler,
     required this.errorHandler,
+    this.chat,
     super.key,
   });
 
+  final InferenceChat? chat;
   final List<Message> messages;
   final ValueChanged<Message> gemmaHandler;
   final ValueChanged<String> humanHandler;
@@ -28,6 +31,7 @@ class ChatListWidget extends StatelessWidget {
         if (index == 0) {
           if (messages.isNotEmpty && messages.last.isUser) {
             return GemmaInputField(
+              chat: chat,
               messages: messages,
               streamHandler: gemmaHandler,
               errorHandler: errorHandler,

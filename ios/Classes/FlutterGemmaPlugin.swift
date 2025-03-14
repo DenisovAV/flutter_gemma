@@ -74,7 +74,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let tokenCount = try session.sizeInTokens(inputText: prompt)
+                let tokenCount = try session.sizeInTokens(prompt: prompt)
                 DispatchQueue.main.async { completion(.success(Int64(tokenCount))) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }
@@ -90,7 +90,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                try session.addQueryChunk(inputText: prompt)
+                try session.addQueryChunk(prompt: prompt)
                 DispatchQueue.main.async { completion(.success(())) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(error)) }

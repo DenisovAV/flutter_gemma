@@ -74,4 +74,4 @@
 - Added opportunity to manage inference session
 ## 0.7.0
 - Added Chat functionality for instruction tuned model
-- Added sizeIn
+- Added sizeInTokens method for analysis of the size of the input prompt

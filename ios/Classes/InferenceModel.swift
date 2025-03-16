@@ -33,7 +33,7 @@ final class InferenceSession {
     }
 
     func sizeInTokens(prompt: String) throws -> Int {
-        return try session.sizeInTokens(inputText: prompt)
+        return try session.sizeInTokens(text: prompt)
     }
 
     func addQueryChunk(prompt: String) throws {

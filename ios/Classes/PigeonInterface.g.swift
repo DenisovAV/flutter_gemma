@@ -64,10 +64,40 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   return value as! T?
 }
 
+enum PreferredBackend: Int {
+  case unknown = 0
+  case cpu = 1
+  case gpu = 2
+  case gpuFloat16 = 3
+  case gpuMixed = 4
+  case gpuFull = 5
+  case tpu = 6
+}
+
 private class PigeonInterfacePigeonCodecReader: FlutterStandardReader {
+  override func readValue(ofType type: UInt8) -> Any? {
+    switch type {
+    case 129:
+      let enumResultAsInt: Int? = nilOrValue(self.readValue() as! Int?)
+      if let enumResultAsInt = enumResultAsInt {
+        return PreferredBackend(rawValue: enumResultAsInt)
+      }
+      return nil
+    default:
+      return super.readValue(ofType: type)
+    }
+  }
 }
 
 private class PigeonInterfacePigeonCodecWriter: FlutterStandardWriter {
+  override func writeValue(_ value: Any) {
+    if let value = value as? PreferredBackend {
+      super.writeByte(129)
+      super.writeValue(value.rawValue)
+    } else {
+      super.writeValue(value)
+    }
+  }
 }
 
 private class PigeonInterfacePigeonCodecReaderWriter: FlutterStandardReaderWriter {
@@ -87,9 +117,9 @@ class PigeonInterfacePigeonCodec: FlutterStandardMessageCodec, @unchecked Sendab
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol PlatformService {
-  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeModel(completion: @escaping (Result<Void, Error>) -> Void)
-  func createSession(temperature: Double, randomSeed: Int64, loraPath: String?, topK: Int64, completion: @escaping (Result<Void, Error>) -> Void)
+  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeSession(completion: @escaping (Result<Void, Error>) -> Void)
   func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, Error>) -> Void)
   func addQueryChunk(prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
@@ -110,7 +140,8 @@ class PlatformServiceSetup {
         let maxTokensArg = args[0] as! Int64
         let modelPathArg = args[1] as! String
         let loraRanksArg: [Int64]? = nilOrValue(args[2])
-        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg) { result in
+        let preferredBackendArg: PreferredBackend? = nilOrValue(args[3])
+        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg, preferredBackend: preferredBackendArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))
@@ -143,9 +174,10 @@ class PlatformServiceSetup {
         let args = message as! [Any?]
         let temperatureArg = args[0] as! Double
         let randomSeedArg = args[1] as! Int64
-        let loraPathArg: String? = nilOrValue(args[2])
-        let topKArg = args[3] as! Int64
-        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, loraPath: loraPathArg, topK: topKArg) { result in
+        let topKArg = args[2] as! Int64
+        let topPArg: Double? = nilOrValue(args[3])
+        let loraPathArg: String? = nilOrValue(args[4])
+        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))

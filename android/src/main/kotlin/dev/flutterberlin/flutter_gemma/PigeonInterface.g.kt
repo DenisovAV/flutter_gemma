@@ -45,21 +45,50 @@ class FlutterError (
   override val message: String? = null,
   val details: Any? = null
 ) : Throwable()
+
+enum class PreferredBackend(val raw: Int) {
+  UNKNOWN(0),
+  CPU(1),
+  GPU(2),
+  GPU_FLOAT16(3),
+  GPU_MIXED(4),
+  GPU_FULL(5),
+  TPU(6);
+
+  companion object {
+    fun ofRaw(raw: Int): PreferredBackend? {
+      return values().firstOrNull { it.raw == raw }
+    }
+  }
+}
 private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
-    return     super.readValueOfType(type, buffer)
+    return when (type) {
+      129.toByte() -> {
+        return (readValue(buffer) as Long?)?.let {
+          PreferredBackend.ofRaw(it.toInt())
+        }
+      }
+      else -> super.readValueOfType(type, buffer)
+    }
   }
   override fun writeValue(stream: ByteArrayOutputStream, value: Any?)   {
-    super.writeValue(stream, value)
+    when (value) {
+      is PreferredBackend -> {
+        stream.write(129)
+        writeValue(stream, value.raw)
+      }
+      else -> super.writeValue(stream, value)
+    }
   }
 }
 
 
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface PlatformService {
-  fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, callback: (Result<Unit>) -> Unit)
+  fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, preferredBackend: PreferredBackend?, callback: (Result<Unit>) -> Unit)
   fun closeModel(callback: (Result<Unit>) -> Unit)
-  fun createSession(temperature: Double, randomSeed: Long, loraPath: String?, topK: Long, callback: (Result<Unit>) -> Unit)
+  fun createSession(temperature: Double, randomSeed: Long, topK: Long, topP: Double?, loraPath: String?, callback: (Result<Unit>) -> Unit)
   fun closeSession(callback: (Result<Unit>) -> Unit)
   fun sizeInTokens(prompt: String, callback: (Result<Long>) -> Unit)
   fun addQueryChunk(prompt: String, callback: (Result<Unit>) -> Unit)
@@ -83,7 +112,8 @@ interface PlatformService {
             val maxTokensArg = args[0] as Long
             val modelPathArg = args[1] as String
             val loraRanksArg = args[2] as List<Long>?
-            api.createModel(maxTokensArg, modelPathArg, loraRanksArg) { result: Result<Unit> ->
+            val preferredBackendArg = args[3] as PreferredBackend?
+            api.createModel(maxTokensArg, modelPathArg, loraRanksArg, preferredBackendArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -120,9 +150,10 @@ interface PlatformService {
             val args = message as List<Any?>
             val temperatureArg = args[0] as Double
             val randomSeedArg = args[1] as Long
-            val loraPathArg = args[2] as String?
-            val topKArg = args[3] as Long
-            api.createSession(temperatureArg, randomSeedArg, loraPathArg, topKArg) { result: Result<Unit> ->
+            val topKArg = args[2] as Long
+            val topPArg = args[3] as Double?
+            val loraPathArg = args[4] as String?
+            api.createSession(temperatureArg, randomSeedArg, topKArg, topPArg, loraPathArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

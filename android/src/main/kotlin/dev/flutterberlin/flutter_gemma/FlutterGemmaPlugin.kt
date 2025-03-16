@@ -15,12 +15,11 @@ class FlutterGemmaPlugin: FlutterPlugin {
   private lateinit var eventChannel: EventChannel
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    val service = PlatformServiceImpl(flutterPluginBinding.applicationContext);
+    val service = PlatformServiceImpl(flutterPluginBinding.applicationContext)
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "flutter_gemma_stream")
     eventChannel.setStreamHandler(service)
     PlatformService.setUp(flutterPluginBinding.binaryMessenger, service)
   }
-
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     eventChannel.setStreamHandler(null)
@@ -28,43 +27,38 @@ class FlutterGemmaPlugin: FlutterPlugin {
 }
 
 private class PlatformServiceImpl(
-  var context : Context
-): PlatformService, EventChannel.StreamHandler {
-  private val scope = CoroutineScope(Dispatchers.Main)
+  val context: Context
+) : PlatformService, EventChannel.StreamHandler {
+  private val scope = CoroutineScope(Dispatchers.IO)
   private var eventSink: EventChannel.EventSink? = null
-  private var inferenceModel : InferenceModel? = null
+  private var inferenceModel: InferenceModel? = null
   private var session: InferenceModelSession? = null
 
   override fun createModel(
     maxTokens: Long,
     modelPath: String,
     loraRanks: List<Long>?,
+    preferredBackend: PreferredBackend?,
     callback: (Result<Unit>) -> Unit
   ) {
-    scope.launch(Dispatchers.IO) {
+    scope.launch {
       try {
+        val backendEnum = preferredBackend?.let {
+          PreferredBackendEnum.values()[it.ordinal]
+        }
         val config = InferenceModelConfig(
           modelPath,
           maxTokens.toInt(),
           loraRanks?.map { it.toInt() },
+          backendEnum
         )
-        // Recreate model only if it's needed. Useful for hot restart
         if (config != inferenceModel?.config) {
           inferenceModel?.close()
-          inferenceModel = InferenceModel(
-            context,
-            config,
-          )
-        } else {
-          println("Inference model with given parameters is already created")
+          inferenceModel = InferenceModel(context, config)
         }
-        withContext(Dispatchers.Main) {
-          callback(Result.success(Unit))
-        }
+        callback(Result.success(Unit))
       } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-          callback(Result.failure(e))
-        }
+        callback(Result.failure(e))
       }
     }
   }
@@ -82,33 +76,29 @@ private class PlatformServiceImpl(
   override fun createSession(
     temperature: Double,
     randomSeed: Long,
-    loraPath: String?,
     topK: Long,
+    topP: Double?,
+    loraPath: String?,
     callback: (Result<Unit>) -> Unit
   ) {
-    scope.launch(Dispatchers.IO) {
+    scope.launch {
       try {
-        if (inferenceModel == null) throw Exception("Inference model is not created")
+        val model = inferenceModel ?: throw IllegalStateException("Inference model is not created")
         val config = InferenceSessionConfig(
           temperature.toFloat(),
           randomSeed.toInt(),
           topK.toInt(),
-          loraPath,
+          topP?.toFloat(),
+          loraPath
         )
-        // Always recreate session to 
         session?.close()
-        session = InferenceModelSession(inferenceModel!!.llmInference, config)
-        withContext(Dispatchers.Main) {
-          callback(Result.success(Unit))
-        }
+        session = model.createSession(config)
+        callback(Result.success(Unit))
       } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-          callback(Result.failure(e))
-        }
+        callback(Result.failure(e))
       }
     }
   }
-
 
   override fun closeSession(callback: (Result<Unit>) -> Unit) {
     try {
@@ -123,10 +113,10 @@ private class PlatformServiceImpl(
   override fun sizeInTokens(prompt: String, callback: (Result<Long>) -> Unit) {
     scope.launch {
       try {
-        val size = session?.sizeInTokens(prompt) ?: throw Exception("Session not created")
-        withContext(Dispatchers.Main) { callback(Result.success(size.toLong())) }
+        val size = session?.sizeInTokens(prompt) ?: throw IllegalStateException("Session not created")
+        callback(Result.success(size.toLong()))
       } catch (e: Exception) {
-        withContext(Dispatchers.Main) { callback(Result.failure(e)) }
+        callback(Result.failure(e))
       }
     }
   }
@@ -134,59 +124,51 @@ private class PlatformServiceImpl(
   override fun addQueryChunk(prompt: String, callback: (Result<Unit>) -> Unit) {
     scope.launch {
       try {
-        session?.addQueryChunk(prompt) ?: throw Exception("Session not created")
-        withContext(Dispatchers.Main) { callback(Result.success(Unit)) }
+        session?.addQueryChunk(prompt) ?: throw IllegalStateException("Session not created")
+        callback(Result.success(Unit))
       } catch (e: Exception) {
-        withContext(Dispatchers.Main) { callback(Result.failure(e)) }
+        callback(Result.failure(e))
       }
     }
   }
 
   override fun generateResponse(callback: (Result<String>) -> Unit) {
-    scope.launch(Dispatchers.IO) {
+    scope.launch {
       try {
-        if (session == null) throw Exception("Inference model session is not created")
-        val result = session!!.generateResponse()
-        withContext(Dispatchers.Main) {
-          callback(Result.success(result))
-        }
+        val result = session?.generateResponse() ?: throw IllegalStateException("Session not created")
+        callback(Result.success(result))
       } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-          callback(Result.failure(e))
-        }
+        callback(Result.failure(e))
       }
     }
   }
 
   override fun generateResponseAsync(callback: (Result<Unit>) -> Unit) {
-    scope.launch(Dispatchers.IO) {
+    scope.launch {
       try {
-        if (session == null) throw Exception("Inference model session is not created")
-        session!!.generateResponseAsync()
+        session?.generateResponseAsync() ?: throw IllegalStateException("Session not created")
+        callback(Result.success(Unit))
       } catch (e: Exception) {
-        withContext(Dispatchers.Main) {
-          callback(Result.failure(e))
-        }
+        callback(Result.failure(e))
       }
     }
   }
 
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
     eventSink = events
+    val model = inferenceModel ?: return
+
     scope.launch {
       launch {
-        inferenceModel?.partialResults?.collect { pair ->
-          if (pair.second) {
-            events?.success(pair.first)
-            events?.endOfStream()
-          } else {
-            events?.success(pair.first)
-          }
+        model.partialResults.collect { (text, done) ->
+          val payload = mapOf("partialResult" to text, "done" to done)
+          events?.success(payload)
+          if (done) events?.endOfStream()
         }
       }
 
       launch {
-        inferenceModel?.errors?.collect { error ->
+        model.errors.collect { error ->
           events?.error("ERROR", error.message, null)
         }
       }

@@ -28,7 +28,7 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeModel() async {
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
-      await for (int progress in _gemma.modelManager.installModelFromAssetWithProgress('model.bin')) {
+      await for (int progress in _gemma.modelManager.installModelFromAssetWithProgress('model.task')) {
         setState(() {
           _loadingProgress = progress;
         });

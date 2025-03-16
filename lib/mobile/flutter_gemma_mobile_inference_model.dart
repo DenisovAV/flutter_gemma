@@ -6,12 +6,17 @@ class MobileInferenceModel extends InferenceModel {
     required this.onClose,
     required this.modelManager,
     required this.isInstructionTuned,
+    this.preferredBackend,
+    this.supportedLoraRanks,
   });
 
   final bool isInstructionTuned;
+  @override
   final int maxTokens;
   final VoidCallback onClose;
   final MobileModelManager modelManager;
+  final PreferredBackend? preferredBackend;
+  final List<int>? supportedLoraRanks;
   bool _isClosed = false;
   MobileInferenceModelSession? _session;
   Completer<InferenceModelSession>? _createCompleter;
@@ -24,6 +29,8 @@ class MobileInferenceModel extends InferenceModel {
     double temperature = .8,
     int randomSeed = 1,
     int topK = 1,
+    double? topP,
+    String? loraPath,
   }) async {
     if (_isClosed) {
       throw Exception('Model is closed. Create a new instance to use it again');
@@ -34,17 +41,20 @@ class MobileInferenceModel extends InferenceModel {
     final completer = _createCompleter = Completer<InferenceModelSession>();
     try {
       final (isLoraInstalled, loraFile) = await (
-        modelManager.isLoraInstalled,
-        modelManager._loraFile,
+      modelManager.isLoraInstalled,
+      modelManager._loraFile,
       ).wait;
+
       await _platformService.createSession(
         randomSeed: randomSeed,
         temperature: temperature,
         topK: topK,
-        loraPath: isLoraInstalled ? loraFile.path : null,
+        topP: topP,
+        loraPath: isLoraInstalled ? loraFile.path : loraPath,
       );
+
       final session = _session = MobileInferenceModelSession(
-        isInstructionTuned: true,
+        isInstructionTuned: isInstructionTuned,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -120,11 +130,12 @@ class MobileInferenceModelSession extends InferenceModelSession {
     try {
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
-        (event) {
+            (event) {
           if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
             controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
-          } else if (event is String) {
-            controller.add(event);
+          } else if (event is Map && event.containsKey('partialResult')) {
+            final partial = event['partialResult'] as String;
+            controller.add(partial);
           } else {
             controller.addError(Exception('Unknown event type: $event'));
           }

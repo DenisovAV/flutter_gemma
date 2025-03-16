@@ -35,28 +35,33 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Future<InferenceModel> createModel({
     required bool isInstructionTuned,
     int maxTokens = 1024,
+    PreferredBackend? preferredBackend,
+    List<int>? loraRanks,
   }) async {
     if (_initCompleter case Completer<InferenceModel> completer) {
       return completer.future;
     }
     final completer = _initCompleter = Completer<InferenceModel>();
     final (isModelInstalled, isLoraInstalled, modelFile, loraFile) = await (
-      modelManager.isModelInstalled,
-      modelManager.isLoraInstalled,
-      modelManager._modelFile,
-      modelManager._loraFile,
+    modelManager.isModelInstalled,
+    modelManager.isLoraInstalled,
+    modelManager._modelFile,
+    modelManager._loraFile,
     ).wait;
     if (isModelInstalled) {
       try {
         await _platformService.createModel(
           maxTokens: maxTokens,
           modelPath: modelFile.path,
-          loraRanks: supportedLoraRanks,
+          loraRanks: loraRanks ?? supportedLoraRanks,
+          preferredBackend: preferredBackend,
         );
         final model = _initializedModel = MobileInferenceModel(
           maxTokens: maxTokens,
-          isInstructionTuned: true,
+          isInstructionTuned: isInstructionTuned,
           modelManager: modelManager,
+          preferredBackend: preferredBackend,
+          supportedLoraRanks: loraRanks ?? supportedLoraRanks,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;

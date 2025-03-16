@@ -1,6 +1,16 @@
 import 'package:pigeon/pigeon.dart';
 // Command to generate pigeon files: dart run pigeon --input pigeon.dart
 
+enum PreferredBackend {
+  unknown,
+  cpu,
+  gpu,
+  gpuFloat16,
+  gpuMixed,
+  gpuFull,
+  tpu,
+}
+
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/pigeon.g.dart',
   kotlinOut: 'android/src/main/kotlin/dev/flutterberlin/flutter_gemma/PigeonInterface.g.kt',
@@ -16,6 +26,7 @@ abstract class PlatformService {
     required int maxTokens,
     required String modelPath,
     required List<int>? loraRanks,
+    PreferredBackend? preferredBackend,
   });
 
   @async
@@ -25,8 +36,9 @@ abstract class PlatformService {
   void createSession({
     required double temperature,
     required int randomSeed,
-    required String? loraPath,
     required int topK,
+    double? topP,
+    String? loraPath,
   });
 
   @async

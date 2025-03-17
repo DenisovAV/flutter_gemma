@@ -109,12 +109,12 @@ Dont forget to add your model to pubspec.yaml
 
   1) Loading from assets (loraUrl is optional)
 ```dart
-    await modelManager.loadAssetModel(fullPath: 'model.bin', loraPath: 'lora_weights.bin');
+    await modelManager.installModelFromAsset('model.bin', loraPath: 'lora_weights.bin');
 ```
 
   2) Loading froms assets with Progress Status (loraUrl is optional)
 ```dart
-    modelManager.loadAssetModelWithProgress(fullPath: 'model.bin', loraPath: 'lora_weights.bin').listen(
+    modelManager.installModelFromAssetWithProgress('model.bin', loraPath: 'lora_weights.bin').listen(
     (progress) {
       print('Loading progress: $progress%');
     },
@@ -133,12 +133,12 @@ Dont forget to add your model to pubspec.yaml
 
   1) Loading from the network (loraUrl is optional).
 ```dart
-   await modelManager.loadNetworkModel(url: 'https://example.com/model.bin', loraUrl: 'https://example.com/lora_weights.bin');
+   await modelManager.downloadModelFromNetwork('https://example.com/model.bin', loraUrl: 'https://example.com/lora_weights.bin');
 ```
 
   2) Loading froms the network with Progress Status (loraUrl is optional)
 ```dart
-    modelManager.loadNetworkModelWithProgress(url: 'https://example.com/model.bin', loraUrl: 'https://example.com/lora_weights.bin').listen(
+    modelManager.downloadModelFromNetworkWithProgress('https://example.com/model.bin', loraUrl: 'https://example.com/lora_weights.bin').listen(
     (progress) {
       print('Loading progress: $progress%');
     },
@@ -155,19 +155,19 @@ Dont forget to add your model to pubspec.yaml
 
 1) Loading LoRA weight from the network.
 ```dart
-await modelManager.loadLoraWeightsFromNetwork('https://example.com/lora_weights.bin');
+await modelManager.downloadLoraWeightsFromNetwork('https://example.com/lora_weights.bin');
 ```
 
 2) Loading LoRA weight from assets.
 ```dart
-await modelManager.loadLoraWeightsFromAsset('lora_weights.bin');
+await modelManager.installLoraWeightsFromAsset('lora_weights.bin');
 ```
 
 4. **Model Management**
 You can set model and weights paths manually
 ```dart
 await modelManager.setModelPath('model.bin');
-await modelManager.setLoraPath('lora_weights.bin');
+await modelManager.setLoraWeightsPath('lora_weights.bin');
 ```
 
 You can delete the model and weights from the device. Deleting the model or LoRA weights will automatically close and clean up the inference. This ensures that there are no lingering resources or memory leaks when switching models or updating files.
@@ -182,7 +182,7 @@ Before performing any inference, you need to create a model instance. This ensur
 
 ```dart
 final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
-isInstructionTuned: true, // Set to true if using instruction-tuned models like Gemma-2b-it
+modelType: ModelType.gemmaIt, // Required, model type to create
 maxTokens: 512, // Optional, default is 1024
 );
 ```

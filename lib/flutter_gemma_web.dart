@@ -3,6 +3,8 @@ import 'dart:js_util';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'flutter_gemma.dart';
@@ -24,14 +26,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<InferenceModel> createModel({
-    required bool isInstructionTuned,
+    required ModelType modelType,
     int maxTokens = 1024,
-    List<int>? supportedLoraRanks,
+    PreferredBackend? preferredBackend,
+    List<int>? loraRanks,
   }) {
     final model = _initializedModel ??= WebInferenceModel(
-      isInstructionTuned: isInstructionTuned,
+      modelType: modelType,
       maxTokens: maxTokens,
-      supportedLoraRanks: supportedLoraRanks,
+      loraRanks: loraRanks,
       modelManager: modelManager,
       onClose: () {
         _initializedModel = null;
@@ -46,26 +49,28 @@ class WebInferenceModel extends InferenceModel {
   @override
   final int maxTokens;
 
-  final bool isInstructionTuned;
-  final List<int>? supportedLoraRanks;
+  final ModelType modelType;
+  final List<int>? loraRanks;
   final WebModelManager modelManager;
   Completer<InferenceModelSession>? _initCompleter;
   @override
   InferenceModelSession? session;
 
   WebInferenceModel({
-    required this.isInstructionTuned,
+    required this.modelType,
     required this.onClose,
     required this.maxTokens,
-    this.supportedLoraRanks,
+    this.loraRanks,
     required this.modelManager,
   });
 
   @override
   Future<InferenceModelSession> createSession({
-    temperature = .8,
-    randomSeed = 1,
-    topK = 1,
+    double temperature = 0.8,
+    int randomSeed = 1,
+    int topK = 1,
+    double? topP,
+    String? loraPath,
   }) async {
     if (_initCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
@@ -75,24 +80,28 @@ class WebInferenceModel extends InferenceModel {
       final fileset = await promiseToFuture<FilesetResolver>(
         FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
       );
+
+      final loraPathToUse = loraPath ?? modelManager._loraPath;
+
+      final config = {
+        'baseOptions': {'modelAssetPath': modelManager._path},
+        'maxTokens': maxTokens,
+        'randomSeed': randomSeed,
+        'topK': topK,
+        'temperature': temperature,
+        if (topP != null) 'topP': topP,
+        if (loraPathToUse != null && loraRanks != null) ...{
+          'supportedLoraRanks': loraRanks,
+          'loraPath': loraPathToUse,
+        },
+      };
+
       final llmInference = await promiseToFuture<LlmInference>(
-        LlmInference.createFromOptions(
-          fileset,
-          jsify({
-            'baseOptions': {'modelAssetPath': modelManager._path},
-            'maxTokens': maxTokens,
-            'randomSeed': randomSeed,
-            'topK': topK,
-            'temperature': temperature,
-            if (modelManager._loraPath != null) ...{
-              'supportedLoraRanks': supportedLoraRanks,
-              'loraPath': modelManager._loraPath,
-            },
-          }),
-        ),
+        LlmInference.createFromOptions(fileset, jsify(config)),
       );
+
       final session = this.session = WebModelSession(
-        isInstructionTuned: isInstructionTuned,
+        modelType: modelType,
         llmInference: llmInference,
         onClose: onClose,
       );
@@ -106,11 +115,13 @@ class WebInferenceModel extends InferenceModel {
   @override
   Future<void> close() async {
     await session?.close();
+    session = null;
+    onClose();
   }
 }
 
 class WebModelSession extends InferenceModelSession {
-  final bool isInstructionTuned;
+  final ModelType modelType;
   final LlmInference llmInference;
   final VoidCallback onClose;
   StreamController<String>? _controller;
@@ -119,7 +130,7 @@ class WebModelSession extends InferenceModelSession {
   WebModelSession({
     required this.llmInference,
     required this.onClose,
-    required this.isInstructionTuned,
+    required this.modelType,
   });
 
   @override
@@ -129,7 +140,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = isInstructionTuned ? message.transformToChatPrompt() : message.text;
+    final finalPrompt = message.transformToChatPrompt(type: modelType);
     _queryChunks.add(finalPrompt);
   }
 
@@ -139,9 +150,7 @@ class WebModelSession extends InferenceModelSession {
     final response = await promiseToFuture<String>(
       llmInference.generateResponse(fullPrompt, null),
     );
-    addQueryChunk(
-      Message(text: response, isUser: false),
-    );
+    await addQueryChunk(Message(text: response, isUser: false));
     return response;
   }
 
@@ -154,7 +163,9 @@ class WebModelSession extends InferenceModelSession {
 
     llmInference.generateResponse(
       fullPrompt,
-      allowInterop((String partial, bool complete) {
+      allowInterop((String partial, dynamic completeRaw) {
+        final bool complete = completeRaw == true || completeRaw == 1;
+
         responseBuffer.add(partial);
         _controller?.add(partial);
         if (complete) {
@@ -169,20 +180,11 @@ class WebModelSession extends InferenceModelSession {
     return _controller!.stream;
   }
 
-  void _streamPartialResults(dynamic partialResults, bool complete) {
-    if (_controller != null) {
-      if (complete) {
-        _controller!.close();
-        _controller = null;
-      } else {
-        _controller!.add(partialResults);
-      }
-    }
-  }
-
   @override
   Future<void> close() async {
     _queryChunks.clear();
+    _controller?.close();
+    _controller = null;
     onClose();
   }
 }

@@ -154,6 +154,7 @@ private class PlatformServiceImpl(
     }
   }
 
+
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
     eventSink = events
     val model = inferenceModel ?: return
@@ -162,14 +163,20 @@ private class PlatformServiceImpl(
       launch {
         model.partialResults.collect { (text, done) ->
           val payload = mapOf("partialResult" to text, "done" to done)
-          events?.success(payload)
-          if (done) events?.endOfStream()
+          withContext(Dispatchers.Main) {
+            events?.success(payload)
+            if (done) {
+              events?.endOfStream()
+            }
+          }
         }
       }
 
       launch {
         model.errors.collect { error ->
-          events?.error("ERROR", error.message, null)
+          withContext(Dispatchers.Main) {
+            events?.error("ERROR", error.message, null)
+          }
         }
       }
     }

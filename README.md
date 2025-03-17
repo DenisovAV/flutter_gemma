@@ -20,7 +20,8 @@ There is an example of using:
 - **Platform Support:** Compatible with both iOS and Android platforms.
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **Ease of Use:** Simple interface for integrating Gemma models into your Flutter projects.
-- **Supported Models:** Gemma 2B & Gemma 7B, Gemma-2 2B, Phi-2, Falcon-RW-1B, StableLM-3B.
+- **Supported Models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma 3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), Falcon-RW-1B, StableLM-3B.
+
 
 ## Installation
 

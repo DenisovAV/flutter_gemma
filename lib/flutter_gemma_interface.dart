@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/message.dart';
+import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -35,7 +36,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
   /// [loraRanks] — optional supported LoRA ranks.
   Future<InferenceModel> createModel({
-    required bool isInstructionTuned,
+    required ModelType modelType,
     int maxTokens,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,

@@ -76,6 +76,7 @@
 - Added Chat functionality for instruction tuned model
 - Added sizeInTokens method for analysis of the size of the input prompt
 ## 0.8.0
-- Upgraded Mediapipe to 0.10.22
+- Upgraded Mediapipe to 0.10.22 for Android and Web
+- Upgraded Mediapipe to 0.10.21 for iOS
 - Added opportunity to set *topP* and *preferredBackend* for inference
-- Added support of **Gemma3**, **Phi-4** and **DeepSeek** models
+- Added support of **Gemma3**, **Phi-4** and **DeepSeek** models for Android and Web

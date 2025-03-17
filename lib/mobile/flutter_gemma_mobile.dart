@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../flutter_gemma.dart';
 
@@ -33,7 +35,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   @override
   Future<InferenceModel> createModel({
-    required bool isInstructionTuned,
+    required ModelType modelType,
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
@@ -41,42 +43,54 @@ class FlutterGemma extends FlutterGemmaPlugin {
     if (_initCompleter case Completer<InferenceModel> completer) {
       return completer.future;
     }
+
     final completer = _initCompleter = Completer<InferenceModel>();
-    final (isModelInstalled, isLoraInstalled, modelFile, loraFile) = await (
+
+    final (
+    isModelInstalled,
+    isLoraInstalled,
+    File? modelFile,
+    File? loraFile
+    ) = await (
     modelManager.isModelInstalled,
     modelManager.isLoraInstalled,
     modelManager._modelFile,
     modelManager._loraFile,
     ).wait;
-    if (isModelInstalled) {
-      try {
-        await _platformService.createModel(
-          maxTokens: maxTokens,
-          modelPath: modelFile.path,
-          loraRanks: loraRanks ?? supportedLoraRanks,
-          preferredBackend: preferredBackend,
-        );
-        final model = _initializedModel = MobileInferenceModel(
-          maxTokens: maxTokens,
-          isInstructionTuned: isInstructionTuned,
-          modelManager: modelManager,
-          preferredBackend: preferredBackend,
-          supportedLoraRanks: loraRanks ?? supportedLoraRanks,
-          onClose: () {
-            _initializedModel = null;
-            _initCompleter = null;
-          },
-        );
-        completer.complete(model);
-        return model;
-      } catch (e, st) {
-        completer.completeError(e, st);
-        Error.throwWithStackTrace(e, st);
-      }
-    } else {
-      throw Exception(
-        'Gemma Model is not installed yet. Use the `modelManager` to load the model first',
+
+    if (!isModelInstalled || modelFile == null) {
+      completer.completeError(
+        Exception('Gemma Model is not installed yet. Use the `modelManager` to load the model first'),
       );
+      return completer.future;
+    }
+
+    try {
+
+      await _platformService.createModel(
+        maxTokens: maxTokens,
+        modelPath: modelFile.path,
+        loraRanks: loraRanks ?? supportedLoraRanks,
+        preferredBackend: preferredBackend,
+      );
+
+      final model = _initializedModel = MobileInferenceModel(
+        maxTokens: maxTokens,
+        modelType: modelType,
+        modelManager: modelManager,
+        preferredBackend: preferredBackend,
+        supportedLoraRanks: loraRanks ?? supportedLoraRanks,
+        onClose: () {
+          _initializedModel = null;
+          _initCompleter = null;
+        },
+      );
+
+      completer.complete(model);
+      return model;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      Error.throwWithStackTrace(e, st);
     }
   }
 

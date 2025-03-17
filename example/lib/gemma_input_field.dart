@@ -52,6 +52,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
         _subscription?.cancel();
       },
       onError: (error) {
+        print('Error: $error');
         if (_message.text.isEmpty) {
           _message = const Message(text: '...');
         }

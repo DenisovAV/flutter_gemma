@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 
@@ -23,7 +24,7 @@ void main() {
   });
 
   test('getPlatformVersion', () async {
-    final model = await platform.createModel(isInstructionTuned: false);
+    final model = await platform.createModel(modelType: ModelType.general);
     final session = await model.createSession();
     expect(await session.getResponse(), 'response');
   });

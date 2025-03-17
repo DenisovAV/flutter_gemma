@@ -5,12 +5,12 @@ class MobileInferenceModel extends InferenceModel {
     required this.maxTokens,
     required this.onClose,
     required this.modelManager,
-    required this.isInstructionTuned,
+    required this.modelType,
     this.preferredBackend,
     this.supportedLoraRanks,
   });
 
-  final bool isInstructionTuned;
+  final ModelType modelType;
   @override
   final int maxTokens;
   final VoidCallback onClose;
@@ -40,21 +40,23 @@ class MobileInferenceModel extends InferenceModel {
     }
     final completer = _createCompleter = Completer<InferenceModelSession>();
     try {
-      final (isLoraInstalled, loraFile) = await (
-      modelManager.isLoraInstalled,
-      modelManager._loraFile,
+      final (isLoraInstalled, File? loraFile) = await (
+        modelManager.isLoraInstalled,
+        modelManager._loraFile,
       ).wait;
+
+      final resolvedLoraPath = (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
 
       await _platformService.createSession(
         randomSeed: randomSeed,
         temperature: temperature,
         topK: topK,
         topP: topP,
-        loraPath: isLoraInstalled ? loraFile.path : loraPath,
+        loraPath: resolvedLoraPath,
       );
 
       final session = _session = MobileInferenceModelSession(
-        isInstructionTuned: isInstructionTuned,
+        modelType: modelType,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -77,14 +79,17 @@ class MobileInferenceModel extends InferenceModel {
 }
 
 class MobileInferenceModelSession extends InferenceModelSession {
-  final bool isInstructionTuned;
+  final ModelType modelType;
   final VoidCallback onClose;
   bool _isClosed = false;
 
   Completer<void>? _responseCompleter;
   StreamController<String>? _asyncResponseController;
 
-  MobileInferenceModelSession({required this.onClose, required this.isInstructionTuned});
+  MobileInferenceModelSession({
+    required this.onClose,
+    required this.modelType,
+  });
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -103,7 +108,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = isInstructionTuned ? message.transformToChatPrompt() : message.text;
+    final finalPrompt = message.transformToChatPrompt(type: modelType);
     await _platformService.addQueryChunk(finalPrompt);
   }
 
@@ -130,7 +135,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
     try {
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
-            (event) {
+        (event) {
           if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
             controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
           } else if (event is Map && event.containsKey('partialResult')) {

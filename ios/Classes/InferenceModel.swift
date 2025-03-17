@@ -8,10 +8,16 @@ struct InferenceModel {
 
     init(modelPath: String, maxTokens: Int, supportedLoraRanks: [Int]?) throws {
         let fileManager = FileManager.default
-        let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let filePath = documentDirectory.appendingPathComponent("model.bin").path
 
-        let llmOptions = LlmInference.Options(modelPath: filePath)
+        guard let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw NSError(domain: "InferenceModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document directory not found"])
+        }
+
+        let fileName = (modelPath as NSString).lastPathComponent
+
+        let resolvedPath = documentDirectory.appendingPathComponent(fileName).path
+
+        let llmOptions = LlmInference.Options(modelPath: resolvedPath)
         llmOptions.maxTokens = maxTokens
         llmOptions.waitForWeightUploads = true
         if let supportedLoraRanks = supportedLoraRanks {

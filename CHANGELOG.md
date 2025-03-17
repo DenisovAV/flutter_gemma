@@ -78,4 +78,4 @@
 ## 0.8.0
 - Gemma 3 support for Android, Web (mediapipe/tasks-genai:0.10.22)
 - iOS updated with mediapipe/tasks-genai:0.10.21
-- Add preferredBackend parameter
+- Added preferredBackend parameter

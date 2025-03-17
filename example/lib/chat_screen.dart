@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
@@ -28,14 +29,15 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeModel() async {
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
-      await for (int progress in _gemma.modelManager.installModelFromAssetWithProgress('model.task')) {
+      await for (int progress in _gemma.modelManager
+          .installModelFromAssetWithProgress('model.task')) {
         setState(() {
           _loadingProgress = progress;
         });
       }
     }
     final model = await _gemma.createModel(
-      isInstructionTuned: true,
+      modelType: ModelType.general,
       maxTokens: 512,
     );
     chat = await model.createChat(
@@ -98,7 +100,9 @@ class ChatScreenState extends State<ChatScreen> {
                 )
               ])
             : LoadingWidget(
-                message: _loadingProgress == null ? 'Model is checking' : 'Model loading progress:',
+                message: _loadingProgress == null
+                    ? 'Model is checking'
+                    : 'Model loading progress:',
                 progress: _loadingProgress,
               ),
       ]),

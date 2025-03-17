@@ -75,3 +75,7 @@
 ## 0.7.0
 - Added Chat functionality for instruction tuned model
 - Added sizeInTokens method for analysis of the size of the input prompt
+## 0.8.0
+- Gemma 3 support for Android, Web (mediapipe/tasks-genai:0.10.22)
+- iOS updated with mediapipe/tasks-genai:0.10.21
+- Add preferredBackend parameter

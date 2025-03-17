@@ -3,13 +3,14 @@ package dev.flutterberlin.flutter_gemma
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+
 import java.io.File
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-data class InferenceModelConfig(val modelPath: String, val maxTokens: Int, val supportedLoraRanks: List<Int>?)
+data class InferenceModelConfig(val modelPath: String, val maxTokens: Int, val supportedLoraRanks: List<Int>?, val preferredBackend: LlmInference.Backend,)
 data class InferenceSessionConfig(
     val temperature: Float,
     val randomSeed: Int,
@@ -23,12 +24,12 @@ class InferenceModel(
 ) {
     val llmInference: LlmInference
 
-    private val _partialResults = MutableSharedFlow<Pair<String, Boolean>>(
+    val partialResultsMutable = MutableSharedFlow<Pair<String, Boolean>>(
         extraBufferCapacity = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST
     )
 
-    val partialResults: SharedFlow<Pair<String, Boolean>> = _partialResults.asSharedFlow()
+    val partialResults: SharedFlow<Pair<String, Boolean>> = partialResultsMutable.asSharedFlow()
 
     private val _errors = MutableSharedFlow<Throwable>(
         extraBufferCapacity = 1,
@@ -48,12 +49,13 @@ class InferenceModel(
             val optionsBuilder = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(config.modelPath)
                 .setMaxTokens(config.maxTokens)
-                .setResultListener { result, done ->
-                    _partialResults.tryEmit(result to done)
-                }
-                .setErrorListener { error ->
-                    _errors.tryEmit(Exception(error.message))
-                }
+                .setPreferredBackend(config.preferredBackend)
+//                .setResultListener { result, done ->
+//                    _partialResults.tryEmit(result to done)
+//                }
+//                .setErrorListener { error ->
+//                    _errors.tryEmit(Exception(error.message))
+//                }
 
             config.supportedLoraRanks?.let(optionsBuilder::setSupportedLoraRanks)
 
@@ -71,6 +73,7 @@ class InferenceModel(
 
 class InferenceModelSession(
     llmInference: LlmInference,
+    val inferenceModel: InferenceModel?,
     val config: InferenceSessionConfig,
 ) {
     private var session: LlmInferenceSession
@@ -80,6 +83,9 @@ class InferenceModelSession(
            .setTemperature(config.temperature)
            .setRandomSeed(config.randomSeed)
            .setTopK(config.topK)
+
+
+           
 
        config.loraPath?.let(sessionOptionsBuilder::setLoraPath)
 
@@ -100,7 +106,9 @@ class InferenceModelSession(
     }
 
     fun generateResponseAsync() {
-        session.generateResponseAsync()
+        session.generateResponseAsync { result, done ->
+            inferenceModel?.partialResultsMutable?.tryEmit(result to done)
+        }
     }
 
     fun close() {

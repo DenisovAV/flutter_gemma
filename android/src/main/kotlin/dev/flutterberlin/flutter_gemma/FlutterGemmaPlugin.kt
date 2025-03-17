@@ -1,6 +1,7 @@
 package dev.flutterberlin.flutter_gemma
 
 import android.content.Context
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
@@ -39,6 +40,7 @@ private class PlatformServiceImpl(
     maxTokens: Long,
     modelPath: String,
     loraRanks: List<Long>?,
+    preferredBackend: Long,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch(Dispatchers.IO) {
@@ -47,6 +49,7 @@ private class PlatformServiceImpl(
           modelPath,
           maxTokens.toInt(),
           loraRanks?.map { it.toInt() },
+          LlmInference.Backend.entries[preferredBackend.toInt()],
         )
         // Recreate model only if it's needed. Useful for hot restart
         if (config != inferenceModel?.config) {
@@ -97,7 +100,7 @@ private class PlatformServiceImpl(
         )
         // Always recreate session to 
         session?.close()
-        session = InferenceModelSession(inferenceModel!!.llmInference, config)
+        session = InferenceModelSession(inferenceModel!!.llmInference, inferenceModel, config)
         withContext(Dispatchers.Main) {
           callback(Result.success(Unit))
         }

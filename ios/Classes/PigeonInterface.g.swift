@@ -87,7 +87,7 @@ class PigeonInterfacePigeonCodec: FlutterStandardMessageCodec, @unchecked Sendab
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol PlatformService {
-  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   func closeModel(completion: @escaping (Result<Void, Error>) -> Void)
   func createSession(temperature: Double, randomSeed: Int64, loraPath: String?, topK: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   func closeSession(completion: @escaping (Result<Void, Error>) -> Void)
@@ -110,7 +110,8 @@ class PlatformServiceSetup {
         let maxTokensArg = args[0] as! Int64
         let modelPathArg = args[1] as! String
         let loraRanksArg: [Int64]? = nilOrValue(args[2])
-        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg) { result in
+        let preferredBackendArg = args[3] as! Int64
+        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg, preferredBackend: preferredBackendArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))

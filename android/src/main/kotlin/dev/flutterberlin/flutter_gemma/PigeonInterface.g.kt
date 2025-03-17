@@ -57,7 +57,7 @@ private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
 
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface PlatformService {
-  fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, callback: (Result<Unit>) -> Unit)
+  fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, preferredBackend: Long, callback: (Result<Unit>) -> Unit)
   fun closeModel(callback: (Result<Unit>) -> Unit)
   fun createSession(temperature: Double, randomSeed: Long, loraPath: String?, topK: Long, callback: (Result<Unit>) -> Unit)
   fun closeSession(callback: (Result<Unit>) -> Unit)
@@ -83,7 +83,8 @@ interface PlatformService {
             val maxTokensArg = args[0] as Long
             val modelPathArg = args[1] as String
             val loraRanksArg = args[2] as List<Long>?
-            api.createModel(maxTokensArg, modelPathArg, loraRanksArg) { result: Result<Unit> ->
+            val preferredBackend = args[3] as Long
+            api.createModel(maxTokensArg, modelPathArg, loraRanksArg, preferredBackend) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

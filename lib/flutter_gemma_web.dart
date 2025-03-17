@@ -3,6 +3,7 @@ import 'dart:js_util';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/preferred_backend.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'flutter_gemma.dart';
@@ -27,6 +28,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     required bool isInstructionTuned,
     int maxTokens = 1024,
     List<int>? supportedLoraRanks,
+    PreferredBackend preferredBackend = PreferredBackend.defaultBackend,
   }) {
     final model = _initializedModel ??= WebInferenceModel(
       isInstructionTuned: isInstructionTuned,
@@ -73,7 +75,8 @@ class WebInferenceModel extends InferenceModel {
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
       final fileset = await promiseToFuture<FilesetResolver>(
-        FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
+        FilesetResolver.forGenAiTasks(
+            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
       );
       final llmInference = await promiseToFuture<LlmInference>(
         LlmInference.createFromOptions(
@@ -129,7 +132,8 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = isInstructionTuned ? message.transformToChatPrompt() : message.text;
+    final finalPrompt =
+        isInstructionTuned ? message.transformToChatPrompt() : message.text;
     _queryChunks.add(finalPrompt);
   }
 
@@ -154,10 +158,10 @@ class WebModelSession extends InferenceModelSession {
 
     llmInference.generateResponse(
       fullPrompt,
-      allowInterop((String partial, bool complete) {
+      allowInterop((String partial, dynamic complete) {
         responseBuffer.add(partial);
         _controller?.add(partial);
-        if (complete) {
+        if (complete == 1 || complete == true) {
           final String fullResponse = responseBuffer.join("");
           addQueryChunk(Message(text: fullResponse, isUser: false));
           _controller?.close();
@@ -193,7 +197,8 @@ class WebModelManager extends ModelFileManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isModelInstalled async => _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelInstalled async =>
+      _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
   Future<bool> get isLoraInstalled async => await isModelInstalled;
@@ -241,9 +246,11 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
+    await _loadModel(
+        'assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
@@ -252,16 +259,20 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl}) {
+  Stream<int> downloadModelFromNetworkWithProgress(String url,
+      {String? loraUrl}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) {
+  Stream<int> installModelFromAssetWithProgress(String path,
+      {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
+    return _loadModelWithProgress(
+        'assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override

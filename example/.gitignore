@@ -46,3 +46,7 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+
+# Skip test models
+assets/model.bin
+assets/gemma3-1b-it-int4.task

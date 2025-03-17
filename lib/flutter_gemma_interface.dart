@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/model_file_manager_interface.dart';
+import 'package:flutter_gemma/preferred_backend.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'mobile/flutter_gemma_mobile.dart';
@@ -48,6 +49,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Future<InferenceModel> createModel({
     required bool isInstructionTuned,
     int maxTokens,
+    PreferredBackend preferredBackend = PreferredBackend.defaultBackend,
   });
 }
 

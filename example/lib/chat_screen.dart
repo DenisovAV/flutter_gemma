@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/preferred_backend.dart';
+import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
+import 'package:path/path.dart' as path;
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -26,9 +28,20 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeModel() async {
+    // Gemma 3 support Android / Web
+    // const modelAssetPath = 'gemma3-1b-it-int4.task';
+
+    // Gemma 1.1 / 2 for iOS
+    const modelAssetPath = 'model.bin';
+
+    // Gemma 3 require correct file extension .task for Android
+    var modelAppPath = path.basename(modelAssetPath);
+
+    _gemma.modelManager.setModelPath(modelAppPath);
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
-      await for (int progress in _gemma.modelManager.installModelFromAssetWithProgress('model.bin')) {
+      await for (int progress in _gemma.modelManager
+          .installModelFromAssetWithProgress(modelAssetPath)) {
         setState(() {
           _loadingProgress = progress;
         });
@@ -36,7 +49,8 @@ class ChatScreenState extends State<ChatScreen> {
     }
     final model = await _gemma.createModel(
       isInstructionTuned: true,
-      maxTokens: 512,
+      maxTokens: 1024,
+      preferredBackend: PreferredBackend.gpu,
     );
     chat = await model.createChat(
       temperature: 1.0,
@@ -98,7 +112,9 @@ class ChatScreenState extends State<ChatScreen> {
                 )
               ])
             : LoadingWidget(
-                message: _loadingProgress == null ? 'Model is checking' : 'Model loading progress:',
+                message: _loadingProgress == null
+                    ? 'Model is checking'
+                    : 'Model loading progress:',
                 progress: _loadingProgress,
               ),
       ]),

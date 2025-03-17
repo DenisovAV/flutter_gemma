@@ -3,7 +3,8 @@ import 'package:pigeon/pigeon.dart';
 
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/pigeon.g.dart',
-  kotlinOut: 'android/src/main/kotlin/dev/flutterberlin/flutter_gemma/PigeonInterface.g.kt',
+  kotlinOut:
+      'android/src/main/kotlin/dev/flutterberlin/flutter_gemma/PigeonInterface.g.kt',
   kotlinOptions: KotlinOptions(package: 'dev.flutterberlin.flutter_gemma'),
   swiftOut: 'ios/Classes/PigeonInterface.g.swift',
   swiftOptions: SwiftOptions(),
@@ -16,6 +17,7 @@ abstract class PlatformService {
     required int maxTokens,
     required String modelPath,
     required List<int>? loraRanks,
+    required int int,
   });
 
   @async

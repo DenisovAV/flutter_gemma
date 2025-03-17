@@ -126,6 +126,29 @@ Dont forget to add your model to pubspec.yaml
   );
 ```
 
+  3)  Gemma 3 support Android / Web 
+```dart
+    // Gemma 3 support Android / Web
+    const modelAssetPath = 'gemma3-1b-it-int4.task';
+
+    // Gemma 3 require correct file extension .task for Android
+    var modelAppPath = path.basename(modelAssetPath);
+    _gemma.modelManager.setModelPath(modelAppPath);
+
+    await for (int progress in _gemma.modelManager
+          .installModelFromAssetWithProgress(modelAssetPath)) {
+        setState(() {
+          _loadingProgress = progress;
+        });
+      }
+
+    final model = await _gemma.createModel(
+      isInstructionTuned: true,
+      maxTokens: 1024,
+      preferredBackend: ModelBackend.gpu,
+    );
+```
+
 2.**Loading Models from network:**
 
 * For web usage, you will also need to enable CORS (Cross-Origin Resource Sharing) for your network resource. To enable CORS in Firebase, you can follow the guide in the Firebase documentation: [Setting up CORS](https://firebase.google.com/docs/storage/web/download-files#cors_configuration)

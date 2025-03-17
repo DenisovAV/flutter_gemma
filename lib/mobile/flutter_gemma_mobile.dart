@@ -5,13 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/preferred_backend.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../flutter_gemma.dart';
 
-part 'flutter_gemma_mobile_model_manager.dart';
 part 'flutter_gemma_mobile_inference_model.dart';
+part 'flutter_gemma_mobile_model_manager.dart';
 
 @visibleForTesting
 const eventChannel = EventChannel('flutter_gemma_stream');
@@ -35,6 +36,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Future<InferenceModel> createModel({
     required bool isInstructionTuned,
     int maxTokens = 1024,
+    List<int>? supportedLoraRanks,
+    PreferredBackend preferredBackend = PreferredBackend.defaultBackend,
   }) async {
     if (_initCompleter case Completer<InferenceModel> completer) {
       return completer.future;
@@ -52,6 +55,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
           maxTokens: maxTokens,
           modelPath: modelFile.path,
           loraRanks: supportedLoraRanks,
+          preferredBackend: preferredBackend.index,
         );
         final model = _initializedModel = MobileInferenceModel(
           maxTokens: maxTokens,

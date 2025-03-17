@@ -18,7 +18,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var model: InferenceModel?
     private var session: InferenceSession?
     
-    func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, completion: @escaping (Result<Void, any Error>) -> Void) {
+    func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 self.model = try InferenceModel(modelPath: modelPath, maxTokens: Int(maxTokens), supportedLoraRanks: loraRanks?.map(Int.init))
@@ -52,6 +52,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                     randomSeed: Int(randomSeed),
                     topK: Int(topK),
                     loraPath: loraPath
+
                 )
                 
                 DispatchQueue.main.async {

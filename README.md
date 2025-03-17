@@ -3,7 +3,7 @@
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/assets/gemma.png" alt="gemma_github_cover">
+  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/assets/gemma3.png" alt="gemma_github_cover">
 </p>
 
 Bring the power of Google's lightweight Gemma language models directly to your Flutter applications. With Flutter Gemma, you can seamlessly incorporate advanced AI capabilities into your iOS and Android apps, all without relying on external servers.

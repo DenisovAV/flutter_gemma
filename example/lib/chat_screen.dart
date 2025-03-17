@@ -37,7 +37,7 @@ class ChatScreenState extends State<ChatScreen> {
       }
     }
     final model = await _gemma.createModel(
-      modelType: ModelType.general,
+      modelType: ModelType.gemmaIt,
       maxTokens: 512,
     );
     chat = await model.createChat(

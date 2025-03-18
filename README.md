@@ -201,7 +201,7 @@ final session = await inferenceModel.createSession(
 );
 
 await session.addQueryChunk(Message(text: 'Tell me something interesting'));
-String response = await session.getResponse();
+String response = await session.generateChatResponse();
 print(response);
 
 await session.close(); // Always close the session when done
@@ -212,7 +212,7 @@ await session.close(); // Always close the session when done
 final session = await inferenceModel.createSession();
 await session.addQueryChunk(Message(text: 'Tell me something interesting'));
 
-session.getResponseAsync().listen((String token) {
+session.generateChatResponseAsync().listen((String token) {
 print(token);
 }, onDone: () {
 print('Stream closed');
@@ -239,11 +239,11 @@ final chat = await inferenceModel.createChat(
 
 ```dart
 await chat.addQueryChunk(Message(text: 'User: Hello, who are you?'));
-String response = await chat.getResponse();
+String response = await chat.generateChatResponse();
 print(response);
 
 await chat.addQueryChunk(Message(text: 'User: Are you sure?'));
-String response2 = await chat.getResponse();
+String response2 = await chat.generateChatResponse();
 print(response2);
 ```
 
@@ -252,7 +252,7 @@ print(response2);
 ```dart
 await chat.addQueryChunk(Message(text: 'User: Hello, who are you?'));
 
-chat.getResponseAsync().listen((String token) {
+chat.generateChatResponseAsync().listen((String token) {
   print(token);
 }, onDone: () {
   print('Chat stream closed');
@@ -261,7 +261,7 @@ chat.getResponseAsync().listen((String token) {
 });
 
 await chat.addQueryChunk(Message(text: 'User: Are you sure?'));
-chat.getResponseAsync().listen((String token) {
+chat.generateChatResponseAsync().listen((String token) {
   print(token);
 }, onDone: () {
   print('Chat stream closed');

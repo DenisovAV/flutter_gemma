@@ -31,7 +31,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   /// Creates and returns a new [InferenceModel] instance.
   ///
-  /// [isInstructionTuned] — whether model is instruction-tuned.
+  /// [modelType] — model type to create.
   /// [maxTokens] — maximum context length for the model.
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
   /// [loraRanks] — optional supported LoRA ranks.

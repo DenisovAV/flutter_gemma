@@ -1,13 +1,13 @@
 import 'dart:async';
-import 'dart:js_util';
+import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
-import 'flutter_gemma.dart';
 import 'llm_inference_web.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
@@ -77,28 +77,28 @@ class WebInferenceModel extends InferenceModel {
     }
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
-      final fileset = await promiseToFuture<FilesetResolver>(
-        FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'),
-      );
+      final fileset = await FilesetResolver.forGenAiTasks(
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'.toJS)
+          .toDart;
 
       final loraPathToUse = loraPath ?? modelManager._loraPath;
+      final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
-      final config = {
-        'baseOptions': {'modelAssetPath': modelManager._path},
-        'maxTokens': maxTokens,
-        'randomSeed': randomSeed,
-        'topK': topK,
-        'temperature': temperature,
-        if (topP != null) 'topP': topP,
-        if (loraPathToUse != null && loraRanks != null) ...{
-          'supportedLoraRanks': loraRanks,
-          'loraPath': loraPathToUse,
-        },
-      };
-
-      final llmInference = await promiseToFuture<LlmInference>(
-        LlmInference.createFromOptions(fileset, jsify(config)),
+      final config = LlmInferenceOptions(
+        baseOptions:
+            LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
+        maxTokens: maxTokens,
+        randomSeed: randomSeed,
+        topK: topK,
+        temperature: temperature,
+        topP: topP,
+        supportedLoraRanks:
+            !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
+        loraPath: !hasLoraParams ? null : loraPathToUse,
       );
+
+      final llmInference =
+          await LlmInference.createFromOptions(fileset, config).toDart;
 
       final session = this.session = WebModelSession(
         modelType: modelType,
@@ -135,7 +135,8 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<int> sizeInTokens(String text) async {
-    return llmInference.sizeInTokens(text);
+    final size = llmInference.sizeInTokens(text.toJS);
+    return size.toDartInt;
   }
 
   @override
@@ -147,9 +148,9 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<String> getResponse() async {
     final String fullPrompt = _queryChunks.join(" ");
-    final response = await promiseToFuture<String>(
-      llmInference.generateResponse(fullPrompt, null),
-    );
+    final response =
+        (await llmInference.generateResponse(fullPrompt.toJS, null).toDart)
+            .toDart;
     await addQueryChunk(Message(text: response, isUser: false));
     return response;
   }
@@ -162,9 +163,10 @@ class WebModelSession extends InferenceModelSession {
     final List<String> responseBuffer = [];
 
     llmInference.generateResponse(
-      fullPrompt,
-      allowInterop((String partial, dynamic completeRaw) {
-        final bool complete = completeRaw == true || completeRaw == 1;
+      fullPrompt.toJS,
+      ((JSString partialJs, JSAny completeRaw) {
+        final complete = completeRaw.parseBool();
+        final partial = partialJs.toDart;
 
         responseBuffer.add(partial);
         _controller?.add(partial);
@@ -174,7 +176,7 @@ class WebModelSession extends InferenceModelSession {
           _controller?.close();
           _controller = null;
         }
-      }),
+      }).toJS,
     );
 
     return _controller!.stream;
@@ -195,7 +197,8 @@ class WebModelManager extends ModelFileManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isModelInstalled async => _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelInstalled async =>
+      _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
   Future<bool> get isLoraInstalled async => await isModelInstalled;
@@ -243,9 +246,11 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
+    await _loadModel(
+        'assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
@@ -254,16 +259,20 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl}) {
+  Stream<int> downloadModelFromNetworkWithProgress(String url,
+      {String? loraUrl}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) {
+  Stream<int> installModelFromAssetWithProgress(String path,
+      {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError(
+          "Method loadAssetModelWithProgress should not be used in the release build");
     }
-    return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
+    return _loadModelWithProgress(
+        'assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override

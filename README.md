@@ -183,6 +183,7 @@ Before performing any inference, you need to create a model instance. This ensur
 ```dart
 final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 modelType: ModelType.gemmaIt, // Required, model type to create
+preferedBackend: BackendType.gpu, // Optional, backendType, default is BackendType.gpu
 maxTokens: 512, // Optional, default is 1024
 );
 ```

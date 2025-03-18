@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
@@ -30,7 +31,7 @@ class ChatScreenState extends State<ChatScreen> {
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
       await for (int progress in _gemma.modelManager
-          .installModelFromAssetWithProgress('model.task')) {
+          .installModelFromAssetWithProgress('gemma3-1b-it-int4.task')) {
         setState(() {
           _loadingProgress = progress;
         });
@@ -38,13 +39,15 @@ class ChatScreenState extends State<ChatScreen> {
     }
     final model = await _gemma.createModel(
       modelType: ModelType.gemmaIt,
-      maxTokens: 512,
+      preferredBackend: PreferredBackend.gpu,
+      maxTokens: 2048,
     );
     chat = await model.createChat(
-      temperature: 1.0,
+      temperature: 0.9,
       randomSeed: 1,
-      topK: 1,
-      tokenBuffer: 128,
+      topK: 56,
+      topP: 0.95,
+      tokenBuffer: 256,
     );
     setState(() {
       _isModelInitialized = true;

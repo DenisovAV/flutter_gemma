@@ -46,3 +46,9 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+
+# Models
+*.task
+*.bin
+*.tflite
+*.safetensors

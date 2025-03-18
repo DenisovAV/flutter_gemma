@@ -54,6 +54,7 @@ abstract class InferenceModel {
   /// Creates a new [InferenceModelSession] for generation.
   ///
   /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
+  /// [loraPath] — optional path to LoRA model.
   Future<InferenceModelSession> createSession({
     double temperature,
     int randomSeed,
@@ -62,7 +63,11 @@ abstract class InferenceModel {
     String? loraPath,
   });
 
-  /// Creates a chat interface wrapping [InferenceModelSession].
+  /// Creates a chat interface wrapping [InferenceChat].
+  ///
+  /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
+  /// [loraPath] — optional path to LoRA model.
+  /// [tokenBuffer] — token buffer size for chat for not to exceed max tokens.
   Future<InferenceChat> createChat({
     double temperature = .8,
     int randomSeed = 1,

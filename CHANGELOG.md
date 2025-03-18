@@ -80,3 +80,6 @@
 - Upgraded Mediapipe to 0.10.21 for iOS
 - Added opportunity to set *topP* and *preferredBackend* for inference
 - Added support of **Gemma3**, **Phi-4** and **DeepSeek** models for Android and Web
+## 0.9.0
+- Migrate to js-interop
+- Add web platform support in pubspec.yaml

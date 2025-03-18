@@ -201,7 +201,7 @@ final session = await inferenceModel.createSession(
 );
 
 await session.addQueryChunk(Message(text: 'Tell me something interesting'));
-String response = await session.generateChatResponse();
+String response = await session.getResponse();
 print(response);
 
 await session.close(); // Always close the session when done
@@ -212,7 +212,7 @@ await session.close(); // Always close the session when done
 final session = await inferenceModel.createSession();
 await session.addQueryChunk(Message(text: 'Tell me something interesting'));
 
-session.generateChatResponseAsync().listen((String token) {
+session.getResponseAsync().listen((String token) {
 print(token);
 }, onDone: () {
 print('Stream closed');

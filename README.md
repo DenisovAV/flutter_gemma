@@ -1,8 +1,7 @@
 # Flutter Gemma
 
 **The plugin supports not only Gemma, but also other models. Here’s the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), Falcon-RW-1B, StableLM-3B.
-
-Note: Currently, the flutter_gemma plugin supports Gemma 3 and DeepSeek only for **Android** and **Web** platforms. Support for iOS will be added in a future update. Gemma, Gemma 2 and others are supported for all platforms
+*Note: Currently, the flutter_gemma plugin supports Gemma 3 and DeepSeek only for **Android** and **Web** platforms. Support for iOS will be added in a future update. Gemma, Gemma 2 and others are supported for all platforms*
 
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 

@@ -83,3 +83,5 @@
 ## 0.8.1
 - Migrate to js-interop
 - Add web platform support in pubspec.yaml
+## 0.8.2
+- Readme updated

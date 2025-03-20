@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
-import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
+import 'package:flutter_gemma_example/models/model.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, this.model = Model.gemma3Gpu});
+
+  final Model model;
 
   @override
   ChatScreenState createState() => ChatScreenState();
@@ -31,22 +33,22 @@ class ChatScreenState extends State<ChatScreen> {
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
       await for (int progress in _gemma.modelManager
-          .installModelFromAssetWithProgress('gemma3-1b-it-int4.task')) {
+          .downloadModelFromNetworkWithProgress(super.widget.model.url)) {
         setState(() {
           _loadingProgress = progress;
         });
       }
     }
     final model = await _gemma.createModel(
-      modelType: ModelType.gemmaIt,
-      preferredBackend: PreferredBackend.gpu,
-      maxTokens: 2048,
+      modelType: ModelType.deepSeek,
+      preferredBackend: super.widget.model.preferredBackend,
+      maxTokens: 1024,
     );
     chat = await model.createChat(
-      temperature: 0.9,
+      temperature: super.widget.model.temperature,
       randomSeed: 1,
-      topK: 56,
-      topP: 0.95,
+      topK: super.widget.model.topK,
+      topP: super.widget.model.topP,
       tokenBuffer: 256,
     );
     setState(() {

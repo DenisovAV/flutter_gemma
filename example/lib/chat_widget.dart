@@ -24,7 +24,7 @@ class ChatListWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       reverse: true,
       itemCount: messages.length + 2,
       itemBuilder: (context, index) {

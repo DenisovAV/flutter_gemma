@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
-import 'package:flutter_gemma_example/chat_screen.dart';
+import 'package:flutter_gemma_example/model_download_screen.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 
 class ModelSelectionScreen extends StatelessWidget {
@@ -29,14 +29,22 @@ class ModelSelectionScreen extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (context) {
-                      // TODO: Open browser to authenticate and get huggingface token if not authenticated.
-                      // TODO: Open browser to license agreement if not accepted.
-                      // TODO: Open model download screen if model is not downloaded.
-                      return ChatScreen(model: Model.values[index]);
-                    },
+                    builder: (context) => ModelDownloadScreen(
+                      model: Model.values[index],
+                    ),
                   ),
                 );
+                // Navigator.push(
+                //   context,
+                //   MaterialPageRoute<void>(
+                //     builder: (context) {
+                //       // TODO: Open browser to authenticate and get huggingface token if not authenticated.
+                //       // TODO: Open browser to license agreement if not accepted.
+                //       // TODO: Open model download screen if model is not downloaded.
+                //       return ChatScreen(model: Model.values[index]);
+                //     },
+                //   ),
+                // );
               }
             },
           );

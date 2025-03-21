@@ -2,6 +2,19 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
 enum Model {
+  gemma3GpuLocalAsset(
+    // model file should be pre-downloaded and placed in the assets folder
+    url: 'assets/gemma3-1b-it-int4.task',
+    filename: 'gemma3-1b-it-int4.task',
+    licenseUrl: '',
+    needsAuth: false,
+    localModel: true,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 0.1,
+    topK: 64,
+    topP: 0.95,
+  ),
   gemma3Gpu(
     url:
         'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
@@ -45,6 +58,7 @@ enum Model {
   final String filename;
   final String licenseUrl;
   final bool needsAuth;
+  final bool localModel;
   final PreferredBackend preferredBackend;
   final ModelType modelType;
   final double temperature;
@@ -57,6 +71,7 @@ enum Model {
     required this.filename,
     required this.licenseUrl,
     required this.needsAuth,
+    this.localModel = false,
     required this.preferredBackend,
     required this.modelType,
     required this.temperature,

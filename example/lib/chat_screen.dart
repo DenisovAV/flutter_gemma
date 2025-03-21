@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -29,11 +30,11 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeModel() async {
-    bool isLoaded = await _gemma.modelManager.isModelInstalled;
-    if (!isLoaded) {
-      final directory = await getApplicationDocumentsDirectory();
-      await _gemma.modelManager
-          .setModelPath('${directory.path}/${widget.model.filename}');
+    if (!await _gemma.modelManager.isModelInstalled) {
+      final path = kIsWeb
+          ? widget.model.url
+          : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
+      await _gemma.modelManager.setModelPath(path);
     }
     final model = await _gemma.createModel(
       modelType: super.widget.model.modelType,

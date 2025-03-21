@@ -41,9 +41,10 @@ class ModelDownloadService {
       final file = File(filePath);
 
       // Check remote file size
-      final headResponse = await http.head(Uri.parse(modelUrl), headers: {
-        'Authorization': 'Bearer $token',
-      });
+      final Map<String, String> headers =
+          token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
+      final headResponse =
+          await http.head(Uri.parse(modelUrl), headers: headers);
 
       if (headResponse.statusCode == 200) {
         final contentLengthHeader = headResponse.headers['content-length'];
@@ -82,7 +83,9 @@ class ModelDownloadService {
 
       // Create HTTP request
       final request = http.Request('GET', Uri.parse(modelUrl));
-      request.headers['Authorization'] = 'Bearer $token';
+      if (token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
 
       // Resume download if partially downloaded
       if (downloadedBytes > 0) {

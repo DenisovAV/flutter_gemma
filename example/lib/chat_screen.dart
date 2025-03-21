@@ -29,6 +29,12 @@ class ChatScreenState extends State<ChatScreen> {
     _initializeModel();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+    _gemma.modelManager.deleteModel();
+  }
+
   Future<void> _initializeModel() async {
     if (!await _gemma.modelManager.isModelInstalled) {
       final path = kIsWeb

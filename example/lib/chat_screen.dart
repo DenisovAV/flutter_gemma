@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
+import 'package:path_provider/path_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, this.model = Model.gemma3Gpu});
@@ -20,7 +20,6 @@ class ChatScreenState extends State<ChatScreen> {
   InferenceChat? chat;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
-  int? _loadingProgress;
   String? _error;
 
   @override
@@ -32,15 +31,12 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeModel() async {
     bool isLoaded = await _gemma.modelManager.isModelInstalled;
     if (!isLoaded) {
-      await for (int progress in _gemma.modelManager
-          .downloadModelFromNetworkWithProgress(super.widget.model.url)) {
-        setState(() {
-          _loadingProgress = progress;
-        });
-      }
+      final directory = await getApplicationDocumentsDirectory();
+      await _gemma.modelManager
+          .setModelPath('${directory.path}/${widget.model.filename}');
     }
     final model = await _gemma.createModel(
-      modelType: ModelType.deepSeek,
+      modelType: super.widget.model.modelType,
       preferredBackend: super.widget.model.preferredBackend,
       maxTokens: 1024,
     );
@@ -104,12 +100,7 @@ class ChatScreenState extends State<ChatScreen> {
                   ),
                 )
               ])
-            : LoadingWidget(
-                message: _loadingProgress == null
-                    ? 'Model is checking'
-                    : 'Model loading progress:',
-                progress: _loadingProgress,
-              ),
+            : const LoadingWidget(message: 'Initializing the model'),
       ]),
     );
   }

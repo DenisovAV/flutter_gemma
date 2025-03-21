@@ -12,26 +12,29 @@ class ChatMessageWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: <Widget>[
           message.isUser ? const SizedBox() : _buildAvatar(),
           const SizedBox(
             width: 10,
           ),
-          Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.8,
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.8,
+              ),
+              padding: const EdgeInsets.all(10.0),
+              decoration: BoxDecoration(
+                color: const Color(0x80757575),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: message.text.isNotEmpty
+                  ? MarkdownBody(
+                      data: message.text,
+                    )
+                  : const Center(child: CircularProgressIndicator()),
             ),
-            padding: const EdgeInsets.all(10.0),
-            decoration: BoxDecoration(
-              color: const Color(0x80757575),
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: message.text.isNotEmpty
-                ? MarkdownBody(
-                    data: message.text,
-                  )
-                : const Center(child: CircularProgressIndicator()),
           ),
           const SizedBox(
             width: 10,
@@ -43,9 +46,11 @@ class ChatMessageWidget extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    return message.isUser ? const Icon(Icons.person) : _circled('assets/gemma.png');
+    return message.isUser
+        ? const Icon(Icons.person)
+        : _circled('assets/gemma.png');
   }
 
-  Widget _circled(String image) =>
-      CircleAvatar(backgroundColor: Colors.transparent, foregroundImage: AssetImage(image));
+  Widget _circled(String image) => CircleAvatar(
+      backgroundColor: Colors.transparent, foregroundImage: AssetImage(image));
 }

@@ -85,3 +85,5 @@
 - Add web platform support in pubspec.yaml
 ## 0.8.2
 - Readme updated
+## 0.8.3
+- Readme updated

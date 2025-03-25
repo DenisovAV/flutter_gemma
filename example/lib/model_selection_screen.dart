@@ -27,7 +27,7 @@ class ModelSelectionScreen extends StatelessWidget {
         itemCount: models.length,
         itemBuilder: (context, index) {
           return ListTile(
-            title: Text(models[index].name),
+            title: Text(models[index].displayName),
             onTap: () {
               if (!kIsWeb) {
                 Navigator.push(

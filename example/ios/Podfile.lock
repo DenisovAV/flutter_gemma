@@ -1,0 +1,66 @@
+PODS:
+  - Flutter (1.0.0)
+  - flutter_gemma (0.0.1):
+    - Flutter
+    - MediaPipeTasksGenAI (= 0.10.21)
+    - MediaPipeTasksGenAIC (= 0.10.21)
+  - integration_test (0.0.1):
+    - Flutter
+  - large_file_handler (0.0.1):
+    - Flutter
+  - MediaPipeTasksGenAI (0.10.21):
+    - MediaPipeTasksGenAIC (= 0.10.21)
+  - MediaPipeTasksGenAIC (0.10.21)
+  - path_provider_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - shared_preferences_foundation (0.0.1):
+    - Flutter
+    - FlutterMacOS
+  - url_launcher_ios (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_gemma (from `.symlinks/plugins/flutter_gemma/ios`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+  - large_file_handler (from `.symlinks/plugins/large_file_handler/ios`)
+  - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
+  - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
+
+SPEC REPOS:
+  trunk:
+    - MediaPipeTasksGenAI
+    - MediaPipeTasksGenAIC
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_gemma:
+    :path: ".symlinks/plugins/flutter_gemma/ios"
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+  large_file_handler:
+    :path: ".symlinks/plugins/large_file_handler/ios"
+  path_provider_foundation:
+    :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  shared_preferences_foundation:
+    :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
+  url_launcher_ios:
+    :path: ".symlinks/plugins/url_launcher_ios/ios"
+
+SPEC CHECKSUMS:
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  flutter_gemma: a52ecf7de4027813c343298e83942310ad3192c4
+  integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
+  large_file_handler: e3686e246052b0f03955789d3a04604574f80afe
+  MediaPipeTasksGenAI: 64f91ec1f2666abeb6dc719a8e8d1e2bf36374c0
+  MediaPipeTasksGenAIC: 1df8d7c6fcbe797d2a04a514edd8b31445291ec8
+  path_provider_foundation: 2b6b4c569c0fb62ec74538f866245ac84301af46
+  shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
+  url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
+
+PODFILE CHECKSUM: e40bdc06774834b7c72a307eba56ffeb505660e1
+
+COCOAPODS: 1.16.2

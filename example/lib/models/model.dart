@@ -6,6 +6,7 @@ enum Model {
     // model file should be pre-downloaded and placed in the assets folder
     url: 'assets/gemma3-1b-it-int4.task',
     filename: 'gemma3-1b-it-int4.task',
+    displayName: 'Gemma3 1B IT (CPU / Local)',
     licenseUrl: '',
     needsAuth: false,
     localModel: true,
@@ -19,6 +20,7 @@ enum Model {
     url:
         'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
     filename: 'gemma3-1b-it-int4.task',
+    displayName: 'Gemma3 1B IT (GPU / Remote)',
     licenseUrl: 'https://huggingface.co/litert-community/Gemma3-1B-IT',
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
@@ -31,6 +33,7 @@ enum Model {
     url:
         'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
     filename: 'gemma3-1b-it-int4.task',
+    displayName: 'Gemma3 1B IT (CPU / Remote)',
     licenseUrl: 'https://huggingface.co/litert-community/Gemma3-1B-IT',
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
@@ -44,6 +47,7 @@ enum Model {
     url:
         'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',
     filename: 'deepseek_q8_ekv1280.task',
+    displayName: 'DeepSeek Q8 EKV1280 (CPU / Remote)',
     licenseUrl: '',
     needsAuth: false,
     preferredBackend: PreferredBackend.cpu,
@@ -56,6 +60,7 @@ enum Model {
   // Define fields for the enum
   final String url;
   final String filename;
+  final String displayName;
   final String licenseUrl;
   final bool needsAuth;
   final bool localModel;
@@ -69,6 +74,7 @@ enum Model {
   const Model({
     required this.url,
     required this.filename,
+    required this.displayName,
     required this.licenseUrl,
     required this.needsAuth,
     this.localModel = false,

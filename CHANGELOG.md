@@ -87,3 +87,6 @@
 - Readme updated
 ## 0.8.3
 - Readme updated
+## 0.8.4
+- iOS LoRA support added
+- iOS topP support added

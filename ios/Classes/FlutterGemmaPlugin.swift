@@ -68,6 +68,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                     temperature: Float(temperature),
                     randomSeed: Int(randomSeed),
                     topK: Int(topK),
+                    topP: topP,
                     loraPath: loraPath
                 )
                 DispatchQueue.main.async {

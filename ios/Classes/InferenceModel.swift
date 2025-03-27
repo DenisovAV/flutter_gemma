@@ -30,13 +30,20 @@ struct InferenceModel {
 final class InferenceSession {
     private let session: LlmInference.Session
 
-    init(inference: LlmInference, temperature: Float, randomSeed: Int, topK: Int, loraPath: String? = nil) throws {
+    init(inference: LlmInference, temperature: Float, randomSeed: Int, topK: Int, topP: Double? = nil, loraPath: String? = nil) throws {
         let options = LlmInference.Session.Options()
         options.temperature = temperature
         options.randomSeed = randomSeed
         options.topk = topK
+        if let topP = topP {
+            options.topp = Float(topP)
+        }
+        if let loraPath = loraPath {
+            options.loraPath = loraPath
+        }
         self.session = try LlmInference.Session(llmInference: inference, options: options)
     }
+
 
     func sizeInTokens(prompt: String) throws -> Int {
         return try session.sizeInTokens(text: prompt)

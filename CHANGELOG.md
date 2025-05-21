@@ -90,3 +90,6 @@
 ## 0.8.4
 - iOS LoRA support added
 - iOS topP support added
+## 0.8.5
+- Upgraded Mediapipe to 0.10.24 for iOS and Android
+- Added support of **Gemma3**, **Phi-4** and **DeepSeek** models for iOS

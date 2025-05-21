@@ -13,7 +13,7 @@ enum Model {
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
     temperature: 0.1,
-    topK: 64,
+    topK: 40,
     topP: 0.95,
   ),
   gemma3Gpu(
@@ -26,7 +26,7 @@ enum Model {
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
     temperature: 0.1,
-    topK: 64,
+    topK: 40,
     topP: 0.95,
   ),
   gemma3Cpu(
@@ -39,7 +39,7 @@ enum Model {
     preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.gemmaIt,
     temperature: 0.1,
-    topK: 64,
+    topK: 40,
     topP: 0.95,
   ),
 

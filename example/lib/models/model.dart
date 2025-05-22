@@ -43,6 +43,47 @@ enum Model {
     topP: 0.95,
   ),
 
+  gemma3nGpu(
+    url:
+        'https://huggingface.co/litert-community/gemma-3-nano-1.5b-IT/resolve/main/gemma-3-nano-1.5b-it-int4.task',
+    filename: 'gemma-3-nano-1.5b-it-int4.task',
+    displayName: 'Gemma 3 Nano 1.5B IT (GPU / Remote)',
+    licenseUrl: 'https://huggingface.co/litert-community/gemma-3-nano-1.5b-IT',
+    needsAuth: true,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 0.1,
+    topK: 64,
+    topP: 0.95,
+  ),
+  gemma3nCpu(
+    url:
+        'https://huggingface.co/litert-community/gemma-3-nano-1.5b-IT/resolve/main/gemma-3-nano-1.5b-it-int4.task',
+    filename: 'gemma-3-nano-1.5b-it-int4.task',
+    displayName: 'Gemma 3 Nano 1.5B IT (CPU / Remote)',
+    licenseUrl: 'https://huggingface.co/litert-community/gemma-3-nano-1.5b-IT',
+    needsAuth: true,
+    preferredBackend: PreferredBackend.cpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 0.1,
+    topK: 64,
+    topP: 0.95,
+  ),
+  gemma3nLocalAsset(
+    // model file should be pre-downloaded and placed in the assets folder
+    url: 'assets/gemma-3-nano-1.5b-it-int4.task',
+    filename: 'gemma-3-nano-1.5b-it-int4.task',
+    displayName: 'Gemma 3 Nano 1.5B IT (Local Asset)',
+    licenseUrl: '',
+    needsAuth: false,
+    localModel: true,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 0.1,
+    topK: 64,
+    topP: 0.95,
+  ),
+
   deepseek(
     url:
         'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',

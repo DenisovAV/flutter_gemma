@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
+import 'package:flutter_gemma_example/gemma3n_example_screen.dart';
 import 'package:flutter_gemma_example/model_download_screen.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 
@@ -29,6 +30,17 @@ class ModelSelectionScreen extends StatelessWidget {
           return ListTile(
             title: Text(models[index].displayName),
             onTap: () {
+              // Check if it's a Gemma 3n model - navigate to specialized screen
+              if (models[index].name.startsWith('gemma3n')) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => const Gemma3nExampleScreen(),
+                  ),
+                );
+                return;
+              }
+              
               if (!kIsWeb) {
                 Navigator.push(
                   context,

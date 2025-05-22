@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
+import 'package:flutter_gemma_example/gemma3n_example_screen.dart'; // Added import
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -196,10 +197,18 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(context,
-                          MaterialPageRoute<void>(builder: (context) {
-                        return ChatScreen(model: widget.model);
-                      }));
+                      // Check if it's a Gemma 3n model
+                      if (widget.model.name.startsWith('gemma3n')) {
+                        Navigator.push(context,
+                            MaterialPageRoute<void>(builder: (context) {
+                          return const Gemma3nExampleScreen();
+                        }));
+                      } else {
+                        Navigator.push(context,
+                            MaterialPageRoute<void>(builder: (context) {
+                          return ChatScreen(model: widget.model);
+                        }));
+                      }
                     },
                     child: const Text('Use the model in Chat Screen'),
                   ),

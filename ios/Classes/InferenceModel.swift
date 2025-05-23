@@ -41,7 +41,30 @@ final class InferenceSession {
         if let loraPath = loraPath {
             options.loraPath = loraPath
         }
-        self.session = try LlmInference.Session(llmInference: inference, options: options)
+        
+        // Optimize for Gemma 3 models - ensure proper initialization
+        options.numDraftTokens = 0  // Disable draft tokens for Gemma 3n
+        options.sequenceBatchSize = 1
+        
+        // Initialize session with proper error handling for Gemma 3n
+        do {
+            self.session = try LlmInference.Session(llmInference: inference, options: options)
+            // Force initial token processing to ensure input_pos is properly set
+            _ = try self.session.sizeInTokens(text: " ")
+        } catch {
+            // Fallback: retry with minimal configuration for Gemma 3n compatibility
+            let fallbackOptions = LlmInference.Session.Options()
+            fallbackOptions.temperature = temperature
+            fallbackOptions.randomSeed = randomSeed
+            fallbackOptions.topk = topK
+            if let topP = topP {
+                fallbackOptions.topp = Float(topP)
+            }
+            if let loraPath = loraPath {
+                fallbackOptions.loraPath = loraPath
+            }
+            self.session = try LlmInference.Session(llmInference: inference, options: fallbackOptions)
+        }
     }
 
 

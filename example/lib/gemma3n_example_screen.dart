@@ -32,12 +32,13 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
 
   @override
   void dispose() {
-    super.dispose();
     _gemma.modelManager.deleteModel();
+    super.dispose();
   }
 
   Future<void> _initializeModel() async {
     try {
+      if (!mounted) return;
       setState(() {
         _isModelInitialized = false;
         _error = null;
@@ -67,10 +68,12 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
         tokenBuffer: 512, // Larger buffer for longer conversations
       );
 
+      if (!mounted) return;
       setState(() {
         _isModelInitialized = true;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isModelInitialized = false;
@@ -79,6 +82,7 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
   }
 
   void _addMessage(Message message) {
+    if (!mounted) return;
     setState(() {
       _messages.add(message);
     });
@@ -89,6 +93,7 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
   }
 
   void _handleError(String error) {
+    if (!mounted) return;
     setState(() {
       _error = error;
     });
@@ -96,13 +101,16 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
 
   void _switchModel(Model newModel) {
     if (_selectedModel != newModel) {
+      if (!mounted) return;
       setState(() {
         _selectedModel = newModel;
         _messages.clear();
         _error = null;
       });
       _gemma.modelManager.deleteModel().then((_) {
-        _initializeModel();
+        if (mounted) {
+          _initializeModel();
+        }
       });
     }
   }

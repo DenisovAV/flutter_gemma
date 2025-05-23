@@ -39,11 +39,13 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   void _processMessages() {
     _subscription = _gemma?.processMessageAsync(widget.messages.last).listen(
       (String token) {
+        if (!mounted) return;
         setState(() {
           _message = Message(text: '${_message.text}$token');
         });
       },
       onDone: () {
+        if (!mounted) return;
         if (_message.text.isEmpty) {
           _message = const Message(text: '...');
         }
@@ -51,6 +53,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
         _subscription?.cancel();
       },
       onError: (error) {
+        if (!mounted) return;
         print('Error: $error');
         if (_message.text.isEmpty) {
           _message = const Message(text: '...');

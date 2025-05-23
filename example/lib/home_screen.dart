@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma_example/gemma3n_example_screen.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -47,27 +46,11 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 48),
             
-            // Navigation cards
-            _buildNavigationCard(
-              context,
-              title: 'Gemma 3 Nano Example',
-              subtitle: 'Experience the latest Gemma 3 Nano 1.5B model with optimized settings',
-              icon: Icons.new_releases,
-              color: Colors.orange,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (context) => const Gemma3nExampleScreen(),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
+            // Navigation card
             _buildNavigationCard(
               context,
               title: 'All Models',
-              subtitle: 'Browse and test all available Gemma models',
+              subtitle: 'Browse and test all available Gemma models including Gemma 3 Nano 1.5B',
               icon: Icons.model_training,
               color: Colors.blue,
               onTap: () {

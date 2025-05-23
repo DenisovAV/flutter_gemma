@@ -44,9 +44,10 @@ final class InferenceSession {
         
         // Initialize session with proper error handling for Gemma 3n
         do {
-            self.session = try LlmInference.Session(llmInference: inference, options: options)
+            let newSession = try LlmInference.Session(llmInference: inference, options: options)
             // Force initial token processing to ensure input_pos is properly set
-            _ = try self.session.sizeInTokens(text: " ")
+            _ = try newSession.sizeInTokens(text: " ")
+            self.session = newSession
         } catch {
             // Fallback: retry with minimal configuration for Gemma 3n compatibility
             let fallbackOptions = LlmInference.Session.Options()

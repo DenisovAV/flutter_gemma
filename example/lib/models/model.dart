@@ -6,7 +6,7 @@ enum Model {
     // model file should be pre-downloaded and placed in the assets folder
     url: 'assets/gemma3-1b-it-int4.task',
     filename: 'gemma3-1b-it-int4.task',
-    displayName: 'Gemma3 1B IT (CPU / Local)',
+    displayName: 'Gemma3 1B IT (GPU / Local)',
     licenseUrl: '',
     needsAuth: false,
     localModel: true,
@@ -26,7 +26,7 @@ enum Model {
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
     temperature: 0.1,
-    topK: 64,
+    topK: 5,
     topP: 0.95,
   ),
   gemma3Cpu(
@@ -39,10 +39,9 @@ enum Model {
     preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.gemmaIt,
     temperature: 0.1,
-    topK: 64,
+    topK: 5,
     topP: 0.95,
   ),
-
 
   gemma3nLocalAsset(
     // model file should be pre-downloaded and placed in the assets folder
@@ -55,7 +54,7 @@ enum Model {
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
     temperature: 0.1,
-    topK: 64,
+    topK: 5,
     topP: 0.95,
   ),
 
@@ -69,8 +68,8 @@ enum Model {
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
-    temperature: 0.8,
-    topK: 40,
+    temperature: 0.6,
+    topK: 1,
     topP: 0.9,
   ),
   gemma3nE4BCpu(
@@ -82,8 +81,8 @@ enum Model {
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.gemmaIt,
-    temperature: 0.8,
-    topK: 40,
+    temperature: 0.6,
+    topK: 1,
     topP: 0.9,
   ),
 
@@ -97,8 +96,8 @@ enum Model {
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
-    temperature: 0.8,
-    topK: 40,
+    temperature: 0.6,
+    topK: 4,
     topP: 0.9,
   ),
   gemma3nE2BCpu(
@@ -110,8 +109,8 @@ enum Model {
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.gemmaIt,
-    temperature: 0.8,
-    topK: 40,
+    temperature: 0.6,
+    topK: 1,
     topP: 0.9,
   ),
 

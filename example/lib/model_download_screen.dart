@@ -91,6 +91,10 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Model Download'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -196,7 +200,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.push(context,
+                      Navigator.pushReplacement(context,
                           MaterialPageRoute<void>(builder: (context) {
                         return ChatScreen(model: widget.model);
                       }));

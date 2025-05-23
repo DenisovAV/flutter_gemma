@@ -1,7 +1,7 @@
 ## 0.8.5
 - 🚀 **GEMMA 3 NANO SUPPORT**: Added full support for Gemma 3 Nano models
 - 📦 Updated MediaPipe GenAI to v0.10.24 (iOS & Android)
-- ⚡ Optimized session parameters for Gemma 3n models (temperature: 0.8, topK: 40, topP: 0.9)
+- ⚡ Optimized session parameters for Gemma 3n models (temperature: 0.6, topK: 40, topP: 0.9)
 - 🛡️ Added automatic fallback session creation for `input_pos != nullptr` errors
 - 🎯 Added Gemma 3n model detection and compatibility handling
 - 💪 Enhanced error handling for TensorFlow Lite model initialization

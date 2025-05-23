@@ -193,10 +193,7 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
               ],
             )
           : LoadingWidget(
-              isLoading: !_isModelInitialized,
-              error: _error,
-              onRetry: _initializeModel,
-              modelName: 'Gemma 3 Nano',
+              message: 'Gemma 3 Nano',
             ),
     );
   }

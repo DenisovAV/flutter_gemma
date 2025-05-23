@@ -21,7 +21,8 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
   final _messages = <Message>[];
   bool _isModelInitialized = false;
   String? _error;
-  Model _selectedModel = Model.gemma3nGpu;
+  // Use one of the new Gemma 3 Nano models as the default
+  Model _selectedModel = Model.gemma3nE2BGpu;
 
   @override
   void initState() {
@@ -121,18 +122,27 @@ class Gemma3nExampleScreenState extends State<Gemma3nExampleScreen> {
             icon: const Icon(Icons.model_training),
             onSelected: _switchModel,
             itemBuilder: (context) => [
+              // List the new Gemma 3 Nano models
               const PopupMenuItem(
-                value: Model.gemma3nGpu,
-                child: Text('Gemma 3n GPU'),
+                value: Model.gemma3nE4BGpu,
+                child: Text('Gemma 3n E4B IT (GPU)'),
               ),
               const PopupMenuItem(
-                value: Model.gemma3nCpu,
-                child: Text('Gemma 3n CPU'),
+                value: Model.gemma3nE4BCpu,
+                child: Text('Gemma 3n E4B IT (CPU)'),
+              ),
+              const PopupMenuItem(
+                value: Model.gemma3nE2BGpu,
+                child: Text('Gemma 3n E2B IT (GPU)'),
+              ),
+              const PopupMenuItem(
+                value: Model.gemma3nE2BCpu,
+                child: Text('Gemma 3n E2B IT (CPU)'),
               ),
               if (!kIsWeb)
                 const PopupMenuItem(
                   value: Model.gemma3nLocalAsset,
-                  child: Text('Gemma 3n Local'),
+                  child: Text('Gemma 3n E2B IT (Local Asset)'),
                 ),
             ],
           ),

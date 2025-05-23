@@ -47,13 +47,33 @@ class MobileInferenceModel extends InferenceModel {
 
       final resolvedLoraPath = (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
 
-      await _platformService.createSession(
-        randomSeed: randomSeed,
-        temperature: temperature,
-        topK: topK,
-        topP: topP,
-        loraPath: resolvedLoraPath,
-      );
+      // Optimize parameters for Gemma 3n models
+      final optimizedTemperature = _isGemma3nModel() ? 0.8 : temperature;
+      final optimizedTopK = _isGemma3nModel() ? 40 : topK;
+      final optimizedTopP = _isGemma3nModel() ? 0.9 : topP;
+
+      try {
+        await _platformService.createSession(
+          randomSeed: randomSeed,
+          temperature: optimizedTemperature,
+          topK: optimizedTopK,
+          topP: optimizedTopP,
+          loraPath: resolvedLoraPath,
+        );
+      } catch (e) {
+        // Fallback for Gemma 3n compatibility - retry with minimal config
+        if (_isGemma3nModel() && e.toString().contains('input_pos')) {
+          await _platformService.createSession(
+            randomSeed: 1,
+            temperature: 0.8,
+            topK: 40,
+            topP: 0.9,
+            loraPath: null, // Disable LoRA for initial session
+          );
+        } else {
+          rethrow;
+        }
+      }
 
       final session = _session = MobileInferenceModelSession(
         modelType: modelType,
@@ -67,6 +87,11 @@ class MobileInferenceModel extends InferenceModel {
       completer.completeError(e, st);
       Error.throwWithStackTrace(e, st);
     }
+  }
+
+  bool _isGemma3nModel() {
+    return modelType == ModelType.gemmaIt && 
+           (supportedLoraRanks?.isNotEmpty == true || maxTokens >= 2048);
   }
 
   @override

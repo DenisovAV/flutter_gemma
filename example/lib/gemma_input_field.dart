@@ -54,7 +54,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
       },
       onError: (error) {
         if (!mounted) return;
-        print('Error: $error');
+        debugPrint('Error: $error');
         if (_message.text.isEmpty) {
           _message = const Message(text: '...');
         }

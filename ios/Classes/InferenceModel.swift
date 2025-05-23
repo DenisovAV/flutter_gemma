@@ -42,10 +42,6 @@ final class InferenceSession {
             options.loraPath = loraPath
         }
         
-        // Optimize for Gemma 3 models - ensure proper initialization
-        options.numDraftTokens = 0  // Disable draft tokens for Gemma 3n
-        options.sequenceBatchSize = 1
-        
         // Initialize session with proper error handling for Gemma 3n
         do {
             self.session = try LlmInference.Session(llmInference: inference, options: options)

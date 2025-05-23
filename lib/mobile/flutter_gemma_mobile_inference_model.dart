@@ -45,35 +45,16 @@ class MobileInferenceModel extends InferenceModel {
         modelManager._loraFile,
       ).wait;
 
-      final resolvedLoraPath = (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
+      final resolvedLoraPath =
+          (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
 
-      // Optimize parameters for Gemma 3n models
-      final optimizedTemperature = _isGemma3nModel() ? 0.8 : temperature;
-      final optimizedTopK = _isGemma3nModel() ? 40 : topK;
-      final optimizedTopP = _isGemma3nModel() ? 0.9 : topP;
-
-      try {
-        await _platformService.createSession(
-          randomSeed: randomSeed,
-          temperature: optimizedTemperature,
-          topK: optimizedTopK,
-          topP: optimizedTopP,
-          loraPath: resolvedLoraPath,
-        );
-      } catch (e) {
-        // Fallback for Gemma 3n compatibility - retry with minimal config
-        if (_isGemma3nModel() && e.toString().contains('input_pos')) {
-          await _platformService.createSession(
-            randomSeed: 1,
-            temperature: 0.8,
-            topK: 40,
-            topP: 0.9,
-            loraPath: null, // Disable LoRA for initial session
-          );
-        } else {
-          rethrow;
-        }
-      }
+      await _platformService.createSession(
+        randomSeed: randomSeed,
+        temperature: temperature,
+        topK: topK,
+        topP: topP,
+        loraPath: resolvedLoraPath,
+      );
 
       final session = _session = MobileInferenceModelSession(
         modelType: modelType,
@@ -89,10 +70,7 @@ class MobileInferenceModel extends InferenceModel {
     }
   }
 
-  bool _isGemma3nModel() {
-    return modelType == ModelType.gemmaIt && 
-           (supportedLoraRanks?.isNotEmpty == true || maxTokens >= 2048);
-  }
+
 
   @override
   Future<void> close() async {
@@ -161,8 +139,11 @@ class MobileInferenceModelSession extends InferenceModelSession {
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {
-          if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
-            controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+          if (event is Map &&
+              event.containsKey('code') &&
+              event['code'] == "ERROR") {
+            controller.addError(
+                Exception(event['message'] ?? 'Unknown async error occurred'));
           } else if (event is Map && event.containsKey('partialResult')) {
             final partial = event['partialResult'] as String;
             controller.add(partial);

@@ -66,7 +66,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
     }
 
     try {
-
       await _platformService.createModel(
         maxTokens: maxTokens,
         modelPath: modelFile.path,

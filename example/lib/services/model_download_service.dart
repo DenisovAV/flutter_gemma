@@ -110,6 +110,16 @@ class ModelDownloadService {
           onProgress(totalBytes > 0 ? received / totalBytes : 0.0);
         }
       } else {
+        if (kDebugMode) {
+          print('Failed to download model. Status code: ${response.statusCode}');
+          print('Headers: ${response.headers}');
+          try {
+            final errorBody = await response.stream.bytesToString();
+            print('Error body: $errorBody');
+          } catch (e) {
+            print('Could not read error body: $e');
+          }
+        }
         throw Exception('Failed to download the model.');
       }
     } catch (e) {

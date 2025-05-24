@@ -29,6 +29,7 @@ class ModelSelectionScreen extends StatelessWidget {
           return ListTile(
             title: Text(models[index].displayName),
             onTap: () {
+              // Navigate to download screen (non-web) or chat screen (web)
               if (!kIsWeb) {
                 Navigator.push(
                   context,

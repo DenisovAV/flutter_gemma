@@ -6,6 +6,7 @@ import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_gemma_example/model_selection_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, this.model = Model.gemma3Gpu});
@@ -65,6 +66,18 @@ class ChatScreenState extends State<ChatScreen> {
       backgroundColor: const Color(0xFF0b2351),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0b2351),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute<void>(
+                builder: (context) => const ModelSelectionScreen(),
+              ),
+              (route) => false,
+            );
+          },
+        ),
         title: const Text(
           'Flutter Gemma Example',
           style: TextStyle(fontSize: 20),

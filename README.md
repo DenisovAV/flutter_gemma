@@ -1,6 +1,6 @@
 # Flutter Gemma
 
-**The plugin supports not only Gemma, but also other models. Here’s the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 Nano 1.5B](https://huggingface.co/litert-community/gemma-3-nano-1.5b-IT), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), Falcon-RW-1B, StableLM-3B.
+**The plugin supports not only Gemma, but also other models. Here’s the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), Falcon-RW-1B, StableLM-3B.
 
 *Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 Nano, Phi-4 and DeepSeek only for **Android** and **Web** platforms. Support for iOS will be added in a future update. Gemma, Gemma 2 and others are supported for all platforms*
 
@@ -90,7 +90,7 @@ The new API splits functionality into two parts:
 The updated API splits the functionality into two main parts:
 
 * Access the plugin via:
-    
+
 ```dart
 final gemma = FlutterGemmaPlugin.instance;
 ```
@@ -282,11 +282,11 @@ int tokenCount = await session.sizeInTokens('Your prompt text here');
 print('Prompt size in tokens: $tokenCount');
 ```
 
-9.**Closing the Model** 
+9.**Closing the Model**
 
 When you no longer need to perform any further inferences, call the close method to release resources:
 
-```dart 
+```dart
 await inferenceModel.close();
 ```
 
@@ -305,4 +305,3 @@ The full and complete example you can find in `example` folder
 **Upcoming Features**
 
 In the next version, expect support for multimodality with Gemma 3, enabling text, image, and potentially other input types for even more advanced AI-powered applications.
-

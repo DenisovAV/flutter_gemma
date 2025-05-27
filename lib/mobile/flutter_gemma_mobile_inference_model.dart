@@ -45,7 +45,8 @@ class MobileInferenceModel extends InferenceModel {
         modelManager._loraFile,
       ).wait;
 
-      final resolvedLoraPath = (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
+      final resolvedLoraPath =
+          (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
 
       await _platformService.createSession(
         randomSeed: randomSeed,
@@ -68,6 +69,8 @@ class MobileInferenceModel extends InferenceModel {
       Error.throwWithStackTrace(e, st);
     }
   }
+
+
 
   @override
   Future<void> close() async {
@@ -136,8 +139,11 @@ class MobileInferenceModelSession extends InferenceModelSession {
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {
-          if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
-            controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+          if (event is Map &&
+              event.containsKey('code') &&
+              event['code'] == "ERROR") {
+            controller.addError(
+                Exception(event['message'] ?? 'Unknown async error occurred'));
           } else if (event is Map && event.containsKey('partialResult')) {
             final partial = event['partialResult'] as String;
             controller.add(partial);

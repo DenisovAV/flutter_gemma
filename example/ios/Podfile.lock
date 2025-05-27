@@ -1,16 +1,16 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_gemma (0.0.1):
+  - flutter_gemma (0.8.5):
     - Flutter
-    - MediaPipeTasksGenAI (= 0.10.21)
-    - MediaPipeTasksGenAIC (= 0.10.21)
+    - MediaPipeTasksGenAI (= 0.10.24)
+    - MediaPipeTasksGenAIC (= 0.10.24)
   - integration_test (0.0.1):
     - Flutter
   - large_file_handler (0.0.1):
     - Flutter
-  - MediaPipeTasksGenAI (0.10.21):
-    - MediaPipeTasksGenAIC (= 0.10.21)
-  - MediaPipeTasksGenAIC (0.10.21)
+  - MediaPipeTasksGenAI (0.10.24):
+    - MediaPipeTasksGenAIC (= 0.10.24)
+  - MediaPipeTasksGenAIC (0.10.24)
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -52,11 +52,11 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  flutter_gemma: 59be0ce49a761bbf942ab8f18e85d300dc66009a
+  flutter_gemma: 4498f5965ccf3c8aa704583e2dd5e2ec9a56e87c
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   large_file_handler: b37481e9b4972562ffcdc8f75700f47cd592bcec
-  MediaPipeTasksGenAI: 64f91ec1f2666abeb6dc719a8e8d1e2bf36374c0
-  MediaPipeTasksGenAIC: 1df8d7c6fcbe797d2a04a514edd8b31445291ec8
+  MediaPipeTasksGenAI: 076ba7032a6e9da16db9c7cf0c3b67c751c18bc1
+  MediaPipeTasksGenAIC: ec35d9f431f6a6b651a0bc9f67a4ed149ffa575c
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d

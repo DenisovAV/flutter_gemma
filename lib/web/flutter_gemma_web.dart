@@ -183,6 +183,14 @@ class WebModelSession extends InferenceModelSession {
   }
 
   @override
+  Future<void> cancelGenerateResponseAsync() async {
+    // For web implementation, we can close the stream controller
+    // Note: This is a basic implementation - web MediaPipe may not support cancellation
+    _controller?.close();
+    _controller = null;
+  }
+
+  @override
   Future<void> close() async {
     _queryChunks.clear();
     _controller?.close();

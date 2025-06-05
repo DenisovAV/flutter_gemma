@@ -55,4 +55,7 @@ abstract class PlatformService {
 
   @async
   void generateResponseAsync();
+
+  @async
+  void cancelGenerateResponseAsync();
 }

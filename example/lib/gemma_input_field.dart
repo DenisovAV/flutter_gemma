@@ -5,6 +5,7 @@ import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
 import 'package:flutter_gemma_example/services/gemma_service.dart';
+import 'dart:io';
 
 class GemmaInputField extends StatefulWidget {
   const GemmaInputField({
@@ -132,7 +133,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
             child: ChatMessageWidget(message: _message),
           ),
         ),
-        if (_isGenerating)
+        if (_isGenerating && Platform.isAndroid)
           Container(
             width: double.infinity,
             padding:
@@ -151,10 +152,10 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                   : const Icon(Icons.stop),
               label: Text(_isCancelling ? 'Stopping...' : 'Stop Generation'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: Colors.blue.shade600,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: Colors.red.withValues(alpha: 0.6),
-                disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+                disabledBackgroundColor: Colors.blue.shade300,
+                disabledForegroundColor: Colors.white.withValues(alpha: 0.8),
                 padding: const EdgeInsets.symmetric(vertical: 12.0),
               ),
             ),

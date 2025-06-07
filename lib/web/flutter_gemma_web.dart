@@ -184,7 +184,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> cancelGenerateResponseAsync() async {
-    // TODO: Implement cancellation for web
+    // Dummy implementation for web - cancellation not supported by MediaPipe web SDK yet
   }
 
   @override

@@ -173,6 +173,11 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
+    func cancelGenerateResponseAsync(completion: @escaping (Result<Void, any Error>) -> Void) {
+        // Dummy implementation for iOS - cancellation not supported by MediaPipe iOS SDK yet
+        completion(.success(()))
+    }
+
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         return nil

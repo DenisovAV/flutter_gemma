@@ -85,6 +85,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
   final ModelType modelType;
   final VoidCallback onClose;
   bool _isClosed = false;
+  bool _isCancelled = false;
 
   Completer<void>? _responseCompleter;
   StreamController<String>? _asyncResponseController;
@@ -134,11 +135,13 @@ class MobileInferenceModelSession extends InferenceModelSession {
   Stream<String> getResponseAsync({Message? message}) async* {
     _assertNotClosed();
     await _awaitLastResponse();
+    _isCancelled = false;
     final completer = _responseCompleter = Completer<void>();
     try {
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
         (event) {
+          if (_isCancelled) return;
           if (event is Map &&
               event.containsKey('code') &&
               event['code'] == "ERROR") {
@@ -152,7 +155,9 @@ class MobileInferenceModelSession extends InferenceModelSession {
           }
         },
         onError: (error, st) {
-          controller.addError(error, st);
+          if (!_isCancelled) {
+            controller.addError(error, st);
+          }
         },
         onDone: controller.close,
       );
@@ -164,9 +169,20 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
       yield* controller.stream;
     } finally {
-      completer.complete();
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
       _asyncResponseController = null;
     }
+  }
+
+  @override
+  Future<void> cancelGenerateResponseAsync() async {
+    _assertNotClosed();
+    _isCancelled = true;
+    await _platformService.cancelGenerateResponseAsync();
+    _asyncResponseController?.close();
+    _responseCompleter?.complete();
   }
 
   @override

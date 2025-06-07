@@ -1,6 +1,6 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_gemma (0.0.1):
+  - flutter_gemma (0.8.6):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.24)
     - MediaPipeTasksGenAIC (= 0.10.24)
@@ -52,7 +52,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
-  flutter_gemma: 8841cf281a8322819bddd4edb898a0fd36a7d263
+  flutter_gemma: c104e5c505eac327a0877a7cb21a593982703154
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   large_file_handler: b37481e9b4972562ffcdc8f75700f47cd592bcec
   MediaPipeTasksGenAI: 076ba7032a6e9da16db9c7cf0c3b67c751c18bc1

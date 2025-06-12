@@ -8,6 +8,9 @@ class MobileInferenceModel extends InferenceModel {
     required this.modelType,
     this.preferredBackend,
     this.supportedLoraRanks,
+    // Добавляем поддержку изображений
+    this.supportImage = false,
+    this.maxNumImages,
   });
 
   final ModelType modelType;
@@ -17,6 +20,10 @@ class MobileInferenceModel extends InferenceModel {
   final MobileModelManager modelManager;
   final PreferredBackend? preferredBackend;
   final List<int>? supportedLoraRanks;
+  // Добавляем поля для изображений
+  final bool supportImage;
+  final int? maxNumImages;
+
   bool _isClosed = false;
   MobileInferenceModelSession? _session;
   Completer<InferenceModelSession>? _createCompleter;
@@ -31,6 +38,8 @@ class MobileInferenceModel extends InferenceModel {
     int topK = 1,
     double? topP,
     String? loraPath,
+    // Добавляем параметр для vision модальности
+    bool? enableVisionModality,
   }) async {
     if (_isClosed) {
       throw Exception('Model is closed. Create a new instance to use it again');
@@ -41,12 +50,12 @@ class MobileInferenceModel extends InferenceModel {
     final completer = _createCompleter = Completer<InferenceModelSession>();
     try {
       final (isLoraInstalled, File? loraFile) = await (
-        modelManager.isLoraInstalled,
-        modelManager._loraFile,
+      modelManager.isLoraInstalled,
+      modelManager._loraFile,
       ).wait;
 
       final resolvedLoraPath =
-          (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
+      (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
 
       await _platformService.createSession(
         randomSeed: randomSeed,
@@ -54,10 +63,13 @@ class MobileInferenceModel extends InferenceModel {
         topK: topK,
         topP: topP,
         loraPath: resolvedLoraPath,
+        // Включаем vision модальность если модель поддерживает изображения
+        enableVisionModality: enableVisionModality ?? supportImage,
       );
 
       final session = _session = MobileInferenceModelSession(
         modelType: modelType,
+        supportImage: supportImage,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -69,8 +81,6 @@ class MobileInferenceModel extends InferenceModel {
       Error.throwWithStackTrace(e, st);
     }
   }
-
-
 
   @override
   Future<void> close() async {
@@ -84,6 +94,8 @@ class MobileInferenceModel extends InferenceModel {
 class MobileInferenceModelSession extends InferenceModelSession {
   final ModelType modelType;
   final VoidCallback onClose;
+  // Добавляем поддержку изображений
+  final bool supportImage;
   bool _isClosed = false;
 
   Completer<void>? _responseCompleter;
@@ -92,6 +104,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
   MobileInferenceModelSession({
     required this.onClose,
     required this.modelType,
+    this.supportImage = false,
   });
 
   void _assertNotClosed() {
@@ -113,6 +126,17 @@ class MobileInferenceModelSession extends InferenceModelSession {
   Future<void> addQueryChunk(Message message) async {
     final finalPrompt = message.transformToChatPrompt(type: modelType);
     await _platformService.addQueryChunk(finalPrompt);
+    if (message.hasImage && message.imageBytes != null && supportImage) {
+      await _addImage(message.imageBytes!);
+    }
+  }
+
+  Future<void> _addImage(Uint8List imageBytes) async {
+    _assertNotClosed();
+    if (!supportImage) {
+      throw Exception('This model does not support images');
+    }
+    await _platformService.addImage(imageBytes);
   }
 
   @override
@@ -138,7 +162,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
     try {
       final controller = _asyncResponseController = StreamController<String>();
       eventChannel.receiveBroadcastStream().listen(
-        (event) {
+            (event) {
           if (event is Map &&
               event.containsKey('code') &&
               event['code'] == "ERROR") {

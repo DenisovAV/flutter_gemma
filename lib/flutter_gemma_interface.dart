@@ -35,11 +35,15 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// [maxTokens] — maximum context length for the model.
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
   /// [loraRanks] — optional supported LoRA ranks.
+  /// [maxNumImages] — maximum number of images (for multimodal models).
+  /// [supportImage] — whether the model supports images.
   Future<InferenceModel> createModel({
     required ModelType modelType,
-    int maxTokens,
+    int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
+    int? maxNumImages, // Добавляем поддержку изображений
+    bool supportImage = false, // Добавляем флаг поддержки изображений
   });
 }
 
@@ -55,12 +59,14 @@ abstract class InferenceModel {
   ///
   /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
   /// [loraPath] — optional path to LoRA model.
+  /// [enableVisionModality] — enable vision modality for multimodal models.
   Future<InferenceModelSession> createSession({
-    double temperature,
-    int randomSeed,
-    int topK,
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
     double? topP,
     String? loraPath,
+    bool? enableVisionModality, // Добавляем поддержку vision модальности
   });
 
   /// Creates a chat interface wrapping [InferenceChat].
@@ -68,6 +74,8 @@ abstract class InferenceModel {
   /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
   /// [loraPath] — optional path to LoRA model.
   /// [tokenBuffer] — token buffer size for chat for not to exceed max tokens.
+  /// [enableVisionModality] — enable vision modality for multimodal models.
+  /// [supportImage] — whether the chat should support images.
   Future<InferenceChat> createChat({
     double temperature = .8,
     int randomSeed = 1,
@@ -75,6 +83,7 @@ abstract class InferenceModel {
     double? topP, // Optional topP for chat too
     int tokenBuffer = 256,
     String? loraPath,
+    bool? supportImage, // Добавляем поддержку изображений в чате
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -83,9 +92,11 @@ abstract class InferenceModel {
         topK: topK,
         topP: topP,
         loraPath: loraPath,
+        enableVisionModality: supportImage ?? false,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
+      supportImage: supportImage ?? false, // Передаем поддержку изображений
     );
     await chat!.initSession();
     return chat!;

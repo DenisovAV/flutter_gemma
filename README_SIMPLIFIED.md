@@ -1,15 +1,15 @@
-# Flutter Gemma with Gemma 3 Nano Support
+# Flutter Gemma with Gemma 3 Nano & Multimodal Support
 
 **Run Gemma AI models locally on Flutter apps with official MediaPipe GenAI v0.10.24**
 
 Supports: [Gemma 2B](https://huggingface.co/google/gemma-2b-it), [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), **[Gemma 3 Nano 1.5B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview)** ✨
 
-## ✅ What's New in v0.8.5
+## ✅ What's New in v0.9.0
 
+- 🖼️ **Multimodal Support** - Text + Image input with vision models
 - 🚀 **Full Gemma 3 Nano Support** with MediaPipe GenAI v0.10.24
 - ⚡ **Official CocoaPods** - No custom pods needed!
 - 🎯 **GPU/CPU Backend Selection** works correctly
-- 🛡️ **Fixed `input_pos != nullptr` errors**
 - 📱 **iOS & Android Compatible**
 
 ## Quick Start
@@ -18,7 +18,7 @@ Supports: [Gemma 2B](https://huggingface.co/google/gemma-2b-it), [Gemma 7B](http
 
 ```yaml
 dependencies:
-  flutter_gemma: ^0.8.5
+  flutter_gemma: ^0.9.0
 ```
 
 ### 2. iOS Setup (Automatic)
@@ -33,8 +33,9 @@ No manual pod configuration needed! 🎉
 
 Uses official MediaPipe GenAI:
 - `com.google.mediapipe:tasks-genai:0.10.24`
+- `com.google.mediapipe:tasks-vision:0.10.24` (for multimodal support)
 
-### 4. Basic Usage
+### 4. Basic Text Usage
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -60,22 +61,81 @@ final chat = await model.createChat(
 );
 
 // Generate response
-await chat.addQueryChunk(Message(text: "Hello!", isUser: true));
+await chat.addQueryChunk(Message.text(text: "Hello!", isUser: true));
 final response = await chat.generateChatResponse();
 ```
 
-## 🎯 Gemma 3 Nano Models
+### 5. 🖼️ Multimodal Usage (NEW!)
 
-All models work with official MediaPipe CocoaPods:
+```dart
+import 'dart:typed_data';
 
+// Create model with image support
+final model = await gemma.createModel(
+  modelType: ModelType.gemmaIt,
+  supportImage: true, // Enable multimodal support
+  maxNumImages: 1,
+  maxTokens: 4096,
+);
+
+// Create chat with image support
+final chat = await model.createChat(
+  temperature: 0.8,
+  supportImage: true, // Enable images in chat
+);
+
+// Send text + image message
+final imageBytes = await loadImageBytes(); // Your image loading method
+await chat.addQueryChunk(Message.withImage(
+  text: "What's in this image?",
+  imageBytes: imageBytes,
+  isUser: true,
+));
+
+final response = await chat.generateChatResponse();
+```
+
+### 6. 📱 Message Types
+
+```dart
+// Text only
+final textMsg = Message.text(text: "Hello!", isUser: true);
+
+// Text + Image
+final multimodalMsg = Message.withImage(
+  text: "Describe this image",
+  imageBytes: imageBytes,
+  isUser: true,
+);
+
+// Image only
+final imageMsg = Message.imageOnly(imageBytes: imageBytes, isUser: true);
+
+// Check if message has image
+if (message.hasImage) {
+  print('Message contains an image');
+}
+```
+
+## 🎯 Supported Models
+
+### Text-Only Models
 | Model | Size | Backend | Download |
 |-------|------|---------|----------|
-| Gemma 3n E2B | 1.5B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) |
-| Gemma 3n E4B | 1.5B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) |
+| Gemma 2B | 2B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-2b-it) |
+| Gemma 7B | 7B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-7b-it) |
+| Gemma-2 2B | 2B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-2-2b-it) |
+| Gemma-3 1B | 1B | CPU/GPU | [HuggingFace](https://huggingface.co/litert-community/Gemma3-1B-IT) |
+
+### 🖼️ Multimodal Models (Vision + Text)
+| Model | Size | Backend | Vision Support | Download |
+|-------|------|---------|----------------|----------|
+| Gemma 3n E2B | 1.5B | CPU/GPU | ✅ | [HuggingFace](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) |
+| Gemma 3n E4B | 1.5B | CPU/GPU | ✅ | [HuggingFace](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) |
 
 ## 🔧 MediaPipe Dependencies
 
-This plugin uses **official MediaPipe CocoaPods**:
+This plugin uses **official MediaPipe libraries**:
 
 **iOS:**
 ```ruby
@@ -88,18 +148,75 @@ pod 'MediaPipeTasksGenAIC', '0.10.24'
 ```gradle
 # Automatically included
 implementation 'com.google.mediapipe:tasks-genai:0.10.24'
+implementation 'com.google.mediapipe:tasks-vision:0.10.24' # For multimodal support
 ```
+
+**Web:**
+```javascript
+// Automatically loaded from CDN
+https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm
+```
+
+## 🌐 Platform Support
+
+| Feature | Android | iOS | Web |
+|---------|---------|-----|-----|
+| Text Generation | ✅ | ✅ | ✅ |
+| Image Input | ✅ | ⚠️ | ⚠️ |
+| GPU Acceleration | ✅ | ✅ | ✅ |
+| Streaming | ✅ | ✅ | ✅ |
+
+- ✅ = Fully supported
+- ⚠️ = Coming soon / Limited support
 
 ## 🚀 Why This Works
 
 - ✅ **Official MediaPipe Support** - No custom frameworks
-- ✅ **Version 0.10.24** - Includes Gemma 3 Nano support
+- ✅ **Version 0.10.24** - Includes Gemma 3 Nano + vision support
 - ✅ **Automatic Integration** - Flutter handles CocoaPods/Gradle
-- ✅ **Cross-Platform** - Same API for iOS/Android
+- ✅ **Cross-Platform** - Same API for iOS/Android/Web
+- ✅ **Multimodal Ready** - Text + Image input support
+- ✅ **Simple API** - One parameter to enable images
+
+## 🖼️ Multimodal Examples
+
+### Basic Image Analysis
+```dart
+final model = await gemma.createModel(
+  modelType: ModelType.gemmaIt,
+  supportImage: true,
+);
+
+final session = await model.createSession();
+await session.addQueryChunk(Message.withImage(
+  text: "What do you see in this image?",
+  imageBytes: imageBytes,
+  isUser: true,
+));
+
+final response = await session.getResponse();
+```
+
+### Chat with Images
+```dart
+final chat = await model.createChat(supportImage: true);
+
+// Add text message
+await chat.addQueryChunk(Message.text(text: "Hello!", isUser: true));
+await chat.generateChatResponse();
+
+// Add image message
+await chat.addQueryChunk(Message.withImage(
+  text: "Can you analyze this image?",
+  imageBytes: imageBytes,
+  isUser: true,
+));
+final imageResponse = await chat.generateChatResponse();
+```
 
 ## 📝 Example
 
-Check the [example app](example/) for a complete implementation with Gemma 3 Nano models.
+Check the [example app](example/) for a complete implementation with Gemma 3 Nano models and multimodal support.
 
 ## 🛟 Troubleshooting
 
@@ -113,10 +230,19 @@ cd ios && pod install --repo-update
 flutter clean && flutter pub get
 ```
 
+**Image Support Issues:**
+- Ensure you're using a multimodal model (Gemma 3n E2B/E4B)
+- Set `supportImage: true` when creating model and chat
+- Images are automatically processed when included in `Message.withImage()`
+
+**Web Platform:**
+- Image support is in development for web platform
+- Text-only models work fully on web
+
 ## 📄 License
 
-MIT License - Use official MediaPipe CocoaPods with confidence!
+MIT License - Use official MediaPipe libraries with confidence!
 
 ---
 
-**BRO-GRRAMMER APPROVED** ✅ - Simple, clean, uses official MediaPipe!
+**BRO-GRRAMMER APPROVED** ✅ - Simple, clean, uses official MediaPipe with multimodal support!

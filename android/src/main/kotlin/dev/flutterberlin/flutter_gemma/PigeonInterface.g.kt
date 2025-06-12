@@ -86,12 +86,13 @@ private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
 
 /** Generated interface from Pigeon that represents a handler of messages from Flutter. */
 interface PlatformService {
-  fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, preferredBackend: PreferredBackend?, callback: (Result<Unit>) -> Unit)
+  fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, preferredBackend: PreferredBackend?, maxNumImages: Long?, callback: (Result<Unit>) -> Unit)
   fun closeModel(callback: (Result<Unit>) -> Unit)
-  fun createSession(temperature: Double, randomSeed: Long, topK: Long, topP: Double?, loraPath: String?, callback: (Result<Unit>) -> Unit)
+  fun createSession(temperature: Double, randomSeed: Long, topK: Long, topP: Double?, loraPath: String?, enableVisionModality: Boolean?, callback: (Result<Unit>) -> Unit)
   fun closeSession(callback: (Result<Unit>) -> Unit)
   fun sizeInTokens(prompt: String, callback: (Result<Long>) -> Unit)
   fun addQueryChunk(prompt: String, callback: (Result<Unit>) -> Unit)
+  fun addImage(imageBytes: ByteArray, callback: (Result<Unit>) -> Unit)
   fun generateResponse(callback: (Result<String>) -> Unit)
   fun generateResponseAsync(callback: (Result<Unit>) -> Unit)
 
@@ -113,7 +114,8 @@ interface PlatformService {
             val modelPathArg = args[1] as String
             val loraRanksArg = args[2] as List<Long>?
             val preferredBackendArg = args[3] as PreferredBackend?
-            api.createModel(maxTokensArg, modelPathArg, loraRanksArg, preferredBackendArg) { result: Result<Unit> ->
+            val maxNumImagesArg = args[4] as Long?
+            api.createModel(maxTokensArg, modelPathArg, loraRanksArg, preferredBackendArg, maxNumImagesArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -153,7 +155,8 @@ interface PlatformService {
             val topKArg = args[2] as Long
             val topPArg = args[3] as Double?
             val loraPathArg = args[4] as String?
-            api.createSession(temperatureArg, randomSeedArg, topKArg, topPArg, loraPathArg) { result: Result<Unit> ->
+            val enableVisionModalityArg = args[5] as Boolean?
+            api.createSession(temperatureArg, randomSeedArg, topKArg, topPArg, loraPathArg, enableVisionModalityArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -210,6 +213,25 @@ interface PlatformService {
             val args = message as List<Any?>
             val promptArg = args[0] as String
             api.addQueryChunk(promptArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.addImage$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val imageBytesArg = args[0] as ByteArray
+            api.addImage(imageBytesArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

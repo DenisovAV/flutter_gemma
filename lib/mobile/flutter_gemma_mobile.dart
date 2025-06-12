@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/chat.dart'; // Добавляем import для InferenceChat
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import '../flutter_gemma.dart';
 
@@ -39,6 +42,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
+    // Добавляем поддержку изображений
+    int? maxNumImages,
+    bool supportImage = false,
   }) async {
     if (_initCompleter case Completer<InferenceModel> completer) {
       return completer.future;
@@ -71,6 +77,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
         modelPath: modelFile.path,
         loraRanks: loraRanks ?? supportedLoraRanks,
         preferredBackend: preferredBackend,
+        // Передаем параметр для изображений
+        maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
       );
 
       final model = _initializedModel = MobileInferenceModel(
@@ -79,6 +87,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
         modelManager: modelManager,
         preferredBackend: preferredBackend,
         supportedLoraRanks: loraRanks ?? supportedLoraRanks,
+        supportImage: supportImage,
+        maxNumImages: maxNumImages,
         onClose: () {
           _initializedModel = null;
           _initCompleter = null;

@@ -66,7 +66,7 @@ class PlatformService {
 
   final String pigeonVar_messageChannelSuffix;
 
-  Future<void> createModel({required int maxTokens, required String modelPath, required List<int>? loraRanks, PreferredBackend? preferredBackend, }) async {
+  Future<void> createModel({required int maxTokens, required String modelPath, required List<int>? loraRanks, PreferredBackend? preferredBackend, int? maxNumImages, }) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -74,7 +74,7 @@ class PlatformService {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[maxTokens, modelPath, loraRanks, preferredBackend]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[maxTokens, modelPath, loraRanks, preferredBackend, maxNumImages]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -110,7 +110,7 @@ class PlatformService {
     }
   }
 
-  Future<void> createSession({required double temperature, required int randomSeed, required int topK, double? topP, String? loraPath, }) async {
+  Future<void> createSession({required double temperature, required int randomSeed, required int topK, double? topP, String? loraPath, bool? enableVisionModality, }) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createSession$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -118,7 +118,7 @@ class PlatformService {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[temperature, randomSeed, topK, topP, loraPath]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[temperature, randomSeed, topK, topP, loraPath, enableVisionModality]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -190,6 +190,28 @@ class PlatformService {
     );
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_channel.send(<Object?>[prompt]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  Future<void> addImage(Uint8List imageBytes) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.addImage$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[imageBytes]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {

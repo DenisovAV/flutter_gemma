@@ -169,6 +169,18 @@ private class PlatformServiceImpl(
     }
   }
 
+  override fun cancelGenerateResponseAsync(callback: (Result<Unit>) -> Unit) {
+    scope.launch {
+      try {
+        session?.cancelGenerateResponseAsync() ?: throw IllegalStateException("Session not created")
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
     eventSink = events
     val model = inferenceModel ?: return

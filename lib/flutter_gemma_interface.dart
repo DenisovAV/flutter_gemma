@@ -115,5 +115,7 @@ abstract class InferenceModelSession {
 
   Future<void> addQueryChunk(Message message);
 
+  Future<void> cancelGenerateResponseAsync();
+
   Future<void> close();
 }

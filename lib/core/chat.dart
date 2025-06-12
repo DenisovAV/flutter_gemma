@@ -5,6 +5,7 @@ class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
   final int maxTokens;
   final int tokenBuffer;
+  final bool supportImage;
   late InferenceModelSession session;
 
   final List<Message> _fullHistory = [];
@@ -15,6 +16,7 @@ class InferenceChat {
     required this.sessionCreator,
     required this.maxTokens,
     this.tokenBuffer = 2000,
+    this.supportImage = false,
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -26,11 +28,17 @@ class InferenceChat {
   Future<void> addQueryChunk(Message message) async {
     final messageTokens = await session.sizeInTokens(message.text);
     _currentTokens += messageTokens;
+
+    if (message.hasImage) {
+      _currentTokens += 257;
+    }
+
     if (_currentTokens >= (maxTokens - tokenBuffer)) {
       await _recreateSessionWithReducedChunks();
     }
 
     await session.addQueryChunk(message);
+
     _fullHistory.add(message);
     _modelHistory.add(message);
   }
@@ -77,6 +85,10 @@ class InferenceChat {
       final removedMessage = _modelHistory.removeAt(0);
       final size = await session.sizeInTokens(removedMessage.text);
       _currentTokens -= size;
+
+      if (removedMessage.hasImage) {
+        _currentTokens -= 257;
+      }
     }
 
     await session.close();
@@ -88,9 +100,14 @@ class InferenceChat {
   }
 
   Future<void> clearHistory() async {
+    _fullHistory.clear();
     _modelHistory.clear();
     _currentTokens = 0;
     await session.close();
     session = await sessionCreator!();
   }
+
+  bool get supportsImages => supportImage;
+
+  int get imageMessageCount => _fullHistory.where((msg) => msg.hasImage).length;
 }

@@ -23,6 +23,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         modelPath: String,
         loraRanks: [Int64]?,
         preferredBackend: PreferredBackend?,
+        maxNumImages: Int64?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
         DispatchQueue.global(qos: .userInitiated).async {
@@ -30,7 +31,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                 self.model = try InferenceModel(
                     modelPath: modelPath,
                     maxTokens: Int(maxTokens),
-                    supportedLoraRanks: loraRanks?.map(Int.init)
+                    supportedLoraRanks: loraRanks?.map(Int.init),
+                    maxNumImages: Int(maxNumImages ?? 0)
                 )
                 DispatchQueue.main.async {
                     completion(.success(()))
@@ -54,6 +56,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         topK: Int64,
         topP: Double?,
         loraPath: String?,
+        enableVisionModality: Bool?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
         guard let inference = model?.inference else {
@@ -67,9 +70,10 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                     inference: inference,
                     temperature: Float(temperature),
                     randomSeed: Int(randomSeed),
-                    topK: Int(topK),
+                    topk: Int(topK),
                     topP: topP,
-                    loraPath: loraPath
+                    loraPath: loraPath,
+                    enableVisionModality: enableVisionModality ?? false
                 )
                 DispatchQueue.main.async {
                     self.session = newSession
@@ -81,6 +85,11 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                 }
             }
         }
+    }
+
+    func closeSession(completion: @escaping (Result<Void, any Error>) -> Void) {
+        session = nil
+        completion(.success(()))
     }
 
     func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, any Error>) -> Void) {
@@ -115,9 +124,40 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
-    func closeSession(completion: @escaping (Result<Void, any Error>) -> Void) {
-        session = nil
-        completion(.success(()))
+    // Добавляем метод для добавления изображения
+    func addImage(imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = session else {
+            completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                guard let uiImage = UIImage(data: imageBytes.data) else {
+                    DispatchQueue.main.async {
+                        completion(.failure(PigeonError(code: "Invalid image data", message: "Could not create UIImage from data", details: nil)))
+                    }
+                    return
+                }
+
+                guard let cgImage = uiImage.cgImage else {
+                    DispatchQueue.main.async {
+                        completion(.failure(PigeonError(code: "Invalid image format", message: "Could not get CGImage from UIImage", details: nil)))
+                    }
+                    return
+                }
+
+                try session.addImage(image: cgImage)
+
+                DispatchQueue.main.async {
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
     }
 
     func generateResponse(completion: @escaping (Result<String, any Error>) -> Void) {
@@ -136,6 +176,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
+    @available(iOS 13.0, *)
     func generateResponseAsync(completion: @escaping (Result<Void, any Error>) -> Void) {
         guard let session = session, let eventSink = eventSink else {
             completion(.failure(PigeonError(code: "Session or eventSink not created", message: nil, details: nil)))

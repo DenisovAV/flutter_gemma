@@ -37,6 +37,9 @@ dependencies:
   path_provider: ^2.1.5
   shared_preferences: ^2.5.2
 
+  # Зависимости для работы с изображениями
+  image_picker: ^1.0.4  # Для выбора изображений на мобильных устройствах
+
 dev_dependencies:
   integration_test:
     sdk: flutter

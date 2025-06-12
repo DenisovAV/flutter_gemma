@@ -39,6 +39,7 @@ private class PlatformServiceImpl(
     modelPath: String,
     loraRanks: List<Long>?,
     preferredBackend: PreferredBackend?,
+    maxNumImages: Long?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
@@ -50,7 +51,8 @@ private class PlatformServiceImpl(
           modelPath,
           maxTokens.toInt(),
           loraRanks?.map { it.toInt() },
-          backendEnum
+          backendEnum,
+          maxNumImages?.toInt()
         )
         if (config != inferenceModel?.config) {
           inferenceModel?.close()
@@ -79,6 +81,7 @@ private class PlatformServiceImpl(
     topK: Long,
     topP: Double?,
     loraPath: String?,
+    enableVisionModality: Boolean?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
@@ -89,7 +92,8 @@ private class PlatformServiceImpl(
           randomSeed.toInt(),
           topK.toInt(),
           topP?.toFloat(),
-          loraPath
+          loraPath,
+          enableVisionModality
         )
         session?.close()
         session = model.createSession(config)
@@ -132,6 +136,17 @@ private class PlatformServiceImpl(
     }
   }
 
+  override fun addImage(imageBytes: ByteArray, callback: (Result<Unit>) -> Unit) {
+    scope.launch {
+      try {
+        session?.addImage(imageBytes) ?: throw IllegalStateException("Session not created")
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
   override fun generateResponse(callback: (Result<String>) -> Unit) {
     scope.launch {
       try {
@@ -153,7 +168,6 @@ private class PlatformServiceImpl(
       }
     }
   }
-
 
   override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
     eventSink = events

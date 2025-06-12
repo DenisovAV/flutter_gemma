@@ -1,6 +1,9 @@
 package dev.flutterberlin.flutter_gemma
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import java.io.File
@@ -22,6 +25,7 @@ data class InferenceModelConfig(
     val maxTokens: Int,
     val supportedLoraRanks: List<Int>?,
     val preferredBackend: PreferredBackendEnum?,
+    val maxNumImages: Int?,
 )
 
 data class InferenceSessionConfig(
@@ -30,6 +34,7 @@ data class InferenceSessionConfig(
     val topK: Int,
     val topP: Float?,
     val loraPath: String?,
+    val enableVisionModality: Boolean?,
 )
 
 // Updated InferenceModel
@@ -70,6 +75,7 @@ class InferenceModel(
                             ?: throw IllegalArgumentException("Invalid preferredBackend value: ${it.ordinal}")
                         setPreferredBackend(backendEnum)
                     }
+                    config.maxNumImages?.let { setMaxNumImages(it) }
                 }
             val options = optionsBuilder.build()
             llmInference = LlmInference.createFromOptions(context, options)
@@ -105,6 +111,13 @@ class InferenceModelSession(
             .apply {
                 config.topP?.let { setTopP(it) }
                 config.loraPath?.let { setLoraPath(it) }
+                config.enableVisionModality?.let { enableVision ->
+                    setGraphOptions(
+                        GraphOptions.builder()
+                            .setEnableVisionModality(enableVision)
+                            .build()
+                    )
+                }
             }
 
         val sessionOptions = sessionOptionsBuilder.build()
@@ -114,6 +127,13 @@ class InferenceModelSession(
     fun sizeInTokens(prompt: String): Int = session.sizeInTokens(prompt)
 
     fun addQueryChunk(prompt: String) = session.addQueryChunk(prompt)
+
+    fun addImage(imageBytes: ByteArray) {
+        val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            ?: throw IllegalArgumentException("Failed to decode image bytes")
+        val mpImage = BitmapImageBuilder(bitmap).build()
+        session.addImage(mpImage)
+    }
 
     fun generateResponse(): String = session.generateResponse()
 

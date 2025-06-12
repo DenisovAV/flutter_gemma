@@ -1,3 +1,13 @@
+## 0.9.0
+- 🖼️ **MULTIMODAL SUPPORT**: Added full support for text + image input with Gemma 3 Nano vision models
+- 🎯 **Enhanced Message API**: New `Message` class with support for text, image, and multimodal content
+    - `Message.text()` - for text-only messages
+    - `Message.withImage()` - for text + image messages
+    - `Message.imageOnly()` - for image-only messages
+    - `message.hasImage` - to check if message contains image
+- 📱 **Vision Models**: Full support for Gemma 3n E2B and E4B models with image understanding
+- 🌐 **Web Platform**: Added graceful degradation with debug warnings for unsupported features
+
 ## 0.8.6
 - 🚀 **GEMMA 3 NANO SUPPORT**: Added full support for Gemma 3 Nano models
 - ⚡ Optimized session parameters for Gemma 3n models (temperature: 0.6, topK: 40, topP: 0.9)

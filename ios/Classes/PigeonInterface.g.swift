@@ -117,12 +117,13 @@ class PigeonInterfacePigeonCodec: FlutterStandardMessageCodec, @unchecked Sendab
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol PlatformService {
-  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: PreferredBackend?, maxNumImages: Int64?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeModel(completion: @escaping (Result<Void, Error>) -> Void)
-  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, enableVisionModality: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeSession(completion: @escaping (Result<Void, Error>) -> Void)
   func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, Error>) -> Void)
   func addQueryChunk(prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
+  func addImage(imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, Error>) -> Void)
   func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
   func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
   func cancelGenerateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
@@ -142,7 +143,8 @@ class PlatformServiceSetup {
         let modelPathArg = args[1] as! String
         let loraRanksArg: [Int64]? = nilOrValue(args[2])
         let preferredBackendArg: PreferredBackend? = nilOrValue(args[3])
-        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg, preferredBackend: preferredBackendArg) { result in
+        let maxNumImagesArg: Int64? = nilOrValue(args[4])
+        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg, preferredBackend: preferredBackendArg, maxNumImages: maxNumImagesArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))
@@ -178,7 +180,8 @@ class PlatformServiceSetup {
         let topKArg = args[2] as! Int64
         let topPArg: Double? = nilOrValue(args[3])
         let loraPathArg: String? = nilOrValue(args[4])
-        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg) { result in
+        let enableVisionModalityArg: Bool? = nilOrValue(args[5])
+        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg, enableVisionModality: enableVisionModalityArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))
@@ -238,6 +241,23 @@ class PlatformServiceSetup {
       }
     } else {
       addQueryChunkChannel.setMessageHandler(nil)
+    }
+    let addImageChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addImage\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addImageChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let imageBytesArg = args[0] as! FlutterStandardTypedData
+        api.addImage(imageBytes: imageBytesArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addImageChannel.setMessageHandler(nil)
     }
     let generateResponseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponse\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

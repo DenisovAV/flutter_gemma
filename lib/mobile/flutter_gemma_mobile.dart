@@ -1,17 +1,13 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/chat.dart'; // Добавляем import для InferenceChat
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import '../flutter_gemma.dart';
 
@@ -42,7 +38,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
-    // Добавляем поддержку изображений
     int? maxNumImages,
     bool supportImage = false,
   }) async {
@@ -52,21 +47,18 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     final completer = _initCompleter = Completer<InferenceModel>();
 
-    final (
-    isModelInstalled,
-    isLoraInstalled,
-    File? modelFile,
-    File? loraFile
-    ) = await (
-    modelManager.isModelInstalled,
-    modelManager.isLoraInstalled,
-    modelManager._modelFile,
-    modelManager._loraFile,
+    final (isModelInstalled, isLoraInstalled, File? modelFile, File? loraFile) =
+        await (
+      modelManager.isModelInstalled,
+      modelManager.isLoraInstalled,
+      modelManager._modelFile,
+      modelManager._loraFile,
     ).wait;
 
     if (!isModelInstalled || modelFile == null) {
       completer.completeError(
-        Exception('Gemma Model is not installed yet. Use the `modelManager` to load the model first'),
+        Exception(
+            'Gemma Model is not installed yet. Use the `modelManager` to load the model first'),
       );
       return completer.future;
     }
@@ -77,7 +69,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
         modelPath: modelFile.path,
         loraRanks: loraRanks ?? supportedLoraRanks,
         preferredBackend: preferredBackend,
-        // Передаем параметр для изображений
         maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
       );
 

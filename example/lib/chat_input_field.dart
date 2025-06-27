@@ -25,20 +25,18 @@ class ChatInputFieldState extends State<ChatInputField> {
   String? _selectedImageName;
 
   void _handleSubmitted(String text) {
-    if (text
-        .trim()
-        .isEmpty && _selectedImageBytes == null) return;
+    if (text.trim().isEmpty && _selectedImageBytes == null) return;
 
     final message = _selectedImageBytes != null
         ? Message.withImage(
-      text: text.trim(),
-      imageBytes: _selectedImageBytes!,
-      isUser: true,
-    )
+            text: text.trim(),
+            imageBytes: _selectedImageBytes!,
+            isUser: true,
+          )
         : Message.text(
-      text: text.trim(),
-      isUser: true,
-    );
+            text: text.trim(),
+            isUser: true,
+          );
 
     widget.handleSubmitted(message);
     _textController.clear();
@@ -53,10 +51,13 @@ class ChatInputFieldState extends State<ChatInputField> {
   }
 
   Future<void> _pickImage() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     if (kIsWeb) {
       // Image selection not supported on web yet
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image selection not supported on web yet')),
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Image selection not supported on web yet'),
+        ),
       );
       return;
     }
@@ -77,7 +78,7 @@ class ChatInputFieldState extends State<ChatInputField> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Image selection error: $e')),
       );
     }
@@ -92,9 +93,7 @@ class ChatInputFieldState extends State<ChatInputField> {
 
         // Input field
         IconTheme(
-          data: IconThemeData(color: Theme
-              .of(context)
-              .hoverColor),
+          data: IconThemeData(color: Theme.of(context).hoverColor),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 8.0),
             decoration: BoxDecoration(
@@ -115,8 +114,6 @@ class ChatInputFieldState extends State<ChatInputField> {
                     onPressed: _pickImage,
                     tooltip: 'Add image',
                   ),
-
-                // Text input field
                 Flexible(
                   child: TextField(
                     controller: _textController,

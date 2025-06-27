@@ -3,7 +3,6 @@ import 'dart:js_interop';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
@@ -32,7 +31,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
     int? maxNumImages, // Добавляем поддержку изображений (заглушка)
-    bool supportImage = false, // Добавляем флаг поддержки изображений (заглушка)
+    bool supportImage =
+        false, // Добавляем флаг поддержки изображений (заглушка)
   }) {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
@@ -87,12 +87,14 @@ class WebInferenceModel extends InferenceModel {
     int topK = 1,
     double? topP,
     String? loraPath,
-    bool? enableVisionModality, // Добавляем поддержку vision модальности (заглушка)
+    bool?
+        enableVisionModality, // Добавляем поддержку vision модальности (заглушка)
   }) async {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
-        print('Warning: Vision modality is not yet implemented for web platform');
+        print(
+            'Warning: Vision modality is not yet implemented for web platform');
       }
     }
 
@@ -102,7 +104,7 @@ class WebInferenceModel extends InferenceModel {
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
       final fileset = await FilesetResolver.forGenAiTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'.toJS)
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'.toJS)
           .toDart;
 
       final loraPathToUse = loraPath ?? modelManager._loraPath;
@@ -110,19 +112,19 @@ class WebInferenceModel extends InferenceModel {
 
       final config = LlmInferenceOptions(
         baseOptions:
-        LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
+            LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
         maxTokens: maxTokens,
         randomSeed: randomSeed,
         topK: topK,
         temperature: temperature,
         topP: topP,
         supportedLoraRanks:
-        !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
+            !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
         loraPath: !hasLoraParams ? null : loraPathToUse,
       );
 
       final llmInference =
-      await LlmInference.createFromOptions(fileset, config).toDart;
+          await LlmInference.createFromOptions(fileset, config).toDart;
 
       final session = this.session = WebModelSession(
         modelType: modelType,
@@ -255,7 +257,7 @@ class WebModelManager extends ModelFileManager {
       _loraPath = loraPath;
       return Stream<int>.periodic(
         const Duration(milliseconds: 10),
-            (count) => count + 1,
+        (count) => count + 1,
       ).take(100).map((progress) {
         if (progress == 100 && !_loadCompleter!.isCompleted) {
           _loadCompleter!.complete(true);

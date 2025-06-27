@@ -18,6 +18,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   final WebModelManager modelManager = WebModelManager();
+
   @override
   InferenceModel? get initializedModel => _initializedModel;
 
@@ -29,9 +30,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
-    int? maxNumImages, // Добавляем поддержку изображений (заглушка)
-    bool supportImage =
-        false, // Добавляем флаг поддержки изображений (заглушка)
+    int? maxNumImages,
+    bool supportImage = false, // Enabling image support
   }) {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
@@ -45,8 +45,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       maxTokens: maxTokens,
       loraRanks: loraRanks,
       modelManager: modelManager,
-      supportImage: supportImage, // Передаем флаг
-      maxNumImages: maxNumImages, // Передаем количество изображений
+      supportImage: supportImage, // Passing the flag
+      maxNumImages: maxNumImages,
       onClose: () {
         _initializedModel = null;
       },
@@ -63,8 +63,8 @@ class WebInferenceModel extends InferenceModel {
   final ModelType modelType;
   final List<int>? loraRanks;
   final WebModelManager modelManager;
-  final bool supportImage; // Добавляем поддержку изображений
-  final int? maxNumImages; // Добавляем количество изображений
+  final bool supportImage; // Enabling image support
+  final int? maxNumImages;
   Completer<InferenceModelSession>? _initCompleter;
   @override
   InferenceModelSession? session;
@@ -75,8 +75,8 @@ class WebInferenceModel extends InferenceModel {
     required this.maxTokens,
     this.loraRanks,
     required this.modelManager,
-    this.supportImage = false, // Добавляем в конструктор
-    this.maxNumImages, // Добавляем в конструктор
+    this.supportImage = false,
+    this.maxNumImages,
   });
 
   @override
@@ -86,8 +86,7 @@ class WebInferenceModel extends InferenceModel {
     int topK = 1,
     double? topP,
     String? loraPath,
-    bool?
-        enableVisionModality, // Добавляем поддержку vision модальности (заглушка)
+    bool? enableVisionModality, // Enabling vision modality support
   }) async {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
@@ -128,7 +127,7 @@ class WebInferenceModel extends InferenceModel {
       final session = this.session = WebModelSession(
         modelType: modelType,
         llmInference: llmInference,
-        supportImage: supportImage, // Передаем поддержку изображений
+        supportImage: supportImage, // Enabling image support
         onClose: onClose,
       );
       completer.complete(session);
@@ -150,7 +149,7 @@ class WebModelSession extends InferenceModelSession {
   final ModelType modelType;
   final LlmInference llmInference;
   final VoidCallback onClose;
-  final bool supportImage; // Добавляем поддержку изображений
+  final bool supportImage; // Enabling image support
   StreamController<String>? _controller;
   final List<String> _queryChunks = [];
 
@@ -158,7 +157,7 @@ class WebModelSession extends InferenceModelSession {
     required this.llmInference,
     required this.onClose,
     required this.modelType,
-    this.supportImage = false, // Добавляем в конструктор
+    this.supportImage = false,
   });
 
   @override
@@ -171,7 +170,7 @@ class WebModelSession extends InferenceModelSession {
   Future<void> addQueryChunk(Message message) async {
     final finalPrompt = message.transformToChatPrompt(type: modelType);
 
-    // Проверяем поддержку изображений (как в мобильной версии)
+    // Checks for image support (as in the mobile platforms)
     if (message.hasImage && message.imageBytes != null) {
       // TODO: Implement image processing for web
       throw Exception('Web does not support image processing');

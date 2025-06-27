@@ -53,10 +53,13 @@ class ChatInputFieldState extends State<ChatInputField> {
   }
 
   Future<void> _pickImage() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     if (kIsWeb) {
       // Image selection not supported on web yet
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Image selection not supported on web yet')),
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(
+          content: Text('Image selection not supported on web yet'),
+        ),
       );
       return;
     }
@@ -77,7 +80,7 @@ class ChatInputFieldState extends State<ChatInputField> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Image selection error: $e')),
       );
     }
@@ -92,9 +95,7 @@ class ChatInputFieldState extends State<ChatInputField> {
 
         // Input field
         IconTheme(
-          data: IconThemeData(color: Theme
-              .of(context)
-              .hoverColor),
+          data: IconThemeData(color: Theme.of(context).hoverColor),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 8.0),
             decoration: BoxDecoration(

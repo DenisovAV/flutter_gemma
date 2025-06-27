@@ -38,7 +38,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
-    // Добавляем поддержку изображений
     int? maxNumImages,
     bool supportImage = false,
   }) async {
@@ -70,7 +69,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
         modelPath: modelFile.path,
         loraRanks: loraRanks ?? supportedLoraRanks,
         preferredBackend: preferredBackend,
-        // Передаем параметр для изображений
         maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
       );
 

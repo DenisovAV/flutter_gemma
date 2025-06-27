@@ -25,20 +25,18 @@ class ChatInputFieldState extends State<ChatInputField> {
   String? _selectedImageName;
 
   void _handleSubmitted(String text) {
-    if (text
-        .trim()
-        .isEmpty && _selectedImageBytes == null) return;
+    if (text.trim().isEmpty && _selectedImageBytes == null) return;
 
     final message = _selectedImageBytes != null
         ? Message.withImage(
-      text: text.trim(),
-      imageBytes: _selectedImageBytes!,
-      isUser: true,
-    )
+            text: text.trim(),
+            imageBytes: _selectedImageBytes!,
+            isUser: true,
+          )
         : Message.text(
-      text: text.trim(),
-      isUser: true,
-    );
+            text: text.trim(),
+            isUser: true,
+          );
 
     widget.handleSubmitted(message);
     _textController.clear();
@@ -116,8 +114,6 @@ class ChatInputFieldState extends State<ChatInputField> {
                     onPressed: _pickImage,
                     tooltip: 'Add image',
                   ),
-
-                // Text input field
                 Flexible(
                   child: TextField(
                     controller: _textController,

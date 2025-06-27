@@ -46,8 +46,10 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
   }
 
   Future<void> _downloadModel() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
     if (widget.model.needsAuth && _token.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Please set your token first.')),
       );
       return;
@@ -67,15 +69,15 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
         needToDownload = false;
       });
     } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to download the model.')),
-        );
-      }
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Failed to download the model.')),
+      );
     } finally {
-      setState(() {
-        _progress = 0.0;
-      });
+      if (mounted) {
+        setState(() {
+          _progress = 0.0;
+        });
+      }
     }
   }
 

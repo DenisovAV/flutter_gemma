@@ -17,15 +17,12 @@ class HomeScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo/Icon
             const Icon(
               Icons.chat_bubble_outline,
               size: 80,
               color: Colors.white,
             ),
             const SizedBox(height: 32),
-            
-            // Welcome text
             const Text(
               'Welcome to Flutter Gemma',
               style: TextStyle(
@@ -38,17 +35,11 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 16),
             const Text(
               'Explore powerful AI models including Gemma 3 Nano running directly on your device',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-              ),
+              style: TextStyle(fontSize: 16, color: Colors.white70),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
-            
-            // Navigation card
-            _buildNavigationCard(
-              context,
+            _NavigationCard(
               title: 'All Models',
               subtitle: 'Browse and test all available Gemma models',
               icon: Icons.model_training,
@@ -67,15 +58,25 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildNavigationCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+class _NavigationCard extends StatelessWidget {
+  const _NavigationCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       color: const Color(0xFF1a3a5c),
       child: InkWell(
@@ -91,11 +92,7 @@ class HomeScreen extends StatelessWidget {
                   color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 24,
-                ),
+                child: Icon(icon, color: Colors.blue, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -107,7 +104,6 @@ class HomeScreen extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 4),

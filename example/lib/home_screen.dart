@@ -62,7 +62,6 @@ class HomeScreen extends StatelessWidget {
 
 class _NavigationCard extends StatelessWidget {
   const _NavigationCard({
-    super.key,
     required this.title,
     required this.subtitle,
     required this.icon,

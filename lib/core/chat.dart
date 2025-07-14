@@ -38,20 +38,12 @@ class InferenceChat {
 
   Future<void> addQueryChunk(Message message) async {
     var messageToSend = message;
-    // If the message is from the user and tools are available, prepend the tools to the message.
-    if (message.isUser && message.type == MessageType.text && tools.isNotEmpty) {
+    // If the message is from the user, it's the first message, and tools are available, prepend the tools to the message.
+    if (message.isUser && _modelHistory.isEmpty && tools.isNotEmpty) {
       final toolsPrompt = _createToolsPrompt();
       final newText = '$toolsPrompt\n${message.text}';
       messageToSend = message.copyWith(text: newText);
     }
-
-    // --- DETAILED LOGGING ---
-    final historyForLogging = _modelHistory.map((m) => m.transformToChatPrompt()).join('\n');
-    debugPrint('--- Sending to Native ---');
-    debugPrint('History:\n$historyForLogging');
-    debugPrint('Current Message:\n${messageToSend.transformToChatPrompt()}');
-    debugPrint('-------------------------');
-    // --- END LOGGING ---
 
     await session.addQueryChunk(messageToSend);
 
@@ -62,27 +54,21 @@ class InferenceChat {
 
   Future<dynamic> generateChatResponse() async {
     if (_modelHistory.isNotEmpty && _modelHistory.last.type == MessageType.toolResponse) {
-      debugPrint('InferenceChat: Last message was a tool response. Prompting model to generate final answer.');
       await session.addQueryChunk(const Message(text: '', isUser: false));
     }
 
-    debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
     final trimmedResponse = response.trim();
 
     if (trimmedResponse.isEmpty) {
-      debugPrint('InferenceChat: Raw response from native model is EMPTY after trimming.');
       return '';
     }
-
-    debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$trimmedResponse\n--- END ---');
 
     final functionCall = _parseFunctionCall(trimmedResponse);
     if (functionCall != null) {
       final toolCallMessage = Message.toolCall(text: trimmedResponse);
       _fullHistory.add(toolCallMessage);
       _modelHistory.add(toolCallMessage);
-      debugPrint('InferenceChat: Added tool call to history: ${toolCallMessage.text}');
       return functionCall;
     }
 

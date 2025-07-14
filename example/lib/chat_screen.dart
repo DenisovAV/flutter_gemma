@@ -185,40 +185,22 @@ class ChatScreenState extends State<ChatScreen> {
                   debugPrint('Function call received: ${response.name}(${response.args})');
                   final toolResponse = await _executeTool(response);
                   debugPrint('Tool response: $toolResponse');
-                  
-                  final toolMessage = Message.toolResponse(
+                  final message = Message.toolResponse(
                     toolName: response.name,
                     response: toolResponse,
                   );
-                  await chat?.addQuery(toolMessage);
-
-                  // Create a new prompt from the entire history
-                  final history = List.of(chat!.fullHistory);
-                  final fullPrompt = history.map((m) => m.transformToChatPrompt()).join('\n');
-                  
-                  debugPrint('--- Restarting session with full history ---');
-                  debugPrint('Full prompt:\n$fullPrompt');
-
-                  // Re-create the session and replay the history as a single prompt
-                  await chat!.clearHistory();
-                  await chat!.addQuery(Message.text(text: fullPrompt, isUser: true));
-
-                  final finalResponse = await chat!.generateChatResponse();
-                  debugPrint('Final response from restarted session: $finalResponse');
+                  await chat?.addQuery(message);
+                  debugPrint('Sending tool response back to model...');
+                  final finalResponse = await chat?.generateChatResponse();
+                  debugPrint('Final response from model: $finalResponse');
 
                   if (finalResponse is String && finalResponse.isNotEmpty) {
-                    final finalMessage = Message.text(text: finalResponse);
-                    chat?.addQuery(finalMessage);
                     setState(() {
-                      _messages.add(finalMessage);
+                      _messages.add(Message.text(text: finalResponse));
                     });
                   } else {
-                    debugPrint('Received empty or non-string response from restarted session.');
-                    setState(() {
-                      _messages.add(Message.text(text: 'Error: Could not generate final response.'));
-                    });
+                    debugPrint('Received empty or non-string response after tool call: $finalResponse');
                   }
-
                 } else if (response is String && response.isNotEmpty) {
                   setState(() {
                     _messages.add(Message.text(text: response));

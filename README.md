@@ -24,7 +24,7 @@ There is an example of using:
 - **Platform Support:** Compatible with iOS, Android, and Web platforms.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
-- **Ease of Use:** Simple interface for integrating Gemma models into your Flutter projects.
+- **Function Calling:** Enable your models to call external functions and integrate with other services.
 
 ## Installation
 
@@ -330,6 +330,57 @@ chat.generateChatResponseAsync().listen((String token) {
 });
 ```
 
+8. **Function Calling**
+
+Enable your models to call external functions and integrate with other services.
+
+```dart
+// 1. Define your tools
+final List<Tool> _tools = [
+  const Tool(
+    name: 'change_background_color',
+    description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'color': {
+          'type': 'string',
+          'description': 'The color name',
+        },
+      },
+      'required': ['color'],
+    },
+  ),
+];
+
+// 2. Create a chat with the tools
+final chat = await inferenceModel.createChat(
+  tools: _tools,
+);
+
+// 3. Handle the function call in your UI
+// This is a simplified example. See the example app for a full implementation.
+gemmaHandler: (response) async {
+  if (response is FunctionCall) {
+    // Execute the tool
+    final toolResponse = await _executeTool(response);
+    
+    // Send the tool response back to the model
+    final message = Message.toolResponse(
+      toolName: response.name,
+      response: toolResponse,
+    );
+    await chat?.addQuery(message);
+    
+    // Generate the final response
+    final finalResponse = await chat?.generateChatResponse();
+    
+    // Display the final response
+    // ...
+  }
+}
+```
+
 ## 🖼️ Message Types (NEW!)
 
 The plugin now supports different types of messages:
@@ -357,7 +408,7 @@ if (message.hasImage) {
 final copiedMessage = message.copyWith(text: "Updated text");
 ```
 
-8.**Checking Token Usage**
+9.**Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
 
 ```dart
@@ -365,7 +416,7 @@ int tokenCount = await session.sizeInTokens('Your prompt text here');
 print('Prompt size in tokens: $tokenCount');
 ```
 
-9.**Closing the Model**
+10.**Closing the Model**
 
 When you no longer need to perform any further inferences, call the close method to release resources:
 
@@ -431,6 +482,7 @@ The full and complete example you can find in `example` folder
 
 ## **🚀 What's New**
 
+✅ **Function Calling** - Enable your models to call external functions and integrate with other services.
 ✅ **Multimodal Support** - Text + Image input with Gemma 3 Nano models  
 ✅ **Enhanced Message API** - Support for different message types  
 ✅ **Simplified Setup** - Automatic vision modality configuration  

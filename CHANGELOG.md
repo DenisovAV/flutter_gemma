@@ -1,3 +1,7 @@
+## 0.9.1
+- ✨ **Function Calling**: Added support for function calling, allowing models to interact with external tools.
+- 🔧 **Improved Chat API**: Enhanced the chat API to support function calls and tool responses.
+
 ## 0.9.0
 - 🖼️ **MULTIMODAL SUPPORT**: Added full support for text + image input with Gemma 3 Nano vision models
 - 🎯 **Enhanced Message API**: New `Message` class with support for text, image, and multimodal content

@@ -116,10 +116,7 @@ final class InferenceSession {
         if let prompt = prompt {
             try session.addQueryChunk(inputText: prompt)
         }
-        print("[NATIVE LOG] Generating response...")
-        let response = try session.generateResponse()
-        print("[NATIVE LOG] Raw response from LlmInference: \(response)")
-        return response
+        return try session.generateResponse()
     }
 
     @available(iOS 13.0.0, *)

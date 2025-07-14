@@ -17,7 +17,7 @@ class GemmaInputField extends StatefulWidget {
 
   final InferenceChat? chat;
   final List<Message> messages;
-  final ValueChanged<Message> streamHandler;
+  final ValueChanged<dynamic> streamHandler;
   final ValueChanged<String> errorHandler;
 
   @override
@@ -26,8 +26,8 @@ class GemmaInputField extends StatefulWidget {
 
 class GemmaInputFieldState extends State<GemmaInputField> {
   GemmaLocalService? _gemma;
-  StreamSubscription<String?>? _subscription;
   var _message = const Message(text: '');
+  bool _processing = false;
 
   @override
   void initState() {
@@ -36,39 +36,28 @@ class GemmaInputFieldState extends State<GemmaInputField> {
     _processMessages();
   }
 
-  void _processMessages() {
-    _subscription = _gemma?.processMessageAsync(widget.messages.last).listen(
-      (String token) {
-        if (!mounted) return;
-        setState(() {
-          _message = Message(text: '${_message.text}$token');
-        });
-      },
-      onDone: () {
-        if (!mounted) return;
-        if (_message.text.isEmpty) {
-          _message = const Message(text: '...');
-        }
-        widget.streamHandler(_message);
-        _subscription?.cancel();
-      },
-      onError: (error) {
-        if (!mounted) return;
-        debugPrint('Error: $error');
-        if (_message.text.isEmpty) {
-          _message = const Message(text: '...');
-        }
-        widget.streamHandler(_message);
-        widget.errorHandler(error.toString());
-        _subscription?.cancel();
-      },
-    );
-  }
+  void _processMessages() async {
+    if (_processing) return;
+    setState(() {
+      _processing = true;
+    });
 
-  @override
-  void dispose() {
-    _subscription?.cancel();
-    super.dispose();
+    try {
+      debugPrint('GemmaInputField: Processing message: "${widget.messages.last.text}"');
+      final response = await _gemma?.processMessage(widget.messages.last);
+      if (!mounted) return;
+      debugPrint('GemmaInputField: Received response: $response');
+      widget.streamHandler(response);
+    } catch (e) {
+      if (!mounted) return;
+      widget.errorHandler(e.toString());
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+        });
+      }
+    }
   }
 
   @override

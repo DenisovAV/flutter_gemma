@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/function_call.dart';
+import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
@@ -23,6 +25,25 @@ class ChatScreenState extends State<ChatScreen> {
   final _messages = <Message>[];
   bool _isModelInitialized = false;
   String? _error;
+  Color _backgroundColor = const Color(0xFF0b2351);
+
+  // Define the tools
+  final List<Tool> _tools = [
+    const Tool(
+      name: 'change_background_color',
+      description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+      parameters: {
+        'type': 'object',
+        'properties': {
+          'color': {
+            'type': 'string',
+            'description': 'The color name',
+          },
+        },
+        'required': ['color'],
+      },
+    ),
+  ];
 
   @override
   void initState() {
@@ -59,6 +80,7 @@ class ChatScreenState extends State<ChatScreen> {
       topP: super.widget.model.topP,
       tokenBuffer: 256,
       supportImage: widget.model.supportImage, // Image support in chat
+      tools: _tools, // Pass the tools to the chat
     );
 
     setState(() {
@@ -66,12 +88,36 @@ class ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // Function to execute tools
+  Future<Map<String, dynamic>> _executeTool(FunctionCall functionCall) async {
+    if (functionCall.name == 'change_background_color') {
+      final colorName = functionCall.args['color']?.toLowerCase();
+      final colorMap = {
+        'red': Colors.red,
+        'blue': Colors.blue,
+        'green': Colors.green,
+        'yellow': Colors.yellow,
+        'purple': Colors.purple,
+        'orange': Colors.orange,
+      };
+      if (colorMap.containsKey(colorName)) {
+        setState(() {
+          _backgroundColor = colorMap[colorName]!;
+        });
+        return {'status': 'success'};
+      } else {
+        return {'error': 'Color not supported'};
+      }
+    }
+    return {'error': 'Tool not found'};
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0b2351),
+      backgroundColor: _backgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0b2351),
+        backgroundColor: _backgroundColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -134,10 +180,50 @@ class ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: ChatListWidget(
               chat: chat,
-              gemmaHandler: (message) {
-                setState(() {
-                  _messages.add(message);
-                });
+              gemmaHandler: (response) async {
+                if (response is FunctionCall) {
+                  debugPrint('Function call received: ${response.name}(${response.args})');
+                  final toolResponse = await _executeTool(response);
+                  debugPrint('Tool response: $toolResponse');
+                  
+                  final toolMessage = Message.toolResponse(
+                    toolName: response.name,
+                    response: toolResponse,
+                  );
+                  await chat?.addQuery(toolMessage);
+
+                  // Create a new prompt from the entire history
+                  final history = List.of(chat!.fullHistory);
+                  final fullPrompt = history.map((m) => m.transformToChatPrompt()).join('\n');
+                  
+                  debugPrint('--- Restarting session with full history ---');
+                  debugPrint('Full prompt:\n$fullPrompt');
+
+                  // Re-create the session and replay the history as a single prompt
+                  await chat!.clearHistory();
+                  await chat!.addQuery(Message.text(text: fullPrompt, isUser: true));
+
+                  final finalResponse = await chat!.generateChatResponse();
+                  debugPrint('Final response from restarted session: $finalResponse');
+
+                  if (finalResponse is String && finalResponse.isNotEmpty) {
+                    final finalMessage = Message.text(text: finalResponse);
+                    chat?.addQuery(finalMessage);
+                    setState(() {
+                      _messages.add(finalMessage);
+                    });
+                  } else {
+                    debugPrint('Received empty or non-string response from restarted session.');
+                    setState(() {
+                      _messages.add(Message.text(text: 'Error: Could not generate final response.'));
+                    });
+                  }
+
+                } else if (response is String && response.isNotEmpty) {
+                  setState(() {
+                    _messages.add(Message.text(text: response));
+                  });
+                }
               },
               humanHandler: (message) { // Now accepts Message instead of String
                 setState(() {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
@@ -69,21 +70,15 @@ abstract class InferenceModel {
     bool? enableVisionModality, // Добавляем поддержку vision модальности
   });
 
-  /// Creates a chat interface wrapping [InferenceChat].
-  ///
-  /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
-  /// [loraPath] — optional path to LoRA model.
-  /// [tokenBuffer] — token buffer size for chat for not to exceed max tokens.
-  /// [enableVisionModality] — enable vision modality for multimodal models.
-  /// [supportImage] — whether the chat should support images.
   Future<InferenceChat> createChat({
     double temperature = .8,
     int randomSeed = 1,
     int topK = 1,
-    double? topP, // Optional topP for chat too
+    double? topP,
     int tokenBuffer = 256,
     String? loraPath,
-    bool? supportImage, // Добавляем поддержку изображений в чате
+    bool? supportImage,
+    List<Tool> tools = const [],
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -96,7 +91,8 @@ abstract class InferenceModel {
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
-      supportImage: supportImage ?? false, // Передаем поддержку изображений
+      supportImage: supportImage ?? false,
+      tools: tools,
     );
     await chat!.initSession();
     return chat!;

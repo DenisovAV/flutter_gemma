@@ -1,16 +1,27 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_gemma/core/model.dart';
+
+enum MessageType {
+  text,
+  toolResponse,
+  toolCall,
+}
 
 class Message {
   const Message({
     required this.text,
     this.isUser = false,
     this.imageBytes,
+    this.type = MessageType.text,
+    this.toolName,
   });
 
   final String text;
   final bool isUser;
   final Uint8List? imageBytes;
+  final MessageType type;
+  final String? toolName;
 
   bool get hasImage => imageBytes != null;
 
@@ -18,11 +29,15 @@ class Message {
     String? text,
     bool? isUser,
     Uint8List? imageBytes,
+    MessageType? type,
+    String? toolName,
   }) {
     return Message(
       text: text ?? this.text,
       isUser: isUser ?? this.isUser,
       imageBytes: imageBytes ?? this.imageBytes,
+      type: type ?? this.type,
+      toolName: toolName ?? this.toolName,
     );
   }
 
@@ -60,13 +75,55 @@ class Message {
     );
   }
 
-  String transformToChatPrompt({required ModelType type}) {
-    return text;
+  factory Message.toolResponse({
+    required String toolName,
+    required Map<String, dynamic> response,
+  }) {
+    // Tool responses are sent from the user's side.
+    return Message(
+      text: jsonEncode(response),
+      toolName: toolName,
+      type: MessageType.toolResponse,
+      isUser: true,
+    );
   }
+
+  factory Message.toolCall({
+    required String text,
+  }) {
+    // Tool calls are from the model.
+    return Message(
+      text: text,
+      type: MessageType.toolCall,
+      isUser: false,
+    );
+  }
+
+  String transformToChatPrompt() {
+    if (isUser) {
+      var content = text;
+      if (type == MessageType.toolResponse) {
+        content = '<tool_response>\n'
+            'Tool Name: $toolName\n'
+            'Tool Response:\n$text\n'
+            '</tool_response>';
+      }
+      return '<start_of_turn>user\n$content<end_of_turn>';
+    }
+
+    // Handle model responses
+    var content = text;
+    if (type == MessageType.toolCall) {
+      // The text already contains the full <tool_code> block
+      content = text;
+    }
+    return '<start_of_turn>model\n$content<end_of_turn>';
+  }
+
 
   @override
   String toString() {
-    return 'Message(text: $text, isUser: $isUser, hasImage: $hasImage)';
+    return 'Message(text: $text, isUser: $isUser, hasImage: $hasImage, type: $type, toolName: $toolName)';
   }
 
   @override
@@ -75,11 +132,18 @@ class Message {
     return other is Message &&
         other.text == text &&
         other.isUser == isUser &&
-        _listEquals(other.imageBytes, imageBytes);
+        _listEquals(other.imageBytes, imageBytes) &&
+        other.type == type &&
+        other.toolName == toolName;
   }
 
   @override
-  int get hashCode => text.hashCode ^ isUser.hashCode ^ imageBytes.hashCode;
+  int get hashCode =>
+      text.hashCode ^
+      isUser.hashCode ^
+      imageBytes.hashCode ^
+      type.hashCode ^
+      toolName.hashCode;
 
   bool _listEquals<T>(List<T>? a, List<T>? b) {
     if (a == null) return b == null;

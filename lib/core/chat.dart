@@ -173,7 +173,8 @@ class InferenceChat {
     }
 
     final toolsPrompt = StringBuffer();
-    toolsPrompt.writeln('You have access to functions. If you decide to invoke any of the function(s), you MUST put it in the format of {"name": function name, "parameters": dictionary of argument name and its value} You SHOULD NOT include any other text in the response if you call a function');
+    toolsPrompt.writeln('You have access to functions. When you want to call a function, respond with ONLY the JSON in this format: {"name": function name, "parameters": {argument: value}}');
+    toolsPrompt.writeln('After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
     toolsPrompt.writeln('<tool_code>');
     for (final tool in tools) {
       toolsPrompt.writeln(

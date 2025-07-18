@@ -43,20 +43,20 @@ class ChatScreenState extends State<ChatScreen> {
         'required': ['location'],
       },
     ),
-    // const Tool(
-    //   name: 'change_background_color',
-    //   description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
-    //   parameters: {
-    //     'type': 'object',
-    //     'properties': {
-    //       'color': {
-    //         'type': 'string',
-    //         'description': 'The color name',
-    //       },
-    //     },
-    //     'required': ['color'],
-    //   },
-    // ),
+    const Tool(
+      name: 'change_background_color',
+      description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+      parameters: {
+        'type': 'object',
+        'properties': {
+          'color': {
+            'type': 'string',
+            'description': 'The color name',
+          },
+        },
+        'required': ['color'],
+      },
+    ),
   ];
 
   @override

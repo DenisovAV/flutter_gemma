@@ -36,14 +36,26 @@ class InferenceChat {
     await addQueryChunk(message);
   }
 
-  Future<void> addQueryChunk(Message message) async {
+  Future<void> addQueryChunk(Message message, [bool noTool=false]) async {
     var messageToSend = message;
-    // If the message is from the user, it's the first message, and tools are available, prepend the tools to the message.
-    if (message.isUser && _modelHistory.isEmpty && tools.isNotEmpty) {
+    // Only add tools prompt for the first user message that is a text message (not a tool response)
+    if (message.isUser && 
+        message.type == MessageType.text && 
+        _modelHistory.isEmpty && 
+        tools.isNotEmpty && 
+        !noTool) {
       final toolsPrompt = _createToolsPrompt();
       final newText = '$toolsPrompt\n${message.text}';
       messageToSend = message.copyWith(text: newText);
     }
+
+    // --- DETAILED LOGGING ---
+    final historyForLogging = _modelHistory.map((m) => m.transformToChatPrompt()).join('\n');
+    debugPrint('--- Sending to Native ---');
+    debugPrint('History:\n$historyForLogging');
+    debugPrint('Current Message:\n${messageToSend.transformToChatPrompt()}');
+    debugPrint('-------------------------');
+    // --- END LOGGING ---
 
     await session.addQueryChunk(messageToSend);
 
@@ -53,22 +65,28 @@ class InferenceChat {
   }
 
   Future<dynamic> generateChatResponse() async {
-    if (_modelHistory.isNotEmpty && _modelHistory.last.type == MessageType.toolResponse) {
+    /* if (_modelHistory.isNotEmpty && _modelHistory.last.type == MessageType.toolResponse) {
+      debugPrint('InferenceChat: Last message was a tool response. Prompting model to generate final answer.');
       await session.addQueryChunk(const Message(text: '', isUser: false));
-    }
+    } */
 
+    debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
     final trimmedResponse = response.trim();
 
     if (trimmedResponse.isEmpty) {
+      debugPrint('InferenceChat: Raw response from native model is EMPTY after trimming.');
       return '';
     }
+
+    debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$trimmedResponse\n--- END ---');
 
     final functionCall = _parseFunctionCall(trimmedResponse);
     if (functionCall != null) {
       final toolCallMessage = Message.toolCall(text: trimmedResponse);
       _fullHistory.add(toolCallMessage);
       _modelHistory.add(toolCallMessage);
+      debugPrint('InferenceChat: Added tool call to history: ${toolCallMessage.text}');
       return functionCall;
     }
 
@@ -135,7 +153,7 @@ class InferenceChat {
 
     if (replayHistory != null) {
       for (final message in replayHistory) {
-        await addQueryChunk(message);
+        await addQueryChunk(message, true);
       }
     }
   }
@@ -150,8 +168,8 @@ class InferenceChat {
     }
 
     final toolsPrompt = StringBuffer();
+    toolsPrompt.writeln('You have access to functions. If you decide to invoke any of the function(s), you MUST put it in the format of {"name": function name, "parameters": dictionary of argument name and its value} You SHOULD NOT include any other text in the response if you call a function');
     toolsPrompt.writeln('<tool_code>');
-    toolsPrompt.writeln('Here are the tools available:');
     for (final tool in tools) {
       toolsPrompt.writeln(
           '${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
@@ -168,51 +186,52 @@ class InferenceChat {
       content = turnRegex.firstMatch(response)!.group(1)!.trim();
     }
 
-    final toolCodeRegex =
-        RegExp(r'<tool_code>([\s\S]*?)<\/tool_code>', multiLine: true);
-    final markdownRegex = RegExp(r'```tool_code\s*([\s\S]*?)\s*```', multiLine: true);
+    // Function to process a potential JSON string
+    FunctionCall? tryParseJson(String jsonString) {
+      try {
+        final decoded = jsonDecode(jsonString.trim());
+        if (decoded is Map<String, dynamic>) {
+          final toolName = decoded['name'] as String?;
+          final parameters = decoded['parameters'] as Map<String, dynamic>?;
 
-    var toolCodeMatch = toolCodeRegex.firstMatch(content);
-    if (toolCodeMatch == null) {
-      toolCodeMatch = markdownRegex.firstMatch(content);
-    }
-
-    if (toolCodeMatch != null) {
-      var toolCode = toolCodeMatch.group(1)!.trim();
-      debugPrint('InferenceChat: Found tool_code content: $toolCode');
-
-      // NEW: Extract the JSON part from the string
-      final jsonRegex = RegExp(r'\{[\s\S]*\}');
-      final jsonMatch = jsonRegex.firstMatch(toolCode);
-      
-      if (jsonMatch != null) {
-        final jsonString = jsonMatch.group(0)!;
-        debugPrint('InferenceChat: Extracted JSON string: $jsonString');
-        try {
-          final decoded = jsonDecode(jsonString);
-          if (decoded is Map<String, dynamic>) {
-            // Try to find the function name in the text before the JSON
-            var toolName = decoded['tool_name'] ?? decoded['name'];
-            if (toolName == null) {
-              final nameRegex = RegExp(r'(\w+)\s*:');
-              final nameMatch = nameRegex.firstMatch(toolCode);
-              if (nameMatch != null) {
-                toolName = nameMatch.group(1)!;
-              }
-            }
-
-            final parameters = decoded['parameters'] ?? decoded['args'] ?? decoded;
-            if (toolName != null && parameters is Map<String, dynamic>) {
-              final functionCall = FunctionCall(name: toolName, args: parameters);
-              debugPrint('InferenceChat: Parsed function call from JSON: ${functionCall.name}(${functionCall.args})');
-              return functionCall;
-            }
+          if (toolName != null && parameters != null) {
+            final functionCall = FunctionCall(name: toolName, args: parameters);
+            debugPrint('InferenceChat: Parsed function call from JSON: ${functionCall.name}(${functionCall.args})');
+            return functionCall;
           }
-        } catch (e) {
-          debugPrint('InferenceChat: Failed to decode extracted JSON. Error: $e');
         }
+      } catch (e) {
+        // It's okay if it fails, it might not be JSON.
+        debugPrint('InferenceChat: Failed to decode string as JSON. Error: $e');
       }
+      return null;
     }
+
+    // 1. Check for <tool_code> tags
+    final toolCodeRegex = RegExp(r'<tool_code>([\s\S]*?)<\/tool_code>', multiLine: true);
+    var toolCodeMatch = toolCodeRegex.firstMatch(content);
+    if (toolCodeMatch != null) {
+      final toolCode = toolCodeMatch.group(1)!.trim();
+      debugPrint('InferenceChat: Found <tool_code> content: $toolCode');
+      final result = tryParseJson(toolCode);
+      if (result != null) return result;
+    }
+
+    // 2. Check for markdown code block
+    final markdownRegex = RegExp(r'```(?:json|tool_code)\s*([\s\S]*?)\s*```', multiLine: true);
+    final markdownMatch = markdownRegex.firstMatch(content);
+    if (markdownMatch != null) {
+      final toolCode = markdownMatch.group(1)!.trim();
+      debugPrint('InferenceChat: Found markdown tool_code content: $toolCode');
+      final result = tryParseJson(toolCode);
+      if (result != null) return result;
+    }
+
+    // 3. If no tags are found, try to parse the whole content as JSON
+    debugPrint('InferenceChat: No <tool_code> or markdown tags found. Attempting to parse the entire response as JSON.');
+    final result = tryParseJson(content);
+    if (result != null) return result;
+
     debugPrint('InferenceChat: No valid function call found in response.');
     return null;
   }

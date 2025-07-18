@@ -30,19 +30,33 @@ class ChatScreenState extends State<ChatScreen> {
   // Define the tools
   final List<Tool> _tools = [
     const Tool(
-      name: 'change_background_color',
-      description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+      name: 'get_weather',
+      description: 'Get the weather for a location',
       parameters: {
         'type': 'object',
         'properties': {
-          'color': {
+          'location': {
             'type': 'string',
-            'description': 'The color name',
+            'description': 'The location to get the weather for',
           },
         },
-        'required': ['color'],
+        'required': ['location'],
       },
     ),
+    // const Tool(
+    //   name: 'change_background_color',
+    //   description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+    //   parameters: {
+    //     'type': 'object',
+    //     'properties': {
+    //       'color': {
+    //         'type': 'string',
+    //         'description': 'The color name',
+    //       },
+    //     },
+    //     'required': ['color'],
+    //   },
+    // ),
   ];
 
   @override
@@ -90,6 +104,11 @@ class ChatScreenState extends State<ChatScreen> {
 
   // Function to execute tools
   Future<Map<String, dynamic>> _executeTool(FunctionCall functionCall) async {
+    if (functionCall.name == 'get_weather') {
+      final location = functionCall.args['location'];
+      // In a real app, you would call a weather API here
+      return {'weather': 'The weather in $location is sunny with 22°C'};
+    }
     if (functionCall.name == 'change_background_color') {
       final colorName = functionCall.args['color']?.toLowerCase();
       final colorMap = {
@@ -104,9 +123,9 @@ class ChatScreenState extends State<ChatScreen> {
         setState(() {
           _backgroundColor = colorMap[colorName]!;
         });
-        return {'status': 'success'};
+        return {'status': 'success', 'message': 'Background color changed to $colorName'};
       } else {
-        return {'error': 'Color not supported'};
+        return {'error': 'Color not supported', 'available_colors': colorMap.keys.toList()};
       }
     }
     return {'error': 'Tool not found'};
@@ -185,12 +204,15 @@ class ChatScreenState extends State<ChatScreen> {
                   debugPrint('Function call received: ${response.name}(${response.args})');
                   final toolResponse = await _executeTool(response);
                   debugPrint('Tool response: $toolResponse');
-                  final message = Message.toolResponse(
+                  
+                  // Send tool response back to the model
+                  final toolMessage = Message.toolResponse(
                     toolName: response.name,
                     response: toolResponse,
                   );
-                  await chat?.addQuery(message);
-                  debugPrint('Sending tool response back to model...');
+                  await chat?.addQuery(toolMessage);
+                  
+                  // Get the final response from the model
                   final finalResponse = await chat?.generateChatResponse();
                   debugPrint('Final response from model: $finalResponse');
 
@@ -200,6 +222,9 @@ class ChatScreenState extends State<ChatScreen> {
                     });
                   } else {
                     debugPrint('Received empty or non-string response after tool call: $finalResponse');
+                    setState(() {
+                      _messages.add(Message.text(text: 'Error: Could not generate final response.'));
+                    });
                   }
                 } else if (response is String && response.isNotEmpty) {
                   setState(() {

@@ -94,6 +94,7 @@ final class InferenceSession {
     }
 
     func addQueryChunk(prompt: String) throws {
+        print("[NATIVE LOG] ADD CHUNK  ...  \(prompt)")
         try session.addQueryChunk(inputText: prompt)
     }
 
@@ -114,9 +115,13 @@ final class InferenceSession {
 
     func generateResponse(prompt: String? = nil) throws -> String {
         if let prompt = prompt {
+            print("[NATIVE LOG] ADD CHUNK XX ...  \(prompt)")
             try session.addQueryChunk(inputText: prompt)
         }
-        return try session.generateResponse()
+        print("[NATIVE LOG] Generating response...")
+        let response = try session.generateResponse()
+        print("[NATIVE LOG] Raw response from LlmInference: \(response)")
+        return response
     }
 
     @available(iOS 13.0.0, *)

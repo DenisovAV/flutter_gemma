@@ -26,21 +26,22 @@ class ChatScreenState extends State<ChatScreen> {
   bool _isModelInitialized = false;
   String? _error;
   Color _backgroundColor = const Color(0xFF0b2351);
+  String _appTitle = 'Flutter Gemma Example'; // Track the current app title
 
   // Define the tools
   final List<Tool> _tools = [
     const Tool(
-      name: 'get_weather',
-      description: 'Get the weather for a location',
+      name: 'change_app_title',
+      description: 'Changes the title of the app in the AppBar. Provide a new title text.',
       parameters: {
         'type': 'object',
         'properties': {
-          'location': {
+          'title': {
             'type': 'string',
-            'description': 'The location to get the weather for',
+            'description': 'The new title text to display in the AppBar',
           },
         },
-        'required': ['location'],
+        'required': ['title'],
       },
     ),
     const Tool(
@@ -104,10 +105,16 @@ class ChatScreenState extends State<ChatScreen> {
 
   // Function to execute tools
   Future<Map<String, dynamic>> _executeTool(FunctionCall functionCall) async {
-    if (functionCall.name == 'get_weather') {
-      final location = functionCall.args['location'];
-      // In a real app, you would call a weather API here
-      return {'weather': 'The weather in $location is sunny with 22°C'};
+    if (functionCall.name == 'change_app_title') {
+      final newTitle = functionCall.args['title'] as String?;
+      if (newTitle != null && newTitle.isNotEmpty) {
+        setState(() {
+          _appTitle = newTitle;
+        });
+        return {'status': 'success', 'message': 'App title changed to "$newTitle"'};
+      } else {
+        return {'error': 'Title cannot be empty'};
+      }
     }
     if (functionCall.name == 'change_background_color') {
       final colorName = functionCall.args['color']?.toLowerCase();
@@ -152,9 +159,9 @@ class ChatScreenState extends State<ChatScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Flutter Gemma Example',
-              style: TextStyle(fontSize: 18),
+            Text(
+              _appTitle,
+              style: const TextStyle(fontSize: 18),
               softWrap: true,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

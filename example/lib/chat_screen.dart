@@ -58,6 +58,28 @@ class ChatScreenState extends State<ChatScreen> {
         'required': ['color'],
       },
     ),
+    const Tool(
+      name: 'show_alert',
+      description: 'Shows an alert dialog with a custom message and title.',
+      parameters: {
+        'type': 'object',
+        'properties': {
+          'title': {
+            'type': 'string',
+            'description': 'The title of the alert dialog',
+          },
+          'message': {
+            'type': 'string',
+            'description': 'The message content of the alert dialog',
+          },
+          'button_text': {
+            'type': 'string',
+            'description': 'The text for the OK button (optional, defaults to "OK")',
+          },
+        },
+        'required': ['title', 'message'],
+      },
+    ),
   ];
 
   @override
@@ -134,6 +156,30 @@ class ChatScreenState extends State<ChatScreen> {
       } else {
         return {'error': 'Color not supported', 'available_colors': colorMap.keys.toList()};
       }
+    }
+    if (functionCall.name == 'show_alert') {
+      final title = functionCall.args['title'] as String? ?? 'Alert';
+      final message = functionCall.args['message'] as String? ?? 'No message provided';
+      final buttonText = functionCall.args['button_text'] as String? ?? 'OK';
+      
+      // Show the alert dialog
+      await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text(title),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(buttonText),
+              ),
+            ],
+          );
+        },
+      );
+      
+      return {'status': 'success', 'message': 'Alert dialog shown with title "$title"'};
     }
     return {'error': 'Tool not found'};
   }

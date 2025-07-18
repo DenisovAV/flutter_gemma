@@ -17,6 +17,7 @@ class InferenceChat {
   final List<Message> _fullHistory = [];
   final List<Message> _modelHistory = [];
   int _currentTokens = 0;
+  bool _toolsInstructionSent = false; // Flag to track if tools instruction was sent
 
   InferenceChat({
     required this.sessionCreator,
@@ -38,12 +39,13 @@ class InferenceChat {
 
   Future<void> addQueryChunk(Message message, [bool noTool=false]) async {
     var messageToSend = message;
-    // Only add tools prompt for the first user message that is a text message (not a tool response)
+    // Only add tools prompt for the first user text message (not a tool response)
     if (message.isUser && 
         message.type == MessageType.text && 
-        _modelHistory.isEmpty && 
+        !_toolsInstructionSent && 
         tools.isNotEmpty && 
         !noTool) {
+      _toolsInstructionSent = true;
       final toolsPrompt = _createToolsPrompt();
       final newText = '$toolsPrompt\n${message.text}';
       messageToSend = message.copyWith(text: newText);
@@ -65,36 +67,31 @@ class InferenceChat {
   }
 
   Future<dynamic> generateChatResponse() async {
-    /* if (_modelHistory.isNotEmpty && _modelHistory.last.type == MessageType.toolResponse) {
-      debugPrint('InferenceChat: Last message was a tool response. Prompting model to generate final answer.');
-      await session.addQueryChunk(const Message(text: '', isUser: false));
-    } */
-
     debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final trimmedResponse = response.trim();
+    final cleanedResponse = _cleanResponse(response);
 
-    if (trimmedResponse.isEmpty) {
-      debugPrint('InferenceChat: Raw response from native model is EMPTY after trimming.');
+    if (cleanedResponse.isEmpty) {
+      debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
       return '';
     }
 
-    debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$trimmedResponse\n--- END ---');
+    debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
 
-    final functionCall = _parseFunctionCall(trimmedResponse);
+    final functionCall = _parseFunctionCall(cleanedResponse);
     if (functionCall != null) {
-      final toolCallMessage = Message.toolCall(text: trimmedResponse);
+      final toolCallMessage = Message.toolCall(text: cleanedResponse);
       _fullHistory.add(toolCallMessage);
       _modelHistory.add(toolCallMessage);
       debugPrint('InferenceChat: Added tool call to history: ${toolCallMessage.text}');
       return functionCall;
     }
 
-    final chatMessage = Message(text: trimmedResponse, isUser: false);
+    final chatMessage = Message(text: cleanedResponse, isUser: false);
     _fullHistory.add(chatMessage);
     _modelHistory.add(chatMessage);
 
-    return trimmedResponse;
+    return cleanedResponse;
   }
 
   Stream<dynamic> generateChatResponseAsync() async* {
@@ -148,6 +145,7 @@ class InferenceChat {
     _fullHistory.clear();
     _modelHistory.clear();
     _currentTokens = 0;
+    _toolsInstructionSent = false; // Reset the flag when clearing history
     await session.close();
     session = await sessionCreator!();
 
@@ -161,6 +159,13 @@ class InferenceChat {
   bool get supportsImages => supportImage;
 
   int get imageMessageCount => _fullHistory.where((msg) => msg.hasImage).length;
+
+  String _cleanResponse(String response) {
+    // Remove trailing <end_of_turn> tags and trim whitespace
+    return response
+        .replaceAll(RegExp(r'<end_of_turn>\s*$'), '')
+        .trim();
+  }
 
   String _createToolsPrompt() {
     if (tools.isEmpty) {

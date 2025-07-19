@@ -44,10 +44,15 @@ class GemmaInputFieldState extends State<GemmaInputField> {
 
     try {
       debugPrint('GemmaInputField: Processing message: "${widget.messages.last.text}"');
-      final response = await _gemma?.processMessage(widget.messages.last);
-      if (!mounted) return;
-      debugPrint('GemmaInputField: Received response: $response');
-      widget.streamHandler(response);
+      final responseStream = await _gemma?.processMessage(widget.messages.last);
+      
+      if (responseStream != null) {
+        await for (final response in responseStream) {
+          if (!mounted) return;
+          debugPrint('GemmaInputField: Received async response: $response');
+          widget.streamHandler(response);
+        }
+      }
     } catch (e) {
       if (!mounted) return;
       widget.errorHandler(e.toString());

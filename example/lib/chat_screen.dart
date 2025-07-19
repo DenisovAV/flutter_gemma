@@ -193,38 +193,26 @@ class ChatScreenState extends State<ChatScreen> {
     debugPrint('Final accumulated response: $accumulatedResponse');
   }
   
-  // Main gemma response handler (async version)
+  // Main gemma response handler (async mode)
   Future<void> _handleGemmaResponse(dynamic response) async {
+    debugPrint('ChatScreen: Handling async response: $response (${response.runtimeType})');
+    
     if (response is FunctionCall) {
       await _handleFunctionCall(response);
-    } else if (response is Stream) {
-      // Handle streaming response for regular messages
-      String accumulatedResponse = '';
-      bool hasStartedResponse = false;
-      
-      await for (final token in response) {
-        if (token is String) {
-          accumulatedResponse += token;
-          
-          setState(() {
-            if (!hasStartedResponse) {
-              // First token - add new message
-              _messages.add(Message.text(text: accumulatedResponse));
-              hasStartedResponse = true;
-            } else {
-              // Update existing message
-              final lastIndex = _messages.length - 1;
-              _messages[lastIndex] = Message.text(text: accumulatedResponse);
-            }
-          });
-        } else if (token is FunctionCall) {
-          // Handle function call within stream
-          await _handleFunctionCall(token);
-        }
-      }
     } else if (response is String && response.isNotEmpty) {
+      // Handle text tokens for streaming
       setState(() {
-        _messages.add(Message.text(text: response));
+        if (_messages.isNotEmpty && 
+            !_messages.last.isUser && 
+            _messages.last.type == MessageType.text) {
+          // Update existing message
+          final lastIndex = _messages.length - 1;
+          final currentText = _messages[lastIndex].text;
+          _messages[lastIndex] = Message.text(text: currentText + response);
+        } else {
+          // Create new message
+          _messages.add(Message.text(text: response));
+        }
       });
     }
   }

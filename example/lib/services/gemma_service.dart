@@ -13,8 +13,9 @@ class GemmaLocalService {
   Future<dynamic> processMessage(Message message) async {
     debugPrint('GemmaLocalService: Adding query to chat: "${message.text}"');
     await _chat.addQuery(message);
-    debugPrint('GemmaLocalService: Generating chat response...');
-    return _chat.generateChatResponse();
+    debugPrint('GemmaLocalService: Generating chat response async...');
+    // Return the stream instead of awaiting full response
+    return _chat.generateChatResponseAsync();
   }
 
   Stream<dynamic> processMessageAsync(Message message) async* {

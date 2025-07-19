@@ -6,6 +6,7 @@ enum MessageType {
   text,
   toolResponse,
   toolCall,
+  systemInfo, // New type for function call indicators
 }
 
 class Message {
@@ -99,7 +100,24 @@ class Message {
     );
   }
 
+  factory Message.systemInfo({
+    required String text,
+    String? icon,
+  }) {
+    return Message(
+      text: text,
+      type: MessageType.systemInfo,
+      isUser: false,
+      toolName: icon, // Reuse toolName field for icon
+    );
+  }
+
   String transformToChatPrompt() {
+    // System messages should not be sent to the model
+    if (type == MessageType.systemInfo) {
+      return '';
+    }
+    
     if (isUser) {
       var content = text;
       if (type == MessageType.toolResponse) {

@@ -9,6 +9,11 @@ class ChatMessageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Handle system info messages differently
+    if (message.type == MessageType.systemInfo) {
+      return _buildSystemMessage(context);
+    }
+    
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
@@ -24,9 +29,7 @@ class ChatMessageWidget extends StatelessWidget {
               ),
               padding: const EdgeInsets.all(12.0),
               decoration: BoxDecoration(
-                color: message.isUser
-                    ? const Color(0xFF1a4a7c)
-                    : const Color(0x80757575),
+                color: const Color(0xFF1a4a7c), // Same as user messages
                 borderRadius: BorderRadius.circular(12.0),
               ),
               child: Column(
@@ -44,7 +47,7 @@ class ChatMessageWidget extends StatelessWidget {
                       data: message.text,
                       styleSheet: MarkdownStyleSheet(
                         p: TextStyle(
-                          color: message.isUser ? Colors.white : Colors.white70,
+                          color: message.isUser ? Colors.white : Colors.white,
                           fontSize: 14,
                         ),
                         code: TextStyle(
@@ -158,6 +161,70 @@ class ChatMessageWidget extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSystemMessage(BuildContext context) {
+    IconData iconData;
+    Color iconColor;
+    
+    // Determine icon based on message content
+    if (message.text.contains('Calling')) {
+      iconData = Icons.settings;
+      iconColor = Colors.blue;
+    } else if (message.text.contains('Executing')) {
+      iconData = Icons.flash_on;
+      iconColor = Colors.orange;
+    } else if (message.text.contains('completed')) {
+      iconData = Icons.check_circle;
+      iconColor = Colors.green;
+    } else if (message.text.contains('Generating')) {
+      iconData = Icons.psychology;
+      iconColor = Colors.purple;
+    } else {
+      iconData = Icons.info;
+      iconColor = Colors.blue;
+    }
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: <Widget>[
+          const SizedBox(width: 58), // Same spacing as regular messages
+          Expanded(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.8,
+              ),
+              padding: const EdgeInsets.all(12.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1a4a7c), // Same as user messages
+                borderRadius: BorderRadius.circular(12.0),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(iconData, size: 16, color: iconColor),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      message.text,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white, // White text on blue background
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+      ),
     );
   }
 

@@ -125,6 +125,110 @@ class ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  // Helper method to handle function calls with system messages (async version)
+  Future<void> _handleFunctionCall(FunctionCall functionCall) async {
+    debugPrint('Function call received: ${functionCall.name}(${functionCall.args})');
+    
+    // 1. Show "Calling function..."
+    setState(() {
+      _messages.add(Message.systemInfo(
+        text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: \"${e.value}\"').join(', ')})",
+      ));
+    });
+    
+    // Small delay to show the calling message
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    // 2. Show "Executing function"
+    setState(() {
+      _messages.add(Message.systemInfo(
+        text: "⚡ Executing function",
+      ));
+    });
+    
+    final toolResponse = await _executeTool(functionCall);
+    debugPrint('Tool response: $toolResponse');
+    
+    // 3. Show "Function completed"
+    setState(() {
+      _messages.add(Message.systemInfo(
+        text: "✅ Function completed: ${toolResponse['message'] ?? 'Success'}",
+      ));
+    });
+    
+    // Small delay to show completion
+    await Future.delayed(const Duration(milliseconds: 300));
+    
+    // Send tool response back to the model
+    final toolMessage = Message.toolResponse(
+      toolName: functionCall.name,
+      response: toolResponse,
+    );
+    await chat?.addQuery(toolMessage);
+    
+    // Get the final response from the model (async stream)
+    debugPrint('Getting async response from model...');
+    
+    String accumulatedResponse = '';
+    bool hasStartedResponse = false;
+    
+    await for (final token in chat!.generateChatResponseAsync()) {
+      if (token is String) {
+        accumulatedResponse += token;
+        
+        setState(() {
+          if (!hasStartedResponse) {
+            // First token - add new message
+            _messages.add(Message.text(text: accumulatedResponse));
+            hasStartedResponse = true;
+          } else {
+            // Update existing message
+            final lastIndex = _messages.length - 1;
+            _messages[lastIndex] = Message.text(text: accumulatedResponse);
+          }
+        });
+      }
+    }
+    
+    debugPrint('Final accumulated response: $accumulatedResponse');
+  }
+  
+  // Main gemma response handler (async version)
+  Future<void> _handleGemmaResponse(dynamic response) async {
+    if (response is FunctionCall) {
+      await _handleFunctionCall(response);
+    } else if (response is Stream) {
+      // Handle streaming response for regular messages
+      String accumulatedResponse = '';
+      bool hasStartedResponse = false;
+      
+      await for (final token in response) {
+        if (token is String) {
+          accumulatedResponse += token;
+          
+          setState(() {
+            if (!hasStartedResponse) {
+              // First token - add new message
+              _messages.add(Message.text(text: accumulatedResponse));
+              hasStartedResponse = true;
+            } else {
+              // Update existing message
+              final lastIndex = _messages.length - 1;
+              _messages[lastIndex] = Message.text(text: accumulatedResponse);
+            }
+          });
+        } else if (token is FunctionCall) {
+          // Handle function call within stream
+          await _handleFunctionCall(token);
+        }
+      }
+    } else if (response is String && response.isNotEmpty) {
+      setState(() {
+        _messages.add(Message.text(text: response));
+      });
+    }
+  }
+
   // Function to execute tools
   Future<Map<String, dynamic>> _executeTool(FunctionCall functionCall) async {
     if (functionCall.name == 'change_app_title') {
@@ -252,39 +356,7 @@ class ChatScreenState extends State<ChatScreen> {
           Expanded(
             child: ChatListWidget(
               chat: chat,
-              gemmaHandler: (response) async {
-                if (response is FunctionCall) {
-                  debugPrint('Function call received: ${response.name}(${response.args})');
-                  final toolResponse = await _executeTool(response);
-                  debugPrint('Tool response: $toolResponse');
-                  
-                  // Send tool response back to the model
-                  final toolMessage = Message.toolResponse(
-                    toolName: response.name,
-                    response: toolResponse,
-                  );
-                  await chat?.addQuery(toolMessage);
-                  
-                  // Get the final response from the model
-                  final finalResponse = await chat?.generateChatResponse();
-                  debugPrint('Final response from model: $finalResponse');
-
-                  if (finalResponse is String && finalResponse.isNotEmpty) {
-                    setState(() {
-                      _messages.add(Message.text(text: finalResponse));
-                    });
-                  } else {
-                    debugPrint('Received empty or non-string response after tool call: $finalResponse');
-                    setState(() {
-                      _messages.add(Message.text(text: 'Error: Could not generate final response.'));
-                    });
-                  }
-                } else if (response is String && response.isNotEmpty) {
-                  setState(() {
-                    _messages.add(Message.text(text: response));
-                  });
-                }
-              },
+              gemmaHandler: _handleGemmaResponse,
               humanHandler: (message) { // Now accepts Message instead of String
                 setState(() {
                   _error = null;

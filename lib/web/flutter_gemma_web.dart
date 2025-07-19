@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/function_call.dart';
+import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
@@ -168,7 +171,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = message.transformToChatPrompt(type: modelType);
+    final finalPrompt = message.transformToChatPrompt();
 
     // Checks for image support (as in the mobile platforms)
     if (message.hasImage && message.imageBytes != null) {

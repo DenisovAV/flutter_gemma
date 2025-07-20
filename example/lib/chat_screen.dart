@@ -21,6 +21,7 @@ class ChatScreenState extends State<ChatScreen> {
   InferenceChat? chat;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
+  bool _isStreaming = false; // Track streaming state
   String? _error;
   Color _backgroundColor = const Color(0xFF0b2351);
   String _appTitle = 'Flutter Gemma Example'; // Track the current app title
@@ -123,7 +124,7 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   // Helper method to handle function calls with system messages (async version)
-  Future<void> _handleFunctionCall(FunctionCall functionCall) async {
+  Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
     debugPrint('Function call received: ${functionCall.name}(${functionCall.args})');
     
     // 1. Show "Calling function..."
@@ -170,8 +171,9 @@ class ChatScreenState extends State<ChatScreen> {
     bool hasStartedResponse = false;
     
     await for (final token in chat!.generateChatResponseAsync()) {
-      if (token is String) {
-        accumulatedResponse += token;
+      if (token is TextResponse) {
+        // Получаем токен
+        accumulatedResponse += token.token;
         
         setState(() {
           if (!hasStartedResponse) {
@@ -184,38 +186,35 @@ class ChatScreenState extends State<ChatScreen> {
             _messages[lastIndex] = Message.text(text: accumulatedResponse);
           }
         });
+      } else if (token is FunctionCallResponse) {
+        // Не должно случаться после tool response
+        debugPrint('Unexpected FunctionCall after tool response: ${token.name}');
       }
     }
     
     debugPrint('Final accumulated response: $accumulatedResponse');
   }
   
-  // Main gemma response handler (async mode)
-  Future<void> _handleGemmaResponse(dynamic response) async {
-    debugPrint('ChatScreen: Handling async response: $response (${response.runtimeType})');
+  // Main gemma response handler - обрабатывает ответы от GemmaInputField
+  Future<void> _handleGemmaResponse(ModelResponse response) async {
+    debugPrint('ChatScreen: Handling response: $response (${response.runtimeType})');
     
-    if (response is FunctionCall) {
+    if (response is FunctionCallResponse) {
+      // Обрабатываем вызов функции
       await _handleFunctionCall(response);
-    } else if (response is String && response.isNotEmpty) {
-      // Handle text tokens for streaming
+    } else if (response is TextResponse) {
+      // Обрабатываем накопленный текст - создаем Message и добавляем в UI
       setState(() {
-        if (_messages.isNotEmpty && 
-            !_messages.last.isUser && 
-            _messages.last.type == MessageType.text) {
-          // Update existing message
-          final lastIndex = _messages.length - 1;
-          final currentText = _messages[lastIndex].text;
-          _messages[lastIndex] = Message.text(text: currentText + response);
-        } else {
-          // Create new message
-          _messages.add(Message.text(text: response));
-        }
+        _messages.add(Message.text(text: response.token));
       });
+    } else {
+      // Неожиданный тип
+      debugPrint('ChatScreen: Unexpected response type: ${response.runtimeType}');
     }
   }
 
   // Function to execute tools
-  Future<Map<String, dynamic>> _executeTool(FunctionCall functionCall) async {
+  Future<Map<String, dynamic>> _executeTool(FunctionCallResponse functionCall) async {
     if (functionCall.name == 'change_app_title') {
       final newTitle = functionCall.args['title'] as String?;
       if (newTitle != null && newTitle.isNotEmpty) {
@@ -346,6 +345,7 @@ class ChatScreenState extends State<ChatScreen> {
                 setState(() {
                   _error = null;
                   _messages.add(message);
+                  _isStreaming = false; // Reset streaming when user sends message
                 });
               },
               errorHandler: (err) {

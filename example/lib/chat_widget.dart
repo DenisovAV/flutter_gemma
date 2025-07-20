@@ -17,7 +17,7 @@ class ChatListWidget extends StatelessWidget {
 
   final InferenceChat? chat;
   final List<Message> messages;
-    final ValueChanged<dynamic> gemmaHandler;
+  final ValueChanged<ModelResponse> gemmaHandler; // Принимает ModelResponse (TextToken | FunctionCall)
   final ValueChanged<Message> humanHandler; // Changed from String to Message
   final ValueChanged<String> errorHandler;
 

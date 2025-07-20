@@ -43,9 +43,12 @@ class ChatResponseHandler {
     bool functionProcessed = false;
     
     await for (final token in _chat.generateChatResponseAsync()) {
+      debugPrint('ChatResponseHandler: Received token: "$token"');
+      
       // Step 1: Determine JSON or text mode (only once!)
       if (!decisionMade) {
         buffer += token;
+        debugPrint('ChatResponseHandler: Buffer now: "$buffer"');
         
         if (FunctionCallParser.isJsonStart(buffer)) {
           isJsonMode = true;
@@ -55,15 +58,21 @@ class ChatResponseHandler {
           isJsonMode = false;
           decisionMade = true;
           debugPrint('ChatResponseHandler: Detected text mode - streaming immediately');
+          debugPrint('ChatResponseHandler: Emitting buffered content: "$buffer"');
           // Emit accumulated buffer as single token
           yield TextTokenEvent(buffer);
           buffer = ''; // Clear buffer to avoid duplication
+          debugPrint('ChatResponseHandler: Mode decided - TEXT, will stream rest directly');
+        } else {
+          debugPrint('ChatResponseHandler: Mode not yet determined, continuing to buffer');
         }
       } else {
+        debugPrint('ChatResponseHandler: Mode already decided (isJsonMode: $isJsonMode, functionProcessed: $functionProcessed)');
         // Step 2: Process based on determined mode (don't buffer anymore!)
         if (isJsonMode && !functionProcessed) {
           // JSON mode - buffer until complete
           buffer += token;
+          debugPrint('ChatResponseHandler: JSON mode - buffering token, buffer: "$buffer"');
           if (FunctionCallParser.isJsonComplete(buffer)) {
             final functionCall = FunctionCallParser.parse(buffer);
             if (functionCall != null) {
@@ -75,10 +84,17 @@ class ChatResponseHandler {
           }
         } else if (!isJsonMode) {
           // Text mode - stream tokens directly (no buffering needed)
+          debugPrint('ChatResponseHandler: TEXT mode - emitting token directly: "$token"');
           yield TextTokenEvent(token);
+        } else {
+          debugPrint('ChatResponseHandler: Post-function mode - probably should emit token: "$token"');
+          // This might be the missing case!
         }
       }
     }
+    
+    debugPrint('ChatResponseHandler: Stream ended from native layer');
+    debugPrint('ChatResponseHandler: Final state - buffer: "$buffer", decisionMade: $decisionMade, isJsonMode: $isJsonMode, functionProcessed: $functionProcessed');
     
     // Handle end of stream - process any remaining buffer
     if (buffer.isNotEmpty && !functionProcessed) {

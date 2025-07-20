@@ -173,7 +173,8 @@ class InferenceChat {
     }
 
     final toolsPrompt = StringBuffer();
-    toolsPrompt.writeln('You have access to functions. When you want to call a function, respond with ONLY the JSON in this format: {"name": function name, "parameters": {argument: value}}');
+    toolsPrompt.writeln('You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+    toolsPrompt.writeln('When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
     toolsPrompt.writeln('After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
     toolsPrompt.writeln('<tool_code>');
     for (final tool in tools) {

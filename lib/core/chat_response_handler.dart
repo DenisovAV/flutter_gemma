@@ -80,6 +80,24 @@ class ChatResponseHandler {
         break;
       }
     }
+    
+    // Handle end of stream - if we still have buffered content and haven't processed it
+    if (!isProcessingComplete && buffer.isNotEmpty) {
+      debugPrint('ChatResponseHandler: Stream ended, processing remaining buffer');
+      
+      // Try one final time to parse as function
+      final functionCall = _tryParseFunctionCall(buffer);
+      if (functionCall != null) {
+        debugPrint('ChatResponseHandler: Found function call at end of stream');
+        yield FunctionCallEvent(functionCall);
+      } else {
+        debugPrint('ChatResponseHandler: Emitting remaining buffer as text');
+        // Emit remaining buffer as text tokens
+        for (int i = 0; i < buffer.length; i++) {
+          yield TextTokenEvent(buffer[i]);
+        }
+      }
+    }
   }
   
   /// Handle sync response
@@ -163,30 +181,49 @@ class ChatResponseHandler {
   
   /// Check if the buffer confidently looks like regular text (not a function call)
   bool _isConfidentlyRegularText(String buffer, int tokenCount) {
-    // Wait for more tokens before deciding
-    if (tokenCount < 20) {
-      return false;
-    }
-    
-    // Clean buffer for analysis
     final cleanBuffer = buffer.trim();
     
-    // If we have substantial content and it doesn't look like JSON
-    if (cleanBuffer.length > 30) {
-      // Strong indicators it's NOT a function call:
-      // 1. Doesn't start with { after cleaning
-      // 2. Doesn't contain "name" in first 50 characters 
-      // 3. Contains sentence patterns (spaces between words, punctuation)
-      final first50 = cleanBuffer.length > 50 ? cleanBuffer.substring(0, 50) : cleanBuffer;
+    // Early detection by first few tokens - if we can confidently determine it's NOT JSON
+    if (tokenCount >= 2 && cleanBuffer.isNotEmpty) {
+      // Strong JSON/function indicators - if present, continue buffering
+      if (cleanBuffer.startsWith('{') || 
+          cleanBuffer.startsWith('<tool_code>') ||
+          cleanBuffer.startsWith('```json') ||
+          cleanBuffer.startsWith('```')) {
+        return false; // Keep buffering, this looks like JSON/function
+      }
       
-      final startsWithJson = cleanBuffer.startsWith('{') || cleanBuffer.startsWith('```json');
-      final containsNameField = first50.contains('"name"');
-      final containsToolCode = buffer.contains('<tool_code>');
-      final looksLikeSentence = RegExp(r'[a-zA-Z]+\s+[a-zA-Z]+').hasMatch(first50);
-      
-      return !startsWithJson && !containsNameField && !containsToolCode && looksLikeSentence;
+      // If we have 3+ tokens and no JSON indicators, it's likely text
+      if (tokenCount >= 3) {
+        // Additional safety check - look for JSON patterns in early content
+        final earlyContent = cleanBuffer.length > 20 ? cleanBuffer.substring(0, 20) : cleanBuffer;
+        
+        // If early content contains JSON-like patterns, keep buffering
+        if (earlyContent.contains('{') || 
+            earlyContent.toLowerCase().contains('json') ||
+            earlyContent.contains('<tool')) {
+          return false; // Keep buffering
+        }
+        
+        // No JSON patterns detected in first few tokens - this is regular text
+        debugPrint('ChatResponseHandler: Early detection - no JSON patterns found, treating as text');
+        return true;
+      }
     }
     
-    return false;
+    // Fallback: if we have many tokens and still uncertain, check traditional indicators
+    if (tokenCount >= 10) {
+      if (cleanBuffer.length > 20) {
+        // Traditional checks for longer content
+        final startsWithJson = cleanBuffer.startsWith('{') || cleanBuffer.startsWith('```');
+        final containsNameField = cleanBuffer.contains('"name"');
+        final containsToolCode = cleanBuffer.contains('<tool_code>');
+        final looksLikeSentence = RegExp(r'[a-zA-Zа-яёА-ЯЁ]+\s+[a-zA-Zа-яёА-ЯЁ]+').hasMatch(cleanBuffer);
+        
+        return !startsWithJson && !containsNameField && !containsToolCode && looksLikeSentence;
+      }
+    }
+    
+    return false; // Keep buffering if uncertain
   }
 }

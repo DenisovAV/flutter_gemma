@@ -1,11 +1,12 @@
-import 'package:flutter_gemma/core/function_call.dart';
+
+import 'package:flutter_gemma/core/model_response.dart';
 
 /// Base class for all chat events
 abstract class ChatEvent {}
 
 /// Event emitted when a function call is detected
 class FunctionCallEvent extends ChatEvent {
-  final FunctionCall call;
+  final FunctionCallResponse call;
   
   FunctionCallEvent(this.call);
   

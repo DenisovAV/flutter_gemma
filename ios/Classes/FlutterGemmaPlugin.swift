@@ -178,35 +178,55 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
     @available(iOS 13.0, *)
     func generateResponseAsync(completion: @escaping (Result<Void, any Error>) -> Void) {
+        print("[PLUGIN LOG] generateResponseAsync called")
         guard let session = session, let eventSink = eventSink else {
+            print("[PLUGIN LOG] Session or eventSink not created")
             completion(.failure(PigeonError(code: "Session or eventSink not created", message: nil, details: nil)))
             return
         }
-
+        
+        print("[PLUGIN LOG] Session and eventSink available, starting generation")
         DispatchQueue.global(qos: .userInitiated).async {
             do {
+                print("[PLUGIN LOG] Getting async stream from session")
                 let stream = try session.generateResponseAsync()
+                print("[PLUGIN LOG] Got stream, starting Task")
                 Task.detached { [weak self] in
-                    guard let self = self else { return }
+                    guard let self = self else { 
+                        print("[PLUGIN LOG] Self is nil in Task")
+                        return 
+                    }
                     do {
+                        print("[PLUGIN LOG] Starting to iterate over stream")
+                        var tokenCount = 0
                         for try await token in stream {
+                            tokenCount += 1
+                            print("[PLUGIN LOG] Got token #\(tokenCount): '\(token)'")
                             DispatchQueue.main.async {
+                                print("[PLUGIN LOG] Sending token to Flutter via eventSink")
                                 eventSink(["partialResult": token, "done": false])
+                                print("[PLUGIN LOG] Token sent to Flutter")
                             }
                         }
+                        print("[PLUGIN LOG] Stream finished after \(tokenCount) tokens")
                         DispatchQueue.main.async {
+                            print("[PLUGIN LOG] Sending FlutterEndOfEventStream")
                             eventSink(FlutterEndOfEventStream)
+                            print("[PLUGIN LOG] FlutterEndOfEventStream sent")
                         }
                     } catch {
+                        print("[PLUGIN LOG] Error in stream iteration: \(error)")
                         DispatchQueue.main.async {
                             eventSink(FlutterError(code: "ERROR", message: error.localizedDescription, details: nil))
                         }
                     }
                 }
                 DispatchQueue.main.async {
+                    print("[PLUGIN LOG] Completing with success")
                     completion(.success(()))
                 }
             } catch {
+                print("[PLUGIN LOG] Error creating stream: \(error)")
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }

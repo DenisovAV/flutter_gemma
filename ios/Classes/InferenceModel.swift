@@ -126,10 +126,33 @@ final class InferenceSession {
 
     @available(iOS 13.0.0, *)
     func generateResponseAsync(prompt: String? = nil) throws -> AsyncThrowingStream<String, any Error> {
+        print("[NATIVE LOG] generateResponseAsync called with prompt: \(prompt ?? "nil")")
         if let prompt = prompt {
+            print("[NATIVE LOG] Adding prompt chunk: \(prompt)")
             try session.addQueryChunk(inputText: prompt)
         }
-        return session.generateResponseAsync()
+        print("[NATIVE LOG] Starting async generation...")
+        
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    print("[NATIVE LOG] Entering async stream iteration")
+                    var tokenCount = 0
+                    for try await partialResult in session.generateResponseAsync() {
+                        tokenCount += 1
+                        print("[NATIVE LOG] Token #\(tokenCount): '\(partialResult)'")
+                        print("[NATIVE LOG] Yielding token to Flutter")
+                        continuation.yield(partialResult)
+                        print("[NATIVE LOG] Token yielded successfully")
+                    }
+                    print("[NATIVE LOG] All tokens generated, finishing stream with \(tokenCount) total tokens")
+                    continuation.finish()
+                } catch {
+                    print("[NATIVE LOG] Error in async generation: \(error)")
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
     }
 
     // Access to session metrics

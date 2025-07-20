@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/function_call.dart';
+import 'package:flutter_gemma/core/model_response.dart';
 
 /// Unified parser for function calls in all formats:
 /// - Direct JSON: {"name": "function_name", "parameters": {...}}
@@ -66,7 +66,7 @@ class FunctionCallParser {
   }
   
   /// Attempts to parse function call from text in any supported format
-  static FunctionCall? parse(String text) {
+  static FunctionCallResponse? parse(String text) {
     if (text.trim().isEmpty) return null;
     
     try {
@@ -97,7 +97,7 @@ class FunctionCallParser {
   }
   
   /// Parse <tool_code>JSON</tool_code> format
-  static FunctionCall? _parseToolCodeBlock(String content) {
+  static FunctionCallResponse? _parseToolCodeBlock(String content) {
     final regex = RegExp(r'<tool_code>\s*([\s\S]*?)\s*</tool_code>', multiLine: true);
     final match = regex.firstMatch(content);
     
@@ -111,7 +111,7 @@ class FunctionCallParser {
   }
   
   /// Parse ```json\nJSON\n``` or ```\nJSON\n``` format
-  static FunctionCall? _parseMarkdownBlock(String content) {
+  static FunctionCallResponse? _parseMarkdownBlock(String content) {
     // Try specific ```json first
     var regex = RegExp(r'```json\s*([\s\S]*?)\s*```', multiLine: true);
     var match = regex.firstMatch(content);
@@ -139,7 +139,7 @@ class FunctionCallParser {
   }
   
   /// Parse direct JSON format
-  static FunctionCall? _parseDirectJson(String content) {
+  static FunctionCallResponse? _parseDirectJson(String content) {
     final trimmed = content.trim();
     
     // Must start with { and contain "name" to be considered
@@ -152,7 +152,7 @@ class FunctionCallParser {
   }
   
   /// Parse JSON string into FunctionCall
-  static FunctionCall? _parseJsonString(String jsonStr) {
+  static FunctionCallResponse? _parseJsonString(String jsonStr) {
     try {
       final decoded = jsonDecode(jsonStr);
       
@@ -161,7 +161,7 @@ class FunctionCallParser {
         final parameters = decoded['parameters'] as Map<String, dynamic>?;
         
         if (name != null && parameters != null) {
-          final functionCall = FunctionCall(name: name, args: parameters);
+          final functionCall = FunctionCallResponse(name: name, args: parameters);
           debugPrint('FunctionCallParser: Successfully parsed function: ${functionCall.name}(${functionCall.args})');
           return functionCall;
         }
@@ -169,7 +169,7 @@ class FunctionCallParser {
         // Fallback: try 'args' instead of 'parameters'
         final args = decoded['args'] as Map<String, dynamic>?;
         if (name != null && args != null) {
-          final functionCall = FunctionCall(name: name, args: args);
+          final functionCall = FunctionCallResponse(name: name, args: args);
           debugPrint('FunctionCallParser: Successfully parsed function with args: ${functionCall.name}(${functionCall.args})');
           return functionCall;
         }

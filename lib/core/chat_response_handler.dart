@@ -55,10 +55,8 @@ class ChatResponseHandler {
           isJsonMode = false;
           decisionMade = true;
           debugPrint('ChatResponseHandler: Detected text mode - streaming immediately');
-          // Emit accumulated buffer and switch to streaming mode
-          for (int i = 0; i < buffer.length; i++) {
-            yield TextTokenEvent(buffer[i]);
-          }
+          // Emit accumulated buffer as single token
+          yield TextTokenEvent(buffer);
           buffer = ''; // Clear buffer to avoid duplication
         }
       }
@@ -77,10 +75,8 @@ class ChatResponseHandler {
             }
           }
         } else if (!isJsonMode) {
-          // Text mode - stream token characters individually
-          for (int i = 0; i < token.length; i++) {
-            yield TextTokenEvent(token[i]);
-          }
+          // Text mode - stream tokens directly (no character splitting needed)
+          yield TextTokenEvent(token);
         }
       }
     }
@@ -94,15 +90,11 @@ class ChatResponseHandler {
           yield FunctionCallEvent(functionCall);
         } else {
           debugPrint('ChatResponseHandler: Incomplete JSON at end of stream, emitting as text');
-          for (int i = 0; i < buffer.length; i++) {
-            yield TextTokenEvent(buffer[i]);
-          }
+          yield TextTokenEvent(buffer);
         }
       } else if (buffer.isNotEmpty) {
         debugPrint('ChatResponseHandler: Emitting remaining buffer as text');
-        for (int i = 0; i < buffer.length; i++) {
-          yield TextTokenEvent(buffer[i]);
-        }
+        yield TextTokenEvent(buffer);
       }
     }
   }

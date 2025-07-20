@@ -1,8 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/function_call.dart';
-import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
@@ -58,7 +55,7 @@ class ChatScreenState extends State<ChatScreen> {
         'required': ['color'],
       },
     ),
-    const Tool(
+    /* const Tool(
       name: 'show_alert',
       description: 'Shows an alert dialog with a custom message and title.',
       parameters: {
@@ -79,7 +76,7 @@ class ChatScreenState extends State<ChatScreen> {
         },
         'required': ['title', 'message'],
       },
-    ),
+    ), */
   ];
 
   @override

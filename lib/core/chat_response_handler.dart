@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/chat_event.dart';
 import 'package:flutter_gemma/core/function_call.dart';
+import 'package:flutter_gemma/core/function_call_parser.dart';
 
 class ChatResponseHandler {
   final InferenceChat _chat;
@@ -31,68 +31,75 @@ class ChatResponseHandler {
     if (!handleFunctions) {
       // Simple passthrough mode - no buffering
       await for (final token in _chat.generateChatResponseAsync()) {
-        if (token is String) {
-          yield TextTokenEvent(token);
-        } else if (token is FunctionCall) {
-          yield FunctionCallEvent(token);
-        }
+        yield TextTokenEvent(token);
       }
       return;
     }
     
-    // Function handling mode with smart buffering
+    // Smart function handling mode
     String buffer = '';
-    bool isProcessingComplete = false;
-    int tokenCount = 0;
+    bool isJsonMode = false;
+    bool decisionMade = false;
+    bool functionProcessed = false;
     
     await for (final token in _chat.generateChatResponseAsync()) {
-      if (token is String) {
-        buffer += token;
-        tokenCount++;
-        
-        if (!isProcessingComplete) {
-          // Try to detect function call in buffer
-          final functionCall = _tryParseFunctionCall(buffer);
-          if (functionCall != null) {
-            debugPrint('ChatResponseHandler: Detected function call in async stream');
-            yield FunctionCallEvent(functionCall);
-            isProcessingComplete = true;
-            break;
+      buffer += token;
+      
+      // Step 1: Determine JSON or text mode (only once!)
+      if (!decisionMade) {
+        if (FunctionCallParser.isJsonStart(buffer)) {
+          isJsonMode = true;
+          decisionMade = true;
+          debugPrint('ChatResponseHandler: Detected JSON mode');
+        } else if (FunctionCallParser.isDefinitelyText(buffer)) {
+          isJsonMode = false;
+          decisionMade = true;
+          debugPrint('ChatResponseHandler: Detected text mode - streaming immediately');
+          // Emit accumulated buffer and switch to streaming mode
+          for (int i = 0; i < buffer.length; i++) {
+            yield TextTokenEvent(buffer[i]);
           }
-          
-          // Check if we're confident this is regular text
-          if (_isConfidentlyRegularText(buffer, tokenCount)) {
-            debugPrint('ChatResponseHandler: Confident this is regular text, emitting buffered content');
-            // Emit all buffered content as individual tokens
-            for (int i = 0; i < buffer.length; i++) {
-              yield TextTokenEvent(buffer[i]);
-            }
-            isProcessingComplete = true;
-            // Continue processing remaining tokens
-          }
-        } else {
-          // We're in regular text mode, emit tokens directly
-          yield TextTokenEvent(token);
+          buffer = ''; // Clear buffer to avoid duplication
         }
-      } else if (token is FunctionCall) {
-        debugPrint('ChatResponseHandler: Received direct function call from stream');
-        yield FunctionCallEvent(token);
-        break;
+      }
+      
+      // Step 2: Process based on determined mode
+      if (decisionMade) {
+        if (isJsonMode && !functionProcessed) {
+          // JSON mode - buffer until complete
+          if (FunctionCallParser.isJsonComplete(buffer)) {
+            final functionCall = FunctionCallParser.parse(buffer);
+            if (functionCall != null) {
+              debugPrint('ChatResponseHandler: Function call parsed successfully');
+              yield FunctionCallEvent(functionCall);
+              functionProcessed = true;
+              buffer = ''; // Clear buffer, rest will be text response
+            }
+          }
+        } else if (!isJsonMode) {
+          // Text mode - stream token characters individually
+          for (int i = 0; i < token.length; i++) {
+            yield TextTokenEvent(token[i]);
+          }
+        }
       }
     }
     
-    // Handle end of stream - if we still have buffered content and haven't processed it
-    if (!isProcessingComplete && buffer.isNotEmpty) {
-      debugPrint('ChatResponseHandler: Stream ended, processing remaining buffer');
-      
-      // Try one final time to parse as function
-      final functionCall = _tryParseFunctionCall(buffer);
-      if (functionCall != null) {
-        debugPrint('ChatResponseHandler: Found function call at end of stream');
-        yield FunctionCallEvent(functionCall);
-      } else {
+    // Handle end of stream - process any remaining buffer
+    if (buffer.isNotEmpty && !functionProcessed) {
+      if (isJsonMode) {
+        final functionCall = FunctionCallParser.parse(buffer);
+        if (functionCall != null) {
+          debugPrint('ChatResponseHandler: Function call found at end of stream');
+          yield FunctionCallEvent(functionCall);
+        } else {
+          debugPrint('ChatResponseHandler: Incomplete JSON at end of stream, emitting as text');
+          for (int i = 0; i < buffer.length; i++) {
+            yield TextTokenEvent(buffer[i]);
+          }
+        }
+      } else if (buffer.isNotEmpty) {
         debugPrint('ChatResponseHandler: Emitting remaining buffer as text');
-        // Emit remaining buffer as text tokens
         for (int i = 0; i < buffer.length; i++) {
           yield TextTokenEvent(buffer[i]);
         }
@@ -106,124 +113,19 @@ class ChatResponseHandler {
     
     final response = await _chat.generateChatResponse();
     
-    if (response is String) {
-      if (handleFunctions) {
-        // Try to parse as function call first
-        final functionCall = _tryParseFunctionCall(response);
-        if (functionCall != null) {
-          debugPrint('ChatResponseHandler: Detected function call in sync response');
-          yield FunctionCallEvent(functionCall);
-        } else {
-          debugPrint('ChatResponseHandler: Emitting complete text response');
-          yield TextCompleteEvent(response);
-        }
+    if (handleFunctions) {
+      // Try to parse as function call using unified parser
+      final functionCall = FunctionCallParser.parse(response);
+      if (functionCall != null) {
+        debugPrint('ChatResponseHandler: Detected function call in sync response');
+        yield FunctionCallEvent(functionCall);
       } else {
-        // Simple mode - just emit text
+        debugPrint('ChatResponseHandler: Emitting complete text response');
         yield TextCompleteEvent(response);
       }
-    } else if (response is FunctionCall) {
-      debugPrint('ChatResponseHandler: Received direct function call from sync response');
-      yield FunctionCallEvent(response);
     } else {
-      debugPrint('ChatResponseHandler: Unknown response type: ${response.runtimeType}');
-      yield ErrorEvent('Unknown response type: ${response.runtimeType}');
+      // Simple mode - just emit text
+      yield TextCompleteEvent(response);
     }
-  }
-  
-  /// Try to parse a function call from text
-  FunctionCall? _tryParseFunctionCall(String text) {
-    try {
-      // Look for function call patterns
-      if (text.contains('<tool_code>') && text.contains('</tool_code>')) {
-        // Extract JSON from tool_code block
-        final startTag = '<tool_code>';
-        final endTag = '</tool_code>';
-        final startIndex = text.indexOf(startTag);
-        final endIndex = text.indexOf(endTag);
-        
-        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-          final jsonStr = text.substring(startIndex + startTag.length, endIndex).trim();
-          final parsed = jsonDecode(jsonStr);
-          
-          if (parsed is Map<String, dynamic> && 
-              parsed.containsKey('name') && 
-              parsed.containsKey('parameters')) {
-            return FunctionCall(
-              name: parsed['name'] as String,
-              args: Map<String, dynamic>.from(parsed['parameters'] as Map),
-            );
-          }
-        }
-      }
-      
-      // Try direct JSON parsing (in case the response is just JSON)
-      if (text.startsWith('{') && text.contains('"name"')) {
-        final parsed = jsonDecode(text);
-        if (parsed is Map<String, dynamic> && 
-            parsed.containsKey('name')) {
-          return FunctionCall(
-            name: parsed['name'] as String,
-            args: parsed.containsKey('parameters') 
-                ? Map<String, dynamic>.from(parsed['parameters'] as Map)
-                : parsed.containsKey('args')
-                    ? Map<String, dynamic>.from(parsed['args'] as Map)
-                    : <String, dynamic>{},
-          );
-        }
-      }
-      
-      return null;
-    } catch (e) {
-      debugPrint('Error parsing function call: $e');
-      return null;
-    }
-  }
-  
-  /// Check if the buffer confidently looks like regular text (not a function call)
-  bool _isConfidentlyRegularText(String buffer, int tokenCount) {
-    final cleanBuffer = buffer.trim();
-    
-    // Early detection by first few tokens - if we can confidently determine it's NOT JSON
-    if (tokenCount >= 2 && cleanBuffer.isNotEmpty) {
-      // Strong JSON/function indicators - if present, continue buffering
-      if (cleanBuffer.startsWith('{') || 
-          cleanBuffer.startsWith('<tool_code>') ||
-          cleanBuffer.startsWith('```json') ||
-          cleanBuffer.startsWith('```')) {
-        return false; // Keep buffering, this looks like JSON/function
-      }
-      
-      // If we have 3+ tokens and no JSON indicators, it's likely text
-      if (tokenCount >= 3) {
-        // Additional safety check - look for JSON patterns in early content
-        final earlyContent = cleanBuffer.length > 20 ? cleanBuffer.substring(0, 20) : cleanBuffer;
-        
-        // If early content contains JSON-like patterns, keep buffering
-        if (earlyContent.contains('{') || 
-            earlyContent.toLowerCase().contains('json') ||
-            earlyContent.contains('<tool')) {
-          return false; // Keep buffering
-        }
-        
-        // No JSON patterns detected in first few tokens - this is regular text
-        debugPrint('ChatResponseHandler: Early detection - no JSON patterns found, treating as text');
-        return true;
-      }
-    }
-    
-    // Fallback: if we have many tokens and still uncertain, check traditional indicators
-    if (tokenCount >= 10) {
-      if (cleanBuffer.length > 20) {
-        // Traditional checks for longer content
-        final startsWithJson = cleanBuffer.startsWith('{') || cleanBuffer.startsWith('```');
-        final containsNameField = cleanBuffer.contains('"name"');
-        final containsToolCode = cleanBuffer.contains('<tool_code>');
-        final looksLikeSentence = RegExp(r'[a-zA-Zа-яёА-ЯЁ]+\s+[a-zA-Zа-яёА-ЯЁ]+').hasMatch(cleanBuffer);
-        
-        return !startsWithJson && !containsNameField && !containsToolCode && looksLikeSentence;
-      }
-    }
-    
-    return false; // Keep buffering if uncertain
   }
 }

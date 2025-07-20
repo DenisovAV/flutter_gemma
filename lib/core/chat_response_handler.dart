@@ -43,10 +43,10 @@ class ChatResponseHandler {
     bool functionProcessed = false;
     
     await for (final token in _chat.generateChatResponseAsync()) {
-      buffer += token;
-      
       // Step 1: Determine JSON or text mode (only once!)
       if (!decisionMade) {
+        buffer += token;
+        
         if (FunctionCallParser.isJsonStart(buffer)) {
           isJsonMode = true;
           decisionMade = true;
@@ -59,12 +59,11 @@ class ChatResponseHandler {
           yield TextTokenEvent(buffer);
           buffer = ''; // Clear buffer to avoid duplication
         }
-      }
-      
-      // Step 2: Process based on determined mode
-      if (decisionMade) {
+      } else {
+        // Step 2: Process based on determined mode (don't buffer anymore!)
         if (isJsonMode && !functionProcessed) {
           // JSON mode - buffer until complete
+          buffer += token;
           if (FunctionCallParser.isJsonComplete(buffer)) {
             final functionCall = FunctionCallParser.parse(buffer);
             if (functionCall != null) {
@@ -75,7 +74,7 @@ class ChatResponseHandler {
             }
           }
         } else if (!isJsonMode) {
-          // Text mode - stream tokens directly (no character splitting needed)
+          // Text mode - stream tokens directly (no buffering needed)
           yield TextTokenEvent(token);
         }
       }

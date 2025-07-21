@@ -550,11 +550,11 @@ Function calling is currently supported by the following models:
 ### ✅ Models with Function Calling Support
 - **Gemma 3 Nano** models (E2B, E4B) - Full function calling support
 - **Gemma 3 Nano Local Asset** models - Full function calling support
+- **Qwen** models - Full function calling support
 
 ### ❌ Models WITHOUT Function Calling Support
 - **Gemma 3 1B** models - Text generation only
 - **DeepSeek** models - Text generation only
-- **Qwen** models - Text generation only
 - **Phi** models - Text generation only
 
 **Important Notes:**

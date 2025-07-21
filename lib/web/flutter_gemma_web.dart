@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/function_call.dart';
+import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -188,7 +190,7 @@ class WebModelSession extends InferenceModelSession {
     final response =
         (await llmInference.generateResponse(fullPrompt.toJS, null).toDart)
             .toDart;
-    await addQueryChunk(Message(text: response, isUser: false));
+    // Don't add response back to queryChunks - that's handled by InferenceChat
     return response;
   }
 
@@ -197,7 +199,6 @@ class WebModelSession extends InferenceModelSession {
     _controller = StreamController<String>();
 
     final String fullPrompt = _queryChunks.join(" ");
-    final List<String> responseBuffer = [];
 
     llmInference.generateResponse(
       fullPrompt.toJS,
@@ -205,11 +206,9 @@ class WebModelSession extends InferenceModelSession {
         final complete = completeRaw.parseBool();
         final partial = partialJs.toDart;
 
-        responseBuffer.add(partial);
         _controller?.add(partial);
         if (complete) {
-          final String fullResponse = responseBuffer.join("");
-          addQueryChunk(Message(text: fullResponse, isUser: false));
+          // Don't add response back to queryChunks - that's handled by InferenceChat
           _controller?.close();
           _controller = null;
         }

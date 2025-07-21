@@ -124,7 +124,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
-    // Добавляем метод для добавления изображения
+    // Add method for adding image
     func addImage(imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, any Error>) -> Void) {
         guard let session = session else {
             completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))

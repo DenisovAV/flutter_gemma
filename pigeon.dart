@@ -27,7 +27,7 @@ abstract class PlatformService {
     required String modelPath,
     required List<int>? loraRanks,
     PreferredBackend? preferredBackend,
-    // Добавляем поддержку изображений
+    // Add image support
     int? maxNumImages,
   });
 
@@ -41,7 +41,7 @@ abstract class PlatformService {
     required int topK,
     double? topP,
     String? loraPath,
-    // Добавляем опцию для включения vision модальности
+    // Add option to enable vision modality
     bool? enableVisionModality,
   });
 
@@ -54,7 +54,7 @@ abstract class PlatformService {
   @async
   void addQueryChunk(String prompt);
 
-  // Добавляем метод для добавления изображения
+  // Add method for adding image
   @async
   void addImage(Uint8List imageBytes);
 

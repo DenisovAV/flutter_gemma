@@ -115,6 +115,7 @@ class ChatScreenState extends State<ChatScreen> {
       topP: super.widget.model.topP,
       tokenBuffer: 256,
       supportImage: widget.model.supportImage, // Image support in chat
+      supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
       tools: _tools, // Pass the tools to the chat
     );
 

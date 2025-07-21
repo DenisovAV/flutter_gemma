@@ -112,32 +112,6 @@ class Message {
     );
   }
 
-  String transformToChatPrompt() {
-    // System messages should not be sent to the model
-    if (type == MessageType.systemInfo) {
-      return '';
-    }
-    
-    if (isUser) {
-      var content = text;
-      if (type == MessageType.toolResponse) {
-        content = '<tool_response>\n'
-            'Tool Name: $toolName\n'
-            'Tool Response:\n$text\n'
-            '</tool_response>';
-      }
-      return '<start_of_turn>user\n$content<end_of_turn>';
-    }
-
-    // Handle model responses
-    var content = text;
-    if (type == MessageType.toolCall) {
-      // The text already contains the full <tool_code> block
-      content = text;
-    }
-    return '<start_of_turn>model\n$content<end_of_turn>';
-  }
-
 
   @override
   String toString() {

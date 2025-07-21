@@ -23,8 +23,8 @@ There is an example of using:
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, and Web platforms.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
+- **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
-- **Function Calling:** Enable your models to call external functions and integrate with other services.
 
 ## Installation
 
@@ -330,12 +330,15 @@ chat.generateChatResponseAsync().listen((String token) {
 });
 ```
 
-8. **Function Calling**
+8. **🛠️ Function Calling**
 
-Enable your models to call external functions and integrate with other services.
+Enable your models to call external functions and integrate with other services. **Note: Function calling is only supported by specific models - see the [Model Support](#model-function-calling-support) section below.**
+
+**Step 1: Define Tools**
+
+Tools define the functions your model can call:
 
 ```dart
-// 1. Define your tools
 final List<Tool> _tools = [
   const Tool(
     name: 'change_background_color',
@@ -351,35 +354,102 @@ final List<Tool> _tools = [
       'required': ['color'],
     },
   ),
+  const Tool(
+    name: 'show_alert',
+    description: 'Shows an alert dialog with a custom message and title.',
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'title': {
+          'type': 'string',
+          'description': 'The title of the alert dialog',
+        },
+        'message': {
+          'type': 'string',
+          'description': 'The message content of the alert dialog',
+        },
+      },
+      'required': ['title', 'message'],
+    },
+  ),
 ];
+```
 
-// 2. Create a chat with the tools
+**Step 2: Create Chat with Tools**
+
+```dart
 final chat = await inferenceModel.createChat(
-  tools: _tools,
+  temperature: 0.8,
+  tools: _tools, // Pass your tools
+  supportsFunctionCalls: true, // Enable function calling (optional, auto-detected from model)
 );
+```
 
-// 3. Handle the function call in your UI
-// This is a simplified example. See the example app for a full implementation.
-gemmaHandler: (response) async {
-  if (response is FunctionCall) {
-    // Execute the tool
-    final toolResponse = await _executeTool(response);
-    
-    // Send the tool response back to the model
-    final message = Message.toolResponse(
-      toolName: response.name,
-      response: toolResponse,
-    );
-    await chat?.addQuery(message);
-    
-    // Generate the final response
-    final finalResponse = await chat?.generateChatResponse();
-    
-    // Display the final response
-    // ...
+**Step 3: Handle Different Response Types**
+
+The model can now return two types of responses:
+
+```dart
+// Add user message
+await chat.addQueryChunk(Message.text(text: 'Change the background to blue', isUser: true));
+
+// Handle async responses
+chat.generateChatResponseAsync().listen((response) {
+  if (response is TextResponse) {
+    // Regular text token from the model
+    print('Text: ${response.token}');
+    // Update your UI with the text
+  } else if (response is FunctionCallResponse) {
+    // Model wants to call a function
+    print('Function Call: ${response.name}(${response.args})');
+    _handleFunctionCall(response);
   }
+});
+```
+
+**Step 4: Execute Function and Send Response Back**
+
+```dart
+Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
+  // Execute the requested function
+  Map<String, dynamic> toolResponse;
+  
+  switch (functionCall.name) {
+    case 'change_background_color':
+      final color = functionCall.args['color'] as String?;
+      // Your implementation here
+      toolResponse = {'status': 'success', 'message': 'Color changed to $color'};
+      break;
+    case 'show_alert':
+      final title = functionCall.args['title'] as String?;
+      final message = functionCall.args['message'] as String?;
+      // Show alert dialog
+      toolResponse = {'status': 'success', 'message': 'Alert shown'};
+      break;
+    default:
+      toolResponse = {'error': 'Unknown function: ${functionCall.name}'};
+  }
+  
+  // Send the tool response back to the model
+  final toolMessage = Message.toolResponse(
+    toolName: functionCall.name,
+    response: toolResponse,
+  );
+  await chat.addQuery(toolMessage);
+  
+  // The model will then generate a final response explaining what it did
+  final finalResponse = await chat.generateChatResponse();
+  print('Model: $finalResponse');
 }
 ```
+
+**Function Calling Best Practices:**
+
+- Use descriptive function names and clear descriptions
+- Specify required vs optional parameters
+- Always handle function execution errors gracefully
+- Send meaningful responses back to the model
+- The model will only call functions when explicitly requested by the user
 
 ## 🖼️ Message Types (NEW!)
 
@@ -399,6 +469,12 @@ final multimodalMessage = Message.withImage(
 // Image only
 final imageMessage = Message.imageOnly(imageBytes: imageBytes, isUser: true);
 
+// Tool response (for function calling)
+final toolMessage = Message.toolResponse(
+  toolName: 'change_background_color',
+  response: {'status': 'success', 'color': 'blue'},
+);
+
 // Check if message contains image
 if (message.hasImage) {
   print('This message contains an image');
@@ -407,6 +483,33 @@ if (message.hasImage) {
 // Create a copy of message
 final copiedMessage = message.copyWith(text: "Updated text");
 ```
+
+## 💬 Response Types (NEW!)
+
+When using function calling, the model can return different types of responses:
+
+```dart
+// Handle different response types
+chat.generateChatResponseAsync().listen((response) {
+  if (response is TextResponse) {
+    // Regular text token from the model
+    print('Text token: ${response.token}');
+    // Use response.token to update your UI incrementally
+    
+  } else if (response is FunctionCallResponse) {
+    // Model wants to call a function
+    print('Function: ${response.name}');
+    print('Arguments: ${response.args}');
+    
+    // Execute the function and send response back
+    _handleFunctionCall(response);
+  }
+});
+```
+
+**Response Types:**
+- **`TextResponse`**: Contains a text token (`response.token`) for regular model output
+- **`FunctionCallResponse`**: Contains function name (`response.name`) and arguments (`response.args`) when the model wants to call a function
 
 9.**Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
@@ -440,12 +543,32 @@ If you need to use the inference again later, remember to call `createModel` aga
 - [Gemma 3 Nano E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) - 1.5B parameters with vision support
 - [Gemma 3 Nano E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) - 1.5B parameters with vision support
 
+## 🛠️ Model Function Calling Support
+
+Function calling is currently supported by the following models:
+
+### ✅ Models with Function Calling Support
+- **Gemma 3 Nano** models (E2B, E4B) - Full function calling support
+- **Gemma 3 Nano Local Asset** models - Full function calling support
+
+### ❌ Models WITHOUT Function Calling Support
+- **Gemma 3 1B** models - Text generation only
+- **DeepSeek** models - Text generation only
+- **Qwen** models - Text generation only
+- **Phi** models - Text generation only
+
+**Important Notes:**
+- When using unsupported models with tools, the plugin will log a warning and ignore the tools
+- Models will work normally for text generation even if function calling is not supported
+- Check the `supportsFunctionCalls` property in your model configuration
+
 ## 🌐 Platform Support
 
 | Feature | Android | iOS | Web |
 |---------|---------|-----|-----|
 | Text Generation | ✅ | ✅ | ✅ |
 | Image Input | ✅ | ✅ | ⚠️ |
+| Function Calling | ✅ | ✅ | ✅ |
 | GPU Acceleration | ✅ | ✅ | ✅ |
 | Streaming Responses | ✅ | ✅ | ✅ |
 | LoRA Support | ✅ | ✅ | ✅ |
@@ -458,6 +581,7 @@ The full and complete example you can find in `example` folder
 ## **Important Considerations**
 
 * **Model Size:** Larger models (such as 7b and 7b-it) might be too resource-intensive for on-device inference.
+* **Function Calling Support:** Only Gemma 3 Nano models support function calling. Other models will ignore tools and show a warning.
 * **Multimodal Models:** Gemma 3 Nano models with vision support require more memory and are recommended for devices with 8GB+ RAM.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.
 * **Development vs. Production:** For production apps, do not embed the model or LoRA weights within your assets. Instead, load them once and store them securely on the device or via a network drive.
@@ -482,12 +606,13 @@ The full and complete example you can find in `example` folder
 
 ## **🚀 What's New**
 
-✅ **Function Calling** - Enable your models to call external functions and integrate with other services.
-✅ **Multimodal Support** - Text + Image input with Gemma 3 Nano models  
-✅ **Enhanced Message API** - Support for different message types  
-✅ **Simplified Setup** - Automatic vision modality configuration  
-✅ **Cross-Platform** - Works on Android, iOS, and Web (text-only)  
-✅ **Memory Optimization** - Better resource management for multimodal models
+✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano models only)  
+✅ **💬 Enhanced Response Types** - New `TextResponse` and `FunctionCallResponse` types for better handling  
+✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models  
+✅ **📨 Enhanced Message API** - Support for different message types including tool responses  
+✅ **⚙️ Simplified Setup** - Automatic vision modality configuration  
+✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (text-only)  
+✅ **💾 Memory Optimization** - Better resource management for multimodal models
 
 **Coming Soon:**
 - Enhanced web platform support for images

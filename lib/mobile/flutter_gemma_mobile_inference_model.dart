@@ -14,6 +14,38 @@ class MobileInferenceModel extends InferenceModel {
 
   final ModelType modelType;
   @override
+  Future<InferenceChat> createChat({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+    double? topP,
+    int tokenBuffer = 256,
+    String? loraPath,
+    bool? supportImage,
+    List<Tool> tools = const [],
+    bool? supportsFunctionCalls,
+  }) async {
+    chat = InferenceChat(
+      sessionCreator: () => createSession(
+        temperature: temperature,
+        randomSeed: randomSeed,
+        topK: topK,
+        topP: topP,
+        loraPath: loraPath,
+        enableVisionModality: supportImage ?? false,
+      ),
+      maxTokens: maxTokens,
+      tokenBuffer: tokenBuffer,
+      supportImage: supportImage ?? false,
+      supportsFunctionCalls: supportsFunctionCalls ?? false,
+      tools: tools,
+      modelType: modelType, // Pass the actual model type!
+    );
+    await chat!.initSession();
+    return chat!;
+  }
+
+  @override
   final int maxTokens;
   final VoidCallback onClose;
   final MobileModelManager modelManager;

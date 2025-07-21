@@ -1,4 +1,5 @@
 import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'dart:async';
 import 'dart:io';
@@ -48,7 +49,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-        final finalPrompt = message.transformToChatPrompt();
+        final finalPrompt = message.transformToChatPrompt(type: modelType);
     await _platformService.addQueryChunk(finalPrompt);
     if (message.hasImage && message.imageBytes != null && supportImage) {
       await _addImage(message.imageBytes!);

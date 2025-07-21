@@ -15,7 +15,6 @@ enum Model {
     temperature: 0.1,
     topK: 40,
     topP: 0.95,
-    supportsFunctionCalls: false,
   ),
 
   gemma3nLocalAsset(
@@ -135,7 +134,6 @@ enum Model {
     topK: 64,
     topP: 0.95,
     maxTokens: 1024,
-    supportsFunctionCalls: false,
   ),
   gemma3Cpu_1B(
     url:
@@ -150,7 +148,6 @@ enum Model {
     topK: 64,
     topP: 0.95,
     maxTokens: 1024,
-    supportsFunctionCalls: false,
   ),
 
   // Models from JSON - Qwen2.5 1.5B Instruct q8
@@ -167,7 +164,7 @@ enum Model {
     topK: 40,
     topP: 0.95,
     maxTokens: 1024,
-    supportsFunctionCalls: false,
+    supportsFunctionCalls: true,
   );
 
   // Define fields for the enum

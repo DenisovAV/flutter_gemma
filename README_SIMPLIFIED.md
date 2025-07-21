@@ -6,6 +6,7 @@ Supports: [Gemma 2B](https://huggingface.co/google/gemma-2b-it), [Gemma 7B](http
 
 ## ✅ What's New in v0.9.0
 
+- 🛠️ **Function Calling** - Models can call external functions (Gemma 3 Nano only)
 - 🖼️ **Multimodal Support** - Text + Image input with vision models
 - 🚀 **Full Gemma 3 Nano Support** with MediaPipe GenAI v0.10.24
 - ⚡ **Official CocoaPods** - No custom pods needed!
@@ -95,7 +96,47 @@ await chat.addQueryChunk(Message.withImage(
 final response = await chat.generateChatResponse();
 ```
 
-### 6. 📱 Message Types
+### 6. 🛠️ Function Calling (NEW!)
+
+```dart
+// 1. Define tools (functions the model can call)
+final List<Tool> tools = [
+  const Tool(
+    name: 'change_color',
+    description: 'Changes the background color',
+    parameters: {
+      'type': 'object',
+      'properties': {
+        'color': {'type': 'string', 'description': 'Color name'},
+      },
+      'required': ['color'],
+    },
+  ),
+];
+
+// 2. Create chat with tools (only works with Gemma 3 Nano models)
+final chat = await model.createChat(
+  tools: tools,
+  supportsFunctionCalls: true, // Auto-detected for supported models
+);
+
+// 3. Handle different response types
+chat.generateChatResponseAsync().listen((response) {
+  if (response is TextResponse) {
+    // Regular text from model
+    print('Text: ${response.token}');
+  } else if (response is FunctionCallResponse) {
+    // Model wants to call a function
+    print('Function: ${response.name}');
+    print('Args: ${response.args}');
+    
+    // Execute function and send response back
+    _handleFunctionCall(response);
+  }
+});
+```
+
+### 7. 📱 Message Types
 
 ```dart
 // Text only
@@ -120,18 +161,18 @@ if (message.hasImage) {
 ## 🎯 Supported Models
 
 ### Text-Only Models
-| Model | Size | Backend | Download |
-|-------|------|---------|----------|
-| Gemma 2B | 2B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-2b-it) |
-| Gemma 7B | 7B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-7b-it) |
-| Gemma-2 2B | 2B | CPU/GPU | [HuggingFace](https://huggingface.co/google/gemma-2-2b-it) |
-| Gemma-3 1B | 1B | CPU/GPU | [HuggingFace](https://huggingface.co/litert-community/Gemma3-1B-IT) |
+| Model | Size | Backend | Function Calls | Download |
+|-------|------|---------|----------------|----------|
+| Gemma 2B | 2B | CPU/GPU | ❌ | [HuggingFace](https://huggingface.co/google/gemma-2b-it) |
+| Gemma 7B | 7B | CPU/GPU | ❌ | [HuggingFace](https://huggingface.co/google/gemma-7b-it) |
+| Gemma-2 2B | 2B | CPU/GPU | ❌ | [HuggingFace](https://huggingface.co/google/gemma-2-2b-it) |
+| Gemma-3 1B | 1B | CPU/GPU | ❌ | [HuggingFace](https://huggingface.co/litert-community/Gemma3-1B-IT) |
 
 ### 🖼️ Multimodal Models (Vision + Text)
-| Model | Size | Backend | Vision Support | Download |
-|-------|------|---------|----------------|----------|
-| Gemma 3n E2B | 1.5B | CPU/GPU | ✅ | [HuggingFace](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) |
-| Gemma 3n E4B | 1.5B | CPU/GPU | ✅ | [HuggingFace](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) |
+| Model | Size | Backend | Vision Support | Function Calls | Download |
+|-------|------|---------|----------------|----------------|----------|
+| Gemma 3n E2B | 1.5B | CPU/GPU | ✅ | ✅ | [HuggingFace](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) |
+| Gemma 3n E4B | 1.5B | CPU/GPU | ✅ | ✅ | [HuggingFace](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) |
 
 ## 🔧 MediaPipe Dependencies
 
@@ -162,6 +203,7 @@ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm
 | Feature | Android | iOS | Web |
 |---------|---------|-----|-----|
 | Text Generation | ✅ | ✅ | ✅ |
+| Function Calling | ✅ | ✅ | ✅ |
 | Image Input | ✅ | ⚠️ | ⚠️ |
 | GPU Acceleration | ✅ | ✅ | ✅ |
 | Streaming | ✅ | ✅ | ✅ |
@@ -173,10 +215,11 @@ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm
 
 - ✅ **Official MediaPipe Support** - No custom frameworks
 - ✅ **Version 0.10.24** - Includes Gemma 3 Nano + vision support
+- ✅ **Function Calling** - External function integration (Gemma 3 Nano only)
 - ✅ **Automatic Integration** - Flutter handles CocoaPods/Gradle
 - ✅ **Cross-Platform** - Same API for iOS/Android/Web
 - ✅ **Multimodal Ready** - Text + Image input support
-- ✅ **Simple API** - One parameter to enable images
+- ✅ **Simple API** - One parameter to enable images/functions
 
 ## 🖼️ Multimodal Examples
 

@@ -1,4 +1,4 @@
-## 0.9.1
+## 0.10.0
 - ✨ **Function Calling**: Added support for function calling, allowing models to interact with external tools.
 - 🔧 **Improved Chat API**: Enhanced the chat API to support function calls and tool responses.
 

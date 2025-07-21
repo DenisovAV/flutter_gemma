@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/tool.dart';
@@ -173,7 +174,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = message.transformToChatPrompt();
+    final finalPrompt = message.transformToChatPrompt(type: modelType);
 
     // Checks for image support (as in the mobile platforms)
     if (message.hasImage && message.imageBytes != null) {
@@ -186,7 +187,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<String> getResponse() async {
-    final String fullPrompt = _queryChunks.join(" ");
+    final String fullPrompt = _queryChunks.join("");
     final response =
         (await llmInference.generateResponse(fullPrompt.toJS, null).toDart)
             .toDart;
@@ -198,7 +199,7 @@ class WebModelSession extends InferenceModelSession {
   Stream<String> getResponseAsync() {
     _controller = StreamController<String>();
 
-    final String fullPrompt = _queryChunks.join(" ");
+    final String fullPrompt = _queryChunks.join("");
 
     llmInference.generateResponse(
       fullPrompt.toJS,

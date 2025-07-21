@@ -44,8 +44,8 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
-    int? maxNumImages, // Добавляем поддержку изображений
-    bool supportImage = false, // Добавляем флаг поддержки изображений
+    int? maxNumImages, // Add image support
+    bool supportImage = false, // Add image support flag
   });
 }
 
@@ -68,7 +68,7 @@ abstract class InferenceModel {
     int topK = 1,
     double? topP,
     String? loraPath,
-    bool? enableVisionModality, // Добавляем поддержку vision модальности
+    bool? enableVisionModality, // Add vision modality support
   });
 
   Future<InferenceChat> createChat({
@@ -80,6 +80,7 @@ abstract class InferenceModel {
     String? loraPath,
     bool? supportImage,
     List<Tool> tools = const [],
+    bool? supportsFunctionCalls,
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -93,6 +94,7 @@ abstract class InferenceModel {
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
       supportImage: supportImage ?? false,
+      supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
     );
     await chat!.initSession();

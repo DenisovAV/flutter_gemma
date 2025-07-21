@@ -1,17 +1,22 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
+import 'model.dart';
+
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
   final int maxTokens;
   final int tokenBuffer;
   final bool supportImage;
+  final bool supportsFunctionCalls;
+  final ModelType modelType; // Add modelType parameter
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -25,7 +30,9 @@ class InferenceChat {
     required this.maxTokens,
     this.tokenBuffer = 2000,
     this.supportImage = false,
+    this.supportsFunctionCalls = false,
     this.tools = const [],
+    this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -41,22 +48,27 @@ class InferenceChat {
   Future<void> addQueryChunk(Message message, [bool noTool=false]) async {
     var messageToSend = message;
     // Only add tools prompt for the first user text message (not a tool response)
+    // and only if the model supports function calls
     if (message.isUser && 
         message.type == MessageType.text && 
         !_toolsInstructionSent && 
         tools.isNotEmpty && 
-        !noTool) {
+        !noTool &&
+        supportsFunctionCalls) {
       _toolsInstructionSent = true;
       final toolsPrompt = _createToolsPrompt();
       final newText = '$toolsPrompt\n${message.text}';
       messageToSend = message.copyWith(text: newText);
+    } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
+      // Log warning if model doesn't support function calls but tools are provided
+      debugPrint('WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.');
     }
 
     // --- DETAILED LOGGING ---
-    final historyForLogging = _modelHistory.map((m) => m.transformToChatPrompt()).join('\n');
+    final historyForLogging = _modelHistory.map((m) => m.transformToChatPrompt(type: modelType)).join('\n');
     debugPrint('--- Sending to Native ---');
     debugPrint('History:\n$historyForLogging');
-    debugPrint('Current Message:\n${messageToSend.transformToChatPrompt()}');
+    debugPrint('Current Message:\n${messageToSend.transformToChatPrompt(type: modelType)}');
     debugPrint('-------------------------');
     // --- END LOGGING ---
 
@@ -74,13 +86,13 @@ class InferenceChat {
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
-      return TextResponse(''); // Возвращаем TextToken вместо String
+      return TextResponse(''); // Return TextResponse instead of String
     }
 
     debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
 
-    // Try to parse as function call if tools are available
-    if (tools.isNotEmpty) {
+    // Try to parse as function call if tools are available and model supports function calls
+    if (tools.isNotEmpty && supportsFunctionCalls) {
       final functionCall = FunctionCallParser.parse(cleanedResponse);
       if (functionCall != null) {
         debugPrint('InferenceChat: Detected function call in sync response');
@@ -97,7 +109,7 @@ class InferenceChat {
     _fullHistory.add(chatMessage);
     _modelHistory.add(chatMessage);
 
-    return TextResponse(cleanedResponse); // Возвращаем TextToken вместо String
+    return TextResponse(cleanedResponse); // Return TextResponse instead of String
   }
 
   Stream<ModelResponse> generateChatResponseAsync() async* {
@@ -115,8 +127,8 @@ class InferenceChat {
       debugPrint('InferenceChat: Received token from native: "$token"');
       buffer.write(token);
       
-      // Step 1: Determine JSON or text mode (only once!)
-      if (!decisionMade && tools.isNotEmpty) {
+      // Step 1: Determine JSON or text mode (only once!) - only if model supports function calls
+      if (!decisionMade && tools.isNotEmpty && supportsFunctionCalls) {
         funcBuffer += token;
         debugPrint('InferenceChat: Function buffer now: "$funcBuffer"');
         
@@ -130,7 +142,7 @@ class InferenceChat {
           debugPrint('InferenceChat: Detected text mode - streaming immediately');
           debugPrint('InferenceChat: Emitting buffered content: "$funcBuffer"');
           // Emit accumulated buffer as single token
-          yield TextResponse(funcBuffer); // Оборачиваем в TextToken
+          yield TextResponse(funcBuffer); // Wrap in TextResponse
           funcBuffer = ''; // Clear buffer to avoid duplication
           debugPrint('InferenceChat: Mode decided - TEXT, will stream rest directly');
         } else {
@@ -138,7 +150,7 @@ class InferenceChat {
         }
       } else {
         // Step 2: Process based on determined mode (don't buffer anymore!)
-        if (tools.isNotEmpty && isJsonMode && !functionProcessed) {
+        if (tools.isNotEmpty && supportsFunctionCalls && isJsonMode && !functionProcessed) {
           // JSON mode - buffer until complete
           funcBuffer += token;
           debugPrint('InferenceChat: JSON mode - buffering token, buffer: "$funcBuffer"');
@@ -154,11 +166,11 @@ class InferenceChat {
         } else if (tools.isEmpty || !isJsonMode) {
           // Text mode - stream tokens directly (no buffering needed)
           debugPrint('InferenceChat: TEXT mode - emitting token directly: "$token"');
-          yield TextResponse(token); // Оборачиваем в TextToken
+          yield TextResponse(token); // Wrap in TextResponse
         } else {
           debugPrint('InferenceChat: Post-function mode - emitting token: "$token"');
           // After function processed, emit remaining tokens  
-          yield TextResponse(token); // Оборачиваем в TextToken
+          yield TextResponse(token); // Wrap in TextResponse
         }
       }
     }
@@ -168,7 +180,7 @@ class InferenceChat {
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
     
     // Handle end of stream - process any remaining buffer
-    if (funcBuffer.isNotEmpty && !functionProcessed && tools.isNotEmpty) {
+    if (funcBuffer.isNotEmpty && !functionProcessed && tools.isNotEmpty && supportsFunctionCalls) {
       debugPrint('InferenceChat: Processing remaining buffer at end of stream');
       if (isJsonMode) {
         final functionCall = FunctionCallParser.parse(funcBuffer);
@@ -178,11 +190,11 @@ class InferenceChat {
           functionProcessed = true;
         } else {
           debugPrint('InferenceChat: Incomplete JSON at end of stream, emitting as text');
-          yield TextResponse(funcBuffer); // Оборачиваем в TextToken
+          yield TextResponse(funcBuffer); // Wrap in TextResponse
         }
       } else if (funcBuffer.isNotEmpty) {
         debugPrint('InferenceChat: Emitting remaining buffer as text');
-        yield TextResponse(funcBuffer); // Оборачиваем в TextToken
+        yield TextResponse(funcBuffer); // Wrap in TextResponse
       }
     }
     

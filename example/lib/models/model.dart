@@ -15,6 +15,7 @@ enum Model {
     temperature: 0.1,
     topK: 40,
     topP: 0.95,
+    supportsFunctionCalls: false,
   ),
 
   gemma3nLocalAsset(
@@ -30,6 +31,7 @@ enum Model {
     temperature: 0.1,
     topK: 5,
     topP: 0.95,
+    supportsFunctionCalls: true,
   ),
 
 
@@ -45,6 +47,7 @@ enum Model {
     temperature: 0.6,
     topK: 40,
     topP: 0.7,
+    supportsFunctionCalls: true,
   ),
 
   // Models from JSON - Gemma 3n E2B (Updated version)
@@ -63,6 +66,7 @@ enum Model {
     supportImage: true,
     maxTokens: 4096,
     maxNumImages: 1,
+    supportsFunctionCalls: true,
   ),
   gemma3nCpu_2B(
     url:
@@ -79,6 +83,7 @@ enum Model {
     supportImage: true,
     maxTokens: 4096,
     maxNumImages: 1,
+    supportsFunctionCalls: true,
   ),
 
   gemma3nGpu_4B(
@@ -96,6 +101,7 @@ enum Model {
     supportImage: true,
     maxTokens: 4096,
     maxNumImages: 1,
+    supportsFunctionCalls: true,
   ),
   gemma3nCpu_4B(
     url:
@@ -112,6 +118,7 @@ enum Model {
     supportImage: true,
     maxTokens: 4096,
     maxNumImages: 1,
+    supportsFunctionCalls: true,
   ),
 
   // Models from JSON - Gemma3 1B IT q4 (Updated version)
@@ -128,6 +135,7 @@ enum Model {
     topK: 64,
     topP: 0.95,
     maxTokens: 1024,
+    supportsFunctionCalls: false,
   ),
   gemma3Cpu_1B(
     url:
@@ -142,6 +150,7 @@ enum Model {
     topK: 64,
     topP: 0.95,
     maxTokens: 1024,
+    supportsFunctionCalls: false,
   ),
 
   // Models from JSON - Qwen2.5 1.5B Instruct q8
@@ -158,6 +167,7 @@ enum Model {
     topK: 40,
     topP: 0.95,
     maxTokens: 1024,
+    supportsFunctionCalls: false,
   );
 
   // Define fields for the enum
@@ -175,6 +185,7 @@ enum Model {
   final bool supportImage;
   final int maxTokens;
   final int? maxNumImages;
+  final bool supportsFunctionCalls;
 
   // Constructor for the enum
   const Model({
@@ -192,5 +203,6 @@ enum Model {
     this.supportImage = false,
     this.maxTokens = 1024,
     this.maxNumImages,
+    this.supportsFunctionCalls = false,
   });
 }

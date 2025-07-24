@@ -117,6 +117,8 @@ class ChatScreenState extends State<ChatScreen> {
       supportImage: widget.model.supportImage, // Image support in chat
       supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
       tools: _tools, // Pass the tools to the chat
+      isThinking: widget.model.isThinking, // Pass isThinking from model
+      modelType: widget.model.modelType, // Pass modelType from model
     );
 
     setState(() {

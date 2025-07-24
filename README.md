@@ -24,6 +24,7 @@ There is an example of using:
 - **Platform Support:** Compatible with iOS, Android, and Web platforms.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
+- **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks (NEW!)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 
 ## Installation
@@ -47,12 +48,50 @@ There is an example of using:
 2. **Platform specific setup:**
 
 **iOS**
-* Enable file sharing in `info.plist`:
+
+* **Set minimum iOS version** in `Podfile`:
+```ruby
+platform :ios, '16.0'  # Required for MediaPipe GenAI
+```
+
+* **Enable file sharing** in `Info.plist`:
 ```plist
 <key>UIFileSharingEnabled</key>
 <true/>
 ```
-* Change the linking type of pods to static, replace `use_frameworks!` in Podfile with `use_frameworks! :linkage => :static`
+
+* **Add network access description** in `Info.plist` (for development):
+```plist
+<key>NSLocalNetworkUsageDescription</key>
+<string>This app requires local network access for model inference services.</string>
+```
+
+* **Enable performance optimization** in `Info.plist` (optional):
+```plist
+<key>CADisableMinimumFrameDurationOnPhone</key>
+<true/>
+```
+
+* **Add memory entitlements** in `Runner.entitlements` (for large models):
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-debugging-memory-limit</key>
+	<true/>
+</dict>
+</plist>
+```
+
+* **Change the linking type** of pods to static in `Podfile`:
+```ruby
+use_frameworks! :linkage => :static
+```
 
 **Android**
 
@@ -91,9 +130,11 @@ The new API splits functionality into two parts:
 
 The updated API splits the functionality into two main parts:
 
-* Access the plugin via:
+* Import and access the plugin:
 
 ```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
 final gemma = FlutterGemmaPlugin.instance;
 ```
 
@@ -212,9 +253,12 @@ If you need to generate individual responses without maintaining a conversation 
 
 ```dart
 final session = await inferenceModel.createSession(
-  temperature: 1.0, // Optional, default is 0.8
-  randomSeed: 1, // Optional, default is 1
-  topK: 1, // Optional, default is 1
+  temperature: 1.0, // Optional, default: 0.8
+  randomSeed: 1, // Optional, default: 1
+  topK: 1, // Optional, default: 1
+  // topP: 0.9, // Optional nucleus sampling parameter
+  // loraPath: 'path/to/lora.bin', // Optional LoRA weights path
+  // enableVisionModality: true, // Enable vision for multimodal models
 );
 
 await session.addQueryChunk(Message.text(text: 'Tell me something interesting', isUser: true));
@@ -227,7 +271,11 @@ await session.close(); // Always close the session when done
 2) **🖼️ Multimodal Session (NEW!):**
 
 ```dart
-final session = await inferenceModel.createSession();
+import 'dart:typed_data'; // For Uint8List
+
+final session = await inferenceModel.createSession(
+  enableVisionModality: true, // Enable image processing
+);
 
 // Text + Image message
 final imageBytes = await loadImageBytes(); // Your image loading method
@@ -237,6 +285,7 @@ await session.addQueryChunk(Message.withImage(
   isUser: true,
 ));
 
+// Note: session.getResponse() returns String directly
 String response = await session.getResponse();
 print(response);
 
@@ -249,6 +298,7 @@ await session.close();
 final session = await inferenceModel.createSession();
 await session.addQueryChunk(Message.text(text: 'Tell me something interesting', isUser: true));
 
+// Note: session.getResponseAsync() returns Stream<String>
 session.getResponseAsync().listen((String token) {
   print(token);
 }, onDone: () {
@@ -267,9 +317,17 @@ For chat-based applications, you can create a chat instance. Unlike sessions, th
 **Text-Only Chat:**
 ```dart
 final chat = await inferenceModel.createChat(
-  temperature: 0.8, // Controls response randomness
-  randomSeed: 1, // Ensures reproducibility
-  topK: 1, // Limits vocabulary scope
+  temperature: 0.8, // Controls response randomness, default: 0.8
+  randomSeed: 1, // Ensures reproducibility, default: 1
+  topK: 1, // Limits vocabulary scope, default: 1
+  // topP: 0.9, // Optional nucleus sampling parameter
+  // tokenBuffer: 256, // Token buffer size, default: 256
+  // loraPath: 'path/to/lora.bin', // Optional LoRA weights path
+  // supportImage: false, // Enable image support, default: false
+  // tools: [], // List of available tools, default: []
+  // supportsFunctionCalls: false, // Enable function calling, default: false
+  // isThinking: false, // Enable thinking mode, default: false
+  // modelType: ModelType.gemmaIt, // Model type, default: ModelType.gemmaIt
 );
 ```
 
@@ -280,6 +338,19 @@ final chat = await inferenceModel.createChat(
   randomSeed: 1, // Ensures reproducibility
   topK: 1, // Limits vocabulary scope
   supportImage: true, // Enable image support in chat
+  // tokenBuffer: 256, // Token buffer size for context management
+);
+```
+
+**🧠 Thinking Mode Chat (DeepSeek Models):**
+```dart
+final chat = await inferenceModel.createChat(
+  temperature: 0.8,
+  randomSeed: 1,
+  topK: 1,
+  isThinking: true, // Enable thinking mode for DeepSeek models
+  modelType: ModelType.deepSeek, // Specify DeepSeek model type
+  // supportsFunctionCalls: true, // Auto-detected for DeepSeek
 );
 ```
 
@@ -287,12 +358,16 @@ final chat = await inferenceModel.createChat(
 
 ```dart
 await chat.addQueryChunk(Message.text(text: 'User: Hello, who are you?', isUser: true));
-String response = await chat.generateChatResponse();
-print(response);
+ModelResponse response = await chat.generateChatResponse();
+if (response is TextResponse) {
+  print(response.token);
+}
 
 await chat.addQueryChunk(Message.text(text: 'User: Are you sure?', isUser: true));
-String response2 = await chat.generateChatResponse();
-print(response2);
+ModelResponse response2 = await chat.generateChatResponse();
+if (response2 is TextResponse) {
+  print(response2.token);
+}
 ```
 
 2) **🖼️ Multimodal Chat Example:**
@@ -300,7 +375,10 @@ print(response2);
 ```dart
 // Add text message
 await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
-String response1 = await chat.generateChatResponse();
+ModelResponse response1 = await chat.generateChatResponse();
+if (response1 is TextResponse) {
+  print(response1.token);
+}
 
 // Add image message
 final imageBytes = await loadImageBytes();
@@ -309,11 +387,17 @@ await chat.addQueryChunk(Message.withImage(
   imageBytes: imageBytes,
   isUser: true,
 ));
-String response2 = await chat.generateChatResponse();
+ModelResponse response2 = await chat.generateChatResponse();
+if (response2 is TextResponse) {
+  print(response2.token);
+}
 
 // Add image-only message
 await chat.addQueryChunk(Message.imageOnly(imageBytes: imageBytes, isUser: true));
-String response3 = await chat.generateChatResponse();
+ModelResponse response3 = await chat.generateChatResponse();
+if (response3 is TextResponse) {
+  print(response3.token);
+}
 ```
 
 3) **Asynchronous Chat (Streaming):**
@@ -321,8 +405,14 @@ String response3 = await chat.generateChatResponse();
 ```dart
 await chat.addQueryChunk(Message.text(text: 'User: Hello, who are you?', isUser: true));
 
-chat.generateChatResponseAsync().listen((String token) {
-  print(token);
+chat.generateChatResponseAsync().listen((ModelResponse response) {
+  if (response is TextResponse) {
+    print(response.token);
+  } else if (response is FunctionCallResponse) {
+    print('Function call: ${response.name}');
+  } else if (response is ThinkingResponse) {
+    print('Thinking: ${response.content}');
+  }
 }, onDone: () {
   print('Chat stream closed');
 }, onError: (error) {
@@ -380,8 +470,11 @@ final List<Tool> _tools = [
 ```dart
 final chat = await inferenceModel.createChat(
   temperature: 0.8,
+  randomSeed: 1,
+  topK: 1,
   tools: _tools, // Pass your tools
   supportsFunctionCalls: true, // Enable function calling (optional, auto-detected from model)
+  // tokenBuffer: 256, // Adjust if needed for function calling
 );
 ```
 
@@ -435,11 +528,13 @@ Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
     toolName: functionCall.name,
     response: toolResponse,
   );
-  await chat.addQuery(toolMessage);
+  await chat.addQueryChunk(toolMessage);
   
   // The model will then generate a final response explaining what it did
   final finalResponse = await chat.generateChatResponse();
-  print('Model: $finalResponse');
+  if (finalResponse is TextResponse) {
+    print('Model: ${finalResponse.token}');
+  }
 }
 ```
 
@@ -450,6 +545,79 @@ Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
 - Always handle function execution errors gracefully
 - Send meaningful responses back to the model
 - The model will only call functions when explicitly requested by the user
+
+9. **🧠 Thinking Mode (DeepSeek Models)**
+
+DeepSeek models support "thinking mode" where you can see the model's reasoning process before it generates the final response. This provides transparency into how the model approaches problems.
+
+**Enable Thinking Mode:**
+
+```dart
+final chat = await inferenceModel.createChat(
+  temperature: 0.8,
+  randomSeed: 1,
+  topK: 1,
+  isThinking: true, // Enable thinking mode
+  modelType: ModelType.deepSeek, // Required for DeepSeek models
+  supportsFunctionCalls: true, // DeepSeek also supports function calls
+  tools: _tools, // Optional: add tools for function calling
+  // tokenBuffer: 256, // Token buffer for context management
+);
+```
+
+**Handle Thinking Responses:**
+
+```dart
+chat.generateChatResponseAsync().listen((response) {
+  if (response is ThinkingResponse) {
+    // Model's reasoning process
+    print('Model is thinking: ${response.content}');
+    // Show thinking bubble in UI
+    _showThinkingBubble(response.content);
+    
+  } else if (response is TextResponse) {
+    // Final response after thinking
+    print('Final answer: ${response.token}');
+    _updateFinalResponse(response.token);
+    
+  } else if (response is FunctionCallResponse) {
+    // DeepSeek can also call functions while thinking
+    print('Function call: ${response.name}');
+    _handleFunctionCall(response);
+  }
+});
+```
+
+**Thinking Mode Features:**
+- ✅ **Transparent Reasoning**: See how the model thinks through problems
+- ✅ **Interactive UI**: Show/hide thinking bubbles with expandable content
+- ✅ **Streaming Support**: Thinking content streams in real-time
+- ✅ **Function Integration**: Models can think before calling functions
+- ✅ **DeepSeek Optimized**: Designed specifically for DeepSeek model architecture
+
+**Example Thinking Flow:**
+1. User asks: "Change the background to blue and explain why blue is calming"
+2. Model thinks: "I need to change the color first, then explain the psychology"
+3. Model calls: `change_background_color(color: 'blue')`
+4. Model explains: "Blue is calming because it's associated with sky and ocean..."
+
+10. **Checking Token Usage**
+You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
+
+```dart
+int tokenCount = await session.sizeInTokens('Your prompt text here');
+print('Prompt size in tokens: $tokenCount');
+```
+
+11. **Closing the Model**
+
+When you no longer need to perform any further inferences, call the close method to release resources:
+
+```dart
+await inferenceModel.close();
+```
+
+If you need to use the inference again later, remember to call `createModel` again before generating responses.
 
 ## 🖼️ Message Types (NEW!)
 
@@ -486,7 +654,7 @@ final copiedMessage = message.copyWith(text: "Updated text");
 
 ## 💬 Response Types (NEW!)
 
-When using function calling, the model can return different types of responses:
+The model can return different types of responses depending on capabilities:
 
 ```dart
 // Handle different response types
@@ -497,12 +665,18 @@ chat.generateChatResponseAsync().listen((response) {
     // Use response.token to update your UI incrementally
     
   } else if (response is FunctionCallResponse) {
-    // Model wants to call a function
+    // Model wants to call a function (Gemma 3 Nano, DeepSeek)
     print('Function: ${response.name}');
     print('Arguments: ${response.args}');
     
     // Execute the function and send response back
     _handleFunctionCall(response);
+  } else if (response is ThinkingResponse) {
+    // Model's reasoning process (DeepSeek models only)
+    print('Thinking: ${response.content}');
+    
+    // Show thinking process in UI
+    _showThinkingBubble(response.content);
   }
 });
 ```
@@ -510,24 +684,8 @@ chat.generateChatResponseAsync().listen((response) {
 **Response Types:**
 - **`TextResponse`**: Contains a text token (`response.token`) for regular model output
 - **`FunctionCallResponse`**: Contains function name (`response.name`) and arguments (`response.args`) when the model wants to call a function
+- **`ThinkingResponse`**: Contains the model's reasoning process (`response.content`) for DeepSeek models with thinking mode enabled
 
-9.**Checking Token Usage**
-You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
-
-```dart
-int tokenCount = await session.sizeInTokens('Your prompt text here');
-print('Prompt size in tokens: $tokenCount');
-```
-
-10.**Closing the Model**
-
-When you no longer need to perform any further inferences, call the close method to release resources:
-
-```dart
-await inferenceModel.close();
-```
-
-If you need to use the inference again later, remember to call `createModel` again before generating responses.
 
 ## 🎯 Supported Models
 
@@ -549,12 +707,11 @@ Function calling is currently supported by the following models:
 
 ### ✅ Models with Function Calling Support
 - **Gemma 3 Nano** models (E2B, E4B) - Full function calling support
-- **Gemma 3 Nano Local Asset** models - Full function calling support
+- **DeepSeek** models - Function calling + thinking mode support
+- **Qwen** models - Full function calling support
 
 ### ❌ Models WITHOUT Function Calling Support
 - **Gemma 3 1B** models - Text generation only
-- **DeepSeek** models - Text generation only
-- **Qwen** models - Text generation only
 - **Phi** models - Text generation only
 
 **Important Notes:**
@@ -581,8 +738,10 @@ The full and complete example you can find in `example` folder
 ## **Important Considerations**
 
 * **Model Size:** Larger models (such as 7b and 7b-it) might be too resource-intensive for on-device inference.
-* **Function Calling Support:** Only Gemma 3 Nano models support function calling. Other models will ignore tools and show a warning.
+* **Function Calling Support:** Gemma 3 Nano and DeepSeek models support function calling. Other models will ignore tools and show a warning.
+* **Thinking Mode:** Only DeepSeek models support thinking mode. Enable with `isThinking: true` and `modelType: ModelType.deepSeek`.
 * **Multimodal Models:** Gemma 3 Nano models with vision support require more memory and are recommended for devices with 8GB+ RAM.
+* **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements` and minimum iOS 16.0.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.
 * **Development vs. Production:** For production apps, do not embed the model or LoRA weights within your assets. Instead, load them once and store them securely on the device or via a network drive.
 * **Web Models:** Currently, Web support is available only for GPU backend models. Multimodal support is in development.
@@ -600,14 +759,24 @@ The full and complete example you can find in `example` folder
 - Consider using CPU backend for text-only models on lower-end devices
 
 **Memory Issues:**
+- **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)
+- **iOS**: Set minimum platform to iOS 16.0 in Podfile
 - Reduce `maxTokens` if experiencing memory issues
+- Use smaller models (1B-2B parameters) for devices with <6GB RAM
 - Close sessions and models when not needed
 - Monitor token usage with `sizeInTokens()`
 
+**iOS Build Issues:**
+- Ensure minimum iOS version is set to 16.0 in Podfile
+- Use static linking: `use_frameworks! :linkage => :static`
+- Clean and reinstall pods: `cd ios && pod install --repo-update`
+- Check that all required entitlements are in `Runner.entitlements`
+
 ## **🚀 What's New**
 
-✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano models only)  
-✅ **💬 Enhanced Response Types** - New `TextResponse` and `FunctionCallResponse` types for better handling  
+✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano and DeepSeek models)  
+✅ **🧠 Thinking Mode** - View the reasoning process of DeepSeek models with interactive thinking bubbles  
+✅ **💬 Enhanced Response Types** - New `TextResponse`, `FunctionCallResponse`, and `ThinkingResponse` types for better handling  
 ✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models  
 ✅ **📨 Enhanced Message API** - Support for different message types including tool responses  
 ✅ **⚙️ Simplified Setup** - Automatic vision modality configuration  

@@ -43,7 +43,7 @@ class FunctionCallParser {
     
     // Direct JSON: starts with { and ends with }
     if (clean.startsWith('{') && clean.endsWith('}')) {
-      return _isValidJson(clean);
+      return _isBalancedJson(clean);
     }
     
     // Markdown JSON block: ```json...```
@@ -192,5 +192,43 @@ class FunctionCallParser {
     } catch (e) {
       return false;
     }
+  }
+  
+  /// Fast check for balanced braces without full JSON parsing
+  static bool _isBalancedJson(String str) {
+    int braceCount = 0;
+    bool inString = false;
+    bool escaped = false;
+    
+    for (int i = 0; i < str.length; i++) {
+      final char = str[i];
+      
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      
+      if (char == '\\') {
+        escaped = true;
+        continue;
+      }
+      
+      if (char == '"') {
+        inString = !inString;
+        continue;
+      }
+      
+      if (!inString) {
+        if (char == '{') {
+          braceCount++;
+        } else if (char == '}') {
+          braceCount--;
+          if (braceCount < 0) return false; // More closing than opening
+        }
+      }
+    }
+    
+    // JSON is complete if braces are balanced and we have at least one pair
+    return braceCount == 0 && str.contains('{');
   }
 }

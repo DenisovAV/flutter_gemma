@@ -17,6 +17,7 @@ class InferenceChat {
   final bool supportImage;
   final bool supportsFunctionCalls;
   final ModelType modelType; // Add modelType parameter
+  final bool isThinking; // Add isThinking flag for thinking models
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -33,6 +34,7 @@ class InferenceChat {
     this.supportsFunctionCalls = false,
     this.tools = const [],
     this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
+    this.isThinking = false, // Default to false for backward compatibility
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -82,7 +84,11 @@ class InferenceChat {
   Future<ModelResponse> generateChatResponse() async {
     debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final cleanedResponse = _cleanResponse(response);
+    final cleanedResponse = ModelThinkingFilter.cleanResponse(
+      response,
+      isThinking: isThinking,
+      modelType: modelType
+    );
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
@@ -123,55 +129,74 @@ class InferenceChat {
     bool functionProcessed = false;
 
     debugPrint('InferenceChat: Starting to iterate over native tokens...');
-    await for (final token in session.getResponseAsync()) {
-      debugPrint('InferenceChat: Received token from native: "$token"');
-      buffer.write(token);
-      
-      // Step 1: Determine JSON or text mode (only once!) - only if model supports function calls
-      if (!decisionMade && tools.isNotEmpty && supportsFunctionCalls) {
-        funcBuffer += token;
-        debugPrint('InferenceChat: Function buffer now: "$funcBuffer"');
+    
+    final originalStream = session.getResponseAsync().map((token) => TextResponse(token));
+    
+    // Apply thinking filter if needed using ModelThinkingFilter
+    final Stream<ModelResponse> filteredStream = isThinking 
+        ? ModelThinkingFilter.filterThinkingStream(
+            originalStream, 
+            modelType: modelType
+          )
+        : originalStream;
         
-        if (FunctionCallParser.isJsonStart(funcBuffer)) {
-          isJsonMode = true;
-          decisionMade = true;
-          debugPrint('InferenceChat: Detected JSON mode');
-        } else if (FunctionCallParser.isDefinitelyText(funcBuffer)) {
-          isJsonMode = false;
-          decisionMade = true;
-          debugPrint('InferenceChat: Detected text mode - streaming immediately');
-          debugPrint('InferenceChat: Emitting buffered content: "$funcBuffer"');
-          // Emit accumulated buffer as single token
-          yield TextResponse(funcBuffer); // Wrap in TextResponse
-          funcBuffer = ''; // Clear buffer to avoid duplication
-          debugPrint('InferenceChat: Mode decided - TEXT, will stream rest directly');
+    await for (final response in filteredStream) {
+      if (response is TextResponse) {
+        final token = response.token;
+        debugPrint('InferenceChat: Received filtered token: "$token"');
+        
+        // ВАЖНО: Записываем отфильтрованный токен в буффер, а не оригинальный
+        buffer.write(token);
+        
+        // Step 1: Determine JSON or text mode (only once!) - only if model supports function calls
+        if (!decisionMade && tools.isNotEmpty && supportsFunctionCalls) {
+          funcBuffer += token;
+          debugPrint('InferenceChat: Function buffer now: "$funcBuffer"');
+        
+          if (FunctionCallParser.isJsonStart(funcBuffer)) {
+            isJsonMode = true;
+            decisionMade = true;
+            debugPrint('InferenceChat: Detected JSON mode');
+          } else if (FunctionCallParser.isDefinitelyText(funcBuffer)) {
+            isJsonMode = false;
+            decisionMade = true;
+            debugPrint('InferenceChat: Detected text mode - streaming immediately');
+            debugPrint('InferenceChat: Emitting buffered content: "$funcBuffer"');
+            // Emit accumulated buffer as single token
+            yield TextResponse(funcBuffer); // Wrap in TextResponse
+            funcBuffer = ''; // Clear buffer to avoid duplication
+            debugPrint('InferenceChat: Mode decided - TEXT, will stream rest directly');
+          } else {
+            debugPrint('InferenceChat: Mode not yet determined, continuing to buffer');
+          }
         } else {
-          debugPrint('InferenceChat: Mode not yet determined, continuing to buffer');
+          // Step 2: Process based on determined mode (don't buffer anymore!)
+          if (tools.isNotEmpty && supportsFunctionCalls && isJsonMode && !functionProcessed) {
+            // JSON mode - buffer until complete
+            funcBuffer += token;
+            debugPrint('InferenceChat: JSON mode - buffering token, buffer: "$funcBuffer"');
+            if (FunctionCallParser.isJsonComplete(funcBuffer)) {
+              final functionCall = FunctionCallParser.parse(funcBuffer);
+              if (functionCall != null) {
+                debugPrint('InferenceChat: Function call parsed successfully');
+                yield functionCall;
+                functionProcessed = true;
+                funcBuffer = ''; // Clear buffer, rest will be text response
+              }
+            }
+          } else if (tools.isEmpty || !isJsonMode) {
+            // Text mode - stream tokens directly (no buffering needed)
+            debugPrint('InferenceChat: TEXT mode - emitting token directly: "$token"');
+            yield response; // Use filtered response
+          } else {
+            debugPrint('InferenceChat: Post-function mode - emitting token: "$token"');
+            // After function processed, emit remaining tokens  
+            yield response; // Use filtered response
+          }
         }
       } else {
-        // Step 2: Process based on determined mode (don't buffer anymore!)
-        if (tools.isNotEmpty && supportsFunctionCalls && isJsonMode && !functionProcessed) {
-          // JSON mode - buffer until complete
-          funcBuffer += token;
-          debugPrint('InferenceChat: JSON mode - buffering token, buffer: "$funcBuffer"');
-          if (FunctionCallParser.isJsonComplete(funcBuffer)) {
-            final functionCall = FunctionCallParser.parse(funcBuffer);
-            if (functionCall != null) {
-              debugPrint('InferenceChat: Function call parsed successfully');
-              yield functionCall;
-              functionProcessed = true;
-              funcBuffer = ''; // Clear buffer, rest will be text response
-            }
-          }
-        } else if (tools.isEmpty || !isJsonMode) {
-          // Text mode - stream tokens directly (no buffering needed)
-          debugPrint('InferenceChat: TEXT mode - emitting token directly: "$token"');
-          yield TextResponse(token); // Wrap in TextResponse
-        } else {
-          debugPrint('InferenceChat: Post-function mode - emitting token: "$token"');
-          // After function processed, emit remaining tokens  
-          yield TextResponse(token); // Wrap in TextResponse
-        }
+        // For non-TextResponse (like ThinkingResponse), pass through
+        yield response;
       }
     }
     

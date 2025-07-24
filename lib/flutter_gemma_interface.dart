@@ -81,6 +81,8 @@ abstract class InferenceModel {
     bool? supportImage,
     List<Tool> tools = const [],
     bool? supportsFunctionCalls,
+    bool isThinking = false, // Add isThinking parameter
+    ModelType? modelType, // Add modelType parameter
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -96,6 +98,8 @@ abstract class InferenceModel {
       supportImage: supportImage ?? false,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
+      isThinking: isThinking, // Pass isThinking parameter
+      modelType: modelType ?? ModelType.gemmaIt, // Use provided modelType or default
     );
     await chat!.initSession();
     return chat!;

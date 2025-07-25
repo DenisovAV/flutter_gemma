@@ -59,6 +59,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
       debugPrint('GemmaInputField: Already processing, returning');
       return;
     }
+    
     setState(() {
       _processing = true;
       _message = const Message(text: '', isUser: false); // Сбрасываем сообщение
@@ -67,6 +68,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
       _completedThinking = null; // Сбрасываем сохраненный thinking
       _pendingFunctionCall = null; // Сбрасываем pending function
     });
+    debugPrint('GemmaInputField: Cleared all state for new request');
 
     try {
       debugPrint('GemmaInputField: Processing message: "${widget.messages.last.text}"');

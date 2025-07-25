@@ -68,14 +68,10 @@ class _ChatListWidgetState extends State<ChatListWidget> {
               streamHandler: _handleGemmaResponse,
               errorHandler: widget.errorHandler,
               onThinkingCompleted: (String thinkingContent) {
-                // Добавляем thinking как специальное системное сообщение в историю
+                // Добавляем thinking как специальное thinking сообщение в историю
                 if (thinkingContent.isNotEmpty) {
-                  debugPrint('ChatListWidget: Adding thinking as system message: ${thinkingContent.length} chars');
-                  final thinkingMessage = Message(
-                    text: thinkingContent,
-                    isUser: false,
-                    type: MessageType.systemInfo, // Специальный тип для thinking
-                  );
+                  debugPrint('ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
+                  final thinkingMessage = Message.thinking(text: thinkingContent);
                   widget.humanHandler(thinkingMessage); // Добавляем в историю через тот же handler
                   
                   setState(() {
@@ -111,8 +107,8 @@ class _ChatListWidgetState extends State<ChatListWidget> {
           final messageIndex = index - 3;
           final message = widget.messages.reversed.toList()[messageIndex];
           
-          // If this is a thinking message (systemInfo type), show as ThinkingWidget
-          if (message.type == MessageType.systemInfo) {
+          // If this is a thinking message, show as ThinkingWidget
+          if (message.type == MessageType.thinking) {
             final originalMessageIndex = widget.messages.length - 1 - messageIndex;
             final isExpanded = _thinkingExpandedStates[originalMessageIndex] ?? false;
             

@@ -189,6 +189,7 @@ class FunctionCallParser {
     int braceCount = 0;
     bool inString = false;
     bool escaped = false;
+    bool hasSeenOpenBrace = false;
     
     for (int i = 0; i < str.length; i++) {
       final char = str[i];
@@ -211,6 +212,7 @@ class FunctionCallParser {
       if (!inString) {
         if (char == '{') {
           braceCount++;
+          hasSeenOpenBrace = true;
         } else if (char == '}') {
           braceCount--;
           if (braceCount < 0) return false; // More closing than opening
@@ -218,7 +220,7 @@ class FunctionCallParser {
       }
     }
     
-    // JSON is complete if braces are balanced and we have at least one pair
-    return braceCount == 0 && str.contains('{');
+    // JSON is complete if braces are balanced and we've seen at least one opening brace
+    return braceCount == 0 && hasSeenOpenBrace;
   }
 }

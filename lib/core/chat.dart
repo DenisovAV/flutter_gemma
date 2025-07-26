@@ -11,6 +11,9 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'model.dart';
 
+// Constants
+const int _maxFunctionBufferLength = 150;
+
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
   final int maxTokens;
@@ -192,7 +195,7 @@ class InferenceChat {
             }
             
             // If buffer gets too long without completing, flush as text
-            if (funcBuffer.length > 150) {
+            if (funcBuffer.length > _maxFunctionBufferLength) {
               debugPrint('InferenceChat: Buffer too long without completion, flushing as text');
               yield TextResponse(funcBuffer);
               funcBuffer = '';

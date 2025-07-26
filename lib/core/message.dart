@@ -6,7 +6,8 @@ enum MessageType {
   text,
   toolResponse,
   toolCall,
-  systemInfo, // New type for function call indicators
+  systemInfo, // For function call indicators
+  thinking, // For thinking mode content
 }
 
 class Message {
@@ -109,6 +110,16 @@ class Message {
       type: MessageType.systemInfo,
       isUser: false,
       toolName: icon, // Reuse toolName field for icon
+    );
+  }
+
+  factory Message.thinking({
+    required String text,
+  }) {
+    return Message(
+      text: text,
+      type: MessageType.thinking,
+      isUser: false,
     );
   }
 

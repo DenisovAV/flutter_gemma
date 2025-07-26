@@ -47,6 +47,7 @@ enum Model {
     topK: 40,
     topP: 0.7,
     supportsFunctionCalls: true,
+    isThinking: true,
   ),
 
   // Models from JSON - Gemma 3n E2B (Updated version)
@@ -183,6 +184,7 @@ enum Model {
   final int maxTokens;
   final int? maxNumImages;
   final bool supportsFunctionCalls;
+  final bool isThinking;
 
   // Constructor for the enum
   const Model({
@@ -201,5 +203,6 @@ enum Model {
     this.maxTokens = 1024,
     this.maxNumImages,
     this.supportsFunctionCalls = false,
+    this.isThinking = false,
   });
 }

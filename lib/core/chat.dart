@@ -11,6 +11,10 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'model.dart';
 
 // Constants
+/// Maximum length for function call buffer before flushing as text.
+/// 150 characters is sufficient for most JSON function calls while preventing
+/// infinite buffering of malformed JSON that never completes.
+/// Typical function call: {"name": "func_name", "parameters": {...}} ≈ 50-120 chars
 const int _maxFunctionBufferLength = 150;
 
 class InferenceChat {

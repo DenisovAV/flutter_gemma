@@ -21,7 +21,7 @@ class ThinkingWidget extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(
           color: theme.colorScheme.outline.withOpacity(0.3),
@@ -64,7 +64,7 @@ class ThinkingWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
+                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(4.0),
               ),
               child: Text(
@@ -135,7 +135,7 @@ class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       padding: const EdgeInsets.all(12.0),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
         borderRadius: BorderRadius.circular(8.0),
         border: Border.all(
           color: theme.colorScheme.outline.withOpacity(0.3),
@@ -197,7 +197,7 @@ class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
             Container(
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
+                color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(4.0),
               ),
               child: Text(

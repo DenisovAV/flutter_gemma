@@ -15,13 +15,15 @@ class GemmaInputField extends StatefulWidget {
     required this.errorHandler,
     this.chat,
     this.onThinkingCompleted,
+    this.isProcessing = false,
   });
 
   final InferenceChat? chat;
   final List<Message> messages;
-  final ValueChanged<ModelResponse> streamHandler; // Отдает ModelResponse (токены или функции)
+  final ValueChanged<ModelResponse> streamHandler; // Returns ModelResponse (tokens or functions)
   final ValueChanged<String> errorHandler;
-  final ValueChanged<String>? onThinkingCompleted; // Callback для завершенного thinking content
+  final ValueChanged<String>? onThinkingCompleted; // Callback for completed thinking content
+  final bool isProcessing; // Global processing state from ChatScreen
 
   @override
   GemmaInputFieldState createState() => GemmaInputFieldState();
@@ -32,11 +34,11 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   var _message = const Message(text: '', isUser: false);
   bool _processing = false;
   StreamSubscription<ModelResponse>? _streamSubscription;
-  FunctionCallResponse? _pendingFunctionCall; // Храним функцию для отправки в onDone
-  String _thinkingContent = ''; // Накапливаем thinking content
-  bool _isThinkingExpanded = false; // Состояние раскрытия thinking блока
-  bool _thinkingCompleted = false; // Thinking завершен
-  ThinkingResponse? _completedThinking; // Сохраняем завершенный thinking
+  FunctionCallResponse? _pendingFunctionCall; // Store function to send in onDone
+  String _thinkingContent = ''; // Accumulate thinking content
+  bool _isThinkingExpanded = false; // Thinking block expansion state
+  bool _thinkingCompleted = false; // Thinking completed
+  ThinkingResponse? _completedThinking; // Store completed thinking
 
   @override
   void initState() {
@@ -54,66 +56,49 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   }
 
   void _processMessages() async {
-    debugPrint('GemmaInputField: _processMessages() called');
-    if (_processing) {
-      debugPrint('GemmaInputField: Already processing, returning');
-      return;
-    }
+    if (_processing) return;
+    
+    // DEBUG: Track what we're processing
+    final isAfterFunction = widget.messages.isNotEmpty && !widget.messages.last.isUser;
+    debugPrint('🔵 GemmaInputField: Starting processing - isAfterFunction: $isAfterFunction');
     
     setState(() {
       _processing = true;
-      _message = const Message(text: '', isUser: false); // Сбрасываем сообщение
-      _thinkingContent = ''; // Сбрасываем thinking content
-      _thinkingCompleted = false; // Сбрасываем флаг завершения
-      _completedThinking = null; // Сбрасываем сохраненный thinking
-      _pendingFunctionCall = null; // Сбрасываем pending function
+      _message = const Message(text: '', isUser: false);
+      _thinkingContent = '';
+      _thinkingCompleted = false;
+      _completedThinking = null;
+      _pendingFunctionCall = null;
     });
-    debugPrint('GemmaInputField: Cleared all state for new request');
 
     try {
-      debugPrint('GemmaInputField: Processing message: "${widget.messages.last.text}"');
       final responseStream = await _gemma?.processMessage(widget.messages.last);
-      debugPrint('GemmaInputField: Got response stream from GemmaLocalService');
       
       if (responseStream != null) {
-        debugPrint('GemmaInputField: Creating StreamSubscription');
         _streamSubscription = responseStream.listen(
           (response) {
-            debugPrint('GemmaInputField: Received token: $response');
             if (mounted) {
-              // Accumulate tokens locally - don't call streamHandler yet!
               setState(() {
                 if (response is String) {
-                  // Обратная совместимость: строки из старого стрима
                   _message = Message(text: '${_message.text}$response', isUser: false);
-                  debugPrint('GemmaInputField: Updated local message from String: "${_message.text}"');
                 } else if (response is TextResponse) {
-                  // Основной способ: получаем TextToken
                   _message = Message(text: '${_message.text}${response.token}', isUser: false);
-                  debugPrint('GemmaInputField: Updated local message from TextToken: "${_message.text}"');
+                  // DEBUG: Track text accumulation
+                  debugPrint('📝 GemmaInputField: Text accumulated: "${response.token}" -> total: "${_message.text}"');
                 } else if (response is ThinkingResponse) {
-                  // Накапливаем thinking content
                   _thinkingContent += response.content;
-                  debugPrint('GemmaInputField: Accumulated thinking content: "$_thinkingContent"');
                 } else if (response is FunctionCallResponse) {
-                  // Сохраняем функцию для отправки в onDone
-                  debugPrint('GemmaInputField: Function call received: ${response.name}');
+                  debugPrint('🔧 GemmaInputField: Function call received: ${response.name}');
                   _pendingFunctionCall = response;
-                  // Не обновляем _message, тк функция - не текст
                 }
               });
-            } else {
-              debugPrint('GemmaInputField: Widget not mounted, ignoring token');
             }
           },
           onError: (error) {
-            debugPrint('GemmaInputField: Stream error: $error');
             if (mounted) {
               if (_pendingFunctionCall != null) {
-                // Отправляем функцию при ошибке
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
-                // Отправляем накопленный текст
                 final text = _message.text.isNotEmpty ? _message.text : '...';
                 widget.streamHandler(TextResponse(text));
               }
@@ -124,36 +109,29 @@ class GemmaInputFieldState extends State<GemmaInputField> {
             }
           },
           onDone: () {
-            debugPrint('GemmaInputField: Stream completed, sending final response');
+            debugPrint('🏁 GemmaInputField: Stream completed');
             if (mounted) {
-              // Сохраняем thinking как завершенный и передаем в родительский widget
+              // Handle thinking completion
               if (_thinkingContent.isNotEmpty) {
-                debugPrint('GemmaInputField: Marking thinking as completed. Content length: ${_thinkingContent.length}');
                 setState(() {
                   _thinkingCompleted = true;
                   _completedThinking = ThinkingResponse(_thinkingContent);
                 });
-                // Передаем thinking content в родительский widget для постоянного отображения
                 widget.onThinkingCompleted?.call(_thinkingContent);
-              } else {
-                debugPrint('GemmaInputField: No thinking content to complete');
               }
               
               if (_pendingFunctionCall != null) {
-                // Отправляем функцию
-                debugPrint('GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
+                debugPrint('🔧 GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
-                // Отправляем накопленный текст как TextToken
                 final text = _message.text.isNotEmpty ? _message.text : '...';
-                debugPrint('GemmaInputField: Sending accumulated text as TextToken: "$text"');
+                // DEBUG: Track what we're sending to ChatScreen
+                debugPrint('📤 GemmaInputField: Sending final text: "$text" (length: ${text.length})');
                 widget.streamHandler(TextResponse(text));
               }
               setState(() {
                 _processing = false;
-                debugPrint('GemmaInputField: Final state - thinking completed: $_thinkingCompleted, content: "$_thinkingContent"');
               });
-              debugPrint('GemmaInputField: Processing set to false');
             }
           },
         );
@@ -179,14 +157,26 @@ class GemmaInputFieldState extends State<GemmaInputField> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('GemmaInputField: Building widget - thinking content: "$_thinkingContent", completed: $_thinkingCompleted, processing: $_processing');
+    // Determine whether to show thinking (only if last message is from user)
+    final shouldShowThinking = widget.messages.isNotEmpty && 
+                             widget.messages.last.isUser &&
+                             (_thinkingContent.isNotEmpty || _completedThinking != null);
+    
+    // Determine which message to display
+    // If processing after function (not from user) - show empty for loading
+    final displayMessage = widget.isProcessing && 
+                          (widget.messages.isEmpty || !widget.messages.last.isUser)
+        ? const Message(text: '', isUser: false) // Force loading indicator
+        : _message; // Regular accumulated message
+    
+    
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Показываем thinking блок если есть thinking content или сохраненный thinking
-          if (_thinkingContent.isNotEmpty || _completedThinking != null) ...[
+          // Show thinking block only if shouldShowThinking
+          if (shouldShowThinking) ...[
             if (_thinkingCompleted && _completedThinking != null)
-              // Завершенный thinking блок
+              // Completed thinking block
               ThinkingWidget(
                 thinking: _completedThinking!,
                 isExpanded: _isThinkingExpanded,
@@ -197,7 +187,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 },
               )
             else
-              // Thinking в процессе
+              // Thinking in progress
               StreamingThinkingWidget(
                 content: _thinkingContent,
                 isExpanded: _isThinkingExpanded,
@@ -208,8 +198,8 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 },
               ),
           ],
-          // Основное сообщение
-          ChatMessageWidget(message: _message),
+          // Main message with correct content
+          ChatMessageWidget(message: displayMessage),
         ],
       ),
     );

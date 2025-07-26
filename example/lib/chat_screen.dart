@@ -130,8 +130,9 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
     debugPrint('Function call received: ${functionCall.name}(${functionCall.args})');
     
-    // 1. Show "Calling function..."
+    // Set streaming state and show "Calling function..." in one setState
     setState(() {
+      _isStreaming = true;
       _messages.add(Message.systemInfo(
         text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: \"${e.value}\"').join(', ')})",
       ));
@@ -168,51 +169,53 @@ class ChatScreenState extends State<ChatScreen> {
     await chat?.addQuery(toolMessage);
     
     // Get the final response from the model (async stream)
-    debugPrint('Getting async response from model...');
+    debugPrint('⚡ ChatScreen: Starting function response generation');
     
     String accumulatedResponse = '';
     bool hasStartedResponse = false;
     
     await for (final token in chat!.generateChatResponseAsync()) {
       if (token is TextResponse) {
-        // Получаем токен
         accumulatedResponse += token.token;
+        // DEBUG: Track accumulation in ChatScreen
+        debugPrint('📝 ChatScreen: Function response token: "${token.token}" -> total: "$accumulatedResponse"');
         
         setState(() {
           if (!hasStartedResponse) {
-            // First token - add new message
             _messages.add(Message.text(text: accumulatedResponse));
             hasStartedResponse = true;
           } else {
-            // Update existing message
             final lastIndex = _messages.length - 1;
             _messages[lastIndex] = Message.text(text: accumulatedResponse);
           }
         });
       } else if (token is FunctionCallResponse) {
-        // Не должно случаться после tool response
-        debugPrint('Unexpected FunctionCall after tool response: ${token.name}');
+        debugPrint('❌ ChatScreen: Unexpected FunctionCall after tool response: ${token.name}');
       }
     }
     
-    debugPrint('Final accumulated response: $accumulatedResponse');
+    debugPrint('🏁 ChatScreen: Function response completed: "$accumulatedResponse" (length: ${accumulatedResponse.length})');
+    
+    // Reset streaming state when done
+    setState(() {
+      _isStreaming = false;
+    });
   }
   
-  // Main gemma response handler - обрабатывает ответы от GemmaInputField
+  // Main gemma response handler - processes responses from GemmaInputField
   Future<void> _handleGemmaResponse(ModelResponse response) async {
-    debugPrint('ChatScreen: Handling response: $response (${response.runtimeType})');
-    
     if (response is FunctionCallResponse) {
-      // Обрабатываем вызов функции
+      debugPrint('🔧 ChatScreen: Function call received: ${response.name}');
       await _handleFunctionCall(response);
     } else if (response is TextResponse) {
-      // Обрабатываем накопленный текст - создаем Message и добавляем в UI
+      // DEBUG: Track what text we're receiving from GemmaInputField
+      debugPrint('📥 ChatScreen: Received final text from GemmaInputField: "${response.token}" (length: ${response.token.length})');
       setState(() {
         _messages.add(Message.text(text: response.token));
+        _isStreaming = false;
       });
     } else {
-      // Неожиданный тип
-      debugPrint('ChatScreen: Unexpected response type: ${response.runtimeType}');
+      debugPrint('❌ ChatScreen: Unexpected response type: ${response.runtimeType}');
     }
   }
 
@@ -348,15 +351,18 @@ class ChatScreenState extends State<ChatScreen> {
                 setState(() {
                   _error = null;
                   _messages.add(message);
-                  _isStreaming = false; // Reset streaming when user sends message
+                  // Set streaming to true when user sends message
+                  _isStreaming = true;
                 });
               },
               errorHandler: (err) {
                 setState(() {
                   _error = err;
+                  _isStreaming = false; // Reset streaming on error
                 });
               },
               messages: _messages,
+              isProcessing: _isStreaming,
             ),
           )
         ])

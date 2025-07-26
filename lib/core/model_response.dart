@@ -1,5 +1,5 @@
 /// Base interface for model responses from InferenceChat
-/// Can be either TextResponse or FunctionCallResponse
+/// Can be either TextResponse, FunctionCallResponse, or ThinkingResponse
 abstract class ModelResponse {
   const ModelResponse();
 }
@@ -30,4 +30,22 @@ class FunctionCallResponse extends ModelResponse {
 
   final String name;
   final Map<String, dynamic> args;
+}
+
+/// Thinking process content from the model
+class ThinkingResponse extends ModelResponse {
+  final String content;
+  
+  const ThinkingResponse(this.content);
+  
+  @override
+  String toString() => 'ThinkingResponse("$content")';
+  
+  @override
+  bool operator ==(Object other) {
+    return other is ThinkingResponse && other.content == content;
+  }
+  
+  @override
+  int get hashCode => content.hashCode;
 }

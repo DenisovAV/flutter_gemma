@@ -24,6 +24,8 @@ class MobileInferenceModel extends InferenceModel {
     bool? supportImage,
     List<Tool> tools = const [],
     bool? supportsFunctionCalls,
+    bool isThinking = false,
+    ModelType? modelType,
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -39,7 +41,8 @@ class MobileInferenceModel extends InferenceModel {
       supportImage: supportImage ?? false,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
-      modelType: modelType, // Pass the actual model type!
+      modelType: modelType ?? this.modelType,
+      isThinking: isThinking,
     );
     await chat!.initSession();
     return chat!;

@@ -10,6 +10,13 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'model.dart';
 
+// Constants
+/// Maximum length for function call buffer before flushing as text.
+/// 150 characters is sufficient for most JSON function calls while preventing
+/// infinite buffering of malformed JSON that never completes.
+/// Typical function call: {"name": "func_name", "parameters": {...}} ≈ 50-120 chars
+const int _maxFunctionBufferLength = 150;
+
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
   final int maxTokens;
@@ -17,6 +24,7 @@ class InferenceChat {
   final bool supportImage;
   final bool supportsFunctionCalls;
   final ModelType modelType; // Add modelType parameter
+  final bool isThinking; // Add isThinking flag for thinking models
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -33,6 +41,7 @@ class InferenceChat {
     this.supportsFunctionCalls = false,
     this.tools = const [],
     this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
+    this.isThinking = false, // Default to false for backward compatibility
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -82,7 +91,11 @@ class InferenceChat {
   Future<ModelResponse> generateChatResponse() async {
     debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final cleanedResponse = _cleanResponse(response);
+    final cleanedResponse = ModelThinkingFilter.cleanResponse(
+      response,
+      isThinking: isThinking,
+      modelType: modelType
+    );
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
@@ -116,62 +129,112 @@ class InferenceChat {
     debugPrint('InferenceChat: Starting async stream generation');
     final buffer = StringBuffer();
     
-    // Smart function handling mode
+    // Smart function handling mode - continuous scanning for JSON patterns
     String funcBuffer = '';
-    bool isJsonMode = false;
-    bool decisionMade = false;
     bool functionProcessed = false;
 
     debugPrint('InferenceChat: Starting to iterate over native tokens...');
-    await for (final token in session.getResponseAsync()) {
-      debugPrint('InferenceChat: Received token from native: "$token"');
-      buffer.write(token);
-      
-      // Step 1: Determine JSON or text mode (only once!) - only if model supports function calls
-      if (!decisionMade && tools.isNotEmpty && supportsFunctionCalls) {
-        funcBuffer += token;
-        debugPrint('InferenceChat: Function buffer now: "$funcBuffer"');
+    
+    final originalStream = session.getResponseAsync().map((token) => TextResponse(token));
+    
+    // Apply thinking filter if needed using ModelThinkingFilter
+    final Stream<ModelResponse> filteredStream = isThinking 
+        ? ModelThinkingFilter.filterThinkingStream(
+            originalStream, 
+            modelType: modelType
+          )
+        : originalStream;
         
-        if (FunctionCallParser.isJsonStart(funcBuffer)) {
-          isJsonMode = true;
-          decisionMade = true;
-          debugPrint('InferenceChat: Detected JSON mode');
-        } else if (FunctionCallParser.isDefinitelyText(funcBuffer)) {
-          isJsonMode = false;
-          decisionMade = true;
-          debugPrint('InferenceChat: Detected text mode - streaming immediately');
-          debugPrint('InferenceChat: Emitting buffered content: "$funcBuffer"');
-          // Emit accumulated buffer as single token
-          yield TextResponse(funcBuffer); // Wrap in TextResponse
-          funcBuffer = ''; // Clear buffer to avoid duplication
-          debugPrint('InferenceChat: Mode decided - TEXT, will stream rest directly');
-        } else {
-          debugPrint('InferenceChat: Mode not yet determined, continuing to buffer');
-        }
-      } else {
-        // Step 2: Process based on determined mode (don't buffer anymore!)
-        if (tools.isNotEmpty && supportsFunctionCalls && isJsonMode && !functionProcessed) {
-          // JSON mode - buffer until complete
-          funcBuffer += token;
-          debugPrint('InferenceChat: JSON mode - buffering token, buffer: "$funcBuffer"');
-          if (FunctionCallParser.isJsonComplete(funcBuffer)) {
-            final functionCall = FunctionCallParser.parse(funcBuffer);
-            if (functionCall != null) {
-              debugPrint('InferenceChat: Function call parsed successfully');
-              yield functionCall;
-              functionProcessed = true;
-              funcBuffer = ''; // Clear buffer, rest will be text response
+    await for (final response in filteredStream) {
+      if (response is TextResponse) {
+        final token = response.token;
+        debugPrint('InferenceChat: Received filtered token: "$token"');
+        
+        // Track if this token should be added to buffer (default true)
+        bool shouldAddToBuffer = true;
+        
+        // Continuous scanning for function calls in text - for models like DeepSeek
+        if (tools.isNotEmpty && supportsFunctionCalls) {
+          // Check if we're currently buffering potential JSON
+          if (funcBuffer.isNotEmpty) {
+            // We're already buffering - add token and check for completion
+            funcBuffer += token;
+            debugPrint('InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars');
+            
+            // Check if we now have a complete JSON
+            if (FunctionCallParser.isJsonComplete(funcBuffer)) {
+              // First try to extract message from any JSON with message field
+              try {
+                final jsonData = jsonDecode(funcBuffer);
+                if (jsonData is Map<String, dynamic> && jsonData.containsKey('message')) {
+                  // Found JSON with message field - extract and display the message
+                  final message = jsonData['message'] as String;
+                  debugPrint('InferenceChat: Extracted message from JSON: "$message"');
+                  yield TextResponse(message);
+                  funcBuffer = '';
+                  shouldAddToBuffer = false; // Don't add JSON tokens to buffer
+                  continue;
+                }
+              } catch (e) {
+                debugPrint('InferenceChat: Failed to parse JSON for message extraction: $e');
+              }
+              
+              // If no message field found, try parsing as function call
+              final functionCall = FunctionCallParser.parse(funcBuffer);
+              if (functionCall != null) {
+                debugPrint('InferenceChat: Found function call in complete buffer!');
+                yield functionCall;
+                funcBuffer = '';
+                shouldAddToBuffer = false; // Don't add function call tokens to buffer
+                continue;
+              } else {
+                // Not a valid JSON - emit as text and clear buffer
+                debugPrint('InferenceChat: Invalid JSON, emitting as text');
+                yield TextResponse(funcBuffer);
+                funcBuffer = '';
+                shouldAddToBuffer = false;
+                continue;
+              }
+            }
+            
+            // If buffer gets too long without completing, flush as text
+            if (funcBuffer.length > _maxFunctionBufferLength) {
+              debugPrint('InferenceChat: Buffer too long without completion, flushing as text');
+              yield TextResponse(funcBuffer);
+              funcBuffer = '';
+              shouldAddToBuffer = false;
+              continue;
+            }
+            
+            // Still buffering, don't emit yet
+            shouldAddToBuffer = false;
+          } else {
+            // Not currently buffering - check if this token starts JSON
+            if (token.contains('{') || token.contains('```')) {
+              debugPrint('InferenceChat: Found potential JSON start in token: "$token"');
+              funcBuffer = token;
+              shouldAddToBuffer = false; // Don't add to main buffer while we determine if it's JSON
+            } else {
+              // Normal text token - emit immediately
+              debugPrint('InferenceChat: Emitting text token: "$token"');
+              yield response;
+              shouldAddToBuffer = true; // Add to main buffer for history
             }
           }
-        } else if (tools.isEmpty || !isJsonMode) {
-          // Text mode - stream tokens directly (no buffering needed)
-          debugPrint('InferenceChat: TEXT mode - emitting token directly: "$token"');
-          yield TextResponse(token); // Wrap in TextResponse
         } else {
-          debugPrint('InferenceChat: Post-function mode - emitting token: "$token"');
-          // After function processed, emit remaining tokens  
-          yield TextResponse(token); // Wrap in TextResponse
+          // No function processing happening - emit token directly
+          debugPrint('InferenceChat: No function processing, emitting token as text: "$token"');
+          yield response;
+          shouldAddToBuffer = true; // Add to main buffer for history
         }
+        
+        // Add token to buffer only if it should be included in final message
+        if (shouldAddToBuffer) {
+          buffer.write(token);
+        }
+      } else {
+        // For non-TextResponse (like ThinkingResponse), pass through
+        yield response;
       }
     }
     
@@ -180,21 +243,34 @@ class InferenceChat {
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
     
     // Handle end of stream - process any remaining buffer
-    if (funcBuffer.isNotEmpty && !functionProcessed && tools.isNotEmpty && supportsFunctionCalls) {
-      debugPrint('InferenceChat: Processing remaining buffer at end of stream');
-      if (isJsonMode) {
-        final functionCall = FunctionCallParser.parse(funcBuffer);
-        if (functionCall != null) {
-          debugPrint('InferenceChat: Function call found at end of stream');
-          yield functionCall;
-          functionProcessed = true;
-        } else {
-          debugPrint('InferenceChat: Incomplete JSON at end of stream, emitting as text');
-          yield TextResponse(funcBuffer); // Wrap in TextResponse
+    if (funcBuffer.isNotEmpty) {
+      debugPrint('InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars');
+      
+      // First try to extract message from JSON if it has message field
+      if (FunctionCallParser.isJsonComplete(funcBuffer)) {
+        try {
+          final jsonData = jsonDecode(funcBuffer);
+          if (jsonData is Map<String, dynamic> && jsonData.containsKey('message')) {
+            final message = jsonData['message'] as String;
+            debugPrint('InferenceChat: Extracted message from end-of-stream JSON: "$message"');
+            yield TextResponse(message);
+          } else {
+            // Try to parse as function call
+            final functionCall = FunctionCallParser.parse(funcBuffer);
+            if (functionCall != null) {
+              debugPrint('InferenceChat: Function call found at end of stream');
+              yield functionCall;
+            } else {
+              yield TextResponse(funcBuffer);
+            }
+          }
+        } catch (e) {
+          debugPrint('InferenceChat: Failed to parse end-of-stream JSON: $e');
+          yield TextResponse(funcBuffer);
         }
-      } else if (funcBuffer.isNotEmpty) {
-        debugPrint('InferenceChat: Emitting remaining buffer as text');
-        yield TextResponse(funcBuffer); // Wrap in TextResponse
+      } else {
+        debugPrint('InferenceChat: No complete JSON at end of stream, emitting remaining as text');
+        yield TextResponse(funcBuffer);
       }
     }
     

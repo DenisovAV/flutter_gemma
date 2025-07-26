@@ -5,6 +5,7 @@ import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
 import 'package:flutter_gemma_example/services/gemma_service.dart';
+import 'package:flutter_gemma_example/thinking_widget.dart';
 
 class GemmaInputField extends StatefulWidget {
   const GemmaInputField({
@@ -13,12 +14,16 @@ class GemmaInputField extends StatefulWidget {
     required this.streamHandler,
     required this.errorHandler,
     this.chat,
+    this.onThinkingCompleted,
+    this.isProcessing = false,
   });
 
   final InferenceChat? chat;
   final List<Message> messages;
-  final ValueChanged<ModelResponse> streamHandler; // Отдает ModelResponse (токены или функции)
+  final ValueChanged<ModelResponse> streamHandler; // Returns ModelResponse (tokens or functions)
   final ValueChanged<String> errorHandler;
+  final ValueChanged<String>? onThinkingCompleted; // Callback for completed thinking content
+  final bool isProcessing; // Global processing state from ChatScreen
 
   @override
   GemmaInputFieldState createState() => GemmaInputFieldState();
@@ -29,7 +34,11 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   var _message = const Message(text: '', isUser: false);
   bool _processing = false;
   StreamSubscription<ModelResponse>? _streamSubscription;
-  FunctionCallResponse? _pendingFunctionCall; // Храним функцию для отправки в onDone
+  FunctionCallResponse? _pendingFunctionCall; // Store function to send in onDone
+  String _thinkingContent = ''; // Accumulate thinking content
+  bool _isThinkingExpanded = false; // Thinking block expansion state
+  bool _thinkingCompleted = false; // Thinking completed
+  ThinkingResponse? _completedThinking; // Store completed thinking
 
   @override
   void initState() {
@@ -47,55 +56,49 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   }
 
   void _processMessages() async {
-    debugPrint('GemmaInputField: _processMessages() called');
-    if (_processing) {
-      debugPrint('GemmaInputField: Already processing, returning');
-      return;
-    }
+    if (_processing) return;
+    
+    // DEBUG: Track what we're processing
+    final isAfterFunction = widget.messages.isNotEmpty && !widget.messages.last.isUser;
+    debugPrint('🔵 GemmaInputField: Starting processing - isAfterFunction: $isAfterFunction');
+    
     setState(() {
       _processing = true;
+      _message = const Message(text: '', isUser: false);
+      _thinkingContent = '';
+      _thinkingCompleted = false;
+      _completedThinking = null;
+      _pendingFunctionCall = null;
     });
 
     try {
-      debugPrint('GemmaInputField: Processing message: "${widget.messages.last.text}"');
       final responseStream = await _gemma?.processMessage(widget.messages.last);
-      debugPrint('GemmaInputField: Got response stream from GemmaLocalService');
       
       if (responseStream != null) {
-        debugPrint('GemmaInputField: Creating StreamSubscription');
         _streamSubscription = responseStream.listen(
           (response) {
-            debugPrint('GemmaInputField: Received token: $response');
             if (mounted) {
-              // Accumulate tokens locally - don't call streamHandler yet!
               setState(() {
                 if (response is String) {
-                  // Обратная совместимость: строки из старого стрима
                   _message = Message(text: '${_message.text}$response', isUser: false);
-                  debugPrint('GemmaInputField: Updated local message from String: "${_message.text}"');
                 } else if (response is TextResponse) {
-                  // Основной способ: получаем TextToken
                   _message = Message(text: '${_message.text}${response.token}', isUser: false);
-                  debugPrint('GemmaInputField: Updated local message from TextToken: "${_message.text}"');
+                  // DEBUG: Track text accumulation
+                  debugPrint('📝 GemmaInputField: Text accumulated: "${response.token}" -> total: "${_message.text}"');
+                } else if (response is ThinkingResponse) {
+                  _thinkingContent += response.content;
                 } else if (response is FunctionCallResponse) {
-                  // Сохраняем функцию для отправки в onDone
-                  debugPrint('GemmaInputField: Function call received: ${response.name}');
+                  debugPrint('🔧 GemmaInputField: Function call received: ${response.name}');
                   _pendingFunctionCall = response;
-                  // Не обновляем _message, тк функция - не текст
                 }
               });
-            } else {
-              debugPrint('GemmaInputField: Widget not mounted, ignoring token');
             }
           },
           onError: (error) {
-            debugPrint('GemmaInputField: Stream error: $error');
             if (mounted) {
               if (_pendingFunctionCall != null) {
-                // Отправляем функцию при ошибке
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
-                // Отправляем накопленный текст
                 final text = _message.text.isNotEmpty ? _message.text : '...';
                 widget.streamHandler(TextResponse(text));
               }
@@ -106,22 +109,29 @@ class GemmaInputFieldState extends State<GemmaInputField> {
             }
           },
           onDone: () {
-            debugPrint('GemmaInputField: Stream completed, sending final response');
+            debugPrint('🏁 GemmaInputField: Stream completed');
             if (mounted) {
+              // Handle thinking completion
+              if (_thinkingContent.isNotEmpty) {
+                setState(() {
+                  _thinkingCompleted = true;
+                  _completedThinking = ThinkingResponse(_thinkingContent);
+                });
+                widget.onThinkingCompleted?.call(_thinkingContent);
+              }
+              
               if (_pendingFunctionCall != null) {
-                // Отправляем функцию
-                debugPrint('GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
+                debugPrint('🔧 GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
-                // Отправляем накопленный текст как TextToken
                 final text = _message.text.isNotEmpty ? _message.text : '...';
-                debugPrint('GemmaInputField: Sending accumulated text as TextToken: "$text"');
+                // DEBUG: Track what we're sending to ChatScreen
+                debugPrint('📤 GemmaInputField: Sending final text: "$text" (length: ${text.length})');
                 widget.streamHandler(TextResponse(text));
               }
               setState(() {
                 _processing = false;
               });
-              debugPrint('GemmaInputField: Processing set to false');
             }
           },
         );
@@ -147,8 +157,51 @@ class GemmaInputFieldState extends State<GemmaInputField> {
 
   @override
   Widget build(BuildContext context) {
+    // Determine whether to show thinking (only if last message is from user)
+    final shouldShowThinking = widget.messages.isNotEmpty && 
+                             widget.messages.last.isUser &&
+                             (_thinkingContent.isNotEmpty || _completedThinking != null);
+    
+    // Determine which message to display
+    // If processing after function (not from user) - show empty for loading
+    final displayMessage = widget.isProcessing && 
+                          (widget.messages.isEmpty || !widget.messages.last.isUser)
+        ? const Message(text: '', isUser: false) // Force loading indicator
+        : _message; // Regular accumulated message
+    
+    
     return SingleChildScrollView(
-      child: ChatMessageWidget(message: _message),
+      child: Column(
+        children: [
+          // Show thinking block only if shouldShowThinking
+          if (shouldShowThinking) ...[
+            if (_thinkingCompleted && _completedThinking != null)
+              // Completed thinking block
+              ThinkingWidget(
+                thinking: _completedThinking!,
+                isExpanded: _isThinkingExpanded,
+                onToggle: () {
+                  setState(() {
+                    _isThinkingExpanded = !_isThinkingExpanded;
+                  });
+                },
+              )
+            else
+              // Thinking in progress
+              StreamingThinkingWidget(
+                content: _thinkingContent,
+                isExpanded: _isThinkingExpanded,
+                onToggle: () {
+                  setState(() {
+                    _isThinkingExpanded = !_isThinkingExpanded;
+                  });
+                },
+              ),
+          ],
+          // Main message with correct content
+          ChatMessageWidget(message: displayMessage),
+        ],
+      ),
     );
   }
 }

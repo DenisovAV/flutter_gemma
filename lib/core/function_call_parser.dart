@@ -184,16 +184,6 @@ class FunctionCallParser {
     }
   }
   
-  /// Quick validation if string is valid JSON
-  static bool _isValidJson(String str) {
-    try {
-      jsonDecode(str);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-  
   /// Fast check for balanced braces without full JSON parsing
   static bool _isBalancedJson(String str) {
     int braceCount = 0;

@@ -1,8 +1,8 @@
     # Flutter Gemma
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), Falcon-RW-1B, StableLM-3B.
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), Falcon-RW-1B, StableLM-3B.
 
-*Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 Nano (with **multimodal vision support**), Phi-4 and DeepSeek.
+*Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 Nano (with **multimodal vision support**), Phi-4, DeepSeek and Qwen2.5.
 
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
@@ -26,6 +26,16 @@ There is an example of using:
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks (NEW!)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
+
+## Model Feature Support
+
+| Model Family | Function Calling | Thinking Mode | Multimodal (Vision) | Notes |
+|--------------|------------------|---------------|-------------------|-------|
+| Gemma 3 Nano | ✅ | ❌ | ✅ | Full vision + function calling support |
+| Gemma-3 1B | ❌ | ❌ | ❌ | Text-only models |
+| Gemma-2 | ❌ | ❌ | ❌ | Text-only models |
+| DeepSeek | ✅ | ✅ | ❌ | Both function calling and thinking mode |
+| Qwen2.5 | ✅ | ❌ | ❌ | Function calling support |
 
 ## Installation
 
@@ -231,6 +241,7 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
   modelType: ModelType.gemmaIt, // Required, model type to create
   preferredBackend: PreferredBackend.gpu, // Optional, backend type, default is PreferredBackend.gpu
   maxTokens: 512, // Optional, default is 1024
+  loraRanks: [4, 8], // Optional, LoRA rank configuration for fine-tuned models
 );
 ```
 
@@ -242,6 +253,7 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
   maxTokens: 4096, // Recommended for multimodal models
   supportImage: true, // Enable image support
   maxNumImages: 1, // Optional, maximum number of images per message
+  loraRanks: [4, 8], // Optional, LoRA rank configuration for fine-tuned models
 );
 ```
 
@@ -350,7 +362,7 @@ final chat = await inferenceModel.createChat(
   topK: 1,
   isThinking: true, // Enable thinking mode for DeepSeek models
   modelType: ModelType.deepSeek, // Specify DeepSeek model type
-  // supportsFunctionCalls: true, // Auto-detected for DeepSeek
+  // supportsFunctionCalls: true, // Enable function calling for DeepSeek models
 );
 ```
 
@@ -473,7 +485,7 @@ final chat = await inferenceModel.createChat(
   randomSeed: 1,
   topK: 1,
   tools: _tools, // Pass your tools
-  supportsFunctionCalls: true, // Enable function calling (optional, auto-detected from model)
+  supportsFunctionCalls: true, // Enable function calling (required for tools)
   // tokenBuffer: 256, // Adjust if needed for function calling
 );
 ```
@@ -643,6 +655,12 @@ final toolMessage = Message.toolResponse(
   response: {'status': 'success', 'color': 'blue'},
 );
 
+// System information message
+final systemMessage = Message.systemInfo(text: "Function completed successfully");
+
+// Thinking content (for DeepSeek models)
+final thinkingMessage = Message.thinking(text: "Let me analyze this problem...");
+
 // Check if message contains image
 if (message.hasImage) {
   print('This message contains an image');
@@ -665,7 +683,7 @@ chat.generateChatResponseAsync().listen((response) {
     // Use response.token to update your UI incrementally
     
   } else if (response is FunctionCallResponse) {
-    // Model wants to call a function (Gemma 3 Nano, DeepSeek)
+    // Model wants to call a function (Gemma 3 Nano, DeepSeek, Qwen2.5)
     print('Function: ${response.name}');
     print('Arguments: ${response.args}');
     
@@ -772,9 +790,32 @@ The full and complete example you can find in `example` folder
 - Clean and reinstall pods: `cd ios && pod install --repo-update`
 - Check that all required entitlements are in `Runner.entitlements`
 
+## Advanced Usage
+
+### ModelThinkingFilter (Advanced)
+
+For advanced users who need to manually process model responses, the `ModelThinkingFilter` class provides utilities for cleaning model outputs:
+
+```dart
+import 'package:flutter_gemma/core/extensions.dart';
+
+// Clean response based on model type
+String cleanedResponse = ModelThinkingFilter.cleanResponse(
+  rawResponse, 
+  ModelType.deepSeek
+);
+
+// The filter automatically removes model-specific tokens like:
+// - <end_of_turn> tags (Gemma models)
+// - Special DeepSeek tokens
+// - Extra whitespace and formatting
+```
+
+This is automatically handled by the chat API, but can be useful for custom inference implementations.
+
 ## **🚀 What's New**
 
-✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano and DeepSeek models)  
+✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano, DeepSeek, and Qwen2.5 models)  
 ✅ **🧠 Thinking Mode** - View the reasoning process of DeepSeek models with interactive thinking bubbles  
 ✅ **💬 Enhanced Response Types** - New `TextResponse`, `FunctionCallResponse`, and `ThinkingResponse` types for better handling  
 ✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models  

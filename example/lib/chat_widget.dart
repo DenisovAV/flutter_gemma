@@ -13,14 +13,16 @@ class ChatListWidget extends StatefulWidget {
     required this.humanHandler,
     required this.errorHandler,
     this.chat,
+    this.isProcessing = false,
     super.key,
   });
 
   final InferenceChat? chat;
   final List<Message> messages;
-  final ValueChanged<ModelResponse> gemmaHandler; // Принимает ModelResponse (TextToken | FunctionCall)
+  final ValueChanged<ModelResponse> gemmaHandler; // Accepts ModelResponse (TextToken | FunctionCall)
   final ValueChanged<Message> humanHandler; // Changed from String to Message
   final ValueChanged<String> errorHandler;
+  final bool isProcessing; // Indicates if the model is currently processing (including function calls)
 
   @override
   State<ChatListWidget> createState() => _ChatListWidgetState();
@@ -61,27 +63,30 @@ class _ChatListWidgetState extends State<ChatListWidget> {
       itemCount: widget.messages.length + 3, // +1 for thinking widget
       itemBuilder: (context, index) {
         if (index == 0) {
-          if (widget.messages.isNotEmpty && widget.messages.last.isUser) {
+          // Show GemmaInputField if processing OR last message is from user
+          if (widget.isProcessing || (widget.messages.isNotEmpty && widget.messages.last.isUser)) {
             return GemmaInputField(
               chat: widget.chat,
               messages: widget.messages,
               streamHandler: _handleGemmaResponse,
               errorHandler: widget.errorHandler,
+              isProcessing: widget.isProcessing,
               onThinkingCompleted: (String thinkingContent) {
-                // Добавляем thinking как специальное thinking сообщение в историю
+                // Add thinking as special thinking message to history
                 if (thinkingContent.isNotEmpty) {
                   debugPrint('ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
                   final thinkingMessage = Message.thinking(text: thinkingContent);
-                  widget.humanHandler(thinkingMessage); // Добавляем в историю через тот же handler
+                  widget.humanHandler(thinkingMessage); // Add to history through same handler
                   
                   setState(() {
-                    _currentThinkingContent = ''; // Очищаем текущий thinking так как он теперь в истории
+                    _currentThinkingContent = ''; // Clear current thinking as it's now in history
                   });
                 }
               },
             );
           }
-          if (widget.messages.isEmpty || !widget.messages.last.isUser) {
+          // Show ChatInputField only when not processing and last message is not from user
+          if (widget.messages.isEmpty || (!widget.messages.last.isUser && !widget.isProcessing)) {
             return ChatInputField(
               handleSubmitted: _handleHumanMessage,
               supportsImages: widget.chat?.supportsImages ?? false,

@@ -1,3 +1,11 @@
+## 0.10.1
+- 🧠 **Thinking Mode**: Added thinking mode support for DeepSeek models with persistent thinking bubbles
+- 🔧 **Function Call Fixes**: Fixed function calls detection in the middle of responses
+- 💬 **UI Improvements**: Fixed loading indicator display after function calls
+- 🔄 **JSON Response Handling**: Enhanced handling of JSON responses after function execution
+- 📚 **Documentation**: Updated README with latest API changes and improved examples
+- 🎨 **Code Quality**: Removed Russian comments and improved code consistency
+
 ## 0.10.0
 - ✨ **Function Calling**: Added support for function calling, allowing models to interact with external tools.
 - 🔧 **Improved Chat API**: Enhanced the chat API to support function calls and tool responses.

@@ -10,7 +10,7 @@ class ChatListWidget extends StatefulWidget {
   const ChatListWidget({
     required this.messages,
     required this.gemmaHandler,
-    required this.humanHandler,
+    required this.messageHandler,
     required this.errorHandler,
     this.chat,
     this.isProcessing = false,
@@ -20,7 +20,7 @@ class ChatListWidget extends StatefulWidget {
   final InferenceChat? chat;
   final List<Message> messages;
   final ValueChanged<ModelResponse> gemmaHandler; // Accepts ModelResponse (TextToken | FunctionCall)
-  final ValueChanged<Message> humanHandler; // Changed from String to Message
+  final ValueChanged<Message> messageHandler; // Handles all message additions to history
   final ValueChanged<String> errorHandler;
   final bool isProcessing; // Indicates if the model is currently processing (including function calls)
 
@@ -46,13 +46,13 @@ class _ChatListWidgetState extends State<ChatListWidget> {
     widget.gemmaHandler(response);
   }
 
-  void _handleHumanMessage(Message message) {
+  void _handleNewMessage(Message message) {
     // Reset current thinking for new conversation
     setState(() {
       _currentThinkingContent = '';
       _isCurrentThinkingExpanded = false;
     });
-    widget.humanHandler(message);
+    widget.messageHandler(message);
   }
 
   @override
@@ -76,7 +76,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
                 if (thinkingContent.isNotEmpty) {
                   debugPrint('ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
                   final thinkingMessage = Message.thinking(text: thinkingContent);
-                  widget.humanHandler(thinkingMessage); // Add to history through same handler
+                  widget.messageHandler(thinkingMessage); // Add to history through message handler
                   
                   setState(() {
                     _currentThinkingContent = ''; // Clear current thinking as it's now in history
@@ -88,7 +88,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
           // Show ChatInputField only when not processing and last message is not from user
           if (widget.messages.isEmpty || (!widget.messages.last.isUser && !widget.isProcessing)) {
             return ChatInputField(
-              handleSubmitted: _handleHumanMessage,
+              handleSubmitted: _handleNewMessage,
               supportsImages: widget.chat?.supportsImages ?? false,
             );
           }

@@ -347,7 +347,7 @@ class ChatScreenState extends State<ChatScreen> {
             child: ChatListWidget(
               chat: chat,
               gemmaHandler: _handleGemmaResponse,
-              humanHandler: (message) { // Now accepts Message instead of String
+              messageHandler: (message) { // Handles all message additions to history
                 setState(() {
                   _error = null;
                   _messages.add(message);

@@ -1,8 +1,8 @@
     # Flutter Gemma
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), Falcon-RW-1B, StableLM-3B.
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), [TinyLlama 1.1B](https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0), [Hammer 2.1 0.5B](https://huggingface.co/litert-community/Hammer2.1-0.5b), [Llama 3.2 1B](https://huggingface.co/litert-community/Llama-3.2-1B-Instruct), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), Falcon-RW-1B, StableLM-3B.
 
-*Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 Nano (with **multimodal vision support**), Phi-4, DeepSeek and Qwen2.5.
+*Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 270M, Gemma 3 Nano (with **multimodal vision support**), TinyLlama, Hammer 2.1, Llama 3.2, Phi-4, DeepSeek and Qwen2.5.
 
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
@@ -25,6 +25,9 @@ There is an example of using:
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks (NEW!)
+- **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app (NEW!)
+- **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI (NEW!)
+- **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app (NEW!)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 
 ## Model Feature Support
@@ -33,7 +36,11 @@ There is an example of using:
 |--------------|------------------|---------------|-------------------|-------|
 | Gemma 3 Nano | ✅ | ❌ | ✅ | Full vision + function calling support |
 | Gemma-3 1B | ❌ | ❌ | ❌ | Text-only models |
+| Gemma 3 270M | ❌ | ❌ | ❌ | Ultra-compact text-only model |
 | Gemma-2 | ❌ | ❌ | ❌ | Text-only models |
+| TinyLlama 1.1B | ❌ | ❌ | ❌ | Lightweight chat model |
+| Hammer 2.1 0.5B | ✅ | ❌ | ❌ | Action model with strong function calling |
+| Llama 3.2 1B | ❌ | ❌ | ❌ | Text-only instruction model |
 | DeepSeek | ✅ | ✅ | ❌ | Both function calling and thinking mode |
 | Qwen2.5 | ✅ | ❌ | ❌ | Function calling support |
 
@@ -711,6 +718,10 @@ chat.generateChatResponseAsync().listen((response) {
 - [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it)
 - [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it)
 - [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT)
+- [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) - Ultra-compact model
+- [TinyLlama 1.1B](https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0) - Lightweight chat model
+- [Hammer 2.1 0.5B](https://huggingface.co/litert-community/Hammer2.1-0.5b) - Action model with function calling
+- [Llama 3.2 1B](https://huggingface.co/litert-community/Llama-3.2-1B-Instruct) - Instruction-tuned model
 - [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct)
 - [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B)
 - Phi-2, Phi-3, Falcon-RW-1B, StableLM-3B
@@ -725,11 +736,15 @@ Function calling is currently supported by the following models:
 
 ### ✅ Models with Function Calling Support
 - **Gemma 3 Nano** models (E2B, E4B) - Full function calling support
+- **Hammer 2.1 0.5B** - Action model with strong function calling capabilities  
 - **DeepSeek** models - Function calling + thinking mode support
 - **Qwen** models - Full function calling support
 
 ### ❌ Models WITHOUT Function Calling Support
 - **Gemma 3 1B** models - Text generation only
+- **Gemma 3 270M** - Text generation only
+- **TinyLlama 1.1B** - Text generation only
+- **Llama 3.2 1B** - Text generation only
 - **Phi** models - Text generation only
 
 **Important Notes:**
@@ -815,12 +830,15 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ## **🚀 What's New**
 
-✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano, DeepSeek, and Qwen2.5 models)  
+✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano, Hammer 2.1, DeepSeek, and Qwen2.5 models)  
 ✅ **🧠 Thinking Mode** - View the reasoning process of DeepSeek models with interactive thinking bubbles  
 ✅ **💬 Enhanced Response Types** - New `TextResponse`, `FunctionCallResponse`, and `ThinkingResponse` types for better handling  
 ✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models  
 ✅ **📨 Enhanced Message API** - Support for different message types including tool responses  
-✅ **⚙️ Simplified Setup** - Automatic vision modality configuration  
+✅ **⚙️ Backend Switching** - Choose between CPU and GPU backends individually for each model in the example app  
+✅ **🔍 Advanced Model Filtering** - Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI  
+✅ **📊 Model Sorting** - Sort models alphabetically, by size, or use default order  
+✅ **🚀 New Models** - Added Gemma 3 270M, TinyLlama 1.1B, Hammer 2.1 0.5B, and Llama 3.2 1B support  
 ✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (text-only)  
 ✅ **💾 Memory Optimization** - Better resource management for multimodal models
 

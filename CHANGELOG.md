@@ -1,3 +1,29 @@
+## 0.10.2
+- 🚀 **New Models**: Added support for 4 new compact models:
+  - [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) - Ultra-compact text-only model (0.3GB)
+  - [TinyLlama 1.1B](https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0) - Lightweight chat model (1.2GB)
+  - [Hammer 2.1 0.5B](https://huggingface.co/litert-community/Hammer2.1-0.5b) - Action model with strong function calling (0.5GB)
+  - [Llama 3.2 1B](https://huggingface.co/litert-community/Llama-3.2-1B-Instruct) - Instruction-tuned model (1.1GB)
+- ⚙️ **Backend Switching**: Added individual CPU/GPU backend switcher for each model in the example app
+- 🔍 **Advanced Model Filtering**: Added expandable filter section with feature-based filtering:
+  - Filter by Multimodal support (vision capabilities)
+  - Filter by Function Calling support 
+  - Filter by Thinking Mode support
+  - Animated expandable UI with clear visual indicators
+- 📊 **Model Sorting**: Added comprehensive sorting options:
+  - Sort alphabetically (A-Z)
+  - Sort by model size (smallest to largest)
+  - Default order (Gemma models prioritized)
+- 📏 **Improved Model Display**: Separated size information from model names for cleaner presentation
+- 🌐 **Full English Localization**: Converted all UI text from Russian to English
+- 📊 **Results Counter**: Added dynamic counter showing filtered results ("Showing X models")
+- 🎨 **Enhanced Filter UI**: FilterChip components with color-coded selections matching feature badges
+- 🎯 **Model Organization**: Reorganized model list with Gemma models prioritized at the top
+- 🛠️ **Function Calling**: Enhanced function calling support with Hammer 2.1 action model
+- 📱 **UI Improvements**: New card-based design with individual backend controls per model
+- ✅ **Model Capabilities**: Fixed and verified multimodal support flags for all models
+- 📚 **Documentation**: Updated README and model feature support table with new models
+
 ## 0.10.1
 - 🧠 **Thinking Mode**: Added thinking mode support for DeepSeek models with persistent thinking bubbles
 - 🔧 **Function Call Fixes**: Fixed function calls detection in the middle of responses

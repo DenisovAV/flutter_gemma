@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -8,8 +9,9 @@ import 'models/model.dart';
 
 class ModelDownloadScreen extends StatefulWidget {
   final Model model;
+  final PreferredBackend? selectedBackend;
 
-  const ModelDownloadScreen({super.key, required this.model});
+  const ModelDownloadScreen({super.key, required this.model, this.selectedBackend});
 
   @override
   State<ModelDownloadScreen> createState() => _ModelDownloadScreenState();
@@ -204,7 +206,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                     onPressed: () {
                       Navigator.pushReplacement(context,
                           MaterialPageRoute<void>(builder: (context) {
-                        return ChatScreen(model: widget.model);
+                        return ChatScreen(model: widget.model, selectedBackend: widget.selectedBackend);
                       }));
                     },
                     child: const Text('Use the model in Chat Screen'),

@@ -11,6 +11,7 @@ import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
 

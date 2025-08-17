@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
@@ -8,9 +9,10 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, this.model = Model.gemma3Gpu_1B});
+  const ChatScreen({super.key, this.model = Model.gemma3_1B, this.selectedBackend});
 
   final Model model;
+  final PreferredBackend? selectedBackend;
 
   @override
   ChatScreenState createState() => ChatScreenState();
@@ -102,7 +104,7 @@ class ChatScreenState extends State<ChatScreen> {
 
     final model = await _gemma.createModel(
       modelType: super.widget.model.modelType,
-      preferredBackend: super.widget.model.preferredBackend,
+      preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
       maxTokens: 1024,
       supportImage: widget.model.supportImage, // Pass image support
       maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models

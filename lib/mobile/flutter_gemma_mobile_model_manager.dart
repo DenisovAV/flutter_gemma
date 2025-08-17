@@ -2,6 +2,7 @@ part of 'flutter_gemma_mobile.dart';
 
 const _prefsModelKey = 'installed_model_file_name';
 const _prefsLoraKey = 'installed_lora_file_name';
+const _downloadGroup = 'flutter_gemma_downloads';
 
 class MobileModelManager extends ModelFileManager {
   MobileModelManager({
@@ -125,51 +126,57 @@ class MobileModelManager extends ModelFileManager {
 
   /// Downloads model from URL, uses original file name
   @override
-  Future<void> downloadModelFromNetwork(String url, {String? loraUrl}) async {
+  Future<void> downloadModelFromNetwork(String url, {String? loraUrl, String? token}) async {
     final modelFileName = Uri.parse(url).pathSegments.last;
     _modelFileName = modelFileName;
 
     final prefs = await _prefs;
     await prefs.setString(_prefsModelKey, modelFileName);
 
+    final targetPath = (await _modelFile)?.path ?? "${await getApplicationDocumentsDirectory()}/$modelFileName";
     await Future.wait([
-      _loadModelIfNeeded(() => _largeFileHandler.copyNetworkAssetToLocalStorage(
+      _loadModelIfNeeded(() async => _downloadToLocalStorageWithProgress(
         assetUrl: url,
-        targetPath: modelFileName,
+        targetPath: targetPath,
+        token: token,
       )),
       if (loraUrl != null) downloadLoraWeightsFromNetwork(loraUrl),
     ]);
   }
 
   @override
-  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl}) async* {
+  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl, String? token}) async* {
     final modelFileName = Uri.parse(url).pathSegments.last;
     _modelFileName = modelFileName;
 
     final prefs = await _prefs;
     await prefs.setString(_prefsModelKey, modelFileName);
 
-    yield* _loadModelWithProgressIfNeeded(() => _largeFileHandler.copyNetworkAssetToLocalStorageWithProgress(
+    final targetPath = (await _modelFile)?.path ?? "${await getApplicationDocumentsDirectory()}/$modelFileName";
+    yield* _loadModelWithProgressIfNeeded(() => _downloadToLocalStorageWithProgress(
       assetUrl: url,
-      targetPath: modelFileName,
+      targetPath: targetPath,
+      token: token,
     ));
 
     if (loraUrl != null) {
-      await downloadLoraWeightsFromNetwork(loraUrl);
+      await downloadLoraWeightsFromNetwork(loraUrl, token: token);
     }
   }
 
   @override
-  Future<void> downloadLoraWeightsFromNetwork(String loraUrl) async {
+  Future<void> downloadLoraWeightsFromNetwork(String loraUrl, {String? token}) async {
     final loraFileName = Uri.parse(loraUrl).pathSegments.last;
     _loraFileName = loraFileName;
 
     final prefs = await _prefs;
     await prefs.setString(_prefsLoraKey, loraFileName);
 
-    await _loadLoraIfNeeded(() => _largeFileHandler.copyNetworkAssetToLocalStorage(
+    final targetPath = (await _loraFile)?.path ?? "${await getApplicationDocumentsDirectory()}/$loraFileName";
+    await _loadLoraIfNeeded(() async => _downloadToLocalStorageWithProgress(
       assetUrl: loraUrl,
-      targetPath: loraFileName,
+      targetPath: targetPath,
+      token: token,
     ));
   }
 
@@ -261,5 +268,50 @@ class MobileModelManager extends ModelFileManager {
     }
     await prefs.remove(_prefsLoraKey);
     _loraFileName = null;
+  }
+
+  Stream<int> _downloadToLocalStorageWithProgress({required String assetUrl, required String targetPath, String? token}) {
+    final progress = StreamController<int>();
+
+    () async {
+      final (baseDirectory, directory, filename) = await Task.split(filePath: targetPath);
+      final task = DownloadTask(
+        url: assetUrl,
+        group: _downloadGroup,
+        headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+        baseDirectory: baseDirectory,
+        directory: directory,
+        filename: filename,
+      );
+
+      FileDownloader().download(
+        task,
+        onProgress: (portion) {
+          final percents = (portion * 100).round();
+          progress.add(percents.clamp(0, 100));
+        },
+        onStatus: (status) {
+          switch (status) {
+            case TaskStatus.complete:
+              progress.close();
+              break;
+            case TaskStatus.canceled:
+              progress.addError('Download canceled');
+              break;
+            case TaskStatus.failed:
+              progress.addError('Download failed');
+              break;
+            case TaskStatus.paused:
+              progress.addError('Download paused');
+              break;
+            default:
+              // No action needed for other statuses
+              break;
+          }
+        },
+      );
+    }();
+
+    return progress.stream;
   }
 }

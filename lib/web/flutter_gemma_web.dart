@@ -3,12 +3,7 @@ import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/function_call_parser.dart';
-import 'package:flutter_gemma/core/chat.dart';
-import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/core/model_response.dart';
-import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';

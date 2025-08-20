@@ -21,6 +21,8 @@ abstract class ModelFileManager {
 
   /// Downloads the model and lora weights from the network and installs them.
   ///
+  /// [token] Optional authentication token for accessing the model files.
+  ///
   /// {@template gemma.load_model}
   /// Model should be loaded before initialization.
   ///
@@ -28,21 +30,25 @@ abstract class ModelFileManager {
   ///
   /// To reload the model, call [deleteModel] first. To reload the lora weights, call [deleteLoraWeights] first.
   /// {@endtemplate}
-  Future<void> downloadModelFromNetwork(String url, {String? loraUrl});
+  Future<void> downloadModelFromNetwork(String url, {String? loraUrl, String? token});
 
   /// Downloads the model and lora weights from the network and installs it with progress.
   ///
+  /// [token] Optional authentication token for accessing the model files.
+  ///
   /// {@macro gemma.load_model}
-  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl});
+  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl, String? token});
 
   /// Downloads the lora weights from the network and installs it.
+  ///
+  /// [token] Optional authentication token for accessing the model files.
   ///
   /// {@template gemma.load_weights}
   /// This method can be safely called multiple times. Lora weights will be loaded only if they doesn't exist.
   ///
   /// To reload the lora weights, call [deleteLoraWeights] first.
   /// {@endtemplate}
-  Future<void> downloadLoraWeightsFromNetwork(String loraUrl);
+  Future<void> downloadLoraWeightsFromNetwork(String loraUrl, {String? token});
 
   /// Installs the model and lora weights from the asset.
   ///

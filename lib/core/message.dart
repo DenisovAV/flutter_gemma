@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter_gemma/core/model.dart';
 
 enum MessageType {
   text,

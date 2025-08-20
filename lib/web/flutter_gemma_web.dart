@@ -276,7 +276,7 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Future<void> downloadLoraWeightsFromNetwork(String loraUrl) async {
+  Future<void> downloadLoraWeightsFromNetwork(String loraUrl, {String? token}) async {
     _loraPath = loraUrl;
   }
 
@@ -291,13 +291,13 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Future<void> downloadModelFromNetwork(String url, {String? loraUrl}) async {
+  Future<void> downloadModelFromNetwork(String url, {String? loraUrl, String? token}) async {
     await _loadModel(url, loraUrl);
   }
 
   @override
   Stream<int> downloadModelFromNetworkWithProgress(String url,
-      {String? loraUrl}) {
+      {String? loraUrl, String? token}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 

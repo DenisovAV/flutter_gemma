@@ -273,44 +273,52 @@ class MobileModelManager extends ModelFileManager {
   Stream<int> _downloadToLocalStorageWithProgress({required String assetUrl, required String targetPath, String? token}) {
     final progress = StreamController<int>();
 
-    () async {
-      final (baseDirectory, directory, filename) = await Task.split(filePath: targetPath);
-      final task = DownloadTask(
-        url: assetUrl,
-        group: _downloadGroup,
-        headers: token != null ? {'Authorization': 'Bearer $token'} : {},
-        baseDirectory: baseDirectory,
-        directory: directory,
-        filename: filename,
-      );
+    Task.split(filePath: targetPath).then((result) async {
+      try {
+        final (baseDirectory, directory, filename) = result;
+        final task = DownloadTask(
+          url: assetUrl,
+          group: _downloadGroup,
+          headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+          baseDirectory: baseDirectory,
+          directory: directory,
+          filename: filename,
+        );
 
-      FileDownloader().download(
-        task,
-        onProgress: (portion) {
-          final percents = (portion * 100).round();
-          progress.add(percents.clamp(0, 100));
-        },
-        onStatus: (status) {
-          switch (status) {
-            case TaskStatus.complete:
-              progress.close();
-              break;
-            case TaskStatus.canceled:
-              progress.addError('Download canceled');
-              break;
-            case TaskStatus.failed:
-              progress.addError('Download failed');
-              break;
-            case TaskStatus.paused:
-              progress.addError('Download paused');
-              break;
-            default:
-              // No action needed for other statuses
-              break;
-          }
-        },
-      );
-    }();
+        await FileDownloader().download(
+          task,
+          onProgress: (portion) {
+            final percents = (portion * 100).round();
+            progress.add(percents.clamp(0, 100));
+          },
+          onStatus: (status) {
+            switch (status) {
+              case TaskStatus.complete:
+                progress.close();
+                break;
+              case TaskStatus.canceled:
+                progress.addError('Download canceled');
+                progress.close();
+                break;
+              case TaskStatus.failed:
+                progress.addError('Download failed');
+                progress.close();
+                break;
+              case TaskStatus.paused:
+                progress.addError('Download paused');
+                progress.close();
+                break;
+              default:
+                // No action needed for other statuses
+                break;
+            }
+          },
+        );
+      } catch (e) {
+        progress.addError('Download initialization failed: $e');
+        progress.close();
+      }
+    });
 
     return progress.stream;
   }

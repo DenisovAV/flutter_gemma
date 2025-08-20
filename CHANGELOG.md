@@ -1,3 +1,6 @@
+## 0.10.3
+- 📥 **Background Downloads**: Added background download support for model files
+
 ## 0.10.2
 - 🚀 **New Models**: Added support for 4 new compact models:
   - [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) - Ultra-compact text-only model (0.3GB)

@@ -31,20 +31,6 @@ class ChatScreenState extends State<ChatScreen> {
   // Define the tools
   final List<Tool> _tools = [
     const Tool(
-      name: 'change_app_title',
-      description: 'Changes the title of the app in the AppBar. Provide a new title text.',
-      parameters: {
-        'type': 'object',
-        'properties': {
-          'title': {
-            'type': 'string',
-            'description': 'The new title text to display in the AppBar',
-          },
-        },
-        'required': ['title'],
-      },
-    ),
-    const Tool(
       name: 'change_background_color',
       description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
       parameters: {
@@ -58,28 +44,6 @@ class ChatScreenState extends State<ChatScreen> {
         'required': ['color'],
       },
     ),
-    /* const Tool(
-      name: 'show_alert',
-      description: 'Shows an alert dialog with a custom message and title.',
-      parameters: {
-        'type': 'object',
-        'properties': {
-          'title': {
-            'type': 'string',
-            'description': 'The title of the alert dialog',
-          },
-          'message': {
-            'type': 'string',
-            'description': 'The message content of the alert dialog',
-          },
-          'button_text': {
-            'type': 'string',
-            'description': 'The text for the OK button (optional, defaults to "OK")',
-          },
-        },
-        'required': ['title', 'message'],
-      },
-    ), */
   ];
 
   @override

@@ -181,7 +181,6 @@ enum Model {
     topK: 40,
     topP: 0.8,
     maxTokens: 1024,
-    supportsFunctionCalls: true,
   ),
 
   // Llama 3.2 1B Instruct

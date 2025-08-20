@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter analyze:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter run:*)",
+      "WebFetch(domain:medium.com)",
+      "Bash(flutter:*)",
+      "WebFetch(domain:huggingface.co)",
+      "WebFetch(domain:huggingface.co)",
+      "Bash(git stash push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git fetch:*)",
+      "WebFetch(domain:pub.dev)",
+      "Bash(gh auth:*)"
+    ],
+    "deny": []
+  }
+}

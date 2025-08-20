@@ -186,9 +186,9 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                   ? Column(
                       children: [
                         Text(
-                            'Download Progress: ${(_progress).toStringAsFixed(1)}%'),
+                            'Download Progress: ${_progress.toStringAsFixed(1)}%'),
                         const SizedBox(height: 8),
-                        LinearProgressIndicator(value: _progress),
+                        LinearProgressIndicator(value: _progress / 100.0),
                       ],
                     )
                   : ElevatedButton(

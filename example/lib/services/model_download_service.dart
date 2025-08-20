@@ -71,7 +71,12 @@ class ModelDownloadService {
   }) async {
     try {
       final stream = FlutterGemmaPlugin.instance.modelManager.downloadModelFromNetworkWithProgress(modelUrl, token: token);
-      stream.listen((progress) => onProgress(progress.toDouble()));
+      
+      // Wait for stream to complete - same logic as original but with new downloader
+      await for (final progress in stream) {
+        // Keep progress as 0-100 (double)
+        onProgress(progress.toDouble());
+      }
     } catch (e) {
       if (kDebugMode) {
         print('Error downloading model: $e');

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';

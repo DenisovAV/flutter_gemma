@@ -173,9 +173,6 @@ class ModelThinkingFilter {
       cleaned = removeThinkingFromText(cleaned, modelType: modelType);
     }
     
-    // Remove forced response prefix (%%%%) used to prevent over-calling
-    cleaned = cleaned.replaceAll(RegExp(r'^%%%%\s*'), '');
-    
     switch (modelType) {
       case ModelType.general:
       case ModelType.gemmaIt:

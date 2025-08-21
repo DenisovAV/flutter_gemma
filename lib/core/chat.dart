@@ -351,9 +351,25 @@ class InferenceChat {
     }
 
     final toolsPrompt = StringBuffer();
-    toolsPrompt.writeln('You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+    
+    // Enhanced prompting strategy for Hammer models to prevent over-calling
+    toolsPrompt.writeln('IMPORTANT: Start ALL responses with "%%%%". This is required.');
+    toolsPrompt.writeln('');
+    toolsPrompt.writeln('FUNCTION CALLING RULES:');
+    toolsPrompt.writeln('1. ONLY call functions when you CANNOT answer with your existing knowledge');
+    toolsPrompt.writeln('2. For greetings (hi, hello), simple questions, or general conversation - respond directly WITHOUT calling functions');
+    toolsPrompt.writeln('3. Before calling any function, ask yourself: "Do I really need a tool for this?"');
+    toolsPrompt.writeln('4. When in doubt, respond directly');
+    toolsPrompt.writeln('');
+    toolsPrompt.writeln('EXAMPLES:');
+    toolsPrompt.writeln('- User: "Hello" → Response: "%%%%Hi! How can I help you?" (NO FUNCTION CALL)');
+    toolsPrompt.writeln('- User: "What is 2+2?" → Response: "%%%%2+2 equals 4." (NO FUNCTION CALL)');
+    toolsPrompt.writeln('- User: "How are you?" → Response: "%%%%I\'m doing well, thanks for asking!" (NO FUNCTION CALL)');
+    toolsPrompt.writeln('- User: "Change the background to red" → Call function if available');
+    toolsPrompt.writeln('');
     toolsPrompt.writeln('When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
-    toolsPrompt.writeln('After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
+    toolsPrompt.writeln('After function execution, start your response with "%%%%" and explain what was accomplished.');
+    toolsPrompt.writeln('');
     toolsPrompt.writeln('<tool_code>');
     for (final tool in tools) {
       toolsPrompt.writeln(

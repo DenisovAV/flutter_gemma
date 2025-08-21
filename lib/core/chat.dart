@@ -131,7 +131,6 @@ class InferenceChat {
     
     // Smart function handling mode - continuous scanning for JSON patterns
     String funcBuffer = '';
-    bool functionProcessed = false;
 
     debugPrint('InferenceChat: Starting to iterate over native tokens...');
     
@@ -345,24 +344,6 @@ class InferenceChat {
   bool get supportsImages => supportImage;
 
   int get imageMessageCount => _fullHistory.where((msg) => msg.hasImage).length;
-
-  String _cleanResponse(String response) {
-    switch (modelType) {
-      case ModelType.general:
-      case ModelType.gemmaIt:
-        // Remove trailing <end_of_turn> tags and trim whitespace
-        return response
-            .replaceAll(RegExp(r'<end_of_turn>\s*$'), '')
-            .trim();
-      
-      case ModelType.deepSeek:
-        String cleaned = response;
-        // Remove <think> blocks (DeepSeek internal reasoning)
-        cleaned = cleaned.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '');
-        // DeepSeek doesn't use <end_of_turn>, just trim whitespace
-        return cleaned.trim();
-    }
-  }
 
   String _createToolsPrompt() {
     if (tools.isEmpty) {

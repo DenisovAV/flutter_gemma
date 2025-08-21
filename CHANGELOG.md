@@ -1,3 +1,6 @@
+## 0.10.4
+- 📚 **Documentation**: Updated README with comprehensive model information and usage examples
+
 ## 0.10.3
 - 📥 **Background Downloads**: Added background download support for model files
 

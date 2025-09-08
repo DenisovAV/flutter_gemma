@@ -215,6 +215,11 @@ class WebModelSession extends InferenceModelSession {
   }
 
   @override
+  Future<void> stopGeneration() async {
+    throw UnimplementedError('Stop generation is not supported on Web platform yet');
+  }
+
+  @override
   Future<void> close() async {
     _queryChunks.clear();
     _controller?.close();

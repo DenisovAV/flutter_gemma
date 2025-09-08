@@ -25,6 +25,7 @@ There is an example of using:
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks (NEW!)
+- **🛑 Stop Generation:** Cancel text generation mid-process on Android devices (NEW!)
 - **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app (NEW!)
 - **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI (NEW!)
 - **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app (NEW!)

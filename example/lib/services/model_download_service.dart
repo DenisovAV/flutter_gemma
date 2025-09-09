@@ -42,10 +42,8 @@ class ModelDownloadService {
       final file = File(filePath);
 
       // Check remote file size
-      final Map<String, String> headers =
-          token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
-      final headResponse =
-          await http.head(Uri.parse(modelUrl), headers: headers);
+      final Map<String, String> headers = token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
+      final headResponse = await http.head(Uri.parse(modelUrl), headers: headers);
 
       if (headResponse.statusCode == 200) {
         final contentLengthHeader = headResponse.headers['content-length'];
@@ -71,7 +69,7 @@ class ModelDownloadService {
   }) async {
     try {
       final stream = FlutterGemmaPlugin.instance.modelManager.downloadModelFromNetworkWithProgress(modelUrl, token: token);
-      
+
       // Wait for stream to complete - same logic as original but with new downloader
       await for (final progress in stream) {
         // Keep progress as 0-100 (double)

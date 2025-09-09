@@ -1,4 +1,3 @@
-
 import 'package:flutter_gemma/core/model_response.dart';
 
 /// Base class for all chat events
@@ -7,9 +6,9 @@ abstract class ChatEvent {}
 /// Event emitted when a function call is detected
 class FunctionCallEvent extends ChatEvent {
   final FunctionCallResponse call;
-  
+
   FunctionCallEvent(this.call);
-  
+
   @override
   String toString() => 'FunctionCallEvent(call: $call)';
 }
@@ -17,9 +16,9 @@ class FunctionCallEvent extends ChatEvent {
 /// Event emitted for each text token in streaming mode
 class TextTokenEvent extends ChatEvent {
   final String token;
-  
+
   TextTokenEvent(this.token);
-  
+
   @override
   String toString() => 'TextTokenEvent(token: "$token")';
 }
@@ -27,9 +26,9 @@ class TextTokenEvent extends ChatEvent {
 /// Event emitted when text response is complete (sync mode)
 class TextCompleteEvent extends ChatEvent {
   final String fullText;
-  
+
   TextCompleteEvent(this.fullText);
-  
+
   @override
   String toString() => 'TextCompleteEvent(fullText: "$fullText")';
 }
@@ -37,9 +36,9 @@ class TextCompleteEvent extends ChatEvent {
 /// Event emitted when an error occurs
 class ErrorEvent extends ChatEvent {
   final String error;
-  
+
   ErrorEvent(this.error);
-  
+
   @override
   String toString() => 'ErrorEvent(error: "$error")';
 }

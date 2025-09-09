@@ -32,7 +32,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
   // Current streaming thinking state
   String _currentThinkingContent = '';
   bool _isCurrentThinkingExpanded = false;
-  
+
   // Expanded state for each thinking widget in history (by message index)
   final Map<int, bool> _thinkingExpandedStates = {};
 
@@ -77,7 +77,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
                   debugPrint('ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
                   final thinkingMessage = Message.thinking(text: thinkingContent);
                   widget.messageHandler(thinkingMessage); // Add to history through message handler
-                  
+
                   setState(() {
                     _currentThinkingContent = ''; // Clear current thinking as it's now in history
                   });
@@ -111,12 +111,12 @@ class _ChatListWidgetState extends State<ChatListWidget> {
         } else {
           final messageIndex = index - 3;
           final message = widget.messages.reversed.toList()[messageIndex];
-          
+
           // If this is a thinking message, show as ThinkingWidget
           if (message.type == MessageType.thinking) {
             final originalMessageIndex = widget.messages.length - 1 - messageIndex;
             final isExpanded = _thinkingExpandedStates[originalMessageIndex] ?? false;
-            
+
             return ThinkingWidget(
               thinking: ThinkingResponse(message.text),
               isExpanded: isExpanded,
@@ -127,7 +127,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
               },
             );
           }
-          
+
           // Regular message
           return ChatMessageWidget(
             message: message,

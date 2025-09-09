@@ -92,8 +92,7 @@ class WebInferenceModel extends InferenceModel {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
-        print(
-            'Warning: Vision modality is not yet implemented for web platform');
+        print('Warning: Vision modality is not yet implemented for web platform');
       }
     }
 
@@ -102,28 +101,23 @@ class WebInferenceModel extends InferenceModel {
     }
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
-      final fileset = await FilesetResolver.forGenAiTasks(
-              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'.toJS)
-          .toDart;
+      final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'.toJS).toDart;
 
       final loraPathToUse = loraPath ?? modelManager._loraPath;
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
       final config = LlmInferenceOptions(
-        baseOptions:
-            LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
+        baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
         maxTokens: maxTokens,
         randomSeed: randomSeed,
         topK: topK,
         temperature: temperature,
         topP: topP,
-        supportedLoraRanks:
-            !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
+        supportedLoraRanks: !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
         loraPath: !hasLoraParams ? null : loraPathToUse,
       );
 
-      final llmInference =
-          await LlmInference.createFromOptions(fileset, config).toDart;
+      final llmInference = await LlmInference.createFromOptions(fileset, config).toDart;
 
       final session = this.session = WebModelSession(
         modelType: modelType,
@@ -183,9 +177,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<String> getResponse() async {
     final String fullPrompt = _queryChunks.join("");
-    final response =
-        (await llmInference.generateResponse(fullPrompt.toJS, null).toDart)
-            .toDart;
+    final response = (await llmInference.generateResponse(fullPrompt.toJS, null).toDart).toDart;
     // Don't add response back to queryChunks - that's handled by InferenceChat
     return response;
   }
@@ -234,8 +226,7 @@ class WebModelManager extends ModelFileManager {
   String? _loraPath;
 
   @override
-  Future<bool> get isModelInstalled async =>
-      _loadCompleter != null ? await _loadCompleter!.future : false;
+  Future<bool> get isModelInstalled async => _loadCompleter != null ? await _loadCompleter!.future : false;
 
   @override
   Future<bool> get isLoraInstalled async => await isModelInstalled;
@@ -283,11 +274,9 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
-    await _loadModel(
-        'assets/$path', loraPath != null ? 'assets/$loraPath' : null);
+    await _loadModel('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override
@@ -296,20 +285,16 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<int> downloadModelFromNetworkWithProgress(String url,
-      {String? loraUrl, String? token}) {
+  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl, String? token}) {
     return _loadModelWithProgress(url, loraUrl);
   }
 
   @override
-  Stream<int> installModelFromAssetWithProgress(String path,
-      {String? loraPath}) {
+  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) {
     if (kReleaseMode) {
-      throw UnsupportedError(
-          "Method loadAssetModelWithProgress should not be used in the release build");
+      throw UnsupportedError("Method loadAssetModelWithProgress should not be used in the release build");
     }
-    return _loadModelWithProgress(
-        'assets/$path', loraPath != null ? 'assets/$loraPath' : null);
+    return _loadModelWithProgress('assets/$path', loraPath != null ? 'assets/$loraPath' : null);
   }
 
   @override

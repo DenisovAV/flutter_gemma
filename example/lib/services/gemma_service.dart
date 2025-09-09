@@ -15,7 +15,7 @@ class GemmaLocalService {
     debugPrint('GemmaLocalService: Adding query to chat: "${message.text}"');
     await _chat.addQuery(message);
     debugPrint('GemmaLocalService: Using direct InferenceChat stream (function handling: integrated)');
-    
+
     // Return direct stream from InferenceChat - no more intermediate processing!
     return _chat.generateChatResponseAsync();
   }

@@ -16,7 +16,7 @@ class ThinkingWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       padding: const EdgeInsets.all(12.0),
@@ -99,8 +99,7 @@ class StreamingThinkingWidget extends StatefulWidget {
   State<StreamingThinkingWidget> createState() => _StreamingThinkingWidgetState();
 }
 
-class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
-    with TickerProviderStateMixin {
+class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
@@ -130,7 +129,7 @@ class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       padding: const EdgeInsets.all(12.0),

@@ -51,7 +51,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-        final finalPrompt = message.transformToChatPrompt(type: modelType);
+    final finalPrompt = message.transformToChatPrompt(type: modelType);
     await _platformService.addQueryChunk(finalPrompt);
     if (message.hasImage && message.imageBytes != null && supportImage) {
       await _addImage(message.imageBytes!);
@@ -88,17 +88,14 @@ class MobileInferenceModelSession extends InferenceModelSession {
     final completer = _responseCompleter = Completer<void>();
     try {
       final controller = _asyncResponseController = StreamController<String>();
-      
+
       // Store subscription for proper cleanup
       _eventSubscription = eventChannel.receiveBroadcastStream().listen(
         (event) {
           // Check if controller is still open before adding events
           if (!controller.isClosed) {
-            if (event is Map &&
-                event.containsKey('code') &&
-                event['code'] == "ERROR") {
-              controller.addError(
-                  Exception(event['message'] ?? 'Unknown async error occurred'));
+            if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
+              controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
             } else if (event is Map && event.containsKey('partialResult')) {
               final partial = event['partialResult'] as String;
               controller.add(partial);
@@ -149,11 +146,11 @@ class MobileInferenceModelSession extends InferenceModelSession {
   @override
   Future<void> close() async {
     _isClosed = true;
-    
+
     // Cancel event subscription first to stop receiving events
     await _eventSubscription?.cancel();
     _eventSubscription = null;
-    
+
     // Try to stop generation if possible (ignore errors on unsupported platforms)
     try {
       await _platformService.stopGeneration();
@@ -170,15 +167,14 @@ class MobileInferenceModelSession extends InferenceModelSession {
         print('Warning: Unexpected error during stop generation: $e');
       }
     }
-    
+
     // Close controller after stopping subscription
     _asyncResponseController?.close();
-    
+
     onClose();
     await _platformService.closeSession();
   }
 }
-
 
 @visibleForTesting
 const eventChannel = EventChannel('flutter_gemma_stream');
@@ -213,8 +209,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     final completer = _initCompleter = Completer<InferenceModel>();
 
-    final (isModelInstalled, isLoraInstalled, File? modelFile, File? loraFile) =
-        await (
+    final (isModelInstalled, isLoraInstalled, File? modelFile, File? loraFile) = await (
       modelManager.isModelInstalled,
       modelManager.isLoraInstalled,
       modelManager._modelFile,
@@ -223,8 +218,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     if (!isModelInstalled || modelFile == null) {
       completer.completeError(
-        Exception(
-            'Gemma Model is not installed yet. Use the `modelManager` to load the model first'),
+        Exception('Gemma Model is not installed yet. Use the `modelManager` to load the model first'),
       );
       return completer.future;
     }

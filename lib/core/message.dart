@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter_gemma/core/model.dart';
 
 enum MessageType {
   text,
@@ -123,7 +122,6 @@ class Message {
     );
   }
 
-
   @override
   String toString() {
     return 'Message(text: $text, isUser: $isUser, hasImage: $hasImage, type: $type, toolName: $toolName)';
@@ -141,12 +139,7 @@ class Message {
   }
 
   @override
-  int get hashCode =>
-      text.hashCode ^
-      isUser.hashCode ^
-      imageBytes.hashCode ^
-      type.hashCode ^
-      toolName.hashCode;
+  int get hashCode => text.hashCode ^ isUser.hashCode ^ imageBytes.hashCode ^ type.hashCode ^ toolName.hashCode;
 
   bool _listEquals<T>(List<T>? a, List<T>? b) {
     if (a == null) return b == null;

@@ -4,6 +4,9 @@ const _prefsModelKey = 'installed_model_file_name';
 const _prefsLoraKey = 'installed_lora_file_name';
 const _downloadGroup = 'flutter_gemma_downloads';
 
+// Supported model file extensions
+const _supportedExtensions = ['.task', '.bin'];
+
 class MobileModelManager extends ModelFileManager {
   MobileModelManager({
     required this.onDeleteModel,
@@ -25,6 +28,44 @@ class MobileModelManager extends ModelFileManager {
   String? _modelFileName;
   String? _loraFileName;
 
+  bool _cleanupCompleted = false;
+
+  /// Cleans up orphaned files (files without corresponding SharedPrefs entry)
+  Future<void> _cleanupOrphanedFiles() async {
+    try {
+      final prefs = await _prefs;
+      final directory = await getApplicationDocumentsDirectory();
+
+      // Get registered files from prefs
+      final registeredModel = prefs.getString(_prefsModelKey);
+      final registeredLora = prefs.getString(_prefsLoraKey);
+
+      // Get all supported model files in directory
+      final files = directory.listSync()
+          .whereType<File>()
+          .where((file) => _supportedExtensions.any((ext) => file.path.endsWith(ext)))
+          .toList();
+
+      for (final file in files) {
+        final fileName = file.path.split('/').last;
+
+        // If file is not registered in prefs - delete it
+        if (fileName != registeredModel && fileName != registeredLora) {
+          print('Cleaning up orphaned file: $fileName');
+          await file.delete();
+        }
+      }
+    } catch (e) {
+      print('Failed to cleanup orphaned files: $e');
+    }
+  }
+
+  Future<void> _ensureCleanupCompleted() async {
+    if (_cleanupCompleted) return;
+    await _cleanupOrphanedFiles();
+    _cleanupCompleted = true;
+  }
+
   Future<File?> get _modelFile async {
     if (_userSetModelPath case String path) return File(path);
     final directory = await getApplicationDocumentsDirectory();
@@ -45,6 +86,8 @@ class MobileModelManager extends ModelFileManager {
 
   @override
   Future<bool> get isModelInstalled async {
+    await _ensureCleanupCompleted(); // ✅ Cleanup orphaned files on first access
+
     if (_modelCompleter != null) return await _modelCompleter!.future;
 
     final prefs = await _prefs;
@@ -136,10 +179,10 @@ class MobileModelManager extends ModelFileManager {
     final targetPath = (await _modelFile)?.path ?? "${await getApplicationDocumentsDirectory()}/$modelFileName";
     await Future.wait([
       _loadModelIfNeeded(() async => _downloadToLocalStorageWithProgress(
-        assetUrl: url,
-        targetPath: targetPath,
-        token: token,
-      )),
+            assetUrl: url,
+            targetPath: targetPath,
+            token: token,
+          )),
       if (loraUrl != null) downloadLoraWeightsFromNetwork(loraUrl),
     ]);
   }
@@ -149,15 +192,27 @@ class MobileModelManager extends ModelFileManager {
     final modelFileName = Uri.parse(url).pathSegments.last;
     _modelFileName = modelFileName;
 
-    final prefs = await _prefs;
-    await prefs.setString(_prefsModelKey, modelFileName);
-
     final targetPath = (await _modelFile)?.path ?? "${await getApplicationDocumentsDirectory()}/$modelFileName";
-    yield* _loadModelWithProgressIfNeeded(() => _downloadToLocalStorageWithProgress(
-      assetUrl: url,
-      targetPath: targetPath,
-      token: token,
-    ));
+
+    try {
+      yield* _loadModelWithProgressIfNeeded(() => _downloadToLocalStorageWithProgress(
+            assetUrl: url,
+            targetPath: targetPath,
+            token: token,
+          ));
+
+      // ✅ Set SharedPrefs ONLY after successful download
+      final prefs = await _prefs;
+      await prefs.setString(_prefsModelKey, modelFileName);
+    } catch (e) {
+      // ✅ Cleanup partial file on error
+      final file = File(targetPath);
+      if (await file.exists()) {
+        await file.delete();
+      }
+      _modelFileName = null;
+      rethrow;
+    }
 
     if (loraUrl != null) {
       await downloadLoraWeightsFromNetwork(loraUrl, token: token);
@@ -174,10 +229,10 @@ class MobileModelManager extends ModelFileManager {
 
     final targetPath = (await _loraFile)?.path ?? "${await getApplicationDocumentsDirectory()}/$loraFileName";
     await _loadLoraIfNeeded(() async => _downloadToLocalStorageWithProgress(
-      assetUrl: loraUrl,
-      targetPath: targetPath,
-      token: token,
-    ));
+          assetUrl: loraUrl,
+          targetPath: targetPath,
+          token: token,
+        ));
   }
 
   /// Installs from asset
@@ -191,9 +246,9 @@ class MobileModelManager extends ModelFileManager {
 
     await Future.wait([
       _loadModelIfNeeded(() => _largeFileHandler.copyAssetToLocalStorage(
-        assetName: path,
-        targetPath: modelFileName,
-      )),
+            assetName: path,
+            targetPath: modelFileName,
+          )),
       if (loraPath != null) installLoraWeightsFromAsset(loraPath),
     ]);
   }
@@ -203,13 +258,20 @@ class MobileModelManager extends ModelFileManager {
     final modelFileName = Uri.parse(path).pathSegments.last;
     _modelFileName = modelFileName;
 
-    final prefs = await _prefs;
-    await prefs.setString(_prefsModelKey, modelFileName);
+    try {
+      yield* _loadModelWithProgressIfNeeded(() => _largeFileHandler.copyAssetToLocalStorageWithProgress(
+            assetName: path,
+            targetPath: modelFileName,
+          ));
 
-    yield* _loadModelWithProgressIfNeeded(() => _largeFileHandler.copyAssetToLocalStorageWithProgress(
-      assetName: path,
-      targetPath: modelFileName,
-    ));
+      // ✅ Set SharedPrefs ONLY after successful asset copy
+      final prefs = await _prefs;
+      await prefs.setString(_prefsModelKey, modelFileName);
+    } catch (e) {
+      // ✅ Cleanup on error
+      _modelFileName = null;
+      rethrow;
+    }
 
     if (loraPath != null) {
       await installLoraWeightsFromAsset(loraPath);
@@ -225,9 +287,9 @@ class MobileModelManager extends ModelFileManager {
     await prefs.setString(_prefsLoraKey, loraFileName);
 
     await _loadLoraIfNeeded(() => _largeFileHandler.copyAssetToLocalStorage(
-      assetName: path,
-      targetPath: loraFileName,
-    ));
+          assetName: path,
+          targetPath: loraFileName,
+        ));
   }
 
   @override

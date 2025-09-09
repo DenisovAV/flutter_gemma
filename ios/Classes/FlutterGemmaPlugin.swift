@@ -234,6 +234,14 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
+    func stopGeneration(completion: @escaping (Result<Void, any Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "stop_not_supported", 
+            message: "Stop generation is not supported on iOS platform yet", 
+            details: nil
+        )))
+    }
+
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         return nil

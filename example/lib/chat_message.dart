@@ -13,12 +13,11 @@ class ChatMessageWidget extends StatelessWidget {
     if (message.type == MessageType.systemInfo) {
       return _buildSystemMessage(context);
     }
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
-        mainAxisAlignment:
-        message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: <Widget>[
           message.isUser ? const SizedBox() : _buildAvatar(),
           const SizedBox(width: 10),
@@ -51,15 +50,11 @@ class ChatMessageWidget extends StatelessWidget {
                           fontSize: 14,
                         ),
                         code: TextStyle(
-                          backgroundColor: message.isUser
-                              ? const Color(0xFF2a5a8c)
-                              : const Color(0xFF404040),
+                          backgroundColor: message.isUser ? const Color(0xFF2a5a8c) : const Color(0xFF404040),
                           color: Colors.white,
                         ),
                         codeblockDecoration: BoxDecoration(
-                          color: message.isUser
-                              ? const Color(0xFF2a5a8c)
-                              : const Color(0xFF404040),
+                          color: message.isUser ? const Color(0xFF2a5a8c) : const Color(0xFF404040),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -167,7 +162,7 @@ class ChatMessageWidget extends StatelessWidget {
   Widget _buildSystemMessage(BuildContext context) {
     IconData iconData;
     Color iconColor;
-    
+
     // Determine icon based on message content
     if (message.text.contains('Calling')) {
       iconData = Icons.settings;
@@ -185,7 +180,7 @@ class ChatMessageWidget extends StatelessWidget {
       iconData = Icons.info;
       iconColor = Colors.blue;
     }
-    
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
@@ -231,14 +226,14 @@ class ChatMessageWidget extends StatelessWidget {
   Widget _buildAvatar() {
     return message.isUser
         ? const CircleAvatar(
-      backgroundColor: Color(0xFF1a4a7c),
-      child: Icon(Icons.person, color: Colors.white),
-    )
+            backgroundColor: Color(0xFF1a4a7c),
+            child: Icon(Icons.person, color: Colors.white),
+          )
         : _circled('assets/gemma.png');
   }
 
   Widget _circled(String image) => CircleAvatar(
-    backgroundColor: Colors.transparent,
-    foregroundImage: AssetImage(image),
-  );
+        backgroundColor: Colors.transparent,
+        foregroundImage: AssetImage(image),
+      );
 }

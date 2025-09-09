@@ -243,7 +243,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
         ),
         label: const Text(
           'Stop Generation',
-          style: const TextStyle(
+          style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w500,
           ),

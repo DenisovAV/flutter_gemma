@@ -4,6 +4,9 @@ const _prefsModelKey = 'installed_model_file_name';
 const _prefsLoraKey = 'installed_lora_file_name';
 const _downloadGroup = 'flutter_gemma_downloads';
 
+// Supported model file extensions
+const _supportedExtensions = ['.task', '.bin'];
+
 class MobileModelManager extends ModelFileManager {
   MobileModelManager({
     required this.onDeleteModel,
@@ -37,8 +40,11 @@ class MobileModelManager extends ModelFileManager {
       final registeredModel = prefs.getString(_prefsModelKey);
       final registeredLora = prefs.getString(_prefsLoraKey);
 
-      // Get all .task and .bin files in directory
-      final files = directory.listSync().whereType<File>().where((file) => file.path.endsWith('.task') || file.path.endsWith('.bin')).toList();
+      // Get all supported model files in directory
+      final files = directory.listSync()
+          .whereType<File>()
+          .where((file) => _supportedExtensions.any((ext) => file.path.endsWith(ext)))
+          .toList();
 
       for (final file in files) {
         final fileName = file.path.split('/').last;

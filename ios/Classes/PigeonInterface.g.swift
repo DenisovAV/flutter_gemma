@@ -126,6 +126,7 @@ protocol PlatformService {
   func addImage(imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, Error>) -> Void)
   func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
   func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
+  func stopGeneration(completion: @escaping (Result<Void, Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -287,6 +288,21 @@ class PlatformServiceSetup {
       }
     } else {
       generateResponseAsyncChannel.setMessageHandler(nil)
+    }
+    let stopGenerationChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.stopGeneration\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      stopGenerationChannel.setMessageHandler { _, reply in
+        api.stopGeneration { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      stopGenerationChannel.setMessageHandler(nil)
     }
   }
 }

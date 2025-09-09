@@ -86,8 +86,7 @@ class MobileInferenceModel extends InferenceModel {
         modelManager._loraFile,
       ).wait;
 
-      final resolvedLoraPath =
-          (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
+      final resolvedLoraPath = (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
 
       await _platformService.createSession(
         randomSeed: randomSeed,
@@ -122,4 +121,3 @@ class MobileInferenceModel extends InferenceModel {
     await _platformService.closeModel();
   }
 }
-

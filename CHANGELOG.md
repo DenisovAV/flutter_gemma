@@ -1,3 +1,18 @@
+## 0.10.5
+- 🛑 **Stop Generation**: Added Android support for stopping text generation mid-process with `session.cancelRequestGenerationAsync()` (#89, #19, #34)
+- 🐛 **Screen Close Fix**: Fixed crash when closing screen during active generation by implementing proper StreamSubscription cleanup (#89)  
+- 🐛 **Model Loading Fix**: Fixed model install check with partial downloads by adding orphaned files cleanup (#84)
+- 🗑️ **File Management**: Added automatic cleanup of corrupted/incomplete model files with atomic SharedPrefs updates
+- 📱 **iOS Requirements**: Updated deployment target to 16.0 for MediaPipe GenAI compatibility
+- 🔧 **Error Handling**: Improved error recovery with automatic file cleanup on failed downloads
+- 📚 **Documentation**: Updated model capabilities table and comprehensive usage examples
+
+## 0.10.4
+- 📚 **Documentation**: Updated README with comprehensive model information and usage examples
+
+## 0.10.3
+- 📥 **Background Downloads**: Added background download support for model files
+
 ## 0.10.2
 - 🚀 **New Models**: Added support for 4 new compact models:
   - [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) - Ultra-compact text-only model (0.3GB)

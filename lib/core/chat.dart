@@ -54,16 +54,11 @@ class InferenceChat {
     await addQueryChunk(message);
   }
 
-  Future<void> addQueryChunk(Message message, [bool noTool=false]) async {
+  Future<void> addQueryChunk(Message message, [bool noTool = false]) async {
     var messageToSend = message;
     // Only add tools prompt for the first user text message (not a tool response)
     // and only if the model supports function calls
-    if (message.isUser && 
-        message.type == MessageType.text && 
-        !_toolsInstructionSent && 
-        tools.isNotEmpty && 
-        !noTool &&
-        supportsFunctionCalls) {
+    if (message.isUser && message.type == MessageType.text && !_toolsInstructionSent && tools.isNotEmpty && !noTool && supportsFunctionCalls) {
       _toolsInstructionSent = true;
       final toolsPrompt = _createToolsPrompt();
       final newText = '$toolsPrompt\n${message.text}';
@@ -91,11 +86,7 @@ class InferenceChat {
   Future<ModelResponse> generateChatResponse() async {
     debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final cleanedResponse = ModelThinkingFilter.cleanResponse(
-      response,
-      isThinking: isThinking,
-      modelType: modelType
-    );
+    final cleanedResponse = ModelThinkingFilter.cleanResponse(response, isThinking: isThinking, modelType: modelType);
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
@@ -128,30 +119,26 @@ class InferenceChat {
   Stream<ModelResponse> generateChatResponseAsync() async* {
     debugPrint('InferenceChat: Starting async stream generation');
     final buffer = StringBuffer();
-    
+
     // Smart function handling mode - continuous scanning for JSON patterns
     String funcBuffer = '';
 
     debugPrint('InferenceChat: Starting to iterate over native tokens...');
-    
+
     final originalStream = session.getResponseAsync().map((token) => TextResponse(token));
-    
+
     // Apply thinking filter if needed using ModelThinkingFilter
-    final Stream<ModelResponse> filteredStream = isThinking 
-        ? ModelThinkingFilter.filterThinkingStream(
-            originalStream, 
-            modelType: modelType
-          )
-        : originalStream;
-        
+    final Stream<ModelResponse> filteredStream =
+        isThinking ? ModelThinkingFilter.filterThinkingStream(originalStream, modelType: modelType) : originalStream;
+
     await for (final response in filteredStream) {
       if (response is TextResponse) {
         final token = response.token;
         debugPrint('InferenceChat: Received filtered token: "$token"');
-        
+
         // Track if this token should be added to buffer (default true)
         bool shouldAddToBuffer = true;
-        
+
         // Continuous scanning for function calls in text - for models like DeepSeek
         if (tools.isNotEmpty && supportsFunctionCalls) {
           // Check if we're currently buffering potential JSON
@@ -159,7 +146,7 @@ class InferenceChat {
             // We're already buffering - add token and check for completion
             funcBuffer += token;
             debugPrint('InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars');
-            
+
             // Check if we now have a complete JSON
             if (FunctionCallParser.isJsonComplete(funcBuffer)) {
               // First try to extract message from any JSON with message field
@@ -177,7 +164,7 @@ class InferenceChat {
               } catch (e) {
                 debugPrint('InferenceChat: Failed to parse JSON for message extraction: $e');
               }
-              
+
               // If no message field found, try parsing as function call
               final functionCall = FunctionCallParser.parse(funcBuffer);
               if (functionCall != null) {
@@ -195,7 +182,7 @@ class InferenceChat {
                 continue;
               }
             }
-            
+
             // If buffer gets too long without completing, flush as text
             if (funcBuffer.length > _maxFunctionBufferLength) {
               debugPrint('InferenceChat: Buffer too long without completion, flushing as text');
@@ -204,7 +191,7 @@ class InferenceChat {
               shouldAddToBuffer = false;
               continue;
             }
-            
+
             // Still buffering, don't emit yet
             shouldAddToBuffer = false;
           } else {
@@ -226,7 +213,7 @@ class InferenceChat {
           yield response;
           shouldAddToBuffer = true; // Add to main buffer for history
         }
-        
+
         // Add token to buffer only if it should be included in final message
         if (shouldAddToBuffer) {
           buffer.write(token);
@@ -236,15 +223,15 @@ class InferenceChat {
         yield response;
       }
     }
-    
+
     debugPrint('InferenceChat: Native token stream ended');
     final response = buffer.toString();
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
-    
+
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
       debugPrint('InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars');
-      
+
       // First try to extract message from JSON if it has message field
       if (FunctionCallParser.isJsonComplete(funcBuffer)) {
         try {
@@ -272,7 +259,7 @@ class InferenceChat {
         yield TextResponse(funcBuffer);
       }
     }
-    
+
     try {
       debugPrint('InferenceChat: Calculating response tokens...');
       final responseTokens = await session.sizeInTokens(response);
@@ -302,13 +289,12 @@ class InferenceChat {
       debugPrint('InferenceChat: Error adding message to history: $e');
       rethrow;
     }
-    
+
     debugPrint('InferenceChat: generateChatResponseAsync completed successfully');
   }
 
   Future<void> _recreateSessionWithReducedChunks() async {
-    while (_currentTokens >= (maxTokens - tokenBuffer) &&
-        _modelHistory.isNotEmpty) {
+    while (_currentTokens >= (maxTokens - tokenBuffer) && _modelHistory.isNotEmpty) {
       final removedMessage = _modelHistory.removeAt(0);
       final size = await session.sizeInTokens(removedMessage.text);
       _currentTokens -= size;
@@ -345,19 +331,23 @@ class InferenceChat {
 
   int get imageMessageCount => _fullHistory.where((msg) => msg.hasImage).length;
 
+  Future<void> stopGeneration() => session.stopGeneration();
+
   String _createToolsPrompt() {
     if (tools.isEmpty) {
       return '';
     }
 
     final toolsPrompt = StringBuffer();
-    toolsPrompt.writeln('You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
-    toolsPrompt.writeln('When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
-    toolsPrompt.writeln('After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
+    toolsPrompt.writeln(
+        'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+    toolsPrompt.writeln(
+        'When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
+    toolsPrompt
+        .writeln('After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
     toolsPrompt.writeln('<tool_code>');
     for (final tool in tools) {
-      toolsPrompt.writeln(
-          '${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
+      toolsPrompt.writeln('${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
     }
     toolsPrompt.writeln('</tool_code>');
     return toolsPrompt.toString();

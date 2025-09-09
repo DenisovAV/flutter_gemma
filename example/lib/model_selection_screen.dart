@@ -24,7 +24,7 @@ class ModelSelectionScreen extends StatefulWidget {
 class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   SortType selectedSort = SortType.defaultOrder;
   bool showFilters = false;
-  
+
   // Filter states
   bool filterMultimodal = false;
   bool filterFunctionCalls = false;
@@ -34,7 +34,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   double _sizeToMB(String size) {
     final numStr = size.replaceAll(RegExp(r'[^0-9.]'), '');
     final num = double.tryParse(numStr) ?? 0;
-    
+
     if (size.toUpperCase().contains('GB')) {
       return num * 1024; // Convert GB to MB
     } else if (size.toUpperCase().contains('TB')) {
@@ -60,7 +60,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       if (filterMultimodal && !model.supportImage) return false;
       if (filterFunctionCalls && !model.supportsFunctionCalls) return false;
       if (filterThinking && !model.isThinking) return false;
-      
+
       return true;
     }).toList();
   }
@@ -146,79 +146,81 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     height: showFilters ? null : 0,
-                    child: showFilters ? Container(
-                      padding: const EdgeInsets.all(12.0),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1a2951),
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Features
-                          const Text(
-                            'Features:',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              FilterChip(
-                                label: const Text('Multimodal'),
-                                selected: filterMultimodal,
-                                onSelected: (bool selected) {
-                                  setState(() {
-                                    filterMultimodal = selected;
-                                  });
-                                },
-                                selectedColor: Colors.orange[700],
-                                labelStyle: TextStyle(
-                                  color: filterMultimodal ? Colors.white : null,
-                                ),
-                              ),
-                              FilterChip(
-                                label: const Text('Function Calls'),
-                                selected: filterFunctionCalls,
-                                onSelected: (bool selected) {
-                                  setState(() {
-                                    filterFunctionCalls = selected;
-                                  });
-                                },
-                                selectedColor: Colors.purple[600],
-                                labelStyle: TextStyle(
-                                  color: filterFunctionCalls ? Colors.white : null,
-                                ),
-                              ),
-                              FilterChip(
-                                label: const Text('Thinking'),
-                                selected: filterThinking,
-                                onSelected: (bool selected) {
-                                  setState(() {
-                                    filterThinking = selected;
-                                  });
-                                },
-                                selectedColor: Colors.indigo[600],
-                                labelStyle: TextStyle(
-                                  color: filterThinking ? Colors.white : null,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Clear filters button
-                          Center(
-                            child: TextButton(
-                              onPressed: _clearFilters,
-                              child: const Text(
-                                'Clear Filters',
-                                style: TextStyle(color: Colors.orange),
-                              ),
+                    child: showFilters
+                        ? Container(
+                            padding: const EdgeInsets.all(12.0),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1a2951),
+                              borderRadius: BorderRadius.circular(8.0),
                             ),
-                          ),
-                        ],
-                      ),
-                    ) : null,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Features
+                                const Text(
+                                  'Features:',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  children: [
+                                    FilterChip(
+                                      label: const Text('Multimodal'),
+                                      selected: filterMultimodal,
+                                      onSelected: (bool selected) {
+                                        setState(() {
+                                          filterMultimodal = selected;
+                                        });
+                                      },
+                                      selectedColor: Colors.orange[700],
+                                      labelStyle: TextStyle(
+                                        color: filterMultimodal ? Colors.white : null,
+                                      ),
+                                    ),
+                                    FilterChip(
+                                      label: const Text('Function Calls'),
+                                      selected: filterFunctionCalls,
+                                      onSelected: (bool selected) {
+                                        setState(() {
+                                          filterFunctionCalls = selected;
+                                        });
+                                      },
+                                      selectedColor: Colors.purple[600],
+                                      labelStyle: TextStyle(
+                                        color: filterFunctionCalls ? Colors.white : null,
+                                      ),
+                                    ),
+                                    FilterChip(
+                                      label: const Text('Thinking'),
+                                      selected: filterThinking,
+                                      onSelected: (bool selected) {
+                                        setState(() {
+                                          filterThinking = selected;
+                                        });
+                                      },
+                                      selectedColor: Colors.indigo[600],
+                                      labelStyle: TextStyle(
+                                        color: filterThinking ? Colors.white : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                // Clear filters button
+                                Center(
+                                  child: TextButton(
+                                    onPressed: _clearFilters,
+                                    child: const Text(
+                                      'Clear Filters',
+                                      style: TextStyle(color: Colors.orange),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : null,
                   ),
                 ],
               ),
@@ -292,29 +294,29 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
 class ModelCard extends StatefulWidget {
   final Model model;
-  
+
   const ModelCard({super.key, required this.model});
-  
+
   @override
   State<ModelCard> createState() => _ModelCardState();
 }
 
 class _ModelCardState extends State<ModelCard> {
   late PreferredBackend selectedBackend;
-  
+
   @override
   void initState() {
     super.initState();
     selectedBackend = widget.model.preferredBackend;
   }
-  
+
   // Check if model supports both backends
   bool get supportsBothBackends {
     // Models that have explicit CPU/GPU support
     // For now, we'll allow switching for all models except local ones
     return !widget.model.localModel;
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -376,9 +378,7 @@ class _ModelCardState extends State<ModelCard> {
                   Text(
                     'Backend: ${widget.model.preferredBackend.name.toUpperCase()}',
                     style: TextStyle(
-                      color: widget.model.preferredBackend == PreferredBackend.gpu 
-                          ? Colors.green[600] 
-                          : Colors.blue[600],
+                      color: widget.model.preferredBackend == PreferredBackend.gpu ? Colors.green[600] : Colors.blue[600],
                       fontWeight: FontWeight.w500,
                     ),
                   ),

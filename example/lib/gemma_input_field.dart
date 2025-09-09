@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
@@ -55,13 +57,38 @@ class GemmaInputFieldState extends State<GemmaInputField> {
     super.dispose();
   }
 
+  void _stopGeneration() async {
+    if (!_processing) return;
+
+    try {
+      await widget.chat?.stopGeneration();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generation stopped'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      final message =
+          e.toString().contains('stop_not_supported') ? 'Stop generation not yet supported on this platform' : 'Failed to stop generation: $e';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          duration: const Duration(seconds: 3),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
   void _processMessages() async {
     if (_processing) return;
-    
+
     // DEBUG: Track what we're processing
     final isAfterFunction = widget.messages.isNotEmpty && !widget.messages.last.isUser;
     debugPrint('🔵 GemmaInputField: Starting processing - isAfterFunction: $isAfterFunction');
-    
+
     setState(() {
       _processing = true;
       _message = const Message(text: '', isUser: false);
@@ -73,7 +100,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
 
     try {
       final responseStream = await _gemma?.processMessage(widget.messages.last);
-      
+
       if (responseStream != null) {
         _streamSubscription = responseStream.listen(
           (response) {
@@ -119,7 +146,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 });
                 widget.onThinkingCompleted?.call(_thinkingContent);
               }
-              
+
               if (_pendingFunctionCall != null) {
                 debugPrint('🔧 GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
                 widget.streamHandler(_pendingFunctionCall!);
@@ -158,18 +185,15 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   @override
   Widget build(BuildContext context) {
     // Determine whether to show thinking (only if last message is from user)
-    final shouldShowThinking = widget.messages.isNotEmpty && 
-                             widget.messages.last.isUser &&
-                             (_thinkingContent.isNotEmpty || _completedThinking != null);
-    
+    final shouldShowThinking =
+        widget.messages.isNotEmpty && widget.messages.last.isUser && (_thinkingContent.isNotEmpty || _completedThinking != null);
+
     // Determine which message to display
     // If processing after function (not from user) - show empty for loading
-    final displayMessage = widget.isProcessing && 
-                          (widget.messages.isEmpty || !widget.messages.last.isUser)
+    final displayMessage = widget.isProcessing && (widget.messages.isEmpty || !widget.messages.last.isUser)
         ? const Message(text: '', isUser: false) // Force loading indicator
         : _message; // Regular accumulated message
-    
-    
+
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -200,7 +224,37 @@ class GemmaInputFieldState extends State<GemmaInputField> {
           ],
           // Main message with correct content
           ChatMessageWidget(message: displayMessage),
+          // Stop generation button
+          if (_processing) _buildStopButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStopButton() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: ElevatedButton.icon(
+        onPressed: _stopGeneration,
+        icon: const Icon(
+          Icons.stop,
+          size: 18,
+          color: Colors.white,
+        ),
+        label: const Text(
+          'Stop Generation',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1a4a7c),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
       ),
     );
   }

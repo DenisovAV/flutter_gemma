@@ -46,7 +46,8 @@ class ChatScreenState extends State<ChatScreen> {
     ),
     const Tool(
       name: 'change_background_color',
-      description: "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+      description:
+          "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
       parameters: {
         'type': 'object',
         'properties': {
@@ -96,9 +97,7 @@ class ChatScreenState extends State<ChatScreen> {
 
   Future<void> _initializeModel() async {
     if (!await _gemma.modelManager.isModelInstalled) {
-      final path = kIsWeb
-          ? widget.model.url
-          : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
+      final path = kIsWeb ? widget.model.url : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
       await _gemma.modelManager.setModelPath(path);
     }
 
@@ -131,7 +130,7 @@ class ChatScreenState extends State<ChatScreen> {
   // Helper method to handle function calls with system messages (async version)
   Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
     debugPrint('Function call received: ${functionCall.name}(${functionCall.args})');
-    
+
     // Set streaming state and show "Calling function..." in one setState
     setState(() {
       _isStreaming = true;
@@ -139,49 +138,49 @@ class ChatScreenState extends State<ChatScreen> {
         text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: \"${e.value}\"').join(', ')})",
       ));
     });
-    
+
     // Small delay to show the calling message
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     // 2. Show "Executing function"
     setState(() {
       _messages.add(Message.systemInfo(
         text: "⚡ Executing function",
       ));
     });
-    
+
     final toolResponse = await _executeTool(functionCall);
     debugPrint('Tool response: $toolResponse');
-    
+
     // 3. Show "Function completed"
     setState(() {
       _messages.add(Message.systemInfo(
         text: "✅ Function completed: ${toolResponse['message'] ?? 'Success'}",
       ));
     });
-    
+
     // Small delay to show completion
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
     // Send tool response back to the model
     final toolMessage = Message.toolResponse(
       toolName: functionCall.name,
       response: toolResponse,
     );
     await chat?.addQuery(toolMessage);
-    
+
     // Get the final response from the model (async stream)
     debugPrint('⚡ ChatScreen: Starting function response generation');
-    
+
     String accumulatedResponse = '';
     bool hasStartedResponse = false;
-    
+
     await for (final token in chat!.generateChatResponseAsync()) {
       if (token is TextResponse) {
         accumulatedResponse += token.token;
         // DEBUG: Track accumulation in ChatScreen
         debugPrint('📝 ChatScreen: Function response token: "${token.token}" -> total: "$accumulatedResponse"');
-        
+
         setState(() {
           if (!hasStartedResponse) {
             _messages.add(Message.text(text: accumulatedResponse));
@@ -195,15 +194,15 @@ class ChatScreenState extends State<ChatScreen> {
         debugPrint('❌ ChatScreen: Unexpected FunctionCall after tool response: ${token.name}');
       }
     }
-    
+
     debugPrint('🏁 ChatScreen: Function response completed: "$accumulatedResponse" (length: ${accumulatedResponse.length})');
-    
+
     // Reset streaming state when done
     setState(() {
       _isStreaming = false;
     });
   }
-  
+
   // Main gemma response handler - processes responses from GemmaInputField
   Future<void> _handleGemmaResponse(ModelResponse response) async {
     if (response is FunctionCallResponse) {
@@ -257,7 +256,7 @@ class ChatScreenState extends State<ChatScreen> {
       final title = functionCall.args['title'] as String? ?? 'Alert';
       final message = functionCall.args['message'] as String? ?? 'No message provided';
       final buttonText = functionCall.args['button_text'] as String? ?? 'OK';
-      
+
       // Show the alert dialog
       await showDialog(
         context: context,
@@ -274,7 +273,7 @@ class ChatScreenState extends State<ChatScreen> {
           );
         },
       );
-      
+
       return {'status': 'success', 'message': 'Alert dialog shown with title "$title"'};
     }
     return {'error': 'Tool not found'};
@@ -294,7 +293,7 @@ class ChatScreenState extends State<ChatScreen> {
               MaterialPageRoute<void>(
                 builder: (context) => const ModelSelectionScreen(),
               ),
-                  (route) => false,
+              (route) => false,
             );
           },
         ),
@@ -342,32 +341,32 @@ class ChatScreenState extends State<ChatScreen> {
         ),
         _isModelInitialized
             ? Column(children: [
-          if (_error != null) _buildErrorBanner(_error!),
-          if (chat?.supportsImages == true && _messages.isEmpty)
-            _buildImageSupportInfo(),
-          Expanded(
-            child: ChatListWidget(
-              chat: chat,
-              gemmaHandler: _handleGemmaResponse,
-              messageHandler: (message) { // Handles all message additions to history
-                setState(() {
-                  _error = null;
-                  _messages.add(message);
-                  // Set streaming to true when user sends message
-                  _isStreaming = true;
-                });
-              },
-              errorHandler: (err) {
-                setState(() {
-                  _error = err;
-                  _isStreaming = false; // Reset streaming on error
-                });
-              },
-              messages: _messages,
-              isProcessing: _isStreaming,
-            ),
-          )
-        ])
+                if (_error != null) _buildErrorBanner(_error!),
+                if (chat?.supportsImages == true && _messages.isEmpty) _buildImageSupportInfo(),
+                Expanded(
+                  child: ChatListWidget(
+                    chat: chat,
+                    gemmaHandler: _handleGemmaResponse,
+                    messageHandler: (message) {
+                      // Handles all message additions to history
+                      setState(() {
+                        _error = null;
+                        _messages.add(message);
+                        // Set streaming to true when user sends message
+                        _isStreaming = true;
+                      });
+                    },
+                    errorHandler: (err) {
+                      setState(() {
+                        _error = err;
+                        _isStreaming = false; // Reset streaming on error
+                      });
+                    },
+                    messages: _messages,
+                    isProcessing: _isStreaming,
+                  ),
+                )
+              ])
             : const LoadingWidget(message: 'Initializing model'),
       ]),
     );

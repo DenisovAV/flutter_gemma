@@ -146,7 +146,7 @@ class InferenceModelSession(
     }
 
     fun stopGeneration() {
-        session.cancelRequestGenerationAsync()
+        session.cancelGenerateResponseAsync()
     }
 
     fun close() {

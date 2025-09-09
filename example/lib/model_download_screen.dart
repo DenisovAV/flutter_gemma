@@ -59,8 +59,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
 
     try {
       await _downloadService.downloadModel(
-        token:
-            widget.model.needsAuth ? _token : '', // Pass token only if needed
+        token: widget.model.needsAuth ? _token : '', // Pass token only if needed
         onProgress: (progress) {
           setState(() {
             _progress = progress;
@@ -110,8 +109,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
               'Download ${widget.model.name} Model',
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            if (widget
-                .model.needsAuth) // Show token input only if auth is required
+            if (widget.model.needsAuth) // Show token input only if auth is required
               TextField(
                 controller: _tokenController,
                 obscureText: true,
@@ -139,8 +137,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
             if (widget.model.needsAuth)
               RichText(
                 text: TextSpan(
-                  text:
-                      'To create an access token, please visit your account settings of huggingface at ',
+                  text: 'To create an access token, please visit your account settings of huggingface at ',
                   children: [
                     TextSpan(
                       text: 'https://huggingface.co/settings/tokens',
@@ -150,13 +147,11 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                       ),
                       recognizer: TapGestureRecognizer()
                         ..onTap = () {
-                          launchUrl(Uri.parse(
-                              'https://huggingface.co/settings/tokens'));
+                          launchUrl(Uri.parse('https://huggingface.co/settings/tokens'));
                         },
                     ),
                     const TextSpan(
-                      text:
-                          '. Make sure to give read-repo access to the token.',
+                      text: '. Make sure to give read-repo access to the token.',
                     ),
                   ],
                 ),
@@ -185,15 +180,13 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
               child: _progress > 0.0
                   ? Column(
                       children: [
-                        Text(
-                            'Download Progress: ${_progress.toStringAsFixed(1)}%'),
+                        Text('Download Progress: ${_progress.toStringAsFixed(1)}%'),
                         const SizedBox(height: 8),
                         LinearProgressIndicator(value: _progress / 100.0),
                       ],
                     )
                   : ElevatedButton(
-                      onPressed:
-                          !needToDownload ? _deleteModel : _downloadModel,
+                      onPressed: !needToDownload ? _deleteModel : _downloadModel,
                       child: Text(!needToDownload ? 'Delete' : 'Download'),
                     ),
             ),
@@ -204,8 +197,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushReplacement(context,
-                          MaterialPageRoute<void>(builder: (context) {
+                      Navigator.pushReplacement(context, MaterialPageRoute<void>(builder: (context) {
                         return ChatScreen(model: widget.model, selectedBackend: widget.selectedBackend);
                       }));
                     },

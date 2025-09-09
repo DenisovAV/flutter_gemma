@@ -25,24 +25,26 @@ There is an example of using:
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks (NEW!)
+- **🛑 Stop Generation:** Cancel text generation mid-process on Android devices (NEW!)
 - **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app (NEW!)
 - **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI (NEW!)
 - **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app (NEW!)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 
-## Model Feature Support
+## Model Capabilities
 
-| Model Family | Function Calling | Thinking Mode | Multimodal (Vision) | Notes |
-|--------------|------------------|---------------|-------------------|-------|
-| Gemma 3 Nano | ✅ | ❌ | ✅ | Full vision + function calling support |
-| Gemma-3 1B | ❌ | ❌ | ❌ | Text-only models |
-| Gemma 3 270M | ❌ | ❌ | ❌ | Ultra-compact text-only model |
-| Gemma-2 | ❌ | ❌ | ❌ | Text-only models |
-| TinyLlama 1.1B | ❌ | ❌ | ❌ | Lightweight chat model |
-| Hammer 2.1 0.5B | ✅ | ❌ | ❌ | Action model with strong function calling |
-| Llama 3.2 1B | ❌ | ❌ | ❌ | Text-only instruction model |
-| DeepSeek | ✅ | ✅ | ❌ | Both function calling and thinking mode |
-| Qwen2.5 | ✅ | ❌ | ❌ | Function calling support |
+The example app offers a curated list of models, each suited for different tasks. Here’s a breakdown of the models available and their capabilities:
+
+| Model Family | Best For | Function Calling | Thinking Mode | Vision | Languages | Size |
+|---|---|:---:|:---:|:---:|---|---|
+| **Gemma 3 Nano** | On-device multimodal chat and image analysis. | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
+| **DeepSeek R1** | High-performance reasoning and code generation. | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
+| **Qwen 2.5** | Strong multilingual chat and instruction following. | ✅ | ❌ | ❌ | Multilingual | 1.6GB |
+| **Hammer 2.1** | Lightweight action model for tool usage. | ❌ | ❌ | ❌ | Multilingual | 0.5GB |
+| **Gemma 3 1B** | Balanced and efficient text generation. | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
+| **Gemma 3 270M**| Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
+| **TinyLlama 1.1B**| Extremely compact, general-purpose chat. | ❌ | ❌ | ❌ | English-focused | 1.2GB |
+| **Llama 3.2 1B** | Efficient instruction following | ❌ | ❌ | ❌ | Multilingual | 1.1GB |
 
 ## Installation
 
@@ -843,6 +845,8 @@ This is automatically handled by the chat API, but can be useful for custom infe
 ✅ **💾 Memory Optimization** - Better resource management for multimodal models
 
 **Coming Soon:**
-- Enhanced web platform support for images
-- More multimodal model support
-- Video/Audio input capabilities
+- Full Multimodal Web Support
+- Text Embedder & On-Device RAG Pipelines
+- Desktop Support (macOS, Windows, Linux)
+- Audio & Video Input
+- Audio Output (Text-to-Speech)

@@ -46,6 +46,52 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     int? maxNumImages, // Add image support
     bool supportImage = false, // Add image support flag
   });
+
+  /// === RAG functionality ===
+
+  /// Initialize embedding model for RAG functionality.
+  Future<void> initializeEmbedding({
+    required String modelPath,
+    required String tokenizerPath,
+    bool useGPU = true,
+  });
+
+  /// Close embedding model and free resources.
+  Future<void> closeEmbedding();
+
+  /// Generate embedding vector for given text.
+  Future<List<double>> generateEmbedding(String text);
+
+  /// Initialize vector store database.
+  Future<void> initializeVectorStore(String databasePath);
+  
+  /// Add document to vector store with pre-computed embedding.
+  Future<void> addDocumentWithEmbedding({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  });
+
+  /// Add document to vector store (will compute embedding automatically).
+  Future<void> addDocument({
+    required String id,
+    required String content,
+    String? metadata,
+  });
+
+  /// Search for similar documents.
+  Future<List<RetrievalResult>> searchSimilar({
+    required String query,
+    int topK = 5,
+    double threshold = 0.0,
+  });
+
+  /// Get vector store statistics.
+  Future<VectorStoreStats> getVectorStoreStats();
+
+  /// Clear all documents from vector store.
+  Future<void> clearVectorStore();
 }
 
 /// Represents an LLM model instance.

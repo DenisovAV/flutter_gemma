@@ -61,12 +61,70 @@ enum class PreferredBackend(val raw: Int) {
     }
   }
 }
+
+/** Generated class from Pigeon that represents data sent in messages. */
+data class RetrievalResult (
+  val id: String,
+  val content: String,
+  val similarity: Double,
+  val metadata: String? = null
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): RetrievalResult {
+      val id = pigeonVar_list[0] as String
+      val content = pigeonVar_list[1] as String
+      val similarity = pigeonVar_list[2] as Double
+      val metadata = pigeonVar_list[3] as String?
+      return RetrievalResult(id, content, similarity, metadata)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      id,
+      content,
+      similarity,
+      metadata,
+    )
+  }
+}
+
+/** Generated class from Pigeon that represents data sent in messages. */
+data class VectorStoreStats (
+  val documentCount: Long,
+  val vectorDimension: Long
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): VectorStoreStats {
+      val documentCount = pigeonVar_list[0] as Long
+      val vectorDimension = pigeonVar_list[1] as Long
+      return VectorStoreStats(documentCount, vectorDimension)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      documentCount,
+      vectorDimension,
+    )
+  }
+}
 private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
       129.toByte() -> {
         return (readValue(buffer) as Long?)?.let {
           PreferredBackend.ofRaw(it.toInt())
+        }
+      }
+      130.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          RetrievalResult.fromList(it)
+        }
+      }
+      131.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          VectorStoreStats.fromList(it)
         }
       }
       else -> super.readValueOfType(type, buffer)
@@ -77,6 +135,14 @@ private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
       is PreferredBackend -> {
         stream.write(129)
         writeValue(stream, value.raw)
+      }
+      is RetrievalResult -> {
+        stream.write(130)
+        writeValue(stream, value.toList())
+      }
+      is VectorStoreStats -> {
+        stream.write(131)
+        writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
     }
@@ -96,6 +162,14 @@ interface PlatformService {
   fun generateResponse(callback: (Result<String>) -> Unit)
   fun generateResponseAsync(callback: (Result<Unit>) -> Unit)
   fun stopGeneration(callback: (Result<Unit>) -> Unit)
+  fun initializeEmbedding(modelPath: String, tokenizerPath: String, useGPU: Boolean, callback: (Result<Unit>) -> Unit)
+  fun closeEmbedding(callback: (Result<Unit>) -> Unit)
+  fun generateEmbedding(text: String, callback: (Result<List<Double>>) -> Unit)
+  fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit)
+  fun addDocument(id: String, content: String, embedding: List<Double>, metadata: String?, callback: (Result<Unit>) -> Unit)
+  fun searchSimilar(queryEmbedding: List<Double>, topK: Long, threshold: Double, callback: (Result<List<RetrievalResult>>) -> Unit)
+  fun getVectorStoreStats(callback: (Result<VectorStoreStats>) -> Unit)
+  fun clearVectorStore(callback: (Result<Unit>) -> Unit)
 
   companion object {
     /** The codec used by PlatformService. */
@@ -285,6 +359,162 @@ interface PlatformService {
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             api.stopGeneration{ result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.initializeEmbedding$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val modelPathArg = args[0] as String
+            val tokenizerPathArg = args[1] as String
+            val useGPUArg = args[2] as Boolean
+            api.initializeEmbedding(modelPathArg, tokenizerPathArg, useGPUArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbedding$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.closeEmbedding{ result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbedding$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val textArg = args[0] as String
+            api.generateEmbedding(textArg) { result: Result<List<Double>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.initializeVectorStore$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val databasePathArg = args[0] as String
+            api.initializeVectorStore(databasePathArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.addDocument$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val idArg = args[0] as String
+            val contentArg = args[1] as String
+            val embeddingArg = args[2] as List<Double>
+            val metadataArg = args[3] as String?
+            api.addDocument(idArg, contentArg, embeddingArg, metadataArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.searchSimilar$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val queryEmbeddingArg = args[0] as List<Double>
+            val topKArg = args[1] as Long
+            val thresholdArg = args[2] as Double
+            api.searchSimilar(queryEmbeddingArg, topKArg, thresholdArg) { result: Result<List<RetrievalResult>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.getVectorStoreStats$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.getVectorStoreStats{ result: Result<VectorStoreStats> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.clearVectorStore$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.clearVectorStore{ result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

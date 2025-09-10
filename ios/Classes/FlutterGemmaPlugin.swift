@@ -242,6 +242,72 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         )))
     }
 
+    // MARK: - RAG Methods (iOS Stubs)
+    
+    func initializeEmbedding(modelPath: String, tokenizerPath: String, useGPU: Bool, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func closeEmbedding(completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func generateEmbedding(text: String, completion: @escaping (Result<[Double], Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         return nil

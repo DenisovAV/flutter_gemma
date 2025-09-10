@@ -33,6 +33,10 @@ private class PlatformServiceImpl(
   private var eventSink: EventChannel.EventSink? = null
   private var inferenceModel: InferenceModel? = null
   private var session: InferenceModelSession? = null
+  
+  // RAG components
+  private var embeddingModel: EmbeddingModel? = null
+  private var vectorStore: VectorStore? = null
 
   override fun createModel(
     maxTokens: Long,
@@ -209,5 +213,119 @@ private class PlatformServiceImpl(
 
   override fun onCancel(arguments: Any?) {
     eventSink = null
+  }
+
+  // === RAG Methods Implementation ===
+
+  override fun initializeEmbedding(
+    modelPath: String,
+    tokenizerPath: String,
+    useGPU: Boolean,
+    callback: (Result<Unit>) -> Unit
+  ) {
+    scope.launch {
+      try {
+        embeddingModel?.close()
+        embeddingModel = EmbeddingModel(context, modelPath, tokenizerPath, useGPU)
+        embeddingModel!!.initialize()
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun closeEmbedding(callback: (Result<Unit>) -> Unit) {
+    try {
+      embeddingModel?.close()
+      embeddingModel = null
+      callback(Result.success(Unit))
+    } catch (e: Exception) {
+      callback(Result.failure(e))
+    }
+  }
+
+  override fun generateEmbedding(text: String, callback: (Result<List<Double>>) -> Unit) {
+    scope.launch {
+      try {
+        val embedding = embeddingModel?.embed(text) 
+          ?: throw IllegalStateException("Embedding model not initialized")
+        callback(Result.success(embedding))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit) {
+    scope.launch {
+      try {
+        vectorStore = null
+        vectorStore = VectorStore(context)
+        vectorStore!!.initialize(databasePath)
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun addDocument(
+    id: String,
+    content: String,
+    embedding: List<Double>,
+    metadata: String?,
+    callback: (Result<Unit>) -> Unit
+  ) {
+    scope.launch {
+      try {
+        vectorStore?.addDocument(id, content, embedding, metadata)
+          ?: throw IllegalStateException("Vector store not initialized")
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun searchSimilar(
+    queryEmbedding: List<Double>,
+    topK: Long,
+    threshold: Double,
+    callback: (Result<List<RetrievalResult>>) -> Unit
+  ) {
+    scope.launch {
+      try {
+        val results = vectorStore?.searchSimilar(queryEmbedding, topK.toInt(), threshold)
+          ?: throw IllegalStateException("Vector store not initialized")
+        callback(Result.success(results))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun getVectorStoreStats(callback: (Result<VectorStoreStats>) -> Unit) {
+    scope.launch {
+      try {
+        val stats = vectorStore?.getStats()
+          ?: throw IllegalStateException("Vector store not initialized")
+        callback(Result.success(stats))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun clearVectorStore(callback: (Result<Unit>) -> Unit) {
+    scope.launch {
+      try {
+        vectorStore?.clear()
+          ?: throw IllegalStateException("Vector store not initialized")
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
   }
 }

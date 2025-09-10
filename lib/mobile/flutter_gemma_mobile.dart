@@ -1,6 +1,4 @@
-import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/tool.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -8,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/rag/embedding_models.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -256,5 +255,95 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   Future<void> _closeModelBeforeDeletion() {
     return _initializedModel?.close() ?? Future.value();
+  }
+
+  // === RAG Methods Implementation ===
+
+  @override
+  Future<void> initializeEmbedding({
+    required String modelPath,
+    required String tokenizerPath,
+    bool useGPU = true,
+  }) async {
+    await _platformService.initializeEmbedding(
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
+      useGPU: useGPU,
+    );
+  }
+
+  @override
+  Future<void> closeEmbedding() async {
+    await _platformService.closeEmbedding();
+  }
+
+  @override
+  Future<List<double>> generateEmbedding(String text) async {
+    return await _platformService.generateEmbedding(text);
+  }
+
+  @override
+  Future<void> initializeVectorStore(String databasePath) async {
+    await _platformService.initializeVectorStore(databasePath);
+  }
+
+  @override
+  Future<void> addDocumentWithEmbedding({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  }) async {
+    await _platformService.addDocument(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata,
+    );
+  }
+
+  @override
+  Future<void> addDocument({
+    required String id,
+    required String content,
+    String? metadata,
+  }) async {
+    // Generate embedding for content first
+    final embedding = await generateEmbedding(content);
+    
+    // Add document with computed embedding
+    await addDocumentWithEmbedding(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata,
+    );
+  }
+
+  @override
+  Future<List<RetrievalResult>> searchSimilar({
+    required String query,
+    int topK = 5,
+    double threshold = 0.0,
+  }) async {
+    // Generate embedding for query
+    final queryEmbedding = await generateEmbedding(query);
+    
+    // Search similar vectors
+    return await _platformService.searchSimilar(
+      queryEmbedding: queryEmbedding,
+      topK: topK,
+      threshold: threshold,
+    );
+  }
+
+  @override
+  Future<VectorStoreStats> getVectorStoreStats() async {
+    return await _platformService.getVectorStoreStats();
+  }
+
+  @override
+  Future<void> clearVectorStore() async {
+    await _platformService.clearVectorStore();
   }
 }

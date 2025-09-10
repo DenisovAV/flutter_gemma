@@ -1,7 +1,8 @@
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
+import 'base_model.dart';
 
-enum Model {
+enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
   // Gemma 3 Nano models (Multimodal + Function Calls)
@@ -231,4 +232,15 @@ enum Model {
     this.supportsFunctionCalls = false,
     this.isThinking = false,
   });
+
+  // BaseModel interface implementation
+  @override
+  String get name => toString().split('.').last;
+  
+  @override
+  bool get isEmbeddingModel => false;
+
+  // InferenceModelInterface implementation  
+  @override
+  bool get supportsThinking => isThinking;
 }

@@ -66,4 +66,71 @@ abstract class PlatformService {
 
   @async
   void stopGeneration();
+
+  // === RAG Methods ===
+
+  // RAG Embedding Methods
+  @async
+  void initializeEmbedding({
+    required String modelPath,
+    required String tokenizerPath,
+    bool useGPU = true,
+  });
+
+  @async
+  void closeEmbedding();
+
+  @async
+  List<double> generateEmbedding(String text);
+
+  // RAG Vector Store Methods
+  @async
+  void initializeVectorStore(String databasePath);
+
+  @async
+  void addDocument({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  });
+
+  @async
+  List<RetrievalResult> searchSimilar({
+    required List<double> queryEmbedding,
+    required int topK,
+    double threshold = 0.0,
+  });
+
+  @async
+  VectorStoreStats getVectorStoreStats();
+
+  @async
+  void clearVectorStore();
+}
+
+// === RAG Data Classes ===
+
+class RetrievalResult {
+  final String id;
+  final String content;
+  final double similarity;
+  final String? metadata;
+
+  RetrievalResult({
+    required this.id,
+    required this.content,
+    required this.similarity,
+    this.metadata,
+  });
+}
+
+class VectorStoreStats {
+  final int documentCount;
+  final int vectorDimension;
+
+  VectorStoreStats({
+    required this.documentCount,
+    required this.vectorDimension,
+  });
 }

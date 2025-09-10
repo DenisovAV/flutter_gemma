@@ -2,6 +2,8 @@ part of 'flutter_gemma_mobile.dart';
 
 const _prefsModelKey = 'installed_model_file_name';
 const _prefsLoraKey = 'installed_lora_file_name';
+const _prefsEmbeddingModelKey = 'embedding_model_file';
+const _prefsEmbeddingTokenizerKey = 'embedding_tokenizer_file';
 const _downloadGroup = 'flutter_gemma_downloads';
 
 // Supported model file extensions
@@ -383,5 +385,122 @@ class MobileModelManager extends ModelFileManager {
     });
 
     return progress.stream;
+  }
+
+  // === RAG Embedding Model Management ===
+
+  /// Download embedding model and tokenizer.
+  Future<void> downloadEmbeddingModel(EmbeddingModel model, {String? token}) async {
+    final directory = await getApplicationDocumentsDirectory();
+    
+    // Use token only if model requires auth
+    final actualToken = model.needsAuth ? token : null;
+    
+    // Download both files in parallel
+    await Future.wait([
+      _downloadToLocalStorageWithProgress(
+        assetUrl: model.url,
+        targetPath: '${directory.path}/${model.filename}',
+        token: actualToken,
+      ).drain(), // Convert Stream to Future
+      
+      _downloadToLocalStorageWithProgress(
+        assetUrl: model.tokenizerUrl,
+        targetPath: '${directory.path}/${model.tokenizerFilename}',
+        token: actualToken,
+      ).drain(),
+    ]);
+    
+    // Store in SharedPreferences
+    final prefs = await _prefs;
+    await prefs.setString(_prefsEmbeddingModelKey, model.filename);
+    await prefs.setString(_prefsEmbeddingTokenizerKey, model.tokenizerFilename);
+  }
+  
+  /// Download embedding model with progress tracking.
+  Stream<int> downloadEmbeddingModelWithProgress(EmbeddingModel model, {String? token}) async* {
+    final directory = await getApplicationDocumentsDirectory();
+    
+    try {
+      // Use token only if model requires auth
+      final actualToken = model.needsAuth ? token : null;
+      
+      yield* _downloadToLocalStorageWithProgress(
+        assetUrl: model.url,
+        targetPath: '${directory.path}/${model.filename}',
+        token: actualToken,
+      );
+      
+      // Download tokenizer after model (sequential for progress clarity)
+      await _downloadToLocalStorageWithProgress(
+        assetUrl: model.tokenizerUrl,
+        targetPath: '${directory.path}/${model.tokenizerFilename}',
+        token: actualToken,
+      ).drain();
+      
+      // Store in SharedPreferences after successful download
+      final prefs = await _prefs;
+      await prefs.setString(_prefsEmbeddingModelKey, model.filename);
+      await prefs.setString(_prefsEmbeddingTokenizerKey, model.tokenizerFilename);
+    } catch (e) {
+      // Cleanup on error
+      final modelFile = File('${directory.path}/${model.filename}');
+      final tokenizerFile = File('${directory.path}/${model.tokenizerFilename}');
+      if (await modelFile.exists()) await modelFile.delete();
+      if (await tokenizerFile.exists()) await tokenizerFile.delete();
+      rethrow;
+    }
+  }
+  
+  /// Check if embedding model is installed.
+  Future<bool> get isEmbeddingModelInstalled async {
+    final prefs = await _prefs;
+    final modelFile = prefs.getString(_prefsEmbeddingModelKey);
+    final tokenizerFile = prefs.getString(_prefsEmbeddingTokenizerKey);
+    
+    if (modelFile == null || tokenizerFile == null) return false;
+    
+    final directory = await getApplicationDocumentsDirectory();
+    final modelExists = await File('${directory.path}/$modelFile').exists();
+    final tokenizerExists = await File('${directory.path}/$tokenizerFile').exists();
+    
+    return modelExists && tokenizerExists;
+  }
+  
+  /// Get installed embedding model file paths.
+  Future<({String? modelPath, String? tokenizerPath})?> get embeddingModelPaths async {
+    final prefs = await _prefs;
+    final modelFile = prefs.getString(_prefsEmbeddingModelKey);
+    final tokenizerFile = prefs.getString(_prefsEmbeddingTokenizerKey);
+    
+    if (modelFile == null || tokenizerFile == null) return null;
+    
+    final directory = await getApplicationDocumentsDirectory();
+    return (
+      modelPath: '${directory.path}/$modelFile',
+      tokenizerPath: '${directory.path}/$tokenizerFile',
+    );
+  }
+  
+  /// Delete embedding model and tokenizer.
+  Future<void> deleteEmbeddingModel() async {
+    final prefs = await _prefs;
+    final modelFile = prefs.getString(_prefsEmbeddingModelKey);
+    final tokenizerFile = prefs.getString(_prefsEmbeddingTokenizerKey);
+    
+    final directory = await getApplicationDocumentsDirectory();
+    
+    if (modelFile != null) {
+      final file = File('${directory.path}/$modelFile');
+      if (await file.exists()) await file.delete();
+    }
+    
+    if (tokenizerFile != null) {
+      final file = File('${directory.path}/$tokenizerFile');
+      if (await file.exists()) await file.delete();
+    }
+    
+    await prefs.remove(_prefsEmbeddingModelKey);
+    await prefs.remove(_prefsEmbeddingTokenizerKey);
   }
 }

@@ -54,6 +54,70 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     );
     return Future.value(model);
   }
+
+  // === RAG Methods - Web Stubs ===
+
+  @override
+  Future<void> initializeEmbedding({
+    required String modelPath,
+    required String tokenizerPath,
+    bool useGPU = true,
+  }) async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<void> closeEmbedding() async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<List<double>> generateEmbedding(String text) async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<void> initializeVectorStore(String databasePath) async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<void> addDocumentWithEmbedding({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  }) async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<void> addDocument({
+    required String id,
+    required String content,
+    String? metadata,
+  }) async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<List<RetrievalResult>> searchSimilar({
+    required String query,
+    int topK = 5,
+    double threshold = 0.0,
+  }) async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<VectorStoreStats> getVectorStoreStats() async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
+
+  @override
+  Future<void> clearVectorStore() async {
+    throw UnimplementedError('RAG is not supported on web platform yet');
+  }
 }
 
 class WebInferenceModel extends InferenceModel {

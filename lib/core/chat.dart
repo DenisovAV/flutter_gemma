@@ -25,6 +25,7 @@ class InferenceChat {
   final bool supportsFunctionCalls;
   final ModelType modelType; // Add modelType parameter
   final bool isThinking; // Add isThinking flag for thinking models
+  final ModelFileType fileType; // Add fileType parameter
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -42,6 +43,7 @@ class InferenceChat {
     this.tools = const [],
     this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
     this.isThinking = false, // Default to false for backward compatibility
+    this.fileType = ModelFileType.task, // Default to task for backward compatibility
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -69,10 +71,10 @@ class InferenceChat {
     }
 
     // --- DETAILED LOGGING ---
-    final historyForLogging = _modelHistory.map((m) => m.transformToChatPrompt(type: modelType)).join('\n');
+    final historyForLogging = _modelHistory.map((m) => m.text).join('\n');
     debugPrint('--- Sending to Native ---');
     debugPrint('History:\n$historyForLogging');
-    debugPrint('Current Message:\n${messageToSend.transformToChatPrompt(type: modelType)}');
+    debugPrint('Current Message:\n${messageToSend.text}');
     debugPrint('-------------------------');
     // --- END LOGGING ---
 
@@ -86,7 +88,7 @@ class InferenceChat {
   Future<ModelResponse> generateChatResponse() async {
     debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final cleanedResponse = ModelThinkingFilter.cleanResponse(response, isThinking: isThinking, modelType: modelType);
+    final cleanedResponse = ModelThinkingFilter.cleanResponse(response, isThinking: isThinking, modelType: modelType, fileType: fileType);
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');

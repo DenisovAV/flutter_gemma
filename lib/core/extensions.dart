@@ -11,23 +11,42 @@ const deepseekStart = "<｜begin▁of▁sentence｜>";
 const deepseekUser = "<｜User｜>";
 const deepseekAssistant = "<｜Assistant｜>";
 
+// Qwen tokens
+const qwenStart = "<|im_start|>";
+const qwenEnd = "<|im_end|>";
+
+// Llama tokens
+const llamaInstStart = "[INST]";
+const llamaInstEnd = "[/INST]";
+
+// Hammer tokens (using general format for now - need more research)
+const hammerUser = "User:";
+const hammerAssistant = "Assistant:";
+
 extension MessageExtension on Message {
-  String transformToChatPrompt({ModelType type = ModelType.general}) {
+  String transformToChatPrompt({
+    ModelType type = ModelType.general,
+    ModelFileType fileType = ModelFileType.binary
+  }) {
     // System messages should not be sent to the model
     if (this.type == MessageType.systemInfo) {
       return '';
     }
 
-    switch (type) {
-      case ModelType.general:
-        return _transformGeneral();
-
-      case ModelType.gemmaIt:
-        return _transformGemmaIt();
-
-      case ModelType.deepSeek:
-        return _transformDeepSeek();
+    // .task files - MediaPipe handles templates, return raw content
+    if (fileType == ModelFileType.task) {
+      return _formatToolResponseContent();
     }
+
+    // .bin/.tflite files - apply manual formatting based on model type
+    return switch (type) {
+      ModelType.general => _transformGeneral(),
+      ModelType.gemmaIt => _transformGemmaIt(),
+      ModelType.deepSeek => _transformDeepSeek(),
+      ModelType.qwen => _transformQwen(),
+      ModelType.llama => _transformLlama(),
+      ModelType.hammer => _transformHammer(),
+    };
   }
 
   // Helper method to format tool response content
@@ -77,6 +96,34 @@ extension MessageExtension on Message {
     } else {
       return text;
     }
+  }
+
+  String _transformQwen() {
+    if (isUser) {
+      final content = _formatToolResponseContent();
+      return '$qwenStart$userPrefix\n$content$qwenEnd\n$qwenStart$modelPrefix\n';
+    }
+    var content = text;
+    if (type == MessageType.toolCall) {
+      content = text;
+    }
+    return '$content$qwenEnd\n';
+  }
+
+  String _transformLlama() {
+    if (isUser) {
+      final content = _formatToolResponseContent();
+      return '$llamaInstStart $content $llamaInstEnd';
+    }
+    return text;
+  }
+
+  String _transformHammer() {
+    if (isUser) {
+      final content = _formatToolResponseContent();
+      return '$hammerUser $content\n$hammerAssistant ';
+    }
+    return text;
   }
 }
 
@@ -137,6 +184,9 @@ class ModelThinkingFilter {
 
       case ModelType.general:
       case ModelType.gemmaIt:
+      case ModelType.qwen:
+      case ModelType.llama:
+      case ModelType.hammer:
         // For all other models just pass original stream
         // Thinking not supported
         yield* originalStream;
@@ -155,6 +205,9 @@ class ModelThinkingFilter {
 
       case ModelType.general:
       case ModelType.gemmaIt:
+      case ModelType.qwen:
+      case ModelType.llama:
+      case ModelType.hammer:
         // For all other models return text without changes
         // Thinking not supported
         return text;
@@ -162,7 +215,8 @@ class ModelThinkingFilter {
   }
 
   /// Cleans model response from service tags and thinking blocks
-  static String cleanResponse(String response, {required bool isThinking, required ModelType modelType}) {
+  static String cleanResponse(String response,
+      {required bool isThinking, required ModelType modelType, required ModelFileType fileType}) {
     String cleaned = response;
 
     // Remove <think> blocks if model supports thinking
@@ -170,14 +224,26 @@ class ModelThinkingFilter {
       cleaned = removeThinkingFromText(cleaned, modelType: modelType);
     }
 
+    // For .task files, minimal cleaning - MediaPipe handles formatting
+    if (fileType == ModelFileType.task) {
+      return cleaned.trim();
+    }
+
+    // For .bin/.tflite files, apply model-specific cleaning
     switch (modelType) {
       case ModelType.general:
+        // General models - no special cleaning needed
+        return cleaned.trim();
       case ModelType.gemmaIt:
         // Remove trailing <end_of_turn> tags and trim whitespace
-        return cleaned.replaceAll(RegExp(r'<end_of_turn>\s*$'), '').trim();
-
+        return cleaned.replaceAll(RegExp(r'<end_of_turn>\\s*\$'), '').trim();
+      case ModelType.qwen:
+        // Remove trailing <|im_end|> tags and trim whitespace
+        return cleaned.replaceAll(RegExp(r'<\\|im_end\\|>\\s*\$'), '').trim();
+      case ModelType.llama:
+      case ModelType.hammer:
       case ModelType.deepSeek:
-        // DeepSeek doesn't use <end_of_turn>, just trim whitespace
+        // These models don't use special end tags, just trim whitespace
         return cleaned.trim();
     }
   }

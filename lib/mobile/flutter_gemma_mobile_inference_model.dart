@@ -6,6 +6,7 @@ class MobileInferenceModel extends InferenceModel {
     required this.onClose,
     required this.modelManager,
     required this.modelType,
+    this.fileType = ModelFileType.task,
     this.preferredBackend,
     this.supportedLoraRanks,
     this.supportImage = false, // Enabling image support
@@ -13,6 +14,7 @@ class MobileInferenceModel extends InferenceModel {
   });
 
   final ModelType modelType;
+  final ModelFileType fileType;
   @override
   Future<InferenceChat> createChat({
     double temperature = .8,
@@ -43,6 +45,7 @@ class MobileInferenceModel extends InferenceModel {
       tools: tools,
       modelType: modelType ?? this.modelType,
       isThinking: isThinking,
+      fileType: fileType,
     );
     await chat!.initSession();
     return chat!;
@@ -100,6 +103,7 @@ class MobileInferenceModel extends InferenceModel {
 
       final session = _session = MobileInferenceModelSession(
         modelType: modelType,
+        fileType: fileType,
         supportImage: supportImage,
         onClose: () {
           _session = null;

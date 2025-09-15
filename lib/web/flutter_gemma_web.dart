@@ -322,4 +322,19 @@ class WebModelManager extends ModelFileManager {
     _loraPath = loraPath;
     return Future.value();
   }
+
+  @override
+  Future<void> forceUpdateModelFilename(String filename) {
+    // For web, we don't cache filenames, so this is a no-op
+    return Future.value();
+  }
+
+  @override
+  Future<void> clearModelCache() {
+    // For web, we don't cache model state, so this is a no-op
+    _loadCompleter = null;
+    _path = null;
+    _loraPath = null;
+    return Future.value();
+  }
 }

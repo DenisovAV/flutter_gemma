@@ -103,6 +103,7 @@ class ChatScreenState extends State<ChatScreen> {
 
     final model = await _gemma.createModel(
       modelType: super.widget.model.modelType,
+      fileType: super.widget.model.fileType, // Pass fileType from model
       preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
       maxTokens: 1024,
       supportImage: widget.model.supportImage, // Pass image support

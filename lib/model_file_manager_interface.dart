@@ -86,4 +86,10 @@ abstract class ModelFileManager {
   ///
   /// Also, closes the inference if it is initialized.
   Future<void> deleteLoraWeights();
+
+  /// Forces update of the cached model filename - useful when switching between different models
+  Future<void> forceUpdateModelFilename(String filename);
+
+  /// Clears all model cache and resets state - useful for model switching
+  Future<void> clearModelCache();
 }

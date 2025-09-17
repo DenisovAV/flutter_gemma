@@ -178,33 +178,22 @@ class ChatScreenState extends State<ChatScreen> {
     );
     await chat?.addQuery(toolMessage);
 
-    // Get the final response from the model (async stream)
-    debugPrint('⚡ ChatScreen: Starting function response generation');
+    // TEMPORARILY use sync response for debugging
+    debugPrint('⚡ ChatScreen: Starting function response generation (SYNC MODE)');
 
-    String accumulatedResponse = '';
-    bool hasStartedResponse = false;
+    final response = await chat!.generateChatResponse();
+    debugPrint('⚡ ChatScreen: SYNC response received: ${response.runtimeType}');
 
-    await for (final token in chat!.generateChatResponseAsync()) {
-      if (token is TextResponse) {
-        accumulatedResponse += token.token;
-        // DEBUG: Track accumulation in ChatScreen
-        debugPrint('📝 ChatScreen: Function response token: "${token.token}" -> total: "$accumulatedResponse"');
+    if (response is TextResponse) {
+      final accumulatedResponse = response.token;
+      debugPrint('🏁 ChatScreen: SYNC Function response completed: "$accumulatedResponse" (length: ${accumulatedResponse.length})');
 
-        setState(() {
-          if (!hasStartedResponse) {
-            _messages.add(Message.text(text: accumulatedResponse));
-            hasStartedResponse = true;
-          } else {
-            final lastIndex = _messages.length - 1;
-            _messages[lastIndex] = Message.text(text: accumulatedResponse);
-          }
-        });
-      } else if (token is FunctionCallResponse) {
-        debugPrint('❌ ChatScreen: Unexpected FunctionCall after tool response: ${token.name}');
-      }
+      setState(() {
+        _messages.add(Message.text(text: accumulatedResponse));
+      });
+    } else if (response is FunctionCallResponse) {
+      debugPrint('❌ ChatScreen: Unexpected FunctionCall after tool response: ${response.name}');
     }
-
-    debugPrint('🏁 ChatScreen: Function response completed: "$accumulatedResponse" (length: ${accumulatedResponse.length})');
 
     // Reset streaming state when done
     setState(() {

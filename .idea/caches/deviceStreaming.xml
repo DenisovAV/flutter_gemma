@@ -52,6 +52,18 @@
           <option name="screenY" value="2412" />
         </PersistentDeviceSelectionData>
         <PersistentDeviceSelectionData>
+          <option name="api" value="35" />
+          <option name="brand" value="OnePlus" />
+          <option name="codename" value="OP5552L1" />
+          <option name="id" value="OP5552L1" />
+          <option name="labId" value="google" />
+          <option name="manufacturer" value="OnePlus" />
+          <option name="name" value="CPH2415" />
+          <option name="screenDensity" value="480" />
+          <option name="screenX" value="1080" />
+          <option name="screenY" value="2412" />
+        </PersistentDeviceSelectionData>
+        <PersistentDeviceSelectionData>
           <option name="api" value="34" />
           <option name="brand" value="OPPO" />
           <option name="codename" value="OP573DL1" />

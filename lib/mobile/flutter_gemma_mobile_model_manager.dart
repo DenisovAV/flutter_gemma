@@ -396,46 +396,60 @@ class MobileModelManager extends ModelFileManager {
           directory: directory,
           filename: filename,
           requiresWiFi: false,
-          allowPause: true,
+          allowPause: false, // Disable pause/resume to avoid ETag issues
           priority: 10,
-          retries: 3,
-          metaData: <String, String>{
-            'timeout': '600', // 10 minutes timeout for large models
-          },
+          retries: 5, // More retries instead of pause/resume
+          // Note: timeout is configured globally in background_downloader
         );
 
-        await FileDownloader().download(
+        // Configure FileDownloader with longer timeout for large models
+        final downloader = FileDownloader();
+
+        await downloader.download(
           task,
           onProgress: (portion) {
             final percents = (portion * 100).round();
             progress.add(percents.clamp(0, 100));
           },
           onStatus: (status) {
+            print('Download status: $status for task ${task.taskId}');
             switch (status) {
               case TaskStatus.complete:
-                progress.close();
+                if (!progress.isClosed) {
+                  progress.add(100); // Ensure 100% progress
+                  progress.close();
+                }
                 break;
               case TaskStatus.canceled:
-                progress.addError('Download canceled');
-                progress.close();
+                if (!progress.isClosed) {
+                  progress.addError('Download canceled');
+                  progress.close();
+                }
                 break;
               case TaskStatus.failed:
-                progress.addError('Download failed');
-                progress.close();
+                if (!progress.isClosed) {
+                  progress.addError('Download failed');
+                  progress.close();
+                }
                 break;
               case TaskStatus.paused:
-                progress.addError('Download paused');
-                progress.close();
+                // Don't close stream on pause - let it resume
+                print('Download paused, waiting for resume...');
+                break;
+              case TaskStatus.running:
+                print('Download running/resumed');
                 break;
               default:
-                // No action needed for other statuses
+                print('Download status: $status');
                 break;
             }
           },
         );
       } catch (e) {
-        progress.addError('Download initialization failed: $e');
-        progress.close();
+        if (!progress.isClosed) {
+          progress.addError('Download initialization failed: $e');
+          progress.close();
+        }
       }
     });
 

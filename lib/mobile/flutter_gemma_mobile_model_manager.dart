@@ -345,6 +345,13 @@ class MobileModelManager extends ModelFileManager {
           baseDirectory: baseDirectory,
           directory: directory,
           filename: filename,
+          requiresWiFi: false,
+          allowPause: true,
+          priority: 10,
+          retries: 3,
+          metaData: <String, String>{
+            'timeout': '600', // 10 minutes timeout for large models
+          },
         );
 
         await FileDownloader().download(

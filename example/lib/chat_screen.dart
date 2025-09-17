@@ -110,6 +110,12 @@ class ChatScreenState extends State<ChatScreen> {
       maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
     );
 
+    debugPrint('ChatScreen: Creating chat with:');
+    debugPrint('  supportImage: ${widget.model.supportImage}');
+    debugPrint('  supportsFunctionCalls: ${widget.model.supportsFunctionCalls}');
+    debugPrint('  modelType: ${widget.model.modelType}');
+    debugPrint('  fileType: ${widget.model.fileType}');
+
     chat = await model.createChat(
       temperature: super.widget.model.temperature,
       randomSeed: 1,
@@ -122,6 +128,8 @@ class ChatScreenState extends State<ChatScreen> {
       isThinking: widget.model.isThinking, // Pass isThinking from model
       modelType: widget.model.modelType, // Pass modelType from model
     );
+
+    debugPrint('ChatScreen: Chat created, supportsImages: ${chat?.supportsImages}');
 
     setState(() {
       _isModelInitialized = true;

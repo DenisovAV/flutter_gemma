@@ -99,7 +99,9 @@ final class InferenceSession {
     }
 
     func addImage(image: CGImage) throws {
+        print("[NATIVE LOG] 🖼️ Adding image to session (size: \(image.width)x\(image.height))")
         try session.addImage(image: image)
+        print("[NATIVE LOG] 🖼️ Image added successfully to MediaPipe session")
     }
 
     // Clone session (GPU models only)
@@ -118,37 +120,42 @@ final class InferenceSession {
             print("[NATIVE LOG] ADD CHUNK XX ...  \(prompt)")
             try session.addQueryChunk(inputText: prompt)
         }
-        print("[NATIVE LOG] Generating response...")
+        print("[NATIVE LOG] 🔄 SYNC: About to generate response from MediaPipe")
+        print("[NATIVE LOG] 🔄 SYNC: Session metrics before generation: \(session.metrics)")
         let response = try session.generateResponse()
-        print("[NATIVE LOG] Raw response from LlmInference: \(response)")
+        print("[NATIVE LOG] 🔄 SYNC: Raw response from LlmInference (\(response.count) chars): \(response)")
+        print("[NATIVE LOG] 🔄 SYNC: Session metrics after generation: \(session.metrics)")
         return response
     }
 
     @available(iOS 13.0.0, *)
     func generateResponseAsync(prompt: String? = nil) throws -> AsyncThrowingStream<String, any Error> {
-        print("[NATIVE LOG] generateResponseAsync called with prompt: \(prompt ?? "nil")")
+        print("[NATIVE LOG] 🔄 ASYNC: generateResponseAsync called with prompt: \(prompt ?? "nil")")
         if let prompt = prompt {
-            print("[NATIVE LOG] Adding prompt chunk: \(prompt)")
+            print("[NATIVE LOG] 🔄 ASYNC: Adding prompt chunk: \(prompt)")
             try session.addQueryChunk(inputText: prompt)
         }
-        print("[NATIVE LOG] Starting async generation...")
-        
+        print("[NATIVE LOG] 🔄 ASYNC: Session metrics before generation: \(session.metrics)")
+        print("[NATIVE LOG] 🔄 ASYNC: Starting async generation...")
+
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    print("[NATIVE LOG] Entering async stream iteration")
+                    print("[NATIVE LOG] 🔄 ASYNC: Entering async stream iteration")
                     var tokenCount = 0
+                    var fullResponse = ""
                     for try await partialResult in session.generateResponseAsync() {
                         tokenCount += 1
-                        print("[NATIVE LOG] Token #\(tokenCount): '\(partialResult)'")
-                        print("[NATIVE LOG] Yielding token to Flutter")
+                        fullResponse += partialResult
+                        print("[NATIVE LOG] 🔄 ASYNC: Token #\(tokenCount): '\(partialResult)'")
                         continuation.yield(partialResult)
-                        print("[NATIVE LOG] Token yielded successfully")
                     }
-                    print("[NATIVE LOG] All tokens generated, finishing stream with \(tokenCount) total tokens")
+                    print("[NATIVE LOG] 🔄 ASYNC: All tokens generated, total: \(tokenCount) tokens")
+                    print("[NATIVE LOG] 🔄 ASYNC: Full response (\(fullResponse.count) chars): \(fullResponse)")
+                    print("[NATIVE LOG] 🔄 ASYNC: Session metrics after generation: \(session.metrics)")
                     continuation.finish()
                 } catch {
-                    print("[NATIVE LOG] Error in async generation: \(error)")
+                    print("[NATIVE LOG] 🔄 ASYNC: Error in async generation: \(error)")
                     continuation.finish(throwing: error)
                 }
             }

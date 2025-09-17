@@ -92,7 +92,7 @@ class InferenceChat {
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
-      return TextResponse(''); // Return TextResponse instead of String
+      return const TextResponse(''); // Return TextResponse instead of String
     }
 
     debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');

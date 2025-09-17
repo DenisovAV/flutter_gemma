@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
+import 'huggingface_downloader_wrapper.dart';
 
 part 'flutter_gemma_mobile_model_manager.dart';
 part 'flutter_gemma_mobile_inference_model.dart';

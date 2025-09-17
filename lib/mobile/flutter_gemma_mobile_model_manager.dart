@@ -383,6 +383,19 @@ class MobileModelManager extends ModelFileManager {
   }
 
   Stream<int> _downloadToLocalStorageWithProgress({required String assetUrl, required String targetPath, String? token}) {
+    // Use HuggingFace wrapper for HF URLs to handle ETag issues
+    if (HuggingFaceDownloader.isHuggingFaceUrl(assetUrl)) {
+      debugPrint('Using HuggingFace downloader wrapper for: $assetUrl');
+      return HuggingFaceDownloader.downloadWithProgress(
+        url: assetUrl,
+        targetPath: targetPath,
+        token: token,
+        maxRetries: 10,
+      );
+    }
+
+    // Fallback to original implementation for non-HF URLs
+    debugPrint('Using standard downloader for: $assetUrl');
     final progress = StreamController<int>();
 
     Task.split(filePath: targetPath).then((result) async {
@@ -391,15 +404,21 @@ class MobileModelManager extends ModelFileManager {
         final task = DownloadTask(
           url: assetUrl,
           group: _downloadGroup,
-          headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+          headers: token != null ? {
+            'Authorization': 'Bearer $token',
+            // Force HTTP/1.1 for better resume support
+            'Connection': 'keep-alive',
+          } : {
+            'Connection': 'keep-alive',
+          },
           baseDirectory: baseDirectory,
           directory: directory,
           filename: filename,
           requiresWiFi: false,
-          allowPause: false, // Disable pause/resume to avoid ETag issues
-          priority: 10,
-          retries: 5, // More retries instead of pause/resume
-          // Note: timeout is configured globally in background_downloader
+          allowPause: true,  // Enable pause for potential resume
+          priority: 10,      // High priority
+          retries: 10,       // Many retries for unstable network
+          // Note: background_downloader will try to resume first, then restart
         );
 
         // Configure FileDownloader with longer timeout for large models
@@ -428,8 +447,22 @@ class MobileModelManager extends ModelFileManager {
                 break;
               case TaskStatus.failed:
                 if (!progress.isClosed) {
-                  progress.addError('Download failed');
-                  progress.close();
+                  // Check if we can resume the failed task
+                  downloader.taskCanResume(task).then((canResume) {
+                    if (canResume) {
+                      print('Attempting to resume failed download...');
+                      downloader.resume(task);
+                    } else {
+                      print('Cannot resume - likely ETag issue, will retry from start');
+                      // Will be handled by retries automatically
+                    }
+                  }).catchError((e) {
+                    print('Resume check failed: $e');
+                    progress.addError('Download failed: $e');
+                    progress.close();
+                  });
+                } else {
+                  print('Download failed but stream already closed');
                 }
                 break;
               case TaskStatus.paused:

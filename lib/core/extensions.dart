@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
@@ -34,15 +33,10 @@ extension MessageExtension on Message {
       return '';
     }
 
-    debugPrint('transformToChatPrompt: Message type: ${this.type}');
-    debugPrint('transformToChatPrompt: Has image: $hasImage');
-    debugPrint('transformToChatPrompt: File type: $fileType');
-    debugPrint('transformToChatPrompt: Model type: $type');
 
     // .task files - MediaPipe handles templates, return raw content
     if (fileType == ModelFileType.task) {
       final result = _formatToolResponseContent();
-      debugPrint('transformToChatPrompt: Using task file format, result: $result');
       return result;
     }
 
@@ -55,7 +49,6 @@ extension MessageExtension on Message {
       ModelType.llama => _transformLlama(),
       ModelType.hammer => _transformHammer(),
     };
-    debugPrint('transformToChatPrompt: Using binary file format, result: $result');
     return result;
   }
 

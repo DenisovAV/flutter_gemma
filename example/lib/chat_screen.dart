@@ -102,7 +102,6 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeModel() async {
-    // Protection against concurrent calls
     if (_isModelInitialized || _isInitializing) {
       return;
     }
@@ -110,9 +109,24 @@ class ChatScreenState extends State<ChatScreen> {
     _isInitializing = true;
 
     try {
+      // Clear any cached model references when switching models
+      await _gemma.modelManager.clearModelCache();
+
       if (!await _gemma.modelManager.isModelInstalled) {
-        final path = kIsWeb ? widget.model.url : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
+        // Use the model manager's path handling which includes Android path correction
+        final directory = await getApplicationDocumentsDirectory();
+        // For Android, we need to handle the path correction properly
+        String path;
+        if (kIsWeb) {
+          path = widget.model.url;
+        } else {
+          // Let the model manager handle the path correction
+          path = '${directory.path}/${widget.model.filename}';
+        }
         await _gemma.modelManager.setModelPath(path);
+      } else {
+        // Force update the cached filename to match the current model
+        await _gemma.modelManager.forceUpdateModelFilename(widget.model.filename);
       }
 
       final model = await _gemma.createModel(
@@ -138,16 +152,21 @@ class ChatScreenState extends State<ChatScreen> {
         modelType: widget.model.modelType, // Pass modelType from model
       );
 
-
       setState(() {
         _isModelInitialized = true;
+        _error = null;
       });
     } catch (e) {
-      setState(() {
-        _error = 'Failed to initialize model: $e';
-      });
-    } finally {
-      _isInitializing = false; // Always reset the flag
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to initialize model: ${e.toString()}';
+          _isModelInitialized = false;
+        });
+      }
+      rethrow;
+    }
+    finally {
+     _isInitializing = false; // Always reset the flag
     }
   }
 

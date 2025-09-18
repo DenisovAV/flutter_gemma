@@ -163,6 +163,7 @@ class HuggingFaceDownloader {
         return; // Let the resume attempt continue
       }
     } catch (e) {
+      // Ignore resume errors and fall back to full retry
     }
 
     // If resume failed or not possible, try full retry

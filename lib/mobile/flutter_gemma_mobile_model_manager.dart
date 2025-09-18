@@ -30,6 +30,19 @@ class MobileModelManager extends ModelFileManager {
 
   bool _cleanupCompleted = false;
 
+  /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access
+  String _getCorrectedPath(String originalPath, String filename) {
+    // Check if this is the problematic Android path format
+    if (originalPath.contains('/data/user/0/')) {
+      // Replace with the correct Android app data path
+      final correctedPath = originalPath.replaceFirst('/data/user/0/', '/data/data/');
+      return '$correctedPath/$filename';
+    }
+    // For other platforms or already correct paths, use the original
+    return '$originalPath/$filename';
+  }
+
+
   /// Cleans up orphaned files (files without corresponding SharedPrefs entry)
   Future<void> _cleanupOrphanedFiles() async {
     try {
@@ -70,7 +83,9 @@ class MobileModelManager extends ModelFileManager {
     if (_userSetModelPath case String path) return File(path);
     final directory = await getApplicationDocumentsDirectory();
     if (_modelFileName case String name) {
-      return File('${directory.path}/$name');
+      // Use the correct Android path format
+      final correctedPath = _getCorrectedPath(directory.path, name);
+      return File(correctedPath);
     }
     return null;
   }
@@ -148,7 +163,14 @@ class MobileModelManager extends ModelFileManager {
   Future<void> setModelPath(String path, {String? loraPath}) async {
     await Future.wait([
       _loadModelIfNeeded(() async {
-        _userSetModelPath = path;
+        // Apply Android path correction if needed
+        final correctedPath = path;
+        _userSetModelPath = correctedPath;
+        // Update the cached filename when setting a new path
+        final fileName = Uri.parse(correctedPath).pathSegments.last;
+        _modelFileName = fileName;
+        final prefs = await _prefs;
+        await prefs.setString(_prefsModelKey, fileName);
         return;
       }),
       if (loraPath != null)
@@ -290,6 +312,26 @@ class MobileModelManager extends ModelFileManager {
           assetName: path,
           targetPath: loraFileName,
         ));
+  }
+
+  /// Forces update of the cached model filename - useful when switching between different models
+  @override
+  Future<void> forceUpdateModelFilename(String filename) async {
+    _modelFileName = filename;
+    final prefs = await _prefs;
+    await prefs.setString(_prefsModelKey, filename);
+    // Reset the completer to force re-check of model existence
+    _modelCompleter = null;
+  }
+
+  /// Clears all model cache and resets state - useful for model switching
+  @override
+  Future<void> clearModelCache() async {
+    _modelCompleter = null;
+    _modelFileName = null;
+    _userSetModelPath = null;
+    final prefs = await _prefs;
+    await prefs.remove(_prefsModelKey);
   }
 
   @override

@@ -205,7 +205,7 @@ class ChatMessageWidget extends StatelessWidget {
                   Flexible(
                     child: Text(
                       message.text,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         color: Colors.white, // White text on blue background
                         fontStyle: FontStyle.italic,

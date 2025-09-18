@@ -96,35 +96,59 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _initializeModel() async {
-    if (!await _gemma.modelManager.isModelInstalled) {
-      final path = kIsWeb ? widget.model.url : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
-      await _gemma.modelManager.setModelPath(path);
+    try {
+      // Clear any cached model references when switching models
+      await _gemma.modelManager.clearModelCache();
+      
+      if (!await _gemma.modelManager.isModelInstalled) {
+        // Use the model manager's path handling which includes Android path correction
+        final directory = await getApplicationDocumentsDirectory();
+        // For Android, we need to handle the path correction properly
+        String path;
+        if (kIsWeb) {
+          path = widget.model.url;
+        } else {
+          // Let the model manager handle the path correction
+          path = '${directory.path}/${widget.model.filename}';
+        }
+        await _gemma.modelManager.setModelPath(path);
+      } else {
+        // Force update the cached filename to match the current model
+        await _gemma.modelManager.forceUpdateModelFilename(widget.model.filename);
+      }
+
+      final model = await _gemma.createModel(
+        modelType: super.widget.model.modelType,
+        preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
+        maxTokens: 1024,
+        supportImage: widget.model.supportImage, // Pass image support
+        maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
+      );
+
+      chat = await model.createChat(
+        temperature: super.widget.model.temperature,
+        randomSeed: 1,
+        topK: super.widget.model.topK,
+        topP: super.widget.model.topP,
+        tokenBuffer: 256,
+        supportImage: widget.model.supportImage, // Image support in chat
+        supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
+        tools: _tools, // Pass the tools to the chat
+        isThinking: widget.model.isThinking, // Pass isThinking from model
+        modelType: widget.model.modelType, // Pass modelType from model
+      );
+
+      setState(() {
+        _isModelInitialized = true;
+        _error = null;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to initialize model: ${e.toString()}';
+        _isModelInitialized = false;
+      });
+      rethrow;
     }
-
-    final model = await _gemma.createModel(
-      modelType: super.widget.model.modelType,
-      preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
-      maxTokens: 1024,
-      supportImage: widget.model.supportImage, // Pass image support
-      maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
-    );
-
-    chat = await model.createChat(
-      temperature: super.widget.model.temperature,
-      randomSeed: 1,
-      topK: super.widget.model.topK,
-      topP: super.widget.model.topP,
-      tokenBuffer: 256,
-      supportImage: widget.model.supportImage, // Image support in chat
-      supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
-      tools: _tools, // Pass the tools to the chat
-      isThinking: widget.model.isThinking, // Pass isThinking from model
-      modelType: widget.model.modelType, // Pass modelType from model
-    );
-
-    setState(() {
-      _isModelInitialized = true;
-    });
   }
 
   // Helper method to handle function calls with system messages (async version)

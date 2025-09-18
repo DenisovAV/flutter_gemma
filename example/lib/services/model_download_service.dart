@@ -1,3 +1,4 @@
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ModelDownloadService {
@@ -29,19 +30,32 @@ class ModelDownloadService {
     await prefs.remove('auth_token');
   }
 
-  Future<void> downloadModel({
-    String? token,
-    Function(double)? onProgress,
-    Function()? onComplete,
-  }) async {
-    // Implementation would handle model download
-    // This is a placeholder for the actual download logic
-    throw UnimplementedError('Download implementation not provided');
+  /// Check if the model exists
+  Future<bool> checkModelExistence(String token) async {
+    return await FlutterGemmaPlugin.instance.modelManager.isModelInstalled;
   }
 
+  /// Download the model with progress tracking
+  Future<void> downloadModel({
+    required String token,
+    Function(double)? onProgress,
+  }) async {
+    final plugin = FlutterGemmaPlugin.instance;
+
+    // Set the model path first
+    await plugin.modelManager.setModelPath(modelUrl);
+
+    // Download with progress tracking
+    await for (final progress in plugin.modelManager.downloadModelFromNetworkWithProgress(
+      modelUrl,
+      token: token.isNotEmpty ? token : null
+    )) {
+      onProgress?.call(progress.toDouble());
+    }
+  }
+
+  /// Delete the model
   Future<void> deleteModel() async {
-    // Implementation would handle model deletion
-    // This is a placeholder for the actual deletion logic
-    throw UnimplementedError('Delete implementation not provided');
+    await FlutterGemmaPlugin.instance.modelManager.deleteModel();
   }
 }

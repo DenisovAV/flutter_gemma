@@ -64,6 +64,7 @@ class WebInferenceModel extends InferenceModel {
   final int maxTokens;
 
   final ModelType modelType;
+  @override
   final ModelFileType fileType;
   final List<int>? loraRanks;
   final WebModelManager modelManager;

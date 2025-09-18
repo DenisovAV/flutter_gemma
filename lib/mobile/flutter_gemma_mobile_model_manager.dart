@@ -51,12 +51,12 @@ class MobileModelManager extends ModelFileManager {
 
         // If file is not registered in prefs - delete it
         if (fileName != registeredModel && fileName != registeredLora) {
-          print('Cleaning up orphaned file: $fileName');
+          debugPrint('Cleaning up orphaned file: $fileName');
           await file.delete();
         }
       }
     } catch (e) {
-      print('Failed to cleanup orphaned files: $e');
+      debugPrint('Failed to cleanup orphaned files: $e');
     }
   }
 
@@ -335,7 +335,6 @@ class MobileModelManager extends ModelFileManager {
   Stream<int> _downloadToLocalStorageWithProgress({required String assetUrl, required String targetPath, String? token}) {
     // Use HuggingFace wrapper for HF URLs to handle ETag issues
     if (HuggingFaceDownloader.isHuggingFaceUrl(assetUrl)) {
-      debugPrint('Using HuggingFace downloader wrapper for: $assetUrl');
       return HuggingFaceDownloader.downloadWithProgress(
         url: assetUrl,
         targetPath: targetPath,
@@ -345,7 +344,6 @@ class MobileModelManager extends ModelFileManager {
     }
 
     // Fallback to original implementation for non-HF URLs
-    debugPrint('Using standard downloader for: $assetUrl');
     final progress = StreamController<int>();
 
     Task.split(filePath: targetPath).then((result) async {
@@ -381,7 +379,6 @@ class MobileModelManager extends ModelFileManager {
             progress.add(percents.clamp(0, 100));
           },
           onStatus: (status) {
-            print('Download status: $status for task ${task.taskId}');
             switch (status) {
               case TaskStatus.complete:
                 if (!progress.isClosed) {
@@ -400,30 +397,24 @@ class MobileModelManager extends ModelFileManager {
                   // Check if we can resume the failed task
                   downloader.taskCanResume(task).then((canResume) {
                     if (canResume) {
-                      print('Attempting to resume failed download...');
                       downloader.resume(task);
                     } else {
-                      print('Cannot resume - likely ETag issue, will retry from start');
                       // Will be handled by retries automatically
                     }
                   }).catchError((e) {
-                    print('Resume check failed: $e');
                     progress.addError('Download failed: $e');
                     progress.close();
                   });
                 } else {
-                  print('Download failed but stream already closed');
                 }
                 break;
               case TaskStatus.paused:
                 // Don't close stream on pause - let it resume
-                print('Download paused, waiting for resume...');
                 break;
               case TaskStatus.running:
-                print('Download running/resumed');
                 break;
               default:
-                print('Download status: $status');
+                debugPrint('Download status: $status');
                 break;
             }
           },

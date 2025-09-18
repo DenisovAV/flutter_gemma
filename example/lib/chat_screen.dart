@@ -23,10 +23,14 @@ class ChatScreenState extends State<ChatScreen> {
   InferenceChat? chat;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
+  bool _isInitializing = false; // Protection against concurrent initialization
   bool _isStreaming = false; // Track streaming state
   String? _error;
   Color _backgroundColor = const Color(0xFF0b2351);
   String _appTitle = 'Flutter Gemma Example'; // Track the current app title
+
+  // Toggle for sync/async mode
+  bool _useSyncMode = false;
 
   // Define the tools
   final List<Tool> _tools = [
@@ -91,60 +95,70 @@ class ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _isInitializing = false; // Reset initialization flag
+    _isModelInitialized = false; // Reset model flag
     super.dispose();
     _gemma.modelManager.deleteModel();
   }
 
   Future<void> _initializeModel() async {
-    if (!await _gemma.modelManager.isModelInstalled) {
-      final path = kIsWeb ? widget.model.url : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
-      await _gemma.modelManager.setModelPath(path);
+    // Protection against concurrent calls
+    if (_isModelInitialized || _isInitializing) {
+      return;
     }
 
-    final model = await _gemma.createModel(
-      modelType: super.widget.model.modelType,
-      fileType: super.widget.model.fileType, // Pass fileType from model
-      preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
-      maxTokens: 1024,
-      supportImage: widget.model.supportImage, // Pass image support
-      maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
-    );
+    _isInitializing = true;
 
-    debugPrint('ChatScreen: Creating chat with:');
-    debugPrint('  supportImage: ${widget.model.supportImage}');
-    debugPrint('  supportsFunctionCalls: ${widget.model.supportsFunctionCalls}');
-    debugPrint('  modelType: ${widget.model.modelType}');
-    debugPrint('  fileType: ${widget.model.fileType}');
+    try {
+      if (!await _gemma.modelManager.isModelInstalled) {
+        final path = kIsWeb ? widget.model.url : '${(await getApplicationDocumentsDirectory()).path}/${widget.model.filename}';
+        await _gemma.modelManager.setModelPath(path);
+      }
 
-    chat = await model.createChat(
-      temperature: super.widget.model.temperature,
-      randomSeed: 1,
-      topK: super.widget.model.topK,
-      topP: super.widget.model.topP,
-      tokenBuffer: 256,
-      supportImage: widget.model.supportImage, // Image support in chat
-      supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
-      tools: _tools, // Pass the tools to the chat
-      isThinking: widget.model.isThinking, // Pass isThinking from model
-      modelType: widget.model.modelType, // Pass modelType from model
-    );
+      final model = await _gemma.createModel(
+        modelType: super.widget.model.modelType,
+        fileType: super.widget.model.fileType, // Pass fileType from model
+        preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
+        maxTokens: 1024,
+        supportImage: widget.model.supportImage, // Pass image support
+        maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
+      );
 
-    debugPrint('ChatScreen: Chat created, supportsImages: ${chat?.supportsImages}');
 
-    setState(() {
-      _isModelInitialized = true;
-    });
+      chat = await model.createChat(
+        temperature: super.widget.model.temperature,
+        randomSeed: 1,
+        topK: super.widget.model.topK,
+        topP: super.widget.model.topP,
+        tokenBuffer: 256,
+        supportImage: widget.model.supportImage, // Image support in chat
+        supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
+        tools: _tools, // Pass the tools to the chat
+        isThinking: widget.model.isThinking, // Pass isThinking from model
+        modelType: widget.model.modelType, // Pass modelType from model
+      );
+
+
+      setState(() {
+        _isModelInitialized = true;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to initialize model: $e';
+      });
+    } finally {
+      _isInitializing = false; // Always reset the flag
+    }
   }
 
   // Helper method to handle function calls with system messages (async version)
   Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
-    debugPrint('Function call received: ${functionCall.name}(${functionCall.args})');
 
     // Set streaming state and show "Calling function..." in one setState
     setState(() {
       _isStreaming = true;
       _messages.add(Message.systemInfo(
-        text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: \"${e.value}\"').join(', ')})",
+        text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: "${e.value}"').join(', ')})",
       ));
     });
 
@@ -159,7 +173,6 @@ class ChatScreenState extends State<ChatScreen> {
     });
 
     final toolResponse = await _executeTool(functionCall);
-    debugPrint('Tool response: $toolResponse');
 
     // 3. Show "Function completed"
     setState(() {
@@ -179,20 +192,16 @@ class ChatScreenState extends State<ChatScreen> {
     await chat?.addQuery(toolMessage);
 
     // TEMPORARILY use sync response for debugging
-    debugPrint('⚡ ChatScreen: Starting function response generation (SYNC MODE)');
 
     final response = await chat!.generateChatResponse();
-    debugPrint('⚡ ChatScreen: SYNC response received: ${response.runtimeType}');
 
     if (response is TextResponse) {
       final accumulatedResponse = response.token;
-      debugPrint('🏁 ChatScreen: SYNC Function response completed: "$accumulatedResponse" (length: ${accumulatedResponse.length})');
 
       setState(() {
         _messages.add(Message.text(text: accumulatedResponse));
       });
     } else if (response is FunctionCallResponse) {
-      debugPrint('❌ ChatScreen: Unexpected FunctionCall after tool response: ${response.name}');
     }
 
     // Reset streaming state when done
@@ -204,17 +213,14 @@ class ChatScreenState extends State<ChatScreen> {
   // Main gemma response handler - processes responses from GemmaInputField
   Future<void> _handleGemmaResponse(ModelResponse response) async {
     if (response is FunctionCallResponse) {
-      debugPrint('🔧 ChatScreen: Function call received: ${response.name}');
       await _handleFunctionCall(response);
     } else if (response is TextResponse) {
       // DEBUG: Track what text we're receiving from GemmaInputField
-      debugPrint('📥 ChatScreen: Received final text from GemmaInputField: "${response.token}" (length: ${response.token.length})');
       setState(() {
         _messages.add(Message.text(text: response.token));
         _isStreaming = false;
       });
     } else {
-      debugPrint('❌ ChatScreen: Unexpected response type: ${response.runtimeType}');
     }
   }
 
@@ -317,6 +323,21 @@ class ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          // Sync/Async toggle
+          Row(
+            children: [
+              const Text('Sync', style: TextStyle(fontSize: 12)),
+              Switch(
+                value: _useSyncMode,
+                onChanged: (value) {
+                  setState(() {
+                    _useSyncMode = value;
+                  });
+                },
+                activeColor: Colors.green,
+              ),
+            ],
+          ),
           // Image support indicator
           if (chat?.supportsImages == true)
             const Padding(
@@ -344,6 +365,7 @@ class ChatScreenState extends State<ChatScreen> {
                 Expanded(
                   child: ChatListWidget(
                     chat: chat,
+                    useSyncMode: _useSyncMode,
                     gemmaHandler: _handleGemmaResponse,
                     messageHandler: (message) {
                       // Handles all message additions to history

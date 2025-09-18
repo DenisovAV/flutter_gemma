@@ -7,15 +7,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ModelDownloadService {
-  final String modelUrl;
-  final String modelFilename;
-  final String licenseUrl;
-
   ModelDownloadService({
     required this.modelUrl,
     required this.modelFilename,
     required this.licenseUrl,
   });
+
+  final String modelUrl;
+  final String modelFilename;
+  final String licenseUrl;
 
   /// Load the token from SharedPreferences.
   Future<String?> loadToken() async {

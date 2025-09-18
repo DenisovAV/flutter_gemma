@@ -14,6 +14,7 @@ class MobileInferenceModel extends InferenceModel {
   });
 
   final ModelType modelType;
+  @override
   final ModelFileType fileType;
   @override
   Future<InferenceChat> createChat({

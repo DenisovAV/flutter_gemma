@@ -21,6 +21,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
   late ModelDownloadService _downloadService;
   bool needToDownload = true;
   double _progress = 0.0; // Track download progress
+  bool _downloading = false; // Track active download state
   String _token = ''; // Store the token
   final TextEditingController _tokenController = TextEditingController();
 
@@ -57,6 +58,10 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
       return;
     }
 
+    setState(() {
+      _downloading = true;
+    });
+
     try {
       await _downloadService.downloadModel(
         token: widget.model.needsAuth ? _token : '', // Pass token only if needed
@@ -77,6 +82,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
       if (mounted) {
         setState(() {
           _progress = 0.0;
+          _downloading = false;
         });
       }
     }
@@ -177,12 +183,14 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                 ),
               ),
             Center(
-              child: _progress > 0.0
+              child: (_progress > 0.0 || _downloading)
                   ? Column(
                       children: [
                         Text('Download Progress: ${_progress.toStringAsFixed(1)}%'),
                         const SizedBox(height: 8),
-                        LinearProgressIndicator(value: _progress / 100.0),
+                        LinearProgressIndicator(
+                          value: _progress > 0.0 ? _progress / 100.0 : null,
+                        ),
                       ],
                     )
                   : ElevatedButton(

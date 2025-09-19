@@ -64,16 +64,6 @@ class MobileModelManager extends ModelFileManager {
     return '$originalPath/$filename';
   }
 
-  /// Corrects Android path for the full path (not just directory)
-  String _correctAndroidPath(String fullPath) {
-    // Check if this is the problematic Android path format
-    if (fullPath.contains('/data/user/0/')) {
-      // Replace with the correct Android app data path
-      return fullPath.replaceFirst('/data/user/0/', '/data/data/');
-    }
-    // For other platforms or already correct paths, use the original
-    return fullPath;
-  }
 
   /// Cleans up orphaned files (files without corresponding SharedPrefs entry)
   Future<void> _cleanupOrphanedFiles() async {
@@ -441,6 +431,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Forces update of the cached model filename - useful when switching between different models
+  @override
   Future<void> forceUpdateModelFilename(String filename) async {
     _modelFileName = filename;
     final prefs = await _prefs;
@@ -450,6 +441,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Clears all model cache and resets state - useful for model switching
+  @override
   Future<void> clearModelCache() async {
     _modelCompleter = null;
     _modelFileName = null;

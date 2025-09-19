@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
 
@@ -19,11 +17,11 @@ class ImageTokenizer {
       
       // Validate inputs
       if (text.isEmpty) {
-        throw ImageTokenizationException('Text content cannot be empty');
+        throw const ImageTokenizationException('Text content cannot be empty');
       }
       
       if (processedImage.base64String.isEmpty) {
-        throw ImageTokenizationException('Processed image Base64 string cannot be empty');
+        throw const ImageTokenizationException('Processed image Base64 string cannot be empty');
       }
       
       // Create structured message following multimodal AI model requirements

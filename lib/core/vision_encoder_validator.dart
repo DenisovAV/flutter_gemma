@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
 
@@ -117,7 +116,7 @@ class VisionEncoderValidator {
       return ValidationResult(
         isValid: false,
         encoderType: specs.encoderType,
-        message: 'File size (${sizeInBytes} bytes) is too small, may be corrupted',
+        message: 'File size ($sizeInBytes bytes) is too small, may be corrupted',
         suggestions: ['Check if image is valid and not corrupted'],
       );
     }
@@ -180,13 +179,13 @@ class VisionEncoderValidator {
     // Very rough estimation based on typical compression ratios
     // This is not accurate but sufficient for validation
     if (sizeInBytes < 50 * 1024) { // < 50KB
-      return EstimatedDimensions(200, 200);
+      return const EstimatedDimensions(200, 200);
     } else if (sizeInBytes < 200 * 1024) { // < 200KB
-      return EstimatedDimensions(400, 400);
+      return const EstimatedDimensions(400, 400);
     } else if (sizeInBytes < 500 * 1024) { // < 500KB
-      return EstimatedDimensions(600, 600);
+      return const EstimatedDimensions(600, 600);
     } else {
-      return EstimatedDimensions(800, 800);
+      return const EstimatedDimensions(800, 800);
     }
   }
   
@@ -230,7 +229,7 @@ class VisionEncoderValidator {
       );
     }
     
-    return ValidationResult(
+    return const ValidationResult(
       isValid: true,
       encoderType: VisionEncoderType.gemma3SigLIP,
       message: 'Image is compatible with Gemma 3 SigLIP encoder',
@@ -242,7 +241,7 @@ class VisionEncoderValidator {
   static ValidationResult _validateGeneralCompatibility(Uint8List imageBytes) {
     // General requirements that work across most vision encoders
     if (imageBytes.length < 10 * 1024) { // < 10KB
-      return ValidationResult(
+      return const ValidationResult(
         isValid: false,
         encoderType: VisionEncoderType.general,
         message: 'Image file too small, may be corrupted',
@@ -250,7 +249,7 @@ class VisionEncoderValidator {
       );
     }
     
-    return ValidationResult(
+    return const ValidationResult(
       isValid: true,
       encoderType: VisionEncoderType.general,
       message: 'Image meets general vision encoder requirements',

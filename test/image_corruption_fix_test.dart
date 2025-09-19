@@ -19,7 +19,7 @@ void main() {
     });
     
     test('ImageProcessor can validate Base64 encoding', () {
-      final testString = 'SGVsbG8gV29ybGQ='; // Valid Base64
+      const testString = 'SGVsbG8gV29ybGQ='; // Valid Base64
       
       // This should not throw an exception
       expect(() {
@@ -80,9 +80,9 @@ void main() {
     
     test('ImageTokenizer can detect corruption patterns', () {
       // Test known corruption patterns
-      final corruptedResponse1 = 'describe.describe.describe.describe.';
-      final corruptedResponse2 = '₹₹₹₹₹₹₹₹₹₹';
-      final corruptedResponse3 = 'ph ph ph ph ph';
+      const corruptedResponse1 = 'describe.describe.describe.describe.';
+      const corruptedResponse2 = '₹₹₹₹₹₹₹₹₹₹';
+      const corruptedResponse3 = 'ph ph ph ph ph';
       
       expect(
         ImageTokenizer.detectCorruptionPatterns(corruptedResponse1),
@@ -100,7 +100,7 @@ void main() {
       );
       
       // Test normal response
-      final normalResponse = 'This is a normal response about the image.';
+      const normalResponse = 'This is a normal response about the image.';
       expect(
         ImageTokenizer.detectCorruptionPatterns(normalResponse),
         isFalse,
@@ -147,7 +147,7 @@ void main() {
       );
       
       // Test corrupted response
-      final corruptedResponse = 'describe.describe.describe.describe.';
+      const corruptedResponse = 'describe.describe.describe.describe.';
       final validation = MultimodalImageHandler.validateModelResponse(
         corruptedResponse,
         originalPrompt: 'Describe this image',
@@ -171,7 +171,7 @@ void main() {
       );
       
       // Test normal response
-      final normalResponse = 'This image shows a beautiful landscape with mountains.';
+      const normalResponse = 'This image shows a beautiful landscape with mountains.';
       final validation = MultimodalImageHandler.validateModelResponse(
         normalResponse,
         originalPrompt: 'Describe this image',

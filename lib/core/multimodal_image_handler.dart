@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
 import 'image_tokenizer.dart' as tokenizer;
@@ -64,13 +62,13 @@ class MultimodalImageHandler {
         modelType: modelType,
         validationPassed: enableValidation,
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('MultimodalImageHandler: Image processing failed - $e');
       
       // Handle the error and provide recovery suggestions
       final errorResult = ImageErrorHandler.handleImageProcessingError(
         e,
-        stackTrace,
+        StackTrace.current,
         imageBytes: imageBytes,
         context: 'MultimodalImageHandler.processImageForAI',
       );
@@ -127,11 +125,11 @@ class MultimodalImageHandler {
         imageBytes: processedImage.processedBytes,
         isUser: isUser,
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('MultimodalImageHandler: Failed to create multimodal message - $e');
       
       // Try to create a fallback text-only message
-      final fallbackText = '${text}\n[Note: Image could not be processed properly]';
+      final fallbackText = '$text\n[Note: Image could not be processed properly]';
       return Message.text(text: fallbackText, isUser: isUser);
     }
   }
@@ -161,13 +159,13 @@ class MultimodalImageHandler {
       debugPrint('MultimodalImageHandler: Tokenized prompt created (${prompt.length} chars)');
       
       return prompt;
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('MultimodalImageHandler: Tokenization failed - $e');
       
       // Handle tokenization error
       final errorResult = ImageErrorHandler.handleTokenizationError(
         e,
-        stackTrace,
+        StackTrace.current,
         modelType: _convertToTokenizerModelType(modelType),
         prompt: text,
         expectedImageCount: 1,
@@ -217,7 +215,7 @@ class MultimodalImageHandler {
         suggestedAction: ResponseAction.reprocessImage,
         originalResponse: response,
       );
-    } catch (e, stackTrace) {
+    } catch (e) {
       debugPrint('MultimodalImageHandler: Response validation failed - $e');
       
       return ResponseValidationResult(
@@ -238,6 +236,9 @@ class MultimodalImageHandler {
         return VisionEncoderType.gemma3SigLIP;
       case ModelType.deepSeek:
       case ModelType.general:
+      case ModelType.qwen:
+      case ModelType.llama:
+      case ModelType.hammer:
         return VisionEncoderType.general;
     }
   }
@@ -250,6 +251,9 @@ class MultimodalImageHandler {
       case ModelType.deepSeek:
         return tokenizer.ModelType.deepSeek;
       case ModelType.general:
+      case ModelType.qwen:
+      case ModelType.llama:
+      case ModelType.hammer:
         return tokenizer.ModelType.general;
     }
   }

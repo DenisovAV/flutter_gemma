@@ -1,11 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -109,25 +107,11 @@ class ChatScreenState extends State<ChatScreen> {
     _isInitializing = true;
 
     try {
-      // Clear any cached model references when switching models
-      await _gemma.modelManager.clearModelCache();
-
-      if (!await _gemma.modelManager.isModelInstalled) {
-        // Use the model manager's path handling which includes Android path correction
-        final directory = await getApplicationDocumentsDirectory();
-        // For Android, we need to handle the path correction properly
-        String path;
-        if (kIsWeb) {
-          path = widget.model.url;
-        } else {
-          // Let the model manager handle the path correction
-          path = '${directory.path}/${widget.model.filename}';
-        }
-        await _gemma.modelManager.setModelPath(path);
-      } else {
-        // Force update the cached filename to match the current model
-        await _gemma.modelManager.forceUpdateModelFilename(widget.model.filename);
-      }
+      // Ensure the model is ready - handles all scenarios automatically
+      await _gemma.modelManager.ensureModelReady(
+        widget.model.filename,
+        widget.model.url,
+      );
 
       final model = await _gemma.createModel(
         modelType: super.widget.model.modelType,

@@ -211,9 +211,14 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     final completer = _initCompleter = Completer<InferenceModel>();
 
-    final (isModelInstalled, isLoraInstalled, File? modelFile, File? loraFile) = await (
+    // First wait: Check installation status (sets internal _modelFileName state)
+    final (isModelInstalled, isLoraInstalled) = await (
       modelManager.isModelInstalled,
       modelManager.isLoraInstalled,
+    ).wait;
+
+    // Second wait: Get file objects (now that _modelFileName is set)
+    final (File? modelFile, File? loraFile) = await (
       modelManager._modelFile,
       modelManager._loraFile,
     ).wait;

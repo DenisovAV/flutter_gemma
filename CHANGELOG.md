@@ -1,7 +1,7 @@
 ## 0.10.6
+- 🔧 **Model Replace Policy**: Added configurable model replacement system with keep/replace options and `ensureModelReady()` method
 - 📥 **Enhanced Downloads**: Added HuggingFace CDN ETag issue handler with smart retry logic and exponential backoff
 - 🔄 **Download Reliability**: New `HuggingFaceDownloader` wrapper to handle CDN server inconsistencies and resume failures
-- 🤖 **New Model Support**: Added Qwen, Llama, and Hammer model families with proper chat templates
 - 📁 **ModelFileType System**: Introduced distinction between `.task` files (MediaPipe-handled) and `.bin/.tflite` files (manual formatting)
 - 🔐 **Android Security**: Added network security configuration for HuggingFace CDN access with proper permissions
 - 🐛 **Download Fixes**: Fixed Android download timeouts, stream management, and ETag mismatch issues

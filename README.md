@@ -32,6 +32,7 @@ There is an example of using:
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **📥 Enhanced Downloads:** Smart retry logic and ETag handling for reliable model downloads from HuggingFace CDN
 - **🔧 Download Reliability:** Automatic resume/restart logic for interrupted downloads with exponential backoff
+- **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
 
 ## Model File Types
 
@@ -243,6 +244,37 @@ await modelManager.installLoraWeightsFromAsset('lora_weights.bin');
 ```dart
 await modelManager.setModelPath('model.bin');
 await modelManager.setLoraWeightsPath('lora_weights.bin');
+```
+
+**Model Replace Policy** (NEW!)
+
+Configure how the plugin handles switching between different models:
+
+```dart
+// Set policy to keep all models (default behavior)
+await modelManager.setReplacePolicy(ModelReplacePolicy.keep);
+
+// Set policy to replace old models (saves storage space)
+await modelManager.setReplacePolicy(ModelReplacePolicy.replace);
+
+// Check current policy
+final currentPolicy = modelManager.replacePolicy;
+```
+
+**Automatic Model Management** (NEW!)
+
+Use `ensureModelReady()` for seamless model switching that handles all scenarios automatically:
+
+```dart
+// Handles all cases:
+// - Same model already loaded: does nothing
+// - Different model with KEEP policy: loads new model, keeps old one
+// - Different model with REPLACE policy: deletes old model, loads new one
+// - Corrupted/invalid model: re-downloads automatically
+await modelManager.ensureModelReady(
+  'gemma-3n-E4B-it-int4.task',
+  'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task'
+);
 ```
 
 You can delete the model and weights from the device. Deleting the model or LoRA weights will automatically close and clean up the inference. This ensures that there are no lingering resources or memory leaks when switching models or updating files.

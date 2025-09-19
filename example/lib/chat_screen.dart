@@ -1,11 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -23,10 +21,14 @@ class ChatScreenState extends State<ChatScreen> {
   InferenceChat? chat;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
+  bool _isInitializing = false; // Protection against concurrent initialization
   bool _isStreaming = false; // Track streaming state
   String? _error;
   Color _backgroundColor = const Color(0xFF0b2351);
   String _appTitle = 'Flutter Gemma Example'; // Track the current app title
+
+  // Toggle for sync/async mode
+  bool _useSyncMode = false;
 
   // Define the tools
   final List<Tool> _tools = [
@@ -91,39 +93,35 @@ class ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _isInitializing = false; // Reset initialization flag
+    _isModelInitialized = false; // Reset model flag
     super.dispose();
     _gemma.modelManager.deleteModel();
   }
 
   Future<void> _initializeModel() async {
+    if (_isModelInitialized || _isInitializing) {
+      return;
+    }
+
+    _isInitializing = true;
+
     try {
-      // Clear any cached model references when switching models
-      await _gemma.modelManager.clearModelCache();
-      
-      if (!await _gemma.modelManager.isModelInstalled) {
-        // Use the model manager's path handling which includes Android path correction
-        final directory = await getApplicationDocumentsDirectory();
-        // For Android, we need to handle the path correction properly
-        String path;
-        if (kIsWeb) {
-          path = widget.model.url;
-        } else {
-          // Let the model manager handle the path correction
-          path = '${directory.path}/${widget.model.filename}';
-        }
-        await _gemma.modelManager.setModelPath(path);
-      } else {
-        // Force update the cached filename to match the current model
-        await _gemma.modelManager.forceUpdateModelFilename(widget.model.filename);
-      }
+      // Ensure the model is ready - handles all scenarios automatically
+      await _gemma.modelManager.ensureModelReady(
+        widget.model.filename,
+        widget.model.url,
+      );
 
       final model = await _gemma.createModel(
         modelType: super.widget.model.modelType,
+        fileType: super.widget.model.fileType, // Pass fileType from model
         preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
         maxTokens: 1024,
         supportImage: widget.model.supportImage, // Pass image support
         maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
       );
+
 
       chat = await model.createChat(
         temperature: super.widget.model.temperature,
@@ -143,23 +141,27 @@ class ChatScreenState extends State<ChatScreen> {
         _error = null;
       });
     } catch (e) {
-      setState(() {
-        _error = 'Failed to initialize model: ${e.toString()}';
-        _isModelInitialized = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to initialize model: ${e.toString()}';
+          _isModelInitialized = false;
+        });
+      }
       rethrow;
+    }
+    finally {
+     _isInitializing = false; // Always reset the flag
     }
   }
 
   // Helper method to handle function calls with system messages (async version)
   Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
-    debugPrint('Function call received: ${functionCall.name}(${functionCall.args})');
 
     // Set streaming state and show "Calling function..." in one setState
     setState(() {
       _isStreaming = true;
       _messages.add(Message.systemInfo(
-        text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: \"${e.value}\"').join(', ')})",
+        text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: "${e.value}"').join(', ')})",
       ));
     });
 
@@ -174,7 +176,6 @@ class ChatScreenState extends State<ChatScreen> {
     });
 
     final toolResponse = await _executeTool(functionCall);
-    debugPrint('Tool response: $toolResponse');
 
     // 3. Show "Function completed"
     setState(() {
@@ -193,33 +194,18 @@ class ChatScreenState extends State<ChatScreen> {
     );
     await chat?.addQuery(toolMessage);
 
-    // Get the final response from the model (async stream)
-    debugPrint('⚡ ChatScreen: Starting function response generation');
+    // TEMPORARILY use sync response for debugging
 
-    String accumulatedResponse = '';
-    bool hasStartedResponse = false;
+    final response = await chat!.generateChatResponse();
 
-    await for (final token in chat!.generateChatResponseAsync()) {
-      if (token is TextResponse) {
-        accumulatedResponse += token.token;
-        // DEBUG: Track accumulation in ChatScreen
-        debugPrint('📝 ChatScreen: Function response token: "${token.token}" -> total: "$accumulatedResponse"');
+    if (response is TextResponse) {
+      final accumulatedResponse = response.token;
 
-        setState(() {
-          if (!hasStartedResponse) {
-            _messages.add(Message.text(text: accumulatedResponse));
-            hasStartedResponse = true;
-          } else {
-            final lastIndex = _messages.length - 1;
-            _messages[lastIndex] = Message.text(text: accumulatedResponse);
-          }
-        });
-      } else if (token is FunctionCallResponse) {
-        debugPrint('❌ ChatScreen: Unexpected FunctionCall after tool response: ${token.name}');
-      }
+      setState(() {
+        _messages.add(Message.text(text: accumulatedResponse));
+      });
+    } else if (response is FunctionCallResponse) {
     }
-
-    debugPrint('🏁 ChatScreen: Function response completed: "$accumulatedResponse" (length: ${accumulatedResponse.length})');
 
     // Reset streaming state when done
     setState(() {
@@ -230,17 +216,14 @@ class ChatScreenState extends State<ChatScreen> {
   // Main gemma response handler - processes responses from GemmaInputField
   Future<void> _handleGemmaResponse(ModelResponse response) async {
     if (response is FunctionCallResponse) {
-      debugPrint('🔧 ChatScreen: Function call received: ${response.name}');
       await _handleFunctionCall(response);
     } else if (response is TextResponse) {
       // DEBUG: Track what text we're receiving from GemmaInputField
-      debugPrint('📥 ChatScreen: Received final text from GemmaInputField: "${response.token}" (length: ${response.token.length})');
       setState(() {
         _messages.add(Message.text(text: response.token));
         _isStreaming = false;
       });
     } else {
-      debugPrint('❌ ChatScreen: Unexpected response type: ${response.runtimeType}');
     }
   }
 
@@ -343,6 +326,21 @@ class ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
+          // Sync/Async toggle
+          Row(
+            children: [
+              const Text('Sync', style: TextStyle(fontSize: 12)),
+              Switch(
+                value: _useSyncMode,
+                onChanged: (value) {
+                  setState(() {
+                    _useSyncMode = value;
+                  });
+                },
+                activeColor: Colors.green,
+              ),
+            ],
+          ),
           // Image support indicator
           if (chat?.supportsImages == true)
             const Padding(
@@ -370,6 +368,7 @@ class ChatScreenState extends State<ChatScreen> {
                 Expanded(
                   child: ChatListWidget(
                     chat: chat,
+                    useSyncMode: _useSyncMode,
                     gemmaHandler: _handleGemmaResponse,
                     messageHandler: (message) {
                       // Handles all message additions to history

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_input_field.dart';
 import 'package:flutter_gemma_example/chat_message.dart';
@@ -14,6 +13,7 @@ class ChatListWidget extends StatefulWidget {
     required this.errorHandler,
     this.chat,
     this.isProcessing = false,
+    this.useSyncMode = false,
     super.key,
   });
 
@@ -23,6 +23,7 @@ class ChatListWidget extends StatefulWidget {
   final ValueChanged<Message> messageHandler; // Handles all message additions to history
   final ValueChanged<String> errorHandler;
   final bool isProcessing; // Indicates if the model is currently processing (including function calls)
+  final bool useSyncMode; // Toggle for sync/async mode
 
   @override
   State<ChatListWidget> createState() => _ChatListWidgetState();
@@ -71,6 +72,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
               streamHandler: _handleGemmaResponse,
               errorHandler: widget.errorHandler,
               isProcessing: widget.isProcessing,
+              useSyncMode: widget.useSyncMode,
               onThinkingCompleted: (String thinkingContent) {
                 // Add thinking as special thinking message to history
                 if (thinkingContent.isNotEmpty) {

@@ -2,6 +2,7 @@ part of 'flutter_gemma_mobile.dart';
 
 const _prefsModelKey = 'installed_model_file_name';
 const _prefsLoraKey = 'installed_lora_file_name';
+const _prefsReplaceKey = 'model_replace_policy';
 const _downloadGroup = 'flutter_gemma_downloads';
 
 // Supported model file extensions
@@ -29,6 +30,27 @@ class MobileModelManager extends ModelFileManager {
   String? _loraFileName;
 
   bool _cleanupCompleted = false;
+  ModelReplacePolicy _replacePolicy = ModelReplacePolicy.keep;
+
+  /// Sets the policy for handling old models when switching
+  @override
+  Future<void> setReplacePolicy(ModelReplacePolicy policy) async {
+    _replacePolicy = policy;
+    final prefs = await _prefs;
+    await prefs.setBool(_prefsReplaceKey, policy == ModelReplacePolicy.replace);
+    debugPrint('ModelManager replace policy: ${policy.name}');
+  }
+
+  /// Gets the current replace policy
+  @override
+  ModelReplacePolicy get replacePolicy => _replacePolicy;
+
+  /// Loads the replace policy from SharedPreferences
+  Future<void> _loadReplacePolicy() async {
+    final prefs = await _prefs;
+    final shouldReplace = prefs.getBool(_prefsReplaceKey) ?? false;
+    _replacePolicy = shouldReplace ? ModelReplacePolicy.replace : ModelReplacePolicy.keep;
+  }
 
   /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access
   String _getCorrectedPath(String originalPath, String filename) {
@@ -42,16 +64,6 @@ class MobileModelManager extends ModelFileManager {
     return '$originalPath/$filename';
   }
 
-  /// Corrects Android path for the full path (not just directory)
-  String _correctAndroidPath(String fullPath) {
-    // Check if this is the problematic Android path format
-    if (fullPath.contains('/data/user/0/')) {
-      // Replace with the correct Android app data path
-      return fullPath.replaceFirst('/data/user/0/', '/data/data/');
-    }
-    // For other platforms or already correct paths, use the original
-    return fullPath;
-  }
 
   /// Cleans up orphaned files (files without corresponding SharedPrefs entry)
   Future<void> _cleanupOrphanedFiles() async {
@@ -63,6 +75,9 @@ class MobileModelManager extends ModelFileManager {
       final registeredModel = prefs.getString(_prefsModelKey);
       final registeredLora = prefs.getString(_prefsLoraKey);
 
+      // Also protect current model in memory (prevents clearModelCache issues)
+      final currentModelInMemory = _modelFileName;
+
       // Get all supported model files in directory
       final files = directory.listSync()
           .whereType<File>()
@@ -72,14 +87,28 @@ class MobileModelManager extends ModelFileManager {
       for (final file in files) {
         final fileName = file.path.split('/').last;
 
-        // If file is not registered in prefs - delete it
-        if (fileName != registeredModel && fileName != registeredLora) {
-          print('Cleaning up orphaned file: $fileName');
-          await file.delete();
+        // NEVER delete files that are:
+        // 1. Registered in SharedPrefs
+        // 2. Current model in memory
+        if (fileName == registeredModel ||
+            fileName == registeredLora ||
+            fileName == currentModelInMemory) {
+          continue;
         }
+
+        // Additional safety checks for truly orphaned files
+        final fileAge = DateTime.now().difference(file.statSync().modified);
+        if (fileAge.inMinutes < 30) {
+          debugPrint('Skipping recent file: $fileName (age: ${fileAge.inMinutes} min)');
+          continue;
+        }
+
+        // Only delete old unregistered files
+        debugPrint('Cleaning up orphaned file: $fileName (age: ${fileAge.inHours}h)');
+        await file.delete();
       }
     } catch (e) {
-      print('Failed to cleanup orphaned files: $e');
+      debugPrint('Failed to cleanup orphaned files: $e');
     }
   }
 
@@ -107,6 +136,83 @@ class MobileModelManager extends ModelFileManager {
       return File('${directory.path}/$name');
     }
     return null;
+  }
+
+  /// Ensures the specified model is ready for use, applying the current replace policy
+  @override
+  Future<void> ensureModelReady(String targetModel, String modelUrl) async {
+    await _loadReplacePolicy(); // Load policy from SharedPreferences
+
+    final prefs = await _prefs;
+    final currentModel = prefs.getString(_prefsModelKey);
+
+    // Scenario 1: Target model already ready
+    if (currentModel == targetModel && await _isFileValid(targetModel)) {
+      debugPrint('Model $targetModel already ready');
+      return;
+    }
+
+    // Scenario 2: Switching between different models - apply replace policy
+    if (currentModel != null && currentModel != targetModel) {
+      if (_replacePolicy == ModelReplacePolicy.replace) {
+        await _deleteModelFile(currentModel);
+        debugPrint('Deleted old model: $currentModel (replace policy)');
+      } else {
+        debugPrint('Keeping old model: $currentModel (keep policy)');
+      }
+    }
+
+    // Scenario 3: Ensure target model is available and valid
+    if (!await _isFileValid(targetModel)) {
+      // Need to download the model
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/$targetModel';
+      await setModelPath(path, loraPath: null);
+    } else {
+      // Model file exists but update the reference
+      await forceUpdateModelFilename(targetModel);
+    }
+  }
+
+  /// Checks if a model file is valid (exists and has reasonable size)
+  Future<bool> _isFileValid(String filename) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final correctedPath = _getCorrectedPath(directory.path, filename);
+      final file = File(correctedPath);
+
+      if (!await file.exists()) {
+        return false;
+      }
+
+      // Basic size check - model files should be at least 1MB
+      final sizeInBytes = file.lengthSync();
+      if (sizeInBytes < 1024 * 1024) {
+        debugPrint('File $filename too small: $sizeInBytes bytes');
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error validating file $filename: $e');
+      return false;
+    }
+  }
+
+  /// Deletes a model file from disk
+  Future<void> _deleteModelFile(String filename) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final correctedPath = _getCorrectedPath(directory.path, filename);
+      final file = File(correctedPath);
+
+      if (await file.exists()) {
+        await file.delete();
+        debugPrint('Deleted model file: $filename');
+      }
+    } catch (e) {
+      debugPrint('Failed to delete model file $filename: $e');
+    }
   }
 
   @override
@@ -325,6 +431,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Forces update of the cached model filename - useful when switching between different models
+  @override
   Future<void> forceUpdateModelFilename(String filename) async {
     _modelFileName = filename;
     final prefs = await _prefs;
@@ -334,6 +441,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Clears all model cache and resets state - useful for model switching
+  @override
   Future<void> clearModelCache() async {
     _modelCompleter = null;
     _modelFileName = null;
@@ -383,6 +491,17 @@ class MobileModelManager extends ModelFileManager {
   }
 
   Stream<int> _downloadToLocalStorageWithProgress({required String assetUrl, required String targetPath, String? token}) {
+    // Use HuggingFace wrapper for HF URLs to handle ETag issues
+    if (HuggingFaceDownloader.isHuggingFaceUrl(assetUrl)) {
+      return HuggingFaceDownloader.downloadWithProgress(
+        url: assetUrl,
+        targetPath: targetPath,
+        token: token,
+        maxRetries: 10,
+      );
+    }
+
+    // Fallback to original implementation for non-HF URLs
     final progress = StreamController<int>();
 
     Task.split(filePath: targetPath).then((result) async {
@@ -391,13 +510,27 @@ class MobileModelManager extends ModelFileManager {
         final task = DownloadTask(
           url: assetUrl,
           group: _downloadGroup,
-          headers: token != null ? {'Authorization': 'Bearer $token'} : {},
+          headers: token != null ? {
+            'Authorization': 'Bearer $token',
+            // Force HTTP/1.1 for better resume support
+            'Connection': 'keep-alive',
+          } : {
+            'Connection': 'keep-alive',
+          },
           baseDirectory: baseDirectory,
           directory: directory,
           filename: filename,
+          requiresWiFi: false,
+          allowPause: true,  // Enable pause for potential resume
+          priority: 10,      // High priority
+          retries: 10,       // Many retries for unstable network
+          // Note: background_downloader will try to resume first, then restart
         );
 
-        await FileDownloader().download(
+        // Configure FileDownloader with longer timeout for large models
+        final downloader = FileDownloader();
+
+        await downloader.download(
           task,
           onProgress: (portion) {
             final percents = (portion * 100).round();
@@ -406,29 +539,49 @@ class MobileModelManager extends ModelFileManager {
           onStatus: (status) {
             switch (status) {
               case TaskStatus.complete:
-                progress.close();
+                if (!progress.isClosed) {
+                  progress.add(100); // Ensure 100% progress
+                  progress.close();
+                }
                 break;
               case TaskStatus.canceled:
-                progress.addError('Download canceled');
-                progress.close();
+                if (!progress.isClosed) {
+                  progress.addError('Download canceled');
+                  progress.close();
+                }
                 break;
               case TaskStatus.failed:
-                progress.addError('Download failed');
-                progress.close();
+                if (!progress.isClosed) {
+                  // Check if we can resume the failed task
+                  downloader.taskCanResume(task).then((canResume) {
+                    if (canResume) {
+                      downloader.resume(task);
+                    } else {
+                      // Will be handled by retries automatically
+                    }
+                  }).catchError((e) {
+                    progress.addError('Download failed: $e');
+                    progress.close();
+                  });
+                } else {
+                }
                 break;
               case TaskStatus.paused:
-                progress.addError('Download paused');
-                progress.close();
+                // Don't close stream on pause - let it resume
+                break;
+              case TaskStatus.running:
                 break;
               default:
-                // No action needed for other statuses
+                debugPrint('Download status: $status');
                 break;
             }
           },
         );
       } catch (e) {
-        progress.addError('Download initialization failed: $e');
-        progress.close();
+        if (!progress.isClosed) {
+          progress.addError('Download initialization failed: $e');
+          progress.close();
+        }
       }
     });
 

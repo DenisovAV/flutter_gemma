@@ -345,4 +345,19 @@ class WebModelManager extends ModelFileManager {
     _loraPath = null;
     return Future.value();
   }
+
+  @override
+  Future<void> ensureModelReady(String targetModel, String modelUrl) {
+    // For web, we just set the model path directly
+    return setModelPath(modelUrl);
+  }
+
+  @override
+  Future<void> setReplacePolicy(ModelReplacePolicy policy) {
+    // For web, we don't cache multiple models, so this is a no-op
+    return Future.value();
+  }
+
+  @override
+  ModelReplacePolicy get replacePolicy => ModelReplacePolicy.keep;
 }

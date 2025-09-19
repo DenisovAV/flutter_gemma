@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
 import 'image_tokenizer.dart';
@@ -104,8 +103,8 @@ class ImageErrorHandler {
       _logImageInfo(imageBytes);
     }
     
-    final errorType = ErrorType.visionEncoderValidation;
-    final suggestions = List<String>.from(validationResult.suggestions);
+    const errorType = ErrorType.visionEncoderValidation;
+    final suggestions = <String>[...validationResult.suggestions];
     
     // Add additional recovery suggestions based on validation failure
     if (!validationResult.isValid) {

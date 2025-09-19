@@ -28,6 +28,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<InferenceModel> createModel({
     required ModelType modelType,
+    ModelFileType fileType = ModelFileType.task,
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
@@ -43,6 +44,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
     final model = _initializedModel ??= WebInferenceModel(
       modelType: modelType,
+      fileType: fileType,
       maxTokens: maxTokens,
       loraRanks: loraRanks,
       modelManager: modelManager,
@@ -62,6 +64,8 @@ class WebInferenceModel extends InferenceModel {
   final int maxTokens;
 
   final ModelType modelType;
+  @override
+  final ModelFileType fileType;
   final List<int>? loraRanks;
   final WebModelManager modelManager;
   final bool supportImage; // Enabling image support
@@ -72,6 +76,7 @@ class WebInferenceModel extends InferenceModel {
 
   WebInferenceModel({
     required this.modelType,
+    this.fileType = ModelFileType.task,
     required this.onClose,
     required this.maxTokens,
     this.loraRanks,
@@ -121,6 +126,7 @@ class WebInferenceModel extends InferenceModel {
 
       final session = this.session = WebModelSession(
         modelType: modelType,
+        fileType: fileType,
         llmInference: llmInference,
         supportImage: supportImage, // Enabling image support
         onClose: onClose,
@@ -142,6 +148,7 @@ class WebInferenceModel extends InferenceModel {
 
 class WebModelSession extends InferenceModelSession {
   final ModelType modelType;
+  final ModelFileType fileType;
   final LlmInference llmInference;
   final VoidCallback onClose;
   final bool supportImage; // Enabling image support
@@ -152,6 +159,7 @@ class WebModelSession extends InferenceModelSession {
     required this.llmInference,
     required this.onClose,
     required this.modelType,
+    this.fileType = ModelFileType.task,
     this.supportImage = false,
   });
 
@@ -163,7 +171,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = message.transformToChatPrompt(type: modelType);
+    final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
 
     // Checks for image support (as in the mobile platforms)
     if (message.hasImage && message.imageBytes != null) {
@@ -337,4 +345,19 @@ class WebModelManager extends ModelFileManager {
     _loraPath = null;
     return Future.value();
   }
+
+  @override
+  Future<void> ensureModelReady(String targetModel, String modelUrl) {
+    // For web, we just set the model path directly
+    return setModelPath(modelUrl);
+  }
+
+  @override
+  Future<void> setReplacePolicy(ModelReplacePolicy policy) {
+    // For web, we don't cache multiple models, so this is a no-op
+    return Future.value();
+  }
+
+  @override
+  ModelReplacePolicy get replacePolicy => ModelReplacePolicy.keep;
 }

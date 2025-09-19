@@ -1,3 +1,11 @@
+/// Policy for handling old models when switching to new ones
+enum ModelReplacePolicy {
+  /// Keep all models on disk (default)
+  keep,
+  /// Delete previous model when switching to save space
+  replace,
+}
+
 abstract class ModelFileManager {
   /// Whether the model is installed (i.e. downloaded, copied from assets or path to the file is set manually)
   /// and ready to be initialized and used.
@@ -92,4 +100,13 @@ abstract class ModelFileManager {
 
   /// Clears all model cache and resets state - useful for model switching
   Future<void> clearModelCache();
+
+  /// Ensures the specified model is ready for use, applying the current replace policy
+  Future<void> ensureModelReady(String targetModel, String modelUrl);
+
+  /// Sets the policy for handling old models when switching
+  Future<void> setReplacePolicy(ModelReplacePolicy policy);
+
+  /// Gets the current replace policy
+  ModelReplacePolicy get replacePolicy;
 }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
@@ -62,7 +61,7 @@ class ImageProcessor {
   /// Validates raw image bytes before processing
   static void _validateImageBytes(Uint8List imageBytes) {
     if (imageBytes.isEmpty) {
-      throw ImageProcessingException('Image bytes cannot be empty');
+      throw const ImageProcessingException('Image bytes cannot be empty');
     }
     
     if (imageBytes.length > _maxFileSize) {
@@ -140,7 +139,7 @@ class ImageProcessor {
     try {
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
-        throw ImageProcessingException('Failed to encode image to PNG');
+        throw const ImageProcessingException('Failed to encode image to PNG');
       }
       return byteData.buffer.asUint8List();
     } catch (e) {
@@ -159,7 +158,7 @@ class ImageProcessor {
       
       // Validate the Base64 string
       if (!_isValidBase64(cleanBase64)) {
-        throw ImageProcessingException('Generated invalid Base64 string');
+        throw const ImageProcessingException('Generated invalid Base64 string');
       }
       
       return cleanBase64;
@@ -190,18 +189,18 @@ class ImageProcessor {
   /// Validates the processed image output
   static void _validateProcessedImage(Uint8List processedBytes, String base64String) {
     if (processedBytes.isEmpty) {
-      throw ImageProcessingException('Processed image bytes are empty');
+      throw const ImageProcessingException('Processed image bytes are empty');
     }
     
     if (base64String.isEmpty) {
-      throw ImageProcessingException('Base64 string is empty');
+      throw const ImageProcessingException('Base64 string is empty');
     }
     
     // Verify Base64 can be decoded back to the same bytes
     try {
       final decodedBytes = base64.decode(base64String);
       if (!_listEquals(decodedBytes, processedBytes)) {
-        throw ImageProcessingException('Base64 encoding/decoding verification failed');
+        throw const ImageProcessingException('Base64 encoding/decoding verification failed');
       }
     } catch (e) {
       throw ImageProcessingException('Base64 validation failed: $e');
@@ -273,7 +272,7 @@ class ProcessedImage {
   @override
   String toString() {
     return 'ProcessedImage(format: $format, dimensions: ${width}x$height, '
-        'size: ${sizeInBytes} bytes, base64Length: $base64Length chars, '
+        'size: $sizeInBytes bytes, base64Length: $base64Length chars, '
         'originalFormat: $originalFormat)';
   }
 }

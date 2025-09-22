@@ -18,9 +18,16 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.24
   s.dependency 'Flutter'
   s.dependency 'MediaPipeTasksGenAI', '= 0.10.24'
   s.dependency 'MediaPipeTasksGenAIC', '= 0.10.24'
+  s.dependency 'TensorFlowLiteC', '0.0.1-nightly.20250619'
+  s.dependency 'TensorFlowLiteSwift', '0.0.1-nightly.20250619'
+  s.dependency 'TensorFlowLiteSelectTfOps', '0.0.1-nightly.20250619'
   s.platform = :ios, '16.0'
 
   # Flutter.framework does not contain a i386 slice.
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
+  s.pod_target_xcconfig = { 
+    'DEFINES_MODULE' => 'YES', 
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
+    'OTHER_LDFLAGS' => '-force_load $(SRCROOT)/Pods/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
+  }
   s.swift_version = '5.0'
 end

@@ -2,11 +2,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma_example/models/embedding_model.dart' as ExampleEmbeddingModel;
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
-  final EmbeddingModel model;
+  final ExampleEmbeddingModel.EmbeddingModel model;
   
   const EmbeddingTestScreen({super.key, required this.model});
 
@@ -16,11 +17,12 @@ class EmbeddingTestScreen extends StatefulWidget {
 
 class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
   final TextEditingController _textController = TextEditingController();
-  
+
   List<double>? _embeddingResult;
   bool _isGenerating = false;
   String? _errorMessage;
-  
+  EmbeddingModel? _embeddingModel;
+
   @override
   void initState() {
     super.initState();
@@ -30,6 +32,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
   @override
   void dispose() {
     _textController.dispose();
+    _embeddingModel?.close();
     super.dispose();
   }
 
@@ -38,7 +41,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
     try {
       // Create a download service to get file paths
       final service = EmbeddingModelDownloadService(model: widget.model);
-      
+
       // Check if files exist
       final modelExists = await service.checkModelExistence('');
       if (!modelExists) {
@@ -47,27 +50,27 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         }
         return;
       }
-      
-      // Try to initialize the model
+
+      // Try to create the embedding model
       final modelPath = await service.getModelFilePath();
       final tokenizerPath = await service.getTokenizerFilePath();
-      
-      await FlutterGemmaPlugin.instance.initializeEmbedding(
+
+      _embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
-        useGPU: false, // Use CPU mode to avoid GPU delegate issues
+        preferredBackend: PreferredBackend.gpu, // Use GPU mode for better performance
       );
-      
+
       setState(() {
         // Model initialized successfully
       });
-      
+
       if (kDebugMode) {
-        print('✅ Embedding model initialized on test screen');
+        print('✅ Embedding model created on test screen');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('⚠️ Could not initialize embedding model: $e');
+        print('⚠️ Could not create embedding model: $e');
       }
       // Don't set error state here - let user try to generate and see the error
     }
@@ -266,7 +269,10 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
     
     try {
       final text = _textController.text.trim();
-      final embedding = await FlutterGemmaPlugin.instance.generateEmbedding(text);
+      if (_embeddingModel == null) {
+        throw Exception('Embedding model not initialized');
+      }
+      final embedding = await _embeddingModel!.generateEmbedding(text);
       
       setState(() {
         _embeddingResult = embedding;

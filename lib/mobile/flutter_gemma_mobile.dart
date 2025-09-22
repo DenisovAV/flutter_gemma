@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
-import 'package:flutter_gemma/rag/embedding_models.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +15,7 @@ import '../flutter_gemma.dart';
 
 part 'flutter_gemma_mobile_model_manager.dart';
 part 'flutter_gemma_mobile_inference_model.dart';
+part 'flutter_gemma_mobile_embedding_model.dart';
 
 class MobileInferenceModelSession extends InferenceModelSession {
   final ModelType modelType;
@@ -184,6 +184,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
 
+  Completer<EmbeddingModel>? _initEmbeddingCompleter;
+  EmbeddingModel? _initializedEmbeddingModel;
+
   @override
   late final MobileModelManager modelManager = MobileModelManager(
     onDeleteModel: _closeModelBeforeDeletion,
@@ -192,6 +195,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   @override
   InferenceModel? get initializedModel => _initializedModel;
+
+  @override
+  EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
 
   @override
   Future<InferenceModel> createModel({
@@ -257,30 +263,41 @@ class FlutterGemma extends FlutterGemmaPlugin {
     return _initializedModel?.close() ?? Future.value();
   }
 
-  // === RAG Methods Implementation ===
-
   @override
-  Future<void> initializeEmbedding({
+  Future<EmbeddingModel> createEmbeddingModel({
     required String modelPath,
     required String tokenizerPath,
-    bool useGPU = true,
+    PreferredBackend? preferredBackend,
   }) async {
-    await _platformService.initializeEmbedding(
-      modelPath: modelPath,
-      tokenizerPath: tokenizerPath,
-      useGPU: useGPU,
-    );
+    if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
+      return completer.future;
+    }
+
+    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+
+    try {
+      await _platformService.createEmbeddingModel(
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      );
+
+      final model = _initializedEmbeddingModel = MobileEmbeddingModel(
+        onClose: () {
+          _initializedEmbeddingModel = null;
+          _initEmbeddingCompleter = null;
+        },
+      );
+
+      completer.complete(model);
+      return model;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      Error.throwWithStackTrace(e, st);
+    }
   }
 
-  @override
-  Future<void> closeEmbedding() async {
-    await _platformService.closeEmbedding();
-  }
-
-  @override
-  Future<List<double>> generateEmbedding(String text) async {
-    return await _platformService.generateEmbedding(text);
-  }
+  // === RAG Methods Implementation ===
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
@@ -309,8 +326,11 @@ class FlutterGemma extends FlutterGemmaPlugin {
     String? metadata,
   }) async {
     // Generate embedding for content first
-    final embedding = await generateEmbedding(content);
-    
+    if (initializedEmbeddingModel == null) {
+      throw Exception('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+    }
+    final embedding = await initializedEmbeddingModel!.generateEmbedding(content);
+
     // Add document with computed embedding
     await addDocumentWithEmbedding(
       id: id,
@@ -327,7 +347,10 @@ class FlutterGemma extends FlutterGemmaPlugin {
     double threshold = 0.0,
   }) async {
     // Generate embedding for query
-    final queryEmbedding = await generateEmbedding(query);
+    if (initializedEmbeddingModel == null) {
+      throw Exception('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+    }
+    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
     
     // Search similar vectors
     return await _platformService.searchSimilar(

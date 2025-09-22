@@ -7,7 +7,7 @@ import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/embedding_test_screen.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart';
+import 'package:flutter_gemma_example/models/embedding_model.dart' as ExampleEmbeddingModel;
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -52,7 +52,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   void _initializeServices() {
     if (widget.model.isEmbeddingModel) {
       _embeddingDownloadService = EmbeddingModelDownloadService(
-        model: widget.model as EmbeddingModel,
+        model: widget.model as ExampleEmbeddingModel.EmbeddingModel,
       );
     } else {
       _inferenceDownloadService = ModelDownloadService(
@@ -124,8 +124,11 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           });
         });
         
-        // Initialize embedding model after successful download
-        await _initializeEmbeddingModel();
+        print('[UI] Embedding download completed');
+        
+        setState(() {
+          needToDownload = false;
+        });
       } else {
         await _inferenceDownloadService!.downloadModel(
           token: widget.model.needsAuth ? _token : '',
@@ -290,7 +293,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             _buildInfoRow('Type:', widget.model.isEmbeddingModel ? 'Embedding Model' : 'Inference Model'),
             
             if (widget.model.isEmbeddingModel) ...[
-              _buildInfoRow('Dimension:', '${(widget.model as EmbeddingModel).dimension}D'),
+              _buildInfoRow('Dimension:', '${(widget.model as ExampleEmbeddingModel.EmbeddingModel).dimension}D'),
             ] else ...[
               if ((widget.model as InferenceModelInterface).supportImage) _buildInfoRow('Multimodal:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsFunctionCalls) _buildInfoRow('Functions:', 'Yes'),
@@ -513,16 +516,22 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     );
   }
 
-  void _proceedToNextScreen() {
+  void _proceedToNextScreen() async {
     if (widget.model.isEmbeddingModel) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => EmbeddingTestScreen(
-            model: widget.model as EmbeddingModel,
+      // Initialize embedding model before navigating (like regular models)
+      print('[NAVIGATION] Initializing embedding model before navigation...');
+      await _initializeEmbeddingModel();
+      
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EmbeddingTestScreen(
+              model: widget.model as ExampleEmbeddingModel.EmbeddingModel,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } else {
       Navigator.push(
         context,
@@ -630,7 +639,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         _isInitializing = true;
       });
       
-      widget.model as EmbeddingModel;
+      widget.model as ExampleEmbeddingModel.EmbeddingModel;
       final modelPath = await _embeddingDownloadService!.getModelFilePath();
       final tokenizerPath = await _embeddingDownloadService!.getTokenizerFilePath();
       
@@ -640,22 +649,23 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         print('Tokenizer: $tokenizerPath');
       }
       
-      await FlutterGemmaPlugin.instance.initializeEmbedding(
+      print('[INIT] About to call initializeEmbedding...');
+      print('[INIT] Model path: $modelPath');
+      print('[INIT] Tokenizer path: $tokenizerPath');
+      
+      await FlutterGemmaPlugin.instance.createEmbeddingModel(
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
-        useGPU: false, // Use CPU mode to avoid GPU delegate issues
+        preferredBackend: PreferredBackend.cpu, // Use CPU mode to avoid GPU delegate issues
       );
       
-      if (kDebugMode) {
-        print('✅ Embedding model initialized successfully');
-      }
+      print('[INIT] ✅ Embedding model initialized successfully');
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Error initializing embedding model: $e');
-      }
+      print('[INIT] ❌ Error initializing embedding model: $e');
       // Don't rethrow - we want the download to be considered successful
       // User will see the error when they try to generate embeddings
     } finally {
+      print('[INIT] Setting _isInitializing = false');
       setState(() {
         _isInitializing = false;
       });

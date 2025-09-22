@@ -390,62 +390,88 @@ class MobileModelManager extends ModelFileManager {
   // === RAG Embedding Model Management ===
 
   /// Download embedding model and tokenizer.
-  Future<void> downloadEmbeddingModel(EmbeddingModel model, {String? token}) async {
+  Future<void> downloadEmbeddingModel({
+    required String modelUrl,
+    required String tokenizerUrl,
+    required String modelFilename,
+    required String tokenizerFilename,
+    String? token,
+  }) async {
     final directory = await getApplicationDocumentsDirectory();
-    
-    // Use token only if model requires auth
-    final actualToken = model.needsAuth ? token : null;
     
     // Download both files in parallel
     await Future.wait([
       _downloadToLocalStorageWithProgress(
-        assetUrl: model.url,
-        targetPath: '${directory.path}/${model.filename}',
-        token: actualToken,
+        assetUrl: modelUrl,
+        targetPath: '${directory.path}/$modelFilename',
+        token: token,
       ).drain(), // Convert Stream to Future
       
       _downloadToLocalStorageWithProgress(
-        assetUrl: model.tokenizerUrl,
-        targetPath: '${directory.path}/${model.tokenizerFilename}',
-        token: actualToken,
+        assetUrl: tokenizerUrl,
+        targetPath: '${directory.path}/$tokenizerFilename',
+        token: token,
       ).drain(),
     ]);
     
     // Store in SharedPreferences
     final prefs = await _prefs;
-    await prefs.setString(_prefsEmbeddingModelKey, model.filename);
-    await prefs.setString(_prefsEmbeddingTokenizerKey, model.tokenizerFilename);
+    await prefs.setString(_prefsEmbeddingModelKey, modelFilename);
+    await prefs.setString(_prefsEmbeddingTokenizerKey, tokenizerFilename);
   }
   
   /// Download embedding model with progress tracking.
-  Stream<int> downloadEmbeddingModelWithProgress(EmbeddingModel model, {String? token}) async* {
+  Stream<int> downloadEmbeddingModelWithProgress({
+    required String modelUrl,
+    required String tokenizerUrl,
+    required String modelFilename,
+    required String tokenizerFilename,
+    String? token,
+  }) async* {
     final directory = await getApplicationDocumentsDirectory();
     
     try {
-      // Use token only if model requires auth
-      final actualToken = model.needsAuth ? token : null;
+      print('[DOWNLOAD] Starting embedding model download...');
+      print('[DOWNLOAD] Model URL: $modelUrl');
+      print('[DOWNLOAD] Tokenizer URL: $tokenizerUrl');
+      print('[DOWNLOAD] Target directory: ${directory.path}');
       
       yield* _downloadToLocalStorageWithProgress(
-        assetUrl: model.url,
-        targetPath: '${directory.path}/${model.filename}',
-        token: actualToken,
+        assetUrl: modelUrl,
+        targetPath: '${directory.path}/$modelFilename',
+        token: token,
       );
+      
+      print('[DOWNLOAD] Model download completed, starting tokenizer...');
       
       // Download tokenizer after model (sequential for progress clarity)
       await _downloadToLocalStorageWithProgress(
-        assetUrl: model.tokenizerUrl,
-        targetPath: '${directory.path}/${model.tokenizerFilename}',
-        token: actualToken,
+        assetUrl: tokenizerUrl,
+        targetPath: '${directory.path}/$tokenizerFilename',
+        token: token,
       ).drain();
+      
+      print('[DOWNLOAD] Tokenizer download completed');
+      
+      // Verify files exist
+      final modelFile = File('${directory.path}/$modelFilename');
+      final tokenizerFile = File('${directory.path}/$tokenizerFilename');
+      final modelExists = await modelFile.exists();
+      final tokenizerExists = await tokenizerFile.exists();
+      
+      print('[DOWNLOAD] Model file exists: $modelExists (${modelExists ? await modelFile.length() : 0} bytes)');
+      print('[DOWNLOAD] Tokenizer file exists: $tokenizerExists (${tokenizerExists ? await tokenizerFile.length() : 0} bytes)');
       
       // Store in SharedPreferences after successful download
       final prefs = await _prefs;
-      await prefs.setString(_prefsEmbeddingModelKey, model.filename);
-      await prefs.setString(_prefsEmbeddingTokenizerKey, model.tokenizerFilename);
+      await prefs.setString(_prefsEmbeddingModelKey, modelFilename);
+      await prefs.setString(_prefsEmbeddingTokenizerKey, tokenizerFilename);
+      
+      print('[DOWNLOAD] Files saved to SharedPreferences');
     } catch (e) {
       // Cleanup on error
-      final modelFile = File('${directory.path}/${model.filename}');
-      final tokenizerFile = File('${directory.path}/${model.tokenizerFilename}');
+      final modelFile = File('${directory.path}/$modelFilename');
+      final tokenizerFile = File('${directory.path}/$tokenizerFilename');
       if (await modelFile.exists()) await modelFile.delete();
       if (await tokenizerFile.exists()) await tokenizerFile.delete();
       rethrow;

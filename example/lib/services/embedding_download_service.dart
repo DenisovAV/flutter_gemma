@@ -3,13 +3,13 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart';
+import 'package:flutter_gemma_example/models/embedding_model.dart' as ExampleEmbeddingModel;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class EmbeddingModelDownloadService {
-  final EmbeddingModel model;
+  final ExampleEmbeddingModel.EmbeddingModel model;
 
   EmbeddingModelDownloadService({
     required this.model,
@@ -104,34 +104,21 @@ class EmbeddingModelDownloadService {
       double modelProgress = 0.0;
       double tokenizerProgress = 0.0;
 
-      // Use plugin's download methods - first download model
-      final modelStream = FlutterGemmaPlugin.instance.modelManager
-          .downloadModelFromNetworkWithProgress(
-        model.url,
-        token: model.needsAuth ? token : '',
+      // Use plugin's embedding download method with primitive parameters
+      final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+      final downloadStream = mobileManager.downloadEmbeddingModelWithProgress(
+        modelUrl: model.url,
+        tokenizerUrl: model.tokenizerUrl,
+        modelFilename: model.filename,
+        tokenizerFilename: model.tokenizerFilename,
+        token: model.needsAuth ? token : null,
       );
 
-      // Track model download progress
-      await for (final progress in modelStream) {
-        modelProgress = progress.toDouble();
-        onProgress(modelProgress, tokenizerProgress);
+      // Track download progress
+      await for (final progress in downloadStream) {
+        final progressValue = progress.toDouble();
+        onProgress(progressValue, progressValue); // Same progress for both indicators
       }
-
-      // Then download tokenizer
-      final tokenizerStream = FlutterGemmaPlugin.instance.modelManager
-          .downloadModelFromNetworkWithProgress(
-        model.tokenizerUrl,
-        token: model.needsAuth ? token : '',
-      );
-
-      // Track tokenizer download progress
-      await for (final progress in tokenizerStream) {
-        tokenizerProgress = progress.toDouble();
-        onProgress(modelProgress, tokenizerProgress);
-      }
-
-      // Ensure both are at 100% when done
-      onProgress(100.0, 100.0);
     } catch (e) {
       if (kDebugMode) {
         print('Error downloading embedding model: $e');

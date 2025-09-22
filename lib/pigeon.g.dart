@@ -368,15 +368,15 @@ class PlatformService {
     }
   }
 
-  Future<void> initializeEmbedding({required String modelPath, required String tokenizerPath, bool useGPU = true, }) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.initializeEmbedding$pigeonVar_messageChannelSuffix';
+  Future<void> createEmbeddingModel({required String modelPath, required String tokenizerPath, PreferredBackend? preferredBackend, }) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[modelPath, tokenizerPath, useGPU]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[modelPath, tokenizerPath, preferredBackend]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -390,8 +390,8 @@ class PlatformService {
     }
   }
 
-  Future<void> closeEmbedding() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbedding$pigeonVar_messageChannelSuffix';
+  Future<void> closeEmbeddingModel() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -412,8 +412,8 @@ class PlatformService {
     }
   }
 
-  Future<List<double>> generateEmbedding(String text) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbedding$pigeonVar_messageChannelSuffix';
+  Future<List<double>> generateEmbeddingFromModel(String text) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -436,6 +436,60 @@ class PlatformService {
       );
     } else {
       return (pigeonVar_replyList[0] as List<Object?>?)!.cast<double>();
+    }
+  }
+
+  Future<List<List<double>>> generateEmbeddingsFromModel(List<String> texts) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[texts]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<List<double>>();
+    }
+  }
+
+  Future<int> getEmbeddingDimension() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(null) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as int?)!;
     }
   }
 

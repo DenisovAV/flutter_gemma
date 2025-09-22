@@ -162,9 +162,11 @@ interface PlatformService {
   fun generateResponse(callback: (Result<String>) -> Unit)
   fun generateResponseAsync(callback: (Result<Unit>) -> Unit)
   fun stopGeneration(callback: (Result<Unit>) -> Unit)
-  fun initializeEmbedding(modelPath: String, tokenizerPath: String, useGPU: Boolean, callback: (Result<Unit>) -> Unit)
-  fun closeEmbedding(callback: (Result<Unit>) -> Unit)
-  fun generateEmbedding(text: String, callback: (Result<List<Double>>) -> Unit)
+  fun createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, callback: (Result<Unit>) -> Unit)
+  fun closeEmbeddingModel(callback: (Result<Unit>) -> Unit)
+  fun generateEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit)
+  fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<List<Double>>>) -> Unit)
+  fun getEmbeddingDimension(callback: (Result<Long>) -> Unit)
   fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit)
   fun addDocument(id: String, content: String, embedding: List<Double>, metadata: String?, callback: (Result<Unit>) -> Unit)
   fun searchSimilar(queryEmbedding: List<Double>, topK: Long, threshold: Double, callback: (Result<List<RetrievalResult>>) -> Unit)
@@ -372,14 +374,14 @@ interface PlatformService {
         }
       }
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.initializeEmbedding$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val modelPathArg = args[0] as String
             val tokenizerPathArg = args[1] as String
-            val useGPUArg = args[2] as Boolean
-            api.initializeEmbedding(modelPathArg, tokenizerPathArg, useGPUArg) { result: Result<Unit> ->
+            val preferredBackendArg = args[2] as PreferredBackend?
+            api.createEmbeddingModel(modelPathArg, tokenizerPathArg, preferredBackendArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -393,10 +395,10 @@ interface PlatformService {
         }
       }
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbedding$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { _, reply ->
-            api.closeEmbedding{ result: Result<Unit> ->
+            api.closeEmbeddingModel{ result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))
@@ -410,12 +412,50 @@ interface PlatformService {
         }
       }
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbedding$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val textArg = args[0] as String
-            api.generateEmbedding(textArg) { result: Result<List<Double>> ->
+            api.generateEmbeddingFromModel(textArg) { result: Result<List<Double>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val textsArg = args[0] as List<String>
+            api.generateEmbeddingsFromModel(textsArg) { result: Result<List<List<Double>>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.getEmbeddingDimension{ result: Result<Long> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

@@ -217,15 +217,23 @@ private class PlatformServiceImpl(
 
   // === RAG Methods Implementation ===
 
-  override fun initializeEmbedding(
+  override fun createEmbeddingModel(
     modelPath: String,
     tokenizerPath: String,
-    useGPU: Boolean,
+    preferredBackend: PreferredBackend?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
       try {
         embeddingModel?.close()
+
+        // Convert PreferredBackend to useGPU boolean
+        val useGPU = when (preferredBackend) {
+          PreferredBackend.GPU, PreferredBackend.GPU_FLOAT16,
+          PreferredBackend.GPU_MIXED, PreferredBackend.GPU_FULL -> true
+          else -> false
+        }
+
         embeddingModel = EmbeddingModel(context, modelPath, tokenizerPath, useGPU)
         embeddingModel!!.initialize()
         callback(Result.success(Unit))
@@ -235,7 +243,7 @@ private class PlatformServiceImpl(
     }
   }
 
-  override fun closeEmbedding(callback: (Result<Unit>) -> Unit) {
+  override fun closeEmbeddingModel(callback: (Result<Unit>) -> Unit) {
     try {
       embeddingModel?.close()
       embeddingModel = null
@@ -245,12 +253,48 @@ private class PlatformServiceImpl(
     }
   }
 
-  override fun generateEmbedding(text: String, callback: (Result<List<Double>>) -> Unit) {
+  override fun generateEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit) {
     scope.launch {
       try {
-        val embedding = embeddingModel?.embed(text) 
-          ?: throw IllegalStateException("Embedding model not initialized")
+        val embedding = embeddingModel?.embed(text)
+          ?: throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
         callback(Result.success(embedding))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<List<Double>>>) -> Unit) {
+    scope.launch {
+      try {
+        if (embeddingModel == null) {
+          throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
+        }
+
+        val embeddings = mutableListOf<List<Double>>()
+        for (text in texts) {
+          val embedding = embeddingModel!!.embed(text)
+          embeddings.add(embedding)
+        }
+        callback(Result.success(embeddings))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun getEmbeddingDimension(callback: (Result<Long>) -> Unit) {
+    scope.launch {
+      try {
+        if (embeddingModel == null) {
+          throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
+        }
+
+        // Generate a small test embedding to get dimension
+        val testEmbedding = embeddingModel!!.embed("test")
+        val dimension = testEmbedding.size.toLong()
+        callback(Result.success(dimension))
       } catch (e: Exception) {
         callback(Result.failure(e))
       }

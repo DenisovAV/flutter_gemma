@@ -71,17 +71,23 @@ abstract class PlatformService {
 
   // RAG Embedding Methods
   @async
-  void initializeEmbedding({
+  void createEmbeddingModel({
     required String modelPath,
     required String tokenizerPath,
-    bool useGPU = true,
+    PreferredBackend? preferredBackend,
   });
 
   @async
-  void closeEmbedding();
+  void closeEmbeddingModel();
 
   @async
-  List<double> generateEmbedding(String text);
+  List<double> generateEmbeddingFromModel(String text);
+
+  @async
+  List<List<double>> generateEmbeddingsFromModel(List<String> texts);
+
+  @async
+  int getEmbeddingDimension();
 
   // RAG Vector Store Methods
   @async

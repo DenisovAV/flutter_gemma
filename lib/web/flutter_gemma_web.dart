@@ -9,6 +9,7 @@ import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'llm_inference_web.dart';
+import 'flutter_gemma_web_embedding_model.dart';
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
   FlutterGemmaWeb();
@@ -23,7 +24,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   InferenceModel? get initializedModel => _initializedModel;
 
+  @override
+  EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
+
   InferenceModel? _initializedModel;
+  EmbeddingModel? _initializedEmbeddingModel;
 
   @override
   Future<InferenceModel> createModel({
@@ -55,25 +60,20 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     return Future.value(model);
   }
 
-  // === RAG Methods - Web Stubs ===
+  // === EmbeddingModel Methods - Web Implementation ===
 
   @override
-  Future<void> initializeEmbedding({
+  Future<EmbeddingModel> createEmbeddingModel({
     required String modelPath,
     required String tokenizerPath,
-    bool useGPU = true,
+    PreferredBackend? preferredBackend,
   }) async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
-  }
-
-  @override
-  Future<void> closeEmbedding() async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
-  }
-
-  @override
-  Future<List<double>> generateEmbedding(String text) async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    final model = _initializedEmbeddingModel ??= WebEmbeddingModel(
+      onClose: () {
+        _initializedEmbeddingModel = null;
+      },
+    );
+    return Future.value(model);
   }
 
   @override

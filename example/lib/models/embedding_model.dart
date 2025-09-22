@@ -10,7 +10,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     displayName: 'EmbeddingGemma 1024',
     size: '183MB',
     dimension: 1024,
-    needsAuth: false,
+    needsAuth: true,
   ),
 
   embeddingGemma2048(

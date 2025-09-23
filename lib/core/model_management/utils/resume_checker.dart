@@ -43,14 +43,20 @@ class ResumeChecker {
       final filePath = await ModelFileSystemManager.getModelFilePath(filename);
       final file = File(filePath);
 
-      if (!await file.exists()) {
-        debugPrint('ResumeChecker: File not found: $filename');
+      debugPrint('ResumeChecker: Checking file path: $filePath');
+      final fileExists = await file.exists();
+      debugPrint('ResumeChecker: File exists: $fileExists for $filename');
+
+      if (!fileExists) {
+        debugPrint('ResumeChecker: File not found: $filename at path: $filePath');
         return ResumeStatus.fileNotFound;
       }
 
       // 2. Check if file is already complete
       final fileSize = await file.length();
       final isValid = await ModelFileSystemManager.isFileValid(filePath);
+
+      debugPrint('ResumeChecker: File size: $fileSize, isValid: $isValid for $filename');
 
       if (isValid && fileSize > 0) {
         debugPrint('ResumeChecker: File is already complete: $filename');
@@ -59,8 +65,10 @@ class ResumeChecker {
 
       // 3. Check if we have a registered task for this file
       final taskId = await DownloadTaskRegistry.getTaskId(filename);
+      debugPrint('ResumeChecker: TaskId for $filename: $taskId');
+
       if (taskId == null) {
-        debugPrint('ResumeChecker: No registered task for $filename');
+        debugPrint('ResumeChecker: No registered task for $filename - returning noTask status');
         return ResumeStatus.noTask;
       }
 

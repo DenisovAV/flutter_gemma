@@ -188,8 +188,22 @@ class UnifiedDownloadEngine {
         }
         break;
 
+      case ResumeStatus.noTask:
+        debugPrint('No task registered for $filename - cleaning up orphaned file');
+        try {
+          await ModelFileSystemManager.deleteModelFile(filename);
+          debugPrint('Successfully cleaned up orphaned file: $filename');
+        } catch (e) {
+          debugPrint('Failed to cleanup orphaned file $filename: $e');
+        }
+        break;
+
+      case ResumeStatus.fileNotFound:
+        debugPrint('File not found for $filename - starting new download');
+        break;
+
       default:
-        // Continue with normal download process
+        debugPrint('Unknown resume status $resumeStatus for $filename - continuing with new download');
         break;
     }
 
@@ -338,11 +352,23 @@ class UnifiedDownloadEngine {
 
     if (currentSpec != null && currentSpec.name != spec.name) {
       if (spec.replacePolicy == ModelReplacePolicy.replace) {
-        debugPrint('Replacing old model: ${currentSpec.name} with ${spec.name}');
+        debugPrint('Policy-based replacement: cleaning up ALL ${spec.type.name} models for new model: ${spec.name}');
+
+        // Clean up ALL tasks and files of this type
+        await cleanupAllTasksOfType(spec.type);
+
+        // Also delete the specific old model files
         await deleteModel(currentSpec);
+
+        debugPrint('Completed policy-based cleanup for ${spec.type.name} models');
       } else {
-        debugPrint('Keeping old model: ${currentSpec.name} alongside ${spec.name}');
+        debugPrint('Policy-based keep: keeping old model ${currentSpec.name} alongside new model: ${spec.name}');
+        // For keep policy, don't delete anything - multiple models are allowed
       }
+    } else if (spec.replacePolicy == ModelReplacePolicy.replace) {
+      // Even if no specific current model, clean up ALL tasks of this type to ensure fresh start
+      debugPrint('Policy-based replacement: cleaning up ALL existing ${spec.type.name} tasks for fresh start');
+      await cleanupAllTasksOfType(spec.type);
     }
   }
 
@@ -370,34 +396,51 @@ class UnifiedDownloadEngine {
     }
   }
 
-  /// Clean up task registry by removing invalid entries
+  /// Clean up task registry using policy-based approach
   static Future<void> _cleanupTaskRegistry() async {
     try {
-      debugPrint('Cleaning up task registry...');
+      debugPrint('Cleaning up task registry with policy-based approach...');
 
       final allTasks = await DownloadTaskRegistry.getAllRegisteredTasks();
       final toRemove = <String>[];
+      final downloader = FileDownloader();
 
       for (final entry in allTasks.entries) {
         final filename = entry.key;
-        final resumeStatus = await ResumeChecker.checkResumeStatus(filename);
+        final taskId = entry.value;
 
-        switch (resumeStatus) {
-          case ResumeStatus.fileComplete:
-          case ResumeStatus.cannotResume:
-          case ResumeStatus.error:
-          case ResumeStatus.fileNotFound:
+        // Determine model type and default policy
+        final modelType = _detectModelType(filename);
+        final defaultPolicy = _getDefaultPolicyForType(modelType);
+
+        debugPrint('Checking task $filename (type: ${modelType.name}, policy: ${defaultPolicy.name})');
+
+        if (defaultPolicy == ModelReplacePolicy.replace) {
+          // INFERENCE: Remove all except actively downloading
+          final isActive = await _isActivelyDownloading(taskId, downloader);
+          if (!isActive) {
             toRemove.add(filename);
-            break;
-          default:
-            // Keep valid entries
-            break;
+            debugPrint('Removing non-active inference task: $filename');
+          } else {
+            debugPrint('Keeping active inference task: $filename');
+          }
+        } else {
+          // EMBEDDING: Remove only invalid states (keep multiple models)
+          final resumeStatus = await ResumeChecker.checkResumeStatus(filename);
+          if (_isInvalidState(resumeStatus)) {
+            toRemove.add(filename);
+            debugPrint('Removing invalid embedding task: $filename (status: ${resumeStatus.name})');
+          } else {
+            debugPrint('Keeping valid embedding task: $filename (status: ${resumeStatus.name})');
+          }
         }
       }
 
       if (toRemove.isNotEmpty) {
         await DownloadTaskRegistry.unregisterTasks(toRemove);
-        debugPrint('Cleaned up ${toRemove.length} invalid task registry entries');
+        debugPrint('Policy-based cleanup: removed ${toRemove.length} task registry entries');
+      } else {
+        debugPrint('Policy-based cleanup: no entries to remove');
       }
     } catch (e) {
       debugPrint('Task registry cleanup failed: $e');
@@ -465,5 +508,128 @@ class UnifiedDownloadEngine {
   /// Generate a unique task ID
   static String _generateTaskId() {
     return 'flutter_gemma_${DateTime.now().millisecondsSinceEpoch}_${UniqueKey().toString().split('#')[1].replaceAll(RegExp(r'[()]'), '')}';
+  }
+
+  /// Detect model type from filename
+  static ModelManagementType _detectModelType(String filename) {
+    final extension = filename.split('.').last.toLowerCase();
+
+    switch (extension) {
+      case 'tflite':
+      case 'json':
+        // Embedding models typically use .tflite + .json
+        return ModelManagementType.embedding;
+      case 'bin':
+      case 'task':
+      case 'gguf':
+        // Inference models typically use .bin, .task, .gguf
+        return ModelManagementType.inference;
+      default:
+        // Default to inference for unknown types
+        debugPrint('Unknown file extension: $extension, defaulting to inference');
+        return ModelManagementType.inference;
+    }
+  }
+
+  /// Get default policy for model type
+  static ModelReplacePolicy _getDefaultPolicyForType(ModelManagementType type) {
+    switch (type) {
+      case ModelManagementType.inference:
+        return ModelReplacePolicy.replace; // Inference: replace old models
+      case ModelManagementType.embedding:
+        return ModelReplacePolicy.keep;    // Embedding: keep multiple models
+    }
+  }
+
+  /// Check if a task is actively downloading
+  static Future<bool> _isActivelyDownloading(String taskId, FileDownloader downloader) async {
+    try {
+      // Get all active tasks from background_downloader
+      final activeTasks = await downloader.allTasks();
+
+      // Check if our taskId is in the active list
+      for (final task in activeTasks) {
+        if (task.taskId == taskId) {
+          // Check if task is in a downloading state
+          final taskRecord = await downloader.database.recordForId(taskId);
+          if (taskRecord != null) {
+            switch (taskRecord.status) {
+              case TaskStatus.enqueued:
+              case TaskStatus.running:
+              case TaskStatus.paused:
+                debugPrint('Task $taskId is actively downloading (status: ${taskRecord.status.name})');
+                return true;
+              default:
+                break;
+            }
+          }
+        }
+      }
+
+      debugPrint('Task $taskId is not actively downloading');
+      return false;
+    } catch (e) {
+      debugPrint('Error checking if task $taskId is active: $e');
+      return false; // Assume not active on error
+    }
+  }
+
+  /// Check if resume status represents an invalid state
+  static bool _isInvalidState(ResumeStatus status) {
+    switch (status) {
+      case ResumeStatus.cannotResume:
+      case ResumeStatus.error:
+      case ResumeStatus.fileNotFound:
+        return true;
+      case ResumeStatus.canResume:
+      case ResumeStatus.fileComplete:
+      case ResumeStatus.noTask:
+        return false;
+    }
+  }
+
+  /// Clean up all tasks and files of a specific type (for model switching)
+  static Future<void> cleanupAllTasksOfType(ModelManagementType type) async {
+    try {
+      debugPrint('Cleaning up all tasks of type: ${type.name}');
+
+      final allTasks = await DownloadTaskRegistry.getAllRegisteredTasks();
+      final toRemove = <String>[];
+
+      for (final entry in allTasks.entries) {
+        final filename = entry.key;
+        final modelType = _detectModelType(filename);
+
+        if (modelType == type) {
+          toRemove.add(filename);
+          // Also try to delete the partial file
+          try {
+            await ModelFileSystemManager.deleteModelFile(filename);
+            debugPrint('Deleted partial file: $filename');
+          } catch (e) {
+            debugPrint('Could not delete partial file $filename: $e');
+          }
+        }
+      }
+
+      if (toRemove.isNotEmpty) {
+        await DownloadTaskRegistry.unregisterTasks(toRemove);
+        debugPrint('Cleaned up ${toRemove.length} tasks of type ${type.name}');
+      }
+
+      // Also reset any background_downloader tasks for this type
+      final downloader = FileDownloader();
+      try {
+        final resetCount = await downloader.reset(group: downloadGroup);
+        if (resetCount > 0) {
+          debugPrint('Reset $resetCount background_downloader tasks for type ${type.name}');
+        }
+      } catch (e) {
+        debugPrint('Failed to reset background_downloader tasks: $e');
+      }
+
+    } catch (e) {
+      debugPrint('Failed to cleanup tasks of type ${type.name}: $e');
+    }
   }
 }

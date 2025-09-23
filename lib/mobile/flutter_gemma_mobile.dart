@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/extensions.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -12,13 +13,27 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
+import 'huggingface_downloader_wrapper.dart';
 
 part 'flutter_gemma_mobile_model_manager.dart';
 part 'flutter_gemma_mobile_inference_model.dart';
 part 'flutter_gemma_mobile_embedding_model.dart';
 
+// New unified model management system
+part '../core/model_management/types/model_spec.dart';
+part '../core/model_management/types/inference_model_spec.dart';
+part '../core/model_management/types/embedding_model_spec.dart';
+part '../core/model_management/exceptions/model_exceptions.dart';
+part '../core/model_management/utils/file_system_manager.dart';
+part '../core/model_management/utils/download_task_registry.dart';
+part '../core/model_management/utils/resume_checker.dart';
+part '../core/model_management/managers/preferences_manager.dart';
+part '../core/model_management/managers/download_engine.dart';
+part '../core/model_management/managers/unified_model_manager.dart';
+
 class MobileInferenceModelSession extends InferenceModelSession {
   final ModelType modelType;
+  final ModelFileType fileType;
   final VoidCallback onClose;
   final bool supportImage;
   bool _isClosed = false;
@@ -30,6 +45,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
   MobileInferenceModelSession({
     required this.onClose,
     required this.modelType,
+    this.fileType = ModelFileType.task,
     this.supportImage = false,
   });
 
@@ -50,7 +66,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = message.transformToChatPrompt(type: modelType);
+    final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
     await _platformService.addQueryChunk(finalPrompt);
     if (message.hasImage && message.imageBytes != null && supportImage) {
       await _addImage(message.imageBytes!);
@@ -202,6 +218,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
   @override
   Future<InferenceModel> createModel({
     required ModelType modelType,
+    ModelFileType fileType = ModelFileType.task,
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
@@ -214,9 +231,14 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     final completer = _initCompleter = Completer<InferenceModel>();
 
-    final (isModelInstalled, isLoraInstalled, File? modelFile, File? loraFile) = await (
+    // First wait: Check installation status (sets internal _modelFileName state)
+    final (isModelInstalled, isLoraInstalled) = await (
       modelManager.isModelInstalled,
       modelManager.isLoraInstalled,
+    ).wait;
+
+    // Second wait: Get file objects (now that _modelFileName is set)
+    final (File? modelFile, File? loraFile) = await (
       modelManager._modelFile,
       modelManager._loraFile,
     ).wait;
@@ -240,6 +262,7 @@ class FlutterGemma extends FlutterGemmaPlugin {
       final model = _initializedModel = MobileInferenceModel(
         maxTokens: maxTokens,
         modelType: modelType,
+        fileType: fileType,
         modelManager: modelManager,
         preferredBackend: preferredBackend,
         supportedLoraRanks: loraRanks ?? supportedLoraRanks,

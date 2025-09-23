@@ -30,17 +30,29 @@ There is an example of using:
 - **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI (NEW!)
 - **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app (NEW!)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
+- **📥 Enhanced Downloads:** Smart retry logic and ETag handling for reliable model downloads from HuggingFace CDN
+- **🔧 Download Reliability:** Automatic resume/restart logic for interrupted downloads with exponential backoff
+- **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
+
+## Model File Types
+
+Flutter Gemma supports two types of model files:
+
+- **`.task` files:** MediaPipe-optimized format with built-in chat templates
+- **`.bin/.tflite` files:** Standard format requiring manual chat template formatting
+
+The plugin automatically detects the file type and applies appropriate formatting.
 
 ## Model Capabilities
 
-The example app offers a curated list of models, each suited for different tasks. Here’s a breakdown of the models available and their capabilities:
+The example app offers a curated list of models, each suited for different tasks. Here's a breakdown of the models available and their capabilities:
 
 | Model Family | Best For | Function Calling | Thinking Mode | Vision | Languages | Size |
 |---|---|:---:|:---:|:---:|---|---|
 | **Gemma 3 Nano** | On-device multimodal chat and image analysis. | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
 | **DeepSeek R1** | High-performance reasoning and code generation. | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following. | ✅ | ❌ | ❌ | Multilingual | 1.6GB |
-| **Hammer 2.1** | Lightweight action model for tool usage. | ❌ | ❌ | ❌ | Multilingual | 0.5GB |
+| **Hammer 2.1** | Lightweight action model for tool usage. | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 1B** | Balanced and efficient text generation. | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 270M**| Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **TinyLlama 1.1B**| Extremely compact, general-purpose chat. | ❌ | ❌ | ❌ | English-focused | 1.2GB |
@@ -232,6 +244,37 @@ await modelManager.installLoraWeightsFromAsset('lora_weights.bin');
 ```dart
 await modelManager.setModelPath('model.bin');
 await modelManager.setLoraWeightsPath('lora_weights.bin');
+```
+
+**Model Replace Policy** (NEW!)
+
+Configure how the plugin handles switching between different models:
+
+```dart
+// Set policy to keep all models (default behavior)
+await modelManager.setReplacePolicy(ModelReplacePolicy.keep);
+
+// Set policy to replace old models (saves storage space)
+await modelManager.setReplacePolicy(ModelReplacePolicy.replace);
+
+// Check current policy
+final currentPolicy = modelManager.replacePolicy;
+```
+
+**Automatic Model Management** (NEW!)
+
+Use `ensureModelReady()` for seamless model switching that handles all scenarios automatically:
+
+```dart
+// Handles all cases:
+// - Same model already loaded: does nothing
+// - Different model with KEEP policy: loads new model, keeps old one
+// - Different model with REPLACE policy: deletes old model, loads new one
+// - Corrupted/invalid model: re-downloads automatically
+await modelManager.ensureModelReady(
+  'gemma-3n-E4B-it-int4.task',
+  'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task'
+);
 ```
 
 You can delete the model and weights from the device. Deleting the model or LoRA weights will automatically close and clean up the inference. This ensures that there are no lingering resources or memory leaks when switching models or updating files.

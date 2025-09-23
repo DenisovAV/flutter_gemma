@@ -1,3 +1,13 @@
+## 0.10.6
+- 🔧 **Model Replace Policy**: Added configurable model replacement system with keep/replace options and `ensureModelReady()` method
+- 📥 **Enhanced Downloads**: Added HuggingFace CDN ETag issue handler with smart retry logic and exponential backoff
+- 🔄 **Download Reliability**: New `HuggingFaceDownloader` wrapper to handle CDN server inconsistencies and resume failures
+- 📁 **ModelFileType System**: Introduced distinction between `.task` files (MediaPipe-handled) and `.bin/.tflite` files (manual formatting)
+- 🔐 **Android Security**: Added network security configuration for HuggingFace CDN access with proper permissions
+- 🐛 **Download Fixes**: Fixed Android download timeouts, stream management, and ETag mismatch issues
+- 🖼️ **Image Corruption Fix**: Added comprehensive image processing system to prevent AI model corruption on Android
+- 🔄 **Example App**: Added sync/async response method selection in chat interface
+
 ## 0.10.5
 - 🛑 **Stop Generation**: Added Android support for stopping text generation mid-process with `session.cancelRequestGenerationAsync()` (#89, #19, #34)
 - 🐛 **Screen Close Fix**: Fixed crash when closing screen during active generation by implementing proper StreamSubscription cleanup (#89)  

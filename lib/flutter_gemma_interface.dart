@@ -42,6 +42,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// [supportImage] — whether the model supports images.
   Future<InferenceModel> createModel({
     required ModelType modelType,
+    ModelFileType fileType = ModelFileType.task,
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     List<int>? loraRanks,
@@ -102,6 +103,8 @@ abstract class InferenceModel {
 
   int get maxTokens;
 
+  ModelFileType get fileType;
+
   /// Creates a new [InferenceModelSession] for generation.
   ///
   /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
@@ -145,6 +148,7 @@ abstract class InferenceModel {
       tools: tools,
       isThinking: isThinking, // Pass isThinking parameter
       modelType: modelType ?? ModelType.gemmaIt, // Use provided modelType or default
+      fileType: fileType, // Pass fileType from model
     );
     await chat!.initSession();
     return chat!;

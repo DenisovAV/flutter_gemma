@@ -13,6 +13,7 @@ class ChatListWidget extends StatefulWidget {
     required this.errorHandler,
     this.chat,
     this.isProcessing = false,
+    this.useSyncMode = false,
     super.key,
   });
 
@@ -22,6 +23,7 @@ class ChatListWidget extends StatefulWidget {
   final ValueChanged<Message> messageHandler; // Handles all message additions to history
   final ValueChanged<String> errorHandler;
   final bool isProcessing; // Indicates if the model is currently processing (including function calls)
+  final bool useSyncMode; // Toggle for sync/async mode
 
   @override
   State<ChatListWidget> createState() => _ChatListWidgetState();
@@ -70,6 +72,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
               streamHandler: _handleGemmaResponse,
               errorHandler: widget.errorHandler,
               isProcessing: widget.isProcessing,
+              useSyncMode: widget.useSyncMode,
               onThinkingCompleted: (String thinkingContent) {
                 // Add thinking as special thinking message to history
                 if (thinkingContent.isNotEmpty) {

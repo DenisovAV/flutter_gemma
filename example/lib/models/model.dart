@@ -134,7 +134,7 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct',
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
-    modelType: ModelType.general,
+    modelType: ModelType.qwen,
     temperature: 1.0,
     topK: 40,
     topP: 0.95,
@@ -151,7 +151,7 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0',
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
-    modelType: ModelType.general,
+    modelType: ModelType.llama,
     temperature: 0.7,
     topK: 40,
     topP: 0.9,
@@ -168,7 +168,7 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/Hammer2.1-0.5b',
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
-    modelType: ModelType.general,
+    modelType: ModelType.hammer,
     temperature: 0.3,
     topK: 40,
     topP: 0.8,
@@ -185,12 +185,13 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/Llama-3.2-1B-Instruct',
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
-    modelType: ModelType.general,
+    modelType: ModelType.llama,
     temperature: 0.6,
     topK: 40,
     topP: 0.9,
     maxTokens: 1024,
     supportsFunctionCalls: false,
+    fileType: ModelFileType.binary,
   );
 
   // Define fields for the enum
@@ -211,6 +212,7 @@ enum Model implements InferenceModelInterface {
   final int? maxNumImages;
   final bool supportsFunctionCalls;
   final bool isThinking;
+  final ModelFileType fileType;
 
   // Constructor for the enum
   const Model({
@@ -231,6 +233,7 @@ enum Model implements InferenceModelInterface {
     this.maxNumImages,
     this.supportsFunctionCalls = false,
     this.isThinking = false,
+    this.fileType = ModelFileType.task,
   });
 
   // BaseModel interface implementation

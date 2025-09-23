@@ -15,6 +15,7 @@ class GemmaInputField extends StatefulWidget {
     this.chat,
     this.onThinkingCompleted,
     this.isProcessing = false,
+    this.useSyncMode = false,
   });
 
   final InferenceChat? chat;
@@ -23,6 +24,7 @@ class GemmaInputField extends StatefulWidget {
   final ValueChanged<String> errorHandler;
   final ValueChanged<String>? onThinkingCompleted; // Callback for completed thinking content
   final bool isProcessing; // Global processing state from ChatScreen
+  final bool useSyncMode; // Toggle for sync/async mode
 
   @override
   GemmaInputFieldState createState() => GemmaInputFieldState();
@@ -59,6 +61,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
 
     try {
       await widget.chat?.stopGeneration();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Generation stopped'),
@@ -69,6 +72,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
       final message =
           e.toString().contains('stop_not_supported') ? 'Stop generation not yet supported on this platform' : 'Failed to stop generation: $e';
 
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -96,7 +100,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
     });
 
     try {
-      final responseStream = await _gemma?.processMessage(widget.messages.last);
+      final responseStream = await _gemma?.processMessage(widget.messages.last, useSyncMode: widget.useSyncMode);
 
       if (responseStream != null) {
         _streamSubscription = responseStream.listen(

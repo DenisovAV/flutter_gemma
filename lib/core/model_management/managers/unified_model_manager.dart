@@ -1,7 +1,7 @@
 part of '../../../mobile/flutter_gemma_mobile.dart';
 
 /// Main unified model manager that orchestrates all model operations
-class UnifiedModelManager {
+class MobileModelManager extends ModelFileManager {
   bool _isInitialized = false;
 
   /// Initializes the unified model manager
@@ -9,9 +9,6 @@ class UnifiedModelManager {
     if (_isInitialized) return;
 
     try {
-      // Migrate old preferences if necessary
-      await ModelPreferencesManager.migrateOldPreferences();
-
       // Perform smart cleanup with resume detection
       await UnifiedDownloadEngine.performCleanup();
 
@@ -27,8 +24,8 @@ class UnifiedModelManager {
     }
   }
 
-  /// Ensures a model is ready for use, handling all necessary operations
-  Future<void> ensureModelReady(ModelSpec spec) async {
+  /// Internal method for ModelSpec-based operations
+  Future<void> _ensureModelReadySpec(ModelSpec spec) async {
     await _ensureInitialized();
 
     debugPrint('UnifiedModelManager: Ensuring model ready - ${spec.name}');
@@ -40,6 +37,19 @@ class UnifiedModelManager {
       debugPrint('UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e');
       rethrow;
     }
+  }
+
+  /// Ensures a model is ready for use, handling all necessary operations
+  @override
+  Future<void> ensureModelReady(String filename, String url) async {
+    // Create spec from legacy parameters and delegate to internal method
+    final spec = InferenceModelSpec(
+      name: filename,
+      modelUrl: url,
+    );
+    await _ensureModelReadySpec(spec);
+    // Set as current active model after ensuring it's ready
+    _currentActiveModel = spec;
   }
 
   /// Downloads a model with progress tracking
@@ -184,7 +194,7 @@ class UnifiedModelManager {
     required String name,
     required String modelUrl,
     String? loraUrl,
-    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+    ModelReplacePolicy replacePolicy = ModelReplacePolicy.replace,
   }) {
     return InferenceModelSpec(
       name: name,
@@ -216,12 +226,151 @@ class UnifiedModelManager {
     }
   }
 
+
+  // === Legacy Asset Loading Methods Implementation ===
+
+  @override
+  Future<void> installModelFromAsset(String path, {String? loraPath}) async {
+    if (kReleaseMode) {
+      throw UnsupportedError("Asset model loading is not supported in release builds");
+    }
+
+    await _ensureInitialized();
+
+    final spec = InferenceModelSpec(
+      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
+      modelUrl: 'asset://$path',
+      loraUrl: loraPath != null ? 'asset://$loraPath' : null,
+    );
+
+    await _ensureModelReadySpec(spec);
+  }
+
+  @override
+  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
+    if (kReleaseMode) {
+      throw UnsupportedError("Asset model loading is not supported in release builds");
+    }
+
+    await _ensureInitialized();
+
+    final spec = InferenceModelSpec(
+      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
+      modelUrl: 'asset://$path',
+      loraUrl: loraPath != null ? 'asset://$loraPath' : null,
+    );
+
+    // Since assets are copied instantly, we'll simulate progress
+    for (int progress = 0; progress <= 100; progress += 10) {
+      yield progress;
+      if (progress < 100) {
+        await Future.delayed(Duration(milliseconds: 50));
+      }
+    }
+
+    await _ensureModelReadySpec(spec);
+  }
+
+  // === Legacy Direct Path Methods Implementation ===
+
+  @override
+  Future<void> setModelPath(String path, {String? loraPath}) async {
+    await _ensureInitialized();
+
+    final spec = InferenceModelSpec(
+      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
+      modelUrl: 'file://$path',
+      loraUrl: loraPath != null ? 'file://$loraPath' : null,
+    );
+
+    await _ensureModelReadySpec(spec);
+    _currentActiveModel = spec;
+  }
+
+  @override
+  Future<void> clearModelCache() async {
+    await _ensureInitialized();
+    _currentActiveModel = null;
+    debugPrint('Model cache cleared');
+  }
+
+  // === Legacy LoRA Management Methods Implementation ===
+
+  ModelSpec? _currentActiveModel;
+
+  /// Gets the currently active model specification
+  ModelSpec? get currentActiveModel => _currentActiveModel;
+
+  @override
+  Future<void> setLoraWeightsPath(String path) async {
+    await _ensureInitialized();
+
+    if (_currentActiveModel == null) {
+      throw Exception('No active model to apply LoRA weights to. Use setModelPath first.');
+    }
+
+    // Create updated spec with new LoRA path
+    late ModelSpec updatedSpec;
+    if (_currentActiveModel is InferenceModelSpec) {
+      final current = _currentActiveModel as InferenceModelSpec;
+      updatedSpec = InferenceModelSpec(
+        name: current.name,
+        modelUrl: current.modelUrl,
+        loraUrl: path.startsWith('/') ? 'file://$path' : path,
+        replacePolicy: current.replacePolicy,
+      );
+    } else {
+      throw Exception('LoRA weights can only be applied to inference models');
+    }
+
+    await _ensureModelReadySpec(updatedSpec);
+    _currentActiveModel = updatedSpec;
+  }
+
+  @override
+  Future<void> deleteLoraWeights() async {
+    await _ensureInitialized();
+
+    if (_currentActiveModel == null) {
+      throw Exception('No active model to remove LoRA weights from');
+    }
+
+    // Create updated spec without LoRA
+    late ModelSpec updatedSpec;
+    if (_currentActiveModel is InferenceModelSpec) {
+      final current = _currentActiveModel as InferenceModelSpec;
+      updatedSpec = InferenceModelSpec(
+        name: current.name,
+        modelUrl: current.modelUrl,
+        loraUrl: null, // Remove LoRA
+        replacePolicy: current.replacePolicy,
+      );
+    } else {
+      throw Exception('LoRA weights can only be removed from inference models');
+    }
+
+    await _ensureModelReadySpec(updatedSpec);
+    _currentActiveModel = updatedSpec;
+  }
+
+  // === Legacy Model Management Implementation ===
+
+  @override
+  Future<void> deleteCurrentModel() async {
+    await _ensureInitialized();
+
+    if (_currentActiveModel != null) {
+      await deleteModel(_currentActiveModel!);
+      _currentActiveModel = null;
+    }
+  }
+
   /// Gets storage statistics
-  Future<Map<String, dynamic>> getStorageStats() async {
+  Future<Map<String, int>> getStorageStats() async {
     await _ensureInitialized();
 
     try {
-      final stats = <String, dynamic>{};
+      final stats = <String, int>{};
 
       // Get protected files
       final protectedFiles = await ModelPreferencesManager.getAllProtectedFiles();

@@ -96,7 +96,7 @@ class ChatScreenState extends State<ChatScreen> {
     _isInitializing = false; // Reset initialization flag
     _isModelInitialized = false; // Reset model flag
     super.dispose();
-    _gemma.modelManager.deleteModel();
+    // No need to call deleteModel - model cleanup handled by model.close() callback
   }
 
   Future<void> _initializeModel() async {

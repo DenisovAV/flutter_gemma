@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
-import 'package:large_file_handler/large_file_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
@@ -15,7 +14,6 @@ import 'package:background_downloader/background_downloader.dart';
 import '../flutter_gemma.dart';
 import 'huggingface_downloader_wrapper.dart';
 
-part 'flutter_gemma_mobile_model_manager.dart';
 part 'flutter_gemma_mobile_inference_model.dart';
 part 'flutter_gemma_mobile_embedding_model.dart';
 
@@ -203,11 +201,11 @@ class FlutterGemma extends FlutterGemmaPlugin {
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
 
+  // Made public for example app integration
+  late final MobileModelManager _unifiedManager = MobileModelManager();
+
   @override
-  late final MobileModelManager modelManager = MobileModelManager(
-    onDeleteModel: _closeModelBeforeDeletion,
-    onDeleteLora: _closeModelBeforeDeletion,
-  );
+  MobileModelManager get modelManager => _unifiedManager;
 
   @override
   InferenceModel? get initializedModel => _initializedModel;
@@ -231,24 +229,59 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     final completer = _initCompleter = Completer<InferenceModel>();
 
-    // First wait: Check installation status (sets internal _modelFileName state)
-    final (isModelInstalled, isLoraInstalled) = await (
-      modelManager.isModelInstalled,
-      modelManager.isLoraInstalled,
-    ).wait;
+    // Check if model is ready through unified system
+    final manager = _unifiedManager;
 
-    // Second wait: Get file objects (now that _modelFileName is set)
-    final (File? modelFile, File? loraFile) = await (
-      modelManager._modelFile,
-      modelManager._loraFile,
-    ).wait;
+    // Use the current active model, or find any installed inference model for backward compatibility
+    ModelSpec? activeModel = manager.currentActiveModel;
 
-    if (!isModelInstalled || modelFile == null) {
+    // Backward compatibility: if no active model, try to find any installed inference model
+    if (activeModel == null) {
+      final installedFiles = await manager.getInstalledModels(ModelManagementType.inference);
+      if (installedFiles.isNotEmpty) {
+        // Create spec from first installed model and set as active
+        activeModel = InferenceModelSpec(
+          name: installedFiles.first,
+          modelUrl: 'local://installed', // Dummy URL since file is already downloaded
+        );
+        // Set as current active model for future use
+        await manager.ensureModelReady(installedFiles.first, 'local://installed');
+        debugPrint('Backward compatibility: Set ${installedFiles.first} as active model');
+      } else {
+        completer.completeError(
+          Exception('No models installed. Use the `modelManager` to download a model first'),
+        );
+        return completer.future;
+      }
+    }
+
+    // Verify the active model is still installed
+    final isModelInstalled = await manager.isModelInstalled(activeModel);
+    if (!isModelInstalled) {
       completer.completeError(
-        Exception('Gemma Model is not installed yet. Use the `modelManager` to load the model first'),
+        Exception('Active model is no longer installed. Use the `modelManager` to load the model first'),
       );
       return completer.future;
     }
+
+    // Get the actual model file path through unified system
+    final modelFilePaths = await manager.getModelFilePaths(activeModel);
+    if (modelFilePaths == null || modelFilePaths.isEmpty) {
+      completer.completeError(
+        Exception('Model file paths not found. Use the `modelManager` to load the model first'),
+      );
+      return completer.future;
+    }
+
+    final modelFile = File(modelFilePaths.values.first);
+    if (!await modelFile.exists()) {
+      completer.completeError(
+        Exception('Model file not found at path: ${modelFile.path}'),
+      );
+      return completer.future;
+    }
+
+    debugPrint('Using unified model file: ${modelFile.path}');
 
     try {
       await _platformService.createModel(
@@ -263,7 +296,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
         maxTokens: maxTokens,
         modelType: modelType,
         fileType: fileType,
-        modelManager: modelManager,
         preferredBackend: preferredBackend,
         supportedLoraRanks: loraRanks ?? supportedLoraRanks,
         supportImage: supportImage,
@@ -282,9 +314,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
     }
   }
 
-  Future<void> _closeModelBeforeDeletion() {
-    return _initializedModel?.close() ?? Future.value();
-  }
 
   @override
   Future<EmbeddingModel> createEmbeddingModel({
@@ -393,3 +422,4 @@ class FlutterGemma extends FlutterGemmaPlugin {
     await _platformService.clearVectorStore();
   }
 }
+

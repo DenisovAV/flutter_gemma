@@ -44,6 +44,27 @@ class ResumeChecker {
       final file = File(filePath);
 
       debugPrint('ResumeChecker: Checking file path: $filePath');
+
+      // List directory contents for debugging
+      try {
+        final directory = file.parent;
+        final directoryExists = await directory.exists();
+        debugPrint('ResumeChecker: Directory exists: $directoryExists - ${directory.path}');
+
+        if (directoryExists) {
+          final files = await directory.list().toList();
+          debugPrint('ResumeChecker: Directory contents (${files.length} items):');
+          for (final item in files) {
+            final name = item.path.split('/').last;
+            final isFile = item is File;
+            final size = isFile ? await (item as File).length() : 0;
+            debugPrint('  - $name ${isFile ? "($size bytes)" : "(directory)"}');
+          }
+        }
+      } catch (e) {
+        debugPrint('ResumeChecker: Failed to list directory: $e');
+      }
+
       final fileExists = await file.exists();
       debugPrint('ResumeChecker: File exists: $fileExists for $filename');
 

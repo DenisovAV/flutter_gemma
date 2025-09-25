@@ -42,6 +42,21 @@ class EmbeddingModelDownloadService {
   /// Checks if both model and tokenizer files exist and match remote file sizes.
   Future<bool> checkModelExistence(String token) async {
     try {
+      // First check via unified system (which handles SharedPreferences correctly)
+      final spec = MobileModelManager.createEmbeddingSpec(
+        name: model.displayName,
+        modelUrl: model.url,
+        tokenizerUrl: model.tokenizerUrl,
+      );
+
+      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final isInstalled = await manager.isModelInstalled(spec);
+
+      if (isInstalled) {
+        return true;
+      }
+
+      // Fallback: check physical file existence with size validation
       final modelFilePath = await getModelFilePath();
       final tokenizerFilePath = await getTokenizerFilePath();
       final modelFile = File(modelFilePath);
@@ -104,19 +119,25 @@ class EmbeddingModelDownloadService {
       double modelProgress = 0.0;
       double tokenizerProgress = 0.0;
 
-      // Use plugin's embedding download method with primitive parameters
+
+      // Use plugin's unified model manager with new API
       final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
-      final downloadStream = mobileManager.downloadEmbeddingModelWithProgress(
+
+      // Create embedding model spec
+      final spec = MobileModelManager.createEmbeddingSpec(
+        name: model.displayName,
         modelUrl: model.url,
         tokenizerUrl: model.tokenizerUrl,
-        modelFilename: model.filename,
-        tokenizerFilename: model.tokenizerFilename,
-        token: model.needsAuth ? token : null,
+      );
+
+      final downloadStream = mobileManager.downloadModelWithProgress(
+        spec,
+        token: model.needsAuth && token.isNotEmpty ? token : null,
       );
 
       // Track download progress
       await for (final progress in downloadStream) {
-        final progressValue = progress.toDouble();
+        final progressValue = progress.overallProgress.toDouble();
         onProgress(progressValue, progressValue); // Same progress for both indicators
       }
     } catch (e) {
@@ -130,10 +151,21 @@ class EmbeddingModelDownloadService {
   /// Deletes both downloaded files using plugin methods.
   Future<void> deleteModel() async {
     try {
-      // Use plugin's delete method if available, otherwise fallback to file deletion
+      // Use plugin's cleanup method to delete embedding models
       if (!kIsWeb) {
         final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
-        await mobileManager.deleteEmbeddingModel();
+
+        // Get all embedding model files and delete them
+        final embeddingFiles = await mobileManager.getInstalledModels(ModelManagementType.embedding);
+        for (final filename in embeddingFiles) {
+          try {
+            await ModelFileSystemManager.deleteModelFile(filename);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Failed to delete $filename: $e');
+            }
+          }
+        }
       }
     } catch (e) {
       if (kDebugMode) {
@@ -168,9 +200,9 @@ class EmbeddingModelDownloadService {
         return false; // Not supported on web
       }
       
-      // Use plugin's method to check installation
+      // Use plugin's method to check installation with new API
       final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
-      return await mobileManager.isEmbeddingModelInstalled;
+      return await mobileManager.isAnyModelInstalled(ModelManagementType.embedding);
     } catch (e) {
       if (kDebugMode) {
         print('Error checking embedding model installation: $e');

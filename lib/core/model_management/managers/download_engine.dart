@@ -9,7 +9,7 @@ class UnifiedDownloadEngine {
     ModelSpec spec, {
     String? token,
   }) async* {
-    debugPrint('Starting download for model: ${spec.name} (${spec.files.length} files)');
+    // print('Starting download for model: ${spec.name} (${spec.files.length} files)');
 
     try {
       final totalFiles = spec.files.length;
@@ -19,7 +19,7 @@ class UnifiedDownloadEngine {
         final file = spec.files[i];
         final filePath = await ModelFileSystemManager.getModelFilePath(file.filename);
 
-        debugPrint('Downloading file ${i + 1}/$totalFiles: ${file.filename}');
+        // print('Downloading file ${i + 1}/$totalFiles: ${file.filename}');
 
         // Emit progress for current file start
         yield DownloadProgress(
@@ -54,7 +54,7 @@ class UnifiedDownloadEngine {
         }
 
         completedFiles++;
-        debugPrint('Completed file $completedFiles/$totalFiles: ${file.filename}');
+        // print('Completed file $completedFiles/$totalFiles: ${file.filename}');
       }
 
       // Save to SharedPreferences ONLY after ALL files are successfully downloaded
@@ -68,9 +68,9 @@ class UnifiedDownloadEngine {
         currentFileName: 'Complete',
       );
 
-      debugPrint('Successfully downloaded model: ${spec.name}');
+      // print('Successfully downloaded model: ${spec.name}');
     } catch (e) {
-      debugPrint('Download failed for model ${spec.name}: $e');
+      // print('Download failed for model ${spec.name}: $e');
 
       // Cleanup any partial files
       await ModelFileSystemManager.cleanupFailedDownload(spec);
@@ -109,7 +109,7 @@ class UnifiedDownloadEngine {
 
   /// Deletes all files for a model specification
   static Future<void> deleteModel(ModelSpec spec) async {
-    debugPrint('Deleting model: ${spec.name}');
+    // print('Deleting model: ${spec.name}');
 
     try {
       // Delete all files
@@ -120,9 +120,9 @@ class UnifiedDownloadEngine {
       // Clear from SharedPreferences
       await ModelPreferencesManager.clearModelFiles(spec);
 
-      debugPrint('Successfully deleted model: ${spec.name}');
+      // print('Successfully deleted model: ${spec.name}');
     } catch (e) {
-      debugPrint('Failed to delete model ${spec.name}: $e');
+      // print('Failed to delete model ${spec.name}: $e');
       throw ModelStorageException(
         'Failed to delete model: ${spec.name}',
         e,
@@ -145,12 +145,12 @@ class UnifiedDownloadEngine {
 
     switch (resumeStatus) {
       case ResumeStatus.fileComplete:
-        debugPrint('File already complete, skipping download: $filename');
+        // print('File already complete, skipping download: $filename');
         yield 100;
         return;
 
       case ResumeStatus.canResume:
-        debugPrint('Attempting to resume download: $filename');
+        // print('Attempting to resume download: $filename');
         final taskId = await DownloadTaskRegistry.getTaskId(filename);
         if (taskId != null) {
           final existingTask = DownloadTask(
@@ -164,13 +164,13 @@ class UnifiedDownloadEngine {
           try {
             final resumed = await downloader.resume(existingTask);
             if (resumed) {
-              debugPrint('Successfully resumed download: $filename');
+              // print('Successfully resumed download: $filename');
               // Monitor the resumed download
               yield* _monitorExistingDownload(existingTask, downloader);
               return;
             }
           } catch (e) {
-            debugPrint('Failed to resume download $filename: $e');
+            // print('Failed to resume download $filename: $e');
             // Fall through to start new download
           }
         }
@@ -179,31 +179,31 @@ class UnifiedDownloadEngine {
       case ResumeStatus.cannotResume:
       case ResumeStatus.error:
         // Clean up invalid state and start fresh
-        debugPrint('Cleaning up invalid resume state for: $filename');
+        // print('Cleaning up invalid resume state for: $filename');
         try {
           await ModelFileSystemManager.deleteModelFile(filename);
           await DownloadTaskRegistry.unregisterTask(filename);
         } catch (e) {
-          debugPrint('Failed to cleanup invalid state for $filename: $e');
+          // print('Failed to cleanup invalid state for $filename: $e');
         }
         break;
 
       case ResumeStatus.noTask:
-        debugPrint('No task registered for $filename - cleaning up orphaned file');
+        // print('No task registered for $filename - cleaning up orphaned file');
         try {
           await ModelFileSystemManager.deleteModelFile(filename);
-          debugPrint('Successfully cleaned up orphaned file: $filename');
+          // print('Successfully cleaned up orphaned file: $filename');
         } catch (e) {
-          debugPrint('Failed to cleanup orphaned file $filename: $e');
+          // print('Failed to cleanup orphaned file $filename: $e');
         }
         break;
 
       case ResumeStatus.fileNotFound:
-        debugPrint('File not found for $filename - starting new download');
+        // print('File not found for $filename - starting new download');
         break;
 
       default:
-        debugPrint('Unknown resume status $resumeStatus for $filename - continuing with new download');
+        // print('Unknown resume status $resumeStatus for $filename - continuing with new download');
         break;
     }
 
@@ -233,7 +233,7 @@ class UnifiedDownloadEngine {
           taskId: taskId,
           url: url,
           group: downloadGroup,
-          headers: token != null
+          headers: token != null && token.isNotEmpty
               ? {
                   'Authorization': 'Bearer $token',
                   'Connection': 'keep-alive',
@@ -267,7 +267,7 @@ class UnifiedDownloadEngine {
                 }
                 // Unregister task on successful completion
                 await DownloadTaskRegistry.unregisterTask(filename);
-                debugPrint('Download completed successfully: $filename');
+                // print('Download completed successfully: $filename');
                 break;
               case TaskStatus.canceled:
                 if (!progress.isClosed) {
@@ -275,7 +275,7 @@ class UnifiedDownloadEngine {
                   progress.close();
                 }
                 // Keep task registered for potential resume
-                debugPrint('Download canceled: $filename');
+                // print('Download canceled: $filename');
                 break;
               case TaskStatus.failed:
                 if (!progress.isClosed) {
@@ -283,30 +283,30 @@ class UnifiedDownloadEngine {
                   try {
                     final canResume = await downloader.taskCanResume(task);
                     if (canResume) {
-                      debugPrint('Download failed but can be resumed: $filename');
+                      // print('Download failed but can be resumed: $filename');
                       // Keep task registered for resume
                       // Don't close progress stream, let caller handle retry
                       progress.addError('Download failed but resumable');
                     } else {
-                      debugPrint('Download failed and cannot be resumed: $filename');
+                      // print('Download failed and cannot be resumed: $filename');
                       await DownloadTaskRegistry.unregisterTask(filename);
                       progress.addError('Download failed permanently');
                     }
                   } catch (e) {
-                    debugPrint('Error checking resume capability for $filename: $e');
+                    // print('Error checking resume capability for $filename: $e');
                     progress.addError('Download failed: $e');
                   }
                   progress.close();
                 }
                 break;
               case TaskStatus.paused:
-                debugPrint('Download paused: $filename');
+                // print('Download paused: $filename');
                 break;
               case TaskStatus.running:
                 // Keep task active in registry
                 break;
               default:
-                debugPrint('Download status for $filename: $status');
+                // print('Download status for $filename: $status');
                 break;
             }
           },
@@ -326,25 +326,163 @@ class UnifiedDownloadEngine {
 
   /// Ensures a model is ready, applying replace policy
   static Future<void> ensureModelReady(ModelSpec spec) async {
-    debugPrint('Ensuring model ready: ${spec.name}');
+    // print('Ensuring model ready: ${spec.name}');
 
     // Check if target model is already ready
     if (await isModelInstalled(spec)) {
-      debugPrint('Model ${spec.name} already ready');
+      // print('Model ${spec.name} already ready');
       return;
     }
 
     // Handle model switching with replace policy
     await _handleModelSwitching(spec);
 
-    // Download the target model if not available
-    if (!await isModelInstalled(spec)) {
-      debugPrint('Downloading model: ${spec.name}');
-      await downloadModel(spec);
-    }
-
-    debugPrint('Model ${spec.name} is now ready');
+    // Route based on URL scheme
+    await _routeModelByScheme(spec);
   }
+
+  /// Routes model handling based on URL scheme
+  static Future<void> _routeModelByScheme(ModelSpec spec) async {
+    if (spec is InferenceModelSpec) {
+      final modelUri = Uri.parse(spec.modelUrl);
+
+      switch (modelUri.scheme) {
+        case 'https':
+        case 'http':
+          await _handleNetworkModel(spec);
+          break;
+        case 'asset':
+          await _handleAssetModel(spec);
+          break;
+        case 'file':
+          await _handleExternalModel(spec);
+          break;
+        default:
+          throw ModelStorageException(
+            'Unsupported URL scheme: ${modelUri.scheme}',
+            null,
+            'routeModelByScheme'
+          );
+      }
+    } else if (spec is EmbeddingModelSpec) {
+      final modelUri = Uri.parse(spec.modelUrl);
+
+      switch (modelUri.scheme) {
+        case 'https':
+        case 'http':
+          await _handleNetworkModel(spec);
+          break;
+        case 'asset':
+          await _handleAssetModel(spec);
+          break;
+        case 'file':
+          await _handleExternalModel(spec);
+          break;
+        default:
+          throw ModelStorageException(
+            'Unsupported URL scheme: ${modelUri.scheme}',
+            null,
+            'routeModelByScheme'
+          );
+      }
+    }
+  }
+
+  /// Handles network-based models (existing logic)
+  static Future<void> _handleNetworkModel(ModelSpec spec) async {
+    // print('Downloading network model: ${spec.name}');
+    await downloadModel(spec);
+  }
+
+  /// Handles asset-based models
+  static Future<void> _handleAssetModel(ModelSpec spec) async {
+    // print('Installing asset model: ${spec.name}');
+
+    try {
+      // Process each file in the spec
+      for (final file in spec.files) {
+        final assetPath = Uri.parse(file.url).path; // Remove asset:// prefix
+        final targetPath = await ModelFileSystemManager.getModelFilePath(file.filename);
+
+        await _copyFromAsset(assetPath, targetPath, file.filename);
+
+        // Register in unified system
+        // TODO: Need to implement proper file registration for assets
+      }
+
+      // print('Asset model ${spec.name} installed successfully');
+    } catch (e) {
+      throw ModelStorageException(
+        'Failed to install asset model: ${spec.name}',
+        e,
+        '_handleAssetModel'
+      );
+    }
+  }
+
+  /// Handles external file-based models
+  static Future<void> _handleExternalModel(ModelSpec spec) async {
+    // print('Registering external model: ${spec.name}');
+
+    try {
+      // Process each file in the spec
+      for (final file in spec.files) {
+        final filePath = Uri.parse(file.url).path; // Remove file:// prefix
+        final targetFile = File(filePath);
+
+        // Validate file exists
+        if (!await targetFile.exists()) {
+          throw ModelStorageException(
+            'External model file not found: $filePath',
+            null,
+            '_handleExternalModel'
+          );
+        }
+
+        // Register without copying - just record the external path
+        await ModelPreferencesManager.registerExternalFile(
+          file.filename,
+          filePath,
+          spec.type
+        );
+      }
+
+      // print('External model ${spec.name} registered successfully');
+    } catch (e) {
+      throw ModelStorageException(
+        'Failed to register external model: ${spec.name}',
+        e,
+        '_handleExternalModel'
+      );
+    }
+  }
+
+  /// Copies file from Flutter assets to target path
+  static Future<void> _copyFromAsset(String assetPath, String targetPath, String filename) async {
+    try {
+      // Load asset data
+      final assetData = await rootBundle.load(assetPath);
+      final bytes = assetData.buffer.asUint8List();
+
+      // Ensure target directory exists
+      final targetFile = File(targetPath);
+      await targetFile.parent.create(recursive: true);
+
+      // Write to target location
+      await targetFile.writeAsBytes(bytes);
+
+      // print('Copied asset $assetPath -> $targetPath (${bytes.length} bytes)');
+    } catch (e) {
+      throw ModelStorageException(
+        'Failed to copy asset: $assetPath',
+        e,
+        '_copyFromAsset'
+      );
+    }
+  }
+
+    // print('Model ${spec.name} is now ready');
+  // NOTE: This closing brace was moved to end of file
 
   /// Handles model switching according to replace policy
   static Future<void> _handleModelSwitching(ModelSpec spec) async {
@@ -352,22 +490,22 @@ class UnifiedDownloadEngine {
 
     if (currentSpec != null && currentSpec.name != spec.name) {
       if (spec.replacePolicy == ModelReplacePolicy.replace) {
-        debugPrint('Policy-based replacement: cleaning up ALL ${spec.type.name} models for new model: ${spec.name}');
+        // print('Policy-based replacement: cleaning up ALL ${spec.type.name} models for new model: ${spec.name}');
 
         // Clean up ALL tasks and files of this type
         await cleanupAllTasksOfType(spec.type);
 
-        // Also delete the specific old model files
-        await deleteModel(currentSpec);
+        // TODO: Also delete the specific old model files
+        // await deleteModel(currentSpec);
 
-        debugPrint('Completed policy-based cleanup for ${spec.type.name} models');
+        // print('Completed policy-based cleanup for ${spec.type.name} models');
       } else {
-        debugPrint('Policy-based keep: keeping old model ${currentSpec.name} alongside new model: ${spec.name}');
+        // print('Policy-based keep: keeping old model ${currentSpec.name} alongside new model: ${spec.name}');
         // For keep policy, don't delete anything - multiple models are allowed
       }
     } else if (spec.replacePolicy == ModelReplacePolicy.replace) {
       // Even if no specific current model, clean up ALL tasks of this type to ensure fresh start
-      debugPrint('Policy-based replacement: cleaning up ALL existing ${spec.type.name} tasks for fresh start');
+      // print('Policy-based replacement: cleaning up ALL existing ${spec.type.name} tasks for fresh start');
       await cleanupAllTasksOfType(spec.type);
     }
   }
@@ -375,7 +513,7 @@ class UnifiedDownloadEngine {
   /// Performs cleanup of orphaned files and invalid resume states
   static Future<void> performCleanup() async {
     try {
-      debugPrint('Performing comprehensive model cleanup...');
+      // print('Performing comprehensive model cleanup...');
 
       // 1. Enhanced file system cleanup
       final protectedFiles = await ModelPreferencesManager.getAllProtectedFiles();
@@ -390,16 +528,16 @@ class UnifiedDownloadEngine {
       // 3. Background_downloader cleanup
       await _cleanupBackgroundDownloaderResources();
 
-      debugPrint('Comprehensive model cleanup completed');
+      // print('Comprehensive model cleanup completed');
     } catch (e) {
-      debugPrint('Model cleanup failed: $e');
+      // print('Model cleanup failed: $e');
     }
   }
 
   /// Clean up task registry using policy-based approach
   static Future<void> _cleanupTaskRegistry() async {
     try {
-      debugPrint('Cleaning up task registry with policy-based approach...');
+      // print('Cleaning up task registry with policy-based approach...');
 
       final allTasks = await DownloadTaskRegistry.getAllRegisteredTasks();
       final toRemove = <String>[];
@@ -413,53 +551,53 @@ class UnifiedDownloadEngine {
         final modelType = _detectModelType(filename);
         final defaultPolicy = _getDefaultPolicyForType(modelType);
 
-        debugPrint('Checking task $filename (type: ${modelType.name}, policy: ${defaultPolicy.name})');
+        // print('Checking task $filename (type: ${modelType.name}, policy: ${defaultPolicy.name})');
 
         if (defaultPolicy == ModelReplacePolicy.replace) {
           // INFERENCE: Remove all except actively downloading
           final isActive = await _isActivelyDownloading(taskId, downloader);
           if (!isActive) {
             toRemove.add(filename);
-            debugPrint('Removing non-active inference task: $filename');
+            // print('Removing non-active inference task: $filename');
           } else {
-            debugPrint('Keeping active inference task: $filename');
+            // print('Keeping active inference task: $filename');
           }
         } else {
           // EMBEDDING: Remove only invalid states (keep multiple models)
           final resumeStatus = await ResumeChecker.checkResumeStatus(filename);
           if (_isInvalidState(resumeStatus)) {
             toRemove.add(filename);
-            debugPrint('Removing invalid embedding task: $filename (status: ${resumeStatus.name})');
+            // print('Removing invalid embedding task: $filename (status: ${resumeStatus.name})');
           } else {
-            debugPrint('Keeping valid embedding task: $filename (status: ${resumeStatus.name})');
+            // print('Keeping valid embedding task: $filename (status: ${resumeStatus.name})');
           }
         }
       }
 
       if (toRemove.isNotEmpty) {
         await DownloadTaskRegistry.unregisterTasks(toRemove);
-        debugPrint('Policy-based cleanup: removed ${toRemove.length} task registry entries');
+        // print('Policy-based cleanup: removed ${toRemove.length} task registry entries');
       } else {
-        debugPrint('Policy-based cleanup: no entries to remove');
+        // print('Policy-based cleanup: no entries to remove');
       }
     } catch (e) {
-      debugPrint('Task registry cleanup failed: $e');
+      // print('Task registry cleanup failed: $e');
     }
   }
 
   /// Clean up background_downloader resources
   static Future<void> _cleanupBackgroundDownloaderResources() async {
     try {
-      debugPrint('Cleaning up background_downloader resources...');
+      // print('Cleaning up background_downloader resources...');
 
       final downloader = FileDownloader();
 
       // Reset all tasks in our download group (cancels active tasks)
       final resetCount = await downloader.reset(group: downloadGroup);
-      debugPrint('Reset $resetCount background_downloader tasks');
+      // print('Reset $resetCount background_downloader tasks');
 
     } catch (e) {
-      debugPrint('Background_downloader cleanup failed: $e');
+      // print('Background_downloader cleanup failed: $e');
     }
   }
 
@@ -526,7 +664,7 @@ class UnifiedDownloadEngine {
         return ModelManagementType.inference;
       default:
         // Default to inference for unknown types
-        debugPrint('Unknown file extension: $extension, defaulting to inference');
+        // print('Unknown file extension: $extension, defaulting to inference');
         return ModelManagementType.inference;
     }
   }
@@ -557,7 +695,7 @@ class UnifiedDownloadEngine {
               case TaskStatus.enqueued:
               case TaskStatus.running:
               case TaskStatus.paused:
-                debugPrint('Task $taskId is actively downloading (status: ${taskRecord.status.name})');
+                // print('Task $taskId is actively downloading (status: ${taskRecord.status.name})');
                 return true;
               default:
                 break;
@@ -566,10 +704,10 @@ class UnifiedDownloadEngine {
         }
       }
 
-      debugPrint('Task $taskId is not actively downloading');
+      // print('Task $taskId is not actively downloading');
       return false;
     } catch (e) {
-      debugPrint('Error checking if task $taskId is active: $e');
+      // print('Error checking if task $taskId is active: $e');
       return false; // Assume not active on error
     }
   }
@@ -591,7 +729,7 @@ class UnifiedDownloadEngine {
   /// Clean up all tasks and files of a specific type (for model switching)
   static Future<void> cleanupAllTasksOfType(ModelManagementType type) async {
     try {
-      debugPrint('Cleaning up all tasks of type: ${type.name}');
+      // print('Cleaning up all tasks of type: ${type.name}');
 
       final allTasks = await DownloadTaskRegistry.getAllRegisteredTasks();
       final toRemove = <String>[];
@@ -605,16 +743,16 @@ class UnifiedDownloadEngine {
           // Also try to delete the partial file
           try {
             await ModelFileSystemManager.deleteModelFile(filename);
-            debugPrint('Deleted partial file: $filename');
+            // print('Deleted partial file: $filename');
           } catch (e) {
-            debugPrint('Could not delete partial file $filename: $e');
+            // print('Could not delete partial file $filename: $e');
           }
         }
       }
 
       if (toRemove.isNotEmpty) {
         await DownloadTaskRegistry.unregisterTasks(toRemove);
-        debugPrint('Cleaned up ${toRemove.length} tasks of type ${type.name}');
+        // print('Cleaned up ${toRemove.length} tasks of type ${type.name}');
       }
 
       // Also reset any background_downloader tasks for this type
@@ -622,14 +760,14 @@ class UnifiedDownloadEngine {
       try {
         final resetCount = await downloader.reset(group: downloadGroup);
         if (resetCount > 0) {
-          debugPrint('Reset $resetCount background_downloader tasks for type ${type.name}');
+          // print('Reset $resetCount background_downloader tasks for type ${type.name}');
         }
       } catch (e) {
-        debugPrint('Failed to reset background_downloader tasks: $e');
+        // print('Failed to reset background_downloader tasks: $e');
       }
 
     } catch (e) {
-      debugPrint('Failed to cleanup tasks of type ${type.name}: $e');
+      // print('Failed to cleanup tasks of type ${type.name}: $e');
     }
   }
 }

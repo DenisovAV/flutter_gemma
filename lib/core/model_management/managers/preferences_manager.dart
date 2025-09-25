@@ -209,6 +209,38 @@ class ModelPreferencesManager {
     }
   }
 
+  /// Registers an external file without copying - just records the path
+  static Future<void> registerExternalFile(String filename, String externalPath, ModelManagementType type) async {
+    try {
+      final prefs = await _prefs;
+
+      // Store the external path mapping
+      await prefs.setString('external_path_$filename', externalPath);
+
+      // TODO: Mark as protected in the regular system
+      // await markFileAsProtected(filename, type);
+
+      debugPrint('Registered external file: $filename -> $externalPath');
+    } catch (e) {
+      throw ModelStorageException(
+        'Failed to register external file: $filename',
+        e,
+        'registerExternalFile'
+      );
+    }
+  }
+
+  /// Gets the external path for a filename if it exists
+  static Future<String?> getExternalPath(String filename) async {
+    try {
+      final prefs = await _prefs;
+      return prefs.getString('external_path_$filename');
+    } catch (e) {
+      debugPrint('Error getting external path for $filename: $e');
+      return null;
+    }
+  }
+
   /// Gets all SharedPreferences keys used for model storage (new multi-model system)
   static List<String> _getAllModelPrefsKeys() {
     return [
@@ -227,75 +259,6 @@ class ModelPreferencesManager {
       'embedding_model_file',
       'embedding_tokenizer_file',
     ];
-  }
-
-
-  /// Migrates old preferences format to new format if needed
-  static Future<void> migrateOldPreferences() async {
-    await _migrateToMultiModelSystem();
-  }
-
-  /// Migrates from single-model to multi-model SharedPreferences structure
-  static Future<void> _migrateToMultiModelSystem() async {
-    try {
-      final prefs = await _prefs;
-
-      // Check if migration is needed (if any legacy keys exist)
-      final legacyKeys = _getLegacyModelPrefsKeys();
-      bool needsMigration = false;
-      for (final key in legacyKeys) {
-        if (prefs.containsKey(key)) {
-          needsMigration = true;
-          break;
-        }
-      }
-
-      if (!needsMigration) return;
-
-      debugPrint('Migrating to multi-model system...');
-
-      // Migrate inference model
-      final oldModel = prefs.getString('installed_model_file_name');
-      if (oldModel != null) {
-        await prefs.setStringList('installed_models', [oldModel]);
-        await prefs.remove('installed_model_file_name');
-        debugPrint('Migrated inference model: $oldModel');
-      }
-
-      // Migrate LoRA
-      final oldLora = prefs.getString('installed_lora_file_name');
-      if (oldLora != null) {
-        await prefs.setStringList('installed_loras', [oldLora]);
-        await prefs.remove('installed_lora_file_name');
-        debugPrint('Migrated LoRA: $oldLora');
-      }
-
-      // Migrate embedding model
-      final oldEmbeddingModel = prefs.getString('embedding_model_file');
-      if (oldEmbeddingModel != null) {
-        await prefs.setStringList('installed_embedding_models', [oldEmbeddingModel]);
-        await prefs.remove('embedding_model_file');
-        debugPrint('Migrated embedding model: $oldEmbeddingModel');
-      }
-
-      // Migrate embedding tokenizer
-      final oldTokenizer = prefs.getString('embedding_tokenizer_file');
-      if (oldTokenizer != null) {
-        await prefs.setStringList('installed_embedding_tokenizers', [oldTokenizer]);
-        await prefs.remove('embedding_tokenizer_file');
-        debugPrint('Migrated tokenizer: $oldTokenizer');
-      }
-
-      // Ensure we have the replace policy setting
-      if (!prefs.containsKey('model_replace_policy')) {
-        await prefs.setBool('model_replace_policy', false); // Default to keep
-      }
-
-      debugPrint('Migration completed (legacy support)');
-    } catch (e) {
-      debugPrint('Failed to migrate preferences: $e');
-      // Don't rethrow - migration failures should not break the app
-    }
   }
 
   /// Clears all models of a specific type from lists (replace policy)

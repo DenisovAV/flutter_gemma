@@ -116,8 +116,6 @@ class EmbeddingModelDownloadService {
         throw UnsupportedError('Embedding model download is not supported on web platform');
       }
       
-      double modelProgress = 0.0;
-      double tokenizerProgress = 0.0;
 
 
       // Use plugin's unified model manager with new API

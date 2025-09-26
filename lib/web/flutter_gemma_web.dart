@@ -547,7 +547,7 @@ class WebModelManager extends ModelFileManager {
     for (int progress = 0; progress <= 100; progress += 10) {
       yield progress;
       if (progress < 100) {
-        await Future.delayed(Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 50));
       }
     }
 

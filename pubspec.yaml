@@ -1,6 +1,6 @@
 name: flutter_gemma
 description: "The plugin allows running the Gemma AI model locally on a device from a Flutter application. Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.24."
-version: 0.10.6
+version: 0.11.0
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
 

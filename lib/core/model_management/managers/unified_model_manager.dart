@@ -53,6 +53,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Downloads a model with progress tracking
+  @override
   Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token}) async* {
     await _ensureInitialized();
 
@@ -68,6 +69,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Downloads a model without progress tracking
+  @override
   Future<void> downloadModel(ModelSpec spec, {String? token}) async {
     await _ensureInitialized();
 
@@ -83,6 +85,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Checks if a model is installed and valid
+  @override
   Future<bool> isModelInstalled(ModelSpec spec) async {
     await _ensureInitialized();
 
@@ -97,6 +100,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Deletes a model and all its files
+  @override
   Future<void> deleteModel(ModelSpec spec) async {
     await _ensureInitialized();
 
@@ -112,6 +116,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Gets all installed models for a specific type
+  @override
   Future<List<String>> getInstalledModels(ModelManagementType type) async {
     await _ensureInitialized();
 
@@ -126,6 +131,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Checks if ANY model of the given type is installed
+  @override
   Future<bool> isAnyModelInstalled(ModelManagementType type) async {
     await _ensureInitialized();
 
@@ -138,6 +144,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Performs cleanup of orphaned files
+  @override
   Future<void> performCleanup() async {
     await _ensureInitialized();
 
@@ -153,6 +160,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Validates all files for a model specification
+  @override
   Future<bool> validateModel(ModelSpec spec) async {
     await _ensureInitialized();
 
@@ -167,6 +175,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Gets the file paths for an installed model
+  @override
   Future<Map<String, String>?> getModelFilePaths(ModelSpec spec) async {
     await _ensureInitialized();
 
@@ -264,7 +273,7 @@ class MobileModelManager extends ModelFileManager {
     for (int progress = 0; progress <= 100; progress += 10) {
       yield progress;
       if (progress < 100) {
-        await Future.delayed(Duration(milliseconds: 50));
+        await Future.delayed(const Duration(milliseconds: 50));
       }
     }
 
@@ -366,6 +375,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Gets storage statistics
+  @override
   Future<Map<String, int>> getStorageStats() async {
     await _ensureInitialized();
 

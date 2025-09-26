@@ -4,7 +4,6 @@ class MobileInferenceModel extends InferenceModel {
   MobileInferenceModel({
     required this.maxTokens,
     required this.onClose,
-    required this.modelManager,
     required this.modelType,
     this.fileType = ModelFileType.task,
     this.preferredBackend,
@@ -55,7 +54,6 @@ class MobileInferenceModel extends InferenceModel {
   @override
   final int maxTokens;
   final VoidCallback onClose;
-  final MobileModelManager modelManager;
   final PreferredBackend? preferredBackend;
   final List<int>? supportedLoraRanks;
   final bool supportImage;
@@ -85,12 +83,8 @@ class MobileInferenceModel extends InferenceModel {
     }
     final completer = _createCompleter = Completer<InferenceModelSession>();
     try {
-      final (isLoraInstalled, File? loraFile) = await (
-        modelManager.isLoraInstalled,
-        modelManager._loraFile,
-      ).wait;
-
-      final resolvedLoraPath = (isLoraInstalled && loraFile != null) ? loraFile.path : loraPath;
+      // TODO: Add LoRA support to unified system if needed
+      final resolvedLoraPath = loraPath;
 
       await _platformService.createSession(
         randomSeed: randomSeed,

@@ -19,7 +19,7 @@ val flutterVersionName = localProperties.getProperty("flutter.versionName") ?: "
 android {
     namespace = "dev.flutterberlin.flutter_gemma_example"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     aaptOptions {
         noCompress("tflite", "safetensors", "bin", "model", "task")

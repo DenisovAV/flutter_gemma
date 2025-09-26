@@ -183,9 +183,12 @@ void main() {
         processedImage: processedImage,
       );
 
-      expect(validation.isValid, isFalse);  // Actual value from debug output
-      expect(validation.isCorrupted, isTrue);  // Actual value from debug output
-      expect(validation.confidence, equals(0.8));  // Actual value from debug output
+      // This test should PASS when the bug in validateModelResponse is fixed
+      // BUG in MultimodalImageHandler.validateModelResponse lines 210-217:
+      // Returns wrong values for successful validation (isValid: false, isCorrupted: true)
+      expect(validation.isValid, isTrue);  // Should be true for normal response
+      expect(validation.isCorrupted, isFalse);  // Should be false for normal response
+      expect(validation.confidence, lessThan(0.5));  // Should be low confidence for no corruption
     });
   });
 }

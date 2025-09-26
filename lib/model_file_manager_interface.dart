@@ -1,3 +1,5 @@
+import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+
 /// Policy for handling old models when switching to new ones
 enum ModelReplacePolicy {
   /// Keep all models on disk (default)
@@ -7,106 +9,57 @@ enum ModelReplacePolicy {
 }
 
 abstract class ModelFileManager {
-  /// Whether the model is installed (i.e. downloaded, copied from assets or path to the file is set manually)
-  /// and ready to be initialized and used.
-  Future<bool> get isModelInstalled;
+  /// Check if a model is installed and valid
+  Future<bool> isModelInstalled(ModelSpec spec);
 
-  /// Whether the lora weights are installed (i.e. downloaded, copied from assets or path to the file is set manually)
-  /// and ready to use.
-  Future<bool> get isLoraInstalled;
+  /// Downloads a model with progress tracking
+  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token});
 
-  /// Sets the path to the model and lora weights files and installs them.
-  /// Use this method to manage the files manually.
-  ///
-  /// {@macro gemma.load_model}
-  Future<void> setModelPath(String path, {String? loraPath});
+  /// Downloads a model without progress tracking
+  Future<void> downloadModel(ModelSpec spec, {String? token});
 
-  /// Sets the path to the lora weights file.
-  /// Use this method to manage the lora weights file manually.
-  ///
-  /// {@macro gemma.load_weights}
-  Future<void> setLoraWeightsPath(String path);
+  /// Deletes a model and all its files
+  Future<void> deleteModel(ModelSpec spec);
 
-  /// Downloads the model and lora weights from the network and installs them.
-  ///
-  /// [token] Optional authentication token for accessing the model files.
-  ///
-  /// {@template gemma.load_model}
-  /// Model should be loaded before initialization.
-  ///
-  /// This method can be safely called multiple times. Model and lora weights will be loaded only if they doesn't exist.
-  ///
-  /// To reload the model, call [deleteModel] first. To reload the lora weights, call [deleteLoraWeights] first.
-  /// {@endtemplate}
-  Future<void> downloadModelFromNetwork(String url, {String? loraUrl, String? token});
+  /// Gets all installed models for a specific type
+  Future<List<String>> getInstalledModels(ModelManagementType type);
 
-  /// Downloads the model and lora weights from the network and installs it with progress.
-  ///
-  /// [token] Optional authentication token for accessing the model files.
-  ///
-  /// {@macro gemma.load_model}
-  Stream<int> downloadModelFromNetworkWithProgress(String url, {String? loraUrl, String? token});
+  /// Checks if ANY model of the given type is installed
+  Future<bool> isAnyModelInstalled(ModelManagementType type);
 
-  /// Downloads the lora weights from the network and installs it.
-  ///
-  /// [token] Optional authentication token for accessing the model files.
-  ///
-  /// {@template gemma.load_weights}
-  /// This method can be safely called multiple times. Lora weights will be loaded only if they doesn't exist.
-  ///
-  /// To reload the lora weights, call [deleteLoraWeights] first.
-  /// {@endtemplate}
-  Future<void> downloadLoraWeightsFromNetwork(String loraUrl, {String? token});
+  /// Performs cleanup of orphaned files
+  Future<void> performCleanup();
 
-  /// Installs the model and lora weights from the asset.
-  ///
-  /// {@macro gemma.load_model}
-  ///
-  /// {@template gemma.asset_model}
-  /// This method should be used only for development purpose.
-  /// Never embed neither model nor lora weights in the production app.
-  /// {@endtemplate}
+  /// Validates all files for a model specification
+  Future<bool> validateModel(ModelSpec spec);
+
+  /// Gets the file paths for an installed model
+  Future<Map<String, String>?> getModelFilePaths(ModelSpec spec);
+
+  /// Gets storage statistics
+  Future<Map<String, int>> getStorageStats();
+
+  /// Ensures a model is ready for use, handling all necessary operations
+  Future<void> ensureModelReady(String filename, String url);
+
+  /// Installs model from Flutter assets (debug only)
   Future<void> installModelFromAsset(String path, {String? loraPath});
 
-  /// Installs the lora weights from the asset.
-  ///
-  /// {@macro gemma.load_weights}
-  ///
-  /// {@macro gemma.asset_model}
-  Future<void> installLoraWeightsFromAsset(String path);
-
-  /// Installs the model and lora weights from the asset with progress.
-  ///
-  /// {@macro gemma.load_model}
-  ///
-  /// {@macro gemma.asset_model}
+  /// Installs model from Flutter assets with progress tracking (debug only)
   Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath});
 
-  /// Deletes the loaded model from storage and uninstalls it.
-  /// If model was installed using the [setModelPath] method, it will only be uninstalled.
-  ///
-  /// Nothing happens if the model is not loaded.
-  ///
-  /// Also, closes the inference if it is initialized.
-  Future<void> deleteModel();
+  /// Sets direct path to existing model files
+  Future<void> setModelPath(String path, {String? loraPath});
 
-  /// Deletes the loaded lora weights. Nothing happens if the lora weights are not loaded.
-  ///
-  /// Also, closes the inference if it is initialized.
-  Future<void> deleteLoraWeights();
-
-  /// Forces update of the cached model filename - useful when switching between different models
-  Future<void> forceUpdateModelFilename(String filename);
-
-  /// Clears all model cache and resets state - useful for model switching
+  /// Clears current model cache/state
   Future<void> clearModelCache();
 
-  /// Ensures the specified model is ready for use, applying the current replace policy
-  Future<void> ensureModelReady(String targetModel, String modelUrl);
+  /// Sets path to LoRA weights for current model
+  Future<void> setLoraWeightsPath(String path);
 
-  /// Sets the policy for handling old models when switching
-  Future<void> setReplacePolicy(ModelReplacePolicy policy);
+  /// Removes LoRA weights from current model
+  Future<void> deleteLoraWeights();
 
-  /// Gets the current replace policy
-  ModelReplacePolicy get replacePolicy;
+  /// Deletes current active model (legacy method without parameters)
+  Future<void> deleteCurrentModel();
 }

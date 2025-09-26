@@ -33,6 +33,8 @@ There is an example of using:
 - **📥 Enhanced Downloads:** Smart retry logic and ETag handling for reliable model downloads from HuggingFace CDN
 - **🔧 Download Reliability:** Automatic resume/restart logic for interrupted downloads with exponential backoff
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
+- **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models (NEW!)
+- **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 
 ## Model File Types
 
@@ -665,7 +667,90 @@ chat.generateChatResponseAsync().listen((response) {
 3. Model calls: `change_background_color(color: 'blue')`
 4. Model explains: "Blue is calming because it's associated with sky and ocean..."
 
-10. **Checking Token Usage**
+10. **📊 Text Embedding Models (NEW!)**
+
+Generate vector embeddings from text using specialized embedding models. These models convert text into numerical vectors that can be used for semantic similarity, search, and RAG applications.
+
+**Supported Embedding Models:**
+- **EmbeddingGemma models** (256, 512, 1024, 2048 dimensions)
+- **Gecko 256** (256 dimensions)
+
+**Download Embedding Models:**
+
+```dart
+// Create embedding model specification
+final embeddingSpec = MobileModelManager.createEmbeddingSpec(
+  name: 'EmbeddingGemma 1024',
+  modelUrl: 'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
+  tokenizerUrl: 'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
+);
+
+// Download with progress tracking
+final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+mobileManager.downloadModelWithProgress(embeddingSpec, token: 'your_hf_token').listen(
+  (progress) => print('Download progress: ${progress.overallProgress}%'),
+  onError: (error) => print('Download error: $error'),
+  onDone: () => print('Download completed'),
+);
+```
+
+**Generate Text Embeddings:**
+
+```dart
+// Create embedding model instance with downloaded files
+final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
+  modelPath: '/path/to/embeddinggemma-300M_seq1024_mixed-precision.tflite',
+  tokenizerPath: '/path/to/sentencepiece.model',
+  preferredBackend: PreferredBackend.gpu, // Optional: use GPU acceleration
+);
+
+// Generate embedding for single text
+final embedding = await embeddingModel.generateEmbedding('Hello, world!');
+print('Embedding vector: ${embedding.take(5)}...'); // Show first 5 dimensions
+print('Embedding dimension: ${embedding.length}');
+
+// Generate embeddings for multiple texts
+final embeddings = await embeddingModel.generateEmbeddings([
+  'Hello, world!',
+  'How are you?',
+  'Flutter is awesome!'
+]);
+print('Generated ${embeddings.length} embeddings');
+
+// Get embedding model dimension
+final dimension = await embeddingModel.getDimension();
+print('Model dimension: $dimension');
+
+// Calculate cosine similarity between embeddings
+double cosineSimilarity(List<double> a, List<double> b) {
+  double dotProduct = 0.0;
+  double normA = 0.0;
+  double normB = 0.0;
+
+  for (int i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  return dotProduct / (math.sqrt(normA) * math.sqrt(normB));
+}
+
+final similarity = cosineSimilarity(embeddings[0], embeddings[1]);
+print('Similarity: $similarity');
+
+// Close model when done
+await embeddingModel.close();
+```
+
+
+**Important Notes:**
+- EmbeddingGemma models require HuggingFace authentication token for gated repositories
+- Embedding models use the same unified download and management system as inference models
+- Each embedding model consists of both model file (.tflite) and tokenizer file (.model)
+- Different dimension options allow trade-offs between accuracy and performance
+
+11. **Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
 
 ```dart
@@ -775,6 +860,13 @@ chat.generateChatResponseAsync().listen((response) {
 - [Gemma 3 Nano E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) - 1.5B parameters with vision support
 - [Gemma 3 Nano E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) - 1.5B parameters with vision support
 
+### 📊 Text Embedding Models (NEW!)
+- [EmbeddingGemma 256](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 256 dimensions (179MB)
+- [EmbeddingGemma 512](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 512 dimensions (179MB)
+- [EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 1024 dimensions (183MB)
+- [EmbeddingGemma 2048](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 2048 dimensions (196MB)
+- [Gecko 256](https://huggingface.co/litert-community/Gecko-110m-en) - 110M parameters, 256 dimensions (114MB)
+
 ## 🛠️ Model Function Calling Support
 
 Function calling is currently supported by the following models:
@@ -875,21 +967,23 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ## **🚀 What's New**
 
-✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano, Hammer 2.1, DeepSeek, and Qwen2.5 models)  
-✅ **🧠 Thinking Mode** - View the reasoning process of DeepSeek models with interactive thinking bubbles  
-✅ **💬 Enhanced Response Types** - New `TextResponse`, `FunctionCallResponse`, and `ThinkingResponse` types for better handling  
-✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models  
-✅ **📨 Enhanced Message API** - Support for different message types including tool responses  
-✅ **⚙️ Backend Switching** - Choose between CPU and GPU backends individually for each model in the example app  
-✅ **🔍 Advanced Model Filtering** - Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI  
-✅ **📊 Model Sorting** - Sort models alphabetically, by size, or use default order  
-✅ **🚀 New Models** - Added Gemma 3 270M, TinyLlama 1.1B, Hammer 2.1 0.5B, and Llama 3.2 1B support  
-✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (text-only)  
+✅ **📊 Text Embeddings** - Generate vector embeddings with EmbeddingGemma and Gecko models for semantic search applications
+✅ **🔧 Unified Model Management** - Single system for managing both inference and embedding models with automatic validation
+✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano, Hammer 2.1, DeepSeek, and Qwen2.5 models)
+✅ **🧠 Thinking Mode** - View the reasoning process of DeepSeek models with interactive thinking bubbles
+✅ **💬 Enhanced Response Types** - New `TextResponse`, `FunctionCallResponse`, and `ThinkingResponse` types for better handling
+✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models
+✅ **📨 Enhanced Message API** - Support for different message types including tool responses
+✅ **⚙️ Backend Switching** - Choose between CPU and GPU backends individually for each model in the example app
+✅ **🔍 Advanced Model Filtering** - Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
+✅ **📊 Model Sorting** - Sort models alphabetically, by size, or use default order
+✅ **🚀 New Models** - Added Gemma 3 270M, TinyLlama 1.1B, Hammer 2.1 0.5B, and Llama 3.2 1B support
+✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (text-only)
 ✅ **💾 Memory Optimization** - Better resource management for multimodal models
 
 **Coming Soon:**
 - Full Multimodal Web Support
-- Text Embedder & On-Device RAG Pipelines
+- On-Device RAG Pipelines
 - Desktop Support (macOS, Windows, Linux)
 - Audio & Video Input
 - Audio Output (Text-to-Speech)

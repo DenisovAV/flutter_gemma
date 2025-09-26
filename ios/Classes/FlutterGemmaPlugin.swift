@@ -17,6 +17,9 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
     private var model: InferenceModel?
     private var session: InferenceSession?
+    
+    // Embedding-related properties
+    private var embeddingWrapper: GemmaEmbeddingWrapper?
 
     func createModel(
         maxTokens: Int64,
@@ -238,6 +241,207 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         completion(.failure(PigeonError(
             code: "stop_not_supported", 
             message: "Stop generation is not supported on iOS platform yet", 
+            details: nil
+        )))
+    }
+
+    // MARK: - RAG Methods (iOS Implementation)
+    
+    func createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void) {
+        print("[PLUGIN] Creating embedding model")
+        print("[PLUGIN] Model path: \(modelPath)")
+        print("[PLUGIN] Tokenizer path: \(tokenizerPath)")
+        print("[PLUGIN] Preferred backend: \(String(describing: preferredBackend))")
+
+        // Convert PreferredBackend to useGPU boolean
+        let useGPU = preferredBackend == .gpu || preferredBackend == .gpuFloat16 || preferredBackend == .gpuMixed || preferredBackend == .gpuFull
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                // Create embedding wrapper instance (like Android GemmaEmbeddingModel)
+                self.embeddingWrapper = try GemmaEmbeddingWrapper(
+                    modelPath: modelPath,
+                    tokenizerPath: tokenizerPath,
+                    useGPU: useGPU
+                )
+
+                // Initialize the wrapper
+                try self.embeddingWrapper?.initialize()
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Embedding wrapper created successfully")
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to create embedding model: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "EmbeddingCreationFailed",
+                        message: "Failed to create embedding model: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+    
+    func closeEmbeddingModel(completion: @escaping (Result<Void, Error>) -> Void) {
+        print("[PLUGIN] Closing embedding model")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            // Close and release embedding wrapper
+            self.embeddingWrapper?.close()
+            self.embeddingWrapper = nil
+
+            DispatchQueue.main.async {
+                print("[PLUGIN] Embedding model closed successfully")
+                completion(.success(()))
+            }
+        }
+    }
+    
+    func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void) {
+        print("[PLUGIN] Generating embedding for text: \(text)")
+
+        guard let embeddingWrapper = embeddingWrapper else {
+            completion(.failure(PigeonError(
+                code: "EmbeddingModelNotInitialized",
+                message: "Embedding model not initialized. Call createEmbeddingModel first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                // Generate embedding using our GemmaEmbeddingWrapper (already returns Double array)
+                let doubleEmbeddings = try embeddingWrapper.embed(text: text)
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Generated embedding with \(doubleEmbeddings.count) dimensions")
+                    completion(.success(doubleEmbeddings))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to generate embedding: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "EmbeddingGenerationFailed",
+                        message: "Failed to generate embedding: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+
+    func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[[Double]], Error>) -> Void) {
+        print("[PLUGIN] Generating embeddings for \(texts.count) texts")
+
+        guard let embeddingWrapper = embeddingWrapper else {
+            completion(.failure(PigeonError(
+                code: "EmbeddingModelNotInitialized",
+                message: "Embedding model not initialized. Call createEmbeddingModel first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                var embeddings: [[Double]] = []
+                for text in texts {
+                    let embedding = try embeddingWrapper.embed(text: text)
+                    embeddings.append(embedding)
+                }
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Generated \(embeddings.count) embeddings")
+                    completion(.success(embeddings))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to generate embeddings: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "EmbeddingGenerationFailed",
+                        message: "Failed to generate embeddings: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+
+    func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void) {
+        print("[PLUGIN] Getting embedding dimension")
+
+        guard let embeddingWrapper = embeddingWrapper else {
+            completion(.failure(PigeonError(
+                code: "EmbeddingModelNotInitialized",
+                message: "Embedding model not initialized. Call createEmbeddingModel first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                // Generate a small test embedding to get dimension
+                let testEmbedding = try embeddingWrapper.embed(text: "test")
+                let dimension = Int64(testEmbedding.count)
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Embedding dimension: \(dimension)")
+                    completion(.success(dimension))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to get embedding dimension: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "EmbeddingDimensionFailed",
+                        message: "Failed to get embedding dimension: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+    
+    func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
+            details: nil
+        )))
+    }
+    
+    func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "Unimplemented",
+            message: "RAG is not supported on iOS platform yet",
             details: nil
         )))
     }

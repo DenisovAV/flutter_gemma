@@ -74,6 +74,62 @@ enum PreferredBackend: Int {
   case tpu = 6
 }
 
+/// Generated class from Pigeon that represents data sent in messages.
+struct RetrievalResult {
+  var id: String
+  var content: String
+  var similarity: Double
+  var metadata: String? = nil
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> RetrievalResult? {
+    let id = pigeonVar_list[0] as! String
+    let content = pigeonVar_list[1] as! String
+    let similarity = pigeonVar_list[2] as! Double
+    let metadata: String? = nilOrValue(pigeonVar_list[3])
+
+    return RetrievalResult(
+      id: id,
+      content: content,
+      similarity: similarity,
+      metadata: metadata
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      id,
+      content,
+      similarity,
+      metadata,
+    ]
+  }
+}
+
+/// Generated class from Pigeon that represents data sent in messages.
+struct VectorStoreStats {
+  var documentCount: Int64
+  var vectorDimension: Int64
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> VectorStoreStats? {
+    let documentCount = pigeonVar_list[0] as! Int64
+    let vectorDimension = pigeonVar_list[1] as! Int64
+
+    return VectorStoreStats(
+      documentCount: documentCount,
+      vectorDimension: vectorDimension
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      documentCount,
+      vectorDimension,
+    ]
+  }
+}
+
 private class PigeonInterfacePigeonCodecReader: FlutterStandardReader {
   override func readValue(ofType type: UInt8) -> Any? {
     switch type {
@@ -83,6 +139,10 @@ private class PigeonInterfacePigeonCodecReader: FlutterStandardReader {
         return PreferredBackend(rawValue: enumResultAsInt)
       }
       return nil
+    case 130:
+      return RetrievalResult.fromList(self.readValue() as! [Any?])
+    case 131:
+      return VectorStoreStats.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
     }
@@ -94,6 +154,12 @@ private class PigeonInterfacePigeonCodecWriter: FlutterStandardWriter {
     if let value = value as? PreferredBackend {
       super.writeByte(129)
       super.writeValue(value.rawValue)
+    } else if let value = value as? RetrievalResult {
+      super.writeByte(130)
+      super.writeValue(value.toList())
+    } else if let value = value as? VectorStoreStats {
+      super.writeByte(131)
+      super.writeValue(value.toList())
     } else {
       super.writeValue(value)
     }
@@ -127,6 +193,16 @@ protocol PlatformService {
   func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
   func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
   func stopGeneration(completion: @escaping (Result<Void, Error>) -> Void)
+  func createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void)
+  func closeEmbeddingModel(completion: @escaping (Result<Void, Error>) -> Void)
+  func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void)
+  func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[[Double]], Error>) -> Void)
+  func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void)
+  func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void)
+  func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void)
+  func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void)
+  func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void)
+  func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -303,6 +379,175 @@ class PlatformServiceSetup {
       }
     } else {
       stopGenerationChannel.setMessageHandler(nil)
+    }
+    let createEmbeddingModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      createEmbeddingModelChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let modelPathArg = args[0] as! String
+        let tokenizerPathArg = args[1] as! String
+        let preferredBackendArg: PreferredBackend? = nilOrValue(args[2])
+        api.createEmbeddingModel(modelPath: modelPathArg, tokenizerPath: tokenizerPathArg, preferredBackend: preferredBackendArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      createEmbeddingModelChannel.setMessageHandler(nil)
+    }
+    let closeEmbeddingModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      closeEmbeddingModelChannel.setMessageHandler { _, reply in
+        api.closeEmbeddingModel { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      closeEmbeddingModelChannel.setMessageHandler(nil)
+    }
+    let generateEmbeddingFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      generateEmbeddingFromModelChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let textArg = args[0] as! String
+        api.generateEmbeddingFromModel(text: textArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      generateEmbeddingFromModelChannel.setMessageHandler(nil)
+    }
+    let generateEmbeddingsFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      generateEmbeddingsFromModelChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let textsArg = args[0] as! [String]
+        api.generateEmbeddingsFromModel(texts: textsArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      generateEmbeddingsFromModelChannel.setMessageHandler(nil)
+    }
+    let getEmbeddingDimensionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getEmbeddingDimensionChannel.setMessageHandler { _, reply in
+        api.getEmbeddingDimension { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getEmbeddingDimensionChannel.setMessageHandler(nil)
+    }
+    let initializeVectorStoreChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.initializeVectorStore\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      initializeVectorStoreChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let databasePathArg = args[0] as! String
+        api.initializeVectorStore(databasePath: databasePathArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      initializeVectorStoreChannel.setMessageHandler(nil)
+    }
+    let addDocumentChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addDocument\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addDocumentChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let idArg = args[0] as! String
+        let contentArg = args[1] as! String
+        let embeddingArg = args[2] as! [Double]
+        let metadataArg: String? = nilOrValue(args[3])
+        api.addDocument(id: idArg, content: contentArg, embedding: embeddingArg, metadata: metadataArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addDocumentChannel.setMessageHandler(nil)
+    }
+    let searchSimilarChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.searchSimilar\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      searchSimilarChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let queryEmbeddingArg = args[0] as! [Double]
+        let topKArg = args[1] as! Int64
+        let thresholdArg = args[2] as! Double
+        api.searchSimilar(queryEmbedding: queryEmbeddingArg, topK: topKArg, threshold: thresholdArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      searchSimilarChannel.setMessageHandler(nil)
+    }
+    let getVectorStoreStatsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.getVectorStoreStats\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getVectorStoreStatsChannel.setMessageHandler { _, reply in
+        api.getVectorStoreStats { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getVectorStoreStatsChannel.setMessageHandler(nil)
+    }
+    let clearVectorStoreChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.clearVectorStore\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      clearVectorStoreChannel.setMessageHandler { _, reply in
+        api.clearVectorStore { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      clearVectorStoreChannel.setMessageHandler(nil)
     }
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
+import 'package:flutter_gemma_example/embedding_models_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -40,7 +41,7 @@ class HomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 48),
             _NavigationCard(
-              title: 'All Models',
+              title: 'Inference Models',
               subtitle: 'Browse and test all available Gemma models',
               icon: Icons.model_training,
               color: Colors.blue,
@@ -49,6 +50,21 @@ class HomeScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute<void>(
                     builder: (context) => const ModelSelectionScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            _NavigationCard(
+              title: 'Embedding Models',
+              subtitle: 'Download and test embedding models for RAG',
+              icon: Icons.search,
+              color: Colors.green,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => const EmbeddingModelsScreen(),
                   ),
                 );
               },

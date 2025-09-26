@@ -1,7 +1,8 @@
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
+import 'base_model.dart';
 
-enum Model {
+enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
   // Gemma 3 Nano models (Multimodal + Function Calls)
@@ -194,21 +195,37 @@ enum Model {
   );
 
   // Define fields for the enum
+  @override
   final String url;
+  @override
   final String filename;
+  @override
   final String displayName;
+  @override
   final String size;
+  @override
   final String licenseUrl;
+  @override
   final bool needsAuth;
+  @override
   final bool localModel;
+  @override
   final PreferredBackend preferredBackend;
+  @override
   final ModelType modelType;
+  @override
   final double temperature;
+  @override
   final int topK;
+  @override
   final double topP;
+  @override
   final bool supportImage;
+  @override
   final int maxTokens;
+  @override
   final int? maxNumImages;
+  @override
   final bool supportsFunctionCalls;
   final bool isThinking;
   final ModelFileType fileType;
@@ -234,4 +251,15 @@ enum Model {
     this.isThinking = false,
     this.fileType = ModelFileType.task,
   });
+
+  // BaseModel interface implementation
+  @override
+  String get name => toString().split('.').last;
+  
+  @override
+  bool get isEmbeddingModel => false;
+
+  // InferenceModelInterface implementation  
+  @override
+  bool get supportsThinking => isThinking;
 }

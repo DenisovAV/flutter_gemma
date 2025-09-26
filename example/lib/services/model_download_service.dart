@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,13 +32,32 @@ class ModelDownloadService {
 
   /// Helper method to get the file path.
   Future<String> getFilePath() async {
+    // Use the same path correction logic as the unified system
     final directory = await getApplicationDocumentsDirectory();
-    return '${directory.path}/$modelFilename';
+    // Apply Android path correction for consistency with unified download system
+    final correctedPath = directory.path.contains('/data/user/0/')
+      ? directory.path.replaceFirst('/data/user/0/', '/data/data/')
+      : directory.path;
+    return '$correctedPath/$modelFilename';
   }
 
   /// Checks if the model file exists and matches the remote file size.
   Future<bool> checkModelExistence(String token) async {
     try {
+      // First check via unified system (which handles SharedPreferences correctly)
+      final spec = MobileModelManager.createInferenceSpec(
+        name: modelFilename,
+        modelUrl: modelUrl,
+      );
+
+      final manager = FlutterGemmaPlugin.instance.modelManager;
+      final isInstalled = await manager.isModelInstalled(spec);
+
+      if (isInstalled) {
+        return true;
+      }
+
+      // Fallback: check physical file existence with size validation
       final filePath = await getFilePath();
       final file = File(filePath);
 
@@ -68,12 +88,18 @@ class ModelDownloadService {
     required Function(double) onProgress,
   }) async {
     try {
-      final stream = FlutterGemmaPlugin.instance.modelManager.downloadModelFromNetworkWithProgress(modelUrl, token: token);
+      // Create model spec for new API
+      final spec = MobileModelManager.createInferenceSpec(
+        name: modelFilename,
+        modelUrl: modelUrl,
+      );
 
-      // Wait for stream to complete - same logic as original but with new downloader
+      final stream = FlutterGemmaPlugin.instance.modelManager.downloadModelWithProgress(spec, token: token);
+
+      // Wait for stream to complete - convert DownloadProgress to double
       await for (final progress in stream) {
-        // Keep progress as 0-100 (double)
-        onProgress(progress.toDouble());
+        // Convert overall progress to double (0-100)
+        onProgress(progress.overallProgress.toDouble());
       }
     } catch (e) {
       if (kDebugMode) {

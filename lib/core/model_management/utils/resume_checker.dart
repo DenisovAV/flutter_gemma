@@ -57,7 +57,7 @@ class ResumeChecker {
           for (final item in files) {
             final name = item.path.split('/').last;
             final isFile = item is File;
-            final size = isFile ? await (item as File).length() : 0;
+            final size = isFile ? await item.length() : 0;
             debugPrint('  - $name ${isFile ? "($size bytes)" : "(directory)"}');
           }
         }
@@ -150,27 +150,27 @@ class ResumeChecker {
       final status = entry.value;
 
       recommendations[filename] = switch (status) {
-        ResumeStatus.canResume => ResumeRecommendation(
+        ResumeStatus.canResume => const ResumeRecommendation(
             action: ResumeAction.resume,
             reason: 'File can be resumed from partial state',
           ),
-        ResumeStatus.fileComplete => ResumeRecommendation(
+        ResumeStatus.fileComplete => const ResumeRecommendation(
             action: ResumeAction.skip,
             reason: 'File is already complete and valid',
           ),
-        ResumeStatus.cannotResume => ResumeRecommendation(
+        ResumeStatus.cannotResume => const ResumeRecommendation(
             action: ResumeAction.restart,
             reason: 'Resume not possible, should delete and restart',
           ),
-        ResumeStatus.noTask => ResumeRecommendation(
+        ResumeStatus.noTask => const ResumeRecommendation(
             action: ResumeAction.restart,
             reason: 'No registered task, should start fresh download',
           ),
-        ResumeStatus.fileNotFound => ResumeRecommendation(
+        ResumeStatus.fileNotFound => const ResumeRecommendation(
             action: ResumeAction.download,
             reason: 'File not found, should start new download',
           ),
-        ResumeStatus.error => ResumeRecommendation(
+        ResumeStatus.error => const ResumeRecommendation(
             action: ResumeAction.restart,
             reason: 'Error during resume check, safer to restart',
           ),

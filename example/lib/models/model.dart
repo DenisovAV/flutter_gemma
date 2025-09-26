@@ -195,21 +195,37 @@ enum Model implements InferenceModelInterface {
   );
 
   // Define fields for the enum
+  @override
   final String url;
+  @override
   final String filename;
+  @override
   final String displayName;
+  @override
   final String size;
+  @override
   final String licenseUrl;
+  @override
   final bool needsAuth;
+  @override
   final bool localModel;
+  @override
   final PreferredBackend preferredBackend;
+  @override
   final ModelType modelType;
+  @override
   final double temperature;
+  @override
   final int topK;
+  @override
   final double topP;
+  @override
   final bool supportImage;
+  @override
   final int maxTokens;
+  @override
   final int? maxNumImages;
+  @override
   final bool supportsFunctionCalls;
   final bool isThinking;
   final ModelFileType fileType;

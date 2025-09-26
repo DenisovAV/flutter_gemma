@@ -97,7 +97,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Model Information',
                       style: TextStyle(
                         fontSize: 18,
@@ -117,7 +117,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
             const SizedBox(height: 24),
             
             // Input section
-            Text(
+            const Text(
               'Test Embedding Generation',
               style: TextStyle(
                 fontSize: 18,
@@ -133,14 +133,14 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Enter text to generate embeddings...',
-                hintStyle: TextStyle(color: Colors.white60),
-                border: OutlineInputBorder(
+                hintStyle: const TextStyle(color: Colors.white60),
+                border: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white30),
                 ),
-                enabledBorder: OutlineInputBorder(
+                enabledBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white30),
                 ),
-                focusedBorder: OutlineInputBorder(
+                focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.blue),
                 ),
                 filled: true,
@@ -236,12 +236,12 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
             width: 80,
             child: Text(
               label,
-              style: TextStyle(color: Colors.white70),
+              style: const TextStyle(color: Colors.white70),
             ),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w500,
             ),
@@ -340,9 +340,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
           children: [
             const Icon(Icons.error, size: 48, color: Colors.red),
             const SizedBox(height: 16),
-            Text(
+            const Text(
               'Error generating embedding',
-              style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Expanded(

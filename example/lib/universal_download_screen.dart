@@ -167,51 +167,6 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     }
   }
 
-  void _showTokenDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('HuggingFace Token Required'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('This model requires authentication. Please enter your HuggingFace token:'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _tokenController,
-              decoration: const InputDecoration(
-                labelText: 'Token',
-                hintText: 'hf_...',
-              ),
-              obscureText: true,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final token = _tokenController.text.trim();
-              if (token.isNotEmpty) {
-                _token = token;
-                if (widget.model.isEmbeddingModel) {
-                  await _embeddingDownloadService!.saveToken(token);
-                } else {
-                  await _inferenceDownloadService!.saveToken(token);
-                }
-                Navigator.pop(context);
-                _downloadModel();
-              }
-            },
-            child: const Text('Save & Download'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showErrorDialog(String error) {
     showDialog(

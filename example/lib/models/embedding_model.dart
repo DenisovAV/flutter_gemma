@@ -72,6 +72,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   final String size;
   @override
   final int dimension;
+  @override
   final bool needsAuth;
 
   /// Constructor

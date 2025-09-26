@@ -202,9 +202,6 @@ class UnifiedDownloadEngine {
         // print('File not found for $filename - starting new download');
         break;
 
-      default:
-        // print('Unknown resume status $resumeStatus for $filename - continuing with new download');
-        break;
     }
 
     // Use HuggingFace wrapper for HF URLs to handle ETag issues
@@ -593,8 +590,8 @@ class UnifiedDownloadEngine {
       final downloader = FileDownloader();
 
       // Reset all tasks in our download group (cancels active tasks)
-      final resetCount = await downloader.reset(group: downloadGroup);
-      // print('Reset $resetCount background_downloader tasks');
+      await downloader.reset(group: downloadGroup);
+      // Reset background_downloader tasks
 
     } catch (e) {
       // print('Background_downloader cleanup failed: $e');
@@ -758,10 +755,8 @@ class UnifiedDownloadEngine {
       // Also reset any background_downloader tasks for this type
       final downloader = FileDownloader();
       try {
-        final resetCount = await downloader.reset(group: downloadGroup);
-        if (resetCount > 0) {
-          // print('Reset $resetCount background_downloader tasks for type ${type.name}');
-        }
+        await downloader.reset(group: downloadGroup);
+        // Reset background_downloader tasks for type ${type.name}
       } catch (e) {
         // print('Failed to reset background_downloader tasks: $e');
       }

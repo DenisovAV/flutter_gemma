@@ -1,3 +1,11 @@
+## 0.11.0
+- 🚀 **Embedding Models Support**: Added full support for text embedding models
+- 🔧 **Unified Model System**: All models (inference and embedding) now use the same download and management pipeline
+- 📝 **ModelSpec Architecture**: Introduced `InferenceModelSpec` and `EmbeddingModelSpec` for better model organization
+- 🛡️ **Smart Cleanup System**: Added automatic cleanup of orphaned files with resume detection capabilities
+- 🔄 **Model Replace Policies**: Separate policies for model downloading `replace` and `keep`
+- 📱 **Example App Integration**: Added embedding models download screen and embeddings generation demo screen
+
 ## 0.10.6
 - 🔧 **Model Replace Policy**: Added configurable model replacement system with keep/replace options and `ensureModelReady()` method
 - 📥 **Enhanced Downloads**: Added HuggingFace CDN ETag issue handler with smart retry logic and exponential backoff

@@ -50,7 +50,7 @@ class HuggingFaceDownloader {
       final task = DownloadTask(
         url: url,
         group: _downloadGroup,
-        headers: token != null && token.isNotEmpty ? {
+        headers: token != null ? {
           'Authorization': 'Bearer $token',
           'Connection': 'keep-alive',
           // Attempt to work around CDN ETag issues

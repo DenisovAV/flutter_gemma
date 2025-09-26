@@ -13,7 +13,6 @@ class UnifiedDownloadEngine {
 
     try {
       final totalFiles = spec.files.length;
-      int completedFiles = 0;
 
       for (int i = 0; i < spec.files.length; i++) {
         final file = spec.files[i];
@@ -53,8 +52,7 @@ class UnifiedDownloadEngine {
           );
         }
 
-        completedFiles++;
-        // print('Completed file $completedFiles/$totalFiles: ${file.filename}');
+        // print('Completed file ${i + 1}/$totalFiles: ${file.filename}');
       }
 
       // Save to SharedPreferences ONLY after ALL files are successfully downloaded

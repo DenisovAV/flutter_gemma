@@ -252,6 +252,8 @@ class ModelPreferencesManager {
   }
 
   /// Legacy keys for migration (old single-model system)
+  /// Reserved for future migration functionality
+  // ignore: unused_element
   static List<String> _getLegacyModelPrefsKeys() {
     return [
       'installed_model_file_name',

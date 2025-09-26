@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_gemma/model_file_manager_interface.dart'; // For ModelReplacePolicy
@@ -8,7 +9,7 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 void main() {
   group('UnifiedModelManager Integration Tests', () {
     late Directory tempDir;
-    late UnifiedModelManager unifiedManager;
+    late MobileModelManager unifiedManager;
 
     setUpAll(() async {
       // Setup test environment
@@ -20,7 +21,7 @@ void main() {
       // Clear SharedPreferences for clean tests
       SharedPreferences.setMockInitialValues({});
 
-      unifiedManager = UnifiedModelManager();
+      unifiedManager = MobileModelManager();
       await unifiedManager.initialize();
     });
 
@@ -30,7 +31,7 @@ void main() {
 
     group('InferenceModelSpec Tests', () {
       test('creates and validates inference model spec', () async {
-        final spec = UnifiedModelManager.createInferenceSpec(
+        final spec = MobileModelManager.createInferenceSpec(
           name: 'test_inference',
           modelUrl: 'https://example.com/model.bin',
           replacePolicy: ModelReplacePolicy.keep,
@@ -45,7 +46,7 @@ void main() {
       });
 
       test('creates inference model spec with LoRA', () async {
-        final spec = UnifiedModelManager.createInferenceSpec(
+        final spec = MobileModelManager.createInferenceSpec(
           name: 'test_inference_lora',
           modelUrl: 'https://example.com/model.bin',
           loraUrl: 'https://example.com/lora.bin',
@@ -63,7 +64,7 @@ void main() {
 
     group('EmbeddingModelSpec Tests', () {
       test('creates and validates embedding model spec', () async {
-        final spec = UnifiedModelManager.createEmbeddingSpec(
+        final spec = MobileModelManager.createEmbeddingSpec(
           name: 'test_embedding',
           modelUrl: 'https://example.com/model.tflite',
           tokenizerUrl: 'https://example.com/tokenizer.json',
@@ -109,7 +110,7 @@ void main() {
 
     group('PreferencesManager Tests', () {
       test('saves and loads model files atomically', () async {
-        final spec = UnifiedModelManager.createEmbeddingSpec(
+        final spec = MobileModelManager.createEmbeddingSpec(
           name: 'test_prefs',
           modelUrl: 'https://example.com/model.tflite',
           tokenizerUrl: 'https://example.com/tokenizer.json',
@@ -121,10 +122,10 @@ void main() {
         // Check if saved correctly
         expect(await ModelPreferencesManager.isModelInstalled(spec), true);
 
-        // Check individual files
-        final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getString('embedding_model_file'), 'model.tflite');
-        expect(prefs.getString('embedding_tokenizer_file'), 'tokenizer.json');
+        // Check individual files using new API
+        final installedFiles = await ModelPreferencesManager.getInstalledFiles(ModelManagementType.embedding);
+        expect(installedFiles.contains('model.tflite'), true);
+        expect(installedFiles.contains('tokenizer.json'), true);
 
         // Clear and verify
         await ModelPreferencesManager.clearModelFiles(spec);
@@ -133,12 +134,12 @@ void main() {
 
       test('gets protected files correctly', () async {
         // Save multiple models
-        final inferenceSpec = UnifiedModelManager.createInferenceSpec(
+        final inferenceSpec = MobileModelManager.createInferenceSpec(
           name: 'test_inference',
           modelUrl: 'https://example.com/inference.bin',
         );
 
-        final embeddingSpec = UnifiedModelManager.createEmbeddingSpec(
+        final embeddingSpec = MobileModelManager.createEmbeddingSpec(
           name: 'test_embedding',
           modelUrl: 'https://example.com/embedding.tflite',
           tokenizerUrl: 'https://example.com/tokenizer.json',
@@ -148,6 +149,9 @@ void main() {
         await ModelPreferencesManager.saveModelFiles(embeddingSpec);
 
         final protectedFiles = await ModelPreferencesManager.getAllProtectedFiles();
+
+        // Debug: print actual files
+        debugPrint('Protected files found: $protectedFiles');
 
         expect(protectedFiles.length, 3); // inference.bin + embedding.tflite + tokenizer.json
         expect(protectedFiles.contains('inference.bin'), true);
@@ -159,12 +163,12 @@ void main() {
     group('UnifiedModelManager Core Tests', () {
       test('storage stats calculation', () async {
         // Create and save test models
-        final inferenceSpec = UnifiedModelManager.createInferenceSpec(
+        final inferenceSpec = MobileModelManager.createInferenceSpec(
           name: 'stats_test_inference',
           modelUrl: 'https://example.com/model1.bin',
         );
 
-        final embeddingSpec = UnifiedModelManager.createEmbeddingSpec(
+        final embeddingSpec = MobileModelManager.createEmbeddingSpec(
           name: 'stats_test_embedding',
           modelUrl: 'https://example.com/model2.tflite',
           tokenizerUrl: 'https://example.com/tokenizer2.json',
@@ -183,7 +187,7 @@ void main() {
       });
 
       test('model validation works correctly', () async {
-        final spec = UnifiedModelManager.createEmbeddingSpec(
+        final spec = MobileModelManager.createEmbeddingSpec(
           name: 'validation_test',
           modelUrl: 'https://example.com/valid_model.tflite',
           tokenizerUrl: 'https://example.com/valid_tokenizer.json',
@@ -197,14 +201,14 @@ void main() {
         final tokenizerFile = File('${tempDir.path}/valid_tokenizer.json');
 
         await modelFile.writeAsBytes(List.filled(2 * 1024 * 1024, 0)); // 2MB
-        await tokenizerFile.writeAsString('{"tokenizer": "valid"}');
+        await tokenizerFile.writeAsBytes(List.filled(2 * 1024 * 1024, 0)); // 2MB like model file
 
         // Save to prefs
         await ModelPreferencesManager.saveModelFiles(spec);
 
         // Now validation should pass (but may fail due to path mocking)
         // This test just verifies the method can be called
-        final validationResult = await unifiedManager.validateModel(spec);
+        await unifiedManager.validateModel(spec);
         // We don't assert true/false since path mocking may interfere
       });
 
@@ -213,12 +217,12 @@ void main() {
         await SharedPreferences.getInstance().then((prefs) => prefs.clear());
 
         // Add inference models
-        final inferenceSpec1 = UnifiedModelManager.createInferenceSpec(
+        final inferenceSpec1 = MobileModelManager.createInferenceSpec(
           name: 'inference1',
           modelUrl: 'https://example.com/model1.bin',
         );
 
-        final inferenceSpec2 = UnifiedModelManager.createInferenceSpec(
+        final inferenceSpec2 = MobileModelManager.createInferenceSpec(
           name: 'inference2',
           modelUrl: 'https://example.com/model2.bin',
           loraUrl: 'https://example.com/lora2.bin',
@@ -228,7 +232,7 @@ void main() {
         await ModelPreferencesManager.saveModelFiles(inferenceSpec2);
 
         // Add embedding models
-        final embeddingSpec = UnifiedModelManager.createEmbeddingSpec(
+        final embeddingSpec = MobileModelManager.createEmbeddingSpec(
           name: 'embedding1',
           modelUrl: 'https://example.com/embedding.tflite',
           tokenizerUrl: 'https://example.com/tokenizer.json',
@@ -248,8 +252,8 @@ void main() {
         expect(embeddingFiles.isNotEmpty, true);
 
         // Print for debugging
-        print('Inference files: $inferenceFiles');
-        print('Embedding files: $embeddingFiles');
+        debugPrint('Inference files: $inferenceFiles');
+        debugPrint('Embedding files: $embeddingFiles');
       });
     });
 
@@ -263,7 +267,7 @@ void main() {
       test('rollback works on preference save failure', () async {
         // This would require mocking SharedPreferences to simulate failures
         // For now, just test that the method exists and can be called
-        final spec = UnifiedModelManager.createInferenceSpec(
+        final spec = MobileModelManager.createInferenceSpec(
           name: 'rollback_test',
           modelUrl: 'https://example.com/test.bin',
         );

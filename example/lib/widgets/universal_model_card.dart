@@ -74,7 +74,7 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                           child: DropdownButton<PreferredBackend>(
                             value: selectedBackend,
                             isDense: true,
-                            items: [
+                            items: const [
                               DropdownMenuItem(
                                 value: PreferredBackend.cpu,
                                 child: Text('CPU', style: TextStyle(fontSize: 14.0)),

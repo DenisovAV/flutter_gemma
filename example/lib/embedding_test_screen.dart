@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart' as ExampleEmbeddingModel;
+import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
-  final ExampleEmbeddingModel.EmbeddingModel model;
+  final example_embedding_model.EmbeddingModel model;
   
   const EmbeddingTestScreen({super.key, required this.model});
 
@@ -131,20 +131,20 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
               controller: _textController,
               maxLines: 4,
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: 'Enter text to generate embeddings...',
-                hintStyle: const TextStyle(color: Colors.white60),
-                border: const OutlineInputBorder(
+                hintStyle: TextStyle(color: Colors.white60),
+                border: OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white30),
                 ),
-                enabledBorder: const OutlineInputBorder(
+                enabledBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white30),
                 ),
-                focusedBorder: const OutlineInputBorder(
+                focusedBorder: OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.blue),
                 ),
                 filled: true,
-                fillColor: const Color(0xFF1a3a5c),
+                fillColor: Color(0xFF1a3a5c),
               ),
             ),
             

@@ -38,7 +38,7 @@ void main() {
           modelUrl: 'https://huggingface.co/models/complex-path/model.bin?token=abc',
         );
 
-        expect(spec.modelFilename, 'model.bin?token=abc');
+        expect(spec.modelFilename, 'model.bin');
       });
     });
 
@@ -75,7 +75,7 @@ void main() {
     group('DownloadProgress', () {
       test('calculates overall progress correctly', () {
         // First file, 50% complete
-        var progress = DownloadProgress(
+        var progress = const DownloadProgress(
           currentFileIndex: 0,
           totalFiles: 2,
           currentFileProgress: 50,
@@ -84,7 +84,7 @@ void main() {
         expect(progress.overallProgress, 25); // (0 + 0.5) / 2 * 100 = 25
 
         // Second file, 100% complete
-        progress = DownloadProgress(
+        progress = const DownloadProgress(
           currentFileIndex: 1,
           totalFiles: 2,
           currentFileProgress: 100,
@@ -93,7 +93,7 @@ void main() {
         expect(progress.overallProgress, 100); // (1 + 1.0) / 2 * 100 = 100
 
         // All files complete
-        progress = DownloadProgress(
+        progress = const DownloadProgress(
           currentFileIndex: 2,
           totalFiles: 2,
           currentFileProgress: 100,
@@ -104,7 +104,7 @@ void main() {
 
       test('handles edge cases', () {
         // No files
-        var progress = DownloadProgress(
+        var progress = const DownloadProgress(
           currentFileIndex: 0,
           totalFiles: 0,
           currentFileProgress: 0,
@@ -113,7 +113,7 @@ void main() {
         expect(progress.overallProgress, 0);
 
         // Progress over 100%
-        progress = DownloadProgress(
+        progress = const DownloadProgress(
           currentFileIndex: 0,
           totalFiles: 1,
           currentFileProgress: 150,

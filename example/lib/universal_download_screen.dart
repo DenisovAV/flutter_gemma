@@ -7,7 +7,7 @@ import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/embedding_test_screen.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart' as ExampleEmbeddingModel;
+import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -52,7 +52,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   void _initializeServices() {
     if (widget.model.isEmbeddingModel) {
       _embeddingDownloadService = EmbeddingModelDownloadService(
-        model: widget.model as ExampleEmbeddingModel.EmbeddingModel,
+        model: widget.model as example_embedding_model.EmbeddingModel,
       );
     } else {
       _inferenceDownloadService = ModelDownloadService(
@@ -124,7 +124,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           });
         });
         
-        print('[UI] Embedding download completed');
+        debugPrint('[UI] Embedding download completed');
         
         setState(() {
           needToDownload = false;
@@ -235,7 +235,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Model Information',
               style: TextStyle(
                 fontSize: 18,
@@ -248,7 +248,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             _buildInfoRow('Type:', widget.model.isEmbeddingModel ? 'Embedding Model' : 'Inference Model'),
             
             if (widget.model.isEmbeddingModel) ...[
-              _buildInfoRow('Dimension:', '${(widget.model as ExampleEmbeddingModel.EmbeddingModel).dimension}D'),
+              _buildInfoRow('Dimension:', '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D'),
             ] else ...[
               if ((widget.model as InferenceModelInterface).supportImage) _buildInfoRow('Multimodal:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsFunctionCalls) _buildInfoRow('Functions:', 'Yes'),
@@ -269,12 +269,12 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             width: 100,
             child: Text(
               label,
-              style: TextStyle(color: Colors.white70),
+              style: const TextStyle(color: Colors.white70),
             ),
           ),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w500,
             ),
@@ -296,7 +296,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Download Progress',
           style: TextStyle(
             fontSize: 16,
@@ -308,12 +308,12 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         LinearProgressIndicator(
           value: _progress / 100,
           backgroundColor: Colors.white30,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
         ),
         const SizedBox(height: 8),
         Text(
           '${_progress.toStringAsFixed(1)}%',
-          style: TextStyle(color: Colors.white70),
+          style: const TextStyle(color: Colors.white70),
         ),
       ],
     );
@@ -323,7 +323,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Download Progress',
           style: TextStyle(
             fontSize: 16,
@@ -336,24 +336,24 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         // Model progress
         Text(
           'Model (${widget.model.size})',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
         ),
         const SizedBox(height: 8),
         LinearProgressIndicator(
           value: _modelProgress / 100,
           backgroundColor: Colors.white30,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
         ),
         const SizedBox(height: 4),
         Text(
           '${_modelProgress.toStringAsFixed(1)}%',
-          style: TextStyle(color: Colors.white60, fontSize: 12),
+          style: const TextStyle(color: Colors.white60, fontSize: 12),
         ),
         
         const SizedBox(height: 16),
         
         // Tokenizer progress  
-        Text(
+        const Text(
           'Tokenizer (~2MB)',
           style: TextStyle(color: Colors.white70, fontSize: 14),
         ),
@@ -361,12 +361,12 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         LinearProgressIndicator(
           value: _tokenizerProgress / 100,
           backgroundColor: Colors.white30,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
         ),
         const SizedBox(height: 4),
         Text(
           '${_tokenizerProgress.toStringAsFixed(1)}%',
-          style: TextStyle(color: Colors.white60, fontSize: 12),
+          style: const TextStyle(color: Colors.white60, fontSize: 12),
         ),
         
         const SizedBox(height: 16),
@@ -374,13 +374,13 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         // Overall progress
         Row(
           children: [
-            Text(
+            const Text(
               'Overall: ',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             Text(
               '${((_modelProgress + _tokenizerProgress) / 2).toStringAsFixed(1)}%',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -389,10 +389,10 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Widget _buildInitializationSection() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Initializing Model',
           style: TextStyle(
             fontSize: 16,
@@ -400,17 +400,17 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 12),
-        const LinearProgressIndicator(
+        SizedBox(height: 12),
+        LinearProgressIndicator(
           backgroundColor: Colors.white30,
           valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
         ),
-        const SizedBox(height: 8),
-        const Text(
+        SizedBox(height: 8),
+        Text(
           'Preparing embedding model for use...',
           style: TextStyle(color: Colors.white70, fontSize: 14),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
       ],
     );
   }
@@ -447,7 +447,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   Widget _buildLicenseInfo() {
     return RichText(
       text: TextSpan(
-        style: TextStyle(color: Colors.white70, fontSize: 12),
+        style: const TextStyle(color: Colors.white70, fontSize: 12),
         children: [
           const TextSpan(text: 'By downloading this model, you agree to the '),
           TextSpan(
@@ -474,7 +474,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   void _proceedToNextScreen() async {
     if (widget.model.isEmbeddingModel) {
       // Initialize embedding model before navigating (like regular models)
-      print('[NAVIGATION] Initializing embedding model before navigation...');
+      debugPrint('[NAVIGATION] Initializing embedding model before navigation...');
       await _initializeEmbeddingModel();
       
       if (mounted) {
@@ -482,7 +482,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => EmbeddingTestScreen(
-              model: widget.model as ExampleEmbeddingModel.EmbeddingModel,
+              model: widget.model as example_embedding_model.EmbeddingModel,
             ),
           ),
         );
@@ -508,7 +508,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'HuggingFace Access Token',
               style: TextStyle(
                 fontSize: 16,
@@ -523,14 +523,14 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Paste your Hugging Face access token here',
-                hintStyle: TextStyle(color: Colors.white60),
-                border: OutlineInputBorder(
+                hintStyle: const TextStyle(color: Colors.white60),
+                border: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white30),
                 ),
-                enabledBorder: OutlineInputBorder(
+                enabledBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.white30),
                 ),
-                focusedBorder: OutlineInputBorder(
+                focusedBorder: const OutlineInputBorder(
                   borderSide: BorderSide(color: Colors.blue),
                 ),
                 filled: true,
@@ -540,9 +540,10 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
                   onPressed: () async {
                     final token = _tokenController.text.trim();
                     if (token.isNotEmpty) {
+                      final messenger = ScaffoldMessenger.of(context);
                       await _saveToken(token);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Text('Access Token saved successfully!'),
                           ),
@@ -556,7 +557,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             const SizedBox(height: 12),
             RichText(
               text: TextSpan(
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
                 text: 'To create an access token, please visit ',
                 children: [
                   TextSpan(
@@ -594,19 +595,19 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         _isInitializing = true;
       });
       
-      widget.model as ExampleEmbeddingModel.EmbeddingModel;
+      widget.model as example_embedding_model.EmbeddingModel;
       final modelPath = await _embeddingDownloadService!.getModelFilePath();
       final tokenizerPath = await _embeddingDownloadService!.getTokenizerFilePath();
       
       if (kDebugMode) {
-        print('🔄 Initializing embedding model...');
-        print('Model: $modelPath');
-        print('Tokenizer: $tokenizerPath');
+        debugPrint('🔄 Initializing embedding model...');
+        debugPrint('Model: $modelPath');
+        debugPrint('Tokenizer: $tokenizerPath');
       }
       
-      print('[INIT] About to call initializeEmbedding...');
-      print('[INIT] Model path: $modelPath');
-      print('[INIT] Tokenizer path: $tokenizerPath');
+      debugPrint('[INIT] About to call initializeEmbedding...');
+      debugPrint('[INIT] Model path: $modelPath');
+      debugPrint('[INIT] Tokenizer path: $tokenizerPath');
       
       await FlutterGemmaPlugin.instance.createEmbeddingModel(
         modelPath: modelPath,
@@ -614,13 +615,13 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         preferredBackend: PreferredBackend.cpu, // Use CPU mode to avoid GPU delegate issues
       );
       
-      print('[INIT] ✅ Embedding model initialized successfully');
+      debugPrint('[INIT] ✅ Embedding model initialized successfully');
     } catch (e) {
-      print('[INIT] ❌ Error initializing embedding model: $e');
+      debugPrint('[INIT] ❌ Error initializing embedding model: $e');
       // Don't rethrow - we want the download to be considered successful
       // User will see the error when they try to generate embeddings
     } finally {
-      print('[INIT] Setting _isInitializing = false');
+      debugPrint('[INIT] Setting _isInitializing = false');
       setState(() {
         _isInitializing = false;
       });

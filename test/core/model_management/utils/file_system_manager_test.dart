@@ -77,8 +77,6 @@ void main() {
         await protectedFile.writeAsBytes(List.filled(1024 * 1024, 0)); // 1MB
         await orphanFile.writeAsBytes(List.filled(1024 * 1024, 0)); // 1MB
 
-        // Make orphan file old
-        final oldTime = DateTime.now().subtract(Duration(hours: 2));
         // Note: File timestamps are tricky to modify in tests, so this test
         // focuses on the protection logic rather than age-based cleanup
 
@@ -102,12 +100,6 @@ void main() {
 
         await modelFile.writeAsBytes(List.filled(2 * 1024 * 1024, 0)); // 2MB
         await tokenizerFile.writeAsString('{"tokenizer": "config"}'); // Valid JSON
-
-        final spec = EmbeddingModelSpec(
-          name: 'test',
-          modelUrl: 'https://example.com/model.bin',
-          tokenizerUrl: 'https://example.com/tokenizer.json',
-        );
 
         // This test would need to mock getModelFilePath to return our temp files
         // For now, it just tests that the method exists and can be called

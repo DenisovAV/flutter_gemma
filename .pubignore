@@ -1,0 +1,15 @@
+# Files and directories to exclude from pub.dev package
+docs/
+*.md
+!README.md
+!LICENSE
+!CHANGELOG.md
+.github/
+.idea/
+.vscode/
+example/build/
+example/.dart_tool/
+example/.idea/
+test_exports.dart
+trash_*
+.env

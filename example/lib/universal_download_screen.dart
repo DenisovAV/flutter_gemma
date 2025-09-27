@@ -2,7 +2,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/embedding_test_screen.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';

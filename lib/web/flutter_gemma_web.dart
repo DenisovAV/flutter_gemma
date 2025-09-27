@@ -3,9 +3,7 @@ import 'dart:js_interop';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 

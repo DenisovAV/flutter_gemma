@@ -1,3 +1,6 @@
+## 0.11.1
+- 🐛 **Fixed**: Export missing ModelType and other public API types to resolve import issues
+
 ## 0.11.0
 - 🚀 **Embedding Models Support**: Added full support for text embedding models
 - 🔧 **Unified Model System**: All models (inference and embedding) now use the same download and management pipeline

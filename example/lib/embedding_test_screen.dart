@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 

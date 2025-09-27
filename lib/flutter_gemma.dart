@@ -1,6 +1,8 @@
 export 'flutter_gemma_interface.dart';
 export 'model_file_manager_interface.dart';
+export 'pigeon.g.dart'; // Export generated types like PreferredBackend, ModelFileType, etc.
 export 'core/message.dart';
+export 'core/model.dart'; // Export ModelType and other model-related classes
 export 'core/model_response.dart';
 export 'core/function_call_parser.dart';
 export 'core/tool.dart';

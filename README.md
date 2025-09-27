@@ -140,6 +140,22 @@ Add to 'AndroidManifest.xml' above tag `</application>`
  <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
 
+* **For release builds with ProGuard/R8 enabled**, the plugin automatically includes necessary ProGuard rules. If you encounter issues with `UnsatisfiedLinkError` or missing classes in release builds, ensure your `proguard-rules.pro` includes:
+
+```proguard
+# MediaPipe
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**
+
+# Protocol Buffers
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+# RAG functionality
+-keep class com.google.ai.edge.localagents.** { *; }
+-dontwarn com.google.ai.edge.localagents.**
+```
+
 **Web**
 
 * Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet

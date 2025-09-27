@@ -1,3 +1,6 @@
+## 0.11.2
+- 🛡️ **Fixed**: Updated ProGuard rules for Android release build compatibility
+
 ## 0.11.1
 - 🐛 **Fixed**: Export missing ModelType and other public API types to resolve import issues
 

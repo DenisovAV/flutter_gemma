@@ -16,6 +16,13 @@ extension type LlmInference._(JSObject _) implements JSObject {
     JSString text,
     JSFunction? callback, // Function(String, bool)?
   );
+
+  // Multimodal overload for arrays (text + images)
+  @JS('generateResponse')
+  external JSPromise<JSString> generateResponseMultimodal(
+    JSAny prompt, // Can be JSString or JSArray
+    JSFunction? callback,
+  );
   external JSNumber sizeInTokens(JSString text);
   external JSPromise addQueryChunk(JSString text);
 }
@@ -33,6 +40,8 @@ class LlmInferenceOptions {
     double temperature = 1.0,
     JSInt32Array? supportedLoraRanks,
     String? loraPath,
+    int? maxNumImages,
+    bool? supportAudio,
   });
 }
 

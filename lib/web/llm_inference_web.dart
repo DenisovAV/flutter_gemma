@@ -41,7 +41,6 @@ class LlmInferenceOptions {
     JSInt32Array? supportedLoraRanks,
     String? loraPath,
     int? maxNumImages,
-    bool? supportAudio,
   });
 }
 

@@ -3,3 +3,4 @@
 trash_*
 .env
 docs/
+.claude/settings.local.json

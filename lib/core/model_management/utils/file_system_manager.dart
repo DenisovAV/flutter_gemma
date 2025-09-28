@@ -2,7 +2,7 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 
 /// Unified file system operations for model management
 class ModelFileSystemManager {
-  static const List<String> _supportedExtensions = ['.task', '.bin', '.json', '.tflite'];
+  static const List<String> _supportedExtensions = ['.task', '.bin', '.json', '.tflite', '.litertlm'];
   static const int _defaultMinSizeBytes = 1024 * 1024; // 1MB
 
   /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access

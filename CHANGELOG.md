@@ -1,3 +1,8 @@
+## 0.11.3
+- 🌐 **Web Multimodal Support**: Added full multimodal image processing support for web platform
+- 📚 **MediaPipe 0.10.25**: Updated to MediaPipe GenAI v0.10.25 for web compatibility
+- 📦 **LiterTLM Format Support**: Added support for `.litertlm` model files optimized for web platform
+
 ## 0.11.2
 - 🛡️ **Fixed**: Updated ProGuard rules for Android release build compatibility
 

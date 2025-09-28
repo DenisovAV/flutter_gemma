@@ -7,7 +7,8 @@ enum Model implements InferenceModelInterface {
 
   // Gemma 3 Nano models (Multimodal + Function Calls)
   gemma3n_2B(
-    url: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
+    url:
+        'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
     filename: 'gemma-3n-E2B-it-int4.task',
     displayName: 'Gemma 3 Nano E2B IT',
     size: '3.1GB',
@@ -24,7 +25,8 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: true,
   ),
   gemma3n_4B(
-    url: 'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task',
+    url:
+        'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task',
     filename: 'gemma-3n-E4B-it-int4.task',
     displayName: 'Gemma 3 Nano E4B IT',
     size: '6.5GB',
@@ -43,7 +45,8 @@ enum Model implements InferenceModelInterface {
 
   // Gemma 3 1B model
   gemma3_1B(
-    url: 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task',
+    url:
+        'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task',
     filename: 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv2048.task',
     displayName: 'Gemma 3 1B IT',
     size: '0.5GB',
@@ -59,7 +62,8 @@ enum Model implements InferenceModelInterface {
 
   // Gemma 3 270M (Ultra-compact text-only model)
   gemma3_270M(
-    url: 'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma3-270m-it-q8.task',
+    url:
+        'https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma3-270m-it-q8.task',
     filename: 'gemma3-270m-it-q8.task',
     displayName: 'Gemma 3 270M IT',
     size: '0.3GB',
@@ -91,11 +95,27 @@ enum Model implements InferenceModelInterface {
     topP: 0.95,
   ),
   gemma3nLocalAsset(
+      // model file should be pre-downloaded and placed in the assets folder
+      url: 'assets/gemma-3n-E2B-it-int4.task',
+      filename: 'gemma-3n-E2B-it-int4.task',
+      displayName: 'Gemma 3 Nano E2B IT (Local)',
+      size: '3.1GB',
+      licenseUrl: '',
+      needsAuth: false,
+      localModel: true,
+      preferredBackend: PreferredBackend.gpu,
+      modelType: ModelType.gemmaIt,
+      temperature: 0.1,
+      topK: 5,
+      topP: 0.95,
+      supportsFunctionCalls: true,
+      supportImage: true),
+  gemma3nWebLocalAsset(
     // model file should be pre-downloaded and placed in the assets folder
-    url: 'assets/gemma-3n-E2B-it-int4.task',
+    url: 'assets/gemma-3n-E4B-it-int4-Web.litertlm',
     filename: 'gemma-3n-E2B-it-int4.task',
-    displayName: 'Gemma 3 Nano E2B IT (Local)',
-    size: '3.1GB',
+    displayName: 'Gemma 3 Nano E2B IT Web (Local)',
+    size: '4.27GB',
     licenseUrl: '',
     needsAuth: false,
     localModel: true,
@@ -104,13 +124,15 @@ enum Model implements InferenceModelInterface {
     temperature: 0.1,
     topK: 5,
     topP: 0.95,
-    supportsFunctionCalls: true,
+    supportsFunctionCalls: false,
+    supportImage: true,
   ),
 
   // === OTHER MODELS ===
 
   deepseek(
-    url: 'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',
+    url:
+        'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',
     filename: 'deepseek_q8_ekv1280.task',
     displayName: 'DeepSeek R1 Distill Qwen 1.5B',
     size: '1.7GB',
@@ -127,7 +149,8 @@ enum Model implements InferenceModelInterface {
 
   // Models from JSON - Qwen2.5 1.5B Instruct q8
   qwen25_1_5B_InstructCpu(
-    url: 'https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
+    url:
+        'https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
     filename: 'Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
     displayName: 'Qwen 2.5 1.5B Instruct',
     size: '1.6GB',
@@ -144,11 +167,13 @@ enum Model implements InferenceModelInterface {
 
   // TinyLlama 1.1B Chat
   tinyLlama_1_1B(
-    url: 'https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0/resolve/main/TinyLlama-1.1B-Chat-v1.0_multi-prefill-seq_q8_ekv1280.task',
+    url:
+        'https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0/resolve/main/TinyLlama-1.1B-Chat-v1.0_multi-prefill-seq_q8_ekv1280.task',
     filename: 'TinyLlama-1.1B-Chat-v1.0_multi-prefill-seq_q8_ekv1280.task',
     displayName: 'TinyLlama 1.1B Chat',
     size: '1.2GB',
-    licenseUrl: 'https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0',
+    licenseUrl:
+        'https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0',
     needsAuth: true,
     preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.llama,
@@ -161,7 +186,8 @@ enum Model implements InferenceModelInterface {
 
   // Hammer 2.1 0.5B (Action Model with strong function calling)
   hammer2_1_0_5B(
-    url: 'https://huggingface.co/litert-community/Hammer2.1-0.5b/resolve/main/hammer2p1_05b_.task',
+    url:
+        'https://huggingface.co/litert-community/Hammer2.1-0.5b/resolve/main/hammer2p1_05b_.task',
     filename: 'hammer2p1_05b_.task',
     displayName: 'Hammer 2.1 0.5B Action Model',
     size: '0.5GB',
@@ -178,7 +204,8 @@ enum Model implements InferenceModelInterface {
 
   // Llama 3.2 1B Instruct
   llama32_1B(
-    url: 'https://huggingface.co/litert-community/Llama-3.2-1B-Instruct/resolve/main/Llama-3.2-1B-Instruct_seq128_q8_ekv1280.tflite',
+    url:
+        'https://huggingface.co/litert-community/Llama-3.2-1B-Instruct/resolve/main/Llama-3.2-1B-Instruct_seq128_q8_ekv1280.tflite',
     filename: 'Llama-3.2-1B-Instruct_seq128_q8_ekv1280.tflite',
     displayName: 'Llama 3.2 1B Instruct',
     size: '1.1GB',
@@ -255,11 +282,11 @@ enum Model implements InferenceModelInterface {
   // BaseModel interface implementation
   @override
   String get name => toString().split('.').last;
-  
+
   @override
   bool get isEmbeddingModel => false;
 
-  // InferenceModelInterface implementation  
+  // InferenceModelInterface implementation
   @override
   bool get supportsThinking => isThinking;
 }

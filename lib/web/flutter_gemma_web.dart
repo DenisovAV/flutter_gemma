@@ -29,27 +29,42 @@ class ImagePromptPart extends PromptPart {
   /// Create ImagePromptPart from Uint8List bytes
   factory ImagePromptPart.fromBytes(Uint8List bytes) {
     final base64String = base64Encode(bytes);
-    // Detect image format from header bytes
-    String mimeType = 'image/png'; // default fallback
-
-    if (bytes.length >= 3) {
-      // JPEG: FF D8 FF
-      if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
-        mimeType = 'image/jpeg';
-      }
-      // PNG: 89 50 4E 47
-      else if (bytes.length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
-        mimeType = 'image/png';
-      }
-      // WebP: RIFF ... WEBP
-      else if (bytes.length >= 12 && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
-               bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
-        mimeType = 'image/webp';
-      }
-    }
-
+    final mimeType = _detectImageFormat(bytes);
     final dataUrl = 'data:$mimeType;base64,$base64String';
     return ImagePromptPart(dataUrl);
+  }
+
+  /// Detect image format from header bytes
+  static String _detectImageFormat(Uint8List bytes) {
+    if (bytes.length < 4) return 'image/png'; // default fallback
+
+    // JPEG magic number: FF D8 FF
+    if (_matchesSignature(bytes, [0xFF, 0xD8, 0xFF])) {
+      return 'image/jpeg';
+    }
+
+    // PNG magic number: 89 50 4E 47
+    if (_matchesSignature(bytes, [0x89, 0x50, 0x4E, 0x47])) {
+      return 'image/png';
+    }
+
+    // WebP magic number: RIFF at start, WEBP at offset 8
+    if (bytes.length >= 12 &&
+        _matchesSignature(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+        _matchesSignature(bytes.sublist(8), [0x57, 0x45, 0x42, 0x50])) {
+      return 'image/webp';
+    }
+
+    return 'image/png'; // default fallback
+  }
+
+  /// Check if bytes match a signature at the beginning
+  static bool _matchesSignature(Uint8List bytes, List<int> signature) {
+    if (bytes.length < signature.length) return false;
+    for (int i = 0; i < signature.length; i++) {
+      if (bytes[i] != signature[i]) return false;
+    }
+    return true;
   }
 }
 
@@ -464,18 +479,18 @@ class WebModelSession extends InferenceModelSession {
               if (kDebugMode) {
                 print('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
-              _controller!.add(partial);
+              _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
                   print('✅ getResponseAsync: Text response completed');
                 }
-                _controller!.close();
+                _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
                 print('❌ getResponseAsync: Error in text callback: $e');
               }
-              _controller!.addError(e);
+              _controller?.addError(e);
             }
           }).toJS,
         );
@@ -492,18 +507,18 @@ class WebModelSession extends InferenceModelSession {
               if (kDebugMode) {
                 print('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
-              _controller!.add(partial);
+              _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
                   print('✅ getResponseAsync: Multimodal response completed');
                 }
-                _controller!.close();
+                _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
                 print('❌ getResponseAsync: Error in multimodal callback: $e');
               }
-              _controller!.addError(e);
+              _controller?.addError(e);
             }
           }).toJS,
         );
@@ -513,7 +528,7 @@ class WebModelSession extends InferenceModelSession {
         print('❌ getResponseAsync: Exception during setup: $e');
         print('❌ getResponseAsync: Stack trace: $stackTrace');
       }
-      _controller!.addError(e);
+      _controller?.addError(e);
     }
 
     return _controller!.stream;

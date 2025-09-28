@@ -29,8 +29,26 @@ class ImagePromptPart extends PromptPart {
   /// Create ImagePromptPart from Uint8List bytes
   factory ImagePromptPart.fromBytes(Uint8List bytes) {
     final base64String = base64Encode(bytes);
-    // Assume PNG format, could be enhanced to detect format
-    final dataUrl = 'data:image/png;base64,$base64String';
+    // Detect image format from header bytes
+    String mimeType = 'image/png'; // default fallback
+
+    if (bytes.length >= 3) {
+      // JPEG: FF D8 FF
+      if (bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF) {
+        mimeType = 'image/jpeg';
+      }
+      // PNG: 89 50 4E 47
+      else if (bytes.length >= 4 && bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+        mimeType = 'image/png';
+      }
+      // WebP: RIFF ... WEBP
+      else if (bytes.length >= 12 && bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
+               bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
+        mimeType = 'image/webp';
+      }
+    }
+
+    final dataUrl = 'data:$mimeType;base64,$base64String';
     return ImagePromptPart(dataUrl);
   }
 }
@@ -208,8 +226,7 @@ class WebInferenceModel extends InferenceModel {
         topP: topP,
         supportedLoraRanks: !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
         loraPath: !hasLoraParams ? null : loraPathToUse,
-        maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
-        supportAudio: false, // Not implemented yet
+        maxNumImages: supportImage ? (maxNumImages ?? 1) : null
       );
 
       final llmInference = await LlmInference.createFromOptions(fileset, config).toDart;

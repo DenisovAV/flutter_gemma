@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 
 class ChatInputField extends StatefulWidget {
@@ -52,15 +51,6 @@ class ChatInputFieldState extends State<ChatInputField> {
 
   Future<void> _pickImage() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    if (kIsWeb) {
-      // Image selection not supported on web yet
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(
-          content: Text('Image selection not supported on web yet'),
-        ),
-      );
-      return;
-    }
 
     try {
       final pickedFile = await _picker.pickImage(
@@ -103,7 +93,7 @@ class ChatInputFieldState extends State<ChatInputField> {
             child: Row(
               children: <Widget>[
                 // Add image button
-                if (widget.supportsImages && !kIsWeb)
+                if (widget.supportsImages)
                   IconButton(
                     icon: Icon(
                       Icons.image,

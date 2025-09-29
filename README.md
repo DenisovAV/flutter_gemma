@@ -22,25 +22,26 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, and Web platforms.
-- **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models (NEW!)
+- **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models 
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
-- **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks (NEW!)
-- **🛑 Stop Generation:** Cancel text generation mid-process on Android devices (NEW!)
-- **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app (NEW!)
-- **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI (NEW!)
-- **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app (NEW!)
+- **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks 
+- **🛑 Stop Generation:** Cancel text generation mid-process on Android devices 
+- **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app 
+- **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
+- **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app 
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **📥 Enhanced Downloads:** Smart retry logic and ETag handling for reliable model downloads from HuggingFace CDN
 - **🔧 Download Reliability:** Automatic resume/restart logic for interrupted downloads with exponential backoff
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
-- **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models (NEW!)
+- **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 
 ## Model File Types
 
-Flutter Gemma supports two types of model files:
+Flutter Gemma supports three types of model files:
 
 - **`.task` files:** MediaPipe-optimized format with built-in chat templates
+- **`.litertlm` files:** LiterTLM format optimized for web platform compatibility
 - **`.bin/.tflite` files:** Standard format requiring manual chat template formatting
 
 The plugin automatically detects the file type and applies appropriate formatting.
@@ -74,7 +75,7 @@ The example app offers a curated list of models, each suited for different tasks
 ## Setup
 
 1. **Download Model and optionally LoRA Weights:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
-* For **multimodal support**, download [Gemma 3 Nano models](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) that support vision input
+* For **multimodal support**, download [Gemma 3 Nano models](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) or [Gemma 3 Nano in LitertLM format](https://huggingface.co/google/gemma-3n-E2B-it-litert-lm) that support vision input
 * Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
 * If you have LoRA weights, you can use them to customize the model's behavior without retraining the entire model.
 * [There is an article that described all approaches](https://medium.com/@denisov.shureg/fine-tuning-gemma-with-lora-for-on-device-inference-android-ios-web-with-separate-lora-weights-f05d1db30d86)
@@ -140,15 +141,32 @@ Add to 'AndroidManifest.xml' above tag `</application>`
  <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
 
+* **For release builds with ProGuard/R8 enabled**, the plugin automatically includes necessary ProGuard rules. If you encounter issues with `UnsatisfiedLinkError` or missing classes in release builds, ensure your `proguard-rules.pro` includes:
+
+```proguard
+# MediaPipe
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**
+
+# Protocol Buffers
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+# RAG functionality
+-keep class com.google.ai.edge.localagents.** { *; }
+-dontwarn com.google.ai.edge.localagents.**
+```
+
 **Web**
 
 * Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet
-* **Multimodal support** (images) is in development for web platform
+* **Multimodal support** (images) is fully supported on web platform
+* **Model formats**: Use `.litertlm` files for optimal web compatibility (recommended for multimodal models)
 
 * Add dependencies to `index.html` file in web folder
 ```html
   <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai';
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>
@@ -248,7 +266,7 @@ await modelManager.setModelPath('model.bin');
 await modelManager.setLoraWeightsPath('lora_weights.bin');
 ```
 
-**Model Replace Policy** (NEW!)
+**Model Replace Policy**
 
 Configure how the plugin handles switching between different models:
 
@@ -263,7 +281,7 @@ await modelManager.setReplacePolicy(ModelReplacePolicy.replace);
 final currentPolicy = modelManager.replacePolicy;
 ```
 
-**Automatic Model Management** (NEW!)
+**Automatic Model Management**
 
 Use `ensureModelReady()` for seamless model switching that handles all scenarios automatically:
 
@@ -299,7 +317,7 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 );
 ```
 
-**🖼️ Multimodal Models (NEW!):**
+**🖼️ Multimodal Models:**
 ```dart
 final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
   modelType: ModelType.gemmaIt, // Required, model type to create
@@ -334,7 +352,7 @@ print(response);
 await session.close(); // Always close the session when done
 ```
 
-2) **🖼️ Multimodal Session (NEW!):**
+2) **🖼️ Multimodal Session:**
 
 ```dart
 import 'dart:typed_data'; // For Uint8List
@@ -397,7 +415,7 @@ final chat = await inferenceModel.createChat(
 );
 ```
 
-**🖼️ Multimodal Chat (NEW!):**
+**🖼️ Multimodal Chat:**
 ```dart
 final chat = await inferenceModel.createChat(
   temperature: 0.8, // Controls response randomness
@@ -667,7 +685,7 @@ chat.generateChatResponseAsync().listen((response) {
 3. Model calls: `change_background_color(color: 'blue')`
 4. Model explains: "Blue is calming because it's associated with sky and ocean..."
 
-10. **📊 Text Embedding Models (NEW!)**
+10. **📊 Text Embedding Models**
 
 Generate vector embeddings from text using specialized embedding models. These models convert text into numerical vectors that can be used for semantic similarity, search, and RAG applications.
 
@@ -768,7 +786,7 @@ await inferenceModel.close();
 
 If you need to use the inference again later, remember to call `createModel` again before generating responses.
 
-## 🖼️ Message Types (NEW!)
+## 🖼️ Message Types
 
 The plugin now supports different types of messages:
 
@@ -807,7 +825,7 @@ if (message.hasImage) {
 final copiedMessage = message.copyWith(text: "Updated text");
 ```
 
-## 💬 Response Types (NEW!)
+## 💬 Response Types
 
 The model can return different types of responses depending on capabilities:
 
@@ -857,10 +875,12 @@ chat.generateChatResponseAsync().listen((response) {
 - Phi-2, Phi-3, Falcon-RW-1B, StableLM-3B
 
 ### 🖼️ Multimodal Models (Vision + Text)
-- [Gemma 3 Nano E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) - 1.5B parameters with vision support
-- [Gemma 3 Nano E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) - 1.5B parameters with vision support
+- [Gemma 3 Nano E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) - 2B parameters with vision support
+- [Gemma 3 Nano E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) - 4B parameters with vision support
+- [Gemma 3 Nano E2B LitertLM](https://huggingface.co/google/gemma-3n-E2B-it-litert-lm) - 2B parameters with vision support
+- [Gemma 3 Nano E4B LitertLM](https://huggingface.co/google/gemma-3n-E4B-it-litert-lm) - 4B parameters with vision support
 
-### 📊 Text Embedding Models (NEW!)
+### 📊 Text Embedding Models
 - [EmbeddingGemma 256](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 256 dimensions (179MB)
 - [EmbeddingGemma 512](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 512 dimensions (179MB)
 - [EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 1024 dimensions (183MB)
@@ -894,7 +914,7 @@ Function calling is currently supported by the following models:
 | Feature | Android | iOS | Web |
 |---------|---------|-----|-----|
 | Text Generation | ✅ | ✅ | ✅ |
-| Image Input | ✅ | ✅ | ⚠️ |
+| Image Input | ✅ | ✅ | ✅ |
 | Function Calling | ✅ | ✅ | ✅ |
 | GPU Acceleration | ✅ | ✅ | ✅ |
 | Streaming Responses | ✅ | ✅ | ✅ |
@@ -914,7 +934,7 @@ The full and complete example you can find in `example` folder
 * **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements` and minimum iOS 16.0.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.
 * **Development vs. Production:** For production apps, do not embed the model or LoRA weights within your assets. Instead, load them once and store them securely on the device or via a network drive.
-* **Web Models:** Currently, Web support is available only for GPU backend models. Multimodal support is in development.
+* **Web Models:** Currently, Web support is available only for GPU backend models. Multimodal support is fully implemented.
 * **Image Formats:** The plugin automatically handles common image formats (JPEG, PNG, etc.) when using `Message.withImage()`.
 
 ## **🛟 Troubleshooting**
@@ -978,11 +998,10 @@ This is automatically handled by the chat API, but can be useful for custom infe
 ✅ **🔍 Advanced Model Filtering** - Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
 ✅ **📊 Model Sorting** - Sort models alphabetically, by size, or use default order
 ✅ **🚀 New Models** - Added Gemma 3 270M, TinyLlama 1.1B, Hammer 2.1 0.5B, and Llama 3.2 1B support
-✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (text-only)
+✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (including multimodal)
 ✅ **💾 Memory Optimization** - Better resource management for multimodal models
 
 **Coming Soon:**
-- Full Multimodal Web Support
 - On-Device RAG Pipelines
 - Desktop Support (macOS, Windows, Linux)
 - Audio & Video Input

@@ -1,16 +1,72 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
-import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'llm_inference_web.dart';
 import 'flutter_gemma_web_embedding_model.dart';
+
+/// Base class for prompt parts (text, image, audio)
+abstract class PromptPart {}
+
+/// Text prompt part
+class TextPromptPart extends PromptPart {
+  final String text;
+  TextPromptPart(this.text);
+}
+
+/// Image prompt part with data URL
+class ImagePromptPart extends PromptPart {
+  final String dataUrl;
+  ImagePromptPart(this.dataUrl);
+
+  /// Create ImagePromptPart from Uint8List bytes
+  factory ImagePromptPart.fromBytes(Uint8List bytes) {
+    final base64String = base64Encode(bytes);
+    final mimeType = _detectImageFormat(bytes);
+    final dataUrl = 'data:$mimeType;base64,$base64String';
+    return ImagePromptPart(dataUrl);
+  }
+
+  /// Detect image format from header bytes
+  static String _detectImageFormat(Uint8List bytes) {
+    if (bytes.length < 4) return 'image/png'; // default fallback
+
+    // JPEG magic number: FF D8 FF
+    if (_matchesSignature(bytes, [0xFF, 0xD8, 0xFF])) {
+      return 'image/jpeg';
+    }
+
+    // PNG magic number: 89 50 4E 47
+    if (_matchesSignature(bytes, [0x89, 0x50, 0x4E, 0x47])) {
+      return 'image/png';
+    }
+
+    // WebP magic number: RIFF at start, WEBP at offset 8
+    if (bytes.length >= 12 &&
+        _matchesSignature(bytes, [0x52, 0x49, 0x46, 0x46]) &&
+        _matchesSignature(bytes.sublist(8), [0x57, 0x45, 0x42, 0x50])) {
+      return 'image/webp';
+    }
+
+    return 'image/png'; // default fallback
+  }
+
+  /// Check if bytes match a signature at the beginning
+  static bool _matchesSignature(Uint8List bytes, List<int> signature) {
+    if (bytes.length < signature.length) return false;
+    for (int i = 0; i < signature.length; i++) {
+      if (bytes[i] != signature[i]) return false;
+    }
+    return true;
+  }
+}
 
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
   FlutterGemmaWeb();
@@ -171,7 +227,7 @@ class WebInferenceModel extends InferenceModel {
     }
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
-      final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai/wasm'.toJS).toDart;
+      final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm'.toJS).toDart;
 
       final loraPathToUse = loraPath ?? modelManager._loraPath;
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
@@ -185,6 +241,7 @@ class WebInferenceModel extends InferenceModel {
         topP: topP,
         supportedLoraRanks: !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
         loraPath: !hasLoraParams ? null : loraPathToUse,
+        maxNumImages: supportImage ? (maxNumImages ?? 1) : null
       );
 
       final llmInference = await LlmInference.createFromOptions(fileset, config).toDart;
@@ -218,7 +275,7 @@ class WebModelSession extends InferenceModelSession {
   final VoidCallback onClose;
   final bool supportImage; // Enabling image support
   StreamController<String>? _controller;
-  final List<String> _queryChunks = [];
+  final List<PromptPart> _promptParts = [];
 
   WebModelSession({
     required this.llmInference,
@@ -236,45 +293,243 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
-    final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
-
-    // Checks for image support (as in the mobile platforms)
-    if (message.hasImage && message.imageBytes != null) {
-      // TODO: Implement image processing for web
-      throw Exception('Web does not support image processing');
+    if (kDebugMode) {
+      print('🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
     }
 
-    _queryChunks.add(finalPrompt);
+    final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
+
+    // Add text part
+    _promptParts.add(TextPromptPart(finalPrompt));
+    if (kDebugMode) {
+      print('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+    }
+
+    // Handle image processing for web
+    if (message.hasImage && message.imageBytes != null) {
+      if (kDebugMode) {
+        print('🟢 Processing image: ${message.imageBytes!.length} bytes');
+      }
+      if (!supportImage) {
+        if (kDebugMode) {
+          print('🔴 Model does not support images - throwing exception');
+        }
+        throw Exception('This model does not support images');
+      }
+      // Add image part
+      final imagePart = ImagePromptPart.fromBytes(message.imageBytes!);
+      _promptParts.add(imagePart);
+      if (kDebugMode) {
+        print('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+      }
+    }
+
+    if (kDebugMode) {
+      print('🟢 Total prompt parts: ${_promptParts.length}');
+    }
+  }
+
+  /// Convert PromptParts to JavaScript array for MediaPipe
+  JSAny _createPromptArray() {
+    if (kDebugMode) {
+      print('🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
+    }
+
+    if (_promptParts.isEmpty) {
+      if (kDebugMode) {
+        print('📝 _createPromptArray: Empty prompt parts, returning empty string');
+      }
+      return ''.toJS; // Empty string fallback
+    }
+
+    // If only text parts, join them
+    if (_promptParts.every((part) => part is TextPromptPart)) {
+      final fullText = _promptParts
+          .cast<TextPromptPart>()
+          .map((part) => part.text)
+          .join('');
+      if (kDebugMode) {
+        print('📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
+        print('📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
+      }
+      return fullText.toJS;
+    }
+
+    // Multimodal: create array of parts following MediaPipe documentation format
+    if (kDebugMode) {
+      print('🎯 _createPromptArray: Multimodal mode - creating array with proper format');
+    }
+
+    final jsArray = <JSAny>[];
+
+    // Add conversation start token
+    jsArray.add('<ctrl99>user\n'.toJS);
+
+    for (int i = 0; i < _promptParts.length; i++) {
+      final part = _promptParts[i];
+
+      if (part is TextPromptPart) {
+        if (kDebugMode) {
+          print('📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
+        }
+        jsArray.add(part.text.toJS);
+      } else if (part is ImagePromptPart) {
+        if (kDebugMode) {
+          print('🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
+          print('🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
+        }
+
+        // Create proper image object for MediaPipe
+        final imageObj = <String, String>{'imageSource': part.dataUrl}.jsify();
+        if (kDebugMode) {
+          print('🖼️ _createPromptArray: Created image object with jsify()');
+        }
+        jsArray.add(imageObj as JSAny);
+      } else {
+        if (kDebugMode) {
+          print('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
+        }
+        throw Exception('Unsupported prompt part type: $part');
+      }
+    }
+
+    // Add conversation end and model start tokens
+    jsArray.add('<ctrl100>\n<ctrl99>model\n'.toJS);
+
+    if (kDebugMode) {
+      print('✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
+      print('🎯 _createPromptArray: Array structure ready for MediaPipe');
+    }
+
+    return jsArray.toJS;
   }
 
   @override
   Future<String> getResponse() async {
-    final String fullPrompt = _queryChunks.join("");
-    final response = (await llmInference.generateResponse(fullPrompt.toJS, null).toDart).toDart;
-    // Don't add response back to queryChunks - that's handled by InferenceChat
-    return response;
+    if (kDebugMode) {
+      print('🚀 getResponse: Starting response generation');
+    }
+
+    try {
+      final promptArray = _createPromptArray();
+
+      if (kDebugMode) {
+        print('🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
+        print('🎯 getResponse: Is JSString? ${promptArray is JSString}');
+      }
+
+      String response;
+
+      // Use appropriate method based on prompt type
+      if (promptArray is JSString) {
+        if (kDebugMode) {
+          print('📝 getResponse: Using generateResponse for text-only prompt');
+        }
+        response = (await llmInference.generateResponse(promptArray, null).toDart).toDart;
+      } else {
+        if (kDebugMode) {
+          print('🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
+        }
+        response = (await llmInference.generateResponseMultimodal(promptArray, null).toDart).toDart;
+      }
+
+      if (kDebugMode) {
+        print('✅ getResponse: Successfully generated response of length ${response.length}');
+        print('✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
+      }
+
+      // Don't add response back to promptParts - that's handled by InferenceChat
+      return response;
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ getResponse: Exception caught: $e');
+        print('❌ getResponse: Stack trace: $stackTrace');
+      }
+      rethrow;
+    }
   }
 
   @override
   Stream<String> getResponseAsync() {
+    if (kDebugMode) {
+      print('🌊 getResponseAsync: Starting async response generation');
+    }
+
     _controller = StreamController<String>();
 
-    final String fullPrompt = _queryChunks.join("");
+    try {
+      final promptArray = _createPromptArray();
 
-    llmInference.generateResponse(
-      fullPrompt.toJS,
-      ((JSString partialJs, JSAny completeRaw) {
-        final complete = completeRaw.parseBool();
-        final partial = partialJs.toDart;
+      if (kDebugMode) {
+        print('🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
+        print('🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
+      }
 
-        _controller?.add(partial);
-        if (complete) {
-          // Don't add response back to queryChunks - that's handled by InferenceChat
-          _controller?.close();
-          _controller = null;
+      // Use appropriate method based on prompt type
+      if (promptArray is JSString) {
+        if (kDebugMode) {
+          print('📝 getResponseAsync: Using generateResponse for text-only prompt');
         }
-      }).toJS,
-    );
+        llmInference.generateResponse(
+          promptArray,
+          ((JSString partialJs, JSAny completeRaw) {
+            try {
+              final complete = completeRaw.parseBool();
+              final partial = partialJs.toDart;
+              if (kDebugMode) {
+                print('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+              }
+              _controller?.add(partial);
+              if (complete) {
+                if (kDebugMode) {
+                  print('✅ getResponseAsync: Text response completed');
+                }
+                _controller?.close();
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('❌ getResponseAsync: Error in text callback: $e');
+              }
+              _controller?.addError(e);
+            }
+          }).toJS,
+        );
+      } else {
+        if (kDebugMode) {
+          print('🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
+        }
+        llmInference.generateResponseMultimodal(
+          promptArray,
+          ((JSString partialJs, JSAny completeRaw) {
+            try {
+              final complete = completeRaw.parseBool();
+              final partial = partialJs.toDart;
+              if (kDebugMode) {
+                print('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+              }
+              _controller?.add(partial);
+              if (complete) {
+                if (kDebugMode) {
+                  print('✅ getResponseAsync: Multimodal response completed');
+                }
+                _controller?.close();
+              }
+            } catch (e) {
+              if (kDebugMode) {
+                print('❌ getResponseAsync: Error in multimodal callback: $e');
+              }
+              _controller?.addError(e);
+            }
+          }).toJS,
+        );
+      }
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print('❌ getResponseAsync: Exception during setup: $e');
+        print('❌ getResponseAsync: Stack trace: $stackTrace');
+      }
+      _controller?.addError(e);
+    }
 
     return _controller!.stream;
   }
@@ -286,7 +541,7 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> close() async {
-    _queryChunks.clear();
+    _promptParts.clear();
     _controller?.close();
     _controller = null;
     onClose();

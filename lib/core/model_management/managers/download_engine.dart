@@ -9,7 +9,6 @@ class UnifiedDownloadEngine {
     ModelSpec spec, {
     String? token,
   }) async* {
-    // print('Starting download for model: ${spec.name} (${spec.files.length} files)');
 
     try {
       final totalFiles = spec.files.length;
@@ -17,8 +16,6 @@ class UnifiedDownloadEngine {
       for (int i = 0; i < spec.files.length; i++) {
         final file = spec.files[i];
         final filePath = await ModelFileSystemManager.getModelFilePath(file.filename);
-
-        // print('Downloading file ${i + 1}/$totalFiles: ${file.filename}');
 
         // Emit progress for current file start
         yield DownloadProgress(
@@ -352,9 +349,12 @@ class UnifiedDownloadEngine {
         case 'file':
           await _handleExternalModel(spec);
           break;
+        case '': // Schemeless URLs - treat as assets for backward compatibility
+          await _handleAssetModel(spec);
+          break;
         default:
           throw ModelStorageException(
-            'Unsupported URL scheme: ${modelUri.scheme}',
+            'Unsupported URL scheme: "${modelUri.scheme}". Supported: https, http, asset, file, or schemeless (treated as asset)',
             null,
             'routeModelByScheme'
           );
@@ -373,9 +373,12 @@ class UnifiedDownloadEngine {
         case 'file':
           await _handleExternalModel(spec);
           break;
+        case '': // Schemeless URLs - treat as assets for backward compatibility
+          await _handleAssetModel(spec);
+          break;
         default:
           throw ModelStorageException(
-            'Unsupported URL scheme: ${modelUri.scheme}',
+            'Unsupported URL scheme: "${modelUri.scheme}". Supported: https, http, asset, file, or schemeless (treated as asset)',
             null,
             'routeModelByScheme'
           );
@@ -396,7 +399,7 @@ class UnifiedDownloadEngine {
     try {
       // Process each file in the spec
       for (final file in spec.files) {
-        final assetPath = Uri.parse(file.url).path; // Remove asset:// prefix
+        final assetPath = file.url.replaceFirst('asset://', ''); // Remove asset:// prefix
         final targetPath = await ModelFileSystemManager.getModelFilePath(file.filename);
 
         await _copyFromAsset(assetPath, targetPath, file.filename);

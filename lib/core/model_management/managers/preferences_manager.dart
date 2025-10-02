@@ -217,8 +217,23 @@ class ModelPreferencesManager {
       // Store the external path mapping
       await prefs.setString('external_path_$filename', externalPath);
 
-      // TODO: Mark as protected in the regular system
-      // await markFileAsProtected(filename, type);
+      // Mark as protected by adding to appropriate list
+      switch (type) {
+        case ModelManagementType.inference:
+          final models = prefs.getStringList('installed_models') ?? <String>[];
+          if (!models.contains(filename)) {
+            models.add(filename);
+            await prefs.setStringList('installed_models', models);
+          }
+          break;
+        case ModelManagementType.embedding:
+          final models = prefs.getStringList('installed_embedding_models') ?? <String>[];
+          if (!models.contains(filename)) {
+            models.add(filename);
+            await prefs.setStringList('installed_embedding_models', models);
+          }
+          break;
+      }
 
       debugPrint('Registered external file: $filename -> $externalPath');
     } catch (e) {

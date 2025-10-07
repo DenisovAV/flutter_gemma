@@ -22,13 +22,25 @@ abstract interface class DownloadService {
   ///
   /// Returns a stream of progress percentages (0-100)
   ///
+  /// Parameters:
+  /// - [url]: Source URL
+  /// - [targetPath]: Destination path
+  /// - [token]: Optional auth token
+  /// - [maxRetries]: Max retry attempts for transient errors (default: 10)
+  ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless of this value
+  ///
   /// Example:
   /// ```dart
   /// await for (final progress in downloader.downloadWithProgress(...)) {
   ///   print('Progress: $progress%');
   /// }
   /// ```
-  Stream<int> downloadWithProgress(String url, String targetPath, {String? token});
+  Stream<int> downloadWithProgress(
+    String url,
+    String targetPath, {
+    String? token,
+    int maxRetries = 10,
+  });
 
   /// Checks if a download task can be resumed
   ///

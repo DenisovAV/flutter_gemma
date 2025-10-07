@@ -1,8 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -42,17 +41,11 @@ class EmbeddingModelDownloadService {
   /// Checks if both model and tokenizer files exist and match remote file sizes.
   Future<bool> checkModelExistence(String token) async {
     try {
-      // First check via unified system (which handles SharedPreferences correctly)
-      final spec = MobileModelManager.createEmbeddingSpec(
-        name: model.displayName,
-        modelUrl: model.url,
-        tokenizerUrl: model.tokenizerUrl,
-      );
+      // Modern API: Check if both model and tokenizer are installed
+      final modelInstalled = await FlutterGemma.isModelInstalled(model.filename);
+      final tokenizerInstalled = await FlutterGemma.isModelInstalled(model.tokenizerFilename);
 
-      final manager = FlutterGemmaPlugin.instance.modelManager;
-      final isInstalled = await manager.isModelInstalled(spec);
-
-      if (isInstalled) {
+      if (modelInstalled && tokenizerInstalled) {
         return true;
       }
 
@@ -105,7 +98,7 @@ class EmbeddingModelDownloadService {
   }
 
   /// Downloads both model and tokenizer with progress tracking using plugin methods.
-  /// 
+  ///
   /// [onProgress] callback receives (modelProgress, tokenizerProgress) as doubles 0-100
   Future<void> downloadModel(
     String token,
@@ -115,29 +108,28 @@ class EmbeddingModelDownloadService {
       if (kIsWeb) {
         throw UnsupportedError('Embedding model download is not supported on web platform');
       }
-      
 
+      double modelProgress = 0;
+      double tokenizerProgress = 0;
 
-      // Use plugin's unified model manager with new API
-      final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+      // Modern API: Download model file
+      await FlutterGemma.installModel()
+          .fromNetwork(model.url)
+          .withProgress((progress) {
+            modelProgress = progress.toDouble();
+            onProgress(modelProgress, tokenizerProgress);
+          })
+          .install();
 
-      // Create embedding model spec
-      final spec = MobileModelManager.createEmbeddingSpec(
-        name: model.displayName,
-        modelUrl: model.url,
-        tokenizerUrl: model.tokenizerUrl,
-      );
+      // Modern API: Download tokenizer file
+      await FlutterGemma.installModel()
+          .fromNetwork(model.tokenizerUrl)
+          .withProgress((progress) {
+            tokenizerProgress = progress.toDouble();
+            onProgress(modelProgress, tokenizerProgress);
+          })
+          .install();
 
-      final downloadStream = mobileManager.downloadModelWithProgress(
-        spec,
-        token: model.needsAuth && token.isNotEmpty ? token : null,
-      );
-
-      // Track download progress
-      await for (final progress in downloadStream) {
-        final progressValue = progress.overallProgress.toDouble();
-        onProgress(progressValue, progressValue); // Same progress for both indicators
-      }
     } catch (e) {
       if (kDebugMode) {
         print('Error downloading embedding model: $e');
@@ -146,61 +138,39 @@ class EmbeddingModelDownloadService {
     }
   }
 
-  /// Deletes both downloaded files using plugin methods.
+  /// Deletes both downloaded files.
   Future<void> deleteModel() async {
     try {
-      // Use plugin's cleanup method to delete embedding models
-      if (!kIsWeb) {
-        final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+      final modelFilePath = await getModelFilePath();
+      final tokenizerFilePath = await getTokenizerFilePath();
+      final modelFile = File(modelFilePath);
+      final tokenizerFile = File(tokenizerFilePath);
 
-        // Get all embedding model files and delete them
-        final embeddingFiles = await mobileManager.getInstalledModels(ModelManagementType.embedding);
-        for (final filename in embeddingFiles) {
-          try {
-            await ModelFileSystemManager.deleteModelFile(filename);
-          } catch (e) {
-            if (kDebugMode) {
-              print('Failed to delete $filename: $e');
-            }
-          }
-        }
+      if (await modelFile.exists()) {
+        await modelFile.delete();
+      }
+
+      if (await tokenizerFile.exists()) {
+        await tokenizerFile.delete();
       }
     } catch (e) {
       if (kDebugMode) {
         print('Error deleting embedding model: $e');
       }
-      // Fallback to manual file deletion if plugin method fails
-      try {
-        final modelFilePath = await getModelFilePath();
-        final tokenizerFilePath = await getTokenizerFilePath();
-        final modelFile = File(modelFilePath);
-        final tokenizerFile = File(tokenizerFilePath);
-
-        if (await modelFile.exists()) {
-          await modelFile.delete();
-        }
-
-        if (await tokenizerFile.exists()) {
-          await tokenizerFile.delete();
-        }
-      } catch (fallbackError) {
-        if (kDebugMode) {
-          print('Fallback deletion also failed: $fallbackError');
-        }
-      }
     }
   }
 
-  /// Check if the embedding model is installed using plugin methods
+  /// Check if the embedding model is installed
   Future<bool> isEmbeddingModelInstalled() async {
     try {
       if (kIsWeb) {
         return false; // Not supported on web
       }
-      
-      // Use plugin's method to check installation with new API
-      final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
-      return await mobileManager.isAnyModelInstalled(ModelManagementType.embedding);
+
+      // Modern API: Check if both files are installed
+      final modelInstalled = await FlutterGemma.isModelInstalled(model.filename);
+      final tokenizerInstalled = await FlutterGemma.isModelInstalled(model.tokenizerFilename);
+      return modelInstalled && tokenizerInstalled;
     } catch (e) {
       if (kDebugMode) {
         print('Error checking embedding model installation: $e');

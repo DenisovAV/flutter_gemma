@@ -105,7 +105,7 @@ void main() {
       expect(() => ModelSource.bundled(''), throwsArgumentError);
       expect(() => ModelSource.bundled('invalid/path'), throwsArgumentError);
       expect(() => ModelSource.bundled('with spaces'), throwsArgumentError);
-      expect(() => ModelSource.bundled('UPPERCASE'), throwsArgumentError);
+      // Note: Uppercase is now allowed for real-world file names
     });
 
     test('validates bundled LoRA compatibility', () {

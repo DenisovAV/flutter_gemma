@@ -1,16 +1,17 @@
 import 'package:flutter_gemma/core/extensions.dart';
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
-import 'huggingface_downloader_wrapper.dart';
+import '../core/di/service_registry.dart';
+import '../core/domain/model_source.dart';
+import '../core/services/model_repository.dart' as repo;
+import '../core/model_management/constants/preferences_keys.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
 part 'flutter_gemma_mobile_embedding_model.dart';
@@ -19,12 +20,10 @@ part 'flutter_gemma_mobile_embedding_model.dart';
 part '../core/model_management/types/model_spec.dart';
 part '../core/model_management/types/inference_model_spec.dart';
 part '../core/model_management/types/embedding_model_spec.dart';
+part '../core/model_management/types/storage_info.dart';
 part '../core/model_management/exceptions/model_exceptions.dart';
 part '../core/model_management/utils/file_system_manager.dart';
-part '../core/model_management/utils/download_task_registry.dart';
 part '../core/model_management/utils/resume_checker.dart';
-part '../core/model_management/managers/preferences_manager.dart';
-part '../core/model_management/managers/download_engine.dart';
 part '../core/model_management/managers/unified_model_manager.dart';
 
 class MobileInferenceModelSession extends InferenceModelSession {
@@ -229,28 +228,14 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
     // Check if model is ready through unified system
     final manager = _unifiedManager;
+    final activeModel = manager.activeInferenceModel;
 
-    // Use the current active model, or find any installed inference model for backward compatibility
-    ModelSpec? activeModel = manager.currentActiveModel;
-
-    // Backward compatibility: if no active model, try to find any installed inference model
+    // No active inference model - user must set one first
     if (activeModel == null) {
-      final installedFiles = await manager.getInstalledModels(ModelManagementType.inference);
-      if (installedFiles.isNotEmpty) {
-        // Create spec from first installed model and set as active
-        activeModel = InferenceModelSpec(
-          name: installedFiles.first,
-          modelUrl: 'local://installed', // Dummy URL since file is already downloaded
-        );
-        // Set as current active model for future use
-        await manager.ensureModelReady(installedFiles.first, 'local://installed');
-        debugPrint('Backward compatibility: Set ${installedFiles.first} as active model');
-      } else {
-        completer.completeError(
-          Exception('No models installed. Use the `modelManager` to download a model first'),
-        );
-        return completer.future;
-      }
+      completer.completeError(
+        Exception('No active inference model set. Use `FlutterGemma.installInferenceModel()` or `modelManager.setActiveModel()` to set a model first'),
+      );
+      return completer.future;
     }
 
     // Verify the active model is still installed
@@ -271,7 +256,9 @@ class FlutterGemma extends FlutterGemmaPlugin {
       return completer.future;
     }
 
-    final modelFile = File(modelFilePaths.values.first);
+    final modelPath = modelFilePaths.values.first;
+    final modelFile = File(modelPath);
+
     if (!await modelFile.exists()) {
       completer.completeError(
         Exception('Model file not found at path: ${modelFile.path}'),
@@ -279,12 +266,12 @@ class FlutterGemma extends FlutterGemmaPlugin {
       return completer.future;
     }
 
-    debugPrint('Using unified model file: ${modelFile.path}');
+    debugPrint('Using unified model file: $modelPath');
 
     try {
       await _platformService.createModel(
         maxTokens: maxTokens,
-        modelPath: modelFile.path,
+        modelPath: modelPath,
         loraRanks: loraRanks ?? supportedLoraRanks,
         preferredBackend: preferredBackend,
         maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
@@ -315,8 +302,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
   @override
   Future<EmbeddingModel> createEmbeddingModel({
-    required String modelPath,
-    required String tokenizerPath,
+    String? modelPath,
+    String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
     if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
@@ -324,6 +311,51 @@ class FlutterGemma extends FlutterGemmaPlugin {
     }
 
     final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+
+    // Modern API: Use active embedding model if paths not provided
+    if (modelPath == null || tokenizerPath == null) {
+      final manager = _unifiedManager;
+      final activeModel = manager.activeEmbeddingModel;
+
+      // No active embedding model - user must set one first
+      if (activeModel == null) {
+        completer.completeError(
+          Exception('No active embedding model set. Use `FlutterGemma.installEmbeddingModel()` or `modelManager.setActiveModel()` to set a model first'),
+        );
+        return completer.future;
+      }
+
+      // Verify the active model is still installed
+      final isModelInstalled = await manager.isModelInstalled(activeModel);
+      if (!isModelInstalled) {
+        completer.completeError(
+          Exception('Active embedding model is no longer installed. Use the `modelManager` to load the model first'),
+        );
+        return completer.future;
+      }
+
+      // Get the actual model file paths through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        completer.completeError(
+          Exception('Embedding model file paths not found. Use the `modelManager` to load the model first'),
+        );
+        return completer.future;
+      }
+
+      // Extract model and tokenizer paths from spec
+      modelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
+      tokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
+
+      if (modelPath == null || tokenizerPath == null) {
+        completer.completeError(
+          Exception('Could not find model or tokenizer path in active embedding model'),
+        );
+        return completer.future;
+      }
+
+      debugPrint('Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
+    }
 
     try {
       await _platformService.createEmbeddingModel(

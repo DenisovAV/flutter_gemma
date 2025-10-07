@@ -11,18 +11,20 @@ import 'package:path/path.dart' as path;
 /// - Background downloads with progress tracking
 /// - Resume capability for interrupted downloads
 /// - HuggingFace authentication support
-/// - Automatic retry on network failures
+/// - HTTP-aware retry logic (auth errors fail after 1 attempt, others retry up to maxRetries)
 class NetworkSourceHandler implements SourceHandler {
   final DownloadService downloadService;
   final FileSystemService fileSystem;
   final ModelRepository repository;
   final String? huggingFaceToken;
+  final int maxDownloadRetries;
 
   NetworkSourceHandler({
     required this.downloadService,
     required this.fileSystem,
     required this.repository,
     this.huggingFaceToken,
+    this.maxDownloadRetries = 10,
   });
 
   @override
@@ -38,8 +40,9 @@ class NetworkSourceHandler implements SourceHandler {
     final filename = path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getTargetPath(filename);
 
-    // Check if HuggingFace URL and needs token
-    final token = _isHuggingFaceUrl(source.url) ? huggingFaceToken : null;
+    // Get token: prefer from source, fallback to constructor
+    final token = source.authToken ??
+        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
     // Download file
     await downloadService.download(source.url, targetPath, token: token);
@@ -70,14 +73,16 @@ class NetworkSourceHandler implements SourceHandler {
     final filename = path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getTargetPath(filename);
 
-    // Check if HuggingFace URL and needs token
-    final token = _isHuggingFaceUrl(source.url) ? huggingFaceToken : null;
+    // Get token: prefer from source, fallback to constructor
+    final token = source.authToken ??
+        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
-    // Download with progress tracking
+    // Download with progress tracking and configurable retries
     await for (final progress in downloadService.downloadWithProgress(
       source.url,
       targetPath,
       token: token,
+      maxRetries: maxDownloadRetries,
     )) {
       yield progress;
     }

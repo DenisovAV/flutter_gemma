@@ -5,7 +5,7 @@ void main() {
   group('ModelSpec Tests', () {
     group('InferenceModelSpec', () {
       test('creates valid inference model spec', () {
-        final spec = InferenceModelSpec(
+        final spec = InferenceModelSpec.fromLegacyUrl(
           name: 'test_model',
           modelUrl: 'https://example.com/model.bin',
         );
@@ -19,7 +19,7 @@ void main() {
       });
 
       test('creates inference model spec with LoRA', () {
-        final spec = InferenceModelSpec(
+        final spec = InferenceModelSpec.fromLegacyUrl(
           name: 'test_model',
           modelUrl: 'https://example.com/model.bin',
           loraUrl: 'https://example.com/lora.bin',
@@ -33,18 +33,19 @@ void main() {
       });
 
       test('extracts filename from URL correctly', () {
-        final spec = InferenceModelSpec(
+        final spec = InferenceModelSpec.fromLegacyUrl(
           name: 'test_model',
           modelUrl: 'https://huggingface.co/models/complex-path/model.bin?token=abc',
         );
 
-        expect(spec.modelFilename, 'model.bin');
+        // Test via files list instead of deprecated getter
+        expect(spec.files.first.filename, 'model.bin');
       });
     });
 
     group('EmbeddingModelSpec', () {
       test('creates valid embedding model spec', () {
-        final spec = EmbeddingModelSpec(
+        final spec = EmbeddingModelSpec.fromLegacyUrl(
           name: 'test_embedding',
           modelUrl: 'https://example.com/model.tflite',
           tokenizerUrl: 'https://example.com/tokenizer.json',
@@ -61,7 +62,7 @@ void main() {
       });
 
       test('uses correct SharedPrefs keys', () {
-        final spec = EmbeddingModelSpec(
+        final spec = EmbeddingModelSpec.fromLegacyUrl(
           name: 'test_embedding',
           modelUrl: 'https://example.com/model.tflite',
           tokenizerUrl: 'https://example.com/tokenizer.json',

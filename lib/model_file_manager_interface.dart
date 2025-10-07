@@ -36,10 +36,24 @@ abstract class ModelFileManager {
   /// Gets the file paths for an installed model
   Future<Map<String, String>?> getModelFilePaths(ModelSpec spec);
 
-  /// Gets storage statistics
+  /// Gets storage statistics (legacy format)
   Future<Map<String, int>> getStorageStats();
 
-  /// Ensures a model is ready for use, handling all necessary operations
+  /// Gets detailed storage information including orphaned files
+  Future<StorageStats> getStorageInfo();
+
+  /// Gets list of orphaned files (files without active downloads)
+  Future<List<OrphanedFileInfo>> getOrphanedFiles();
+
+  /// Explicitly cleanup orphaned files (user must call this - NOT automatic)
+  /// Returns number of deleted files
+  Future<int> cleanupStorage();
+
+  /// Modern API: Ensures a model spec is ready for use
+  Future<void> ensureModelReadyFromSpec(ModelSpec spec);
+
+  /// Legacy API: Ensures a model is ready for use, handling all necessary operations
+  @Deprecated('Use ensureModelReadyFromSpec with ModelSource instead')
   Future<void> ensureModelReady(String filename, String url);
 
   /// Installs model from Flutter assets (debug only)
@@ -62,4 +76,7 @@ abstract class ModelFileManager {
 
   /// Deletes current active model (legacy method without parameters)
   Future<void> deleteCurrentModel();
+
+  /// Sets the active model for subsequent inference operations
+  void setActiveModel(ModelSpec spec);
 }

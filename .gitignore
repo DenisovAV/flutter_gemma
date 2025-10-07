@@ -4,3 +4,6 @@ trash_*
 .env
 docs/
 .claude/settings.local.json
+
+# Sensitive configuration files
+example/config.json

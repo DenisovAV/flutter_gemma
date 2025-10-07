@@ -1,8 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,14 +43,8 @@ class ModelDownloadService {
   /// Checks if the model file exists and matches the remote file size.
   Future<bool> checkModelExistence(String token) async {
     try {
-      // First check via unified system (which handles SharedPreferences correctly)
-      final spec = MobileModelManager.createInferenceSpec(
-        name: modelFilename,
-        modelUrl: modelUrl,
-      );
-
-      final manager = FlutterGemmaPlugin.instance.modelManager;
-      final isInstalled = await manager.isModelInstalled(spec);
+      // Modern API: Check if model is installed
+      final isInstalled = await FlutterGemma.isModelInstalled(modelFilename);
 
       if (isInstalled) {
         return true;
@@ -88,19 +81,13 @@ class ModelDownloadService {
     required Function(double) onProgress,
   }) async {
     try {
-      // Create model spec for new API
-      final spec = MobileModelManager.createInferenceSpec(
-        name: modelFilename,
-        modelUrl: modelUrl,
-      );
-
-      final stream = FlutterGemmaPlugin.instance.modelManager.downloadModelWithProgress(spec, token: token);
-
-      // Wait for stream to complete - convert DownloadProgress to double
-      await for (final progress in stream) {
-        // Convert overall progress to double (0-100)
-        onProgress(progress.overallProgress.toDouble());
-      }
+      // Modern API: Install model from network with progress tracking
+      await FlutterGemma.installModel()
+          .fromNetwork(modelUrl)
+          .withProgress((progress) {
+            onProgress(progress.toDouble());
+          })
+          .install();
     } catch (e) {
       if (kDebugMode) {
         print('Error downloading model: $e');

@@ -7,6 +7,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'llm_inference_web.dart';
@@ -123,10 +125,21 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<EmbeddingModel> createEmbeddingModel({
-    required String modelPath,
-    required String tokenizerPath,
+    String? modelPath,
+    String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
+    // Modern API: Use active embedding model if paths not provided
+    if (modelPath == null || tokenizerPath == null) {
+      // Web: Embedding models not fully supported yet, but keep API consistent
+      if (modelManager.activeEmbeddingModel == null) {
+        throw Exception('No active embedding model set. Use `FlutterGemma.installEmbeddingModel()` or `modelManager.setActiveModel()` to set a model first');
+      }
+
+      // TODO: Implement full embedding model support on web
+      throw UnimplementedError('Embedding models are not fully supported on web platform yet');
+    }
+
     final model = _initializedEmbeddingModel ??= WebEmbeddingModel(
       onClose: () {
         _initializedEmbeddingModel = null;
@@ -227,13 +240,31 @@ class WebInferenceModel extends InferenceModel {
     }
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
+      // Use Modern API to get model path (same as mobile)
+      final activeModel = modelManager.activeInferenceModel;
+      if (activeModel == null) {
+        throw Exception('No active inference model set');
+      }
+
+      final modelFilePaths = await modelManager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw Exception('Model file paths not found');
+      }
+
+      // Get model path from Modern API
+      final modelPath = modelFilePaths[PreferencesKeys.installedModelFileName];
+      if (modelPath == null) {
+        throw Exception('Model path not found in file paths');
+      }
+
       final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm'.toJS).toDart;
 
-      final loraPathToUse = loraPath ?? modelManager._loraPath;
+      // Get LoRA path if available
+      final loraPathToUse = loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
       final config = LlmInferenceOptions(
-        baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
+        baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelPath),
         maxTokens: maxTokens,
         randomSeed: randomSeed,
         topK: topK,
@@ -587,12 +618,12 @@ class WebModelManager extends ModelFileManager {
     _loadCompleters[spec.name] = Completer<bool>();
 
     if (spec is InferenceModelSpec) {
-      _modelPaths[spec.name] = spec.modelUrl;
-      if (spec.loraUrl != null) {
-        _loraPaths[spec.name] = spec.loraUrl!;
+      _modelPaths[spec.name] = _extractUrlFromSource(spec.modelSource);
+      if (spec.loraSource != null) {
+        _loraPaths[spec.name] = _extractUrlFromSource(spec.loraSource!);
       }
     } else if (spec is EmbeddingModelSpec) {
-      _modelPaths[spec.name] = spec.modelUrl;
+      _modelPaths[spec.name] = _extractUrlFromSource(spec.modelSource);
       // For embedding models, we could store tokenizer URL separately if needed
     }
 
@@ -604,6 +635,8 @@ class WebModelManager extends ModelFileManager {
       if (progress == 100 && !_loadCompleters[spec.name]!.isCompleted) {
         _loadCompleters[spec.name]!.complete(true);
         _installedModels[spec.name] = true;
+        // Set as active model automatically after successful download
+        setActiveModel(spec);
       }
 
       return DownloadProgress(
@@ -678,14 +711,24 @@ class WebModelManager extends ModelFileManager {
     }
 
     final paths = <String, String>{};
-    final modelPath = _modelPaths[spec.name];
-    final loraPath = _loraPaths[spec.name];
 
-    if (modelPath != null) {
-      paths['model'] = modelPath;
-    }
-    if (loraPath != null) {
-      paths['lora'] = loraPath;
+    // For web, model paths are stored by spec.name, not filename
+    // Return paths mapped by proper preference keys (same as mobile)
+    if (spec is InferenceModelSpec) {
+      final modelPath = _modelPaths[spec.name];
+      if (modelPath != null) {
+        paths[PreferencesKeys.installedModelFileName] = modelPath;
+      }
+      final loraPath = _loraPaths[spec.name];
+      if (loraPath != null) {
+        paths[PreferencesKeys.installedLoraFileName] = loraPath;
+      }
+    } else if (spec is EmbeddingModelSpec) {
+      final modelPath = _modelPaths[spec.name];
+      if (modelPath != null) {
+        paths[PreferencesKeys.embeddingModelFile] = modelPath;
+      }
+      // Tokenizer path would need separate storage if supported
     }
 
     return paths.isNotEmpty ? paths : null;
@@ -706,7 +749,36 @@ class WebModelManager extends ModelFileManager {
     };
   }
 
-  /// Ensures a model is ready for use, handling all necessary operations
+  /// Modern API: Ensures a model spec is ready for use
+  @override
+  Future<void> ensureModelReadyFromSpec(ModelSpec spec) async {
+    await _ensureInitialized();
+
+    // Extract URL from ModelSource
+    String url;
+    if (spec is InferenceModelSpec) {
+      url = _extractUrlFromSource(spec.modelSource);
+    } else if (spec is EmbeddingModelSpec) {
+      url = _extractUrlFromSource(spec.modelSource);
+    } else {
+      throw Exception('Unsupported model spec type: ${spec.runtimeType}');
+    }
+
+    // For web, set the model path
+    _path = url;
+
+    // Check if already installed, if not - prepare for loading
+    if (!await isModelInstalled(spec)) {
+      // Set up the model for loading
+      _modelPaths[spec.name] = url;
+      _loadCompleters[spec.name] = Completer<bool>()..complete(true);
+    }
+
+    setActiveModel(spec);
+  }
+
+  /// Legacy API: Ensures a model is ready for use, handling all necessary operations
+  @Deprecated('Use ensureModelReadyFromSpec with ModelSource instead')
   @override
   Future<void> ensureModelReady(String filename, String url) async {
     await _ensureInitialized();
@@ -715,7 +787,7 @@ class WebModelManager extends ModelFileManager {
     _path = url;
 
     // Create a spec and ensure it's ready
-    final spec = InferenceModelSpec(
+    final spec = InferenceModelSpec.fromLegacyUrl(
       name: filename,
       modelUrl: url,
     );
@@ -735,6 +807,43 @@ class WebModelManager extends ModelFileManager {
     }
   }
 
+  /// Extracts URL from ModelSource for web platform
+  ///
+  /// Web platform supports:
+  /// - NetworkSource: HTTP/HTTPS URLs
+  /// - BundledSource: Served from assets/models/
+  /// - AssetSource: Flutter assets
+  /// - FileSource: URLs or assets paths only (no local file system access)
+  String _extractUrlFromSource(ModelSource source) {
+    switch (source) {
+      case NetworkSource():
+        return source.url;
+      case BundledSource():
+        // Web: bundled resources are served from assets/models/
+        return 'assets/models/${source.resourceName}';
+      case AssetSource():
+        // Web: AssetSource uses Flutter assets (same as bundled resources)
+        // normalizedPath already includes 'assets/' prefix
+        return source.normalizedPath;
+      case FileSource():
+        // FileSource can work on web if it's a URL or assets path
+        final path = source.path;
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+          // HTTP/HTTPS URL - works on web
+          return path;
+        } else if (path.startsWith('assets/') || path.contains('/assets/')) {
+          // Assets path - works on web
+          return path.startsWith('assets/') ? path : 'assets/${path.split('/assets/').last}';
+        } else {
+          // Local file path - not supported on web
+          throw UnsupportedError(
+            'FileSource with local file paths is not supported on web platform. '
+            'Use NetworkSource for URLs or AssetSource for assets.',
+          );
+        }
+    }
+  }
+
   /// Creates an inference model specification from parameters
   static InferenceModelSpec createInferenceSpec({
     required String name,
@@ -742,7 +851,7 @@ class WebModelManager extends ModelFileManager {
     String? loraUrl,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
   }) {
-    return InferenceModelSpec(
+    return InferenceModelSpec.fromLegacyUrl(
       name: name,
       modelUrl: modelUrl,
       loraUrl: loraUrl,
@@ -757,7 +866,7 @@ class WebModelManager extends ModelFileManager {
     required String tokenizerUrl,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
   }) {
-    return EmbeddingModelSpec(
+    return EmbeddingModelSpec.fromLegacyUrl(
       name: name,
       modelUrl: modelUrl,
       tokenizerUrl: tokenizerUrl,
@@ -765,10 +874,76 @@ class WebModelManager extends ModelFileManager {
     );
   }
 
+  /// Creates a bundled inference model specification (for production builds)
+  ///
+  /// Use this for models packaged in web/assets/models/
+  ///
+  /// Example:
+  /// ```dart
+  /// final spec = WebModelManager.createBundledInferenceSpec(
+  ///   resourceName: 'gemma3-270m-it-q8.task',
+  /// );
+  /// await manager.ensureModelReadyFromSpec(spec);
+  /// ```
+  static InferenceModelSpec createBundledInferenceSpec({
+    required String resourceName,
+    String? loraResourceName,
+    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+  }) {
+    final name = resourceName.split('.').first;
+
+    return InferenceModelSpec(
+      name: name,
+      modelSource: BundledSource(resourceName),
+      loraSource: loraResourceName != null ? BundledSource(loraResourceName) : null,
+      replacePolicy: replacePolicy,
+    );
+  }
+
+  /// Creates a bundled embedding model specification (for production builds)
+  ///
+  /// Use this for embedding models packaged in web/assets/models/
+  ///
+  /// Example:
+  /// ```dart
+  /// final spec = WebModelManager.createBundledEmbeddingSpec(
+  ///   modelResourceName: 'embeddinggemma-300M.tflite',
+  ///   tokenizerResourceName: 'sentencepiece.model',
+  /// );
+  /// await manager.ensureModelReadyFromSpec(spec);
+  /// ```
+  static EmbeddingModelSpec createBundledEmbeddingSpec({
+    required String modelResourceName,
+    required String tokenizerResourceName,
+    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+  }) {
+    final name = modelResourceName.split('.').first;
+
+    return EmbeddingModelSpec(
+      name: name,
+      modelSource: BundledSource(modelResourceName),
+      tokenizerSource: BundledSource(tokenizerResourceName),
+      replacePolicy: replacePolicy,
+    );
+  }
+
   // Legacy compatibility - for old WebInferenceModel if needed
   String? _path;
   String? _loraPath;
-  InferenceModelSpec? _currentActiveModel;
+
+  // Active models (modern API)
+  ModelSpec? _activeInferenceModel;
+  ModelSpec? _activeEmbeddingModel;
+
+  /// Gets the currently active inference model specification
+  ModelSpec? get activeInferenceModel => _activeInferenceModel;
+
+  /// Gets the currently active embedding model specification
+  ModelSpec? get activeEmbeddingModel => _activeEmbeddingModel;
+
+  /// Gets the currently active model specification (backward compatibility)
+  @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
+  ModelSpec? get currentActiveModel => _activeInferenceModel ?? _activeEmbeddingModel;
 
   // === Legacy Asset Loading Methods Implementation ===
 
@@ -781,13 +956,12 @@ class WebModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     final spec = InferenceModelSpec(
-      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
-      modelUrl: 'asset://$path',
-      loraUrl: loraPath != null ? 'asset://$loraPath' : null,
+      name: ModelFileSystemManager.getBaseName(path.split('/').last),
+      modelSource: ModelSource.asset(path),
+      loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
     );
 
-    await ensureModelReady(spec.name, spec.modelUrl);
-    _currentActiveModel = spec;
+    await ensureModelReadyFromSpec(spec);
   }
 
   @override
@@ -819,14 +993,24 @@ class WebModelManager extends ModelFileManager {
     _path = path;
     _loraPath = loraPath;
 
+    // Create ModelSource based on path type
+    final modelSource = path.startsWith('http')
+        ? ModelSource.network(path)
+        : ModelSource.file(path);
+
+    final loraSource = loraPath != null
+        ? (loraPath.startsWith('http')
+            ? ModelSource.network(loraPath)
+            : ModelSource.file(loraPath))
+        : null;
+
     final spec = InferenceModelSpec(
-      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
-      modelUrl: path.startsWith('http') ? path : 'file://$path',
-      loraUrl: loraPath != null ? (loraPath.startsWith('http') ? loraPath : 'file://$loraPath') : null,
+      name: ModelFileSystemManager.getBaseName(path.split('/').last),
+      modelSource: modelSource,
+      loraSource: loraSource,
     );
 
-    await ensureModelReady(spec.name, spec.modelUrl);
-    _currentActiveModel = spec;
+    await ensureModelReadyFromSpec(spec);
   }
 
   @override
@@ -835,7 +1019,8 @@ class WebModelManager extends ModelFileManager {
 
     _path = null;
     _loraPath = null;
-    _currentActiveModel = null;
+    _activeInferenceModel = null;
+    _activeEmbeddingModel = null;
     _installedModels.clear();
     _modelPaths.clear();
     _loraPaths.clear();
@@ -850,44 +1035,53 @@ class WebModelManager extends ModelFileManager {
   Future<void> setLoraWeightsPath(String path) async {
     await _ensureInitialized();
 
-    if (_currentActiveModel == null) {
-      throw Exception('No active model to apply LoRA weights to. Use setModelPath first.');
+    if (_activeInferenceModel == null) {
+      throw Exception('No active inference model to apply LoRA weights to. Use setModelPath first.');
     }
 
     _loraPath = path;
 
+    final current = _activeInferenceModel as InferenceModelSpec;
+
+    // Create LoRA source from path
+    final loraSource = path.startsWith('http')
+        ? ModelSource.network(path)
+        : ModelSource.file(path);
+
     final updatedSpec = InferenceModelSpec(
-      name: _currentActiveModel!.name,
-      modelUrl: _currentActiveModel!.modelUrl,
-      loraUrl: path.startsWith('http') ? path : 'file://$path',
-      replacePolicy: _currentActiveModel!.replacePolicy,
+      name: current.name,
+      modelSource: current.modelSource,
+      loraSource: loraSource,
+      replacePolicy: current.replacePolicy,
     );
 
     // Update internal state
     _loraPaths[updatedSpec.name] = path;
-    _currentActiveModel = updatedSpec;
+    setActiveModel(updatedSpec);
   }
 
   @override
   Future<void> deleteLoraWeights() async {
     await _ensureInitialized();
 
-    if (_currentActiveModel == null) {
-      throw Exception('No active model to remove LoRA weights from');
+    if (_activeInferenceModel == null) {
+      throw Exception('No active inference model to remove LoRA weights from');
     }
 
     _loraPath = null;
 
+    final current = _activeInferenceModel as InferenceModelSpec;
+
     final updatedSpec = InferenceModelSpec(
-      name: _currentActiveModel!.name,
-      modelUrl: _currentActiveModel!.modelUrl,
-      loraUrl: null, // Remove LoRA
-      replacePolicy: _currentActiveModel!.replacePolicy,
+      name: current.name,
+      modelSource: current.modelSource,
+      loraSource: null, // Remove LoRA
+      replacePolicy: current.replacePolicy,
     );
 
     // Update internal state
     _loraPaths.remove(updatedSpec.name);
-    _currentActiveModel = updatedSpec;
+    setActiveModel(updatedSpec);
   }
 
   // === Legacy Model Management Implementation ===
@@ -896,11 +1090,60 @@ class WebModelManager extends ModelFileManager {
   Future<void> deleteCurrentModel() async {
     await _ensureInitialized();
 
-    if (_currentActiveModel != null) {
-      await deleteModel(_currentActiveModel!);
-      _currentActiveModel = null;
-      _path = null;
-      _loraPath = null;
+    // Delete active inference model if exists
+    if (_activeInferenceModel != null) {
+      await deleteModel(_activeInferenceModel!);
+      _activeInferenceModel = null;
     }
+
+    // Delete active embedding model if exists
+    if (_activeEmbeddingModel != null) {
+      await deleteModel(_activeEmbeddingModel!);
+      _activeEmbeddingModel = null;
+    }
+
+    _path = null;
+    _loraPath = null;
+  }
+
+  @override
+  void setActiveModel(ModelSpec spec) {
+    if (spec is InferenceModelSpec) {
+      _activeInferenceModel = spec;
+      debugPrint('✅ Set active inference model: ${spec.name}');
+    } else if (spec is EmbeddingModelSpec) {
+      _activeEmbeddingModel = spec;
+      debugPrint('✅ Set active embedding model: ${spec.name}');
+    } else {
+      throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
+    }
+  }
+
+  // === Storage Management Implementation ===
+
+  @override
+  Future<StorageStats> getStorageInfo() async {
+    await _ensureInitialized();
+    // Web platform doesn't have file system access, return empty stats
+    return const StorageStats(
+      totalFiles: 0,
+      totalSizeBytes: 0,
+      orphanedFiles: [],
+    );
+  }
+
+  @override
+  Future<List<OrphanedFileInfo>> getOrphanedFiles() async {
+    await _ensureInitialized();
+    // Web platform doesn't have file system access, no orphaned files
+    return [];
+  }
+
+  @override
+  Future<int> cleanupStorage() async {
+    await _ensureInitialized();
+    // Web platform doesn't have file system access, nothing to cleanup
+    debugPrint('WebModelManager: cleanupStorage() is a no-op on web');
+    return 0;
   }
 }

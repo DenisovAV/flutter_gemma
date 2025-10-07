@@ -13,7 +13,7 @@ sealed class ModelSource {
   const ModelSource();
 
   /// Creates a network-based source (HTTPS/HTTP)
-  factory ModelSource.network(String url) = NetworkSource;
+  factory ModelSource.network(String url, {String? authToken}) = NetworkSource;
 
   /// Creates an asset-based source (Flutter assets)
   factory ModelSource.asset(String path) = AssetSource;
@@ -40,8 +40,9 @@ sealed class ModelSource {
 /// Network source - downloads from HTTPS/HTTP URLs
 final class NetworkSource extends ModelSource {
   final String url;
+  final String? authToken;
 
-  NetworkSource(this.url) {
+  NetworkSource(this.url, {this.authToken}) {
     if (url.isEmpty) {
       throw ArgumentError('URL cannot be empty');
     }
@@ -68,13 +69,14 @@ final class NetworkSource extends ModelSource {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is NetworkSource && other.url == url;
+      identical(this, other) ||
+      other is NetworkSource && other.url == url && other.authToken == authToken;
 
   @override
-  int get hashCode => url.hashCode;
+  int get hashCode => Object.hash(url, authToken);
 
   @override
-  String toString() => 'NetworkSource(url: $url, secure: $isSecure)';
+  String toString() => 'NetworkSource(url: $url, secure: $isSecure, hasToken: ${authToken != null})';
 }
 
 /// Asset source - copies from Flutter assets
@@ -93,7 +95,7 @@ final class AssetSource extends ModelSource {
     }
   }
 
-  /// Normalized path with 'assets/' prefix
+  /// Normalized path with 'assets/' prefix (for Flutter asset system)
   String get normalizedPath {
     String normalized = path;
     if (normalized.startsWith(_pathSeparator)) {
@@ -103,6 +105,16 @@ final class AssetSource extends ModelSource {
       normalized = '$_assetsPrefix$normalized';
     }
     return normalized;
+  }
+
+  /// Path WITHOUT 'assets/' prefix (for native platform lookupKey)
+  /// Example: 'assets/models/file.task' → 'models/file.task'
+  String get pathForLookupKey {
+    String result = normalizedPath;
+    if (result.startsWith(_assetsPrefix)) {
+      result = result.substring(_assetsPrefix.length);
+    }
+    return result;
   }
 
   @override
@@ -143,9 +155,7 @@ final class BundledSource extends ModelSource {
     if (resourceName.contains(' ')) {
       throw ArgumentError('Resource name cannot contain spaces');
     }
-    if (resourceName != resourceName.toLowerCase()) {
-      throw ArgumentError('Resource name must be lowercase');
-    }
+    // Note: lowercase validation removed - Android/iOS support case-sensitive names
   }
 
   @override

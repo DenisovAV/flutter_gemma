@@ -2,23 +2,29 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 
 /// Model file for embedding models (.bin files)
 class EmbeddingModelFile extends ModelFile {
-  final String _url;
+  final ModelSource _source;
   final String _filename;
 
   EmbeddingModelFile({
-    required String url,
+    required ModelSource source,
     required String filename,
-  })  : _url = url,
+  })  : _source = source,
         _filename = filename;
 
+  /// Creates EmbeddingModelFile from ModelSource
+  factory EmbeddingModelFile.fromSource(ModelSource source) {
+    final filename = InferenceModelFile._extractFilenameFromSource(source);
+    return EmbeddingModelFile(source: source, filename: filename);
+  }
+
   @override
-  String get url => _url;
+  ModelSource get source => _source;
 
   @override
   String get filename => _filename;
 
   @override
-  String get prefsKey => 'embedding_model_file';
+  String get prefsKey => PreferencesKeys.embeddingModelFile;
 
   @override
   bool get isRequired => true;
@@ -26,23 +32,29 @@ class EmbeddingModelFile extends ModelFile {
 
 /// Tokenizer file for embedding models (.json files)
 class EmbeddingTokenizerFile extends ModelFile {
-  final String _url;
+  final ModelSource _source;
   final String _filename;
 
   EmbeddingTokenizerFile({
-    required String url,
+    required ModelSource source,
     required String filename,
-  })  : _url = url,
+  })  : _source = source,
         _filename = filename;
 
+  /// Creates EmbeddingTokenizerFile from ModelSource
+  factory EmbeddingTokenizerFile.fromSource(ModelSource source) {
+    final filename = InferenceModelFile._extractFilenameFromSource(source);
+    return EmbeddingTokenizerFile(source: source, filename: filename);
+  }
+
   @override
-  String get url => _url;
+  ModelSource get source => _source;
 
   @override
   String get filename => _filename;
 
   @override
-  String get prefsKey => 'embedding_tokenizer_file';
+  String get prefsKey => PreferencesKeys.embeddingTokenizerFile;
 
   @override
   bool get isRequired => true;
@@ -51,19 +63,34 @@ class EmbeddingTokenizerFile extends ModelFile {
 /// Specification for embedding models (model.bin + tokenizer.json)
 class EmbeddingModelSpec extends ModelSpec {
   final String _name;
-  final String _modelUrl;
-  final String _tokenizerUrl;
+  final ModelSource _modelSource;
+  final ModelSource _tokenizerSource;
   final ModelReplacePolicy _replacePolicy;
 
   EmbeddingModelSpec({
     required String name,
+    required ModelSource modelSource,
+    required ModelSource tokenizerSource,
+    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+  })  : _name = name,
+        _modelSource = modelSource,
+        _tokenizerSource = tokenizerSource,
+        _replacePolicy = replacePolicy;
+
+  /// Legacy compatibility constructor for String URLs
+  factory EmbeddingModelSpec.fromLegacyUrl({
+    required String name,
     required String modelUrl,
     required String tokenizerUrl,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
-  })  : _name = name,
-        _modelUrl = modelUrl,
-        _tokenizerUrl = tokenizerUrl,
-        _replacePolicy = replacePolicy;
+  }) {
+    return EmbeddingModelSpec(
+      name: name,
+      modelSource: InferenceModelSpec._urlToSource(modelUrl),
+      tokenizerSource: InferenceModelSpec._urlToSource(tokenizerUrl),
+      replacePolicy: replacePolicy,
+    );
+  }
 
   @override
   ModelManagementType get type => ModelManagementType.embedding;
@@ -76,24 +103,18 @@ class EmbeddingModelSpec extends ModelSpec {
 
   @override
   List<ModelFile> get files => [
-        EmbeddingModelFile(
-          url: _modelUrl,
-          filename: _extractFilename(_modelUrl),
-        ),
-        EmbeddingTokenizerFile(
-          url: _tokenizerUrl,
-          filename: _extractFilename(_tokenizerUrl),
-        ),
+        EmbeddingModelFile.fromSource(_modelSource),
+        EmbeddingTokenizerFile.fromSource(_tokenizerSource),
       ];
 
-  /// Extract filename from URL
-  static String _extractFilename(String url) {
-    return Uri.parse(url).pathSegments.last;
-  }
+  /// Modern type-safe getters
+  ModelSource get modelSource => _modelSource;
+  ModelSource get tokenizerSource => _tokenizerSource;
 
-  /// Convenience getters for backward compatibility
-  String get modelUrl => _modelUrl;
-  String get tokenizerUrl => _tokenizerUrl;
-  String get modelFilename => _extractFilename(_modelUrl);
-  String get tokenizerFilename => _extractFilename(_tokenizerUrl);
+  /// Legacy getters for backward compatibility (WEB PLATFORM ONLY)
+  @Deprecated('Use modelSource instead. Web platform compatibility only.')
+  String get modelUrl => InferenceModelSpec._sourceToUrl(_modelSource);
+
+  @Deprecated('Use tokenizerSource instead. Web platform compatibility only.')
+  String get tokenizerUrl => InferenceModelSpec._sourceToUrl(_tokenizerSource);
 }

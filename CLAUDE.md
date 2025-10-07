@@ -17,10 +17,40 @@
 
 ### Core Components
 
-1. **ModelFileManager** - Handles model and LoRA weights file management
-2. **InferenceModel** - Manages model initialization and response generation
-3. **Chat/Session APIs** - Different interfaces for conversation vs single inference
-4. **Native Integration** - Platform-specific implementations using MediaPipe GenAI
+1. **ModelSource (NEW)** - Type-safe sealed class for model sources (Network, Asset, Bundled, File)
+2. **ModelSpec** - Specification for model installation (InferenceModelSpec, EmbeddingModelSpec)
+3. **ModelFileManager** - Handles model and LoRA weights file management
+4. **InferenceModel** - Manages model initialization and response generation
+5. **Chat/Session APIs** - Different interfaces for conversation vs single inference
+6. **Native Integration** - Platform-specific implementations using MediaPipe GenAI
+
+### Modern Architecture (v0.11.x+)
+
+**Type-Safe ModelSource System:**
+```dart
+// Type-safe sealed class for model sources
+sealed class ModelSource {
+  factory ModelSource.network(String url) = NetworkSource;
+  factory ModelSource.asset(String path) = AssetSource;
+  factory ModelSource.bundled(String resourceName) = BundledSource;
+  factory ModelSource.file(String path) = FileSource;
+}
+
+// Usage with ModelSpec
+final spec = InferenceModelSpec(
+  name: 'gemma-2b',
+  modelSource: ModelSource.network('https://example.com/model.bin'),
+  loraSource: ModelSource.file('/path/to/lora.bin'),
+);
+```
+
+**Benefits:**
+- ✅ Compile-time type safety (no runtime URL parsing errors)
+- ✅ Pattern matching support with exhaustiveness checking
+- ✅ SOLID compliance (Single Responsibility, Open/Closed principles)
+- ✅ 100% backward compatibility via `.fromLegacyUrl()` constructor
+
+**Migration Status:** Completed 2025-10-05 (see `MIGRATION_SUMMARY.md`)
 
 ### Supported Models
 
@@ -95,6 +125,55 @@ dart pub deps --style=compact
 - Ensure proper null safety handling
 - Clean up unused imports and variables
 
+### Code Standards
+
+**CRITICAL: No Inline String Keys/Magic Strings**
+
+❌ **FORBIDDEN - Inline string keys:**
+```dart
+// BAD - Never use inline strings for dictionary/map keys
+modelPath = modelFilePaths['embedding_model_file'];
+tokenizerPath = modelFilePaths['tokenizer_file'];
+
+// BAD - Never use inline strings for SharedPreferences
+prefs.getString('model_path');
+prefs.setString('tokenizer_path', path);
+```
+
+✅ **REQUIRED - Always use constants:**
+```dart
+// GOOD - Use constants from PreferencesKeys
+modelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
+tokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
+
+// GOOD - Use PreferencesKeys constants
+prefs.getString(PreferencesKeys.installedModelFileName);
+prefs.setString(PreferencesKeys.embeddingModelFile, path);
+
+// GOOD - Use private class constants for internal keys
+class MyRepository {
+  static const String _indexKey = 'model_index';
+
+  void save() {
+    prefs.setString(_indexKey, data);  // OK - defined as constant
+  }
+}
+```
+
+**Exception:** Migration files (`legacy_preferences_migrator.dart`) may use inline strings when reading OLD/deprecated keys for migration purposes only.
+
+**Why this matters:**
+- Prevents typos and runtime errors
+- Makes refactoring safer (find-and-replace works)
+- Central source of truth for all keys
+- Compiler catches missing constants
+
+**Before committing:**
+```bash
+# Check for inline string keys (should return empty or only migration file)
+grep -rn "\['[a-z_]*'\]" lib --include="*.dart" | grep -v migration
+```
+
 ### Platform-Specific Setup
 
 #### iOS Configuration
@@ -167,6 +246,179 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
   maxNumImages: 1,
 );
 ```
+
+## SDK Usage Guidelines
+
+### CRITICAL: Always Study SDK Before Implementing
+
+**Before implementing any fix or feature:**
+1. ✅ Read relevant interface definitions in `lib/flutter_gemma_interface.dart`
+2. ✅ Check implementation in `lib/mobile/flutter_gemma_mobile.dart` or `lib/web/flutter_gemma_web.dart`
+3. ✅ Look for existing usage examples in `example/` directory
+4. ✅ Check class definitions and default parameters
+5. ❌ Never assume API behavior - always verify!
+
+### Inference API - Correct Usage
+
+**Step 1: Install Model (Modern API)**
+```dart
+// Download from network
+await FlutterGemma.installModel()
+    .fromNetwork(url, token: token)
+    .withProgress((progress) => print('Progress: $progress%'))
+    .install();  // Automatically calls setActiveModel()
+
+// OR use Legacy API
+final spec = InferenceModelSpec.fromLegacyUrl(name: 'model', modelUrl: url);
+await manager.downloadModelWithProgress(spec, token: token);  // Also calls setActiveModel()
+```
+
+**Step 2: Create Model**
+```dart
+final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
+  modelType: ModelType.gemmaIt,
+  maxTokens: 512,
+);
+```
+
+**Step 3: Create Session**
+```dart
+final session = await inferenceModel.createSession();
+```
+
+**Step 4: Add Query (CRITICAL - Must set isUser: true!)**
+```dart
+// ✅ CORRECT - User message
+await session.addQueryChunk(const Message(
+  text: 'Hello, how are you?',
+  isUser: true,  // ⚠️ CRITICAL: Must be true for user messages!
+));
+
+// ❌ WRONG - Will generate empty response!
+await session.addQueryChunk(const Message(text: 'Hello'));  // isUser defaults to false!
+```
+
+**Step 5: Generate Response**
+```dart
+// Synchronous (blocking)
+final response = await session.getResponse();
+
+// OR Asynchronous (streaming)
+await for (final chunk in session.getResponseAsync()) {
+  print(chunk);
+}
+```
+
+**Step 6: Cleanup**
+```dart
+await session.close();
+await inferenceModel.close();
+```
+
+### Message Class - Critical Parameters
+
+**Definition** (`lib/core/message.dart`):
+```dart
+class Message {
+  const Message({
+    required this.text,
+    this.isUser = false,     // ⚠️ DEFAULT IS FALSE!
+    this.imageBytes,
+    this.type = MessageType.text,
+    this.toolName,
+  });
+}
+```
+
+**Common Pitfalls:**
+```dart
+// ❌ WRONG - Creates assistant message (isUser = false by default)
+const Message(text: 'Hello')
+
+// ✅ CORRECT - User message
+const Message(text: 'Hello', isUser: true)
+
+// ✅ CORRECT - Assistant response (for chat history)
+const Message(text: 'Hi! How can I help?', isUser: false)
+```
+
+**Why this matters:**
+- `isUser: false` → Message is formatted as assistant/model response
+- `isUser: true` → Message is formatted as user query
+- Model needs proper formatting to generate responses
+- Using wrong flag results in empty/invalid responses
+
+### Embedding API - Correct Usage
+
+**Step 1: Install Model**
+```dart
+await FlutterGemma.installEmbeddingModel()
+    .modelFromNetwork(modelUrl, token: token)
+    .tokenizerFromNetwork(tokenizerUrl, token: token)
+    .install();  // Automatically calls setActiveModel()
+```
+
+**Step 2: Create Model**
+```dart
+final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel();
+```
+
+**Step 3: Generate Embeddings**
+```dart
+// Single text
+final embedding = await embeddingModel.generateEmbedding('Hello, world!');
+print('Dimensions: ${embedding.length}');
+
+// Multiple texts
+final embeddings = await embeddingModel.generateEmbeddings(['text1', 'text2']);
+```
+
+**Step 4: Cleanup**
+```dart
+await embeddingModel.close();
+```
+
+### Common SDK Mistakes to Avoid
+
+1. **❌ Not setting `isUser: true` for user messages**
+   - Symptom: Empty responses, model doesn't generate anything
+   - Fix: Always use `Message(text: '...', isUser: true)` for user input
+
+2. **❌ Assuming API behavior without checking SDK**
+   - Symptom: Runtime errors, unexpected behavior
+   - Fix: Always read interface definition and implementation first
+
+3. **❌ Using inline string keys instead of PreferencesKeys constants**
+   - Symptom: Runtime errors, typos, hard to refactor
+   - Fix: Use `PreferencesKeys.embeddingModelFile` etc.
+
+4. **❌ Forgetting to close sessions/models**
+   - Symptom: Memory leaks, resource exhaustion
+   - Fix: Always call `close()` in finally block or use try-catch
+
+5. **❌ Not verifying active model is set after installation**
+   - Symptom: "No active model" errors
+   - Fix: Check `manager.activeInferenceModel` or `manager.activeEmbeddingModel`
+
+### Where to Find API Information
+
+**Interface Definitions:**
+- `lib/flutter_gemma_interface.dart` - Main plugin interface
+- `lib/model_file_manager_interface.dart` - Model management
+- `lib/core/message.dart` - Message class
+- `lib/core/extensions.dart` - Message formatting logic
+
+**Implementations:**
+- `lib/mobile/flutter_gemma_mobile.dart` - Mobile platform (Android/iOS)
+- `lib/web/flutter_gemma_web.dart` - Web platform
+- `lib/core/model_management/managers/unified_model_manager.dart` - Model management
+
+**Examples:**
+- `example/lib/` - Integration tests and example screens
+- `test/` - Unit and integration tests
+
+**Platform Communication:**
+- `lib/pigeon.g.dart` - Generated platform channel code (DO NOT EDIT MANUALLY)
 
 ### File Management Best Practices
 
@@ -342,43 +594,156 @@ flutter build web --release
 
 **Git Commit Author**: Always use `--author="Sasha Denisov <denisov.shureg@gmail.com>"` for commits
 
+## ModelSource Architecture (v0.11.x+)
+
+### Overview
+
+The new **ModelSource** system replaces string-based URLs with type-safe sealed classes, providing compile-time validation and pattern matching support.
+
+### Sealed Class Hierarchy
+
+```dart
+sealed class ModelSource {
+  // Network sources (HTTP/HTTPS)
+  factory ModelSource.network(String url) = NetworkSource;
+
+  // Flutter asset sources
+  factory ModelSource.asset(String path) = AssetSource;
+
+  // Native bundled resources (iOS/Android)
+  factory ModelSource.bundled(String resourceName) = BundledSource;
+
+  // External file paths (mobile only)
+  factory ModelSource.file(String path) = FileSource;
+}
+```
+
+### Usage Examples
+
+#### Modern API (Recommended)
+```dart
+// Network model with LoRA
+final spec = InferenceModelSpec(
+  name: 'gemma-2b',
+  modelSource: ModelSource.network('https://huggingface.co/.../model.bin'),
+  loraSource: ModelSource.file('/path/to/lora.bin'),
+);
+
+// Pattern matching
+String describe(ModelSource source) => switch (source) {
+  NetworkSource(:final url, :final isSecure) =>
+    'Network (${isSecure ? "HTTPS" : "HTTP"}): $url',
+  AssetSource(:final normalizedPath) =>
+    'Asset: $normalizedPath',
+  BundledSource(:final resourceName) =>
+    'Bundled: $resourceName',
+  FileSource(:final path) =>
+    'File: $path',
+};
+```
+
+#### Legacy API (Backward Compatible)
+```dart
+// Old code still works via .fromLegacyUrl()
+final spec = InferenceModelSpec.fromLegacyUrl(
+  name: 'gemma-2b',
+  modelUrl: 'https://example.com/model.bin',  // String URL
+  loraUrl: 'file:///path/to/lora.bin',
+);
+
+// Deprecated getters still available
+print(spec.modelUrl);  // Works but shows deprecation warning
+print(spec.modelSource);  // Type-safe modern getter
+```
+
+### Migration Guide
+
+**From String URLs:**
+```dart
+// ❌ OLD (deprecated)
+modelUrl: 'https://example.com/model.bin'
+modelUrl: 'asset://assets/models/demo.bin'
+modelUrl: 'file:///tmp/model.bin'
+
+// ✅ NEW (type-safe)
+modelSource: ModelSource.network('https://example.com/model.bin')
+modelSource: ModelSource.asset('assets/models/demo.bin')
+modelSource: ModelSource.file('/tmp/model.bin')
+```
+
+See `MIGRATION_SUMMARY.md` for complete migration details.
+
+---
+
 ## Project Structure
 
 ```
 flutter_gemma/
 ├── android/                 # Android native implementation
 │   └── src/main/kotlin/
-├── ios/                     # iOS native implementation  
+├── ios/                     # iOS native implementation
 │   └── Classes/
 ├── lib/                     # Dart implementation
 │   ├── core/               # Core abstractions
+│   │   ├── domain/        # ModelSource sealed classes
+│   │   ├── model_management/  # ModelSpec, managers
+│   │   └── di/            # Dependency injection
 │   ├── mobile/             # Mobile platform code
 │   ├── web/                # Web platform code
 │   └── flutter_gemma.dart  # Main API
 ├── example/                # Example application
 ├── test/                   # Unit tests
-└── docs/                   # Documentation
+├── docs/                   # Architecture documentation
+├── MIGRATION_SUMMARY.md    # ModelSource migration details
+└── CLAUDE.md              # This file
 ```
+
+## Recent Updates (2025-10-05)
+
+### ✅ ModelSource Migration (v0.11.x)
+- **Type-safe sealed classes** replace string URLs
+- **Pattern matching** support with exhaustiveness checking
+- **100% backward compatibility** via `.fromLegacyUrl()`
+- **SOLID compliance** (Single Responsibility, Open/Closed)
+- **Zero breaking changes** - all existing code works
+- See `MIGRATION_SUMMARY.md` for details
+
+### ✅ Storage System Improvements
+- Multi-model support (replaced single-model storage)
+- Backward compatibility with legacy keys
+- Atomic operations for model installation
+- Protected file registry
+
+### ✅ Download System
+- Implemented `background_downloader` (v9.2.3)
+- Smart retry with HTTP-aware error handling
+- Resume support for interrupted downloads
+- Progress tracking with background support
+
+---
 
 ## Future Improvements
 
 ### Performance Enhancements
 1. ✅ Implemented `background_downloader` for improved download performance
 2. ✅ Background download support with recovery
-3. Add parallel download support
-4. Optimize memory usage for multimodal models
+3. ✅ Type-safe ModelSource architecture
+4. Add parallel download support
+5. Optimize memory usage for multimodal models
 
 ### Feature Additions
 1. Enhanced web platform support for images
 2. Video/Audio input capabilities
 3. More multimodal model support
 4. Advanced caching strategies
+5. Migration to modern FlutterGemma facade API
 
 ### Code Quality
-1. Address current linting issues (27 warnings/info)
-2. Improve test coverage
-3. Add performance benchmarks
-4. Better error handling and logging
+1. ✅ ModelSource sealed classes (type safety)
+2. ✅ SOLID compliance in model management
+3. Improve test coverage
+4. Add performance benchmarks
+5. Better error handling and logging
 
 ## Repository Information
 

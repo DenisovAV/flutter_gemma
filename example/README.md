@@ -1,16 +1,55 @@
-# flutter_gemma_example
+# Flutter Gemma Example App
 
-Demonstrates how to use the flutter_gemma plugin.
+## Setup
 
-## Getting Started
+### 1. Configure HuggingFace Token
 
-This project is a starting point for a Flutter application.
+Copy the config template and add your token:
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+cp config.json.example config.json
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Edit `config.json` and add your HuggingFace token:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```json
+{
+  "HUGGINGFACE_TOKEN": "hf_your_token_here"
+}
+```
+
+Get your token from: https://huggingface.co/settings/tokens
+
+### 2. Run the App
+
+**With configuration:**
+```bash
+flutter run --dart-define-from-file=config.json
+```
+
+**Without configuration** (token will be empty):
+```bash
+flutter run
+```
+
+### 3. Build for Production
+
+```bash
+flutter build apk --dart-define-from-file=config.json
+flutter build ios --dart-define-from-file=config.json
+flutter build web --dart-define-from-file=config.json
+```
+
+## Security Notes
+
+- ⚠️ **Never commit `config.json`** - it contains your private token
+- ✅ `config.json.example` is the template (safe to commit)
+- ✅ `config.json` is in `.gitignore` (automatically excluded)
+
+## Testing
+
+The app includes integration tests for:
+- Model downloads (public and private)
+- Asset model loading
+- Bundled model loading
+- Inference and embedding generation

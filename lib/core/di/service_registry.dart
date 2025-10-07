@@ -50,9 +50,11 @@ class ServiceRegistry {
 
   // Optional configuration
   final String? huggingFaceToken;
+  final int maxDownloadRetries;
 
   ServiceRegistry._({
     this.huggingFaceToken,
+    this.maxDownloadRetries = 10,
     FileSystemService? fileSystemService,
     AssetLoader? assetLoader,
     DownloadService? downloadService,
@@ -73,6 +75,7 @@ class ServiceRegistry {
       fileSystem: _fileSystemService,
       repository: _modelRepository,
       huggingFaceToken: huggingFaceToken,
+      maxDownloadRetries: maxDownloadRetries,
     );
 
     _assetHandler = AssetSourceHandler(
@@ -104,11 +107,12 @@ class ServiceRegistry {
   }
 
   /// Gets the singleton instance
+  ///
+  /// Automatically initializes with default settings if not already initialized.
   static ServiceRegistry get instance {
     if (_instance == null) {
-      throw StateError(
-        'ServiceRegistry not initialized. Call ServiceRegistry.initialize() first.',
-      );
+      // Lazy initialization with defaults
+      initialize();
     }
     return _instance!;
   }
@@ -119,9 +123,12 @@ class ServiceRegistry {
   ///
   /// Parameters:
   /// - [huggingFaceToken]: Optional HuggingFace API token for authenticated downloads
+  /// - [maxDownloadRetries]: Maximum retry attempts for transient errors (default: 10)
+  ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless
   /// - Services can be overridden for testing (dependency injection)
   static void initialize({
     String? huggingFaceToken,
+    int maxDownloadRetries = 10,
     FileSystemService? fileSystemService,
     AssetLoader? assetLoader,
     DownloadService? downloadService,
@@ -130,6 +137,7 @@ class ServiceRegistry {
   }) {
     _instance = ServiceRegistry._(
       huggingFaceToken: huggingFaceToken,
+      maxDownloadRetries: maxDownloadRetries,
       fileSystemService: fileSystemService,
       assetLoader: assetLoader,
       downloadService: downloadService,

@@ -14,3 +14,12 @@ export 'core/image_tokenizer.dart' hide ModelType;
 export 'core/vision_encoder_validator.dart';
 export 'core/image_error_handler.dart';
 export 'core/multimodal_image_handler.dart';
+
+// Export migration utilities (optional, user must call explicitly)
+export 'core/migration/legacy_preferences_migrator.dart';
+
+// Export Modern API
+export 'core/api/flutter_gemma.dart';
+export 'core/api/inference_installation_builder.dart';
+export 'core/api/embedding_installation_builder.dart';
+export 'core/api/model_installation_builder.dart';

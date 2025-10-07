@@ -10,8 +10,8 @@ enum ModelManagementType {
 
 /// Represents a single file that belongs to a model
 abstract class ModelFile {
-  /// URL from which this file can be downloaded
-  String get url;
+  /// Source from which this file can be obtained (NEW: type-safe ModelSource)
+  ModelSource get source;
 
   /// Local filename for this file
   String get filename;

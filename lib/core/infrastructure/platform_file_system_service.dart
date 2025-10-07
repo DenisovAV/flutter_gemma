@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:flutter_gemma/core/services/file_system_service.dart';
@@ -73,17 +75,52 @@ class PlatformFileSystemService implements FileSystemService {
 
   @override
   Future<String> getBundledResourcePath(String resourceName) async {
+    // Web doesn't support bundled resources via this service
+    if (kIsWeb) {
+      throw UnsupportedError('Bundled resources not supported on web platform');
+    }
+
     // Platform-specific bundled resource handling
     if (Platform.isAndroid) {
-      // On Android, bundled resources are in assets/models/
-      // This path is used by native MediaPipe integration
-      return 'assets/models/$resourceName';
+      // Android: Copy from native assets to filesDir (MediaPipe can't read from APK directly)
+      final dir = await _getDocumentsDirectory();
+      final destPath = path.join(dir.path, resourceName);
+      final destFile = File(destPath);
+
+      // Check if already copied
+      if (await destFile.exists()) {
+        return destPath;
+      }
+
+      // Copy from native assets via platform channel
+      const platform = MethodChannel('flutter_gemma_bundled');
+      final result = await platform.invokeMethod<String>(
+        'copyAssetToFile',
+        {
+          'assetPath': 'models/$resourceName',
+          'destPath': destPath,
+        },
+      );
+
+      if (result == null || result != 'success') {
+        throw Exception('Failed to copy asset from Android assets');
+      }
+
+      return destPath;
     } else if (Platform.isIOS) {
-      // On iOS, use Bundle.main path
-      // The native iOS code will resolve this through Bundle.main.path(forResource:)
-      // For now, we return the resource name and let native handle it
-      // In a full implementation, this would call iOS platform channel
-      throw UnsupportedError('iOS bundled resources require platform channel integration');
+      // On iOS, MediaPipe CAN read directly from Bundle (after iOS native fix)
+      // Simply get the bundle path and return it - no copying needed!
+      const platform = MethodChannel('flutter_gemma_bundled');
+      final bundlePath = await platform.invokeMethod<String>(
+        'getBundledResourcePath',
+        {'resourceName': resourceName},
+      );
+
+      if (bundlePath == null) {
+        throw Exception('Bundled resource not found: $resourceName');
+      }
+
+      return bundlePath;
     } else {
       throw UnsupportedError('Bundled resources not supported on ${Platform.operatingSystem}');
     }
@@ -98,6 +135,11 @@ class PlatformFileSystemService implements FileSystemService {
 
   /// Gets the app documents directory with caching
   Future<Directory> _getDocumentsDirectory() async {
+    // Web doesn't support local file system
+    if (kIsWeb) {
+      throw UnsupportedError('Local file system not supported on web platform');
+    }
+
     if (_documentsDirectory != null) {
       return _documentsDirectory!;
     }

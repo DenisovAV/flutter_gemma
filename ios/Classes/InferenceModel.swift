@@ -10,14 +10,9 @@ struct InferenceModel {
          supportedLoraRanks: [Int]? = nil,
          maxNumImages: Int = 0) throws {
 
-        let fileManager = FileManager.default
-        guard let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "InferenceModel", code: 1, userInfo: [NSLocalizedDescriptionKey: "Document directory not found"])
-        }
-
-        let fileName = (modelPath as NSString).lastPathComponent
-        let resolvedPath = documentDirectory.appendingPathComponent(fileName).path
-        let llmOptions = LlmInference.Options(modelPath: resolvedPath)
+        // Use modelPath directly - MediaPipe can handle bundle paths, Documents paths, etc.
+        // No need to transform the path - it's already correct from the caller
+        let llmOptions = LlmInference.Options(modelPath: modelPath)
 
         llmOptions.maxTokens = maxTokens
         llmOptions.waitForWeightUploads = true

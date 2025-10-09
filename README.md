@@ -72,6 +72,257 @@ The example app offers a curated list of models, each suited for different tasks
 
 2.  Run `flutter pub get` to install.
 
+## Quick Start (Modern API) ⚡
+
+### Initialize Flutter Gemma
+
+Add to your `main.dart`:
+
+```dart
+import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Optional: Initialize with HuggingFace token for gated models
+  FlutterGemma.initialize(
+    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+    maxDownloadRetries: 10,
+  );
+
+  runApp(MyApp());
+}
+```
+
+### Install Model
+
+```dart
+// From network (public model)
+await FlutterGemma.installModel()
+  .fromNetwork('https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma-3-270m-it-int4-cpu.bin')
+  .withProgress((progress) => print('Download: $progress%'))
+  .install();
+
+// From Flutter asset
+await FlutterGemma.installModel()
+  .fromAsset('models/gemma-2b-it.bin')
+  .install();
+
+// From bundled native resource
+await FlutterGemma.installModel()
+  .fromBundled('gemma-2b-it.bin')
+  .install();
+```
+
+### Create Model and Chat
+
+```dart
+// Initialize model (same API as before)
+final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
+  modelType: ModelType.gemmaIt,
+  preferredBackend: PreferredBackend.gpu,
+  maxTokens: 2048,
+);
+
+// Create chat
+final chat = await inferenceModel.createChat();
+await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
+final response = await chat.generateChatResponse();
+```
+
+**Next Steps:**
+- 📖 [Authentication Setup](#huggingface-authentication) - Configure tokens for gated models
+- 📦 [Model Sources](#model-sources) - Learn about different model sources
+- 🌐 [Platform Support](#platform-support-details) - Web vs Mobile differences
+- 🔄 [Migration Guide](#migration-from-legacy-to-modern-api) - Upgrade from Legacy API
+- 📚 [Legacy API Documentation](#usage-legacy-api) - For backwards compatibility
+
+## HuggingFace Authentication 🔐
+
+Many models require authentication to download from HuggingFace. **Never commit tokens to version control.**
+
+### ✅ Recommended: config.json Pattern
+
+This is the **most secure** way to handle tokens in development and production.
+
+**Step 1:** Create config template file `config.json.example`:
+```json
+{
+  "HUGGINGFACE_TOKEN": ""
+}
+```
+
+**Step 2:** Copy and add your token:
+```bash
+cp config.json.example config.json
+# Edit config.json and add your token from https://huggingface.co/settings/tokens
+```
+
+**Step 3:** Add to `.gitignore`:
+```gitignore
+# Never commit tokens!
+config.json
+```
+
+**Step 4:** Run with config:
+```bash
+flutter run --dart-define-from-file=config.json
+```
+
+**Step 5:** Access in code:
+```dart
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Read from environment (populated by --dart-define-from-file)
+  const token = String.fromEnvironment('HUGGINGFACE_TOKEN');
+
+  // Initialize with token (optional if all models are public)
+  FlutterGemma.initialize(
+    huggingFaceToken: token.isNotEmpty ? token : null,
+  );
+
+  runApp(MyApp());
+}
+```
+
+### Alternative: Environment Variables
+
+```bash
+export HUGGINGFACE_TOKEN=hf_your_token_here
+flutter run --dart-define=HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
+```
+
+### Alternative: Per-Download Token
+
+```dart
+// Pass token directly for specific downloads
+await FlutterGemma.installModel()
+  .fromNetwork(
+    'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
+    token: 'hf_your_token_here',  // ⚠️ Not recommended - use config.json
+  )
+  .install();
+```
+
+### Which Models Require Authentication?
+
+**Common gated models:**
+- ✅ **Gemma 3 Nano** (E2B, E4B) - `google/` repos are gated
+- ✅ **Gemma 3 1B** - `litert-community/` requires access
+- ✅ **Gemma 3 270M** - `litert-community/` requires access
+- ✅ **EmbeddingGemma** - `litert-community/` requires access
+
+**Public models (no auth needed):**
+- ❌ **DeepSeek, Qwen2.5, TinyLlama** - Public repos
+
+**Get your token:** https://huggingface.co/settings/tokens
+
+**Grant access to gated repos:** Visit model page → "Request Access" button
+
+## Model Sources 📦
+
+Flutter Gemma supports multiple model sources with different capabilities:
+
+| Source Type | Platform | Progress | Resume | Authentication | Use Case |
+|-------------|----------|----------|--------|----------------|----------|
+| **NetworkSource** | All | ✅ Detailed | ✅ Yes | ✅ Supported | HuggingFace, CDNs, private servers |
+| **AssetSource** | All | ⚠️ End only | ❌ No | ❌ N/A | Models bundled in app assets |
+| **BundledSource** | All | ⚠️ End only | ❌ No | ❌ N/A | Native platform resources |
+| **FileSource** | Mobile only | ⚠️ End only | ❌ No | ❌ N/A | User-selected files (file picker) |
+
+### NetworkSource - Internet Downloads
+
+Downloads models from HTTP/HTTPS URLs with full progress tracking and authentication.
+
+**Features:**
+- ✅ Progress tracking (0-100%)
+- ✅ Resume after interruption (ETag support)
+- ✅ HuggingFace authentication
+- ✅ Smart retry logic with exponential backoff
+- ✅ Background downloads on mobile
+
+**Example:**
+```dart
+// Public model
+await FlutterGemma.installModel()
+  .fromNetwork('https://example.com/model.bin')
+  .withProgress((progress) => print('$progress%'))
+  .install();
+
+// Private model with authentication
+await FlutterGemma.installModel()
+  .fromNetwork(
+    'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/model.task',
+    token: 'hf_...',  // Or use FlutterGemma.initialize(huggingFaceToken: ...)
+  )
+  .withProgress((progress) => setState(() => _progress = progress))
+  .install();
+```
+
+### AssetSource - Flutter Assets
+
+Copies models from Flutter assets (declared in `pubspec.yaml`).
+
+**Features:**
+- ✅ No network required
+- ✅ Fast installation (local copy)
+- ⚠️ Increases app size significantly
+- ✅ Works offline
+
+**Example:**
+```dart
+// 1. Add to pubspec.yaml
+// assets:
+//   - models/gemma-2b-it.bin
+
+// 2. Install from asset
+await FlutterGemma.installModel()
+  .fromAsset('models/gemma-2b-it.bin')
+  .install();
+```
+
+### BundledSource - Native Resources
+
+References models bundled as native platform resources.
+
+**Platform Paths:**
+- **Android**: `assets/models/{resourceName}` (native assets folder)
+- **iOS**: `Bundle.main.path(forResource:)` (bundle resources)
+- **Web**: `assets/{resourceName}` (web server assets)
+
+**Features:**
+- ✅ No copying (uses direct path)
+- ✅ Smallest installation overhead
+- ✅ Production-ready
+
+**Example:**
+```dart
+await FlutterGemma.installModel()
+  .fromBundled('gemma-2b-it.bin')
+  .install();
+```
+
+### FileSource - External Files (Mobile Only)
+
+References external files (e.g., user-selected via file picker).
+
+**Features:**
+- ✅ No copying (references original file)
+- ✅ Protected from cleanup
+- ❌ **Web not supported** (no local file system)
+
+**Example:**
+```dart
+// Mobile only - after user selects file with file_picker
+final path = '/data/user/0/com.app/files/model.bin';
+await FlutterGemma.installModel()
+  .fromFile(path)
+  .install();
+```
+
+**Important:** On web, FileSource only works with URLs or asset paths, not local file system paths.
+
 ## Setup
 
 1. **Download Model and optionally LoRA Weights:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
@@ -159,6 +410,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 
 **Web**
 
+* **Authentication:** For gated models (Gemma 3 Nano, Gemma 3 1B/270M), you need to configure HuggingFace token. See [HuggingFace Authentication](#huggingface-authentication) section.
 * Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet
 * **Multimodal support** (images) is fully supported on web platform
 * **Model formats**: Use `.litertlm` files for optimal web compatibility (recommended for multimodal models)
@@ -172,7 +424,163 @@ Add to 'AndroidManifest.xml' above tag `</application>`
   </script>
 ```
 
-## Usage
+## Migration from Legacy to Modern API 🔄
+
+If you're upgrading from the Legacy API, here are common migration patterns:
+
+### Installing Models
+
+<table>
+<tr>
+<th>Legacy API</th>
+<th>Modern API</th>
+</tr>
+<tr>
+<td>
+
+```dart
+// Network download
+final spec = MobileModelManager.createInferenceSpec(
+  name: 'model.bin',
+  modelUrl: 'https://example.com/model.bin',
+);
+
+await FlutterGemmaPlugin.instance.modelManager
+  .downloadModelWithProgress(spec, token: token)
+  .listen((progress) {
+    print('${progress.overallProgress}%');
+  });
+```
+
+</td>
+<td>
+
+```dart
+// Network download
+await FlutterGemma.installModel()
+  .fromNetwork(
+    'https://example.com/model.bin',
+    token: token,
+  )
+  .withProgress((progress) {
+    print('$progress%');
+  })
+  .install();
+```
+
+</td>
+</tr>
+<tr>
+<td>
+
+```dart
+// From assets
+await modelManager.installModelFromAssetWithProgress(
+  'model.bin',
+  loraPath: 'lora.bin',
+).listen((progress) {
+  print('$progress%');
+});
+```
+
+</td>
+<td>
+
+```dart
+// From assets
+await FlutterGemma.installModel()
+  .fromAsset('model.bin')
+  .withProgress((progress) {
+    print('$progress%');
+  })
+  .install();
+
+// LoRA weights installed separately
+await FlutterGemma.installModel()
+  .fromAsset('lora.bin')
+  .install();
+```
+
+</td>
+</tr>
+</table>
+
+### Checking Model Installation
+
+<table>
+<tr>
+<th>Legacy API</th>
+<th>Modern API</th>
+</tr>
+<tr>
+<td>
+
+```dart
+final spec = MobileModelManager.createInferenceSpec(
+  name: 'model.bin',
+  modelUrl: url,
+);
+
+final isInstalled = await FlutterGemmaPlugin
+  .instance.modelManager
+  .isModelInstalled(spec);
+```
+
+</td>
+<td>
+
+```dart
+final isInstalled = await FlutterGemma
+  .isModelInstalled('model.bin');
+```
+
+</td>
+</tr>
+</table>
+
+### Key Migration Notes
+
+- ✅ **Simpler imports**: Use `package:flutter_gemma/core/api/flutter_gemma.dart`
+- ✅ **Builder pattern**: Chain methods for cleaner code
+- ✅ **Callback-based progress**: Simpler than streams for most cases
+- ✅ **Type-safe sources**: Compile-time validation of source types
+- ⚠️ **Breaking change**: Progress values are now `int` (0-100) instead of `DownloadProgress` object
+- ⚠️ **Separate files**: Model and LoRA weights installed independently
+
+### Model Inference (Unchanged)
+
+Model creation and inference APIs remain the same:
+
+```dart
+// Works with both Legacy and Modern installation methods
+final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
+  modelType: ModelType.gemmaIt,
+  preferredBackend: PreferredBackend.gpu,
+  maxTokens: 2048,
+);
+
+final chat = await inferenceModel.createChat();
+await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
+final response = await chat.generateChatResponse();
+```
+
+## Usage (Legacy API)
+
+<details>
+<summary><b>⚠️ Click to expand Legacy API documentation (for backwards compatibility)</b></summary>
+
+> **Note:** This is the Legacy API. For new projects, we recommend using the **[Modern API](#quick-start-modern-api)** with builder pattern.
+>
+> **Legacy API features:**
+> - Direct method calls on `FlutterGemmaPlugin.instance.modelManager`
+> - Stream-based progress tracking
+> - Manual state management
+>
+> **Modern API features:**
+> - ✅ Fluent builder pattern
+> - ✅ Type-safe source types
+> - ✅ Callback-based progress
+> - ✅ Better error messages
 
 The new API splits functionality into two parts:
 
@@ -198,7 +606,6 @@ final modelManager = gemma.modelManager;
 Place the model in the assets or upload it to a network drive, such as Firebase.
 #### ATTENTION!! You do not need to load the model every time the application starts; it is stored in the system files and only needs to be done once. Please carefully review the example application. You should use loadAssetModel and loadNetworkModel methods only when you need to upload the model to device
 
-## Usage
 1.**Loading Models from assets (available only in debug mode):**
 
 Don't forget to add your model to pubspec.yaml
@@ -786,6 +1193,8 @@ await inferenceModel.close();
 
 If you need to use the inference again later, remember to call `createModel` again before generating responses.
 
+</details>
+
 ## 🖼️ Message Types
 
 The plugin now supports different types of messages:
@@ -909,19 +1318,68 @@ Function calling is currently supported by the following models:
 - Models will work normally for text generation even if function calling is not supported
 - Check the `supportsFunctionCalls` property in your model configuration
 
-## 🌐 Platform Support
+## Platform Support Details 🌐
 
-| Feature | Android | iOS | Web |
-|---------|---------|-----|-----|
-| Text Generation | ✅ | ✅ | ✅ |
-| Image Input | ✅ | ✅ | ✅ |
-| Function Calling | ✅ | ✅ | ✅ |
-| GPU Acceleration | ✅ | ✅ | ✅ |
-| Streaming Responses | ✅ | ✅ | ✅ |
-| LoRA Support | ✅ | ✅ | ✅ |
+### Feature Comparison
 
-- ✅ = Fully supported
-- ⚠️ = In development
+| Feature | Android | iOS | Web | Notes |
+|---------|---------|-----|-----|-------|
+| **Text Generation** | ✅ Full | ✅ Full | ✅ Full | All models supported |
+| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | Gemma 3 Nano models |
+| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | Select models only |
+| **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | DeepSeek models |
+| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | Recommended |
+| **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | MediaPipe limitation |
+| **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
+| **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | Fine-tuned weights |
+| **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
+| **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | Platform-specific |
+| **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | All source types |
+| **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | Native bundles |
+| **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | No local FS on web |
+
+### Web Platform Specifics
+
+#### Authentication
+- **Required for gated models:** Gemma 3 Nano, Gemma 3 1B/270M, EmbeddingGemma
+- **Configuration:** Use `FlutterGemma.initialize(huggingFaceToken: '...')` or pass token per-download
+- **Storage:** Tokens stored in browser memory (not localStorage)
+
+#### File Handling
+- **Downloads:** Creates blob URLs in browser memory (no actual files)
+- **Storage:** IndexedDB via `WebFileSystemService`
+- **FileSource:** Only works with HTTP/HTTPS URLs or `assets/` paths
+- **Local file paths:** ❌ Not supported (browser security restriction)
+
+#### Backend Support
+- **GPU only:** Web platform requires GPU backend (MediaPipe limitation)
+- **CPU models:** ❌ Will fail to initialize on web
+
+#### CORS Configuration
+- **Required for custom servers:** Enable CORS headers on your model hosting server
+- **Firebase Storage:** See [CORS configuration docs](https://firebase.google.com/docs/storage/web/download-files#cors_configuration)
+- **HuggingFace:** CORS already configured correctly
+
+#### Memory Limitations
+- **Large models:** May hit browser memory limits (2GB typical)
+- **Recommended:** Use smaller models (1B-2B) for web platform
+- **Best models for web:**
+  - Gemma 3 270M (300MB)
+  - Gemma 3 1B (500MB-1GB)
+  - Gemma 3 Nano E2B (3GB) - requires 6GB+ device RAM
+
+### Mobile Platform Specifics
+
+#### Android
+- **GPU Support:** Requires OpenGL libraries in `AndroidManifest.xml`
+- **ProGuard:** Automatic rules included for release builds
+- **Storage:** Local file system in app documents directory
+
+#### iOS
+- **Minimum version:** iOS 16.0 required for MediaPipe GenAI
+- **Memory entitlements:** Required for large models (see Setup section)
+- **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
+- **Storage:** Local file system in app documents directory
 
 The full and complete example you can find in `example` folder
 

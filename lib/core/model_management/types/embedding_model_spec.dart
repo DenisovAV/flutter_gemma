@@ -117,4 +117,20 @@ class EmbeddingModelSpec extends ModelSpec {
 
   @Deprecated('Use tokenizerSource instead. Web platform compatibility only.')
   String get tokenizerUrl => InferenceModelSpec._sourceToUrl(_tokenizerSource);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! EmbeddingModelSpec) return false;
+
+    return _name == other._name &&
+        _modelSource == other._modelSource &&
+        _tokenizerSource == other._tokenizerSource &&
+        _replacePolicy == other._replacePolicy;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(_name, _modelSource, _tokenizerSource, _replacePolicy);
+  }
 }

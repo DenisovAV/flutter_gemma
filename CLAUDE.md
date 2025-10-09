@@ -749,7 +749,7 @@ flutter_gemma/
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.10.3
+- **Current Version**: 0.11.4
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 

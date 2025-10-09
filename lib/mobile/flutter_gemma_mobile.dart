@@ -12,6 +12,7 @@ import '../core/di/service_registry.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
+import '../core/utils/file_name_utils.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
 part 'flutter_gemma_mobile_embedding_model.dart';

@@ -63,10 +63,6 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   static const embeddingTokenizerUrl =
       'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
 
-  // Alternative public model for testing (doesn't require token)
-  static const publicTestModelUrl =
-      'https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore';
-
   // Asset paths (real files in example/assets/models/)
   static const inferenceAssetPath = 'assets/models/gemma3-270m-it-q8.task';
   static const embeddingModelAssetPath = 'assets/models/embeddinggemma-300M_seq1024_mixed-precision.tflite';
@@ -881,7 +877,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           }
         });
 
-        final resumed = await downloader.resume(task as DownloadTask);
+        final resumed = await downloader.resume(task);
         if (!resumed) {
           await resumeListener.cancel();
           throw Exception('❌ Failed to resume task!');
@@ -1827,7 +1823,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     await FlutterGemma.installModel()
         .fromAsset(embeddingTokenizerAssetPath)
         .withProgress((progress) {
-          setState(() => _progress['embedding_asset_modern'] = 50 + (progress as int) ~/ 2);
+          setState(() => _progress['embedding_asset_modern'] = 50 + progress ~/ 2);
           _log('📊 Tokenizer copy progress: $progress%');
         })
         .install();
@@ -2629,27 +2625,6 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _isTesting = false;
       });
     }
-  }
-
-  /// Helper to run individual test and update progress
-  Future<void> _runTestWithProgress(String testName, Future<void> Function() testFn) async {
-    _currentTestIndex++;
-    setState(() {
-      _runAllTestsProgress = 'Test $_currentTestIndex/$_totalTests: $testName';
-    });
-
-    _log('');
-    _log('▶️  [$_currentTestIndex/$_totalTests] $testName');
-    _log('');
-
-    await testFn();
-
-    _log('');
-    _log('✅ [$_currentTestIndex/$_totalTests] $testName - PASSED');
-    _log('');
-
-    // Small delay between tests
-    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   // Helper methods for UI

@@ -9,6 +9,10 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/utils/file_name_utils.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'llm_inference_web.dart';
@@ -77,8 +81,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     FlutterGemmaPlugin.instance = FlutterGemmaWeb();
   }
 
+  // Use WebModelManager singleton (will be replaced with platform-agnostic manager in future phases)
+  static WebModelManager? _webManager;
+
   @override
-  final WebModelManager modelManager = WebModelManager();
+  ModelFileManager get modelManager {
+    // Use WebModelManager for now (Phase 6 will migrate to fully unified approach)
+    _webManager ??= WebModelManager();
+    return _webManager!;
+  }
 
   @override
   InferenceModel? get initializedModel => _initializedModel;
@@ -111,7 +122,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       fileType: fileType,
       maxTokens: maxTokens,
       loraRanks: loraRanks,
-      modelManager: modelManager,
+      modelManager: modelManager as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
       supportImage: supportImage, // Passing the flag
       maxNumImages: maxNumImages,
       onClose: () {
@@ -579,12 +590,23 @@ class WebModelSession extends InferenceModelSession {
   }
 }
 
+/// Web Model Manager - Modern API Facade Pattern
+///
+/// Phase 5 Complete: This class now delegates all model management to the
+/// Modern API (ServiceRegistry + Handlers + Repository) instead of manually
+/// managing state. All methods are thin facades over the Modern API.
+///
+/// Architecture:
+/// - OLD: Manual state maps (_installedModels, _modelPaths, etc.)
+/// - NEW: Delegates to ServiceRegistry.instance → handlers → repository
+///
+/// Benefits:
+/// - Single source of truth (repository)
+/// - No code duplication
+/// - Platform-agnostic (same pattern as MobileModelManager)
+/// - Easier to maintain and test
 class WebModelManager extends ModelFileManager {
   bool _isInitialized = false;
-  final Map<String, bool> _installedModels = {};
-  final Map<String, String> _modelPaths = {}; // ModelSpec.name -> URL
-  final Map<String, String> _loraPaths = {}; // ModelSpec.name -> LoRA URL
-  final Map<String, Completer<bool>> _loadCompleters = {}; // ModelSpec.name -> Completer
 
   /// Initializes the web model manager
   Future<void> initialize() async {
@@ -593,59 +615,89 @@ class WebModelManager extends ModelFileManager {
     debugPrint('WebModelManager initialized');
   }
 
+  /// Checks if a model is installed
+  ///
+  /// Phase 5.3: Delegates to Modern API (ModelRepository) instead of
+  /// checking manual state (_modelPaths, _loadCompleters).
   @override
   Future<bool> isModelInstalled(ModelSpec spec) async {
     await _ensureInitialized();
-    // For web, check if model path is set and loading is completed
-    final hasPath = _modelPaths.containsKey(spec.name);
-    final completer = _loadCompleters[spec.name];
-    final isLoaded = completer?.isCompleted == true;
-    return hasPath && isLoaded;
+
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+
+    // Check if all files in the spec are installed
+    for (final file in spec.files) {
+      if (!await repository.isInstalled(file.filename)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   @override
   Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token}) async* {
     await _ensureInitialized();
 
-    final completer = _loadCompleters[spec.name];
-    if (completer != null && !completer.isCompleted) {
-      throw Exception('Model ${spec.name} is already loading');
-    }
-
     debugPrint('WebModelManager: Starting download for ${spec.name}');
 
-    // Set up the completer and paths
-    _loadCompleters[spec.name] = Completer<bool>();
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final handlerRegistry = registry.sourceHandlerRegistry;
+    final totalFiles = spec.files.length;
 
-    if (spec is InferenceModelSpec) {
-      _modelPaths[spec.name] = _extractUrlFromSource(spec.modelSource);
-      if (spec.loraSource != null) {
-        _loraPaths[spec.name] = _extractUrlFromSource(spec.loraSource!);
+    for (int i = 0; i < totalFiles; i++) {
+      final file = spec.files[i];
+
+      // Emit file start progress
+      yield DownloadProgress(
+        currentFileIndex: i,
+        totalFiles: totalFiles,
+        currentFileProgress: 0,
+        currentFileName: file.filename,
+      );
+
+      // Get handler for this file's source
+      final handler = handlerRegistry.getHandler(file.source);
+      if (handler == null) {
+        throw ModelStorageException(
+          'No handler for ${file.source.runtimeType}',
+          null,
+          'downloadModelWithProgress',
+        );
       }
-    } else if (spec is EmbeddingModelSpec) {
-      _modelPaths[spec.name] = _extractUrlFromSource(spec.modelSource);
-      // For embedding models, we could store tokenizer URL separately if needed
+
+      // For NetworkSource with token, update the source
+      ModelSource sourceToInstall = file.source;
+      if (sourceToInstall is NetworkSource && token != null) {
+        sourceToInstall = NetworkSource(sourceToInstall.url, authToken: token);
+      }
+
+      // Download via Modern API handler with progress
+      // All handlers implement installWithProgress (handlers that don't support
+      // true progress will emit 100% immediately)
+      await for (final progress in handler.installWithProgress(sourceToInstall)) {
+        yield DownloadProgress(
+          currentFileIndex: i,
+          totalFiles: totalFiles,
+          currentFileProgress: progress,
+          currentFileName: file.filename,
+        );
+      }
     }
 
-    // Progressive download simulation that matches old behavior
-    yield* Stream<int>.periodic(
-      const Duration(milliseconds: 10),
-      (count) => count + 1,
-    ).take(100).map((progress) {
-      if (progress == 100 && !_loadCompleters[spec.name]!.isCompleted) {
-        _loadCompleters[spec.name]!.complete(true);
-        _installedModels[spec.name] = true;
-        // Set as active model automatically after successful download
-        setActiveModel(spec);
-      }
+    // Set as active after successful download
+    setActiveModel(spec);
 
-      return DownloadProgress(
-        currentFileIndex: 0,
-        totalFiles: spec.files.length,
-        currentFileProgress: progress,
-        currentFileName: spec.files.isNotEmpty ? spec.files.first.filename : 'model.bin',
-      );
-    }).asBroadcastStream();
+    // Emit final progress
+    yield DownloadProgress(
+      currentFileIndex: totalFiles,
+      totalFiles: totalFiles,
+      currentFileProgress: 100,
+      currentFileName: 'Complete',
+    );
 
     debugPrint('WebModelManager: Download completed for ${spec.name}');
   }
@@ -659,35 +711,74 @@ class WebModelManager extends ModelFileManager {
     }
   }
 
+  /// Deletes a model
+  ///
+  /// Phase 5.5: Delegates to Modern API (ModelRepository) instead of
+  /// manually removing from state maps.
   @override
   Future<void> deleteModel(ModelSpec spec) async {
     await _ensureInitialized();
 
-    // Clear all data for this model
-    _modelPaths.remove(spec.name);
-    _loraPaths.remove(spec.name);
-    _loadCompleters.remove(spec.name);
-    _installedModels.remove(spec.name);
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+
+    // Delete all files in the spec from repository
+    for (final file in spec.files) {
+      await repository.deleteModel(file.filename);
+    }
 
     debugPrint('WebModelManager: Model ${spec.name} deleted');
   }
 
+  /// Gets list of installed model filenames
+  ///
+  /// Phase 5.5: Delegates to Modern API (ModelRepository) instead of
+  /// querying _installedModels map.
   @override
   Future<List<String>> getInstalledModels(ModelManagementType type) async {
     await _ensureInitialized();
 
-    // Return installed model names based on type
-    // For web, we can't easily distinguish types, so return all installed
-    return _installedModels.entries
-        .where((entry) => entry.value == true)
-        .map((entry) => entry.key)
-        .toList();
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+
+    // Get all installed models from repository
+    final allInstalled = await repository.listInstalled();
+
+    // Filter by type
+    final filtered = allInstalled.where((m) {
+      if (type == ModelManagementType.inference) {
+        return m.type == repo.ModelType.inference;
+      } else {
+        return m.type == repo.ModelType.embedding;
+      }
+    }).toList();
+
+    // Return filenames
+    return filtered.map((m) => m.id).toList();
   }
 
+  /// Checks if any model is installed
+  ///
+  /// Phase 5.5: Delegates to Modern API (ModelRepository) instead of
+  /// checking _installedModels map.
   @override
   Future<bool> isAnyModelInstalled(ModelManagementType type) async {
     await _ensureInitialized();
-    return _installedModels.values.any((installed) => installed);
+
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+
+    // Get all installed models from repository
+    final allInstalled = await repository.listInstalled();
+
+    if (type == ModelManagementType.inference) {
+      return allInstalled.any((m) => m.type == repo.ModelType.inference);
+    } else {
+      return allInstalled.any((m) => m.type == repo.ModelType.embedding);
+    }
   }
 
   @override
@@ -696,151 +787,162 @@ class WebModelManager extends ModelFileManager {
     debugPrint('WebModelManager: Cleanup not needed on web');
   }
 
+  /// Validates if a model is properly installed
+  ///
+  /// Phase 5.3: Delegates to Modern API (isModelInstalled) instead of
+  /// checking manual _installedModels map.
   @override
   Future<bool> validateModel(ModelSpec spec) async {
     await _ensureInitialized();
-    return _installedModels[spec.name] ?? false;
+
+    // Phase 5: Delegate to Modern API
+    // validateModel is essentially the same as isModelInstalled on web
+    return await isModelInstalled(spec);
   }
 
   @override
   Future<Map<String, String>?> getModelFilePaths(ModelSpec spec) async {
     await _ensureInitialized();
 
-    if (!await isModelInstalled(spec)) {
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+    final fileSystem = registry.fileSystemService as WebFileSystemService;
+
+    // Check installation via repository
+    bool allFilesInstalled = true;
+    for (final file in spec.files) {
+      if (!await repository.isInstalled(file.filename)) {
+        allFilesInstalled = false;
+        break;
+      }
+    }
+
+    if (!allFilesInstalled) {
       return null;
     }
 
-    final paths = <String, String>{};
+    final filePaths = <String, String>{};
 
-    // For web, model paths are stored by spec.name, not filename
-    // Return paths mapped by proper preference keys (same as mobile)
-    if (spec is InferenceModelSpec) {
-      final modelPath = _modelPaths[spec.name];
-      if (modelPath != null) {
-        paths[PreferencesKeys.installedModelFileName] = modelPath;
+    for (final file in spec.files) {
+      // Get URL from WebFileSystemService based on source type
+      final String path;
+
+      if (file.source is NetworkSource) {
+        // Web: Get registered URL
+        path = fileSystem.getUrl(file.filename) ?? (file.source as NetworkSource).url;
+      } else if (file.source is BundledSource) {
+        // Web: Bundled resources
+        path = await fileSystem.getBundledResourcePath((file.source as BundledSource).resourceName);
+      } else if (file.source is AssetSource) {
+        // Web: Asset path
+        path = (file.source as AssetSource).normalizedPath;
+      } else if (file.source is FileSource) {
+        // Web: External URL or registered path
+        final fileSource = file.source as FileSource;
+        path = fileSystem.getUrl(file.filename) ?? fileSource.path;
+      } else {
+        // Fallback: use getTargetPath
+        path = await fileSystem.getTargetPath(file.filename);
       }
-      final loraPath = _loraPaths[spec.name];
-      if (loraPath != null) {
-        paths[PreferencesKeys.installedLoraFileName] = loraPath;
-      }
-    } else if (spec is EmbeddingModelSpec) {
-      final modelPath = _modelPaths[spec.name];
-      if (modelPath != null) {
-        paths[PreferencesKeys.embeddingModelFile] = modelPath;
-      }
-      // Tokenizer path would need separate storage if supported
+
+      filePaths[file.prefsKey] = path;
     }
 
-    return paths.isNotEmpty ? paths : null;
+    return filePaths.isNotEmpty ? filePaths : null;
   }
 
+  /// Gets storage statistics for installed models
+  ///
+  /// Phase 5.3: Delegates to Modern API (ModelRepository) instead of
+  /// checking manual _installedModels map.
   @override
   Future<Map<String, int>> getStorageStats() async {
     await _ensureInitialized();
 
-    final installedCount = _installedModels.values.where((installed) => installed).length;
+    // Phase 5: Delegate to Modern API
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+
+    // Get all installed models from repository
+    final allInstalled = await repository.listInstalled();
+    final installedCount = allInstalled.length;
+
+    // Count by type
+    final inferenceCount = allInstalled.where((m) => m.type == repo.ModelType.inference).length;
+    final embeddingCount = allInstalled.where((m) => m.type == repo.ModelType.embedding).length;
 
     return {
       'protectedFiles': installedCount,
-      'totalSizeBytes': 0, // Unknown for web URLs
+      'totalSizeBytes': 0, // Unknown for web URLs (no local file system)
       'totalSizeMB': 0,
-      'inferenceModels': installedCount, // Can't distinguish types easily
-      'embeddingModels': 0,
+      'inferenceModels': inferenceCount,
+      'embeddingModels': embeddingCount,
     };
   }
 
   /// Modern API: Ensures a model spec is ready for use
+  ///
+  /// Phase 5.1: This method now delegates to ServiceRegistry (Modern API)
+  /// instead of manually managing state. All installation is handled by
+  /// source handlers through the ServiceRegistry pattern.
   @override
   Future<void> ensureModelReadyFromSpec(ModelSpec spec) async {
     await _ensureInitialized();
 
-    // Extract URL from ModelSource
-    String url;
-    if (spec is InferenceModelSpec) {
-      url = _extractUrlFromSource(spec.modelSource);
-    } else if (spec is EmbeddingModelSpec) {
-      url = _extractUrlFromSource(spec.modelSource);
-    } else {
-      throw Exception('Unsupported model spec type: ${spec.runtimeType}');
+    // Phase 5: Delegate to ServiceRegistry (Modern API)
+    final registry = ServiceRegistry.instance;
+    final handlerRegistry = registry.sourceHandlerRegistry;
+    final repository = registry.modelRepository;
+
+    // Check if already installed via repository
+    bool allFilesInstalled = true;
+    for (final file in spec.files) {
+      if (!await repository.isInstalled(file.filename)) {
+        allFilesInstalled = false;
+        break;
+      }
     }
 
-    // For web, set the model path
-    _path = url;
-
-    // Check if already installed, if not - prepare for loading
-    if (!await isModelInstalled(spec)) {
-      // Set up the model for loading
-      _modelPaths[spec.name] = url;
-      _loadCompleters[spec.name] = Completer<bool>()..complete(true);
+    if (!allFilesInstalled) {
+      // Install via Modern API handlers
+      for (final file in spec.files) {
+        final handler = handlerRegistry.getHandler(file.source);
+        if (handler == null) {
+          throw ModelStorageException(
+            'No handler for ${file.source.runtimeType}',
+            null,
+            'ensureModelReadyFromSpec',
+          );
+        }
+        await handler.install(file.source);
+      }
     }
 
     setActiveModel(spec);
   }
 
   /// Legacy API: Ensures a model is ready for use, handling all necessary operations
+  ///
+  /// Phase 5.5: Thin facade over ensureModelReadyFromSpec (Modern API)
   @Deprecated('Use ensureModelReadyFromSpec with ModelSource instead')
   @override
   Future<void> ensureModelReady(String filename, String url) async {
     await _ensureInitialized();
 
-    // For web, just set the model path - equivalent to old behavior
-    _path = url;
-
-    // Create a spec and ensure it's ready
+    // Create a spec and delegate to Modern API
     final spec = InferenceModelSpec.fromLegacyUrl(
       name: filename,
       modelUrl: url,
     );
 
-    // Check if already installed, if not - prepare for loading
-    if (!await isModelInstalled(spec)) {
-      // Set up the model for loading
-      _modelPaths[spec.name] = url;
-      _loadCompleters[spec.name] = Completer<bool>()..complete(true);
-      _installedModels[spec.name] = true;
-    }
+    // Delegate to Modern API (no manual state management needed)
+    await ensureModelReadyFromSpec(spec);
   }
 
   Future<void> _ensureInitialized() async {
     if (!_isInitialized) {
       await initialize();
-    }
-  }
-
-  /// Extracts URL from ModelSource for web platform
-  ///
-  /// Web platform supports:
-  /// - NetworkSource: HTTP/HTTPS URLs
-  /// - BundledSource: Served from assets/models/
-  /// - AssetSource: Flutter assets
-  /// - FileSource: URLs or assets paths only (no local file system access)
-  String _extractUrlFromSource(ModelSource source) {
-    switch (source) {
-      case NetworkSource():
-        return source.url;
-      case BundledSource():
-        // Web: bundled resources are served from assets/models/
-        return 'assets/models/${source.resourceName}';
-      case AssetSource():
-        // Web: AssetSource uses Flutter assets (same as bundled resources)
-        // normalizedPath already includes 'assets/' prefix
-        return source.normalizedPath;
-      case FileSource():
-        // FileSource can work on web if it's a URL or assets path
-        final path = source.path;
-        if (path.startsWith('http://') || path.startsWith('https://')) {
-          // HTTP/HTTPS URL - works on web
-          return path;
-        } else if (path.startsWith('assets/') || path.contains('/assets/')) {
-          // Assets path - works on web
-          return path.startsWith('assets/') ? path : 'assets/${path.split('/assets/').last}';
-        } else {
-          // Local file path - not supported on web
-          throw UnsupportedError(
-            'FileSource with local file paths is not supported on web platform. '
-            'Use NetworkSource for URLs or AssetSource for assets.',
-          );
-        }
     }
   }
 
@@ -927,18 +1029,16 @@ class WebModelManager extends ModelFileManager {
     );
   }
 
-  // Legacy compatibility - for old WebInferenceModel if needed
-  String? _path;
-  String? _loraPath;
-
   // Active models (modern API)
   ModelSpec? _activeInferenceModel;
   ModelSpec? _activeEmbeddingModel;
 
   /// Gets the currently active inference model specification
+  @override
   ModelSpec? get activeInferenceModel => _activeInferenceModel;
 
   /// Gets the currently active embedding model specification
+  @override
   ModelSpec? get activeEmbeddingModel => _activeEmbeddingModel;
 
   /// Gets the currently active model specification (backward compatibility)
@@ -947,51 +1047,112 @@ class WebModelManager extends ModelFileManager {
 
   // === Legacy Asset Loading Methods Implementation ===
 
+  /// Installs model from Flutter asset (debug mode only)
+  ///
+  /// ⚠️ DEPRECATED: Use FlutterGemma.installInferenceModel().fromAsset() instead
+  ///
+  /// This method provides backward compatibility but delegates to Modern API.
+  ///
+  /// Migration:
+  /// ```dart
+  /// // OLD:
+  /// await manager.installModelFromAsset('assets/models/gemma.task');
+  ///
+  /// // NEW:
+  /// await FlutterGemma.installInferenceModel()
+  ///   .fromAsset('assets/models/gemma.task')
+  ///   .install();
+  /// ```
+  @Deprecated('Use FlutterGemma.installInferenceModel().fromAsset() instead')
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds");
+      throw UnsupportedError(
+        "Asset model loading is not supported in release builds. "
+        "Use fromNetwork() or fromBundled() instead."
+      );
     }
 
     await _ensureInitialized();
 
+    // Convert legacy parameters to Modern API ModelSpec
     final spec = InferenceModelSpec(
-      name: ModelFileSystemManager.getBaseName(path.split('/').last),
+      name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: ModelSource.asset(path),
       loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
     );
 
+    // Delegate to Modern API
+    // This uses AssetSourceHandler which handles all the work
     await ensureModelReadyFromSpec(spec);
   }
 
+  /// Installs model from Flutter asset with progress (debug mode only)
+  ///
+  /// ⚠️ DEPRECATED: Use FlutterGemma.installInferenceModel().fromAsset().installWithProgress() instead
+  ///
+  /// Migration:
+  /// ```dart
+  /// // OLD:
+  /// await for (final progress in manager.installModelFromAssetWithProgress('assets/models/gemma.task')) {
+  ///   print('Progress: $progress%');
+  /// }
+  ///
+  /// // NEW:
+  /// await for (final progress in FlutterGemma.installInferenceModel()
+  ///     .fromAsset('assets/models/gemma.task')
+  ///     .installWithProgress()) {
+  ///   print('Progress: ${progress.currentFileProgress}%');
+  /// }
+  /// ```
+  @Deprecated('Use FlutterGemma.installInferenceModel().fromAsset().installWithProgress() instead')
   @override
   Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
     if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds");
+      throw UnsupportedError(
+        "Asset model loading is not supported in release builds. "
+        "Use fromNetwork() or fromBundled() instead."
+      );
     }
 
     await _ensureInitialized();
 
-    // For web assets, we simulate progress
-    for (int progress = 0; progress <= 100; progress += 10) {
-      yield progress;
-      if (progress < 100) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
-    }
+    // Convert legacy parameters to Modern API ModelSpec
+    final spec = InferenceModelSpec(
+      name: FileNameUtils.getBaseName(path.split('/').last),
+      modelSource: ModelSource.asset(path),
+      loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
+    );
 
-    await installModelFromAsset(path, loraPath: loraPath);
+    // Delegate to Modern API downloadModelWithProgress
+    // This provides real progress tracking from handlers
+    await for (final downloadProgress in downloadModelWithProgress(spec)) {
+      yield downloadProgress.currentFileProgress;
+    }
   }
 
   // === Legacy Direct Path Methods Implementation ===
 
+  /// Sets model path for inference (web: URLs only)
+  ///
+  /// ⚠️ DEPRECATED: Use FlutterGemma.installInferenceModel().fromNetwork() instead
+  ///
+  /// This method provides backward compatibility but delegates to Modern API.
+  ///
+  /// Migration:
+  /// ```dart
+  /// // OLD:
+  /// await manager.setModelPath('https://example.com/model.task');
+  ///
+  /// // NEW:
+  /// await FlutterGemma.installInferenceModel()
+  ///   .fromNetwork('https://example.com/model.task')
+  ///   .install();
+  /// ```
+  @Deprecated('Use FlutterGemma.installInferenceModel().fromNetwork() instead')
   @override
   Future<void> setModelPath(String path, {String? loraPath}) async {
     await _ensureInitialized();
-
-    // For web, treat as URL
-    _path = path;
-    _loraPath = loraPath;
 
     // Create ModelSource based on path type
     final modelSource = path.startsWith('http')
@@ -1004,29 +1165,31 @@ class WebModelManager extends ModelFileManager {
             : ModelSource.file(loraPath))
         : null;
 
+    // Convert legacy parameters to Modern API ModelSpec
     final spec = InferenceModelSpec(
-      name: ModelFileSystemManager.getBaseName(path.split('/').last),
+      name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: modelSource,
       loraSource: loraSource,
     );
 
+    // Delegate to Modern API
     await ensureModelReadyFromSpec(spec);
   }
 
+  /// Clears model cache (legacy method)
+  ///
+  /// ⚠️ Note: In Modern API, model persistence is managed by ModelRepository.
+  /// This method only clears active model references, not installed models.
+  /// Use deleteModel() to remove installed models.
   @override
   Future<void> clearModelCache() async {
     await _ensureInitialized();
 
-    _path = null;
-    _loraPath = null;
+    // Clear active models
     _activeInferenceModel = null;
     _activeEmbeddingModel = null;
-    _installedModels.clear();
-    _modelPaths.clear();
-    _loraPaths.clear();
-    _loadCompleters.clear();
 
-    debugPrint('WebModelManager: Model cache cleared');
+    debugPrint('WebModelManager: Model cache cleared (active models reset)');
   }
 
   // === Legacy LoRA Management Methods Implementation ===
@@ -1038,8 +1201,6 @@ class WebModelManager extends ModelFileManager {
     if (_activeInferenceModel == null) {
       throw Exception('No active inference model to apply LoRA weights to. Use setModelPath first.');
     }
-
-    _loraPath = path;
 
     final current = _activeInferenceModel as InferenceModelSpec;
 
@@ -1055,8 +1216,7 @@ class WebModelManager extends ModelFileManager {
       replacePolicy: current.replacePolicy,
     );
 
-    // Update internal state
-    _loraPaths[updatedSpec.name] = path;
+    // Update active model (no manual _loraPaths management needed)
     setActiveModel(updatedSpec);
   }
 
@@ -1068,8 +1228,6 @@ class WebModelManager extends ModelFileManager {
       throw Exception('No active inference model to remove LoRA weights from');
     }
 
-    _loraPath = null;
-
     final current = _activeInferenceModel as InferenceModelSpec;
 
     final updatedSpec = InferenceModelSpec(
@@ -1079,8 +1237,7 @@ class WebModelManager extends ModelFileManager {
       replacePolicy: current.replacePolicy,
     );
 
-    // Update internal state
-    _loraPaths.remove(updatedSpec.name);
+    // Update active model (no manual _loraPaths management needed)
     setActiveModel(updatedSpec);
   }
 
@@ -1101,9 +1258,6 @@ class WebModelManager extends ModelFileManager {
       await deleteModel(_activeEmbeddingModel!);
       _activeEmbeddingModel = null;
     }
-
-    _path = null;
-    _loraPath = null;
   }
 
   @override

@@ -692,9 +692,11 @@ class MobileModelManager extends ModelFileManager {
   ModelSpec? _activeEmbeddingModel;
 
   /// Gets the currently active inference model specification
+  @override
   ModelSpec? get activeInferenceModel => _activeInferenceModel;
 
   /// Gets the currently active embedding model specification
+  @override
   ModelSpec? get activeEmbeddingModel => _activeEmbeddingModel;
 
   /// Gets the currently active model specification (backward compatibility)

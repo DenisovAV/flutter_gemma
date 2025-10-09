@@ -83,7 +83,6 @@ void main() {
   group('Retry loop simulation', () {
     test('Should stop immediately on 401', () async {
       int attempts = 0;
-      const maxRetries = 3;
 
       Future<void> download() async {
         attempts++;

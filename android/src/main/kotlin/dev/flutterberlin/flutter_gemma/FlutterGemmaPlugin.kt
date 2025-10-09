@@ -1,9 +1,12 @@
 package dev.flutterberlin.flutter_gemma
 
 import android.content.Context
+import java.io.File
+import java.io.FileOutputStream
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
+import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 
 /** FlutterGemmaPlugin */
@@ -13,16 +16,51 @@ class FlutterGemmaPlugin: FlutterPlugin {
   /// This local reference serves to register the plugin with the Flutter Engine and unregister it
   /// when the Flutter Engine is detached from the Activity
   private lateinit var eventChannel: EventChannel
+  private lateinit var bundledChannel: MethodChannel
+  private lateinit var context: Context
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-    val service = PlatformServiceImpl(flutterPluginBinding.applicationContext)
+    context = flutterPluginBinding.applicationContext
+    val service = PlatformServiceImpl(context)
     eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "flutter_gemma_stream")
     eventChannel.setStreamHandler(service)
     PlatformService.setUp(flutterPluginBinding.binaryMessenger, service)
+
+    // Setup bundled assets channel
+    bundledChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "flutter_gemma_bundled")
+    bundledChannel.setMethodCallHandler { call, result ->
+      when (call.method) {
+        "copyAssetToFile" -> {
+          try {
+            val assetPath = call.argument<String>("assetPath")!!
+            val destPath = call.argument<String>("destPath")!!
+            copyAssetToFile(assetPath, destPath)
+            result.success("success")
+          } catch (e: Exception) {
+            result.error("COPY_ERROR", e.message, null)
+          }
+        }
+        else -> result.notImplemented()
+      }
+    }
+  }
+
+  private fun copyAssetToFile(assetPath: String, destPath: String) {
+    val inputStream = context.assets.open(assetPath)
+    val outputFile = File(destPath)
+    outputFile.parentFile?.mkdirs()
+    val outputStream = FileOutputStream(outputFile)
+
+    inputStream.use { input ->
+      outputStream.use { output ->
+        input.copyTo(output, bufferSize = 8192)
+      }
+    }
   }
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     eventChannel.setStreamHandler(null)
+    bundledChannel.setMethodCallHandler(null)
   }
 }
 

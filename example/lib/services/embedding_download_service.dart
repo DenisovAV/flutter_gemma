@@ -109,12 +109,15 @@ class EmbeddingModelDownloadService {
         throw UnsupportedError('Embedding model download is not supported on web platform');
       }
 
+      // Convert empty string to null for cleaner API
+      final authToken = token.isEmpty ? null : token;
+
       double modelProgress = 0;
       double tokenizerProgress = 0;
 
       // Modern API: Download model file
       await FlutterGemma.installModel()
-          .fromNetwork(model.url)
+          .fromNetwork(model.url, token: authToken)
           .withProgress((progress) {
             modelProgress = progress.toDouble();
             onProgress(modelProgress, tokenizerProgress);
@@ -123,7 +126,7 @@ class EmbeddingModelDownloadService {
 
       // Modern API: Download tokenizer file
       await FlutterGemma.installModel()
-          .fromNetwork(model.tokenizerUrl)
+          .fromNetwork(model.tokenizerUrl, token: authToken)
           .withProgress((progress) {
             tokenizerProgress = progress.toDouble();
             onProgress(modelProgress, tokenizerProgress);

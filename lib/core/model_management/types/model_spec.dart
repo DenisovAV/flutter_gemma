@@ -6,7 +6,7 @@ enum ModelManagementType {
   embedding,
 }
 
-// ModelReplacePolicy уже определен в model_file_manager_interface.dart
+// ModelReplacePolicy is already defined in model_file_manager_interface.dart
 
 /// Represents a single file that belongs to a model
 abstract class ModelFile {

@@ -79,4 +79,10 @@ abstract class ModelFileManager {
 
   /// Sets the active model for subsequent inference operations
   void setActiveModel(ModelSpec spec);
+
+  /// Gets the currently active inference model specification
+  ModelSpec? get activeInferenceModel;
+
+  /// Gets the currently active embedding model specification
+  ModelSpec? get activeEmbeddingModel;
 }

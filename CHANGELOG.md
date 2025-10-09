@@ -1,3 +1,12 @@
+## 0.11.4
+- 🚀 **Modern API**: Introduced new fluent builder API for model management (`FlutterGemma.installModel()`) - Legacy API still works as facade over Modern API for backwards compatibility
+- 🐛 **Fixed**: HuggingFace token authentication - token now correctly passed to network downloads in both APIs
+- 🌐 **Web Platform**: Added dedicated web handlers (WebBundledSourceHandler, WebFileSourceHandler) for proper platform separation
+- 📚 **Documentation**: Added comprehensive Migration Guide from Legacy to Modern API with side-by-side code examples
+- 📚 **Documentation**: Updated README with Modern API Quick Start, HuggingFace authentication guide, and model sources reference
+- 🔧 **Code Quality**: Removed unused fields, variables, and methods identified by analyzer (15 warnings fixed)
+- ⚙️ **Platform Compatibility**: Fixed conditional imports for web/mobile service factories
+
 ## 0.11.3
 - 🌐 **Web Multimodal Support**: Added full multimodal image processing support for web platform
 - 📚 **MediaPipe 0.10.25**: Updated to MediaPipe GenAI v0.10.25 for web compatibility

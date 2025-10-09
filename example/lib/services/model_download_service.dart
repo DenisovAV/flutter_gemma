@@ -81,9 +81,12 @@ class ModelDownloadService {
     required Function(double) onProgress,
   }) async {
     try {
+      // Convert empty string to null for cleaner API
+      final authToken = token.isEmpty ? null : token;
+
       // Modern API: Install model from network with progress tracking
       await FlutterGemma.installModel()
-          .fromNetwork(modelUrl)
+          .fromNetwork(modelUrl, token: authToken)
           .withProgress((progress) {
             onProgress(progress.toDouble());
           })

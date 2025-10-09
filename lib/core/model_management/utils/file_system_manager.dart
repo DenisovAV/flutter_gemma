@@ -1,49 +1,41 @@
 part of '../../../mobile/flutter_gemma_mobile.dart';
 
-/// Unified file system operations for model management
+/// Unified file system operations for model management (Mobile only)
+///
+/// This class delegates filename utilities to FileNameUtils for platform-agnostic
+/// string operations, and provides mobile-specific file system operations.
 class ModelFileSystemManager {
-  /// Supported model file extensions (SINGLE SOURCE OF TRUTH)
-  static const List<String> supportedExtensions = [
-    '.task',      // MediaPipe task bundles
-    '.bin',       // Binary model files
-    '.tflite',    // TensorFlow Lite models
-    '.json',      // Config/tokenizer files
-    '.model',     // SentencePiece tokenizers
-    '.litertlm',  // LiteRT model files
-  ];
+  /// Supported model file extensions (delegates to FileNameUtils)
+  static const List<String> supportedExtensions = FileNameUtils.supportedExtensions;
 
   /// Small file extensions (configs, tokenizers) - use smaller minimum size
   static const List<String> smallFileExtensions = ['.json', '.model'];
 
   static const int _defaultMinSizeBytes = 1024 * 1024; // 1MB
-  static const int _smallFileMinSizeBytes = 1024; // 1KB
 
-  /// Removes all supported extensions from filename to get base name
+  /// Removes all supported extensions from filename (delegates to FileNameUtils)
+  ///
   /// Example: 'gemma-2b.task' -> 'gemma-2b'
-  static String getBaseName(String filename) {
-    String result = filename;
-    for (final ext in supportedExtensions) {
-      result = result.replaceAll(ext, '');
-    }
-    return result;
-  }
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static String getBaseName(String filename) => FileNameUtils.getBaseName(filename);
 
-  /// Creates regex pattern for matching any supported extension
+  /// Creates regex pattern for matching extensions (delegates to FileNameUtils)
+  ///
   /// Example: r'\.(task|bin|tflite|json|model|litertlm)$'
-  static String get extensionRegexPattern {
-    final extensions = supportedExtensions.map((e) => e.substring(1)).join('|');
-    return r'\\.(' + extensions + r')$';
-  }
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static String get extensionRegexPattern => FileNameUtils.extensionRegexPattern;
 
-  /// Checks if file extension requires smaller minimum size (config/tokenizer files)
-  static bool isSmallFile(String extension) {
-    return smallFileExtensions.contains(extension);
-  }
+  /// Checks if file extension requires smaller minimum size (delegates to FileNameUtils)
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static bool isSmallFile(String extension) => FileNameUtils.isSmallFile(extension);
 
-  /// Gets minimum file size based on extension
-  static int getMinimumSize(String extension) {
-    return isSmallFile(extension) ? _smallFileMinSizeBytes : _defaultMinSizeBytes;
-  }
+  /// Gets minimum file size based on extension (delegates to FileNameUtils)
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static int getMinimumSize(String extension) => FileNameUtils.getMinimumSize(extension);
 
   /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access
   static String getCorrectedPath(String originalPath, String filename) {

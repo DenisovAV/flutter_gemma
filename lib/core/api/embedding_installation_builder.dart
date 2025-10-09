@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -110,7 +111,7 @@ class EmbeddingInstallationBuilder {
     final modelFilename = _extractFilename(_modelSource!);
 
     final spec = EmbeddingModelSpec(
-      name: modelFilename.split('.').first,
+      name: FileNameUtils.getBaseName(modelFilename),
       modelSource: _modelSource!,
       tokenizerSource: _tokenizerSource!,
       replacePolicy: ModelReplacePolicy.keep,

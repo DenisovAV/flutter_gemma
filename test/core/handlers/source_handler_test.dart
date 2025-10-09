@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
-import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/handlers/network_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/bundled_source_handler.dart';
@@ -212,7 +211,8 @@ void main() {
 
       await handler.install(source);
 
-      verify(() => mockAssetLoader.loadAsset(source.normalizedPath)).called(1);
+      // AssetSourceHandler uses pathForLookupKey, not normalizedPath
+      verify(() => mockAssetLoader.loadAsset(source.pathForLookupKey)).called(1);
       verify(() => mockFileSystem.writeFile(targetPath, assetData)).called(1);
       verify(() => mockRepository.saveModel(any())).called(1);
     });
@@ -263,8 +263,9 @@ void main() {
       await handler.install(source1);
       await handler.install(source2);
 
-      // Both should normalize to assets/models/test.bin
-      verify(() => mockAssetLoader.loadAsset('assets/models/test.bin')).called(2);
+      // Both should use pathForLookupKey which returns 'models/test.bin' (without assets/ prefix)
+      // This is correct for native platform lookupKey
+      verify(() => mockAssetLoader.loadAsset('models/test.bin')).called(2);
     });
   });
 
@@ -399,7 +400,6 @@ void main() {
 
     test('install registers external file and protects it', () async {
       final source = FileSource('/tmp/external/model.bin');
-      final filename = 'external_model.bin';
 
       when(() => mockFileSystem.fileExists(any()))
           .thenAnswer((_) async => true);

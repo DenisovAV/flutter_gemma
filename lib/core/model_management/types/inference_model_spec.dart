@@ -159,4 +159,20 @@ class InferenceModelSpec extends ModelSpec {
       return ModelSource.asset(url);
     }
   }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is! InferenceModelSpec) return false;
+
+    return _name == other._name &&
+        _modelSource == other._modelSource &&
+        _loraSource == other._loraSource &&
+        _replacePolicy == other._replacePolicy;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(_name, _modelSource, _loraSource, _replacePolicy);
+  }
 }

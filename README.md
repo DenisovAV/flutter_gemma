@@ -99,7 +99,7 @@ void main() {
 ```dart
 // From network (public model)
 await FlutterGemma.installModel()
-  .fromNetwork('https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma-3-270m-it-int4-cpu.bin')
+  .fromNetwork('https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma-3-270m-it-int4.task')
   .withProgress((progress) => print('Download: $progress%'))
   .install();
 
@@ -111,6 +111,11 @@ await FlutterGemma.installModel()
 // From bundled native resource
 await FlutterGemma.installModel()
   .fromBundled('gemma-2b-it.bin')
+  .install();
+
+// From external file (mobile only)
+await FlutterGemma.installModel()
+  .fromFile('/path/to/model.task')
   .install();
 ```
 
@@ -284,24 +289,52 @@ await FlutterGemma.installModel()
 
 ### BundledSource - Native Resources
 
-References models bundled as native platform resources.
+**Production-Ready Offline Models**: Include small models directly in your app bundle for instant availability without downloads.
 
-**Platform Paths:**
-- **Android**: `assets/models/{resourceName}` (native assets folder)
-- **iOS**: `Bundle.main.path(forResource:)` (bundle resources)
-- **Web**: `assets/{resourceName}` (web server assets)
+**Use Cases:**
+- ✅ Offline-first applications (works without internet from first launch)
+- ✅ Small models (Gemma 3 270M ~300MB)
+- ✅ Core features requiring guaranteed availability
+- ⚠️ **Not for large models** (increases app size significantly)
+
+**Platform Setup:**
+
+**Android** (`android/app/src/main/assets/models/`)
+```bash
+# Place your model file
+android/app/src/main/assets/models/gemma-3-270m-it.task
+```
+
+**iOS** (Add to Xcode project)
+1. Drag model file into Xcode project
+2. Check "Copy items if needed"
+3. Add to target membership
+
+**Web** (Standard Flutter assets)
+```yaml
+# pubspec.yaml
+flutter:
+  assets:
+    - assets/models/gemma-3-270m-it.task
+```
 
 **Features:**
-- ✅ No copying (uses direct path)
-- ✅ Smallest installation overhead
-- ✅ Production-ready
+- ✅ Zero network dependency
+- ✅ No installation delay
+- ✅ No storage permission needed
+- ✅ Direct path usage (no file copying)
 
 **Example:**
 ```dart
 await FlutterGemma.installModel()
-  .fromBundled('gemma-2b-it.bin')
+  .fromBundled('gemma-3-270m-it.task')
   .install();
 ```
+
+**App Size Impact:**
+- Gemma 3 270M: ~300MB
+- TinyLlama 1.1B: ~1.2GB
+- Consider hosting large models for download instead
 
 ### FileSource - External Files (Mobile Only)
 
@@ -315,7 +348,7 @@ References external files (e.g., user-selected via file picker).
 **Example:**
 ```dart
 // Mobile only - after user selects file with file_picker
-final path = '/data/user/0/com.app/files/model.bin';
+final path = '/data/user/0/com.app/files/model.task';
 await FlutterGemma.installModel()
   .fromFile(path)
   .install();

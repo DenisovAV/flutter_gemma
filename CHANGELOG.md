@@ -1,11 +1,10 @@
 ## 0.11.4
-- 🚀 **Modern API**: Introduced new fluent builder API for model management (`FlutterGemma.installModel()`) - Legacy API still works as facade over Modern API for backwards compatibility
-- 🐛 **Fixed**: HuggingFace token authentication - token now correctly passed to network downloads in both APIs
-- 🌐 **Web Platform**: Added dedicated web handlers (WebBundledSourceHandler, WebFileSourceHandler) for proper platform separation
-- 📚 **Documentation**: Added comprehensive Migration Guide from Legacy to Modern API with side-by-side code examples
-- 📚 **Documentation**: Updated README with Modern API Quick Start, HuggingFace authentication guide, and model sources reference
-- 🔧 **Code Quality**: Removed unused fields, variables, and methods identified by analyzer (15 warnings fixed)
-- ⚙️ **Platform Compatibility**: Fixed conditional imports for web/mobile service factories
+
+### 🎯 Modern API
+- **New**: Fluent builder API with `FlutterGemma.installModel().fromNetwork/fromAsset/fromBundled/fromFile()`
+- **Architecture**: Sealed classes for type-safe sources, dependency injection via ServiceRegistry, platform-specific handlers
+- **Bundled Models**: Support for including small models in production builds via native bundles (iOS: Bundle.main, Android: assets)
+- **Backward Compatible**: Legacy API (`modelManager.downloadModelWithProgress()`) still works as facade
 
 ## 0.11.3
 - 🌐 **Web Multimodal Support**: Added full multimodal image processing support for web platform

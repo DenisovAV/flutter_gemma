@@ -5,5 +5,11 @@ trash_*
 docs/
 .claude/settings.local.json
 
+# IDE files
+.idea/
+
+# Test coverage
+coverage/
+
 # Sensitive configuration files
 example/config.json

@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
-import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path/path.dart' as path;
 
@@ -14,15 +12,27 @@ import 'package:path/path.dart' as path;
 ///
 /// Usage:
 /// ```dart
-/// await FlutterGemma.installInferenceModel()
+/// await FlutterGemma.installModel(
+///   modelType: ModelType.gemmaIt,
+/// )
 ///   .fromNetwork('https://example.com/model.task', token: 'hf_...')
 ///   .withProgress((progress) => print('$progress%'))
 ///   .install();
 /// ```
 class InferenceInstallationBuilder {
+  final ModelType _modelType;
+  final ModelFileType _fileType;
+
   ModelSource? _modelSource;
   ModelSource? _loraSource;
   void Function(int progress)? _onProgress;
+
+  /// Create builder with model identity
+  InferenceInstallationBuilder({
+    required ModelType modelType,
+    ModelFileType fileType = ModelFileType.task,
+  })  : _modelType = modelType,
+        _fileType = fileType;
 
   /// Set model source from network URL (HTTP/HTTPS)
   ///
@@ -108,6 +118,9 @@ class InferenceInstallationBuilder {
   /// Throws:
   /// - [StateError] if no model source configured
   /// - [Exception] on installation failure
+  ///
+  /// Note: This method is idempotent - calling install() on an already-installed
+  /// model will skip download and just set it as active.
   Future<InferenceInstallation> install() async {
     if (_modelSource == null) {
       throw StateError('Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().');
@@ -120,28 +133,38 @@ class InferenceInstallationBuilder {
       modelSource: _modelSource!,
       loraSource: _loraSource,
       replacePolicy: ModelReplacePolicy.keep,
+      modelType: _modelType,
+      fileType: _fileType,
     );
 
     final registry = ServiceRegistry.instance;
-    final handlerRegistry = registry.sourceHandlerRegistry;
+    final repository = registry.modelRepository;
 
-    // Install model file
-    final handler = handlerRegistry.getHandler(_modelSource!);
-    if (_onProgress != null) {
-      await for (final progress in handler!.installWithProgress(_modelSource!)) {
-        _onProgress!(progress);
-      }
+    // Check if model is already installed
+    final isInstalled = await repository.isInstalled(filename);
+
+    if (isInstalled) {
+      debugPrint('ℹ️  Model already installed: $filename (skipping download)');
     } else {
-      await handler!.install(_modelSource!);
+      // Install model file
+      final handlerRegistry = registry.sourceHandlerRegistry;
+      final handler = handlerRegistry.getHandler(_modelSource!);
+      if (_onProgress != null) {
+        await for (final progress in handler!.installWithProgress(_modelSource!)) {
+          _onProgress!(progress);
+        }
+      } else {
+        await handler!.install(_modelSource!);
+      }
+
+      // Install LoRA if provided
+      if (_loraSource != null) {
+        final loraHandler = handlerRegistry.getHandler(_loraSource!);
+        await loraHandler!.install(_loraSource!);
+      }
     }
 
-    // Install LoRA if provided
-    if (_loraSource != null) {
-      final loraHandler = handlerRegistry.getHandler(_loraSource!);
-      await loraHandler!.install(_loraSource!);
-    }
-
-    // AUTO-SET as active inference model
+    // AUTO-SET as active inference model (even if already installed)
     final manager = FlutterGemmaPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
@@ -168,6 +191,12 @@ class InferenceInstallation {
 
   /// Model ID (filename without extension)
   String get modelId => spec.name;
+
+  /// Model type (gemmaIt, deepSeek, etc.)
+  ModelType get modelType => spec.modelType;
+
+  /// File type (task, binary)
+  ModelFileType get fileType => spec.fileType;
 
   /// Whether LoRA weights were installed
   bool get hasLora => spec.loraSource != null;

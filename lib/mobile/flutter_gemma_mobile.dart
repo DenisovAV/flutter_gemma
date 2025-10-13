@@ -169,13 +169,13 @@ class MobileInferenceModelSession extends InferenceModelSession {
       // Ignore "not supported" errors, but rethrow others
       if (e.code != 'stop_not_supported') {
         if (kDebugMode) {
-          print('Warning: Failed to stop generation: ${e.message}');
+          debugPrint('Warning: Failed to stop generation: ${e.message}');
         }
       }
     } catch (e) {
       // Ignore other errors during cleanup
       if (kDebugMode) {
-        print('Warning: Unexpected error during stop generation: $e');
+        debugPrint('Warning: Unexpected error during stop generation: $e');
       }
     }
 
@@ -192,12 +192,14 @@ const eventChannel = EventChannel('flutter_gemma_stream');
 
 final _platformService = PlatformService();
 
-class FlutterGemma extends FlutterGemmaPlugin {
+class FlutterGemmaMobile extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
+  InferenceModelSpec? _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
 
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
+  EmbeddingModelSpec? _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
 
   // Made public for example app integration
   late final MobileModelManager _unifiedManager = MobileModelManager();
@@ -221,23 +223,40 @@ class FlutterGemma extends FlutterGemmaPlugin {
     int? maxNumImages,
     bool supportImage = false,
   }) async {
-    if (_initCompleter case Completer<InferenceModel> completer) {
-      return completer.future;
-    }
-
-    final completer = _initCompleter = Completer<InferenceModel>();
-
     // Check if model is ready through unified system
     final manager = _unifiedManager;
     final activeModel = manager.activeInferenceModel;
 
     // No active inference model - user must set one first
     if (activeModel == null) {
-      completer.completeError(
-        Exception('No active inference model set. Use `FlutterGemma.installInferenceModel()` or `modelManager.setActiveModel()` to set a model first'),
-      );
+      throw Exception('No active inference model set. Use `FlutterGemma.installModel()` or `modelManager.setActiveModel()` to set a model first');
+    }
+
+    // Check if singleton exists and matches the active model
+    if (_initCompleter != null && _initializedModel != null && _lastActiveInferenceSpec != null) {
+      final currentSpec = _lastActiveInferenceSpec!;
+      final requestedSpec = activeModel as InferenceModelSpec;
+
+      if (currentSpec.name != requestedSpec.name) {
+        // Active model changed - close old model and create new one
+        debugPrint('⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}');
+        debugPrint('🔄 Closing old model and creating new one...');
+        await _initializedModel?.close();
+        // onClose callback will reset _initializedModel and _initCompleter
+        _lastActiveInferenceSpec = null;
+      } else {
+        // Same model - return existing singleton
+        debugPrint('ℹ️  Reusing existing model instance for ${requestedSpec.name}');
+        return _initCompleter!.future;
+      }
+    }
+
+    // If singleton doesn't exist or was just closed, create new one
+    if (_initCompleter case Completer<InferenceModel> completer) {
       return completer.future;
     }
+
+    final completer = _initCompleter = Completer<InferenceModel>();
 
     // Verify the active model is still installed
     final isModelInstalled = await manager.isModelInstalled(activeModel);
@@ -289,8 +308,12 @@ class FlutterGemma extends FlutterGemmaPlugin {
         onClose: () {
           _initializedModel = null;
           _initCompleter = null;
+          _lastActiveInferenceSpec = null;
         },
       );
+
+      // Save the spec that was used to create this model
+      _lastActiveInferenceSpec = activeModel as InferenceModelSpec;
 
       completer.complete(model);
       return model;
@@ -307,12 +330,6 @@ class FlutterGemma extends FlutterGemmaPlugin {
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
-    if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
-      return completer.future;
-    }
-
-    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
-
     // Modern API: Use active embedding model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
       final manager = _unifiedManager;
@@ -320,13 +337,61 @@ class FlutterGemma extends FlutterGemmaPlugin {
 
       // No active embedding model - user must set one first
       if (activeModel == null) {
-        completer.completeError(
-          Exception('No active embedding model set. Use `FlutterGemma.installEmbeddingModel()` or `modelManager.setActiveModel()` to set a model first'),
-        );
-        return completer.future;
+        throw Exception('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
       }
 
-      // Verify the active model is still installed
+      // Get the actual model file paths through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw Exception('Embedding model file paths not found. Use the `modelManager` to load the model first');
+      }
+
+      // Extract model and tokenizer paths from spec
+      final activeModelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
+      final activeTokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
+
+      if (activeModelPath == null || activeTokenizerPath == null) {
+        throw Exception('Could not find model or tokenizer path in active embedding model');
+      }
+
+      // Check if singleton exists and matches the active model
+      if (_initEmbeddingCompleter != null && _initializedEmbeddingModel != null && _lastActiveEmbeddingSpec != null) {
+        final currentSpec = _lastActiveEmbeddingSpec!;
+        final requestedSpec = activeModel as EmbeddingModelSpec;
+
+        if (currentSpec.name != requestedSpec.name) {
+          // Active model changed - close old model and create new one
+          debugPrint('⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}');
+          debugPrint('🔄 Closing old embedding model and creating new one...');
+          await _initializedEmbeddingModel?.close();
+          // onClose callback will reset _initializedEmbeddingModel and _initEmbeddingCompleter
+          _lastActiveEmbeddingSpec = null;
+        } else {
+          // Same model - return existing singleton
+          debugPrint('ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}');
+          return _initEmbeddingCompleter!.future;
+        }
+      }
+
+      modelPath = activeModelPath;
+      tokenizerPath = activeTokenizerPath;
+
+      debugPrint('Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
+    } else {
+      // Legacy API with explicit paths - check if singleton exists
+      if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
+        debugPrint('ℹ️  Reusing existing embedding model instance (Legacy API)');
+        return completer.future;
+      }
+    }
+
+    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+
+    // Verify the active model is still installed (for Modern API path)
+    final manager = _unifiedManager;
+    final activeModel = manager.activeEmbeddingModel;
+
+    if (activeModel != null) {
       final isModelInstalled = await manager.isModelInstalled(activeModel);
       if (!isModelInstalled) {
         completer.completeError(
@@ -334,30 +399,8 @@ class FlutterGemma extends FlutterGemmaPlugin {
         );
         return completer.future;
       }
-
-      // Get the actual model file paths through unified system
-      final modelFilePaths = await manager.getModelFilePaths(activeModel);
-      if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        completer.completeError(
-          Exception('Embedding model file paths not found. Use the `modelManager` to load the model first'),
-        );
-        return completer.future;
-      }
-
-      // Extract model and tokenizer paths from spec
-      modelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
-      tokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
-
-      if (modelPath == null || tokenizerPath == null) {
-        completer.completeError(
-          Exception('Could not find model or tokenizer path in active embedding model'),
-        );
-        return completer.future;
-      }
-
-      debugPrint('Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
     }
-
+  
     try {
       await _platformService.createEmbeddingModel(
         modelPath: modelPath,
@@ -369,8 +412,14 @@ class FlutterGemma extends FlutterGemmaPlugin {
         onClose: () {
           _initializedEmbeddingModel = null;
           _initEmbeddingCompleter = null;
+          _lastActiveEmbeddingSpec = null;
         },
       );
+
+      // Save the spec that was used to create this model (Modern API path only)
+      if (activeModel != null) {
+        _lastActiveEmbeddingSpec = activeModel as EmbeddingModelSpec;
+      }
 
       completer.complete(model);
       return model;

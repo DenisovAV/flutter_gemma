@@ -6,7 +6,6 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
@@ -113,7 +112,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
       if (kDebugMode) {
-        print('Warning: Image support is not yet implemented for web platform');
+        debugPrint('Warning: Image support is not yet implemented for web platform');
       }
     }
 
@@ -144,7 +143,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     if (modelPath == null || tokenizerPath == null) {
       // Web: Embedding models not fully supported yet, but keep API consistent
       if (modelManager.activeEmbeddingModel == null) {
-        throw Exception('No active embedding model set. Use `FlutterGemma.installEmbeddingModel()` or `modelManager.setActiveModel()` to set a model first');
+        throw Exception('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
       }
 
       // TODO: Implement full embedding model support on web
@@ -242,7 +241,7 @@ class WebInferenceModel extends InferenceModel {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
-        print('Warning: Vision modality is not yet implemented for web platform');
+        debugPrint('Warning: Vision modality is not yet implemented for web platform');
       }
     }
 
@@ -336,7 +335,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     if (kDebugMode) {
-      print('🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
+      debugPrint('🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
     }
 
     final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
@@ -344,17 +343,17 @@ class WebModelSession extends InferenceModelSession {
     // Add text part
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
-      print('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+      debugPrint('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
     }
 
     // Handle image processing for web
     if (message.hasImage && message.imageBytes != null) {
       if (kDebugMode) {
-        print('🟢 Processing image: ${message.imageBytes!.length} bytes');
+        debugPrint('🟢 Processing image: ${message.imageBytes!.length} bytes');
       }
       if (!supportImage) {
         if (kDebugMode) {
-          print('🔴 Model does not support images - throwing exception');
+          debugPrint('🔴 Model does not support images - throwing exception');
         }
         throw Exception('This model does not support images');
       }
@@ -362,24 +361,24 @@ class WebModelSession extends InferenceModelSession {
       final imagePart = ImagePromptPart.fromBytes(message.imageBytes!);
       _promptParts.add(imagePart);
       if (kDebugMode) {
-        print('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+        debugPrint('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
       }
     }
 
     if (kDebugMode) {
-      print('🟢 Total prompt parts: ${_promptParts.length}');
+      debugPrint('🟢 Total prompt parts: ${_promptParts.length}');
     }
   }
 
   /// Convert PromptParts to JavaScript array for MediaPipe
   JSAny _createPromptArray() {
     if (kDebugMode) {
-      print('🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
+      debugPrint('🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
     }
 
     if (_promptParts.isEmpty) {
       if (kDebugMode) {
-        print('📝 _createPromptArray: Empty prompt parts, returning empty string');
+        debugPrint('📝 _createPromptArray: Empty prompt parts, returning empty string');
       }
       return ''.toJS; // Empty string fallback
     }
@@ -391,15 +390,15 @@ class WebModelSession extends InferenceModelSession {
           .map((part) => part.text)
           .join('');
       if (kDebugMode) {
-        print('📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
-        print('📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
+        debugPrint('📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
+        debugPrint('📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
       }
       return fullText.toJS;
     }
 
     // Multimodal: create array of parts following MediaPipe documentation format
     if (kDebugMode) {
-      print('🎯 _createPromptArray: Multimodal mode - creating array with proper format');
+      debugPrint('🎯 _createPromptArray: Multimodal mode - creating array with proper format');
     }
 
     final jsArray = <JSAny>[];
@@ -412,24 +411,24 @@ class WebModelSession extends InferenceModelSession {
 
       if (part is TextPromptPart) {
         if (kDebugMode) {
-          print('📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
+          debugPrint('📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
         }
         jsArray.add(part.text.toJS);
       } else if (part is ImagePromptPart) {
         if (kDebugMode) {
-          print('🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
-          print('🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
+          debugPrint('🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
+          debugPrint('🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
         }
 
         // Create proper image object for MediaPipe
         final imageObj = <String, String>{'imageSource': part.dataUrl}.jsify();
         if (kDebugMode) {
-          print('🖼️ _createPromptArray: Created image object with jsify()');
+          debugPrint('🖼️ _createPromptArray: Created image object with jsify()');
         }
         jsArray.add(imageObj as JSAny);
       } else {
         if (kDebugMode) {
-          print('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
+          debugPrint('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
         }
         throw Exception('Unsupported prompt part type: $part');
       }
@@ -439,8 +438,8 @@ class WebModelSession extends InferenceModelSession {
     jsArray.add('<ctrl100>\n<ctrl99>model\n'.toJS);
 
     if (kDebugMode) {
-      print('✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
-      print('🎯 _createPromptArray: Array structure ready for MediaPipe');
+      debugPrint('✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
+      debugPrint('🎯 _createPromptArray: Array structure ready for MediaPipe');
     }
 
     return jsArray.toJS;
@@ -449,15 +448,15 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<String> getResponse() async {
     if (kDebugMode) {
-      print('🚀 getResponse: Starting response generation');
+      debugPrint('🚀 getResponse: Starting response generation');
     }
 
     try {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        print('🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
-        print('🎯 getResponse: Is JSString? ${promptArray is JSString}');
+        debugPrint('🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
+        debugPrint('🎯 getResponse: Is JSString? ${promptArray is JSString}');
       }
 
       String response;
@@ -465,27 +464,27 @@ class WebModelSession extends InferenceModelSession {
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          print('📝 getResponse: Using generateResponse for text-only prompt');
+          debugPrint('📝 getResponse: Using generateResponse for text-only prompt');
         }
         response = (await llmInference.generateResponse(promptArray, null).toDart).toDart;
       } else {
         if (kDebugMode) {
-          print('🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
+          debugPrint('🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
         }
         response = (await llmInference.generateResponseMultimodal(promptArray, null).toDart).toDart;
       }
 
       if (kDebugMode) {
-        print('✅ getResponse: Successfully generated response of length ${response.length}');
-        print('✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
+        debugPrint('✅ getResponse: Successfully generated response of length ${response.length}');
+        debugPrint('✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
       }
 
       // Don't add response back to promptParts - that's handled by InferenceChat
       return response;
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('❌ getResponse: Exception caught: $e');
-        print('❌ getResponse: Stack trace: $stackTrace');
+        debugPrint('❌ getResponse: Exception caught: $e');
+        debugPrint('❌ getResponse: Stack trace: $stackTrace');
       }
       rethrow;
     }
@@ -494,7 +493,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Stream<String> getResponseAsync() {
     if (kDebugMode) {
-      print('🌊 getResponseAsync: Starting async response generation');
+      debugPrint('🌊 getResponseAsync: Starting async response generation');
     }
 
     _controller = StreamController<String>();
@@ -503,14 +502,14 @@ class WebModelSession extends InferenceModelSession {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        print('🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
-        print('🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
+        debugPrint('🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
+        debugPrint('🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
       }
 
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          print('📝 getResponseAsync: Using generateResponse for text-only prompt');
+          debugPrint('📝 getResponseAsync: Using generateResponse for text-only prompt');
         }
         llmInference.generateResponse(
           promptArray,
@@ -519,18 +518,18 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                print('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                debugPrint('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  print('✅ getResponseAsync: Text response completed');
+                  debugPrint('✅ getResponseAsync: Text response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                print('❌ getResponseAsync: Error in text callback: $e');
+                debugPrint('❌ getResponseAsync: Error in text callback: $e');
               }
               _controller?.addError(e);
             }
@@ -538,7 +537,7 @@ class WebModelSession extends InferenceModelSession {
         );
       } else {
         if (kDebugMode) {
-          print('🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
+          debugPrint('🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
         }
         llmInference.generateResponseMultimodal(
           promptArray,
@@ -547,18 +546,18 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                print('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                debugPrint('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  print('✅ getResponseAsync: Multimodal response completed');
+                  debugPrint('✅ getResponseAsync: Multimodal response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                print('❌ getResponseAsync: Error in multimodal callback: $e');
+                debugPrint('❌ getResponseAsync: Error in multimodal callback: $e');
               }
               _controller?.addError(e);
             }
@@ -567,8 +566,8 @@ class WebModelSession extends InferenceModelSession {
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('❌ getResponseAsync: Exception during setup: $e');
-        print('❌ getResponseAsync: Stack trace: $stackTrace');
+        debugPrint('❌ getResponseAsync: Exception during setup: $e');
+        debugPrint('❌ getResponseAsync: Stack trace: $stackTrace');
       }
       _controller?.addError(e);
     }
@@ -991,6 +990,8 @@ class WebModelManager extends ModelFileManager {
     required String resourceName,
     String? loraResourceName,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+    ModelType modelType = ModelType.general,
+    ModelFileType fileType = ModelFileType.task,
   }) {
     final name = resourceName.split('.').first;
 
@@ -999,6 +1000,8 @@ class WebModelManager extends ModelFileManager {
       modelSource: BundledSource(resourceName),
       loraSource: loraResourceName != null ? BundledSource(loraResourceName) : null,
       replacePolicy: replacePolicy,
+      modelType: modelType,
+      fileType: fileType,
     );
   }
 
@@ -1049,7 +1052,7 @@ class WebModelManager extends ModelFileManager {
 
   /// Installs model from Flutter asset (debug mode only)
   ///
-  /// ⚠️ DEPRECATED: Use FlutterGemma.installInferenceModel().fromAsset() instead
+  /// ⚠️ DEPRECATED: Use FlutterGemma.installModel().fromAsset() instead
   ///
   /// This method provides backward compatibility but delegates to Modern API.
   ///
@@ -1059,11 +1062,11 @@ class WebModelManager extends ModelFileManager {
   /// await manager.installModelFromAsset('assets/models/gemma.task');
   ///
   /// // NEW:
-  /// await FlutterGemma.installInferenceModel()
+  /// await FlutterGemma.installModel()
   ///   .fromAsset('assets/models/gemma.task')
   ///   .install();
   /// ```
-  @Deprecated('Use FlutterGemma.installInferenceModel().fromAsset() instead')
+  @Deprecated('Use FlutterGemma.installModel().fromAsset() instead')
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
@@ -1080,6 +1083,8 @@ class WebModelManager extends ModelFileManager {
       name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: ModelSource.asset(path),
       loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
+      modelType: ModelType.general,  // Default for legacy API
+      fileType: ModelFileType.task,   // Default for legacy API
     );
 
     // Delegate to Modern API
@@ -1089,23 +1094,23 @@ class WebModelManager extends ModelFileManager {
 
   /// Installs model from Flutter asset with progress (debug mode only)
   ///
-  /// ⚠️ DEPRECATED: Use FlutterGemma.installInferenceModel().fromAsset().installWithProgress() instead
+  /// ⚠️ DEPRECATED: Use FlutterGemma.installModel().fromAsset().installWithProgress() instead
   ///
   /// Migration:
   /// ```dart
   /// // OLD:
   /// await for (final progress in manager.installModelFromAssetWithProgress('assets/models/gemma.task')) {
-  ///   print('Progress: $progress%');
+  ///   debugPrint('Progress: $progress%');
   /// }
   ///
   /// // NEW:
-  /// await for (final progress in FlutterGemma.installInferenceModel()
+  /// await for (final progress in FlutterGemma.installModel()
   ///     .fromAsset('assets/models/gemma.task')
   ///     .installWithProgress()) {
-  ///   print('Progress: ${progress.currentFileProgress}%');
+  ///   debugPrint('Progress: ${progress.currentFileProgress}%');
   /// }
   /// ```
-  @Deprecated('Use FlutterGemma.installInferenceModel().fromAsset().installWithProgress() instead')
+  @Deprecated('Use FlutterGemma.installModel().fromAsset().installWithProgress() instead')
   @override
   Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
     if (kReleaseMode) {
@@ -1122,6 +1127,8 @@ class WebModelManager extends ModelFileManager {
       name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: ModelSource.asset(path),
       loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
+      modelType: ModelType.general,  // Default for legacy API
+      fileType: ModelFileType.task,   // Default for legacy API
     );
 
     // Delegate to Modern API downloadModelWithProgress
@@ -1135,7 +1142,7 @@ class WebModelManager extends ModelFileManager {
 
   /// Sets model path for inference (web: URLs only)
   ///
-  /// ⚠️ DEPRECATED: Use FlutterGemma.installInferenceModel().fromNetwork() instead
+  /// ⚠️ DEPRECATED: Use FlutterGemma.installModel().fromNetwork() instead
   ///
   /// This method provides backward compatibility but delegates to Modern API.
   ///
@@ -1145,11 +1152,11 @@ class WebModelManager extends ModelFileManager {
   /// await manager.setModelPath('https://example.com/model.task');
   ///
   /// // NEW:
-  /// await FlutterGemma.installInferenceModel()
+  /// await FlutterGemma.installModel()
   ///   .fromNetwork('https://example.com/model.task')
   ///   .install();
   /// ```
-  @Deprecated('Use FlutterGemma.installInferenceModel().fromNetwork() instead')
+  @Deprecated('Use FlutterGemma.installModel().fromNetwork() instead')
   @override
   Future<void> setModelPath(String path, {String? loraPath}) async {
     await _ensureInitialized();
@@ -1170,6 +1177,8 @@ class WebModelManager extends ModelFileManager {
       name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: modelSource,
       loraSource: loraSource,
+      modelType: ModelType.general,  // Default for legacy API
+      fileType: ModelFileType.task,   // Default for legacy API
     );
 
     // Delegate to Modern API
@@ -1214,6 +1223,8 @@ class WebModelManager extends ModelFileManager {
       modelSource: current.modelSource,
       loraSource: loraSource,
       replacePolicy: current.replacePolicy,
+      modelType: current.modelType,
+      fileType: current.fileType,
     );
 
     // Update active model (no manual _loraPaths management needed)
@@ -1235,6 +1246,8 @@ class WebModelManager extends ModelFileManager {
       modelSource: current.modelSource,
       loraSource: null, // Remove LoRA
       replacePolicy: current.replacePolicy,
+      modelType: current.modelType,
+      fileType: current.fileType,
     );
 
     // Update active model (no manual _loraPaths management needed)

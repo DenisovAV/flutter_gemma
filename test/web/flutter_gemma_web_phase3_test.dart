@@ -2,8 +2,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/web/flutter_gemma_web.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
-import 'package:flutter_gemma/model_file_manager_interface.dart';
 
 void main() {
   group('Phase 3: FlutterGemmaWeb Singleton Pattern Tests', () {

@@ -35,6 +35,7 @@ dependencies:
   web: ^1.1.1
   path_provider: ^2.1.5
   shared_preferences: ^2.5.2
+  background_downloader: ^9.2.3  # For integration tests
 
   # Dependencies for working with images
   image_picker: ^1.0.4 # For selecting images on mobile devices

@@ -94,7 +94,7 @@ void main() {
 
     test('install downloads file and saves metadata', () async {
       final source = NetworkSource('https://example.com/model.bin');
-      final targetPath = '/data/model.bin';
+      const targetPath = '/data/model.bin';
 
       when(() => mockFileSystem.getTargetPath(any()))
           .thenAnswer((_) async => targetPath);
@@ -113,7 +113,7 @@ void main() {
 
     test('installWithProgress tracks download progress', () async {
       final source = NetworkSource('https://example.com/model.bin');
-      final targetPath = '/data/model.bin';
+      const targetPath = '/data/model.bin';
       final progressStream = Stream<int>.fromIterable([0, 25, 50, 75, 100]);
 
       when(() => mockFileSystem.getTargetPath(any()))
@@ -138,7 +138,7 @@ void main() {
 
     test('handles HuggingFace URLs with authentication', () async {
       final source = NetworkSource('https://huggingface.co/models/test.bin');
-      final targetPath = '/data/model.bin';
+      const targetPath = '/data/model.bin';
 
       when(() => mockFileSystem.getTargetPath(any()))
           .thenAnswer((_) async => targetPath);
@@ -195,7 +195,7 @@ void main() {
 
     test('install copies asset to app directory', () async {
       final source = AssetSource('models/test.bin');
-      final targetPath = '/data/model.bin';
+      const targetPath = '/data/model.bin';
       final assetData = Uint8List.fromList([1, 2, 3, 4]);
 
       when(() => mockAssetLoader.loadAsset(any()))
@@ -219,7 +219,7 @@ void main() {
 
     test('installWithProgress reports single 100% progress', () async {
       final source = AssetSource('models/test.bin');
-      final targetPath = '/data/model.bin';
+      const targetPath = '/data/model.bin';
       final assetData = Uint8List.fromList([1, 2, 3, 4]);
 
       when(() => mockAssetLoader.loadAsset(any()))
@@ -246,7 +246,7 @@ void main() {
     test('handles asset paths with and without assets/ prefix', () async {
       final source1 = AssetSource('models/test.bin');
       final source2 = AssetSource('assets/models/test.bin');
-      final targetPath = '/data/model.bin';
+      const targetPath = '/data/model.bin';
       final assetData = Uint8List.fromList([1, 2, 3, 4]);
 
       when(() => mockAssetLoader.loadAsset(any()))
@@ -305,7 +305,7 @@ void main() {
 
     test('install gets bundled resource path and saves metadata', () async {
       final source = BundledSource('test.bin');
-      final bundledPath = '/native/resources/test.bin';
+      const bundledPath = '/native/resources/test.bin';
 
       when(() => mockFileSystem.getBundledResourcePath(any()))
           .thenAnswer((_) async => bundledPath);
@@ -322,7 +322,7 @@ void main() {
 
     test('installWithProgress reports single 100% progress', () async {
       final source = BundledSource('test.bin');
-      final bundledPath = '/native/resources/test.bin';
+      const bundledPath = '/native/resources/test.bin';
 
       when(() => mockFileSystem.getBundledResourcePath(any()))
           .thenAnswer((_) async => bundledPath);
@@ -346,7 +346,7 @@ void main() {
       // iOS: Bundle.main
       // Web: /assets/
       final source = BundledSource('test.bin');
-      final bundledPath = '/platform/specific/test.bin';
+      const bundledPath = '/platform/specific/test.bin';
 
       when(() => mockFileSystem.getBundledResourcePath(any()))
           .thenAnswer((_) async => bundledPath);

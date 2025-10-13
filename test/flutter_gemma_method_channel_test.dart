@@ -8,7 +8,7 @@ import 'dart:io';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  FlutterGemma platform = FlutterGemma();
+  FlutterGemmaMobile platform = FlutterGemmaMobile();
   const MethodChannel channel = MethodChannel('flutter_gemma');
 
   setUp(() {
@@ -32,7 +32,7 @@ void main() {
 
   test('getPlatformVersion', () async {
     // Test that the platform integration is working by checking if we can create a FlutterGemma instance
-    expect(platform, isA<FlutterGemma>());
+    expect(platform, isA<FlutterGemmaMobile>());
 
     // Since we can't create actual models without downloaded model files,
     // this test just verifies the basic platform setup is working

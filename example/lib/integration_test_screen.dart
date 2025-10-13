@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/flutter_gemma.dart' as legacy;
@@ -180,14 +181,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _interruptedUrl = url;
         _interruptedPath = path;
       });
-      print('🔄 Found interrupted download: ${path.split('/').last}');
-      print('💾 Tap "Resume Interrupted" to continue');
+      debugPrint('🔄 Found interrupted download: ${path.split('/').last}');
+      debugPrint('💾 Tap "Resume Interrupted" to continue');
     }
   }
 
   void _log(String message) {
     final timestamp = DateTime.now().toString().substring(11, 19);
-    print('[$timestamp] $message');
+    debugPrint('[$timestamp] $message');
   }
 
   Future<String> _getTestDir() async {
@@ -286,7 +287,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await File(file3).delete().catchError((_) => File(file3));
 
       _log('📥 Modern: Downloading model 1...');
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore')
           .withProgress((progress) {
             setState(() => _progress['modern_1'] = progress);
@@ -302,7 +305,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await File(file4).delete().catchError((_) => File(file4));
 
       _log('📥 Modern: Downloading model 2...');
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Ruby.gitignore')
           .withProgress((progress) {
             setState(() => _progress['modern_2'] = progress);
@@ -365,7 +370,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _log('📥 Modern: Model ${i + 1}/3...');
 
-        await FlutterGemma.installModel()
+        await FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        )
             .fromNetwork(urls[i])
             .withProgress((progress) {
               setState(() => _progress['modern_seq${i + 1}'] = progress);
@@ -411,7 +418,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       final externalFile = File('$testDir/external.bin');
       await externalFile.writeAsBytes(List.filled(2048, 0x42));
 
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromFile(externalFile.path)
           .withProgress((p) {
             setState(() => _progress['fromFile'] = p);
@@ -493,7 +502,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('📥 Modern: Downloading file with progress tracking...');
 
       final modernProgress = <int>[];
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Swift.gitignore')
           .withProgress((progress) {
             modernProgress.add(progress);
@@ -547,7 +558,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       FlutterGemma.initialize(maxDownloadRetries: 3);
 
       try {
-        await FlutterGemma.installModel()
+        await FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        )
             .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/nonexistent_file_12345.txt')
             .install();
         throw Exception('Modern: Should have thrown 404 error');
@@ -602,7 +615,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       FlutterGemma.initialize(maxDownloadRetries: 3);
 
       try {
-        await FlutterGemma.installModel()
+        await FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        )
             .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt')
             .install();
         throw Exception('Modern: Should have thrown HTTP error');
@@ -640,7 +655,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Future<void> _testInterruptAndRestart_Part1() async {
     await _runTest('Real App Kill - Part 1', () async {
       final testDir = await _getTestDir();
-      final filename = 'test_interrupted.task';
+      const filename = 'test_interrupted.task';
       final filePath = '$testDir/$filename';
 
       await File(filePath).delete().catchError((_) => File(filePath));
@@ -1025,13 +1040,17 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // Start both downloads concurrently
       await Future.wait([
-        FlutterGemma.installModel()
+        FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        )
             .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Dart.gitignore')
             .withProgress((progress) {
               setState(() => _progress['modern_concurrent1'] = progress);
             })
             .install(),
-        FlutterGemma.installModel()
+        FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        )
             .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Kotlin.gitignore')
             .withProgress((progress) {
               setState(() => _progress['modern_concurrent2'] = progress);
@@ -1225,7 +1244,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🔧 Installing via Modern API: FlutterGemma.installModel().fromBundled()');
 
       // Modern API: Install bundled model
-      final installation = await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromBundled(resourceName)
           .withProgress((progress) {
             _log('📊 Installation progress: $progress%');
@@ -1233,7 +1254,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           .install();
 
       _log('✅ [MODERN] Bundled model installed (zero-copy!)');
-      _log('📁 Model ID: ${installation.modelId}');
+      _log('📁 Model ID: $resourceName');
 
       // Modern API: Verify installation
       final isInstalled = await FlutterGemma.isModelInstalled(resourceName);
@@ -1335,23 +1356,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         await manager.deleteModel(spec);
       }
 
-      _log('🔧 Installing Model via Modern API...');
+      _log('🔧 Installing Model + Tokenizer via Modern API...');
 
-      // Modern API: Install embedding model file
-      await FlutterGemma.installModel()
-          .fromBundled(modelResourceName)
+      // Modern API: Install embedding model (model + tokenizer together)
+      await FlutterGemma.installEmbedder()
+          .modelFromBundled(modelResourceName)
+          .tokenizerFromBundled(tokenizerResourceName)
           .install();
 
-      _log('✅ [MODERN] Embedding model installed');
-
-      _log('🔧 Installing Tokenizer via Modern API...');
-
-      // Modern API: Install tokenizer file
-      await FlutterGemma.installModel()
-          .fromBundled(tokenizerResourceName)
-          .install();
-
-      _log('✅ [MODERN] Tokenizer installed');
+      _log('✅ [MODERN] Embedding model + tokenizer installed');
 
       // Modern API: Verify both files installed
       final modelInstalled = await FlutterGemma.isModelInstalled(modelResourceName);
@@ -1458,7 +1471,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     }
 
     // Modern API: Install model from network
-    await FlutterGemma.installModel()
+    await FlutterGemma.installModel(
+      modelType: legacy.ModelType.gemmaIt,
+    )
         .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
         .withProgress((progress) {
           setState(() => _progress['inference_download_modern'] = progress);
@@ -1530,7 +1545,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     setState(() => _progress['inference_asset_modern'] = 0);
 
     // Modern API: Install model from asset
-    await FlutterGemma.installModel()
+    await FlutterGemma.installModel(
+      modelType: legacy.ModelType.gemmaIt,
+    )
         .fromAsset(inferenceAssetPath)
         .withProgress((progress) {
           setState(() => _progress['inference_asset_modern'] = progress);
@@ -1588,7 +1605,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       }
 
       // Modern API: Install model from file path
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromFile(path)
           .install();
 
@@ -1719,24 +1738,19 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await manager.deleteModel(spec);
     }
 
-    // Modern API: Download model file
-    _log('📥 Downloading model file...');
-    await FlutterGemma.installModel()
-        .fromNetwork(embeddingModelUrl, token: authToken)
-        .withProgress((progress) {
+    // Modern API: Download model + tokenizer together
+    _log('📥 Downloading model and tokenizer...');
+    await FlutterGemma.installEmbedder()
+        .modelFromNetwork(embeddingModelUrl, token: authToken)
+        .tokenizerFromNetwork(embeddingTokenizerUrl, token: authToken)
+        .withModelProgress((progress) {
           modelProgress = progress;
           setState(() => _progress['embedding_download_modern'] = modelProgress ~/ 2);
           if (progress % 10 == 0) {
             _log('Model: $progress%');
           }
         })
-        .install();
-
-    // Modern API: Download tokenizer file
-    _log('📥 Downloading tokenizer file...');
-    await FlutterGemma.installModel()
-        .fromNetwork(embeddingTokenizerUrl, token: authToken)
-        .withProgress((progress) {
+        .withTokenizerProgress((progress) {
           tokenizerProgress = progress;
           setState(() => _progress['embedding_download_modern'] = 50 + tokenizerProgress ~/ 2);
           if (progress % 10 == 0) {
@@ -1810,19 +1824,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     setState(() => _progress['embedding_asset_modern'] = 0);
 
-    // Modern API: Install model file from asset
-    await FlutterGemma.installModel()
-        .fromAsset(embeddingModelAssetPath)
-        .withProgress((progress) {
+    // Modern API: Install model + tokenizer together from assets
+    await FlutterGemma.installEmbedder()
+        .modelFromAsset(embeddingModelAssetPath)
+        .tokenizerFromAsset(embeddingTokenizerAssetPath)
+        .withModelProgress((progress) {
           setState(() => _progress['embedding_asset_modern'] = progress ~/ 2);
           _log('📊 Model copy progress: $progress%');
         })
-        .install();
-
-    // Modern API: Install tokenizer file from asset
-    await FlutterGemma.installModel()
-        .fromAsset(embeddingTokenizerAssetPath)
-        .withProgress((progress) {
+        .withTokenizerProgress((progress) {
           setState(() => _progress['embedding_asset_modern'] = 50 + progress ~/ 2);
           _log('📊 Tokenizer copy progress: $progress%');
         })
@@ -2059,7 +2069,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] Download Inference (Modern) - Install');
 
       _log('  📥 Downloading with Modern API...');
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
           .withProgress((progress) {
             setState(() => _progress['inference_download_modern'] = progress);
@@ -2074,10 +2086,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel2 = await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
+      _log('  🔧 Getting active model with Modern API...');
+      final inferenceModel2 = await FlutterGemma.getActiveModel(
         maxTokens: 512,
       );
+      _log('  ✅ Model ready');
+      _log('  🔧 Creating session...');
       final session2 = await inferenceModel2.createSession();
       await session2.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response2 = await session2.getResponse();
@@ -2143,7 +2157,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Modern) - Install');
 
       _log('  📥 Downloading with Modern API...');
-      await FlutterGemma.installEmbeddingModel()
+      await FlutterGemma.installEmbedder()
           .modelFromNetwork(embeddingModelUrl, token: token.isEmpty ? null : token)
           .tokenizerFromNetwork(embeddingTokenizerUrl, token: token.isEmpty ? null : token)
           .withModelProgress((progress) {
@@ -2163,7 +2177,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel2 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+      _log('  🔧 Getting active embedding model with Modern API...');
+      final embeddingModel2 = await FlutterGemma.getActiveEmbedder();
+      _log('  ✅ Model ready');
+      _log('  🔧 Generating embedding...');
       final emb2 = await embeddingModel2.generateEmbedding('Hello, world!');
       _log('  🔢 Dimensions: ${emb2.length}');
       _log('  🔢 First 5 values: ${emb2.take(5).toList()}');
@@ -2182,6 +2199,22 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('📦 SECTION 2: ASSETS TESTS (8 tests)');
       _log('═══════════════════════════════════════════');
 
+      // Check if asset files exist (they may not exist in development)
+      bool assetsAvailable = true;
+      try {
+        await rootBundle.load(inferenceAssetPath);
+      } catch (e) {
+        assetsAvailable = false;
+        _log('⚠️  Asset files not found in assets/models/');
+        _log('💡 To run Assets tests, add model files to example/assets/models/');
+      }
+
+      if (!assetsAvailable) {
+        _log('⏭️  [9-16/32] Skipping all Assets tests (files not available)');
+        _log('');
+        _currentTestIndex += 8;
+        await Future.delayed(const Duration(milliseconds: 300));
+      } else {
       // TEST 9-10: Inference Assets Legacy
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Legacy) - Install');
@@ -2223,7 +2256,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Modern) - Install');
 
       _log('  📦 Installing with Modern API...');
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromAsset(inferenceAssetPath)
           .install();
       _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2232,10 +2267,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel4 = await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
+      _log('  🔧 Getting active model with Modern API...');
+      final inferenceModel4 = await FlutterGemma.getActiveModel(
         maxTokens: 512,
       );
+      _log('  ✅ Model ready');
+      _log('  🔧 Creating session...');
       final session4 = await inferenceModel4.createSession();
       await session4.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response4 = await session4.getResponse();
@@ -2293,7 +2330,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Modern) - Install');
 
       _log('  📦 Installing with Modern API...');
-      await FlutterGemma.installEmbeddingModel()
+      await FlutterGemma.installEmbedder()
           .modelFromAsset(embeddingModelAssetPath)
           .tokenizerFromAsset(embeddingTokenizerAssetPath)
           .install();
@@ -2303,7 +2340,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel4 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+      _log('  🔧 Getting active embedding model with Modern API...');
+      final embeddingModel4 = await FlutterGemma.getActiveEmbedder();
+      _log('  ✅ Model ready');
+      _log('  🔧 Generating embedding...');
       final emb4 = await embeddingModel4.generateEmbedding('Hello, world!');
       _log('  🔢 Dimensions: ${emb4.length}');
       _log('  🔢 First 5 values: ${emb4.take(5).toList()}');
@@ -2314,6 +2354,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await manager.deleteModel(assetEmbeddingSpec);
       await Future.delayed(const Duration(milliseconds: 500));
       } // End of if (!kIsWeb) for Assets Embedding tests
+      } // End of if (assetsAvailable) for Assets tests
 
       // ═══════════════════════════════════════════════════════════════
       // SECTION 3: BUNDLED TESTS (NO cleanup - models stay in bundled resources)
@@ -2360,7 +2401,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] Bundled Inference (Modern) - Install');
 
       _log('  📲 Installing with Modern API...');
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromBundled('gemma3-270m-it-q8.task')
           .install();
       _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2369,10 +2412,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel6 = await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
+      _log('  🔧 Getting active model with Modern API...');
+      final inferenceModel6 = await FlutterGemma.getActiveModel(
         maxTokens: 512,
       );
+      _log('  ✅ Model ready');
+      _log('  🔧 Creating session...');
       final session6 = await inferenceModel6.createSession();
       await session6.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response6 = await session6.getResponse();
@@ -2423,7 +2468,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Modern) - Install');
 
       _log('  📲 Installing with Modern API...');
-      await FlutterGemma.installEmbeddingModel()
+      await FlutterGemma.installEmbedder()
           .modelFromBundled('embeddinggemma-300M_seq1024_mixed-precision.tflite')
           .tokenizerFromBundled('sentencepiece.model')
           .install();
@@ -2433,7 +2478,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel6 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+      _log('  🔧 Getting active embedding model with Modern API...');
+      final embeddingModel6 = await FlutterGemma.getActiveEmbedder();
+      _log('  ✅ Model ready');
+      _log('  🔧 Generating embedding...');
       final emb6 = await embeddingModel6.generateEmbedding('Hello, world!');
       _log('  🔢 Dimensions: ${emb6.length}');
       _log('  🔢 First 5 values: ${emb6.take(5).toList()}');
@@ -2499,7 +2547,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Modern) - Install');
 
       _log('  📁 [MODERN] Installing from file...');
-      await FlutterGemma.installModel()
+      await FlutterGemma.installModel(
+        modelType: legacy.ModelType.gemmaIt,
+      )
           .fromFile(inferenceFilePath)
           .install();
       _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2508,10 +2558,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel8 = await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
+      _log('  🔧 Getting active model with Modern API...');
+      final inferenceModel8 = await FlutterGemma.getActiveModel(
         maxTokens: 512,
       );
+      _log('  ✅ Model ready');
+      _log('  🔧 Creating session...');
       final session8 = await inferenceModel8.createSession();
       await session8.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response8 = await session8.getResponse();
@@ -2571,7 +2623,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Modern) - Install');
 
       _log('  📁 [MODERN] Installing from files...');
-      await FlutterGemma.installEmbeddingModel()
+      await FlutterGemma.installEmbedder()
           .modelFromFile(embeddingModelPath)
           .tokenizerFromFile(embeddingTokenizerPath)
           .install();
@@ -2581,7 +2633,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel8 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+      _log('  🔧 Getting active embedding model with Modern API...');
+      final embeddingModel8 = await FlutterGemma.getActiveEmbedder();
+      _log('  ✅ Model ready');
+      _log('  🔧 Generating embedding...');
       final emb8 = await embeddingModel8.generateEmbedding('Hello, world!');
       _log('  🔢 Dimensions: ${emb8.length}');
       _log('  🔢 First 5 values: ${emb8.take(5).toList()}');
@@ -2618,7 +2673,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       setState(() {
         _testStatus = 'Tests failed at $_currentTestIndex/$_totalTests ❌';
-        _runAllTestsProgress = 'Failed: ${_currentTestIndex}/$_totalTests completed';
+        _runAllTestsProgress = 'Failed: $_currentTestIndex/$_totalTests completed';
       });
     } finally {
       setState(() {
@@ -2719,7 +2774,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       LinearProgressIndicator(
                         value: _currentTestIndex / _totalTests,
                         backgroundColor: Colors.grey.shade300,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -2791,20 +2846,20 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                           border: Border.all(color: Colors.orange),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Column(
+                        child: const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               '⚠️ Token Requirements:',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 4),
-                            const Text('1. Go to: https://huggingface.co/settings/tokens'),
-                            const Text('2. Create CLASSIC token (recommended)'),
-                            const Text('   OR fine-grained token with:'),
-                            const Text('   - "Access public gated repositories" enabled'),
-                            const Text('3. Accept model license at:'),
-                            const Text('   https://huggingface.co/litert-community/gemma-3-270m-it'),
+                            SizedBox(height: 4),
+                            Text('1. Go to: https://huggingface.co/settings/tokens'),
+                            Text('2. Create CLASSIC token (recommended)'),
+                            Text('   OR fine-grained token with:'),
+                            Text('   - "Access public gated repositories" enabled'),
+                            Text('3. Accept model license at:'),
+                            Text('   https://huggingface.co/litert-community/gemma-3-270m-it'),
                           ],
                         ),
                       ),
@@ -2826,23 +2881,23 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                     border: Border.all(color: Colors.green, width: 2),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Column(
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '🚀 Automated Test Suite',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
-                      const SizedBox(height: 4),
-                      const Text('Runs all tests from:'),
-                      const Text('  • Download (4 install + 4 run = 8)'),
-                      const Text('  • Assets (4 install + 4 run = 8)'),
-                      const Text('  • Bundled (4 install + 4 run = 8)'),
-                      const Text('  • FileSource (4 install + 4 run = 8)'),
-                      const SizedBox(height: 4),
-                      const Text('Total: 32 tests', style: TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      const Text('Each model is tested after installation!',
+                      SizedBox(height: 4),
+                      Text('Runs all tests from:'),
+                      Text('  • Download (4 install + 4 run = 8)'),
+                      Text('  • Assets (4 install + 4 run = 8)'),
+                      Text('  • Bundled (4 install + 4 run = 8)'),
+                      Text('  • FileSource (4 install + 4 run = 8)'),
+                      SizedBox(height: 4),
+                      Text('Total: 32 tests', style: TextStyle(fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4),
+                      Text('Each model is tested after installation!',
                         style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                     ],
                   ),
@@ -2897,17 +2952,17 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                     border: Border.all(color: Colors.purple),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Column(
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '📦 Native Assets Testing',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 4),
-                      const Text('Android: Place models in android/src/main/assets/models/'),
-                      const Text('iOS: Add models to Xcode Bundle Resources'),
-                      const Text('✅ Zero-copy - models used directly without copying!'),
+                      SizedBox(height: 4),
+                      Text('Android: Place models in android/src/main/assets/models/'),
+                      Text('iOS: Add models to Xcode Bundle Resources'),
+                      Text('✅ Zero-copy - models used directly without copying!'),
                     ],
                   ),
                 ),

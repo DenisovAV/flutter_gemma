@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 /// Smart downloader with HTTP-aware retry logic
@@ -69,9 +70,9 @@ class SmartDownloader {
     StreamSubscription? currentListener,
     void Function(StreamSubscription)? onListenerCreated,
   }) async {
-    print('🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
-    print('🔵 URL: $url');
-    print('🔵 Target: $targetPath');
+    debugPrint('🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
+    debugPrint('🔵 URL: $url');
+    debugPrint('🔵 Target: $targetPath');
 
     // Declare listener outside try block so it's accessible in catch
     StreamSubscription? listener;
@@ -114,16 +115,16 @@ class SmartDownloader {
       listener = _getUpdatesStream().listen((update) async {
         if (update.task.taskId != task.taskId) return;
 
-        print('📡 Received update for task ${task.taskId}: ${update.runtimeType}');
+        debugPrint('📡 Received update for task ${task.taskId}: ${update.runtimeType}');
 
         if (update is TaskProgressUpdate) {
           final percents = (update.progress * 100).round();
-          print('📊 Progress: $percents%');
+          debugPrint('📊 Progress: $percents%');
           if (!progress.isClosed) {
             progress.add(percents.clamp(0, 100));
           }
         } else if (update is TaskStatusUpdate) {
-          print('📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}');
+          debugPrint('📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}');
 
           switch (update.status) {
             case TaskStatus.complete:
@@ -136,11 +137,11 @@ class SmartDownloader {
               break;
 
             case TaskStatus.failed:
-              print('🔴 SmartDownloader: TaskStatus.failed detected');
-              print('🔴 HTTP Status Code from update: ${update.responseStatusCode}');
-              print('🔴 Exception: ${update.exception}');
-              print('🔴 Progress closed: ${progress.isClosed}');
-              print('🔴 Current attempt: $currentAttempt');
+              debugPrint('🔴 SmartDownloader: TaskStatus.failed detected');
+              debugPrint('🔴 HTTP Status Code from update: ${update.responseStatusCode}');
+              debugPrint('🔴 Exception: ${update.exception}');
+              debugPrint('🔴 Progress closed: ${progress.isClosed}');
+              debugPrint('🔴 Current attempt: $currentAttempt');
 
               // Try to get HTTP code from multiple sources
               int? httpCode = update.responseStatusCode;
@@ -149,7 +150,7 @@ class SmartDownloader {
               if (httpCode == null && update.exception != null) {
                 if (update.exception is TaskHttpException) {
                   httpCode = (update.exception as TaskHttpException).httpResponseCode;
-                  print('🔴 HTTP Status Code from TaskHttpException: $httpCode');
+                  debugPrint('🔴 HTTP Status Code from TaskHttpException: $httpCode');
                 }
               }
 
@@ -180,7 +181,7 @@ class SmartDownloader {
               break;
 
             case TaskStatus.notFound:
-              print('🔴 SmartDownloader: TaskStatus.notFound detected (404)');
+              debugPrint('🔴 SmartDownloader: TaskStatus.notFound detected (404)');
 
               // 404 is a non-retryable error - handle immediately
               await _handleFailedDownload(
@@ -209,27 +210,27 @@ class SmartDownloader {
       // Notify about new listener
       onListenerCreated?.call(listener);
 
-      print('🔵 Enqueueing task ${task.taskId}...');
+      debugPrint('🔵 Enqueueing task ${task.taskId}...');
       final result = await downloader.enqueue(task);
-      print('🔵 Enqueue result: $result');
+      debugPrint('🔵 Enqueue result: $result');
 
       // ✅ Wait for download to complete
-      print('🔵 Waiting for download completion...');
+      debugPrint('🔵 Waiting for download completion...');
       await completer.future;
-      print('🔵 Download completed!');
+      debugPrint('🔵 Download completed!');
 
       // Ensure listener is canceled after completion
       await listener.cancel();
 
     } catch (e) {
-      print('❌ Exception in _downloadWithSmartRetry: $e');
-      print('❌ Stack trace: ${StackTrace.current}');
+      debugPrint('❌ Exception in _downloadWithSmartRetry: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
 
       // Cancel listener before retry
       await listener?.cancel();
 
       if (currentAttempt < maxRetries) {
-        print('⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries');
+        debugPrint('⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries');
         await Future.delayed(Duration(seconds: currentAttempt * 2)); // Exponential backoff
         return _downloadWithSmartRetry(
           url: url,
@@ -263,27 +264,27 @@ class SmartDownloader {
     StreamSubscription? currentListener,
     void Function(StreamSubscription)? onListenerCreated,
   }) async {
-    print('🟡 _handleFailedDownload called');
-    print('🟡 httpStatusCode: $httpStatusCode');
-    print('🟡 progress.isClosed: ${progress.isClosed}');
+    debugPrint('🟡 _handleFailedDownload called');
+    debugPrint('🟡 httpStatusCode: $httpStatusCode');
+    debugPrint('🟡 progress.isClosed: ${progress.isClosed}');
 
     // Check if error is retryable based on HTTP status code
     if (httpStatusCode != null) {
-      print('🟢 httpStatusCode is not null: $httpStatusCode');
+      debugPrint('🟢 httpStatusCode is not null: $httpStatusCode');
 
       // Auth errors (401, 403) and not-found (404) should NOT be retried
       if (httpStatusCode == 401) {
-        print('🟢 Detected 401 - stopping immediately');
+        debugPrint('🟢 Detected 401 - stopping immediately');
         if (!progress.isClosed) {
-          print('🟢 Adding error to progress stream');
+          debugPrint('🟢 Adding error to progress stream');
           progress.addError(
             'Authentication required (HTTP 401). '
             'Please provide a valid authentication token.'
           );
           progress.close();
-          print('🟢 Progress stream closed');
+          debugPrint('🟢 Progress stream closed');
         } else {
-          print('⚠️ Progress already closed - cannot add error!');
+          debugPrint('⚠️ Progress already closed - cannot add error!');
         }
         return; // Stop immediately
       }

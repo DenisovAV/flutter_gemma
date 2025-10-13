@@ -103,9 +103,9 @@ void main() {
         // that the methods exist by checking the type
 
         // Arrange - Create a type reference
-        final hasSetActiveModel = true; // ModelFileManager has setActiveModel
-        final hasActiveInferenceModel = true; // ModelFileManager has activeInferenceModel getter
-        final hasActiveEmbeddingModel = true; // ModelFileManager has activeEmbeddingModel getter
+        const hasSetActiveModel = true; // ModelFileManager has setActiveModel
+        const hasActiveInferenceModel = true; // ModelFileManager has activeInferenceModel getter
+        const hasActiveEmbeddingModel = true; // ModelFileManager has activeEmbeddingModel getter
 
         // Assert - Interface contract exists
         expect(hasSetActiveModel, isTrue);
@@ -230,11 +230,11 @@ void main() {
         // After fix: same instance is returned
 
         // Simulate WebModelManager singleton
-        WebModelManagerSimulator? _singleton;
+        WebModelManagerSimulator? singleton;
 
         WebModelManagerSimulator getManager() {
-          _singleton ??= WebModelManagerSimulator();
-          return _singleton!;
+          singleton ??= WebModelManagerSimulator();
+          return singleton!;
         }
 
         // Act - Simulate Modern API flow
@@ -256,11 +256,11 @@ void main() {
       });
 
       test('Multiple manager accesses maintain state', () {
-        WebModelManagerSimulator? _singleton;
+        WebModelManagerSimulator? singleton;
 
         WebModelManagerSimulator getManager() {
-          _singleton ??= WebModelManagerSimulator();
-          return _singleton!;
+          singleton ??= WebModelManagerSimulator();
+          return singleton!;
         }
 
         final spec = InferenceModelSpec.fromLegacyUrl(
@@ -282,11 +282,11 @@ void main() {
       });
 
       test('Singleton preserves both inference and embedding models', () {
-        WebModelManagerSimulator? _singleton;
+        WebModelManagerSimulator? singleton;
 
         WebModelManagerSimulator getManager() {
-          _singleton ??= WebModelManagerSimulator();
-          return _singleton!;
+          singleton ??= WebModelManagerSimulator();
+          return singleton!;
         }
 
         final inferenceSpec = InferenceModelSpec.fromLegacyUrl(

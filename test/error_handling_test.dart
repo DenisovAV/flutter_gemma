@@ -100,7 +100,7 @@ void main() {
   group('DownloadException', () {
     test('toString includes user message', () {
       const error = DownloadError.forbidden();
-      final exception = DownloadException(error);
+      const exception = DownloadException(error);
 
       expect(exception.toString(), contains('DownloadException'));
       expect(exception.toString(), contains('403'));

@@ -22,4 +22,23 @@ export 'core/migration/legacy_preferences_migrator.dart';
 export 'core/api/flutter_gemma.dart';
 export 'core/api/inference_installation_builder.dart';
 export 'core/api/embedding_installation_builder.dart';
-export 'core/api/model_installation_builder.dart';
+
+// Export Model Specs (needed for advanced use cases)
+export 'mobile/flutter_gemma_mobile.dart'
+  show
+    // Model specifications
+    InferenceModelSpec,
+    EmbeddingModelSpec,
+    ModelSpec,
+    ModelFile,
+    // Download progress
+    DownloadProgress,
+    // Storage info
+    StorageStats,
+    OrphanedFileInfo,
+    // Model management types
+    ModelManagementType,
+    // Exceptions
+    ModelStorageException;
+
+// ModelReplacePolicy is already exported from model_file_manager_interface.dart

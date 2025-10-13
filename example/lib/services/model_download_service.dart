@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'package:flutter_gemma/core/model.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,11 +12,15 @@ class ModelDownloadService {
     required this.modelUrl,
     required this.modelFilename,
     required this.licenseUrl,
+    required this.modelType,
+    this.fileType = ModelFileType.task,
   });
 
   final String modelUrl;
   final String modelFilename;
   final String licenseUrl;
+  final ModelType modelType;
+  final ModelFileType fileType;
 
   /// Load the token from SharedPreferences.
   Future<String?> loadToken() async {
@@ -69,13 +74,13 @@ class ModelDownloadService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking model existence: $e');
+        debugPrint('Error checking model existence: $e');
       }
     }
     return false;
   }
 
-  /// Downloads the model file and tracks progress.
+  /// Downloads the model file and tracks progress using Modern API.
   Future<void> downloadModel({
     required String token,
     required Function(double) onProgress,
@@ -84,8 +89,11 @@ class ModelDownloadService {
       // Convert empty string to null for cleaner API
       final authToken = token.isEmpty ? null : token;
 
-      // Modern API: Install model from network with progress tracking
-      await FlutterGemma.installModel()
+      // Modern API: Install inference model from network with progress tracking
+      await FlutterGemma.installModel(
+        modelType: modelType,
+        fileType: fileType,
+      )
           .fromNetwork(modelUrl, token: authToken)
           .withProgress((progress) {
             onProgress(progress.toDouble());
@@ -93,7 +101,7 @@ class ModelDownloadService {
           .install();
     } catch (e) {
       if (kDebugMode) {
-        print('Error downloading model: $e');
+        debugPrint('Error downloading model: $e');
       }
       rethrow;
     }
@@ -110,7 +118,7 @@ class ModelDownloadService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error deleting model: $e');
+        debugPrint('Error deleting model: $e');
       }
     }
   }

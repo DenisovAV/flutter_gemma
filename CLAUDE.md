@@ -52,6 +52,48 @@ final spec = InferenceModelSpec(
 
 **Migration Status:** Completed 2025-10-05 (see `MIGRATION_SUMMARY.md`)
 
+### Modern API - Separation of Concerns (v0.11.5+)
+
+**Architectural Principle:** Installation (Identity) vs Runtime (Configuration)
+
+**Installation stores only model identity:**
+- `modelType` (gemmaIt, deepSeek, qwen, etc.) - Required
+- `fileType` (task, binary) - Optional, defaults to task
+
+**Runtime accepts configuration each time:**
+- `maxTokens` - Context size (default: 1024)
+- `preferredBackend` - CPU/GPU preference
+- `supportImage` - Multimodal support
+- `maxNumImages` - Image limits
+
+**Usage:**
+```dart
+// Step 1: Install with identity
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
+  .fromNetwork('https://example.com/model.task')
+  .install();
+
+// Step 2: Create with runtime config (multiple times, different configs)
+final shortModel = await FlutterGemma.getActiveModel(
+  maxTokens: 512,
+  preferredBackend: PreferredBackend.cpu,
+);
+
+final longModel = await FlutterGemma.getActiveModel(
+  maxTokens: 4096,
+  preferredBackend: PreferredBackend.gpu,
+);
+// Both use same model file!
+```
+
+**Benefits:**
+- ✅ Install once, create many times with different configs
+- ✅ No reinstall needed to change runtime parameters
+- ✅ Multiple instances with different configurations
+- ✅ Clean separation of concerns (identity vs behavior)
+
 ### Supported Models
 
 | Model Family | Function Calling | Thinking Mode | Multimodal | Platform Support |
@@ -352,7 +394,7 @@ const Message(text: 'Hi! How can I help?', isUser: false)
 
 **Step 1: Install Model**
 ```dart
-await FlutterGemma.installEmbeddingModel()
+await FlutterGemma.installEmbedder()
     .modelFromNetwork(modelUrl, token: token)
     .tokenizerFromNetwork(tokenizerUrl, token: token)
     .install();  // Automatically calls setActiveModel()

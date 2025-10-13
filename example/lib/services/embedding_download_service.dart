@@ -1,9 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart'; // For ModelSource
+import 'package:flutter_gemma/core/utils/file_name_utils.dart'; // For FileNameUtils
+import 'package:flutter_gemma/flutter_gemma.dart'; // For EmbeddingModelSpec
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,63 +42,33 @@ class EmbeddingModelDownloadService {
   /// Checks if both model and tokenizer files exist and match remote file sizes.
   Future<bool> checkModelExistence(String token) async {
     try {
-      // Modern API: Check if both model and tokenizer are installed
-      final modelInstalled = await FlutterGemma.isModelInstalled(model.filename);
-      final tokenizerInstalled = await FlutterGemma.isModelInstalled(model.tokenizerFilename);
+      // Modern API: Check if embedding model spec is installed
+      final manager = FlutterGemmaPlugin.instance.modelManager;
 
-      if (modelInstalled && tokenizerInstalled) {
+      // Create spec to check
+      final spec = EmbeddingModelSpec(
+        name: FileNameUtils.getBaseName(model.filename),
+        modelSource: ModelSource.network(model.url, authToken: token.isEmpty ? null : token),
+        tokenizerSource: ModelSource.network(model.tokenizerUrl, authToken: token.isEmpty ? null : token),
+      );
+
+      final installed = await manager.isModelInstalled(spec);
+      if (installed) {
+        debugPrint('[EmbeddingDownloadService] Model ${spec.name} is installed');
         return true;
       }
 
-      // Fallback: check physical file existence with size validation
-      final modelFilePath = await getModelFilePath();
-      final tokenizerFilePath = await getTokenizerFilePath();
-      final modelFile = File(modelFilePath);
-      final tokenizerFile = File(tokenizerFilePath);
-
-      // Both files must exist
-      if (!await modelFile.exists() || !await tokenizerFile.exists()) {
-        return false;
-      }
-
-      final Map<String, String> headers = token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
-
-      // Check model file size
-      final modelHeadResponse = await http.head(Uri.parse(model.url), headers: headers);
-      if (modelHeadResponse.statusCode == 200) {
-        final modelContentLengthHeader = modelHeadResponse.headers['content-length'];
-        if (modelContentLengthHeader != null) {
-          final remoteModelSize = int.parse(modelContentLengthHeader);
-          final localModelSize = await modelFile.length();
-          if (remoteModelSize != localModelSize) {
-            return false;
-          }
-        }
-      }
-
-      // Check tokenizer file size
-      final tokenizerHeadResponse = await http.head(Uri.parse(model.tokenizerUrl), headers: headers);
-      if (tokenizerHeadResponse.statusCode == 200) {
-        final tokenizerContentLengthHeader = tokenizerHeadResponse.headers['content-length'];
-        if (tokenizerContentLengthHeader != null) {
-          final remoteTokenizerSize = int.parse(tokenizerContentLengthHeader);
-          final localTokenizerSize = await tokenizerFile.length();
-          if (remoteTokenizerSize != localTokenizerSize) {
-            return false;
-          }
-        }
-      }
-
-      return true;
+      debugPrint('[EmbeddingDownloadService] Model ${spec.name} is NOT installed');
+      return false;
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking model existence: $e');
+        debugPrint('Error checking model existence: $e');
       }
       return false;
     }
   }
 
-  /// Downloads both model and tokenizer with progress tracking using plugin methods.
+  /// Downloads both model and tokenizer with progress tracking using Modern API.
   ///
   /// [onProgress] callback receives (modelProgress, tokenizerProgress) as doubles 0-100
   Future<void> downloadModel(
@@ -115,19 +86,15 @@ class EmbeddingModelDownloadService {
       double modelProgress = 0;
       double tokenizerProgress = 0;
 
-      // Modern API: Download model file
-      await FlutterGemma.installModel()
-          .fromNetwork(model.url, token: authToken)
-          .withProgress((progress) {
+      // Modern API: Download both model and tokenizer using installEmbedder
+      await FlutterGemma.installEmbedder()
+          .modelFromNetwork(model.url, token: authToken)
+          .tokenizerFromNetwork(model.tokenizerUrl, token: authToken)
+          .withModelProgress((progress) {
             modelProgress = progress.toDouble();
             onProgress(modelProgress, tokenizerProgress);
           })
-          .install();
-
-      // Modern API: Download tokenizer file
-      await FlutterGemma.installModel()
-          .fromNetwork(model.tokenizerUrl, token: authToken)
-          .withProgress((progress) {
+          .withTokenizerProgress((progress) {
             tokenizerProgress = progress.toDouble();
             onProgress(modelProgress, tokenizerProgress);
           })
@@ -135,7 +102,7 @@ class EmbeddingModelDownloadService {
 
     } catch (e) {
       if (kDebugMode) {
-        print('Error downloading embedding model: $e');
+        debugPrint('Error downloading embedding model: $e');
       }
       rethrow;
     }
@@ -158,7 +125,7 @@ class EmbeddingModelDownloadService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error deleting embedding model: $e');
+        debugPrint('Error deleting embedding model: $e');
       }
     }
   }
@@ -176,7 +143,7 @@ class EmbeddingModelDownloadService {
       return modelInstalled && tokenizerInstalled;
     } catch (e) {
       if (kDebugMode) {
-        print('Error checking embedding model installation: $e');
+        debugPrint('Error checking embedding model installation: $e');
       }
       // Fallback to file existence check
       return await checkModelExistence('');

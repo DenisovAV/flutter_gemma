@@ -2,8 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
-import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path/path.dart' as path;
 
@@ -14,7 +12,7 @@ import 'package:path/path.dart' as path;
 ///
 /// Usage:
 /// ```dart
-/// await FlutterGemma.installEmbeddingModel()
+/// await FlutterGemma.installEmbedder()
 ///   .modelFromNetwork('https://example.com/model.tflite', token: 'hf_...')
 ///   .tokenizerFromNetwork('https://example.com/tokenizer.model', token: 'hf_...')
 ///   .withModelProgress((p) => print('Model: $p%'))
@@ -100,6 +98,9 @@ class EmbeddingInstallationBuilder {
   /// Throws:
   /// - [StateError] if model or tokenizer source not configured
   /// - [Exception] on installation failure
+  ///
+  /// Note: This method is idempotent - calling install() on an already-installed
+  /// model will skip download and just set it as active.
   Future<EmbeddingInstallation> install() async {
     if (_modelSource == null || _tokenizerSource == null) {
       throw StateError(
@@ -109,6 +110,7 @@ class EmbeddingInstallationBuilder {
 
     // Create spec
     final modelFilename = _extractFilename(_modelSource!);
+    final tokenizerFilename = _extractFilename(_tokenizerSource!);
 
     final spec = EmbeddingModelSpec(
       name: FileNameUtils.getBaseName(modelFilename),
@@ -118,31 +120,49 @@ class EmbeddingInstallationBuilder {
     );
 
     final registry = ServiceRegistry.instance;
-    final handlerRegistry = registry.sourceHandlerRegistry;
+    final repository = registry.modelRepository;
 
-    // Install model file
-    debugPrint('📥 Installing embedding model...');
-    final modelHandler = handlerRegistry.getHandler(_modelSource!);
-    if (_onModelProgress != null) {
-      await for (final progress in modelHandler!.installWithProgress(_modelSource!)) {
-        _onModelProgress!(progress);
-      }
+    // Check if both model and tokenizer are already installed
+    final isModelInstalled = await repository.isInstalled(modelFilename);
+    final isTokenizerInstalled = await repository.isInstalled(tokenizerFilename);
+
+    if (isModelInstalled && isTokenizerInstalled) {
+      debugPrint('ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)');
     } else {
-      await modelHandler!.install(_modelSource!);
+      final handlerRegistry = registry.sourceHandlerRegistry;
+
+      // Install model file if not already installed
+      if (!isModelInstalled) {
+        debugPrint('📥 Installing embedding model...');
+        final modelHandler = handlerRegistry.getHandler(_modelSource!);
+        if (_onModelProgress != null) {
+          await for (final progress in modelHandler!.installWithProgress(_modelSource!)) {
+            _onModelProgress!(progress);
+          }
+        } else {
+          await modelHandler!.install(_modelSource!);
+        }
+      } else {
+        debugPrint('ℹ️  Embedding model file already installed: $modelFilename');
+      }
+
+      // Install tokenizer file if not already installed
+      if (!isTokenizerInstalled) {
+        debugPrint('📥 Installing tokenizer...');
+        final tokenizerHandler = handlerRegistry.getHandler(_tokenizerSource!);
+        if (_onTokenizerProgress != null) {
+          await for (final progress in tokenizerHandler!.installWithProgress(_tokenizerSource!)) {
+            _onTokenizerProgress!(progress);
+          }
+        } else {
+          await tokenizerHandler!.install(_tokenizerSource!);
+        }
+      } else {
+        debugPrint('ℹ️  Tokenizer file already installed: $tokenizerFilename');
+      }
     }
 
-    // Install tokenizer file
-    debugPrint('📥 Installing tokenizer...');
-    final tokenizerHandler = handlerRegistry.getHandler(_tokenizerSource!);
-    if (_onTokenizerProgress != null) {
-      await for (final progress in tokenizerHandler!.installWithProgress(_tokenizerSource!)) {
-        _onTokenizerProgress!(progress);
-      }
-    } else {
-      await tokenizerHandler!.install(_tokenizerSource!);
-    }
-
-    // AUTO-SET as active embedding model
+    // AUTO-SET as active embedding model (even if already installed)
     final manager = FlutterGemmaPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 

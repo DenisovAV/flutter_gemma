@@ -98,35 +98,52 @@ void main() {
 
 ```dart
 // From network (public model)
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.task,  // Optional: defaults to .task
+)
   .fromNetwork('https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma-3-270m-it-int4.task')
   .withProgress((progress) => print('Download: $progress%'))
   .install();
 
 // From Flutter asset
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.bin,  // Optional: specify file type
+)
   .fromAsset('models/gemma-2b-it.bin')
   .install();
 
 // From bundled native resource
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  // fileType defaults to ModelFileType.task
+)
   .fromBundled('gemma-2b-it.bin')
   .install();
 
 // From external file (mobile only)
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromFile('/path/to/model.task')
   .install();
 ```
 
+**Parameters:**
+- `modelType` (required): Type of model (e.g., `ModelType.gemmaIt`, `ModelType.deepSeek`)
+- `fileType` (optional): File format - defaults to `ModelFileType.task`
+  - `ModelFileType.task` - MediaPipe task bundles (recommended)
+  - `ModelFileType.bin` - Binary model files
+  - `ModelFileType.tflite` - TensorFlow Lite models
+
 ### Create Model and Chat
 
 ```dart
-// Initialize model (same API as before)
-final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
-  modelType: ModelType.gemmaIt,
-  preferredBackend: PreferredBackend.gpu,
+// Create model with runtime configuration
+final inferenceModel = await FlutterGemma.getActiveModel(
   maxTokens: 2048,
+  preferredBackend: PreferredBackend.gpu,
 );
 
 // Create chat
@@ -202,7 +219,9 @@ flutter run --dart-define=HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
 
 ```dart
 // Pass token directly for specific downloads
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromNetwork(
     'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
     token: 'hf_your_token_here',  // ⚠️ Not recommended - use config.json
@@ -250,13 +269,17 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 **Example:**
 ```dart
 // Public model
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromNetwork('https://example.com/model.bin')
   .withProgress((progress) => print('$progress%'))
   .install();
 
 // Private model with authentication
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromNetwork(
     'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/model.task',
     token: 'hf_...',  // Or use FlutterGemma.initialize(huggingFaceToken: ...)
@@ -282,7 +305,9 @@ Copies models from Flutter assets (declared in `pubspec.yaml`).
 //   - models/gemma-2b-it.bin
 
 // 2. Install from asset
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromAsset('models/gemma-2b-it.bin')
   .install();
 ```
@@ -326,7 +351,9 @@ flutter:
 
 **Example:**
 ```dart
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromBundled('gemma-3-270m-it.task')
   .install();
 ```
@@ -349,7 +376,9 @@ References external files (e.g., user-selected via file picker).
 ```dart
 // Mobile only - after user selects file with file_picker
 final path = '/data/user/0/com.app/files/model.task';
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromFile(path)
   .install();
 ```
@@ -490,7 +519,9 @@ await FlutterGemmaPlugin.instance.modelManager
 
 ```dart
 // Network download
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromNetwork(
     'https://example.com/model.bin',
     token: token,
@@ -521,16 +552,21 @@ await modelManager.installModelFromAssetWithProgress(
 
 ```dart
 // From assets
-await FlutterGemma.installModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
   .fromAsset('model.bin')
   .withProgress((progress) {
     print('$progress%');
   })
   .install();
 
-// LoRA weights installed separately
-await FlutterGemma.installModel()
-  .fromAsset('lora.bin')
+// LoRA weights can be installed with the model
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
+  .fromAsset('model.bin')
+  .withLoraFromAsset('lora.bin')
   .install();
 ```
 
@@ -580,9 +616,23 @@ final isInstalled = await FlutterGemma
 - ⚠️ **Breaking change**: Progress values are now `int` (0-100) instead of `DownloadProgress` object
 - ⚠️ **Separate files**: Model and LoRA weights installed independently
 
-### Model Inference (Unchanged)
+### Model Creation and Inference
 
-Model creation and inference APIs remain the same:
+**Modern API (Recommended):**
+
+```dart
+// Create model with runtime configuration
+final inferenceModel = await FlutterGemma.getActiveModel(
+  maxTokens: 2048,
+  preferredBackend: PreferredBackend.gpu,
+);
+
+final chat = await inferenceModel.createChat();
+await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
+final response = await chat.generateChatResponse();
+```
+
+**Legacy API (Still supported):**
 
 ```dart
 // Works with both Legacy and Modern installation methods
@@ -1125,7 +1175,7 @@ chat.generateChatResponseAsync().listen((response) {
 3. Model calls: `change_background_color(color: 'blue')`
 4. Model explains: "Blue is calming because it's associated with sky and ocean..."
 
-10. **📊 Text Embedding Models**
+10. **📊 Text Embedding Models (Modern API)**
 
 Generate vector embeddings from text using specialized embedding models. These models convert text into numerical vectors that can be used for semantic similarity, search, and RAG applications.
 
@@ -1133,32 +1183,34 @@ Generate vector embeddings from text using specialized embedding models. These m
 - **EmbeddingGemma models** (256, 512, 1024, 2048 dimensions)
 - **Gecko 256** (256 dimensions)
 
-**Download Embedding Models:**
+**Install Embedding Model:**
 
 ```dart
-// Create embedding model specification
-final embeddingSpec = MobileModelManager.createEmbeddingSpec(
-  name: 'EmbeddingGemma 1024',
-  modelUrl: 'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
-  tokenizerUrl: 'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
-);
+// Install from network with progress tracking
+await FlutterGemma.installEmbedder()
+  .modelFromNetwork(
+    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
+    token: 'hf_your_token_here',  // Required for gated models
+  )
+  .tokenizerFromNetwork(
+    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
+  )
+  .withModelProgress((progress) => print('Model: $progress%'))
+  .withTokenizerProgress((progress) => print('Tokenizer: $progress%'))
+  .install();
 
-// Download with progress tracking
-final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
-mobileManager.downloadModelWithProgress(embeddingSpec, token: 'your_hf_token').listen(
-  (progress) => print('Download progress: ${progress.overallProgress}%'),
-  onError: (error) => print('Download error: $error'),
-  onDone: () => print('Download completed'),
-);
+// Or from assets
+await FlutterGemma.installEmbedder()
+  .modelFromAsset('models/embeddinggemma.tflite')
+  .tokenizerFromAsset('models/sentencepiece.model')
+  .install();
 ```
 
 **Generate Text Embeddings:**
 
 ```dart
-// Create embedding model instance with downloaded files
-final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
-  modelPath: '/path/to/embeddinggemma-300M_seq1024_mixed-precision.tflite',
-  tokenizerPath: '/path/to/sentencepiece.model',
+// Create embedding model instance
+final embeddingModel = await FlutterGemma.getActiveEmbedder(
   preferredBackend: PreferredBackend.gpu, // Optional: use GPU acceleration
 );
 
@@ -1201,12 +1253,43 @@ print('Similarity: $similarity');
 await embeddingModel.close();
 ```
 
+**Legacy API (Still supported):**
+
+<details>
+<summary>Click to expand Legacy API for embeddings</summary>
+
+```dart
+// Create embedding model specification
+final embeddingSpec = MobileModelManager.createEmbeddingSpec(
+  name: 'EmbeddingGemma 1024',
+  modelUrl: 'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
+  tokenizerUrl: 'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
+);
+
+// Download with progress tracking
+final mobileManager = FlutterGemmaPlugin.instance.modelManager as MobileModelManager;
+mobileManager.downloadModelWithProgress(embeddingSpec, token: 'your_hf_token').listen(
+  (progress) => print('Download progress: ${progress.overallProgress}%'),
+  onError: (error) => print('Download error: $error'),
+  onDone: () => print('Download completed'),
+);
+
+// Create embedding model instance
+final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
+  modelPath: '/path/to/embeddinggemma-300M_seq1024_mixed-precision.tflite',
+  tokenizerPath: '/path/to/sentencepiece.model',
+  preferredBackend: PreferredBackend.gpu,
+);
+```
+
+</details>
 
 **Important Notes:**
-- EmbeddingGemma models require HuggingFace authentication token for gated repositories
-- Embedding models use the same unified download and management system as inference models
-- Each embedding model consists of both model file (.tflite) and tokenizer file (.model)
-- Different dimension options allow trade-offs between accuracy and performance
+- ✅ EmbeddingGemma models require HuggingFace authentication token for gated repositories
+- ✅ Embedding models use the same unified download and management system as inference models
+- ✅ Each embedding model consists of both model file (.tflite) and tokenizer file (.model)
+- ✅ Different dimension options allow trade-offs between accuracy and performance
+- ✅ Modern API provides separate progress tracking for model and tokenizer downloads
 
 11. **Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.

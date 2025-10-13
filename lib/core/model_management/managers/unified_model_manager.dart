@@ -571,6 +571,8 @@ class MobileModelManager extends ModelFileManager {
     required String resourceName,
     String? loraResourceName,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.replace,
+    ModelType modelType = ModelType.general,
+    ModelFileType fileType = ModelFileType.task,
   }) {
     // Extract name from resource (without extension)
     final name = resourceName.split('.').first;
@@ -580,6 +582,8 @@ class MobileModelManager extends ModelFileManager {
       modelSource: BundledSource(resourceName),
       loraSource: loraResourceName != null ? BundledSource(loraResourceName) : null,
       replacePolicy: replacePolicy,
+      modelType: modelType,
+      fileType: fileType,
     );
   }
 
@@ -825,6 +829,7 @@ class MobileModelManager extends ModelFileManager {
   ///
   /// Returns list of files that don't have active downloads.
   /// These files can be safely deleted using cleanupStorage().
+  @override
   Future<List<OrphanedFileInfo>> getOrphanedFiles() async {
     await _ensureInitialized();
 
@@ -840,6 +845,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Get storage statistics with orphaned file information
+  @override
   Future<StorageStats> getStorageInfo() async {
     await _ensureInitialized();
 
@@ -863,6 +869,7 @@ class MobileModelManager extends ModelFileManager {
   /// ⚠️  This deletes files! Call getOrphanedFiles() first to see what will be deleted.
   ///
   /// Returns number of deleted files.
+  @override
   Future<int> cleanupStorage() async {
     await _ensureInitialized();
 

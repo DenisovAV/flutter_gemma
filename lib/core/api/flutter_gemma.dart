@@ -1,8 +1,11 @@
-import 'package:flutter_gemma/core/api/model_installation_builder.dart';
 import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
 import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
 
 /// Modern API facade for Flutter Gemma
 ///
@@ -77,21 +80,36 @@ class FlutterGemma {
   /// Returns type-safe builder for installing inference models with optional LoRA weights.
   /// The model will be automatically set as the active inference model after installation.
   ///
+  /// Parameters:
+  /// - [modelType]: Model type (gemmaIt, deepSeek, qwen, etc.) - Required
+  /// - [fileType]: File type (task or binary) - Defaults to task
+  ///
   /// Example:
   /// ```dart
-  /// await FlutterGemma.installInferenceModel()
+  /// // Install Gemma model
+  /// await FlutterGemma.installModel(
+  ///   modelType: ModelType.gemmaIt,
+  /// )
   ///   .fromNetwork('https://example.com/model.task', token: 'hf_...')
   ///   .withProgress((p) => print('$p%'))
   ///   .install();
   ///
-  /// // With LoRA weights
-  /// await FlutterGemma.installInferenceModel()
+  /// // Install DeepSeek with LoRA weights
+  /// await FlutterGemma.installModel(
+  ///   modelType: ModelType.deepSeek,
+  /// )
   ///   .fromNetwork('https://example.com/model.task')
   ///   .withLoraFromNetwork('https://example.com/lora.bin')
   ///   .install();
   /// ```
-  static InferenceInstallationBuilder installInferenceModel() {
-    return InferenceInstallationBuilder();
+  static InferenceInstallationBuilder installModel({
+    required ModelType modelType,
+    ModelFileType fileType = ModelFileType.task,
+  }) {
+    return InferenceInstallationBuilder(
+      modelType: modelType,
+      fileType: fileType,
+    );
   }
 
   /// Start building an embedding model installation
@@ -101,32 +119,17 @@ class FlutterGemma {
   ///
   /// Example:
   /// ```dart
-  /// await FlutterGemma.installEmbeddingModel()
+  /// await FlutterGemma.installEmbedder()
   ///   .modelFromNetwork('https://example.com/model.tflite', token: 'hf_...')
   ///   .tokenizerFromNetwork('https://example.com/tokenizer.model', token: 'hf_...')
   ///   .withModelProgress((p) => print('Model: $p%'))
   ///   .withTokenizerProgress((p) => print('Tokenizer: $p%'))
   ///   .install();
   /// ```
-  static EmbeddingInstallationBuilder installEmbeddingModel() {
+  static EmbeddingInstallationBuilder installEmbedder() {
     return EmbeddingInstallationBuilder();
   }
 
-  /// Start building a model installation (deprecated)
-  ///
-  /// Use [installInferenceModel] or [installEmbeddingModel] instead for type-safe API.
-  ///
-  /// Example:
-  /// ```dart
-  /// await FlutterGemma.installModel()
-  ///   .fromNetwork('https://example.com/model.bin')
-  ///   .withProgress((p) => print(p))
-  ///   .install();
-  /// ```
-  @Deprecated('Use installInferenceModel() or installEmbeddingModel() for type-safe API')
-  static ModelInstallationBuilder installModel() {
-    return ModelInstallationBuilder();
-  }
 
   /// Check if a model is installed
   ///
@@ -142,6 +145,159 @@ class FlutterGemma {
     final repository = ServiceRegistry.instance.modelRepository;
     final models = await repository.listInstalled();
     return models.map((m) => m.id).toList();
+  }
+
+  /// Get the active inference model as a ready-to-use InferenceModel
+  ///
+  /// Returns an InferenceModel configured with runtime parameters.
+  /// The model type and file type come from the active InferenceModelSpec.
+  ///
+  /// Runtime parameters:
+  /// - [maxTokens]: Maximum context size (default: 1024)
+  /// - [preferredBackend]: CPU or GPU preference (optional)
+  /// - [supportImage]: Enable multimodal image support (default: false)
+  /// - [maxNumImages]: Maximum number of images if supportImage is true
+  ///
+  /// Throws:
+  /// - [StateError] if no active inference model is set
+  ///
+  /// Example:
+  /// ```dart
+  /// // Install model first
+  /// await FlutterGemma.installModel(
+  ///   modelType: ModelType.gemmaIt,
+  /// ).fromNetwork('https://example.com/model.task').install();
+  ///
+  /// // Create with short context
+  /// final shortModel = await FlutterGemma.getActiveModel(
+  ///   maxTokens: 512,
+  /// );
+  ///
+  /// // Create with long context and GPU
+  /// final longModel = await FlutterGemma.getActiveModel(
+  ///   maxTokens: 4096,
+  ///   preferredBackend: PreferredBackend.gpu,
+  /// );
+  /// ```
+  static Future<InferenceModel> getActiveModel({
+    int maxTokens = 1024,
+    PreferredBackend? preferredBackend,
+    bool supportImage = false,
+    int? maxNumImages,
+  }) async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final activeSpec = manager.activeInferenceModel;
+
+    if (activeSpec == null) {
+      throw StateError(
+        'No active inference model set. Use FlutterGemma.installModel() first.',
+      );
+    }
+
+    if (activeSpec is! InferenceModelSpec) {
+      throw StateError(
+        'Active model is not an InferenceModelSpec. '
+        'Expected InferenceModelSpec, got ${activeSpec.runtimeType}',
+      );
+    }
+
+    // Create InferenceModel using identity from spec + runtime params
+    return await FlutterGemmaPlugin.instance.createModel(
+      modelType: activeSpec.modelType,
+      fileType: activeSpec.fileType,
+      maxTokens: maxTokens,
+      preferredBackend: preferredBackend,
+      supportImage: supportImage,
+      maxNumImages: maxNumImages,
+    );
+  }
+
+  /// Check if there's an active inference model
+  ///
+  /// Returns true if an inference model has been installed and set as active.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (FlutterGemma.hasActiveModel()) {
+  ///   final model = await FlutterGemma.getActiveModel();
+  ///   // Use model...
+  /// } else {
+  ///   // Install model first
+  /// }
+  /// ```
+  static bool hasActiveModel() {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    return manager.activeInferenceModel is InferenceModelSpec;
+  }
+
+  /// Get the active embedding model as a ready-to-use EmbeddingModel
+  ///
+  /// Returns an EmbeddingModel configured with runtime parameters.
+  /// The model and tokenizer paths come from the active EmbeddingModelSpec.
+  ///
+  /// Runtime parameters:
+  /// - [preferredBackend]: CPU or GPU preference (optional)
+  ///
+  /// Throws:
+  /// - [StateError] if no active embedding model is set
+  ///
+  /// Example:
+  /// ```dart
+  /// // Install embedding model first
+  /// await FlutterGemma.installEmbedder()
+  ///   .modelFromNetwork('https://example.com/model.tflite')
+  ///   .tokenizerFromNetwork('https://example.com/tokenizer.model')
+  ///   .install();
+  ///
+  /// // Create with default backend
+  /// final embeddingModel = await FlutterGemma.getActiveEmbedder();
+  ///
+  /// // Create with specific backend
+  /// final cpuModel = await FlutterGemma.getActiveEmbedder(
+  ///   preferredBackend: PreferredBackend.cpu,
+  /// );
+  /// ```
+  static Future<EmbeddingModel> getActiveEmbedder({
+    PreferredBackend? preferredBackend,
+  }) async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final activeSpec = manager.activeEmbeddingModel;
+
+    if (activeSpec == null) {
+      throw StateError(
+        'No active embedding model set. Use FlutterGemma.installEmbedder() first.',
+      );
+    }
+
+    if (activeSpec is! EmbeddingModelSpec) {
+      throw StateError(
+        'Active model is not an EmbeddingModelSpec. '
+        'Expected EmbeddingModelSpec, got ${activeSpec.runtimeType}',
+      );
+    }
+
+    // Create EmbeddingModel using active spec (paths resolved automatically)
+    return await FlutterGemmaPlugin.instance.createEmbeddingModel(
+      preferredBackend: preferredBackend,
+    );
+  }
+
+  /// Check if there's an active embedding model
+  ///
+  /// Returns true if an embedding model has been installed and set as active.
+  ///
+  /// Example:
+  /// ```dart
+  /// if (FlutterGemma.hasActiveEmbedder()) {
+  ///   final model = await FlutterGemma.getActiveEmbedder();
+  ///   // Use model...
+  /// } else {
+  ///   // Install model first
+  /// }
+  /// ```
+  static bool hasActiveEmbedder() {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    return manager.activeEmbeddingModel is EmbeddingModelSpec;
   }
 
   /// Uninstall a model

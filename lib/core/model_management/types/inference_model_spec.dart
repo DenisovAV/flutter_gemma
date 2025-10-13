@@ -75,16 +75,22 @@ class InferenceModelSpec extends ModelSpec {
   final ModelSource _modelSource;
   final ModelSource? _loraSource;
   final ModelReplacePolicy _replacePolicy;
+  final ModelType _modelType;
+  final ModelFileType _fileType;
 
   InferenceModelSpec({
     required String name,
     required ModelSource modelSource,
     ModelSource? loraSource,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+    required ModelType modelType,
+    ModelFileType fileType = ModelFileType.task,
   })  : _name = name,
         _modelSource = modelSource,
         _loraSource = loraSource,
-        _replacePolicy = replacePolicy;
+        _replacePolicy = replacePolicy,
+        _modelType = modelType,
+        _fileType = fileType;
 
   /// Legacy compatibility constructor for String URLs
   factory InferenceModelSpec.fromLegacyUrl({
@@ -92,12 +98,16 @@ class InferenceModelSpec extends ModelSpec {
     required String modelUrl,
     String? loraUrl,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
+    ModelType modelType = ModelType.general,
+    ModelFileType fileType = ModelFileType.task,
   }) {
     return InferenceModelSpec(
       name: name,
       modelSource: _urlToSource(modelUrl),
       loraSource: loraUrl != null ? _urlToSource(loraUrl) : null,
       replacePolicy: replacePolicy,
+      modelType: modelType,
+      fileType: fileType,
     );
   }
 
@@ -126,6 +136,8 @@ class InferenceModelSpec extends ModelSpec {
   /// Modern type-safe getters
   ModelSource get modelSource => _modelSource;
   ModelSource? get loraSource => _loraSource;
+  ModelType get modelType => _modelType;
+  ModelFileType get fileType => _fileType;
 
   /// Legacy getters for backward compatibility (WEB PLATFORM ONLY)
   @Deprecated('Use modelSource instead. Web platform compatibility only.')
@@ -138,7 +150,7 @@ class InferenceModelSpec extends ModelSpec {
   static String _sourceToUrl(ModelSource source) {
     return switch (source) {
       NetworkSource(:final url) => url,
-      AssetSource(:final path) => 'asset://${path}',
+      AssetSource(:final path) => 'asset://$path',
       BundledSource(:final resourceName) => 'native://$resourceName',
       FileSource(:final path) => 'file://$path',
     };
@@ -168,11 +180,13 @@ class InferenceModelSpec extends ModelSpec {
     return _name == other._name &&
         _modelSource == other._modelSource &&
         _loraSource == other._loraSource &&
-        _replacePolicy == other._replacePolicy;
+        _replacePolicy == other._replacePolicy &&
+        _modelType == other._modelType &&
+        _fileType == other._fileType;
   }
 
   @override
   int get hashCode {
-    return Object.hash(_name, _modelSource, _loraSource, _replacePolicy);
+    return Object.hash(_name, _modelSource, _loraSource, _replacePolicy, _modelType, _fileType);
   }
 }

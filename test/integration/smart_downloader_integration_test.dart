@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';

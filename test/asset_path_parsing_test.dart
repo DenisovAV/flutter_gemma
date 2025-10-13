@@ -4,8 +4,8 @@ void main() {
   group('Asset Path Parsing', () {
     test('should correctly parse asset:// URLs', () {
       // Test case from Issue #116
-      final url = 'asset://assets/models/gemma3-1b.task';
-      final expectedPath = 'assets/models/gemma3-1b.task';
+      const url = 'asset://assets/models/gemma3-1b.task';
+      const expectedPath = 'assets/models/gemma3-1b.task';
 
       // OLD broken way (what was causing the bug)
       final brokenResult = Uri.parse(url).path;

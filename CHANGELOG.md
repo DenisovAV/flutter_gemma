@@ -1,6 +1,9 @@
-## 0.11.4
+## 0.11.5
+- 🐛 **Fixes**: Some fixes for new Modern API
+- ⚠️ **Deprecated**: Marked legacy asset/file management methods as deprecated with migration hints
+- 📚 **Documentation**: Updated README with Modern API examples and complete parameter documentation
 
-### 🎯 Modern API
+## 0.11.4
 - **New**: Fluent builder API with `FlutterGemma.installModel().fromNetwork/fromAsset/fromBundled/fromFile()`
 - **Architecture**: Sealed classes for type-safe sources, dependency injection via ServiceRegistry, platform-specific handlers
 - **Bundled Models**: Support for including small models in production builds via native bundles (iOS: Bundle.main, Android: assets)

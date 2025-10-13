@@ -22,8 +22,12 @@ abstract class ModelFile {
   /// Whether this file is required for the model to function
   bool get isRequired;
 
-  /// File extension for validation purposes
-  String get extension => filename.split('.').last;
+  /// File extension for validation purposes (with leading dot, e.g., '.model')
+  String get extension {
+    final lastDot = filename.lastIndexOf('.');
+    if (lastDot == -1) return '';
+    return filename.substring(lastDot); // Returns '.model', '.tflite', etc.
+  }
 }
 
 /// Base specification for any model (inference or embedding)

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
-import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
   final example_embedding_model.EmbeddingModel model;
@@ -35,41 +34,42 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
     super.dispose();
   }
 
-  /// Initialize embedding model if it's not already initialized
+  /// Initialize embedding model if it's not already initialized (Modern API)
   Future<void> _initializeEmbeddingModelIfNeeded() async {
     try {
-      // Create a download service to get file paths
-      final service = EmbeddingModelDownloadService(model: widget.model);
-
-      // Check if files exist
-      final modelExists = await service.checkModelExistence('');
-      if (!modelExists) {
-        if (kDebugMode) {
-          print('⚠️ Embedding model files not found. Download required.');
-        }
-        return;
+      // Modern API: Install model (idempotent - handles already-installed check)
+      if (kDebugMode) {
+        debugPrint('[EmbeddingTestScreen] Installing embedding model...');
       }
 
-      // Try to create the embedding model
-      final modelPath = await service.getModelFilePath();
-      final tokenizerPath = await service.getTokenizerFilePath();
+      await FlutterGemma.installEmbedder()
+        .modelFromNetwork(widget.model.url)
+        .tokenizerFromNetwork(widget.model.tokenizerUrl)
+        .install();
 
-      _embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
-        modelPath: modelPath,
-        tokenizerPath: tokenizerPath,
+      if (kDebugMode) {
+        debugPrint('[EmbeddingTestScreen] Embedding model installed ✅');
+      }
+
+      // Get active embedding model
+      _embeddingModel = await FlutterGemma.getActiveEmbedder(
         preferredBackend: PreferredBackend.gpu, // Use GPU mode for better performance
       );
+
+      if (kDebugMode) {
+        debugPrint('[EmbeddingTestScreen] Embedding model ready ✅');
+      }
 
       setState(() {
         // Model initialized successfully
       });
 
       if (kDebugMode) {
-        print('✅ Embedding model created on test screen');
+        debugPrint('✅ Embedding model created on test screen (Modern API)');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('⚠️ Could not create embedding model: $e');
+        debugPrint('⚠️ Could not create embedding model: $e');
       }
       // Don't set error state here - let user try to generate and see the error
     }
@@ -288,7 +288,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error generating embedding: $e');
+        debugPrint('Error generating embedding: $e');
       }
       
       setState(() {

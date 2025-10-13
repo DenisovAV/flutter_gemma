@@ -16,7 +16,6 @@ class ChatScreen extends StatefulWidget {
 }
 
 class ChatScreenState extends State<ChatScreen> {
-  final _gemma = FlutterGemmaPlugin.instance;
   InferenceChat? chat;
   final _messages = <Message>[];
   bool _isModelInitialized = false;
@@ -100,46 +99,57 @@ class ChatScreenState extends State<ChatScreen> {
 
   Future<void> _initializeModel() async {
     if (_isModelInitialized || _isInitializing) {
+      debugPrint('[ChatScreen] Already initialized or initializing, skipping');
       return;
     }
 
     _isInitializing = true;
+    debugPrint('[ChatScreen] Starting model initialization...');
 
     try {
-      // Ensure the model is ready - handles all scenarios automatically
-      await _gemma.modelManager.ensureModelReady(
-        widget.model.filename,
-        widget.model.url,
+      // Step 1: Install model (Modern API handles already-installed check)
+      debugPrint('[ChatScreen] Step 1: Installing model...');
+      await FlutterGemma.installModel(
+        modelType: widget.model.modelType,
+        fileType: widget.model.fileType,
+      )
+        .fromNetwork(widget.model.url)
+        .install();
+      debugPrint('[ChatScreen] Step 1: Model installed ✅');
+
+      // Step 2: Create model with runtime config
+      debugPrint('[ChatScreen] Step 2: Creating InferenceModel...');
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: widget.model.maxTokens,
+        preferredBackend: widget.selectedBackend ?? widget.model.preferredBackend,
+        supportImage: widget.model.supportImage,
+        maxNumImages: widget.model.maxNumImages,
       );
+      debugPrint('[ChatScreen] Step 2: InferenceModel created ✅');
 
-      final model = await _gemma.createModel(
-        modelType: super.widget.model.modelType,
-        fileType: super.widget.model.fileType, // Pass fileType from model
-        preferredBackend: super.widget.selectedBackend ?? super.widget.model.preferredBackend,
-        maxTokens: 1024,
-        supportImage: widget.model.supportImage, // Pass image support
-        maxNumImages: widget.model.maxNumImages, // Maximum 4 images for multimodal models
-      );
-
-
+      // Step 3: Create chat
+      debugPrint('[ChatScreen] Step 3: Creating chat...');
       chat = await model.createChat(
-        temperature: super.widget.model.temperature,
+        temperature: widget.model.temperature,
         randomSeed: 1,
-        topK: super.widget.model.topK,
-        topP: super.widget.model.topP,
+        topK: widget.model.topK,
+        topP: widget.model.topP,
         tokenBuffer: 256,
-        supportImage: widget.model.supportImage, // Image support in chat
-        supportsFunctionCalls: widget.model.supportsFunctionCalls, // Function calls support from model
-        tools: _tools, // Pass the tools to the chat
-        isThinking: widget.model.isThinking, // Pass isThinking from model
-        modelType: widget.model.modelType, // Pass modelType from model
+        supportImage: widget.model.supportImage,
+        supportsFunctionCalls: widget.model.supportsFunctionCalls,
+        tools: _tools,
+        isThinking: widget.model.isThinking,
+        modelType: widget.model.modelType,
       );
+      debugPrint('[ChatScreen] Step 3: Chat created ✅');
 
       setState(() {
         _isModelInitialized = true;
         _error = null;
       });
+      debugPrint('[ChatScreen] Initialization complete ✅');
     } catch (e) {
+      debugPrint('[ChatScreen] ❌ Initialization failed: $e');
       if (mounted) {
         setState(() {
           _error = 'Failed to initialize model: ${e.toString()}';

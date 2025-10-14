@@ -206,13 +206,14 @@ class MultimodalImageHandler {
       }
       
       debugPrint('MultimodalImageHandler: Response validation passed');
-      
+
+      // BUG FIX: When NO corruption is detected, return success result
       return ResponseValidationResult(
-        isValid: false,
-        isCorrupted: true,
-        confidence: 0.8, // High confidence in error case
-        analysis: {'status': 'validation_error'},
-        suggestedAction: ResponseAction.reprocessImage,
+        isValid: true,  // Response is valid - no corruption detected
+        isCorrupted: false,  // Not corrupted
+        confidence: 0.0,  // Low confidence in corruption (none detected)
+        analysis: {'status': 'validation_passed', 'length': response.length},
+        suggestedAction: ResponseAction.none,  // No action needed - response is good
         originalResponse: response,
       );
     } catch (e) {

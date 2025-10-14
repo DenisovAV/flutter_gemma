@@ -76,14 +76,14 @@ class MobileInferenceModel extends InferenceModel {
     bool? enableVisionModality,
   }) async {
     if (_isClosed) {
-      throw Exception('Model is closed. Create a new instance to use it again');
+      throw StateError('Model is closed. Create a new instance to use it again');
     }
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
     }
     final completer = _createCompleter = Completer<InferenceModelSession>();
     try {
-      // TODO: Add LoRA support to unified system if needed
+      // LoRA support is fully integrated via Modern API (InferenceInstallationBuilder)
       final resolvedLoraPath = loraPath;
 
       await _platformService.createSession(

@@ -1,3 +1,14 @@
+## [0.11.5] - 2025-10-14
+ - 🐛 Fixes: Some fixes for new Modern API
+ - ⚠️ Deprecated: Marked legacy asset/file management methods as deprecated with migration hints
+ - 📚 Documentation: Updated README with Modern API examples and complete parameter documentation
+
+## 0.11.4
+- **New**: Fluent builder API with `FlutterGemma.installModel().fromNetwork/fromAsset/fromBundled/fromFile()`
+- **Architecture**: Sealed classes for type-safe sources, dependency injection via ServiceRegistry, platform-specific handlers
+- **Bundled Models**: Support for including small models in production builds via native bundles (iOS: Bundle.main, Android: assets)
+- **Backward Compatible**: Legacy API (`modelManager.downloadModelWithProgress()`) still works as facade
+
 ## 0.11.3
 - 🌐 **Web Multimodal Support**: Added full multimodal image processing support for web platform
 - 📚 **MediaPipe 0.10.25**: Updated to MediaPipe GenAI v0.10.25 for web compatibility

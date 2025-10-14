@@ -6,11 +6,18 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/utils/file_name_utils.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'llm_inference_web.dart';
 import 'flutter_gemma_web_embedding_model.dart';
+
+part '../core/model_management/managers/web_model_manager.dart';
 
 /// Base class for prompt parts (text, image, audio)
 abstract class PromptPart {}
@@ -75,8 +82,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     FlutterGemmaPlugin.instance = FlutterGemmaWeb();
   }
 
+  // Use WebModelManager singleton (will be replaced with platform-agnostic manager in future phases)
+  static WebModelManager? _webManager;
+
   @override
-  final WebModelManager modelManager = WebModelManager();
+  ModelFileManager get modelManager {
+    // Use WebModelManager for now (Phase 6 will migrate to fully unified approach)
+    _webManager ??= WebModelManager();
+    return _webManager!;
+  }
 
   @override
   InferenceModel? get initializedModel => _initializedModel;
@@ -100,7 +114,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
       if (kDebugMode) {
-        print('Warning: Image support is not yet implemented for web platform');
+        debugPrint('Warning: Image support is not yet implemented for web platform');
       }
     }
 
@@ -109,7 +123,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       fileType: fileType,
       maxTokens: maxTokens,
       loraRanks: loraRanks,
-      modelManager: modelManager,
+      modelManager: modelManager as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
       supportImage: supportImage, // Passing the flag
       maxNumImages: maxNumImages,
       onClose: () {
@@ -123,10 +137,21 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<EmbeddingModel> createEmbeddingModel({
-    required String modelPath,
-    required String tokenizerPath,
+    String? modelPath,
+    String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
+    // Modern API: Use active embedding model if paths not provided
+    if (modelPath == null || tokenizerPath == null) {
+      // Web: Embedding models not fully supported yet, but keep API consistent
+      if (modelManager.activeEmbeddingModel == null) {
+        throw StateError('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
+      }
+
+      // TODO: Implement full embedding model support on web
+      throw UnimplementedError('Embedding models are not fully supported on web platform yet');
+    }
+
     final model = _initializedEmbeddingModel ??= WebEmbeddingModel(
       onClose: () {
         _initializedEmbeddingModel = null;
@@ -218,7 +243,7 @@ class WebInferenceModel extends InferenceModel {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
-        print('Warning: Vision modality is not yet implemented for web platform');
+        debugPrint('Warning: Vision modality is not yet implemented for web platform');
       }
     }
 
@@ -227,13 +252,31 @@ class WebInferenceModel extends InferenceModel {
     }
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
+      // Use Modern API to get model path (same as mobile)
+      final activeModel = modelManager.activeInferenceModel;
+      if (activeModel == null) {
+        throw Exception('No active inference model set');
+      }
+
+      final modelFilePaths = await modelManager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw Exception('Model file paths not found');
+      }
+
+      // Get model path from Modern API
+      final modelPath = modelFilePaths[PreferencesKeys.installedModelFileName];
+      if (modelPath == null) {
+        throw Exception('Model path not found in file paths');
+      }
+
       final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm'.toJS).toDart;
 
-      final loraPathToUse = loraPath ?? modelManager._loraPath;
+      // Get LoRA path if available
+      final loraPathToUse = loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
       final config = LlmInferenceOptions(
-        baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelManager._path),
+        baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelPath),
         maxTokens: maxTokens,
         randomSeed: randomSeed,
         topK: topK,
@@ -294,7 +337,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     if (kDebugMode) {
-      print('🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
+      debugPrint('🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
     }
 
     final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
@@ -302,42 +345,42 @@ class WebModelSession extends InferenceModelSession {
     // Add text part
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
-      print('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+      debugPrint('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
     }
 
     // Handle image processing for web
     if (message.hasImage && message.imageBytes != null) {
       if (kDebugMode) {
-        print('🟢 Processing image: ${message.imageBytes!.length} bytes');
+        debugPrint('🟢 Processing image: ${message.imageBytes!.length} bytes');
       }
       if (!supportImage) {
         if (kDebugMode) {
-          print('🔴 Model does not support images - throwing exception');
+          debugPrint('🔴 Model does not support images - throwing exception');
         }
-        throw Exception('This model does not support images');
+        throw ArgumentError('This model does not support images');
       }
       // Add image part
       final imagePart = ImagePromptPart.fromBytes(message.imageBytes!);
       _promptParts.add(imagePart);
       if (kDebugMode) {
-        print('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+        debugPrint('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
       }
     }
 
     if (kDebugMode) {
-      print('🟢 Total prompt parts: ${_promptParts.length}');
+      debugPrint('🟢 Total prompt parts: ${_promptParts.length}');
     }
   }
 
   /// Convert PromptParts to JavaScript array for MediaPipe
   JSAny _createPromptArray() {
     if (kDebugMode) {
-      print('🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
+      debugPrint('🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
     }
 
     if (_promptParts.isEmpty) {
       if (kDebugMode) {
-        print('📝 _createPromptArray: Empty prompt parts, returning empty string');
+        debugPrint('📝 _createPromptArray: Empty prompt parts, returning empty string');
       }
       return ''.toJS; // Empty string fallback
     }
@@ -349,15 +392,15 @@ class WebModelSession extends InferenceModelSession {
           .map((part) => part.text)
           .join('');
       if (kDebugMode) {
-        print('📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
-        print('📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
+        debugPrint('📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
+        debugPrint('📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
       }
       return fullText.toJS;
     }
 
     // Multimodal: create array of parts following MediaPipe documentation format
     if (kDebugMode) {
-      print('🎯 _createPromptArray: Multimodal mode - creating array with proper format');
+      debugPrint('🎯 _createPromptArray: Multimodal mode - creating array with proper format');
     }
 
     final jsArray = <JSAny>[];
@@ -370,24 +413,24 @@ class WebModelSession extends InferenceModelSession {
 
       if (part is TextPromptPart) {
         if (kDebugMode) {
-          print('📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
+          debugPrint('📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
         }
         jsArray.add(part.text.toJS);
       } else if (part is ImagePromptPart) {
         if (kDebugMode) {
-          print('🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
-          print('🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
+          debugPrint('🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
+          debugPrint('🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
         }
 
         // Create proper image object for MediaPipe
         final imageObj = <String, String>{'imageSource': part.dataUrl}.jsify();
         if (kDebugMode) {
-          print('🖼️ _createPromptArray: Created image object with jsify()');
+          debugPrint('🖼️ _createPromptArray: Created image object with jsify()');
         }
         jsArray.add(imageObj as JSAny);
       } else {
         if (kDebugMode) {
-          print('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
+          debugPrint('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
         }
         throw Exception('Unsupported prompt part type: $part');
       }
@@ -397,8 +440,8 @@ class WebModelSession extends InferenceModelSession {
     jsArray.add('<ctrl100>\n<ctrl99>model\n'.toJS);
 
     if (kDebugMode) {
-      print('✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
-      print('🎯 _createPromptArray: Array structure ready for MediaPipe');
+      debugPrint('✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
+      debugPrint('🎯 _createPromptArray: Array structure ready for MediaPipe');
     }
 
     return jsArray.toJS;
@@ -407,15 +450,15 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<String> getResponse() async {
     if (kDebugMode) {
-      print('🚀 getResponse: Starting response generation');
+      debugPrint('🚀 getResponse: Starting response generation');
     }
 
     try {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        print('🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
-        print('🎯 getResponse: Is JSString? ${promptArray is JSString}');
+        debugPrint('🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
+        debugPrint('🎯 getResponse: Is JSString? ${promptArray is JSString}');
       }
 
       String response;
@@ -423,27 +466,27 @@ class WebModelSession extends InferenceModelSession {
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          print('📝 getResponse: Using generateResponse for text-only prompt');
+          debugPrint('📝 getResponse: Using generateResponse for text-only prompt');
         }
         response = (await llmInference.generateResponse(promptArray, null).toDart).toDart;
       } else {
         if (kDebugMode) {
-          print('🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
+          debugPrint('🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
         }
         response = (await llmInference.generateResponseMultimodal(promptArray, null).toDart).toDart;
       }
 
       if (kDebugMode) {
-        print('✅ getResponse: Successfully generated response of length ${response.length}');
-        print('✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
+        debugPrint('✅ getResponse: Successfully generated response of length ${response.length}');
+        debugPrint('✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
       }
 
       // Don't add response back to promptParts - that's handled by InferenceChat
       return response;
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('❌ getResponse: Exception caught: $e');
-        print('❌ getResponse: Stack trace: $stackTrace');
+        debugPrint('❌ getResponse: Exception caught: $e');
+        debugPrint('❌ getResponse: Stack trace: $stackTrace');
       }
       rethrow;
     }
@@ -452,7 +495,7 @@ class WebModelSession extends InferenceModelSession {
   @override
   Stream<String> getResponseAsync() {
     if (kDebugMode) {
-      print('🌊 getResponseAsync: Starting async response generation');
+      debugPrint('🌊 getResponseAsync: Starting async response generation');
     }
 
     _controller = StreamController<String>();
@@ -461,14 +504,14 @@ class WebModelSession extends InferenceModelSession {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        print('🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
-        print('🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
+        debugPrint('🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
+        debugPrint('🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
       }
 
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          print('📝 getResponseAsync: Using generateResponse for text-only prompt');
+          debugPrint('📝 getResponseAsync: Using generateResponse for text-only prompt');
         }
         llmInference.generateResponse(
           promptArray,
@@ -477,18 +520,18 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                print('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                debugPrint('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  print('✅ getResponseAsync: Text response completed');
+                  debugPrint('✅ getResponseAsync: Text response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                print('❌ getResponseAsync: Error in text callback: $e');
+                debugPrint('❌ getResponseAsync: Error in text callback: $e');
               }
               _controller?.addError(e);
             }
@@ -496,7 +539,7 @@ class WebModelSession extends InferenceModelSession {
         );
       } else {
         if (kDebugMode) {
-          print('🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
+          debugPrint('🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
         }
         llmInference.generateResponseMultimodal(
           promptArray,
@@ -505,18 +548,18 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                print('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                debugPrint('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  print('✅ getResponseAsync: Multimodal response completed');
+                  debugPrint('✅ getResponseAsync: Multimodal response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                print('❌ getResponseAsync: Error in multimodal callback: $e');
+                debugPrint('❌ getResponseAsync: Error in multimodal callback: $e');
               }
               _controller?.addError(e);
             }
@@ -525,8 +568,8 @@ class WebModelSession extends InferenceModelSession {
       }
     } catch (e, stackTrace) {
       if (kDebugMode) {
-        print('❌ getResponseAsync: Exception during setup: $e');
-        print('❌ getResponseAsync: Stack trace: $stackTrace');
+        debugPrint('❌ getResponseAsync: Exception during setup: $e');
+        debugPrint('❌ getResponseAsync: Stack trace: $stackTrace');
       }
       _controller?.addError(e);
     }
@@ -545,362 +588,5 @@ class WebModelSession extends InferenceModelSession {
     _controller?.close();
     _controller = null;
     onClose();
-  }
-}
-
-class WebModelManager extends ModelFileManager {
-  bool _isInitialized = false;
-  final Map<String, bool> _installedModels = {};
-  final Map<String, String> _modelPaths = {}; // ModelSpec.name -> URL
-  final Map<String, String> _loraPaths = {}; // ModelSpec.name -> LoRA URL
-  final Map<String, Completer<bool>> _loadCompleters = {}; // ModelSpec.name -> Completer
-
-  /// Initializes the web model manager
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
-    debugPrint('WebModelManager initialized');
-  }
-
-  @override
-  Future<bool> isModelInstalled(ModelSpec spec) async {
-    await _ensureInitialized();
-    // For web, check if model path is set and loading is completed
-    final hasPath = _modelPaths.containsKey(spec.name);
-    final completer = _loadCompleters[spec.name];
-    final isLoaded = completer?.isCompleted == true;
-    return hasPath && isLoaded;
-  }
-
-  @override
-  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token}) async* {
-    await _ensureInitialized();
-
-    final completer = _loadCompleters[spec.name];
-    if (completer != null && !completer.isCompleted) {
-      throw Exception('Model ${spec.name} is already loading');
-    }
-
-    debugPrint('WebModelManager: Starting download for ${spec.name}');
-
-    // Set up the completer and paths
-    _loadCompleters[spec.name] = Completer<bool>();
-
-    if (spec is InferenceModelSpec) {
-      _modelPaths[spec.name] = spec.modelUrl;
-      if (spec.loraUrl != null) {
-        _loraPaths[spec.name] = spec.loraUrl!;
-      }
-    } else if (spec is EmbeddingModelSpec) {
-      _modelPaths[spec.name] = spec.modelUrl;
-      // For embedding models, we could store tokenizer URL separately if needed
-    }
-
-    // Progressive download simulation that matches old behavior
-    yield* Stream<int>.periodic(
-      const Duration(milliseconds: 10),
-      (count) => count + 1,
-    ).take(100).map((progress) {
-      if (progress == 100 && !_loadCompleters[spec.name]!.isCompleted) {
-        _loadCompleters[spec.name]!.complete(true);
-        _installedModels[spec.name] = true;
-      }
-
-      return DownloadProgress(
-        currentFileIndex: 0,
-        totalFiles: spec.files.length,
-        currentFileProgress: progress,
-        currentFileName: spec.files.isNotEmpty ? spec.files.first.filename : 'model.bin',
-      );
-    }).asBroadcastStream();
-
-    debugPrint('WebModelManager: Download completed for ${spec.name}');
-  }
-
-  @override
-  Future<void> downloadModel(ModelSpec spec, {String? token}) async {
-    await _ensureInitialized();
-    // Use the stream version but don't yield progress
-    await for (final _ in downloadModelWithProgress(spec, token: token)) {
-      // Just consume the stream
-    }
-  }
-
-  @override
-  Future<void> deleteModel(ModelSpec spec) async {
-    await _ensureInitialized();
-
-    // Clear all data for this model
-    _modelPaths.remove(spec.name);
-    _loraPaths.remove(spec.name);
-    _loadCompleters.remove(spec.name);
-    _installedModels.remove(spec.name);
-
-    debugPrint('WebModelManager: Model ${spec.name} deleted');
-  }
-
-  @override
-  Future<List<String>> getInstalledModels(ModelManagementType type) async {
-    await _ensureInitialized();
-
-    // Return installed model names based on type
-    // For web, we can't easily distinguish types, so return all installed
-    return _installedModels.entries
-        .where((entry) => entry.value == true)
-        .map((entry) => entry.key)
-        .toList();
-  }
-
-  @override
-  Future<bool> isAnyModelInstalled(ModelManagementType type) async {
-    await _ensureInitialized();
-    return _installedModels.values.any((installed) => installed);
-  }
-
-  @override
-  Future<void> performCleanup() async {
-    await _ensureInitialized();
-    debugPrint('WebModelManager: Cleanup not needed on web');
-  }
-
-  @override
-  Future<bool> validateModel(ModelSpec spec) async {
-    await _ensureInitialized();
-    return _installedModels[spec.name] ?? false;
-  }
-
-  @override
-  Future<Map<String, String>?> getModelFilePaths(ModelSpec spec) async {
-    await _ensureInitialized();
-
-    if (!await isModelInstalled(spec)) {
-      return null;
-    }
-
-    final paths = <String, String>{};
-    final modelPath = _modelPaths[spec.name];
-    final loraPath = _loraPaths[spec.name];
-
-    if (modelPath != null) {
-      paths['model'] = modelPath;
-    }
-    if (loraPath != null) {
-      paths['lora'] = loraPath;
-    }
-
-    return paths.isNotEmpty ? paths : null;
-  }
-
-  @override
-  Future<Map<String, int>> getStorageStats() async {
-    await _ensureInitialized();
-
-    final installedCount = _installedModels.values.where((installed) => installed).length;
-
-    return {
-      'protectedFiles': installedCount,
-      'totalSizeBytes': 0, // Unknown for web URLs
-      'totalSizeMB': 0,
-      'inferenceModels': installedCount, // Can't distinguish types easily
-      'embeddingModels': 0,
-    };
-  }
-
-  /// Ensures a model is ready for use, handling all necessary operations
-  @override
-  Future<void> ensureModelReady(String filename, String url) async {
-    await _ensureInitialized();
-
-    // For web, just set the model path - equivalent to old behavior
-    _path = url;
-
-    // Create a spec and ensure it's ready
-    final spec = InferenceModelSpec(
-      name: filename,
-      modelUrl: url,
-    );
-
-    // Check if already installed, if not - prepare for loading
-    if (!await isModelInstalled(spec)) {
-      // Set up the model for loading
-      _modelPaths[spec.name] = url;
-      _loadCompleters[spec.name] = Completer<bool>()..complete(true);
-      _installedModels[spec.name] = true;
-    }
-  }
-
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-  }
-
-  /// Creates an inference model specification from parameters
-  static InferenceModelSpec createInferenceSpec({
-    required String name,
-    required String modelUrl,
-    String? loraUrl,
-    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
-  }) {
-    return InferenceModelSpec(
-      name: name,
-      modelUrl: modelUrl,
-      loraUrl: loraUrl,
-      replacePolicy: replacePolicy,
-    );
-  }
-
-  /// Creates an embedding model specification from parameters
-  static EmbeddingModelSpec createEmbeddingSpec({
-    required String name,
-    required String modelUrl,
-    required String tokenizerUrl,
-    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
-  }) {
-    return EmbeddingModelSpec(
-      name: name,
-      modelUrl: modelUrl,
-      tokenizerUrl: tokenizerUrl,
-      replacePolicy: replacePolicy,
-    );
-  }
-
-  // Legacy compatibility - for old WebInferenceModel if needed
-  String? _path;
-  String? _loraPath;
-  InferenceModelSpec? _currentActiveModel;
-
-  // === Legacy Asset Loading Methods Implementation ===
-
-  @override
-  Future<void> installModelFromAsset(String path, {String? loraPath}) async {
-    if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds");
-    }
-
-    await _ensureInitialized();
-
-    final spec = InferenceModelSpec(
-      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
-      modelUrl: 'asset://$path',
-      loraUrl: loraPath != null ? 'asset://$loraPath' : null,
-    );
-
-    await ensureModelReady(spec.name, spec.modelUrl);
-    _currentActiveModel = spec;
-  }
-
-  @override
-  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
-    if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds");
-    }
-
-    await _ensureInitialized();
-
-    // For web assets, we simulate progress
-    for (int progress = 0; progress <= 100; progress += 10) {
-      yield progress;
-      if (progress < 100) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
-    }
-
-    await installModelFromAsset(path, loraPath: loraPath);
-  }
-
-  // === Legacy Direct Path Methods Implementation ===
-
-  @override
-  Future<void> setModelPath(String path, {String? loraPath}) async {
-    await _ensureInitialized();
-
-    // For web, treat as URL
-    _path = path;
-    _loraPath = loraPath;
-
-    final spec = InferenceModelSpec(
-      name: path.split('/').last.replaceAll('.bin', '').replaceAll('.task', ''),
-      modelUrl: path.startsWith('http') ? path : 'file://$path',
-      loraUrl: loraPath != null ? (loraPath.startsWith('http') ? loraPath : 'file://$loraPath') : null,
-    );
-
-    await ensureModelReady(spec.name, spec.modelUrl);
-    _currentActiveModel = spec;
-  }
-
-  @override
-  Future<void> clearModelCache() async {
-    await _ensureInitialized();
-
-    _path = null;
-    _loraPath = null;
-    _currentActiveModel = null;
-    _installedModels.clear();
-    _modelPaths.clear();
-    _loraPaths.clear();
-    _loadCompleters.clear();
-
-    debugPrint('WebModelManager: Model cache cleared');
-  }
-
-  // === Legacy LoRA Management Methods Implementation ===
-
-  @override
-  Future<void> setLoraWeightsPath(String path) async {
-    await _ensureInitialized();
-
-    if (_currentActiveModel == null) {
-      throw Exception('No active model to apply LoRA weights to. Use setModelPath first.');
-    }
-
-    _loraPath = path;
-
-    final updatedSpec = InferenceModelSpec(
-      name: _currentActiveModel!.name,
-      modelUrl: _currentActiveModel!.modelUrl,
-      loraUrl: path.startsWith('http') ? path : 'file://$path',
-      replacePolicy: _currentActiveModel!.replacePolicy,
-    );
-
-    // Update internal state
-    _loraPaths[updatedSpec.name] = path;
-    _currentActiveModel = updatedSpec;
-  }
-
-  @override
-  Future<void> deleteLoraWeights() async {
-    await _ensureInitialized();
-
-    if (_currentActiveModel == null) {
-      throw Exception('No active model to remove LoRA weights from');
-    }
-
-    _loraPath = null;
-
-    final updatedSpec = InferenceModelSpec(
-      name: _currentActiveModel!.name,
-      modelUrl: _currentActiveModel!.modelUrl,
-      loraUrl: null, // Remove LoRA
-      replacePolicy: _currentActiveModel!.replacePolicy,
-    );
-
-    // Update internal state
-    _loraPaths.remove(updatedSpec.name);
-    _currentActiveModel = updatedSpec;
-  }
-
-  // === Legacy Model Management Implementation ===
-
-  @override
-  Future<void> deleteCurrentModel() async {
-    await _ensureInitialized();
-
-    if (_currentActiveModel != null) {
-      await deleteModel(_currentActiveModel!);
-      _currentActiveModel = null;
-      _path = null;
-      _loraPath = null;
-    }
   }
 }

@@ -7,9 +7,24 @@ docs/
 .github/
 .idea/
 .vscode/
+.claude/
+
+# Build artifacts
+build/
+coverage/
+
+# Media files (for README, not needed in package)
+assets/
+colabs/
+
+# Test files
+test/
 example/build/
 example/.dart_tool/
 example/.idea/
+example/coverage/
+
+# Misc
 test_exports.dart
 trash_*
 .env

@@ -1,9 +1,41 @@
 part of '../../../mobile/flutter_gemma_mobile.dart';
 
-/// Unified file system operations for model management
+/// Unified file system operations for model management (Mobile only)
+///
+/// This class delegates filename utilities to FileNameUtils for platform-agnostic
+/// string operations, and provides mobile-specific file system operations.
 class ModelFileSystemManager {
-  static const List<String> _supportedExtensions = ['.task', '.bin', '.json', '.tflite', '.litertlm'];
+  /// Supported model file extensions (delegates to FileNameUtils)
+  static const List<String> supportedExtensions = FileNameUtils.supportedExtensions;
+
+  /// Small file extensions (configs, tokenizers) - use smaller minimum size
+  static const List<String> smallFileExtensions = ['.json', '.model'];
+
   static const int _defaultMinSizeBytes = 1024 * 1024; // 1MB
+
+  /// Removes all supported extensions from filename (delegates to FileNameUtils)
+  ///
+  /// Example: 'gemma-2b.task' -> 'gemma-2b'
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static String getBaseName(String filename) => FileNameUtils.getBaseName(filename);
+
+  /// Creates regex pattern for matching extensions (delegates to FileNameUtils)
+  ///
+  /// Example: r'\.(task|bin|tflite|json|model|litertlm)$'
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static String get extensionRegexPattern => FileNameUtils.extensionRegexPattern;
+
+  /// Checks if file extension requires smaller minimum size (delegates to FileNameUtils)
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static bool isSmallFile(String extension) => FileNameUtils.isSmallFile(extension);
+
+  /// Gets minimum file size based on extension (delegates to FileNameUtils)
+  ///
+  /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
+  static int getMinimumSize(String extension) => FileNameUtils.getMinimumSize(extension);
 
   /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access
   static String getCorrectedPath(String originalPath, String filename) {
@@ -49,76 +81,145 @@ class ModelFileSystemManager {
     return getCorrectedPath(directory.path, filename);
   }
 
-  /// Smart cleanup: removes orphaned files immediately, keeps potential resume files
-  static Future<void> cleanupOrphanedFiles({
+  /// Get information about orphaned files without deleting them
+  ///
+  /// ⚠️  This method only returns information, it does NOT delete files.
+  /// Call cleanupOrphanedFiles() explicitly to delete them.
+  static Future<List<OrphanedFileInfo>> getOrphanedFiles({
+    List<String>? protectedFiles,
+    List<String>? supportedExtensions,
+  }) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final extensions = supportedExtensions ?? ModelFileSystemManager.supportedExtensions;
+    final protected = protectedFiles ?? [];
+
+    final orphaned = <OrphanedFileInfo>[];
+
+    final files = directory
+        .listSync()
+        .whereType<File>()
+        .where((file) => extensions.any((ext) => file.path.endsWith(ext)))
+        .toList();
+
+    for (final file in files) {
+      final fileName = file.path.split('/').last;
+
+      if (protected.contains(fileName)) {
+        continue;
+      }
+
+      // Check if has active task
+      final hasTask = await _hasActiveDownloadTask(fileName);
+      if (hasTask) {
+        continue;
+      }
+
+      // This file is orphaned
+      final stat = await file.stat();
+      orphaned.add(OrphanedFileInfo(
+        filename: fileName,
+        path: file.path,
+        sizeBytes: stat.size,
+        lastModified: stat.modified,
+      ));
+    }
+
+    return orphaned;
+  }
+
+  /// Get storage statistics
+  static Future<StorageStats> getStorageInfo({
+    List<String>? protectedFiles,
+  }) async {
+    final directory = await getApplicationDocumentsDirectory();
+
+    final files = directory
+        .listSync()
+        .whereType<File>()
+        .where((file) => supportedExtensions.any((ext) => file.path.endsWith(ext)))
+        .toList();
+
+    int totalSize = 0;
+    for (final file in files) {
+      final stat = await file.stat();
+      totalSize += stat.size;
+    }
+
+    final orphaned = await getOrphanedFiles(protectedFiles: protectedFiles);
+
+    return StorageStats(
+      totalFiles: files.length,
+      totalSizeBytes: totalSize,
+      orphanedFiles: orphaned,
+    );
+  }
+
+  /// Check if file has active download task
+  static Future<bool> _hasActiveDownloadTask(String filename) async {
+    try {
+      final downloader = FileDownloader();
+
+      // Check active tasks
+      final allTasks = await downloader.allTasks(
+        group: 'smart_downloads',
+        includeTasksWaitingToRetry: true,
+      );
+
+      if (allTasks.any((task) => task.filename == filename)) {
+        return true;
+      }
+
+      // Check database records
+      final records = await downloader.database.allRecords();
+      if (records.any((record) =>
+        record.task.filename == filename &&
+        record.status != TaskStatus.complete
+      )) {
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('Failed to check active task for $filename: $e');
+      return true; // Assume has task to be safe
+    }
+  }
+
+  /// Cleans up orphaned files
+  ///
+  /// ⚠️  USER MUST CALL THIS EXPLICITLY - it is NOT called automatically!
+  ///
+  /// This method deletes files that don't have active download tasks.
+  /// Use getOrphanedFiles() first to see what will be deleted.
+  ///
+  /// Returns the number of files deleted.
+  static Future<int> cleanupOrphanedFiles({
     required List<String> protectedFiles,
     List<String>? supportedExtensions,
-    bool enableResumeDetection = false,
+    bool enableResumeDetection = true,
   }) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final extensions = supportedExtensions ?? _supportedExtensions;
+    debugPrint('⚠️  cleanupOrphanedFiles() called explicitly by user');
 
-      // Get all supported model files in directory
-      final files = directory
-          .listSync()
-          .whereType<File>()
-          .where((file) => extensions.any((ext) => file.path.endsWith(ext)))
-          .toList();
+    final orphaned = await getOrphanedFiles(
+      protectedFiles: protectedFiles,
+      supportedExtensions: supportedExtensions,
+    );
 
-      for (final file in files) {
-        final fileName = file.path.split('/').last;
-
-        // NEVER delete files that are protected
-        if (protectedFiles.contains(fileName)) {
-          debugPrint('Keeping protected file: $fileName');
-          continue;
-        }
-
-        // Check if this could be a partial download worth keeping for resume
-        if (enableResumeDetection && await _shouldKeepForResume(file)) {
-          debugPrint('Keeping potential partial download: $fileName');
-          continue;
-        }
-
-        // File is not protected and not resumable → delete immediately
-        debugPrint('Removing orphaned file: $fileName');
-        await file.delete();
+    int deletedCount = 0;
+    for (final info in orphaned) {
+      try {
+        await File(info.path).delete();
+        deletedCount++;
+        debugPrint('Deleted orphaned file: ${info.filename}');
+      } catch (e) {
+        debugPrint('Failed to delete ${info.filename}: $e');
       }
-    } catch (e) {
-      debugPrint('Failed to cleanup orphaned files: $e');
     }
+
+    debugPrint('Cleaned up $deletedCount orphaned files');
+    return deletedCount;
   }
 
-  /// Determines if a file should be kept for potential resume
-  static Future<bool> _shouldKeepForResume(File file) async {
-    try {
-      final size = await file.length();
-      final extension = file.path.split('.').last.toLowerCase();
-
-      // Empty files are definitely garbage
-      if (size == 0) return false;
-
-      // Check if file size suggests it's a partial download
-      switch (extension) {
-        case 'task':
-        case 'bin':
-          // Inference models usually >50MB, if <50MB likely partial
-          return size < 50 * 1024 * 1024;
-        case 'tflite':
-          // Embedding models usually >5MB, if <5MB likely partial
-          return size < 5 * 1024 * 1024;
-        case 'json':
-          // Tokenizer files are usually <1MB, if >10MB likely partial of something else
-          return size > 10 * 1024 * 1024;
-        default:
-          return false;
-      }
-    } catch (e) {
-      debugPrint('Failed to analyze file for resume: $e');
-      return false;
-    }
-  }
 
   /// Safely deletes a model file
   static Future<void> deleteModelFile(String filename) async {
@@ -174,15 +275,91 @@ class ModelFileSystemManager {
   /// Validates all files in a model specification
   static Future<bool> validateModelFiles(ModelSpec spec) async {
     for (final file in spec.files) {
-      final filePath = await getModelFilePath(file.filename);
-      final minSize = file.extension == '.json' ? 1024 : _defaultMinSizeBytes; // Smaller requirement for JSON files
+      // Get file path based on source type
+      final String filePath;
 
-      if (!await isFileValid(filePath, minSizeBytes: minSize)) {
-        debugPrint('Model file validation failed: ${file.filename}');
-        return false;
+      if (file.source is FileSource) {
+        // External file - use path from source
+        filePath = (file.source as FileSource).path;
+      } else if (file.source is BundledSource) {
+        // Bundled source - get platform-specific bundled path
+        final bundledSource = file.source as BundledSource;
+        filePath = await _getBundledResourcePath(bundledSource.resourceName);
+      } else {
+        // Downloaded/Asset file - use standard app directory
+        filePath = await getModelFilePath(file.filename);
+      }
+
+      // Platform-specific validation for bundled files
+      if (file.source is BundledSource) {
+        if (!await _validateBundledResource(filePath)) {
+          debugPrint('Bundled resource validation failed: ${file.filename}');
+          return false;
+        }
+      } else {
+        // Standard file validation
+        final minSize = getMinimumSize(file.extension);
+
+        if (!await isFileValid(filePath, minSizeBytes: minSize)) {
+          debugPrint('Model file validation failed: ${file.filename}');
+          return false;
+        }
       }
     }
     return true;
+  }
+
+  /// Validate bundled resource (platform-specific)
+  static Future<bool> _validateBundledResource(String bundledPath) async {
+    if (Platform.isAndroid) {
+      // Android: MediaPipe uses path without 'assets/' prefix
+      return bundledPath.startsWith('models/');
+    } else if (Platform.isIOS) {
+      // iOS: check if file exists at Bundle path
+      final file = File(bundledPath);
+      return await file.exists();
+    } else if (kIsWeb) {
+      // Web: assume valid (checked at runtime by MediaPipe)
+      return true;
+    }
+    return false;
+  }
+
+  static const MethodChannel _bundledChannel = MethodChannel('flutter_gemma_bundled');
+
+  /// Get platform-specific bundled resource path
+  static Future<String> _getBundledResourcePath(String resourceName) async {
+    if (Platform.isAndroid) {
+      // Android: MediaPipe expects path WITHOUT 'assets/' prefix
+      // MediaPipe internally adds 'assets/' when loading from assets
+      return 'models/$resourceName';
+    } else if (Platform.isIOS) {
+      // iOS: Get real file path from Bundle via platform channel
+      try {
+        final result = await _bundledChannel.invokeMethod<String>(
+          'getBundledResourcePath',
+          {'resourceName': resourceName},
+        );
+
+        if (result == null) {
+          throw FileSystemException(
+            'Bundled resource not found in iOS Bundle: $resourceName',
+          );
+        }
+
+        return result;
+      } catch (e) {
+        throw FileSystemException(
+          'Failed to get iOS bundled path for $resourceName: $e',
+        );
+      }
+    } else if (kIsWeb) {
+      return 'assets/models/$resourceName';
+    } else {
+      throw UnsupportedError(
+        'Bundled resources not supported on ${Platform.operatingSystem}',
+      );
+    }
   }
 
   /// Cleans up failed download files for a model specification

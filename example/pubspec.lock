@@ -18,7 +18,7 @@ packages:
     source: hosted
     version: "2.13.0"
   background_downloader:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: background_downloader
       sha256: c59bff0b66a6704bed8bfb09c67571df88167906e0f5543a722373b3d180a743
@@ -169,7 +169,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.11.2"
+    version: "0.11.5"
   flutter_lints:
     dependency: "direct dev"
     description:

@@ -17,7 +17,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   FlutterGemmaPlugin() : super(token: _token);
 
   static final Object _token = Object();
-  static FlutterGemmaPlugin _instance = FlutterGemma();
+  static FlutterGemmaPlugin _instance = FlutterGemmaMobile();
 
   static FlutterGemmaPlugin get instance => _instance;
 
@@ -52,12 +52,17 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   /// Creates and returns a new [EmbeddingModel] instance.
   ///
-  /// [modelPath] — path to the embedding model file.
-  /// [tokenizerPath] — path to the tokenizer file.
+  /// Modern API: If paths are not provided, uses the active embedding model set via
+  /// `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()`.
+  ///
+  /// Legacy API: Provide explicit paths for backward compatibility.
+  ///
+  /// [modelPath] — path to the embedding model file (optional if active model set).
+  /// [tokenizerPath] — path to the tokenizer file (optional if active model set).
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
   Future<EmbeddingModel> createEmbeddingModel({
-    required String modelPath,
-    required String tokenizerPath,
+    String? modelPath,
+    String? tokenizerPath,
     PreferredBackend? preferredBackend,
   });
 

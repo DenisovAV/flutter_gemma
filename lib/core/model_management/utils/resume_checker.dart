@@ -84,24 +84,36 @@ class ResumeChecker {
         return ResumeStatus.fileComplete;
       }
 
-      // 3. Check if we have a registered task for this file
-      final taskId = await DownloadTaskRegistry.getTaskId(filename);
-      debugPrint('ResumeChecker: TaskId for $filename: $taskId');
+      // 3. Check if we have a tracked task for this file in FileDownloader
+      // First check active tasks
+      final allTasks = await _downloader.allTasks(
+        group: 'flutter_gemma_downloads',
+        includeTasksWaitingToRetry: true,
+      );
 
-      if (taskId == null) {
-        debugPrint('ResumeChecker: No registered task for $filename - returning noTask status');
+      Task? task = allTasks.cast<Task?>().firstWhere(
+        (t) => t?.filename == filename,
+        orElse: () => null,
+      );
+
+      // If not in active tasks, check database records
+      if (task == null) {
+        final records = await _downloader.database.allRecords();
+        final record = records.cast<TaskRecord?>().firstWhere(
+          (r) => r?.task.filename == filename,
+          orElse: () => null,
+        );
+        task = record?.task;
+      }
+
+      if (task == null) {
+        debugPrint('ResumeChecker: No tracked task for $filename - returning noTask status');
         return ResumeStatus.noTask;
       }
 
-      // 4. Create a task object to check resume capability
-      final task = DownloadTask(
-        taskId: taskId,
-        url: 'placeholder', // We don't need real URL for resume check
-        filename: filename,
-        group: UnifiedDownloadEngine.downloadGroup,
-      );
+      debugPrint('ResumeChecker: Found task for $filename: ${task.taskId}');
 
-      // 5. Check if background_downloader thinks this task can be resumed
+      // 4. Check if background_downloader thinks this task can be resumed
       final canResume = await _downloader.taskCanResume(task);
       if (canResume) {
         debugPrint('ResumeChecker: File can be resumed: $filename');
@@ -197,10 +209,9 @@ class ResumeChecker {
       switch (status) {
         case ResumeStatus.cannotResume:
         case ResumeStatus.error:
-          // Delete partial file and unregister task
+          // Delete partial file (FileDownloader manages its own task records)
           try {
             await ModelFileSystemManager.deleteModelFile(filename);
-            await DownloadTaskRegistry.unregisterTask(filename);
             cleanedCount++;
             debugPrint('ResumeChecker: Cleaned up invalid resume state for $filename');
           } catch (e) {
@@ -235,12 +246,13 @@ class ResumeChecker {
     return cleanedCount;
   }
 
-  /// Get statistics about resume states across all registered tasks
+  /// Get statistics about resume states across all tracked tasks
   static Future<Map<String, dynamic>> getResumeStatistics() async {
     try {
-      final allTasks = await DownloadTaskRegistry.getAllRegisteredTasks();
+      // Get all tasks from FileDownloader database
+      final records = await _downloader.database.allRecords();
       final stats = <String, int>{
-        'totalRegistered': allTasks.length,
+        'totalTracked': records.length,
         'canResume': 0,
         'cannotResume': 0,
         'noTask': 0,
@@ -249,7 +261,8 @@ class ResumeChecker {
         'error': 0,
       };
 
-      for (final filename in allTasks.keys) {
+      for (final record in records) {
+        final filename = record.task.filename;
         final status = await checkResumeStatus(filename);
         final statusName = status.name;
         stats[statusName] = (stats[statusName] ?? 0) + 1;

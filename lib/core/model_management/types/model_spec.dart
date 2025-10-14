@@ -6,12 +6,12 @@ enum ModelManagementType {
   embedding,
 }
 
-// ModelReplacePolicy уже определен в model_file_manager_interface.dart
+// ModelReplacePolicy is already defined in model_file_manager_interface.dart
 
 /// Represents a single file that belongs to a model
 abstract class ModelFile {
-  /// URL from which this file can be downloaded
-  String get url;
+  /// Source from which this file can be obtained (NEW: type-safe ModelSource)
+  ModelSource get source;
 
   /// Local filename for this file
   String get filename;
@@ -22,8 +22,12 @@ abstract class ModelFile {
   /// Whether this file is required for the model to function
   bool get isRequired;
 
-  /// File extension for validation purposes
-  String get extension => filename.split('.').last;
+  /// File extension for validation purposes (with leading dot, e.g., '.model')
+  String get extension {
+    final lastDot = filename.lastIndexOf('.');
+    if (lastDot == -1) return '';
+    return filename.substring(lastDot); // Returns '.model', '.tflite', etc.
+  }
 }
 
 /// Base specification for any model (inference or embedding)

@@ -33,10 +33,10 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   
   // Progress tracking
   double _progress = 0.0; // For inference models
-  double _modelProgress = 0.0; // For embedding models  
+  double _modelProgress = 0.0; // For embedding models
   double _tokenizerProgress = 0.0; // For embedding models
-  final bool _isInitializing = false; // For embedding model initialization
-  
+  bool _isInitializing = false; // For embedding model initialization
+
   String _token = '';
   final TextEditingController _tokenController = TextEditingController();
 

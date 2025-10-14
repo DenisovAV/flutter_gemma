@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma_example/services/auth_token_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ModelDownloadService {
   ModelDownloadService({
@@ -23,16 +23,10 @@ class ModelDownloadService {
   final ModelFileType fileType;
 
   /// Load the token from SharedPreferences.
-  Future<String?> loadToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
-  }
+  Future<String?> loadToken() => AuthTokenService.loadToken();
 
   /// Save the token to SharedPreferences.
-  Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
-  }
+  Future<void> saveToken(String token) => AuthTokenService.saveToken(token);
 
   /// Helper method to get the file path.
   Future<String> getFilePath() async {

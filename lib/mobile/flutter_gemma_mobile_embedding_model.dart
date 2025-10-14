@@ -10,7 +10,7 @@ class MobileEmbeddingModel extends EmbeddingModel {
 
   void _assertNotClosed() {
     if (_isClosed) {
-      throw Exception('EmbeddingModel is closed. Create a new instance to use it again');
+      throw StateError('EmbeddingModel is closed. Create a new instance to use it again');
     }
   }
 

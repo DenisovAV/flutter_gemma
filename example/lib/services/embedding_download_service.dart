@@ -5,8 +5,8 @@ import 'package:flutter_gemma/core/domain/model_source.dart'; // For ModelSource
 import 'package:flutter_gemma/core/utils/file_name_utils.dart'; // For FileNameUtils
 import 'package:flutter_gemma/flutter_gemma.dart'; // For EmbeddingModelSpec
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/services/auth_token_service.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class EmbeddingModelDownloadService {
   final example_embedding_model.EmbeddingModel model;
@@ -16,16 +16,10 @@ class EmbeddingModelDownloadService {
   });
 
   /// Load the token from SharedPreferences.
-  Future<String?> loadToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
-  }
+  Future<String?> loadToken() => AuthTokenService.loadToken();
 
   /// Save the token to SharedPreferences.
-  Future<void> saveToken(String token) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('auth_token', token);
-  }
+  Future<void> saveToken(String token) => AuthTokenService.saveToken(token);
 
   /// Helper method to get the model file path.
   Future<String> getModelFilePath() async {

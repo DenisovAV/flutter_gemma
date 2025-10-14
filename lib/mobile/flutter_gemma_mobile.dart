@@ -25,7 +25,7 @@ part '../core/model_management/types/storage_info.dart';
 part '../core/model_management/exceptions/model_exceptions.dart';
 part '../core/model_management/utils/file_system_manager.dart';
 part '../core/model_management/utils/resume_checker.dart';
-part '../core/model_management/managers/unified_model_manager.dart';
+part '../core/model_management/managers/mobile_model_manager.dart';
 
 class MobileInferenceModelSession extends InferenceModelSession {
   final ModelType modelType;
@@ -47,7 +47,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   void _assertNotClosed() {
     if (_isClosed) {
-      throw Exception('Model is closed. Create a new instance to use it again');
+      throw StateError('Model is closed. Create a new instance to use it again');
     }
   }
 
@@ -72,7 +72,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
   Future<void> _addImage(Uint8List imageBytes) async {
     _assertNotClosed();
     if (!supportImage) {
-      throw Exception('This model does not support images');
+      throw ArgumentError('This model does not support images');
     }
     await _platformService.addImage(imageBytes);
   }
@@ -229,7 +229,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
     // No active inference model - user must set one first
     if (activeModel == null) {
-      throw Exception('No active inference model set. Use `FlutterGemma.installModel()` or `modelManager.setActiveModel()` to set a model first');
+      throw StateError('No active inference model set. Use `FlutterGemma.installModel()` or `modelManager.setActiveModel()` to set a model first');
     }
 
     // Check if singleton exists and matches the active model
@@ -337,13 +337,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
       // No active embedding model - user must set one first
       if (activeModel == null) {
-        throw Exception('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
+        throw StateError('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
       }
 
       // Get the actual model file paths through unified system
       final modelFilePaths = await manager.getModelFilePaths(activeModel);
       if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        throw Exception('Embedding model file paths not found. Use the `modelManager` to load the model first');
+        throw StateError('Embedding model file paths not found. Use the `modelManager` to load the model first');
       }
 
       // Extract model and tokenizer paths from spec
@@ -351,7 +351,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       final activeTokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
 
       if (activeModelPath == null || activeTokenizerPath == null) {
-        throw Exception('Could not find model or tokenizer path in active embedding model');
+        throw StateError('Could not find model or tokenizer path in active embedding model');
       }
 
       // Check if singleton exists and matches the active model
@@ -459,7 +459,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   }) async {
     // Generate embedding for content first
     if (initializedEmbeddingModel == null) {
-      throw Exception('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(content);
 
@@ -480,7 +480,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   }) async {
     // Generate embedding for query
     if (initializedEmbeddingModel == null) {
-      throw Exception('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
     final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
     

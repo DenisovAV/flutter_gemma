@@ -28,33 +28,42 @@ import 'package:flutter_gemma/pigeon.g.dart';
 ///
 /// ```dart
 /// // From network
-/// final installation = await FlutterGemma.installModel()
+/// final installation = await FlutterGemma.installModel(
+///   modelType: ModelType.gemmaIt,
+/// )
 ///   .fromNetwork('https://huggingface.co/.../model.bin')
 ///   .withProgress((progress) => print('Progress: $progress%'))
 ///   .install();
 ///
 /// // From asset
-/// await FlutterGemma.installModel()
+/// await FlutterGemma.installModel(
+///   modelType: ModelType.gemmaIt,
+/// )
 ///   .fromAsset('models/gemma.bin')
 ///   .install();
 ///
 /// // From bundled resource
-/// await FlutterGemma.installModel()
+/// await FlutterGemma.installModel(
+///   modelType: ModelType.gemmaIt,
+/// )
 ///   .fromBundled('gemma.bin')
 ///   .install();
 ///
 /// // From external file
-/// await FlutterGemma.installModel()
+/// await FlutterGemma.installModel(
+///   modelType: ModelType.gemmaIt,
+/// )
 ///   .fromFile('/path/to/model.bin')
 ///   .install();
 /// ```
 ///
-/// ## Load Models (Phase 5)
+/// ## Load Models
 ///
 /// ```dart
-/// // TODO: Phase 5 - integrate with InferenceModel
-/// // final model = await installation.loadForInference();
-/// // final response = await model.generateResponse('Hello!');
+/// // Get active model after installation
+/// final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+/// final session = await model.createSession();
+/// final response = await session.getResponse();
 /// ```
 class FlutterGemma {
   /// Initialize Flutter Gemma

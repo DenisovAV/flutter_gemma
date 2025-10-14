@@ -94,6 +94,62 @@ final longModel = await FlutterGemma.getActiveModel(
 - ✅ Multiple instances with different configurations
 - ✅ Clean separation of concerns (identity vs behavior)
 
+### Modern API - Complete Workflow (v0.11.4+)
+
+**The Modern API is FULLY IMPLEMENTED and PRODUCTION-READY as of v0.11.4.**
+
+**Complete Inference Workflow:**
+```dart
+// Step 1: Install model (stores identity: modelType + fileType)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.task,
+).fromNetwork('https://example.com/model.task', token: 'hf_token')
+  .withProgress((progress) => print('Progress: ${progress.percentage}%'))
+  .install();
+
+// Step 2: Create model with runtime configuration (multiple times!)
+final shortContextModel = await FlutterGemma.getActiveModel(
+  maxTokens: 512,
+  preferredBackend: PreferredBackend.cpu,
+);
+
+final longContextModel = await FlutterGemma.getActiveModel(
+  maxTokens: 4096,
+  preferredBackend: PreferredBackend.gpu,
+  supportImage: true,
+);
+// Both use the SAME installed model file!
+
+// Step 3: Use the model
+final chat = await shortContextModel.createChat();
+await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
+final response = await chat.generateChatResponse();
+```
+
+**Complete Embedding Workflow:**
+```dart
+// Step 1: Install embedding model
+await FlutterGemma.installEmbedder()
+  .modelFromNetwork('https://example.com/model.tflite', token: 'hf_token')
+  .tokenizerFromNetwork('https://example.com/tokenizer.json', token: 'hf_token')
+  .install();
+
+// Step 2: Create embedder with runtime configuration
+final embedder = await FlutterGemma.getActiveEmbedder(
+  preferredBackend: PreferredBackend.gpu,
+);
+
+// Step 3: Generate embeddings
+final embedding = await embedder.generateEmbedding('Hello, world!');
+```
+
+**Benefits:**
+- ✅ Install once, create many times with different configs
+- ✅ No reinstall needed when changing maxTokens or backend
+- ✅ Automatic active model tracking
+- ✅ Type-safe source handling
+
 ### Supported Models
 
 | Model Family | Function Calling | Thinking Mode | Multimodal | Platform Support |
@@ -300,26 +356,22 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 4. ✅ Check class definitions and default parameters
 5. ❌ Never assume API behavior - always verify!
 
-### Inference API - Correct Usage
+### Inference API - Modern API (Recommended)
 
-**Step 1: Install Model (Modern API)**
+**Step 1: Install Model**
 ```dart
-// Download from network
-await FlutterGemma.installModel()
-    .fromNetwork(url, token: token)
-    .withProgress((progress) => print('Progress: $progress%'))
-    .install();  // Automatically calls setActiveModel()
-
-// OR use Legacy API
-final spec = InferenceModelSpec.fromLegacyUrl(name: 'model', modelUrl: url);
-await manager.downloadModelWithProgress(spec, token: token);  // Also calls setActiveModel()
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+).fromNetwork(url, token: token)
+  .withProgress((progress) => print('Progress: ${progress.percentage}%'))
+  .install();
 ```
 
-**Step 2: Create Model**
+**Step 2: Create Model with Runtime Config**
 ```dart
-final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
-  modelType: ModelType.gemmaIt,
-  maxTokens: 512,
+final inferenceModel = await FlutterGemma.getActiveModel(
+  maxTokens: 2048,
+  preferredBackend: PreferredBackend.gpu,
 );
 ```
 
@@ -356,6 +408,21 @@ await for (final chunk in session.getResponseAsync()) {
 await session.close();
 await inferenceModel.close();
 ```
+
+### Legacy API (Backward Compatible)
+
+```dart
+// Legacy: Must specify ModelType every time
+final model = await FlutterGemmaPlugin.instance.createModel(
+  modelType: ModelType.gemmaIt,  // Manual specification required
+  maxTokens: 2048,
+);
+```
+
+**Why Modern API is Better:**
+- ✅ ModelType stored during installation
+- ✅ Cleaner API with builder pattern
+- ✅ Type-safe ModelSource
 
 ### Message Class - Critical Parameters
 
@@ -453,7 +520,7 @@ await embeddingModel.close();
 **Implementations:**
 - `lib/mobile/flutter_gemma_mobile.dart` - Mobile platform (Android/iOS)
 - `lib/web/flutter_gemma_web.dart` - Web platform
-- `lib/core/model_management/managers/unified_model_manager.dart` - Model management
+- `lib/core/model_management/managers/mobile_model_manager.dart` - Model management
 
 **Examples:**
 - `example/lib/` - Integration tests and example screens
@@ -740,7 +807,15 @@ flutter_gemma/
 └── CLAUDE.md              # This file
 ```
 
-## Recent Updates (2025-10-05)
+## Recent Updates (2025-10-14)
+
+### ✅ Modern API Completion (v0.11.4)
+- **FULLY IMPLEMENTED** - All features working as documented
+- Type-safe ModelSource sealed classes
+- Separation of concerns: install (identity) vs runtime (config)
+- Automatic active model management
+- Modern facade methods: `getActiveModel()` and `getActiveEmbedder()`
+- 100% backward compatibility with Legacy API
 
 ### ✅ ModelSource Migration (v0.11.x)
 - **Type-safe sealed classes** replace string URLs

@@ -72,7 +72,111 @@ The example app offers a curated list of models, each suited for different tasks
 
 2.  Run `flutter pub get` to install.
 
-## Quick Start (Modern API) ⚡
+## Quick Start
+
+### 1. Install a Model (One Time)
+
+```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
+// Install model
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+).fromNetwork(
+  'https://huggingface.co/google/gemma-3-2b-it/resolve/main/gemma-3-2b-it-gpu-int8.task',
+  token: 'your_hf_token',
+).withProgress((progress) {
+  print('Downloading: ${progress.percentage}%');
+}).install();
+```
+
+### 2. Create and Use Model (Multiple Times)
+
+```dart
+// Create model with specific configuration
+final model = await FlutterGemma.getActiveModel(
+  maxTokens: 2048,
+  preferredBackend: PreferredBackend.gpu,
+);
+
+// Use model
+final chat = await model.createChat();
+await chat.addQueryChunk(Message.text(
+  text: 'Explain quantum computing',
+  isUser: true,
+));
+final response = await chat.generateChatResponse();
+
+// Cleanup
+await chat.close();
+await model.close();
+```
+
+### 3. Multiple Instances from Same Model
+
+```dart
+// Install once
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork(url).install();
+
+// Create multiple instances
+final quickModel = await FlutterGemma.getActiveModel(maxTokens: 512);
+final deepModel = await FlutterGemma.getActiveModel(maxTokens: 4096);
+// Both use the SAME model file!
+```
+
+## Installation Sources
+
+```dart
+// Network
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork('https://example.com/model.task', token: 'optional')
+  .install();
+
+// Flutter assets
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromAsset('assets/models/model.task')
+  .install();
+
+// Native bundle
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromBundled('model.task')
+  .install();
+
+// External file
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromFile('/path/to/model.task')
+  .install();
+```
+
+## Modern API vs Legacy API
+
+### Modern API (Recommended) ✅
+
+**Benefits:**
+- ✅ Cleaner, more intuitive
+- ✅ Type-safe ModelSource
+- ✅ Automatic active model management
+- ✅ Install once, create many instances
+
+**Usage:**
+```dart
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork(url).install();
+final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
+```
+
+### Legacy API
+
+Still works but requires manual ModelType specification:
+```dart
+final model = await FlutterGemmaPlugin.instance.createModel(
+  modelType: ModelType.gemmaIt,  // Must specify every time
+  maxTokens: 2048,
+);
+```
+
+---
 
 ### Initialize Flutter Gemma
 
@@ -92,64 +196,6 @@ void main() {
 
   runApp(MyApp());
 }
-```
-
-### Install Model
-
-```dart
-// From network (public model)
-await FlutterGemma.installModel(
-  modelType: ModelType.gemmaIt,
-  fileType: ModelFileType.task,  // Optional: defaults to .task
-)
-  .fromNetwork('https://huggingface.co/litert-community/gemma-3-270m-it/resolve/main/gemma-3-270m-it-int4.task')
-  .withProgress((progress) => print('Download: $progress%'))
-  .install();
-
-// From Flutter asset
-await FlutterGemma.installModel(
-  modelType: ModelType.gemmaIt,
-  fileType: ModelFileType.bin,  // Optional: specify file type
-)
-  .fromAsset('models/gemma-2b-it.bin')
-  .install();
-
-// From bundled native resource
-await FlutterGemma.installModel(
-  modelType: ModelType.gemmaIt,
-  // fileType defaults to ModelFileType.task
-)
-  .fromBundled('gemma-2b-it.bin')
-  .install();
-
-// From external file (mobile only)
-await FlutterGemma.installModel(
-  modelType: ModelType.gemmaIt,
-)
-  .fromFile('/path/to/model.task')
-  .install();
-```
-
-**Parameters:**
-- `modelType` (required): Type of model (e.g., `ModelType.gemmaIt`, `ModelType.deepSeek`)
-- `fileType` (optional): File format - defaults to `ModelFileType.task`
-  - `ModelFileType.task` - MediaPipe task bundles (recommended)
-  - `ModelFileType.bin` - Binary model files
-  - `ModelFileType.tflite` - TensorFlow Lite models
-
-### Create Model and Chat
-
-```dart
-// Create model with runtime configuration
-final inferenceModel = await FlutterGemma.getActiveModel(
-  maxTokens: 2048,
-  preferredBackend: PreferredBackend.gpu,
-);
-
-// Create chat
-final chat = await inferenceModel.createChat();
-await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
-final response = await chat.generateChatResponse();
 ```
 
 **Next Steps:**

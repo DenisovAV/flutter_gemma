@@ -23,14 +23,13 @@ class WebFileSystemService implements FileSystemService {
   @override
   Future<void> writeFile(String path, Uint8List data) async {
     // On web, we can't write files to local file system
-    // Instead, we would create a blob URL if needed
+    // Instead, we create a blob URL via WebJsInterop (handled by WebDownloadService)
     // For now, this is primarily used for registration
     debugPrint('WebFileSystemService: writeFile called for $path (${data.length} bytes)');
 
     // Store a marker that this file exists
-    // TODO: Implement actual blob URL creation with dart:html integration
-    // final blob = html.Blob([data]);
-    // final url = html.Url.createObjectUrlFromBlob(blob);
+    // Note: Actual blob URL creation is handled by WebDownloadService + WebJsInterop
+    // This method is primarily for registering already-created blob URLs
     _urlMappings[path] = 'blob:$path';
     _isBlobUrl[path] = true; // Mark as blob URL for future cleanup
   }
@@ -52,10 +51,11 @@ class WebFileSystemService implements FileSystemService {
     final url = _urlMappings.remove(path);
     final wasBlob = _isBlobUrl.remove(path);
 
-    // TODO: Revoke blob URLs when dart:html integration is implemented
+    // Blob URL revocation is handled by BlobUrlManager (integrated via WebDownloadService)
+    // The cleanup callback (_onBlobUrlRemoved) will be invoked if this is a blob URL
     if (url != null && wasBlob == true) {
-      debugPrint('WebFileSystemService: Would revoke blob URL for $path (not yet implemented)');
-      // html.Url.revokeObjectUrl(url);
+      debugPrint('WebFileSystemService: Triggering blob URL cleanup for $path');
+      _onBlobUrlRemoved?.call(url);
     }
 
     if (url != null) {
@@ -144,11 +144,12 @@ class WebFileSystemService implements FileSystemService {
   ///
   /// Useful for testing and cleanup.
   void clearAllUrls() {
-    // TODO: Revoke all blob URLs when dart:html integration is implemented
+    // Blob URL revocation is handled by BlobUrlManager
+    // Trigger cleanup callback for all blob URLs
     for (final entry in _urlMappings.entries) {
       if (_isBlobUrl[entry.key] == true) {
-        debugPrint('WebFileSystemService: Would revoke blob URL for ${entry.key} (not yet implemented)');
-        // html.Url.revokeObjectUrl(entry.value);
+        debugPrint('WebFileSystemService: Triggering blob URL cleanup for ${entry.key}');
+        _onBlobUrlRemoved?.call(entry.value);
       }
     }
 

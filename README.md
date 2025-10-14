@@ -1609,20 +1609,11 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ✅ **📊 Text Embeddings** - Generate vector embeddings with EmbeddingGemma and Gecko models for semantic search applications
 ✅ **🔧 Unified Model Management** - Single system for managing both inference and embedding models with automatic validation
-✅ **🛠️ Advanced Function Calling** - Enable your models to call external functions and integrate with other services (Gemma 3 Nano, Hammer 2.1, DeepSeek, and Qwen2.5 models)
-✅ **🧠 Thinking Mode** - View the reasoning process of DeepSeek models with interactive thinking bubbles
-✅ **💬 Enhanced Response Types** - New `TextResponse`, `FunctionCallResponse`, and `ThinkingResponse` types for better handling
-✅ **🖼️ Multimodal Support** - Text + Image input with Gemma 3 Nano models
-✅ **📨 Enhanced Message API** - Support for different message types including tool responses
-✅ **⚙️ Backend Switching** - Choose between CPU and GPU backends individually for each model in the example app
-✅ **🔍 Advanced Model Filtering** - Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
-✅ **📊 Model Sorting** - Sort models alphabetically, by size, or use default order
-✅ **🚀 New Models** - Added Gemma 3 270M, TinyLlama 1.1B, Hammer 2.1 0.5B, and Llama 3.2 1B support
-✅ **🌐 Cross-Platform** - Works on Android, iOS, and Web (including multimodal)
-✅ **💾 Memory Optimization** - Better resource management for multimodal models
 
 **Coming Soon:**
 - On-Device RAG Pipelines
 - Desktop Support (macOS, Windows, Linux)
 - Audio & Video Input
 - Audio Output (Text-to-Speech)
+- Web Caching
+- System Instruction support

@@ -1,34 +1,7 @@
 ## [0.11.5] - 2025-10-14
-
-### Documentation
-- 🔥 **BREAKING DOCUMENTATION**: Removed obsolete planning documents
-  - These documents incorrectly claimed Modern API was incomplete
-  - **Clarification**: Modern API has been FULLY FUNCTIONAL since v0.11.4
-- ✅ Updated `CLAUDE.md` with complete Modern API workflow examples
-- ✅ Updated `README.md` with Modern API quick start guide
-- ✅ Added Modern API vs Legacy API comparison
-- ✅ Documented all 8 installation flows (Inference/Embedding × Network/Asset/Bundled/File)
-
-### Bug Fixes
-- 🐛 Fixed `_isInitializing` bug in example app (was `final` but needs to change)
-- 🐛 Standardized exception types across codebase (StateError, ArgumentError)
-
-### Code Quality
-- 🧹 Improved code consistency and error handling
-- 🔑 Eliminated hardcoded SharedPreferences keys in example app
-  - Created `AppKeys` constants class for centralized key management
-  - Replaced 4 instances of hardcoded `'auth_token'` string
-- 🔄 Eliminated code duplication in example app
-  - Created `AuthTokenService` for centralized token management
-  - Removed duplicate token methods from ModelDownloadService and EmbeddingModelDownloadService
-  - Both services now delegate to shared AuthTokenService
-- 🗑️ Removed obsolete TODO comments
-  - Removed "Phase 5 integration" TODO (Modern API fully functional)
-  - Removed "Add LoRA support" TODO (LoRA fully integrated in Modern API)
-  - Removed "Implement blob URL" TODOs (blob URLs fully implemented via WebJsInterop + BlobUrlManager)
-
-### Deprecated
-- ⚠️ Marked legacy asset/file management methods as deprecated with migration hints
+ - 🐛 Fixes: Some fixes for new Modern API
+ - ⚠️ Deprecated: Marked legacy asset/file management methods as deprecated with migration hints
+ - 📚 Documentation: Updated README with Modern API examples and complete parameter documentation
 
 ## 0.11.4
 - **New**: Fluent builder API with `FlutterGemma.installModel().fromNetwork/fromAsset/fromBundled/fromFile()`

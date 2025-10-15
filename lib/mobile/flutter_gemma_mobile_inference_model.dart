@@ -105,6 +105,7 @@ class MobileInferenceModel extends InferenceModel {
           _createCompleter = null;
         },
       );
+      completer.complete(session);
       return session;
     } catch (e, st) {
       completer.completeError(e, st);

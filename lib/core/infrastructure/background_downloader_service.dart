@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
@@ -55,9 +56,16 @@ class BackgroundDownloaderService implements DownloadService {
   Future<void> download(String url, String targetPath, {String? token}) async {
     await _ensureInitialized();
 
+    // Split targetPath into directory and filename for background_downloader
+    final file = File(targetPath);
+    final directory = file.parent.path;
+    final filename = file.uri.pathSegments.last;
+
     final task = DownloadTask(
       url: url,
-      filename: targetPath,
+      filename: filename,
+      directory: directory,
+      baseDirectory: BaseDirectory.root,
       headers: token != null ? {'Authorization': 'Bearer $token'} : {},
       updates: Updates.statusAndProgress,
     );

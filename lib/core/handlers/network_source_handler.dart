@@ -37,7 +37,7 @@ class NetworkSourceHandler implements SourceHandler {
     }
 
     // Generate filename from URL
-    final filename = path.basename(Uri.parse(source.url).path);
+    final filename = Uri.parse(source.url).pathSegments.last;
     final targetPath = await fileSystem.getTargetPath(filename);
 
     // Get token: prefer from source, fallback to constructor
@@ -70,7 +70,7 @@ class NetworkSourceHandler implements SourceHandler {
     }
 
     // Generate filename from URL
-    final filename = path.basename(Uri.parse(source.url).path);
+    final filename = Uri.parse(source.url).pathSegments.last;
     final targetPath = await fileSystem.getTargetPath(filename);
 
     // Get token: prefer from source, fallback to constructor

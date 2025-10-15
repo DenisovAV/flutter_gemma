@@ -175,7 +175,7 @@ class InferenceInstallationBuilder {
 
   String _extractFilename(ModelSource source) {
     return switch (source) {
-      NetworkSource(:final url) => path.basename(Uri.parse(url).path),
+      NetworkSource(:final url) => Uri.parse(url).pathSegments.last,
       AssetSource(:final path) => path.split('/').last,
       BundledSource(:final resourceName) => resourceName,
       FileSource(:final path) => path.split('/').last,

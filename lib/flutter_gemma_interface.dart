@@ -70,7 +70,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   /// Initialize vector store database.
   Future<void> initializeVectorStore(String databasePath);
-  
+
   /// Add document to vector store with pre-computed embedding.
   Future<void> addDocumentWithEmbedding({
     required String id,

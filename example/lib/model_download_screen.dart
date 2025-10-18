@@ -145,7 +145,8 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
             if (widget.model.needsAuth)
               RichText(
                 text: TextSpan(
-                  text: 'To create an access token, please visit your account settings of huggingface at ',
+                  text:
+                      'To create an access token, please visit your account settings of huggingface at ',
                   children: [
                     TextSpan(
                       text: 'https://huggingface.co/settings/tokens',
@@ -207,8 +208,10 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute<void>(builder: (context) {
-                        return ChatScreen(model: widget.model, selectedBackend: widget.selectedBackend);
+                      Navigator.pushReplacement(context,
+                          MaterialPageRoute<void>(builder: (context) {
+                        return ChatScreen(
+                            model: widget.model, selectedBackend: widget.selectedBackend);
                       }));
                     },
                     child: const Text('Use the model in Chat Screen'),

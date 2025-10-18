@@ -26,6 +26,7 @@ class InferenceInstallationBuilder {
   ModelSource? _modelSource;
   ModelSource? _loraSource;
   void Function(int progress)? _onProgress;
+  CancelToken? _cancelToken;
 
   /// Create builder with model identity
   InferenceInstallationBuilder({
@@ -111,19 +112,45 @@ class InferenceInstallationBuilder {
     return this;
   }
 
+  /// Set cancellation token for this installation
+  ///
+  /// The same token will be used for both model and LoRA downloads.
+  ///
+  /// Example:
+  /// ```dart
+  /// final cancelToken = CancelToken();
+  ///
+  /// final future = FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  ///   .fromNetwork(url)
+  ///   .withCancelToken(cancelToken)
+  ///   .install();
+  ///
+  /// // Cancel from elsewhere
+  /// cancelToken.cancel('User cancelled');
+  /// ```
+  InferenceInstallationBuilder withCancelToken(CancelToken cancelToken) {
+    _cancelToken = cancelToken;
+    return this;
+  }
+
   /// Execute the installation and automatically set as active inference model
   ///
   /// Returns [InferenceInstallation] with details about installed model.
   ///
   /// Throws:
   /// - [StateError] if no model source configured
+  /// - [DownloadCancelledException] if cancelled via cancelToken
   /// - [Exception] on installation failure
   ///
   /// Note: This method is idempotent - calling install() on an already-installed
   /// model will skip download and just set it as active.
   Future<InferenceInstallation> install() async {
+    // Check cancellation before starting
+    _cancelToken?.throwIfCancelled();
+
     if (_modelSource == null) {
-      throw StateError('Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().');
+      throw StateError(
+          'Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().');
     }
 
     // Create spec
@@ -150,17 +177,26 @@ class InferenceInstallationBuilder {
       final handlerRegistry = registry.sourceHandlerRegistry;
       final handler = handlerRegistry.getHandler(_modelSource!);
       if (_onProgress != null) {
-        await for (final progress in handler!.installWithProgress(_modelSource!)) {
+        await for (final progress in handler!.installWithProgress(
+          _modelSource!,
+          cancelToken: _cancelToken,
+        )) {
           _onProgress!(progress);
         }
       } else {
-        await handler!.install(_modelSource!);
+        await handler!.install(
+          _modelSource!,
+          cancelToken: _cancelToken,
+        );
       }
 
       // Install LoRA if provided
       if (_loraSource != null) {
         final loraHandler = handlerRegistry.getHandler(_loraSource!);
-        await loraHandler!.install(_loraSource!);
+        await loraHandler!.install(
+          _loraSource!,
+          cancelToken: _cancelToken,
+        );
       }
     }
 

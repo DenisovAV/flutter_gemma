@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 
@@ -35,7 +36,11 @@ class WebBundledSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is BundledSource;
 
   @override
-  Future<void> install(ModelSource source) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async {
+    // Web bundled resources are instant URL registration, no cancellation needed
     if (source is! BundledSource) {
       throw ArgumentError('WebBundledSourceHandler only supports BundledSource');
     }
@@ -64,7 +69,11 @@ class WebBundledSourceHandler implements SourceHandler {
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source) async* {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async* {
+    // Same as above - web bundled resources are instant
     if (source is! BundledSource) {
       throw ArgumentError('WebBundledSourceHandler only supports BundledSource');
     }

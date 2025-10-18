@@ -55,7 +55,7 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 4.0),
-                
+
                 // Backend switcher for inference models that support both
                 if (supportsBothBackends) ...[
                   Row(
@@ -98,7 +98,7 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                   ),
                   const SizedBox(height: 8.0),
                 ],
-                
+
                 Row(
                   children: [
                     Container(
@@ -119,7 +119,7 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                         ),
                       ),
                     ),
-                    
+
                     // Show dimension for embedding models
                     if (widget.model is EmbeddingModelInterface) ...[
                       const SizedBox(width: 8.0),
@@ -142,7 +142,7 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                         ),
                       ),
                     ],
-                    
+
                     // Show capabilities for inference models
                     if (widget.model is InferenceModelInterface) ...[
                       const SizedBox(width: 8.0),
@@ -167,19 +167,19 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
 
   List<Widget> _buildCapabilityChips(InferenceModelInterface model) {
     List<Widget> chips = [];
-    
+
     if (model.supportImage) {
       chips.add(_buildChip('📸', 'Multimodal', Colors.orange));
     }
-    
+
     if (model.supportsFunctionCalls) {
       chips.add(_buildChip('⚡', 'Functions', Colors.purple));
     }
-    
+
     if (model.supportsThinking) {
       chips.add(_buildChip('🧠', 'Thinking', Colors.teal));
     }
-    
+
     return chips;
   }
 
@@ -230,4 +230,3 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
     }
   }
 }
-

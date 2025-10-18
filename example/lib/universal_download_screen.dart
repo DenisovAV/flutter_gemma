@@ -15,8 +15,8 @@ class UniversalDownloadScreen extends StatefulWidget {
   final PreferredBackend? selectedBackend;
 
   const UniversalDownloadScreen({
-    super.key, 
-    required this.model, 
+    super.key,
+    required this.model,
     this.selectedBackend,
   });
 
@@ -28,9 +28,9 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   // Services
   ModelDownloadService? _inferenceDownloadService;
   EmbeddingModelDownloadService? _embeddingDownloadService;
-  
+
   bool needToDownload = true;
-  
+
   // Progress tracking
   double _progress = 0.0; // For inference models
   double _modelProgress = 0.0; // For embedding models
@@ -70,20 +70,20 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     } else {
       _token = await _inferenceDownloadService!.loadToken() ?? '';
     }
-    
+
     _tokenController.text = _token;
     await _checkModelExistence();
   }
 
   Future<void> _checkModelExistence() async {
     bool exists;
-    
+
     if (widget.model.isEmbeddingModel) {
       exists = await _embeddingDownloadService!.checkModelExistence(_token);
     } else {
       exists = await _inferenceDownloadService!.checkModelExistence(_token);
     }
-    
+
     setState(() {
       needToDownload = !exists;
     });
@@ -116,17 +116,16 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
 
     try {
       if (widget.model.isEmbeddingModel) {
-        await _embeddingDownloadService!.downloadModel(
-          widget.model.needsAuth ? _token : '', 
-          (modelProg, tokenizerProg) {
+        await _embeddingDownloadService!.downloadModel(widget.model.needsAuth ? _token : '',
+            (modelProg, tokenizerProg) {
           setState(() {
             _modelProgress = modelProg;
             _tokenizerProgress = tokenizerProg;
           });
         });
-        
+
         debugPrint('[UI] Embedding download completed');
-        
+
         setState(() {
           needToDownload = false;
         });
@@ -140,7 +139,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           },
         );
       }
-      
+
       setState(() {
         needToDownload = false;
       });
@@ -156,7 +155,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
       } else {
         await _inferenceDownloadService!.deleteModel();
       }
-      
+
       setState(() {
         needToDownload = true;
         _progress = 0.0;
@@ -167,7 +166,6 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
       _showErrorDialog(e.toString());
     }
   }
-
 
   void _showErrorDialog(String error) {
     showDialog(
@@ -201,25 +199,25 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             // Model info card
             _buildModelInfoCard(),
             const SizedBox(height: 24),
-            
+
             // Token input (only if auth required)
             if (widget.model.needsAuth) ...[
               _buildTokenInput(),
               const SizedBox(height: 24),
             ],
-            
+
             // Progress section
             if (needToDownload) _buildProgressSection(),
-            
+
             // Initialization section
             if (_isInitializing) _buildInitializationSection(),
-            
+
             // Action buttons
             const SizedBox(height: 24),
             _buildActionButtons(),
-            
+
             const Spacer(),
-            
+
             // License info
             if (widget.model.licenseUrl != null) _buildLicenseInfo(),
           ],
@@ -246,14 +244,18 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             ),
             const SizedBox(height: 12),
             _buildInfoRow('Size:', widget.model.size),
-            _buildInfoRow('Type:', widget.model.isEmbeddingModel ? 'Embedding Model' : 'Inference Model'),
-            
+            _buildInfoRow(
+                'Type:', widget.model.isEmbeddingModel ? 'Embedding Model' : 'Inference Model'),
             if (widget.model.isEmbeddingModel) ...[
-              _buildInfoRow('Dimension:', '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D'),
+              _buildInfoRow('Dimension:',
+                  '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D'),
             ] else ...[
-              if ((widget.model as InferenceModelInterface).supportImage) _buildInfoRow('Multimodal:', 'Yes'),
-              if ((widget.model as InferenceModelInterface).supportsFunctionCalls) _buildInfoRow('Functions:', 'Yes'),
-              if ((widget.model as InferenceModelInterface).supportsThinking) _buildInfoRow('Thinking:', 'Yes'),
+              if ((widget.model as InferenceModelInterface).supportImage)
+                _buildInfoRow('Multimodal:', 'Yes'),
+              if ((widget.model as InferenceModelInterface).supportsFunctionCalls)
+                _buildInfoRow('Functions:', 'Yes'),
+              if ((widget.model as InferenceModelInterface).supportsThinking)
+                _buildInfoRow('Thinking:', 'Yes'),
             ],
           ],
         ),
@@ -333,7 +335,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Model progress
         Text(
           'Model (${widget.model.size})',
@@ -350,10 +352,10 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           '${_modelProgress.toStringAsFixed(1)}%',
           style: const TextStyle(color: Colors.white60, fontSize: 12),
         ),
-        
+
         const SizedBox(height: 16),
-        
-        // Tokenizer progress  
+
+        // Tokenizer progress
         const Text(
           'Tokenizer (~2MB)',
           style: TextStyle(color: Colors.white70, fontSize: 14),
@@ -369,9 +371,9 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           '${_tokenizerProgress.toStringAsFixed(1)}%',
           style: const TextStyle(color: Colors.white60, fontSize: 12),
         ),
-        
+
         const SizedBox(height: 16),
-        
+
         // Overall progress
         Row(
           children: [
@@ -421,13 +423,15 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed: _isInitializing ? null : (needToDownload ? _downloadModel : _proceedToNextScreen),
+            onPressed:
+                _isInitializing ? null : (needToDownload ? _downloadModel : _proceedToNextScreen),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1a4a7c),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: Text(_isInitializing ? 'Initializing...' : (needToDownload ? 'Download' : 'Continue')),
+            child: Text(
+                _isInitializing ? 'Initializing...' : (needToDownload ? 'Download' : 'Continue')),
           ),
         ),
         const SizedBox(width: 12),

@@ -99,7 +99,8 @@ class StreamingThinkingWidget extends StatefulWidget {
   State<StreamingThinkingWidget> createState() => _StreamingThinkingWidgetState();
 }
 
-class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget> with TickerProviderStateMixin {
+class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
+    with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 

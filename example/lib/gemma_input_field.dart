@@ -69,8 +69,9 @@ class GemmaInputFieldState extends State<GemmaInputField> {
         ),
       );
     } catch (e) {
-      final message =
-          e.toString().contains('stop_not_supported') ? 'Stop generation not yet supported on this platform' : 'Failed to stop generation: $e';
+      final message = e.toString().contains('stop_not_supported')
+          ? 'Stop generation not yet supported on this platform'
+          : 'Failed to stop generation: $e';
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,7 +101,8 @@ class GemmaInputFieldState extends State<GemmaInputField> {
     });
 
     try {
-      final responseStream = await _gemma?.processMessage(widget.messages.last, useSyncMode: widget.useSyncMode);
+      final responseStream =
+          await _gemma?.processMessage(widget.messages.last, useSyncMode: widget.useSyncMode);
 
       if (responseStream != null) {
         _streamSubscription = responseStream.listen(
@@ -112,7 +114,8 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 } else if (response is TextResponse) {
                   _message = Message(text: '${_message.text}${response.token}', isUser: false);
                   // DEBUG: Track text accumulation
-                  debugPrint('📝 GemmaInputField: Text accumulated: "${response.token}" -> total: "${_message.text}"');
+                  debugPrint(
+                      '📝 GemmaInputField: Text accumulated: "${response.token}" -> total: "${_message.text}"');
                 } else if (response is ThinkingResponse) {
                   _thinkingContent += response.content;
                 } else if (response is FunctionCallResponse) {
@@ -149,12 +152,14 @@ class GemmaInputFieldState extends State<GemmaInputField> {
               }
 
               if (_pendingFunctionCall != null) {
-                debugPrint('🔧 GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
+                debugPrint(
+                    '🔧 GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
                 final text = _message.text.isNotEmpty ? _message.text : '...';
                 // DEBUG: Track what we're sending to ChatScreen
-                debugPrint('📤 GemmaInputField: Sending final text: "$text" (length: ${text.length})');
+                debugPrint(
+                    '📤 GemmaInputField: Sending final text: "$text" (length: ${text.length})');
                 widget.streamHandler(TextResponse(text));
               }
               setState(() {
@@ -186,14 +191,16 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   @override
   Widget build(BuildContext context) {
     // Determine whether to show thinking (only if last message is from user)
-    final shouldShowThinking =
-        widget.messages.isNotEmpty && widget.messages.last.isUser && (_thinkingContent.isNotEmpty || _completedThinking != null);
+    final shouldShowThinking = widget.messages.isNotEmpty &&
+        widget.messages.last.isUser &&
+        (_thinkingContent.isNotEmpty || _completedThinking != null);
 
     // Determine which message to display
     // If processing after function (not from user) - show empty for loading
-    final displayMessage = widget.isProcessing && (widget.messages.isEmpty || !widget.messages.last.isUser)
-        ? const Message(text: '', isUser: false) // Force loading indicator
-        : _message; // Regular accumulated message
+    final displayMessage =
+        widget.isProcessing && (widget.messages.isEmpty || !widget.messages.last.isUser)
+            ? const Message(text: '', isUser: false) // Force loading indicator
+            : _message; // Regular accumulated message
 
     return SingleChildScrollView(
       child: Column(

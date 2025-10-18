@@ -139,7 +139,6 @@ class FlutterGemma {
     return EmbeddingInstallationBuilder();
   }
 
-
   /// Check if a model is installed
   ///
   /// Parameters:

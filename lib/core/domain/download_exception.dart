@@ -15,40 +15,25 @@ extension DownloadErrorMessage on DownloadError {
   /// Returns a user-friendly error message
   String toUserMessage() {
     return switch (this) {
-      UnauthorizedError() =>
-        'Authentication required (HTTP 401).\n'
-        'Please provide a valid HuggingFace token using:\n'
-        'FlutterGemma.initialize(huggingFaceToken: "hf_...")',
-
-      ForbiddenError() =>
-        'Access forbidden (HTTP 403).\n'
-        'Your HuggingFace token is either invalid or does not have access to this model.\n'
-        'For gated models, visit the model page on HuggingFace and request access.',
-
-      NotFoundError() =>
-        'Model not found (HTTP 404).\n'
-        'Please check the URL and ensure the model exists.\n'
-        'Use /resolve/main/ format, not /blob/main/',
-
-      RateLimitedError() =>
-        'Rate limit exceeded (HTTP 429).\n'
-        'Please wait a few minutes before trying again.\n'
-        'Authenticated requests have higher rate limits.',
-
-      ServerError(:final statusCode) =>
-        'Server error (HTTP $statusCode).\n'
-        'The download service is experiencing issues.\n'
-        'Please try again later.',
-
-      NetworkError(:final message) =>
-        'Network error: $message\n'
-        'Please check your internet connection.',
-
-      CanceledError() =>
-        'Download was canceled.',
-
-      UnknownError(:final message) =>
-        'Download failed: $message',
+      UnauthorizedError() => 'Authentication required (HTTP 401).\n'
+          'Please provide a valid HuggingFace token using:\n'
+          'FlutterGemma.initialize(huggingFaceToken: "hf_...")',
+      ForbiddenError() => 'Access forbidden (HTTP 403).\n'
+          'Your HuggingFace token is either invalid or does not have access to this model.\n'
+          'For gated models, visit the model page on HuggingFace and request access.',
+      NotFoundError() => 'Model not found (HTTP 404).\n'
+          'Please check the URL and ensure the model exists.\n'
+          'Use /resolve/main/ format, not /blob/main/',
+      RateLimitedError() => 'Rate limit exceeded (HTTP 429).\n'
+          'Please wait a few minutes before trying again.\n'
+          'Authenticated requests have higher rate limits.',
+      ServerError(:final statusCode) => 'Server error (HTTP $statusCode).\n'
+          'The download service is experiencing issues.\n'
+          'Please try again later.',
+      NetworkError(:final message) => 'Network error: $message\n'
+          'Please check your internet connection.',
+      CanceledError() => 'Download was canceled.',
+      UnknownError(:final message) => 'Download failed: $message',
     };
   }
 

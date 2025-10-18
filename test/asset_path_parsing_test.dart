@@ -25,8 +25,7 @@ void main() {
 
       for (final entry in testCases.entries) {
         final result = entry.key.replaceFirst('asset://', '');
-        expect(result, equals(entry.value),
-          reason: 'Failed for input: ${entry.key}');
+        expect(result, equals(entry.value), reason: 'Failed for input: ${entry.key}');
       }
     });
 
@@ -39,8 +38,7 @@ void main() {
 
       for (final url in nonAssetUrls) {
         final result = url.replaceFirst('asset://', '');
-        expect(result, equals(url),
-          reason: 'Should not modify non-asset URL: $url');
+        expect(result, equals(url), reason: 'Should not modify non-asset URL: $url');
       }
     });
   });

@@ -76,7 +76,8 @@ final class NetworkSource extends ModelSource {
   int get hashCode => Object.hash(url, authToken);
 
   @override
-  String toString() => 'NetworkSource(url: $url, secure: $isSecure, hasToken: ${authToken != null})';
+  String toString() =>
+      'NetworkSource(url: $url, secure: $isSecure, hasToken: ${authToken != null})';
 }
 
 /// Asset source - copies from Flutter assets
@@ -131,8 +132,7 @@ final class AssetSource extends ModelSource {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is AssetSource && other.normalizedPath == normalizedPath;
+      identical(this, other) || other is AssetSource && other.normalizedPath == normalizedPath;
 
   @override
   int get hashCode => normalizedPath.hashCode;
@@ -172,8 +172,7 @@ final class BundledSource extends ModelSource {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BundledSource && other.resourceName == resourceName;
+      identical(this, other) || other is BundledSource && other.resourceName == resourceName;
 
   @override
   int get hashCode => resourceName.hashCode;

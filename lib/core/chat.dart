@@ -60,14 +60,20 @@ class InferenceChat {
     var messageToSend = message;
     // Only add tools prompt for the first user text message (not a tool response)
     // and only if the model supports function calls
-    if (message.isUser && message.type == MessageType.text && !_toolsInstructionSent && tools.isNotEmpty && !noTool && supportsFunctionCalls) {
+    if (message.isUser &&
+        message.type == MessageType.text &&
+        !_toolsInstructionSent &&
+        tools.isNotEmpty &&
+        !noTool &&
+        supportsFunctionCalls) {
       _toolsInstructionSent = true;
       final toolsPrompt = _createToolsPrompt();
       final newText = '$toolsPrompt\n${message.text}';
       messageToSend = message.copyWith(text: newText);
     } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
       // Log warning if model doesn't support function calls but tools are provided
-      debugPrint('WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.');
+      debugPrint(
+          'WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.');
     }
 
     // --- DETAILED LOGGING ---
@@ -88,14 +94,16 @@ class InferenceChat {
   Future<ModelResponse> generateChatResponse() async {
     debugPrint('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final cleanedResponse = ModelThinkingFilter.cleanResponse(response, isThinking: isThinking, modelType: modelType, fileType: fileType);
+    final cleanedResponse = ModelThinkingFilter.cleanResponse(response,
+        isThinking: isThinking, modelType: modelType, fileType: fileType);
 
     if (cleanedResponse.isEmpty) {
       debugPrint('InferenceChat: Raw response from native model is EMPTY after cleaning.');
       return const TextResponse(''); // Return TextResponse instead of String
     }
 
-    debugPrint('InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
+    debugPrint(
+        'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
 
     // Try to parse as function call if tools are available and model supports function calls
     if (tools.isNotEmpty && supportsFunctionCalls) {
@@ -130,8 +138,9 @@ class InferenceChat {
     final originalStream = session.getResponseAsync().map((token) => TextResponse(token));
 
     // Apply thinking filter if needed using ModelThinkingFilter
-    final Stream<ModelResponse> filteredStream =
-        isThinking ? ModelThinkingFilter.filterThinkingStream(originalStream, modelType: modelType) : originalStream;
+    final Stream<ModelResponse> filteredStream = isThinking
+        ? ModelThinkingFilter.filterThinkingStream(originalStream, modelType: modelType)
+        : originalStream;
 
     await for (final response in filteredStream) {
       if (response is TextResponse) {
@@ -147,7 +156,8 @@ class InferenceChat {
           if (funcBuffer.isNotEmpty) {
             // We're already buffering - add token and check for completion
             funcBuffer += token;
-            debugPrint('InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars');
+            debugPrint(
+                'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars');
 
             // Check if we now have a complete JSON
             if (FunctionCallParser.isJsonComplete(funcBuffer)) {
@@ -232,7 +242,8 @@ class InferenceChat {
 
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
-      debugPrint('InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars');
+      debugPrint(
+          'InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars');
 
       // First try to extract message from JSON if it has message field
       if (FunctionCallParser.isJsonComplete(funcBuffer)) {
@@ -345,11 +356,12 @@ class InferenceChat {
         'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
     toolsPrompt.writeln(
         'When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
-    toolsPrompt
-        .writeln('After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
+    toolsPrompt.writeln(
+        'After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
     toolsPrompt.writeln('<tool_code>');
     for (final tool in tools) {
-      toolsPrompt.writeln('${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
+      toolsPrompt
+          .writeln('${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
     }
     toolsPrompt.writeln('</tool_code>');
     return toolsPrompt.toString();

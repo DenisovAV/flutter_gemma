@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
@@ -31,7 +32,10 @@ class NetworkSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is NetworkSource;
 
   @override
-  Future<void> install(ModelSource source) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
@@ -41,11 +45,15 @@ class NetworkSourceHandler implements SourceHandler {
     final targetPath = await fileSystem.getTargetPath(filename);
 
     // Get token: prefer from source, fallback to constructor
-    final token = source.authToken ??
-        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
+    final token = source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
-    // Download file
-    await downloadService.download(source.url, targetPath, token: token);
+    // Download file with cancellation support
+    await downloadService.download(
+      source.url,
+      targetPath,
+      token: token,
+      cancelToken: cancelToken,
+    );
 
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(targetPath);
@@ -64,7 +72,10 @@ class NetworkSourceHandler implements SourceHandler {
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source) async* {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async* {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
@@ -74,15 +85,15 @@ class NetworkSourceHandler implements SourceHandler {
     final targetPath = await fileSystem.getTargetPath(filename);
 
     // Get token: prefer from source, fallback to constructor
-    final token = source.authToken ??
-        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
+    final token = source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
-    // Download with progress tracking and configurable retries
+    // Download with progress tracking, configurable retries, and cancellation support
     await for (final progress in downloadService.downloadWithProgress(
       source.url,
       targetPath,
       token: token,
       maxRetries: maxDownloadRetries,
+      cancelToken: cancelToken,
     )) {
       yield progress;
     }

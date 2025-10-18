@@ -195,11 +195,13 @@ final _platformService = PlatformService();
 class FlutterGemmaMobile extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
-  InferenceModelSpec? _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
+  InferenceModelSpec?
+      _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
 
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
-  EmbeddingModelSpec? _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
+  EmbeddingModelSpec?
+      _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
 
   // Made public for example app integration
   late final MobileModelManager _unifiedManager = MobileModelManager();
@@ -229,7 +231,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
     // No active inference model - user must set one first
     if (activeModel == null) {
-      throw StateError('No active inference model set. Use `FlutterGemma.installModel()` or `modelManager.setActiveModel()` to set a model first');
+      throw StateError(
+          'No active inference model set. Use `FlutterGemma.installModel()` or `modelManager.setActiveModel()` to set a model first');
     }
 
     // Check if singleton exists and matches the active model
@@ -262,7 +265,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     final isModelInstalled = await manager.isModelInstalled(activeModel);
     if (!isModelInstalled) {
       completer.completeError(
-        Exception('Active model is no longer installed. Use the `modelManager` to load the model first'),
+        Exception(
+            'Active model is no longer installed. Use the `modelManager` to load the model first'),
       );
       return completer.future;
     }
@@ -323,7 +327,6 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
   }
 
-
   @override
   Future<EmbeddingModel> createEmbeddingModel({
     String? modelPath,
@@ -337,13 +340,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
       // No active embedding model - user must set one first
       if (activeModel == null) {
-        throw StateError('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
+        throw StateError(
+            'No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
       }
 
       // Get the actual model file paths through unified system
       final modelFilePaths = await manager.getModelFilePaths(activeModel);
       if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        throw StateError('Embedding model file paths not found. Use the `modelManager` to load the model first');
+        throw StateError(
+            'Embedding model file paths not found. Use the `modelManager` to load the model first');
       }
 
       // Extract model and tokenizer paths from spec
@@ -355,13 +360,16 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       }
 
       // Check if singleton exists and matches the active model
-      if (_initEmbeddingCompleter != null && _initializedEmbeddingModel != null && _lastActiveEmbeddingSpec != null) {
+      if (_initEmbeddingCompleter != null &&
+          _initializedEmbeddingModel != null &&
+          _lastActiveEmbeddingSpec != null) {
         final currentSpec = _lastActiveEmbeddingSpec!;
         final requestedSpec = activeModel as EmbeddingModelSpec;
 
         if (currentSpec.name != requestedSpec.name) {
           // Active model changed - close old model and create new one
-          debugPrint('⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}');
+          debugPrint(
+              '⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}');
           debugPrint('🔄 Closing old embedding model and creating new one...');
           await _initializedEmbeddingModel?.close();
           // onClose callback will reset _initializedEmbeddingModel and _initEmbeddingCompleter
@@ -395,12 +403,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       final isModelInstalled = await manager.isModelInstalled(activeModel);
       if (!isModelInstalled) {
         completer.completeError(
-          Exception('Active embedding model is no longer installed. Use the `modelManager` to load the model first'),
+          Exception(
+              'Active embedding model is no longer installed. Use the `modelManager` to load the model first'),
         );
         return completer.future;
       }
     }
-  
+
     try {
       await _platformService.createEmbeddingModel(
         modelPath: modelPath,
@@ -483,7 +492,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
     final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
-    
+
     // Search similar vectors
     return await _platformService.searchSimilar(
       queryEmbedding: queryEmbedding,
@@ -502,4 +511,3 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     await _platformService.clearVectorStore();
   }
 }
-

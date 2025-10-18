@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/domain/download_exception.dart';
+import 'package:flutter_gemma/core/domain/download_error.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_gemma/core/infrastructure/blob_url_manager.dart';
-import 'package:flutter_gemma/core/domain/download_exception.dart';
-import 'package:flutter_gemma/core/domain/download_error.dart';
 
 /// Web implementation of DownloadService
 ///
@@ -37,7 +38,15 @@ class WebDownloadService implements DownloadService {
   );
 
   @override
-  Future<void> download(String url, String targetPath, {String? token}) async {
+  Future<void> download(
+    String url,
+    String targetPath, {
+    String? token,
+    CancelToken? cancelToken,
+  }) async {
+    // Check cancellation before starting
+    cancelToken?.throwIfCancelled();
+
     // On web, just register the URL - no actual download
     // MediaPipe will fetch it when creating a session
     _fileSystem.registerUrl(targetPath, url);
@@ -57,7 +66,11 @@ class WebDownloadService implements DownloadService {
     String targetPath, {
     String? token,
     int maxRetries = 10,
+    CancelToken? cancelToken,
   }) async* {
+    // Check cancellation before starting
+    cancelToken?.throwIfCancelled();
+
     if (token == null) {
       // PUBLIC PATH: Direct URL registration
       try {
@@ -71,11 +84,14 @@ class WebDownloadService implements DownloadService {
         // Register direct URL
         _fileSystem.registerUrl(targetPath, url);
 
-        // Simulate progress
+        // Simulate progress with cancellation checks
         const totalSteps = 20;
         const stepDelay = Duration(milliseconds: 50);
 
         for (int i = 0; i <= totalSteps; i++) {
+          // Check cancellation on each step
+          cancelToken?.throwIfCancelled();
+
           final progress = (i * 100 ~/ totalSteps).clamp(0, 100);
           yield progress;
 
@@ -85,10 +101,9 @@ class WebDownloadService implements DownloadService {
         }
 
         debugPrint('WebDownloadService: Completed registration for $targetPath');
-
       } catch (e) {
         debugPrint('WebDownloadService: Registration failed for $targetPath: $e');
-        if (e is ArgumentError) {
+        if (e is ArgumentError || e is DownloadCancelledException) {
           rethrow;
         }
         throw DownloadException(
@@ -99,7 +114,7 @@ class WebDownloadService implements DownloadService {
       // PRIVATE PATH: Fetch with auth
       debugPrint('WebDownloadService: Starting authenticated download for $targetPath');
 
-      yield* _downloadWithAuth(url, targetPath, token);
+      yield* _downloadWithAuth(url, targetPath, token, cancelToken);
     }
   }
 
@@ -107,8 +122,12 @@ class WebDownloadService implements DownloadService {
     String url,
     String targetPath,
     String authToken,
+    CancelToken? cancelToken,
   ) async* {
     try {
+      // Check cancellation before starting
+      cancelToken?.throwIfCancelled();
+
       var lastProgress = 0;
 
       final blobUrl = await _jsInterop.fetchWithAuthAndCreateBlob(
@@ -121,11 +140,14 @@ class WebDownloadService implements DownloadService {
         },
       );
 
-      // Yield progress updates
+      // Yield progress updates with cancellation checks
       for (int i = 0; i <= lastProgress; i += 5) {
+        cancelToken?.throwIfCancelled();
         yield i;
         await Future.delayed(const Duration(milliseconds: 10));
       }
+
+      cancelToken?.throwIfCancelled();
       yield 100;
 
       // Register blob URL
@@ -134,40 +156,19 @@ class WebDownloadService implements DownloadService {
 
       debugPrint('WebDownloadService: Completed authenticated download for $targetPath');
       debugPrint('WebDownloadService: Blob URL created: $blobUrl');
-
     } on JsInteropException catch (e) {
       debugPrint('WebDownloadService: Authenticated download failed: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download authenticated model: $e'),
       );
+    } on DownloadCancelledException {
+      debugPrint('WebDownloadService: Download cancelled for $targetPath');
+      rethrow;
     } catch (e) {
       debugPrint('WebDownloadService: Download failed for $targetPath: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download model: $e'),
       );
     }
-  }
-
-  @override
-  Future<bool> canResume(String taskId) async {
-    // Resume is not supported on web
-    // Downloads are instant (just URL registration)
-    return false;
-  }
-
-  @override
-  Future<void> resume(String taskId) async {
-    // Resume is not supported on web
-    throw UnsupportedError(
-      'Resume is not supported on web platform. '
-      'Downloads are instant (URL registration only).',
-    );
-  }
-
-  @override
-  Future<void> cancel(String taskId) async {
-    // Cancel is a no-op on web since there's no actual download
-    // The URL registration happens instantly
-    debugPrint('WebDownloadService: Cancel called for $taskId (no-op on web)');
   }
 }

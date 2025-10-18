@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/services/asset_loader.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:flutter_gemma/core/services/protected_files_registry.dart';
@@ -37,21 +38,23 @@ class MockFileSystemService implements FileSystemService {
 
 class MockDownloadService implements DownloadService {
   @override
-  Future<void> cancel(String taskId) async {}
+  Future<void> download(
+    String url,
+    String targetPath, {
+    String? token,
+    CancelToken? cancelToken,
+  }) async {}
 
   @override
-  Future<bool> canResume(String taskId) async => false;
-
-  @override
-  Future<void> download(String url, String targetPath, {String? token}) async {}
-
-  @override
-  Stream<int> downloadWithProgress(String url, String targetPath, {String? token, int maxRetries = 10}) async* {
+  Stream<int> downloadWithProgress(
+    String url,
+    String targetPath, {
+    String? token,
+    int maxRetries = 10,
+    CancelToken? cancelToken,
+  }) async* {
     yield 100;
   }
-
-  @override
-  Future<void> resume(String taskId) async {}
 }
 
 class MockAssetLoader implements AssetLoader {

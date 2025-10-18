@@ -123,7 +123,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       fileType: fileType,
       maxTokens: maxTokens,
       loraRanks: loraRanks,
-      modelManager: modelManager as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
+      modelManager:
+          modelManager as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
       supportImage: supportImage, // Passing the flag
       maxNumImages: maxNumImages,
       onClose: () {
@@ -145,7 +146,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     if (modelPath == null || tokenizerPath == null) {
       // Web: Embedding models not fully supported yet, but keep API consistent
       if (modelManager.activeEmbeddingModel == null) {
-        throw StateError('No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
+        throw StateError(
+            'No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
       }
 
       // TODO: Implement full embedding model support on web
@@ -269,23 +271,24 @@ class WebInferenceModel extends InferenceModel {
         throw Exception('Model path not found in file paths');
       }
 
-      final fileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm'.toJS).toDart;
+      final fileset = await FilesetResolver.forGenAiTasks(
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm'.toJS)
+          .toDart;
 
       // Get LoRA path if available
       final loraPathToUse = loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
       final config = LlmInferenceOptions(
-        baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelPath),
-        maxTokens: maxTokens,
-        randomSeed: randomSeed,
-        topK: topK,
-        temperature: temperature,
-        topP: topP,
-        supportedLoraRanks: !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
-        loraPath: !hasLoraParams ? null : loraPathToUse,
-        maxNumImages: supportImage ? (maxNumImages ?? 1) : null
-      );
+          baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelPath),
+          maxTokens: maxTokens,
+          randomSeed: randomSeed,
+          topK: topK,
+          temperature: temperature,
+          topP: topP,
+          supportedLoraRanks: !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
+          loraPath: !hasLoraParams ? null : loraPathToUse,
+          maxNumImages: supportImage ? (maxNumImages ?? 1) : null);
 
       final llmInference = await LlmInference.createFromOptions(fileset, config).toDart;
 
@@ -297,9 +300,10 @@ class WebInferenceModel extends InferenceModel {
         onClose: onClose,
       );
       completer.complete(session);
-      return session;
-    } catch (e) {
-      throw Exception("Failed to create session: $e");
+      return completer.future;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      rethrow;
     }
   }
 
@@ -337,7 +341,8 @@ class WebModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     if (kDebugMode) {
-      debugPrint('🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
+      debugPrint(
+          '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
     }
 
     final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
@@ -345,7 +350,8 @@ class WebModelSession extends InferenceModelSession {
     // Add text part
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
-      debugPrint('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+      debugPrint(
+          '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
     }
 
     // Handle image processing for web
@@ -387,13 +393,12 @@ class WebModelSession extends InferenceModelSession {
 
     // If only text parts, join them
     if (_promptParts.every((part) => part is TextPromptPart)) {
-      final fullText = _promptParts
-          .cast<TextPromptPart>()
-          .map((part) => part.text)
-          .join('');
+      final fullText = _promptParts.cast<TextPromptPart>().map((part) => part.text).join('');
       if (kDebugMode) {
-        debugPrint('📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
-        debugPrint('📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
+        debugPrint(
+            '📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
+        debugPrint(
+            '📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
       }
       return fullText.toJS;
     }
@@ -413,13 +418,16 @@ class WebModelSession extends InferenceModelSession {
 
       if (part is TextPromptPart) {
         if (kDebugMode) {
-          debugPrint('📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
+          debugPrint(
+              '📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
         }
         jsArray.add(part.text.toJS);
       } else if (part is ImagePromptPart) {
         if (kDebugMode) {
-          debugPrint('🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
-          debugPrint('🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
+          debugPrint(
+              '🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
+          debugPrint(
+              '🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
         }
 
         // Create proper image object for MediaPipe
@@ -440,7 +448,8 @@ class WebModelSession extends InferenceModelSession {
     jsArray.add('<ctrl100>\n<ctrl99>model\n'.toJS);
 
     if (kDebugMode) {
-      debugPrint('✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
+      debugPrint(
+          '✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
       debugPrint('🎯 _createPromptArray: Array structure ready for MediaPipe');
     }
 
@@ -478,7 +487,8 @@ class WebModelSession extends InferenceModelSession {
 
       if (kDebugMode) {
         debugPrint('✅ getResponse: Successfully generated response of length ${response.length}');
-        debugPrint('✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
+        debugPrint(
+            '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
       }
 
       // Don't add response back to promptParts - that's handled by InferenceChat
@@ -520,7 +530,8 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                debugPrint('📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                debugPrint(
+                    '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
               if (complete) {
@@ -539,7 +550,8 @@ class WebModelSession extends InferenceModelSession {
         );
       } else {
         if (kDebugMode) {
-          debugPrint('🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
+          debugPrint(
+              '🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
         }
         llmInference.generateResponseMultimodal(
           promptArray,
@@ -548,7 +560,8 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                debugPrint('🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                debugPrint(
+                    '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
               if (complete) {

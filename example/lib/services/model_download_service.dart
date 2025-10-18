@@ -34,8 +34,8 @@ class ModelDownloadService {
     final directory = await getApplicationDocumentsDirectory();
     // Apply Android path correction for consistency with unified download system
     final correctedPath = directory.path.contains('/data/user/0/')
-      ? directory.path.replaceFirst('/data/user/0/', '/data/data/')
-      : directory.path;
+        ? directory.path.replaceFirst('/data/user/0/', '/data/data/')
+        : directory.path;
     return '$correctedPath/$modelFilename';
   }
 
@@ -54,7 +54,8 @@ class ModelDownloadService {
       final file = File(filePath);
 
       // Check remote file size
-      final Map<String, String> headers = token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
+      final Map<String, String> headers =
+          token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
       final headResponse = await http.head(Uri.parse(modelUrl), headers: headers);
 
       if (headResponse.statusCode == 200) {
@@ -87,12 +88,9 @@ class ModelDownloadService {
       await FlutterGemma.installModel(
         modelType: modelType,
         fileType: fileType,
-      )
-          .fromNetwork(modelUrl, token: authToken)
-          .withProgress((progress) {
-            onProgress(progress.toDouble());
-          })
-          .install();
+      ).fromNetwork(modelUrl, token: authToken).withProgress((progress) {
+        onProgress(progress.toDouble());
+      }).install();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error downloading model: $e');

@@ -18,7 +18,7 @@ import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'platform/mobile_service_factory.dart'
-  if (dart.library.js_interop) 'platform/web_service_factory.dart' as platform;
+    if (dart.library.js_interop) 'platform/web_service_factory.dart' as platform;
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_protected_registry.dart';
 
 /// Dependency Injection Container for managing service lifecycle
@@ -66,8 +66,8 @@ class ServiceRegistry {
   // Handlers (created once with dependencies)
   late final NetworkSourceHandler _networkHandler;
   late final SourceHandler _assetHandler;
-  late final SourceHandler _bundledHandler;  // Changed from BundledSourceHandler
-  late final SourceHandler _fileHandler;      // Changed from FileSourceHandler
+  late final SourceHandler _bundledHandler; // Changed from BundledSourceHandler
+  late final SourceHandler _fileHandler; // Changed from FileSourceHandler
 
   // Handler registry
   late final SourceHandlerRegistry _sourceHandlerRegistry;
@@ -207,12 +207,12 @@ class ServiceRegistry {
       );
     }
 
-    _downloadService = downloadService ?? _createDefaultDownloadService(
-      _fileSystemService,
-    );
+    _downloadService = downloadService ??
+        _createDefaultDownloadService(
+          _fileSystemService,
+        );
     _modelRepository = modelRepository ?? SharedPreferencesModelRepository();
-    _protectedFilesRegistry =
-        protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
+    _protectedFilesRegistry = protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
 
     // Initialize handlers with dependencies
     _networkHandler = NetworkSourceHandler(
@@ -315,8 +315,7 @@ class ServiceRegistry {
 
   ModelRepository get modelRepository => _modelRepository;
 
-  ProtectedFilesRegistry get protectedFilesRegistry =>
-      _protectedFilesRegistry;
+  ProtectedFilesRegistry get protectedFilesRegistry => _protectedFilesRegistry;
 
   // Handlers (if needed directly)
 

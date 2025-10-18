@@ -171,10 +171,8 @@ class ModelFileSystemManager {
 
       // Check database records
       final records = await downloader.database.allRecords();
-      if (records.any((record) =>
-        record.task.filename == filename &&
-        record.status != TaskStatus.complete
-      )) {
+      if (records.any(
+          (record) => record.task.filename == filename && record.status != TaskStatus.complete)) {
         return true;
       }
 
@@ -219,7 +217,6 @@ class ModelFileSystemManager {
     debugPrint('Cleaned up $deletedCount orphaned files');
     return deletedCount;
   }
-
 
   /// Safely deletes a model file
   static Future<void> deleteModelFile(String filename) async {

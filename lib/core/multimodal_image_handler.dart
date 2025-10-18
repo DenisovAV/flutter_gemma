@@ -19,7 +19,7 @@ class MultimodalImageHandler {
   }) async {
     try {
       debugPrint('MultimodalImageHandler: Starting image processing for $modelType...');
-      
+
       // Step 1: Validate image for vision encoder compatibility
       ProcessedImage? processedImage;
       if (enableProcessing) {
@@ -37,7 +37,7 @@ class MultimodalImageHandler {
           originalFormat: originalFormat ?? format,
         );
       }
-      
+
       // Step 2: Validate for specific vision encoder
       if (enableValidation) {
         final encoderType = _getVisionEncoderType(modelType);
@@ -46,16 +46,15 @@ class MultimodalImageHandler {
           encoderType: encoderType,
           originalFormat: processedImage.originalFormat,
         );
-        
+
         if (!validationResult.isValid) {
           throw VisionEncoderValidationException(
-            'Image validation failed: ${validationResult.message}'
-          );
+              'Image validation failed: ${validationResult.message}');
         }
       }
-      
+
       debugPrint('MultimodalImageHandler: Image processing completed successfully');
-      
+
       return MultimodalImageResult(
         success: true,
         processedImage: processedImage,
@@ -64,7 +63,7 @@ class MultimodalImageHandler {
       );
     } catch (e) {
       debugPrint('MultimodalImageHandler: Image processing failed - $e');
-      
+
       // Handle the error and provide recovery suggestions
       final errorResult = ImageErrorHandler.handleImageProcessingError(
         e,
@@ -72,7 +71,7 @@ class MultimodalImageHandler {
         imageBytes: imageBytes,
         context: 'MultimodalImageHandler.processImageForAI',
       );
-      
+
       return MultimodalImageResult(
         success: false,
         error: errorResult,
@@ -81,7 +80,7 @@ class MultimodalImageHandler {
       );
     }
   }
-  
+
   /// Processes image with comprehensive validation
   static Future<ProcessedImage> _processImageWithValidation(
     Uint8List imageBytes,
@@ -93,13 +92,14 @@ class MultimodalImageHandler {
       imageBytes,
       originalFormat: originalFormat,
     );
-    
-    debugPrint('MultimodalImageHandler: Image processed - ${processedImage.width}x${processedImage.height}, '
+
+    debugPrint(
+        'MultimodalImageHandler: Image processed - ${processedImage.width}x${processedImage.height}, '
         'Format: ${processedImage.format}, Base64 Length: ${processedImage.base64Length}');
-    
+
     return processedImage;
   }
-  
+
   /// Creates a properly formatted message for multimodal AI models
   static Message createMultimodalMessage({
     required String text,
@@ -109,16 +109,16 @@ class MultimodalImageHandler {
   }) {
     try {
       debugPrint('MultimodalImageHandler: Creating multimodal message for $modelType...');
-      
+
       // Validate inputs
       if (text.isEmpty) {
         throw ArgumentError('Text content cannot be empty');
       }
-      
+
       if (processedImage.base64String.isEmpty) {
         throw ArgumentError('Processed image Base64 string cannot be empty');
       }
-      
+
       // Create the message with proper image handling
       return Message.withImage(
         text: text,
@@ -127,13 +127,13 @@ class MultimodalImageHandler {
       );
     } catch (e) {
       debugPrint('MultimodalImageHandler: Failed to create multimodal message - $e');
-      
+
       // Try to create a fallback text-only message
       final fallbackText = '$text\n[Note: Image could not be processed properly]';
       return Message.text(text: fallbackText, isUser: isUser);
     }
   }
-  
+
   /// Creates a properly tokenized prompt for the AI model
   static String createTokenizedPrompt({
     required String text,
@@ -142,26 +142,26 @@ class MultimodalImageHandler {
   }) {
     try {
       debugPrint('MultimodalImageHandler: Creating tokenized prompt for $modelType...');
-      
+
       // Use ImageTokenizer to create properly formatted prompt
       final prompt = tokenizer.ImageTokenizer.createImagePrompt(
         text: text,
         processedImage: processedImage,
         modelType: _convertToTokenizerModelType(modelType),
       );
-      
+
       // Validate the prompt contains proper image tokens
       final hasValidTokens = tokenizer.ImageTokenizer.validateImageTokens(prompt, 1);
       if (!hasValidTokens) {
         debugPrint('MultimodalImageHandler: Warning - Prompt may have tokenization issues');
       }
-      
+
       debugPrint('MultimodalImageHandler: Tokenized prompt created (${prompt.length} chars)');
-      
+
       return prompt;
     } catch (e) {
       debugPrint('MultimodalImageHandler: Tokenization failed - $e');
-      
+
       // Handle tokenization error
       final errorResult = ImageErrorHandler.handleTokenizationError(
         e,
@@ -170,12 +170,12 @@ class MultimodalImageHandler {
         prompt: text,
         expectedImageCount: 1,
       );
-      
+
       // Return fallback prompt
       return tokenizer.ImageTokenizer.createFallbackPrompt(text, errorMessage: errorResult.message);
     }
   }
-  
+
   /// Validates and handles model responses for corruption patterns
   static ResponseValidationResult validateModelResponse(
     String response, {
@@ -184,17 +184,18 @@ class MultimodalImageHandler {
   }) {
     try {
       debugPrint('MultimodalImageHandler: Validating model response...');
-      
+
       // Detect corruption patterns
       final corruptionResult = ImageErrorHandler.detectResponseCorruption(response);
-      
+
       if (corruptionResult.isCorrupted) {
-        debugPrint('MultimodalImageHandler: Corruption detected with ${corruptionResult.confidence.toStringAsFixed(2)} confidence');
-        
+        debugPrint(
+            'MultimodalImageHandler: Corruption detected with ${corruptionResult.confidence.toStringAsFixed(2)} confidence');
+
         // Log detailed analysis
         debugPrint('Corruption Analysis: ${corruptionResult.analysis}');
         debugPrint('Suggested Action: ${corruptionResult.suggestedAction}');
-        
+
         return ResponseValidationResult(
           isValid: false,
           isCorrupted: true,
@@ -204,21 +205,21 @@ class MultimodalImageHandler {
           originalResponse: response,
         );
       }
-      
+
       debugPrint('MultimodalImageHandler: Response validation passed');
 
       // BUG FIX: When NO corruption is detected, return success result
       return ResponseValidationResult(
-        isValid: true,  // Response is valid - no corruption detected
-        isCorrupted: false,  // Not corrupted
-        confidence: 0.0,  // Low confidence in corruption (none detected)
+        isValid: true, // Response is valid - no corruption detected
+        isCorrupted: false, // Not corrupted
+        confidence: 0.0, // Low confidence in corruption (none detected)
         analysis: {'status': 'validation_passed', 'length': response.length},
-        suggestedAction: ResponseAction.none,  // No action needed - response is good
+        suggestedAction: ResponseAction.none, // No action needed - response is good
         originalResponse: response,
       );
     } catch (e) {
       debugPrint('MultimodalImageHandler: Response validation failed - $e');
-      
+
       return ResponseValidationResult(
         isValid: false,
         isCorrupted: true,
@@ -229,7 +230,7 @@ class MultimodalImageHandler {
       );
     }
   }
-  
+
   /// Gets the appropriate vision encoder type for the model
   static VisionEncoderType _getVisionEncoderType(ModelType modelType) {
     switch (modelType) {
@@ -243,7 +244,7 @@ class MultimodalImageHandler {
         return VisionEncoderType.general;
     }
   }
-  
+
   /// Converts ModelType to ImageTokenizer ModelType
   static tokenizer.ModelType _convertToTokenizerModelType(ModelType modelType) {
     switch (modelType) {
@@ -258,7 +259,7 @@ class MultimodalImageHandler {
         return tokenizer.ModelType.general;
     }
   }
-  
+
   /// Converts corruption action to response action
   static ResponseAction _convertToResponseAction(CorruptionAction action) {
     switch (action) {
@@ -272,36 +273,36 @@ class MultimodalImageHandler {
         return ResponseAction.reprocessImage;
     }
   }
-  
+
   /// Utility method to safely extract Base64 from various formats
   static String? extractBase64FromPrompt(String prompt) {
     try {
       // Look for common Base64 patterns in prompts
       final base64Pattern = RegExp(r'[A-Za-z0-9+/]{100,}={0,2}');
       final matches = base64Pattern.allMatches(prompt);
-      
+
       if (matches.isNotEmpty) {
         // Return the longest match (most likely to be the image)
         String? longestMatch;
         int maxLength = 0;
-        
+
         for (final match in matches) {
           if (match.group(0)!.length > maxLength) {
             maxLength = match.group(0)!.length;
             longestMatch = match.group(0);
           }
         }
-        
+
         return longestMatch;
       }
-      
+
       return null;
     } catch (e) {
       debugPrint('Error extracting Base64 from prompt: $e');
       return null;
     }
   }
-  
+
   /// Creates a diagnostic report for troubleshooting
   static DiagnosticReport createDiagnosticReport({
     required Uint8List imageBytes,
@@ -312,16 +313,16 @@ class MultimodalImageHandler {
   }) {
     try {
       debugPrint('MultimodalImageHandler: Creating diagnostic report...');
-      
+
       final format = ImageProcessor.detectFormat(imageBytes);
       final sizeInKB = imageBytes.length / 1024;
-      
+
       final validationResult = VisionEncoderValidator.validateForEncoder(
         imageBytes: imageBytes,
         encoderType: _getVisionEncoderType(modelType),
         originalFormat: format,
       );
-      
+
       final report = DiagnosticReport(
         timestamp: DateTime.now(),
         modelType: modelType,
@@ -335,7 +336,7 @@ class MultimodalImageHandler {
         hasPrompt: prompt != null,
         hasResponse: response != null,
       );
-      
+
       debugPrint('MultimodalImageHandler: Diagnostic report created');
       return report;
     } catch (e) {
@@ -352,7 +353,7 @@ class MultimodalImageResult {
   final ErrorHandlingResult? error;
   final ModelType modelType;
   final bool validationPassed;
-  
+
   const MultimodalImageResult({
     required this.success,
     this.processedImage,
@@ -360,7 +361,7 @@ class MultimodalImageResult {
     required this.modelType,
     required this.validationPassed,
   });
-  
+
   bool get hasImage => processedImage != null;
   bool get hasError => error != null;
 }
@@ -373,7 +374,7 @@ class ResponseValidationResult {
   final Map<String, dynamic> analysis;
   final ResponseAction suggestedAction;
   final String originalResponse;
-  
+
   const ResponseValidationResult({
     required this.isValid,
     required this.isCorrupted,
@@ -382,7 +383,7 @@ class ResponseValidationResult {
     required this.suggestedAction,
     required this.originalResponse,
   });
-  
+
   bool get shouldReprocess => suggestedAction == ResponseAction.reprocessImage;
   bool get shouldValidate => suggestedAction == ResponseAction.validateImage;
 }
@@ -408,7 +409,7 @@ class DiagnosticReport {
   final bool hasProcessedImage;
   final bool hasPrompt;
   final bool hasResponse;
-  
+
   const DiagnosticReport({
     required this.timestamp,
     required this.modelType,
@@ -422,7 +423,7 @@ class DiagnosticReport {
     required this.hasPrompt,
     required this.hasResponse,
   });
-  
+
   @override
   String toString() {
     return 'DiagnosticReport(${timestamp.toIso8601String()}, '

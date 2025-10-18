@@ -1,4 +1,5 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 
 /// Base interface for handling different model source types
 /// Each source type (Network, Asset, Bundled, File) has its own handler implementation
@@ -27,15 +28,27 @@ abstract interface class SourceHandler {
   /// - BundledSource: accesses native resources
   /// - FileSource: registers external file path
   ///
+  /// Parameters:
+  /// - [source]: The model source to install from
+  /// - [cancelToken]: Optional token for cancelling the installation
+  ///
   /// Throws:
   /// - [UnsupportedError] if this handler doesn't support the source type
   /// - [ArgumentError] if the source is invalid
+  /// - [DownloadCancelledException] if cancelled via cancelToken
   /// - Platform-specific exceptions for download/file errors
-  Future<void> install(ModelSource source);
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  });
 
   /// Installs the model with progress tracking
   ///
   /// Returns a stream of progress percentages (0-100)
+  ///
+  /// Parameters:
+  /// - [source]: The model source to install from
+  /// - [cancelToken]: Optional token for cancelling the installation
   ///
   /// Note: Some sources may not support true progress:
   /// - AssetSource: simulates progress (copy is instant)
@@ -44,11 +57,28 @@ abstract interface class SourceHandler {
   ///
   /// Example:
   /// ```dart
-  /// await for (final progress in handler.installWithProgress(source)) {
-  ///   print('Progress: $progress%');
+  /// final cancelToken = CancelToken();
+  ///
+  /// try {
+  ///   await for (final progress in handler.installWithProgress(
+  ///     source,
+  ///     cancelToken: cancelToken,
+  ///   )) {
+  ///     print('Progress: $progress%');
+  ///   }
+  /// } catch (e) {
+  ///   if (CancelToken.isCancel(e)) {
+  ///     print('Installation cancelled');
+  ///   }
   /// }
   /// ```
-  Stream<int> installWithProgress(ModelSource source);
+  ///
+  /// Throws:
+  /// - [DownloadCancelledException] if cancelled via cancelToken
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  });
 
   /// Checks if this source supports resume after interruption
   ///

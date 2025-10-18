@@ -43,7 +43,8 @@ class EmbeddingModelDownloadService {
       final spec = EmbeddingModelSpec(
         name: FileNameUtils.getBaseName(model.filename),
         modelSource: ModelSource.network(model.url, authToken: token.isEmpty ? null : token),
-        tokenizerSource: ModelSource.network(model.tokenizerUrl, authToken: token.isEmpty ? null : token),
+        tokenizerSource:
+            ModelSource.network(model.tokenizerUrl, authToken: token.isEmpty ? null : token),
       );
 
       final installed = await manager.isModelInstalled(spec);
@@ -85,15 +86,12 @@ class EmbeddingModelDownloadService {
           .modelFromNetwork(model.url, token: authToken)
           .tokenizerFromNetwork(model.tokenizerUrl, token: authToken)
           .withModelProgress((progress) {
-            modelProgress = progress.toDouble();
-            onProgress(modelProgress, tokenizerProgress);
-          })
-          .withTokenizerProgress((progress) {
-            tokenizerProgress = progress.toDouble();
-            onProgress(modelProgress, tokenizerProgress);
-          })
-          .install();
-
+        modelProgress = progress.toDouble();
+        onProgress(modelProgress, tokenizerProgress);
+      }).withTokenizerProgress((progress) {
+        tokenizerProgress = progress.toDouble();
+        onProgress(modelProgress, tokenizerProgress);
+      }).install();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error downloading embedding model: $e');
@@ -143,5 +141,4 @@ class EmbeddingModelDownloadService {
       return await checkModelExistence('');
     }
   }
-
 }

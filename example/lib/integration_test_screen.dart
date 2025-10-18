@@ -66,7 +66,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
   // Asset paths (real files in example/assets/models/)
   static const inferenceAssetPath = 'assets/models/gemma3-270m-it-q8.task';
-  static const embeddingModelAssetPath = 'assets/models/embeddinggemma-300M_seq1024_mixed-precision.tflite';
+  static const embeddingModelAssetPath =
+      'assets/models/embeddinggemma-300M_seq1024_mixed-precision.tflite';
   static const embeddingTokenizerAssetPath = 'assets/models/sentencepiece.model';
 
   @override
@@ -85,15 +86,19 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     if (Platform.isAndroid) {
       // Android: Use app's private storage (accessible via run-as in debug mode)
-      _customInferencePathController.text = '/data/data/dev.flutterberlin.flutter_gemma_example/app_flutter/gemma3-270m-it-q8.task';
-      _customEmbeddingModelPathController.text = '/data/data/dev.flutterberlin.flutter_gemma_example/app_flutter/embeddinggemma-300M_seq1024_mixed-precision.tflite';
-      _customEmbeddingTokenizerPathController.text = '/data/data/dev.flutterberlin.flutter_gemma_example/app_flutter/sentencepiece.model';
+      _customInferencePathController.text =
+          '/data/data/dev.flutterberlin.flutter_gemma_example/app_flutter/gemma3-270m-it-q8.task';
+      _customEmbeddingModelPathController.text =
+          '/data/data/dev.flutterberlin.flutter_gemma_example/app_flutter/embeddinggemma-300M_seq1024_mixed-precision.tflite';
+      _customEmbeddingTokenizerPathController.text =
+          '/data/data/dev.flutterberlin.flutter_gemma_example/app_flutter/sentencepiece.model';
     } else if (Platform.isIOS) {
       // iOS: Use Documents directory
       try {
         final documentsDir = await getApplicationDocumentsDirectory();
         _customInferencePathController.text = '${documentsDir.path}/gemma3-270m-it-q8.task';
-        _customEmbeddingModelPathController.text = '${documentsDir.path}/embeddinggemma-300M_seq1024_mixed-precision.tflite';
+        _customEmbeddingModelPathController.text =
+            '${documentsDir.path}/embeddinggemma-300M_seq1024_mixed-precision.tflite';
         _customEmbeddingTokenizerPathController.text = '${documentsDir.path}/sentencepiece.model';
       } catch (e) {
         debugPrint('Failed to get Documents directory: $e');
@@ -123,9 +128,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       }
 
       // Check for inference models (typically end with .task or .bin)
-      final inferenceModels = installedModels.where(
-        (id) => id.endsWith('.task') || id.endsWith('.bin')
-      ).toList();
+      final inferenceModels =
+          installedModels.where((id) => id.endsWith('.task') || id.endsWith('.bin')).toList();
 
       if (inferenceModels.isNotEmpty) {
         setState(() => _inferenceModelReady = true);
@@ -133,9 +137,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       }
 
       // Check for embedding models (typically .tflite and .model files)
-      final embeddingModels = installedModels.where(
-        (id) => id.endsWith('.tflite') || id.endsWith('.model')
-      ).toList();
+      final embeddingModels =
+          installedModels.where((id) => id.endsWith('.tflite') || id.endsWith('.model')).toList();
 
       if (embeddingModels.length >= 2) {
         setState(() => _embeddingModelReady = true);
@@ -292,9 +295,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       )
           .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore')
           .withProgress((progress) {
-            setState(() => _progress['modern_1'] = progress);
-          })
-          .install();
+        setState(() => _progress['modern_1'] = progress);
+      }).install();
 
       final modern1Size = await File(file3).length();
       _log('✅ Modern API Model 1: $modern1Size bytes');
@@ -310,9 +312,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       )
           .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Ruby.gitignore')
           .withProgress((progress) {
-            setState(() => _progress['modern_2'] = progress);
-          })
-          .install();
+        setState(() => _progress['modern_2'] = progress);
+      }).install();
 
       final modern2Size = await File(file4).length();
       _log('✅ Modern API Model 2: $modern2Size bytes');
@@ -372,12 +373,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         await FlutterGemma.installModel(
           modelType: legacy.ModelType.gemmaIt,
-        )
-            .fromNetwork(urls[i])
-            .withProgress((progress) {
-              setState(() => _progress['modern_seq${i + 1}'] = progress);
-            })
-            .install();
+        ).fromNetwork(urls[i]).withProgress((progress) {
+          setState(() => _progress['modern_seq${i + 1}'] = progress);
+        }).install();
 
         final size = await File(file).length();
         _log('✅ Modern Model ${i + 1}/3: $size bytes');
@@ -420,12 +418,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       await FlutterGemma.installModel(
         modelType: legacy.ModelType.gemmaIt,
-      )
-          .fromFile(externalFile.path)
-          .withProgress((p) {
-            setState(() => _progress['fromFile'] = p);
-          })
-          .install();
+      ).fromFile(externalFile.path).withProgress((p) {
+        setState(() => _progress['fromFile'] = p);
+      }).install();
 
       _log('✅ Modern: fromFile completed');
 
@@ -485,7 +480,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // Verify monotonic increase
       for (var i = 1; i < legacyProgress.length; i++) {
         if (legacyProgress[i] < legacyProgress[i - 1]) {
-          throw Exception('Legacy: Progress decreased: ${legacyProgress[i]} < ${legacyProgress[i - 1]}');
+          throw Exception(
+              'Legacy: Progress decreased: ${legacyProgress[i]} < ${legacyProgress[i - 1]}');
         }
       }
 
@@ -507,17 +503,17 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       )
           .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Swift.gitignore')
           .withProgress((progress) {
-            modernProgress.add(progress);
-            setState(() => _progress['modern_progress'] = progress);
-          })
-          .install();
+        modernProgress.add(progress);
+        setState(() => _progress['modern_progress'] = progress);
+      }).install();
 
       _log('✅ Modern: Complete with ${modernProgress.length} updates');
 
       // Verify monotonic increase
       for (var i = 1; i < modernProgress.length; i++) {
         if (modernProgress[i] < modernProgress[i - 1]) {
-          throw Exception('Modern: Progress decreased: ${modernProgress[i]} < ${modernProgress[i - 1]}');
+          throw Exception(
+              'Modern: Progress decreased: ${modernProgress[i]} < ${modernProgress[i - 1]}');
         }
       }
 
@@ -561,7 +557,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         await FlutterGemma.installModel(
           modelType: legacy.ModelType.gemmaIt,
         )
-            .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/nonexistent_file_12345.txt')
+            .fromNetwork(
+                'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_file_12345.txt')
             .install();
         throw Exception('Modern: Should have thrown 404 error');
       } catch (e) {
@@ -590,7 +587,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       try {
         await for (final _ in SmartDownloader.downloadWithProgress(
-          url: 'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt',
+          url:
+              'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt',
           targetPath: legacyFile,
           maxRetries: 3,
         )) {
@@ -618,7 +616,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         await FlutterGemma.installModel(
           modelType: legacy.ModelType.gemmaIt,
         )
-            .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt')
+            .fromNetwork(
+                'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt')
             .install();
         throw Exception('Modern: Should have thrown HTTP error');
       } catch (e) {
@@ -660,7 +659,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       await File(filePath).delete().catchError((_) => File(filePath));
 
-      const url = 'https://huggingface.co/litert-community/Hammer2.1-0.5b/resolve/main/hammer2p1_05b_.task';
+      const url =
+          'https://huggingface.co/litert-community/Hammer2.1-0.5b/resolve/main/hammer2p1_05b_.task';
 
       _log('📥 Starting download (509 MB model)...');
       _log('⏱️  Will wait 10-15 seconds then you kill the app...');
@@ -811,9 +811,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       final records = await downloader.database.allRecords();
       final record = records.cast<TaskRecord?>().firstWhere(
-        (r) => r?.task.filename == filename,
-        orElse: () => null,
-      );
+            (r) => r?.task.filename == filename,
+            orElse: () => null,
+          );
 
       if (record == null) {
         _log('⚠️  Task not in database - resumeFromBackground() should restore it');
@@ -823,9 +823,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // Check again
         final records2 = await downloader.database.allRecords();
         final record2 = records2.cast<TaskRecord?>().firstWhere(
-          (r) => r?.task.filename == filename,
-          orElse: () => null,
-        );
+              (r) => r?.task.filename == filename,
+              orElse: () => null,
+            );
 
         if (record2 == null) {
           throw Exception('❌ Task not restored by resumeFromBackground()!');
@@ -839,9 +839,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // Get the latest record
       final finalRecords = await downloader.database.allRecords();
       final taskRecord = finalRecords.cast<TaskRecord?>().firstWhere(
-        (r) => r?.task.filename == filename,
-        orElse: () => null,
-      );
+            (r) => r?.task.filename == filename,
+            orElse: () => null,
+          );
 
       if (taskRecord == null) {
         throw Exception('❌ Task disappeared!');
@@ -1045,17 +1045,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         )
             .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Dart.gitignore')
             .withProgress((progress) {
-              setState(() => _progress['modern_concurrent1'] = progress);
-            })
-            .install(),
+          setState(() => _progress['modern_concurrent1'] = progress);
+        }).install(),
         FlutterGemma.installModel(
           modelType: legacy.ModelType.gemmaIt,
         )
             .fromNetwork('https://raw.githubusercontent.com/github/gitignore/main/Kotlin.gitignore')
             .withProgress((progress) {
-              setState(() => _progress['modern_concurrent2'] = progress);
-            })
-            .install(),
+          setState(() => _progress['modern_concurrent2'] = progress);
+        }).install(),
       ]);
 
       final modernSize1 = await File(modernFile1).length();
@@ -1147,73 +1145,74 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Future<void> _testBundledInferenceLegacy_internal() async {
     _log('📦 [LEGACY] Testing bundled inference model (zero-copy)...');
 
-      // Clean all bundled-related SharedPreferences to ensure fresh start
-      _log('🧹 Cleaning SharedPreferences to ensure fresh start...');
-      final prefs = await SharedPreferences.getInstance();
-      final allKeys = prefs.getKeys();
-      final bundledKeys = allKeys.where((key) =>
-        key.startsWith('bundled_path_') ||
-        key == 'installed_models' ||
-        key == 'installed_loras' ||
-        key == 'installed_model_file_name' ||
-        key == 'installed_lora_file_name'
-      ).toList();
+    // Clean all bundled-related SharedPreferences to ensure fresh start
+    _log('🧹 Cleaning SharedPreferences to ensure fresh start...');
+    final prefs = await SharedPreferences.getInstance();
+    final allKeys = prefs.getKeys();
+    final bundledKeys = allKeys
+        .where((key) =>
+            key.startsWith('bundled_path_') ||
+            key == 'installed_models' ||
+            key == 'installed_loras' ||
+            key == 'installed_model_file_name' ||
+            key == 'installed_lora_file_name')
+        .toList();
 
-      for (final key in bundledKeys) {
-        final oldValue = prefs.get(key);
-        await prefs.remove(key);
-        _log('  🗑️  Removed: $key = $oldValue');
+    for (final key in bundledKeys) {
+      final oldValue = prefs.get(key);
+      await prefs.remove(key);
+      _log('  🗑️  Removed: $key = $oldValue');
+    }
+    _log('✅ SharedPreferences cleaned (${bundledKeys.length} keys removed)');
+
+    try {
+      const resourceName = 'gemma3-270m-it-q8.task';
+
+      final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+
+      _log('🔧 Creating BundledSource spec via MobileModelManager...');
+
+      // Legacy API: Create bundled inference spec
+      final spec = legacy_mobile.MobileModelManager.createBundledInferenceSpec(
+        resourceName: resourceName,
+      );
+
+      _log('🔍 Created BundledSource spec: ${spec.name}');
+      _log('🔍 Model source type: ${spec.files.first.source.runtimeType}');
+
+      // Cleanup: Delete model if already installed (for honest testing)
+      if (await manager.isModelInstalled(spec)) {
+        _log('🧹 Cleaning up existing model before test...');
+        await manager.deleteModel(spec);
       }
-      _log('✅ SharedPreferences cleaned (${bundledKeys.length} keys removed)');
 
-      try {
-        const resourceName = 'gemma3-270m-it-q8.task';
+      // Legacy API: Ensure model ready
+      await manager.ensureModelReadyFromSpec(spec);
 
-        final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
+      _log('✅ [LEGACY] Bundled model installed (zero-copy!)');
 
-        _log('🔧 Creating BundledSource spec via MobileModelManager...');
+      // Check what path was saved to SharedPreferences
+      final savedPath = prefs.getString('bundled_path_$resourceName');
+      _log('🔍 Path saved to SharedPreferences: $savedPath');
+      if (savedPath != null && savedPath.startsWith('assets/')) {
+        _log('⚠️  WARNING: Path has "assets/" prefix! This is the bug!');
+      }
 
-        // Legacy API: Create bundled inference spec
-        final spec = legacy_mobile.MobileModelManager.createBundledInferenceSpec(
-          resourceName: resourceName,
-        );
+      // Verify installation
+      final isInstalled = await manager.isModelInstalled(spec);
+      if (!isInstalled) {
+        throw Exception('Model not marked as installed');
+      }
 
-        _log('🔍 Created BundledSource spec: ${spec.name}');
-        _log('🔍 Model source type: ${spec.files.first.source.runtimeType}');
+      _log('✅ [LEGACY] Model verification passed');
 
-        // Cleanup: Delete model if already installed (for honest testing)
-        if (await manager.isModelInstalled(spec)) {
-          _log('🧹 Cleaning up existing model before test...');
-          await manager.deleteModel(spec);
-        }
+      setState(() {
+        _bundledInferenceModelReady = true;
+        _inferenceModelReady = true; // Also set main flag for _testInference()
+      });
 
-        // Legacy API: Ensure model ready
-        await manager.ensureModelReadyFromSpec(spec);
-
-        _log('✅ [LEGACY] Bundled model installed (zero-copy!)');
-
-        // Check what path was saved to SharedPreferences
-        final savedPath = prefs.getString('bundled_path_$resourceName');
-        _log('🔍 Path saved to SharedPreferences: $savedPath');
-        if (savedPath != null && savedPath.startsWith('assets/')) {
-          _log('⚠️  WARNING: Path has "assets/" prefix! This is the bug!');
-        }
-
-        // Verify installation
-        final isInstalled = await manager.isModelInstalled(spec);
-        if (!isInstalled) {
-          throw Exception('Model not marked as installed');
-        }
-
-        _log('✅ [LEGACY] Model verification passed');
-
-        setState(() {
-          _bundledInferenceModelReady = true;
-          _inferenceModelReady = true;  // Also set main flag for _testInference()
-        });
-
-        _log('🎉 [LEGACY] Bundled inference model ready for testing!');
-      } catch (e, stack) {
+      _log('🎉 [LEGACY] Bundled inference model ready for testing!');
+    } catch (e, stack) {
       _log('❌ Bundled inference failed: $e');
       _log('Stack: $stack');
       rethrow;
@@ -1246,12 +1245,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // Modern API: Install bundled model
       await FlutterGemma.installModel(
         modelType: legacy.ModelType.gemmaIt,
-      )
-          .fromBundled(resourceName)
-          .withProgress((progress) {
-            _log('📊 Installation progress: $progress%');
-          })
-          .install();
+      ).fromBundled(resourceName).withProgress((progress) {
+        _log('📊 Installation progress: $progress%');
+      }).install();
 
       _log('✅ [MODERN] Bundled model installed (zero-copy!)');
       _log('📁 Model ID: $resourceName');
@@ -1266,7 +1262,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       setState(() {
         _bundledInferenceModelReady = true;
-        _inferenceModelReady = true;  // Also set main flag for _testInference()
+        _inferenceModelReady = true; // Also set main flag for _testInference()
       });
 
       _log('🎉 [MODERN] Bundled inference model ready for testing!');
@@ -1322,7 +1318,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       setState(() {
         _bundledEmbeddingModelReady = true;
-        _embeddingModelReady = true;  // Also set main flag for _testEmbedding()
+        _embeddingModelReady = true; // Also set main flag for _testEmbedding()
       });
 
       _log('🎉 [LEGACY] Bundled embedding model ready for testing!');
@@ -1378,7 +1374,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       setState(() {
         _bundledEmbeddingModelReady = true;
-        _embeddingModelReady = true;  // Also set main flag for _testEmbedding()
+        _embeddingModelReady = true; // Also set main flag for _testEmbedding()
       });
 
       _log('🎉 [MODERN] Bundled embedding model ready for testing!');
@@ -1473,15 +1469,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     // Modern API: Install model from network
     await FlutterGemma.installModel(
       modelType: legacy.ModelType.gemmaIt,
-    )
-        .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
-        .withProgress((progress) {
-          setState(() => _progress['inference_download_modern'] = progress);
-          if (progress % 10 == 0) {
-            _log('Progress: $progress%');
-          }
-        })
-        .install();
+    ).fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token).withProgress((progress) {
+      setState(() => _progress['inference_download_modern'] = progress);
+      if (progress % 10 == 0) {
+        _log('Progress: $progress%');
+      }
+    }).install();
 
     _log('✅ [MODERN] Inference model downloaded');
     setState(() => _inferenceModelReady = true);
@@ -1547,13 +1540,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     // Modern API: Install model from asset
     await FlutterGemma.installModel(
       modelType: legacy.ModelType.gemmaIt,
-    )
-        .fromAsset(inferenceAssetPath)
-        .withProgress((progress) {
-          setState(() => _progress['inference_asset_modern'] = progress);
-          _log('📊 Asset copy progress: $progress%');
-        })
-        .install();
+    ).fromAsset(inferenceAssetPath).withProgress((progress) {
+      setState(() => _progress['inference_asset_modern'] = progress);
+      _log('📊 Asset copy progress: $progress%');
+    }).install();
 
     setState(() => _progress['inference_asset_modern'] = 100);
     _log('✅ [MODERN] Inference model loaded from assets');
@@ -1561,8 +1551,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testInferenceFromAssetsModern() async {
-    await _runTest('Load Inference from Assets (Modern)',
-                   _testInferenceFromAssetsModern_internal);
+    await _runTest('Load Inference from Assets (Modern)', _testInferenceFromAssetsModern_internal);
   }
 
   // === CUSTOM FILE PATH ===
@@ -1607,9 +1596,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // Modern API: Install model from file path
       await FlutterGemma.installModel(
         modelType: legacy.ModelType.gemmaIt,
-      )
-          .fromFile(path)
-          .install();
+      ).fromFile(path).install();
 
       _log('✅ [MODERN] Custom inference path set successfully');
       setState(() => _inferenceModelReady = true);
@@ -1696,7 +1683,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     )) {
       setState(() => _progress['embedding_download_legacy'] = progress.currentFileProgress);
       if (progress.currentFileProgress % 10 == 0) {
-        _log('File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%');
+        _log(
+            'File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%');
       }
     }
 
@@ -1705,8 +1693,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testEmbeddingDownloadLegacy() async {
-    await _runTest('Download Embedding Model (Legacy)',
-                   _testEmbeddingDownloadLegacy_internal);
+    await _runTest('Download Embedding Model (Legacy)', _testEmbeddingDownloadLegacy_internal);
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1744,28 +1731,25 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         .modelFromNetwork(embeddingModelUrl, token: authToken)
         .tokenizerFromNetwork(embeddingTokenizerUrl, token: authToken)
         .withModelProgress((progress) {
-          modelProgress = progress;
-          setState(() => _progress['embedding_download_modern'] = modelProgress ~/ 2);
-          if (progress % 10 == 0) {
-            _log('Model: $progress%');
-          }
-        })
-        .withTokenizerProgress((progress) {
-          tokenizerProgress = progress;
-          setState(() => _progress['embedding_download_modern'] = 50 + tokenizerProgress ~/ 2);
-          if (progress % 10 == 0) {
-            _log('Tokenizer: $progress%');
-          }
-        })
-        .install();
+      modelProgress = progress;
+      setState(() => _progress['embedding_download_modern'] = modelProgress ~/ 2);
+      if (progress % 10 == 0) {
+        _log('Model: $progress%');
+      }
+    }).withTokenizerProgress((progress) {
+      tokenizerProgress = progress;
+      setState(() => _progress['embedding_download_modern'] = 50 + tokenizerProgress ~/ 2);
+      if (progress % 10 == 0) {
+        _log('Tokenizer: $progress%');
+      }
+    }).install();
 
     _log('✅ [MODERN] Embedding model and tokenizer downloaded successfully');
     setState(() => _embeddingModelReady = true);
   }
 
   Future<void> _testEmbeddingDownloadModern() async {
-    await _runTest('Download Embedding Model (Modern)',
-                   _testEmbeddingDownloadModern_internal);
+    await _runTest('Download Embedding Model (Modern)', _testEmbeddingDownloadModern_internal);
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1799,8 +1783,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testEmbeddingFromAssetsLegacy() async {
-    await _runTest('Load Embedding from Assets (Legacy)',
-                   _testEmbeddingFromAssetsLegacy_internal);
+    await _runTest('Load Embedding from Assets (Legacy)', _testEmbeddingFromAssetsLegacy_internal);
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1829,14 +1812,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         .modelFromAsset(embeddingModelAssetPath)
         .tokenizerFromAsset(embeddingTokenizerAssetPath)
         .withModelProgress((progress) {
-          setState(() => _progress['embedding_asset_modern'] = progress ~/ 2);
-          _log('📊 Model copy progress: $progress%');
-        })
-        .withTokenizerProgress((progress) {
-          setState(() => _progress['embedding_asset_modern'] = 50 + progress ~/ 2);
-          _log('📊 Tokenizer copy progress: $progress%');
-        })
-        .install();
+      setState(() => _progress['embedding_asset_modern'] = progress ~/ 2);
+      _log('📊 Model copy progress: $progress%');
+    }).withTokenizerProgress((progress) {
+      setState(() => _progress['embedding_asset_modern'] = 50 + progress ~/ 2);
+      _log('📊 Tokenizer copy progress: $progress%');
+    }).install();
 
     setState(() => _progress['embedding_asset_modern'] = 100);
     _log('✅ [MODERN] Embedding model and tokenizer loaded from assets');
@@ -1844,8 +1825,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testEmbeddingFromAssetsModern() async {
-    await _runTest('Load Embedding from Assets (Modern)',
-                   _testEmbeddingFromAssetsModern_internal);
+    await _runTest('Load Embedding from Assets (Modern)', _testEmbeddingFromAssetsModern_internal);
   }
 
   Future<void> _setCustomEmbeddingPaths() async {
@@ -1922,7 +1902,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('');
 
     _log('✅ Embedding test successful!');
-    _log('📈 Performance: avg ${((duration1.inMilliseconds + duration2.inMilliseconds) / 2).toStringAsFixed(0)}ms per embedding');
+    _log(
+        '📈 Performance: avg ${((duration1.inMilliseconds + duration2.inMilliseconds) / 2).toStringAsFixed(0)}ms per embedding');
 
     await embeddingModel.close();
   }
@@ -1984,13 +1965,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('═══════════════════════════════════════════');
 
       // Cleanup inference models
-      final inferenceModels = await manager.getInstalledModels(legacy_mobile.ModelManagementType.inference);
+      final inferenceModels =
+          await manager.getInstalledModels(legacy_mobile.ModelManagementType.inference);
       for (final modelName in inferenceModels) {
         _log('  🗑️  Deleting inference: $modelName');
       }
 
       // Cleanup embedding models
-      final embeddingModels = await manager.getInstalledModels(legacy_mobile.ModelManagementType.embedding);
+      final embeddingModels =
+          await manager.getInstalledModels(legacy_mobile.ModelManagementType.embedding);
       for (final modelName in embeddingModels) {
         _log('  🗑️  Deleting embedding: $modelName');
       }
@@ -2048,14 +2031,16 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       final session1 = await inferenceModel1.createSession();
       _log('  ✅ Session created');
       _log('  📤 Adding query: "What is the capital of France?"');
-      await session1.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
+      await session1.addQueryChunk(
+          const legacy.Message(text: 'What is the capital of France?', isUser: true));
       _log('  🤖 Generating response...');
       final response1 = await session1.getResponse();
       _log('  ✅ Got response: length=${response1.length}');
       if (response1.isEmpty) {
         throw Exception('Model returned empty response');
       }
-      _log('  📝 Response (${response1.length} chars): ${response1.length > 100 ? "${response1.substring(0, 100)}..." : response1}');
+      _log(
+          '  📝 Response (${response1.length} chars): ${response1.length > 100 ? "${response1.substring(0, 100)}..." : response1}');
       await session1.close();
       await inferenceModel1.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2074,12 +2059,11 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       )
           .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
           .withProgress((progress) {
-            setState(() => _progress['inference_download_modern'] = progress);
-            if (progress % 10 == 0) {
-              _log('  Progress: $progress%');
-            }
-          })
-          .install();
+        setState(() => _progress['inference_download_modern'] = progress);
+        if (progress % 10 == 0) {
+          _log('  Progress: $progress%');
+        }
+      }).install();
       _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
       setState(() => _inferenceModelReady = true);
       await Future.delayed(const Duration(milliseconds: 500));
@@ -2093,12 +2077,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('  ✅ Model ready');
       _log('  🔧 Creating session...');
       final session2 = await inferenceModel2.createSession();
-      await session2.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
+      await session2.addQueryChunk(
+          const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response2 = await session2.getResponse();
       if (response2.isEmpty) {
         throw Exception('Model returned empty response');
       }
-      _log('  📝 Response (${response2.length} chars): ${response2.length > 100 ? "${response2.substring(0, 100)}..." : response2}');
+      _log(
+          '  📝 Response (${response2.length} chars): ${response2.length > 100 ? "${response2.substring(0, 100)}..." : response2}');
       await session2.close();
       await inferenceModel2.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2115,80 +2101,79 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex += 4;
         await Future.delayed(const Duration(milliseconds: 300));
       } else {
-      // TEST 5-6: Embedding Legacy (download + run + delete)
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Legacy) - Install');
+        // TEST 5-6: Embedding Legacy (download + run + delete)
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Legacy) - Install');
 
-      final embeddingSpec = legacy_mobile.EmbeddingModelSpec.fromLegacyUrl(
-        name: 'embeddinggemma-300m',
-        modelUrl: embeddingModelUrl,
-        tokenizerUrl: embeddingTokenizerUrl,
-      );
+        final embeddingSpec = legacy_mobile.EmbeddingModelSpec.fromLegacyUrl(
+          name: 'embeddinggemma-300m',
+          modelUrl: embeddingModelUrl,
+          tokenizerUrl: embeddingTokenizerUrl,
+        );
 
-      _log('  📥 Downloading model and tokenizer...');
-      await for (final progress in manager.downloadModelWithProgress(
-        embeddingSpec,
-        token: token.isEmpty ? null : token,
-      )) {
-        setState(() => _progress['embedding_download_legacy'] = progress.currentFileProgress);
-        if (progress.currentFileProgress % 10 == 0) {
-          _log('  File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%');
+        _log('  📥 Downloading model and tokenizer...');
+        await for (final progress in manager.downloadModelWithProgress(
+          embeddingSpec,
+          token: token.isEmpty ? null : token,
+        )) {
+          setState(() => _progress['embedding_download_legacy'] = progress.currentFileProgress);
+          if (progress.currentFileProgress % 10 == 0) {
+            _log(
+                '  File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%');
+          }
         }
-      }
-      _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
+        setState(() => _embeddingModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel1 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
-      final emb1 = await embeddingModel1.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb1.length}');
-      _log('  🔢 First 5 values: ${emb1.take(5).toList()}');
-      await embeddingModel1.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+        final embeddingModel1 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+        final emb1 = await embeddingModel1.generateEmbedding('Hello, world!');
+        _log('  🔢 Dimensions: ${emb1.length}');
+        _log('  🔢 First 5 values: ${emb1.take(5).toList()}');
+        await embeddingModel1.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
 
-      _log('  🗑️  Deleting model...');
-      await manager.deleteModel(embeddingSpec);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  🗑️  Deleting model...');
+        await manager.deleteModel(embeddingSpec);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 7-8: Embedding Modern (download + run + delete)
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Modern) - Install');
+        // TEST 7-8: Embedding Modern (download + run + delete)
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Modern) - Install');
 
-      _log('  📥 Downloading with Modern API...');
-      await FlutterGemma.installEmbedder()
-          .modelFromNetwork(embeddingModelUrl, token: token.isEmpty ? null : token)
-          .tokenizerFromNetwork(embeddingTokenizerUrl, token: token.isEmpty ? null : token)
-          .withModelProgress((progress) {
-            if (progress % 10 == 0) {
-              _log('  Model: $progress%');
-            }
-          })
-          .withTokenizerProgress((progress) {
-            if (progress % 10 == 0) {
-              _log('  Tokenizer: $progress%');
-            }
-          })
-          .install();
-      _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📥 Downloading with Modern API...');
+        await FlutterGemma.installEmbedder()
+            .modelFromNetwork(embeddingModelUrl, token: token.isEmpty ? null : token)
+            .tokenizerFromNetwork(embeddingTokenizerUrl, token: token.isEmpty ? null : token)
+            .withModelProgress((progress) {
+          if (progress % 10 == 0) {
+            _log('  Model: $progress%');
+          }
+        }).withTokenizerProgress((progress) {
+          if (progress % 10 == 0) {
+            _log('  Tokenizer: $progress%');
+          }
+        }).install();
+        _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
+        setState(() => _embeddingModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      _log('  🔧 Getting active embedding model with Modern API...');
-      final embeddingModel2 = await FlutterGemma.getActiveEmbedder();
-      _log('  ✅ Model ready');
-      _log('  🔧 Generating embedding...');
-      final emb2 = await embeddingModel2.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb2.length}');
-      _log('  🔢 First 5 values: ${emb2.take(5).toList()}');
-      await embeddingModel2.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+        _log('  🔧 Getting active embedding model with Modern API...');
+        final embeddingModel2 = await FlutterGemma.getActiveEmbedder();
+        _log('  ✅ Model ready');
+        _log('  🔧 Generating embedding...');
+        final emb2 = await embeddingModel2.generateEmbedding('Hello, world!');
+        _log('  🔢 Dimensions: ${emb2.length}');
+        _log('  🔢 First 5 values: ${emb2.take(5).toList()}');
+        await embeddingModel2.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
 
-      _log('  🗑️  Deleting model...');
-      await manager.deleteModel(embeddingSpec);
+        _log('  🗑️  Deleting model...');
+        await manager.deleteModel(embeddingSpec);
       } // End of if (!kIsWeb) for Network Embedding tests
 
       // ═══════════════════════════════════════════════════════════════
@@ -2215,145 +2200,147 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex += 8;
         await Future.delayed(const Duration(milliseconds: 300));
       } else {
-      // TEST 9-10: Inference Assets Legacy
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Legacy) - Install');
+        // TEST 9-10: Inference Assets Legacy
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Legacy) - Install');
 
-      final assetInferenceSpec = legacy_mobile.MobileModelManager.createInferenceSpec(
-        name: 'gemma3-270m-it-q8',
-        modelUrl: inferenceAssetPath,
-      );
+        final assetInferenceSpec = legacy_mobile.MobileModelManager.createInferenceSpec(
+          name: 'gemma3-270m-it-q8',
+          modelUrl: inferenceAssetPath,
+        );
 
-      _log('  📦 Installing from assets...');
-      await manager.ensureModelReadyFromSpec(assetInferenceSpec);
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _inferenceModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📦 Installing from assets...');
+        await manager.ensureModelReadyFromSpec(assetInferenceSpec);
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _inferenceModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel3 = await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
-        maxTokens: 512,
-      );
-      final session3 = await inferenceModel3.createSession();
-      await session3.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
-      final response3 = await session3.getResponse();
-      if (response3.isEmpty) {
-        throw Exception('Model returned empty response');
-      }
-      _log('  📝 Response (${response3.length} chars): ${response3.length > 100 ? "${response3.substring(0, 100)}..." : response3}');
-      await session3.close();
-      await inferenceModel3.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
+        final inferenceModel3 = await legacy.FlutterGemmaPlugin.instance.createModel(
+          modelType: legacy.ModelType.gemmaIt,
+          maxTokens: 512,
+        );
+        final session3 = await inferenceModel3.createSession();
+        await session3.addQueryChunk(
+            const legacy.Message(text: 'What is the capital of France?', isUser: true));
+        final response3 = await session3.getResponse();
+        if (response3.isEmpty) {
+          throw Exception('Model returned empty response');
+        }
+        _log(
+            '  📝 Response (${response3.length} chars): ${response3.length > 100 ? "${response3.substring(0, 100)}..." : response3}');
+        await session3.close();
+        await inferenceModel3.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
 
-      _log('  🗑️  Deleting model...');
-      await manager.deleteModel(assetInferenceSpec);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  🗑️  Deleting model...');
+        await manager.deleteModel(assetInferenceSpec);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 11-12: Inference Assets Modern
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Modern) - Install');
+        // TEST 11-12: Inference Assets Modern
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Modern) - Install');
 
-      _log('  📦 Installing with Modern API...');
-      await FlutterGemma.installModel(
-        modelType: legacy.ModelType.gemmaIt,
-      )
-          .fromAsset(inferenceAssetPath)
-          .install();
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _inferenceModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📦 Installing with Modern API...');
+        await FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        ).fromAsset(inferenceAssetPath).install();
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _inferenceModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      _log('  🔧 Getting active model with Modern API...');
-      final inferenceModel4 = await FlutterGemma.getActiveModel(
-        maxTokens: 512,
-      );
-      _log('  ✅ Model ready');
-      _log('  🔧 Creating session...');
-      final session4 = await inferenceModel4.createSession();
-      await session4.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
-      final response4 = await session4.getResponse();
-      if (response4.isEmpty) {
-        throw Exception('Model returned empty response');
-      }
-      _log('  📝 Response (${response4.length} chars): ${response4.length > 100 ? "${response4.substring(0, 100)}..." : response4}');
-      await session4.close();
-      await inferenceModel4.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
+        _log('  🔧 Getting active model with Modern API...');
+        final inferenceModel4 = await FlutterGemma.getActiveModel(
+          maxTokens: 512,
+        );
+        _log('  ✅ Model ready');
+        _log('  🔧 Creating session...');
+        final session4 = await inferenceModel4.createSession();
+        await session4.addQueryChunk(
+            const legacy.Message(text: 'What is the capital of France?', isUser: true));
+        final response4 = await session4.getResponse();
+        if (response4.isEmpty) {
+          throw Exception('Model returned empty response');
+        }
+        _log(
+            '  📝 Response (${response4.length} chars): ${response4.length > 100 ? "${response4.substring(0, 100)}..." : response4}');
+        await session4.close();
+        await inferenceModel4.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
 
-      _log('  🗑️  Deleting model...');
-      await manager.deleteModel(assetInferenceSpec);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  🗑️  Deleting model...');
+        await manager.deleteModel(assetInferenceSpec);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 13-16: Embedding Assets Legacy/Modern - SKIP ON WEB (not implemented)
-      if (kIsWeb) {
-        _log('');
-        _log('⏭️  [13-16/32] Skipping Assets Embedding tests (not implemented on web)');
-        _log('💡 Web platform does not yet support embedding models');
-        _currentTestIndex += 4;
-        await Future.delayed(const Duration(milliseconds: 300));
-      } else {
-      // TEST 13-14: Embedding Assets Legacy
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Legacy) - Install');
+        // TEST 13-16: Embedding Assets Legacy/Modern - SKIP ON WEB (not implemented)
+        if (kIsWeb) {
+          _log('');
+          _log('⏭️  [13-16/32] Skipping Assets Embedding tests (not implemented on web)');
+          _log('💡 Web platform does not yet support embedding models');
+          _currentTestIndex += 4;
+          await Future.delayed(const Duration(milliseconds: 300));
+        } else {
+          // TEST 13-14: Embedding Assets Legacy
+          _currentTestIndex++;
+          _log('▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Legacy) - Install');
 
-      final assetEmbeddingSpec = legacy_mobile.MobileModelManager.createEmbeddingSpec(
-        name: 'embeddinggemma-300M',
-        modelUrl: embeddingModelAssetPath,
-        tokenizerUrl: embeddingTokenizerAssetPath,
-      );
+          final assetEmbeddingSpec = legacy_mobile.MobileModelManager.createEmbeddingSpec(
+            name: 'embeddinggemma-300M',
+            modelUrl: embeddingModelAssetPath,
+            tokenizerUrl: embeddingTokenizerAssetPath,
+          );
 
-      _log('  📦 Installing model and tokenizer from assets...');
-      await manager.ensureModelReadyFromSpec(assetEmbeddingSpec);
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+          _log('  📦 Installing model and tokenizer from assets...');
+          await manager.ensureModelReadyFromSpec(assetEmbeddingSpec);
+          _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+          setState(() => _embeddingModelReady = true);
+          await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel3 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
-      final emb3 = await embeddingModel3.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb3.length}');
-      _log('  🔢 First 5 values: ${emb3.take(5).toList()}');
-      await embeddingModel3.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+          _currentTestIndex++;
+          _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+          final embeddingModel3 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+          final emb3 = await embeddingModel3.generateEmbedding('Hello, world!');
+          _log('  🔢 Dimensions: ${emb3.length}');
+          _log('  🔢 First 5 values: ${emb3.take(5).toList()}');
+          await embeddingModel3.close();
+          _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
 
-      _log('  🗑️  Deleting model...');
-      await manager.deleteModel(assetEmbeddingSpec);
-      await Future.delayed(const Duration(milliseconds: 500));
+          _log('  🗑️  Deleting model...');
+          await manager.deleteModel(assetEmbeddingSpec);
+          await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 15-16: Embedding Assets Modern
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Modern) - Install');
+          // TEST 15-16: Embedding Assets Modern
+          _currentTestIndex++;
+          _log('▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Modern) - Install');
 
-      _log('  📦 Installing with Modern API...');
-      await FlutterGemma.installEmbedder()
-          .modelFromAsset(embeddingModelAssetPath)
-          .tokenizerFromAsset(embeddingTokenizerAssetPath)
-          .install();
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+          _log('  📦 Installing with Modern API...');
+          await FlutterGemma.installEmbedder()
+              .modelFromAsset(embeddingModelAssetPath)
+              .tokenizerFromAsset(embeddingTokenizerAssetPath)
+              .install();
+          _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+          setState(() => _embeddingModelReady = true);
+          await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      _log('  🔧 Getting active embedding model with Modern API...');
-      final embeddingModel4 = await FlutterGemma.getActiveEmbedder();
-      _log('  ✅ Model ready');
-      _log('  🔧 Generating embedding...');
-      final emb4 = await embeddingModel4.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb4.length}');
-      _log('  🔢 First 5 values: ${emb4.take(5).toList()}');
-      await embeddingModel4.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+          _currentTestIndex++;
+          _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+          _log('  🔧 Getting active embedding model with Modern API...');
+          final embeddingModel4 = await FlutterGemma.getActiveEmbedder();
+          _log('  ✅ Model ready');
+          _log('  🔧 Generating embedding...');
+          final emb4 = await embeddingModel4.generateEmbedding('Hello, world!');
+          _log('  🔢 Dimensions: ${emb4.length}');
+          _log('  🔢 First 5 values: ${emb4.take(5).toList()}');
+          await embeddingModel4.close();
+          _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
 
-      _log('  🗑️  Deleting model...');
-      await manager.deleteModel(assetEmbeddingSpec);
-      await Future.delayed(const Duration(milliseconds: 500));
-      } // End of if (!kIsWeb) for Assets Embedding tests
+          _log('  🗑️  Deleting model...');
+          await manager.deleteModel(assetEmbeddingSpec);
+          await Future.delayed(const Duration(milliseconds: 500));
+        } // End of if (!kIsWeb) for Assets Embedding tests
       } // End of if (assetsAvailable) for Assets tests
 
       // ═══════════════════════════════════════════════════════════════
@@ -2385,12 +2372,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         maxTokens: 512,
       );
       final session5 = await inferenceModel5.createSession();
-      await session5.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
+      await session5.addQueryChunk(
+          const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response5 = await session5.getResponse();
       if (response5.isEmpty) {
         throw Exception('Model returned empty response');
       }
-      _log('  📝 Response (${response5.length} chars): ${response5.length > 100 ? "${response5.substring(0, 100)}..." : response5}');
+      _log(
+          '  📝 Response (${response5.length} chars): ${response5.length > 100 ? "${response5.substring(0, 100)}..." : response5}');
       await session5.close();
       await inferenceModel5.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2403,9 +2392,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('  📲 Installing with Modern API...');
       await FlutterGemma.installModel(
         modelType: legacy.ModelType.gemmaIt,
-      )
-          .fromBundled('gemma3-270m-it-q8.task')
-          .install();
+      ).fromBundled('gemma3-270m-it-q8.task').install();
       _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
       setState(() => _inferenceModelReady = true);
       await Future.delayed(const Duration(milliseconds: 500));
@@ -2419,12 +2406,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('  ✅ Model ready');
       _log('  🔧 Creating session...');
       final session6 = await inferenceModel6.createSession();
-      await session6.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
+      await session6.addQueryChunk(
+          const legacy.Message(text: 'What is the capital of France?', isUser: true));
       final response6 = await session6.getResponse();
       if (response6.isEmpty) {
         throw Exception('Model returned empty response');
       }
-      _log('  📝 Response (${response6.length} chars): ${response6.length > 100 ? "${response6.substring(0, 100)}..." : response6}');
+      _log(
+          '  📝 Response (${response6.length} chars): ${response6.length > 100 ? "${response6.substring(0, 100)}..." : response6}');
       await session6.close();
       await inferenceModel6.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2438,55 +2427,55 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _currentTestIndex += 4;
         await Future.delayed(const Duration(milliseconds: 300));
       } else {
-      // TEST 21-22: Bundled Embedding Legacy
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Legacy) - Install');
+        // TEST 21-22: Bundled Embedding Legacy
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Legacy) - Install');
 
-      final bundledEmbeddingSpec = legacy_mobile.MobileModelManager.createBundledEmbeddingSpec(
-        modelResourceName: 'embeddinggemma-300M_seq1024_mixed-precision.tflite',
-        tokenizerResourceName: 'sentencepiece.model',
-      );
+        final bundledEmbeddingSpec = legacy_mobile.MobileModelManager.createBundledEmbeddingSpec(
+          modelResourceName: 'embeddinggemma-300M_seq1024_mixed-precision.tflite',
+          tokenizerResourceName: 'sentencepiece.model',
+        );
 
-      _log('  📲 Installing from bundled resources...');
-      await manager.ensureModelReadyFromSpec(bundledEmbeddingSpec);
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📲 Installing from bundled resources...');
+        await manager.ensureModelReadyFromSpec(bundledEmbeddingSpec);
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _embeddingModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel5 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
-      final emb5 = await embeddingModel5.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb5.length}');
-      _log('  🔢 First 5 values: ${emb5.take(5).toList()}');
-      await embeddingModel5.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
-      await Future.delayed(const Duration(milliseconds: 500));
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+        final embeddingModel5 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+        final emb5 = await embeddingModel5.generateEmbedding('Hello, world!');
+        _log('  🔢 Dimensions: ${emb5.length}');
+        _log('  🔢 First 5 values: ${emb5.take(5).toList()}');
+        await embeddingModel5.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 23-24: Bundled Embedding Modern
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Modern) - Install');
+        // TEST 23-24: Bundled Embedding Modern
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Modern) - Install');
 
-      _log('  📲 Installing with Modern API...');
-      await FlutterGemma.installEmbedder()
-          .modelFromBundled('embeddinggemma-300M_seq1024_mixed-precision.tflite')
-          .tokenizerFromBundled('sentencepiece.model')
-          .install();
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📲 Installing with Modern API...');
+        await FlutterGemma.installEmbedder()
+            .modelFromBundled('embeddinggemma-300M_seq1024_mixed-precision.tflite')
+            .tokenizerFromBundled('sentencepiece.model')
+            .install();
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _embeddingModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      _log('  🔧 Getting active embedding model with Modern API...');
-      final embeddingModel6 = await FlutterGemma.getActiveEmbedder();
-      _log('  ✅ Model ready');
-      _log('  🔧 Generating embedding...');
-      final emb6 = await embeddingModel6.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb6.length}');
-      _log('  🔢 First 5 values: ${emb6.take(5).toList()}');
-      await embeddingModel6.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+        _log('  🔧 Getting active embedding model with Modern API...');
+        final embeddingModel6 = await FlutterGemma.getActiveEmbedder();
+        _log('  ✅ Model ready');
+        _log('  🔧 Generating embedding...');
+        final emb6 = await embeddingModel6.generateEmbedding('Hello, world!');
+        _log('  🔢 Dimensions: ${emb6.length}');
+        _log('  🔢 First 5 values: ${emb6.take(5).toList()}');
+        await embeddingModel6.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
       } // End of if (!kIsWeb) for Bundled Embedding tests
 
       // ═══════════════════════════════════════════════════════════════
@@ -2503,145 +2492,148 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _log('💡 Web: FileSource works with URLs/assets, but these tests use local paths');
         _currentTestIndex += 8;
       } else {
-      // TEST 25-26: FileSource Inference Legacy
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Legacy) - Install');
+        // TEST 25-26: FileSource Inference Legacy
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Legacy) - Install');
 
-      final inferenceFilePath = _customInferencePathController.text.trim();
-      if (inferenceFilePath.isEmpty) {
-        throw Exception('Inference file path not configured in controller');
-      }
+        final inferenceFilePath = _customInferencePathController.text.trim();
+        if (inferenceFilePath.isEmpty) {
+          throw Exception('Inference file path not configured in controller');
+        }
 
-      _log('  📁 Using file path: $inferenceFilePath');
-      final inferenceFile = File(inferenceFilePath);
-      if (!await inferenceFile.exists()) {
-        throw Exception('Inference file does not exist: $inferenceFilePath');
-      }
+        _log('  📁 Using file path: $inferenceFilePath');
+        final inferenceFile = File(inferenceFilePath);
+        if (!await inferenceFile.exists()) {
+          throw Exception('Inference file does not exist: $inferenceFilePath');
+        }
 
-      _log('  📁 [LEGACY] Setting custom inference path...');
-      await manager.setModelPath(inferenceFilePath);
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _inferenceModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📁 [LEGACY] Setting custom inference path...');
+        await manager.setModelPath(inferenceFilePath);
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _inferenceModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel7 = await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
-        maxTokens: 512,
-      );
-      final session7 = await inferenceModel7.createSession();
-      await session7.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
-      final response7 = await session7.getResponse();
-      if (response7.isEmpty) {
-        throw Exception('Model returned empty response');
-      }
-      _log('  📝 Response (${response7.length} chars): ${response7.length > 100 ? "${response7.substring(0, 100)}..." : response7}');
-      await session7.close();
-      await inferenceModel7.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
-      await Future.delayed(const Duration(milliseconds: 500));
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
+        final inferenceModel7 = await legacy.FlutterGemmaPlugin.instance.createModel(
+          modelType: legacy.ModelType.gemmaIt,
+          maxTokens: 512,
+        );
+        final session7 = await inferenceModel7.createSession();
+        await session7.addQueryChunk(
+            const legacy.Message(text: 'What is the capital of France?', isUser: true));
+        final response7 = await session7.getResponse();
+        if (response7.isEmpty) {
+          throw Exception('Model returned empty response');
+        }
+        _log(
+            '  📝 Response (${response7.length} chars): ${response7.length > 100 ? "${response7.substring(0, 100)}..." : response7}');
+        await session7.close();
+        await inferenceModel7.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 27-28: FileSource Inference Modern
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Modern) - Install');
+        // TEST 27-28: FileSource Inference Modern
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Modern) - Install');
 
-      _log('  📁 [MODERN] Installing from file...');
-      await FlutterGemma.installModel(
-        modelType: legacy.ModelType.gemmaIt,
-      )
-          .fromFile(inferenceFilePath)
-          .install();
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _inferenceModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📁 [MODERN] Installing from file...');
+        await FlutterGemma.installModel(
+          modelType: legacy.ModelType.gemmaIt,
+        ).fromFile(inferenceFilePath).install();
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _inferenceModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      _log('  🔧 Getting active model with Modern API...');
-      final inferenceModel8 = await FlutterGemma.getActiveModel(
-        maxTokens: 512,
-      );
-      _log('  ✅ Model ready');
-      _log('  🔧 Creating session...');
-      final session8 = await inferenceModel8.createSession();
-      await session8.addQueryChunk(const legacy.Message(text: 'What is the capital of France?', isUser: true));
-      final response8 = await session8.getResponse();
-      if (response8.isEmpty) {
-        throw Exception('Model returned empty response');
-      }
-      _log('  📝 Response (${response8.length} chars): ${response8.length > 100 ? "${response8.substring(0, 100)}..." : response8}');
-      await session8.close();
-      await inferenceModel8.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
-      await Future.delayed(const Duration(milliseconds: 500));
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
+        _log('  🔧 Getting active model with Modern API...');
+        final inferenceModel8 = await FlutterGemma.getActiveModel(
+          maxTokens: 512,
+        );
+        _log('  ✅ Model ready');
+        _log('  🔧 Creating session...');
+        final session8 = await inferenceModel8.createSession();
+        await session8.addQueryChunk(
+            const legacy.Message(text: 'What is the capital of France?', isUser: true));
+        final response8 = await session8.getResponse();
+        if (response8.isEmpty) {
+          throw Exception('Model returned empty response');
+        }
+        _log(
+            '  📝 Response (${response8.length} chars): ${response8.length > 100 ? "${response8.substring(0, 100)}..." : response8}');
+        await session8.close();
+        await inferenceModel8.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 29-30: FileSource Embedding Legacy
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Legacy) - Install');
+        // TEST 29-30: FileSource Embedding Legacy
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Legacy) - Install');
 
-      final embeddingModelPath = _customEmbeddingModelPathController.text.trim();
-      final embeddingTokenizerPath = _customEmbeddingTokenizerPathController.text.trim();
+        final embeddingModelPath = _customEmbeddingModelPathController.text.trim();
+        final embeddingTokenizerPath = _customEmbeddingTokenizerPathController.text.trim();
 
-      if (embeddingModelPath.isEmpty || embeddingTokenizerPath.isEmpty) {
-        throw Exception('Embedding paths not configured in controllers');
-      }
+        if (embeddingModelPath.isEmpty || embeddingTokenizerPath.isEmpty) {
+          throw Exception('Embedding paths not configured in controllers');
+        }
 
-      _log('  📁 Model: $embeddingModelPath');
-      _log('  📁 Tokenizer: $embeddingTokenizerPath');
+        _log('  📁 Model: $embeddingModelPath');
+        _log('  📁 Tokenizer: $embeddingTokenizerPath');
 
-      final embeddingModelFile = File(embeddingModelPath);
-      if (!await embeddingModelFile.exists()) {
-        throw Exception('Embedding model file does not exist: $embeddingModelPath');
-      }
+        final embeddingModelFile = File(embeddingModelPath);
+        if (!await embeddingModelFile.exists()) {
+          throw Exception('Embedding model file does not exist: $embeddingModelPath');
+        }
 
-      final embeddingTokenizerFile = File(embeddingTokenizerPath);
-      if (!await embeddingTokenizerFile.exists()) {
-        throw Exception('Embedding tokenizer file does not exist: $embeddingTokenizerPath');
-      }
+        final embeddingTokenizerFile = File(embeddingTokenizerPath);
+        if (!await embeddingTokenizerFile.exists()) {
+          throw Exception('Embedding tokenizer file does not exist: $embeddingTokenizerPath');
+        }
 
-      _log('  📁 [LEGACY] Paths validated (Legacy API uses paths directly in createEmbeddingModel)');
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log(
+            '  📁 [LEGACY] Paths validated (Legacy API uses paths directly in createEmbeddingModel)');
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _embeddingModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      final embeddingModel7 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel(
-        modelPath: embeddingModelPath,
-        tokenizerPath: embeddingTokenizerPath,
-      );
-      final emb7 = await embeddingModel7.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb7.length}');
-      _log('  🔢 First 5 values: ${emb7.take(5).toList()}');
-      await embeddingModel7.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
-      await Future.delayed(const Duration(milliseconds: 500));
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+        final embeddingModel7 = await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel(
+          modelPath: embeddingModelPath,
+          tokenizerPath: embeddingTokenizerPath,
+        );
+        final emb7 = await embeddingModel7.generateEmbedding('Hello, world!');
+        _log('  🔢 Dimensions: ${emb7.length}');
+        _log('  🔢 First 5 values: ${emb7.take(5).toList()}');
+        await embeddingModel7.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      // TEST 31-32: FileSource Embedding Modern
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Modern) - Install');
+        // TEST 31-32: FileSource Embedding Modern
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Modern) - Install');
 
-      _log('  📁 [MODERN] Installing from files...');
-      await FlutterGemma.installEmbedder()
-          .modelFromFile(embeddingModelPath)
-          .tokenizerFromFile(embeddingTokenizerPath)
-          .install();
-      _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
-      setState(() => _embeddingModelReady = true);
-      await Future.delayed(const Duration(milliseconds: 500));
+        _log('  📁 [MODERN] Installing from files...');
+        await FlutterGemma.installEmbedder()
+            .modelFromFile(embeddingModelPath)
+            .tokenizerFromFile(embeddingTokenizerPath)
+            .install();
+        _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
+        setState(() => _embeddingModelReady = true);
+        await Future.delayed(const Duration(milliseconds: 500));
 
-      _currentTestIndex++;
-      _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-      _log('  🔧 Getting active embedding model with Modern API...');
-      final embeddingModel8 = await FlutterGemma.getActiveEmbedder();
-      _log('  ✅ Model ready');
-      _log('  🔧 Generating embedding...');
-      final emb8 = await embeddingModel8.generateEmbedding('Hello, world!');
-      _log('  🔢 Dimensions: ${emb8.length}');
-      _log('  🔢 First 5 values: ${emb8.take(5).toList()}');
-      await embeddingModel8.close();
-      _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
+        _currentTestIndex++;
+        _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
+        _log('  🔧 Getting active embedding model with Modern API...');
+        final embeddingModel8 = await FlutterGemma.getActiveEmbedder();
+        _log('  ✅ Model ready');
+        _log('  🔧 Generating embedding...');
+        final emb8 = await embeddingModel8.generateEmbedding('Hello, world!');
+        _log('  🔢 Dimensions: ${emb8.length}');
+        _log('  🔢 First 5 values: ${emb8.take(5).toList()}');
+        await embeddingModel8.close();
+        _log('✅ [$_currentTestIndex/$_totalTests] Embedding complete');
       } // End of if (!kIsWeb) for FileSource tests
 
       // ═══════════════════════════════════════════════════════════════
@@ -2712,9 +2704,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   Widget _buildButton(String text, VoidCallback? onPressed, [Color? color]) {
     return ElevatedButton(
       onPressed: _isTesting ? null : onPressed,
-      style: color != null
-          ? ElevatedButton.styleFrom(backgroundColor: color)
-          : null,
+      style: color != null ? ElevatedButton.styleFrom(backgroundColor: color) : null,
       child: Text(text),
     );
   }
@@ -2830,7 +2820,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                           hintText: 'hf_... (paste your HuggingFace token here)',
                           border: OutlineInputBorder(),
                           isDense: true,
-                          helperText: 'IMPORTANT: Use Classic token OR fine-grained with "Access public gated repositories" enabled',
+                          helperText:
+                              'IMPORTANT: Use Classic token OR fine-grained with "Access public gated repositories" enabled',
                           helperMaxLines: 3,
                         ),
                         // Don't obscure so user can verify they pasted correctly
@@ -2898,7 +2889,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       Text('Total: 32 tests', style: TextStyle(fontWeight: FontWeight.bold)),
                       SizedBox(height: 4),
                       Text('Each model is tested after installation!',
-                        style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
                     ],
                   ),
                 ),
@@ -2923,7 +2914,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                 _buildButton('401 (L+M)', _test401Error),
                 _buildButton('App Kill Resume', _testInterruptAndRestart, Colors.orange),
                 if (_hasPendingResumeTest)
-                  _buildButton('Continue Resume Test', _testInterruptAndRestart_Part2, Colors.deepOrange),
+                  _buildButton(
+                      'Continue Resume Test', _testInterruptAndRestart_Part2, Colors.deepOrange),
                 if (_interruptedUrl != null && _interruptedPath != null)
                   _buildButton('Resume Manual', _resumeInterrupted, Colors.purple),
                 _buildButton('Concurrent (L+M)', _testConcurrentDownloads, Colors.cyan),
@@ -2970,9 +2962,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                 const Text('Inference:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Row(
                   children: [
-                    Expanded(child: _buildButton('Legacy', _testBundledInferenceLegacy, Colors.purple[300]!)),
+                    Expanded(
+                        child: _buildButton(
+                            'Legacy', _testBundledInferenceLegacy, Colors.purple[300]!)),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildButton('Modern', _testBundledInferenceModern, Colors.purple)),
+                    Expanded(
+                        child: _buildButton('Modern', _testBundledInferenceModern, Colors.purple)),
                   ],
                 ),
                 _buildButton(
@@ -2984,9 +2979,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                 const Text('Embedding:', style: TextStyle(fontWeight: FontWeight.bold)),
                 Row(
                   children: [
-                    Expanded(child: _buildButton('Legacy', _testBundledEmbeddingLegacy, Colors.purple[300]!)),
+                    Expanded(
+                        child: _buildButton(
+                            'Legacy', _testBundledEmbeddingLegacy, Colors.purple[300]!)),
                     const SizedBox(width: 8),
-                    Expanded(child: _buildButton('Modern', _testBundledEmbeddingModern, Colors.purple)),
+                    Expanded(
+                        child: _buildButton('Modern', _testBundledEmbeddingModern, Colors.purple)),
                   ],
                 ),
                 _buildButton(
@@ -3025,7 +3023,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Custom File Path:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Custom File Path:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _customInferencePathController,
@@ -3082,7 +3081,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Custom File Paths:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text('Custom File Paths:',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _customEmbeddingModelPathController,

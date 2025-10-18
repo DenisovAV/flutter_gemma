@@ -12,7 +12,10 @@ class FunctionCallParser {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    return clean.startsWith('{') || clean.startsWith('```json') || clean.startsWith('```') || clean.startsWith('<tool_code>');
+    return clean.startsWith('{') ||
+        clean.startsWith('```json') ||
+        clean.startsWith('```') ||
+        clean.startsWith('<tool_code>');
   }
 
   /// Checks if buffer looks definitely like text (not JSON)
@@ -27,7 +30,9 @@ class FunctionCallParser {
 
     // If no JSON patterns in first 30 chars, it's text
     final early = clean.length > 30 ? clean.substring(0, 30) : clean;
-    return !early.contains('{') && !early.toLowerCase().contains('json') && !early.contains('<tool');
+    return !early.contains('{') &&
+        !early.toLowerCase().contains('json') &&
+        !early.contains('<tool');
   }
 
   /// Checks if JSON structure appears complete
@@ -46,7 +51,9 @@ class FunctionCallParser {
     }
 
     // Any markdown block: ```...```
-    if (clean.startsWith('```') && clean.endsWith('```') && clean.lastIndexOf('```') > clean.indexOf('```')) {
+    if (clean.startsWith('```') &&
+        clean.endsWith('```') &&
+        clean.lastIndexOf('```') > clean.indexOf('```')) {
       return true;
     }
 
@@ -67,7 +74,9 @@ class FunctionCallParser {
       final content = _cleanModelResponse(text);
 
       // Try each format in order of specificity
-      return _parseToolCodeBlock(content) ?? _parseMarkdownBlock(content) ?? _parseDirectJson(content);
+      return _parseToolCodeBlock(content) ??
+          _parseMarkdownBlock(content) ??
+          _parseDirectJson(content);
     } catch (e) {
       debugPrint('FunctionCallParser: Error parsing function call: $e');
       return null;
@@ -152,7 +161,8 @@ class FunctionCallParser {
 
         if (name != null && parameters != null) {
           final functionCall = FunctionCallResponse(name: name, args: parameters);
-          debugPrint('FunctionCallParser: Successfully parsed function: ${functionCall.name}(${functionCall.args})');
+          debugPrint(
+              'FunctionCallParser: Successfully parsed function: ${functionCall.name}(${functionCall.args})');
           return functionCall;
         }
 
@@ -160,7 +170,8 @@ class FunctionCallParser {
         final args = decoded['args'] as Map<String, dynamic>?;
         if (name != null && args != null) {
           final functionCall = FunctionCallResponse(name: name, args: args);
-          debugPrint('FunctionCallParser: Successfully parsed function with args: ${functionCall.name}(${functionCall.args})');
+          debugPrint(
+              'FunctionCallParser: Successfully parsed function with args: ${functionCall.name}(${functionCall.args})');
           return functionCall;
         }
       }

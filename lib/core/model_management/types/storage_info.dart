@@ -32,8 +32,7 @@ class StorageStats {
     required this.orphanedFiles,
   });
 
-  int get orphanedFilesSize =>
-    orphanedFiles.fold(0, (sum, f) => sum + f.sizeBytes);
+  int get orphanedFilesSize => orphanedFiles.fold(0, (sum, f) => sum + f.sizeBytes);
 
   double get totalSizeMB => totalSizeBytes / (1024 * 1024);
   double get orphanedSizeMB => orphanedFilesSize / (1024 * 1024);

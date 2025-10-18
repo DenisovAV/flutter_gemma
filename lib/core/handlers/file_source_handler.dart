@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/protected_files_registry.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
@@ -28,7 +29,11 @@ class FileSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is FileSource;
 
   @override
-  Future<void> install(ModelSource source) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async {
+    // File sources are instant (just registration), no cancellation needed
     if (source is! FileSource) {
       throw ArgumentError('FileSourceHandler only supports FileSource');
     }
@@ -68,7 +73,11 @@ class FileSourceHandler implements SourceHandler {
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source) async* {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async* {
+    // Same as above - file registration is instant
     if (source is! FileSource) {
       throw ArgumentError('FileSourceHandler only supports FileSource');
     }

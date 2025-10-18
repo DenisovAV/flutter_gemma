@@ -50,7 +50,8 @@ class ChatMessageWidget extends StatelessWidget {
                           fontSize: 14,
                         ),
                         code: TextStyle(
-                          backgroundColor: message.isUser ? const Color(0xFF2a5a8c) : const Color(0xFF404040),
+                          backgroundColor:
+                              message.isUser ? const Color(0xFF2a5a8c) : const Color(0xFF404040),
                           color: Colors.white,
                         ),
                         codeblockDecoration: BoxDecoration(

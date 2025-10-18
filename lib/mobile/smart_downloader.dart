@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
+import 'package:flutter_gemma/core/domain/download_error.dart';
+import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 
 /// Smart downloader with HTTP-aware retry logic
@@ -272,7 +274,10 @@ class SmartDownloader {
 
             case TaskStatus.canceled:
               if (!progress.isClosed) {
-                progress.addError('Download canceled');
+                progress.addError(
+                  const DownloadException(DownloadError.canceled()),
+                  StackTrace.current,
+                );
                 progress.close();
               }
               await listener?.cancel();
@@ -361,7 +366,14 @@ class SmartDownloader {
         );
       } else {
         if (!progress.isClosed) {
-          progress.addError('Download failed after $maxRetries attempts: $e');
+          progress.addError(
+            DownloadException(
+              DownloadError.unknown(
+                'Download failed after $maxRetries attempts: $e',
+              ),
+            ),
+            StackTrace.current,
+          );
           progress.close();
         }
       }
@@ -396,8 +408,10 @@ class SmartDownloader {
         debugPrint('🟢 Detected 401 - stopping immediately');
         if (!progress.isClosed) {
           debugPrint('🟢 Adding error to progress stream');
-          progress.addError('Authentication required (HTTP 401). '
-              'Please provide a valid authentication token.');
+          progress.addError(
+            const DownloadException(DownloadError.unauthorized()),
+            StackTrace.current,
+          );
           progress.close();
           debugPrint('🟢 Progress stream closed');
         } else {
@@ -408,9 +422,10 @@ class SmartDownloader {
 
       if (httpStatusCode == 403) {
         if (!progress.isClosed) {
-          progress.addError('Access forbidden (HTTP 403). '
-              'Your authentication token is either invalid or you do not have access to this resource. '
-              'For gated models (e.g., HuggingFace), visit the model page and request access.');
+          progress.addError(
+            const DownloadException(DownloadError.forbidden()),
+            StackTrace.current,
+          );
           progress.close();
         }
         return; // Stop immediately
@@ -418,8 +433,10 @@ class SmartDownloader {
 
       if (httpStatusCode == 404) {
         if (!progress.isClosed) {
-          progress.addError('Model not found (HTTP 404). '
-              'Please check the URL and ensure the model exists.');
+          progress.addError(
+            const DownloadException(DownloadError.notFound()),
+            StackTrace.current,
+          );
           progress.close();
         }
         return; // Stop immediately
@@ -468,7 +485,13 @@ class SmartDownloader {
     } else {
       if (!progress.isClosed) {
         progress.addError(
-            'Download failed after $maxRetries attempts. This may be due to network issues or server problems.');
+          DownloadException(
+            DownloadError.network(
+              'Download failed after $maxRetries attempts. This may be due to network issues or server problems.',
+            ),
+          ),
+          StackTrace.current,
+        );
         progress.close();
       }
     }

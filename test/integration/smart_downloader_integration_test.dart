@@ -15,9 +15,7 @@ void main() {
   // 2. Run these tests on real devices only
   // 3. Rewrite tests to not rely on actual downloads
   // For now, skipping all tests in this group.
-  group('SmartDownloader Integration Tests',
-      skip: 'Tests fail due to background_downloader VM callback restrictions. See TODO above.',
-      () {
+  group('SmartDownloader Integration Tests', () {
     late Directory tempDir;
 
     setUpAll(() async {
@@ -405,7 +403,7 @@ void main() {
         await File(modelPath).delete();
       }, timeout: const Timeout(Duration(minutes: 1)));
     });
-  });
+  }, skip: 'Tests fail due to background_downloader VM callback restrictions. See TODO above.');
 }
 
 /// Mock PathProvider for testing

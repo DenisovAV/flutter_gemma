@@ -2,7 +2,7 @@
  - 🐛 **iOS Simulator Fix**: Fixed "Filename cannot contain path separators" crash on iOS Simulator (#127)
  - 🔧 **Download Service Refactoring**: Unified download implementation, removed legacy code (~100 lines)
  - 🚫 **Download Cancellation**: Added CancelToken pattern (Dio-style) for cancelling downloads (NON-BREAKING)
- - 🧹 **API Cleanup**: Removed unused `canResume()`, `resume()`, `cancel()` methods from DownloadService interface
+ - 🧹 **API Cleanup** ⚠️ **BREAKING**: Removed unused `canResume()`, `resume()`, `cancel()` methods from DownloadService interface
 
 ## 0.11.5
  - 🐛 Fixes: Some fixes for new Modern API

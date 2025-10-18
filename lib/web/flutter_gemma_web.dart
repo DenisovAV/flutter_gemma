@@ -300,10 +300,10 @@ class WebInferenceModel extends InferenceModel {
         onClose: onClose,
       );
       completer.complete(session);
-      return session;
+      return completer.future;
     } catch (e, st) {
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+      rethrow;
     }
   }
 

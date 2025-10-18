@@ -17,8 +17,8 @@ abstract interface class DownloadService {
   /// - [cancelToken]: Optional token for cancellation
   ///
   /// Throws:
-  /// - [NetworkException] for network errors
-  /// - [FileSystemException] for file write errors
+  /// - [DownloadException] with [DownloadError.network] for network errors
+  /// - [DownloadException] with [DownloadError.fileSystem] for file write errors
   /// - [DownloadCancelledException] if cancelled via cancelToken
   Future<void> download(
     String url,

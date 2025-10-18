@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/domain/download_exception.dart';
+import 'package:flutter_gemma/core/domain/download_error.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_gemma/core/infrastructure/blob_url_manager.dart';
-import 'package:flutter_gemma/core/domain/download_exception.dart';
-import 'package:flutter_gemma/core/domain/download_error.dart';
 
 /// Web implementation of DownloadService
 ///

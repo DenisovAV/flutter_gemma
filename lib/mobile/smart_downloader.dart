@@ -329,7 +329,7 @@ class SmartDownloader {
       debugPrint('🔵 Download completed!');
 
       // Ensure listener is canceled after completion
-      await listener.cancel();
+      await listener?.cancel();
     } catch (e) {
       debugPrint('❌ Exception in _downloadWithSmartRetry: $e');
       debugPrint('❌ Stack trace: ${StackTrace.current}');

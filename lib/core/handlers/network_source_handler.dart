@@ -41,8 +41,7 @@ class NetworkSourceHandler implements SourceHandler {
     final targetPath = await fileSystem.getTargetPath(filename);
 
     // Get token: prefer from source, fallback to constructor
-    final token = source.authToken ??
-        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
+    final token = source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
     // Download file
     await downloadService.download(source.url, targetPath, token: token);
@@ -74,8 +73,7 @@ class NetworkSourceHandler implements SourceHandler {
     final targetPath = await fileSystem.getTargetPath(filename);
 
     // Get token: prefer from source, fallback to constructor
-    final token = source.authToken ??
-        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
+    final token = source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
     // Download with progress tracking and configurable retries
     await for (final progress in downloadService.downloadWithProgress(

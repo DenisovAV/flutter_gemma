@@ -481,10 +481,8 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError(
-        "Asset model loading is not supported in release builds. "
-        "Use fromNetwork() or fromBundled() instead."
-      );
+      throw UnsupportedError("Asset model loading is not supported in release builds. "
+          "Use fromNetwork() or fromBundled() instead.");
     }
 
     await _ensureInitialized();
@@ -494,8 +492,8 @@ class WebModelManager extends ModelFileManager {
       name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: ModelSource.asset(path),
       loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
-      modelType: ModelType.general,  // Default for legacy API
-      fileType: ModelFileType.task,   // Default for legacy API
+      modelType: ModelType.general, // Default for legacy API
+      fileType: ModelFileType.task, // Default for legacy API
     );
 
     // Delegate to Modern API
@@ -525,10 +523,8 @@ class WebModelManager extends ModelFileManager {
   @override
   Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
     if (kReleaseMode) {
-      throw UnsupportedError(
-        "Asset model loading is not supported in release builds. "
-        "Use fromNetwork() or fromBundled() instead."
-      );
+      throw UnsupportedError("Asset model loading is not supported in release builds. "
+          "Use fromNetwork() or fromBundled() instead.");
     }
 
     await _ensureInitialized();
@@ -538,8 +534,8 @@ class WebModelManager extends ModelFileManager {
       name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: ModelSource.asset(path),
       loraSource: loraPath != null ? ModelSource.asset(loraPath) : null,
-      modelType: ModelType.general,  // Default for legacy API
-      fileType: ModelFileType.task,   // Default for legacy API
+      modelType: ModelType.general, // Default for legacy API
+      fileType: ModelFileType.task, // Default for legacy API
     );
 
     // Delegate to Modern API downloadModelWithProgress
@@ -573,14 +569,11 @@ class WebModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     // Create ModelSource based on path type
-    final modelSource = path.startsWith('http')
-        ? ModelSource.network(path)
-        : ModelSource.file(path);
+    final modelSource =
+        path.startsWith('http') ? ModelSource.network(path) : ModelSource.file(path);
 
     final loraSource = loraPath != null
-        ? (loraPath.startsWith('http')
-            ? ModelSource.network(loraPath)
-            : ModelSource.file(loraPath))
+        ? (loraPath.startsWith('http') ? ModelSource.network(loraPath) : ModelSource.file(loraPath))
         : null;
 
     // Convert legacy parameters to Modern API ModelSpec
@@ -588,8 +581,8 @@ class WebModelManager extends ModelFileManager {
       name: FileNameUtils.getBaseName(path.split('/').last),
       modelSource: modelSource,
       loraSource: loraSource,
-      modelType: ModelType.general,  // Default for legacy API
-      fileType: ModelFileType.task,   // Default for legacy API
+      modelType: ModelType.general, // Default for legacy API
+      fileType: ModelFileType.task, // Default for legacy API
     );
 
     // Delegate to Modern API
@@ -619,15 +612,14 @@ class WebModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     if (_activeInferenceModel == null) {
-      throw Exception('No active inference model to apply LoRA weights to. Use setModelPath first.');
+      throw Exception(
+          'No active inference model to apply LoRA weights to. Use setModelPath first.');
     }
 
     final current = _activeInferenceModel as InferenceModelSpec;
 
     // Create LoRA source from path
-    final loraSource = path.startsWith('http')
-        ? ModelSource.network(path)
-        : ModelSource.file(path);
+    final loraSource = path.startsWith('http') ? ModelSource.network(path) : ModelSource.file(path);
 
     final updatedSpec = InferenceModelSpec(
       name: current.name,

@@ -7,6 +7,7 @@ export 'core/model_response.dart';
 export 'core/function_call_parser.dart';
 export 'core/tool.dart';
 export 'core/chat.dart';
+export 'core/model_management/cancel_token.dart';
 
 // Export image processing utilities to prevent AI image corruption
 export 'core/image_processor.dart';
@@ -25,20 +26,20 @@ export 'core/api/embedding_installation_builder.dart';
 
 // Export Model Specs (needed for advanced use cases)
 export 'mobile/flutter_gemma_mobile.dart'
-  show
-    // Model specifications
-    InferenceModelSpec,
-    EmbeddingModelSpec,
-    ModelSpec,
-    ModelFile,
-    // Download progress
-    DownloadProgress,
-    // Storage info
-    StorageStats,
-    OrphanedFileInfo,
-    // Model management types
-    ModelManagementType,
-    // Exceptions
-    ModelStorageException;
+    show
+        // Model specifications
+        InferenceModelSpec,
+        EmbeddingModelSpec,
+        ModelSpec,
+        ModelFile,
+        // Download progress
+        DownloadProgress,
+        // Storage info
+        StorageStats,
+        OrphanedFileInfo,
+        // Model management types
+        ModelManagementType,
+        // Exceptions
+        ModelStorageException;
 
 // ModelReplacePolicy is already exported from model_file_manager_interface.dart

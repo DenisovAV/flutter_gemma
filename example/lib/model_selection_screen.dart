@@ -159,7 +159,8 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                                 // Features
                                 const Text(
                                   'Features:',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                                  style:
+                                      TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                                 ),
                                 const SizedBox(height: 8),
                                 Wrap(
@@ -378,7 +379,9 @@ class _ModelCardState extends State<ModelCard> {
                   Text(
                     'Backend: ${widget.model.preferredBackend.name.toUpperCase()}',
                     style: TextStyle(
-                      color: widget.model.preferredBackend == PreferredBackend.gpu ? Colors.green[600] : Colors.blue[600],
+                      color: widget.model.preferredBackend == PreferredBackend.gpu
+                          ? Colors.green[600]
+                          : Colors.blue[600],
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -388,26 +391,34 @@ class _ModelCardState extends State<ModelCard> {
                   'Size: ${widget.model.size}',
                   style: TextStyle(color: Colors.grey[600]),
                 ),
-                if (widget.model.supportsFunctionCalls || widget.model.supportImage || widget.model.isThinking) ...[
+                if (widget.model.supportsFunctionCalls ||
+                    widget.model.supportImage ||
+                    widget.model.isThinking) ...[
                   const SizedBox(height: 4.0),
                   Wrap(
                     spacing: 4.0,
                     children: [
                       if (widget.model.supportsFunctionCalls)
                         Chip(
-                          label: const Text('Function Calls', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                          label: const Text('Function Calls',
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
                           backgroundColor: Colors.purple[600],
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       if (widget.model.supportImage)
                         Chip(
-                          label: const Text('Multimodal', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                          label: const Text('Multimodal',
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
                           backgroundColor: Colors.orange[700],
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                       if (widget.model.isThinking)
                         Chip(
-                          label: const Text('Thinking', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                          label: const Text('Thinking',
+                              style: TextStyle(
+                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
                           backgroundColor: Colors.indigo[600],
                           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),

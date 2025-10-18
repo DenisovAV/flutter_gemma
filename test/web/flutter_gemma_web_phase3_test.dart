@@ -21,9 +21,12 @@ void main() {
         final manager3 = web.modelManager;
 
         // Assert
-        expect(identical(manager1, manager2), isTrue, reason: 'First two calls should return identical instance');
-        expect(identical(manager2, manager3), isTrue, reason: 'Second and third calls should return identical instance');
-        expect(identical(manager1, manager3), isTrue, reason: 'First and third calls should return identical instance');
+        expect(identical(manager1, manager2), isTrue,
+            reason: 'First two calls should return identical instance');
+        expect(identical(manager2, manager3), isTrue,
+            reason: 'Second and third calls should return identical instance');
+        expect(identical(manager1, manager3), isTrue,
+            reason: 'First and third calls should return identical instance');
       });
 
       test('FlutterGemmaPlugin.instance.modelManager returns consistent instance', () {
@@ -36,8 +39,10 @@ void main() {
         final manager3 = FlutterGemmaPlugin.instance.modelManager;
 
         // Assert
-        expect(identical(manager1, manager2), isTrue, reason: 'Plugin instance should return same manager');
-        expect(identical(manager2, manager3), isTrue, reason: 'Plugin instance should return same manager across multiple calls');
+        expect(identical(manager1, manager2), isTrue,
+            reason: 'Plugin instance should return same manager');
+        expect(identical(manager2, manager3), isTrue,
+            reason: 'Plugin instance should return same manager across multiple calls');
       });
 
       test('modelManager instance persists across multiple getter calls', () {
@@ -53,7 +58,8 @@ void main() {
         // Assert
         final first = instances.first;
         for (final instance in instances) {
-          expect(identical(first, instance), isTrue, reason: 'All calls should return same instance');
+          expect(identical(first, instance), isTrue,
+              reason: 'All calls should return same instance');
         }
       });
 
@@ -67,7 +73,8 @@ void main() {
         final manager2 = web2.modelManager;
 
         // Assert
-        expect(identical(manager1, manager2), isTrue, reason: 'WebModelManager should be a true singleton shared across instances');
+        expect(identical(manager1, manager2), isTrue,
+            reason: 'WebModelManager should be a true singleton shared across instances');
       });
     });
 
@@ -82,7 +89,8 @@ void main() {
 
         // Act
         web.modelManager.setActiveModel(spec);
-        expect(web.modelManager.activeInferenceModel, spec, reason: 'Should set activeInferenceModel');
+        expect(web.modelManager.activeInferenceModel, spec,
+            reason: 'Should set activeInferenceModel');
 
         // Get manager again - should still have same active model
         final manager2 = web.modelManager;
@@ -110,13 +118,16 @@ void main() {
         // Act
         web.modelManager.setActiveModel(inferenceSpec);
         expect(web.modelManager.activeInferenceModel, inferenceSpec);
-        expect(web.modelManager.activeEmbeddingModel, isNull, reason: 'Embedding model should be null initially');
+        expect(web.modelManager.activeEmbeddingModel, isNull,
+            reason: 'Embedding model should be null initially');
 
         web.modelManager.setActiveModel(embeddingSpec);
 
         // Assert
-        expect(web.modelManager.activeInferenceModel, inferenceSpec, reason: 'Inference model should still be set');
-        expect(web.modelManager.activeEmbeddingModel, embeddingSpec, reason: 'Embedding model should now be set');
+        expect(web.modelManager.activeInferenceModel, inferenceSpec,
+            reason: 'Inference model should still be set');
+        expect(web.modelManager.activeEmbeddingModel, embeddingSpec,
+            reason: 'Embedding model should now be set');
       });
 
       test('setActiveModel followed by multiple getActiveInferenceModel returns same spec', () {
@@ -183,7 +194,8 @@ void main() {
 
         // Assert
         final activeModel = web.modelManager.activeInferenceModel;
-        expect(activeModel, isNotNull, reason: 'Active model should be set after ensureModelReadyFromSpec');
+        expect(activeModel, isNotNull,
+            reason: 'Active model should be set after ensureModelReadyFromSpec');
         expect(activeModel, spec);
       });
 
@@ -200,7 +212,8 @@ void main() {
 
         // Verify active model is set
         final manager1 = FlutterGemmaPlugin.instance.modelManager;
-        expect(manager1.activeInferenceModel, spec, reason: 'Active model should be set after install');
+        expect(manager1.activeInferenceModel, spec,
+            reason: 'Active model should be set after install');
 
         // Act 2: Simulate createSession accessing modelManager again
         final manager2 = FlutterGemmaPlugin.instance.modelManager;
@@ -253,7 +266,8 @@ void main() {
         final activeModel = sessionManager.activeInferenceModel;
 
         // Assert
-        expect(activeModel, isNotNull, reason: 'THIS IS THE BUG FIX: activeModel should NOT be null');
+        expect(activeModel, isNotNull,
+            reason: 'THIS IS THE BUG FIX: activeModel should NOT be null');
         expect(activeModel, spec, reason: 'Should be the exact spec we set');
       });
 
@@ -270,7 +284,8 @@ void main() {
         web1.modelManager.setActiveModel(spec);
 
         // Assert
-        expect(web2.modelManager.activeInferenceModel, spec, reason: 'State should be shared via singleton');
+        expect(web2.modelManager.activeInferenceModel, spec,
+            reason: 'State should be shared via singleton');
       });
     });
 
@@ -387,7 +402,8 @@ void main() {
         final manager = web.modelManager;
 
         // Assert
-        expect(manager, isA<ModelFileManager>(), reason: 'WebModelManager must implement ModelFileManager interface');
+        expect(manager, isA<ModelFileManager>(),
+            reason: 'WebModelManager must implement ModelFileManager interface');
       });
     });
 
@@ -406,7 +422,8 @@ void main() {
         // Assert
         final first = managers.first;
         for (final manager in managers) {
-          expect(identical(first, manager), isTrue, reason: 'All concurrent accesses should return same instance');
+          expect(identical(first, manager), isTrue,
+              reason: 'All concurrent accesses should return same instance');
         }
       });
 
@@ -465,7 +482,8 @@ void main() {
         final managerAfter = web.modelManager;
 
         // Assert
-        expect(identical(managerBefore, managerAfter), isTrue, reason: 'Should be same manager instance before and after setActiveModel');
+        expect(identical(managerBefore, managerAfter), isTrue,
+            reason: 'Should be same manager instance before and after setActiveModel');
       });
     });
 

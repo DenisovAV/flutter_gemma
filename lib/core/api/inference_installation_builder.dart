@@ -123,7 +123,8 @@ class InferenceInstallationBuilder {
   /// model will skip download and just set it as active.
   Future<InferenceInstallation> install() async {
     if (_modelSource == null) {
-      throw StateError('Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().');
+      throw StateError(
+          'Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().');
     }
 
     // Create spec

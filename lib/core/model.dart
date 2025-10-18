@@ -8,6 +8,6 @@ enum ModelType {
 }
 
 enum ModelFileType {
-  task,        // .task files - MediaPipe handles templates internally
-  binary,      // .bin, .tflite files - need manual template formatting
+  task, // .task files - MediaPipe handles templates internally
+  binary, // .bin, .tflite files - need manual template formatting
 }

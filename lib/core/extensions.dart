@@ -24,15 +24,12 @@ const hammerUser = "User:";
 const hammerAssistant = "Assistant:";
 
 extension MessageExtension on Message {
-  String transformToChatPrompt({
-    ModelType type = ModelType.general,
-    ModelFileType fileType = ModelFileType.binary
-  }) {
+  String transformToChatPrompt(
+      {ModelType type = ModelType.general, ModelFileType fileType = ModelFileType.binary}) {
     // System messages should not be sent to the model
     if (this.type == MessageType.systemInfo) {
       return '';
     }
-
 
     // .task files - MediaPipe handles templates, return raw content
     if (fileType == ModelFileType.task) {
@@ -134,7 +131,8 @@ extension MessageExtension on Message {
 class ModelThinkingFilter {
   /// Filters ModelResponse stream for models with thinking support
   /// Only supports DeepSeek models with <think>...</think> blocks
-  static Stream<ModelResponse> filterThinkingStream(Stream<ModelResponse> originalStream, {required ModelType modelType}) async* {
+  static Stream<ModelResponse> filterThinkingStream(Stream<ModelResponse> originalStream,
+      {required ModelType modelType}) async* {
     switch (modelType) {
       case ModelType.deepSeek:
         // Apply DeepSeek thinking filtration

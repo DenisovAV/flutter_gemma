@@ -3,6 +3,7 @@ import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_gemma/core/infrastructure/blob_url_manager.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 
 void main() {
   group('WebDownloadService', () {
@@ -248,45 +249,71 @@ void main() {
       });
     });
 
-    group('canResume', () {
-      test('always returns false', () async {
-        // Assert
-        expect(await service.canResume('task123'), isFalse);
-        expect(await service.canResume(''), isFalse);
-        expect(await service.canResume('nonexistent'), isFalse);
-      });
-    });
+    group('Cancellation Support', () {
+      test('download() accepts cancelToken parameter', () async {
+        // Arrange
+        const url = 'https://example.com/model.bin';
+        const targetPath = 'model.bin';
+        final cancelToken = CancelToken();
 
-    group('resume', () {
-      test('throws UnsupportedError', () async {
+        // Act & Assert - should not throw
+        await service.download(url, targetPath, cancelToken: cancelToken);
+        expect(fileSystem.getUrl(targetPath), url);
+      });
+
+      test('downloadWithProgress() accepts cancelToken parameter', () async {
+        // Arrange
+        const url = 'https://example.com/model.bin';
+        const targetPath = 'model.bin';
+        final cancelToken = CancelToken();
+
+        // Act
+        await for (final _ in service.downloadWithProgress(
+          url,
+          targetPath,
+          cancelToken: cancelToken,
+        )) {
+          // Consume stream
+        }
+
         // Assert
+        expect(fileSystem.getUrl(targetPath), url);
+      });
+
+      test('downloadWithProgress() throws when cancelled before start', () async {
+        // Arrange
+        const url = 'https://example.com/model.bin';
+        const targetPath = 'model.bin';
+        final cancelToken = CancelToken();
+        cancelToken.cancel('Test cancellation');
+
+        // Act & Assert
         expect(
-          () => service.resume('task123'),
-          throwsA(isA<UnsupportedError>()),
+          () async {
+            await for (final _ in service.downloadWithProgress(
+              url,
+              targetPath,
+              cancelToken: cancelToken,
+            )) {
+              // Should not reach here
+            }
+          },
+          throwsA(isA<DownloadCancelledException>()),
         );
       });
 
-      test('throws with helpful error message', () async {
-        // Assert
-        try {
-          await service.resume('task123');
-          fail('Should have thrown UnsupportedError');
-        } catch (e) {
-          expect(e, isA<UnsupportedError>());
-          expect(
-            e.toString(),
-            contains('not supported on web'),
-          );
-        }
-      });
-    });
+      test('download() throws when cancelled before start', () async {
+        // Arrange
+        const url = 'https://example.com/model.bin';
+        const targetPath = 'model.bin';
+        final cancelToken = CancelToken();
+        cancelToken.cancel('Test cancellation');
 
-    group('cancel', () {
-      test('completes successfully (no-op)', () async {
-        // Act & Assert - should not throw
-        await service.cancel('task123');
-        await service.cancel('');
-        await service.cancel('nonexistent');
+        // Act & Assert
+        expect(
+          () => service.download(url, targetPath, cancelToken: cancelToken),
+          throwsA(isA<DownloadCancelledException>()),
+        );
       });
     });
 

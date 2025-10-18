@@ -19,10 +19,12 @@ class ChatListWidget extends StatefulWidget {
 
   final InferenceChat? chat;
   final List<Message> messages;
-  final ValueChanged<ModelResponse> gemmaHandler; // Accepts ModelResponse (TextToken | FunctionCall)
+  final ValueChanged<ModelResponse>
+      gemmaHandler; // Accepts ModelResponse (TextToken | FunctionCall)
   final ValueChanged<Message> messageHandler; // Handles all message additions to history
   final ValueChanged<String> errorHandler;
-  final bool isProcessing; // Indicates if the model is currently processing (including function calls)
+  final bool
+      isProcessing; // Indicates if the model is currently processing (including function calls)
   final bool useSyncMode; // Toggle for sync/async mode
 
   @override
@@ -76,7 +78,8 @@ class _ChatListWidgetState extends State<ChatListWidget> {
               onThinkingCompleted: (String thinkingContent) {
                 // Add thinking as special thinking message to history
                 if (thinkingContent.isNotEmpty) {
-                  debugPrint('ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
+                  debugPrint(
+                      'ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
                   final thinkingMessage = Message.thinking(text: thinkingContent);
                   widget.messageHandler(thinkingMessage); // Add to history through message handler
 

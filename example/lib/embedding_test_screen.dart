@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/services/auth_token_service.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
   final example_embedding_model.EmbeddingModel model;
-  
+
   const EmbeddingTestScreen({super.key, required this.model});
 
   @override
@@ -42,10 +43,20 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         debugPrint('[EmbeddingTestScreen] Installing embedding model...');
       }
 
+      // Load token from AuthTokenService if model requires authentication
+      String? token;
+      if (widget.model.needsAuth) {
+        final authToken = await AuthTokenService.loadToken();
+        token = authToken?.isNotEmpty == true ? authToken : null;
+        if (kDebugMode) {
+          debugPrint('[EmbeddingTestScreen] Using auth token: ${token != null ? "YES" : "NO"}');
+        }
+      }
+
       await FlutterGemma.installEmbedder()
-        .modelFromNetwork(widget.model.url)
-        .tokenizerFromNetwork(widget.model.tokenizerUrl)
-        .install();
+          .modelFromNetwork(widget.model.url, token: token)
+          .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
+          .install();
 
       if (kDebugMode) {
         debugPrint('[EmbeddingTestScreen] Embedding model installed ✅');
@@ -112,9 +123,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Input section
             const Text(
               'Test Embedding Generation',
@@ -125,7 +136,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             TextField(
               controller: _textController,
               maxLines: 4,
@@ -146,9 +157,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                 fillColor: Color(0xFF1a3a5c),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             Row(
               children: [
                 Expanded(
@@ -159,7 +170,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: _isGenerating 
+                    child: _isGenerating
                         ? const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -190,9 +201,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Results section placeholder
             SizedBox(
               height: 300,
@@ -225,7 +236,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       ),
     );
   }
-  
+
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -249,7 +260,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       ),
     );
   }
-  
+
   Future<void> _generateEmbedding() async {
     if (_textController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -259,25 +270,25 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       );
       return;
     }
-    
+
     setState(() {
       _isGenerating = true;
       _errorMessage = null;
       _embeddingResult = null;
     });
-    
+
     try {
       final text = _textController.text.trim();
       if (_embeddingModel == null) {
         throw Exception('Embedding model not initialized');
       }
       final embedding = await _embeddingModel!.generateEmbedding(text);
-      
+
       setState(() {
         _embeddingResult = embedding;
         _isGenerating = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -290,12 +301,12 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       if (kDebugMode) {
         debugPrint('Error generating embedding: $e');
       }
-      
+
       setState(() {
         _errorMessage = e.toString();
         _isGenerating = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -306,7 +317,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       }
     }
   }
-  
+
   void _clearResults() {
     setState(() {
       _textController.clear();
@@ -314,7 +325,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       _errorMessage = null;
     });
   }
-  
+
   Widget _buildResultsContent() {
     if (_isGenerating) {
       return const Center(
@@ -331,7 +342,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         ),
       );
     }
-    
+
     if (_errorMessage != null) {
       return Center(
         child: Column(
@@ -357,7 +368,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         ),
       );
     }
-    
+
     if (_embeddingResult != null && _embeddingResult!.isNotEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,8 +392,8 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                   children: [
                     // Show first few dimensions
                     Text(
-                      _embeddingResult!.take(10).map((v) => v.toStringAsFixed(4)).join(', ') + 
-                      (_embeddingResult!.length > 10 ? '...' : ''),
+                      _embeddingResult!.take(10).map((v) => v.toStringAsFixed(4)).join(', ') +
+                          (_embeddingResult!.length > 10 ? '...' : ''),
                       style: const TextStyle(
                         color: Colors.white,
                         fontFamily: 'monospace',
@@ -402,7 +413,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         ],
       );
     }
-    
+
     // Default state
     return Center(
       child: Column(
@@ -428,7 +439,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       ),
     );
   }
-  
+
   double _calculateMagnitude(List<double> vector) {
     double sum = 0.0;
     for (double value in vector) {

@@ -127,7 +127,8 @@ class EmbeddingInstallationBuilder {
     final isTokenizerInstalled = await repository.isInstalled(tokenizerFilename);
 
     if (isModelInstalled && isTokenizerInstalled) {
-      debugPrint('ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)');
+      debugPrint(
+          'ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)');
     } else {
       final handlerRegistry = registry.sourceHandlerRegistry;
 

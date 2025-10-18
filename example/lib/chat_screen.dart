@@ -112,9 +112,7 @@ class ChatScreenState extends State<ChatScreen> {
       await FlutterGemma.installModel(
         modelType: widget.model.modelType,
         fileType: widget.model.fileType,
-      )
-        .fromNetwork(widget.model.url)
-        .install();
+      ).fromNetwork(widget.model.url).install();
       debugPrint('[ChatScreen] Step 1: Model installed ✅');
 
       // Step 2: Create model with runtime config
@@ -157,20 +155,19 @@ class ChatScreenState extends State<ChatScreen> {
         });
       }
       rethrow;
-    }
-    finally {
-     _isInitializing = false; // Always reset the flag
+    } finally {
+      _isInitializing = false; // Always reset the flag
     }
   }
 
   // Helper method to handle function calls with system messages (async version)
   Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
-
     // Set streaming state and show "Calling function..." in one setState
     setState(() {
       _isStreaming = true;
       _messages.add(Message.systemInfo(
-        text: "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: "${e.value}"').join(', ')})",
+        text:
+            "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: "${e.value}"').join(', ')})",
       ));
     });
 
@@ -213,8 +210,7 @@ class ChatScreenState extends State<ChatScreen> {
       setState(() {
         _messages.add(Message.text(text: accumulatedResponse));
       });
-    } else if (response is FunctionCallResponse) {
-    }
+    } else if (response is FunctionCallResponse) {}
 
     // Reset streaming state when done
     setState(() {
@@ -232,8 +228,7 @@ class ChatScreenState extends State<ChatScreen> {
         _messages.add(Message.text(text: response.token));
         _isStreaming = false;
       });
-    } else {
-    }
+    } else {}
   }
 
   // Function to execute tools

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 
 /// Smart downloader with HTTP-aware retry logic
 ///
@@ -32,17 +33,79 @@ class SmartDownloader {
   /// [targetPath] - Local file path to save to
   /// [token] - Optional authorization token (e.g., HuggingFace, custom auth)
   /// [maxRetries] - Maximum number of retry attempts for transient errors (default: 10)
+  /// [cancelToken] - Optional token for cancellation
+  /// Note: Auth errors (401/403/404) fail after 1 attempt, regardless of maxRetries.
+  /// Only network errors and server errors (5xx) will be retried up to maxRetries times.
+  ///
+  /// This method waits for completion without progress tracking.
+  /// For progress tracking, use [downloadWithProgress] instead.
+  ///
+  /// Throws [DownloadCancelledException] if cancelled via cancelToken.
+  static Future<void> download({
+    required String url,
+    required String targetPath,
+    String? token,
+    int maxRetries = 10,
+    CancelToken? cancelToken,
+  }) async {
+    final completer = Completer<void>();
+
+    // Use downloadWithProgress but just wait for completion
+    downloadWithProgress(
+      url: url,
+      targetPath: targetPath,
+      token: token,
+      maxRetries: maxRetries,
+      cancelToken: cancelToken,
+    ).listen(
+      (_) {}, // Ignore progress updates
+      onError: (error) => completer.completeError(error),
+      onDone: () => completer.complete(),
+      cancelOnError: true,
+    );
+
+    return completer.future;
+  }
+
+  /// Downloads a file with smart retry logic and HTTP-aware error handling
+  ///
+  /// [url] - File URL (any server)
+  /// [targetPath] - Local file path to save to
+  /// [token] - Optional authorization token (e.g., HuggingFace, custom auth)
+  /// [maxRetries] - Maximum number of retry attempts for transient errors (default: 10)
+  /// [cancelToken] - Optional token for cancellation
   /// Note: Auth errors (401/403/404) fail after 1 attempt, regardless of maxRetries.
   /// Only network errors and server errors (5xx) will be retried up to maxRetries times.
   /// Returns a stream of progress percentages (0-100)
+  ///
+  /// The stream will emit [DownloadCancelledException] if cancelled via cancelToken.
   static Stream<int> downloadWithProgress({
     required String url,
     required String targetPath,
     String? token,
     int maxRetries = 10,
+    CancelToken? cancelToken,
   }) {
     final progress = StreamController<int>();
     StreamSubscription? currentListener;
+    StreamSubscription? cancellationListener;
+
+    // Listen for cancellation
+    if (cancelToken != null) {
+      cancellationListener = cancelToken.whenCancelled.asStream().listen((_) {
+        if (!progress.isClosed) {
+          progress.addError(
+            DownloadCancelledException(
+              cancelToken.cancelReason ?? 'Download cancelled',
+              StackTrace.current,
+            ),
+          );
+          progress.close();
+        }
+        currentListener?.cancel();
+        cancellationListener?.cancel();
+      });
+    }
 
     _downloadWithSmartRetry(
       url: url,
@@ -52,10 +115,14 @@ class SmartDownloader {
       progress: progress,
       currentAttempt: 1,
       currentListener: currentListener,
+      cancelToken: cancelToken,
       onListenerCreated: (listener) {
         currentListener = listener;
       },
-    );
+    ).whenComplete(() {
+      // Clean up cancellation listener when download completes
+      cancellationListener?.cancel();
+    });
 
     return progress.stream;
   }
@@ -68,8 +135,20 @@ class SmartDownloader {
     required StreamController<int> progress,
     required int currentAttempt,
     StreamSubscription? currentListener,
+    CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
   }) async {
+    // Check cancellation before starting
+    try {
+      cancelToken?.throwIfCancelled();
+    } catch (e) {
+      if (!progress.isClosed) {
+        progress.addError(e);
+        progress.close();
+      }
+      return;
+    }
+
     debugPrint('🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
     debugPrint('🔵 URL: $url');
     debugPrint('🔵 Target: $targetPath');
@@ -83,27 +162,28 @@ class SmartDownloader {
       final task = DownloadTask(
         url: url,
         group: _downloadGroup,
-        headers: token != null ? {
-          'Authorization': 'Bearer $token',
-          'Connection': 'keep-alive',
-          // Attempt to work around CDN ETag issues
-          'Cache-Control': 'no-cache, no-store',
-          'Pragma': 'no-cache',
-        } : {
-          'Connection': 'keep-alive',
-          'Cache-Control': 'no-cache, no-store',
-          'Pragma': 'no-cache',
-        },
+        headers: token != null
+            ? {
+                'Authorization': 'Bearer $token',
+                'Connection': 'keep-alive',
+                // Attempt to work around CDN ETag issues
+                'Cache-Control': 'no-cache, no-store',
+                'Pragma': 'no-cache',
+              }
+            : {
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache, no-store',
+                'Pragma': 'no-cache',
+              },
         baseDirectory: baseDirectory,
         directory: directory,
         filename: filename,
         requiresWiFi: false,
-        allowPause: true,  // Try resume first
+        allowPause: true, // Try resume first
         priority: 10,
-        retries: 0,  // No automatic retries - we handle ALL retries with HTTP-aware logic
-        updates: Updates.statusAndProgress,  // ✅ Get both status AND progress updates
+        retries: 0, // No automatic retries - we handle ALL retries with HTTP-aware logic
+        updates: Updates.statusAndProgress, // ✅ Get both status AND progress updates
       );
-
 
       final downloader = FileDownloader();
 
@@ -165,6 +245,7 @@ class SmartDownloader {
                 currentAttempt: currentAttempt,
                 httpStatusCode: httpCode,
                 currentListener: listener,
+                cancelToken: cancelToken,
                 onListenerCreated: onListenerCreated,
               );
               await listener?.cancel();
@@ -195,6 +276,7 @@ class SmartDownloader {
                 currentAttempt: currentAttempt,
                 httpStatusCode: 404,
                 currentListener: listener,
+                cancelToken: cancelToken,
                 onListenerCreated: onListenerCreated,
               );
               await listener?.cancel();
@@ -221,7 +303,6 @@ class SmartDownloader {
 
       // Ensure listener is canceled after completion
       await listener.cancel();
-
     } catch (e) {
       debugPrint('❌ Exception in _downloadWithSmartRetry: $e');
       debugPrint('❌ Stack trace: ${StackTrace.current}');
@@ -232,6 +313,18 @@ class SmartDownloader {
       if (currentAttempt < maxRetries) {
         debugPrint('⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries');
         await Future.delayed(Duration(seconds: currentAttempt * 2)); // Exponential backoff
+
+        // Check cancellation before retry
+        try {
+          cancelToken?.throwIfCancelled();
+        } catch (e) {
+          if (!progress.isClosed) {
+            progress.addError(e);
+            progress.close();
+          }
+          return;
+        }
+
         return _downloadWithSmartRetry(
           url: url,
           targetPath: targetPath,
@@ -240,6 +333,7 @@ class SmartDownloader {
           progress: progress,
           currentAttempt: currentAttempt + 1,
           currentListener: currentListener,
+          cancelToken: cancelToken,
           onListenerCreated: onListenerCreated,
         );
       } else {
@@ -262,6 +356,7 @@ class SmartDownloader {
     required int currentAttempt,
     int? httpStatusCode,
     StreamSubscription? currentListener,
+    CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
   }) async {
     debugPrint('🟡 _handleFailedDownload called');
@@ -277,10 +372,8 @@ class SmartDownloader {
         debugPrint('🟢 Detected 401 - stopping immediately');
         if (!progress.isClosed) {
           debugPrint('🟢 Adding error to progress stream');
-          progress.addError(
-            'Authentication required (HTTP 401). '
-            'Please provide a valid authentication token.'
-          );
+          progress.addError('Authentication required (HTTP 401). '
+              'Please provide a valid authentication token.');
           progress.close();
           debugPrint('🟢 Progress stream closed');
         } else {
@@ -291,11 +384,9 @@ class SmartDownloader {
 
       if (httpStatusCode == 403) {
         if (!progress.isClosed) {
-          progress.addError(
-            'Access forbidden (HTTP 403). '
-            'Your authentication token is either invalid or you do not have access to this resource. '
-            'For gated models (e.g., HuggingFace), visit the model page and request access.'
-          );
+          progress.addError('Access forbidden (HTTP 403). '
+              'Your authentication token is either invalid or you do not have access to this resource. '
+              'For gated models (e.g., HuggingFace), visit the model page and request access.');
           progress.close();
         }
         return; // Stop immediately
@@ -303,10 +394,8 @@ class SmartDownloader {
 
       if (httpStatusCode == 404) {
         if (!progress.isClosed) {
-          progress.addError(
-            'Model not found (HTTP 404). '
-            'Please check the URL and ensure the model exists.'
-          );
+          progress.addError('Model not found (HTTP 404). '
+              'Please check the URL and ensure the model exists.');
           progress.close();
         }
         return; // Stop immediately
@@ -329,6 +418,17 @@ class SmartDownloader {
       // Exponential backoff
       await Future.delayed(Duration(seconds: currentAttempt * 2));
 
+      // Check cancellation before retry
+      try {
+        cancelToken?.throwIfCancelled();
+      } catch (e) {
+        if (!progress.isClosed) {
+          progress.addError(e);
+          progress.close();
+        }
+        return;
+      }
+
       return _downloadWithSmartRetry(
         url: url,
         targetPath: targetPath,
@@ -337,11 +437,13 @@ class SmartDownloader {
         progress: progress,
         currentAttempt: currentAttempt + 1,
         currentListener: currentListener,
+        cancelToken: cancelToken,
         onListenerCreated: onListenerCreated,
       );
     } else {
       if (!progress.isClosed) {
-        progress.addError('Download failed after $maxRetries attempts. This may be due to network issues or server problems.');
+        progress.addError(
+            'Download failed after $maxRetries attempts. This may be due to network issues or server problems.');
         progress.close();
       }
     }
@@ -354,8 +456,8 @@ class SmartDownloader {
   @Deprecated('SmartDownloader works with all URLs. No need to check anymore.')
   static bool isHuggingFaceUrl(String url) {
     return url.contains('huggingface.co') ||
-           url.contains('cdn-lfs.huggingface.co') ||
-           url.contains('cdn-lfs-us-1.huggingface.co') ||
-           url.contains('cdn-lfs-eu-1.huggingface.co');
+        url.contains('cdn-lfs.huggingface.co') ||
+        url.contains('cdn-lfs-us-1.huggingface.co') ||
+        url.contains('cdn-lfs-eu-1.huggingface.co');
   }
 }

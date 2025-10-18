@@ -42,7 +42,7 @@ class AssetSourceHandler implements SourceHandler {
       // LargeFileHandler expects just filename - it resolves to app documents directory
       await (assetLoader as FlutterAssetLoader).copyAssetToFile(
         source.pathForLookupKey,
-        filename,  // Just filename, not full path
+        filename, // Just filename, not full path
       );
     } else {
       // Fallback for other loaders (testing)

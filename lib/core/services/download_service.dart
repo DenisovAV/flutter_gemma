@@ -1,3 +1,5 @@
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+
 /// Abstraction for downloading files from network
 /// Different implementations for different strategies
 ///
@@ -12,11 +14,18 @@ abstract interface class DownloadService {
   /// - [url]: Source URL (must be HTTP/HTTPS)
   /// - [targetPath]: Full path where file should be saved
   /// - [token]: Optional authentication token
+  /// - [cancelToken]: Optional token for cancellation
   ///
   /// Throws:
   /// - [NetworkException] for network errors
   /// - [FileSystemException] for file write errors
-  Future<void> download(String url, String targetPath, {String? token});
+  /// - [DownloadCancelledException] if cancelled via cancelToken
+  Future<void> download(
+    String url,
+    String targetPath, {
+    String? token,
+    CancelToken? cancelToken,
+  });
 
   /// Downloads a file with progress tracking
   ///
@@ -28,40 +37,24 @@ abstract interface class DownloadService {
   /// - [token]: Optional auth token
   /// - [maxRetries]: Max retry attempts for transient errors (default: 10)
   ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless of this value
+  /// - [cancelToken]: Optional token for cancellation
+  ///
+  /// Throws:
+  /// - [DownloadCancelledException] if cancelled via cancelToken
   ///
   /// Example:
   /// ```dart
-  /// await for (final progress in downloader.downloadWithProgress(...)) {
+  /// final cancelToken = CancelToken();
+  /// await for (final progress in downloader.downloadWithProgress(..., cancelToken: cancelToken)) {
   ///   print('Progress: $progress%');
   /// }
+  /// // Cancel from elsewhere: cancelToken.cancel('User cancelled');
   /// ```
   Stream<int> downloadWithProgress(
     String url,
     String targetPath, {
     String? token,
     int maxRetries = 10,
+    CancelToken? cancelToken,
   });
-
-  /// Checks if a download task can be resumed
-  ///
-  /// Parameters:
-  /// - [taskId]: ID of the download task
-  ///
-  /// Returns true if:
-  /// - Task exists
-  /// - Partial file exists
-  /// - Server supports resume (ETag/Range headers)
-  Future<bool> canResume(String taskId);
-
-  /// Resumes a previously interrupted download
-  ///
-  /// Throws:
-  /// - [UnsupportedError] if task cannot be resumed
-  /// - [NetworkException] for network errors
-  Future<void> resume(String taskId);
-
-  /// Cancels an active download
-  ///
-  /// Does nothing if task doesn't exist or is already complete
-  Future<void> cancel(String taskId);
 }

@@ -24,6 +24,7 @@ class EmbeddingInstallationBuilder {
   ModelSource? _tokenizerSource;
   void Function(int progress)? _onModelProgress;
   void Function(int progress)? _onTokenizerProgress;
+  CancelToken? _cancelToken;
 
   // === Model source setters ===
 
@@ -91,17 +92,43 @@ class EmbeddingInstallationBuilder {
     return this;
   }
 
+  /// Set cancellation token for this installation
+  ///
+  /// The same token will be used for both model and tokenizer downloads.
+  ///
+  /// Example:
+  /// ```dart
+  /// final cancelToken = CancelToken();
+  ///
+  /// final future = FlutterGemma.installEmbedder()
+  ///   .modelFromNetwork(modelUrl)
+  ///   .tokenizerFromNetwork(tokenizerUrl)
+  ///   .withCancelToken(cancelToken)
+  ///   .install();
+  ///
+  /// // Cancel from elsewhere
+  /// cancelToken.cancel('User cancelled');
+  /// ```
+  EmbeddingInstallationBuilder withCancelToken(CancelToken cancelToken) {
+    _cancelToken = cancelToken;
+    return this;
+  }
+
   /// Execute the installation and automatically set as active embedding model
   ///
   /// Returns [EmbeddingInstallation] with details about installed model.
   ///
   /// Throws:
   /// - [StateError] if model or tokenizer source not configured
+  /// - [DownloadCancelledException] if cancelled via cancelToken
   /// - [Exception] on installation failure
   ///
   /// Note: This method is idempotent - calling install() on an already-installed
   /// model will skip download and just set it as active.
   Future<EmbeddingInstallation> install() async {
+    // Check cancellation before starting
+    _cancelToken?.throwIfCancelled();
+
     if (_modelSource == null || _tokenizerSource == null) {
       throw StateError(
         'Both model and tokenizer required. Use modelFromNetwork() and tokenizerFromNetwork().',
@@ -137,11 +164,17 @@ class EmbeddingInstallationBuilder {
         debugPrint('📥 Installing embedding model...');
         final modelHandler = handlerRegistry.getHandler(_modelSource!);
         if (_onModelProgress != null) {
-          await for (final progress in modelHandler!.installWithProgress(_modelSource!)) {
+          await for (final progress in modelHandler!.installWithProgress(
+            _modelSource!,
+            cancelToken: _cancelToken,
+          )) {
             _onModelProgress!(progress);
           }
         } else {
-          await modelHandler!.install(_modelSource!);
+          await modelHandler!.install(
+            _modelSource!,
+            cancelToken: _cancelToken,
+          );
         }
       } else {
         debugPrint('ℹ️  Embedding model file already installed: $modelFilename');
@@ -152,11 +185,17 @@ class EmbeddingInstallationBuilder {
         debugPrint('📥 Installing tokenizer...');
         final tokenizerHandler = handlerRegistry.getHandler(_tokenizerSource!);
         if (_onTokenizerProgress != null) {
-          await for (final progress in tokenizerHandler!.installWithProgress(_tokenizerSource!)) {
+          await for (final progress in tokenizerHandler!.installWithProgress(
+            _tokenizerSource!,
+            cancelToken: _cancelToken,
+          )) {
             _onTokenizerProgress!(progress);
           }
         } else {
-          await tokenizerHandler!.install(_tokenizerSource!);
+          await tokenizerHandler!.install(
+            _tokenizerSource!,
+            cancelToken: _cancelToken,
+          );
         }
       } else {
         debugPrint('ℹ️  Tokenizer file already installed: $tokenizerFilename');

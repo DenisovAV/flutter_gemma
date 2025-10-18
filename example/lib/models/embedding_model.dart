@@ -25,7 +25,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     displayName: 'EmbeddingGemma 2048',
     size: '196MB',
     dimension: 2048,
-    needsAuth: true,
+    needsAuth: false,
   ),
 
   embeddingGemma256(
@@ -38,7 +38,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     displayName: 'EmbeddingGemma 256',
     size: '179MB',
     dimension: 256,
-    needsAuth: true,
+    needsAuth: false,
   ),
 
   embeddingGemma512(
@@ -51,7 +51,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     displayName: 'EmbeddingGemma 512',
     size: '179MB',
     dimension: 512,
-    needsAuth: true,
+    needsAuth: false,
   ),
 
   gecko256(
@@ -64,7 +64,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     displayName: 'Gecko 256',
     size: '114MB',
     dimension: 256,
-    needsAuth: true,  // litert-community models require HuggingFace authentication
+    needsAuth: false,
   );
 
   /// Enum fields

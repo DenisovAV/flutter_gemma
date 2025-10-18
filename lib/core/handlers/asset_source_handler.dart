@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/services/asset_loader.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
@@ -28,7 +29,12 @@ class AssetSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is AssetSource;
 
   @override
-  Future<void> install(ModelSource source) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async {
+    // No changes to logic - just add parameter for interface compliance
+    // Asset copies are fast (<30s), cancellation not critical
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }
@@ -69,7 +75,12 @@ class AssetSourceHandler implements SourceHandler {
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source) async* {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async* {
+    // Same as above - add parameter but don't use it
+    // Asset copies are fast (<30s), cancellation not critical
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }

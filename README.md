@@ -337,7 +337,7 @@ await FlutterGemma.installModel(
 
 **Cancelling Downloads:**
 
-Use `CancelToken` to cancel downloads in progress (similar to Dio pattern):
+Use `CancelToken` to cancel downloads in progress:
 
 ```dart
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
@@ -346,14 +346,22 @@ import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 final cancelToken = CancelToken();
 
 // Start download with cancel token
+final future = FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+)
+  .fromNetwork(url)
+  .withCancelToken(cancelToken)  // ← Pass cancel token via builder
+  .withProgress((progress) => print('Progress: $progress%'))
+  .install();
+
+// Cancel download from another part of your code
+// (e.g., user pressed cancel button)
+cancelToken.cancel('User cancelled download');
+
+// Handle cancellation
 try {
-  await FlutterGemma.installModel(
-    modelType: ModelType.gemmaIt,
-    cancelToken: cancelToken,  // Pass cancel token
-  )
-    .fromNetwork(url)
-    .withProgress((progress) => print('Progress: $progress%'))
-    .install();
+  await future;
+  print('Download completed');
 } catch (e) {
   if (CancelToken.isCancel(e)) {
     print('Download was cancelled by user');
@@ -361,10 +369,6 @@ try {
     print('Download failed: $e');
   }
 }
-
-// Cancel download from another part of your code
-// (e.g., user pressed cancel button)
-cancelToken.cancel('User cancelled download');
 
 // Check if cancelled
 if (cancelToken.isCancelled) {
@@ -374,7 +378,8 @@ if (cancelToken.isCancelled) {
 
 **CancelToken Features:**
 - ✅ Non-breaking: Optional parameter, existing code works without changes
-- ✅ Works with both `download()` and `downloadWithProgress()`
+- ✅ Works with network downloads (inference + embedding models)
+- ✅ Cancels ALL files in multi-file downloads (embedding: model + tokenizer)
 - ✅ Platform-independent (Mobile + Web)
 - ✅ Throws `DownloadCancelledException` for proper error handling
 - ✅ Thread-safe cancellation

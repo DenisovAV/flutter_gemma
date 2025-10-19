@@ -71,7 +71,6 @@ class WebJsInterop {
       final blobUrl = _createBlobUrl(blob);
 
       return blobUrl;
-
     } catch (e) {
       if (e is JsInteropException) rethrow;
 
@@ -143,7 +142,7 @@ class WebJsInterop {
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {
       debugPrint('Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
-            'May encounter memory limits on some browsers.');
+          'May encounter memory limits on some browsers.');
     }
 
     try {
@@ -167,7 +166,6 @@ class WebJsInterop {
 
       // Final progress
       onProgress(1.0);
-
     } catch (e) {
       final errorStr = e.toString();
       if (errorStr.contains('out of memory') ||
@@ -224,7 +222,8 @@ class JsInteropException implements Exception {
   JsInteropException(this.message, {this.statusCode});
 
   @override
-  String toString() => 'JsInteropException: $message${statusCode != null ? ' (Status: $statusCode)' : ''}';
+  String toString() =>
+      'JsInteropException: $message${statusCode != null ? ' (Status: $statusCode)' : ''}';
 }
 
 // ===== Extension Types for Response Handling =====

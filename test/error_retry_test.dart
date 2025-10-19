@@ -128,8 +128,7 @@ void main() {
         expect(e.error, isA<NetworkError>());
       }
 
-      expect(attempts, equals(maxRetries),
-        reason: 'Should retry max times for network errors');
+      expect(attempts, equals(maxRetries), reason: 'Should retry max times for network errors');
     });
   });
 }

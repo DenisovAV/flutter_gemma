@@ -92,17 +92,17 @@ class ResumeChecker {
       );
 
       Task? task = allTasks.cast<Task?>().firstWhere(
-        (t) => t?.filename == filename,
-        orElse: () => null,
-      );
+            (t) => t?.filename == filename,
+            orElse: () => null,
+          );
 
       // If not in active tasks, check database records
       if (task == null) {
         final records = await _downloader.database.allRecords();
         final record = records.cast<TaskRecord?>().firstWhere(
-          (r) => r?.task.filename == filename,
-          orElse: () => null,
-        );
+              (r) => r?.task.filename == filename,
+              orElse: () => null,
+            );
         task = record?.task;
       }
 
@@ -122,7 +122,6 @@ class ResumeChecker {
         debugPrint('ResumeChecker: File cannot be resumed: $filename');
         return ResumeStatus.cannotResume;
       }
-
     } catch (e) {
       debugPrint('ResumeChecker: Error checking resume status for $filename: $e');
       return ResumeStatus.error;
@@ -287,9 +286,7 @@ class ResumeChecker {
       counts[status] = (counts[status] ?? 0) + 1;
     }
 
-    return counts.entries
-        .map((e) => '${e.key.name}: ${e.value}')
-        .join(', ');
+    return counts.entries.map((e) => '${e.key.name}: ${e.value}').join(', ');
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 enum ModelReplacePolicy {
   /// Keep all models on disk (default)
   keep,
+
   /// Delete previous model when switching to save space
   replace,
 }

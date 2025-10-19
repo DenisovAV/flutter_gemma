@@ -81,7 +81,8 @@ class MobileModelManager extends ModelFileManager {
         }
 
         await handler.install(file.source);
-        debugPrint('✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}');
+        debugPrint(
+            '✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}');
       } catch (e) {
         throw ModelStorageException(
           'Failed to install file ${file.filename} via Modern handler',
@@ -289,16 +290,13 @@ class MobileModelManager extends ModelFileManager {
     // Delegate to ServiceRegistry handler
     if (source is! NetworkSource) {
       throw ModelStorageException(
-        'Cannot download from ${source.runtimeType}, only NetworkSource supported',
-        null,
-        '_downloadSingleFileWithProgress'
-      );
+          'Cannot download from ${source.runtimeType}, only NetworkSource supported',
+          null,
+          '_downloadSingleFileWithProgress');
     }
 
     // Create new NetworkSource with token if provided
-    final networkSource = token != null
-        ? NetworkSource(source.url, authToken: token)
-        : source;
+    final networkSource = token != null ? NetworkSource(source.url, authToken: token) : source;
 
     final registry = ServiceRegistry.instance;
     final handler = registry.networkHandler;
@@ -405,10 +403,8 @@ class MobileModelManager extends ModelFileManager {
 
       // Get all installed models and filter by type
       final allModels = await repository.listInstalled();
-      final files = allModels
-          .where((info) => info.type == modelType)
-          .map((info) => info.id)
-          .toList();
+      final files =
+          allModels.where((info) => info.type == modelType).map((info) => info.id).toList();
 
       debugPrint('UnifiedModelManager: Found ${files.length} installed files for type $type');
       return files;
@@ -427,7 +423,8 @@ class MobileModelManager extends ModelFileManager {
       final files = await getInstalledModels(type);
       return files.isNotEmpty;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to check if any model is installed for type $type: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to check if any model is installed for type $type: $e');
       return false;
     }
   }
@@ -621,7 +618,6 @@ class MobileModelManager extends ModelFileManager {
     }
   }
 
-
   // === Legacy Asset Loading Methods Implementation ===
 
   @override
@@ -728,7 +724,8 @@ class MobileModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     if (_activeInferenceModel == null) {
-      throw Exception('No active inference model to apply LoRA weights to. Use setModelPath first.');
+      throw Exception(
+          'No active inference model to apply LoRA weights to. Use setModelPath first.');
     }
 
     // Create updated spec with new LoRA path

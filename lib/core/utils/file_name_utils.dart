@@ -17,12 +17,12 @@ class FileNameUtils {
   /// as valid model files. Any file with these extensions can be managed
   /// by the model system.
   static const List<String> supportedExtensions = [
-    '.task',      // MediaPipe task bundles (inference models)
-    '.bin',       // Binary model files (various formats)
-    '.tflite',    // TensorFlow Lite models (embedding models)
-    '.json',      // Config/tokenizer files (metadata)
-    '.model',     // SentencePiece tokenizers (embedding models)
-    '.litertlm',  // LiteRT model files (newer format)
+    '.task', // MediaPipe task bundles (inference models)
+    '.bin', // Binary model files (various formats)
+    '.tflite', // TensorFlow Lite models (embedding models)
+    '.json', // Config/tokenizer files (metadata)
+    '.model', // SentencePiece tokenizers (embedding models)
+    '.litertlm', // LiteRT model files (newer format)
   ];
 
   /// Removes all supported extensions from filename to get base name

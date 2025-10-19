@@ -19,10 +19,8 @@ class FlutterAssetLoader implements AssetLoader {
       // For the AssetLoader interface, we need to read after copy
       // But this is still memory-intensive for large files
       // Better approach: change AssetSourceHandler to use copyAssetToLocalStorage directly
-      throw UnimplementedError(
-        'FlutterAssetLoader.loadAsset() is deprecated for large files. '
-        'Use copyAssetToFile() instead or call LargeFileHandler directly.'
-      );
+      throw UnimplementedError('FlutterAssetLoader.loadAsset() is deprecated for large files. '
+          'Use copyAssetToFile() instead or call LargeFileHandler directly.');
     } catch (e) {
       throw Exception('Failed to load asset: $path - $e');
     }

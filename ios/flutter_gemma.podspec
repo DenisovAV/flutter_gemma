@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '0.11.4'
+  s.version          = '0.11.6'
   s.summary          = 'Flutter plugin for running Gemma AI models locally with Gemma 3 Nano support.'
   s.description      = <<-DESC
 The plugin allows running the Gemma AI model locally on a device from a Flutter application.
@@ -24,10 +24,13 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.24
   s.platform = :ios, '16.0'
 
   # Flutter.framework does not contain a i386 slice.
-  s.pod_target_xcconfig = { 
-    'DEFINES_MODULE' => 'YES', 
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-    'OTHER_LDFLAGS' => '-force_load $(SRCROOT)/Pods/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
+    # Conditional force_load: only for device builds (TensorFlowLiteSelectTfOps doesn't have simulator slice)
+    'OTHER_LDFLAGS[sdk=iphoneos*]' => '-force_load $(SRCROOT)/Pods/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps',
+    # Don't force_load on simulator (TensorFlowLiteSelectTfOps.xcframework only contains ios-arm64 slice)
+    'OTHER_LDFLAGS[sdk=iphonesimulator*]' => ''
   }
   s.swift_version = '5.0'
 end

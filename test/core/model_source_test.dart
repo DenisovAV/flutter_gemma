@@ -173,12 +173,14 @@ void main() {
         ModelSource.file('/tmp/model.bin'),
       ];
 
-      final types = sources.map((source) => switch (source) {
-        NetworkSource() => 'network',
-        AssetSource() => 'asset',
-        BundledSource() => 'bundled',
-        FileSource() => 'file',
-      }).toList();
+      final types = sources
+          .map((source) => switch (source) {
+                NetworkSource() => 'network',
+                AssetSource() => 'asset',
+                BundledSource() => 'bundled',
+                FileSource() => 'file',
+              })
+          .toList();
 
       expect(types, equals(['network', 'asset', 'bundled', 'file']));
     });

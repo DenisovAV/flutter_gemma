@@ -15,7 +15,7 @@ void main() {
   // 2. Run these tests on real devices only
   // 3. Rewrite tests to not rely on actual downloads
   // For now, skipping all tests in this group.
-  group('SmartDownloader Integration Tests', skip: 'Tests fail due to background_downloader VM callback restrictions. See TODO above.', () {
+  group('SmartDownloader Integration Tests', () {
     late Directory tempDir;
 
     setUpAll(() async {
@@ -84,9 +84,11 @@ void main() {
           print('📊 Second model progress: $progress%');
         }
 
-        expect(secondProgress.isNotEmpty, true, reason: 'Second model should have progress updates');
+        expect(secondProgress.isNotEmpty, true,
+            reason: 'Second model should have progress updates');
         expect(secondProgress.last, 100, reason: 'Second model should complete at 100%');
-        expect(await File(secondModelPath).exists(), true, reason: 'Second model file should exist');
+        expect(await File(secondModelPath).exists(), true,
+            reason: 'Second model file should exist');
 
         print('✅ Second model downloaded successfully');
 
@@ -110,7 +112,7 @@ void main() {
         ];
 
         const urls = [
-          'https://httpbin.org/bytes/512',  // 512 bytes
+          'https://httpbin.org/bytes/512', // 512 bytes
           'https://httpbin.org/bytes/1024', // 1KB
           'https://httpbin.org/bytes/2048', // 2KB
         ];
@@ -168,7 +170,8 @@ void main() {
 
         // Verify file was NOT overwritten
         final currentSize = await File(modelPath).length();
-        expect(currentSize, originalSize, reason: 'File should not be overwritten with keep policy');
+        expect(currentSize, originalSize,
+            reason: 'File should not be overwritten with keep policy');
 
         final currentContent = await File(modelPath).readAsBytes();
         expect(currentContent, existingContent, reason: 'Content should be unchanged');
@@ -351,8 +354,7 @@ void main() {
 
         expect(errorReceived, true, reason: '401 should produce an error');
         expect(
-          errorMessage.toLowerCase().contains('401') ||
-          errorMessage.toLowerCase().contains('auth'),
+          errorMessage.toLowerCase().contains('401') || errorMessage.toLowerCase().contains('auth'),
           true,
           reason: 'Error should mention authentication',
         );
@@ -381,7 +383,8 @@ void main() {
         }
 
         expect(progressUpdates.isNotEmpty, true, reason: 'Should have progress updates');
-        expect(progressUpdates.first, greaterThanOrEqualTo(0), reason: 'First progress should be >= 0');
+        expect(progressUpdates.first, greaterThanOrEqualTo(0),
+            reason: 'First progress should be >= 0');
         expect(progressUpdates.last, 100, reason: 'Last progress should be 100');
 
         // Check that progress is monotonically increasing
@@ -400,7 +403,7 @@ void main() {
         await File(modelPath).delete();
       }, timeout: const Timeout(Duration(minutes: 1)));
     });
-  });
+  }, skip: 'Tests fail due to background_downloader VM callback restrictions. See TODO above.');
 }
 
 /// Mock PathProvider for testing

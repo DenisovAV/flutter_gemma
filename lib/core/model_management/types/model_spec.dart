@@ -74,5 +74,6 @@ class DownloadProgress {
   }
 
   @override
-  String toString() => 'DownloadProgress(file $currentFileIndex/$totalFiles, $currentFileProgress%, $currentFileName)';
+  String toString() =>
+      'DownloadProgress(file $currentFileIndex/$totalFiles, $currentFileProgress%, $currentFileName)';
 }

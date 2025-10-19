@@ -5,7 +5,8 @@ enum EmbeddingModel {
   // EmbeddingGemma models
   embeddingGemma300M(
     url: 'https://huggingface.co/google/embeddinggemma-300m/resolve/main/model.tflite',
-    tokenizerUrl: 'https://huggingface.co/google/embeddinggemma-300m/resolve/main/sentencepiece.model',
+    tokenizerUrl:
+        'https://huggingface.co/google/embeddinggemma-300m/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m.tflite',
     tokenizerFilename: 'sentencepiece.model',
     displayName: 'EmbeddingGemma 300M',
@@ -16,7 +17,8 @@ enum EmbeddingModel {
 
   embeddingGemma300M8bit(
     url: 'https://huggingface.co/google/embeddinggemma-300m-8bit/resolve/main/model.tflite',
-    tokenizerUrl: 'https://huggingface.co/google/embeddinggemma-300m-8bit/resolve/main/sentencepiece.model',
+    tokenizerUrl:
+        'https://huggingface.co/google/embeddinggemma-300m-8bit/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m-8bit.tflite',
     tokenizerFilename: 'sentencepiece.model',
     displayName: 'EmbeddingGemma 300M (8-bit)',
@@ -27,7 +29,8 @@ enum EmbeddingModel {
 
   embeddingGemma300M4bit(
     url: 'https://huggingface.co/google/embeddinggemma-300m-4bit/resolve/main/model.tflite',
-    tokenizerUrl: 'https://huggingface.co/google/embeddinggemma-300m-4bit/resolve/main/sentencepiece.model',
+    tokenizerUrl:
+        'https://huggingface.co/google/embeddinggemma-300m-4bit/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m-4bit.tflite',
     tokenizerFilename: 'sentencepiece.model',
     displayName: 'EmbeddingGemma 300M (4-bit)',
@@ -38,7 +41,8 @@ enum EmbeddingModel {
 
   embeddingGemma300M2bit(
     url: 'https://huggingface.co/google/embeddinggemma-300m-2bit/resolve/main/model.tflite',
-    tokenizerUrl: 'https://huggingface.co/google/embeddinggemma-300m-2bit/resolve/main/sentencepiece.model',
+    tokenizerUrl:
+        'https://huggingface.co/google/embeddinggemma-300m-2bit/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m-2bit.tflite',
     tokenizerFilename: 'sentencepiece.model',
     displayName: 'EmbeddingGemma 300M (2-bit)',
@@ -49,7 +53,8 @@ enum EmbeddingModel {
 
   gecko110M(
     url: 'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/gecko.tflite',
-    tokenizerUrl: 'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
+    tokenizerUrl:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
     filename: 'gecko-110m.tflite',
     tokenizerFilename: 'sentencepiece.model',
     displayName: 'Gecko 110M English',

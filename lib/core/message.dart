@@ -139,7 +139,8 @@ class Message {
   }
 
   @override
-  int get hashCode => text.hashCode ^ isUser.hashCode ^ imageBytes.hashCode ^ type.hashCode ^ toolName.hashCode;
+  int get hashCode =>
+      text.hashCode ^ isUser.hashCode ^ imageBytes.hashCode ^ type.hashCode ^ toolName.hashCode;
 
   bool _listEquals<T>(List<T>? a, List<T>? b) {
     if (a == null) return b == null;

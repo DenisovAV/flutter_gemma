@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
+import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:path/path.dart' as path;
@@ -35,7 +36,11 @@ class WebAssetSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is AssetSource;
 
   @override
-  Future<void> install(ModelSource source) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async {
+    // Web assets are instant URL registration, no cancellation needed
     if (source is! AssetSource) {
       throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
     }
@@ -64,7 +69,11 @@ class WebAssetSourceHandler implements SourceHandler {
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source) async* {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) async* {
+    // Same as above - web assets are instant
     if (source is! AssetSource) {
       throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
     }

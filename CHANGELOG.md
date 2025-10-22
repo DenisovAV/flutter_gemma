@@ -1,3 +1,7 @@
+## 0.11.8
+ - 🤖 **CI/CD Automation**: Added GitHub Actions workflows for automated testing and release builds
+ - ☕ **Support the Project**: Added Ko-fi donation button for community support
+
 ## 0.11.7
  - 🚀 **VectorStore Optimization** ⚠️ **BREAKING (RAG only)**:
    - **71% smaller storage**: Binary BLOB format instead of JSON (3 KB vs 10.5 KB per 768D embedding)

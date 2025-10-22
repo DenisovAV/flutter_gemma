@@ -30,7 +30,7 @@ This repository uses GitHub Actions for continuous integration and automated rel
 - Validates iOS compilation
 
 **Requirements:**
-- Flutter 3.24.0+
+- Flutter stable channel (latest)
 - Java 17 for Android builds
 - macOS runner for iOS builds
 
@@ -179,14 +179,15 @@ flutter test --coverage
 
 ### Flutter Version
 
-Update Flutter version in both workflows:
+Both workflows use Flutter stable channel (latest version):
 
 ```yaml
 uses: subosito/flutter-action@v2
 with:
-  flutter-version: '3.24.0'  # Update this
   channel: 'stable'
 ```
+
+To pin a specific version, add `flutter-version: 'X.Y.Z'`
 
 ### Java Version
 

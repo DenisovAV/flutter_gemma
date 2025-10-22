@@ -7,7 +7,6 @@
    - **iOS implementation**: Full VectorStore support on iOS (was stubs only)
    - **Cross-platform parity**: Identical behavior on Android and iOS
    - ⚠️ **ACTION REQUIRED**: Existing vector databases will be recreated on upgrade (re-index required)
-   - 📝 **Note**: RAG feature is new (v0.11.5), so impact is minimal
 
 ## 0.11.6
  - 🐛 **iOS Simulator Fix**: Fixed "Filename cannot contain path separators" crash on iOS Simulator (#127)

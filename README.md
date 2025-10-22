@@ -1,5 +1,11 @@
     # Flutter Gemma
 
+[![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
+[![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
+[![pub package](https://img.shields.io/pub/v/flutter_gemma.svg)](https://pub.dev/packages/flutter_gemma)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
+
 **The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), [TinyLlama 1.1B](https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0), [Hammer 2.1 0.5B](https://huggingface.co/litert-community/Hammer2.1-0.5b), [Llama 3.2 1B](https://huggingface.co/litert-community/Llama-3.2-1B-Instruct), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), Falcon-RW-1B, StableLM-3B.
 
 *Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 270M, Gemma 3 Nano (with **multimodal vision support**), TinyLlama, Hammer 2.1, Llama 3.2, Phi-4, DeepSeek and Qwen2.5.
@@ -1715,3 +1721,19 @@ This is automatically handled by the chat API, but can be useful for custom infe
 - Audio Output (Text-to-Speech)
 - Web Caching
 - System Instruction support
+
+---
+
+## ☕ Support the Project
+
+If you find **Flutter Gemma** useful and want to support its development, consider buying me a coffee! Your support helps me:
+
+- 🔧 Maintain and improve the plugin
+- 📚 Keep documentation up-to-date
+- 🐛 Fix bugs and resolve issues faster
+- ✨ Add new features and model support
+- 🧪 Test on more devices and platforms
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
+
+Every contribution, no matter how small, makes a difference. Thank you for your support! 💙

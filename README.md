@@ -1,5 +1,11 @@
     # Flutter Gemma
 
+[![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
+[![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
+[![pub package](https://img.shields.io/pub/v/flutter_gemma.svg)](https://pub.dev/packages/flutter_gemma)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
+
 **The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 2B](https://huggingface.co/google/gemma-2b-it) & [Gemma 7B](https://huggingface.co/google/gemma-7b-it), [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [Gemma 3 Nano 2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [Gemma 3 Nano 4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview), [TinyLlama 1.1B](https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0), [Hammer 2.1 0.5B](https://huggingface.co/litert-community/Hammer2.1-0.5b), [Llama 3.2 1B](https://huggingface.co/litert-community/Llama-3.2-1B-Instruct), Phi-2, Phi-3 , [Phi-4](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [Qwen2.5-1.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct), Falcon-RW-1B, StableLM-3B.
 
 *Note: Currently, the flutter_gemma plugin supports Gemma-3, Gemma 3 270M, Gemma 3 Nano (with **multimodal vision support**), TinyLlama, Hammer 2.1, Llama 3.2, Phi-4, DeepSeek and Qwen2.5.
@@ -1276,8 +1282,10 @@ chat.generateChatResponseAsync().listen((response) {
 Generate vector embeddings from text using specialized embedding models. These models convert text into numerical vectors that can be used for semantic similarity, search, and RAG applications.
 
 **Supported Embedding Models:**
-- **EmbeddingGemma models** (256, 512, 1024, 2048 dimensions)
-- **Gecko 256** (256 dimensions)
+- **EmbeddingGemma-300M** - 300M parameters, generates 768D embeddings with varying max sequence lengths (256, 512, 1024, 2048 tokens)
+- **Gecko-110m** - 110M parameters, generates 768D embeddings with varying max sequence lengths (64, 256, 512 tokens)
+
+**Note:** Numbers in model names (64, 256, 512, 1024, 2048) refer to **max sequence length** (context window size in tokens), **NOT** embedding dimension. All these models output **768-dimensional embeddings** regardless of sequence length.
 
 **Install Embedding Model:**
 
@@ -1386,6 +1394,35 @@ final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
 - ✅ Each embedding model consists of both model file (.tflite) and tokenizer file (.model)
 - ✅ Different dimension options allow trade-offs between accuracy and performance
 - ✅ Modern API provides separate progress tracking for model and tokenizer downloads
+
+**🚀 VectorStore Optimization (v0.11.7):**
+
+As of version 0.11.7, the VectorStore has been significantly optimized for better performance and storage efficiency:
+
+**Performance Improvements:**
+- **71% smaller storage**: Binary BLOB format instead of JSON (3 KB vs 10.5 KB per 768D embedding)
+- **6.7x faster reads**: ~75 μs vs ~500 μs per document search
+- **3.3x faster writes**: ~45 μs vs ~150 μs per document insertion
+
+**New Features:**
+- **Dynamic dimensions**: Auto-detects any embedding size (256D, 384D, 512D, 768D, 1024D, 1536D, 3072D, 4096D+)
+- **iOS implementation**: Full VectorStore support on iOS (was stubs only before v0.11.7)
+- **Cross-platform parity**: Identical behavior on Android and iOS
+
+**Migration Notes:**
+- ⚠️ **Breaking change for RAG users**: Existing vector databases will be recreated on upgrade (re-indexing required)
+- 📝 **Impact**: Minimal, since RAG feature is new (introduced in v0.11.5)
+- ✅ **Automatic**: Database schema upgrade happens automatically on first use
+
+**Common Embedding Dimensions:**
+- 256D: Gecko Small, efficient for mobile
+- 384D: MiniLM models
+- 512D: Mid-range models
+- 768D: BERT-base (standard)
+- 1024D: BERT-large, Cohere v3
+- 1536D: OpenAI Ada
+- 3072D: OpenAI Large
+- 4096D: Qwen-3
 
 11. **Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
@@ -1502,11 +1539,28 @@ chat.generateChatResponseAsync().listen((response) {
 - [Gemma 3 Nano E4B LitertLM](https://huggingface.co/google/gemma-3n-E4B-it-litert-lm) - 4B parameters with vision support
 
 ### 📊 Text Embedding Models
-- [EmbeddingGemma 256](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 256 dimensions (179MB)
-- [EmbeddingGemma 512](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 512 dimensions (179MB)
-- [EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 1024 dimensions (183MB)
-- [EmbeddingGemma 2048](https://huggingface.co/litert-community/embeddinggemma-300m) - 300M parameters, 2048 dimensions (196MB)
-- [Gecko 256](https://huggingface.co/litert-community/Gecko-110m-en) - 110M parameters, 256 dimensions (114MB)
+
+All embedding models generate **768-dimensional vectors**. The numbers in names (64/256/512/1024/2048) indicate **maximum input sequence length in tokens**, not embedding dimension.
+
+| Model | Parameters | Dimensions | Max Seq Length | Size | Best For | Auth Required |
+|-------|-----------|------------|----------------|------|----------|---------------|
+| **[Gecko 64](https://huggingface.co/litert-community/Gecko-110m-en)** | 110M | 768D | 64 tokens | 110MB | Short queries, real-time search | ❌ |
+| **[Gecko 256](https://huggingface.co/litert-community/Gecko-110m-en)** | 110M | 768D | 256 tokens | 114MB | Balanced speed/accuracy | ❌ |
+| **[Gecko 512](https://huggingface.co/litert-community/Gecko-110m-en)** | 110M | 768D | 512 tokens | 116MB | Medium context documents | ❌ |
+| **[EmbeddingGemma 256](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 256 tokens | 179MB | High accuracy, short context | ✅ |
+| **[EmbeddingGemma 512](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 512 tokens | 179MB | High accuracy, medium context | ✅ |
+| **[EmbeddingGemma 1024](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 1024 tokens | 183MB | Long documents, detailed content | ✅ |
+| **[EmbeddingGemma 2048](https://huggingface.co/litert-community/embeddinggemma-300m)** | 300M | 768D | 2048 tokens | 196MB | Very long documents | ✅ |
+
+**Performance Comparison (Android Pixel 8 with GPU acceleration):**
+- **Gecko 64**: ~109ms/doc embedding, 130ms search (⚡ **fastest** - 2.6x faster than EmbeddingGemma)
+- **EmbeddingGemma 256**: ~286ms/doc embedding, 342ms search (🎯 **more accurate** - 300M vs 110M params)
+
+**Use Cases:**
+- ✅ **Gecko 64**: Real-time search, mobile apps, short queries (≤64 tokens), fast inference
+- ✅ **Gecko 256/512**: Balanced use cases, general-purpose embeddings, good speed/quality tradeoff
+- ✅ **EmbeddingGemma 256/512**: High-quality embeddings, semantic search, better accuracy
+- ✅ **EmbeddingGemma 1024/2048**: Long documents, detailed content, research papers, articles
 
 ## 🛠️ Model Function Calling Support
 
@@ -1667,3 +1721,19 @@ This is automatically handled by the chat API, but can be useful for custom infe
 - Audio Output (Text-to-Speech)
 - Web Caching
 - System Instruction support
+
+---
+
+## ☕ Support the Project
+
+If you find **Flutter Gemma** useful and want to support its development, consider buying me a coffee! Your support helps me:
+
+- 🔧 Maintain and improve the plugin
+- 📚 Keep documentation up-to-date
+- 🐛 Fix bugs and resolve issues faster
+- ✨ Add new features and model support
+- 🧪 Test on more devices and platforms
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
+
+Every contribution, no matter how small, makes a difference. Thank you for your support! 💙

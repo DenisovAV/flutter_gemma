@@ -191,17 +191,24 @@ class ImageErrorHandler {
   static ErrorType _categorizeError(dynamic error) {
     final errorMessage = error.toString().toLowerCase();
 
-    if (errorMessage.contains('base64')) return ErrorType.base64Encoding;
-    if (errorMessage.contains('format') || errorMessage.contains('decode'))
+    if (errorMessage.contains('base64')) {
+      return ErrorType.base64Encoding;
+    }
+    if (errorMessage.contains('format') || errorMessage.contains('decode')) {
       return ErrorType.imageFormat;
-    if (errorMessage.contains('size') || errorMessage.contains('dimension'))
+    }
+    if (errorMessage.contains('size') || errorMessage.contains('dimension')) {
       return ErrorType.imageDimensions;
-    if (errorMessage.contains('memory') || errorMessage.contains('allocation'))
+    }
+    if (errorMessage.contains('memory') || errorMessage.contains('allocation')) {
       return ErrorType.memoryLimit;
-    if (errorMessage.contains('corruption') || errorMessage.contains('corrupt'))
+    }
+    if (errorMessage.contains('corruption') || errorMessage.contains('corrupt')) {
       return ErrorType.imageCorruption;
-    if (errorMessage.contains('network') || errorMessage.contains('transmission'))
+    }
+    if (errorMessage.contains('network') || errorMessage.contains('transmission')) {
       return ErrorType.networkTransmission;
+    }
 
     return ErrorType.unknown;
   }
@@ -210,11 +217,15 @@ class ImageErrorHandler {
   static ErrorType _categorizeTokenizationError(dynamic error, String? prompt) {
     final errorMessage = error.toString().toLowerCase();
 
-    if (errorMessage.contains('token') && errorMessage.contains('image'))
+    if (errorMessage.contains('token') && errorMessage.contains('image')) {
       return ErrorType.imageTokenMismatch;
-    if (errorMessage.contains('0 image tokens')) return ErrorType.imageTokenMismatch;
-    if (errorMessage.contains('prompt') && prompt != null && !prompt.contains('image'))
+    }
+    if (errorMessage.contains('0 image tokens')) {
+      return ErrorType.imageTokenMismatch;
+    }
+    if (errorMessage.contains('prompt') && prompt != null && !prompt.contains('image')) {
       return ErrorType.missingImageTokens;
+    }
 
     return ErrorType.tokenization;
   }

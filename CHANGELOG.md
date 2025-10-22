@@ -1,3 +1,17 @@
+## 0.11.8
+ - 🤖 **CI/CD Automation**: Added GitHub Actions workflows for automated testing and release builds
+ - ☕ **Support the Project**: Added Ko-fi donation button for community support
+
+## 0.11.7
+ - 🚀 **VectorStore Optimization** ⚠️ **BREAKING (RAG only)**:
+   - **71% smaller storage**: Binary BLOB format instead of JSON (3 KB vs 10.5 KB per 768D embedding)
+   - **6.7x faster reads**: ~75 μs vs ~500 μs per document search
+   - **3.3x faster writes**: ~45 μs vs ~150 μs per document insertion
+   - **Dynamic dimensions**: Auto-detect any embedding size (256D, 384D, 512D, 768D, 1024D, 1536D, 3072D, 4096D+)
+   - **iOS implementation**: Full VectorStore support on iOS (was stubs only)
+   - **Cross-platform parity**: Identical behavior on Android and iOS
+   - ⚠️ **ACTION REQUIRED**: Existing vector databases will be recreated on upgrade (re-index required)
+
 ## 0.11.6
  - 🐛 **iOS Simulator Fix**: Fixed "Filename cannot contain path separators" crash on iOS Simulator (#127)
  - 🔧 **Download Service Refactoring**: Unified download implementation, removed legacy code (~100 lines)

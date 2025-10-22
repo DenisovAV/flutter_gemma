@@ -62,6 +62,11 @@ abstract class EmbeddingModelInterface extends BaseModel {
   /// Tokenizer filename for local storage
   String get tokenizerFilename;
 
-  /// Vector dimension (e.g., 768)
+  /// Embedding vector dimension (e.g., 768)
+  /// This is the fixed output size of the embedding model
   int get dimension;
+
+  /// Maximum sequence length (context window) in tokens
+  /// This determines how long input text can be before truncation
+  int get maxSeqLen;
 }

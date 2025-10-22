@@ -17,9 +17,20 @@ class AuthTokenService {
   /// Load the stored HuggingFace authentication token.
   ///
   /// Returns the token string if found, or null if no token is saved.
+  /// Priority: 1) SharedPreferences, 2) dart-define (HUGGINGFACE_TOKEN)
   static Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(AppKeys.authToken);
+    final token = prefs.getString(AppKeys.authToken);
+
+    // Fallback to dart-define if not in SharedPreferences
+    if (token == null || token.isEmpty) {
+      const envToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
+      if (envToken.isNotEmpty) {
+        return envToken;
+      }
+    }
+
+    return token;
   }
 
   /// Save a HuggingFace authentication token.

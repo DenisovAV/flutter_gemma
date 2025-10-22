@@ -1,7 +1,8 @@
 import 'base_model.dart';
 
 enum EmbeddingModel implements EmbeddingModelInterface {
-  // EmbeddingGemma models with correct URLs and sizes
+  // EmbeddingGemma-300M models (all generate 768D embeddings)
+  // Numbers in names indicate max sequence length, not embedding dimension
   embeddingGemma1024(
     url:
         'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq1024_mixed-precision.tflite',
@@ -9,9 +10,10 @@ enum EmbeddingModel implements EmbeddingModelInterface {
         'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300M_seq1024_mixed-precision.tflite',
     tokenizerFilename: 'sentencepiece.model',
-    displayName: 'EmbeddingGemma 1024',
+    displayName: 'EmbeddingGemma (seq=1024)',
     size: '183MB',
-    dimension: 1024,
+    dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
+    maxSeqLen: 1024,
     needsAuth: true,
   ),
 
@@ -22,10 +24,11 @@ enum EmbeddingModel implements EmbeddingModelInterface {
         'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300M_seq2048_mixed-precision.tflite',
     tokenizerFilename: 'sentencepiece.model',
-    displayName: 'EmbeddingGemma 2048',
+    displayName: 'EmbeddingGemma (seq=2048)',
     size: '196MB',
-    dimension: 2048,
-    needsAuth: false,
+    dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
+    maxSeqLen: 2048,
+    needsAuth: true,
   ),
 
   embeddingGemma256(
@@ -35,10 +38,11 @@ enum EmbeddingModel implements EmbeddingModelInterface {
         'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300M_seq256_mixed-precision.tflite',
     tokenizerFilename: 'sentencepiece.model',
-    displayName: 'EmbeddingGemma 256',
+    displayName: 'EmbeddingGemma (seq=256)',
     size: '179MB',
-    dimension: 256,
-    needsAuth: false,
+    dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
+    maxSeqLen: 256,
+    needsAuth: true,
   ),
 
   embeddingGemma512(
@@ -48,9 +52,26 @@ enum EmbeddingModel implements EmbeddingModelInterface {
         'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300M_seq512_mixed-precision.tflite',
     tokenizerFilename: 'sentencepiece.model',
-    displayName: 'EmbeddingGemma 512',
+    displayName: 'EmbeddingGemma (seq=512)',
     size: '179MB',
-    dimension: 512,
+    dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
+    maxSeqLen: 512,
+    needsAuth: true,
+  ),
+
+  // Gecko-110m models (generate 768D embeddings)
+  // Gecko 64 is the smallest and fastest model - ideal for short queries
+  gecko64(
+    url:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
+    filename: 'Gecko_64_quant.tflite',
+    tokenizerFilename: 'sentencepiece.model',
+    displayName: 'Gecko (seq=64)',
+    size: '110MB',
+    dimension: 768, // Fixed embedding dimension for Gecko-110m
+    maxSeqLen: 64,
     needsAuth: false,
   ),
 
@@ -59,11 +80,26 @@ enum EmbeddingModel implements EmbeddingModelInterface {
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_256_quant.tflite',
     tokenizerUrl:
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
-    filename: 'gecko-256-quant.tflite',
+    filename: 'Gecko_256_quant.tflite', // Fixed: match actual downloaded filename
     tokenizerFilename: 'sentencepiece.model',
-    displayName: 'Gecko 256',
+    displayName: 'Gecko (seq=256)',
     size: '114MB',
-    dimension: 256,
+    dimension: 768, // Fixed embedding dimension for Gecko-110m
+    maxSeqLen: 256,
+    needsAuth: false,
+  ),
+
+  gecko512(
+    url:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_512_quant.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
+    filename: 'Gecko_512_quant.tflite',
+    tokenizerFilename: 'sentencepiece.model',
+    displayName: 'Gecko (seq=512)',
+    size: '116MB',
+    dimension: 768, // Fixed embedding dimension for Gecko-110m
+    maxSeqLen: 512,
     needsAuth: false,
   );
 
@@ -83,6 +119,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   @override
   final int dimension;
   @override
+  final int maxSeqLen;
+  @override
   final bool needsAuth;
 
   /// Constructor
@@ -94,6 +132,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     required this.displayName,
     required this.size,
     required this.dimension,
+    required this.maxSeqLen,
     required this.needsAuth,
   });
 

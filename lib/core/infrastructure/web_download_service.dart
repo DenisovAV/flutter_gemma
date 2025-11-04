@@ -79,8 +79,6 @@ class WebDownloadService implements DownloadService {
           throw ArgumentError('Invalid URL: $url. Must be HTTP or HTTPS.');
         }
 
-        debugPrint('WebDownloadService: Registering public URL for $targetPath');
-
         // Register direct URL
         _fileSystem.registerUrl(targetPath, url);
 
@@ -99,8 +97,6 @@ class WebDownloadService implements DownloadService {
             await Future.delayed(stepDelay);
           }
         }
-
-        debugPrint('WebDownloadService: Completed registration for $targetPath');
       } catch (e) {
         debugPrint('WebDownloadService: Registration failed for $targetPath: $e');
         if (e is ArgumentError || e is DownloadCancelledException) {
@@ -128,27 +124,46 @@ class WebDownloadService implements DownloadService {
       // Check cancellation before starting
       cancelToken?.throwIfCancelled();
 
-      var lastProgress = 0;
+      // Use StreamController to bridge callback-based progress to stream
+      final progressController = StreamController<int>();
+      final completer = Completer<String>(); // for blob URL
 
-      final blobUrl = await _jsInterop.fetchWithAuthAndCreateBlob(
+      // Start download in background
+      _jsInterop.fetchWithAuthAndCreateBlob(
         url,
         authToken,
         onProgress: (progress) {
-          // Convert 0.0-1.0 to 0-100
+          // Convert 0.0-1.0 to 0-100 and stream immediately
           final progressPercent = (progress * 100).clamp(0, 100).toInt();
-          lastProgress = progressPercent;
+          if (!progressController.isClosed) {
+            progressController.add(progressPercent);
+          }
         },
-      );
+      ).then((blobUrl) {
+        // Download complete - close stream and complete future
+        if (!progressController.isClosed) {
+          progressController.add(100); // Ensure final 100%
+          progressController.close();
+        }
+        completer.complete(blobUrl);
+      }).catchError((error) {
+        // Download failed - forward error
+        if (!progressController.isClosed) {
+          progressController.addError(error);
+          progressController.close();
+        }
+        completer.completeError(error);
+      });
 
-      // Yield progress updates with cancellation checks
-      for (int i = 0; i <= lastProgress; i += 5) {
+      // Yield progress as it comes in
+      await for (final progress in progressController.stream) {
         cancelToken?.throwIfCancelled();
-        yield i;
-        await Future.delayed(const Duration(milliseconds: 10));
+        yield progress;
       }
 
+      // Get blob URL after stream completes
       cancelToken?.throwIfCancelled();
-      yield 100;
+      final blobUrl = await completer.future;
 
       // Register blob URL
       _fileSystem.registerUrl(targetPath, blobUrl);

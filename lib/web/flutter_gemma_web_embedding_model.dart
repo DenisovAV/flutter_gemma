@@ -1,14 +1,21 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../flutter_gemma_interface.dart';
+import 'litert_web_embeddings.dart';
 
 class WebEmbeddingModel extends EmbeddingModel {
   WebEmbeddingModel({
     required this.onClose,
-  });
+    String? modelPath,
+    String? tokenizerPath,
+  })  : _modelPath = modelPath,
+        _tokenizerPath = tokenizerPath;
 
   final VoidCallback onClose;
+  final String? _modelPath;
+  final String? _tokenizerPath;
   bool _isClosed = false;
+  bool _isInitialized = false;
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -16,25 +23,73 @@ class WebEmbeddingModel extends EmbeddingModel {
     }
   }
 
+  /// Initialize the LiteRT model if not already initialized
+  Future<void> _ensureInitialized() async {
+    if (_isInitialized) return;
+
+    if (_modelPath == null || _tokenizerPath == null) {
+      throw StateError(
+          'Model and tokenizer paths must be provided. Use createEmbeddingModel with modelPath and tokenizerPath parameters.');
+    }
+
+    try {
+      await LiteRTWebEmbeddings.initialize(
+        _modelPath,
+        _tokenizerPath,
+        wasmPath: '/wasm/',  // WASM files in example/web/wasm/
+      );
+      _isInitialized = true;
+      if (kDebugMode) {
+        debugPrint('✅ LiteRT embeddings initialized successfully');
+      }
+    } catch (e) {
+      throw Exception('Failed to initialize LiteRT embeddings: $e');
+    }
+  }
+
   @override
   Future<List<double>> generateEmbedding(String text) async {
     _assertNotClosed();
-    // TODO: Implement web embedding generation
-    throw UnimplementedError('Web embedding generation not yet implemented');
+    await _ensureInitialized();
+
+    try {
+      final embedding = await LiteRTWebEmbeddings.generateEmbedding(text);
+      if (kDebugMode) {
+        debugPrint('✅ Generated embedding with ${embedding.length} dimensions');
+      }
+      return embedding;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to generate embedding: $e');
+      }
+      rethrow;
+    }
   }
 
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
     _assertNotClosed();
-    // TODO: Implement web batch embedding generation
-    throw UnimplementedError('Web batch embedding generation not yet implemented');
+    await _ensureInitialized();
+
+    try {
+      final embeddings = await LiteRTWebEmbeddings.generateEmbeddings(texts);
+      if (kDebugMode) {
+        debugPrint('✅ Generated ${embeddings.length} embeddings');
+      }
+      return embeddings;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('❌ Failed to generate embeddings: $e');
+      }
+      rethrow;
+    }
   }
 
   @override
   Future<int> getDimension() async {
     _assertNotClosed();
-    // TODO: Implement getting dimension from web model
-    throw UnimplementedError('Web embedding dimension not yet implemented');
+    // Don't need to initialize just to get dimension (it's a constant)
+    return LiteRTWebEmbeddings.getDimension();
   }
 
   @override
@@ -42,6 +97,21 @@ class WebEmbeddingModel extends EmbeddingModel {
     if (_isClosed) return;
 
     _isClosed = true;
+
+    // Cleanup LiteRT resources
+    if (_isInitialized) {
+      try {
+        await LiteRTWebEmbeddings.dispose();
+        if (kDebugMode) {
+          debugPrint('✅ LiteRT embeddings disposed');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️  Warning: Failed to dispose LiteRT embeddings: $e');
+        }
+      }
+    }
+
     onClose();
   }
 }

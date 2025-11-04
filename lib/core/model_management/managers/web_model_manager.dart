@@ -239,14 +239,25 @@ class WebModelManager extends ModelFileManager {
       final String path;
 
       if (file.source is NetworkSource) {
-        // Web: Get registered URL
+        // Web: Get registered URL (blob URL for auth downloads)
         path = fileSystem.getUrl(file.filename) ?? (file.source as NetworkSource).url;
       } else if (file.source is BundledSource) {
         // Web: Bundled resources
         path = await fileSystem.getBundledResourcePath((file.source as BundledSource).resourceName);
       } else if (file.source is AssetSource) {
-        // Web: Asset path
-        path = (file.source as AssetSource).normalizedPath;
+        // Web: Get registered Blob URL (created by WebAssetSourceHandler)
+        // If URL lost (page reload), recreate it
+        var url = fileSystem.getUrl(file.filename);
+        if (url == null) {
+          debugPrint('[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...');
+          // Recreate Blob URL by reinstalling
+          final handler = registry.sourceHandlerRegistry.getHandler(file.source);
+          if (handler != null) {
+            await handler.install(file.source);
+            url = fileSystem.getUrl(file.filename);
+          }
+        }
+        path = url ?? (file.source as AssetSource).normalizedPath;
       } else if (file.source is FileSource) {
         // Web: External URL or registered path
         final fileSource = file.source as FileSource;

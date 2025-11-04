@@ -5,6 +5,10 @@ trash_*
 docs/
 .claude/settings.local.json
 
+# Backup files
+*.old
+*.backup
+
 # IDE files
 .idea/
 
@@ -13,3 +17,21 @@ coverage/
 
 # Sensitive configuration files
 example/config.json
+
+# Vite/Build artifacts
+# Ignore all JS files in web/ root (built from web/rag/dist/)
+web/*.js
+example/web/*.js
+
+# But keep source files in web/rag/
+!web/rag/
+
+# Node modules
+node_modules/
+web/rag/node_modules/
+web/rag/dist/
+
+# Generated/downloaded models
+example/web/models/
+example/web/wasm/
+example/web/*.model

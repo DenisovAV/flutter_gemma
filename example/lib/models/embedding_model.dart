@@ -45,6 +45,22 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     needsAuth: true,
   ),
 
+  // Local model for fast testing (no auth required)
+  // Files are in example/assets/models/
+  // AssetSource works in both debug and production builds
+  localEmbeddingGemma256(
+    url: 'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite',
+    tokenizerUrl: 'assets/models/sentencepiece.model',
+    filename: 'embeddinggemma-300M_seq256_mixed-precision.tflite',  // Keep same as HF version for compatibility
+    tokenizerFilename: 'sentencepiece.model',
+    displayName: '🚀 Local EmbeddingGemma (seq=256)',
+    size: '171MB (Local - No Auth)',
+    dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
+    maxSeqLen: 256,
+    needsAuth: false,
+    sourceType: ModelSourceType.asset,  // Use Flutter assets - works in debug and production
+  ),
+
   embeddingGemma512(
     url:
         'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq512_mixed-precision.tflite',
@@ -122,6 +138,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   final int maxSeqLen;
   @override
   final bool needsAuth;
+  @override
+  final ModelSourceType sourceType;
 
   /// Constructor
   const EmbeddingModel({
@@ -134,6 +152,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     required this.dimension,
     required this.maxSeqLen,
     required this.needsAuth,
+    this.sourceType = ModelSourceType.network, // Default to network for backward compatibility
   });
 
   // BaseModel interface implementation

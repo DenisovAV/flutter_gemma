@@ -35,7 +35,6 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   double _progress = 0.0; // For inference models
   double _modelProgress = 0.0; // For embedding models
   double _tokenizerProgress = 0.0; // For embedding models
-  bool _isInitializing = false; // For embedding model initialization
 
   String _token = '';
   final TextEditingController _tokenController = TextEditingController();
@@ -209,9 +208,6 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             // Progress section
             if (needToDownload) _buildProgressSection(),
 
-            // Initialization section
-            if (_isInitializing) _buildInitializationSection(),
-
             // Action buttons
             const SizedBox(height: 24),
             _buildActionButtons(),
@@ -272,7 +268,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white70),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
           Text(
@@ -316,7 +312,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         const SizedBox(height: 8),
         Text(
           '${_progress.toStringAsFixed(1)}%',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: Colors.white),
         ),
       ],
     );
@@ -339,7 +335,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         // Model progress
         Text(
           'Model (${widget.model.size})',
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
         ),
         const SizedBox(height: 8),
         LinearProgressIndicator(
@@ -350,7 +346,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         const SizedBox(height: 4),
         Text(
           '${_modelProgress.toStringAsFixed(1)}%',
-          style: const TextStyle(color: Colors.white60, fontSize: 12),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
 
         const SizedBox(height: 16),
@@ -358,7 +354,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         // Tokenizer progress
         const Text(
           'Tokenizer (~2MB)',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
+          style: TextStyle(color: Colors.white, fontSize: 14),
         ),
         const SizedBox(height: 8),
         LinearProgressIndicator(
@@ -369,7 +365,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         const SizedBox(height: 4),
         Text(
           '${_tokenizerProgress.toStringAsFixed(1)}%',
-          style: const TextStyle(color: Colors.white60, fontSize: 12),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
 
         const SizedBox(height: 16),
@@ -391,47 +387,18 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     );
   }
 
-  Widget _buildInitializationSection() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Initializing Model',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        SizedBox(height: 12),
-        LinearProgressIndicator(
-          backgroundColor: Colors.white30,
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Preparing embedding model for use...',
-          style: TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-        SizedBox(height: 16),
-      ],
-    );
-  }
-
   Widget _buildActionButtons() {
     return Row(
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed:
-                _isInitializing ? null : (needToDownload ? _downloadModel : _proceedToNextScreen),
+            onPressed: needToDownload ? _downloadModel : _proceedToNextScreen,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1a4a7c),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: Text(
-                _isInitializing ? 'Initializing...' : (needToDownload ? 'Download' : 'Continue')),
+            child: Text(needToDownload ? 'Download' : 'Continue'),
           ),
         ),
         const SizedBox(width: 12),
@@ -452,7 +419,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   Widget _buildLicenseInfo() {
     return RichText(
       text: TextSpan(
-        style: const TextStyle(color: Colors.white70, fontSize: 12),
+        style: const TextStyle(color: Colors.white, fontSize: 12),
         children: [
           const TextSpan(text: 'By downloading this model, you agree to the '),
           TextSpan(
@@ -533,7 +500,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
                   borderSide: BorderSide(color: Colors.blue),
                 ),
                 filled: true,
-                fillColor: const Color(0xFF0b2351),
+                fillColor: const Color(0xFF2a4a6c),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.save, color: Colors.white),
                   onPressed: () async {
@@ -556,9 +523,12 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             const SizedBox(height: 12),
             RichText(
               text: TextSpan(
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-                text: 'To create an access token, please visit ',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
                 children: [
+                  const TextSpan(
+                    text: 'To create an access token, please visit ',
+                    style: TextStyle(color: Colors.white),
+                  ),
                   TextSpan(
                     text: 'https://huggingface.co/settings/tokens',
                     style: TextStyle(
@@ -575,6 +545,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
                   ),
                   const TextSpan(
                     text: '. Make sure to give read-repo access to the token.',
+                    style: TextStyle(color: Colors.white),
                   ),
                 ],
               ),

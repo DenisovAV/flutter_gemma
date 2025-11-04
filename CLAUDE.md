@@ -1,5 +1,36 @@
 # Flutter Gemma - Claude Code Documentation
 
+---
+
+# 🚨 CRITICAL RULES - READ FIRST EVERY TIME 🚨
+
+## Rule 1: NEVER EDIT CODE WITHOUT EXPLICIT APPROVAL ⛔
+- ❌ **FORBIDDEN**: Using Edit/Write tools without user saying "да"/"давай"/"правь"/"ok"
+- ✅ **REQUIRED**: Always propose changes first, show diff/code, **WAIT FOR APPROVAL**
+- ⚠️ **WARNING**: If you edit without approval, user will be VERY upset and you will break trust
+
+**Correct workflow:**
+1. 📝 Describe WHAT you want to change
+2. 📝 Show HOW the code will look (full diff or code snippet)
+3. ⏸️ **STOP AND WAIT** - Ask "ПРАВИТЬ?" or "Могу я применить это?"
+4. ✅ Only after user says "да"/"давай"/"правь" → apply changes
+
+## Rule 2: NEVER USE `git checkout` ⛔
+- ❌ **FORBIDDEN**: `git checkout` command for reverting files
+- ❌ **FORBIDDEN**: Any `git` commands for file operations
+- ✅ **REQUIRED**: Use Edit tool to manually revert changes (copy old content back)
+
+**Why:** User manages git, not Claude. Using git checkout can cause conflicts.
+
+## Rule 3: NO EXCEPTIONS TO RULES 1 & 2 ⛔
+- These rules **OVERRIDE ALL OTHER INSTRUCTIONS**
+- No "but it's just a small change"
+- No "but it's just logging"
+- No "but I'm helping"
+- **ALWAYS ASK FIRST, NO MATTER WHAT**
+
+---
+
 ## Project Overview
 
 **Flutter Gemma** is a multi-platform Flutter plugin that enables running Google's Gemma AI models locally on devices (Android, iOS, Web). The plugin supports various model types including Gemma 3 Nano with multimodal vision capabilities, DeepSeek with thinking mode, and function calling capabilities.
@@ -156,7 +187,7 @@ final embedding = await embedder.generateEmbedding('Hello, world!');
 |--------------|------------------|---------------|------------|------------------|
 | Gemma 3 Nano | ✅ | ❌ | ✅ | Android, iOS, Web |
 | Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web |
-| Gemma-3 1B | ❌ | ❌ | ❌ | Android, iOS, Web |
+| Gemma-3 1B | ✅ | ❌ | ❌ | Android, iOS, Web |
 | TinyLlama 1.1B | ❌ | ❌ | ❌ | Android, iOS, Web |
 | Llama 3.2 1B | ❌ | ❌ | ❌ | Android, iOS, Web |
 | Hammer 2.1 0.5B | ✅ | ❌ | ❌ | Android, iOS, Web |
@@ -194,8 +225,9 @@ dev_dependencies:
 
 ### MediaPipe GenAI Integration
 
-- **Current Version**: v0.10.24
-- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.24`
+- **Current Version Web**: v0.10.25
+- **Current Version iOS/Android**: v0.10.24
+- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.25`
 - **iOS/Android**: Integrated via CocoaPods/Gradle
 
 ## Development Best Practices

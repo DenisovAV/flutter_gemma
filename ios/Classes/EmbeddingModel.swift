@@ -7,7 +7,7 @@ class EmbeddingModel {
     
     // MARK: - Properties
     private var interpreter: Interpreter?
-    private var tokenizer: HuggingFaceTokenizer?
+    private var tokenizer: SentencePieceTokenizer?  // ✅ NEW: Correct BPE tokenizer
     private let modelPath: String
     private let tokenizerPath: String
     private let useGPU: Bool
@@ -18,6 +18,9 @@ class EmbeddingModel {
 
     // Optimization: Cache tokenized prefix to avoid repeated tokenization
     private var cachedPrefixTokens: [Int] = []
+    // ✅ CONCLUSION: "task: search result | query: " gives best iOS results (8.4% diff)
+    // Without prefix: results are WORSE (wrong order: Different > Similar)
+    // Android embeddings still don't match - likely native preprocessing difference
     private let taskPrefix = "task: search result | query: "
 
     // Memory optimization: Reuse buffers to avoid allocations
@@ -30,7 +33,7 @@ class EmbeddingModel {
     /// Initialize embedding model with paths
     /// - Parameters:
     ///   - modelPath: Path to .tflite model file
-    ///   - tokenizerPath: Path to tokenizer.json file
+    ///   - tokenizerPath: Path to sentencepiece.model file
     ///   - useGPU: Whether to use GPU acceleration
     init(modelPath: String, tokenizerPath: String, useGPU: Bool = true) {
         self.modelPath = modelPath
@@ -40,8 +43,8 @@ class EmbeddingModel {
     
     /// Load model and tokenizer (equivalent to Android's loadModel)
     func loadModel() throws {
-        // Load tokenizer first
-        tokenizer = try HuggingFaceTokenizer(tokenizerPath: tokenizerPath)
+        // Load tokenizer first - using SentencePiece with BPE algorithm
+        tokenizer = try SentencePieceTokenizer(modelPath: tokenizerPath)
 
         // Configure TensorFlow Lite options
         var options = Interpreter.Options()
@@ -93,18 +96,18 @@ class EmbeddingModel {
             throw EmbeddingError.modelNotLoaded("Model not loaded. Call loadModel() first.")
         }
 
-        // Tokenization
-        let textTokens = tokenizer.encode(text)
+        // Tokenization - combine prefix + text, then add BOS/EOS once
+        // Add space marker before text ONLY if it follows a prefix with space
+        let textToEncode = taskPrefix.isEmpty ? text : ("▁" + text)
+        let textTokens = tokenizer.encode(textToEncode)
 
-        // Use cached prefix if available, otherwise fallback to full tokenization
-        let tokens: [Int]
-        if !cachedPrefixTokens.isEmpty {
-            tokens = cachedPrefixTokens + textTokens
-        } else {
-            // Fallback to old method if cache not initialized
-            let prompt = taskPrefix + text
-            tokens = tokenizer.encode(prompt)
-        }
+        // Combine prefix + text tokens (both without BOS/EOS)
+        var tokens = cachedPrefixTokens + textTokens
+
+        // Add BOS at beginning and EOS at end - ONCE for entire sequence
+        // BOS token ID = 2, EOS token ID = 1 (from Gemma vocabulary)
+        tokens.insert(2, at: 0)  // Add BOS
+        tokens.append(1)         // Add EOS
 
         // Prepare and copy input tensor
         let inputTensor = try prepareInputTensor(tokens: tokens)
@@ -332,16 +335,26 @@ class GemmaEmbeddingWrapper {
         // Automatically add task prefix like Android version
         let prompt = "task: \(task.rawValue) | query: \(text)"
         let embeddings = try embeddingModel.generateEmbedding(for: prompt)
-        
+
         // Convert Float to Double for consistency with Android API
         return embeddings.map { Double($0) }
     }
-    
+
+    /// Generate embedding directly without adding task prefix
+    /// Use this when task prefix is already added via cached tokens in EmbeddingModel
+    func embedDirect(text: String) throws -> [Double] {
+        // Call generateEmbedding directly - it will use cached prefix tokens
+        let embeddings = try embeddingModel.generateEmbedding(for: text)
+
+        // Convert Float to Double for consistency with Android API
+        return embeddings.map { Double($0) }
+    }
+
     /// Close the model and release resources
     func close() {
         embeddingModel.close()
     }
-    
+
     /// Get model information for debugging
     var modelInfo: [String: Any] {
         return embeddingModel.modelInfo

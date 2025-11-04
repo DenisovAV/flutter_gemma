@@ -44,13 +44,23 @@ There is an example of using:
 
 ## Model File Types
 
-Flutter Gemma supports three types of model files:
+Flutter Gemma supports different model file formats, which are grouped into **two types** based on how chat templates are handled:
 
-- **`.task` files:** MediaPipe-optimized format with built-in chat templates
-- **`.litertlm` files:** LiterTLM format optimized for web platform compatibility
-- **`.bin/.tflite` files:** Standard format requiring manual chat template formatting
+### Type 1: MediaPipe-Managed Templates
+- **`.task` files:** MediaPipe-optimized format for mobile (Android/iOS)
+- **`.litertlm` files:** LiterTLM format optimized for web platform
 
-The plugin automatically detects the file type and applies appropriate formatting.
+Both formats have **identical behavior** — MediaPipe handles chat templates internally.
+
+### Type 2: Manual Template Formatting
+- **`.bin` files:** Standard binary format
+- **`.tflite` files:** TensorFlow Lite format
+
+Both formats require **manual chat template formatting** in your code.
+
+**Note:** The plugin automatically detects the file extension and applies appropriate formatting. When specifying `ModelFileType` in your code:
+- Use `ModelFileType.task` for `.task` and `.litertlm` files (same behavior)
+- Use `ModelFileType.binary` for `.bin` and `.tflite` files (same behavior)
 
 ## Model Capabilities
 
@@ -59,6 +69,7 @@ The example app offers a curated list of models, each suited for different tasks
 | Model Family | Best For | Function Calling | Thinking Mode | Vision | Languages | Size |
 |---|---|:---:|:---:|:---:|---|---|
 | **Gemma 3 Nano** | On-device multimodal chat and image analysis. | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
+| **Phi-4 Mini** | Advanced reasoning and instruction following. | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
 | **DeepSeek R1** | High-performance reasoning and code generation. | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following. | ✅ | ❌ | ❌ | Multilingual | 1.6GB |
 | **Hammer 2.1** | Lightweight action model for tool usage. | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
@@ -66,6 +77,34 @@ The example app offers a curated list of models, each suited for different tasks
 | **Gemma 3 270M**| Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **TinyLlama 1.1B**| Extremely compact, general-purpose chat. | ❌ | ❌ | ❌ | English-focused | 1.2GB |
 | **Llama 3.2 1B** | Efficient instruction following | ❌ | ❌ | ❌ | Multilingual | 1.1GB |
+
+## ModelType Reference
+
+When installing models, you need to specify the correct `ModelType`. Use this table to find the right type for your model:
+
+| Model Family | ModelType | Examples |
+|--------------|-----------|----------|
+| **Gemma (all variants)** | `ModelType.gemmaIt` | Gemma 2B, Gemma 7B, Gemma-2 2B, Gemma-3 1B, Gemma 3 270M, Gemma 3 Nano E2B/E4B |
+| **DeepSeek** | `ModelType.deepSeek` | DeepSeek R1, DeepSeek-R1-Distill-Qwen-1.5B |
+| **Qwen** | `ModelType.qwen` | Qwen 2.5 1.5B Instruct |
+| **Llama** | `ModelType.llama` | Llama 3.2 1B, TinyLlama 1.1B |
+| **Hammer** | `ModelType.hammer` | Hammer 2.1 0.5B |
+| **Phi / Falcon / StableLM** | `ModelType.general` | Phi-2, Phi-3, Phi-4, Falcon-RW-1B, StableLM-3B |
+
+**Usage Example:**
+```dart
+// Gemma models
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork(url).install();
+
+// DeepSeek models
+await FlutterGemma.installModel(modelType: ModelType.deepSeek)
+  .fromNetwork(url).install();
+
+// Phi-4 (uses general type)
+await FlutterGemma.installModel(modelType: ModelType.general)
+  .fromNetwork(url).install();
+```
 
 ## Installation
 
@@ -172,7 +211,9 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
 ```
 
-### Legacy API
+### Legacy API ⚠️ Deprecated
+
+> **⚠️ DEPRECATED:** This API is maintained for backwards compatibility only. New projects should use the [Modern API](#modern-api-recommended-) above.
 
 Still works but requires manual ModelType specification:
 ```dart
@@ -437,13 +478,19 @@ android/app/src/main/assets/models/gemma-3-270m-it.task
 2. Check "Copy items if needed"
 3. Add to target membership
 
-**Web** (Standard Flutter assets)
-```yaml
-# pubspec.yaml
-flutter:
-  assets:
-    - assets/models/gemma-3-270m-it.task
+**Web** (Static files in `web/` directory)
+```bash
+# Place model files in web/ directory
+example/web/gemma-3-270m-it.task
+
+# Files are automatically copied to build/web/ during production build
+flutter build web
 ```
+
+⚠️ **Web Platform Limitation:**
+- **Production only**: Bundled resources work ONLY in production builds (`flutter build web`)
+- **Debug mode**: Files in `web/` are NOT served by `flutter run` dev server
+- **For development**: Use `NetworkSource` or `AssetSource` instead
 
 **Features:**
 - ✅ Zero network dependency
@@ -582,7 +629,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 * Add dependencies to `index.html` file in web folder
 ```html
   <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest';
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.25';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>
@@ -749,23 +796,20 @@ await chat.addQueryChunk(Message.text(text: 'Hello!', isUser: true));
 final response = await chat.generateChatResponse();
 ```
 
-## Usage (Legacy API)
+## Usage (Legacy API) ⚠️ DEPRECATED
 
 <details>
 <summary><b>⚠️ Click to expand Legacy API documentation (for backwards compatibility)</b></summary>
 
-> **Note:** This is the Legacy API. For new projects, we recommend using the **[Modern API](#quick-start-modern-api)** with builder pattern.
+> **⚠️ DEPRECATED:** This API is maintained for backwards compatibility only.
 >
-> **Legacy API features:**
-> - Direct method calls on `FlutterGemmaPlugin.instance.modelManager`
-> - Stream-based progress tracking
-> - Manual state management
+> **For new projects, use the [Modern API](#quick-start) instead.**
 >
-> **Modern API features:**
-> - ✅ Fluent builder pattern
-> - ✅ Type-safe source types
-> - ✅ Callback-based progress
-> - ✅ Better error messages
+> **Why migrate?**
+> - ✅ **Modern API:** Fluent builder pattern, type-safe sources, callback-based progress, better error messages
+> - ⚠️ **Legacy API:** Direct method calls, stream-based progress, manual state management
+>
+> **Migration Guide:** See [Migration from Legacy to Modern API](#migration-from-legacy-to-modern-api-) section.
 
 The new API splits functionality into two parts:
 
@@ -1277,17 +1321,28 @@ chat.generateChatResponseAsync().listen((response) {
 3. Model calls: `change_background_color(color: 'blue')`
 4. Model explains: "Blue is calming because it's associated with sky and ocean..."
 
-10. **📊 Text Embedding Models (Modern API)**
+10. **📊 Text Embeddings & RAG (Retrieval-Augmented Generation)**
 
-Generate vector embeddings from text using specialized embedding models. These models convert text into numerical vectors that can be used for semantic similarity, search, and RAG applications.
+Generate vector embeddings from text and perform semantic search with local vector storage. This enables RAG applications with on-device inference and privacy-preserving semantic search.
 
-**Supported Embedding Models:**
+### Platform Support
+
+| Feature | Android | iOS | Web |
+|---------|---------|-----|-----|
+| **Embedding Generation** | ✅ Full | ✅ Full | ✅ Full |
+| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ❌ Not implemented |
+
+- **Mobile (Android/iOS)**: Full RAG support with SQLite-based VectorStore
+- **Web**: Embedding generation only (see [Web Setup](#web-embedding-setup) below)
+
+### Supported Embedding Models
+
 - **EmbeddingGemma-300M** - 300M parameters, generates 768D embeddings with varying max sequence lengths (256, 512, 1024, 2048 tokens)
 - **Gecko-110m** - 110M parameters, generates 768D embeddings with varying max sequence lengths (64, 256, 512 tokens)
 
 **Note:** Numbers in model names (64, 256, 512, 1024, 2048) refer to **max sequence length** (context window size in tokens), **NOT** embedding dimension. All these models output **768-dimensional embeddings** regardless of sequence length.
 
-**Install Embedding Model:**
+### Install Embedding Model
 
 ```dart
 // Install from network with progress tracking
@@ -1310,7 +1365,7 @@ await FlutterGemma.installEmbedder()
   .install();
 ```
 
-**Generate Text Embeddings:**
+### Generate Text Embeddings
 
 ```dart
 // Create embedding model instance
@@ -1357,7 +1412,99 @@ print('Similarity: $similarity');
 await embeddingModel.close();
 ```
 
-**Legacy API (Still supported):**
+### RAG with VectorStore (Android/iOS Only)
+
+**Note:** VectorStore is only available on Android and iOS platforms. Web platform supports embedding generation but not vector search.
+
+```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:path_provider/path_provider.dart';
+
+// Step 1: Initialize VectorStore
+final appDir = await getApplicationDocumentsDirectory();
+final dbPath = '${appDir.path}/my_vector_store.db';
+await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
+
+// Step 2: Add documents with embeddings
+final documents = [
+  'Flutter is a UI toolkit for building apps',
+  'Dart is the programming language used with Flutter',
+  'Machine learning enables AI capabilities',
+];
+
+for (final doc in documents) {
+  // Generate embedding
+  final embedding = await embeddingModel.generateEmbedding(doc);
+
+  // Add to vector store
+  await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+    id: 'doc_${documents.indexOf(doc)}',
+    content: doc,
+    embedding: embedding,
+    metadata: {'source': 'example', 'index': documents.indexOf(doc)},
+  );
+}
+
+// Step 3: Search for similar documents
+final query = 'What is Flutter?';
+final queryEmbedding = await embeddingModel.generateEmbedding(query);
+
+final results = await FlutterGemmaPlugin.instance.searchSimilar(
+  queryEmbedding: queryEmbedding,
+  topK: 3,              // Return top 3 results
+  threshold: 0.7,       // Minimum similarity score (0.0-1.0)
+);
+
+// Step 4: Use results
+for (final result in results) {
+  print('Score: ${result.similarity}');
+  print('Content: ${result.content}');
+  print('Metadata: ${result.metadata}');
+}
+
+// Step 5: RAG with inference model
+final context = results.map((r) => r.content).join('\n');
+final prompt = 'Context:\n$context\n\nQuestion: $query';
+
+final inferenceModel = await FlutterGemma.getActiveModel();
+final session = await inferenceModel.createSession();
+await session.addQueryChunk(Message.text(text: prompt, isUser: true));
+final answer = await session.getResponse();
+print('Answer: $answer');
+
+await session.close();
+await inferenceModel.close();
+await embeddingModel.close();
+```
+
+### Web Embedding Setup
+
+**For web platform, you need to build JavaScript modules for embedding generation:**
+
+1. Navigate to the `web/rag` directory in the flutter_gemma package
+2. Follow the detailed setup guide: [`web/rag/README.md`](web/rag/README.md)
+
+**Quick steps:**
+```bash
+# Navigate to web/rag directory
+cd <flutter_gemma_package_path>/web/rag
+
+# Install dependencies
+npm install
+
+# Build embedding modules
+npm run build
+
+# Copy to your web project
+cp dist/* <your_flutter_project>/web/
+
+# Add script tag to index.html
+<script type="module" src="litert_embeddings.js"></script>
+```
+
+**See [`web/rag/README.md`](web/rag/README.md) for complete instructions.**
+
+### Legacy API (Still supported)
 
 <details>
 <summary>Click to expand Legacy API for embeddings</summary>
@@ -1388,14 +1535,16 @@ final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
 
 </details>
 
-**Important Notes:**
+### Important Notes
+
 - ✅ EmbeddingGemma models require HuggingFace authentication token for gated repositories
 - ✅ Embedding models use the same unified download and management system as inference models
 - ✅ Each embedding model consists of both model file (.tflite) and tokenizer file (.model)
-- ✅ Different dimension options allow trade-offs between accuracy and performance
+- ✅ Different sequence length options allow trade-offs between accuracy and performance
 - ✅ Modern API provides separate progress tracking for model and tokenizer downloads
+- ⚠️ **VectorStore (RAG) is only available on Android and iOS** - web platform supports embeddings only
 
-**🚀 VectorStore Optimization (v0.11.7):**
+### VectorStore Optimization (v0.11.7)
 
 As of version 0.11.7, the VectorStore has been significantly optimized for better performance and storage efficiency:
 
@@ -1408,6 +1557,7 @@ As of version 0.11.7, the VectorStore has been significantly optimized for bette
 - **Dynamic dimensions**: Auto-detects any embedding size (256D, 384D, 512D, 768D, 1024D, 1536D, 3072D, 4096D+)
 - **iOS implementation**: Full VectorStore support on iOS (was stubs only before v0.11.7)
 - **Cross-platform parity**: Identical behavior on Android and iOS
+- **SQLite-based**: Uses SQLite for efficient storage and querying
 
 **Migration Notes:**
 - ⚠️ **Breaking change for RAG users**: Existing vector databases will be recreated on upgrade (re-indexing required)
@@ -1418,7 +1568,7 @@ As of version 0.11.7, the VectorStore has been significantly optimized for bette
 - 256D: Gecko Small, efficient for mobile
 - 384D: MiniLM models
 - 512D: Mid-range models
-- 768D: BERT-base (standard)
+- 768D: BERT-base (standard) - EmbeddingGemma, Gecko default
 - 1024D: BERT-large, Cohere v3
 - 1536D: OpenAI Ada
 - 3072D: OpenAI Large
@@ -1568,16 +1718,17 @@ Function calling is currently supported by the following models:
 
 ### ✅ Models with Function Calling Support
 - **Gemma 3 Nano** models (E2B, E4B) - Full function calling support
-- **Hammer 2.1 0.5B** - Action model with strong function calling capabilities  
+- **Hammer 2.1 0.5B** - Action model with strong function calling capabilities
 - **DeepSeek** models - Function calling + thinking mode support
 - **Qwen** models - Full function calling support
+- **Phi-4 Mini** - Advanced reasoning with function calling support
 
 ### ❌ Models WITHOUT Function Calling Support
 - **Gemma 3 1B** models - Text generation only
 - **Gemma 3 270M** - Text generation only
 - **TinyLlama 1.1B** - Text generation only
 - **Llama 3.2 1B** - Text generation only
-- **Phi** models - Text generation only
+- **Phi-2, Phi-3** models - Text generation only
 
 **Important Notes:**
 - When using unsupported models with tools, the plugin will log a warning and ignore the tools
@@ -1594,6 +1745,7 @@ Function calling is currently supported by the following models:
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | Gemma 3 Nano models |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | Select models only |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | DeepSeek models |
+| **Stop Generation** | ✅ Android only | ❌ Not supported | ❌ Not supported | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | Recommended |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | Real-time generation |

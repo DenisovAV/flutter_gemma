@@ -349,8 +349,9 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                // Generate embedding using our GemmaEmbeddingWrapper (already returns Double array)
-                let doubleEmbeddings = try embeddingWrapper.embed(text: text)
+                // ⚠️ FIX: Use embedDirect to avoid double prefix
+                // embedDirect() only adds prefix once (in cached tokens)
+                let doubleEmbeddings = try embeddingWrapper.embedDirect(text: text)
 
                 DispatchQueue.main.async {
                     print("[PLUGIN] Generated embedding with \(doubleEmbeddings.count) dimensions")
@@ -385,7 +386,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             do {
                 var embeddings: [[Double]] = []
                 for text in texts {
-                    let embedding = try embeddingWrapper.embed(text: text)
+                    // ⚠️ FIX: Use embedDirect to avoid double prefix
+                    let embedding = try embeddingWrapper.embedDirect(text: text)
                     embeddings.append(embedding)
                 }
 
@@ -421,7 +423,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 // Generate a small test embedding to get dimension
-                let testEmbedding = try embeddingWrapper.embed(text: "test")
+                // ⚠️ FIX: Use embedDirect to avoid double prefix
+                let testEmbedding = try embeddingWrapper.embedDirect(text: "test")
                 let dimension = Int64(testEmbedding.count)
 
                 DispatchQueue.main.async {

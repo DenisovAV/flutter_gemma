@@ -1,6 +1,18 @@
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/core/model.dart';
 
+/// Type of model source for download/installation
+enum ModelSourceType {
+  /// Download from HTTP/HTTPS URL
+  network,
+
+  /// Load from Flutter assets (in assets/ folder)
+  asset,
+
+  /// Load from bundled native resources
+  bundled,
+}
+
 /// Base interface for all model types (inference and embedding)
 abstract class BaseModel {
   /// Unique identifier for the model
@@ -69,4 +81,8 @@ abstract class EmbeddingModelInterface extends BaseModel {
   /// Maximum sequence length (context window) in tokens
   /// This determines how long input text can be before truncation
   int get maxSeqLen;
+
+  /// Type of source for model and tokenizer files
+  /// Determines which installation method to use (network, asset, bundled)
+  ModelSourceType get sourceType;
 }

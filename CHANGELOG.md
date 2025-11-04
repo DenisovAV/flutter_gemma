@@ -1,3 +1,7 @@
+## 0.11.9
+ - 🌐 **Web Embedding Support**: Added support for embedding generation on web platform
+ - 🐛 **Web Example App**: Fixed bugs in example app on web platform
+
 ## 0.11.8
  - 🤖 **CI/CD Automation**: Added GitHub Actions workflows for automated testing and release builds
  - ☕ **Support the Project**: Added Ko-fi donation button for community support

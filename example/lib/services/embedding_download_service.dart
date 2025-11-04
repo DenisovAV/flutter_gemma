@@ -1,9 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart'; // For ModelSource
-import 'package:flutter_gemma/core/utils/file_name_utils.dart'; // For FileNameUtils
 import 'package:flutter_gemma/flutter_gemma.dart'; // For EmbeddingModelSpec
+import 'package:flutter_gemma_example/models/base_model.dart'; // For ModelSourceType
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 import 'package:path_provider/path_provider.dart';
@@ -36,24 +35,31 @@ class EmbeddingModelDownloadService {
   /// Checks if both model and tokenizer files exist and match remote file sizes.
   Future<bool> checkModelExistence(String token) async {
     try {
-      // Modern API: Check if embedding model spec is installed
-      final manager = FlutterGemmaPlugin.instance.modelManager;
+      // Extract SAME filenames that Modern API will use during download
+      String extractFilename(String url, ModelSourceType sourceType) {
+        if (sourceType == ModelSourceType.network) {
+          final uri = Uri.parse(url);
+          return uri.pathSegments.isNotEmpty ? uri.pathSegments.last : model.filename;
+        }
+        // For asset/bundled, use the path as-is
+        return url.split('/').last;
+      }
 
-      // Create spec to check
-      final spec = EmbeddingModelSpec(
-        name: FileNameUtils.getBaseName(model.filename),
-        modelSource: ModelSource.network(model.url, authToken: token.isEmpty ? null : token),
-        tokenizerSource:
-            ModelSource.network(model.tokenizerUrl, authToken: token.isEmpty ? null : token),
-      );
+      final modelFilename = extractFilename(model.url, model.sourceType);
+      final tokenizerFilename = extractFilename(model.tokenizerUrl, model.sourceType);
 
-      final installed = await manager.isModelInstalled(spec);
+      // Check if both files are installed using actual filenames
+      final modelInstalled = await FlutterGemma.isModelInstalled(modelFilename);
+      final tokenizerInstalled = await FlutterGemma.isModelInstalled(tokenizerFilename);
+
+      final installed = modelInstalled && tokenizerInstalled;
+
       if (installed) {
-        debugPrint('[EmbeddingDownloadService] Model ${spec.name} is installed');
+        debugPrint('[EmbeddingDownloadService] Model files are installed');
         return true;
       }
 
-      debugPrint('[EmbeddingDownloadService] Model ${spec.name} is NOT installed');
+      debugPrint('[EmbeddingDownloadService] Model files are NOT installed');
       return false;
     } catch (e) {
       if (kDebugMode) {
@@ -71,27 +77,45 @@ class EmbeddingModelDownloadService {
     void Function(double modelProgress, double tokenizerProgress) onProgress,
   ) async {
     try {
-      if (kIsWeb) {
-        throw UnsupportedError('Embedding model download is not supported on web platform');
-      }
-
-      // Convert empty string to null for cleaner API
-      final authToken = token.isEmpty ? null : token;
-
       double modelProgress = 0;
       double tokenizerProgress = 0;
 
-      // Modern API: Download both model and tokenizer using installEmbedder
-      await FlutterGemma.installEmbedder()
-          .modelFromNetwork(model.url, token: authToken)
-          .tokenizerFromNetwork(model.tokenizerUrl, token: authToken)
+      // Start building the installer
+      var builder = FlutterGemma.installEmbedder();
+
+      // Add model source based on sourceType
+      switch (model.sourceType) {
+        case ModelSourceType.network:
+          final authToken = token.isEmpty ? null : token;
+          builder = builder.modelFromNetwork(model.url, token: authToken);
+        case ModelSourceType.asset:
+          builder = builder.modelFromAsset(model.url);
+        case ModelSourceType.bundled:
+          builder = builder.modelFromBundled(model.url);
+      }
+
+      // Add tokenizer source based on sourceType
+      switch (model.sourceType) {
+        case ModelSourceType.network:
+          final authToken = token.isEmpty ? null : token;
+          builder = builder.tokenizerFromNetwork(model.tokenizerUrl, token: authToken);
+        case ModelSourceType.asset:
+          builder = builder.tokenizerFromAsset(model.tokenizerUrl);
+        case ModelSourceType.bundled:
+          builder = builder.tokenizerFromBundled(model.tokenizerUrl);
+      }
+
+      // Add progress callbacks and install
+      await builder
           .withModelProgress((progress) {
-        modelProgress = progress.toDouble();
-        onProgress(modelProgress, tokenizerProgress);
-      }).withTokenizerProgress((progress) {
-        tokenizerProgress = progress.toDouble();
-        onProgress(modelProgress, tokenizerProgress);
-      }).install();
+            modelProgress = progress.toDouble();
+            onProgress(modelProgress, tokenizerProgress);
+          })
+          .withTokenizerProgress((progress) {
+            tokenizerProgress = progress.toDouble();
+            onProgress(modelProgress, tokenizerProgress);
+          })
+          .install();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error downloading embedding model: $e');
@@ -125,10 +149,6 @@ class EmbeddingModelDownloadService {
   /// Check if the embedding model is installed
   Future<bool> isEmbeddingModelInstalled() async {
     try {
-      if (kIsWeb) {
-        return false; // Not supported on web
-      }
-
       // Modern API: Check if both files are installed
       final modelInstalled = await FlutterGemma.isModelInstalled(model.filename);
       final tokenizerInstalled = await FlutterGemma.isModelInstalled(model.tokenizerFilename);

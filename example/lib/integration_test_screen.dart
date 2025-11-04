@@ -3117,7 +3117,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
             // === SECTION 5: VectorStore Tests ===
             _buildSection(
-              title: 'VectorStore Tests (v0.11.8)',
+              title: 'VectorStore Tests (v0.11.9)',
               children: [
                 _buildButton(
                   'Run VectorStore Tests',

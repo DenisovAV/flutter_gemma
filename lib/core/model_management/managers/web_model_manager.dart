@@ -249,7 +249,8 @@ class WebModelManager extends ModelFileManager {
         // If URL lost (page reload), recreate it
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
-          debugPrint('[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...');
+          debugPrint(
+              '[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...');
           // Recreate Blob URL by reinstalling
           final handler = registry.sourceHandlerRegistry.getHandler(file.source);
           if (handler != null) {

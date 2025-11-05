@@ -106,16 +106,13 @@ class EmbeddingModelDownloadService {
       }
 
       // Add progress callbacks and install
-      await builder
-          .withModelProgress((progress) {
-            modelProgress = progress.toDouble();
-            onProgress(modelProgress, tokenizerProgress);
-          })
-          .withTokenizerProgress((progress) {
-            tokenizerProgress = progress.toDouble();
-            onProgress(modelProgress, tokenizerProgress);
-          })
-          .install();
+      await builder.withModelProgress((progress) {
+        modelProgress = progress.toDouble();
+        onProgress(modelProgress, tokenizerProgress);
+      }).withTokenizerProgress((progress) {
+        tokenizerProgress = progress.toDouble();
+        onProgress(modelProgress, tokenizerProgress);
+      }).install();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error downloading embedding model: $e');

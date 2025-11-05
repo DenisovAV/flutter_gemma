@@ -88,9 +88,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
     // On web, only show models with webUrl or local models
     if (kIsWeb) {
-      models = models.where((model) =>
-        model.localModel || model.webUrl != null
-      ).toList();
+      models = models.where((model) => model.localModel || model.webUrl != null).toList();
     }
 
     // Apply filtering then sorting

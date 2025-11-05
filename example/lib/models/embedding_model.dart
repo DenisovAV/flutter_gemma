@@ -51,14 +51,15 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   localEmbeddingGemma256(
     url: 'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite',
     tokenizerUrl: 'assets/models/sentencepiece.model',
-    filename: 'embeddinggemma-300M_seq256_mixed-precision.tflite',  // Keep same as HF version for compatibility
+    filename:
+        'embeddinggemma-300M_seq256_mixed-precision.tflite', // Keep same as HF version for compatibility
     tokenizerFilename: 'sentencepiece.model',
     displayName: '🚀 Local EmbeddingGemma (seq=256)',
     size: '171MB (Local - No Auth)',
     dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
     maxSeqLen: 256,
     needsAuth: false,
-    sourceType: ModelSourceType.asset,  // Use Flutter assets - works in debug and production
+    sourceType: ModelSourceType.asset, // Use Flutter assets - works in debug and production
   ),
 
   embeddingGemma512(
@@ -78,8 +79,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   // Gecko-110m models (generate 768D embeddings)
   // Gecko 64 is the smallest and fastest model - ideal for short queries
   gecko64(
-    url:
-        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite',
+    url: 'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite',
     tokenizerUrl:
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
     filename: 'Gecko_64_quant.tflite',

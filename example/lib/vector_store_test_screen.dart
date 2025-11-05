@@ -187,7 +187,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
       _log('⏭️ Skipping Test 1 (requires pre-installed embedding model)');
     }
 
-    await _runTest('Test 2: Performance Comparison (Gecko 64 vs EmbeddingGemma 256)', _testDynamicDimensions);
+    await _runTest(
+        'Test 2: Performance Comparison (Gecko 64 vs EmbeddingGemma 256)', _testDynamicDimensions);
     await _runTest('Test 3: Dimension Validation', _testDimensionValidation);
 
     // Tests 4 and 5 require a model - using the one installed in Test 2
@@ -277,8 +278,9 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     // Compare lightweight and heavier models
     // Both generate 768D embeddings but with different parameters and performance
     final testModels = [
-      model_config.EmbeddingModel.gecko64,         // Gecko: 110M params, seq=64, 110MB (FASTEST)
-      model_config.EmbeddingModel.embeddingGemma256, // EmbeddingGemma: 300M params, seq=256, 179MB (more accurate)
+      model_config.EmbeddingModel.gecko64, // Gecko: 110M params, seq=64, 110MB (FASTEST)
+      model_config.EmbeddingModel
+          .embeddingGemma256, // EmbeddingGemma: 300M params, seq=256, 179MB (more accurate)
     ];
 
     for (final modelConfig in testModels) {
@@ -329,7 +331,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
       _log('🔧 Initializing ${modelConfig.displayName} with GPU...');
       final initStopwatch = Stopwatch()..start();
       final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
-        preferredBackend: PreferredBackend.gpu,  // ← GPU acceleration!
+        preferredBackend: PreferredBackend.gpu, // ← GPU acceleration!
       );
       initStopwatch.stop();
       _log('   ⏱️  Initialization time: ${initStopwatch.elapsedMilliseconds}ms');
@@ -343,7 +345,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
       _log('   ⏱️  Embedding generation time: ${embedStopwatch.elapsedMilliseconds}ms');
 
       if (actualDimension != expectedDim) {
-        _log('⚠️  Warning: Config expects ${expectedDim}D, but model generates ${actualDimension}D');
+        _log(
+            '⚠️  Warning: Config expects ${expectedDim}D, but model generates ${actualDimension}D');
         _log('    This may indicate incorrect model configuration.');
       }
       _log('✅ Generated ${actualDimension}D embedding (seq_len=${modelConfig.maxSeqLen})');
@@ -481,7 +484,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     _log('✅ Storage optimization verified!');
     _log('   Expected JSON size: ~${expectedJsonSizeKB.toStringAsFixed(0)} KB');
     _log('   Actual BLOB size: ${sizeKB.toStringAsFixed(2)} KB');
-    _log('   Savings: ${((expectedJsonSizeKB - sizeKB) / expectedJsonSizeKB * 100).toStringAsFixed(1)}%');
+    _log(
+        '   Savings: ${((expectedJsonSizeKB - sizeKB) / expectedJsonSizeKB * 100).toStringAsFixed(1)}%');
   }
 
   // ============================================================================
@@ -524,17 +528,19 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     }
 
     gemmaAddStopwatch.stop();
-    _log('✅ Added ${documents.length} documents in ${(gemmaAddStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
-    _log('   Avg embedding generation: ${(gemmaAddStopwatch.elapsedMilliseconds / documents.length).toStringAsFixed(0)}ms per doc\n');
+    _log(
+        '✅ Added ${documents.length} documents in ${(gemmaAddStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
+    _log(
+        '   Avg embedding generation: ${(gemmaAddStopwatch.elapsedMilliseconds / documents.length).toStringAsFixed(0)}ms per doc\n');
 
     _log('🔍 Running 5 semantic search queries...');
 
     final searchQueries = [
-      'mobile application development',           // Should find Flutter, React
+      'mobile application development', // Should find Flutter, React
       'artificial intelligence and machine learning', // Should find ML, neural networks
-      'travel destinations in Europe',           // Should find Paris, Rome, Barcelona
-      'healthy food and nutrition',              // Should find various cuisines
-      'sports and physical exercise',            // Should find various sports
+      'travel destinations in Europe', // Should find Paris, Rome, Barcelona
+      'healthy food and nutrition', // Should find various cuisines
+      'sports and physical exercise', // Should find various sports
     ];
 
     final gemmaStopwatch = Stopwatch()..start();
@@ -550,7 +556,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
       queryStopwatch.stop();
       totalResults += results.length;
 
-      _log('   Query ${i + 1}: ${queryStopwatch.elapsedMilliseconds}ms (${results.length} results)');
+      _log(
+          '   Query ${i + 1}: ${queryStopwatch.elapsedMilliseconds}ms (${results.length} results)');
       if (results.isNotEmpty) {
         final content = results.first.content;
         final preview = content.length > 50 ? content.substring(0, 50) : content;
@@ -568,7 +575,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     _log('✅ EmbeddingGemma 256 results:');
     _log('   Average: ${gemmaAvgMs.toStringAsFixed(2)}ms per query');
     _log('   Total: ${gemmaStopwatch.elapsedMilliseconds}ms for ${searchQueries.length} queries');
-    _log('   Found: $totalResults total results (avg ${(totalResults / searchQueries.length).toStringAsFixed(1)} per query)\n');
+    _log(
+        '   Found: $totalResults total results (avg ${(totalResults / searchQueries.length).toStringAsFixed(1)} per query)\n');
 
     // ========================================================================
     // TEST 2: Gecko 64 - create separate database with Gecko embeddings
@@ -623,8 +631,10 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     }
 
     geckoAddStopwatch.stop();
-    _log('✅ Added ${documents.length} documents in ${(geckoAddStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
-    _log('   Avg embedding generation: ${(geckoAddStopwatch.elapsedMilliseconds / documents.length).toStringAsFixed(0)}ms per doc\n');
+    _log(
+        '✅ Added ${documents.length} documents in ${(geckoAddStopwatch.elapsedMilliseconds / 1000).toStringAsFixed(1)}s');
+    _log(
+        '   Avg embedding generation: ${(geckoAddStopwatch.elapsedMilliseconds / documents.length).toStringAsFixed(0)}ms per doc\n');
 
     _log('🔍 Running 5 semantic search queries...');
     final geckoStopwatch = Stopwatch()..start();
@@ -640,7 +650,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
       queryStopwatch.stop();
       geckoTotalResults += results.length;
 
-      _log('   Query ${i + 1}: ${queryStopwatch.elapsedMilliseconds}ms (${results.length} results)');
+      _log(
+          '   Query ${i + 1}: ${queryStopwatch.elapsedMilliseconds}ms (${results.length} results)');
       if (results.isNotEmpty) {
         final content = results.first.content;
         final preview = content.length > 50 ? content.substring(0, 50) : content;
@@ -658,7 +669,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     _log('✅ Gecko 64 results:');
     _log('   Average: ${geckoAvgMs.toStringAsFixed(2)}ms per query');
     _log('   Total: ${geckoStopwatch.elapsedMilliseconds}ms for ${searchQueries.length} queries');
-    _log('   Found: $geckoTotalResults total results (avg ${(geckoTotalResults / searchQueries.length).toStringAsFixed(1)} per query)\n');
+    _log(
+        '   Found: $geckoTotalResults total results (avg ${(geckoTotalResults / searchQueries.length).toStringAsFixed(1)} per query)\n');
 
     // ========================================================================
     // RESULTS COMPARISON
@@ -671,9 +683,12 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     _log('│ Parameters:        300M                   │  110M                  │');
     _log('│ Max seq length:    256 tokens             │  64 tokens             │');
     _log('├────────────────────────────────────────────────────────────────────┤');
-    _log('│ Avg query time:    ${gemmaAvgMs.toStringAsFixed(0).padLeft(7)}ms           │  ${geckoAvgMs.toStringAsFixed(0).padLeft(7)}ms         │');
-    _log('│ Total search time: ${gemmaStopwatch.elapsedMilliseconds.toString().padLeft(7)}ms           │  ${geckoStopwatch.elapsedMilliseconds.toString().padLeft(7)}ms         │');
-    _log('│ Results found:     ${totalResults.toString().padLeft(7)} docs        │  ${geckoTotalResults.toString().padLeft(7)} docs       │');
+    _log(
+        '│ Avg query time:    ${gemmaAvgMs.toStringAsFixed(0).padLeft(7)}ms           │  ${geckoAvgMs.toStringAsFixed(0).padLeft(7)}ms         │');
+    _log(
+        '│ Total search time: ${gemmaStopwatch.elapsedMilliseconds.toString().padLeft(7)}ms           │  ${geckoStopwatch.elapsedMilliseconds.toString().padLeft(7)}ms         │');
+    _log(
+        '│ Results found:     ${totalResults.toString().padLeft(7)} docs        │  ${geckoTotalResults.toString().padLeft(7)} docs       │');
     _log('└────────────────────────────────────────────────────────────────────┘');
 
     final speedup = gemmaAvgMs / geckoAvgMs;
@@ -692,7 +707,8 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     } else if (speedup < 0.8) {
       _log('   ✅ Use EmbeddingGemma 256 - better quality AND faster!');
     } else {
-      _log('   ℹ️  Similar speed - choose EmbeddingGemma 256 for better quality (300M vs 110M params)');
+      _log(
+          '   ℹ️  Similar speed - choose EmbeddingGemma 256 for better quality (300M vs 110M params)');
     }
 
     // Check result quality

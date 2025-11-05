@@ -18,6 +18,15 @@ coverage/
 # Sensitive configuration files
 example/config.json
 
+# Flutter build artifacts
+build/
+devtools_options.yaml
+
+# NPM files in root (should only be in web/rag/)
+/package.json
+/package-lock.json
+/vite.config.js
+
 # Vite/Build artifacts
 # Ignore all JS files in web/ root (built from web/rag/dist/)
 web/*.js

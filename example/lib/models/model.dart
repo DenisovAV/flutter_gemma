@@ -194,7 +194,8 @@ enum Model implements InferenceModelInterface {
 
   // Hammer 2.1 0.5B (Action Model with strong function calling)
   hammer2_1_0_5B(
-    baseUrl: 'https://huggingface.co/litert-community/Hammer2.1-0.5b/resolve/main/hammer2p1_05b_.task',
+    baseUrl:
+        'https://huggingface.co/litert-community/Hammer2.1-0.5b/resolve/main/hammer2p1_05b_.task',
     filename: 'hammer2p1_05b_.task',
     displayName: 'Hammer 2.1 0.5B Action Model',
     size: '0.5GB',

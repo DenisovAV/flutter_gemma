@@ -71,7 +71,6 @@ class WebAssetSourceHandler implements SourceHandler {
 
       // Register Blob URL
       fileSystem.registerUrl(filename, blobUrl);
-
     } catch (e) {
       debugPrint('[WebAssetSourceHandler] ❌ Failed to load asset: $e');
       rethrow;
@@ -158,7 +157,6 @@ class WebAssetSourceHandler implements SourceHandler {
       fileSystem.registerUrl(filename, blobUrl);
 
       yield 100;
-
     } catch (e) {
       debugPrint('[WebAssetSourceHandler] ❌ Failed to load asset: $e');
       rethrow;

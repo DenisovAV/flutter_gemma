@@ -36,7 +36,7 @@ class WebEmbeddingModel extends EmbeddingModel {
       await LiteRTWebEmbeddings.initialize(
         _modelPath,
         _tokenizerPath,
-        wasmPath: '/wasm/',  // WASM files in example/web/wasm/
+        wasmPath: '/wasm/', // WASM files in example/web/wasm/
       );
       _isInitialized = true;
       if (kDebugMode) {

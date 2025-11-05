@@ -7,12 +7,12 @@ import 'package:flutter_gemma_example/services/auth_token_service.dart';
 
 class CosineSimilarityScreen extends StatefulWidget {
   final example_embedding_model.EmbeddingModel model;
-  final EmbeddingModel? preInitializedModel; // Новый параметр
+  final EmbeddingModel? preInitializedModel; // New parameter
 
   const CosineSimilarityScreen({
     super.key,
     required this.model,
-    this.preInitializedModel, // Опциональный
+    this.preInitializedModel, // Optional
   });
 
   @override
@@ -46,7 +46,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
 
   @override
   void dispose() {
-    // Не закрываем модель, если она была передана извне
+    // Don't close the model if it was passed from outside
     if (widget.preInitializedModel == null) {
       _embeddingModel?.close();
     }
@@ -54,7 +54,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
   }
 
   Future<void> _initializeEmbeddingModelIfNeeded() async {
-    // Если модель уже передана извне, используем её
+    // If model is already provided externally, use it
     if (widget.preInitializedModel != null) {
       _embeddingModel = widget.preInitializedModel;
       if (kDebugMode) {
@@ -66,7 +66,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       return;
     }
 
-    // Иначе устанавливаем модель как раньше
+    // Otherwise install model as before
     try {
       if (kDebugMode) {
         debugPrint('[CosineSimilarityScreen] Installing embedding model...');

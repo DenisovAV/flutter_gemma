@@ -83,13 +83,13 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    var models = Model.values.where((model) {
-      if (model.localModel) {
-        return kIsWeb;
-      }
-      if (!kIsWeb) return true;
-      return model.preferredBackend == PreferredBackend.gpu && !model.needsAuth;
-    }).toList();
+    // Show all models on all platforms
+    var models = Model.values.toList();
+
+    // On web, only show models with webUrl or local models
+    if (kIsWeb) {
+      models = models.where((model) => model.localModel || model.webUrl != null).toList();
+    }
 
     // Apply filtering then sorting
     models = _filterModels(models);
@@ -432,22 +432,23 @@ class _ModelCardState extends State<ModelCard> {
               color: Colors.grey[400],
             ),
             onTap: () {
-              // Navigate to download screen (non-web) or chat screen (web)
-              if (!kIsWeb) {
+              // Local models don't need download screen - go directly to chat
+              if (widget.model.localModel) {
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (context) => ModelDownloadScreen(
+                    builder: (context) => ChatScreen(
                       model: widget.model,
                       selectedBackend: selectedBackend,
                     ),
                   ),
                 );
               } else {
+                // Network models - show download screen with token input
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
-                    builder: (context) => ChatScreen(
+                    builder: (context) => ModelDownloadScreen(
                       model: widget.model,
                       selectedBackend: selectedBackend,
                     ),

@@ -44,16 +44,16 @@ class EmbeddingModel(
     
     fun embed(text: String): List<Double> {
         val model = gemmaEmbeddingModel ?: throw IllegalStateException("Tokenizer not initialized")
-        
+
         try {
             // Create embedding request with proper structure
             val embedData = EmbedData.builder<String>()
                 .setData(text)
                 .setTask(EmbedData.TaskType.SEMANTIC_SIMILARITY)
                 .build()
-                
+
             val request = EmbeddingRequest.create(ImmutableList.of(embedData))
-            
+
             // Get embeddings using the async API
             return runBlocking {
                 val embeddings = model.getEmbeddings(request).await()

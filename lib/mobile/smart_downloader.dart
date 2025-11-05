@@ -91,7 +91,7 @@ class SmartDownloader {
     final progress = StreamController<int>();
     StreamSubscription? currentListener;
     StreamSubscription? cancellationListener;
-    String? currentTaskId;  // ← ADD: Store task ID for cancellation
+    String? currentTaskId; // ← ADD: Store task ID for cancellation
 
     // Listen for cancellation
     if (cancelToken != null) {
@@ -102,7 +102,8 @@ class SmartDownloader {
         if (currentTaskId != null) {
           debugPrint('🚫 Cancelling task: $currentTaskId');
           try {
-            await FileDownloader().cancelTaskWithId(currentTaskId!);  // ← ADD: Actually cancel the task
+            await FileDownloader()
+                .cancelTaskWithId(currentTaskId!); // ← ADD: Actually cancel the task
           } catch (e) {
             debugPrint('⚠️ Failed to cancel task: $e');
           }
@@ -135,7 +136,7 @@ class SmartDownloader {
         currentListener = listener;
       },
       onTaskCreated: (taskId) {
-        currentTaskId = taskId;  // ← ADD: Store task ID when created
+        currentTaskId = taskId; // ← ADD: Store task ID when created
       },
     ).whenComplete(() {
       // Clean up cancellation listener when download completes
@@ -155,7 +156,7 @@ class SmartDownloader {
     StreamSubscription? currentListener,
     CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
-    void Function(String taskId)? onTaskCreated,  // ← ADD: Callback for task ID
+    void Function(String taskId)? onTaskCreated, // ← ADD: Callback for task ID
   }) async {
     // Check cancellation before starting
     try {
@@ -266,7 +267,7 @@ class SmartDownloader {
                 currentListener: listener,
                 cancelToken: cancelToken,
                 onListenerCreated: onListenerCreated,
-                onTaskCreated: onTaskCreated,  // ← ADD: Pass callback through
+                onTaskCreated: onTaskCreated, // ← ADD: Pass callback through
               );
               await listener?.cancel();
               completer.complete(); // ✅ Signal completion (even on failure)
@@ -301,7 +302,7 @@ class SmartDownloader {
                 currentListener: listener,
                 cancelToken: cancelToken,
                 onListenerCreated: onListenerCreated,
-                onTaskCreated: onTaskCreated,  // ← ADD: Pass callback through
+                onTaskCreated: onTaskCreated, // ← ADD: Pass callback through
               );
               await listener?.cancel();
               completer.complete(); // ✅ Signal completion
@@ -321,7 +322,7 @@ class SmartDownloader {
       debugPrint('🔵 Enqueue result: $result');
 
       // Notify about task ID for cancellation
-      onTaskCreated?.call(task.taskId);  // ← ADD: Notify task created
+      onTaskCreated?.call(task.taskId); // ← ADD: Notify task created
 
       // ✅ Wait for download to complete
       debugPrint('🔵 Waiting for download completion...');
@@ -329,7 +330,7 @@ class SmartDownloader {
       debugPrint('🔵 Download completed!');
 
       // Ensure listener is canceled after completion
-      await listener?.cancel();
+      await listener.cancel();
     } catch (e) {
       debugPrint('❌ Exception in _downloadWithSmartRetry: $e');
       debugPrint('❌ Stack trace: ${StackTrace.current}');
@@ -362,7 +363,7 @@ class SmartDownloader {
           currentListener: currentListener,
           cancelToken: cancelToken,
           onListenerCreated: onListenerCreated,
-          onTaskCreated: onTaskCreated,  // ← ADD: Pass callback through
+          onTaskCreated: onTaskCreated, // ← ADD: Pass callback through
         );
       } else {
         if (!progress.isClosed) {
@@ -393,7 +394,7 @@ class SmartDownloader {
     StreamSubscription? currentListener,
     CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
-    void Function(String taskId)? onTaskCreated,  // ← ADD: Callback for task ID
+    void Function(String taskId)? onTaskCreated, // ← ADD: Callback for task ID
   }) async {
     debugPrint('🟡 _handleFailedDownload called');
     debugPrint('🟡 httpStatusCode: $httpStatusCode');
@@ -480,7 +481,7 @@ class SmartDownloader {
         currentListener: currentListener,
         cancelToken: cancelToken,
         onListenerCreated: onListenerCreated,
-        onTaskCreated: onTaskCreated,  // ← ADD: Pass callback through
+        onTaskCreated: onTaskCreated, // ← ADD: Pass callback through
       );
     } else {
       if (!progress.isClosed) {

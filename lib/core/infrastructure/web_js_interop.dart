@@ -139,6 +139,8 @@ class WebJsInterop {
     final chunks = <Uint8List>[];
     int bytesReceived = 0;
 
+    debugPrint('🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
+
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {
       debugPrint('Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '

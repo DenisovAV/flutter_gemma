@@ -4,6 +4,7 @@ import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
+import 'package:flutter_gemma_example/services/auth_token_service.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, this.model = Model.gemma3_1B, this.selectedBackend});
@@ -109,10 +110,26 @@ class ChatScreenState extends State<ChatScreen> {
     try {
       // Step 1: Install model (Modern API handles already-installed check)
       debugPrint('[ChatScreen] Step 1: Installing model...');
-      await FlutterGemma.installModel(
+
+      final installer = FlutterGemma.installModel(
         modelType: widget.model.modelType,
         fileType: widget.model.fileType,
-      ).fromNetwork(widget.model.url).install();
+      );
+
+      // Choose source based on localModel flag
+      if (widget.model.localModel) {
+        await installer.fromAsset(widget.model.url).install();
+      } else {
+        // Load token if model needs authentication
+        String? token;
+        if (widget.model.needsAuth) {
+          token = await AuthTokenService.loadToken();
+          debugPrint('[ChatScreen] Loaded auth token: ${token != null ? "✅" : "❌"}');
+        }
+
+        await installer.fromNetwork(widget.model.url, token: token).install();
+      }
+
       debugPrint('[ChatScreen] Step 1: Model installed ✅');
 
       // Step 2: Create model with runtime config

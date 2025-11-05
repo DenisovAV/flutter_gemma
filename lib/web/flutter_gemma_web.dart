@@ -144,17 +144,43 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   }) async {
     // Modern API: Use active embedding model if paths not provided
     if (modelPath == null || tokenizerPath == null) {
-      // Web: Embedding models not fully supported yet, but keep API consistent
-      if (modelManager.activeEmbeddingModel == null) {
+      final manager = modelManager as WebModelManager;
+      final activeModel = manager.activeEmbeddingModel;
+
+      // No active embedding model - user must set one first
+      if (activeModel == null) {
         throw StateError(
             'No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
       }
 
-      // TODO: Implement full embedding model support on web
-      throw UnimplementedError('Embedding models are not fully supported on web platform yet');
+      // Get the actual model file paths through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw StateError(
+            'Embedding model file paths not found. Use the `modelManager` to load the model first');
+      }
+
+      // Extract model and tokenizer paths from spec
+      final activeModelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
+      final activeTokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
+
+      if (activeModelPath == null || activeTokenizerPath == null) {
+        throw StateError('Could not find model or tokenizer path in active embedding model');
+      }
+
+      modelPath = activeModelPath;
+      tokenizerPath = activeTokenizerPath;
+
+      if (kDebugMode) {
+        debugPrint('Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
+      }
     }
 
+    // Create or return existing model instance
+    // Note: preferredBackend is ignored on web (LiteRT.js uses WebGPU when available)
     final model = _initializedEmbeddingModel ??= WebEmbeddingModel(
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
       onClose: () {
         _initializedEmbeddingModel = null;
       },

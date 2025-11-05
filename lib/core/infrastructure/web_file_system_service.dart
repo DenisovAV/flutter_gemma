@@ -93,9 +93,10 @@ class WebFileSystemService implements FileSystemService {
 
   @override
   Future<String> getBundledResourcePath(String resourceName) async {
-    // On web, bundled resources are served from assets/
+    // On web, bundled resources are served from web root
     // MediaPipe expects a URL path, not a file system path
-    final assetPath = 'assets/models/$resourceName';
+    // Use absolute path starting with / to ensure proper resolution
+    final assetPath = '/$resourceName';
 
     debugPrint('WebFileSystemService: Bundled resource path for $resourceName: $assetPath');
 
@@ -121,9 +122,7 @@ class WebFileSystemService implements FileSystemService {
   /// - [url]: Network URL where the model can be fetched
   void registerUrl(String filename, String url) {
     _urlMappings[filename] = url;
-    _isBlobUrl[filename] = false; // Network URLs don't need revocation
-
-    debugPrint('WebFileSystemService: Registered URL $filename -> $url');
+    _isBlobUrl[filename] = url.startsWith('blob:'); // Auto-detect blob URLs
   }
 
   /// Gets the URL for a registered model (web-specific extension)

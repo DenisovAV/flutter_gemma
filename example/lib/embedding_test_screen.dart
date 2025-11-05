@@ -2,8 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
+import 'package:flutter_gemma_example/cosine_similarity_screen.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
   final example_embedding_model.EmbeddingModel model;
@@ -53,10 +55,30 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         }
       }
 
-      await FlutterGemma.installEmbedder()
-          .modelFromNetwork(widget.model.url, token: token)
-          .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
-          .install();
+      // Build installer based on sourceType
+      var builder = FlutterGemma.installEmbedder();
+
+      // Add model source
+      switch (widget.model.sourceType) {
+        case ModelSourceType.network:
+          builder = builder.modelFromNetwork(widget.model.url, token: token);
+        case ModelSourceType.asset:
+          builder = builder.modelFromAsset(widget.model.url);
+        case ModelSourceType.bundled:
+          builder = builder.modelFromBundled(widget.model.url);
+      }
+
+      // Add tokenizer source
+      switch (widget.model.sourceType) {
+        case ModelSourceType.network:
+          builder = builder.tokenizerFromNetwork(widget.model.tokenizerUrl, token: token);
+        case ModelSourceType.asset:
+          builder = builder.tokenizerFromAsset(widget.model.tokenizerUrl);
+        case ModelSourceType.bundled:
+          builder = builder.tokenizerFromBundled(widget.model.tokenizerUrl);
+      }
+
+      await builder.install();
 
       if (kDebugMode) {
         debugPrint('[EmbeddingTestScreen] Embedding model installed ✅');
@@ -93,6 +115,13 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       appBar: AppBar(
         title: Text(widget.model.displayName),
         backgroundColor: const Color(0xFF0b2351),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            tooltip: 'Test Cosine Similarity',
+            onPressed: _embeddingModel != null ? _navigateToCosineSimilarity : null,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -446,5 +475,17 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       sum += value * value;
     }
     return math.sqrt(sum);
+  }
+
+  void _navigateToCosineSimilarity() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => CosineSimilarityScreen(
+          model: widget.model,
+          preInitializedModel: _embeddingModel,
+        ),
+      ),
+    );
   }
 }

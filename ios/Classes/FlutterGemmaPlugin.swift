@@ -49,9 +49,12 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var eventSink: FlutterEventSink?
     private var model: InferenceModel?
     private var session: InferenceSession?
-    
+
     // Embedding-related properties
     private var embeddingWrapper: GemmaEmbeddingWrapper?
+
+    // VectorStore property
+    private var vectorStore: VectorStore?
 
     func createModel(
         maxTokens: Int64,
@@ -346,8 +349,9 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                // Generate embedding using our GemmaEmbeddingWrapper (already returns Double array)
-                let doubleEmbeddings = try embeddingWrapper.embed(text: text)
+                // ⚠️ FIX: Use embedDirect to avoid double prefix
+                // embedDirect() only adds prefix once (in cached tokens)
+                let doubleEmbeddings = try embeddingWrapper.embedDirect(text: text)
 
                 DispatchQueue.main.async {
                     print("[PLUGIN] Generated embedding with \(doubleEmbeddings.count) dimensions")
@@ -382,7 +386,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             do {
                 var embeddings: [[Double]] = []
                 for text in texts {
-                    let embedding = try embeddingWrapper.embed(text: text)
+                    // ⚠️ FIX: Use embedDirect to avoid double prefix
+                    let embedding = try embeddingWrapper.embedDirect(text: text)
                     embeddings.append(embedding)
                 }
 
@@ -418,7 +423,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 // Generate a small test embedding to get dimension
-                let testEmbedding = try embeddingWrapper.embed(text: "test")
+                // ⚠️ FIX: Use embedDirect to avoid double prefix
+                let testEmbedding = try embeddingWrapper.embedDirect(text: "test")
                 let dimension = Int64(testEmbedding.count)
 
                 DispatchQueue.main.async {
@@ -438,44 +444,175 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
     
+    // MARK: - RAG VectorStore Methods (iOS Implementation)
+
     func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "Unimplemented",
-            message: "RAG is not supported on iOS platform yet",
-            details: nil
-        )))
+        print("[PLUGIN] Initializing vector store at: \(databasePath)")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                // Create new VectorStore instance
+                self.vectorStore = VectorStore()
+
+                // Initialize with database path
+                try self.vectorStore?.initialize(databasePath: databasePath)
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Vector store initialized successfully")
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to initialize vector store: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "VectorStoreInitFailed",
+                        message: "Failed to initialize vector store: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
     }
-    
+
     func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "Unimplemented",
-            message: "RAG is not supported on iOS platform yet",
-            details: nil
-        )))
+        print("[PLUGIN] Adding document: \(id)")
+
+        guard let vectorStore = vectorStore else {
+            completion(.failure(PigeonError(
+                code: "VectorStoreNotInitialized",
+                message: "Vector store not initialized. Call initializeVectorStore first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try vectorStore.addDocument(
+                    id: id,
+                    content: content,
+                    embedding: embedding,
+                    metadata: metadata
+                )
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Document added successfully")
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to add document: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "AddDocumentFailed",
+                        message: "Failed to add document: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
     }
-    
+
     func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "Unimplemented",
-            message: "RAG is not supported on iOS platform yet",
-            details: nil
-        )))
+        print("[PLUGIN] Searching similar documents (topK: \(topK), threshold: \(threshold))")
+
+        guard let vectorStore = vectorStore else {
+            completion(.failure(PigeonError(
+                code: "VectorStoreNotInitialized",
+                message: "Vector store not initialized. Call initializeVectorStore first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let results = try vectorStore.searchSimilar(
+                    queryEmbedding: queryEmbedding,
+                    topK: Int(topK),
+                    threshold: threshold
+                )
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Found \(results.count) similar documents")
+                    completion(.success(results))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Search failed: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "SearchFailed",
+                        message: "Search failed: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
     }
-    
+
     func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "Unimplemented",
-            message: "RAG is not supported on iOS platform yet",
-            details: nil
-        )))
+        print("[PLUGIN] Getting vector store stats")
+
+        guard let vectorStore = vectorStore else {
+            completion(.failure(PigeonError(
+                code: "VectorStoreNotInitialized",
+                message: "Vector store not initialized. Call initializeVectorStore first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let stats = try vectorStore.getStats()
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Vector store stats: \(stats.documentCount) documents, \(stats.vectorDimension)D")
+                    completion(.success(stats))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to get stats: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "GetStatsFailed",
+                        message: "Failed to get stats: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
     }
-    
+
     func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "Unimplemented",
-            message: "RAG is not supported on iOS platform yet",
-            details: nil
-        )))
+        print("[PLUGIN] Clearing vector store")
+
+        guard let vectorStore = vectorStore else {
+            completion(.failure(PigeonError(
+                code: "VectorStoreNotInitialized",
+                message: "Vector store not initialized. Call initializeVectorStore first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try vectorStore.clear()
+
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Vector store cleared successfully")
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to clear vector store: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "ClearFailed",
+                        message: "Failed to clear vector store: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
     }
 
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {

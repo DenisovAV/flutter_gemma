@@ -37,11 +37,15 @@
     const serviceWorkerVersion = "{{flutter_service_worker_version}}";
   </script>
   <!-- This script adds the flutter initialization JS code -->
+  <!-- MediaPipe GenAI for Inference -->
   <script type="module">
   import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>
+
+  <!-- LiteRT.js Embeddings (bundled with Vite) -->
+  <script type="module" src="litert_embeddings.js"></script>
 </head>
 <body>
 <script src="flutter_bootstrap.js" async></script>

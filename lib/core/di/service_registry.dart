@@ -7,7 +7,8 @@ import 'package:flutter_gemma/core/services/protected_files_registry.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/handlers/network_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/asset_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_asset_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_asset_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/bundled_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/file_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/web_bundled_source_handler.dart';

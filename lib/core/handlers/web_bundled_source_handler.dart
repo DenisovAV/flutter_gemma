@@ -46,8 +46,9 @@ class WebBundledSourceHandler implements SourceHandler {
     }
 
     // Construct the bundled resource URL
-    // On web, bundled resources are served from assets/models/
-    final bundledUrl = 'assets/models/${source.resourceName}';
+    // On web, bundled resources are served from web root
+    // Use absolute path starting with / to ensure proper resolution
+    final bundledUrl = '/${source.resourceName}';
 
     // Register URL with WebFileSystemService
     // This is CRITICAL - MediaPipe looks up URLs via getUrl()
@@ -86,7 +87,8 @@ class WebBundledSourceHandler implements SourceHandler {
     await Future.delayed(const Duration(milliseconds: 50));
 
     // Construct the bundled resource URL
-    final bundledUrl = 'assets/models/${source.resourceName}';
+    // Use absolute path starting with / to ensure proper resolution
+    final bundledUrl = '/${source.resourceName}';
 
     // Register URL with WebFileSystemService
     fileSystem.registerUrl(source.resourceName, bundledUrl);

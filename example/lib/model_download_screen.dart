@@ -145,6 +145,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
             if (widget.model.needsAuth)
               RichText(
                 text: TextSpan(
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                   text:
                       'To create an access token, please visit your account settings of huggingface at ',
                   children: [
@@ -160,6 +161,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
                         },
                     ),
                     const TextSpan(
+                      style: TextStyle(color: Colors.white, fontSize: 14),
                       text: '. Make sure to give read-repo access to the token.',
                     ),
                   ],
@@ -168,6 +170,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
             if (widget.model.licenseUrl.isNotEmpty)
               RichText(
                 text: TextSpan(
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                   text: 'License Agreement: ',
                   children: [
                     TextSpan(

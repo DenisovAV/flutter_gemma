@@ -42,8 +42,12 @@ class ModelDownloadService {
   /// Checks if the model file exists and matches the remote file size.
   Future<bool> checkModelExistence(String token) async {
     try {
-      // Modern API: Check if model is installed
-      final isInstalled = await FlutterGemma.isModelInstalled(modelFilename);
+      // Extract SAME filename that Modern API will use during download
+      final uri = Uri.parse(modelUrl);
+      final actualFilename = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : modelFilename;
+
+      // Modern API: Check if model is installed using actual filename
+      final isInstalled = await FlutterGemma.isModelInstalled(actualFilename);
 
       if (isInstalled) {
         return true;
@@ -53,20 +57,32 @@ class ModelDownloadService {
       final filePath = await getFilePath();
       final file = File(filePath);
 
-      // Check remote file size
+      if (!file.existsSync()) {
+        return false;
+      }
+
+      // Validate size if possible
       final Map<String, String> headers =
           token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
-      final headResponse = await http.head(Uri.parse(modelUrl), headers: headers);
 
-      if (headResponse.statusCode == 200) {
-        final contentLengthHeader = headResponse.headers['content-length'];
-        if (contentLengthHeader != null) {
-          final remoteFileSize = int.parse(contentLengthHeader);
-          if (file.existsSync() && await file.length() == remoteFileSize) {
-            return true;
+      try {
+        final headResponse = await http.head(Uri.parse(modelUrl), headers: headers);
+        if (headResponse.statusCode == 200) {
+          final contentLengthHeader = headResponse.headers['content-length'];
+          if (contentLengthHeader != null) {
+            final remoteFileSize = int.parse(contentLengthHeader);
+            return await file.length() == remoteFileSize;
           }
         }
+      } catch (e) {
+        // HEAD request failed (e.g., CORS on web), trust file existence
+        if (kDebugMode) {
+          debugPrint('HEAD request failed, trusting file existence: $e');
+        }
+        return true;
       }
+
+      return true; // File exists, size validation failed/skipped
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error checking model existence: $e');

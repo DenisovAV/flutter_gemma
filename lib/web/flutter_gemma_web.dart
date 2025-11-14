@@ -10,6 +10,7 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';

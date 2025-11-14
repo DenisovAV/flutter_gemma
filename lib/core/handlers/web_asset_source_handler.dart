@@ -7,6 +7,7 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:path/path.dart' as path;
 
@@ -31,10 +32,12 @@ import 'package:path/path.dart' as path;
 class WebAssetSourceHandler implements SourceHandler {
   final WebFileSystemService fileSystem;
   final ModelRepository repository;
+  final WebCacheService cacheService;
 
   WebAssetSourceHandler({
     required this.fileSystem,
     required this.repository,
+    required this.cacheService,
   });
 
   @override
@@ -125,54 +128,48 @@ class WebAssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async* {
-    // Same as install() but with progress tracking
     if (source is! AssetSource) {
       throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
     }
 
-    // Generate filename from path
     final filename = path.basename(source.path);
-
-    // Progress: Loading asset
-    yield 0;
-    await Future.delayed(const Duration(milliseconds: 50));
+    // normalizedPath already has 'assets/' prefix, don't add it again
+    final cacheKey = source.normalizedPath;
 
     try {
-      debugPrint('[WebAssetSourceHandler] Loading asset with progress: ${source.normalizedPath}');
+      // Use unified caching helper
+      yield* cacheService.getOrCacheAndRegisterWithProgress(
+        cacheKey: cacheKey,
+        loader: (onProgress) async {
+          debugPrint('[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
 
-      // Load asset data via rootBundle
-      yield 33;
-      final ByteData data = await rootBundle.load(source.normalizedPath);
-      final Uint8List bytes = data.buffer.asUint8List();
+          onProgress(0.0);
+          final byteData = await rootBundle.load(source.normalizedPath);
+          final bytes = byteData.buffer.asUint8List();
 
-      debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
+          debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
+          onProgress(1.0);
 
-      // Create Blob URL from bytes
-      yield 66;
-      final blobUrl = await _createBlobUrlFromBytes(bytes, filename);
+          return bytes;
+        },
+        targetPath: filename,
+      );
 
-      debugPrint('[WebAssetSourceHandler] Blob URL created: $blobUrl');
+      // Save metadata to repository
+      final modelInfo = ModelInfo(
+        id: filename,
+        source: source,
+        installedAt: DateTime.now(),
+        sizeBytes: -1,
+        type: ModelType.inference,
+        hasLoraWeights: false,
+      );
 
-      // Register Blob URL with WebFileSystemService
-      fileSystem.registerUrl(filename, blobUrl);
-
-      yield 100;
+      await repository.saveModel(modelInfo);
     } catch (e) {
-      debugPrint('[WebAssetSourceHandler] ❌ Failed to load asset: $e');
+      debugPrint('[WebAssetSourceHandler] ❌ Failed to install asset: $e');
       rethrow;
     }
-
-    // Save metadata to repository
-    final modelInfo = ModelInfo(
-      id: filename,
-      source: source,
-      installedAt: DateTime.now(),
-      sizeBytes: -1,
-      type: ModelType.inference,
-      hasLoraWeights: false,
-    );
-
-    await repository.saveModel(modelInfo);
   }
 
   @override

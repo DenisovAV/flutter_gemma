@@ -93,6 +93,7 @@ async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/co
     }
 
     // Load and compile model with WebGPU (fallback to WASM)
+    // Pass modelPath directly - LiteRT.js handles blob URLs internally
     try {
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'webgpu',

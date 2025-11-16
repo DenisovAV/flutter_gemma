@@ -75,6 +75,14 @@ class WebAssetSourceHandler implements SourceHandler {
           final byteData = await rootBundle.load(source.normalizedPath);
           final bytes = byteData.buffer.asUint8List();
 
+          // Validate asset is not empty
+          if (bytes.isEmpty) {
+            throw StateError(
+              'Asset file is empty: ${source.normalizedPath}. '
+              'Check that the file exists and is not corrupted.'
+            );
+          }
+
           debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
           onProgress(1.0);
 

@@ -48,4 +48,18 @@ class PreferencesKeys {
   /// Get key for external file path mapping
   /// Format: 'external_path_{filename}'
   static String externalPath(String filename) => 'external_path_$filename';
+
+  // ============================================================================
+  // Web Cache Management (Cache API metadata)
+  // ============================================================================
+
+  /// Prefix for web cache metadata keys
+  /// Format: 'web_cache_{url.hashCode}'
+  static const String webCacheMetadataPrefix = 'web_cache_';
+
+  /// Whether persistent storage was granted
+  static const String webCachePersistentGranted = 'web_cache_persistent_granted';
+
+  /// Last cache cleanup timestamp
+  static const String webCacheLastCleanup = 'web_cache_last_cleanup';
 }

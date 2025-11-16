@@ -10,10 +10,26 @@ class UrlUtils {
   static String normalizeUrl(String url) {
     try {
       final uri = Uri.parse(url);
-      final normalized = uri.replace(query: '').toString();
-      return normalized.endsWith('/')
-          ? normalized.substring(0, normalized.length - 1)
-          : normalized;
+
+      // Only remove query if it exists (avoid adding '?' to URLs without query)
+      String normalized;
+      if (uri.hasQuery) {
+        normalized = uri.replace(query: '').toString();
+      } else {
+        normalized = uri.toString();
+      }
+
+      // Remove trailing slash
+      if (normalized.endsWith('/')) {
+        normalized = normalized.substring(0, normalized.length - 1);
+      }
+
+      // Remove trailing '?' if present (bug in Uri.replace)
+      if (normalized.endsWith('?')) {
+        normalized = normalized.substring(0, normalized.length - 1);
+      }
+
+      return normalized;
     } catch (e) {
       debugPrint('[UrlUtils] ⚠️  URL normalization failed: $e');
       return url;

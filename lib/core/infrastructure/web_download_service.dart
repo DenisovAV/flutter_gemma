@@ -130,8 +130,8 @@ class WebDownloadService implements DownloadService {
         targetPath: targetPath,
       );
 
-      // Track blob URL for cleanup
-      final blobUrl = await cacheService.getCachedBlobUrl(normalizedUrl);
+      // Track blob URL for cleanup (works with or without cache)
+      final blobUrl = _fileSystem.getUrl(targetPath);
       if (blobUrl != null) {
         _blobUrlManager.track(targetPath, blobUrl);
       }
@@ -155,77 +155,52 @@ class WebDownloadService implements DownloadService {
     CancelToken? cancelToken,
   ) async* {
     try {
-      // Check cancellation before starting
       cancelToken?.throwIfCancelled();
 
-      // Use StreamController to bridge callback-based progress to stream
-      final progressController = StreamController<int>();
-      final completer = Completer<Uint8List>(); // for downloaded data
+      debugPrint('WebDownloadService: Starting authenticated download for $targetPath');
 
-      // Start download in background
-      _jsInterop.fetchWithAuth(
-        url,
-        authToken,
-        onProgress: (progress) {
-          // Convert 0.0-1.0 to 0-100 and stream immediately
-          final progressPercent = (progress * 100).clamp(0, 100).toInt();
-          if (!progressController.isClosed) {
-            progressController.add(progressPercent);
-          }
+      // Use unified caching helper with auth download
+      yield* cacheService.getOrCacheAndRegisterWithProgress(
+        cacheKey: normalizedUrl,
+        loader: (onProgress) async {
+          cancelToken?.throwIfCancelled();
+
+          debugPrint('[WebDownloadService] 📥 Downloading authenticated model: $url');
+
+          // Create completer for async result
+          final completer = Completer<Uint8List>();
+
+          // Start download with streaming progress
+          _jsInterop.fetchWithAuth(
+            url,
+            authToken,
+            onProgress: onProgress, // Pass progress callback directly
+          ).then((response) {
+            debugPrint('[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
+            completer.complete(response.data);
+          }).catchError((error) {
+            completer.completeError(error);
+          });
+
+          return await completer.future;
         },
-      ).then((response) {
-        // Download complete - close stream and complete future
-        if (!progressController.isClosed) {
-          progressController.add(100); // Ensure final 100%
-          progressController.close();
-        }
-        completer.complete(response.data);
-      }).catchError((error) {
-        // Download failed - forward error
-        if (!progressController.isClosed) {
-          progressController.addError(error);
-          progressController.close();
-        }
-        completer.completeError(error);
-      });
-
-      // Yield progress as it comes in
-      await for (final progress in progressController.stream) {
-        cancelToken?.throwIfCancelled();
-        yield progress;
-      }
-
-      // Get downloaded data after stream completes
-      cancelToken?.throwIfCancelled();
-      final data = await completer.future;
-
-      // Save to Cache API
-      debugPrint('💾 Saving authenticated model to cache: ${data.length} bytes');
-      await cacheService.cacheModel(normalizedUrl, data);
-
-      // Create blob URL from cached data
-      final blobUrl = await cacheService.getCachedBlobUrl(normalizedUrl);
-      if (blobUrl == null) {
-        throw Exception('Failed to create blob URL from cache');
-      }
-
-      // Register blob URL
-      _fileSystem.registerUrl(targetPath, blobUrl);
-      _blobUrlManager.track(targetPath, blobUrl);
-
-      debugPrint('✅ Authenticated model downloaded and cached');
-    } on JsInteropException catch (e) {
-      debugPrint('❌ Authenticated download failed: $e');
-      throw DownloadException(
-        DownloadError.unknown('Failed to download authenticated model: $e'),
+        targetPath: targetPath,
       );
+
+      // Track blob URL for cleanup (works with or without cache)
+      final blobUrl = _fileSystem.getUrl(targetPath);
+      if (blobUrl != null) {
+        _blobUrlManager.track(targetPath, blobUrl);
+      }
+
+      debugPrint('[WebDownloadService] ✅ Authenticated model downloaded and cached');
     } on DownloadCancelledException {
       debugPrint('WebDownloadService: Download cancelled for $targetPath');
       rethrow;
     } catch (e) {
-      debugPrint('❌ Download failed for $targetPath: $e');
+      debugPrint('[WebDownloadService] ❌ Authenticated download failed: $e');
       throw DownloadException(
-        DownloadError.unknown('Failed to download model: $e'),
+        DownloadError.unknown('Failed to download authenticated model: $e'),
       );
     }
   }

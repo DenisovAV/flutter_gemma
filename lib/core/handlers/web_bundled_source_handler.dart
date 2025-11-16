@@ -76,6 +76,14 @@ class WebBundledSourceHandler implements SourceHandler {
           onProgress(0.0);
           final response = await jsInterop.fetchFile('/$resourceName');
 
+          // Validate resource is not empty
+          if (response.data.isEmpty) {
+            throw StateError(
+              'Bundled resource is empty: $resourceName. '
+              'Check that the resource exists in the web bundle.'
+            );
+          }
+
           debugPrint('[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes');
           onProgress(1.0);
 

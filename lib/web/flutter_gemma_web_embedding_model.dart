@@ -17,6 +17,10 @@ class WebEmbeddingModel extends EmbeddingModel {
   bool _isClosed = false;
   bool _isInitialized = false;
 
+  // Public getters for parameter comparison
+  String? get modelPath => _modelPath;
+  String? get tokenizerPath => _tokenizerPath;
+
   void _assertNotClosed() {
     if (_isClosed) {
       throw StateError('EmbeddingModel is closed. Create a new instance to use it again');

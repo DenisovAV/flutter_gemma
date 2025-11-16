@@ -57,8 +57,10 @@ npm run build
 
 **Option A: Example App (if testing flutter_gemma example)**
 
+> **ℹ️ Note for plugin users:** The example app already includes pre-built JS files in the repository, so you can run it immediately without building. This step is only needed if you're modifying the embedding source code.
+
 ```bash
-# Copy built files to example app
+# Copy built files to example app (only if you modified litert_embeddings_api.js)
 cp dist/* ../../example/web/
 ```
 

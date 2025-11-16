@@ -3,6 +3,7 @@
 /// Uses background_downloader for model downloads.
 library;
 
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../infrastructure/background_downloader_service.dart';
 import '../../services/download_service.dart';
 import '../../services/file_system_service.dart';
@@ -12,8 +13,13 @@ import '../../services/file_system_service.dart';
 /// Mobile platforms use BackgroundDownloaderService which handles
 /// actual file downloads using native platform APIs.
 ///
-/// The [fileSystem] parameter is optional and not used on mobile platforms,
-/// as mobile uses BackgroundDownloaderService which doesn't need file system injection.
-DownloadService createDownloadService([FileSystemService? fileSystem]) {
+/// Parameters are ignored on mobile (web-only), but included for
+/// interface compatibility with web_service_factory.
+DownloadService createDownloadService(
+  FileSystemService fileSystem,
+  bool enableCache,
+  SharedPreferences prefs,
+) {
+  // All parameters ignored - mobile uses BackgroundDownloaderService standalone
   return BackgroundDownloaderService();
 }

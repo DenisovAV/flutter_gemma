@@ -111,11 +111,31 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     List<int>? loraRanks,
     int? maxNumImages,
     bool supportImage = false, // Enabling image support
-  }) {
+  }) async {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
       if (kDebugMode) {
         debugPrint('Warning: Image support is not yet implemented for web platform');
+      }
+    }
+
+    // Check if model already exists with different parameters
+    if (_initializedModel != null) {
+      final existing = _initializedModel! as WebInferenceModel;
+
+      // Check if parameters match
+      final bool parametersChanged =
+        existing.modelType != modelType ||
+        existing.maxTokens != maxTokens ||
+        existing.supportImage != supportImage ||
+        (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
+
+      if (parametersChanged) {
+        if (kDebugMode) {
+          debugPrint('[FlutterGemmaWeb] Model parameters changed, closing existing model');
+        }
+        await existing.close();
+        _initializedModel = null;
       }
     }
 
@@ -132,7 +152,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         _initializedModel = null;
       },
     );
-    return Future.value(model);
+    return model;
   }
 
   // === EmbeddingModel Methods - Web Implementation ===
@@ -177,6 +197,24 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
+    // Check if model already exists with different parameters
+    if (_initializedEmbeddingModel != null) {
+      final existing = _initializedEmbeddingModel! as WebEmbeddingModel;
+
+      // Check if paths changed (indicates different model)
+      final bool modelChanged =
+        existing.modelPath != modelPath ||
+        existing.tokenizerPath != tokenizerPath;
+
+      if (modelChanged) {
+        if (kDebugMode) {
+          debugPrint('[FlutterGemmaWeb] Embedding model paths changed, closing existing model');
+        }
+        await existing.close();
+        _initializedEmbeddingModel = null;
+      }
+    }
+
     // Create or return existing model instance
     // Note: preferredBackend is ignored on web (LiteRT.js uses WebGPU when available)
     final model = _initializedEmbeddingModel ??= WebEmbeddingModel(
@@ -186,7 +224,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         _initializedEmbeddingModel = null;
       },
     );
-    return Future.value(model);
+    return model;
   }
 
   @override

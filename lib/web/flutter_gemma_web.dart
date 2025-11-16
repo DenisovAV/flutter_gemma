@@ -624,6 +624,19 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> close() async {
+    // Cleanup MediaPipe LlmInference WASM resources (important for hot restart)
+    // This prevents memory leaks and "memory access out of bounds" errors
+    try {
+      llmInference.close();
+      if (kDebugMode) {
+        debugPrint('[WebModelSession] Cleaned up LlmInference resources');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[WebModelSession] Warning: Error closing LlmInference: $e');
+      }
+    }
+
     _promptParts.clear();
     _controller?.close();
     _controller = null;

@@ -22,7 +22,7 @@ const TASK_PREFIX = "task: search result | query: ";
 const BOS_TOKEN = 2;
 const EOS_TOKEN = 1;
 const PAD_TOKEN = 0;
-const MAX_SEQUENCE_LENGTH = 256;
+let MAX_SEQUENCE_LENGTH = 256; // Default, can be overridden
 const EXPECTED_EMBEDDING_DIM = 768;
 
 // ============================================================================
@@ -82,27 +82,54 @@ async function loadSentencePieceTokenizer(tokenizerPath) {
 
 async function loadLiteRTModel(modelPath, wasmPath = '/node_modules/@litertjs/core/wasm/') {
   try {
+    console.log(`[LiteRT] Loading model from: ${modelPath}`);
+    console.log(`[LiteRT] WASM loaded flag: ${liteRtWasmLoaded}`);
+
     // Initialize TensorFlow.js backend
     await tf.setBackend('webgl');
     await tf.ready();
 
     // Load LiteRT WASM runtime only once
     if (!liteRtWasmLoaded) {
+      console.log(`[LiteRT] Loading WASM runtime from: ${wasmPath}`);
       await loadLiteRt(wasmPath);
       liteRtWasmLoaded = true;
+      console.log('[LiteRT] WASM runtime loaded successfully');
+    } else {
+      console.log('[LiteRT] WASM runtime already loaded, reusing');
     }
 
     // Load and compile model with WebGPU (fallback to WASM)
     // Pass modelPath directly - LiteRT.js handles blob URLs internally
     try {
+      console.log('[LiteRT] Attempting to compile model with WebGPU...');
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'webgpu',
       });
+      console.log('[LiteRT] Model compiled with WebGPU successfully');
     } catch (error) {
-      console.warn('WebGPU not available, falling back to WASM:', error.message);
+      console.warn('[LiteRT] WebGPU not available, falling back to WASM:', error.message);
       tfliteModel = await loadAndCompile(modelPath, {
         accelerator: 'wasm',
       });
+      console.log('[LiteRT] Model compiled with WASM successfully');
+    }
+
+    // Auto-detect sequence length from model input shape (like iOS/Android)
+    try {
+      const inputDetails = tfliteModel.getInputDetails();
+      if (inputDetails && inputDetails.length > 0) {
+        const inputShape = inputDetails[0].shape;
+        if (inputShape && inputShape.length >= 2) {
+          const detectedSequenceLength = inputShape[1];
+          if (detectedSequenceLength !== MAX_SEQUENCE_LENGTH) {
+            MAX_SEQUENCE_LENGTH = detectedSequenceLength;
+            console.log(`[LiteRT] Auto-detected maxSequenceLength: ${MAX_SEQUENCE_LENGTH}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[LiteRT] Failed to auto-detect sequence length, using default:', e);
     }
 
     return tfliteModel;
@@ -214,6 +241,24 @@ async function generateEmbeddingInternal(text) {
  */
 window.loadLiteRtEmbeddings = async function(modelPath, tokenizerPath, wasmPath) {
   try {
+    // Cleanup old model before loading new one (important for hot restart)
+    // This prevents memory leaks and "memory access out of bounds" errors
+    if (isInitialized) {
+      console.log('[LiteRT] Cleaning up previous model before reinitialization (hot restart detected)');
+      try {
+        await window.cleanupLiteRtEmbeddings();
+      } catch (cleanupError) {
+        // Cleanup errors should not block reinitialization
+        // Old instances may be invalid after hot restart
+        console.warn('[LiteRT] Non-fatal cleanup error (will reinitialize anyway):', cleanupError);
+        // Force reset all state even if cleanup failed
+        tfliteModel = null;
+        tokenizer = null;
+        liteRtWasmLoaded = false;
+        isInitialized = false;
+      }
+    }
+
     // IMPORTANT: Check for null and convert to undefined to trigger default parameter
     // Dart's null becomes JavaScript null (not undefined), which bypasses default parameters
     const effectiveWasmPath = (wasmPath === null || wasmPath === undefined)
@@ -223,7 +268,7 @@ window.loadLiteRtEmbeddings = async function(modelPath, tokenizerPath, wasmPath)
     // Load tokenizer
     await loadSentencePieceTokenizer(tokenizerPath);
 
-    // Load model
+    // Load model (auto-detects sequence length from model)
     await loadLiteRTModel(modelPath, effectiveWasmPath);
 
     isInitialized = true;
@@ -288,29 +333,79 @@ window.getLiteRtEmbeddingDimension = function() {
 
 /**
  * Cleanup and release resources
+ *
+ * CRITICAL for hot restart: Cleans up all LiteRT state including:
+ * - TFLite model instances
+ * - SentencePiece tokenizer
+ * - TensorFlow.js tensors and backend
+ * - WASM runtime flag (forces reload on next init)
  */
 window.cleanupLiteRtEmbeddings = async function() {
-  // Properly dispose model before resetting
-  if (tfliteModel && typeof tfliteModel.delete === 'function' && !tfliteModel.deleted) {
+  console.log('[LiteRT] ========================================');
+  console.log('[LiteRT] Starting cleanup...');
+  console.log('[LiteRT] ========================================');
+
+  // 1. Dispose TFLite model
+  if (tfliteModel) {
     try {
-      tfliteModel.delete();
+      if (typeof tfliteModel.delete === 'function' && !tfliteModel.deleted) {
+        tfliteModel.delete();
+        console.log('[LiteRT] ✅ Model deleted');
+      }
     } catch (e) {
-      console.warn('[LiteRT] Error deleting model:', e);
+      console.warn('[LiteRT] ⚠️  Error deleting model (non-fatal):', e);
     }
   }
   tfliteModel = null;
 
-  // Dispose tokenizer processor if it has a delete method
-  if (tokenizer && tokenizer.processor && typeof tokenizer.processor.delete === 'function') {
+  // 2. Dispose tokenizer
+  if (tokenizer) {
     try {
-      tokenizer.processor.delete();
+      if (tokenizer.processor && typeof tokenizer.processor.delete === 'function') {
+        tokenizer.processor.delete();
+        console.log('[LiteRT] ✅ Tokenizer deleted');
+      }
     } catch (e) {
-      console.warn('[LiteRT] Error deleting tokenizer:', e);
+      console.warn('[LiteRT] ⚠️  Error deleting tokenizer (non-fatal):', e);
     }
   }
   tokenizer = null;
 
+  // 3. Dispose TensorFlow.js tensors
+  try {
+    const memory = tf.memory();
+    const numTensors = memory.numTensors;
+    if (numTensors > 0) {
+      console.log(`[LiteRT] Disposing ${numTensors} TensorFlow.js tensors`);
+      tf.disposeVariables();
+      console.log('[LiteRT] ✅ Tensors disposed');
+    }
+  } catch (e) {
+    console.warn('[LiteRT] ⚠️  Error disposing tensors (non-fatal):', e);
+  }
+
+  // 4. NOTE: We do NOT remove WebGL backend from registry
+  // Removing it causes "Backend not found" errors on next init
+  // TensorFlow.js manages backend lifecycle automatically
+  // Just disposing tensors and model is enough
+
+  // 5. NOTE: We do NOT reset liteRtWasmLoaded flag
+  // WASM runtime is loaded ONCE and reused for all models
+  // Resetting causes "LiteRT is already loading / loaded" error
+  // Only model instances need cleanup, not the runtime itself
+  console.log('[LiteRT] ✅ Keeping WASM runtime (reusable across models)');
+
+  // 6. Reset sequence length to default
+  // Next model will auto-detect its own sequence length
+  MAX_SEQUENCE_LENGTH = 256;
+  console.log('[LiteRT] ✅ Reset MAX_SEQUENCE_LENGTH to default');
+
+  // 7. Mark as uninitialized
   isInitialized = false;
+
+  console.log('[LiteRT] ========================================');
+  console.log('[LiteRT] ✅ Cleanup completed');
+  console.log('[LiteRT] ========================================');
 };
 
 /**

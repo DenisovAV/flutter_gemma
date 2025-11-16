@@ -48,19 +48,14 @@ class WebDownloadService implements DownloadService {
     String? token,
     CancelToken? cancelToken,
   }) async {
-    // Check cancellation before starting
-    cancelToken?.throwIfCancelled();
-
-    // On web, just register the URL - no actual download
-    // MediaPipe will fetch it when creating a session
-    _fileSystem.registerUrl(targetPath, url);
-
-    debugPrint('WebDownloadService: Registered URL for $targetPath');
-
-    // Note: Token is stored but not used here
-    // It would need to be passed to MediaPipe when creating session
-    if (token != null) {
-      debugPrint('WebDownloadService: Token provided (will be used by MediaPipe)');
+    // Delegate to downloadWithProgress, ignore progress events
+    await for (final _ in downloadWithProgress(
+      url,
+      targetPath,
+      token: token,
+      cancelToken: cancelToken,
+    )) {
+      // Ignore progress updates
     }
   }
 

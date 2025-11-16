@@ -47,33 +47,10 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async {
-    // Web bundled resources are instant URL registration, no cancellation needed
-    if (source is! BundledSource) {
-      throw ArgumentError('WebBundledSourceHandler only supports BundledSource');
+    // Delegate to installWithProgress, ignore progress events
+    await for (final _ in installWithProgress(source, cancelToken: cancelToken)) {
+      // Ignore progress updates
     }
-
-    // Construct the bundled resource URL
-    // On web, bundled resources are served from web root
-    // Use absolute path starting with / to ensure proper resolution
-    final bundledUrl = '/${source.resourceName}';
-
-    // Register URL with WebFileSystemService
-    // This is CRITICAL - MediaPipe looks up URLs via getUrl()
-    fileSystem.registerUrl(source.resourceName, bundledUrl);
-
-    // Save metadata to repository
-    // Note: Web can't determine file size without HTTP HEAD request
-    // Use -1 to indicate "unknown but exists"
-    final modelInfo = ModelInfo(
-      id: source.resourceName,
-      source: source,
-      installedAt: DateTime.now(),
-      sizeBytes: -1, // Unknown for web bundled resources
-      type: ModelType.inference,
-      hasLoraWeights: false,
-    );
-
-    await repository.saveModel(modelInfo);
   }
 
   @override
@@ -108,6 +85,9 @@ class WebBundledSourceHandler implements SourceHandler {
       );
 
       // Save metadata to repository
+      // Repository type is selected by ServiceRegistry based on enableCache:
+      // - enableCache=true: SharedPreferencesModelRepository (persistent)
+      // - enableCache=false: InMemoryModelRepository (ephemeral)
       final modelInfo = ModelInfo(
         id: resourceName,
         source: source,

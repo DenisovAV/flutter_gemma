@@ -469,52 +469,22 @@ class WebCacheService {
   /// Simple version without progress tracking
   ///
   /// Use this for instant loads (assets, bundled) where progress isn't needed.
+  /// Delegates to getOrCacheAndRegisterWithProgress and ignores progress events.
   Future<String> getOrCacheAndRegister({
     required String cacheKey,
     required Future<Uint8List> Function() loader,
     required String targetPath,
   }) async {
-    try {
-      // 1. Check cache (only if enabled)
-      if (enableCache) {
-        final cachedBlobUrl = await getCachedBlobUrl(cacheKey);
-        if (cachedBlobUrl != null) {
-          debugPrint('[WebCacheService] ✅ Found in cache: $cacheKey');
-          _fileSystem.registerUrl(targetPath, cachedBlobUrl);
-          return targetPath;
-        }
-      }
-
-      // 2. Load data
-      debugPrint('[WebCacheService] 📥 Loading: $cacheKey (cache: ${enableCache ? "enabled" : "disabled"})');
-      final data = await loader();
-
-      // 3. Cache (only if enabled)
-      if (enableCache) {
-        await cacheModel(cacheKey, data);
-
-        // 4. Create blob URL from cache
-        final blobUrl = await getCachedBlobUrl(cacheKey);
-        if (blobUrl == null) {
-          throw Exception('Failed to create blob URL for: $cacheKey');
-        }
-
-        // 5. Register
-        _fileSystem.registerUrl(targetPath, blobUrl);
-        debugPrint('[WebCacheService] ✅ Cached and registered: $cacheKey');
-      } else {
-        // Create temporary blob URL without caching
-        final blob = _createBlob([data]);
-        final blobUrl = _createBlobUrl(blob);
-        _fileSystem.registerUrl(targetPath, blobUrl);
-        debugPrint('[WebCacheService] ✅ Registered (no cache): $cacheKey');
-      }
-
-      return targetPath;
-    } catch (e) {
-      debugPrint('[WebCacheService] ❌ getOrCacheAndRegister failed: $e');
-      rethrow;
+    // Delegate to progress version, ignore progress events
+    await for (final _ in getOrCacheAndRegisterWithProgress(
+      cacheKey: cacheKey,
+      loader: (_) => loader(), // Ignore progress callback
+      targetPath: targetPath,
+    )) {
+      // Ignore progress updates
     }
+
+    return targetPath;
   }
 
   // Helper methods for blob creation (needed when cache disabled)

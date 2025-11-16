@@ -7,6 +7,7 @@ import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:flutter_gemma/core/services/protected_files_registry.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/handlers/network_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_network_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/web_asset_source_handler_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_asset_source_handler.dart';
@@ -19,6 +20,7 @@ import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.d
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'platform/mobile_service_factory.dart'
@@ -68,7 +70,7 @@ class ServiceRegistry {
   late final ProtectedFilesRegistry _protectedFilesRegistry;
 
   // Handlers (created once with dependencies)
-  late final NetworkSourceHandler _networkHandler;
+  late final SourceHandler _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
   late final SourceHandler _assetHandler;
   late final SourceHandler _bundledHandler; // Changed from BundledSourceHandler
   late final SourceHandler _fileHandler; // Changed from FileSourceHandler
@@ -164,6 +166,38 @@ class ServiceRegistry {
     }
   }
 
+  /// Creates the appropriate NetworkSourceHandler based on platform
+  ///
+  /// - Web: WebNetworkSourceHandler (with conditional metadata saving based on cache)
+  /// - Mobile: NetworkSourceHandler (always saves metadata, files persist on disk)
+  static SourceHandler _createNetworkSourceHandler(
+    DownloadService downloadService,
+    FileSystemService fileSystem,
+    ModelRepository repository,
+    String? huggingFaceToken,
+    int maxDownloadRetries,
+  ) {
+    if (kIsWeb) {
+      // Web: Use WebNetworkSourceHandler with cache-aware metadata saving
+      final webDownload = downloadService as WebDownloadService;
+      return WebNetworkSourceHandler(
+        downloadService: webDownload,
+        repository: repository,
+        cacheService: webDownload.cacheService,
+        huggingFaceToken: huggingFaceToken,
+      );
+    } else {
+      // Mobile: Use NetworkSourceHandler (always saves metadata)
+      return NetworkSourceHandler(
+        downloadService: downloadService,
+        fileSystem: fileSystem,
+        repository: repository,
+        huggingFaceToken: huggingFaceToken,
+        maxDownloadRetries: maxDownloadRetries,
+      );
+    }
+  }
+
   /// Creates the appropriate FileSourceHandler based on platform
   ///
   /// - Web: WebFileSourceHandler (URL validation and registration)
@@ -249,16 +283,24 @@ class ServiceRegistry {
     _fileSystemService = fileSystemService;
     _assetLoader = assetLoader ?? FlutterAssetLoader();
     _downloadService = downloadService;
-    _modelRepository = modelRepository ?? SharedPreferencesModelRepository();
+
+    // Web with cache disabled: use in-memory repository (ephemeral metadata)
+    // Web with cache enabled: use SharedPreferences (persistent metadata)
+    // Mobile: always use SharedPreferences (files persist on disk)
+    _modelRepository = modelRepository ??
+      (kIsWeb && !enableWebCache
+        ? InMemoryModelRepository()
+        : SharedPreferencesModelRepository());
+
     _protectedFilesRegistry = protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
 
     // Initialize handlers with dependencies
-    _networkHandler = NetworkSourceHandler(
-      downloadService: _downloadService,
-      fileSystem: _fileSystemService,
-      repository: _modelRepository,
-      huggingFaceToken: huggingFaceToken,
-      maxDownloadRetries: maxDownloadRetries,
+    _networkHandler = _createNetworkSourceHandler(
+      _downloadService,
+      _fileSystemService,
+      _modelRepository,
+      huggingFaceToken,
+      maxDownloadRetries,
     );
 
     _assetHandler = _createAssetSourceHandler(
@@ -346,6 +388,14 @@ class ServiceRegistry {
   }) async {
     // Make idempotent - skip if already initialized
     if (_instance != null) {
+      // Warn if critical parameters changed
+      if (_instance!.enableWebCache != enableWebCache) {
+        debugPrint(
+          'WARNING: enableWebCache cannot be changed after initialization.\n'
+          'Current: ${_instance!.enableWebCache}, Requested: $enableWebCache\n'
+          'Restart the application to change this setting.'
+        );
+      }
       debugPrint('ServiceRegistry: Already initialized, skipping re-initialization');
       return;
     }
@@ -383,7 +433,7 @@ class ServiceRegistry {
 
   // Handlers (if needed directly)
 
-  NetworkSourceHandler get networkHandler => _networkHandler;
+  SourceHandler get networkHandler => _networkHandler;
 
   SourceHandler get assetHandler => _assetHandler;
 

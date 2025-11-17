@@ -90,7 +90,7 @@ class FlutterGemma {
     int maxDownloadRetries = 10,
     bool enableWebCache = true,
   }) async {
-    ServiceRegistry.initialize(
+    await ServiceRegistry.initialize(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
       enableWebCache: enableWebCache,

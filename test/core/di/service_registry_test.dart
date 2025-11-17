@@ -1,3 +1,5 @@
+// Skip this test on VM platform - uses web-specific service_registry with dart:js_interop
+@TestOn('!vm')
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';

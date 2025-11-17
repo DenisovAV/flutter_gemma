@@ -240,7 +240,28 @@ class WebModelManager extends ModelFileManager {
 
       if (file.source is NetworkSource) {
         // Web: Get registered URL (blob URL for auth downloads)
-        path = fileSystem.getUrl(file.filename) ?? (file.source as NetworkSource).url;
+        // If URL lost (page reload), restore from Cache API
+        var url = fileSystem.getUrl(file.filename);
+        if (url == null) {
+          debugPrint('[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...');
+
+          // Try to restore from Cache API
+          final networkSource = file.source as NetworkSource;
+          final downloadService = registry.downloadService as WebDownloadService;
+          final cacheService = downloadService.cacheService;
+
+          // Get cached blob URL (cache service handles URL normalization internally)
+          final cachedBlobUrl = await cacheService.getCachedBlobUrl(networkSource.url);
+          if (cachedBlobUrl != null) {
+            debugPrint('[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl');
+            // Re-register the blob URL
+            fileSystem.registerUrl(file.filename, cachedBlobUrl);
+            url = cachedBlobUrl;
+          } else {
+            debugPrint('[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)');
+          }
+        }
+        path = url ?? (file.source as NetworkSource).url;
       } else if (file.source is BundledSource) {
         // Web: Bundled resources
         path = await fileSystem.getBundledResourcePath((file.source as BundledSource).resourceName);
@@ -727,5 +748,59 @@ class WebModelManager extends ModelFileManager {
     // Web platform doesn't have file system access, nothing to cleanup
     debugPrint('WebModelManager: cleanupStorage() is a no-op on web');
     return 0;
+  }
+
+  // === Web Cache Management (NEW) ===
+
+  /// Clear browser cache for models
+  ///
+  /// Deletes all cached model data from browser Cache API.
+  /// This is separate from deleteModel() which only removes
+  /// installation records.
+  Future<void> clearCache() async {
+    await _ensureInitialized();
+
+    try {
+      final registry = ServiceRegistry.instance;
+      final downloadService = registry.downloadService as WebDownloadService;
+      await downloadService.cacheService.clearCache();
+      debugPrint('WebModelManager: Browser cache cleared');
+    } catch (e) {
+      debugPrint('WebModelManager: clearCache failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Get cache statistics
+  ///
+  /// Returns information about browser cache usage.
+  Future<Map<String, dynamic>> getCacheStats() async {
+    await _ensureInitialized();
+
+    try {
+      final registry = ServiceRegistry.instance;
+      final downloadService = registry.downloadService as WebDownloadService;
+      final cacheService = downloadService.cacheService;
+
+      final quota = await cacheService.getStorageQuota();
+      final urls = await cacheService.getCachedUrls();
+
+      return {
+        'cachedUrls': urls.length,
+        'storageUsage': quota.usage,
+        'storageQuota': quota.quota,
+        'usagePercent': quota.usagePercent,
+        'availableBytes': quota.available,
+      };
+    } catch (e) {
+      debugPrint('[WebModelManager] ❌ getCacheStats failed: $e');
+      return {
+        'cachedUrls': 0,
+        'storageUsage': 0,
+        'storageQuota': 0,
+        'usagePercent': 0.0,
+        'availableBytes': 0,
+      };
+    }
   }
 }

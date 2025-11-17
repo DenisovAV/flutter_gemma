@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Flutter Gemma (required)
+  await FlutterGemma.initialize(enableWebCache: false);
+
   runApp(const ChatApp());
 }
 

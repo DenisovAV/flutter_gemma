@@ -74,13 +74,26 @@ class FlutterGemma {
   /// - [huggingFaceToken]: Optional HuggingFace API token for authenticated downloads
   /// - [maxDownloadRetries]: Maximum retry attempts for transient errors (default: 10)
   ///   Note: Auth errors (401/403/404) always fail after 1 attempt
-  static void initialize({
+  /// - [enableWebCache]: Enable persistent caching on web platform (default: true)
+  ///   Note: This parameter only affects web platform, ignored on mobile
+  ///
+  /// Example:
+  /// ```dart
+  /// void main() async {
+  ///   WidgetsFlutterBinding.ensureInitialized();
+  ///   await FlutterGemma.initialize();
+  ///   runApp(MyApp());
+  /// }
+  /// ```
+  static Future<void> initialize({
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
-  }) {
-    ServiceRegistry.initialize(
+    bool enableWebCache = true,
+  }) async {
+    await ServiceRegistry.initialize(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
+      enableWebCache: enableWebCache,
     );
   }
 

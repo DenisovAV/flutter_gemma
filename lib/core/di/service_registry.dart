@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/asset_loader.dart';
@@ -6,18 +7,27 @@ import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:flutter_gemma/core/services/protected_files_registry.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/handlers/network_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_network_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_network_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/web_asset_source_handler_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/bundled_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/file_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_bundled_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_bundled_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_bundled_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_file_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/source_handler_registry.dart';
 import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_js_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'platform/mobile_service_factory.dart'
     if (dart.library.js_interop) 'platform/web_service_factory.dart' as platform;
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_protected_registry.dart';
@@ -65,7 +75,7 @@ class ServiceRegistry {
   late final ProtectedFilesRegistry _protectedFilesRegistry;
 
   // Handlers (created once with dependencies)
-  late final NetworkSourceHandler _networkHandler;
+  late final SourceHandler _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
   late final SourceHandler _assetHandler;
   late final SourceHandler _bundledHandler; // Changed from BundledSourceHandler
   late final SourceHandler _fileHandler; // Changed from FileSourceHandler
@@ -76,6 +86,7 @@ class ServiceRegistry {
   // Optional configuration
   final String? huggingFaceToken;
   final int maxDownloadRetries;
+  final bool enableWebCache;
 
   /// Creates the default FileSystemService based on platform
   ///
@@ -94,36 +105,34 @@ class ServiceRegistry {
   /// - Web: WebDownloadService (URL registration + authenticated fetch)
   /// - Mobile: BackgroundDownloaderService (actual file downloads)
   ///
-  /// Note: Web version requires WebFileSystemService (validated in constructor)
+  /// Both factories have identical signatures for platform-independent calling.
   static DownloadService _createDefaultDownloadService(
     FileSystemService fileSystem,
+    bool enableWebCache,
+    SharedPreferences prefs,
   ) {
-    if (kIsWeb) {
-      // Web requires WebFileSystemService - validated in constructor
-      final webFs = fileSystem as WebFileSystemService;
-      return platform.createDownloadService(webFs);
-    } else {
-      // Mobile doesn't need file system parameter
-      return platform.createDownloadService();
-    }
+    // Conditional import selects the right factory at compile time
+    // Both factories accept same parameters via interfaces
+    return platform.createDownloadService(fileSystem, enableWebCache, prefs);
   }
 
   /// Creates the appropriate AssetSourceHandler based on platform
   ///
-  /// - Web: WebAssetSourceHandler (URL registration only)
+  /// - Web: WebAssetSourceHandler (URL registration with caching)
   /// - Mobile: AssetSourceHandler (file copying with LargeFileHandler)
   static SourceHandler _createAssetSourceHandler(
     FileSystemService fileSystem,
     AssetLoader assetLoader,
     ModelRepository repository,
+    DownloadService downloadService,
   ) {
     if (kIsWeb) {
-      // Web: Use WebAssetSourceHandler
-      // Type-safe cast (validated in constructor)
-      final webFs = fileSystem as WebFileSystemService;
+      // Web: Use WebAssetSourceHandler with caching
+      final webDownload = downloadService as WebDownloadService;
       return WebAssetSourceHandler(
-        fileSystem: webFs,
+        fileSystem: fileSystem as WebFileSystemService,
         repository: repository,
+        cacheService: webDownload.cacheService,
       );
     } else {
       // Mobile: Use AssetSourceHandler with file copying
@@ -137,25 +146,59 @@ class ServiceRegistry {
 
   /// Creates the appropriate BundledSourceHandler based on platform
   ///
-  /// - Web: WebBundledSourceHandler (URL registration only)
+  /// - Web: WebBundledSourceHandler (URL registration with caching)
   /// - Mobile: BundledSourceHandler (native bundle path)
   static SourceHandler _createBundledSourceHandler(
     FileSystemService fileSystem,
     ModelRepository repository,
+    DownloadService downloadService,
   ) {
     if (kIsWeb) {
-      // Web: Use WebBundledSourceHandler
-      // Type-safe cast (validated in constructor)
-      final webFs = fileSystem as WebFileSystemService;
+      // Web: Use WebBundledSourceHandler with caching
+      final webDownload = downloadService as WebDownloadService;
       return WebBundledSourceHandler(
-        fileSystem: webFs,
+        fileSystem: fileSystem as WebFileSystemService,
         repository: repository,
+        cacheService: webDownload.cacheService,
+        jsInterop: WebJsInterop(),
       );
     } else {
       // Mobile: Use BundledSourceHandler
       return BundledSourceHandler(
         fileSystem: fileSystem,
         repository: repository,
+      );
+    }
+  }
+
+  /// Creates the appropriate NetworkSourceHandler based on platform
+  ///
+  /// - Web: WebNetworkSourceHandler (with conditional metadata saving based on cache)
+  /// - Mobile: NetworkSourceHandler (always saves metadata, files persist on disk)
+  static SourceHandler _createNetworkSourceHandler(
+    DownloadService downloadService,
+    FileSystemService fileSystem,
+    ModelRepository repository,
+    String? huggingFaceToken,
+    int maxDownloadRetries,
+  ) {
+    if (kIsWeb) {
+      // Web: Use WebNetworkSourceHandler with cache-aware metadata saving
+      final webDownload = downloadService as WebDownloadService;
+      return WebNetworkSourceHandler(
+        downloadService: webDownload,
+        repository: repository,
+        cacheService: webDownload.cacheService,
+        huggingFaceToken: huggingFaceToken,
+      );
+    } else {
+      // Mobile: Use NetworkSourceHandler (always saves metadata)
+      return NetworkSourceHandler(
+        downloadService: downloadService,
+        fileSystem: fileSystem,
+        repository: repository,
+        huggingFaceToken: huggingFaceToken,
+        maxDownloadRetries: maxDownloadRetries,
       );
     }
   }
@@ -187,52 +230,95 @@ class ServiceRegistry {
     }
   }
 
-  ServiceRegistry._({
-    this.huggingFaceToken,
-    this.maxDownloadRetries = 10,
+  /// Internal async factory for creating ServiceRegistry
+  static Future<ServiceRegistry> _create({
+    String? huggingFaceToken,
+    int maxDownloadRetries = 10,
+    bool enableWebCache = true,
     FileSystemService? fileSystemService,
     AssetLoader? assetLoader,
     DownloadService? downloadService,
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
-  }) {
-    // Initialize infrastructure services with platform-aware factories
-    _fileSystemService = fileSystemService ?? _createDefaultFileSystemService();
-    _assetLoader = assetLoader ?? FlutterAssetLoader();
+  }) async {
+    // Initialize file system service first
+    final fileSystem = fileSystemService ?? _createDefaultFileSystemService();
 
     // Validate web platform requirements early
-    if (kIsWeb && _fileSystemService is! WebFileSystemService) {
+    if (kIsWeb && fileSystem is! WebFileSystemService) {
       throw ArgumentError(
         'Web platform requires WebFileSystemService. '
         'Either provide WebFileSystemService explicitly or use platform defaults.',
       );
     }
 
-    _downloadService = downloadService ??
-        _createDefaultDownloadService(
-          _fileSystemService,
-        );
-    _modelRepository = modelRepository ?? SharedPreferencesModelRepository();
+    // Initialize SharedPreferences (needed for web caching)
+    final prefs = await SharedPreferences.getInstance();
+
+    // Create download service
+    final download = downloadService ?? _createDefaultDownloadService(
+      fileSystem,
+      enableWebCache,
+      prefs,
+    );
+
+    return ServiceRegistry._(
+      huggingFaceToken: huggingFaceToken,
+      maxDownloadRetries: maxDownloadRetries,
+      enableWebCache: enableWebCache,
+      fileSystemService: fileSystem,
+      assetLoader: assetLoader,
+      downloadService: download,
+      modelRepository: modelRepository,
+      protectedFilesRegistry: protectedFilesRegistry,
+    );
+  }
+
+  ServiceRegistry._({
+    this.huggingFaceToken,
+    this.maxDownloadRetries = 10,
+    this.enableWebCache = true,
+    required FileSystemService fileSystemService,
+    AssetLoader? assetLoader,
+    required DownloadService downloadService,
+    ModelRepository? modelRepository,
+    ProtectedFilesRegistry? protectedFilesRegistry,
+  }) {
+    // Initialize infrastructure services
+    _fileSystemService = fileSystemService;
+    _assetLoader = assetLoader ?? FlutterAssetLoader();
+    _downloadService = downloadService;
+
+    // Web with cache disabled: use in-memory repository (ephemeral metadata)
+    // Web with cache enabled: use SharedPreferences (persistent metadata)
+    // Mobile: always use SharedPreferences (files persist on disk)
+    _modelRepository = modelRepository ??
+      (kIsWeb && !enableWebCache
+        ? InMemoryModelRepository()
+        : SharedPreferencesModelRepository());
+
     _protectedFilesRegistry = protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
 
     // Initialize handlers with dependencies
-    _networkHandler = NetworkSourceHandler(
-      downloadService: _downloadService,
-      fileSystem: _fileSystemService,
-      repository: _modelRepository,
-      huggingFaceToken: huggingFaceToken,
-      maxDownloadRetries: maxDownloadRetries,
+    _networkHandler = _createNetworkSourceHandler(
+      _downloadService,
+      _fileSystemService,
+      _modelRepository,
+      huggingFaceToken,
+      maxDownloadRetries,
     );
 
     _assetHandler = _createAssetSourceHandler(
       _fileSystemService,
       _assetLoader,
       _modelRepository,
+      _downloadService,
     );
 
     _bundledHandler = _createBundledSourceHandler(
       _fileSystemService,
       _modelRepository,
+      _downloadService,
     );
 
     _fileHandler = _createFileSourceHandler(
@@ -254,11 +340,29 @@ class ServiceRegistry {
 
   /// Gets the singleton instance
   ///
-  /// Automatically initializes with default settings if not already initialized.
+  /// Throws [StateError] if not initialized.
+  ///
+  /// Must call [FlutterGemma.initialize()] first in main():
+  /// ```dart
+  /// void main() async {
+  ///   WidgetsFlutterBinding.ensureInitialized();
+  ///   await FlutterGemma.initialize();
+  ///   runApp(MyApp());
+  /// }
+  /// ```
   static ServiceRegistry get instance {
     if (_instance == null) {
-      // Lazy initialization with defaults
-      initialize();
+      throw StateError(
+        'FlutterGemma not initialized!\n\n'
+        'You must call FlutterGemma.initialize() in main() before using the plugin.\n\n'
+        'Example:\n'
+        '  void main() async {\n'
+        '    WidgetsFlutterBinding.ensureInitialized();\n'
+        '    await FlutterGemma.initialize();\n'
+        '    runApp(MyApp());\n'
+        '  }\n\n'
+        'For more information, see: https://pub.dev/packages/flutter_gemma#initialization'
+      );
     }
     return _instance!;
   }
@@ -272,25 +376,39 @@ class ServiceRegistry {
   /// - [huggingFaceToken]: Optional HuggingFace API token for authenticated downloads
   /// - [maxDownloadRetries]: Maximum retry attempts for transient errors (default: 10)
   ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless
+  /// - [enableWebCache]: Enable persistent caching on web platform (default: true)
+  ///   Note: This parameter only affects web platform, ignored on mobile
   /// - Services can be overridden for testing (dependency injection)
-  static void initialize({
+  ///
+  /// Note: This is async because web platform requires SharedPreferences initialization.
+  static Future<void> initialize({
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
+    bool enableWebCache = true,
     FileSystemService? fileSystemService,
     AssetLoader? assetLoader,
     DownloadService? downloadService,
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
-  }) {
+  }) async {
     // Make idempotent - skip if already initialized
     if (_instance != null) {
+      // Warn if critical parameters changed
+      if (_instance!.enableWebCache != enableWebCache) {
+        debugPrint(
+          'WARNING: enableWebCache cannot be changed after initialization.\n'
+          'Current: ${_instance!.enableWebCache}, Requested: $enableWebCache\n'
+          'Restart the application to change this setting.'
+        );
+      }
       debugPrint('ServiceRegistry: Already initialized, skipping re-initialization');
       return;
     }
 
-    _instance = ServiceRegistry._(
+    _instance = await _create(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
+      enableWebCache: enableWebCache,
       fileSystemService: fileSystemService,
       assetLoader: assetLoader,
       downloadService: downloadService,
@@ -320,7 +438,7 @@ class ServiceRegistry {
 
   // Handlers (if needed directly)
 
-  NetworkSourceHandler get networkHandler => _networkHandler;
+  SourceHandler get networkHandler => _networkHandler;
 
   SourceHandler get assetHandler => _assetHandler;
 

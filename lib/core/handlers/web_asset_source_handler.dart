@@ -1,12 +1,10 @@
-import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:path/path.dart' as path;
 
@@ -31,10 +29,12 @@ import 'package:path/path.dart' as path;
 class WebAssetSourceHandler implements SourceHandler {
   final WebFileSystemService fileSystem;
   final ModelRepository repository;
+  final WebCacheService cacheService;
 
   WebAssetSourceHandler({
     required this.fileSystem,
     required this.repository,
+    required this.cacheService,
   });
 
   @override
@@ -45,134 +45,70 @@ class WebAssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async {
-    // Web assets are instant URL registration, no cancellation needed
-    if (source is! AssetSource) {
-      throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
+    // Delegate to installWithProgress, ignore progress events
+    await for (final _ in installWithProgress(source, cancelToken: cancelToken)) {
+      // Ignore progress updates
     }
-
-    // Generate filename from path
-    final filename = path.basename(source.path);
-
-    // Strategy: Create Blob URL from asset (works in debug + production)
-    // LiteRT.js doesn't support blob URLs directly, but JS code will convert to ArrayBuffer
-    try {
-      debugPrint('[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
-
-      // Load asset via rootBundle
-      final ByteData data = await rootBundle.load(source.normalizedPath);
-      final Uint8List bytes = data.buffer.asUint8List();
-
-      debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
-
-      // Create Blob URL
-      final blobUrl = await _createBlobUrlFromBytes(bytes, filename);
-
-      debugPrint('[WebAssetSourceHandler] Blob URL created: $blobUrl');
-
-      // Register Blob URL
-      fileSystem.registerUrl(filename, blobUrl);
-    } catch (e) {
-      debugPrint('[WebAssetSourceHandler] ❌ Failed to load asset: $e');
-      rethrow;
-    }
-
-    // Save metadata to repository
-    final modelInfo = ModelInfo(
-      id: filename,
-      source: source,
-      installedAt: DateTime.now(),
-      sizeBytes: -1,
-      type: ModelType.inference,
-      hasLoraWeights: false,
-    );
-
-    await repository.saveModel(modelInfo);
   }
 
-  /// Creates a Blob URL from byte data
-  Future<String> _createBlobUrlFromBytes(Uint8List bytes, String filename) async {
-    debugPrint('[WebAssetSourceHandler] Creating blob from ${bytes.length} bytes');
-
-    // Create JSArray with single chunk
-    final jsChunks = [bytes.toJS].toJS;
-
-    final options = {
-      'type': 'application/octet-stream',
-    }.jsify()!;
-
-    // Invoke Blob constructor
-    final blobConstructor = globalContext['Blob'] as JSFunction;
-    final blob = blobConstructor.callAsConstructor(jsChunks, options);
-
-    // Create blob URL
-    final blobUrl = _createObjectURL(blob);
-
-    debugPrint('[WebAssetSourceHandler] Blob URL created: $blobUrl');
-
-    return blobUrl;
-  }
-
-  /// Creates object URL from blob
-  String _createObjectURL(JSAny blob) {
-    final urlApi = globalContext['URL'] as JSObject;
-    final createObjectURL = urlApi['createObjectURL'] as JSFunction;
-    final blobUrl = createObjectURL.callAsFunction(urlApi, blob) as JSString;
-    return blobUrl.toDart;
-  }
 
   @override
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
   }) async* {
-    // Same as install() but with progress tracking
     if (source is! AssetSource) {
       throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
     }
 
-    // Generate filename from path
     final filename = path.basename(source.path);
-
-    // Progress: Loading asset
-    yield 0;
-    await Future.delayed(const Duration(milliseconds: 50));
+    final cacheKey = source.normalizedPath; // Already has 'assets/' prefix
 
     try {
-      debugPrint('[WebAssetSourceHandler] Loading asset with progress: ${source.normalizedPath}');
+      // Use unified caching helper (cache key is already normalized, no '?' added)
+      yield* cacheService.getOrCacheAndRegisterWithProgress(
+        cacheKey: cacheKey,
+        loader: (onProgress) async {
+          debugPrint('[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
 
-      // Load asset data via rootBundle
-      yield 33;
-      final ByteData data = await rootBundle.load(source.normalizedPath);
-      final Uint8List bytes = data.buffer.asUint8List();
+          onProgress(0.0);
+          final byteData = await rootBundle.load(source.normalizedPath);
+          final bytes = byteData.buffer.asUint8List();
 
-      debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
+          // Validate asset is not empty
+          if (bytes.isEmpty) {
+            throw StateError(
+              'Asset file is empty: ${source.normalizedPath}. '
+              'Check that the file exists and is not corrupted.'
+            );
+          }
 
-      // Create Blob URL from bytes
-      yield 66;
-      final blobUrl = await _createBlobUrlFromBytes(bytes, filename);
+          debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
+          onProgress(1.0);
 
-      debugPrint('[WebAssetSourceHandler] Blob URL created: $blobUrl');
+          return bytes;
+        },
+        targetPath: filename,
+      );
 
-      // Register Blob URL with WebFileSystemService
-      fileSystem.registerUrl(filename, blobUrl);
+      // Save metadata to repository
+      // Repository type is selected by ServiceRegistry based on enableCache:
+      // - enableCache=true: SharedPreferencesModelRepository (persistent)
+      // - enableCache=false: InMemoryModelRepository (ephemeral)
+      final modelInfo = ModelInfo(
+        id: filename,
+        source: source,
+        installedAt: DateTime.now(),
+        sizeBytes: -1,
+        type: ModelType.inference,
+        hasLoraWeights: false,
+      );
 
-      yield 100;
+      await repository.saveModel(modelInfo);
     } catch (e) {
-      debugPrint('[WebAssetSourceHandler] ❌ Failed to load asset: $e');
+      debugPrint('[WebAssetSourceHandler] ❌ Failed to install asset: $e');
       rethrow;
     }
-
-    // Save metadata to repository
-    final modelInfo = ModelInfo(
-      id: filename,
-      source: source,
-      installedAt: DateTime.now(),
-      sizeBytes: -1,
-      type: ModelType.inference,
-      hasLoraWeights: false,
-    );
-
-    await repository.saveModel(modelInfo);
   }
 
   @override

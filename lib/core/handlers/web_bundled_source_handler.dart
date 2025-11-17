@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 
 /// Handles installation of models from native bundled resources (WEB PLATFORM)
@@ -26,10 +29,14 @@ import 'package:flutter_gemma/core/services/model_repository.dart';
 class WebBundledSourceHandler implements SourceHandler {
   final WebFileSystemService fileSystem;
   final ModelRepository repository;
+  final WebCacheService cacheService;
+  final WebJsInterop jsInterop;
 
   WebBundledSourceHandler({
     required this.fileSystem,
     required this.repository,
+    required this.cacheService,
+    required this.jsInterop,
   });
 
   @override
@@ -40,33 +47,10 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async {
-    // Web bundled resources are instant URL registration, no cancellation needed
-    if (source is! BundledSource) {
-      throw ArgumentError('WebBundledSourceHandler only supports BundledSource');
+    // Delegate to installWithProgress, ignore progress events
+    await for (final _ in installWithProgress(source, cancelToken: cancelToken)) {
+      // Ignore progress updates
     }
-
-    // Construct the bundled resource URL
-    // On web, bundled resources are served from web root
-    // Use absolute path starting with / to ensure proper resolution
-    final bundledUrl = '/${source.resourceName}';
-
-    // Register URL with WebFileSystemService
-    // This is CRITICAL - MediaPipe looks up URLs via getUrl()
-    fileSystem.registerUrl(source.resourceName, bundledUrl);
-
-    // Save metadata to repository
-    // Note: Web can't determine file size without HTTP HEAD request
-    // Use -1 to indicate "unknown but exists"
-    final modelInfo = ModelInfo(
-      id: source.resourceName,
-      source: source,
-      installedAt: DateTime.now(),
-      sizeBytes: -1, // Unknown for web bundled resources
-      type: ModelType.inference,
-      hasLoraWeights: false,
-    );
-
-    await repository.saveModel(modelInfo);
   }
 
   @override
@@ -74,38 +58,58 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async* {
-    // Same as above - web bundled resources are instant
     if (source is! BundledSource) {
       throw ArgumentError('WebBundledSourceHandler only supports BundledSource');
     }
 
-    // Simulate progress for UX consistency
-    // Bundled resources are already available, so this is instant
-    yield 0;
-    await Future.delayed(const Duration(milliseconds: 50));
-    yield 50;
-    await Future.delayed(const Duration(milliseconds: 50));
+    final resourceName = source.resourceName;
+    final cacheKey = resourceName;
+    final targetPath = resourceName;
 
-    // Construct the bundled resource URL
-    // Use absolute path starting with / to ensure proper resolution
-    final bundledUrl = '/${source.resourceName}';
+    try {
+      // Use unified caching helper
+      yield* cacheService.getOrCacheAndRegisterWithProgress(
+        cacheKey: cacheKey,
+        loader: (onProgress) async {
+          debugPrint('[WebBundledSourceHandler] Fetching bundled resource: $resourceName');
 
-    // Register URL with WebFileSystemService
-    fileSystem.registerUrl(source.resourceName, bundledUrl);
+          onProgress(0.0);
+          final response = await jsInterop.fetchFile('/$resourceName');
 
-    yield 100;
+          // Validate resource is not empty
+          if (response.data.isEmpty) {
+            throw StateError(
+              'Bundled resource is empty: $resourceName. '
+              'Check that the resource exists in the web bundle.'
+            );
+          }
 
-    // Save metadata to repository
-    final modelInfo = ModelInfo(
-      id: source.resourceName,
-      source: source,
-      installedAt: DateTime.now(),
-      sizeBytes: -1, // Unknown for web bundled resources
-      type: ModelType.inference,
-      hasLoraWeights: false,
-    );
+          debugPrint('[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes');
+          onProgress(1.0);
 
-    await repository.saveModel(modelInfo);
+          return response.data;
+        },
+        targetPath: targetPath,
+      );
+
+      // Save metadata to repository
+      // Repository type is selected by ServiceRegistry based on enableCache:
+      // - enableCache=true: SharedPreferencesModelRepository (persistent)
+      // - enableCache=false: InMemoryModelRepository (ephemeral)
+      final modelInfo = ModelInfo(
+        id: resourceName,
+        source: source,
+        installedAt: DateTime.now(),
+        sizeBytes: -1,
+        type: ModelType.inference,
+        hasLoraWeights: false,
+      );
+
+      await repository.saveModel(modelInfo);
+    } catch (e) {
+      debugPrint('[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e');
+      rethrow;
+    }
   }
 
   @override

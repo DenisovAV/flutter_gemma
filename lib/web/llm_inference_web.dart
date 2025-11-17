@@ -25,6 +25,9 @@ extension type LlmInference._(JSObject _) implements JSObject {
   );
   external JSNumber sizeInTokens(JSString text);
   external JSPromise addQueryChunk(JSString text);
+
+  // Cleanup method to free WASM resources (critical for memory management)
+  external void close();
 }
 
 @JS()

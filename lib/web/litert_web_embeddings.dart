@@ -61,6 +61,8 @@ class LiteRTWebEmbeddings {
   /// [tokenizerPath] - Path to sentencepiece.model file
   /// [wasmPath] - Optional path to WASM files (defaults to /node_modules/@litertjs/core/wasm/)
   ///
+  /// Note: Sequence length is auto-detected from model input shape (like iOS/Android)
+  ///
   /// Throws [Exception] if initialization fails
   static Future<void> initialize(
     String modelPath,

@@ -3,11 +3,129 @@ import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
 
+/// Response from fetch operations
+class FetchResponse {
+  final Uint8List data;
+  final int statusCode;
+
+  FetchResponse(this.data, this.statusCode);
+}
+
 /// JavaScript interop for web-specific download operations.
 ///
 /// Provides authenticated fetch, blob creation, and URL management
 /// for downloading private models on the web platform.
 class WebJsInterop {
+  /// Fetches a public file (no authentication).
+  ///
+  /// Returns FetchResponse with downloaded data.
+  /// Throws [JsInteropException] on fetch errors.
+  Future<FetchResponse> fetchFile(String url) async {
+    try {
+      // Fetch without auth
+      final promise = _fetchJs(url.toJS, JSObject());
+      final jsResponse = await promise.toDart;
+      final response = jsResponse as _Response;
+
+      // Check response status
+      if (!response.isOk) {
+        throw JsInteropException(
+          'Failed to fetch file: ${response.statusMessage}',
+          statusCode: response.statusCode,
+        );
+      }
+
+      // Stream response body
+      final chunks = await _streamResponseBody(
+        response,
+        _getContentLength(response),
+        (_) {}, // No progress callback for public files
+      );
+
+      // Concatenate chunks
+      final totalLength = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final data = Uint8List(totalLength);
+      int offset = 0;
+      for (final chunk in chunks) {
+        data.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+      }
+
+      return FetchResponse(data, response.statusCode);
+    } catch (e) {
+      if (e is JsInteropException) rethrow;
+      throw JsInteropException('Failed to fetch file: $e');
+    }
+  }
+
+  /// Fetches a file with authentication.
+  ///
+  /// Returns FetchResponse with downloaded data.
+  /// Calls [onProgress] with download progress (0.0 to 1.0).
+  /// Throws [JsInteropException] on fetch errors.
+  Future<FetchResponse> fetchWithAuth(
+    String url,
+    String authToken, {
+    required void Function(double progress) onProgress,
+  }) async {
+    try {
+      // Create fetch options with auth header
+      final options = _createFetchOptions(authToken);
+
+      // Fetch with auth
+      final response = await _fetch(url, options);
+
+      // Check response status
+      if (!response.isOk) {
+        final statusCode = response.statusCode;
+        final statusText = response.statusMessage;
+
+        if (statusCode == 401) {
+          throw JsInteropException(
+            'Authentication failed: Invalid or expired token',
+            statusCode: 401,
+          );
+        } else if (statusCode == 403) {
+          throw JsInteropException(
+            'Access denied: Token lacks required permissions',
+            statusCode: 403,
+          );
+        } else if (statusCode == 404) {
+          throw JsInteropException(
+            'Model not found: Check URL is correct',
+            statusCode: 404,
+          );
+        } else {
+          throw JsInteropException(
+            'HTTP error: $statusText',
+            statusCode: statusCode,
+          );
+        }
+      }
+
+      // Stream response body with progress
+      final chunks = await _streamResponseBody(
+        response,
+        _getContentLength(response),
+        onProgress,
+      );
+
+      // Concatenate chunks
+      final totalLength = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final data = Uint8List(totalLength);
+      int offset = 0;
+      for (final chunk in chunks) {
+        data.setRange(offset, offset + chunk.length, chunk);
+        offset += chunk.length;
+      }
+
+      return FetchResponse(data, response.statusCode);
+    } catch (e) {
+      if (e is JsInteropException) rethrow;
+      throw JsInteropException('Failed to fetch authenticated file: $e');
+    }
+  }
+
   /// Fetches a file with authentication and creates a blob URL.
   ///
   /// Returns a blob URL that can be used with MediaPipe.

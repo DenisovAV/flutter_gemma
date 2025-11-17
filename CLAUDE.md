@@ -181,6 +181,178 @@ final embedding = await embedder.generateEmbedding('Hello, world!');
 - ✅ Automatic active model tracking
 - ✅ Type-safe source handling
 
+### Web Cache Management (v0.11.10+)
+
+**Problem: Hot Restart with enableCache=false caused crashes**
+
+When `enableWebCache=false` on web platform, the app crashed after hot restart with errors:
+```
+Exception: Model file paths not found
+401 Unauthorized (re-downloading from HuggingFace)
+```
+
+**Root Cause:**
+1. Handlers conditionally saved metadata only when `enableCache=true`
+2. After hot restart:
+   - Dart VM restarted → InMemoryRepository would be cleared
+   - But metadata was in SharedPreferences (persistent)
+   - Blob URLs lost (Dart state cleared) but metadata said model was "installed"
+3. System tried to restore from cache → not found
+4. Fallback to original URL → 401 error (no token in retry)
+
+**Architectural Solution: Repository Type Selection**
+
+The fix separates concerns between **metadata persistence policy** and **model installation**:
+
+```dart
+// ServiceRegistry selects repository based on enableWebCache:
+_modelRepository = modelRepository ??
+  (kIsWeb && !enableWebCache
+    ? InMemoryModelRepository()        // Ephemeral metadata
+    : SharedPreferencesModelRepository()); // Persistent metadata
+```
+
+**Key Principles:**
+
+1. **Metadata Lifetime Matches Blob URL Lifetime**
+   - `enableCache=false`: Both blob URLs and metadata are ephemeral (memory-only)
+   - `enableCache=true`: Both are persistent (Cache API + SharedPreferences)
+
+2. **Separation of Concerns**
+   - Handlers: Handle model installation (always save metadata)
+   - Repository: Handle persistence policy (memory vs disk)
+   - ServiceRegistry: Select repository type at initialization
+
+3. **Hot Restart Safety**
+   - `enableCache=false`: Metadata cleared on hot restart → re-download triggered
+   - `enableCache=true`: Metadata persists → model restored from Cache API
+
+**Implementation Details:**
+
+**InMemoryModelRepository** (`lib/core/infrastructure/in_memory_model_repository.dart`):
+```dart
+/// In-memory implementation of ModelRepository
+///
+/// Data is lost when:
+/// - Dart VM restarts (hot restart in dev mode)
+/// - Page reloads (production)
+/// - Application terminates
+///
+/// Use cases:
+/// - Web platform with enableCache=false (ephemeral models)
+/// - Testing (fast, no I/O)
+class InMemoryModelRepository implements ModelRepository {
+  final Map<String, ModelInfo> _models = {};
+
+  @override
+  Future<void> saveModel(ModelInfo info) async {
+    if (info.id.isEmpty) {
+      throw ArgumentError('Model ID cannot be empty');
+    }
+    _models[info.id] = info;
+  }
+
+  // ... other ModelRepository methods
+}
+```
+
+**ServiceRegistry Repository Selection** (`lib/core/di/service_registry.dart` lines 287-293):
+```dart
+// CRITICAL: Repository type determines metadata lifetime
+// - InMemoryModelRepository: Ephemeral (cleared on hot restart/reload)
+// - SharedPreferencesModelRepository: Persistent (survives restarts)
+// This ensures metadata lifetime matches blob URL lifetime on web when cache disabled
+_modelRepository = modelRepository ??
+  (kIsWeb && !enableWebCache
+    ? InMemoryModelRepository()
+    : SharedPreferencesModelRepository());
+```
+
+**Simplified Handlers** (all web handlers):
+```dart
+// Always save metadata to repository
+// Repository type (selected by ServiceRegistry) determines persistence:
+// - enableCache=true: SharedPreferencesModelRepository (persistent)
+// - enableCache=false: InMemoryModelRepository (ephemeral)
+final modelInfo = ModelInfo(
+  id: filename,
+  source: source,
+  installedAt: DateTime.now(),
+  sizeBytes: -1,
+  type: ModelType.inference,
+  hasLoraWeights: false,
+);
+
+await repository.saveModel(modelInfo);
+```
+
+**Hot Restart Cleanup:**
+
+To prevent "memory access out of bounds" errors, cleanup is performed before reinitialization:
+
+**LiteRT Embeddings** (`web/rag/litert_embeddings_api.js`):
+```javascript
+window.loadLiteRtEmbeddings = async function(modelPath, tokenizerPath, wasmPath) {
+  // Cleanup old model before loading new one (important for hot restart)
+  // This prevents memory leaks and "memory access out of bounds" errors
+  if (isInitialized) {
+    console.log('[LiteRT] Cleaning up previous model...');
+    await window.cleanupLiteRtEmbeddings();
+  }
+
+  // Load new model...
+};
+```
+
+**MediaPipe Inference** (`lib/web/flutter_gemma_web.dart`):
+```dart
+@override
+Future<void> close() async {
+  // Cleanup MediaPipe LlmInference WASM resources (important for hot restart)
+  // This prevents memory leaks and "memory access out of bounds" errors
+  try {
+    llmInference.close();  // MediaPipe cleanup method
+  } catch (e) {
+    debugPrint('[WebModelSession] Warning: Error closing LlmInference: $e');
+  }
+
+  // ... rest of cleanup
+}
+```
+
+**Testing Scenarios:**
+
+1. **enableCache=false** (ephemeral):
+   - Install model → works
+   - Hot restart → metadata cleared, re-download triggered
+   - No 401 errors, no crashes
+
+2. **enableCache=true** (persistent):
+   - Install model → saved to Cache API + SharedPreferences
+   - Page reload → metadata persists, model restored from cache
+   - No re-download
+
+3. **Hot restart with asset/bundled models**:
+   - Cleanup prevents "memory access out of bounds"
+   - Old WASM instances properly disposed
+   - New instances created cleanly
+
+**Benefits:**
+
+- ✅ SOLID principles: Separation of concerns (handlers vs repository)
+- ✅ No conditional logic in handlers (simpler code)
+- ✅ Metadata lifetime matches resource lifetime
+- ✅ Hot restart safe on both inference and embeddings
+- ✅ 100% backward compatible (enableCache=true works as before)
+
+**Files Modified:**
+- `lib/core/infrastructure/in_memory_model_repository.dart` - NEW
+- `lib/core/di/service_registry.dart` - Repository selection logic
+- `lib/core/handlers/web_*_source_handler.dart` - Removed conditional metadata saving
+- `web/rag/litert_embeddings_api.js` - Cleanup before reinit
+- `lib/web/llm_inference_web.dart` - Added close() method
+- `lib/web/flutter_gemma_web.dart` - Call close() on cleanup
+
 ### Supported Models
 
 | Model Family | Function Calling | Thinking Mode | Multimodal | Platform Support |
@@ -839,7 +1011,17 @@ flutter_gemma/
 └── CLAUDE.md              # This file
 ```
 
-## Recent Updates (2025-10-14)
+## Recent Updates (2025-11-16)
+
+### ✅ Web Cache Management Fix (v0.11.10+)
+- **CRITICAL FIX** - Hot restart with enableCache=false no longer crashes
+- **InMemoryModelRepository** - Ephemeral metadata storage for web without cache
+- **Repository Type Selection** - ServiceRegistry selects based on enableWebCache
+- **Metadata Lifetime Alignment** - Metadata lifetime matches blob URL lifetime
+- **Hot Restart Cleanup** - Proper disposal of LiteRT and MediaPipe WASM resources
+- **Simplified Handlers** - Removed conditional metadata saving logic
+- **SOLID Compliance** - Clean separation of concerns (handlers vs repository)
+- **100% Backward Compatible** - enableCache=true works as before
 
 ### ✅ Modern API Completion (v0.11.4)
 - **FULLY IMPLEMENTED** - All features working as documented
@@ -898,7 +1080,7 @@ flutter_gemma/
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.11.4
+- **Current Version**: 0.11.11
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 

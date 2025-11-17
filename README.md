@@ -41,6 +41,7 @@ There is an example of using:
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
 - **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
+- **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
 ## Model File Types
 
@@ -243,6 +244,22 @@ void main() {
 
   runApp(MyApp());
 }
+```
+
+**Configuration Options:**
+- `huggingFaceToken`: Authentication token for gated models (Gemma 3 Nano, EmbeddingGemma)
+- `maxDownloadRetries`: Number of retry attempts for failed downloads (default: 10)
+- `enableWebCache`: **(Web only)** Enable persistent caching via Cache API (default: true)
+  - `true`: Models persist across browser restarts (recommended for production)
+  - `false`: Ephemeral mode, models cleared when closing browser (useful for testing/demos)
+
+**Example:**
+```dart
+FlutterGemma.initialize(
+  huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+  maxDownloadRetries: 10,
+  enableWebCache: false,  // Disable persistent cache (web only)
+);
 ```
 
 **Next Steps:**
@@ -1769,6 +1786,40 @@ Function calling is currently supported by the following models:
 - **FileSource:** Only works with HTTP/HTTPS URLs or `assets/` paths
 - **Local file paths:** ❌ Not supported (browser security restriction)
 
+#### Persistent Caching (NEW in 0.11.10)
+
+**Two Cache Modes:**
+
+**1. Persistent Mode (default, `enableWebCache: true`):**
+- Downloaded models persist across browser restarts
+- Uses browser Cache API (up to 50% of disk space)
+- Works for all sources (public URLs and HuggingFace gated models)
+- Smart management: 30-day automatic cleanup
+- Zero configuration: Automatically enabled
+
+**2. Ephemeral Mode (`enableWebCache: false`):**
+- Models stored in memory only (InMemoryRepository)
+- Cleared when browser tab/window closes
+- Faster development/testing workflow
+- No persistent storage used
+- Useful for demos, temporary testing, privacy-sensitive scenarios
+
+```dart
+// Enable persistent caching (default)
+FlutterGemma.initialize(enableWebCache: true);
+
+// Use ephemeral mode (no persistence)
+FlutterGemma.initialize(enableWebCache: false);
+
+// Check cache statistics (persistent mode only)
+final stats = await FlutterGemma.instance.modelManager.getCacheStats();
+print('Cached models: ${stats['cachedUrls']}');
+print('Storage used: ${stats['storageUsage']} bytes');
+
+// Clear cache if needed (persistent mode only)
+await FlutterGemma.instance.modelManager.clearCache();
+```
+
 #### Backend Support
 - **GPU only:** Web platform requires GPU backend (MediaPipe limitation)
 - **CPU models:** ❌ Will fail to initialize on web
@@ -1871,7 +1922,6 @@ This is automatically handled by the chat API, but can be useful for custom infe
 - Desktop Support (macOS, Windows, Linux)
 - Audio & Video Input
 - Audio Output (Text-to-Speech)
-- Web Caching
 - System Instruction support
 
 ---

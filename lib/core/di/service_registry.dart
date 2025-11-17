@@ -7,22 +7,27 @@ import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:flutter_gemma/core/services/protected_files_registry.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/handlers/network_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_network_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_network_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_network_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/web_asset_source_handler_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_asset_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/bundled_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/file_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_bundled_source_handler.dart';
-import 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_bundled_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_bundled_source_handler.dart';
+import 'package:flutter_gemma/core/handlers/web_file_source_handler_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/source_handler_registry.dart';
 import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
-import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_js_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'platform/mobile_service_factory.dart'
     if (dart.library.js_interop) 'platform/web_service_factory.dart' as platform;
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_protected_registry.dart';

@@ -14,12 +14,12 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/domain/cache_metadata.dart';
-import 'package:flutter_gemma/core/infrastructure/web_cache_interop.dart';
+import 'package:flutter_gemma/core/infrastructure/web_cache_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_cache_interop.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/infrastructure/url_utils.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
@@ -452,8 +452,7 @@ class WebCacheService {
         debugPrint('[WebCacheService] ✅ Cached and registered: $cacheKey');
       } else {
         // Create temporary blob URL without caching
-        final blob = _createBlob([loadedData!]);
-        final blobUrl = _createBlobUrl(blob);
+        final blobUrl = _cacheInterop.createBlobUrl(loadedData!);
         _fileSystem.registerUrl(targetPath, blobUrl);
 
         debugPrint('[WebCacheService] ✅ Registered (no cache): $cacheKey');
@@ -486,22 +485,4 @@ class WebCacheService {
 
     return targetPath;
   }
-
-  // Helper methods for blob creation (needed when cache disabled)
-  JSAny _createBlob(List<Uint8List> chunks) {
-    final jsChunks = chunks.map((c) => c.toJS).toList().toJS;
-    final options = {
-      'type': 'application/octet-stream',
-    }.jsify()!;
-
-    final blobConstructor = globalContext['Blob'] as JSFunction;
-    return blobConstructor.callAsConstructor(jsChunks, options);
-  }
-
-  String _createBlobUrl(JSAny blob) {
-    return _createObjectUrlJs(blob).toDart;
-  }
 }
-
-@JS('URL.createObjectURL')
-external JSString _createObjectUrlJs(JSAny blob);

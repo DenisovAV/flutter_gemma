@@ -5,6 +5,7 @@
 library;
 
 import 'dart:js_interop';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 /// External JS functions for Cache API
@@ -160,4 +161,21 @@ class WebCacheInterop {
       debugPrint('[WebCacheInterop] ❌ revokeBlobUrl failed: $e');
     }
   }
+
+  /// Create blob URL from data
+  String createBlobUrl(Uint8List data) {
+    try {
+      final blob = _createBlobJs(data.toJS);
+      return _createObjectUrlJs(blob).toDart;
+    } catch (e) {
+      debugPrint('[WebCacheInterop] ❌ createBlobUrl failed: $e');
+      rethrow;
+    }
+  }
 }
+
+@JS('URL.createObjectURL')
+external JSString _createObjectUrlJs(JSAny blob);
+
+@JS('createBlob')
+external JSAny _createBlobJs(JSUint8Array data);

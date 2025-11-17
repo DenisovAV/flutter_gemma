@@ -1,17 +1,10 @@
+## 0.11.11
+ - 🐛 **Mobile Build Fix**: Fixed compilation errors on iOS/Android platforms
+
 ## 0.11.10
  - 💾 **Web Persistent Caching**: Models now persist across browser restarts using Cache API
  - ⚠️ **BREAKING CHANGE**: Explicit initialization now required
    - **ACTION REQUIRED**: Add `await FlutterGemma.initialize()` in `main()` before using the plugin
-   - **Why**: Web caching requires async setup (SharedPreferences, Cache API)
-   - **Migration**:
-     ```dart
-     void main() async {
-       WidgetsFlutterBinding.ensureInitialized();
-       await FlutterGemma.initialize();  // ← Add this line
-       runApp(MyApp());
-     }
-     ```
-   - **Error if not initialized**: Clear error message with migration instructions
 
 ## 0.11.9
  - 🌐 **Web Embedding Support**: Added support for embedding generation on web platform

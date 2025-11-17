@@ -1,3 +1,5 @@
+// Skip this test on VM platform - FlutterGemmaMobile imports service_registry with dart:js_interop
+@TestOn('!vm')
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';

@@ -9,7 +9,8 @@ import '../../infrastructure/web_file_system_service.dart';
 import '../../infrastructure/web_js_interop.dart';
 import '../../infrastructure/blob_url_manager.dart';
 import '../../infrastructure/web_cache_service.dart';
-import '../../infrastructure/web_cache_interop.dart';
+import '../../infrastructure/web_cache_interop_stub.dart'
+    if (dart.library.js_interop) '../../infrastructure/web_cache_interop.dart';
 import '../../services/download_service.dart';
 import '../../services/file_system_service.dart';
 

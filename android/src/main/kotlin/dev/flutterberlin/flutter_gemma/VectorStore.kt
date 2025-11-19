@@ -164,6 +164,9 @@ class VectorStore(
     fun clear() {
         val db = database ?: throw IllegalStateException("Database not initialized")
         db.delete(TABLE_DOCUMENTS, null, null)
+
+        // Reset detected dimension when clearing all documents
+        detectedDimension = null
     }
     
     private fun cosineSimilarity(a: List<Double>, b: List<Double>): Double {

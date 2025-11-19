@@ -97,9 +97,12 @@ class VectorStore {
             sqlite3_bind_text(stmt, 1, (id as NSString).utf8String, -1, nil)
             sqlite3_bind_text(stmt, 2, (content as NSString).utf8String, -1, nil)
 
-            // Bind BLOB
+            // CRITICAL FIX: Use SQLITE_TRANSIENT to force immediate copy (matching Android ContentValues behavior)
+            // SQLITE_TRANSIENT tells SQLite to copy the data immediately before returning
+            // This prevents corruption when the pointer becomes invalid after withUnsafeBytes closure
             embeddingBlob.withUnsafeBytes { ptr in
-                sqlite3_bind_blob(stmt, 3, ptr.baseAddress, Int32(embeddingBlob.count), nil)
+                let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                sqlite3_bind_blob(stmt, 3, ptr.baseAddress, Int32(embeddingBlob.count), SQLITE_TRANSIENT)
             }
 
             if let metadata = metadata {
@@ -154,7 +157,14 @@ class VectorStore {
                 // Extract BLOB
                 if let embeddingBlob = sqlite3_column_blob(stmt, 2) {
                     let embeddingSize = sqlite3_column_bytes(stmt, 2)
-                    let embeddingData = Data(bytes: embeddingBlob, count: Int(embeddingSize))
+
+                    // CRITICAL: Force deep copy - sqlite3_column_blob pointer is temporary
+                    // and becomes invalid after next sqlite3_step()
+                    var embeddingData = Data(count: Int(embeddingSize))
+                    embeddingData.withUnsafeMutableBytes { destPtr in
+                        destPtr.copyMemory(from: UnsafeRawBufferPointer(start: embeddingBlob, count: Int(embeddingSize)))
+                    }
+
                     let docEmbedding = blobToEmbedding(embeddingData)
 
                     // Calculate similarity
@@ -181,10 +191,12 @@ class VectorStore {
         sqlite3_finalize(stmt)
 
         // Sort by similarity (descending) and take top K
-        return results
+        let finalResults = results
             .sorted { $0.similarity > $1.similarity }
             .prefix(topK)
             .map { $0.result }
+
+        return finalResults
     }
 
     /// Get vector store statistics
@@ -222,6 +234,9 @@ class VectorStore {
         if sqlite3_exec(db, deleteSQL, nil, nil, nil) != SQLITE_OK {
             throw VectorStoreError.deleteFailed("Failed to clear vector store")
         }
+
+        // Reset detected dimension when clearing all documents
+        detectedDimension = nil
     }
 
     /// Close database connection
@@ -256,23 +271,33 @@ class VectorStore {
     }
 
     /// Convert embedding List<Double> to binary BLOB (float32)
-    /// Format: Little-endian float32 array
+    /// Format: Little-endian float32 array (matching Android)
+    /// Size: dimension * 4 bytes (e.g., 768D = 3,072 bytes)
     private func embeddingToBlob(_ embedding: [Double]) -> Data {
         var data = Data(count: embedding.count * 4)
+
         data.withUnsafeMutableBytes { ptr in
+            // Convert Double to Float32 (iOS ARM64 is already little-endian)
             let floatPtr = ptr.bindMemory(to: Float.self)
             for (i, value) in embedding.enumerated() {
                 floatPtr[i] = Float(value)
             }
         }
+
         return data
     }
 
     /// Convert binary BLOB (float32) to embedding List<Double>
+    /// Format: Little-endian float32 array (matching Android)
     private func blobToEmbedding(_ data: Data) -> [Double] {
         return data.withUnsafeBytes { ptr in
+            let floatCount = ptr.count / MemoryLayout<Float>.stride
+
+            // Convert Float32 to Double (iOS ARM64 is already little-endian)
             let floatPtr = ptr.bindMemory(to: Float.self)
-            return (0..<floatPtr.count).map { Double(floatPtr[$0]) }
+            return (0..<floatCount).map { index in
+                Double(floatPtr[index])
+            }
         }
     }
 

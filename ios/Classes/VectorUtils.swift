@@ -13,20 +13,18 @@ class VectorUtils {
     /// - Returns: Cosine similarity score (-1.0 to 1.0)
     static func cosineSimilarity(_ vectorA: [Double], _ vectorB: [Double]) -> Double {
         guard vectorA.count == vectorB.count, !vectorA.isEmpty else {
-            print("[VECTOR UTILS] Error: Vector dimensions don't match or vectors are empty")
             return 0.0
         }
-        
+
         let dotProduct = dot(vectorA, vectorB)
         let magnitudeA = magnitude(vectorA)
         let magnitudeB = magnitude(vectorB)
-        
+
         // Avoid division by zero
         guard magnitudeA > 0 && magnitudeB > 0 else {
-            print("[VECTOR UTILS] Error: Vector magnitude is zero")
             return 0.0
         }
-        
+
         let similarity = dotProduct / (magnitudeA * magnitudeB)
         return similarity
     }

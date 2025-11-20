@@ -410,4 +410,14 @@ private class PlatformServiceImpl(
       }
     }
   }
+
+  override fun closeVectorStore(callback: (Result<Unit>) -> Unit) {
+    try {
+      vectorStore?.close()
+      vectorStore = null
+      callback(Result.success(Unit))
+    } catch (e: Exception) {
+      callback(Result.failure(e))
+    }
+  }
 }

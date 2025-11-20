@@ -168,7 +168,15 @@ class VectorStore(
         // Reset detected dimension when clearing all documents
         detectedDimension = null
     }
-    
+
+    fun close() {
+        database?.close()
+        database = null
+        dbHelper?.close()
+        dbHelper = null
+        detectedDimension = null
+    }
+
     private fun cosineSimilarity(a: List<Double>, b: List<Double>): Double {
         if (a.size != b.size) return 0.0
 

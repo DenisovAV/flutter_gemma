@@ -24,6 +24,10 @@ import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
+import 'package:flutter_gemma/core/services/vector_store_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/mobile_vector_store_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/web_vector_store_repository_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_vector_store_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop_stub.dart'
@@ -73,6 +77,7 @@ class ServiceRegistry {
   late final DownloadService _downloadService;
   late final ModelRepository _modelRepository;
   late final ProtectedFilesRegistry _protectedFilesRegistry;
+  late final VectorStoreRepository _vectorStoreRepository;
 
   // Handlers (created once with dependencies)
   late final SourceHandler _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
@@ -240,6 +245,7 @@ class ServiceRegistry {
     DownloadService? downloadService,
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
+    VectorStoreRepository? vectorStoreRepository,
   }) async {
     // Initialize file system service first
     final fileSystem = fileSystemService ?? _createDefaultFileSystemService();
@@ -271,6 +277,7 @@ class ServiceRegistry {
       downloadService: download,
       modelRepository: modelRepository,
       protectedFilesRegistry: protectedFilesRegistry,
+      vectorStoreRepository: vectorStoreRepository,
     );
   }
 
@@ -283,6 +290,7 @@ class ServiceRegistry {
     required DownloadService downloadService,
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
+    VectorStoreRepository? vectorStoreRepository,
   }) {
     // Initialize infrastructure services
     _fileSystemService = fileSystemService;
@@ -298,6 +306,12 @@ class ServiceRegistry {
         : SharedPreferencesModelRepository());
 
     _protectedFilesRegistry = protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
+
+    // Initialize VectorStoreRepository (platform-specific)
+    _vectorStoreRepository = vectorStoreRepository ??
+      (kIsWeb
+        ? WebVectorStoreRepository()  // Will use stub on non-web, real impl in Phase 2
+        : MobileVectorStoreRepository());
 
     // Initialize handlers with dependencies
     _networkHandler = _createNetworkSourceHandler(
@@ -378,6 +392,7 @@ class ServiceRegistry {
   ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless
   /// - [enableWebCache]: Enable persistent caching on web platform (default: true)
   ///   Note: This parameter only affects web platform, ignored on mobile
+  /// - [vectorStoreRepository]: Optional custom repository (for testing)
   /// - Services can be overridden for testing (dependency injection)
   ///
   /// Note: This is async because web platform requires SharedPreferences initialization.
@@ -390,6 +405,7 @@ class ServiceRegistry {
     DownloadService? downloadService,
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
+    VectorStoreRepository? vectorStoreRepository,
   }) async {
     // Make idempotent - skip if already initialized
     if (_instance != null) {
@@ -414,12 +430,26 @@ class ServiceRegistry {
       downloadService: downloadService,
       modelRepository: modelRepository,
       protectedFilesRegistry: protectedFilesRegistry,
+      vectorStoreRepository: vectorStoreRepository,
     );
   }
 
   /// Resets the singleton (primarily for testing)
   static void reset() {
     _instance = null;
+  }
+
+  /// Disposes all services and releases resources
+  ///
+  /// Should be called when shutting down the application.
+  /// After calling dispose(), you must call initialize() again to use the registry.
+  Future<void> dispose() async {
+    // Close VectorStore database connection
+    try {
+      await _vectorStoreRepository.close();
+    } catch (e) {
+      debugPrint('Warning: Failed to close VectorStore: $e');
+    }
   }
 
   // Public getters for services
@@ -435,6 +465,9 @@ class ServiceRegistry {
   ModelRepository get modelRepository => _modelRepository;
 
   ProtectedFilesRegistry get protectedFilesRegistry => _protectedFilesRegistry;
+
+  /// Access VectorStoreRepository for document embedding storage
+  VectorStoreRepository get vectorStoreRepository => _vectorStoreRepository;
 
   // Handlers (if needed directly)
 

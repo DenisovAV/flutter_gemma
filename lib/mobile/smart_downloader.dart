@@ -448,11 +448,17 @@ class SmartDownloader {
     try {
       final canResume = await downloader.taskCanResume(task);
       if (canResume) {
+        debugPrint('🔄 Attempting to resume task ${task.taskId}...');
         await downloader.resume(task);
-        return; // Let the resume attempt continue
+        debugPrint('🔄 Resume triggered, waiting for status update...');
+        // Resume triggered - let event loop handle the result
+        // If resume succeeds → TaskStatus.complete will fire
+        // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and retry logic runs
+        return;
       }
     } catch (e) {
-      // Ignore resume errors and fall back to full retry
+      debugPrint('⚠️ Resume failed with exception: $e');
+      // Fall through to retry logic below
     }
 
     // If resume failed or not possible, try full retry (only for transient errors)

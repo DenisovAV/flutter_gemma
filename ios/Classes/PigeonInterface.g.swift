@@ -203,6 +203,7 @@ protocol PlatformService {
   func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void)
   func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void)
   func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void)
+  func closeVectorStore(completion: @escaping (Result<Void, Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -548,6 +549,21 @@ class PlatformServiceSetup {
       }
     } else {
       clearVectorStoreChannel.setMessageHandler(nil)
+    }
+    let closeVectorStoreChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.closeVectorStore\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      closeVectorStoreChannel.setMessageHandler { _, reply in
+        api.closeVectorStore { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      closeVectorStoreChannel.setMessageHandler(nil)
     }
   }
 }

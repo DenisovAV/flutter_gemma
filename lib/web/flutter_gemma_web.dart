@@ -11,6 +11,8 @@ import 'package:flutter_gemma/core/model_management/constants/preferences_keys.d
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_vector_store_repository.dart';
+import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
@@ -85,6 +87,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   // Use WebModelManager singleton (will be replaced with platform-agnostic manager in future phases)
   static WebModelManager? _webManager;
+
+  // VectorStore repository (SQLite WASM)
+  VectorStoreRepository? _vectorStoreRepository;
 
   @override
   ModelFileManager get modelManager {
@@ -229,7 +234,14 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    try {
+      _vectorStoreRepository = WebVectorStoreRepository();
+      await _vectorStoreRepository!.initialize(databasePath);
+      debugPrint('[FlutterGemmaWeb] VectorStore initialized with SQLite WASM');
+    } catch (e) {
+      debugPrint('[FlutterGemmaWeb] Failed to initialize VectorStore: $e');
+      rethrow;
+    }
   }
 
   @override
@@ -239,7 +251,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     required List<double> embedding,
     String? metadata,
   }) async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    if (_vectorStoreRepository == null) {
+      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+    }
+
+    await _vectorStoreRepository!.addDocument(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata,
+    );
   }
 
   @override
@@ -248,7 +269,22 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     required String content,
     String? metadata,
   }) async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    if (_vectorStoreRepository == null) {
+      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+    }
+
+    if (_initializedEmbeddingModel == null) {
+      throw StateError('Embedding model not created. Call createEmbeddingModel() first.');
+    }
+
+    // Generate embedding and add document
+    final embedding = await _initializedEmbeddingModel!.generateEmbedding(content);
+    await _vectorStoreRepository!.addDocument(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata,
+    );
   }
 
   @override
@@ -257,17 +293,39 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     int topK = 5,
     double threshold = 0.0,
   }) async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    if (_vectorStoreRepository == null) {
+      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+    }
+
+    if (_initializedEmbeddingModel == null) {
+      throw StateError('Embedding model not created. Call createEmbeddingModel() first.');
+    }
+
+    // Generate query embedding and search
+    final queryEmbedding = await _initializedEmbeddingModel!.generateEmbedding(query);
+    return await _vectorStoreRepository!.searchSimilar(
+      queryEmbedding: queryEmbedding,
+      topK: topK,
+      threshold: threshold,
+    );
   }
 
   @override
   Future<VectorStoreStats> getVectorStoreStats() async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    if (_vectorStoreRepository == null) {
+      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+    }
+
+    return await _vectorStoreRepository!.getStats();
   }
 
   @override
   Future<void> clearVectorStore() async {
-    throw UnimplementedError('RAG is not supported on web platform yet');
+    if (_vectorStoreRepository == null) {
+      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+    }
+
+    await _vectorStoreRepository!.clear();
   }
 }
 

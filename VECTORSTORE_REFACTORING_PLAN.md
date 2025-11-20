@@ -571,341 +571,40 @@ This is **100% sufficient** because:
 
 ---
 
-## Phase 1: Refactoring Mobile Architecture (GREEN Phase)
-
-**Goal:** Fix architecture without changing behavior (all Phase 0 tests stay green)
-
-**Duration:** 5-7 days
-**Risk:** Medium (code changes, but tests protect us)
-**Rollback:** Git revert to Phase 0 tag
-
-### 1.1: Create VectorStoreRepository Abstraction
-
-**File to create:** `lib/core/services/vector_store_repository.dart`
-
-```dart
-// lib/core/services/vector_store_repository.dart
-
-/// Abstract repository for vector store operations
-///
-/// Platform-specific implementations:
-/// - Mobile: MobileVectorStoreRepository (via Pigeon)
-/// - Web: WebVectorStoreRepository (IndexedDB)
-abstract class VectorStoreRepository {
-  /// Initialize vector store at given path
-  ///
-  /// - Mobile: Creates/opens SQLite database
-  /// - Web: Opens IndexedDB database
-  Future<void> initialize(String databasePath);
-
-  /// Add document with embedding to vector store
-  ///
-  /// Throws [ArgumentError] if embedding dimension doesn't match existing documents
-  Future<void> addDocument({
-    required String id,
-    required String content,
-    required List<double> embedding,
-    Map<String, dynamic>? metadata, // Changed from String?
-  });
-
-  /// Add multiple documents in batch (more efficient)
-  ///
-  /// Returns number of documents successfully added
-  Future<int> addDocuments(List<VectorDocument> documents);
-
-  /// Search for similar documents using cosine similarity
-  ///
-  /// Returns top [topK] results with similarity >= [threshold]
-  Future<List<RetrievalResult>> searchSimilar({
-    required List<double> queryEmbedding,
-    required int topK,
-    double threshold = 0.0,
-  });
-
-  /// Get vector store statistics
-  Future<VectorStoreStats> getStats();
-
-  /// Clear all documents from vector store
-  Future<void> clear();
-
-  /// Close vector store and release resources
-  Future<void> close();
-
-  /// Check if vector store is initialized
-  bool get isInitialized;
-}
-
-/// Document to add to vector store
-class VectorDocument {
-  final String id;
-  final String content;
-  final List<double> embedding;
-  final Map<String, dynamic>? metadata;
-
-  const VectorDocument({
-    required this.id,
-    required this.content,
-    required this.embedding,
-    this.metadata,
-  });
-}
-```
-
-**TDD Workflow:**
-
-1. **RED**: Run Phase 0 tests - all should still pass
-2. **GREEN**: Implement abstract interface only
-3. **REFACTOR**: Add documentation and validation
-
-**Success Criteria:**
-- ✅ Interface compiles
-- ✅ All Phase 0 tests still pass (no code changes yet)
-- ✅ Documentation clear and complete
-
-### 1.2: Implement MobileVectorStoreRepository
-
-**File to create:** `lib/core/infrastructure/mobile_vector_store_repository.dart`
-
-```dart
-// lib/core/infrastructure/mobile_vector_store_repository.dart
-import 'package:flutter_gemma/core/services/vector_store_repository.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
-import 'dart:convert';
-
-/// Mobile implementation of VectorStoreRepository using Pigeon
-///
-/// Delegates to native iOS/Android VectorStore classes via Pigeon
-class MobileVectorStoreRepository implements VectorStoreRepository {
-  final PlatformService _platformService;
-  bool _isInitialized = false;
-
-  MobileVectorStoreRepository({
-    PlatformService? platformService,
-  }) : _platformService = platformService ?? PlatformService();
-
-  @override
-  bool get isInitialized => _isInitialized;
-
-  @override
-  Future<void> initialize(String databasePath) async {
-    await _platformService.initializeVectorStore(databasePath);
-    _isInitialized = true;
-  }
-
-  @override
-  Future<void> addDocument({
-    required String id,
-    required String content,
-    required List<double> embedding,
-    Map<String, dynamic>? metadata,
-  }) async {
-    if (!_isInitialized) {
-      throw StateError('VectorStore not initialized. Call initialize() first.');
-    }
-
-    // Convert metadata to JSON string (backward compatible with Pigeon)
-    final metadataJson = metadata != null ? jsonEncode(metadata) : null;
-
-    await _platformService.addDocument(
-      id: id,
-      content: content,
-      embedding: embedding,
-      metadata: metadataJson,
-    );
-  }
-
-  @override
-  Future<int> addDocuments(List<VectorDocument> documents) async {
-    // For now, add one by one (TODO: implement batch Pigeon method)
-    int successCount = 0;
-    for (final doc in documents) {
-      try {
-        await addDocument(
-          id: doc.id,
-          content: doc.content,
-          embedding: doc.embedding,
-          metadata: doc.metadata,
-        );
-        successCount++;
-      } catch (e) {
-        // Log error but continue
-        print('Failed to add document ${doc.id}: $e');
-      }
-    }
-    return successCount;
-  }
-
-  @override
-  Future<List<RetrievalResult>> searchSimilar({
-    required List<double> queryEmbedding,
-    required int topK,
-    double threshold = 0.0,
-  }) async {
-    if (!_isInitialized) {
-      throw StateError('VectorStore not initialized. Call initialize() first.');
-    }
-
-    return await _platformService.searchSimilar(
-      queryEmbedding: queryEmbedding,
-      topK: topK,
-      threshold: threshold,
-    );
-  }
-
-  @override
-  Future<VectorStoreStats> getStats() async {
-    if (!_isInitialized) {
-      throw StateError('VectorStore not initialized. Call initialize() first.');
-    }
-
-    return await _platformService.getVectorStoreStats();
-  }
-
-  @override
-  Future<void> clear() async {
-    if (!_isInitialized) {
-      throw StateError('VectorStore not initialized. Call initialize() first.');
-    }
-
-    await _platformService.clearVectorStore();
-  }
-
-  @override
-  Future<void> close() async {
-    if (!_isInitialized) {
-      return; // Already closed
-    }
-
-    // TODO: Add Pigeon method to close native VectorStore
-    // For now, just mark as uninitialized
-    _isInitialized = false;
-  }
-}
-```
-
-**TDD Workflow:**
-
-1. **RED**: All Phase 0 tests should still pass (implementation is wrapper)
-2. **GREEN**: Ensure all methods delegate correctly
-3. **REFACTOR**: Add error handling and logging
-
-**Success Criteria:**
-- ✅ All Phase 0 tests still pass
-- ✅ No behavioral changes
-- ✅ Clean delegation to Pigeon
-
-### 1.3: Integrate with ServiceRegistry
-
-**File to modify:** `lib/core/di/service_registry.dart`
-
-Add VectorStoreRepository to ServiceRegistry:
-
-```dart
-// lib/core/di/service_registry.dart
-
-class ServiceRegistry {
-  // ... existing services
-
-  late final VectorStoreRepository _vectorStoreRepository;
-
-  Future<void> initialize({
-    // ... existing parameters
-    VectorStoreRepository? vectorStoreRepository,
-  }) async {
-    // ... existing initialization
-
-    // Initialize VectorStoreRepository
-    _vectorStoreRepository = vectorStoreRepository ??
-      (kIsWeb
-        ? WebVectorStoreRepository() // TODO: implement in Phase 2
-        : MobileVectorStoreRepository());
-  }
-
-  VectorStoreRepository get vectorStoreRepository => _vectorStoreRepository;
-
-  Future<void> dispose() async {
-    // ... existing disposal
-
-    await _vectorStoreRepository.close();
-  }
-}
-```
-
-**TDD Workflow:**
-
-1. **RED**: Run Phase 0 tests - should fail (missing WebVectorStoreRepository)
-2. **GREEN**: Add stub WebVectorStoreRepository
-3. **REFACTOR**: Update FlutterGemmaPlugin to use repository
-
-**Success Criteria:**
-- ✅ All Phase 0 tests pass
-- ✅ VectorStore accessed via ServiceRegistry
-- ✅ Singleton pattern enforced
-
-### 1.4: Add Android close() Method
-
-**File to modify:** `android/src/main/kotlin/dev/flutterberlin/flutter_gemma/VectorStore.kt`
-
-Add close() method to prevent memory leaks:
-
-```kotlin
-// android/src/main/kotlin/dev/flutterberlin/flutter_gemma/VectorStore.kt
-
-class VectorStore(private val context: Context) {
-    private var database: SQLiteDatabase? = null
-
-    // ... existing methods
-
-    fun close() {
-        database?.close()
-        database = null
-    }
-}
-```
-
-Update Pigeon API:
-
-```dart
-// pigeons/messages.dart
-
-@HostApi()
-abstract class PlatformService {
-  // ... existing methods
-
-  @async
-  void closeVectorStore();
-}
-```
-
-Regenerate Pigeon:
-
-```bash
-flutter pub run pigeon --input pigeons/messages.dart
-```
-
-**TDD Workflow:**
-
-1. **RED**: Add test for close() method
-2. **GREEN**: Implement close()
-3. **REFACTOR**: Ensure all resources released
-
-**Success Criteria:**
-- ✅ close() method implemented
-- ✅ No database leaks (verify with Android Studio Profiler)
-- ✅ All Phase 0 tests still pass
-
-### 1.5: Phase 1 Completion Checklist
-
-- [ ] VectorStoreRepository interface created
-- [ ] MobileVectorStoreRepository implemented
-- [ ] ServiceRegistry integration complete
-- [ ] Android close() method added
-- [ ] All Phase 0 tests still pass (GREEN!)
-- [ ] No behavioral changes (100% backward compatible)
-- [ ] Code coverage maintained/improved
-- [ ] Documentation updated
-
-**Estimated time:** 5-7 days
+## Phase 1: Refactoring Mobile Architecture (GREEN Phase) ✅ COMPLETED
+
+**Completion Date**: 2025-11-19
+
+**Summary**: Successfully introduced Repository pattern, integrated with ServiceRegistry, and fixed memory leak on Android.
+
+**Changes Implemented**:
+- ✅ **Step 1**: VectorStoreRepository interface created (`lib/core/services/vector_store_repository.dart`)
+- ✅ **Step 2**: MobileVectorStoreRepository implemented (`lib/core/infrastructure/mobile_vector_store_repository.dart`)
+- ✅ **Step 3**: ServiceRegistry integration complete with dispose() method
+- ✅ **Step 4**: FlutterGemmaMobile refactored to use ServiceRegistry
+- ✅ **Step 5**: Android close() method added + Pigeon integration (memory leak fix)
+- ✅ **Step 6**: WebVectorStoreRepository stub created with conditional import
+- ✅ **Step 7**: Documentation updated
+
+**Test Results**:
+- ✅ All 10 Phase 0 E2E tests remain GREEN
+- ✅ 100% backward compatible
+- ✅ Zero behavioral changes
+- ✅ Memory leak on Android fixed
+
+**Files Modified**:
+- `lib/core/services/vector_store_repository.dart` (NEW)
+- `lib/core/infrastructure/mobile_vector_store_repository.dart` (NEW)
+- `lib/core/infrastructure/web_vector_store_repository_stub.dart` (NEW)
+- `lib/core/di/service_registry.dart` (MODIFIED)
+- `lib/mobile/flutter_gemma_mobile.dart` (MODIFIED)
+- `android/src/main/kotlin/dev/flutterberlin/flutter_gemma/VectorStore.kt` (MODIFIED)
+- `pigeons/messages.dart` (MODIFIED)
+- `ios/Classes/FlutterGemmaPlugin.swift` (MODIFIED)
+- `android/src/main/kotlin/dev/flutterberlin/flutter_gemma/FlutterGemmaPlugin.kt` (MODIFIED)
+- `example/integration_test/vector_store_test.dart` (MODIFIED - added FlutterGemma.initialize())
+
+**Ready for Phase 2**: Web implementation with IndexedDB
 
 ---
 

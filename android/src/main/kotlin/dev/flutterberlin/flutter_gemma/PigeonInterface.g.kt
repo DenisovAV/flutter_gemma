@@ -172,6 +172,7 @@ interface PlatformService {
   fun searchSimilar(queryEmbedding: List<Double>, topK: Long, threshold: Double, callback: (Result<List<RetrievalResult>>) -> Unit)
   fun getVectorStoreStats(callback: (Result<VectorStoreStats>) -> Unit)
   fun clearVectorStore(callback: (Result<Unit>) -> Unit)
+  fun closeVectorStore(callback: (Result<Unit>) -> Unit)
 
   companion object {
     /** The codec used by PlatformService. */
@@ -555,6 +556,23 @@ interface PlatformService {
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             api.clearVectorStore{ result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.closeVectorStore$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.closeVectorStore{ result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

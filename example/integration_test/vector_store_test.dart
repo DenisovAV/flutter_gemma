@@ -17,6 +17,9 @@ void main() {
   late PlatformService platformService;
 
   setUpAll(() async {
+    // Initialize FlutterGemma (required for ServiceRegistry)
+    await FlutterGemma.initialize();
+
     // Get a unique temporary database path for tests
     final tempDir = await getTemporaryDirectory();
     databasePath = '${tempDir.path}/test_vector_store.db';

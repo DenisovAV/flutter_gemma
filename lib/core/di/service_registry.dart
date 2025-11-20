@@ -310,7 +310,7 @@ class ServiceRegistry {
     // Initialize VectorStoreRepository (platform-specific)
     _vectorStoreRepository = vectorStoreRepository ??
       (kIsWeb
-        ? WebVectorStoreRepository()  // Will use stub on non-web, real impl in Phase 2
+        ? WebVectorStoreRepository()  // SQLite WASM for web
         : MobileVectorStoreRepository());
 
     // Initialize handlers with dependencies

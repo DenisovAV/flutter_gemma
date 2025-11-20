@@ -85,7 +85,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     FlutterGemmaPlugin.instance = FlutterGemmaWeb();
   }
 
-  // Use WebModelManager singleton (will be replaced with platform-agnostic manager in future phases)
+  // WebModelManager singleton
   static WebModelManager? _webManager;
 
   // VectorStore repository (SQLite WASM)
@@ -93,7 +93,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   ModelFileManager get modelManager {
-    // Use WebModelManager for now (Phase 6 will migrate to fully unified approach)
+    // Use WebModelManager
     _webManager ??= WebModelManager();
     return _webManager!;
   }

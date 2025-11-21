@@ -204,4 +204,22 @@ window.blobUrlRevoke = function(blobUrl) {
   }
 };
 
+/**
+ * Create a blob from Uint8Array
+ * @param {Uint8Array} data - Binary data
+ * @returns {Blob} Blob object
+ */
+window.createBlob = function(data) {
+  try {
+    const blob = new Blob([data], {
+      type: 'application/octet-stream'
+    });
+    console.log('createBlob: Created blob of size', data.length);
+    return blob;
+  } catch (error) {
+    console.error('createBlob error:', error);
+    throw error;
+  }
+};
+
 console.log('Cache API wrapper loaded');

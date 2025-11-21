@@ -27,13 +27,8 @@ devtools_options.yaml
 /package-lock.json
 /vite.config.js
 
-# Vite/Build artifacts
-# Ignore all JS files in web/ root (built from web/rag/dist/)
-web/*.js
-
-# Example app: Include built JS files so example works out-of-the-box
-# (Users don't need Node.js to run the example)
-# Developers: Rebuild with `cd web/rag && npm run build && cp dist/* ../../example/web/`
+# Web JS files are tracked for CDN distribution
+# Rebuild with: cd web/rag && npm run build && cp dist/* ../
 
 # But keep source files in web/rag/
 !web/rag/

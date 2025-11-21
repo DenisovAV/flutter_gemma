@@ -1051,177 +1051,21 @@ flutter_gemma/
 - Resume support for interrupted downloads
 - Progress tracking with background support
 
-### ✅ VectorStore Architecture (v0.11.11+) - Phase 1 Complete
+### ✅ VectorStore with SQLite (v0.11.12)
 
-**Repository Pattern Implementation**:
-- `VectorStoreRepository` - Abstract interface for cross-platform vector storage
-- `MobileVectorStoreRepository` - Pigeon wrapper for iOS/Android native implementations
-- `WebVectorStoreRepository` - IndexedDB implementation (Phase 2 - stub in Phase 1)
+**Cross-Platform RAG Support:**
+- **Android/iOS**: Native SQLite with BLOB storage (float32)
+- **Web**: SQLite WASM (wa-sqlite + OPFS) - 10x faster than IndexedDB
 
-**Architecture Overview**:
+**Key Files:**
+- `lib/core/services/vector_store_repository.dart` - Interface
+- `lib/core/infrastructure/mobile_vector_store_repository.dart` - Mobile
+- `lib/core/infrastructure/web_vector_store_repository.dart` - Web
+- `web/rag/sqlite_vector_store.js` - SQLite WASM implementation
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ FlutterGemmaMobile (lib/mobile/flutter_gemma_mobile.dart)  │
-│                                                             │
-│  - initializeVectorStore()                                  │
-│  - addDocumentWithEmbedding()                               │
-│  - searchSimilar()                                          │
-│  - getVectorStoreStats()                                    │
-│  - clearVectorStore()                                       │
-└─────────────────┬───────────────────────────────────────────┘
-                  │ Uses ServiceRegistry
-                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│ ServiceRegistry (lib/core/di/service_registry.dart)        │
-│                                                             │
-│  - Manages VectorStoreRepository lifecycle                  │
-│  - Platform-aware factory (Mobile vs Web)                   │
-│  - dispose() for cleanup                                    │
-└─────────────────┬───────────────────────────────────────────┘
-                  │ Provides
-                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│ VectorStoreRepository (interface)                          │
-│ (lib/core/services/vector_store_repository.dart)           │
-│                                                             │
-│  - initialize(databasePath)                                 │
-│  - addDocument(id, content, embedding, metadata)            │
-│  - searchSimilar(queryEmbedding, topK, threshold)           │
-│  - getStats()                                               │
-│  - clear()                                                  │
-│  - close()                                                  │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-        ┌─────────┴──────────┐
-        │                    │
-        ▼                    ▼
-┌──────────────────┐  ┌──────────────────┐
-│ Mobile (iOS/Android) │  │ Web (IndexedDB)  │
-├──────────────────┤  ├──────────────────┤
-│ MobileVectorStore│  │ WebVectorStore   │
-│ Repository       │  │ Repository       │
-│                  │  │ (stub in Phase 1)│
-│ - Wraps Pigeon   │  │                  │
-│   PlatformService│  │                  │
-└────────┬─────────┘  └──────────────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Native Layer     │
-│ (Pigeon)         │
-├──────────────────┤
-│ iOS: VectorStore.│
-│ swift (SQLite)   │
-│                  │
-│ Android:         │
-│ VectorStore.kt   │
-│ (SQLite)         │
-└──────────────────┘
-```
-
-**Key Features**:
-- ✅ **Repository Pattern**: Clean abstraction for vector storage
-- ✅ **SOLID Principles**: Dependency Inversion, Single Responsibility
-- ✅ **Cross-Platform**: iOS, Android support (Web in Phase 2)
-- ✅ **Memory Management**: Explicit close() methods to prevent leaks
-- ✅ **100% Backward Compatible**: All existing code works unchanged
-- ✅ **ServiceRegistry Integration**: Singleton lifecycle management
-
-**Implementation Details**:
-
-**VectorStoreRepository Interface** (`lib/core/services/vector_store_repository.dart`):
-```dart
-abstract class VectorStoreRepository {
-  Future<void> initialize(String databasePath);
-  Future<void> addDocument({
-    required String id,
-    required String content,
-    required List<double> embedding,
-    String? metadata,
-  });
-  Future<List<RetrievalResult>> searchSimilar({
-    required List<double> queryEmbedding,
-    required int topK,
-    double threshold = 0.0,
-  });
-  Future<VectorStoreStats> getStats();
-  Future<void> clear();
-  Future<void> close();
-  bool get isInitialized;
-}
-```
-
-**MobileVectorStoreRepository** (`lib/core/infrastructure/mobile_vector_store_repository.dart`):
-```dart
-class MobileVectorStoreRepository implements VectorStoreRepository {
-  final PlatformService _platformService;
-  bool _isInitialized = false;
-
-  // Delegates to Pigeon PlatformService
-  @override
-  Future<void> initialize(String databasePath) async {
-    await _platformService.initializeVectorStore(databasePath);
-    _isInitialized = true;
-  }
-
-  @override
-  Future<void> close() async {
-    if (!_isInitialized) return;
-    await _platformService.closeVectorStore();
-    _isInitialized = false;
-  }
-  // ... other methods delegate to _platformService
-}
-```
-
-**ServiceRegistry Integration** (`lib/core/di/service_registry.dart`):
-```dart
-// Platform-aware factory
-_vectorStoreRepository = vectorStoreRepository ??
-  (kIsWeb
-    ? WebVectorStoreRepository()
-    : MobileVectorStoreRepository());
-
-// Cleanup on dispose
-Future<void> dispose() async {
-  await _vectorStoreRepository.close();
-}
-```
-
-**Native Implementations**:
-- **iOS**: `ios/Classes/VectorStore.swift` - SQLite with BLOB storage (float32)
-- **Android**: `android/src/main/kotlin/.../VectorStore.kt` - SQLite with BLOB storage (float32)
-
-**Testing**:
-- ✅ 10 E2E integration tests in `example/integration_test/vector_store_test.dart`
-- ✅ All tests GREEN after Phase 1 refactoring
-- ✅ Tests cover: initialization, CRUD, search, stats, dimension validation, BLOB round-trip
-
-**Phase 1 Completion** (2025-11-19):
-- ✅ Repository pattern introduced
-- ✅ ServiceRegistry integration complete
-- ✅ Android memory leak fixed (close() method)
-- ✅ Web stub created (full implementation in Phase 2)
-- ✅ 100% backward compatible - zero breaking changes
-
-**Next Steps** (Phase 2):
-- Implement WebVectorStoreRepository with IndexedDB
-- JavaScript cosine similarity calculations
-- Enable web integration tests
-- Cross-platform parity
-
-**Files Modified**:
-- `lib/core/services/vector_store_repository.dart` - NEW (interface)
-- `lib/core/infrastructure/mobile_vector_store_repository.dart` - NEW (mobile impl)
-- `lib/core/infrastructure/web_vector_store_repository_stub.dart` - NEW (web stub)
-- `lib/core/di/service_registry.dart` - ServiceRegistry integration
-- `lib/mobile/flutter_gemma_mobile.dart` - Refactored to use ServiceRegistry
-- `android/src/main/kotlin/.../VectorStore.kt` - Added close() method
-- `pigeons/messages.dart` - Added closeVectorStore() API
-- `ios/Classes/FlutterGemmaPlugin.swift` - Implemented closeVectorStore()
-- `android/src/main/kotlin/.../FlutterGemmaPlugin.kt` - Implemented closeVectorStore()
-- `example/integration_test/vector_store_test.dart` - Added FlutterGemma.initialize()
+**Testing:**
+- 10 E2E integration tests (pass on iOS, Android, Chrome)
+- 14 parity tests for BLOB encoding and cosine similarity
 
 ---
 

@@ -155,7 +155,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
       final hasClass = globalThis.has('SQLiteVectorStore'.toJS);
       if (!hasClass) {
         throw StateError(
-          'SQLiteVectorStore not loaded. Add <script src="rag/sqlite_vector_store.js"> to index.html'
+          'SQLiteVectorStore not loaded. Add <script src="sqlite_vector_store.js"> to index.html'
         );
       }
     } catch (e) {

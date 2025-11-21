@@ -615,6 +615,20 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
+    func closeVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
+        print("[PLUGIN] Closing vector store")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            self.vectorStore?.close()
+            self.vectorStore = nil
+
+            DispatchQueue.main.async {
+                print("[PLUGIN] Vector store closed successfully")
+                completion(.success(()))
+            }
+        }
+    }
+
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         return nil

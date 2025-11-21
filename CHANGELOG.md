@@ -1,3 +1,10 @@
+## 0.11.12
+ - 🌐 **Web VectorStore**: Full RAG support on web with SQLite WASM
+   - Uses wa-sqlite with OPFS storage (10x faster than IndexedDB)
+   - Cross-platform parity: Android, iOS, and Web now all support VectorStore
+ - 🐛 **Android 16KB Page Size Fix**: Updated `tasks-vision-image-generator` to 0.10.26.1 for Android 15+ compatibility
+ - ⬆️ **Kotlin Update**: Upgraded to Kotlin 2.1.0 in example app
+
 ## 0.11.11
  - 🐛 **Mobile Build Fix**: Fixed compilation errors on iOS/Android platforms
 

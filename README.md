@@ -1347,10 +1347,10 @@ Generate vector embeddings from text and perform semantic search with local vect
 | Feature | Android | iOS | Web |
 |---------|---------|-----|-----|
 | **Embedding Generation** | ✅ Full | ✅ Full | ✅ Full |
-| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ❌ Not implemented |
+| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM |
 
 - **Mobile (Android/iOS)**: Full RAG support with SQLite-based VectorStore
-- **Web**: Embedding generation only (see [Web Setup](#web-embedding-setup) below)
+- **Web**: Full RAG support with SQLite WASM (wa-sqlite + OPFS) - see [Web Setup](#web-setup-embeddings--vectorstore) below
 
 ### Supported Embedding Models
 
@@ -1429,9 +1429,9 @@ print('Similarity: $similarity');
 await embeddingModel.close();
 ```
 
-### RAG with VectorStore (Android/iOS Only)
+### RAG with VectorStore
 
-**Note:** VectorStore is only available on Android and iOS platforms. Web platform supports embedding generation but not vector search.
+**Full cross-platform support:** VectorStore uses SQLite on mobile (Android/iOS) and SQLite WASM (wa-sqlite + OPFS) on web with identical API and behavior.
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -1494,9 +1494,9 @@ await inferenceModel.close();
 await embeddingModel.close();
 ```
 
-### Web Embedding Setup
+### Web Setup (Embeddings + VectorStore)
 
-**For web platform, you need to build JavaScript modules for embedding generation:**
+**For web platform, you need to build JavaScript modules:**
 
 1. Navigate to the `web/rag` directory in the flutter_gemma package
 2. Follow the detailed setup guide: [`web/rag/README.md`](web/rag/README.md)
@@ -1509,14 +1509,15 @@ cd <flutter_gemma_package_path>/web/rag
 # Install dependencies
 npm install
 
-# Build embedding modules
+# Build modules (embeddings + VectorStore)
 npm run build
 
 # Copy to your web project
 cp dist/* <your_flutter_project>/web/
 
-# Add script tag to index.html
+# Add script tags to index.html
 <script type="module" src="litert_embeddings.js"></script>
+<script type="module" src="sqlite_vector_store.js"></script>
 ```
 
 **See [`web/rag/README.md`](web/rag/README.md) for complete instructions.**

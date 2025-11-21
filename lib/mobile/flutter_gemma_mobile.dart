@@ -442,7 +442,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await _platformService.initializeVectorStore(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository.initialize(databasePath);
   }
 
   @override
@@ -452,7 +452,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     required List<double> embedding,
     String? metadata,
   }) async {
-    await _platformService.addDocument(
+    await ServiceRegistry.instance.vectorStoreRepository.addDocument(
       id: id,
       content: content,
       embedding: embedding,
@@ -494,7 +494,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
 
     // Search similar vectors
-    return await _platformService.searchSimilar(
+    return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,
       threshold: threshold,
@@ -503,11 +503,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
   @override
   Future<VectorStoreStats> getVectorStoreStats() async {
-    return await _platformService.getVectorStoreStats();
+    return await ServiceRegistry.instance.vectorStoreRepository.getStats();
   }
 
   @override
   Future<void> clearVectorStore() async {
-    await _platformService.clearVectorStore();
+    await ServiceRegistry.instance.vectorStoreRepository.clear();
   }
 }

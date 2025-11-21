@@ -53,13 +53,16 @@ export default defineConfig({
   build: {
     target: 'esnext',
     lib: {
-      entry: resolve(__dirname, 'litert_embeddings_api.js'),
-      name: 'LiteRTEmbeddings',
+      entry: {
+        litert_embeddings: resolve(__dirname, 'litert_embeddings_api.js'),
+        sqlite_vector_store: resolve(__dirname, 'sqlite_vector_store.js')
+      },
+      name: 'FlutterGemmaWeb',
       formats: ['es']
     },
     rollupOptions: {
       output: {
-        entryFileNames: 'litert_embeddings.js',
+        entryFileNames: '[name].js',
         manualChunks: {
           'tensorflow': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-backend-webgl'],
           'litert': ['@litertjs/core'],

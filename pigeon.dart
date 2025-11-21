@@ -113,6 +113,9 @@ abstract class PlatformService {
 
   @async
   void clearVectorStore();
+
+  @async
+  void closeVectorStore();
 }
 
 // === RAG Data Classes ===

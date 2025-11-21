@@ -136,7 +136,7 @@ class ModelThinkingFilter {
     switch (modelType) {
       case ModelType.deepSeek:
         // Apply DeepSeek thinking filtration
-        // ⚠️ IMPORTANT: DeepSeek STARTS with thinking, ENDS with </think>!
+        // DeepSeek starts with thinking content, ends with </think>
         bool insideThinking = true;
         StringBuffer thinkingBuffer = StringBuffer();
 

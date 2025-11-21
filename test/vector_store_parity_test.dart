@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' show sqrt;
 import 'package:flutter_test/flutter_test.dart';
 
 /// Cross-Platform Parity Tests for VectorStore
@@ -242,12 +243,3 @@ double cosineSimilarity(List<double> a, List<double> b) {
   return dotProduct / (sqrt(normA) * sqrt(normB));
 }
 
-/// Square root (avoid dart:math import for simplicity)
-double sqrt(double x) {
-  if (x <= 0) return 0;
-  double guess = x / 2;
-  for (int i = 0; i < 20; i++) {
-    guess = (guess + x / guess) / 2;
-  }
-  return guess;
-}

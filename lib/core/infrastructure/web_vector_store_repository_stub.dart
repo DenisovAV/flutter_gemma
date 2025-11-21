@@ -4,14 +4,14 @@ import 'package:flutter_gemma/pigeon.g.dart';
 /// Web stub for VectorStoreRepository
 ///
 /// This stub is used on non-web platforms where dart:js_interop is not available.
-/// The actual web implementation is in web_vector_store_repository.dart (Phase 2).
+/// The actual web implementation is in web_vector_store_repository.dart.
 class WebVectorStoreRepository implements VectorStoreRepository {
   @override
   bool get isInitialized => false;
 
   @override
   Future<void> initialize(String databasePath) async {
-    throw UnimplementedError('WebVectorStoreRepository not implemented yet (Phase 2)');
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
   }
 
   @override
@@ -21,7 +21,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     required List<double> embedding,
     String? metadata,
   }) async {
-    throw UnimplementedError('WebVectorStoreRepository not implemented yet (Phase 2)');
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
   }
 
   @override
@@ -30,17 +30,17 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     required int topK,
     double threshold = 0.0,
   }) async {
-    throw UnimplementedError('WebVectorStoreRepository not implemented yet (Phase 2)');
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
   }
 
   @override
   Future<VectorStoreStats> getStats() async {
-    throw UnimplementedError('WebVectorStoreRepository not implemented yet (Phase 2)');
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
   }
 
   @override
   Future<void> clear() async {
-    throw UnimplementedError('WebVectorStoreRepository not implemented yet (Phase 2)');
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
   }
 
   @override

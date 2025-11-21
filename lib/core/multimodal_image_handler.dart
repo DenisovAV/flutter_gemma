@@ -208,7 +208,7 @@ class MultimodalImageHandler {
 
       debugPrint('MultimodalImageHandler: Response validation passed');
 
-      // BUG FIX: When NO corruption is detected, return success result
+      // Return success result when no corruption detected
       return ResponseValidationResult(
         isValid: true, // Response is valid - no corruption detected
         isCorrupted: false, // Not corrupted

@@ -86,7 +86,7 @@ class InferenceChat {
 
     await session.addQueryChunk(messageToSend);
 
-    // THE FIX: Add the message that was *actually* sent to the model to the history.
+    // Add the message that was actually sent to the model to history
     _fullHistory.add(messageToSend);
     _modelHistory.add(messageToSend);
   }

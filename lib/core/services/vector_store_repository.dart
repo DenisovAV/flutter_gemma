@@ -4,7 +4,7 @@ import 'package:flutter_gemma/pigeon.g.dart';
 ///
 /// Platform-specific implementations:
 /// - Mobile: MobileVectorStoreRepository (via Pigeon → native SQLite)
-/// - Web: WebVectorStoreRepository (IndexedDB) - Phase 2
+/// - Web: WebVectorStoreRepository (SQLite WASM)
 ///
 /// Design Principles:
 /// - Repository pattern: Abstracts storage implementation

@@ -63,6 +63,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         entryFileNames: '[name].js',
+        chunkFileNames: '[name].js',
         manualChunks: {
           'tensorflow': ['@tensorflow/tfjs-core', '@tensorflow/tfjs-backend-webgl'],
           'litert': ['@litertjs/core'],

@@ -1838,6 +1838,13 @@ await FlutterGemma.instance.modelManager.clearCache();
   - Gemma 3 1B (500MB-1GB)
   - Gemma 3 Nano E2B (3GB) - requires 6GB+ device RAM
 
+#### Browser Cache Storage Limits
+
+| Browser | Max Model Size | Notes |
+|---------|----------------|-------|
+| **Chrome/Firefox** | ~2 GB | ArrayBuffer limit |
+| **Safari** | ~50 MB | ⚠️ Not suitable |
+
 ### Mobile Platform Specifics
 
 #### Android

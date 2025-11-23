@@ -6,7 +6,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Flutter Gemma (required)
-  await FlutterGemma.initialize(enableWebCache: false);
+  await FlutterGemma.initialize();
 
   runApp(const ChatApp());
 }

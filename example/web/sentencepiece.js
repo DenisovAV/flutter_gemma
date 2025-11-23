@@ -1,4 +1,4 @@
-import { B as QB, a as sI, p as O } from "./tensorflow-DAeT7b7x.js";
+import { B as QB, a as sI, p as O } from "./tensorflow.js";
 const EB = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null
 }, Symbol.toStringTag, { value: "Module" }));

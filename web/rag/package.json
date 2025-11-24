@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && mkdir -p /tmp/rag_build && cp dist/*.js /tmp/rag_build/ && vite build --config vite.config.worker.js && cp /tmp/rag_build/*.js dist/ && rm -rf /tmp/rag_build",
     "preview": "vite preview"
   },
   "dependencies": {

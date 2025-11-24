@@ -24,11 +24,19 @@ class SQLiteVectorStore {
     async initialize(databasePath) {
         console.log('[SQLiteVectorStore] Creating worker...');
 
-        // Create worker - Vite handles the import.meta.url resolution
-        this.worker = new Worker(
-            new URL('./sqlite_vector_store_worker.js', import.meta.url),
-            { type: 'module' }
-        );
+        // Fetch worker code (cross-origin workaround)
+        // CORS allows fetch, but direct Worker creation from cross-origin URL is blocked
+        // Use relative path to avoid Vite converting to data URI
+        const workerPath = './sqlite_vector_store_worker.js';
+        const response = await fetch(workerPath);
+        const workerCode = await response.text();
+
+        // Create blob URL for worker (same-origin, bypasses Worker restriction)
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        // Create worker from blob URL
+        this.worker = new Worker(blobUrl, { type: 'module' });
 
         // Set up message handler
         this.worker.onmessage = (event) => {
@@ -51,6 +59,11 @@ class SQLiteVectorStore {
 
         // Initialize database in worker
         await this._call('initialize', [databasePath, this.dimension]);
+
+        // Clean up blob URL AFTER worker has loaded and initialized
+        // ES6 module workers load code asynchronously, so we must wait
+        URL.revokeObjectURL(blobUrl);
+
         console.log('[SQLiteVectorStore] Initialized successfully via worker');
     }
 

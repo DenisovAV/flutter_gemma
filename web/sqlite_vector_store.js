@@ -9,7 +9,7 @@ class l {
     console.log("[SQLiteVectorStore] Creating worker..."), this.worker = new Worker(
       new URL(
         /* @vite-ignore */
-        "/assets/sqlite_vector_store_worker-CfG9aZgP.js",
+        "./sqlite_vector_store_worker.js",
         import.meta.url
       ),
       { type: "module" }

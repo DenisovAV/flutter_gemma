@@ -739,7 +739,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VectorStore Tests (v0.11.10)'),
+        title: const Text('VectorStore Tests'),
         backgroundColor: Colors.deepPurple,
       ),
       body: Column(

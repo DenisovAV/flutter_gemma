@@ -39,6 +39,19 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Force load TensorFlowLiteSelectTfOps for embedding models
+    if target.name == 'Runner'
+      target.build_configurations.each do |config|
+        # Only apply to device builds, not simulator
+        sdk = config.build_settings['SDKROOT']
+        if sdk.nil? || !sdk.include?('simulator')
+          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
+          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
+          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
+        end
+      end
+    end
   end
 end
 

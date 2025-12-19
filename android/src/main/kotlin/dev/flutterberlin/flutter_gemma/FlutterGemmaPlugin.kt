@@ -303,7 +303,7 @@ private class PlatformServiceImpl(
     }
   }
 
-  override fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<List<Double>>>) -> Unit) {
+  override fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<Any?>>) -> Unit) {
     scope.launch {
       try {
         if (embeddingModel == null) {
@@ -315,7 +315,8 @@ private class PlatformServiceImpl(
           val embedding = embeddingModel!!.embed(text)
           embeddings.add(embedding)
         }
-        callback(Result.success(embeddings))
+        // Convert to List<Any?> for pigeon compatibility (deep cast on Dart side)
+        callback(Result.success(embeddings as List<Any?>))
       } catch (e: Exception) {
         callback(Result.failure(e))
       }

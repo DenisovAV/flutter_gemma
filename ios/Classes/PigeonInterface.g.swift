@@ -196,7 +196,7 @@ protocol PlatformService {
   func createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeEmbeddingModel(completion: @escaping (Result<Void, Error>) -> Void)
   func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void)
-  func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[[Double]], Error>) -> Void)
+  func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void)
   func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void)
   func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void)
   func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void)

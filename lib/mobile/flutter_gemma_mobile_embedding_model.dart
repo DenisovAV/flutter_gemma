@@ -23,7 +23,9 @@ class MobileEmbeddingModel extends EmbeddingModel {
   @override
   Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
     _assertNotClosed();
-    return await _platformService.generateEmbeddingsFromModel(texts);
+    final result = await _platformService.generateEmbeddingsFromModel(texts);
+    // Deep cast: platform channel returns List<Object?> with inner List<Object?>
+    return result.map((inner) => (inner as List).cast<double>()).toList();
   }
 
   @override

@@ -25,7 +25,14 @@ class MobileEmbeddingModel extends EmbeddingModel {
     _assertNotClosed();
     final result = await _platformService.generateEmbeddingsFromModel(texts);
     // Deep cast: platform channel returns List<Object?> with inner List<Object?>
-    return result.map((inner) => (inner as List).cast<double>()).toList();
+    try {
+      return result.map((inner) => (inner as List).cast<double>()).toList();
+    } catch (e) {
+      throw StateError(
+        'Failed to cast embeddings from platform channel. '
+        'Expected List<List<double>>, got: ${result.runtimeType}. Error: $e',
+      );
+    }
   }
 
   @override

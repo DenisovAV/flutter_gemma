@@ -370,7 +370,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
-    func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[[Double]], Error>) -> Void) {
+    func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void) {
         print("[PLUGIN] Generating embeddings for \(texts.count) texts")
 
         guard let embeddingWrapper = embeddingWrapper else {
@@ -393,7 +393,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
                 DispatchQueue.main.async {
                     print("[PLUGIN] Generated \(embeddings.count) embeddings")
-                    completion(.success(embeddings))
+                    // Convert to [Any?] for pigeon compatibility (deep cast on Dart side)
+                    completion(.success(embeddings as [Any?]))
                 }
             } catch {
                 DispatchQueue.main.async {

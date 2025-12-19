@@ -84,7 +84,7 @@ abstract class PlatformService {
   List<double> generateEmbeddingFromModel(String text);
 
   @async
-  List<List<double>> generateEmbeddingsFromModel(List<String> texts);
+  List<Object?> generateEmbeddingsFromModel(List<String> texts);
 
   @async
   int getEmbeddingDimension();

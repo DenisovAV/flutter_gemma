@@ -118,7 +118,131 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 2.  Run `flutter pub get` to install.
 
+## Setup
+
+> **⚠️ Important:** Complete platform-specific setup before using the plugin.
+
+1. **Download Model and optionally LoRA Weights:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
+* For **multimodal support**, download [Gemma 3 Nano models](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) or [Gemma 3 Nano in LitertLM format](https://huggingface.co/google/gemma-3n-E2B-it-litert-lm) that support vision input
+* Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
+* If you have LoRA weights, you can use them to customize the model's behavior without retraining the entire model.
+* [There is an article that described all approaches](https://medium.com/@denisov.shureg/fine-tuning-gemma-with-lora-for-on-device-inference-android-ios-web-with-separate-lora-weights-f05d1db30d86)
+2. **Platform specific setup:**
+
+**iOS**
+
+* **Set minimum iOS version** in `Podfile`:
+```ruby
+platform :ios, '16.0'  # Required for MediaPipe GenAI
+```
+
+* **Enable file sharing** in `Info.plist`:
+```plist
+<key>UIFileSharingEnabled</key>
+<true/>
+```
+
+* **Add network access description** in `Info.plist` (for development):
+```plist
+<key>NSLocalNetworkUsageDescription</key>
+<string>This app requires local network access for model inference services.</string>
+```
+
+* **Enable performance optimization** in `Info.plist` (optional):
+```plist
+<key>CADisableMinimumFrameDurationOnPhone</key>
+<true/>
+```
+
+* **Add memory entitlements** in `Runner.entitlements` (for large models):
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
+	<key>com.apple.developer.kernel.increased-debugging-memory-limit</key>
+	<true/>
+</dict>
+</plist>
+```
+
+* **Change the linking type** of pods to static in `Podfile`:
+```ruby
+use_frameworks! :linkage => :static
+```
+
+* **For embedding models**, add force_load to `Podfile`'s post_install hook:
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+
+    # Required for embedding models (TensorFlow Lite SelectTfOps)
+    if target.name == 'Runner'
+      target.build_configurations.each do |config|
+        sdk = config.build_settings['SDKROOT']
+        if sdk.nil? || !sdk.include?('simulator')
+          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
+          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
+          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
+        end
+      end
+    end
+  end
+end
+```
+
+**Android**
+
+* If you want to use a GPU to work with the model, you need to add OpenGL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
+
+Add to 'AndroidManifest.xml' above tag `</application>`
+
+```AndroidManifest.xml
+ <uses-native-library
+     android:name="libOpenCL.so"
+     android:required="false"/>
+ <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+ <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+```
+
+* **For release builds with ProGuard/R8 enabled**, the plugin automatically includes necessary ProGuard rules. If you encounter issues with `UnsatisfiedLinkError` or missing classes in release builds, ensure your `proguard-rules.pro` includes:
+
+```proguard
+# MediaPipe
+-keep class com.google.mediapipe.** { *; }
+-dontwarn com.google.mediapipe.**
+
+# Protocol Buffers
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+
+# RAG functionality
+-keep class com.google.ai.edge.localagents.** { *; }
+-dontwarn com.google.ai.edge.localagents.**
+```
+
+**Web**
+
+* Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet
+* **Model compatibility**: Mobile `.task` models often don't work on web. Use web-specific variants: `-web.task` or `.litertlm` files. Check model repository for web-compatible versions.
+
+* Add dependencies to `index.html` file in web folder
+```html
+  <script type="module">
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.25';
+  window.FilesetResolver = FilesetResolver;
+  window.LlmInference = LlmInference;
+  </script>
+```
+
 ## Quick Start
+
+> **⚠️ Important:** Complete [platform setup](#setup) before running this code.
 
 ### 1. Install a Model (One Time)
 
@@ -550,107 +674,6 @@ await FlutterGemma.installModel(
 ```
 
 **Important:** On web, FileSource only works with URLs or asset paths, not local file system paths.
-
-## Setup
-
-1. **Download Model and optionally LoRA Weights:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
-* For **multimodal support**, download [Gemma 3 Nano models](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) or [Gemma 3 Nano in LitertLM format](https://huggingface.co/google/gemma-3n-E2B-it-litert-lm) that support vision input
-* Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
-* If you have LoRA weights, you can use them to customize the model's behavior without retraining the entire model.
-* [There is an article that described all approaches](https://medium.com/@denisov.shureg/fine-tuning-gemma-with-lora-for-on-device-inference-android-ios-web-with-separate-lora-weights-f05d1db30d86)
-2. **Platform specific setup:**
-
-**iOS**
-
-* **Set minimum iOS version** in `Podfile`:
-```ruby
-platform :ios, '16.0'  # Required for MediaPipe GenAI
-```
-
-* **Enable file sharing** in `Info.plist`:
-```plist
-<key>UIFileSharingEnabled</key>
-<true/>
-```
-
-* **Add network access description** in `Info.plist` (for development):
-```plist
-<key>NSLocalNetworkUsageDescription</key>
-<string>This app requires local network access for model inference services.</string>
-```
-
-* **Enable performance optimization** in `Info.plist` (optional):
-```plist
-<key>CADisableMinimumFrameDurationOnPhone</key>
-<true/>
-```
-
-* **Add memory entitlements** in `Runner.entitlements` (for large models):
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-	<key>com.apple.developer.kernel.extended-virtual-addressing</key>
-	<true/>
-	<key>com.apple.developer.kernel.increased-memory-limit</key>
-	<true/>
-	<key>com.apple.developer.kernel.increased-debugging-memory-limit</key>
-	<true/>
-</dict>
-</plist>
-```
-
-* **Change the linking type** of pods to static in `Podfile`:
-```ruby
-use_frameworks! :linkage => :static
-```
-
-**Android**
-
-* If you want to use a GPU to work with the model, you need to add OpenGL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
-
-Add to 'AndroidManifest.xml' above tag `</application>`
-
-```AndroidManifest.xml
- <uses-native-library
-     android:name="libOpenCL.so"
-     android:required="false"/>
- <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
- <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
-```
-
-* **For release builds with ProGuard/R8 enabled**, the plugin automatically includes necessary ProGuard rules. If you encounter issues with `UnsatisfiedLinkError` or missing classes in release builds, ensure your `proguard-rules.pro` includes:
-
-```proguard
-# MediaPipe
--keep class com.google.mediapipe.** { *; }
--dontwarn com.google.mediapipe.**
-
-# Protocol Buffers
--keep class com.google.protobuf.** { *; }
--dontwarn com.google.protobuf.**
-
-# RAG functionality
--keep class com.google.ai.edge.localagents.** { *; }
--dontwarn com.google.ai.edge.localagents.**
-```
-
-**Web**
-
-* **Authentication:** For gated models (Gemma 3 Nano, Gemma 3 1B/270M), you need to configure HuggingFace token. See [HuggingFace Authentication](#huggingface-authentication) section.
-* Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet
-* **Multimodal support** (images) is fully supported on web platform
-* **Model formats**: Use `.litertlm` files for optimal web compatibility (recommended for multimodal models)
-
-* Add dependencies to `index.html` file in web folder
-```html
-  <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.25';
-  window.FilesetResolver = FilesetResolver;
-  window.LlmInference = LlmInference;
-  </script>
-```
 
 ## Migration from Legacy to Modern API 🔄
 
@@ -1496,7 +1519,17 @@ await embeddingModel.close();
 
 ### Web Setup (Embeddings + VectorStore)
 
-**For web platform, you need to build JavaScript modules:**
+**Option 1: Use CDN (Recommended for most users)**
+
+Add script tags to your `index.html`:
+```html
+<!-- Load from jsDelivr CDN (version 0.11.13) -->
+<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.13/web/cache_api.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.13/web/litert_embeddings.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.13/web/sqlite_vector_store.js"></script>
+```
+
+**Option 2: Build locally (For development or customization)**
 
 1. Navigate to the `web/rag` directory in the flutter_gemma package
 2. Follow the detailed setup guide: [`web/rag/README.md`](web/rag/README.md)
@@ -1560,7 +1593,7 @@ final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel(
 - ✅ Each embedding model consists of both model file (.tflite) and tokenizer file (.model)
 - ✅ Different sequence length options allow trade-offs between accuracy and performance
 - ✅ Modern API provides separate progress tracking for model and tokenizer downloads
-- ⚠️ **VectorStore (RAG) is only available on Android and iOS** - web platform supports embeddings only
+- ✅ **VectorStore (RAG) is available on ALL platforms** - Android/iOS use native SQLite, Web uses SQLite WASM (wa-sqlite + OPFS)
 
 ### VectorStore Optimization (v0.11.7)
 
@@ -1769,6 +1802,7 @@ Function calling is currently supported by the following models:
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | Fine-tuned weights |
 | **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
+| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM | Semantic search, RAG |
 | **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | Platform-specific |
 | **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | All source types |
 | **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | Native bundles |
@@ -1857,6 +1891,7 @@ await FlutterGemma.instance.modelManager.clearCache();
 - **Memory entitlements:** Required for large models (see Setup section)
 - **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
 - **Storage:** Local file system in app documents directory
+- **Embedding models:** Require force_load for TensorFlowLiteSelectTfOps in Podfile (see Setup section)
 
 The full and complete example you can find in `example` folder
 
@@ -1896,6 +1931,29 @@ The full and complete example you can find in `example` folder
 - Use static linking: `use_frameworks! :linkage => :static`
 - Clean and reinstall pods: `cd ios && pod install --repo-update`
 - Check that all required entitlements are in `Runner.entitlements`
+
+**iOS Embedding Models:**
+For embedding models on iOS, you must add force_load to your Podfile's post_install hook:
+
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+
+    # Required for embedding models
+    if target.name == 'Runner'
+      target.build_configurations.each do |config|
+        sdk = config.build_settings['SDKROOT']
+        if sdk.nil? || !sdk.include?('simulator')
+          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
+          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
+          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
+        end
+      end
+    end
+  end
+end
+```
 
 ## Advanced Usage
 

@@ -40,8 +40,8 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   @override
   Future<void> initialize(String databasePath) async {
     try {
-      // Verify SQLiteVectorStore is loaded
-      _ensureSQLiteLoaded();
+      // Wait for ES module to load (may take time due to top-level await)
+      await _waitForSQLiteModule();
 
       // Create JS instance with auto-dimension detection (null = auto-detect)
       // Pass null as JSNumber? to constructor
@@ -55,6 +55,31 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     } catch (e) {
       throw VectorStoreException('Failed to initialize SQLite WASM', e);
     }
+  }
+
+  /// Wait for SQLiteVectorStore ES module to finish loading
+  ///
+  /// ES modules with top-level await load asynchronously.
+  /// This polls until window.SQLiteVectorStore is available.
+  Future<void> _waitForSQLiteModule() async {
+    const maxAttempts = 50;  // 5 seconds max
+    const delay = Duration(milliseconds: 100);
+
+    for (int i = 0; i < maxAttempts; i++) {
+      try {
+        _ensureSQLiteLoaded();
+        // If we get here without exception, module is loaded
+        return;
+      } catch (_) {
+        // Module not ready yet, wait and retry
+        await Future.delayed(delay);
+      }
+    }
+
+    throw StateError(
+      'SQLiteVectorStore module failed to load after ${maxAttempts * delay.inMilliseconds}ms. '
+      'Add <script type="module" src="sqlite_vector_store.js"></script> to index.html'
+    );
   }
 
   @override
@@ -150,26 +175,16 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   ///
   /// Throws [StateError] if sqlite_vector_store.js not loaded
   void _ensureSQLiteLoaded() {
-    // Check if window.SQLiteVectorStore exists
+    // Try to create a test instance - will throw if JS not loaded
+    // This is the simplest way to check without unsafe JS interop
     try {
-      final hasClass = globalThis.has('SQLiteVectorStore'.toJS);
-      if (!hasClass) {
-        throw StateError(
-          'SQLiteVectorStore not loaded. Add <script src="sqlite_vector_store.js"> to index.html'
-        );
-      }
+      const JSNumber? dimension = null;
+      final testInstance = SQLiteVectorStore(dimension);
+      // If we got here, module is loaded
+      // Ignore the test instance
+      testInstance; // suppress unused variable warning
     } catch (e) {
-      throw StateError(
-        'Failed to check for SQLiteVectorStore: $e'
-      );
+      throw StateError('SQLiteVectorStore not available: $e');
     }
   }
-}
-
-/// JS global context helpers
-@JS('globalThis')
-external JSObject get globalThis;
-
-extension JSObjectExtension on JSObject {
-  external bool has(JSString property);
 }

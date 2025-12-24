@@ -6,6 +6,7 @@ import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 import 'package:flutter_gemma_example/cosine_similarity_screen.dart';
+import 'package:flutter_gemma_example/rag_demo_screen.dart';
 
 class EmbeddingTestScreen extends StatefulWidget {
   final example_embedding_model.EmbeddingModel model;
@@ -227,6 +228,36 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                   ),
                   child: const Text('Clear'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _navigateToCosineSimilarity,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2a5a8c),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('Cosine Similarity'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _navigateToVectorStore,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2a5a8c),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('VectorStore RAG'),
+                  ),
                 ),
               ],
             ),
@@ -485,6 +516,15 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
           model: widget.model,
           preInitializedModel: _embeddingModel,
         ),
+      ),
+    );
+  }
+
+  void _navigateToVectorStore() {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => const RagDemoScreen(),
       ),
     );
   }

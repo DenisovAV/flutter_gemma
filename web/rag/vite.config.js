@@ -55,7 +55,8 @@ export default defineConfig({
     lib: {
       entry: {
         litert_embeddings: resolve(__dirname, 'litert_embeddings_api.js'),
-        sqlite_vector_store: resolve(__dirname, 'sqlite_vector_store.js')
+        sqlite_vector_store: resolve(__dirname, 'sqlite_vector_store.js'),
+        sqlite_vector_store_worker: resolve(__dirname, 'sqlite_vector_store_worker.js')
       },
       name: 'FlutterGemmaWeb',
       formats: ['es']

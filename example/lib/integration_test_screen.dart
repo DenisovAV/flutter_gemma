@@ -8,7 +8,7 @@ import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart' as legacy_mobile
 import 'package:path_provider/path_provider.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma_example/utils/test_preferences.dart';
-import 'package:flutter_gemma_example/vector_store_test_screen.dart';
+import 'package:flutter_gemma_example/rag_demo_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:async';
@@ -3117,15 +3117,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
             // === SECTION 5: VectorStore Tests ===
             _buildSection(
-              title: 'VectorStore Tests (v0.11.10)',
+              title: 'RAG Demo',
               children: [
                 _buildButton(
-                  'Run VectorStore Tests',
+                  'Open RAG Demo',
                   () {
                     Navigator.push(
                       context,
                       MaterialPageRoute<void>(
-                        builder: (context) => const VectorStoreTestScreen(),
+                        builder: (context) => const RagDemoScreen(),
                       ),
                     );
                   },

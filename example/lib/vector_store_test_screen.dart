@@ -1,9 +1,22 @@
-import 'dart:io';
+import 'dart:io' show File;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as model_config;
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
+
+/// Get database path - returns virtual path on web, real path on mobile
+Future<String> _getDatabasePath(String filename) async {
+  if (kIsWeb) {
+    // Web uses OPFS - path is symbolic only
+    return filename;
+  } else {
+    final appDir = await getApplicationDocumentsDirectory();
+    return '${appDir.path}/$filename';
+  }
+}
 
 class VectorStoreTestScreen extends StatefulWidget {
   const VectorStoreTestScreen({super.key});
@@ -207,8 +220,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
   // ============================================================================
   Future<void> _testBasicVectorStore() async {
     // 1. Initialization
-    final appDir = await getApplicationDocumentsDirectory();
-    final dbPath = '${appDir.path}/test_vector_store.db';
+    final dbPath = await _getDatabasePath('test_vector_store.db');
 
     await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
     _log('✅ VectorStore initialized');
@@ -273,8 +285,6 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
   // TEST 2: Performance Comparison (Gecko 64 vs EmbeddingGemma 256)
   // ============================================================================
   Future<void> _testDynamicDimensions() async {
-    final appDir = await getApplicationDocumentsDirectory();
-
     // Compare lightweight and heavier models
     // Both generate 768D embeddings but with different parameters and performance
     final testModels = [
@@ -352,7 +362,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
       _log('✅ Generated ${actualDimension}D embedding (seq_len=${modelConfig.maxSeqLen})');
 
       // Initialize VectorStore with actual dimension
-      final dbPath = '${appDir.path}/test_${actualDimension}d.db';
+      final dbPath = await _getDatabasePath('test_${actualDimension}d.db');
       await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
 
       // Add document
@@ -389,8 +399,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
   // TEST 3: Dimension Validation
   // ============================================================================
   Future<void> _testDimensionValidation() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final dbPath = '${appDir.path}/test_validation.db';
+    final dbPath = await _getDatabasePath('test_validation.db');
 
     await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
 
@@ -431,13 +440,14 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
   // TEST 4: Storage Optimization
   // ============================================================================
   Future<void> _testStorageOptimization() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final dbPath = '${appDir.path}/test_performance.db';
+    final dbPath = await _getDatabasePath('test_performance.db');
 
-    // Delete old DB if exists
-    final dbFile = File(dbPath);
-    if (await dbFile.exists()) {
-      await dbFile.delete();
+    // Delete old DB if exists (mobile only)
+    if (!kIsWeb) {
+      final dbFile = File(dbPath);
+      if (await dbFile.exists()) {
+        await dbFile.delete();
+      }
     }
 
     await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
@@ -463,37 +473,41 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     stopwatch.stop();
     _log('✅ Added 100 documents in ${stopwatch.elapsedMilliseconds}ms');
 
-    // Check file size
-    final stats = await dbFile.stat();
-    final sizeKB = stats.size / 1024;
-    _log('📦 Database size: ${sizeKB.toStringAsFixed(2)} KB');
+    // Check file size (mobile only - web uses OPFS which doesn't expose file stats)
+    if (!kIsWeb) {
+      final dbFile = File(dbPath);
+      final stats = await dbFile.stat();
+      final sizeKB = stats.size / 1024;
+      _log('📦 Database size: ${sizeKB.toStringAsFixed(2)} KB');
 
-    // Expected size with BLOB:
-    // 100 docs * dimension * 4 bytes (float32)
-    final expectedBlobSizeKB = (100 * _modelDimension * 4) / 1024;
-    final expectedWithOverheadKB = expectedBlobSizeKB + 100; // +overhead
+      // Expected size with BLOB:
+      // 100 docs * dimension * 4 bytes (float32)
+      final expectedBlobSizeKB = (100 * _modelDimension * 4) / 1024;
+      final expectedWithOverheadKB = expectedBlobSizeKB + 100; // +overhead
 
-    // JSON size would be larger (~13.7 bytes per float as string)
-    final expectedJsonSizeKB = (100 * _modelDimension * 13.7) / 1024;
+      // JSON size would be larger (~13.7 bytes per float as string)
+      final expectedJsonSizeKB = (100 * _modelDimension * 13.7) / 1024;
 
-    final expectedMaxSize = (expectedWithOverheadKB * 1.5).toInt(); // 50% buffer
-    if (sizeKB >= expectedMaxSize) {
-      throw Exception('Database too large: $sizeKB KB (expected < $expectedMaxSize KB)');
+      final expectedMaxSize = (expectedWithOverheadKB * 1.5).toInt(); // 50% buffer
+      if (sizeKB >= expectedMaxSize) {
+        throw Exception('Database too large: $sizeKB KB (expected < $expectedMaxSize KB)');
+      }
+
+      _log('✅ Storage optimization verified!');
+      _log('   Expected JSON size: ~${expectedJsonSizeKB.toStringAsFixed(0)} KB');
+      _log('   Actual BLOB size: ${sizeKB.toStringAsFixed(2)} KB');
+      _log(
+          '   Savings: ${((expectedJsonSizeKB - sizeKB) / expectedJsonSizeKB * 100).toStringAsFixed(1)}%');
+    } else {
+      _log('ℹ️ Skipping file size check on web (OPFS doesn\'t expose stats)');
+      _log('✅ Storage test completed (100 documents added)');
     }
-
-    _log('✅ Storage optimization verified!');
-    _log('   Expected JSON size: ~${expectedJsonSizeKB.toStringAsFixed(0)} KB');
-    _log('   Actual BLOB size: ${sizeKB.toStringAsFixed(2)} KB');
-    _log(
-        '   Savings: ${((expectedJsonSizeKB - sizeKB) / expectedJsonSizeKB * 100).toStringAsFixed(1)}%');
   }
 
   // ============================================================================
   // TEST 5: Search Performance Comparison (Real Embeddings)
   // ============================================================================
   Future<void> _testSearchPerformance() async {
-    final appDir = await getApplicationDocumentsDirectory();
-
     // Generate realistic documents across different topics
     final documents = _generateTestDocuments(100);
 
@@ -504,7 +518,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     _log('   Model: 300M params, seq=256, 179MB');
 
     // Create separate database for EmbeddingGemma 256
-    final gemmaDbPath = '${appDir.path}/test_search_perf_embeddinggemma256.db';
+    final gemmaDbPath = await _getDatabasePath('test_search_perf_embeddinggemma256.db');
     await FlutterGemmaPlugin.instance.initializeVectorStore(gemmaDbPath);
 
     _log('📊 Adding 100 documents with EmbeddingGemma 256 embeddings...');
@@ -607,7 +621,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
     _log('   ⏱️  Initialization: ${initStopwatch.elapsedMilliseconds}ms');
 
     // Create separate database for Gecko 64
-    final geckoDbPath = '${appDir.path}/test_search_perf_gecko64.db';
+    final geckoDbPath = await _getDatabasePath('test_search_perf_gecko64.db');
     await FlutterGemmaPlugin.instance.initializeVectorStore(geckoDbPath);
 
     _log('📊 Adding 100 documents with Gecko 64 embeddings...');
@@ -725,7 +739,7 @@ class _VectorStoreTestScreenState extends State<VectorStoreTestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VectorStore Tests (v0.11.10)'),
+        title: const Text('VectorStore Tests'),
         backgroundColor: Colors.deepPurple,
       ),
       body: Column(

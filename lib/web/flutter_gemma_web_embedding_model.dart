@@ -57,11 +57,7 @@ class WebEmbeddingModel extends EmbeddingModel {
     await _ensureInitialized();
 
     try {
-      final embedding = await LiteRTWebEmbeddings.generateEmbedding(text);
-      if (kDebugMode) {
-        debugPrint('✅ Generated embedding with ${embedding.length} dimensions');
-      }
-      return embedding;
+      return await LiteRTWebEmbeddings.generateEmbedding(text);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('❌ Failed to generate embedding: $e');

@@ -1,3 +1,7 @@
+## 0.11.13
+ - ✅ **iOS Embeddings Fix**: XNNPACK + SentencePiece integration for better results on iOS
+ - 🌐 **Web CDN**: Modules available via jsDelivr (`@0.11.13/web/*.js`)
+
 ## 0.11.12
  - 🌐 **Web VectorStore**: Full RAG support on web with SQLite WASM
    - Uses wa-sqlite with OPFS storage (10x faster than IndexedDB)

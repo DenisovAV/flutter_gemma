@@ -165,7 +165,7 @@ interface PlatformService {
   fun createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, callback: (Result<Unit>) -> Unit)
   fun closeEmbeddingModel(callback: (Result<Unit>) -> Unit)
   fun generateEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit)
-  fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<List<Double>>>) -> Unit)
+  fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<Any?>>) -> Unit)
   fun getEmbeddingDimension(callback: (Result<Long>) -> Unit)
   fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit)
   fun addDocument(id: String, content: String, embedding: List<Double>, metadata: String?, callback: (Result<Unit>) -> Unit)
@@ -438,7 +438,7 @@ interface PlatformService {
           channel.setMessageHandler { message, reply ->
             val args = message as List<Any?>
             val textsArg = args[0] as List<String>
-            api.generateEmbeddingsFromModel(textsArg) { result: Result<List<List<Double>>> ->
+            api.generateEmbeddingsFromModel(textsArg) { result: Result<List<Any?>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

@@ -439,7 +439,7 @@ class PlatformService {
     }
   }
 
-  Future<List<List<double>>> generateEmbeddingsFromModel(List<String> texts) async {
+  Future<List<Object?>> generateEmbeddingsFromModel(List<String> texts) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -462,7 +462,7 @@ class PlatformService {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<List<double>>();
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<Object?>();
     }
   }
 

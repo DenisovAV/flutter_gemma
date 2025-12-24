@@ -29,6 +29,12 @@
 - No "but I'm helping"
 - **ALWAYS ASK FIRST, NO MATTER WHAT**
 
+## Rule 4: GIT COMMITS ⛔
+- ❌ **FORBIDDEN**: Adding "Co-Authored-By: Claude" or similar AI attribution
+- ❌ **FORBIDDEN**: Adding "🤖 Generated with Claude Code" footers
+- ✅ **REQUIRED**: Simple, clean commit messages without AI mentions
+- ✅ **REQUIRED**: Use `--author="Sasha Denisov <denisov.shureg@gmail.com>"`
+
 ---
 
 ## Project Overview

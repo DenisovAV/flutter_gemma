@@ -228,10 +228,8 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 
 **Web**
 
-* **Authentication:** For gated models (Gemma 3 Nano, Gemma 3 1B/270M), you need to configure HuggingFace token. See [HuggingFace Authentication](#huggingface-authentication) section.
 * Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet
-* **Multimodal support** (images) is fully supported on web platform
-* **Model formats**: Use `.litertlm` files for optimal web compatibility (recommended for multimodal models)
+* **Model compatibility**: Mobile `.task` models often don't work on web. Use web-specific variants: `-web.task` or `.litertlm` files. Check model repository for web-compatible versions.
 
 * Add dependencies to `index.html` file in web folder
 ```html

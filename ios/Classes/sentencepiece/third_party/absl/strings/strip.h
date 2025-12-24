@@ -29,4 +29,4 @@ inline bool ConsumePrefix(absl::string_view *str, absl::string_view expected) {
 }
 
 }  // namespace absl
-#endif  // ABSL_STRINGS_STRIP_H
+#endif  // ABSL_STRINGS_STRIP_H_

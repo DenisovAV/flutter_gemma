@@ -542,7 +542,7 @@ END:
 
   // Determines required_chars which must be included in the vocabulary.
   int64_t accumulated_chars_count = 0;
-  // Sorted() sorts the chars_count values in the decsending order of pair<>.
+  // Sorted() sorts the chars_count values in the descending order of pair<>.
   // I.e. characters are sorted in the order of required characters and then
   // frequent characters.
   for (const auto &w : Sorted(chars_count)) {

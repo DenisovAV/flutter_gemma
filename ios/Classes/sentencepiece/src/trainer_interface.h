@@ -117,7 +117,7 @@ class TrainerInterface {
   // max_sentencepiece_length, split_by_whiespace, split_by_unicode_script.
   bool IsValidSentencePiece(const string_util::UnicodeText &piece) const;
 
-  // Splits all sentencecs by whitespaces and
+  // Splits all sentences by whitespaces and
   // replace the |sentences_| with tokenized string.
   // e.g.,
   //  [ ["hello world ", 1], ["hi world]" ] =>

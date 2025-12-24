@@ -62,7 +62,7 @@ void SetMinLogLevel(int v) {
 
 namespace string_util {
 
-// mblen sotres the number of bytes consumed after decoding.
+// mblen stores the number of bytes consumed after decoding.
 char32 DecodeUTF8(const char *begin, const char *end, size_t *mblen) {
   const size_t len = end - begin;
 

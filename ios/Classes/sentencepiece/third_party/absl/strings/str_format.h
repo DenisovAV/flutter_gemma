@@ -34,4 +34,4 @@ std::string StrFormat(const char *format, Args const &... args) {
 }
 
 }  // namespace absl
-#endif  // ABSL_MEMORY_MEMORY_H_
+#endif  // ABSL_STRINGS_STR_FORMAT_H

@@ -92,4 +92,4 @@ inline std::string StrJoin(const std::vector<int> &tokens,
 }
 
 }  // namespace absl
-#endif  // ABSL_STRINGS_STR_CAT_H_
+#endif  // ABSL_STRINGS_STR_JOIN_H_

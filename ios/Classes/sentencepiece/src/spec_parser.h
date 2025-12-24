@@ -274,7 +274,7 @@ util::Status SentencePieceTrainer::SetProtoField(absl::string_view name,
 #undef PARSE_BOOL
 #undef PARSE_BYTE
 #undef PARSE_INT32
-#undef PARSE_DUOBLE
+#undef PARSE_DOUBLE
 #undef PARSE_ENUM
 #undef PRINT_MAP
 #undef PRINT_REPEATED_STRING

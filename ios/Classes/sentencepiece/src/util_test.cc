@@ -353,7 +353,7 @@ TEST(UtilTest, InputOutputBufferInvalidFileTest) {
   EXPECT_FALSE(input->status().ok());
 }
 
-TEST(UtilTest, STLDeleteELementsTest) {
+TEST(UtilTest, STLDeleteElementsTest) {
   class Item {
    public:
     explicit Item(int *counter) : counter_(counter) {}

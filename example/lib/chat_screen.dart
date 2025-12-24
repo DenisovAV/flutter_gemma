@@ -60,7 +60,7 @@ class ChatScreenState extends State<ChatScreen> {
         'required': ['color'],
       },
     ),
-    /* const Tool(
+    const Tool(
       name: 'show_alert',
       description: 'Shows an alert dialog with a custom message and title.',
       parameters: {
@@ -81,7 +81,7 @@ class ChatScreenState extends State<ChatScreen> {
         },
         'required': ['title', 'message'],
       },
-    ), */
+    ),
   ];
 
   @override

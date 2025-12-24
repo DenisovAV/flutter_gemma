@@ -68,8 +68,16 @@ class InferenceChat {
         supportsFunctionCalls) {
       _toolsInstructionSent = true;
       final toolsPrompt = _createToolsPrompt();
-      final newText = '$toolsPrompt\n${message.text}';
-      messageToSend = message.copyWith(text: newText);
+
+      // For FunctionGemma, manually construct the full prompt with turn markers
+      // because tools prompt already has developer turn markers
+      if (modelType == ModelType.functionGemma) {
+        final newText = '$toolsPrompt$startTurn$userPrefix\n${message.text}\n$endTurn\n$startTurn$modelPrefix\n';
+        messageToSend = message.copyWith(text: newText);
+      } else {
+        final newText = '$toolsPrompt\n${message.text}';
+        messageToSend = message.copyWith(text: newText);
+      }
     } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
       // Log warning if model doesn't support function calls but tools are provided
       debugPrint(
@@ -107,7 +115,10 @@ class InferenceChat {
 
     // Try to parse as function call if tools are available and model supports function calls
     if (tools.isNotEmpty && supportsFunctionCalls) {
-      final functionCall = FunctionCallParser.parse(cleanedResponse);
+      final functionCall = FunctionCallParser.parse(
+        cleanedResponse,
+        modelType: modelType,
+      );
       if (functionCall != null) {
         debugPrint('InferenceChat: Detected function call in sync response');
         final toolCallMessage = Message.toolCall(text: cleanedResponse);
@@ -160,7 +171,7 @@ class InferenceChat {
                 'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars');
 
             // Check if we now have a complete JSON
-            if (FunctionCallParser.isJsonComplete(funcBuffer)) {
+            if (FunctionCallParser.isFunctionCallComplete(funcBuffer, modelType: modelType)) {
               // First try to extract message from any JSON with message field
               try {
                 final jsonData = jsonDecode(funcBuffer);
@@ -178,7 +189,10 @@ class InferenceChat {
               }
 
               // If no message field found, try parsing as function call
-              final functionCall = FunctionCallParser.parse(funcBuffer);
+              final functionCall = FunctionCallParser.parse(
+                funcBuffer,
+                modelType: modelType,
+              );
               if (functionCall != null) {
                 debugPrint('InferenceChat: Found function call in complete buffer!');
                 yield functionCall;
@@ -245,23 +259,38 @@ class InferenceChat {
       debugPrint(
           'InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars');
 
+      // For FunctionGemma, the function call spans response + funcBuffer
+      // (e.g., response="<start_function_call>call:fn", funcBuffer="{params}")
+      // For JSON models, funcBuffer contains the complete JSON
+      final contentToCheck = modelType == ModelType.functionGemma
+          ? response + funcBuffer
+          : funcBuffer;
+
       // First try to extract message from JSON if it has message field
-      if (FunctionCallParser.isJsonComplete(funcBuffer)) {
+      if (FunctionCallParser.isFunctionCallComplete(contentToCheck, modelType: modelType)) {
         try {
-          final jsonData = jsonDecode(funcBuffer);
-          if (jsonData is Map<String, dynamic> && jsonData.containsKey('message')) {
-            final message = jsonData['message'] as String;
-            debugPrint('InferenceChat: Extracted message from end-of-stream JSON: "$message"');
-            yield TextResponse(message);
-          } else {
-            // Try to parse as function call
-            final functionCall = FunctionCallParser.parse(funcBuffer);
-            if (functionCall != null) {
-              debugPrint('InferenceChat: Function call found at end of stream');
-              yield functionCall;
-            } else {
-              yield TextResponse(funcBuffer);
+          // For JSON parsing, use funcBuffer (the actual JSON part)
+          // For FunctionGemma parsing, use contentToCheck (full function call)
+          if (modelType != ModelType.functionGemma) {
+            final jsonData = jsonDecode(funcBuffer);
+            if (jsonData is Map<String, dynamic> && jsonData.containsKey('message')) {
+              final message = jsonData['message'] as String;
+              debugPrint('InferenceChat: Extracted message from end-of-stream JSON: "$message"');
+              yield TextResponse(message);
+              return;
             }
+          }
+
+          // Try to parse as function call
+          final functionCall = FunctionCallParser.parse(
+            contentToCheck,
+            modelType: modelType,
+          );
+          if (functionCall != null) {
+            debugPrint('InferenceChat: Function call found at end of stream');
+            yield functionCall;
+          } else {
+            yield TextResponse(funcBuffer);
           }
         } catch (e) {
           debugPrint('InferenceChat: Failed to parse end-of-stream JSON: $e');
@@ -351,6 +380,15 @@ class InferenceChat {
       return '';
     }
 
+    // Explicit routing by ModelType using Dart 3 switch expression
+    return switch (modelType) {
+      ModelType.functionGemma => _createFunctionGemmaToolsPrompt(),
+      // All other models use JSON format
+      _ => _createJsonToolsPrompt(),
+    };
+  }
+
+  String _createJsonToolsPrompt() {
     final toolsPrompt = StringBuffer();
     toolsPrompt.writeln(
         'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
@@ -364,6 +402,60 @@ class InferenceChat {
           .writeln('${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
     }
     toolsPrompt.writeln('</tool_code>');
+    return toolsPrompt.toString();
+  }
+
+  String _createFunctionGemmaToolsPrompt() {
+    final toolsPrompt = StringBuffer();
+
+    // FunctionGemma requires developer turn for tools definition
+    toolsPrompt.write('$startTurn$developerPrefix\n');
+    toolsPrompt.writeln(
+        'You are a model that can do function calling with the following functions');
+
+    for (final tool in tools) {
+      toolsPrompt.write(functionGemmaStartDecl);
+      toolsPrompt.write('declaration:${tool.name}{');
+      toolsPrompt.write(
+          'description:$functionGemmaEscape${tool.description}$functionGemmaEscape');
+
+      // Access properties from JSON Schema structure (following Google's FunctionGemma format)
+      final properties = tool.parameters['properties'] as Map<String, dynamic>?;
+      final required = tool.parameters['required'] as List<dynamic>?;
+      if (properties != null && properties.isNotEmpty) {
+        toolsPrompt.write(',parameters:{properties:{');
+        final paramEntries = <String>[];
+        properties.forEach((name, schema) {
+          if (schema is Map<String, dynamic>) {
+            final type =
+                (schema['type'] as String?)?.toUpperCase() ?? 'STRING';
+            final desc = schema['description'];
+            // Google format: description first, then type
+            if (desc != null) {
+              paramEntries.add(
+                  '$name:{description:$functionGemmaEscape$desc$functionGemmaEscape,type:$functionGemmaEscape$type$functionGemmaEscape}');
+            } else {
+              paramEntries
+                  .add('$name:{type:$functionGemmaEscape$type$functionGemmaEscape}');
+            }
+          }
+        });
+        toolsPrompt.write(paramEntries.join(','));
+        toolsPrompt.write('}');
+        // Add required array if present
+        if (required != null && required.isNotEmpty) {
+          final requiredStr = required
+              .map((r) => '$functionGemmaEscape$r$functionGemmaEscape')
+              .join(',');
+          toolsPrompt.write(',required:[$requiredStr]');
+        }
+        toolsPrompt.write(',type:${functionGemmaEscape}OBJECT$functionGemmaEscape}');
+      }
+
+      toolsPrompt.writeln('}$functionGemmaEndDecl');
+    }
+
+    toolsPrompt.write('$endTurn\n');
     return toolsPrompt.toString();
   }
 }

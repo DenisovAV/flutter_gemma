@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma_example/constants/app_keys.dart';
 
@@ -17,23 +18,26 @@ class AuthTokenService {
   /// Load the stored HuggingFace authentication token.
   ///
   /// Returns the token string if found, or null if no token is saved.
-  /// Priority: 1) SharedPreferences, 2) dart-define (HUGGINGFACE_TOKEN)
+  /// Priority: 1) dart-define (HUGGINGFACE_TOKEN), 2) SharedPreferences
   ///
-  /// If dart-define token exists and no saved token, auto-saves it to SharedPreferences.
+  /// dart-define token always takes precedence and is saved to SharedPreferences.
   static Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(AppKeys.authToken);
 
-    // Fallback to dart-define if not in SharedPreferences
-    if (token == null || token.isEmpty) {
-      const envToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
-      if (envToken.isNotEmpty) {
-        // Auto-save dart-define token for persistence
-        await prefs.setString(AppKeys.authToken, envToken);
-        return envToken;
-      }
+    // Priority 1: dart-define (HUGGINGFACE_TOKEN) - always takes precedence
+    const envToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
+    debugPrint('[AuthTokenService] dart-define token: ${envToken.isNotEmpty ? "${envToken.substring(0, 5)}..." : "empty"}');
+
+    if (envToken.isNotEmpty) {
+      await prefs.setString(AppKeys.authToken, envToken);
+      debugPrint('[AuthTokenService] Using dart-define token (saved to SharedPreferences)');
+      return envToken;
     }
 
+    // Priority 2: SharedPreferences (fallback only if no dart-define)
+    final token = prefs.getString(AppKeys.authToken);
+    debugPrint('[AuthTokenService] SharedPreferences token: ${token != null ? "${token.substring(0, 5)}..." : "null"}');
+    debugPrint('[AuthTokenService] Returning token: ${token != null ? "YES" : "NO"}');
     return token;
   }
 

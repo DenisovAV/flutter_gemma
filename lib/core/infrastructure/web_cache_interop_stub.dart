@@ -1,4 +1,5 @@
 /// Stub implementation for non-web platforms
+library;
 
 /// Storage quota Dart wrapper
 class StorageQuota {

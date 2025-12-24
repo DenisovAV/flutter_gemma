@@ -241,6 +241,7 @@ class MultimodalImageHandler {
       case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
+      case ModelType.functionGemma:
         return VisionEncoderType.general;
     }
   }
@@ -256,6 +257,7 @@ class MultimodalImageHandler {
       case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
+      case ModelType.functionGemma:
         return tokenizer.ModelType.general;
     }
   }

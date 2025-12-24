@@ -4,6 +4,7 @@ import 'package:flutter_gemma/core/model_response.dart';
 
 const userPrefix = "user";
 const modelPrefix = "model";
+const developerPrefix = "developer"; // FunctionGemma uses developer role for tools
 const startTurn = "<start_of_turn>";
 const endTurn = "<end_of_turn>";
 
@@ -22,6 +23,15 @@ const llamaInstEnd = "[/INST]";
 // Hammer tokens (using general format for now - need more research)
 const hammerUser = "User:";
 const hammerAssistant = "Assistant:";
+
+// FunctionGemma special tokens
+const functionGemmaStartCall = '<start_function_call>';
+const functionGemmaEndCall = '<end_function_call>';
+const functionGemmaStartDecl = '<start_function_declaration>';
+const functionGemmaEndDecl = '<end_function_declaration>';
+const functionGemmaStartResp = '<start_function_response>';
+const functionGemmaEndResp = '<end_function_response>';
+const functionGemmaEscape = '<escape>';
 
 extension MessageExtension on Message {
   String transformToChatPrompt(
@@ -45,6 +55,7 @@ extension MessageExtension on Message {
       ModelType.qwen => _transformQwen(),
       ModelType.llama => _transformLlama(),
       ModelType.hammer => _transformHammer(),
+      ModelType.functionGemma => _transformFunctionGemma(),
     };
     return result;
   }
@@ -125,6 +136,24 @@ extension MessageExtension on Message {
     }
     return text;
   }
+
+  String _transformFunctionGemma() {
+    if (isUser) {
+      final content = _formatFunctionGemmaContent();
+      return '$startTurn$userPrefix\n$content$endTurn\n$startTurn$modelPrefix\n';
+    }
+    return '$text$endTurn\n';
+  }
+
+  String _formatFunctionGemmaContent() {
+    // Format tool response in FunctionGemma format
+    if (type == MessageType.toolResponse && toolName != null) {
+      return '$functionGemmaStartResp'
+             'response:$toolName{result:$functionGemmaEscape$text$functionGemmaEscape}'
+             '$functionGemmaEndResp';
+    }
+    return text;
+  }
 }
 
 // Filter class for thinking models
@@ -188,6 +217,7 @@ class ModelThinkingFilter {
       case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
+      case ModelType.functionGemma:
         // For all other models just pass original stream
         // Thinking not supported
         yield* originalStream;
@@ -209,6 +239,7 @@ class ModelThinkingFilter {
       case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
+      case ModelType.functionGemma:
         // For all other models return text without changes
         // Thinking not supported
         return text;
@@ -244,6 +275,7 @@ class ModelThinkingFilter {
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.deepSeek:
+      case ModelType.functionGemma:
         // These models don't use special end tags, just trim whitespace
         return cleaned.trim();
     }

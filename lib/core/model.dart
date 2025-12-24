@@ -5,6 +5,7 @@ enum ModelType {
   qwen,
   llama,
   hammer,
+  functionGemma,
 }
 
 enum ModelFileType {

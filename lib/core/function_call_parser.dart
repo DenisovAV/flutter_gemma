@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 /// Unified parser for function calls in all formats:
@@ -7,15 +9,25 @@ import 'package:flutter_gemma/core/model_response.dart';
 /// - Markdown blocks: ```json\n{"name": ...}\n```
 /// - Tool code blocks: <tool_code>{"name": ...}</tool_code>
 class FunctionCallParser {
-  /// Checks if buffer starts with JSON/function indicators
-  static bool isJsonStart(String buffer) {
+  /// Check if buffer starts with function call indicators
+  /// Uses ModelType for explicit format detection
+  static bool isFunctionCallStart(String buffer, {ModelType? modelType}) {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    return clean.startsWith('{') ||
-        clean.startsWith('```json') ||
-        clean.startsWith('```') ||
-        clean.startsWith('<tool_code>');
+    return switch (modelType) {
+      ModelType.functionGemma => clean.startsWith(functionGemmaStartCall),
+      _ => clean.startsWith('{') ||
+           clean.startsWith('```json') ||
+           clean.startsWith('```') ||
+           clean.startsWith('<tool_code>'),
+    };
+  }
+
+  /// DEPRECATED: Use isFunctionCallStart instead
+  @Deprecated('Use isFunctionCallStart with modelType parameter')
+  static bool isJsonStart(String buffer) {
+    return isFunctionCallStart(buffer);
   }
 
   /// Checks if buffer looks definitely like text (not JSON)
@@ -26,7 +38,7 @@ class FunctionCallParser {
     if (clean.length < 5) return false;
 
     // If it starts with JSON indicators, it's not text
-    if (isJsonStart(buffer)) return false;
+    if (isFunctionCallStart(buffer)) return false;
 
     // If no JSON patterns in first 30 chars, it's text
     final early = clean.length > 30 ? clean.substring(0, 30) : clean;
@@ -35,48 +47,56 @@ class FunctionCallParser {
         !early.contains('<tool');
   }
 
-  /// Checks if JSON structure appears complete
-  static bool isJsonComplete(String buffer) {
+  /// Check if function call structure is complete
+  static bool isFunctionCallComplete(String buffer, {ModelType? modelType}) {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
+    return switch (modelType) {
+      ModelType.functionGemma =>
+          // Complete if has end tag OR if has start tag and ends with }
+          // (stop_token may cut off <end_function_call>)
+          (clean.contains(functionGemmaStartCall) &&
+              clean.contains(functionGemmaEndCall)) ||
+          (clean.contains(functionGemmaStartCall) &&
+              clean.endsWith('}')),
+      _ => _isJsonComplete(clean),
+    };
+  }
+
+  static bool _isJsonComplete(String clean) {
     // Direct JSON: starts with { and ends with }
     if (clean.startsWith('{') && clean.endsWith('}')) {
       return _isBalancedJson(clean);
     }
-
-    // Markdown JSON block: ```json...```
-    if (clean.contains('```json') && clean.endsWith('```')) {
-      return true;
-    }
-
-    // Any markdown block: ```...```
-    if (clean.startsWith('```') &&
-        clean.endsWith('```') &&
-        clean.lastIndexOf('```') > clean.indexOf('```')) {
-      return true;
-    }
-
-    // Tool code block: <tool_code>...</tool_code>
-    if (clean.contains('<tool_code>') && clean.contains('</tool_code>')) {
-      return true;
-    }
-
+    // Markdown/tool_code blocks
+    if (clean.contains('```json') && clean.endsWith('```')) return true;
+    if (clean.contains('<tool_code>') && clean.contains('</tool_code>')) return true;
     return false;
   }
 
-  /// Attempts to parse function call from text in any supported format
-  static FunctionCallResponse? parse(String text) {
+  /// DEPRECATED: Use isFunctionCallComplete instead
+  @Deprecated('Use isFunctionCallComplete with modelType parameter')
+  static bool isJsonComplete(String buffer) {
+    return isFunctionCallComplete(buffer);
+  }
+
+  /// Parse function call based on model type
+  /// Uses explicit ModelType routing - no fallback chains
+  static FunctionCallResponse? parse(String text, {ModelType? modelType}) {
     if (text.trim().isEmpty) return null;
 
     try {
-      // Clean up model response tags
       final content = _cleanModelResponse(text);
 
-      // Try each format in order of specificity
-      return _parseToolCodeBlock(content) ??
-          _parseMarkdownBlock(content) ??
-          _parseDirectJson(content);
+      // Explicit routing by model type using Dart 3 switch expression
+      return switch (modelType) {
+        ModelType.functionGemma => _parseFunctionGemmaCall(content),
+        // All other models use JSON-based formats
+        _ => _parseToolCodeBlock(content) ??
+             _parseMarkdownBlock(content) ??
+             _parseDirectJson(content),
+      };
     } catch (e) {
       debugPrint('FunctionCallParser: Error parsing function call: $e');
       return null;
@@ -182,6 +202,47 @@ class FunctionCallParser {
       debugPrint('FunctionCallParser: Failed to decode JSON: $e');
       return null;
     }
+  }
+
+  /// Parse FunctionGemma format:
+  /// <start_function_call>call:name{param:<escape>value<escape>}<end_function_call>
+  /// Also handles case where <end_function_call> is missing (stop token cuts it off)
+  static FunctionCallResponse? _parseFunctionGemmaCall(String content) {
+    // First try with end tag
+    var regex = RegExp(
+      r'<start_function_call>call:(\w+)\{(.*?)\}<end_function_call>',
+      multiLine: true,
+      dotAll: true,
+    );
+
+    var match = regex.firstMatch(content);
+
+    // If not found, try without end tag (stop_token may cut it off)
+    if (match == null) {
+      regex = RegExp(
+        r'<start_function_call>call:(\w+)\{(.*?)\}',
+        multiLine: true,
+        dotAll: true,
+      );
+      match = regex.firstMatch(content);
+    }
+
+    if (match == null) return null;
+
+    final functionName = match.group(1)!;
+    final paramsStr = match.group(2)!;
+
+    // Parse parameters: param:<escape>value<escape>,param2:<escape>value2<escape>
+    final params = <String, dynamic>{};
+    final paramRegex = RegExp(r'(\w+):<escape>(.*?)<escape>');
+
+    for (final paramMatch in paramRegex.allMatches(paramsStr)) {
+      final key = paramMatch.group(1)!;
+      final value = paramMatch.group(2)!;
+      params[key] = value;
+    }
+
+    return FunctionCallResponse(name: functionName, args: params);
   }
 
   /// Fast check for balanced braces without full JSON parsing

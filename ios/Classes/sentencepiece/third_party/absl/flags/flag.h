@@ -32,7 +32,7 @@ template <typename T>
 class Flag {
  public:
   Flag(const char *name, const char *type, const char *help,
-       const T &defautl_value);
+       const T &default_value);
   virtual ~Flag();
   const T &value() const;
   void set_value(const T &value);
@@ -56,8 +56,8 @@ void SetFlag(Flag<T> *flag, const V &v) {
 
 }  // namespace absl
 
-#define ABSL_FLAG(Type, name, defautl_value, help) \
-  absl::Flag<Type> FLAGS_##name(#name, #Type, help, defautl_value);
+#define ABSL_FLAG(Type, name, default_value, help) \
+  absl::Flag<Type> FLAGS_##name(#name, #Type, help, default_value);
 
 #define ABSL_DECLARE_FLAG(Type, name) extern absl::Flag<Type> FLAGS_##name;
 

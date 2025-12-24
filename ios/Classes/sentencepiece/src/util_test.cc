@@ -66,7 +66,7 @@ TEST(UtilTest, StringViewTest) {
   EXPECT_EQ(0, s.find("", 0));
 }
 
-TEST(UtilTest, EncodePODTet) {
+TEST(UtilTest, EncodePODTest) {
   std::string tmp;
   {
     float v = 0.0;

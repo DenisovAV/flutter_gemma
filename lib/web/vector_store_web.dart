@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'package:flutter_gemma/pigeon.g.dart';
 
 /// JS Interop for SQLiteVectorStore (wa-sqlite WASM)
@@ -112,11 +113,16 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
   /// - documentCount: Total documents
   /// - vectorDimension: Detected dimension (0 if empty)
   Future<VectorStoreStats> getStatsDart() async {
-    final jsStats = await getStats().toDart as JSObject;
+    final jsStats = await getStats().toDart;
+
+    // Use js_interop_unsafe for property access
+    final statsObj = jsStats as JSObject;
+    final docCount = statsObj['documentCount'];
+    final vecDim = statsObj['vectorDimension'];
 
     return VectorStoreStats(
-      documentCount: getProperty<JSNumber>(jsStats, 'documentCount').toDartInt,
-      vectorDimension: getProperty<JSNumber>(jsStats, 'vectorDimension').toDartInt,
+      documentCount: (docCount as JSNumber).toDartInt,
+      vectorDimension: (vecDim as JSNumber).toDartInt,
     );
   }
 
@@ -136,36 +142,13 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
   /// }
   /// ```
   static RetrievalResult _parseRetrievalResult(JSObject jsObj) {
+    final metadata = jsObj['metadata'];
     return RetrievalResult(
-      id: getProperty<JSString>(jsObj, 'id').toDart,
-      content: getProperty<JSString>(jsObj, 'content').toDart,
-      similarity: getProperty<JSNumber>(jsObj, 'similarity').toDartDouble,
-      metadata: _getOptionalString(jsObj, 'metadata'),
+      id: (jsObj['id'] as JSString).toDart,
+      content: (jsObj['content'] as JSString).toDart,
+      similarity: (jsObj['similarity'] as JSNumber).toDartDouble,
+      metadata: metadata.isNull ? null : (metadata as JSString).toDart,
     );
   }
 
-  /// Safely get optional string from JS object
-  ///
-  /// Returns null if key doesn't exist or value is null/undefined
-  static String? _getOptionalString(JSObject jsObj, String key) {
-    final jsValue = getPropertyOrNull(jsObj, key);
-    if (jsValue == null) {
-      return null;
-    }
-    final jsString = jsValue as JSString?;
-    return jsString?.toDart;
-  }
-}
-
-/// Helper functions for JS property access
-T getProperty<T extends JSAny>(JSObject obj, String key) {
-  return (obj as JSAny).getProperty(key.toJS) as T;
-}
-
-JSAny? getPropertyOrNull(JSObject obj, String key) {
-  return (obj as JSAny).getProperty(key.toJS);
-}
-
-extension JSAnyExtension on JSAny {
-  external JSAny? getProperty(JSString property);
 }

@@ -1,0 +1,5 @@
+framework module flutter_gemma {
+  header "SentencePieceWrapper.h"
+
+  export *
+}

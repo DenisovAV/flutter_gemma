@@ -1,6 +1,6 @@
-import { m as R, d as h, s as E, r as b } from "./tensorflow-DAeT7b7x.js";
-import { l as A, a as w, T as S } from "./litert-Chn2-bR6.js";
-import { S as M } from "./sentencepiece-4jJwwFvs.js";
+import { m as R, d as h, s as E, r as b } from "./tensorflow.js";
+import { l as A, a as w, T as S } from "./litert.js";
+import { S as M } from "./sentencepiece.js";
 const k = "task: search result | query: ", T = 2, p = 1, z = 0;
 let c = 256;
 const m = 768;

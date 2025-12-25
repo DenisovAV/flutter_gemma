@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VectorStore Worker Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        pre { background: #f0f0f0; padding: 10px; overflow: auto; }
+    </style>
+</head>
+<body>
+    <h1>VectorStore Worker Test</h1>
+    <div id="output"></div>
+
+    <script type="module">
+        const output = document.getElementById('output');
+
+        function log(msg, isError = false) {
+            const div = document.createElement('div');
+            div.className = isError ? 'fail' : '';
+            div.textContent = msg;
+            output.appendChild(div);
+            console.log(msg);
+        }
+
+        function pass(msg) {
+            const div = document.createElement('div');
+            div.className = 'pass';
+            div.textContent = '✅ ' + msg;
+            output.appendChild(div);
+            console.log('✅', msg);
+        }
+
+        function fail(msg, error) {
+            const div = document.createElement('div');
+            div.className = 'fail';
+            div.textContent = '❌ ' + msg + ': ' + error;
+            output.appendChild(div);
+            console.error('❌', msg, error);
+        }
+
+        async function runTests() {
+            log('Loading SQLiteVectorStore module...');
+
+            // Import the module
+            await import('./sqlite_vector_store.js');
+
+            // Wait for module to load
+            await new Promise(r => setTimeout(r, 500));
+
+            if (!window.SQLiteVectorStore) {
+                fail('Module not loaded', 'SQLiteVectorStore not on window');
+                return;
+            }
+            pass('Module loaded');
+
+            // Create instance
+            const store = new window.SQLiteVectorStore(null);
+            log('Created SQLiteVectorStore instance');
+
+            // Test 1: Initialize
+            try {
+                log('Test 1: Initialize...');
+                await store.initialize('test.db');
+                pass('Initialize');
+            } catch (e) {
+                fail('Initialize', e.message);
+                return;
+            }
+
+            // Test 2: Add document
+            try {
+                log('Test 2: Add document...');
+                const embedding = new Array(768).fill(0).map((_, i) => Math.sin(i * 0.1));
+                await store.addDocument('doc1', 'Test content', embedding, null);
+                pass('Add document');
+            } catch (e) {
+                fail('Add document', e.message);
+                return;
+            }
+
+            // Test 3: Get stats
+            try {
+                log('Test 3: Get stats...');
+                const stats = await store.getStats();
+                log('Stats result: ' + JSON.stringify(stats));
+                if (stats && typeof stats.documentCount === 'number') {
+                    pass('Get stats: ' + stats.documentCount + ' docs, ' + stats.vectorDimension + 'D');
+                } else {
+                    fail('Get stats', 'Invalid stats object: ' + JSON.stringify(stats));
+                }
+            } catch (e) {
+                fail('Get stats', e.message);
+                return;
+            }
+
+            // Test 4: Search similar
+            try {
+                log('Test 4: Search similar...');
+                const queryEmb = new Array(768).fill(0).map((_, i) => Math.sin(i * 0.1));
+                const results = await store.searchSimilar(queryEmb, 5, 0.0);
+                log('Search results: ' + JSON.stringify(results));
+                if (Array.isArray(results) && results.length > 0) {
+                    pass('Search similar: ' + results.length + ' results, top similarity: ' + results[0].similarity.toFixed(4));
+                } else {
+                    fail('Search similar', 'No results returned');
+                }
+            } catch (e) {
+                fail('Search similar', e.message);
+                return;
+            }
+
+            // Test 5: Clear
+            try {
+                log('Test 5: Clear...');
+                await store.clear();
+                const stats = await store.getStats();
+                if (stats.documentCount === 0) {
+                    pass('Clear');
+                } else {
+                    fail('Clear', 'Documents not cleared: ' + stats.documentCount);
+                }
+            } catch (e) {
+                fail('Clear', e.message);
+                return;
+            }
+
+            // Test 6: Close
+            try {
+                log('Test 6: Close...');
+                await store.close();
+                pass('Close');
+            } catch (e) {
+                fail('Close', e.message);
+                return;
+            }
+
+            log('');
+            pass('All tests passed!');
+        }
+
+        runTests().catch(e => {
+            fail('Test runner error', e.message);
+            console.error(e);
+        });
+    </script>
+</body>
+</html>

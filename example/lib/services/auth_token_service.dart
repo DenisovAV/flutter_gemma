@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma_example/constants/app_keys.dart';
 
@@ -26,19 +25,14 @@ class AuthTokenService {
 
     // Priority 1: dart-define (HUGGINGFACE_TOKEN) - always takes precedence
     const envToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
-    debugPrint('[AuthTokenService] dart-define token: ${envToken.isNotEmpty ? "${envToken.substring(0, 5)}..." : "empty"}');
 
     if (envToken.isNotEmpty) {
       await prefs.setString(AppKeys.authToken, envToken);
-      debugPrint('[AuthTokenService] Using dart-define token (saved to SharedPreferences)');
       return envToken;
     }
 
     // Priority 2: SharedPreferences (fallback only if no dart-define)
-    final token = prefs.getString(AppKeys.authToken);
-    debugPrint('[AuthTokenService] SharedPreferences token: ${token != null ? "${token.substring(0, 5)}..." : "null"}');
-    debugPrint('[AuthTokenService] Returning token: ${token != null ? "YES" : "NO"}');
-    return token;
+    return prefs.getString(AppKeys.authToken);
   }
 
   /// Save a HuggingFace authentication token.

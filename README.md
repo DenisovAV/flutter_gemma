@@ -1357,9 +1357,9 @@ final chat = await model.createChat(
 You can fine-tune FunctionGemma for your custom functions using the provided Colab notebooks:
 
 **Pipeline:**
-1. [functiongemma_finetuning.ipynb](https://github.com/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_finetuning.ipynb) - Fine-tune the model on your training data
-2. [functiongemma_to_tflite.ipynb](https://github.com/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_to_tflite.ipynb) - Convert PyTorch → TFLite
-3. [functiongemma_tflite_to_task.ipynb](https://github.com/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_tflite_to_task.ipynb) - Bundle TFLite → MediaPipe `.task`
+1. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_finetuning.ipynb) Fine-tune the model on your training data
+2. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_to_tflite.ipynb) Convert PyTorch → TFLite
+3. [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_tflite_to_task.ipynb) Bundle TFLite → MediaPipe `.task`
 
 **Training Data Format** (`training_data.jsonl`):
 ```json

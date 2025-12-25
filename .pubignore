@@ -31,6 +31,13 @@ web/*.js.map
 # Media files (for README, not needed in package)
 assets/
 colabs/
+training_data/
+
+# IDE files
+*.iml
+
+# Example app model files
+example/assets/models/
 
 # Test files
 test/

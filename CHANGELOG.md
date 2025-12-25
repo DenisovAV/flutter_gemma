@@ -1,3 +1,9 @@
+## 0.11.14
+- 🤖 **FunctionGemma Support**: Added `ModelType.functionGemma` for Google's specialized function calling model
+  - Pre-converted models available on HuggingFace
+  - Fine-tuning Colab notebooks (3-step pipeline)
+- 🐛 **Batch Embeddings Fix**: Fixed type cast issue in platform channel for batch embeddings (#142)
+
 ## 0.11.13
  - ✅ **iOS Embeddings Fix**: XNNPACK + SentencePiece integration for better results on iOS
  - 🌐 **Web CDN**: Modules available via jsDelivr (`@0.11.13/web/*.js`)

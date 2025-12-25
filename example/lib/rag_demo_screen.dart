@@ -115,10 +115,19 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
     final stopwatch = Stopwatch()..start();
 
     try {
-      for (final doc in sampleDocuments) {
-        await FlutterGemmaPlugin.instance.addDocument(
-          id: doc['id']!,
-          content: doc['content']!,
+      // Collect all content texts
+      final contents = sampleDocuments.map((d) => d['content']!).toList();
+
+      // Batch embedding - one call instead of multiple
+      final embeddingModel = FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
+      final embeddings = await embeddingModel.generateEmbeddings(contents);
+
+      // Add documents with pre-computed embeddings
+      for (int i = 0; i < sampleDocuments.length; i++) {
+        await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+          id: sampleDocuments[i]['id']!,
+          content: sampleDocuments[i]['content']!,
+          embedding: embeddings[i],
           metadata: '{"source": "sample"}',
         );
       }

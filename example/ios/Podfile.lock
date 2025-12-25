@@ -2,7 +2,7 @@ PODS:
   - background_downloader (0.0.1):
     - Flutter
   - Flutter (1.0.0)
-  - flutter_gemma (0.11.12):
+  - flutter_gemma (0.11.13):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.24)
     - MediaPipeTasksGenAIC (= 0.10.24)
@@ -79,7 +79,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: dc4a0a5e6bdba4cf05655c08f0fefd552022968a
+  flutter_gemma: 8ed32b19abae2e069095437401f0a2d5ec46c0cb
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   large_file_handler: b37481e9b4972562ffcdc8f75700f47cd592bcec
@@ -92,6 +92,6 @@ SPEC CHECKSUMS:
   TensorFlowLiteSwift: 6de8da348de331778167a0f751ad74c41d8b0554
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
-PODFILE CHECKSUM: e40bdc06774834b7c72a307eba56ffeb505660e1
+PODFILE CHECKSUM: 385352bed6848ade8e0c551cdeb2c2305e05e5bb
 
 COCOAPODS: 1.16.2

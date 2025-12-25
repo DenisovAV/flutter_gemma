@@ -76,6 +76,7 @@ The example app offers a curated list of models, each suited for different tasks
 | **Hammer 2.1** | Lightweight action model for tool usage. | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 1B** | Balanced and efficient text generation. | ✅ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 270M**| Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
+| **FunctionGemma 270M**| Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 0.3GB |
 | **TinyLlama 1.1B**| Extremely compact, general-purpose chat. | ❌ | ❌ | ❌ | English-focused | 1.2GB |
 | **Llama 3.2 1B** | Efficient instruction following | ❌ | ❌ | ❌ | Multilingual | 1.1GB |
 
@@ -90,6 +91,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 | **Qwen** | `ModelType.qwen` | Qwen 2.5 1.5B Instruct |
 | **Llama** | `ModelType.llama` | Llama 3.2 1B, TinyLlama 1.1B |
 | **Hammer** | `ModelType.hammer` | Hammer 2.1 0.5B |
+| **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
 | **Phi / Falcon / StableLM** | `ModelType.general` | Phi-2, Phi-3, Phi-4, Falcon-RW-1B, StableLM-3B |
 
 **Usage Example:**
@@ -1306,6 +1308,81 @@ Future<void> _handleFunctionCall(FunctionCallResponse functionCall) async {
 - Send meaningful responses back to the model
 - The model will only call functions when explicitly requested by the user
 
+### FunctionGemma - Specialized Function Calling Model
+
+[FunctionGemma](https://huggingface.co/google/functiongemma-270m-it) is a specialized 270M parameter model from Google, optimized for function calling on mobile devices.
+
+#### Pre-converted Models
+
+Ready-to-use `.task` files:
+
+| Model | Description | Link |
+|-------|-------------|------|
+| **FunctionGemma 270M IT** | Original Google model | [sasha-denisov/function-gemma-270M-it](https://huggingface.co/sasha-denisov/function-gemma-270M-it) |
+| **FunctionGemma Flutter Demo** | Fine-tuned for example app (`change_background_color`, `change_app_title`, `show_alert`) | [sasha-denisov/functiongemma-flutter-gemma-demo](https://huggingface.co/sasha-denisov/functiongemma-flutter-gemma-demo) |
+
+#### Usage
+
+```dart
+// Install FunctionGemma
+await FlutterGemma.installModel(
+  modelType: ModelType.functionGemma,
+).fromNetwork(
+  'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task',
+).install();
+
+// Create model
+final model = await FlutterGemma.getActiveModel(
+  maxTokens: 1024,
+  preferredBackend: PreferredBackend.gpu,
+);
+
+// Use with function calling
+final chat = await model.createChat(
+  tools: myTools,
+  supportsFunctionCalls: true,
+);
+```
+
+#### Platform Support
+
+| Platform | Status |
+|----------|--------|
+| Android | ✅ Full support |
+| iOS | ✅ Full support |
+| Web | ❌ Not supported yet |
+
+#### Fine-tuning FunctionGemma
+
+You can fine-tune FunctionGemma for your custom functions using the provided Colab notebooks:
+
+**Pipeline:**
+1. [functiongemma_finetuning.ipynb](https://github.com/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_finetuning.ipynb) - Fine-tune the model on your training data
+2. [functiongemma_to_tflite.ipynb](https://github.com/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_to_tflite.ipynb) - Convert PyTorch → TFLite
+3. [functiongemma_tflite_to_task.ipynb](https://github.com/DenisovAV/flutter_gemma/blob/main/colabs/functiongemma_tflite_to_task.ipynb) - Bundle TFLite → MediaPipe `.task`
+
+**Training Data Format** (`training_data.jsonl`):
+```json
+{"user_content": "make it red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "show welcome message", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Welcome\", \"message\": \"Hello!\"}"}
+```
+
+**Requirements:**
+- Google Colab with A100 GPU
+- HuggingFace account with [accepted Gemma license](https://huggingface.co/google/functiongemma-270m-it)
+- HuggingFace token with write access (for uploading)
+
+#### FunctionGemma Format
+
+FunctionGemma uses a special format (different from JSON-based function calling):
+
+**Function Call Output:**
+```
+<start_function_call>call:change_background_color{color:<escape>red<escape>}<end_function_call>
+```
+
+The `flutter_gemma` plugin handles this format automatically via `FunctionCallParser`.
+
 9. **🧠 Thinking Mode (DeepSeek Models)**
 
 DeepSeek models support "thinking mode" where you can see the model's reasoning process before it generates the final response. This provides transparency into how the model approaches problems.
@@ -1523,10 +1600,10 @@ await embeddingModel.close();
 
 Add script tags to your `index.html`:
 ```html
-<!-- Load from jsDelivr CDN (version 0.11.13) -->
-<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.13/web/cache_api.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.13/web/litert_embeddings.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.13/web/sqlite_vector_store.js"></script>
+<!-- Load from jsDelivr CDN (version 0.11.14) -->
+<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/cache_api.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/litert_embeddings.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/sqlite_vector_store.js"></script>
 ```
 
 **Option 2: Build locally (For development or customization)**
@@ -1726,6 +1803,7 @@ chat.generateChatResponseAsync().listen((response) {
 - [Gemma-2 2B](https://huggingface.co/google/gemma-2-2b-it)
 - [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT)
 - [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) - Ultra-compact model
+- [FunctionGemma 270M](https://huggingface.co/google/functiongemma-270m-it) - Specialized function calling model
 - [TinyLlama 1.1B](https://huggingface.co/litert-community/TinyLlama-1.1B-Chat-v1.0) - Lightweight chat model
 - [Hammer 2.1 0.5B](https://huggingface.co/litert-community/Hammer2.1-0.5b) - Action model with function calling
 - [Llama 3.2 1B](https://huggingface.co/litert-community/Llama-3.2-1B-Instruct) - Instruction-tuned model
@@ -1769,6 +1847,7 @@ Function calling is currently supported by the following models:
 
 ### ✅ Models with Function Calling Support
 - **Gemma 3 Nano** models (E2B, E4B) - Full function calling support
+- **FunctionGemma 270M** - Google's specialized function calling model (Android/iOS only)
 - **Hammer 2.1 0.5B** - Action model with strong function calling capabilities
 - **DeepSeek** models - Function calling + thinking mode support
 - **Qwen** models - Full function calling support

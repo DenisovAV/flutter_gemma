@@ -247,8 +247,45 @@ enum Model implements InferenceModelInterface {
     topP: 0.95,
     maxTokens: 4096,
     supportsFunctionCalls: true,
-  );
+  ),
 
+  // === FUNCTIONGEMMA MODELS ===
+
+  // FunctionGemma 270M IT (Base model converted to .task)
+  functionGemma_270M(
+    baseUrl:
+        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task',
+    filename: 'functiongemma-270M-it.task',
+    displayName: 'FunctionGemma 270M IT',
+    size: '284MB',
+    licenseUrl: 'https://huggingface.co/google/functiongemma-270m-it',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.functionGemma,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 1024,
+    supportsFunctionCalls: true,
+  ),
+
+  // FunctionGemma Flutter Demo (Fine-tuned for example app)
+  functionGemma_demo(
+    baseUrl:
+        'https://huggingface.co/sasha-denisov/functiongemma-flutter-gemma-demo/resolve/main/functiongemma-flutter_q8_ekv1024.task',
+    filename: 'functiongemma-flutter_q8_ekv1024.task',
+    displayName: 'FunctionGemma Demo (Fine-tuned)',
+    size: '284MB',
+    licenseUrl: 'https://huggingface.co/sasha-denisov/functiongemma-flutter-gemma-demo',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.functionGemma,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 1024,
+    supportsFunctionCalls: true,
+  );
   // Define fields for the enum
   final String baseUrl;
   final String? webUrl;

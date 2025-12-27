@@ -67,7 +67,7 @@ class InferenceChat {
         !noTool &&
         supportsFunctionCalls) {
       _toolsInstructionSent = true;
-      final toolsPrompt = _createToolsPrompt();
+      final toolsPrompt = createToolsPrompt();
 
       // For FunctionGemma, manually construct the full prompt with turn markers
       // because tools prompt already has developer turn markers
@@ -375,7 +375,10 @@ class InferenceChat {
 
   Future<void> stopGeneration() => session.stopGeneration();
 
-  String _createToolsPrompt() {
+  /// Creates tools prompt based on model type.
+  /// Made package-private for testing.
+  @visibleForTesting
+  String createToolsPrompt() {
     if (tools.isEmpty) {
       return '';
     }
@@ -430,14 +433,33 @@ class InferenceChat {
             final type =
                 (schema['type'] as String?)?.toUpperCase() ?? 'STRING';
             final desc = schema['description'];
-            // Google format: description first, then type
+            final enumValues = schema['enum'] as List<dynamic>?;
+
+            final parts = <String>[];
             if (desc != null) {
-              paramEntries.add(
-                  '$name:{description:$functionGemmaEscape$desc$functionGemmaEscape,type:$functionGemmaEscape$type$functionGemmaEscape}');
-            } else {
-              paramEntries
-                  .add('$name:{type:$functionGemmaEscape$type$functionGemmaEscape}');
+              parts.add(
+                  'description:$functionGemmaEscape$desc$functionGemmaEscape');
             }
+            if (enumValues != null && enumValues.isNotEmpty) {
+              // Validate enum values don't contain FunctionGemma special tokens
+              for (final v in enumValues) {
+                final str = v.toString();
+                if (str.contains('<escape>') ||
+                    str.contains('<start_') ||
+                    str.contains('<end_')) {
+                  throw ArgumentError(
+                    'Enum value "$str" contains FunctionGemma special tokens',
+                  );
+                }
+              }
+              final enumStr = enumValues
+                  .map((v) => '$functionGemmaEscape$v$functionGemmaEscape')
+                  .join(',');
+              parts.add('enum:[$enumStr]');
+            }
+            parts.add('type:$functionGemmaEscape$type$functionGemmaEscape');
+
+            paramEntries.add('$name:{${parts.join(',')}}');
           }
         });
         toolsPrompt.write(paramEntries.join(','));

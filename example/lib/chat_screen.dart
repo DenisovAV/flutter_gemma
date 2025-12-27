@@ -47,13 +47,13 @@ class ChatScreenState extends State<ChatScreen> {
     ),
     const Tool(
       name: 'change_background_color',
-      description:
-          "Changes the background color of the app. The color should be a standard web color name like 'red', 'blue', 'green', 'yellow', 'purple', or 'orange'.",
+      description: 'Changes the background color of the app.',
       parameters: {
         'type': 'object',
         'properties': {
           'color': {
             'type': 'string',
+            'enum': ['red', 'blue', 'green', 'yellow', 'purple', 'orange'],
             'description': 'The color name',
           },
         },

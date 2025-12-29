@@ -62,7 +62,9 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
+    debugPrint('[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
     final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
+    debugPrint('[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
     await _platformService.addQueryChunk(finalPrompt);
     if (message.hasImage && message.imageBytes != null && supportImage) {
       await _addImage(message.imageBytes!);

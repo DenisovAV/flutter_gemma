@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
@@ -36,14 +37,19 @@ const functionGemmaEscape = '<escape>';
 extension MessageExtension on Message {
   String transformToChatPrompt(
       {ModelType type = ModelType.general, ModelFileType fileType = ModelFileType.binary}) {
+    // DEBUG LOG
+    debugPrint('[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
+
     // System messages should not be sent to the model
     if (this.type == MessageType.systemInfo) {
       return '';
     }
 
     // .task files - MediaPipe handles templates, return raw content
-    if (fileType == ModelFileType.task) {
+    // EXCEPT FunctionGemma which needs manual formatting (no prefix/suffix in .task)
+    if (fileType == ModelFileType.task && type != ModelType.functionGemma) {
       final result = _formatToolResponseContent();
+      debugPrint('[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
       return result;
     }
 
@@ -138,6 +144,18 @@ extension MessageExtension on Message {
   }
 
   String _transformFunctionGemma() {
+    // If text already has turn markers (from chat.dart with tools), return as is
+    if (text.startsWith(startTurn)) {
+      return text;
+    }
+
+    // Handle tool response - NO user turn, goes directly after function call
+    // Per FunctionGemma docs: <end_function_call><start_function_response>...
+    if (type == MessageType.toolResponse) {
+      final content = _formatFunctionGemmaContent();
+      return '$content\n$startTurn$modelPrefix\n';
+    }
+
     if (isUser) {
       final content = _formatFunctionGemmaContent();
       return '$startTurn$userPrefix\n$content$endTurn\n$startTurn$modelPrefix\n';

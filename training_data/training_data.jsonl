@@ -282,3 +282,39 @@
 {"user_content": "notify invitation sent", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Invitation\", \"message\": \"Sent\"}"}
 {"user_content": "display group created", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Group\", \"message\": \"Created\"}"}
 {"user_content": "show post published", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Post\", \"message\": \"Published\"}"}
+{"user_content": "change screen color to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "change screen color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "change screen color to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "change screen color to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "change screen color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change screen color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "change the screen color to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "change the screen color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "change the screen color to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "change the screen color to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "change the screen color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change the screen color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "set screen color to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "set screen color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "set screen color to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "set screen color to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "set screen color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "set screen color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "screen color red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "screen color blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "screen color green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "screen color yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "screen color purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "screen color orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "make screen color red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "make screen color blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "make screen color green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "make screen color yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "make screen color purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "make screen color orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "i want screen red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "i want screen blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "i want screen green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "i want screen yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "i want screen purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "i want screen orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}

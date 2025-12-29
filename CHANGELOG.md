@@ -1,3 +1,7 @@
+## 0.11.15
+- 🤖 **FunctionGemma Single-Turn Mode**: FunctionGemma now operates in single-turn mode by design (clears history after each response)
+- 🐛 **Download Resume Fix**: Fixed model download resume after interruption
+
 ## 0.11.14
 - 🤖 **FunctionGemma Support**: Added `ModelType.functionGemma` for Google's specialized function calling model
   - Pre-converted models available on HuggingFace

@@ -42,4 +42,10 @@ export 'mobile/flutter_gemma_mobile.dart'
         // Exceptions
         ModelStorageException;
 
+// Export Desktop implementation (conditionally - only on non-web platforms)
+// Note: Desktop uses MobileModelManager for file management
+export 'desktop/flutter_gemma_desktop.dart'
+    if (dart.library.js_interop) 'desktop/flutter_gemma_desktop_stub.dart'
+    show FlutterGemmaDesktop, isDesktop;
+
 // ModelReplacePolicy is already exported from model_file_manager_interface.dart

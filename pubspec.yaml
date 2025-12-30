@@ -8,6 +8,9 @@ platforms:
   android:
   ios:
   web:
+  macos:
+  windows:
+  linux:
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -24,6 +27,9 @@ dependencies:
   plugin_platform_interface: ^2.0.2
   shared_preferences: ^2.5.2
   background_downloader: ^9.2.3
+  # Desktop gRPC support
+  grpc: ^5.0.0
+  protobuf: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -58,6 +64,12 @@ flutter:
       web:
         pluginClass: FlutterGemmaWeb
         fileName: web/flutter_gemma_web.dart
+      macos:
+        dartPluginClass: FlutterGemmaDesktop
+      windows:
+        dartPluginClass: FlutterGemmaDesktop
+      linux:
+        dartPluginClass: FlutterGemmaDesktop
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:

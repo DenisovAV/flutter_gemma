@@ -27,6 +27,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "=== LiteRT-LM Desktop Setup (Windows) ===" -ForegroundColor Cyan
+Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor Gray
+Write-Host "Working Directory: $(Get-Location)" -ForegroundColor Gray
 
 # Configuration
 $JreVersion = "21.0.5+11"
@@ -57,9 +59,21 @@ $JreChecksums = @{
 $JarName = "litertlm-server.jar"
 $PluginRoot = Split-Path -Parent $PluginDir
 
+Write-Host "Plugin dir: $PluginDir"
 Write-Host "Plugin root: $PluginRoot"
 Write-Host "Output dir: $OutputDir"
+Write-Host "JRE cache dir: $JreCacheDir"
 Write-Host "Architecture: $Arch ($JreArch)"
+
+# Verify paths exist
+Write-Host ""
+Write-Host "Checking paths..." -ForegroundColor Gray
+if (-not (Test-Path $PluginDir)) {
+    Write-Warning "Plugin dir does not exist: $PluginDir"
+}
+if (-not (Test-Path $PluginRoot)) {
+    Write-Warning "Plugin root does not exist: $PluginRoot"
+}
 
 # Create output directories
 # Note: JAR goes to data/ subdirectory to match Dart path expectations
@@ -140,8 +154,12 @@ function Install-Jre {
 
 # === Copy JAR ===
 function Copy-Jar {
+    Write-Host ""
+    Write-Host "=== Checking for JAR file ===" -ForegroundColor Gray
+
     # JAR goes to data/ subdirectory to match Dart path expectations
     $jarDest = "$OutputDir\data\$JarName"
+    Write-Host "JAR destination: $jarDest"
 
     if (Test-Path $jarDest) {
         Write-Host "JAR already in output directory" -ForegroundColor Green
@@ -156,19 +174,26 @@ function Copy-Jar {
 
     # Dynamically find fat JAR in build directory (version-agnostic)
     $gradleLibsDir = "$PluginRoot\litertlm-server\build\libs"
+    Write-Host "Gradle libs dir: $gradleLibsDir (exists: $(Test-Path $gradleLibsDir))"
+
     if (Test-Path $gradleLibsDir) {
         $fatJars = Get-ChildItem -Path $gradleLibsDir -Filter "*-all.jar" -ErrorAction SilentlyContinue |
                    Sort-Object LastWriteTime -Descending
         if ($fatJars) {
+            Write-Host "Found fat JAR: $($fatJars[0].FullName)"
             $jarLocations += $fatJars[0].FullName
+        } else {
+            Write-Host "No *-all.jar files found in gradle libs dir" -ForegroundColor Yellow
         }
     }
 
+    Write-Host "Searching JAR in locations:"
     $jarSource = $null
     foreach ($location in $jarLocations) {
-        if (Test-Path $location) {
+        $exists = Test-Path $location
+        Write-Host "  $location (exists: $exists)"
+        if ($exists -and -not $jarSource) {
             $jarSource = $location
-            break
         }
     }
 
@@ -178,8 +203,11 @@ function Copy-Jar {
         Write-Host "JAR copied successfully" -ForegroundColor Green
         return $true
     } else {
-        Write-Error "JAR not found! Build the server first:"
-        Write-Error "  cd $PluginRoot\litertlm-server && .\gradlew.bat fatJar"
+        Write-Host ""
+        Write-Host "ERROR: JAR not found!" -ForegroundColor Red
+        Write-Host "Build the server first:" -ForegroundColor Red
+        Write-Host "  cd $PluginRoot\litertlm-server" -ForegroundColor Yellow
+        Write-Host "  .\gradlew.bat fatJar" -ForegroundColor Yellow
         return $false
     }
 }
@@ -239,24 +267,50 @@ function Extract-Natives {
 }
 
 # === Main ===
+Write-Host ""
+Write-Host "=== Starting setup ===" -ForegroundColor Cyan
+
 try {
+    Write-Host ""
+    Write-Host "Step 1: Installing JRE..." -ForegroundColor Gray
     Install-Jre
 
+    Write-Host ""
+    Write-Host "Step 2: Copying JAR..." -ForegroundColor Gray
     $jarCopied = Copy-Jar
     if (-not $jarCopied) {
-        Write-Error "Build cannot continue without JAR file"
+        Write-Host ""
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "BUILD FAILED: JAR file not found!" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "The litertlm-server.jar is required for desktop builds."
+        Write-Host "Please build it first by running:"
+        Write-Host ""
+        Write-Host "  cd <flutter_gemma_plugin>/litertlm-server" -ForegroundColor Yellow
+        Write-Host "  .\gradlew.bat fatJar" -ForegroundColor Yellow
+        Write-Host ""
         exit 1
     }
 
+    Write-Host ""
+    Write-Host "Step 3: Extracting native libraries..." -ForegroundColor Gray
     Extract-Natives
 
     Write-Host ""
-    Write-Host "=== Setup complete ===" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Green
+    Write-Host "=== Setup complete ===" -ForegroundColor Green
+    Write-Host "========================================" -ForegroundColor Green
     Write-Host "JRE: $OutputDir\jre"
     Write-Host "JAR: $OutputDir\data\$JarName"
     Write-Host "Natives: $OutputDir\litertlm"
 
 } catch {
-    Write-Error "Setup failed: $_"
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "SETUP FAILED!" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "Error: $_" -ForegroundColor Red
+    Write-Host "Stack trace: $($_.ScriptStackTrace)" -ForegroundColor Gray
     exit 1
 }

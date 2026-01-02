@@ -16,8 +16,7 @@ class ServerProcessManager {
   }
 
   Process? _serverProcess;
-  final int _defaultPort = 50051;
-  int _currentPort = 50051;
+  int _currentPort = 0;
   bool _isStarting = false;
   Completer<void>? _startCompleter;
   bool _cleanupRegistered = false;
@@ -49,12 +48,25 @@ class ServerProcessManager {
   /// Whether server is running
   bool get isRunning => _serverProcess != null;
 
+  /// Find a free port for the gRPC server
+  ///
+  /// Binds to port 0 which lets the OS allocate an available port,
+  /// then returns that port number. This ensures multiple apps can
+  /// run simultaneously without port conflicts.
+  Future<int> _findFreePort() async {
+    final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final port = server.port;
+    await server.close();
+    debugPrint('[ServerProcessManager] Found free port: $port');
+    return port;
+  }
+
   /// Start the gRPC server
   ///
   /// Returns when server is ready to accept connections.
   /// If already running, returns immediately.
   ///
-  /// [port] - gRPC server port (default: 50051)
+  /// [port] - gRPC server port (default: auto-detect free port)
   /// [maxHeapMb] - Maximum JVM heap size in MB (default: auto-detect, max 4096)
   Future<void> start({int? port, int? maxHeapMb}) async {
     if (_serverProcess != null) {
@@ -69,7 +81,7 @@ class ServerProcessManager {
 
     _isStarting = true;
     _startCompleter = Completer<void>();
-    _currentPort = port ?? _defaultPort;
+    _currentPort = port ?? await _findFreePort();
 
     try {
       final javaPath = await _findJava();

@@ -65,6 +65,7 @@ flutter:
         pluginClass: FlutterGemmaWeb
         fileName: web/flutter_gemma_web.dart
       macos:
+        pluginClass: FlutterGemmaPlugin
         dartPluginClass: FlutterGemmaDesktop
       windows:
         dartPluginClass: FlutterGemmaDesktop

@@ -56,7 +56,12 @@ $JreChecksums = @{
     "aarch64" = "2f689ae673479c87f07daf6b7729de022a5fc415d3304ed4d25031eac0b9ce42"
 }
 
+# JAR settings
 $JarName = "litertlm-server.jar"
+$JarVersion = "0.11.16"
+$JarUrl = "https://github.com/DenisovAV/flutter_gemma/releases/download/v$JarVersion/$JarName"
+$JarChecksum = "914b9d2526b5673eb810a6080bbc760e537322aaee8e19b9cd49609319cfbdc8"
+$JarCacheDir = "$env:LOCALAPPDATA\flutter_gemma\jar"
 $PluginRoot = Split-Path -Parent $PluginDir
 
 Write-Host "Plugin dir: $PluginDir"
@@ -152,10 +157,10 @@ function Install-Jre {
     Write-Host "JRE installed successfully" -ForegroundColor Green
 }
 
-# === Copy JAR ===
-function Copy-Jar {
+# === Download and install JAR ===
+function Download-Jar {
     Write-Host ""
-    Write-Host "=== Checking for JAR file ===" -ForegroundColor Gray
+    Write-Host "=== Setting up JAR ===" -ForegroundColor Gray
 
     # JAR goes to data/ subdirectory to match Dart path expectations
     $jarDest = "$OutputDir\data\$JarName"
@@ -163,49 +168,47 @@ function Copy-Jar {
 
     if (Test-Path $jarDest) {
         Write-Host "JAR already in output directory" -ForegroundColor Green
-        return $true
+        return
     }
 
-    # Check possible JAR locations (static paths first)
-    $jarLocations = @(
-        "$PluginDir\Resources\$JarName",
-        "$PluginRoot\Resources\$JarName"
-    )
+    Write-Host "Setting up LiteRT-LM Server JAR..."
+    New-Item -ItemType Directory -Force -Path $JarCacheDir | Out-Null
 
-    # Dynamically find fat JAR in build directory (version-agnostic)
-    $gradleLibsDir = "$PluginRoot\litertlm-server\build\libs"
-    Write-Host "Gradle libs dir: $gradleLibsDir (exists: $(Test-Path $gradleLibsDir))"
+    $cachedJar = "$JarCacheDir\$JarName"
 
-    if (Test-Path $gradleLibsDir) {
-        $fatJars = Get-ChildItem -Path $gradleLibsDir -Filter "*-all.jar" -ErrorAction SilentlyContinue |
-                   Sort-Object LastWriteTime -Descending
-        if ($fatJars) {
-            Write-Host "Found fat JAR: $($fatJars[0].FullName)"
-            $jarLocations += $fatJars[0].FullName
-        } else {
-            Write-Host "No *-all.jar files found in gradle libs dir" -ForegroundColor Yellow
+    # Download if not cached
+    if (-not (Test-Path $cachedJar)) {
+        Write-Host "Downloading JAR from $JarUrl..."
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            $ProgressPreference = 'Continue'
+            Invoke-WebRequest -Uri $JarUrl -OutFile $cachedJar -UseBasicParsing
+        } catch {
+            Write-Error "Failed to download JAR: $_"
+            Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
+            exit 1
         }
-    }
 
-    Write-Host "Searching JAR in locations:"
-    $jarSource = $null
-    foreach ($location in $jarLocations) {
-        $exists = Test-Path $location
-        Write-Host "  $location (exists: $exists)"
-        if ($exists -and -not $jarSource) {
-            $jarSource = $location
+        # Verify checksum
+        if ($JarChecksum) {
+            Write-Host "Verifying checksum..."
+            $actualChecksum = (Get-FileHash -Path $cachedJar -Algorithm SHA256).Hash.ToLower()
+            if ($actualChecksum -ne $JarChecksum.ToLower()) {
+                Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
+                Write-Error "JAR checksum mismatch! Expected: $JarChecksum, Got: $actualChecksum"
+                exit 1
+            }
+            Write-Host "Checksum verified" -ForegroundColor Green
         }
-    }
-
-    if ($jarSource) {
-        Write-Host "Copying JAR from $jarSource..."
-        Copy-Item -Path $jarSource -Destination $jarDest -Force
-        Write-Host "JAR copied successfully" -ForegroundColor Green
-        return $true
     } else {
-        Write-Host "JAR not found in any location" -ForegroundColor Yellow
-        return $false
+        Write-Host "Using cached JAR" -ForegroundColor Green
     }
+
+    # Copy to output directory
+    Write-Host "Copying JAR to output..."
+    Copy-Item -Path $cachedJar -Destination $jarDest -Force
+
+    Write-Host "JAR installed successfully" -ForegroundColor Green
 }
 
 # === Extract native libraries ===
@@ -272,23 +275,8 @@ try {
     Install-Jre
 
     Write-Host ""
-    Write-Host "Step 2: Copying JAR..." -ForegroundColor Gray
-    $jarCopied = Copy-Jar
-    if (-not $jarCopied) {
-        Write-Host ""
-        Write-Host "========================================" -ForegroundColor Yellow
-        Write-Host "WARNING: JAR file not found!" -ForegroundColor Yellow
-        Write-Host "========================================" -ForegroundColor Yellow
-        Write-Host ""
-        Write-Host "The litertlm-server.jar is required for desktop runtime."
-        Write-Host "The app will build but won't work without it."
-        Write-Host ""
-        Write-Host "To build the JAR, run:"
-        Write-Host "  cd <flutter_gemma_plugin>/litertlm-server" -ForegroundColor Yellow
-        Write-Host "  .\gradlew.bat fatJar" -ForegroundColor Yellow
-        Write-Host ""
-        # Don't fail build - JAR is needed at runtime, not build time
-    }
+    Write-Host "Step 2: Downloading JAR..." -ForegroundColor Gray
+    Download-Jar
 
     Write-Host ""
     Write-Host "Step 3: Extracting native libraries..." -ForegroundColor Gray

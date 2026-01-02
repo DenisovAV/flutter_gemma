@@ -330,16 +330,24 @@ export LD_LIBRARY_PATH=/path/to/app/lib/litertlm:$LD_LIBRARY_PATH
 
 ---
 
-## Building the LiteRT-LM Server
+## LiteRT-LM Server JAR
 
-The server JAR must be built before the first app run.
+The server JAR (~115MB) is **automatically downloaded** during the first build. No manual steps required!
 
-### Prerequisites
+The JAR is cached in:
+- **macOS**: `~/Library/Caches/flutter_gemma/jar/`
+- **Windows**: `%LOCALAPPDATA%\flutter_gemma\jar\`
 
-- JDK 17+ (for building, not just running)
-- Gradle 8.0+ (wrapper included)
+### What's Inside
 
-### Build Commands
+The JAR includes:
+- Kotlin runtime
+- gRPC libraries
+- LiteRT-LM JVM SDK with bundled native libraries for all platforms
+
+### Manual Build (For Development Only)
+
+If you're modifying the server, you can build it manually:
 
 ```bash
 cd flutter_gemma/litertlm-server
@@ -351,16 +359,7 @@ cd flutter_gemma/litertlm-server
 .\gradlew.bat fatJar
 ```
 
-### Output
-
-```
-litertlm-server/build/libs/litertlm-server-0.1.0-all.jar (~115MB)
-```
-
-This "fat JAR" includes:
-- Kotlin runtime
-- gRPC libraries
-- LiteRT-LM JVM SDK with bundled native libraries
+Prerequisites: JDK 21+, Gradle 8.0+ (wrapper included)
 
 ### Server Startup
 

@@ -53,7 +53,12 @@ JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-${
 JRE_CHECKSUM_AARCH64="12249a1c5386957c93fc372260c483ae921b1ec6248a5136725eabd0abc07f93"
 JRE_CHECKSUM_X64="0e0dcb571f7bf7786c111fe066932066d9eab080c9f86d8178da3e564324ee81"
 
+# JAR settings
 JAR_NAME="litertlm-server.jar"
+JAR_VERSION="0.11.16"
+JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
+JAR_CHECKSUM="914b9d2526b5673eb810a6080bbc760e537322aaee8e19b9cd49609319cfbdc8"
+JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"
 
 echo "Plugin root: $PLUGIN_ROOT"
 echo "Resources: $RESOURCES_DIR"
@@ -137,8 +142,8 @@ download_jre() {
     echo "JRE installed successfully"
 }
 
-# === Copy JAR ===
-copy_jar() {
+# === Download and install JAR ===
+download_jar() {
     local jar_dest="$RESOURCES_DIR/$JAR_NAME"
 
     if [[ -f "$jar_dest" ]]; then
@@ -146,39 +151,43 @@ copy_jar() {
         return 0
     fi
 
-    # Check in plugin Resources first
-    local jar_source=""
-    if [[ -f "$PODS_ROOT/Resources/$JAR_NAME" ]]; then
-        jar_source="$PODS_ROOT/Resources/$JAR_NAME"
-    fi
+    echo "Setting up LiteRT-LM Server JAR..."
+    mkdir -p "$JAR_CACHE_DIR"
 
-    # Check in litertlm-server build (version-agnostic using glob)
-    if [[ -z "$jar_source" ]]; then
-        local gradle_libs_dir="$PLUGIN_ROOT/litertlm-server/build/libs"
-        if [[ -d "$gradle_libs_dir" ]]; then
-            # Find latest fat JAR (version-agnostic)
-            local fat_jar
-            fat_jar=$(ls -t "$gradle_libs_dir"/*-all.jar 2>/dev/null | head -n1)
-            if [[ -n "$fat_jar" && -f "$fat_jar" ]]; then
-                jar_source="$fat_jar"
-            fi
+    local cached_jar="$JAR_CACHE_DIR/$JAR_NAME"
+
+    # Download if not cached
+    if [[ ! -f "$cached_jar" ]]; then
+        echo "Downloading JAR from $JAR_URL..."
+        if ! curl -L -o "$cached_jar" "$JAR_URL" --fail --retry 3 --progress-bar; then
+            echo "ERROR: Failed to download JAR"
+            rm -f "$cached_jar"
+            exit 1
         fi
+
+        # Verify checksum
+        if [[ -n "$JAR_CHECKSUM" ]]; then
+            echo "Verifying checksum..."
+            local actual_checksum
+            actual_checksum=$(shasum -a 256 "$cached_jar" | awk '{print $1}')
+            if [[ "$actual_checksum" != "$JAR_CHECKSUM" ]]; then
+                rm -f "$cached_jar"
+                echo "ERROR: JAR checksum mismatch!"
+                echo "  Expected: $JAR_CHECKSUM"
+                echo "  Got: $actual_checksum"
+                exit 1
+            fi
+            echo "Checksum verified"
+        fi
+    else
+        echo "Using cached JAR"
     fi
 
-    if [[ -n "$jar_source" && -f "$jar_source" ]]; then
-        echo "Copying JAR from $jar_source..."
-        cp "$jar_source" "$jar_dest"
-        echo "JAR copied successfully"
-        return 0
-    else
-        echo "ERROR: JAR not found!"
-        echo "  Expected at: $PODS_ROOT/Resources/$JAR_NAME"
-        echo "  Or at: $PLUGIN_ROOT/litertlm-server/build/libs/*-all.jar"
-        echo ""
-        echo "Build the server first:"
-        echo "  cd $PLUGIN_ROOT/litertlm-server && ./gradlew fatJar"
-        return 1
-    fi
+    # Copy to app bundle
+    echo "Copying JAR to app bundle..."
+    cp "$cached_jar" "$jar_dest"
+
+    echo "JAR installed successfully"
 }
 
 # === Extract and sign native libraries ===
@@ -316,12 +325,7 @@ ENTITLEMENTS
 
 # Run setup
 download_jre
-
-if ! copy_jar; then
-    echo "ERROR: Build cannot continue without JAR file"
-    exit 1
-fi
-
+download_jar
 extract_natives
 remove_quarantine
 sign_jre

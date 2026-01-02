@@ -1,5 +1,6 @@
 #!/bin/bash
 # LiteRT-LM Desktop Setup Script for Flutter Gemma Plugin
+# Version: 0.11.14
 # Downloads JRE, copies JAR, extracts natives, and signs for macOS sandbox
 #
 # Usage: setup_desktop.sh <PODS_TARGET_SRCROOT> <FRAMEWORKS_PATH>
@@ -7,7 +8,7 @@
 
 set -e
 
-echo "=== LiteRT-LM Desktop Setup ==="
+echo "=== LiteRT-LM Desktop Setup (macOS) ==="
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PODS_ROOT="${1:-$SCRIPT_DIR/..}"
@@ -32,7 +33,8 @@ FRAMEWORKS_DIR="$FRAMEWORKS_PATH"
 
 # JRE settings
 JRE_VERSION="21.0.5+11"
-JRE_CACHE_DIR="$HOME/.cache/flutter_gemma/jre"
+# Use macOS standard cache location (~/Library/Caches per Apple guidelines)
+JRE_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jre"
 JRE_DEST="$RESOURCES_DIR/jre"
 
 # Detect architecture
@@ -45,6 +47,11 @@ fi
 
 JRE_ARCHIVE="OpenJDK21U-jre_${JRE_ARCH}_mac_hotspot_${JRE_VERSION/+/_}.tar.gz"
 JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-${JRE_VERSION}/${JRE_ARCHIVE}"
+
+# SHA256 checksums from Adoptium (https://adoptium.net/temurin/releases/)
+declare -A JRE_CHECKSUMS
+JRE_CHECKSUMS["aarch64"]="7d8c63c67ad61c5d270e9d977bfa5e2dc79a5166e5e8460413ee56e91cac02f8"
+JRE_CHECKSUMS["x64"]="328fb6cfa3b7bdc010e6bcad8e5bf62e44cd4e0b3e3a541b6e6bc3e5a6384c44"
 
 JAR_NAME="litertlm-server.jar"
 
@@ -59,7 +66,10 @@ mkdir -p "$FRAMEWORKS_DIR"
 
 # === Download and install JRE ===
 download_jre() {
-    if [[ -f "$JRE_DEST/bin/java" ]]; then
+    local jre_marker="$JRE_DEST/.jre_installed"
+
+    # Check for marker file to detect complete installation
+    if [[ -f "$jre_marker" ]]; then
         echo "JRE already installed in app bundle"
         return 0
     fi
@@ -69,25 +79,55 @@ download_jre() {
 
     local archive="$JRE_CACHE_DIR/$JRE_ARCHIVE"
     local extracted="$JRE_CACHE_DIR/jdk-${JRE_VERSION}-jre"
+    local extraction_marker="$extracted/.extracted"
 
     # Download if not cached
     if [[ ! -f "$archive" ]]; then
         echo "Downloading JRE from $JRE_URL..."
-        curl -L -o "$archive" "$JRE_URL"
+        if ! curl -L -o "$archive" "$JRE_URL" --fail --retry 3 --progress-bar; then
+            echo "ERROR: Failed to download JRE"
+            rm -f "$archive"  # Remove partial download
+            exit 1
+        fi
+
+        # Verify checksum
+        local expected_checksum="${JRE_CHECKSUMS[$JRE_ARCH]}"
+        if [[ -n "$expected_checksum" ]]; then
+            echo "Verifying checksum..."
+            local actual_checksum
+            actual_checksum=$(shasum -a 256 "$archive" | awk '{print $1}')
+            if [[ "$actual_checksum" != "$expected_checksum" ]]; then
+                rm -f "$archive"
+                echo "ERROR: JRE checksum mismatch!"
+                echo "  Expected: $expected_checksum"
+                echo "  Got: $actual_checksum"
+                exit 1
+            fi
+            echo "Checksum verified"
+        else
+            echo "WARNING: Checksum not available for $JRE_ARCH, skipping verification"
+        fi
     else
         echo "Using cached JRE archive"
     fi
 
-    # Extract if needed
-    if [[ ! -d "$extracted" ]]; then
+    # Extract if needed (check marker file, not just directory existence)
+    if [[ ! -f "$extraction_marker" ]]; then
         echo "Extracting JRE..."
+        # Remove partial extraction if exists
+        rm -rf "$extracted"
         tar -xzf "$archive" -C "$JRE_CACHE_DIR"
+        # Mark extraction complete
+        touch "$extraction_marker"
     fi
 
     # Copy to app bundle
     echo "Copying JRE to app bundle..."
     mkdir -p "$JRE_DEST"
     cp -R "$extracted/Contents/Home/"* "$JRE_DEST/"
+
+    # Create marker file to indicate complete installation
+    touch "$jre_marker"
 
     echo "JRE installed successfully"
 }
@@ -141,12 +181,13 @@ extract_natives() {
     local NATIVES_DIR="$FRAMEWORKS_DIR/litertlm"
 
     # Detect architecture for native library path
-    local NATIVE_PATH
+    local NATIVE_ARCH
     if [[ "$ARCH" == "arm64" ]]; then
-        NATIVE_PATH="com/google/ai/edge/litertlm/jni/darwin-aarch64/liblitertlm_jni.so"
+        NATIVE_ARCH="darwin-aarch64"
     else
-        NATIVE_PATH="com/google/ai/edge/litertlm/jni/darwin-x86_64/liblitertlm_jni.so"
+        NATIVE_ARCH="darwin-x86_64"
     fi
+    local NATIVE_PATH="com/google/ai/edge/litertlm/jni/$NATIVE_ARCH"
 
     local jar_path="$RESOURCES_DIR/$JAR_NAME"
 
@@ -155,23 +196,57 @@ extract_natives() {
         return 0
     fi
 
+    echo "Extracting native libraries from JAR..."
+    echo "  Native path: $NATIVE_PATH"
+
     # Create natives directory
     mkdir -p "$NATIVES_DIR"
 
-    # Extract native library from JAR
-    echo "Extracting native library from JAR..."
-    unzip -o -j "$jar_path" "$NATIVE_PATH" -d "$NATIVES_DIR" 2>/dev/null || {
-        echo "WARNING: Could not extract native library (may not exist for this architecture)"
+    # Extract to temp directory first (for path traversal protection)
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    trap "rm -rf '$temp_dir'" EXIT
+
+    # Extract native libraries from JAR
+    unzip -o "$jar_path" "$NATIVE_PATH/*" -d "$temp_dir" 2>/dev/null || {
+        echo "WARNING: Could not extract native libraries (may not exist for this architecture)"
+        rm -rf "$temp_dir"
         return 0
     }
 
-    # Remove quarantine and sign
-    if [[ -f "$NATIVES_DIR/liblitertlm_jni.so" ]]; then
-        echo "Signing native library..."
-        xattr -r -d com.apple.quarantine "$NATIVES_DIR/liblitertlm_jni.so" 2>/dev/null || true
-        codesign --force --sign - "$NATIVES_DIR/liblitertlm_jni.so"
-        echo "Native library extracted and signed: $NATIVES_DIR/liblitertlm_jni.so"
+    # Validate and copy only .so/.dylib files from expected location (path traversal protection)
+    local extracted_dir="$temp_dir/$NATIVE_PATH"
+    if [[ -d "$extracted_dir" ]]; then
+        local allowed_path
+        allowed_path=$(cd "$extracted_dir" && pwd)
+
+        find "$extracted_dir" -type f \( -name "*.so" -o -name "*.dylib" \) | while read -r file; do
+            local resolved_path
+            resolved_path=$(cd "$(dirname "$file")" && pwd)/$(basename "$file")
+
+            # Validate path is within expected directory (prevent path traversal)
+            if [[ "$resolved_path" == "$allowed_path"/* ]]; then
+                cp "$file" "$NATIVES_DIR/"
+                local filename
+                filename=$(basename "$file")
+                echo "  Extracted: $filename"
+
+                # Remove quarantine and sign
+                xattr -r -d com.apple.quarantine "$NATIVES_DIR/$filename" 2>/dev/null || true
+                codesign --force --sign - "$NATIVES_DIR/$filename"
+            else
+                echo "WARNING: Skipping suspicious path: $resolved_path"
+            fi
+        done
+    else
+        echo "WARNING: Native libraries not found in JAR at path: $NATIVE_PATH"
     fi
+
+    # Cleanup
+    rm -rf "$temp_dir"
+    trap - EXIT
+
+    echo "Native libraries extracted and signed"
 }
 
 # === Remove quarantine (for development) ===

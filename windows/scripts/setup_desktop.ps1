@@ -50,8 +50,8 @@ $JreUrl = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-
 
 # SHA256 checksums from Adoptium (https://adoptium.net/temurin/releases/)
 $JreChecksums = @{
-    "x64" = "cb4a8a778a69aa8e5b95d1a8c7e0d60a0ad2cba005e3f4a9b25a3c33b7986b3e"
-    "aarch64" = ""  # ARM64 Windows JRE checksum - add when available
+    "x64" = "1749b36cfac273cee11802bf3e90caada5062de6a3fef1a3814c0568b25fd654"
+    "aarch64" = "2f689ae673479c87f07daf6b7729de022a5fc415d3304ed4d25031eac0b9ce42"
 }
 
 $JarName = "litertlm-server.jar"

@@ -49,9 +49,9 @@ JRE_ARCHIVE="OpenJDK21U-jre_${JRE_ARCH}_mac_hotspot_${JRE_VERSION/+/_}.tar.gz"
 JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-${JRE_VERSION}/${JRE_ARCHIVE}"
 
 # SHA256 checksums from Adoptium (https://adoptium.net/temurin/releases/)
-declare -A JRE_CHECKSUMS
-JRE_CHECKSUMS["aarch64"]="7d8c63c67ad61c5d270e9d977bfa5e2dc79a5166e5e8460413ee56e91cac02f8"
-JRE_CHECKSUMS["x64"]="328fb6cfa3b7bdc010e6bcad8e5bf62e44cd4e0b3e3a541b6e6bc3e5a6384c44"
+# Note: Using simple variables instead of associative arrays for bash 3.x compatibility (macOS default)
+JRE_CHECKSUM_AARCH64="12249a1c5386957c93fc372260c483ae921b1ec6248a5136725eabd0abc07f93"
+JRE_CHECKSUM_X64="0e0dcb571f7bf7786c111fe066932066d9eab080c9f86d8178da3e564324ee81"
 
 JAR_NAME="litertlm-server.jar"
 
@@ -90,8 +90,13 @@ download_jre() {
             exit 1
         fi
 
-        # Verify checksum
-        local expected_checksum="${JRE_CHECKSUMS[$JRE_ARCH]}"
+        # Verify checksum (using simple variables for bash 3.x compatibility)
+        local expected_checksum=""
+        if [[ "$JRE_ARCH" == "aarch64" ]]; then
+            expected_checksum="$JRE_CHECKSUM_AARCH64"
+        else
+            expected_checksum="$JRE_CHECKSUM_X64"
+        fi
         if [[ -n "$expected_checksum" ]]; then
             echo "Verifying checksum..."
             local actual_checksum
@@ -179,6 +184,13 @@ copy_jar() {
 # === Extract and sign native libraries ===
 extract_natives() {
     local NATIVES_DIR="$FRAMEWORKS_DIR/litertlm"
+    local natives_marker="$NATIVES_DIR/.natives_installed"
+
+    # Check if already extracted and signed
+    if [[ -f "$natives_marker" ]]; then
+        echo "Native libraries already installed"
+        return 0
+    fi
 
     # Detect architecture for native library path
     local NATIVE_ARCH
@@ -199,7 +211,8 @@ extract_natives() {
     echo "Extracting native libraries from JAR..."
     echo "  Native path: $NATIVE_PATH"
 
-    # Create natives directory
+    # Create natives directory (remove old signed files if exist)
+    rm -rf "$NATIVES_DIR"
     mkdir -p "$NATIVES_DIR"
 
     # Extract to temp directory first (for path traversal protection)
@@ -245,6 +258,9 @@ extract_natives() {
     # Cleanup
     rm -rf "$temp_dir"
     trap - EXIT
+
+    # Create marker file to indicate complete installation
+    touch "$natives_marker"
 
     echo "Native libraries extracted and signed"
 }

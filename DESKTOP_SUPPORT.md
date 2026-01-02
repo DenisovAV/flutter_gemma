@@ -63,10 +63,10 @@ Desktop support uses a different architecture than mobile platforms:
 
 > **⚠️ Important: Model Format**
 >
-> Desktop platforms use **LiteRT-LM format only** (`.task` files from AI Edge).
-> MediaPipe `.bin` models used on mobile/web are **NOT compatible** with desktop.
+> Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
+> MediaPipe `.bin` and `.task` models used on mobile/web are **NOT compatible** with desktop.
 >
-> Supported models must be in LiteRT-LM task format. See [AI Edge Model Garden](https://ai.google.dev/edge/litert/models) for compatible models.
+> Supported models must be in LiteRT-LM format. See [AI Edge Model Garden](https://ai.google.dev/edge/litert/models) for compatible models.
 
 ---
 
@@ -77,6 +77,7 @@ Desktop support uses a different architecture than mobile platforms:
 | macOS | arm64 (Apple Silicon) | Metal | ✅ Ready |
 | macOS | x86_64 (Intel) | Metal | ✅ Ready |
 | Windows | x86_64 | DirectX 12 | ✅ Ready |
+| Windows | arm64 | DirectX 12 | ✅ Ready |
 | Linux | x86_64 | OpenCL | 🚧 Planned |
 | Linux | arm64 | OpenCL | 🚧 Planned |
 
@@ -89,7 +90,7 @@ Desktop support uses a different architecture than mobile platforms:
 - **Flutter**: 3.24.0 or higher
 - **Dart**: 3.4.0 or higher
 - **Java Runtime**: JRE 17+ (automatically downloaded if not present)
-- **Model Format**: LiteRT-LM `.task` files only (MediaPipe `.bin` not supported)
+- **Model Format**: LiteRT-LM `.litertlm` files only (MediaPipe `.bin`/`.task` not supported)
 
 ### macOS
 

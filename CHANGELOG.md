@@ -1,3 +1,6 @@
+## 0.11.16
+- 🐛 **iOS Embeddings Fix**: Fix crash on repeated embedding inference (#155)
+
 ## 0.11.15
 - 🤖 **FunctionGemma Single-Turn Mode**: FunctionGemma now operates in single-turn mode by design (clears history after each response)
 - 🐛 **Download Resume Fix**: Fixed model download resume after interruption

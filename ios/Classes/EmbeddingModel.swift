@@ -50,9 +50,10 @@ class EmbeddingModel {
         var options = Interpreter.Options()
         options.threadCount = 4 // Optimize for mobile performance
 
-        // Enable XNNPACK for native FP16 support on A11+ devices
-        // This gives results matching Web LiteRT which also uses native FP16
-        options.isXNNPackEnabled = true
+        // XNNPACK disabled for embeddings - causes crashes on repeated inference
+        // Speed difference is negligible (~30-80ms vs ~10-30ms with XNNPACK)
+        // See: https://github.com/DenisovAV/flutter_gemma/issues/155
+        options.isXNNPackEnabled = false
 
         // Note: Select TF Ops should be automatically available when TensorFlowLiteSelectTfOps is linked
 

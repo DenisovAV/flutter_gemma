@@ -61,6 +61,13 @@ Desktop support uses a different architecture than mobile platforms:
 - Direct FFI binding not possible (Kotlin/JNI layers)
 - gRPC provides efficient, typed IPC with streaming support
 
+> **⚠️ Important: Model Format**
+>
+> Desktop platforms use **LiteRT-LM format only** (`.task` files from AI Edge).
+> MediaPipe `.bin` models used on mobile/web are **NOT compatible** with desktop.
+>
+> Supported models must be in LiteRT-LM task format. See [AI Edge Model Garden](https://ai.google.dev/edge/litert/models) for compatible models.
+
 ---
 
 ## Supported Platforms
@@ -82,6 +89,7 @@ Desktop support uses a different architecture than mobile platforms:
 - **Flutter**: 3.24.0 or higher
 - **Dart**: 3.4.0 or higher
 - **Java Runtime**: JRE 17+ (automatically downloaded if not present)
+- **Model Format**: LiteRT-LM `.task` files only (MediaPipe `.bin` not supported)
 
 ### macOS
 

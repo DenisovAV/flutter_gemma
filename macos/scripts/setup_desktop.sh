@@ -105,22 +105,34 @@ copy_jar() {
     local jar_source=""
     if [[ -f "$PODS_ROOT/Resources/$JAR_NAME" ]]; then
         jar_source="$PODS_ROOT/Resources/$JAR_NAME"
-    # Check in litertlm-server build
-    elif [[ -f "$PLUGIN_ROOT/litertlm-server/build/libs/litertlm-server-0.1.0-all.jar" ]]; then
-        jar_source="$PLUGIN_ROOT/litertlm-server/build/libs/litertlm-server-0.1.0-all.jar"
+    fi
+
+    # Check in litertlm-server build (version-agnostic using glob)
+    if [[ -z "$jar_source" ]]; then
+        local gradle_libs_dir="$PLUGIN_ROOT/litertlm-server/build/libs"
+        if [[ -d "$gradle_libs_dir" ]]; then
+            # Find latest fat JAR (version-agnostic)
+            local fat_jar
+            fat_jar=$(ls -t "$gradle_libs_dir"/*-all.jar 2>/dev/null | head -n1)
+            if [[ -n "$fat_jar" && -f "$fat_jar" ]]; then
+                jar_source="$fat_jar"
+            fi
+        fi
     fi
 
     if [[ -n "$jar_source" && -f "$jar_source" ]]; then
         echo "Copying JAR from $jar_source..."
         cp "$jar_source" "$jar_dest"
         echo "JAR copied successfully"
+        return 0
     else
-        echo "WARNING: JAR not found!"
+        echo "ERROR: JAR not found!"
         echo "  Expected at: $PODS_ROOT/Resources/$JAR_NAME"
-        echo "  Or at: $PLUGIN_ROOT/litertlm-server/build/libs/litertlm-server-0.1.0-all.jar"
+        echo "  Or at: $PLUGIN_ROOT/litertlm-server/build/libs/*-all.jar"
         echo ""
         echo "Build the server first:"
         echo "  cd $PLUGIN_ROOT/litertlm-server && ./gradlew fatJar"
+        return 1
     fi
 }
 
@@ -213,7 +225,12 @@ ENTITLEMENTS
 
 # Run setup
 download_jre
-copy_jar
+
+if ! copy_jar; then
+    echo "ERROR: Build cannot continue without JAR file"
+    exit 1
+fi
+
 extract_natives
 remove_quarantine
 sign_jre

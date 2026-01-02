@@ -57,7 +57,8 @@ add_custom_target(flutter_gemma_setup ALL
 add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
 # Install JAR to data directory
-install(FILES "${CMAKE_BINARY_DIR}/litertlm-server.jar"
+# Note: PowerShell script already copies JAR to data/ subdirectory
+install(FILES "${CMAKE_BINARY_DIR}/data/litertlm-server.jar"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   OPTIONAL
 )

@@ -216,7 +216,27 @@ class ServerProcessManager {
     );
     if (result.exitCode == 0) {
       final javaPath = (result.stdout as String).trim().split('\n').first;
-      return javaPath;
+      // Verify it's a real Java, not macOS stub
+      if (!javaPath.startsWith('/usr/bin')) {
+        return javaPath;
+      }
+    }
+
+    // Fallback: Try common installation paths (macOS sandbox can't see PATH)
+    if (Platform.isMacOS) {
+      final commonPaths = [
+        '/opt/homebrew/opt/openjdk/bin/java', // Apple Silicon Homebrew
+        '/opt/homebrew/opt/openjdk@21/bin/java',
+        '/opt/homebrew/opt/openjdk@17/bin/java',
+        '/usr/local/opt/openjdk/bin/java', // Intel Homebrew
+        '/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home/bin/java',
+        '/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home/bin/java',
+      ];
+      for (final javaPath in commonPaths) {
+        if (await File(javaPath).exists()) {
+          return javaPath;
+        }
+      }
     }
 
     throw Exception(
@@ -232,8 +252,8 @@ class ServerProcessManager {
 
     String jrePath;
     if (Platform.isMacOS) {
-      // macOS: Inside app bundle
-      jrePath = path.join(executableDir, '..', 'Frameworks', 'jre', 'bin', javaExe);
+      // macOS: Inside app bundle Resources (not Frameworks to avoid code signing issues)
+      jrePath = path.join(executableDir, '..', 'Resources', 'jre', 'bin', javaExe);
     } else if (Platform.isWindows) {
       // Windows: Next to executable
       jrePath = path.join(executableDir, 'jre', 'bin', javaExe);
@@ -282,26 +302,26 @@ class ServerProcessManager {
   Future<String> _getNativesPath() async {
     final executableDir = path.dirname(Platform.resolvedExecutable);
 
-    String platform;
-    if (Platform.isMacOS) {
-      platform = 'macos';
-    } else if (Platform.isWindows) {
-      platform = 'windows';
-    } else {
-      platform = 'linux';
-    }
-
     String nativesPath;
     if (Platform.isMacOS) {
-      nativesPath = path.join(executableDir, '..', 'Frameworks', 'litertlm', platform);
+      // Native library is pre-extracted to Frameworks/litertlm by setup script
+      nativesPath = path.join(executableDir, '..', 'Frameworks', 'litertlm');
     } else if (Platform.isWindows) {
-      nativesPath = path.join(executableDir, 'litertlm', platform);
+      nativesPath = path.join(executableDir, 'litertlm');
     } else {
-      nativesPath = path.join(executableDir, 'lib', 'litertlm', platform);
+      nativesPath = path.join(executableDir, 'lib', 'litertlm');
     }
 
     // Fallback: check litertlm-server/natives (for development)
     if (!await Directory(nativesPath).exists()) {
+      String platform;
+      if (Platform.isMacOS) {
+        platform = 'macos';
+      } else if (Platform.isWindows) {
+        platform = 'windows';
+      } else {
+        platform = 'linux';
+      }
       final devPath = path.join(
         Directory.current.path,
         'litertlm-server',

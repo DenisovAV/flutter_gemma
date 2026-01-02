@@ -525,6 +525,69 @@ window.LlmInference = LlmInference;
 </script>
 ```
 
+#### macOS/Desktop Configuration (v0.12.0+)
+
+Desktop platforms (macOS, Windows, Linux) use LiteRT-LM via Kotlin/JVM with gRPC communication.
+
+**Architecture:**
+- **Dart client** → gRPC → **Kotlin/JVM server** → LiteRT-LM native libraries
+- JRE and server JAR are bundled automatically during build
+
+**Automatic Setup (recommended):**
+
+The build script automatically:
+1. Downloads Temurin JRE 21 (cached in `~/.cache/flutter_gemma/jre/`)
+2. Copies JAR from `litertlm-server/build/libs/`
+3. Signs binaries for development
+4. Removes quarantine attributes
+
+Just run:
+```bash
+flutter run -d macos
+```
+
+**Manual Setup (for development):**
+
+1. Build the server:
+```bash
+cd litertlm-server
+./gradlew shadowJar
+```
+
+2. The build phase copies:
+   - JAR → `Contents/Resources/litertlm-server.jar`
+   - JRE → `Contents/Resources/jre/`
+
+**Model Requirements:**
+
+Desktop uses `.litertlm` format (not `.task`):
+```dart
+// Use models with .litertlm extension
+gemma3_1B_litertlm  // 529MB
+qwen3_0_6B          // 586MB (no auth required)
+```
+
+**Entitlements (DebugProfile.entitlements):**
+```xml
+<key>com.apple.security.cs.allow-jit</key>
+<true/>
+<key>com.apple.security.network.client</key>
+<true/>
+<key>com.apple.security.network.server</key>
+<true/>
+<key>com.apple.developer.kernel.extended-virtual-addressing</key>
+<true/>
+<key>com.apple.developer.kernel.increased-memory-limit</key>
+<true/>
+```
+
+**Production Distribution:**
+
+For App Store/notarized distribution:
+1. Sign JRE with Apple Developer ID
+2. Sign extracted native libraries from JAR
+3. Notarize the complete app bundle
+
 ### Memory Management
 
 **Critical Guidelines:**
@@ -1017,7 +1080,22 @@ flutter_gemma/
 └── CLAUDE.md              # This file
 ```
 
-## Recent Updates (2025-11-16)
+## Recent Updates (2026-01-01)
+
+### ✅ Desktop Platform Support (v0.12.0+)
+- **macOS, Windows, Linux** support via LiteRT-LM JVM
+- **gRPC architecture** - Dart client communicates with Kotlin/JVM server
+- **Bundled JRE** - Temurin 21 automatically downloaded and bundled
+- **Automatic setup** - Xcode build phase handles JRE/JAR bundling
+- **Code signing** - Development signing handled automatically
+- **New models added** - Qwen3 0.6B, Gemma 3 1B LiteRT-LM format
+
+**Key Files:**
+- `lib/desktop/flutter_gemma_desktop.dart` - Dart plugin implementation
+- `lib/desktop/grpc_client.dart` - gRPC client
+- `lib/desktop/server_process_manager.dart` - JVM process lifecycle
+- `litertlm-server/` - Kotlin gRPC server
+- `example/macos/scripts/setup_desktop.sh` - Build automation
 
 ### ✅ Web Cache Management Fix (v0.11.10+)
 - **CRITICAL FIX** - Hot restart with enableCache=false no longer crashes

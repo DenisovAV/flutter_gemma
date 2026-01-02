@@ -69,10 +69,19 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                     .setModelInfo("{\"backend\": \"${request.backend}\", \"maxTokens\": ${request.maxTokens}}")
                     .build()
             } catch (e: Exception) {
-                logger.error("Failed to initialize engine", e)
+                logger.error("Failed to initialize engine: ${e.javaClass.name}: ${e.message}")
+                e.printStackTrace()
+                val fullError = buildString {
+                    append(e.javaClass.name)
+                    append(": ")
+                    append(e.message ?: "Unknown error")
+                    e.cause?.let { cause ->
+                        append("\nCaused by: ${cause.javaClass.name}: ${cause.message}")
+                    }
+                }
                 InitializeResponse.newBuilder()
                     .setSuccess(false)
-                    .setError(e.message ?: "Unknown error during initialization")
+                    .setError(fullError)
                     .build()
             }
         }

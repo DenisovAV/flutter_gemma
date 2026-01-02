@@ -1,0 +1,609 @@
+# Flutter Gemma Desktop Support
+
+This document provides detailed instructions for using Flutter Gemma on desktop platforms (macOS, Windows, Linux).
+
+---
+
+## Table of Contents
+
+1. [Architecture Overview](#architecture-overview)
+2. [Supported Platforms](#supported-platforms)
+3. [Requirements](#requirements)
+4. [Quick Start](#quick-start)
+5. [Platform-Specific Setup](#platform-specific-setup)
+   - [macOS](#macos)
+   - [Windows](#windows)
+   - [Linux](#linux)
+6. [Building the LiteRT-LM Server](#building-the-litert-lm-server)
+7. [Directory Structure](#directory-structure)
+8. [Configuration](#configuration)
+9. [Troubleshooting](#troubleshooting)
+10. [API Reference](#api-reference)
+
+---
+
+## Architecture Overview
+
+Desktop support uses a different architecture than mobile platforms:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Flutter Desktop App                       │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │                  Dart Layer                             │ │
+│  │                                                         │ │
+│  │  FlutterGemmaDesktop  ←→  gRPC Client  ←→  localhost   │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                              ↕                               │
+│                         gRPC (TCP)                           │
+│                              ↕                               │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │              LiteRT-LM Server (JVM)                     │ │
+│  │                                                         │ │
+│  │  litertlm-server.jar  ←→  LiteRT-LM JNI  ←→  Native    │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Components:**
+
+| Component | Description |
+|-----------|-------------|
+| `FlutterGemmaDesktop` | Dart implementation using gRPC client |
+| `ServerProcessManager` | Manages JVM server lifecycle |
+| `LiteRtLmClient` | gRPC client for server communication |
+| `litertlm-server.jar` | Kotlin/JVM gRPC server |
+| Native Libraries | Platform-specific LiteRT-LM binaries (.dylib/.dll/.so) |
+
+**Why gRPC?**
+- LiteRT-LM JVM SDK requires JVM runtime
+- Direct FFI binding not possible (Kotlin/JNI layers)
+- gRPC provides efficient, typed IPC with streaming support
+
+---
+
+## Supported Platforms
+
+| Platform | Architecture | GPU Acceleration | Status |
+|----------|-------------|------------------|--------|
+| macOS | arm64 (Apple Silicon) | Metal | ✅ Ready |
+| macOS | x86_64 (Intel) | Metal | ✅ Ready |
+| Windows | x86_64 | DirectX 12 | ✅ Ready |
+| Linux | x86_64 | OpenCL | 🚧 Planned |
+| Linux | arm64 | OpenCL | 🚧 Planned |
+
+---
+
+## Requirements
+
+### All Platforms
+
+- **Flutter**: 3.24.0 or higher
+- **Dart**: 3.4.0 or higher
+- **Java Runtime**: JRE 17+ (automatically downloaded if not present)
+
+### macOS
+
+- macOS 10.14 (Mojave) or higher
+- Xcode 14+ with Command Line Tools
+- CocoaPods 1.11+
+
+### Windows
+
+- Windows 10 (version 1903) or higher
+- Visual Studio 2019/2022 with "Desktop development with C++" workload
+- PowerShell 5.1+ (included with Windows)
+
+### Linux
+
+- Ubuntu 20.04+ or equivalent
+- GCC 9+ or Clang 10+
+- CMake 3.14+
+
+---
+
+## Quick Start
+
+### 1. Add Dependency
+
+```yaml
+dependencies:
+  flutter_gemma: ^0.11.14
+```
+
+### 2. Build the Server JAR
+
+```bash
+cd flutter_gemma/litertlm-server
+./gradlew fatJar  # macOS/Linux
+# or
+.\gradlew.bat fatJar  # Windows
+```
+
+### 3. Run Your App
+
+```bash
+flutter run -d macos   # or -d windows, -d linux
+```
+
+The plugin automatically:
+- Downloads JRE if not present (~50MB, cached)
+- Copies JAR to app bundle
+- Extracts native libraries
+- Starts gRPC server on a free port
+
+### 4. Use the API
+
+```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
+// Install model
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+).fromNetwork('https://example.com/model.task').install();
+
+// Get model instance
+final model = await FlutterGemma.getActiveModel(
+  maxTokens: 2048,
+  preferredBackend: PreferredBackend.gpu,
+);
+
+// Create chat session
+final chat = await model.createChat();
+await chat.addQueryChunk(Message(text: 'Hello!', isUser: true));
+
+// Generate response
+await for (final chunk in chat.generateChatResponseAsync()) {
+  print(chunk);
+}
+
+// Cleanup
+await chat.close();
+await model.close();
+```
+
+---
+
+## Platform-Specific Setup
+
+### macOS
+
+macOS uses CocoaPods with a build script phase.
+
+#### How It Works
+
+1. `flutter_gemma.podspec` defines a `script_phase` that runs before compilation
+2. `macos/scripts/setup_desktop.sh` executes during build:
+   - Downloads Temurin JRE 21 (cached in `~/.cache/flutter_gemma/jre/`)
+   - Copies JAR to `Resources/litertlm-server.jar`
+   - Extracts native library to `Frameworks/litertlm/`
+   - Signs all binaries with sandbox inheritance entitlements
+
+#### App Bundle Structure
+
+```
+MyApp.app/
+└── Contents/
+    ├── MacOS/
+    │   └── MyApp (executable)
+    ├── Resources/
+    │   ├── jre/ (bundled JRE)
+    │   │   └── bin/java
+    │   ├── litertlm-server.jar
+    │   └── java.entitlements
+    └── Frameworks/
+        └── litertlm/
+            └── liblitertlm_jni.so
+```
+
+#### Required Entitlements
+
+Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
+
+```xml
+<!-- Required for Java subprocess in sandbox -->
+<key>com.apple.security.cs.disable-library-validation</key>
+<true/>
+```
+
+The setup script automatically creates `java.entitlements` with sandbox inheritance for the JRE.
+
+#### Troubleshooting macOS
+
+**"java" cannot be opened because the developer cannot be verified:**
+```bash
+# Remove quarantine from JRE
+xattr -r -d com.apple.quarantine ~/path/to/app.app/Contents/Resources/jre
+```
+
+**Port already in use:**
+```bash
+# Kill old Java process
+lsof -ti:50051 | xargs kill -9
+```
+Note: As of v0.11.14, dynamic port allocation prevents this issue.
+
+---
+
+### Windows
+
+Windows uses CMake with a PowerShell build script.
+
+#### How It Works
+
+1. `windows/CMakeLists.txt` defines a custom target that runs before build
+2. `windows/scripts/setup_desktop.ps1` executes:
+   - Downloads Temurin JRE 21 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
+   - Copies JAR to build output
+   - Extracts DLLs from JAR
+
+#### App Directory Structure
+
+```
+MyApp/
+├── MyApp.exe (Flutter executable)
+├── data/
+│   └── litertlm-server.jar
+├── jre/
+│   └── bin/
+│       └── java.exe
+└── litertlm/
+    ├── LiteRt.dll
+    ├── LiteRtGpuAccelerator.dll
+    └── ... (other DLLs)
+```
+
+#### Build Commands
+
+```powershell
+# Development build
+flutter run -d windows
+
+# Release build
+flutter build windows --release
+```
+
+#### Troubleshooting Windows
+
+**PowerShell execution policy error:**
+```powershell
+# Run as Administrator
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**JRE download fails:**
+```powershell
+# Manually download and extract JRE
+$url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.5%2B11/OpenJDK21U-jre_x64_windows_hotspot_21.0.5_11.zip"
+Invoke-WebRequest -Uri $url -OutFile "$env:LOCALAPPDATA\flutter_gemma\jre\jre.zip"
+```
+
+**Missing Visual C++ Redistributable:**
+```
+Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe
+```
+
+---
+
+### Linux
+
+Linux uses CMake with a bash build script.
+
+#### How It Works (Planned)
+
+1. `linux/CMakeLists.txt` defines custom commands
+2. `linux/scripts/setup_desktop.sh` executes:
+   - Downloads Temurin JRE 21
+   - Copies JAR and native libraries
+   - Sets up library paths
+
+#### App Directory Structure (Planned)
+
+```
+my_app/
+├── my_app (executable)
+├── lib/
+│   ├── litertlm/
+│   │   └── liblitertlm_jni.so
+│   └── jre/
+│       └── bin/java
+└── data/
+    └── litertlm-server.jar
+```
+
+#### Environment Variables
+
+```bash
+# May be needed for GPU acceleration
+export LD_LIBRARY_PATH=/path/to/app/lib/litertlm:$LD_LIBRARY_PATH
+```
+
+---
+
+## Building the LiteRT-LM Server
+
+The server JAR must be built before the first app run.
+
+### Prerequisites
+
+- JDK 17+ (for building, not just running)
+- Gradle 8.0+ (wrapper included)
+
+### Build Commands
+
+```bash
+cd flutter_gemma/litertlm-server
+
+# macOS/Linux
+./gradlew fatJar
+
+# Windows
+.\gradlew.bat fatJar
+```
+
+### Output
+
+```
+litertlm-server/build/libs/litertlm-server-0.1.0-all.jar (~115MB)
+```
+
+This "fat JAR" includes:
+- Kotlin runtime
+- gRPC libraries
+- LiteRT-LM JVM SDK with bundled native libraries
+
+### Server Startup
+
+The server is started automatically by `ServerProcessManager`:
+
+```
+java -Djava.library.path=<natives-dir> \
+     -Xmx2048m \
+     -jar litertlm-server.jar \
+     <port>
+```
+
+Arguments:
+- `-Djava.library.path`: Directory with native .so/.dll/.dylib files
+- `-Xmx2048m`: Maximum heap size (default 2GB)
+- `<port>`: gRPC server port (dynamically allocated)
+
+---
+
+## Directory Structure
+
+### Plugin Source Structure
+
+```
+flutter_gemma/
+├── lib/
+│   └── desktop/
+│       ├── flutter_gemma_desktop.dart  # Main plugin implementation
+│       ├── server_process_manager.dart # JVM process lifecycle
+│       ├── grpc_client.dart            # gRPC client wrapper
+│       └── desktop_inference_model.dart
+├── macos/
+│   ├── flutter_gemma.podspec
+│   ├── Classes/
+│   │   └── FlutterGemmaPlugin.swift    # Placeholder
+│   └── scripts/
+│       └── setup_desktop.sh            # Build script
+├── windows/
+│   ├── CMakeLists.txt
+│   ├── flutter_gemma_plugin.cpp        # Placeholder
+│   └── scripts/
+│       └── setup_desktop.ps1           # Build script
+├── linux/  (planned)
+│   ├── CMakeLists.txt
+│   └── scripts/
+│       └── setup_desktop.sh
+└── litertlm-server/
+    ├── build.gradle.kts
+    └── src/main/kotlin/
+        └── dev/flutterberlin/litertlm/
+            ├── Server.kt               # Entry point
+            └── LiteRtLmServiceImpl.kt  # gRPC service
+```
+
+### Runtime Paths
+
+| Platform | JRE | JAR | Natives |
+|----------|-----|-----|---------|
+| macOS | `Resources/jre/bin/java` | `Resources/litertlm-server.jar` | `Frameworks/litertlm/` |
+| Windows | `jre/bin/java.exe` | `data/litertlm-server.jar` | `litertlm/` |
+| Linux | `lib/jre/bin/java` | `data/litertlm-server.jar` | `lib/litertlm/` |
+
+---
+
+## Configuration
+
+### Server Options
+
+```dart
+// Start server with custom settings
+await ServerProcessManager.instance.start(
+  port: 50051,        // Custom port (default: auto-detect free port)
+  maxHeapMb: 4096,    // JVM heap size in MB (default: 2048)
+);
+```
+
+### Model Options
+
+```dart
+final model = await FlutterGemma.getActiveModel(
+  maxTokens: 4096,                          // Context size
+  preferredBackend: PreferredBackend.gpu,   // GPU acceleration
+);
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `JAVA_HOME` | Path to JDK/JRE installation | Auto-detect |
+| `FLUTTER_GEMMA_PORT` | Fixed gRPC port | Dynamic |
+| `FLUTTER_GEMMA_HEAP_MB` | JVM heap size | 2048 |
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Server Fails to Start
+
+**Symptoms:** `Exception: Server failed to start`
+
+**Solutions:**
+1. Check Java is installed: `java -version`
+2. Check JAR exists in expected location
+3. Check port is not in use
+4. Increase heap size for large models
+
+#### Model Initialization Timeout
+
+**Symptoms:** `TimeoutException: Server startup timed out after 30 seconds`
+
+**Solutions:**
+1. Model file may be corrupted - redownload
+2. Insufficient memory - reduce `maxTokens`
+3. GPU driver issues - try `PreferredBackend.cpu`
+
+#### gRPC Connection Failed
+
+**Symptoms:** `GrpcError: UNAVAILABLE`
+
+**Solutions:**
+1. Server may have crashed - check logs
+2. Firewall blocking localhost - allow port
+3. Restart the app
+
+#### Native Library Not Found
+
+**Symptoms:** `UnsatisfiedLinkError: liblitertlm_jni.so`
+
+**Solutions:**
+1. Check native library path is correct
+2. Re-run build to re-extract natives
+3. Check library architecture matches system
+
+### Debug Logging
+
+Enable verbose logging:
+
+```dart
+// In your app
+import 'package:flutter/foundation.dart';
+
+void main() {
+  debugPrint = (String? message, {int? wrapWidth}) {
+    print(message);  // See all debug output
+  };
+  runApp(MyApp());
+}
+```
+
+Server logs are prefixed with:
+- `[ServerProcessManager]` - Process lifecycle
+- `[LiteRT-LM Server]` - Server stdout
+- `[LiteRT-LM Server ERROR]` - Server stderr
+
+---
+
+## API Reference
+
+### FlutterGemmaDesktop
+
+Main plugin class for desktop platforms.
+
+```dart
+class FlutterGemmaDesktop implements FlutterGemmaInterface {
+  // Create inference model
+  Future<InferenceModel> createModel({
+    required ModelType modelType,
+    int maxTokens = 1024,
+    PreferredBackend preferredBackend = PreferredBackend.cpu,
+    bool supportImage = false,
+    int maxNumImages = 1,
+  });
+
+  // Create embedding model
+  Future<EmbeddingModel> createEmbeddingModel();
+}
+```
+
+### ServerProcessManager
+
+Manages the JVM server lifecycle.
+
+```dart
+class ServerProcessManager {
+  static ServerProcessManager get instance;
+
+  // Current server port
+  int get port;
+
+  // Whether server is running
+  bool get isRunning;
+
+  // Start server (auto-finds free port)
+  Future<void> start({int? port, int? maxHeapMb});
+
+  // Stop server gracefully
+  Future<void> stop();
+}
+```
+
+### LiteRtLmClient
+
+Low-level gRPC client (usually not used directly).
+
+```dart
+class LiteRtLmClient {
+  Future<void> connect(String host, int port);
+  Future<String> initialize(String modelPath, String backend, int maxTokens);
+  Stream<String> chat(String conversationId, String text);
+  Future<void> shutdown();
+}
+```
+
+---
+
+## Performance Tips
+
+1. **Use GPU backend** when available for 2-5x faster inference
+2. **Adjust maxTokens** based on your use case (lower = faster)
+3. **Reuse chat sessions** instead of creating new ones
+4. **Close models** when not needed to free GPU memory
+5. **Pre-warm the model** by sending a short query at app start
+
+---
+
+## Security Considerations
+
+1. **gRPC runs on localhost only** - no external network access
+2. **Dynamic port allocation** prevents port conflicts
+3. **Sandbox inheritance** on macOS maintains security
+4. **No code signing required** on Windows/Linux
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+
+For desktop-specific issues, check:
+- `lib/desktop/` - Dart implementation
+- `macos/scripts/` - macOS build scripts
+- `windows/scripts/` - Windows build scripts
+- `litertlm-server/` - Kotlin server
+
+---
+
+## License
+
+Flutter Gemma is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
+LiteRT-LM is a Google product. See their licensing terms at:
+https://github.com/nicholaschiang/litertlm

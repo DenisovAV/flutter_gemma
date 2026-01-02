@@ -203,11 +203,7 @@ function Copy-Jar {
         Write-Host "JAR copied successfully" -ForegroundColor Green
         return $true
     } else {
-        Write-Host ""
-        Write-Host "ERROR: JAR not found!" -ForegroundColor Red
-        Write-Host "Build the server first:" -ForegroundColor Red
-        Write-Host "  cd $PluginRoot\litertlm-server" -ForegroundColor Yellow
-        Write-Host "  .\gradlew.bat fatJar" -ForegroundColor Yellow
+        Write-Host "JAR not found in any location" -ForegroundColor Yellow
         return $false
     }
 }
@@ -280,17 +276,18 @@ try {
     $jarCopied = Copy-Jar
     if (-not $jarCopied) {
         Write-Host ""
-        Write-Host "========================================" -ForegroundColor Red
-        Write-Host "BUILD FAILED: JAR file not found!" -ForegroundColor Red
-        Write-Host "========================================" -ForegroundColor Red
+        Write-Host "========================================" -ForegroundColor Yellow
+        Write-Host "WARNING: JAR file not found!" -ForegroundColor Yellow
+        Write-Host "========================================" -ForegroundColor Yellow
         Write-Host ""
-        Write-Host "The litertlm-server.jar is required for desktop builds."
-        Write-Host "Please build it first by running:"
+        Write-Host "The litertlm-server.jar is required for desktop runtime."
+        Write-Host "The app will build but won't work without it."
         Write-Host ""
+        Write-Host "To build the JAR, run:"
         Write-Host "  cd <flutter_gemma_plugin>/litertlm-server" -ForegroundColor Yellow
         Write-Host "  .\gradlew.bat fatJar" -ForegroundColor Yellow
         Write-Host ""
-        exit 1
+        # Don't fail build - JAR is needed at runtime, not build time
     }
 
     Write-Host ""

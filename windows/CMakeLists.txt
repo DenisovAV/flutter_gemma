@@ -56,22 +56,26 @@ add_custom_target(flutter_gemma_setup ALL
 # Ensure setup runs before plugin builds
 add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
-# Install JAR to data directory
-# Note: PowerShell script already copies JAR to data/ subdirectory
-install(FILES "${CMAKE_BINARY_DIR}/data/litertlm-server.jar"
-  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
-  OPTIONAL
-)
+# Install files only if destinations are defined (they may not be during initial configure)
+if(DEFINED INSTALL_BUNDLE_DATA_DIR AND NOT "${INSTALL_BUNDLE_DATA_DIR}" STREQUAL "")
+  # Install JAR to data directory
+  install(FILES "${CMAKE_BINARY_DIR}/data/litertlm-server.jar"
+    DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+    OPTIONAL
+  )
+endif()
 
-# Install JRE to jre directory (next to executable)
-install(DIRECTORY "${CMAKE_BINARY_DIR}/jre/"
-  DESTINATION "${CMAKE_INSTALL_PREFIX}/jre"
-  OPTIONAL
-  USE_SOURCE_PERMISSIONS
-)
+if(DEFINED CMAKE_INSTALL_PREFIX AND NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
+  # Install JRE to jre directory (next to executable)
+  install(DIRECTORY "${CMAKE_BINARY_DIR}/jre/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/jre"
+    OPTIONAL
+    USE_SOURCE_PERMISSIONS
+  )
 
-# Install native libraries to litertlm directory
-install(DIRECTORY "${CMAKE_BINARY_DIR}/litertlm/"
-  DESTINATION "${CMAKE_INSTALL_PREFIX}/litertlm"
-  OPTIONAL
-)
+  # Install native libraries to litertlm directory
+  install(DIRECTORY "${CMAKE_BINARY_DIR}/litertlm/"
+    DESTINATION "${CMAKE_INSTALL_PREFIX}/litertlm"
+    OPTIONAL
+  )
+endif()

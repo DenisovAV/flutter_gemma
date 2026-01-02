@@ -89,7 +89,7 @@ Desktop support uses a different architecture than mobile platforms:
 
 - **Flutter**: 3.24.0 or higher
 - **Dart**: 3.4.0 or higher
-- **Java Runtime**: JRE 17+ (automatically downloaded if not present)
+- **Java Runtime**: JRE 21 (automatically downloaded if not present)
 - **Model Format**: LiteRT-LM `.litertlm` files only (MediaPipe `.bin`/`.task` not supported)
 
 ### macOS
@@ -150,7 +150,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 // Install model
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
-).fromNetwork('https://example.com/model.task').install();
+).fromNetwork('https://example.com/model.litertlm').install();
 
 // Get model instance
 final model = await FlutterGemma.getActiveModel(
@@ -184,7 +184,7 @@ macOS uses CocoaPods with a build script phase.
 
 1. `flutter_gemma.podspec` defines a `script_phase` that runs before compilation
 2. `macos/scripts/setup_desktop.sh` executes during build:
-   - Downloads Temurin JRE 21 (cached in `~/.cache/flutter_gemma/jre/`)
+   - Downloads Temurin JRE 21 (cached in `~/Library/Caches/flutter_gemma/jre/`)
    - Copies JAR to `Resources/litertlm-server.jar`
    - Extracts native library to `Frameworks/litertlm/`
    - Signs all binaries with sandbox inheritance entitlements
@@ -614,5 +614,5 @@ For desktop-specific issues, check:
 
 Flutter Gemma is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-LiteRT-LM is a Google product. See their licensing terms at:
-https://github.com/nicholaschiang/litertlm
+LiteRT-LM is part of Google AI Edge. See licensing terms at:
+https://ai.google.dev/edge/litert

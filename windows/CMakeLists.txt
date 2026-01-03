@@ -61,13 +61,9 @@ add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 # This ensures files are available when running `flutter run` (Debug mode)
 
 # Get the runner output directory (where the .exe will be)
-# CMAKE_RUNTIME_OUTPUT_DIRECTORY is set by Flutter to the runner directory
-if(DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
-  set(RUNNER_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
-else()
-  # Fallback: go up from plugin build dir to runner
-  get_filename_component(RUNNER_DIR "${CMAKE_BINARY_DIR}/../../runner/${CMAKE_BUILD_TYPE}" ABSOLUTE)
-endif()
+# CMAKE_BINARY_DIR for Flutter Windows is build/windows/x64/
+# Runner is at build/windows/x64/runner/Debug/ or runner/Release/
+get_filename_component(RUNNER_DIR "${CMAKE_BINARY_DIR}/runner/${CMAKE_BUILD_TYPE}" ABSOLUTE)
 
 message(STATUS "flutter_gemma: Runner directory: ${RUNNER_DIR}")
 message(STATUS "flutter_gemma: Setup output: ${SETUP_OUTPUT_DIR}")

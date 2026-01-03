@@ -75,11 +75,20 @@ Desktop support uses a different architecture than mobile platforms:
 | Platform | Architecture | GPU Acceleration | Status |
 |----------|-------------|------------------|--------|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ Ready |
-| macOS | x86_64 (Intel) | Metal | ✅ Ready |
+| macOS | x86_64 (Intel) | - | ❌ Not Supported |
 | Windows | x86_64 | DirectX 12 | ✅ Ready |
-| Windows | arm64 | DirectX 12 | ✅ Ready |
+| Windows | arm64 | - | ❌ Not Supported |
 | Linux | x86_64 | OpenCL | 🚧 Planned |
 | Linux | arm64 | OpenCL | 🚧 Planned |
+
+> **⚠️ Platform Limitations**
+>
+> LiteRT-LM native libraries are provided by Google and only available for specific architectures:
+> - **macOS**: Apple Silicon only (M1/M2/M3/M4). Intel Macs are not supported.
+> - **Windows**: x86_64 only. ARM64 Windows is not supported.
+> - **Linux**: Both x86_64 and arm64 are supported.
+>
+> This is a limitation of [Google's LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM), not Flutter Gemma.
 
 ---
 

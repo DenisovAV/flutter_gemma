@@ -44,10 +44,11 @@ set(flutter_gemma_bundled_libraries
 # Get paths
 set(PLUGIN_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(SETUP_SCRIPT "${PLUGIN_DIR}/scripts/setup_desktop.ps1")
+set(SETUP_OUTPUT_DIR "${CMAKE_BINARY_DIR}/flutter_gemma_resources")
 
 # Custom target to run setup script
 add_custom_target(flutter_gemma_setup ALL
-  COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "${SETUP_SCRIPT}" -PluginDir "${PLUGIN_DIR}" -OutputDir "${CMAKE_BINARY_DIR}"
+  COMMAND powershell -NoProfile -ExecutionPolicy Bypass -File "${SETUP_SCRIPT}" -PluginDir "${PLUGIN_DIR}" -OutputDir "${SETUP_OUTPUT_DIR}"
   WORKING_DIRECTORY "${PLUGIN_DIR}"
   COMMENT "Setting up LiteRT-LM Desktop (JRE, JAR, natives)..."
   VERBATIM
@@ -56,10 +57,54 @@ add_custom_target(flutter_gemma_setup ALL
 # Ensure setup runs before plugin builds
 add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
-# Install files only if destinations are defined (they may not be during initial configure)
+# === POST_BUILD: Copy files to runner directory for Debug builds ===
+# This ensures files are available when running `flutter run` (Debug mode)
+
+# Get the runner output directory (where the .exe will be)
+# CMAKE_RUNTIME_OUTPUT_DIRECTORY is set by Flutter to the runner directory
+if(DEFINED CMAKE_RUNTIME_OUTPUT_DIRECTORY)
+  set(RUNNER_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+else()
+  # Fallback: go up from plugin build dir to runner
+  get_filename_component(RUNNER_DIR "${CMAKE_BINARY_DIR}/../../runner/${CMAKE_BUILD_TYPE}" ABSOLUTE)
+endif()
+
+message(STATUS "flutter_gemma: Runner directory: ${RUNNER_DIR}")
+message(STATUS "flutter_gemma: Setup output: ${SETUP_OUTPUT_DIR}")
+
+# POST_BUILD: Copy JAR to runner's data directory
+add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_DIR}/data"
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
+    "${RUNNER_DIR}/data/litertlm-server.jar"
+  COMMENT "Copying litertlm-server.jar to runner..."
+  VERBATIM
+)
+
+# POST_BUILD: Copy JRE to runner directory
+add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${SETUP_OUTPUT_DIR}/jre"
+    "${RUNNER_DIR}/jre"
+  COMMENT "Copying JRE to runner..."
+  VERBATIM
+)
+
+# POST_BUILD: Copy native libraries (if any exist)
+add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_DIR}/litertlm"
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${SETUP_OUTPUT_DIR}/litertlm"
+    "${RUNNER_DIR}/litertlm"
+  COMMENT "Copying native libraries to runner..."
+  VERBATIM
+)
+
+# === Install rules for Release builds ===
 if(DEFINED INSTALL_BUNDLE_DATA_DIR AND NOT "${INSTALL_BUNDLE_DATA_DIR}" STREQUAL "")
   # Install JAR to data directory
-  install(FILES "${CMAKE_BINARY_DIR}/data/litertlm-server.jar"
+  install(FILES "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
     DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
     OPTIONAL
   )
@@ -67,14 +112,14 @@ endif()
 
 if(DEFINED CMAKE_INSTALL_PREFIX AND NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
   # Install JRE to jre directory (next to executable)
-  install(DIRECTORY "${CMAKE_BINARY_DIR}/jre/"
+  install(DIRECTORY "${SETUP_OUTPUT_DIR}/jre/"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/jre"
     OPTIONAL
     USE_SOURCE_PERMISSIONS
   )
 
   # Install native libraries to litertlm directory
-  install(DIRECTORY "${CMAKE_BINARY_DIR}/litertlm/"
+  install(DIRECTORY "${SETUP_OUTPUT_DIR}/litertlm/"
     DESTINATION "${CMAKE_INSTALL_PREFIX}/litertlm"
     OPTIONAL
   )

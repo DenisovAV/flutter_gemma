@@ -347,7 +347,13 @@ extract_natives() {
     if [[ "$ARCH" == "arm64" ]]; then
         NATIVE_ARCH="darwin-aarch64"
     else
-        NATIVE_ARCH="darwin-x86_64"
+        # Intel Mac (x86_64) is NOT supported by LiteRT-LM
+        # Google only provides native libraries for Apple Silicon
+        echo "WARNING: Intel Mac (x86_64) is not supported by LiteRT-LM"
+        echo "  LiteRT-LM only provides native libraries for Apple Silicon (arm64)"
+        echo "  Desktop support requires an Apple Silicon Mac (M1/M2/M3/M4)"
+        echo "  See: https://github.com/google-ai-edge/LiteRT-LM"
+        return 0
     fi
     local NATIVE_PATH="com/google/ai/edge/litertlm/jni/$NATIVE_ARCH"
 

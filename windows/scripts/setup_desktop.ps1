@@ -57,12 +57,23 @@ $JreCacheDir = "$env:LOCALAPPDATA\flutter_gemma\jre"
 # Detect architecture
 $Arch = $env:PROCESSOR_ARCHITECTURE
 if ($Arch -eq "ARM64") {
-    $JreArch = "aarch64"
-    $NativeArch = "win32-aarch64"
-    Write-Host "Detected ARM64 architecture" -ForegroundColor Yellow
+    # ARM64 Windows is NOT supported by LiteRT-LM
+    # Google only provides native libraries for x86_64
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "ERROR: ARM64 Windows is not supported" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "LiteRT-LM only provides native libraries for Windows x86_64." -ForegroundColor Yellow
+    Write-Host "ARM64 Windows (including Windows on ARM devices) is not supported." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "See: https://github.com/google-ai-edge/LiteRT-LM" -ForegroundColor Gray
+    Write-Host ""
+    exit 1
 } else {
     $JreArch = "x64"
-    $NativeArch = "win32-x86-64"
+    $NativeArch = "windows-x86_64"
+    $NativeLib = "litertlm_jni.dll"
     Write-Host "Detected x64 architecture"
 }
 
@@ -388,56 +399,68 @@ function Setup-Jar {
 }
 
 # === Extract native libraries ===
+# Extracts natives from JAR once at build time, so JVM doesn't extract to temp on every run
+# This avoids temp directory bloat (TensorFlow users reported 8GB+ accumulation)
+# JVM will find natives via -Djava.library.path passed by ServerProcessManager
 function Extract-Natives {
     $nativesDir = "$OutputDir\litertlm"
     $jarPath = "$OutputDir\data\$JarName"
 
+    # Check if already extracted
+    if (Test-Path "$nativesDir\$NativeLib") {
+        Write-Host "  Native library already extracted: $NativeLib" -ForegroundColor Green
+        return
+    }
+
     if (-not (Test-Path $jarPath)) {
-        Write-Host "JAR not found, skipping native extraction" -ForegroundColor Yellow
+        Write-Host "  JAR not found, skipping native extraction" -ForegroundColor Yellow
         return
     }
 
     # Native library path inside JAR (architecture-specific)
-    $nativePath = "com/google/ai/edge/litertlm/jni/$NativeArch"
+    # Format: com/google/ai/edge/litertlm/jni/windows-x86_64/litertlm_jni.dll
+    $nativeZipPath = "com/google/ai/edge/litertlm/jni/$NativeArch/$NativeLib"
 
-    Write-Host "Extracting native libraries from JAR..."
-    Write-Host "  Native path: $nativePath"
+    Write-Host "  Extracting: $nativeZipPath"
 
     try {
-        # Create temp directory for extraction
-        $tempDir = "$env:TEMP\flutter_gemma_natives_$([System.Guid]::NewGuid().ToString('N').Substring(0,8))"
-        New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+        # Use .NET ZipFile to extract only the specific file we need
+        # Much faster than extracting entire 58MB JAR
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-        # Extract using Expand-Archive (treat JAR as ZIP)
-        $jarCopy = "$tempDir\temp.zip"
-        Copy-Item -Path $jarPath -Destination $jarCopy
-        Expand-Archive -Path $jarCopy -DestinationPath $tempDir -Force
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($jarPath)
+        try {
+            $entry = $zip.Entries | Where-Object { $_.FullName -eq $nativeZipPath }
 
-        # Find and copy native libraries with path validation
-        $nativeSourceDir = "$tempDir\$($nativePath -replace '/', '\')"
-        $allowedPath = [System.IO.Path]::GetFullPath($nativeSourceDir)
+            if ($entry) {
+                $destPath = "$nativesDir\$NativeLib"
+                New-Item -ItemType Directory -Force -Path $nativesDir | Out-Null
 
-        if (Test-Path $nativeSourceDir) {
-            Get-ChildItem -Path $nativeSourceDir -Filter "*.dll" | ForEach-Object {
-                # Validate path is within expected directory (prevent path traversal)
-                $resolvedPath = [System.IO.Path]::GetFullPath($_.FullName)
-                if ($resolvedPath.StartsWith($allowedPath)) {
-                    Copy-Item -Path $_.FullName -Destination $nativesDir -Force
-                    Write-Host "  Extracted: $($_.Name)" -ForegroundColor Green
-                } else {
-                    Write-Warning "Skipping suspicious path: $resolvedPath"
+                # Extract single file
+                $stream = $entry.Open()
+                $fileStream = [System.IO.File]::Create($destPath)
+                try {
+                    $stream.CopyTo($fileStream)
+                } finally {
+                    $fileStream.Close()
+                    $stream.Close()
+                }
+
+                $sizeMB = [math]::Round((Get-Item $destPath).Length / 1MB, 1)
+                Write-Host "  Extracted: $NativeLib ($sizeMB MB)" -ForegroundColor Green
+            } else {
+                Write-Host "  Native library not found in JAR: $nativeZipPath" -ForegroundColor Yellow
+                Write-Host "  Available paths:" -ForegroundColor Gray
+                $zip.Entries | Where-Object { $_.FullName -like "*litertlm*" } | ForEach-Object {
+                    Write-Host "    $($_.FullName)" -ForegroundColor Gray
                 }
             }
-        } else {
-            Write-Warning "Native libraries not found in JAR at path: $nativePath"
-            Write-Host "  This may be expected if natives are bundled differently."
+        } finally {
+            $zip.Dispose()
         }
 
-        # Cleanup
-        Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
-
     } catch {
-        Write-Warning "Failed to extract natives: $_"
+        Write-Warning "  Failed to extract native library: $_"
     }
 }
 

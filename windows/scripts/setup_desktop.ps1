@@ -108,7 +108,8 @@ function Install-Jre {
     if (-not (Test-Path $archive)) {
         Write-Host "Downloading JRE from $JreUrl..."
         try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            # Enable TLS 1.2 and 1.3 for better compatibility with GitHub/Adoptium
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
             $ProgressPreference = 'Continue'  # Show progress bar
             Invoke-WebRequest -Uri $JreUrl -OutFile $archive -UseBasicParsing
         } catch {
@@ -235,9 +236,15 @@ function Build-Jar {
     Push-Location $gradleDir
 
     try {
-        & $gradleWrapper fatJar --no-daemon -q
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "Gradle build failed" -ForegroundColor Yellow
+        # Run gradle with error handling - don't let it crash the whole script
+        $output = & $gradleWrapper fatJar --no-daemon -q 2>&1
+        $exitCode = $LASTEXITCODE
+
+        if ($exitCode -ne 0) {
+            Write-Host "Gradle build failed (exit code: $exitCode)" -ForegroundColor Yellow
+            if ($output) {
+                Write-Host "Output: $output" -ForegroundColor Gray
+            }
             return $null
         }
 
@@ -253,6 +260,9 @@ function Build-Jar {
             Write-Host "Built JAR not found" -ForegroundColor Yellow
             return $null
         }
+    } catch {
+        Write-Host "Gradle build threw exception: $_" -ForegroundColor Yellow
+        return $null
     } finally {
         Pop-Location
     }
@@ -266,7 +276,8 @@ function Download-Jar {
     $cachedJar = "$JarCacheDir\$JarName"
 
     try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        # Enable TLS 1.2 and 1.3 for better compatibility
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
         $ProgressPreference = 'Continue'
         Invoke-WebRequest -Uri $JarUrl -OutFile $cachedJar -UseBasicParsing
     } catch {

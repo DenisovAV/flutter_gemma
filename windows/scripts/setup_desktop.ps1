@@ -26,6 +26,25 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Helper function to get SHA256 hash (works in restricted environments)
+function Get-SHA256Hash {
+    param([string]$FilePath)
+
+    # Try Get-FileHash first (PowerShell 4.0+)
+    try {
+        return (Get-FileHash -Path $FilePath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLower()
+    } catch {
+        # Fallback to certutil (always available on Windows)
+        $output = certutil -hashfile $FilePath SHA256 2>$null
+        if ($LASTEXITCODE -eq 0 -and $output) {
+            # certutil output format: line 2 contains the hash
+            $hash = ($output | Select-Object -Index 1) -replace '\s', ''
+            return $hash.ToLower()
+        }
+        throw "Failed to compute hash for $FilePath"
+    }
+}
+
 Write-Host "=== LiteRT-LM Desktop Setup (Windows) ===" -ForegroundColor Cyan
 Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor Gray
 Write-Host "Working Directory: $(Get-Location)" -ForegroundColor Gray
@@ -121,7 +140,7 @@ function Install-Jre {
         $expectedChecksum = $JreChecksums[$JreArch]
         if ($expectedChecksum) {
             Write-Host "Verifying checksum..."
-            $actualChecksum = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLower()
+            $actualChecksum = Get-SHA256Hash -FilePath $archive
             if ($actualChecksum -ne $expectedChecksum.ToLower()) {
                 Remove-Item $archive -Force -ErrorAction SilentlyContinue
                 Write-Error "JRE checksum mismatch! Expected: $expectedChecksum, Got: $actualChecksum"
@@ -289,7 +308,7 @@ function Download-Jar {
     # Verify checksum
     if ($JarChecksum) {
         Write-Host "Verifying checksum..."
-        $actualChecksum = (Get-FileHash -Path $cachedJar -Algorithm SHA256).Hash.ToLower()
+        $actualChecksum = Get-SHA256Hash -FilePath $cachedJar
         if ($actualChecksum -ne $JarChecksum.ToLower()) {
             Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
             Write-Host "JAR checksum mismatch! Expected: $JarChecksum, Got: $actualChecksum" -ForegroundColor Red

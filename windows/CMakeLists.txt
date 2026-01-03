@@ -57,24 +57,28 @@ add_custom_target(flutter_gemma_setup ALL
 # Ensure setup runs before plugin builds
 add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
-# === POST_BUILD: Copy files to runner directory for Debug builds ===
-# This ensures files are available when running `flutter run` (Debug mode)
+# === POST_BUILD: Copy files to runner directory ===
+# This ensures files are available when running `flutter run`
+#
+# IMPORTANT: On Windows with Visual Studio (multi-config generator),
+# CMAKE_BUILD_TYPE is EMPTY at configure time. The actual config
+# (Debug/Release) is determined at build time.
+# We MUST use $<CONFIG> generator expression which evaluates at build time.
 
-# Get the runner output directory (where the .exe will be)
-# CMAKE_BINARY_DIR for Flutter Windows is build/windows/x64/
-# Runner is at build/windows/x64/runner/Debug/ or runner/Release/
-get_filename_component(RUNNER_DIR "${CMAKE_BINARY_DIR}/runner/${CMAKE_BUILD_TYPE}" ABSOLUTE)
+# Base runner path (without config - $<CONFIG> adds Debug/Release at build time)
+set(RUNNER_BASE_DIR "${CMAKE_BINARY_DIR}/runner")
 
-message(STATUS "flutter_gemma: Runner directory: ${RUNNER_DIR}")
+message(STATUS "flutter_gemma: Runner base directory: ${RUNNER_BASE_DIR}")
 message(STATUS "flutter_gemma: Setup output: ${SETUP_OUTPUT_DIR}")
+message(STATUS "flutter_gemma: Config will be determined at build time via generator expression")
 
 # POST_BUILD: Copy JAR to runner's data directory
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_DIR}/data"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_BASE_DIR}/$<CONFIG>/data"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
-    "${RUNNER_DIR}/data/litertlm-server.jar"
-  COMMENT "Copying litertlm-server.jar to runner..."
+    "${RUNNER_BASE_DIR}/$<CONFIG>/data/litertlm-server.jar"
+  COMMENT "Copying litertlm-server.jar to runner/$<CONFIG>/data/..."
   VERBATIM
 )
 
@@ -82,18 +86,18 @@ add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${SETUP_OUTPUT_DIR}/jre"
-    "${RUNNER_DIR}/jre"
-  COMMENT "Copying JRE to runner..."
+    "${RUNNER_BASE_DIR}/$<CONFIG>/jre"
+  COMMENT "Copying JRE to runner/$<CONFIG>/jre/..."
   VERBATIM
 )
 
-# POST_BUILD: Copy native libraries (if any exist)
+# POST_BUILD: Copy native libraries
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_DIR}/litertlm"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_BASE_DIR}/$<CONFIG>/litertlm"
   COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${SETUP_OUTPUT_DIR}/litertlm"
-    "${RUNNER_DIR}/litertlm"
-  COMMENT "Copying native libraries to runner..."
+    "${RUNNER_BASE_DIR}/$<CONFIG>/litertlm"
+  COMMENT "Copying native libraries to runner/$<CONFIG>/litertlm/..."
   VERBATIM
 )
 

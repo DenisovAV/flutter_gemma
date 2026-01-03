@@ -121,13 +121,36 @@ dependencies:
   flutter_gemma: ^0.11.14
 ```
 
-### 2. Build the Server JAR
+### 2. Configure Podfile (macOS only)
 
-```bash
-cd flutter_gemma/litertlm-server
-./gradlew fatJar  # macOS/Linux
-# or
-.\gradlew.bat fatJar  # Windows
+Add the following to your `macos/Podfile` in the `post_install` block:
+
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_macos_build_settings(target)
+  end
+
+  # Add LiteRT-LM setup script to Runner target
+  main_project = installer.aggregate_targets.first.user_project
+  runner_target = main_project.targets.find { |t| t.name == 'Runner' }
+
+  if runner_target
+    phase_name = 'Setup LiteRT-LM Desktop'
+    existing_phase = runner_target.shell_script_build_phases.find { |p| p.name == phase_name }
+
+    unless existing_phase
+      phase = runner_target.new_shell_script_build_phase(phase_name)
+      phase.shell_script = <<-SCRIPT
+PLUGIN_PATH="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos"
+if [ -f "$PLUGIN_PATH/scripts/setup_desktop.sh" ]; then
+  sh "$PLUGIN_PATH/scripts/setup_desktop.sh" "$PLUGIN_PATH" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
+fi
+SCRIPT
+      main_project.save
+    end
+  end
+end
 ```
 
 ### 3. Run Your App
@@ -137,9 +160,10 @@ flutter run -d macos   # or -d windows, -d linux
 ```
 
 The plugin automatically:
+- **Builds JAR from source** if JDK 21+ is available, or downloads pre-built JAR as fallback
 - Downloads JRE if not present (~50MB, cached)
-- Copies JAR to app bundle
 - Extracts native libraries
+- Signs binaries for macOS sandbox
 - Starts gRPC server on a free port
 
 ### 4. Use the API
@@ -178,14 +202,24 @@ await model.close();
 
 ### macOS
 
-macOS uses CocoaPods with a build script phase.
+macOS uses CocoaPods with a Podfile hook to run setup after the app bundle is created.
+
+#### Required Podfile Configuration
+
+You **must** add the LiteRT-LM setup hook to your `macos/Podfile`. See [Quick Start](#quick-start) for the complete code.
+
+This is necessary because:
+- The setup script needs to copy files into the app bundle
+- CocoaPods pod scripts run before the app bundle exists
+- The Podfile hook adds a script phase to the Runner target that runs at the right time
 
 #### How It Works
 
-1. `flutter_gemma.podspec` defines a `script_phase` that runs before compilation
-2. `macos/scripts/setup_desktop.sh` executes during build:
+1. Podfile `post_install` hook adds a script phase to the Runner target
+2. `macos/scripts/setup_desktop.sh` executes after app bundle is created:
+   - **Builds JAR from source** if JDK 21+ is available (checks JAVA_HOME, Homebrew, system)
+   - Falls back to downloading pre-built JAR from GitHub Releases
    - Downloads Temurin JRE 21 (cached in `~/Library/Caches/flutter_gemma/jre/`)
-   - Copies JAR to `Resources/litertlm-server.jar`
    - Extracts native library to `Frameworks/litertlm/`
    - Signs all binaries with sandbox inheritance entitlements
 
@@ -237,14 +271,15 @@ Note: As of v0.11.14, dynamic port allocation prevents this issue.
 
 ### Windows
 
-Windows uses CMake with a PowerShell build script.
+Windows uses CMake with a PowerShell build script. No additional configuration required.
 
 #### How It Works
 
 1. `windows/CMakeLists.txt` defines a custom target that runs before build
 2. `windows/scripts/setup_desktop.ps1` executes:
+   - **Builds JAR from source** if JDK 21+ is available (checks JAVA_HOME, common install locations)
+   - Falls back to downloading pre-built JAR from GitHub Releases
    - Downloads Temurin JRE 21 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
-   - Copies JAR to build output
    - Extracts DLLs from JAR
 
 #### App Directory Structure
@@ -332,11 +367,20 @@ export LD_LIBRARY_PATH=/path/to/app/lib/litertlm:$LD_LIBRARY_PATH
 
 ## LiteRT-LM Server JAR
 
-The server JAR (~115MB) is **automatically downloaded** during the first build. No manual steps required!
+The server JAR (~115MB) is **automatically acquired** during the first build:
 
-The JAR is cached in:
-- **macOS**: `~/Library/Caches/flutter_gemma/jar/`
-- **Windows**: `%LOCALAPPDATA%\flutter_gemma\jar\`
+1. **Build from source** — If JDK 21+ is detected on your system, the JAR is built locally using Gradle
+2. **Download fallback** — If no JDK 21+ is available, a pre-built JAR is downloaded from GitHub Releases
+
+This hybrid approach means:
+- Flutter developers (who typically have JDK) get a fresh build
+- End users without JDK can still use the plugin via download
+
+### Cache Locations
+
+Built/downloaded files are cached to speed up subsequent builds:
+- **macOS**: `~/Library/Caches/flutter_gemma/jar/` and `~/Library/Caches/flutter_gemma/jre/`
+- **Windows**: `%LOCALAPPDATA%\flutter_gemma\jar\` and `%LOCALAPPDATA%\flutter_gemma\jre\`
 
 ### What's Inside
 
@@ -360,6 +404,8 @@ cd flutter_gemma/litertlm-server
 ```
 
 Prerequisites: JDK 21+, Gradle 8.0+ (wrapper included)
+
+The locally built JAR will be automatically detected and used instead of downloading.
 
 ### Server Startup
 

@@ -12,7 +12,7 @@ echo "=== LiteRT-LM Desktop Setup (macOS) ==="
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PODS_ROOT="${1:-$SCRIPT_DIR/..}"
-FRAMEWORKS_PATH="${2:-}"
+APP_BUNDLE="${2:-}"
 
 # Skip if not macOS
 if [[ "$(uname)" != "Darwin" ]]; then
@@ -20,16 +20,18 @@ if [[ "$(uname)" != "Darwin" ]]; then
     exit 0
 fi
 
-# Skip if no frameworks path (not building app bundle)
-if [[ -z "$FRAMEWORKS_PATH" ]]; then
-    echo "No frameworks path provided, skipping bundle setup"
+# Skip if no app bundle path
+if [[ -z "$APP_BUNDLE" || ! -d "$APP_BUNDLE" ]]; then
+    echo "No valid app bundle path provided: $APP_BUNDLE"
     exit 0
 fi
 
+echo "App bundle: $APP_BUNDLE"
+
 # Paths
 PLUGIN_ROOT="$(cd "$PODS_ROOT/.." && pwd)"
-RESOURCES_DIR="$FRAMEWORKS_PATH/../Resources"
-FRAMEWORKS_DIR="$FRAMEWORKS_PATH"
+RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
+FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
 
 # JRE settings
 JRE_VERSION="21.0.5+11"
@@ -71,10 +73,8 @@ mkdir -p "$FRAMEWORKS_DIR"
 
 # === Download and install JRE ===
 download_jre() {
-    local jre_marker="$JRE_DEST/.jre_installed"
-
-    # Check for marker file to detect complete installation
-    if [[ -f "$jre_marker" ]]; then
+    # Check for actual java binary instead of marker file
+    if [[ -x "$JRE_DEST/bin/java" ]]; then
         echo "JRE already installed in app bundle"
         return 0
     fi
@@ -136,14 +136,141 @@ download_jre() {
     mkdir -p "$JRE_DEST"
     cp -R "$extracted/Contents/Home/"* "$JRE_DEST/"
 
-    # Create marker file to indicate complete installation
-    touch "$jre_marker"
-
     echo "JRE installed successfully"
 }
 
-# === Download and install JAR ===
+# === Check JDK version ===
+check_jdk_version() {
+    local java_cmd="$1"
+    local required_version=21
+
+    if [[ ! -x "$java_cmd" ]]; then
+        return 1
+    fi
+
+    # Get Java version
+    local version_output
+    version_output=$("$java_cmd" -version 2>&1 | head -1)
+
+    # Extract major version number
+    local major_version
+    if [[ "$version_output" =~ \"([0-9]+) ]]; then
+        major_version="${BASH_REMATCH[1]}"
+    elif [[ "$version_output" =~ ([0-9]+)\. ]]; then
+        major_version="${BASH_REMATCH[1]}"
+    else
+        return 1
+    fi
+
+    if [[ "$major_version" -ge "$required_version" ]]; then
+        echo "Found JDK $major_version (>= $required_version required)" >&2
+        return 0
+    else
+        echo "JDK $major_version found, but $required_version+ required" >&2
+        return 1
+    fi
+}
+
+# === Find JDK for building ===
+find_build_jdk() {
+    # Check JAVA_HOME first
+    if [[ -n "$JAVA_HOME" ]] && check_jdk_version "$JAVA_HOME/bin/java"; then
+        echo "$JAVA_HOME/bin/java"
+        return 0
+    fi
+
+    # Check common JDK locations on macOS
+    local jdk_paths=(
+        "/opt/homebrew/opt/openjdk@21/bin/java"
+        "/opt/homebrew/opt/openjdk/bin/java"
+        "/usr/local/opt/openjdk@21/bin/java"
+        "/usr/local/opt/openjdk/bin/java"
+        "/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home/bin/java"
+        "/Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home/bin/java"
+    )
+
+    for java_path in "${jdk_paths[@]}"; do
+        if check_jdk_version "$java_path"; then
+            echo "$java_path"
+            return 0
+        fi
+    done
+
+    # Try system java
+    if command -v java &>/dev/null && check_jdk_version "$(command -v java)"; then
+        command -v java
+        return 0
+    fi
+
+    return 1
+}
+
+# === Build JAR from source ===
+build_jar() {
+    local gradle_dir="$PLUGIN_ROOT/litertlm-server"
+    local gradle_wrapper="$gradle_dir/gradlew"
+
+    if [[ ! -f "$gradle_wrapper" ]]; then
+        echo "Gradle wrapper not found at $gradle_wrapper" >&2
+        return 1
+    fi
+
+    echo "Building JAR from source..." >&2
+    cd "$gradle_dir"
+
+    if ! "$gradle_wrapper" fatJar --no-daemon -q; then
+        echo "Gradle build failed" >&2
+        return 1
+    fi
+
+    # Find built JAR
+    local built_jar
+    built_jar=$(ls -t "$gradle_dir/build/libs/"*-all.jar 2>/dev/null | head -n1)
+
+    if [[ -n "$built_jar" && -f "$built_jar" ]]; then
+        echo "JAR built successfully: $built_jar" >&2
+        echo "$built_jar"
+        return 0
+    else
+        echo "Built JAR not found" >&2
+        return 1
+    fi
+}
+
+# === Download JAR as fallback ===
 download_jar() {
+    echo "Downloading JAR from $JAR_URL..." >&2
+    mkdir -p "$JAR_CACHE_DIR"
+
+    local cached_jar="$JAR_CACHE_DIR/$JAR_NAME"
+
+    if ! curl -L -o "$cached_jar" "$JAR_URL" --fail --retry 3 --progress-bar; then
+        echo "ERROR: Failed to download JAR" >&2
+        rm -f "$cached_jar"
+        return 1
+    fi
+
+    # Verify checksum
+    if [[ -n "$JAR_CHECKSUM" ]]; then
+        echo "Verifying checksum..." >&2
+        local actual_checksum
+        actual_checksum=$(shasum -a 256 "$cached_jar" | awk '{print $1}')
+        if [[ "$actual_checksum" != "$JAR_CHECKSUM" ]]; then
+            rm -f "$cached_jar"
+            echo "ERROR: JAR checksum mismatch!" >&2
+            echo "  Expected: $JAR_CHECKSUM" >&2
+            echo "  Got: $actual_checksum" >&2
+            return 1
+        fi
+        echo "Checksum verified" >&2
+    fi
+
+    echo "$cached_jar"
+    return 0
+}
+
+# === Setup JAR (build or download) ===
+setup_jar() {
     local jar_dest="$RESOURCES_DIR/$JAR_NAME"
 
     if [[ -f "$jar_dest" ]]; then
@@ -152,40 +279,55 @@ download_jar() {
     fi
 
     echo "Setting up LiteRT-LM Server JAR..."
-    mkdir -p "$JAR_CACHE_DIR"
 
-    local cached_jar="$JAR_CACHE_DIR/$JAR_NAME"
+    local jar_source=""
 
-    # Download if not cached
-    if [[ ! -f "$cached_jar" ]]; then
-        echo "Downloading JAR from $JAR_URL..."
-        if ! curl -L -o "$cached_jar" "$JAR_URL" --fail --retry 3 --progress-bar; then
-            echo "ERROR: Failed to download JAR"
-            rm -f "$cached_jar"
-            exit 1
+    # 1. Check for locally built JAR first
+    local local_jar
+    local_jar=$(ls -t "$PLUGIN_ROOT/litertlm-server/build/libs/"*-all.jar 2>/dev/null | head -n1)
+    if [[ -n "$local_jar" && -f "$local_jar" ]]; then
+        echo "Using locally built JAR: $local_jar"
+        jar_source="$local_jar"
+    fi
+
+    # 2. Try to build if JDK 21+ available
+    if [[ -z "$jar_source" ]]; then
+        echo "Checking for JDK 21+..."
+        local jdk_path
+        if jdk_path=$(find_build_jdk 2>/dev/null); then
+            echo "Using JDK: $jdk_path"
+            export JAVA_HOME="$(dirname "$(dirname "$jdk_path")")"
+            if jar_source=$(build_jar); then
+                echo "Built JAR successfully"
+            else
+                echo "Build failed, will try download..."
+                jar_source=""
+            fi
+        else
+            echo "JDK 21+ not found, will download JAR..."
         fi
+    fi
 
-        # Verify checksum
-        if [[ -n "$JAR_CHECKSUM" ]]; then
-            echo "Verifying checksum..."
-            local actual_checksum
-            actual_checksum=$(shasum -a 256 "$cached_jar" | awk '{print $1}')
-            if [[ "$actual_checksum" != "$JAR_CHECKSUM" ]]; then
-                rm -f "$cached_jar"
-                echo "ERROR: JAR checksum mismatch!"
-                echo "  Expected: $JAR_CHECKSUM"
-                echo "  Got: $actual_checksum"
+    # 3. Download as fallback
+    if [[ -z "$jar_source" ]]; then
+        # Check cache first
+        local cached_jar="$JAR_CACHE_DIR/$JAR_NAME"
+        if [[ -f "$cached_jar" ]]; then
+            echo "Using cached JAR"
+            jar_source="$cached_jar"
+        else
+            if jar_source=$(download_jar); then
+                echo "Downloaded JAR successfully"
+            else
+                echo "ERROR: Could not obtain JAR (build failed, download failed)"
                 exit 1
             fi
-            echo "Checksum verified"
         fi
-    else
-        echo "Using cached JAR"
     fi
 
     # Copy to app bundle
     echo "Copying JAR to app bundle..."
-    cp "$cached_jar" "$jar_dest"
+    cp "$jar_source" "$jar_dest"
 
     echo "JAR installed successfully"
 }
@@ -193,10 +335,9 @@ download_jar() {
 # === Extract and sign native libraries ===
 extract_natives() {
     local NATIVES_DIR="$FRAMEWORKS_DIR/litertlm"
-    local natives_marker="$NATIVES_DIR/.natives_installed"
 
-    # Check if already extracted and signed
-    if [[ -f "$natives_marker" ]]; then
+    # Check if already extracted (look for actual .so files, not marker)
+    if ls "$NATIVES_DIR"/*.so 1> /dev/null 2>&1; then
         echo "Native libraries already installed"
         return 0
     fi
@@ -268,9 +409,6 @@ extract_natives() {
     rm -rf "$temp_dir"
     trap - EXIT
 
-    # Create marker file to indicate complete installation
-    touch "$natives_marker"
-
     echo "Native libraries extracted and signed"
 }
 
@@ -325,7 +463,7 @@ ENTITLEMENTS
 
 # Run setup
 download_jre
-download_jar
+setup_jar
 extract_natives
 remove_quarantine
 sign_jre

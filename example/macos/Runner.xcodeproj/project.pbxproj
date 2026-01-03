@@ -240,7 +240,7 @@
 				33CC110E2044A8840003C045 /* Bundle Framework */,
 				3399D490228B24CF009A79C7 /* ShellScript */,
 				00ACF2D52C37CDBF81D6B296 /* [CP] Embed Pods Frameworks */,
-				LITERTLM00000000SETUPJRE /* Setup LiteRT-LM Desktop */,
+				793583D59D0574CEB67BFF35 /* Setup LiteRT-LM Desktop */,
 			);
 			buildRules = (
 			);
@@ -399,6 +399,24 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		793583D59D0574CEB67BFF35 /* Setup LiteRT-LM Desktop */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Setup LiteRT-LM Desktop";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Find flutter_gemma plugin path\nPLUGIN_PATH=\"${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos\"\nif [ -f \"$PLUGIN_PATH/scripts/setup_desktop.sh\" ]; then\n  sh \"$PLUGIN_PATH/scripts/setup_desktop.sh\" \"$PLUGIN_PATH\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nfi\n";
+		};
 		A8E9FFDD1D6DFFDCCA844887 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -420,24 +438,6 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
-		};
-		LITERTLM00000000SETUPJRE /* Setup LiteRT-LM Desktop */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Setup LiteRT-LM Desktop";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"$PROJECT_DIR/scripts/setup_desktop.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

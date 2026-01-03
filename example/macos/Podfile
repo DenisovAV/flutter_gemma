@@ -39,4 +39,27 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
   end
+
+  # Add LiteRT-LM setup script to Runner target
+  # This runs AFTER the app bundle is created
+  main_project = installer.aggregate_targets.first.user_project
+  runner_target = main_project.targets.find { |t| t.name == 'Runner' }
+
+  if runner_target
+    phase_name = 'Setup LiteRT-LM Desktop'
+    existing_phase = runner_target.shell_script_build_phases.find { |p| p.name == phase_name }
+
+    unless existing_phase
+      phase = runner_target.new_shell_script_build_phase(phase_name)
+      phase.shell_script = <<-SCRIPT
+# Find flutter_gemma plugin path
+PLUGIN_PATH="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos"
+if [ -f "$PLUGIN_PATH/scripts/setup_desktop.sh" ]; then
+  sh "$PLUGIN_PATH/scripts/setup_desktop.sh" "$PLUGIN_PATH" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
+fi
+SCRIPT
+      main_project.save
+      puts "[flutter_gemma] Added LiteRT-LM setup script to Runner target"
+    end
+  end
 end

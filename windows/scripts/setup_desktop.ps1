@@ -157,8 +157,141 @@ function Install-Jre {
     Write-Host "JRE installed successfully" -ForegroundColor Green
 }
 
-# === Download and install JAR ===
+# === Check JDK version ===
+function Check-JdkVersion {
+    param([string]$JavaPath)
+
+    if (-not (Test-Path $JavaPath)) {
+        return $false
+    }
+
+    try {
+        $versionOutput = & $JavaPath -version 2>&1 | Select-Object -First 1
+        if ($versionOutput -match '"(\d+)') {
+            $majorVersion = [int]$Matches[1]
+        } elseif ($versionOutput -match '(\d+)\.') {
+            $majorVersion = [int]$Matches[1]
+        } else {
+            return $false
+        }
+
+        if ($majorVersion -ge 21) {
+            Write-Host "Found JDK $majorVersion (>= 21 required)" -ForegroundColor Green
+            return $true
+        } else {
+            Write-Host "JDK $majorVersion found, but 21+ required" -ForegroundColor Yellow
+            return $false
+        }
+    } catch {
+        return $false
+    }
+}
+
+# === Find JDK for building ===
+function Find-BuildJdk {
+    # Check JAVA_HOME first
+    if ($env:JAVA_HOME) {
+        $javaPath = "$env:JAVA_HOME\bin\java.exe"
+        if (Check-JdkVersion $javaPath) {
+            return $javaPath
+        }
+    }
+
+    # Check common JDK locations on Windows
+    $jdkPaths = @(
+        "$env:ProgramFiles\Eclipse Adoptium\jdk-21*\bin\java.exe",
+        "$env:ProgramFiles\Java\jdk-21*\bin\java.exe",
+        "$env:ProgramFiles\Microsoft\jdk-21*\bin\java.exe",
+        "$env:ProgramFiles\Zulu\zulu-21*\bin\java.exe"
+    )
+
+    foreach ($pattern in $jdkPaths) {
+        $found = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found -and (Check-JdkVersion $found.FullName)) {
+            return $found.FullName
+        }
+    }
+
+    # Try system java
+    $systemJava = Get-Command java -ErrorAction SilentlyContinue
+    if ($systemJava -and (Check-JdkVersion $systemJava.Source)) {
+        return $systemJava.Source
+    }
+
+    return $null
+}
+
+# === Build JAR from source ===
+function Build-Jar {
+    $gradleDir = "$PluginRoot\litertlm-server"
+    $gradleWrapper = "$gradleDir\gradlew.bat"
+
+    if (-not (Test-Path $gradleWrapper)) {
+        Write-Host "Gradle wrapper not found at $gradleWrapper" -ForegroundColor Yellow
+        return $null
+    }
+
+    Write-Host "Building JAR from source..."
+    Push-Location $gradleDir
+
+    try {
+        & $gradleWrapper fatJar --no-daemon -q
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Gradle build failed" -ForegroundColor Yellow
+            return $null
+        }
+
+        # Find built JAR
+        $builtJar = Get-ChildItem -Path "$gradleDir\build\libs\*-all.jar" -ErrorAction SilentlyContinue |
+                    Sort-Object LastWriteTime -Descending |
+                    Select-Object -First 1
+
+        if ($builtJar) {
+            Write-Host "JAR built successfully: $($builtJar.FullName)" -ForegroundColor Green
+            return $builtJar.FullName
+        } else {
+            Write-Host "Built JAR not found" -ForegroundColor Yellow
+            return $null
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+# === Download JAR as fallback ===
 function Download-Jar {
+    Write-Host "Downloading JAR from $JarUrl..."
+    New-Item -ItemType Directory -Force -Path $JarCacheDir | Out-Null
+
+    $cachedJar = "$JarCacheDir\$JarName"
+
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        $ProgressPreference = 'Continue'
+        Invoke-WebRequest -Uri $JarUrl -OutFile $cachedJar -UseBasicParsing
+    } catch {
+        Write-Host "Failed to download JAR: $_" -ForegroundColor Red
+        Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
+        return $null
+    }
+
+    # Verify checksum
+    if ($JarChecksum) {
+        Write-Host "Verifying checksum..."
+        $actualChecksum = (Get-FileHash -Path $cachedJar -Algorithm SHA256).Hash.ToLower()
+        if ($actualChecksum -ne $JarChecksum.ToLower()) {
+            Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
+            Write-Host "JAR checksum mismatch! Expected: $JarChecksum, Got: $actualChecksum" -ForegroundColor Red
+            return $null
+        }
+        Write-Host "Checksum verified" -ForegroundColor Green
+    }
+
+    return $cachedJar
+}
+
+# === Setup JAR (build or download) ===
+function Setup-Jar {
     Write-Host ""
     Write-Host "=== Setting up JAR ===" -ForegroundColor Gray
 
@@ -172,41 +305,54 @@ function Download-Jar {
     }
 
     Write-Host "Setting up LiteRT-LM Server JAR..."
-    New-Item -ItemType Directory -Force -Path $JarCacheDir | Out-Null
 
-    $cachedJar = "$JarCacheDir\$JarName"
+    $jarSource = $null
 
-    # Download if not cached
-    if (-not (Test-Path $cachedJar)) {
-        Write-Host "Downloading JAR from $JarUrl..."
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-            $ProgressPreference = 'Continue'
-            Invoke-WebRequest -Uri $JarUrl -OutFile $cachedJar -UseBasicParsing
-        } catch {
-            Write-Error "Failed to download JAR: $_"
-            Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
-            exit 1
+    # 1. Check for locally built JAR first
+    $localJar = Get-ChildItem -Path "$PluginRoot\litertlm-server\build\libs\*-all.jar" -ErrorAction SilentlyContinue |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+    if ($localJar) {
+        Write-Host "Using locally built JAR: $($localJar.FullName)" -ForegroundColor Green
+        $jarSource = $localJar.FullName
+    }
+
+    # 2. Try to build if JDK 21+ available
+    if (-not $jarSource) {
+        Write-Host "Checking for JDK 21+..."
+        $jdkPath = Find-BuildJdk
+        if ($jdkPath) {
+            Write-Host "Using JDK: $jdkPath"
+            $env:JAVA_HOME = Split-Path (Split-Path $jdkPath)
+            $jarSource = Build-Jar
+            if (-not $jarSource) {
+                Write-Host "Build failed, will try download..." -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "JDK 21+ not found, will download JAR..." -ForegroundColor Yellow
         }
+    }
 
-        # Verify checksum
-        if ($JarChecksum) {
-            Write-Host "Verifying checksum..."
-            $actualChecksum = (Get-FileHash -Path $cachedJar -Algorithm SHA256).Hash.ToLower()
-            if ($actualChecksum -ne $JarChecksum.ToLower()) {
-                Remove-Item $cachedJar -Force -ErrorAction SilentlyContinue
-                Write-Error "JAR checksum mismatch! Expected: $JarChecksum, Got: $actualChecksum"
+    # 3. Download as fallback
+    if (-not $jarSource) {
+        # Check cache first
+        $cachedJar = "$JarCacheDir\$JarName"
+        if (Test-Path $cachedJar) {
+            Write-Host "Using cached JAR" -ForegroundColor Green
+            $jarSource = $cachedJar
+        } else {
+            $jarSource = Download-Jar
+            if (-not $jarSource) {
+                Write-Error "Could not obtain JAR (build failed, download failed)"
                 exit 1
             }
-            Write-Host "Checksum verified" -ForegroundColor Green
+            Write-Host "Downloaded JAR successfully" -ForegroundColor Green
         }
-    } else {
-        Write-Host "Using cached JAR" -ForegroundColor Green
     }
 
     # Copy to output directory
     Write-Host "Copying JAR to output..."
-    Copy-Item -Path $cachedJar -Destination $jarDest -Force
+    Copy-Item -Path $jarSource -Destination $jarDest -Force
 
     Write-Host "JAR installed successfully" -ForegroundColor Green
 }
@@ -275,8 +421,8 @@ try {
     Install-Jre
 
     Write-Host ""
-    Write-Host "Step 2: Downloading JAR..." -ForegroundColor Gray
-    Download-Jar
+    Write-Host "Step 2: Setting up JAR..." -ForegroundColor Gray
+    Setup-Jar
 
     Write-Host ""
     Write-Host "Step 3: Extracting native libraries..." -ForegroundColor Gray

@@ -68,6 +68,7 @@ flutter:
         pluginClass: FlutterGemmaPlugin
         dartPluginClass: FlutterGemmaDesktop
       windows:
+        pluginClass: FlutterGemmaPlugin
         dartPluginClass: FlutterGemmaDesktop
       linux:
         dartPluginClass: FlutterGemmaDesktop

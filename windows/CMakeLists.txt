@@ -91,10 +91,10 @@ add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   VERBATIM
 )
 
-# POST_BUILD: Copy native libraries (only if not exists)
+# POST_BUILD: Copy native libraries (if missing JNI DLL or DXC)
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   COMMAND powershell -NoProfile -ExecutionPolicy Bypass -Command
-    "if (-not (Test-Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm/litertlm_jni.dll')) { Write-Host 'Copying native libraries...'; New-Item -ItemType Directory -Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm' -Force | Out-Null; Copy-Item -Path '${SETUP_OUTPUT_DIR}/litertlm/*' -Destination '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm' -Recurse -Force } else { Write-Host 'Native libraries already exist, skipping copy' }"
+    "if ((-not (Test-Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm/litertlm_jni.dll')) -or (-not (Test-Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm/dxil.dll'))) { Write-Host 'Copying native libraries...'; New-Item -ItemType Directory -Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm' -Force | Out-Null; Copy-Item -Path '${SETUP_OUTPUT_DIR}/litertlm/*' -Destination '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm' -Recurse -Force } else { Write-Host 'Native libraries already exist, skipping copy' }"
   COMMENT "Checking/copying native libraries to runner/$<CONFIG>/litertlm/..."
   VERBATIM
 )

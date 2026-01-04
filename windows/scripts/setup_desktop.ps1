@@ -182,6 +182,13 @@ function Install-Jre {
     Write-Host "Copying JRE to output..."
     Copy-Item -Path "$extractedDir\*" -Destination $jreDest -Recurse -Force
 
+    # Verify copy succeeded
+    $criticalFile = "$jreDest\lib\jvm.cfg"
+    if (-not (Test-Path $criticalFile)) {
+        Write-Error "JRE copy failed: $criticalFile not found"
+        exit 1
+    }
+
     # Create marker file to indicate complete installation
     New-Item -ItemType File -Force -Path $jreMarker | Out-Null
 

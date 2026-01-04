@@ -109,16 +109,32 @@ if(DEFINED INSTALL_BUNDLE_DATA_DIR AND NOT "${INSTALL_BUNDLE_DATA_DIR}" STREQUAL
 endif()
 
 if(DEFINED CMAKE_INSTALL_PREFIX AND NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
-  # Install JRE to jre directory (next to executable)
-  install(DIRECTORY "${SETUP_OUTPUT_DIR}/jre/"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/jre"
-    OPTIONAL
-    USE_SOURCE_PERMISSIONS
-  )
+  # Install JRE to jre directory (only if not already there or files not locked)
+  install(CODE "
+    set(SRC_DIR \"${SETUP_OUTPUT_DIR}/jre\")
+    set(DST_DIR \"\${CMAKE_INSTALL_PREFIX}/jre\")
+    if(EXISTS \"\${SRC_DIR}\")
+      if(NOT EXISTS \"\${DST_DIR}/bin/java.exe\")
+        message(STATUS \"Installing JRE to \${DST_DIR}\")
+        file(COPY \"\${SRC_DIR}/\" DESTINATION \"\${DST_DIR}\")
+      else()
+        message(STATUS \"JRE already exists at \${DST_DIR}, skipping\")
+      endif()
+    endif()
+  ")
 
-  # Install native libraries to litertlm directory
-  install(DIRECTORY "${SETUP_OUTPUT_DIR}/litertlm/"
-    DESTINATION "${CMAKE_INSTALL_PREFIX}/litertlm"
-    OPTIONAL
-  )
+  # Install native libraries (only if not already there)
+  install(CODE "
+    set(SRC_DIR \"${SETUP_OUTPUT_DIR}/litertlm\")
+    set(DST_DIR \"\${CMAKE_INSTALL_PREFIX}/litertlm\")
+    if(EXISTS \"\${SRC_DIR}\")
+      if(NOT EXISTS \"\${DST_DIR}/litertlm_jni.dll\")
+        message(STATUS \"Installing native libraries to \${DST_DIR}\")
+        file(MAKE_DIRECTORY \"\${DST_DIR}\")
+        file(COPY \"\${SRC_DIR}/\" DESTINATION \"\${DST_DIR}\")
+      else()
+        message(STATUS \"Native libraries already exist at \${DST_DIR}, skipping\")
+      endif()
+    endif()
+  ")
 endif()

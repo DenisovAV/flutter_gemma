@@ -112,6 +112,7 @@ Desktop support uses a different architecture than mobile platforms:
 - Windows 10 (version 1903) or higher
 - Visual Studio 2019/2022 with "Desktop development with C++" workload
 - PowerShell 5.1+ (included with Windows)
+- DirectX Shader Compiler (dxil.dll) - required for GPU acceleration
 
 ### Linux
 
@@ -335,6 +336,16 @@ Invoke-WebRequest -Uri $url -OutFile "$env:LOCALAPPDATA\flutter_gemma\jre\jre.zi
 **Missing Visual C++ Redistributable:**
 ```
 Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe
+```
+
+**dxil.dll Windows Error: 87:**
+DirectX Shader Compiler not installed. Required for WebGPU/DirectX 12 GPU acceleration.
+```powershell
+# Download and install DXC
+Invoke-WebRequest -Uri "https://github.com/microsoft/DirectXShaderCompiler/releases/download/v1.8.2407/dxc_2024_07_31.zip" -OutFile "$env:TEMP\dxc.zip"
+Expand-Archive -Path "$env:TEMP\dxc.zip" -DestinationPath "$env:TEMP\dxc" -Force
+Copy-Item "$env:TEMP\dxc\bin\x64\dxil.dll" "C:\Windows\System32\"
+Copy-Item "$env:TEMP\dxc\bin\x64\dxcompiler.dll" "C:\Windows\System32\"
 ```
 
 ---

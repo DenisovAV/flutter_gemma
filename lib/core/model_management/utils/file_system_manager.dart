@@ -38,15 +38,16 @@ class ModelFileSystemManager {
   static int getMinimumSize(String extension) => FileNameUtils.getMinimumSize(extension);
 
   /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access
+  /// Uses path.join() for cross-platform path separator handling
   static String getCorrectedPath(String originalPath, String filename) {
     // Check if this is the problematic Android path format
     if (originalPath.contains('/data/user/0/')) {
       // Replace with the correct Android app data path
       final correctedPath = originalPath.replaceFirst('/data/user/0/', '/data/data/');
-      return '$correctedPath/$filename';
+      return path.join(correctedPath, filename);
     }
-    // For other platforms or already correct paths, use the original
-    return '$originalPath/$filename';
+    // For other platforms, use path.join for correct separators (\ on Windows, / on Unix)
+    return path.join(originalPath, filename);
   }
 
   /// Validates if a file exists and meets minimum size requirements

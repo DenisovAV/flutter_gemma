@@ -166,7 +166,7 @@ enum Model implements InferenceModelInterface {
     size: '529MB',
     licenseUrl: 'https://huggingface.co/litert-community/Gemma3-1B-IT',
     needsAuth: true,
-    preferredBackend: PreferredBackend.gpu,
+    preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.gemmaIt,
     temperature: 1.0,
     topK: 64,

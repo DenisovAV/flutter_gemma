@@ -82,22 +82,20 @@ add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   VERBATIM
 )
 
-# POST_BUILD: Copy JRE to runner directory
+# POST_BUILD: Copy JRE to runner directory (only if not exists)
+# Using PowerShell to check existence first - avoids errors when files are locked
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${SETUP_OUTPUT_DIR}/jre"
-    "${RUNNER_BASE_DIR}/$<CONFIG>/jre"
-  COMMENT "Copying JRE to runner/$<CONFIG>/jre/..."
+  COMMAND powershell -NoProfile -ExecutionPolicy Bypass -Command
+    "if (-not (Test-Path '${RUNNER_BASE_DIR}/$<CONFIG>/jre/bin/java.exe')) { Write-Host 'Copying JRE...'; Copy-Item -Path '${SETUP_OUTPUT_DIR}/jre' -Destination '${RUNNER_BASE_DIR}/$<CONFIG>' -Recurse -Force } else { Write-Host 'JRE already exists, skipping copy' }"
+  COMMENT "Checking/copying JRE to runner/$<CONFIG>/jre/..."
   VERBATIM
 )
 
-# POST_BUILD: Copy native libraries
+# POST_BUILD: Copy native libraries (only if not exists)
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${RUNNER_BASE_DIR}/$<CONFIG>/litertlm"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${SETUP_OUTPUT_DIR}/litertlm"
-    "${RUNNER_BASE_DIR}/$<CONFIG>/litertlm"
-  COMMENT "Copying native libraries to runner/$<CONFIG>/litertlm/..."
+  COMMAND powershell -NoProfile -ExecutionPolicy Bypass -Command
+    "if (-not (Test-Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm/litertlm_jni.dll')) { Write-Host 'Copying native libraries...'; New-Item -ItemType Directory -Path '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm' -Force | Out-Null; Copy-Item -Path '${SETUP_OUTPUT_DIR}/litertlm/*' -Destination '${RUNNER_BASE_DIR}/$<CONFIG>/litertlm' -Recurse -Force } else { Write-Host 'Native libraries already exist, skipping copy' }"
+  COMMENT "Checking/copying native libraries to runner/$<CONFIG>/litertlm/..."
   VERBATIM
 )
 

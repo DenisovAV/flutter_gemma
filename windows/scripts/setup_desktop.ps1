@@ -464,6 +464,62 @@ function Extract-Natives {
     }
 }
 
+# === Download DirectX Shader Compiler (required for GPU) ===
+function Install-DXC {
+    $dxcDir = "$OutputDir\litertlm"
+    $dxilDll = "$dxcDir\dxil.dll"
+    $dxcompilerDll = "$dxcDir\dxcompiler.dll"
+
+    # Check if already installed
+    if ((Test-Path $dxilDll) -and (Test-Path $dxcompilerDll)) {
+        Write-Host "  DirectX Shader Compiler already installed" -ForegroundColor Green
+        return
+    }
+
+    Write-Host "  Downloading DirectX Shader Compiler (required for GPU)..."
+
+    # Use stable version v1.7.2308 (August 2023) - tested and working
+    $dxcVersion = "v1.7.2308"
+    $dxcUrl = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$dxcVersion/dxc_2023_08_14.zip"
+    $dxcCacheDir = "$env:LOCALAPPDATA\flutter_gemma\dxc"
+    $dxcArchive = "$dxcCacheDir\dxc_$dxcVersion.zip"
+
+    New-Item -ItemType Directory -Force -Path $dxcCacheDir | Out-Null
+
+    # Download if not cached
+    if (-not (Test-Path $dxcArchive)) {
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            Write-Host "  Downloading from $dxcUrl..."
+            Invoke-WebRequest -Uri $dxcUrl -OutFile $dxcArchive -UseBasicParsing
+        } catch {
+            Write-Warning "  Failed to download DXC: $_"
+            Write-Host "  GPU acceleration may not work without DirectX Shader Compiler" -ForegroundColor Yellow
+            return
+        }
+    } else {
+        Write-Host "  Using cached DXC archive" -ForegroundColor Green
+    }
+
+    # Extract DLLs
+    try {
+        $extractDir = "$dxcCacheDir\extracted"
+        if (-not (Test-Path "$extractDir\bin\x64\dxil.dll")) {
+            Write-Host "  Extracting DXC..."
+            Expand-Archive -Path $dxcArchive -DestinationPath $extractDir -Force
+        }
+
+        # Copy DLLs to natives directory
+        Copy-Item -Path "$extractDir\bin\x64\dxil.dll" -Destination $dxilDll -Force
+        Copy-Item -Path "$extractDir\bin\x64\dxcompiler.dll" -Destination $dxcompilerDll -Force
+
+        Write-Host "  DirectX Shader Compiler installed (GPU support enabled)" -ForegroundColor Green
+    } catch {
+        Write-Warning "  Failed to extract DXC: $_"
+        Write-Host "  GPU acceleration may not work" -ForegroundColor Yellow
+    }
+}
+
 # === Main ===
 Write-Host ""
 Write-Host "=== Starting setup ===" -ForegroundColor Cyan
@@ -482,12 +538,17 @@ try {
     Extract-Natives
 
     Write-Host ""
+    Write-Host "Step 4: Installing DirectX Shader Compiler..." -ForegroundColor Gray
+    Install-DXC
+
+    Write-Host ""
     Write-Host "========================================" -ForegroundColor Green
     Write-Host "=== Setup complete ===" -ForegroundColor Green
     Write-Host "========================================" -ForegroundColor Green
     Write-Host "JRE: $OutputDir\jre"
     Write-Host "JAR: $OutputDir\data\$JarName"
     Write-Host "Natives: $OutputDir\litertlm"
+    Write-Host "DXC: $OutputDir\litertlm (dxil.dll, dxcompiler.dll)"
 
 } catch {
     Write-Host ""

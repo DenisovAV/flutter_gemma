@@ -109,10 +109,17 @@ if(DEFINED INSTALL_BUNDLE_DATA_DIR AND NOT "${INSTALL_BUNDLE_DATA_DIR}" STREQUAL
 endif()
 
 if(DEFINED CMAKE_INSTALL_PREFIX AND NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
-  # Install JRE to jre directory (only if not already there or files not locked)
+  # Install JRE to runner directory (only if not already there)
+  # Use RUNNER_BASE_DIR + config instead of CMAKE_INSTALL_PREFIX (which contains invalid generator expression)
   install(CODE "
+    if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" STREQUAL \"\")
+      set(CONFIG \"Release\")
+    else()
+      set(CONFIG \"\${CMAKE_INSTALL_CONFIG_NAME}\")
+    endif()
+
     set(SRC_DIR \"${SETUP_OUTPUT_DIR}/jre\")
-    set(DST_DIR \"\${CMAKE_INSTALL_PREFIX}/jre\")
+    set(DST_DIR \"${RUNNER_BASE_DIR}/\${CONFIG}/jre\")
     if(EXISTS \"\${SRC_DIR}\")
       if(NOT EXISTS \"\${DST_DIR}/bin/java.exe\")
         message(STATUS \"Installing JRE to \${DST_DIR}\")
@@ -125,8 +132,14 @@ if(DEFINED CMAKE_INSTALL_PREFIX AND NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
 
   # Install native libraries (only if not already there)
   install(CODE "
+    if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" STREQUAL \"\")
+      set(CONFIG \"Release\")
+    else()
+      set(CONFIG \"\${CMAKE_INSTALL_CONFIG_NAME}\")
+    endif()
+
     set(SRC_DIR \"${SETUP_OUTPUT_DIR}/litertlm\")
-    set(DST_DIR \"\${CMAKE_INSTALL_PREFIX}/litertlm\")
+    set(DST_DIR \"${RUNNER_BASE_DIR}/\${CONFIG}/litertlm\")
     if(EXISTS \"\${SRC_DIR}\")
       if(NOT EXISTS \"\${DST_DIR}/litertlm_jni.dll\")
         message(STATUS \"Installing native libraries to \${DST_DIR}\")

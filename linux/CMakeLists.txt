@@ -48,24 +48,21 @@ add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
 # === Install: Copy files to bundle ===
 # Linux bundle structure: bundle/data/, bundle/lib/
-# Using install() commands to integrate with Flutter's ninja install
-
-set(BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
-set(BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+# Flutter sets INSTALL_BUNDLE_DATA_DIR and INSTALL_BUNDLE_LIB_DIR
 
 # Install JAR to data directory
 install(FILES "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
-  DESTINATION "${BUNDLE_DATA_DIR}"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   OPTIONAL)
 
 # Install JRE to lib/jre
 install(DIRECTORY "${SETUP_OUTPUT_DIR}/jre/"
-  DESTINATION "${BUNDLE_LIB_DIR}/jre"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/jre"
   OPTIONAL
   USE_SOURCE_PERMISSIONS)
 
 # Install native libraries to lib/litertlm
 install(DIRECTORY "${SETUP_OUTPUT_DIR}/litertlm/"
-  DESTINATION "${BUNDLE_LIB_DIR}/litertlm"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/litertlm"
   OPTIONAL
   USE_SOURCE_PERMISSIONS)

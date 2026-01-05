@@ -34,6 +34,10 @@ class InferenceChat {
   int _currentTokens = 0;
   bool _toolsInstructionSent = false; // Flag to track if tools instruction was sent
 
+  /// Determines if model history should be cleared after each turn
+  /// FunctionGemma requires single-turn mode (no multi-turn context)
+  bool get _isSingleTurnModel => modelType == ModelType.functionGemma;
+
   InferenceChat({
     required this.sessionCreator,
     required this.maxTokens,
@@ -67,7 +71,7 @@ class InferenceChat {
         !noTool &&
         supportsFunctionCalls) {
       _toolsInstructionSent = true;
-      final toolsPrompt = _createToolsPrompt();
+      final toolsPrompt = createToolsPrompt();
 
       // For FunctionGemma, manually construct the full prompt with turn markers
       // because tools prompt already has developer turn markers
@@ -133,6 +137,19 @@ class InferenceChat {
     final chatMessage = Message(text: cleanedResponse, isUser: false);
     _fullHistory.add(chatMessage);
     _modelHistory.add(chatMessage);
+
+    // Clear model history for single-turn models (e.g., FunctionGemma)
+    if (_isSingleTurnModel) {
+      debugPrint('InferenceChat: Single-turn model detected, clearing model history...');
+      _modelHistory.clear();
+      _currentTokens = 0;
+      _toolsInstructionSent = false;
+
+      // Recreate session to clear native state
+      await session.close();
+      session = await sessionCreator!();
+      debugPrint('InferenceChat: Model history cleared and session recreated');
+    }
 
     return TextResponse(cleanedResponse); // Return TextResponse instead of String
   }
@@ -254,6 +271,9 @@ class InferenceChat {
     final response = buffer.toString();
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
 
+    // Track if we emitted a function call (to skip history clearing)
+    bool emittedFunctionCall = false;
+
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
       debugPrint(
@@ -288,6 +308,7 @@ class InferenceChat {
           );
           if (functionCall != null) {
             debugPrint('InferenceChat: Function call found at end of stream');
+            emittedFunctionCall = true;
             yield functionCall;
           } else {
             yield TextResponse(funcBuffer);
@@ -327,6 +348,22 @@ class InferenceChat {
       _modelHistory.add(chatMessage);
       debugPrint('InferenceChat: Added to model history');
       debugPrint('InferenceChat: Message added to history successfully');
+
+      // Clear model history for single-turn models (e.g., FunctionGemma)
+      // BUT only if this was NOT a function call - we need context for tool response
+      if (_isSingleTurnModel && !emittedFunctionCall) {
+        debugPrint('InferenceChat: Single-turn model detected (text response), clearing model history...');
+        _modelHistory.clear();
+        _currentTokens = 0;
+        _toolsInstructionSent = false;
+
+        // Recreate session to clear native state
+        await session.close();
+        session = await sessionCreator!();
+        debugPrint('InferenceChat: Model history cleared and session recreated');
+      } else if (_isSingleTurnModel && emittedFunctionCall) {
+        debugPrint('InferenceChat: Single-turn model with function call - keeping history for tool response');
+      }
     } catch (e) {
       debugPrint('InferenceChat: Error adding message to history: $e');
       rethrow;
@@ -375,7 +412,10 @@ class InferenceChat {
 
   Future<void> stopGeneration() => session.stopGeneration();
 
-  String _createToolsPrompt() {
+  /// Creates tools prompt based on model type.
+  /// Made package-private for testing.
+  @visibleForTesting
+  String createToolsPrompt() {
     if (tools.isEmpty) {
       return '';
     }
@@ -430,14 +470,33 @@ class InferenceChat {
             final type =
                 (schema['type'] as String?)?.toUpperCase() ?? 'STRING';
             final desc = schema['description'];
-            // Google format: description first, then type
+            final enumValues = schema['enum'] as List<dynamic>?;
+
+            final parts = <String>[];
             if (desc != null) {
-              paramEntries.add(
-                  '$name:{description:$functionGemmaEscape$desc$functionGemmaEscape,type:$functionGemmaEscape$type$functionGemmaEscape}');
-            } else {
-              paramEntries
-                  .add('$name:{type:$functionGemmaEscape$type$functionGemmaEscape}');
+              parts.add(
+                  'description:$functionGemmaEscape$desc$functionGemmaEscape');
             }
+            if (enumValues != null && enumValues.isNotEmpty) {
+              // Validate enum values don't contain FunctionGemma special tokens
+              for (final v in enumValues) {
+                final str = v.toString();
+                if (str.contains('<escape>') ||
+                    str.contains('<start_') ||
+                    str.contains('<end_')) {
+                  throw ArgumentError(
+                    'Enum value "$str" contains FunctionGemma special tokens',
+                  );
+                }
+              }
+              final enumStr = enumValues
+                  .map((v) => '$functionGemmaEscape$v$functionGemmaEscape')
+                  .join(',');
+              parts.add('enum:[$enumStr]');
+            }
+            parts.add('type:$functionGemmaEscape$type$functionGemmaEscape');
+
+            paramEntries.add('$name:{${parts.join(',')}}');
           }
         });
         toolsPrompt.write(paramEntries.join(','));

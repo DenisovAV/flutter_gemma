@@ -304,6 +304,25 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: true,
   ),
 
+  // FunctionGemma 270M IT (Local asset)
+  functionGemma_270M_local(
+    baseUrl: 'assets/models/functiongemma-flutter-1.litertlm',
+    filename: 'functiongemma-flutter-1.litertlm',
+    displayName: 'FunctionGemma 270M IT (Local)',
+    size: '284MB',
+    licenseUrl: '',
+    needsAuth: false,
+    localModel: true,
+
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.functionGemma,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 1024,
+    supportsFunctionCalls: true,
+  ),
+
   // FunctionGemma Flutter Demo (Fine-tuned for example app)
   functionGemma_demo(
     baseUrl:

@@ -1,6 +1,6 @@
 /// Base interface for model responses from InferenceChat
 /// Can be either TextResponse, FunctionCallResponse, or ThinkingResponse
-abstract class ModelResponse {
+sealed class ModelResponse {
   const ModelResponse();
 }
 

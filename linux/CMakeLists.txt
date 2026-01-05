@@ -60,16 +60,20 @@ add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   COMMENT "Copying litertlm-server.jar to bundle/data/..."
 )
 
-# Copy JRE to lib/jre (only if not exists)
+# Copy JRE to lib/jre (using CMake native copy_directory)
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_DIR}/lib"
-  COMMAND bash -c "if [ ! -f '${BUNDLE_DIR}/lib/jre/bin/java' ]; then echo 'Copying JRE...'; cp -r '${SETUP_OUTPUT_DIR}/jre' '${BUNDLE_DIR}/lib/jre'; else echo 'JRE already exists, skipping'; fi"
-  COMMENT "Checking/copying JRE to bundle/lib/jre/..."
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${SETUP_OUTPUT_DIR}/jre"
+    "${BUNDLE_DIR}/lib/jre"
+  COMMENT "Copying JRE to bundle/lib/jre/..."
 )
 
-# Copy native libraries to lib/litertlm (only if not exists)
+# Copy native libraries to lib/litertlm (using CMake native copy_directory)
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_DIR}/lib/litertlm"
-  COMMAND bash -c "if [ ! -f '${BUNDLE_DIR}/lib/litertlm/liblitertlm_jni.so' ]; then echo 'Copying natives...'; cp '${SETUP_OUTPUT_DIR}/litertlm/'* '${BUNDLE_DIR}/lib/litertlm/' 2>/dev/null || true; else echo 'Natives already exist, skipping'; fi"
-  COMMENT "Checking/copying native libraries to bundle/lib/litertlm/..."
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${SETUP_OUTPUT_DIR}/litertlm"
+    "${BUNDLE_DIR}/lib/litertlm"
+  COMMENT "Copying native libraries to bundle/lib/litertlm/..."
 )

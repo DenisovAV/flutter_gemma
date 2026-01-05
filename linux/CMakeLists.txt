@@ -48,21 +48,27 @@ add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
 # === Install: Copy files to bundle ===
 # Linux bundle structure: bundle/data/, bundle/lib/
-# Flutter sets INSTALL_BUNDLE_DATA_DIR and INSTALL_BUNDLE_LIB_DIR
+# Use install(CODE) to copy at install time with proper paths
 
-# Install JAR to data directory
-install(FILES "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
-  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
-  OPTIONAL)
+install(CODE "
+  set(BUNDLE_DIR \"${CMAKE_BINARY_DIR}/bundle\")
+  set(SETUP_DIR \"${SETUP_OUTPUT_DIR}\")
 
-# Install JRE to lib/jre
-install(DIRECTORY "${SETUP_OUTPUT_DIR}/jre/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/jre"
-  OPTIONAL
-  USE_SOURCE_PERMISSIONS)
+  # Copy JAR
+  if(EXISTS \"\${SETUP_DIR}/data/litertlm-server.jar\")
+    file(COPY \"\${SETUP_DIR}/data/litertlm-server.jar\" DESTINATION \"\${BUNDLE_DIR}/data\")
+    message(STATUS \"Installed litertlm-server.jar to bundle/data/\")
+  endif()
 
-# Install native libraries to lib/litertlm
-install(DIRECTORY "${SETUP_OUTPUT_DIR}/litertlm/"
-  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/litertlm"
-  OPTIONAL
-  USE_SOURCE_PERMISSIONS)
+  # Copy JRE
+  if(EXISTS \"\${SETUP_DIR}/jre\")
+    file(COPY \"\${SETUP_DIR}/jre\" DESTINATION \"\${BUNDLE_DIR}/lib\")
+    message(STATUS \"Installed JRE to bundle/lib/jre/\")
+  endif()
+
+  # Copy native libraries
+  if(EXISTS \"\${SETUP_DIR}/litertlm\")
+    file(COPY \"\${SETUP_DIR}/litertlm\" DESTINATION \"\${BUNDLE_DIR}/lib\")
+    message(STATUS \"Installed native libs to bundle/lib/litertlm/\")
+  endif()
+")

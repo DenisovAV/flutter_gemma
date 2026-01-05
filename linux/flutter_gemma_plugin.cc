@@ -11,7 +11,7 @@
 // Placeholder - no actual native implementation needed
 // Dart plugin class (FlutterGemmaDesktop) handles everything via gRPC
 
-void flutter_gemma_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
+extern "C" void flutter_gemma_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
   // No-op: Desktop implementation is pure Dart using gRPC
   // This function exists only for plugin registration compatibility
 }

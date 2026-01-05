@@ -46,34 +46,26 @@ add_custom_target(flutter_gemma_setup ALL
 
 add_dependencies(${PLUGIN_NAME} flutter_gemma_setup)
 
-# === POST_BUILD: Copy files to bundle ===
+# === Install: Copy files to bundle ===
 # Linux bundle structure: bundle/data/, bundle/lib/
+# Using install() commands to integrate with Flutter's ninja install
 
-set(BUNDLE_DIR "${CMAKE_BINARY_DIR}/bundle")
+set(BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
+set(BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib")
 
-# Copy JAR to data directory
-add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_DIR}/data"
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
-    "${BUNDLE_DIR}/data/litertlm-server.jar"
-  COMMENT "Copying litertlm-server.jar to bundle/data/..."
-)
+# Install JAR to data directory
+install(FILES "${SETUP_OUTPUT_DIR}/data/litertlm-server.jar"
+  DESTINATION "${BUNDLE_DATA_DIR}"
+  OPTIONAL)
 
-# Copy JRE to lib/jre (using CMake native copy_directory)
-add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_DIR}/lib"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${SETUP_OUTPUT_DIR}/jre"
-    "${BUNDLE_DIR}/lib/jre"
-  COMMENT "Copying JRE to bundle/lib/jre/..."
-)
+# Install JRE to lib/jre
+install(DIRECTORY "${SETUP_OUTPUT_DIR}/jre/"
+  DESTINATION "${BUNDLE_LIB_DIR}/jre"
+  OPTIONAL
+  USE_SOURCE_PERMISSIONS)
 
-# Copy native libraries to lib/litertlm (using CMake native copy_directory)
-add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_DIR}/lib/litertlm"
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${SETUP_OUTPUT_DIR}/litertlm"
-    "${BUNDLE_DIR}/lib/litertlm"
-  COMMENT "Copying native libraries to bundle/lib/litertlm/..."
-)
+# Install native libraries to lib/litertlm
+install(DIRECTORY "${SETUP_OUTPUT_DIR}/litertlm/"
+  DESTINATION "${BUNDLE_LIB_DIR}/litertlm"
+  OPTIONAL
+  USE_SOURCE_PERMISSIONS)

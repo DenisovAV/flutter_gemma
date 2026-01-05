@@ -32,14 +32,14 @@ case "$ARCH" in
     x86_64)
         JRE_ARCH="x64"
         NATIVE_ARCH="linux-x86_64"
-        NATIVE_LIB="litertlm_jni.so"
+        NATIVE_LIB="liblitertlm_jni.so"
         JRE_CHECKSUM="553dda64b3b1c3c16f8afe402377ffebe64fb4a1721a46ed426a91fd18185e62"
         echo "Detected x86_64 architecture"
         ;;
     aarch64)
         JRE_ARCH="aarch64"
         NATIVE_ARCH="linux-aarch64"
-        NATIVE_LIB="litertlm_jni.so"
+        NATIVE_LIB="liblitertlm_jni.so"
         JRE_CHECKSUM="a44c85cd2decfe67690e9e1dc77c058b3c0e55d79e5bb65d60ce5e42e5be814e"
         echo "Detected ARM64 architecture"
         ;;

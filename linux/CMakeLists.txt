@@ -70,6 +70,6 @@ add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
 # Copy native libraries to lib/litertlm (only if not exists)
 add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E make_directory "${BUNDLE_DIR}/lib/litertlm"
-  COMMAND bash -c "if [ ! -f '${BUNDLE_DIR}/lib/litertlm/litertlm_jni.so' ]; then echo 'Copying natives...'; cp '${SETUP_OUTPUT_DIR}/litertlm/'* '${BUNDLE_DIR}/lib/litertlm/' 2>/dev/null || true; else echo 'Natives already exist, skipping'; fi"
+  COMMAND bash -c "if [ ! -f '${BUNDLE_DIR}/lib/litertlm/liblitertlm_jni.so' ]; then echo 'Copying natives...'; cp '${SETUP_OUTPUT_DIR}/litertlm/'* '${BUNDLE_DIR}/lib/litertlm/' 2>/dev/null || true; else echo 'Natives already exist, skipping'; fi"
   COMMENT "Checking/copying native libraries to bundle/lib/litertlm/..."
 )

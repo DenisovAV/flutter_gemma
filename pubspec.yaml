@@ -71,6 +71,7 @@ flutter:
         pluginClass: FlutterGemmaPlugin
         dartPluginClass: FlutterGemmaDesktop
       linux:
+        pluginClass: FlutterGemmaPlugin
         dartPluginClass: FlutterGemmaDesktop
 
   # To add assets to your plugin package, add an assets section, like this:

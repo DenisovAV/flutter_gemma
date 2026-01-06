@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package litertlm;
+
+option java_package = "dev.flutterberlin.litertlm.proto";
+option java_multiple_files = true;
+
+service LiteRtLmService {
+  // Initialize engine with model
+  rpc Initialize(InitializeRequest) returns (InitializeResponse);
+
+  // Create new conversation
+  rpc CreateConversation(CreateConversationRequest) returns (CreateConversationResponse);
+
+  // Send message and stream response
+  rpc Chat(ChatRequest) returns (stream ChatResponse);
+
+  // Send message with image (multimodal)
+  rpc ChatWithImage(ChatWithImageRequest) returns (stream ChatResponse);
+
+  // Close conversation
+  rpc CloseConversation(CloseConversationRequest) returns (CloseConversationResponse);
+
+  // Shutdown engine
+  rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+message InitializeRequest {
+  string model_path = 1;
+  string backend = 2;  // "cpu", "gpu"
+  int32 max_tokens = 3;
+  bool enable_vision = 4;
+  int32 max_num_images = 5;
+}
+
+message InitializeResponse {
+  bool success = 1;
+  string error = 2;
+  string model_info = 3;  // JSON with model metadata
+}
+
+message CreateConversationRequest {
+  string system_message = 1;
+  SamplerConfig sampler_config = 2;
+}
+
+message SamplerConfig {
+  int32 top_k = 1;
+  float top_p = 2;
+  float temperature = 3;
+}
+
+message CreateConversationResponse {
+  string conversation_id = 1;
+  string error = 2;
+}
+
+message ChatRequest {
+  string conversation_id = 1;
+  string text = 2;
+}
+
+message ChatWithImageRequest {
+  string conversation_id = 1;
+  string text = 2;
+  bytes image = 3;  // Image bytes (JPEG/PNG)
+}
+
+message ChatResponse {
+  string text = 1;           // Partial or complete text
+  bool done = 2;             // Is generation complete
+  string error = 3;
+}
+
+message CloseConversationRequest {
+  string conversation_id = 1;
+}
+
+message CloseConversationResponse {
+  bool success = 1;
+}
+
+message ShutdownRequest {}
+
+message ShutdownResponse {
+  bool success = 1;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  string status = 2;
+}

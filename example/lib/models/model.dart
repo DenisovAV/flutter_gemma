@@ -139,6 +139,41 @@ enum Model implements InferenceModelInterface {
 
   // === OTHER MODELS ===
 
+  // Qwen3 0.6B (LiteRT-LM format for web/desktop)
+  qwen3_0_6B(
+    baseUrl:
+        'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm',
+    filename: 'Qwen3-0.6B.litertlm',
+    displayName: 'Qwen3 0.6B',
+    size: '586MB',
+    licenseUrl: 'https://huggingface.co/litert-community/Qwen3-0.6B',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.cpu,
+    modelType: ModelType.qwen,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+    supportsFunctionCalls: true,
+  ),
+
+  // Gemma 3 1B IT (LiteRT-LM format for desktop)
+  gemma3_1B_litertlm(
+    baseUrl:
+        'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.litertlm',
+    filename: 'gemma3-1b-it-int4.litertlm',
+    displayName: 'Gemma 3 1B IT (LiteRT-LM)',
+    size: '529MB',
+    licenseUrl: 'https://huggingface.co/litert-community/Gemma3-1B-IT',
+    needsAuth: true,
+    preferredBackend: PreferredBackend.cpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 1024,
+  ),
+
   deepseek(
     baseUrl:
         'https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/main/deepseek_q8_ekv1280.task',

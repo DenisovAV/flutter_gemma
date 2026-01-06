@@ -27,7 +27,8 @@ There is an example of using:
 ## Features
 
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
-- **Platform Support:** Compatible with iOS, Android, and Web platforms.
+- **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
+- **🖥️ Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM (gRPC architecture).
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 3 Nano vision models 
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks 
@@ -241,6 +242,84 @@ Add to 'AndroidManifest.xml' above tag `</application>`
   window.LlmInference = LlmInference;
   </script>
 ```
+
+**Desktop (macOS, Windows, Linux)**
+
+> **⚠️ Desktop Model Format**
+>
+> Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
+> MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
+
+Desktop support uses a different architecture — a bundled JVM gRPC server that communicates with your Flutter app.
+
+| Platform | Architecture | GPU Acceleration | Status |
+|----------|-------------|------------------|--------|
+| macOS | arm64 (Apple Silicon) | Metal | ✅ Ready |
+| macOS | x86_64 (Intel) | - | ❌ Not Supported |
+| Windows | x86_64 | DirectX 12 | ✅ Ready |
+| Windows | arm64 | - | ❌ Not Supported |
+| Linux | x86_64 | Vulkan | ✅ Ready |
+| Linux | arm64 | Vulkan | ✅ Ready |
+
+**macOS Setup:**
+
+Add to `macos/Podfile` in `post_install` block:
+
+```ruby
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_macos_build_settings(target)
+  end
+
+  # Add LiteRT-LM setup script to Runner target
+  main_project = installer.aggregate_targets.first.user_project
+  runner_target = main_project.targets.find { |t| t.name == 'Runner' }
+
+  if runner_target
+    phase_name = 'Setup LiteRT-LM Desktop'
+    existing_phase = runner_target.shell_script_build_phases.find { |p| p.name == phase_name }
+
+    unless existing_phase
+      phase = runner_target.new_shell_script_build_phase(phase_name)
+      phase.shell_script = <<-SCRIPT
+PLUGIN_PATH="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos"
+if [ -f "$PLUGIN_PATH/scripts/setup_desktop.sh" ]; then
+  sh "$PLUGIN_PATH/scripts/setup_desktop.sh" "$PLUGIN_PATH" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
+fi
+SCRIPT
+      main_project.save
+    end
+  end
+end
+```
+
+Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
+
+```xml
+<key>com.apple.security.cs.disable-library-validation</key>
+<true/>
+```
+
+**Windows Setup:**
+
+No additional configuration required. The plugin automatically:
+- Downloads JRE 21 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
+- Extracts native DLLs from the server JAR
+- Starts gRPC server on dynamic port
+
+**Linux Setup:**
+
+No additional configuration required. Build dependencies:
+```bash
+sudo apt install clang cmake ninja-build libgtk-3-dev
+```
+
+For GPU acceleration, ensure Vulkan drivers are installed:
+```bash
+sudo apt install vulkan-tools libvulkan1
+```
+
+📚 **[Full Desktop Documentation →](DESKTOP_SUPPORT.md)**
 
 ## Quick Start
 

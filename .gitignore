@@ -42,3 +42,14 @@ web/rag/dist/
 example/web/models/
 example/web/wasm/
 example/web/*.model
+
+# Desktop - cached/extracted JRE (downloaded at build time)
+example/macos/jre/
+**/jre/
+
+# Desktop - large JAR files (built/downloaded at build time)
+macos/Resources/litertlm-server.jar
+**/litertlm-server.jar
+
+# Temporary/internal documentation
+temporary_docs/

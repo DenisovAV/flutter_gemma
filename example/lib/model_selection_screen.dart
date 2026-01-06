@@ -5,6 +5,12 @@ import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/model_download_screen.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 
+bool get _isDesktop =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.linux);
+
 enum SortType {
   defaultOrder('Default'),
   alphabetical('Alphabetical'),
@@ -85,6 +91,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   Widget build(BuildContext context) {
     // Show all models on all platforms
     var models = Model.values.toList();
+
+    // On desktop, only show models with desktopUrl (litertlm format required)
+    if (_isDesktop) {
+      models = models.where((model) => model.localModel || model.supportsDesktop).toList();
+    }
 
     // On web, only show models with webUrl or local models
     if (kIsWeb) {

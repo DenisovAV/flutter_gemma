@@ -88,7 +88,7 @@ $JreChecksums = @{
 
 # JAR settings
 $JarName = "litertlm-server.jar"
-$JarVersion = "0.11.16"
+$JarVersion = "0.12.0"
 $JarUrl = "https://github.com/DenisovAV/flutter_gemma/releases/download/v$JarVersion/$JarName"
 $JarChecksum = "914b9d2526b5673eb810a6080bbc760e537322aaee8e19b9cd49609319cfbdc8"
 $JarCacheDir = "$env:LOCALAPPDATA\flutter_gemma\jar"

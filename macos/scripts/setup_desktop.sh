@@ -57,7 +57,7 @@ JRE_CHECKSUM_X64="0e0dcb571f7bf7786c111fe066932066d9eab080c9f86d8178da3e564324ee
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.11.16"
+JAR_VERSION="0.12.0"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
 JAR_CHECKSUM="914b9d2526b5673eb810a6080bbc760e537322aaee8e19b9cd49609319cfbdc8"
 JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"

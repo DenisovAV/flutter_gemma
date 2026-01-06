@@ -21,7 +21,7 @@ enum Model implements InferenceModelInterface {
     webUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4-Web.litertlm',
     desktopUrl:
-        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4-Web.litertlm',
+        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.task',
     displayName: 'Gemma 3 Nano E2B IT',
     size: '3.1GB',
@@ -43,7 +43,7 @@ enum Model implements InferenceModelInterface {
     webUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4-Web.litertlm',
     desktopUrl:
-        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4-Web.litertlm',
+        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.task',
     displayName: 'Gemma 3 Nano E4B IT',
     size: '6.5GB',

@@ -1,70 +1,70 @@
 # LiteRT-LM gRPC Server
 
-**🌐 Language / Язык:** [English](README.en.md) | **Русский** (текущий)
+**🌐 Language / Язык:** **English** (current) | [Русский](README.md)
 
 ---
 
-gRPC сервер для LiteRT-LM, обеспечивающий интеграцию с Flutter Desktop.
+gRPC server for LiteRT-LM, providing integration with Flutter Desktop.
 
-## Требования
+## Requirements
 
 - Java 17+
-- Gradle 8.5+ (или используйте wrapper после инициализации)
+- Gradle 8.5+ (or use wrapper after initialization)
 
-## Сборка
+## Building
 
 ```bash
-# Инициализация Gradle wrapper (один раз)
+# Initialize Gradle wrapper (one time)
 gradle wrapper --gradle-version 8.5
 
-# Сборка
+# Build
 ./gradlew build
 
-# Создание fat JAR
+# Create fat JAR
 ./gradlew fatJar
 ```
 
-## Запуск
+## Running
 
 ```bash
-# Запуск на порту по умолчанию (50051)
+# Run on default port (50051)
 java -jar build/libs/litertlm-server-0.1.0-all.jar
 
-# Запуск на кастомном порту
+# Run on custom port
 java -jar build/libs/litertlm-server-0.1.0-all.jar 50052
 ```
 
 ## gRPC API
 
 ### Initialize
-Инициализация движка с моделью.
+Initialize the engine with a model.
 
 ```protobuf
 rpc Initialize(InitializeRequest) returns (InitializeResponse);
 ```
 
 ### CreateConversation
-Создание нового диалога.
+Create a new conversation.
 
 ```protobuf
 rpc CreateConversation(CreateConversationRequest) returns (CreateConversationResponse);
 ```
 
 ### Chat
-Отправка сообщения со стримингом ответа.
+Send a message with streaming response.
 
 ```protobuf
 rpc Chat(ChatRequest) returns (stream ChatResponse);
 ```
 
 ### ChatWithImage
-Мультимодальный запрос (текст + изображение).
+Multimodal request (text + image).
 
 ```protobuf
 rpc ChatWithImage(ChatWithImageRequest) returns (stream ChatResponse);
 ```
 
-## Тестирование с grpcurl
+## Testing with grpcurl
 
 ```bash
 # Health check
@@ -91,71 +91,71 @@ grpcurl -plaintext -d '{
 
 ## Native Libraries
 
-Для работы LiteRT-LM требуются native библиотеки:
+LiteRT-LM requires native libraries:
 
 - **macOS**: `libLiteRtMetalAccelerator.dylib`
 - **Windows**: `LiteRtGpuAccelerator.dll`
 - **Linux**: `libLiteRtGpuAccelerator.so`
 
-Скачать из [LiteRT-LM releases](https://github.com/google-ai-edge/LiteRT-LM/releases).
+Download from [LiteRT-LM releases](https://github.com/google-ai-edge/LiteRT-LM/releases).
 
-Положить в `natives/<platform>/` или указать через `-Djava.library.path`.
+Place in `natives/<platform>/` or specify via `-Djava.library.path`.
 
-## Скрипты
+## Scripts
 
-### Сборка сервера
+### Build server
 ```bash
 ./scripts/build.sh
 ```
 
-### Загрузка native библиотек
+### Download native libraries
 ```bash
-./scripts/setup_natives.sh          # авто-определение платформы
-./scripts/setup_natives.sh macos    # явное указание
+./scripts/setup_natives.sh          # auto-detect platform
+./scripts/setup_natives.sh macos    # explicit platform
 ```
 
-### Бандлинг для macOS Flutter app
+### Bundle for macOS Flutter app
 ```bash
 ./scripts/bundle_macos.sh /path/to/your/flutter_app
 ```
 
 ## macOS Bundling
 
-Для включения LiteRT-LM сервера в ваше macOS приложение:
+To include LiteRT-LM server in your macOS application:
 
-### 1. Подготовка
+### 1. Preparation
 ```bash
 cd litertlm-server
 
-# Сборка JAR
+# Build JAR
 ./scripts/build.sh
 
-# Загрузка native библиотек
+# Download native libraries
 ./scripts/setup_natives.sh macos
 ```
 
-### 2. Бандлинг в Flutter app
+### 2. Bundle into Flutter app
 ```bash
 ./scripts/bundle_macos.sh /path/to/your/flutter_app
 ```
 
-### 3. Настройка Xcode
-1. Откройте `macos/Runner.xcworkspace`
-2. Выберите target Runner
+### 3. Configure Xcode
+1. Open `macos/Runner.xcworkspace`
+2. Select Runner target
 3. Build Phases → + → New Run Script Phase
-4. Добавьте: `"${PROJECT_DIR}/Runner/copy_litertlm.sh"`
+4. Add: `"${PROJECT_DIR}/Runner/copy_litertlm.sh"`
 
-### 4. Запуск
+### 4. Run
 ```bash
 flutter run -d macos
 ```
 
-## Структура файлов в app bundle
+## File Structure in App Bundle
 
 ```
 MyApp.app/Contents/
 ├── Resources/
-│   └── litertlm-server.jar      # gRPC сервер
+│   └── litertlm-server.jar      # gRPC server
 ├── Frameworks/
 │   └── litertlm/
 │       └── macos/

@@ -78,8 +78,8 @@ Desktop support uses a different architecture than mobile platforms:
 | macOS | x86_64 (Intel) | - | ❌ Not Supported |
 | Windows | x86_64 | DirectX 12 | ✅ Ready |
 | Windows | arm64 | - | ❌ Not Supported |
-| Linux | x86_64 | OpenCL | 🚧 Planned |
-| Linux | arm64 | OpenCL | 🚧 Planned |
+| Linux | x86_64 | Vulkan | ✅ Ready |
+| Linux | arm64 | Vulkan | ✅ Ready |
 
 > **⚠️ Platform Limitations**
 >
@@ -128,7 +128,7 @@ Desktop support uses a different architecture than mobile platforms:
 
 ```yaml
 dependencies:
-  flutter_gemma: ^0.11.14
+  flutter_gemma: ^0.12.0
 ```
 
 ### 2. Configure Podfile (macOS only)

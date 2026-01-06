@@ -1,3 +1,14 @@
+## 0.12.0
+- 🖥️ **Desktop Support**: Full support for macOS, Windows, and Linux platforms
+  - **macOS**: Apple Silicon (M1/M2/M3/M4) with Metal GPU acceleration
+  - **Windows**: x86_64 with DirectX 12 GPU acceleration
+  - **Linux**: x86_64 and ARM64 with Vulkan GPU acceleration
+- 🏗️ **LiteRT-LM Architecture**: Desktop uses gRPC server with bundled JRE for inference
+  - Automatic JRE 21 download and native library extraction
+  - Dynamic port allocation prevents conflicts
+  - Supports `.litertlm` model format only (MediaPipe `.task`/`.bin` not supported on desktop)
+- 📚 **Desktop Documentation**: Comprehensive setup guide in DESKTOP_SUPPORT.md
+
 ## 0.11.16
 - 🐛 **iOS Embeddings Fix**: Fix crash on repeated embedding inference (#155)
 

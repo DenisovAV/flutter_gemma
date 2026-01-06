@@ -50,3 +50,6 @@ example/macos/jre/
 # Desktop - large JAR files (built/downloaded at build time)
 macos/Resources/litertlm-server.jar
 **/litertlm-server.jar
+
+# Temporary/internal documentation
+temporary_docs/

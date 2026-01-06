@@ -1,3 +1,5 @@
+[🇬🇧 English](./readme.en.md) | [🇷🇺 Русский](./README.md)
+
 # LiteRT-LM gRPC Server
 
 gRPC сервер для LiteRT-LM, обеспечивающий интеграцию с Flutter Desktop.

@@ -424,6 +424,7 @@ class WebInferenceModel extends InferenceModel {
         }
 
         final streamReader = await opfsService.getStreamReader(filename);
+        // ignore: dead_code
         debugPrint('[WebInferenceModel] Got OPFS stream reader');
 
         baseOptions = LlmInferenceBaseOptions(modelAssetBuffer: streamReader);

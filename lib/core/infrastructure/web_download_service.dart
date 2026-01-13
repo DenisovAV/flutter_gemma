@@ -162,6 +162,7 @@ class WebDownloadService implements DownloadService {
 
       // Check if already in OPFS
       final isAlreadyCached = await opfsService!.isModelCached(targetPath);
+      // ignore: dead_code
       if (isAlreadyCached) {
         debugPrint('[WebDownloadService] ✅ Model already in OPFS: $targetPath');
 
@@ -179,6 +180,7 @@ class WebDownloadService implements DownloadService {
       streamController = StreamController<int>();
 
       // Start download in background with abort signal
+      // ignore: receiver_of_type_never
       opfsService!.downloadToOPFS(
         url,
         targetPath,

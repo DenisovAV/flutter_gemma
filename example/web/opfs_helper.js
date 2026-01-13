@@ -47,16 +47,20 @@ window.flutterGemmaOPFS = {
   },
 
   /**
-   * Download a model file to OPFS with progress tracking
+   * Download a model file to OPFS with progress tracking and cancellation support
    *
    * @param {string} url - Model download URL
    * @param {string} filename - Filename to save in OPFS
    * @param {string|null} authToken - Optional authentication token (e.g., HuggingFace token)
    * @param {function(number): void} onProgress - Progress callback (0-100)
+   * @param {AbortSignal|null} abortSignal - Optional AbortSignal for cancellation
    * @returns {Promise<boolean>} True on success
-   * @throws {Error} On download failure or storage quota exceeded
+   * @throws {Error} On download failure, storage quota exceeded, or cancellation
    */
-  async downloadToOPFS(url, filename, authToken, onProgress) {
+  async downloadToOPFS(url, filename, authToken, onProgress, abortSignal) {
+    let writable = null;
+    let reader = null;
+
     try {
       console.log(`[OPFS] Starting download: ${filename} from ${url}`);
 
@@ -64,14 +68,17 @@ window.flutterGemmaOPFS = {
       const estimate = await navigator.storage.estimate();
       console.log(`[OPFS] Storage - Used: ${(estimate.usage / 1e9).toFixed(2)}GB, Quota: ${(estimate.quota / 1e9).toFixed(2)}GB`);
 
-      // Prepare request headers
-      const headers = {};
+      // Prepare fetch options with abort signal
+      const fetchOptions = {};
       if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
+        fetchOptions.headers = { 'Authorization': `Bearer ${authToken}` };
+      }
+      if (abortSignal) {
+        fetchOptions.signal = abortSignal;
       }
 
-      // Fetch with optional authentication
-      const response = await fetch(url, { headers });
+      // Fetch with optional authentication and abort signal
+      const response = await fetch(url, fetchOptions);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -93,43 +100,64 @@ window.flutterGemmaOPFS = {
       // Get OPFS directory and create file handle
       const opfs = await navigator.storage.getDirectory();
       const fileHandle = await opfs.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
+      writable = await fileHandle.createWritable();
 
       // Stream download to OPFS
-      const reader = response.body.getReader();
+      reader = response.body.getReader();
       let bytesReceived = 0;
       let lastProgressPercent = 0;
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          // Write chunk to OPFS
-          await writable.write(value);
-          bytesReceived += value.length;
-
-          // Report progress
-          if (contentLength > 0) {
-            const progressPercent = Math.round((bytesReceived / contentLength) * 100);
-            if (progressPercent !== lastProgressPercent) {
-              onProgress(progressPercent);
-              lastProgressPercent = progressPercent;
-            }
-          }
+      while (true) {
+        // Check for abort before each read
+        if (abortSignal?.aborted) {
+          throw new DOMException('Download aborted', 'AbortError');
         }
 
-        // Finalize write
-        await writable.close();
-        console.log(`[OPFS] Download complete: ${filename} (${(bytesReceived / 1e9).toFixed(2)}GB)`);
-        return true;
-      } catch (writeError) {
-        // Abort write on error
-        await writable.abort();
-        throw writeError;
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Write chunk to OPFS
+        await writable.write(value);
+        bytesReceived += value.length;
+
+        // Report progress
+        if (contentLength > 0) {
+          const progressPercent = Math.round((bytesReceived / contentLength) * 100);
+          if (progressPercent !== lastProgressPercent) {
+            onProgress(progressPercent);
+            lastProgressPercent = progressPercent;
+          }
+        }
       }
+
+      // Finalize write
+      await writable.close();
+      writable = null;
+      console.log(`[OPFS] Download complete: ${filename} (${(bytesReceived / 1e9).toFixed(2)}GB)`);
+      return true;
+
     } catch (error) {
-      console.error(`[OPFS] Download failed: ${error.message}`);
+      // Cleanup on error
+      if (reader) {
+        try { await reader.cancel(); } catch (e) { /* ignore */ }
+      }
+      if (writable) {
+        try { await writable.abort(); } catch (e) { /* ignore */ }
+      }
+
+      // Handle abort specifically
+      if (error.name === 'AbortError') {
+        console.log(`[OPFS] Download aborted: ${filename}`);
+        // Remove partial file
+        try {
+          const opfs = await navigator.storage.getDirectory();
+          await opfs.removeEntry(filename);
+          console.log(`[OPFS] Cleaned up partial file: ${filename}`);
+        } catch (e) { /* ignore - file may not exist */ }
+      } else {
+        console.error(`[OPFS] Download failed: ${error.message}`);
+      }
+
       throw error;
     }
   },

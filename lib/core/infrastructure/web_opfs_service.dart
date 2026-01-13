@@ -55,22 +55,25 @@ class WebOPFSService {
     }
   }
 
-  /// Download a model to OPFS with progress tracking
+  /// Download a model to OPFS with progress tracking and cancellation support
   ///
   /// Parameters:
   /// - [url]: Download URL (HTTP/HTTPS)
   /// - [filename]: Filename to save in OPFS (used as cache key)
   /// - [authToken]: Optional authentication token (HuggingFace, etc.)
   /// - [onProgress]: Progress callback (receives percentage 0-100)
+  /// - [abortSignal]: Optional JS AbortSignal for cancellation
   ///
   /// Throws:
   /// - [Exception] on download failure
   /// - [Exception] if storage quota exceeded
+  /// - [Exception] if download is aborted
   Future<void> downloadToOPFS(
     String url,
     String filename, {
     String? authToken,
     required void Function(int percentage) onProgress,
+    JSAny? abortSignal,
   }) async {
     try {
       debugPrint('[WebOPFSService] Starting download: $filename');
@@ -81,13 +84,14 @@ class WebOPFSService {
         onProgress(percent);
       }.toJS;
 
-      // Call OPFS download
+      // Call OPFS download with abort signal
       final result = await _opfs
           .downloadToOPFS(
             url.toJS,
             filename.toJS,
             authToken?.toJS,
             jsProgressCallback,
+            abortSignal,
           )
           .toDart;
 

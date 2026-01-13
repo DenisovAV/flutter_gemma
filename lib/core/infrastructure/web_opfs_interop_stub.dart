@@ -23,6 +23,7 @@ class WebOPFSService {
     String filename, {
     String? authToken,
     required void Function(int percentage) onProgress,
+    dynamic abortSignal,
   }) {
     throw UnsupportedError('OPFS is only supported on web platform');
   }

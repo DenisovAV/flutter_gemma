@@ -23,19 +23,21 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
   /// @returns Promise<number|null> Size in bytes, or null if not found
   external JSPromise<JSNumber?> getCachedModelSize(JSString filename);
 
-  /// Download a model to OPFS with progress tracking
+  /// Download a model to OPFS with progress tracking and cancellation support
   ///
   /// @param url Download URL
   /// @param filename Filename to save in OPFS
   /// @param authToken Optional authentication token (HuggingFace, etc.)
   /// @param onProgress Progress callback (receives 0-100)
+  /// @param abortSignal Optional AbortSignal for cancellation
   /// @returns Promise<boolean> True on success
-  /// @throws Error on download failure or quota exceeded
+  /// @throws Error on download failure, quota exceeded, or cancellation
   external JSPromise<JSBoolean> downloadToOPFS(
     JSString url,
     JSString filename,
     JSString? authToken,
     JSFunction onProgress,
+    JSAny? abortSignal,
   );
 
   /// Get a ReadableStreamDefaultReader for streaming a cached model

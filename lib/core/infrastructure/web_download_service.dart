@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
@@ -12,6 +13,14 @@ import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
 import 'package:flutter_gemma/core/infrastructure/url_utils.dart';
+
+/// JavaScript AbortController for cancelling fetch requests
+@JS('AbortController')
+extension type JSAbortController._(JSObject _) implements JSObject {
+  external factory JSAbortController();
+  external JSObject get signal;
+  external void abort();
+}
 
 /// Web implementation of DownloadService
 ///
@@ -135,12 +144,17 @@ class WebDownloadService implements DownloadService {
   }
 
   /// Download to OPFS (streaming mode for large models >2GB)
+  ///
+  /// Uses AbortController for proper cancellation of fetch requests.
   Stream<int> _downloadToOPFS(
     String url,
     String targetPath, {
     String? token,
     CancelToken? cancelToken,
   }) async* {
+    StreamController<int>? streamController;
+    JSAbortController? abortController;
+
     try {
       cancelToken?.throwIfCancelled();
 
@@ -158,31 +172,35 @@ class WebDownloadService implements DownloadService {
         return;
       }
 
-      // Download to OPFS with progress tracking
-      final streamController = StreamController<int>();
+      // Create AbortController for cancellation support
+      abortController = JSAbortController();
 
-      // Start download in background
+      // Download to OPFS with progress tracking
+      streamController = StreamController<int>();
+
+      // Start download in background with abort signal
       opfsService!.downloadToOPFS(
         url,
         targetPath,
         authToken: token,
         onProgress: (percentage) {
-          if (!streamController.isClosed) {
+          if (streamController != null && !streamController.isClosed) {
             streamController.add(percentage);
           }
         },
+        abortSignal: abortController.signal,
       ).then((_) {
         debugPrint('[WebDownloadService] ✅ OPFS download complete: $targetPath');
 
         // Register as OPFS file
         _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
 
-        if (!streamController.isClosed) {
+        if (streamController != null && !streamController.isClosed) {
           streamController.close();
         }
       }).catchError((error) {
         debugPrint('[WebDownloadService] ❌ OPFS download failed: $error');
-        if (!streamController.isClosed) {
+        if (streamController != null && !streamController.isClosed) {
           streamController.addError(error);
           streamController.close();
         }
@@ -194,12 +212,20 @@ class WebDownloadService implements DownloadService {
         yield progress;
       }
     } on DownloadCancelledException {
+      // Abort the JS fetch request
+      abortController?.abort();
+      debugPrint('[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
       rethrow;
     } catch (e) {
       debugPrint('[WebDownloadService] ❌ OPFS download error: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download to OPFS: $e'),
       );
+    } finally {
+      // Cleanup StreamController
+      if (streamController != null && !streamController.isClosed) {
+        streamController.close();
+      }
     }
   }
 

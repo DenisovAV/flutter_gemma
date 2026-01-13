@@ -452,16 +452,17 @@ void main() {
 **Configuration Options:**
 - `huggingFaceToken`: Authentication token for gated models (Gemma3n, EmbeddingGemma)
 - `maxDownloadRetries`: Number of retry attempts for failed downloads (default: 10)
-- `enableWebCache`: **(Web only)** Enable persistent caching via Cache API (default: true)
-  - `true`: Models persist across browser restarts (recommended for production)
-  - `false`: Ephemeral mode, models cleared when closing browser (useful for testing/demos)
+- `webStorageMode`: **(Web only)** Storage strategy for model files (default: `cacheApi`)
+  - `WebStorageMode.cacheApi`: Cache API with Blob URLs (for models <2GB)
+  - `WebStorageMode.streaming`: OPFS streaming (for large models >2GB like E4B, 7B)
+  - `WebStorageMode.none`: No caching (ephemeral mode for testing)
 
 **Example:**
 ```dart
 FlutterGemma.initialize(
   huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
   maxDownloadRetries: 10,
-  enableWebCache: false,  // Disable persistent cache (web only)
+  webStorageMode: WebStorageMode.streaming,  // For large models (>2GB)
 );
 ```
 
@@ -1974,38 +1975,35 @@ Function calling is currently supported by the following models:
 - **FileSource:** Only works with HTTP/HTTPS URLs or `assets/` paths
 - **Local file paths:** ❌ Not supported (browser security restriction)
 
-#### Persistent Caching (NEW in 0.11.10)
+#### Web Storage Modes (v0.12.1+)
 
-**Two Cache Modes:**
+**Three Storage Modes:**
 
-**1. Persistent Mode (default, `enableWebCache: true`):**
-- Downloaded models persist across browser restarts
-- Uses browser Cache API (up to 50% of disk space)
-- Works for all sources (public URLs and HuggingFace gated models)
-- Smart management: 30-day automatic cleanup
-- Zero configuration: Automatically enabled
+**1. Cache API Mode (default, `WebStorageMode.cacheApi`):**
+- Uses browser Cache API with Blob URLs
+- Models persist across browser restarts
+- Best for models <2GB
 
-**2. Ephemeral Mode (`enableWebCache: false`):**
-- Models stored in memory only (InMemoryRepository)
-- Cleared when browser tab/window closes
-- Faster development/testing workflow
-- No persistent storage used
-- Useful for demos, temporary testing, privacy-sensitive scenarios
+**2. Streaming Mode (`WebStorageMode.streaming`):**
+- Uses OPFS with ReadableStream
+- Bypasses browser 2GB ArrayBuffer limit
+- Required for large models (E4B 4GB+, 7B, 27B)
+- Requires Chrome 86+, Edge 86+, Safari 15.2+
+
+**3. Ephemeral Mode (`WebStorageMode.none`):**
+- Models stored in memory only
+- Cleared when browser closes
+- For testing/demos
 
 ```dart
-// Enable persistent caching (default)
-FlutterGemma.initialize(enableWebCache: true);
+// Default: Cache API for small models
+FlutterGemma.initialize(webStorageMode: WebStorageMode.cacheApi);
 
-// Use ephemeral mode (no persistence)
-FlutterGemma.initialize(enableWebCache: false);
+// Streaming for large models (>2GB)
+FlutterGemma.initialize(webStorageMode: WebStorageMode.streaming);
 
-// Check cache statistics (persistent mode only)
-final stats = await FlutterGemma.instance.modelManager.getCacheStats();
-print('Cached models: ${stats['cachedUrls']}');
-print('Storage used: ${stats['storageUsage']} bytes');
-
-// Clear cache if needed (persistent mode only)
-await FlutterGemma.instance.modelManager.clearCache();
+// Check if streaming is supported
+final supported = await FlutterGemma.isStreamingSupported();
 ```
 
 #### Backend Support

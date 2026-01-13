@@ -35,4 +35,6 @@ class WebDownloadService implements DownloadService {
   }
 
   dynamic get cacheService => throw UnsupportedError('WebDownloadService is only available on web platform');
+
+  dynamic get opfsService => null;
 }

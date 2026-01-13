@@ -4,8 +4,8 @@ import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service.dart'
-    if (dart.library.io) 'package:flutter_gemma/core/infrastructure/mobile_download_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';

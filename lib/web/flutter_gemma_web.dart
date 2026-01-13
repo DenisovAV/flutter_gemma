@@ -402,8 +402,39 @@ class WebInferenceModel extends InferenceModel {
       final loraPathToUse = loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
+      // Check if using OPFS streaming mode
+      final registry = ServiceRegistry.instance;
+      final useStreaming = registry.useStreamingStorage;
+
+      // Create base options based on storage mode
+      final LlmInferenceBaseOptions baseOptions;
+      if (useStreaming && modelPath.startsWith('opfs://')) {
+        // OPFS streaming mode: Get ReadableStreamDefaultReader
+        final filename = modelPath.substring('opfs://'.length);
+        debugPrint('[WebInferenceModel] Loading from OPFS: $filename');
+
+        final downloadService = registry.downloadService;
+        if (downloadService is! WebDownloadService) {
+          throw Exception('Expected WebDownloadService for web platform');
+        }
+
+        final opfsService = downloadService.opfsService;
+        if (opfsService == null) {
+          throw Exception('OPFS service not available');
+        }
+
+        final streamReader = await opfsService.getStreamReader(filename);
+        debugPrint('[WebInferenceModel] Got OPFS stream reader');
+
+        baseOptions = LlmInferenceBaseOptions(modelAssetBuffer: streamReader);
+      } else {
+        // Cache API / None mode: Use Blob URL
+        debugPrint('[WebInferenceModel] Loading from Blob URL: $modelPath');
+        baseOptions = LlmInferenceBaseOptions(modelAssetPath: modelPath);
+      }
+
       final config = LlmInferenceOptions(
-          baseOptions: LlmInferenceBaseOptions(modelAssetPath: modelPath),
+          baseOptions: baseOptions,
           maxTokens: maxTokens,
           randomSeed: randomSeed,
           topK: topK,
@@ -415,13 +446,14 @@ class WebInferenceModel extends InferenceModel {
 
       final llmInference = await LlmInference.createFromOptions(fileset, config).toDart;
 
-      final session = this.session = WebModelSession(
+      session = WebModelSession(
         modelType: modelType,
         fileType: fileType,
         llmInference: llmInference,
         supportImage: supportImage, // Enabling image support
         onClose: onClose,
       );
+
       completer.complete(session);
       return completer.future;
     } catch (e, st) {
@@ -722,6 +754,7 @@ class WebModelSession extends InferenceModelSession {
   Future<void> close() async {
     // Cleanup MediaPipe LlmInference WASM resources (important for hot restart)
     // This prevents memory leaks and "memory access out of bounds" errors
+    // Note: MediaPipe's close() will also release any OPFS stream readers internally
     try {
       llmInference.close();
       if (kDebugMode) {

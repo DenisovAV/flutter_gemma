@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/asset_loader.dart';
@@ -91,7 +92,13 @@ class ServiceRegistry {
   // Optional configuration
   final String? huggingFaceToken;
   final int maxDownloadRetries;
-  final bool enableWebCache;
+  final WebStorageMode webStorageMode;
+
+  /// Backward compatibility getter for enableWebCache
+  bool get enableWebCache => webStorageMode != WebStorageMode.none;
+
+  /// Check if streaming storage mode is enabled (OPFS)
+  bool get useStreamingStorage => webStorageMode == WebStorageMode.streaming;
 
   /// Creates the default FileSystemService based on platform
   ///
@@ -113,12 +120,12 @@ class ServiceRegistry {
   /// Both factories have identical signatures for platform-independent calling.
   static DownloadService _createDefaultDownloadService(
     FileSystemService fileSystem,
-    bool enableWebCache,
+    WebStorageMode webStorageMode,
     SharedPreferences prefs,
   ) {
     // Conditional import selects the right factory at compile time
     // Both factories accept same parameters via interfaces
-    return platform.createDownloadService(fileSystem, enableWebCache, prefs);
+    return platform.createDownloadService(fileSystem, webStorageMode, prefs);
   }
 
   /// Creates the appropriate AssetSourceHandler based on platform
@@ -239,7 +246,7 @@ class ServiceRegistry {
   static Future<ServiceRegistry> _create({
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
-    bool enableWebCache = true,
+    WebStorageMode webStorageMode = WebStorageMode.cacheApi,
     FileSystemService? fileSystemService,
     AssetLoader? assetLoader,
     DownloadService? downloadService,
@@ -264,14 +271,14 @@ class ServiceRegistry {
     // Create download service
     final download = downloadService ?? _createDefaultDownloadService(
       fileSystem,
-      enableWebCache,
+      webStorageMode,
       prefs,
     );
 
     return ServiceRegistry._(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
-      enableWebCache: enableWebCache,
+      webStorageMode: webStorageMode,
       fileSystemService: fileSystem,
       assetLoader: assetLoader,
       downloadService: download,
@@ -284,7 +291,7 @@ class ServiceRegistry {
   ServiceRegistry._({
     this.huggingFaceToken,
     this.maxDownloadRetries = 10,
-    this.enableWebCache = true,
+    this.webStorageMode = WebStorageMode.cacheApi,
     required FileSystemService fileSystemService,
     AssetLoader? assetLoader,
     required DownloadService downloadService,
@@ -297,11 +304,11 @@ class ServiceRegistry {
     _assetLoader = assetLoader ?? FlutterAssetLoader();
     _downloadService = downloadService;
 
-    // Web with cache disabled: use in-memory repository (ephemeral metadata)
-    // Web with cache enabled: use SharedPreferences (persistent metadata)
+    // Web with cache disabled (none mode): use in-memory repository (ephemeral metadata)
+    // Web with cache enabled (cacheApi/streaming): use SharedPreferences (persistent metadata)
     // Mobile: always use SharedPreferences (files persist on disk)
     _modelRepository = modelRepository ??
-      (kIsWeb && !enableWebCache
+      (kIsWeb && webStorageMode == WebStorageMode.none
         ? InMemoryModelRepository()
         : SharedPreferencesModelRepository());
 
@@ -390,7 +397,7 @@ class ServiceRegistry {
   /// - [huggingFaceToken]: Optional HuggingFace API token for authenticated downloads
   /// - [maxDownloadRetries]: Maximum retry attempts for transient errors (default: 10)
   ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless
-  /// - [enableWebCache]: Enable persistent caching on web platform (default: true)
+  /// - [webStorageMode]: Storage mode for web platform (default: WebStorageMode.cacheApi)
   ///   Note: This parameter only affects web platform, ignored on mobile
   /// - [vectorStoreRepository]: Optional custom repository (for testing)
   /// - Services can be overridden for testing (dependency injection)
@@ -399,7 +406,7 @@ class ServiceRegistry {
   static Future<void> initialize({
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
-    bool enableWebCache = true,
+    WebStorageMode webStorageMode = WebStorageMode.cacheApi,
     FileSystemService? fileSystemService,
     AssetLoader? assetLoader,
     DownloadService? downloadService,
@@ -410,10 +417,10 @@ class ServiceRegistry {
     // Make idempotent - skip if already initialized
     if (_instance != null) {
       // Warn if critical parameters changed
-      if (_instance!.enableWebCache != enableWebCache) {
+      if (_instance!.webStorageMode != webStorageMode) {
         debugPrint(
-          'WARNING: enableWebCache cannot be changed after initialization.\n'
-          'Current: ${_instance!.enableWebCache}, Requested: $enableWebCache\n'
+          'WARNING: webStorageMode cannot be changed after initialization.\n'
+          'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
           'Restart the application to change this setting.'
         );
       }
@@ -424,7 +431,7 @@ class ServiceRegistry {
     _instance = await _create(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
-      enableWebCache: enableWebCache,
+      webStorageMode: webStorageMode,
       fileSystemService: fileSystemService,
       assetLoader: assetLoader,
       downloadService: downloadService,

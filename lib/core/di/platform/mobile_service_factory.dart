@@ -4,6 +4,7 @@
 library;
 
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../domain/web_storage_mode.dart';
 import '../../infrastructure/background_downloader_service.dart';
 import '../../services/download_service.dart';
 import '../../services/file_system_service.dart';
@@ -17,7 +18,7 @@ import '../../services/file_system_service.dart';
 /// interface compatibility with web_service_factory.
 DownloadService createDownloadService(
   FileSystemService fileSystem,
-  bool enableCache,
+  WebStorageMode webStorageMode,
   SharedPreferences prefs,
 ) {
   // All parameters ignored - mobile uses BackgroundDownloaderService standalone

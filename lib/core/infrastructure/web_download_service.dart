@@ -2,30 +2,34 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
+import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_gemma/core/infrastructure/blob_url_manager.dart';
 import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
 import 'package:flutter_gemma/core/infrastructure/url_utils.dart';
 
 /// Web implementation of DownloadService
 ///
-/// This implementation doesn't actually download files. Instead, it registers
-/// URLs with the WebFileSystemService so MediaPipe can fetch them directly.
+/// Supports multiple storage modes:
+/// - cacheApi: Cache API with Blob URLs (for models <2GB)
+/// - streaming: OPFS with streaming (for models >2GB)
+/// - none: No caching (ephemeral)
 ///
 /// Features:
-/// - URL registration (no actual download)
-/// - Progress simulation for UX consistency (matches mobile experience)
-/// - Authentication token support (passed to MediaPipe)
-/// - Fast "installation" (just URL registration)
+/// - URL registration (cacheApi/none modes)
+/// - OPFS streaming download (streaming mode)
+/// - Progress tracking for all modes
+/// - Authentication token support
 ///
 /// Design rationale:
-/// - Web browsers handle download/caching automatically
-/// - MediaPipe fetches models from URLs at session creation time
-/// - Simulating progress gives users consistent UX across platforms
-/// - No local storage needed (browser manages cache)
+/// - Cache API mode: Fast for small models, browser handles caching
+/// - Streaming mode: Bypasses ArrayBuffer limits for large models
+/// - OPFS provides persistent storage with streaming support
 ///
 /// Platform: Web only
 class WebDownloadService implements DownloadService {
@@ -33,13 +37,17 @@ class WebDownloadService implements DownloadService {
   final WebJsInterop _jsInterop;
   final BlobUrlManager _blobUrlManager;
   final WebCacheService cacheService;
+  final WebOPFSService? opfsService;
+  final WebStorageMode webStorageMode;
 
   WebDownloadService(
     this._fileSystem,
     this._jsInterop,
     this._blobUrlManager,
-    this.cacheService,
-  );
+    this.cacheService, {
+    this.opfsService,
+    this.webStorageMode = WebStorageMode.cacheApi,
+  });
 
   @override
   Future<void> download(
@@ -70,6 +78,31 @@ class WebDownloadService implements DownloadService {
     // Check cancellation before starting
     cancelToken?.throwIfCancelled();
 
+    // STREAMING MODE: Use OPFS for large models
+    if (webStorageMode == WebStorageMode.streaming) {
+      if (opfsService == null) {
+        debugPrint('[WARNING] OPFS not available, falling back to cacheApi mode');
+        debugPrint('[WARNING] Large models (>2GB) may fail with ArrayBuffer limit');
+        debugPrint('[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)');
+        // Fall back to cache API mode
+        yield* _downloadToCache(url, targetPath, token: token, cancelToken: cancelToken);
+        return;
+      }
+      yield* _downloadToOPFS(url, targetPath, token: token, cancelToken: cancelToken);
+      return;
+    }
+
+    // CACHE API / NONE MODES: Use blob URLs
+    yield* _downloadToCache(url, targetPath, token: token, cancelToken: cancelToken);
+  }
+
+  /// Download to cache (Cache API or None mode)
+  Stream<int> _downloadToCache(
+    String url,
+    String targetPath, {
+    String? token,
+    CancelToken? cancelToken,
+  }) async* {
     // Normalize URL for cache lookup
     final normalizedUrl = UrlUtils.normalizeUrl(url);
 
@@ -98,6 +131,75 @@ class WebDownloadService implements DownloadService {
       debugPrint('WebDownloadService: Starting authenticated download for $targetPath');
 
       yield* _downloadWithAuth(url, normalizedUrl, targetPath, token, cancelToken);
+    }
+  }
+
+  /// Download to OPFS (streaming mode for large models >2GB)
+  Stream<int> _downloadToOPFS(
+    String url,
+    String targetPath, {
+    String? token,
+    CancelToken? cancelToken,
+  }) async* {
+    try {
+      cancelToken?.throwIfCancelled();
+
+      debugPrint('[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
+
+      // Check if already in OPFS
+      final isAlreadyCached = await opfsService!.isModelCached(targetPath);
+      if (isAlreadyCached) {
+        debugPrint('[WebDownloadService] ✅ Model already in OPFS: $targetPath');
+
+        // Register as OPFS file (special marker for getStreamReader)
+        _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
+
+        yield 100;
+        return;
+      }
+
+      // Download to OPFS with progress tracking
+      final streamController = StreamController<int>();
+
+      // Start download in background
+      opfsService!.downloadToOPFS(
+        url,
+        targetPath,
+        authToken: token,
+        onProgress: (percentage) {
+          if (!streamController.isClosed) {
+            streamController.add(percentage);
+          }
+        },
+      ).then((_) {
+        debugPrint('[WebDownloadService] ✅ OPFS download complete: $targetPath');
+
+        // Register as OPFS file
+        _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
+
+        if (!streamController.isClosed) {
+          streamController.close();
+        }
+      }).catchError((error) {
+        debugPrint('[WebDownloadService] ❌ OPFS download failed: $error');
+        if (!streamController.isClosed) {
+          streamController.addError(error);
+          streamController.close();
+        }
+      });
+
+      // Yield progress events
+      await for (final progress in streamController.stream) {
+        cancelToken?.throwIfCancelled();
+        yield progress;
+      }
+    } on DownloadCancelledException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[WebDownloadService] ❌ OPFS download error: $e');
+      throw DownloadException(
+        DownloadError.unknown('Failed to download to OPFS: $e'),
+      );
     }
   }
 

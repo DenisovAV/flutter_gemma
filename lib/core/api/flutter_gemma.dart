@@ -84,7 +84,7 @@ class FlutterGemma {
   ///   - none: No caching (ephemeral, for development)
   ///   Note: This parameter only affects web platform, ignored on mobile
   /// - [enableWebCache]: DEPRECATED - Use webStorageMode instead
-  ///   Will be removed in v0.12.0. Converts to webStorageMode internally.
+  ///   Will be removed in v0.13.0. Converts to webStorageMode internally.
   ///
   /// Example:
   /// ```dart
@@ -106,7 +106,7 @@ class FlutterGemma {
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
     WebStorageMode webStorageMode = WebStorageMode.cacheApi,
-    @Deprecated('Use webStorageMode instead. Will be removed in v0.12.0')
+    @Deprecated('Use webStorageMode instead. Will be removed in v0.13.0')
     bool? enableWebCache,
   }) async {
     // Migration: enableWebCache takes precedence if provided (for backward compatibility)

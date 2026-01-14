@@ -1,3 +1,8 @@
+## 0.12.1
+- **Web Large Model Support**: `WebStorageMode` for models >2GB via OPFS streaming (#162)
+- **Android SDK**: Updated to API 35 (Android 15)
+- **Desktop JAR Checksum Fix**: Fixed JAR checksum mismatch in setup scripts (#167)
+
 ## 0.12.0
 - 🖥️ **Desktop Support**: Full support for macOS, Windows, and Linux platforms
   - **macOS**: Apple Silicon (M1/M2/M3/M4) with Metal GPU acceleration

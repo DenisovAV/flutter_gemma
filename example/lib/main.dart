@@ -5,8 +5,12 @@ import 'package:flutter_gemma_example/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Flutter Gemma (required)
-  await FlutterGemma.initialize();
+  // Initialize Flutter Gemma
+  // Use WebStorageMode.streaming for large models (E4B 4GB+, 7B, 27B)
+  // Use WebStorageMode.cacheApi for smaller models (default, faster)
+  await FlutterGemma.initialize(
+    webStorageMode: WebStorageMode.cacheApi,
+  );
 
   runApp(const ChatApp());
 }

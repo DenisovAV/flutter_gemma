@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
 import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
@@ -74,26 +78,46 @@ class FlutterGemma {
   /// - [huggingFaceToken]: Optional HuggingFace API token for authenticated downloads
   /// - [maxDownloadRetries]: Maximum retry attempts for transient errors (default: 10)
   ///   Note: Auth errors (401/403/404) always fail after 1 attempt
-  /// - [enableWebCache]: Enable persistent caching on web platform (default: true)
+  /// - [webStorageMode]: Storage mode for web platform (default: WebStorageMode.cacheApi)
+  ///   - cacheApi: Cache API with Blob URLs (for models <2GB)
+  ///   - streaming: OPFS with streaming (for models >2GB like E4B, 7B, 27B)
+  ///   - none: No caching (ephemeral, for development)
   ///   Note: This parameter only affects web platform, ignored on mobile
+  /// - [enableWebCache]: DEPRECATED - Use webStorageMode instead
+  ///   Will be removed in v0.13.0. Converts to webStorageMode internally.
   ///
   /// Example:
   /// ```dart
   /// void main() async {
   ///   WidgetsFlutterBinding.ensureInitialized();
+  ///
+  ///   // For small models (<2GB) - default
   ///   await FlutterGemma.initialize();
+  ///
+  ///   // For large models (>2GB)
+  ///   await FlutterGemma.initialize(
+  ///     webStorageMode: WebStorageMode.streaming,
+  ///   );
+  ///
   ///   runApp(MyApp());
   /// }
   /// ```
   static Future<void> initialize({
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
-    bool enableWebCache = true,
+    WebStorageMode webStorageMode = WebStorageMode.cacheApi,
+    @Deprecated('Use webStorageMode instead. Will be removed in v0.13.0')
+    bool? enableWebCache,
   }) async {
+    // Migration: enableWebCache takes precedence if provided (for backward compatibility)
+    final effectiveStorageMode = enableWebCache != null
+        ? (enableWebCache ? WebStorageMode.cacheApi : WebStorageMode.none)
+        : webStorageMode;
+
     await ServiceRegistry.initialize(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
-      enableWebCache: enableWebCache,
+      webStorageMode: effectiveStorageMode,
     );
   }
 
@@ -345,6 +369,60 @@ class FlutterGemma {
     if (modelInfo.source is! FileSource) {
       final targetPath = await fileSystem.getTargetPath(modelId);
       await fileSystem.deleteFile(targetPath);
+    }
+  }
+
+  /// Check if OPFS streaming mode is supported by the current browser
+  ///
+  /// Returns true on web if OPFS is available, false otherwise.
+  /// Always returns false on mobile platforms.
+  ///
+  /// OPFS (Origin Private File System) is required for streaming mode,
+  /// which allows loading large models (>2GB) without hitting ArrayBuffer limits.
+  ///
+  /// Browser support:
+  /// - Chrome 86+ ✅
+  /// - Edge 86+ ✅
+  /// - Safari 15.2+ ✅
+  /// - Firefox: Not yet supported ❌
+  ///
+  /// Example:
+  /// ```dart
+  /// if (await FlutterGemma.isStreamingSupported()) {
+  ///   await FlutterGemma.initialize(
+  ///     webStorageMode: WebStorageMode.streaming,
+  ///   );
+  /// } else {
+  ///   print('OPFS not available, using cacheApi mode');
+  ///   await FlutterGemma.initialize(
+  ///     webStorageMode: WebStorageMode.cacheApi,
+  ///   );
+  /// }
+  /// ```
+  static Future<bool> isStreamingSupported() async {
+    // Streaming only supported on web platform
+    if (!kIsWeb) {
+      return false;
+    }
+
+    try {
+      final registry = ServiceRegistry.instance;
+
+      // Check if web storage mode is streaming
+      if (registry.webStorageMode != WebStorageMode.streaming) {
+        return false;
+      }
+
+      // Check if OPFS service is available
+      final downloadService = registry.downloadService;
+      if (downloadService is! WebDownloadService) {
+        return false;
+      }
+
+      return downloadService.opfsService != null;
+    } catch (e) {
+      // ServiceRegistry not initialized or error checking
+      return false;
     }
   }
 

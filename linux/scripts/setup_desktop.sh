@@ -60,7 +60,7 @@ JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-${
 JAR_NAME="litertlm-server.jar"
 JAR_VERSION="0.12.0"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="914b9d2526b5673eb810a6080bbc760e537322aaee8e19b9cd49609319cfbdc8"
+JAR_CHECKSUM="b9aaa8a0af31caaa51eb9efbd5d62d1bbb1c7817b44ddc19c16723dbcf90183c"
 
 # Plugin root (parent of linux/)
 PLUGIN_ROOT=$(dirname "$PLUGIN_DIR")

@@ -24,6 +24,9 @@ export 'core/api/flutter_gemma.dart';
 export 'core/api/inference_installation_builder.dart';
 export 'core/api/embedding_installation_builder.dart';
 
+// Export Web-specific types
+export 'core/domain/web_storage_mode.dart';
+
 // Export Model Specs (needed for advanced use cases)
 export 'mobile/flutter_gemma_mobile.dart'
     show

@@ -216,13 +216,12 @@ class ChatScreenState extends State<ChatScreen> {
 
     final response = await chat!.generateChatResponse();
 
-    if (response is TextResponse) {
-      final accumulatedResponse = response.token;
-
+    if (response is TextResponse && response.token.isNotEmpty) {
       setState(() {
-        _messages.add(Message.text(text: accumulatedResponse));
+        _messages.add(Message.text(text: response.token));
       });
-    } else if (response is FunctionCallResponse) {}
+    }
+    // Note: Empty response is OK - "✅ Function completed" message already shown
 
     // Reset streaming state when done
     setState(() {

@@ -115,15 +115,16 @@ class ModelDownloadService {
     }
   }
 
-  /// Deletes the downloaded file.
+  /// Deletes the downloaded file and metadata.
   Future<void> deleteModel() async {
     try {
-      final filePath = await getFilePath();
-      final file = File(filePath);
+      // Extract actual filename used by Modern API
+      final uri = Uri.parse(modelUrl);
+      final actualFilename =
+          uri.pathSegments.isNotEmpty ? uri.pathSegments.last : modelFilename;
 
-      if (file.existsSync()) {
-        await file.delete();
-      }
+      // Use Modern API to properly uninstall (deletes metadata + file)
+      await FlutterGemma.uninstallModel(actualFilename);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error deleting model: $e');

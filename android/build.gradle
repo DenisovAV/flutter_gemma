@@ -29,7 +29,7 @@ android {
         namespace 'dev.flutterberlin.flutter_gemma'
     }
 
-    compileSdk 35
+    compileSdk 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
@@ -47,7 +47,7 @@ android {
 
     defaultConfig {
         minSdkVersion 24
-        targetSdk = 35
+        targetSdk = 36
         consumerProguardFiles 'consumer-proguard-rules.pro'
     }
 

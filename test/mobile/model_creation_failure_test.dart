@@ -38,7 +38,6 @@ class BuggyModelCreator {
   final MockPlatformService platformService;
 
   Completer<String>? _initCompleter;
-  String? _initializedModel;
 
   BuggyModelCreator(this.platformService);
 
@@ -52,7 +51,6 @@ class BuggyModelCreator {
 
     try {
       await platformService.createModel();
-      _initializedModel = modelName;
       completer.complete(modelName);
       return completer.future;
     } catch (e, st) {
@@ -64,7 +62,6 @@ class BuggyModelCreator {
 
   void reset() {
     _initCompleter = null;
-    _initializedModel = null;
   }
 }
 

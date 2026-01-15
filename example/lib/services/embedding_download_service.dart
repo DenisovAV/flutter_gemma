@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart'; // For EmbeddingModelSpec
 import 'package:flutter_gemma_example/models/base_model.dart'; // For ModelSourceType
@@ -121,21 +119,24 @@ class EmbeddingModelDownloadService {
     }
   }
 
-  /// Deletes both downloaded files.
+  /// Deletes both downloaded files and metadata.
   Future<void> deleteModel() async {
     try {
-      final modelFilePath = await getModelFilePath();
-      final tokenizerFilePath = await getTokenizerFilePath();
-      final modelFile = File(modelFilePath);
-      final tokenizerFile = File(tokenizerFilePath);
-
-      if (await modelFile.exists()) {
-        await modelFile.delete();
+      // Extract actual filenames used by Modern API
+      String extractFilename(String url, ModelSourceType sourceType) {
+        if (sourceType == ModelSourceType.network) {
+          final uri = Uri.parse(url);
+          return uri.pathSegments.isNotEmpty ? uri.pathSegments.last : model.filename;
+        }
+        return url.split('/').last;
       }
 
-      if (await tokenizerFile.exists()) {
-        await tokenizerFile.delete();
-      }
+      final modelFilename = extractFilename(model.url, model.sourceType);
+      final tokenizerFilename = extractFilename(model.tokenizerUrl, model.sourceType);
+
+      // Use Modern API to properly uninstall (deletes metadata + files)
+      await FlutterGemma.uninstallModel(modelFilename);
+      await FlutterGemma.uninstallModel(tokenizerFilename);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error deleting embedding model: $e');

@@ -325,6 +325,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       completer.complete(model);
       return model;
     } catch (e, st) {
+      // FIX #170: Reset state to allow retry with different model
+      _initCompleter = null;
+      _initializedModel = null;
+      _lastActiveInferenceSpec = null;
       completer.completeError(e, st);
       Error.throwWithStackTrace(e, st);
     }
@@ -436,6 +440,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       completer.complete(model);
       return model;
     } catch (e, st) {
+      // FIX #170: Reset state to allow retry with different model
+      _initEmbeddingCompleter = null;
+      _initializedEmbeddingModel = null;
+      _lastActiveEmbeddingSpec = null;
       completer.completeError(e, st);
       Error.throwWithStackTrace(e, st);
     }

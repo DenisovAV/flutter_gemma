@@ -377,4 +377,83 @@ void main() {
           reason: 'Both models should have been attempted');
     });
   });
+
+  group('Embedding model creation failure (parity with inference)', () {
+    test('FIX: Embedding model failure allows retry', () async {
+      final creator = FixedModelCreator(mockPlatform);
+
+      // First attempt: fail (e.g., incompatible tokenizer)
+      mockPlatform.shouldFail = true;
+      mockPlatform.failureMessage = 'Invalid tokenizer format';
+
+      await expectLater(
+        creator.createModel('embedding-model.tflite'),
+        throwsA(isA<Exception>()),
+      );
+
+      expect(mockPlatform.createModelCallCount, 1);
+
+      // Second attempt: should work
+      mockPlatform.shouldFail = false;
+
+      final result = await creator.createModel('embedding-model-v2.tflite');
+
+      expect(result, 'embedding-model-v2.tflite');
+      expect(mockPlatform.createModelCallCount, 2);
+    });
+
+    test('FIX: Switching embedding model after failure works', () async {
+      final creator = FixedModelCreator(mockPlatform);
+
+      // First embedding model fails
+      mockPlatform.shouldFail = true;
+      mockPlatform.failureMessage = 'Embedding model initialization failed';
+
+      await expectLater(
+        creator.createModel('faulty-embedder.tflite'),
+        throwsA(isA<Exception>()),
+      );
+
+      // Switch to working embedding model
+      mockPlatform.shouldFail = false;
+
+      final result = await creator.createModel('gecko-embedding.tflite');
+
+      expect(result, 'gecko-embedding.tflite');
+      expect(mockPlatform.createModelCallCount, 2);
+    });
+
+    test('FIX: Embedding model multiple failures then success', () async {
+      final creator = FixedModelCreator(mockPlatform);
+
+      // First failure - bad model
+      mockPlatform.shouldFail = true;
+      mockPlatform.failureMessage = 'Model format error';
+
+      await expectLater(
+        creator.createModel('bad-model.tflite'),
+        throwsA(isA<Exception>()),
+      );
+
+      // Second failure - bad tokenizer
+      mockPlatform.failureMessage = 'Tokenizer load error';
+
+      await expectLater(
+        creator.createModel('bad-tokenizer.tflite'),
+        throwsA(isA<Exception>().having(
+          (e) => e.toString(),
+          'message',
+          contains('Tokenizer load error'),
+        )),
+      );
+
+      // Third attempt succeeds
+      mockPlatform.shouldFail = false;
+
+      final result = await creator.createModel('working-embedder.tflite');
+
+      expect(result, 'working-embedder.tflite');
+      expect(mockPlatform.createModelCallCount, 3);
+    });
+  });
 }

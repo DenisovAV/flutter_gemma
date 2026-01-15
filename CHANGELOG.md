@@ -1,6 +1,10 @@
+## 0.12.2
+- **Model Deletion Fix**: Fixed model deletion not removing metadata (#169)
+- **Model Switch Fix**: Fixed model creation failure blocking switching to another model (#170)
+- **Android SDK**: Updated to API 36
+
 ## 0.12.1
 - **Web Large Model Support**: `WebStorageMode` for models >2GB via OPFS streaming (#162)
-- **Android SDK**: Updated to API 36
 - **Desktop JAR Checksum Fix**: Fixed JAR checksum mismatch in setup scripts (#167)
 
 ## 0.12.0

@@ -1,6 +1,6 @@
 ## 0.12.1
 - **Web Large Model Support**: `WebStorageMode` for models >2GB via OPFS streaming (#162)
-- **Android SDK**: Updated to API 35 (Android 15)
+- **Android SDK**: Updated to API 36
 - **Desktop JAR Checksum Fix**: Fixed JAR checksum mismatch in setup scripts (#167)
 
 ## 0.12.0

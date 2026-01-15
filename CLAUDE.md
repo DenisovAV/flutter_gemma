@@ -5,15 +5,15 @@
 # 🚨 CRITICAL RULES - READ FIRST EVERY TIME 🚨
 
 ## Rule 1: NEVER EDIT CODE WITHOUT EXPLICIT APPROVAL ⛔
-- ❌ **FORBIDDEN**: Using Edit/Write tools without user saying "да"/"давай"/"правь"/"ok"
+- ❌ **FORBIDDEN**: Using Edit/Write tools without user saying "yes"/"go ahead"/"ok"
 - ✅ **REQUIRED**: Always propose changes first, show diff/code, **WAIT FOR APPROVAL**
 - ⚠️ **WARNING**: If you edit without approval, user will be VERY upset and you will break trust
 
 **Correct workflow:**
 1. 📝 Describe WHAT you want to change
 2. 📝 Show HOW the code will look (full diff or code snippet)
-3. ⏸️ **STOP AND WAIT** - Ask "ПРАВИТЬ?" or "Могу я применить это?"
-4. ✅ Only after user says "да"/"давай"/"правь" → apply changes
+3. ⏸️ **STOP AND WAIT** - Ask "APPLY?" or "Can I apply this?"
+4. ✅ Only after user says "yes"/"go ahead"/"ok" → apply changes
 
 ## Rule 2: NEVER USE `git checkout` ⛔
 - ❌ **FORBIDDEN**: `git checkout` command for reverting files

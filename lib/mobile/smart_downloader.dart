@@ -16,7 +16,8 @@ import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 /// - Works with ANY URL (HuggingFace, Google Drive, custom servers, etc.)
 /// - Supports multiple concurrent downloads
 class SmartDownloader {
-  static const String _downloadGroup = 'smart_downloads';
+  /// Download group identifier for background_downloader tasks
+  static const String downloadGroup = 'smart_downloads';
 
   // Global broadcast stream for FileDownloader.updates
   // This allows multiple downloads to listen simultaneously
@@ -181,7 +182,7 @@ class SmartDownloader {
 
       final task = DownloadTask(
         url: url,
-        group: _downloadGroup,
+        group: downloadGroup,
         headers: token != null
             ? {
                 'Authorization': 'Bearer $token',

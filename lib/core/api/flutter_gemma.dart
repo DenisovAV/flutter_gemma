@@ -176,13 +176,32 @@ class FlutterGemma {
     return EmbeddingInstallationBuilder();
   }
 
-  /// Check if a model is installed
+  /// Check if a model is fully installed (metadata AND file exist)
+  ///
+  /// Returns true only if:
+  /// 1. Model metadata exists in repository
+  /// 2. Model file exists on disk/storage
+  ///
+  /// This prevents false positives when:
+  /// - File was deleted externally
+  /// - Download was interrupted
+  /// - Partial download cleanup failed
   ///
   /// Parameters:
   /// - [modelId]: Model filename (e.g., 'gemma-2b-it-cpu-int4.bin')
   static Future<bool> isModelInstalled(String modelId) async {
-    final repository = ServiceRegistry.instance.modelRepository;
-    return await repository.isInstalled(modelId);
+    final registry = ServiceRegistry.instance;
+    final repository = registry.modelRepository;
+    final fileSystem = registry.fileSystemService;
+
+    // Check metadata exists
+    if (!await repository.isInstalled(modelId)) {
+      return false;
+    }
+
+    // Check file actually exists
+    final targetPath = await fileSystem.getTargetPath(modelId);
+    return await fileSystem.fileExists(targetPath);
   }
 
   /// List all installed models
@@ -345,9 +364,16 @@ class FlutterGemma {
     return manager.activeEmbeddingModel is EmbeddingModelSpec;
   }
 
-  /// Uninstall a model
+  /// Uninstall a model (file first, then metadata for consistency)
   ///
-  /// Removes model metadata and files (if not protected).
+  /// Order of operations:
+  /// 1. Delete model file (if not external/protected)
+  /// 2. Delete metadata from repository
+  ///
+  /// This order ensures:
+  /// - If file deletion fails: metadata remains, user can retry
+  /// - If metadata deletion fails: file already gone, no orphan
+  /// - Consistent state after any failure
   ///
   /// Parameters:
   /// - [modelId]: Model filename to uninstall
@@ -356,20 +382,21 @@ class FlutterGemma {
     final repository = registry.modelRepository;
     final fileSystem = registry.fileSystemService;
 
-    // Get model info
+    // Get model info first (needed for file path and source type)
     final modelInfo = await repository.loadModel(modelId);
     if (modelInfo == null) {
       throw Exception('Model not found: $modelId');
     }
 
-    // Delete metadata
-    await repository.deleteModel(modelId);
-
-    // Delete files (if not external/protected)
+    // Delete file FIRST (if not external/protected)
+    // If this fails, metadata remains intact = consistent state for retry
     if (modelInfo.source is! FileSource) {
       final targetPath = await fileSystem.getTargetPath(modelId);
       await fileSystem.deleteFile(targetPath);
     }
+
+    // Delete metadata AFTER file deletion succeeds
+    await repository.deleteModel(modelId);
   }
 
   /// Check if OPFS streaming mode is supported by the current browser

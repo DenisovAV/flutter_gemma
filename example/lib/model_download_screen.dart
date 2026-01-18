@@ -1,5 +1,10 @@
+import 'dart:async';
+
+import 'package:background_downloader/background_downloader.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma/mobile/smart_downloader.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
@@ -24,6 +29,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
   bool _downloading = false; // Track active download state
   String _token = ''; // Store the token
   final TextEditingController _tokenController = TextEditingController();
+  StreamSubscription<TaskUpdate>? _downloadSubscription;
 
   @override
   void initState() {
@@ -41,8 +47,86 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
   Future<void> _initialize() async {
     _token = await _downloadService.loadToken() ?? '';
     _tokenController.text = _token;
-    needToDownload = !(await _downloadService.checkModelExistence(_token));
+
+    // Check if download is already in progress (Issue #174 fix)
+    await _checkActiveDownload();
+
+    if (!_downloading) {
+      needToDownload = !(await _downloadService.checkModelExistence(_token));
+    }
     setState(() {});
+  }
+
+  /// Check if there's an active download for this model (Issue #174)
+  ///
+  /// When user exits download screen during download and returns,
+  /// this reconnects to the existing download instead of showing "Restart".
+  Future<void> _checkActiveDownload() async {
+    // Skip on web - background_downloader uses different mechanism
+    if (kIsWeb) return;
+
+    try {
+      final downloader = FileDownloader();
+
+      // Check active tasks in smart_downloads group
+      final allTasks = await downloader.allTasks(
+        group: SmartDownloader.downloadGroup,
+        includeTasksWaitingToRetry: true,
+      );
+
+      final activeTask = allTasks.where(
+        (task) => task.filename == widget.model.filename,
+      ).firstOrNull;
+
+      if (activeTask != null) {
+        debugPrint('Found active download for ${widget.model.filename}');
+        _downloading = true;
+        _resumeDownloadProgress();
+      }
+    } catch (e) {
+      debugPrint('Failed to check active download: $e');
+    }
+  }
+
+  /// Resume listening to download progress for active task
+  void _resumeDownloadProgress() {
+    _downloadSubscription?.cancel();
+    _downloadSubscription = FileDownloader().updates.listen((update) {
+      if (update.task.filename != widget.model.filename) return;
+
+      if (update is TaskProgressUpdate) {
+        if (mounted) {
+          setState(() {
+            _progress = update.progress * 100;
+          });
+        }
+      } else if (update is TaskStatusUpdate) {
+        if (update.status == TaskStatus.complete) {
+          if (mounted) {
+            setState(() {
+              _downloading = false;
+              _progress = 0.0;
+              needToDownload = false;
+            });
+          }
+        } else if (update.status == TaskStatus.failed ||
+            update.status == TaskStatus.canceled) {
+          if (mounted) {
+            setState(() {
+              _downloading = false;
+              _progress = 0.0;
+            });
+          }
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _downloadSubscription?.cancel();
+    _tokenController.dispose();
+    super.dispose();
   }
 
   Future<void> _saveToken(String token) async {

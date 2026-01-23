@@ -2,7 +2,7 @@ package dev.flutterberlin.flutter_gemma.engines.mediapipe
 
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import dev.flutterberlin.flutter_gemma.PreferredBackendEnum
+import dev.flutterberlin.flutter_gemma.PreferredBackend
 import dev.flutterberlin.flutter_gemma.engines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -54,15 +54,11 @@ class MediaPipeEngine(
                 .apply {
                     config.supportedLoraRanks?.let { setSupportedLoraRanks(it) }
                     config.preferredBackend?.let {
-                        // Explicit mapping instead of ordinal-based (safer)
+                        // Map to MediaPipe Backend (NPU not supported)
                         val backendEnum: LlmInference.Backend? = when (it) {
-                            PreferredBackendEnum.CPU -> LlmInference.Backend.CPU
-                            PreferredBackendEnum.GPU,
-                            PreferredBackendEnum.GPU_FLOAT16,
-                            PreferredBackendEnum.GPU_MIXED,
-                            PreferredBackendEnum.GPU_FULL -> LlmInference.Backend.GPU
-                            PreferredBackendEnum.UNKNOWN,
-                            PreferredBackendEnum.TPU -> null // Not supported by MediaPipe, use default
+                            PreferredBackend.CPU -> LlmInference.Backend.CPU
+                            PreferredBackend.GPU -> LlmInference.Backend.GPU
+                            PreferredBackend.NPU -> null // MediaPipe doesn't support NPU
                         }
                         backendEnum?.let { backend -> setPreferredBackend(backend) }
                     }

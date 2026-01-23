@@ -1,7 +1,7 @@
 package dev.flutterberlin.flutter_gemma.engines.litertlm
 
 import android.content.Context
-import dev.flutterberlin.flutter_gemma.PreferredBackendEnum
+import dev.flutterberlin.flutter_gemma.PreferredBackend
 import dev.flutterberlin.flutter_gemma.engines.EngineConfig
 import dev.flutterberlin.flutter_gemma.engines.SessionConfig
 import kotlinx.coroutines.runBlocking
@@ -153,12 +153,12 @@ class LiteRtLmEngineTest {
         val config = EngineConfig(
             modelPath = "/test/model.litertlm",
             maxTokens = 1024,
-            preferredBackend = PreferredBackendEnum.GPU
+            preferredBackend = PreferredBackend.GPU
         )
 
         // Config creation should not throw
         assertNotNull(config)
-        assertEquals(PreferredBackendEnum.GPU, config.preferredBackend)
+        assertEquals(PreferredBackend.GPU, config.preferredBackend)
     }
 
     @Test
@@ -166,21 +166,21 @@ class LiteRtLmEngineTest {
         val config = EngineConfig(
             modelPath = "/test/model.litertlm",
             maxTokens = 1024,
-            preferredBackend = PreferredBackendEnum.CPU
+            preferredBackend = PreferredBackend.CPU
         )
 
-        assertEquals(PreferredBackendEnum.CPU, config.preferredBackend)
+        assertEquals(PreferredBackend.CPU, config.preferredBackend)
     }
 
     @Test
-    fun `config with GPU_FLOAT16 backend is accepted`() {
+    fun `config with NPU backend is accepted`() {
         val config = EngineConfig(
             modelPath = "/test/model.litertlm",
             maxTokens = 1024,
-            preferredBackend = PreferredBackendEnum.GPU_FLOAT16
+            preferredBackend = PreferredBackend.NPU
         )
 
-        assertEquals(PreferredBackendEnum.GPU_FLOAT16, config.preferredBackend)
+        assertEquals(PreferredBackend.NPU, config.preferredBackend)
     }
 
     @Test

@@ -2,13 +2,9 @@ import 'package:pigeon/pigeon.dart';
 // Command to generate pigeon files: dart run pigeon --input pigeon.dart
 
 enum PreferredBackend {
-  unknown,
   cpu,
   gpu,
-  gpuFloat16,
-  gpuMixed,
-  gpuFull,
-  tpu,
+  npu, // Supported by LiteRT-LM only (Google Tensor, Qualcomm NPU)
 }
 
 @ConfigurePigeon(PigeonOptions(

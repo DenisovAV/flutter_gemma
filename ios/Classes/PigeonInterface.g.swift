@@ -65,13 +65,9 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
 }
 
 enum PreferredBackend: Int {
-  case unknown = 0
-  case cpu = 1
-  case gpu = 2
-  case gpuFloat16 = 3
-  case gpuMixed = 4
-  case gpuFull = 5
-  case tpu = 6
+  case cpu = 0
+  case gpu = 1
+  case npu = 2
 }
 
 /// Generated class from Pigeon that represents data sent in messages.

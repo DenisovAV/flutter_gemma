@@ -289,7 +289,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         print("[PLUGIN] Preferred backend: \(String(describing: preferredBackend))")
 
         // Convert PreferredBackend to useGPU boolean
-        let useGPU = preferredBackend == .gpu || preferredBackend == .gpuFloat16 || preferredBackend == .gpuMixed || preferredBackend == .gpuFull
+        // Note: NPU not supported for embeddings on iOS
+        let useGPU = preferredBackend == .gpu
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {

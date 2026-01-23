@@ -149,7 +149,7 @@ class LiteRtLmSessionTest {
     @Test
     fun `sizeInTokens handles empty string`() {
         val result = session.sizeInTokens("")
-        assertEquals("Empty string should return ~1 token", 0, result)
+        assertEquals("Empty string should return 0 tokens", 0, result)
     }
 
     @Test

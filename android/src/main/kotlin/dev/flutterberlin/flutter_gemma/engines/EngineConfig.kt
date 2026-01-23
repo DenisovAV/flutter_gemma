@@ -1,6 +1,6 @@
 package dev.flutterberlin.flutter_gemma.engines
 
-import dev.flutterberlin.flutter_gemma.PreferredBackendEnum
+import dev.flutterberlin.flutter_gemma.PreferredBackend
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 
@@ -11,7 +11,7 @@ data class EngineConfig(
     val modelPath: String,
     val maxTokens: Int,
     val supportedLoraRanks: List<Int>? = null,
-    val preferredBackend: PreferredBackendEnum? = null,
+    val preferredBackend: PreferredBackend? = null,
     val maxNumImages: Int? = null,
 )
 

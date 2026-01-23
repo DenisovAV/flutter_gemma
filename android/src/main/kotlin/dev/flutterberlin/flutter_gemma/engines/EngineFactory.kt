@@ -27,10 +27,17 @@ object EngineFactory {
             modelPath.endsWith(".task", ignoreCase = true) -> MediaPipeEngine(context)
             modelPath.endsWith(".bin", ignoreCase = true) -> MediaPipeEngine(context)
             modelPath.endsWith(".tflite", ignoreCase = true) -> MediaPipeEngine(context)
-            else -> throw IllegalArgumentException(
-                "Unsupported model format: ${modelPath.substringAfterLast('.')}. " +
-                "Supported: .litertlm (LiteRT-LM), .task/.bin/.tflite (MediaPipe)"
-            )
+            else -> {
+                val extension = if (modelPath.contains('.')) {
+                    modelPath.substringAfterLast('.')
+                } else {
+                    "<no extension>"
+                }
+                throw IllegalArgumentException(
+                    "Unsupported model format: .$extension. " +
+                    "Supported: .litertlm (LiteRT-LM), .task/.bin/.tflite (MediaPipe)"
+                )
+            }
         }
     }
 

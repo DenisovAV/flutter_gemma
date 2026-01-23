@@ -47,13 +47,9 @@ class FlutterError (
 ) : Throwable()
 
 enum class PreferredBackend(val raw: Int) {
-  UNKNOWN(0),
-  CPU(1),
-  GPU(2),
-  GPU_FLOAT16(3),
-  GPU_MIXED(4),
-  GPU_FULL(5),
-  TPU(6);
+  CPU(0),
+  GPU(1),
+  NPU(2);
 
   companion object {
     fun ofRaw(raw: Int): PreferredBackend? {

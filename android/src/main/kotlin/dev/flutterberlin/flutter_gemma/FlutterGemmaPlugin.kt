@@ -112,14 +112,11 @@ private class PlatformServiceImpl(
     scope.launch {
       try {
         // Build configuration first (before touching state)
-        val backendEnum = preferredBackend?.let {
-          PreferredBackendEnum.values()[it.ordinal]
-        }
         val config = EngineConfig(
           modelPath = modelPath,
           maxTokens = maxTokens.toInt(),
           supportedLoraRanks = loraRanks?.map { it.toInt() },
-          preferredBackend = backendEnum,
+          preferredBackend = preferredBackend,
           maxNumImages = maxNumImages?.toInt()
         )
 
@@ -332,11 +329,8 @@ private class PlatformServiceImpl(
         embeddingModel?.close()
 
         // Convert PreferredBackend to useGPU boolean
-        val useGPU = when (preferredBackend) {
-          PreferredBackend.GPU, PreferredBackend.GPU_FLOAT16,
-          PreferredBackend.GPU_MIXED, PreferredBackend.GPU_FULL -> true
-          else -> false
-        }
+        // Note: NPU not supported for embeddings, fallback to CPU
+        val useGPU = preferredBackend == PreferredBackend.GPU
 
         embeddingModel = EmbeddingModel(context, modelPath, tokenizerPath, useGPU)
         embeddingModel!!.initialize()

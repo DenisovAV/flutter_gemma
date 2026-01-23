@@ -5,7 +5,7 @@ import android.util.Log
 import com.google.ai.edge.litertlm.Backend
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig as LiteRtEngineConfig
-import dev.flutterberlin.flutter_gemma.PreferredBackendEnum
+import dev.flutterberlin.flutter_gemma.PreferredBackend
 import dev.flutterberlin.flutter_gemma.engines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -54,14 +54,12 @@ class LiteRtLmEngine(
             throw IllegalArgumentException("Model not found at path: ${config.modelPath}")
         }
 
-        // Map PreferredBackendEnum to LiteRT-LM Backend
+        // Map PreferredBackend to LiteRT-LM Backend
         val backend = when (config.preferredBackend) {
-            PreferredBackendEnum.GPU,
-            PreferredBackendEnum.GPU_FLOAT16,
-            PreferredBackendEnum.GPU_MIXED,
-            PreferredBackendEnum.GPU_FULL -> Backend.GPU
-            PreferredBackendEnum.CPU -> Backend.CPU
-            else -> Backend.CPU // Default to CPU for safety
+            PreferredBackend.GPU -> Backend.GPU
+            PreferredBackend.NPU -> Backend.NPU // LiteRT-LM supports NPU (Google Tensor, Qualcomm)
+            PreferredBackend.CPU,
+            null -> Backend.CPU
         }
 
         try {

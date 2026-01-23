@@ -16,13 +16,9 @@ PlatformException _createConnectionError(String channelName) {
 }
 
 enum PreferredBackend {
-  unknown,
   cpu,
   gpu,
-  gpuFloat16,
-  gpuMixed,
-  gpuFull,
-  tpu,
+  npu,
 }
 
 class RetrievalResult {

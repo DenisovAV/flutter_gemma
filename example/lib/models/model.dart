@@ -109,6 +109,48 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: false,
   ),
 
+  // === LiteRT-LM ENGINE MODELS (for testing parity with MediaPipe) ===
+
+  // Gemma 3 Nano E2B LiteRT-LM (same model, different engine)
+  gemma3n_2B_litertlm(
+    baseUrl:
+        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
+    filename: 'gemma-3n-E2B-it-int4.litertlm',
+    displayName: 'Gemma 3 Nano E2B IT (LiteRT-LM)',
+    size: '3.1GB',
+    licenseUrl: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm',
+    needsAuth: true,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    maxTokens: 4096,
+    maxNumImages: 1,
+    supportsFunctionCalls: true,
+  ),
+
+  // Gemma 3 Nano E4B LiteRT-LM (same model, different engine)
+  gemma3n_4B_litertlm(
+    baseUrl:
+        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
+    filename: 'gemma-3n-E4B-it-int4.litertlm',
+    displayName: 'Gemma 3 Nano E4B IT (LiteRT-LM)',
+    size: '6.5GB',
+    licenseUrl: 'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm',
+    needsAuth: true,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    maxTokens: 4096,
+    maxNumImages: 1,
+    supportsFunctionCalls: true,
+  ),
+
   // Local Gemma models (for testing)
   gemma3LocalAsset(
     // model file should be pre-downloaded and placed in the assets folder
@@ -324,8 +366,8 @@ enum Model implements InferenceModelInterface {
 
   // FunctionGemma 270M IT (Local asset)
   functionGemma_270M_local(
-    baseUrl: 'assets/models/functiongemma-flutter-1.litertlm',
-    filename: 'functiongemma-flutter-1.litertlm',
+    baseUrl: 'assets/models/functiongemma-270M-it.litertlm',
+    filename: 'functiongemma-270M-it.litertlm',
     displayName: 'FunctionGemma 270M IT (Local)',
     size: '284MB',
     licenseUrl: '',

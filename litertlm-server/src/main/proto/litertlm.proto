@@ -33,7 +33,10 @@ service LiteRtLmService {
 
 message InitializeRequest {
   string model_path = 1;
-  string backend = 2;  // "cpu", "gpu"
+  // Backend: "cpu" or "gpu"
+  // GPU uses Metal (macOS), DirectX 12 (Windows), Vulkan (Linux)
+  // Note: "npu" is not supported on desktop (Android only)
+  string backend = 2;
   int32 max_tokens = 3;
   bool enable_vision = 4;
   int32 max_num_images = 5;

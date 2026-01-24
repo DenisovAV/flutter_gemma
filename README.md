@@ -1117,6 +1117,18 @@ final inferenceModel = await FlutterGemmaPlugin.instance.createModel(
 );
 ```
 
+**PreferredBackend Options:**
+
+| Backend | Android | iOS | Web | Desktop |
+|---------|---------|-----|-----|---------|
+| `cpu` | ✅ | ✅ | ❌ | ✅ |
+| `gpu` | ✅ | ✅ | ✅ (required) | ✅ |
+| `npu` | ✅ (.litertlm) | ❌ | ❌ | ❌ |
+
+- **NPU**: Qualcomm AI Engine, MediaTek NeuroPilot, Google Tensor. Up to 25x faster than CPU.
+- **Web**: GPU only (MediaPipe limitation). CPU models will fail to initialize.
+- **Desktop**: GPU uses Metal (macOS), DirectX 12 (Windows), Vulkan (Linux).
+
 6.**Using Sessions for Single Inferences:**
 
 If you need to generate individual responses without maintaining a conversation history, use sessions. Sessions allow precise control over inference and must be properly closed to avoid memory leaks.
@@ -2039,8 +2051,7 @@ final supported = await FlutterGemma.isStreamingSupported();
 ```
 
 #### Backend Support
-- **GPU only:** Web platform requires GPU backend (MediaPipe limitation)
-- **CPU models:** ❌ Will fail to initialize on web
+- **GPU only:** See [PreferredBackend Options](#preferredbackend-options) table above
 
 #### CORS Configuration
 - **Required for custom servers:** Enable CORS headers on your model hosting server

@@ -1,14 +1,18 @@
 import 'package:pigeon/pigeon.dart';
 // Command to generate pigeon files: dart run pigeon --input pigeon.dart
 
+/// Hardware backend for model inference.
+///
+/// Platform support:
+/// - [cpu]: All platforms
+/// - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux, OpenCL on Android)
+/// - [npu]: Android only with LiteRT-LM (.litertlm models) - Qualcomm, MediaTek, Google Tensor
+///
+/// If selected backend is unavailable, engine falls back to GPU, then CPU.
 enum PreferredBackend {
-  unknown,
   cpu,
   gpu,
-  gpuFloat16,
-  gpuMixed,
-  gpuFull,
-  tpu,
+  npu, // Android only: Qualcomm AI Engine, MediaTek NeuroPilot, Google Tensor
 }
 
 @ConfigurePigeon(PigeonOptions(

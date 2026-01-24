@@ -46,14 +46,20 @@ class FlutterError (
   val details: Any? = null
 ) : Throwable()
 
+/**
+ * Hardware backend for model inference.
+ *
+ * Platform support:
+ * - [cpu]: All platforms
+ * - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux, OpenCL on Android)
+ * - [npu]: Android only with LiteRT-LM (.litertlm models) - Qualcomm, MediaTek, Google Tensor
+ *
+ * If selected backend is unavailable, engine falls back to GPU, then CPU.
+ */
 enum class PreferredBackend(val raw: Int) {
-  UNKNOWN(0),
-  CPU(1),
-  GPU(2),
-  GPU_FLOAT16(3),
-  GPU_MIXED(4),
-  GPU_FULL(5),
-  TPU(6);
+  CPU(0),
+  GPU(1),
+  NPU(2);
 
   companion object {
     fun ofRaw(raw: Int): PreferredBackend? {

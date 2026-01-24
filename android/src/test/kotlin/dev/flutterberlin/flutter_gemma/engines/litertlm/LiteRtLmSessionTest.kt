@@ -50,15 +50,15 @@ class LiteRtLmSessionTest {
     // ===========================================
 
     @Test
-    fun `addQueryChunk accumulates text`() {
+    fun `addQueryChunk accumulates text without throwing`() {
+        // Note: LiteRT-LM buffers chunks until generateResponse() is called
+        // We can only verify that accumulation doesn't throw
         session.addQueryChunk("Hello, ")
         session.addQueryChunk("world!")
 
-        // Token count estimate should reflect accumulated length
-        // "Hello, world!" = 13 chars → ~3-4 tokens
-        val tokenCount = session.sizeInTokens("")
-        // This verifies internal state indirectly
-        assertTrue("Token count should be reasonable", tokenCount >= 0)
+        // Verify sizeInTokens works independently (estimates tokens for given prompt)
+        val tokenCount = session.sizeInTokens("Hello, world!")
+        assertEquals("13 chars → (13+3)/4 = 4 tokens", 4, tokenCount)
     }
 
     @Test

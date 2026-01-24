@@ -543,9 +543,8 @@ android/src/main/kotlin/dev/flutterberlin/flutter_gemma/
 └── engines/                       # Engine abstraction layer
     ├── InferenceEngine.kt         # Strategy interface
     ├── InferenceSession.kt        # Session interface
-    ├── EngineConfig.kt            # Configuration data classes
+    ├── EngineConfig.kt            # Configuration + SessionConfig + FlowFactory
     ├── EngineFactory.kt           # Factory for engine creation
-    ├── FlowFactory.kt             # SharedFlow factory
     ├── mediapipe/
     │   ├── MediaPipeEngine.kt     # MediaPipe adapter (wraps LlmInference)
     │   └── MediaPipeSession.kt    # MediaPipe session adapter

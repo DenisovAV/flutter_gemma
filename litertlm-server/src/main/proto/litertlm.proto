@@ -18,6 +18,9 @@ service LiteRtLmService {
   // Send message with image (multimodal)
   rpc ChatWithImage(ChatWithImageRequest) returns (stream ChatResponse);
 
+  // Send message with audio (Gemma 3n E4B)
+  rpc ChatWithAudio(ChatWithAudioRequest) returns (stream ChatResponse);
+
   // Close conversation
   rpc CloseConversation(CloseConversationRequest) returns (CloseConversationResponse);
 
@@ -34,6 +37,7 @@ message InitializeRequest {
   int32 max_tokens = 3;
   bool enable_vision = 4;
   int32 max_num_images = 5;
+  bool enable_audio = 6;  // Enable audio modality (Gemma 3n E4B)
 }
 
 message InitializeResponse {
@@ -67,6 +71,12 @@ message ChatWithImageRequest {
   string conversation_id = 1;
   string text = 2;
   bytes image = 3;  // Image bytes (JPEG/PNG)
+}
+
+message ChatWithAudioRequest {
+  string conversation_id = 1;
+  string text = 2;
+  bytes audio = 3;  // Audio bytes (PCM 16kHz, 16-bit, mono)
 }
 
 message ChatResponse {

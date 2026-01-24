@@ -41,13 +41,19 @@ class LiteRtLmClient {
     required String modelPath,
     String backend = 'gpu',
     int maxTokens = 2048,
+    bool enableVision = false,
+    int maxNumImages = 1,
+    bool enableAudio = false,
   }) async {
     _assertConnected();
 
     final request = InitializeRequest()
       ..modelPath = modelPath
       ..backend = backend
-      ..maxTokens = maxTokens;
+      ..maxTokens = maxTokens
+      ..enableVision = enableVision
+      ..maxNumImages = maxNumImages
+      ..enableAudio = enableAudio;
 
     final response = await _client!.initialize(request);
 
@@ -136,6 +142,44 @@ class LiteRtLmClient {
 
     // Add timeout to prevent infinite hanging
     await for (final response in _client!.chatWithImage(request).timeout(
+      _streamTimeout,
+      onTimeout: (sink) {
+        sink.addError(TimeoutException(
+          'Model response timed out after ${_streamTimeout.inMinutes} minutes',
+        ));
+        sink.close();
+      },
+    )) {
+      if (response.hasError() && response.error.isNotEmpty) {
+        throw Exception('Chat error: ${response.error}');
+      }
+
+      if (response.hasText()) {
+        yield response.text;
+      }
+    }
+  }
+
+  /// Send a multimodal chat message (text + audio) - Gemma 3n E4B only
+  Stream<String> chatWithAudio(
+    String text,
+    Uint8List audioBytes, {
+    String? conversationId,
+  }) async* {
+    _assertInitialized();
+
+    final convId = conversationId ?? _currentConversationId;
+    if (convId == null) {
+      throw StateError('No conversation. Call createConversation() first.');
+    }
+
+    final request = ChatWithAudioRequest()
+      ..conversationId = convId
+      ..text = text
+      ..audio = audioBytes;
+
+    // Add timeout to prevent infinite hanging
+    await for (final response in _client!.chatWithAudio(request).timeout(
       _streamTimeout,
       onTimeout: (sink) {
         sink.addError(TimeoutException(

@@ -22,6 +22,7 @@ class InferenceChat {
   final int maxTokens;
   final int tokenBuffer;
   final bool supportImage;
+  final bool supportAudio;
   final bool supportsFunctionCalls;
   final ModelType modelType; // Add modelType parameter
   final bool isThinking; // Add isThinking flag for thinking models
@@ -43,6 +44,7 @@ class InferenceChat {
     required this.maxTokens,
     this.tokenBuffer = 2000,
     this.supportImage = false,
+    this.supportAudio = false,
     this.supportsFunctionCalls = false,
     this.tools = const [],
     this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility

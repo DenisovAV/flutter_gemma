@@ -33,6 +33,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
   final ModelFileType fileType;
   final VoidCallback onClose;
   final bool supportImage;
+  final bool supportAudio; // Enabling audio support (Gemma 3n E4B)
   bool _isClosed = false;
 
   Completer<void>? _responseCompleter;
@@ -44,6 +45,7 @@ class MobileInferenceModelSession extends InferenceModelSession {
     required this.modelType,
     this.fileType = ModelFileType.task,
     this.supportImage = false,
+    this.supportAudio = false,
   });
 
   void _assertNotClosed() {
@@ -70,6 +72,9 @@ class MobileInferenceModelSession extends InferenceModelSession {
     if (message.hasImage && message.imageBytes != null && supportImage) {
       await _addImage(message.imageBytes!);
     }
+    if (message.hasAudio && message.audioBytes != null && supportAudio) {
+      await _addAudio(message.audioBytes!);
+    }
   }
 
   Future<void> _addImage(Uint8List imageBytes) async {
@@ -78,6 +83,14 @@ class MobileInferenceModelSession extends InferenceModelSession {
       throw ArgumentError('This model does not support images');
     }
     await _platformService.addImage(imageBytes);
+  }
+
+  Future<void> _addAudio(Uint8List audioBytes) async {
+    _assertNotClosed();
+    if (!supportAudio) {
+      throw ArgumentError('This model does not support audio');
+    }
+    await _platformService.addAudio(audioBytes);
   }
 
   @override
@@ -227,6 +240,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     List<int>? loraRanks,
     int? maxNumImages,
     bool supportImage = false,
+    bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
   }) async {
     // Check if model is ready through unified system
     final manager = _unifiedManager;
@@ -302,6 +316,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         loraRanks: loraRanks ?? supportedLoraRanks,
         preferredBackend: preferredBackend,
         maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
+        supportAudio: supportAudio ? true : null, // Pass to native (Android/iOS)
       );
 
       final model = _initializedModel = MobileInferenceModel(
@@ -311,6 +326,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         preferredBackend: preferredBackend,
         supportedLoraRanks: loraRanks ?? supportedLoraRanks,
         supportImage: supportImage,
+        supportAudio: supportAudio,
         maxNumImages: maxNumImages,
         onClose: () {
           _initializedModel = null;

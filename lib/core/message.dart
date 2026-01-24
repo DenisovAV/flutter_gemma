@@ -14,6 +14,7 @@ class Message {
     required this.text,
     this.isUser = false,
     this.imageBytes,
+    this.audioBytes,
     this.type = MessageType.text,
     this.toolName,
   });
@@ -21,15 +22,18 @@ class Message {
   final String text;
   final bool isUser;
   final Uint8List? imageBytes;
+  final Uint8List? audioBytes;
   final MessageType type;
   final String? toolName;
 
   bool get hasImage => imageBytes != null;
+  bool get hasAudio => audioBytes != null;
 
   Message copyWith({
     String? text,
     bool? isUser,
     Uint8List? imageBytes,
+    Uint8List? audioBytes,
     MessageType? type,
     String? toolName,
   }) {
@@ -37,6 +41,7 @@ class Message {
       text: text ?? this.text,
       isUser: isUser ?? this.isUser,
       imageBytes: imageBytes ?? this.imageBytes,
+      audioBytes: audioBytes ?? this.audioBytes,
       type: type ?? this.type,
       toolName: toolName ?? this.toolName,
     );
@@ -72,6 +77,30 @@ class Message {
     return Message(
       text: text,
       imageBytes: imageBytes,
+      isUser: isUser,
+    );
+  }
+
+  factory Message.withAudio({
+    required String text,
+    required Uint8List audioBytes,
+    bool isUser = false,
+  }) {
+    return Message(
+      text: text,
+      audioBytes: audioBytes,
+      isUser: isUser,
+    );
+  }
+
+  factory Message.audioOnly({
+    required Uint8List audioBytes,
+    bool isUser = false,
+    String text = '',
+  }) {
+    return Message(
+      text: text,
+      audioBytes: audioBytes,
       isUser: isUser,
     );
   }
@@ -124,7 +153,7 @@ class Message {
 
   @override
   String toString() {
-    return 'Message(text: $text, isUser: $isUser, hasImage: $hasImage, type: $type, toolName: $toolName)';
+    return 'Message(text: $text, isUser: $isUser, hasImage: $hasImage, hasAudio: $hasAudio, type: $type, toolName: $toolName)';
   }
 
   @override
@@ -134,13 +163,19 @@ class Message {
         other.text == text &&
         other.isUser == isUser &&
         _listEquals(other.imageBytes, imageBytes) &&
+        _listEquals(other.audioBytes, audioBytes) &&
         other.type == type &&
         other.toolName == toolName;
   }
 
   @override
   int get hashCode =>
-      text.hashCode ^ isUser.hashCode ^ imageBytes.hashCode ^ type.hashCode ^ toolName.hashCode;
+      text.hashCode ^
+      isUser.hashCode ^
+      imageBytes.hashCode ^
+      audioBytes.hashCode ^
+      type.hashCode ^
+      toolName.hashCode;
 
   bool _listEquals<T>(List<T>? a, List<T>? b) {
     if (a == null) return b == null;

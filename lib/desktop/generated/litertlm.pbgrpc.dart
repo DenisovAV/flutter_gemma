@@ -67,6 +67,16 @@ class LiteRtLmServiceClient extends $grpc.Client {
         options: options);
   }
 
+  /// Send message with audio (Gemma 3n E4B)
+  $grpc.ResponseStream<$0.ChatResponse> chatWithAudio(
+    $0.ChatWithAudioRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(
+        _$chatWithAudio, $async.Stream.fromIterable([request]),
+        options: options);
+  }
+
   /// Close conversation
   $grpc.ResponseFuture<$0.CloseConversationResponse> closeConversation(
     $0.CloseConversationRequest request, {
@@ -111,6 +121,11 @@ class LiteRtLmServiceClient extends $grpc.Client {
       $grpc.ClientMethod<$0.ChatWithImageRequest, $0.ChatResponse>(
           '/litertlm.LiteRtLmService/ChatWithImage',
           ($0.ChatWithImageRequest value) => value.writeToBuffer(),
+          $0.ChatResponse.fromBuffer);
+  static final _$chatWithAudio =
+      $grpc.ClientMethod<$0.ChatWithAudioRequest, $0.ChatResponse>(
+          '/litertlm.LiteRtLmService/ChatWithAudio',
+          ($0.ChatWithAudioRequest value) => value.writeToBuffer(),
           $0.ChatResponse.fromBuffer);
   static final _$closeConversation = $grpc.ClientMethod<
           $0.CloseConversationRequest, $0.CloseConversationResponse>(
@@ -164,6 +179,14 @@ abstract class LiteRtLmServiceBase extends $grpc.Service {
         true,
         ($core.List<$core.int> value) =>
             $0.ChatWithImageRequest.fromBuffer(value),
+        ($0.ChatResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ChatWithAudioRequest, $0.ChatResponse>(
+        'ChatWithAudio',
+        chatWithAudio_Pre,
+        false,
+        true,
+        ($core.List<$core.int> value) =>
+            $0.ChatWithAudioRequest.fromBuffer(value),
         ($0.ChatResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.CloseConversationRequest,
             $0.CloseConversationResponse>(
@@ -224,6 +247,14 @@ abstract class LiteRtLmServiceBase extends $grpc.Service {
 
   $async.Stream<$0.ChatResponse> chatWithImage(
       $grpc.ServiceCall call, $0.ChatWithImageRequest request);
+
+  $async.Stream<$0.ChatResponse> chatWithAudio_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ChatWithAudioRequest> $request) async* {
+    yield* chatWithAudio($call, await $request);
+  }
+
+  $async.Stream<$0.ChatResponse> chatWithAudio(
+      $grpc.ServiceCall call, $0.ChatWithAudioRequest request);
 
   $async.Future<$0.CloseConversationResponse> closeConversation_Pre(
       $grpc.ServiceCall $call,

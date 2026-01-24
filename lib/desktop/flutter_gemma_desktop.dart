@@ -81,6 +81,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     List<int>? loraRanks,
     int? maxNumImages,
     bool supportImage = false,
+    bool supportAudio = false,
   }) async {
     // Check active model
     final activeModel = _modelManager.activeInferenceModel;
@@ -148,6 +149,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
           modelPath: modelPath,
           backend: preferredBackend == PreferredBackend.cpu ? 'cpu' : 'gpu',
           maxTokens: maxTokens,
+          enableVision: supportImage,
+          maxNumImages: supportImage ? (maxNumImages ?? 1) : 1,
+          enableAudio: supportAudio,
         );
       } catch (e) {
         // Provide clearer error message for file-related issues
@@ -167,6 +171,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         modelType: modelType,
         fileType: fileType,
         supportImage: supportImage,
+        supportAudio: supportAudio,
         onClose: () {
           _initializedModel = null;
           _initCompleter = null;

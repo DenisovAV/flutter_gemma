@@ -35,9 +35,11 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
+    supportAudio: false, // E2B does NOT have TF_LITE_AUDIO_ENCODER - only vision
     maxTokens: 4096,
     maxNumImages: 1,
-    supportsFunctionCalls: true,
+    supportsFunctionCalls: false, // Disabled - causes issues with multimodal
+    foregroundDownload: true, // Large model - use foreground service on Android
   ),
   gemma3n_4B(
     baseUrl:
@@ -57,9 +59,11 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
+    supportAudio: false, // .task files don't have TF_LITE_AUDIO_ENCODER - need .litertlm
     maxTokens: 4096,
     maxNumImages: 1,
-    supportsFunctionCalls: true,
+    supportsFunctionCalls: false, // Disabled - causes issues with multimodal
+    foregroundDownload: true, // Large model - use foreground service on Android
   ),
 
   // Gemma 3 1B model
@@ -136,12 +140,13 @@ enum Model implements InferenceModelInterface {
       topK: 5,
       topP: 0.95,
       supportsFunctionCalls: true,
-      supportImage: true),
+      supportImage: true,
+      supportAudio: false), // .task files don't have audio encoder
   gemma3nWebLocalAsset(
     // model file should be pre-downloaded and placed in the assets folder
     baseUrl: 'assets/gemma-3n-E4B-it-int4-Web.litertlm',
     filename: 'gemma-3n-E2B-it-int4.task',
-    displayName: 'Gemma 3 Nano E2B IT Web (Local)',
+    displayName: 'Gemma 3 Nano E4B IT Web (Local)',
     size: '4.27GB',
     licenseUrl: '',
     needsAuth: false,
@@ -153,6 +158,7 @@ enum Model implements InferenceModelInterface {
     topP: 0.95,
     supportsFunctionCalls: false,
     supportImage: true,
+    supportAudio: true,
   ),
 
   // === OTHER MODELS ===
@@ -381,6 +387,7 @@ enum Model implements InferenceModelInterface {
   final double topP;
   @override
   final bool supportImage;
+  final bool supportAudio;
   @override
   final int maxTokens;
   @override
@@ -389,6 +396,7 @@ enum Model implements InferenceModelInterface {
   final bool supportsFunctionCalls;
   final bool isThinking;
   final ModelFileType fileType;
+  final bool? foregroundDownload;
 
   // Getter for url - returns platform-specific URL
   @override
@@ -426,11 +434,13 @@ enum Model implements InferenceModelInterface {
     required this.topK,
     required this.topP,
     this.supportImage = false,
+    this.supportAudio = false,
     this.maxTokens = 1024,
     this.maxNumImages,
     this.supportsFunctionCalls = false,
     this.isThinking = false,
     this.fileType = ModelFileType.task,
+    this.foregroundDownload,
   });
 
   // BaseModel interface implementation
@@ -443,4 +453,20 @@ enum Model implements InferenceModelInterface {
   // InferenceModelInterface implementation
   @override
   bool get supportsThinking => isThinking;
+
+  /// Returns size in MB (parsed from size string like '3.1GB' or '500MB')
+  int get sizeInMB {
+    final sizeStr = size.toUpperCase();
+    final numMatch = RegExp(r'(\d+\.?\d*)').firstMatch(sizeStr);
+    if (numMatch == null) return 0;
+    final num = double.parse(numMatch.group(1)!);
+    if (sizeStr.contains('GB')) return (num * 1024).round();
+    if (sizeStr.contains('MB')) return num.round();
+    return 0;
+  }
+
+  /// Whether to use foreground service on Android (for large downloads >500MB)
+  /// - Explicit foregroundDownload field takes priority
+  /// - Otherwise auto-detect: >500MB = true, else null (auto)
+  bool? get foreground => foregroundDownload ?? (sizeInMB > 500 ? true : null);
 }

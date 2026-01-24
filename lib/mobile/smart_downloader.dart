@@ -15,8 +15,62 @@ import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 /// - Progress tracking with Updates.statusAndProgress
 /// - Works with ANY URL (HuggingFace, Google Drive, custom servers, etc.)
 /// - Supports multiple concurrent downloads
+/// - Auto-detects resume support based on server (HuggingFace = no resume)
+/// - Android foreground service for large files (>500MB by default)
 class SmartDownloader {
   static const String _downloadGroup = 'smart_downloads';
+  static const int _foregroundThresholdMB = 500;
+
+  // Track if FileDownloader has been configured
+  static bool _isConfigured = false;
+  static bool? _lastForegroundSetting;
+
+  /// Configure FileDownloader for foreground mode
+  ///
+  /// [foreground]:
+  /// - null: auto-detect based on file size (>500MB = foreground)
+  /// - true: always use foreground
+  /// - false: never use foreground
+  static Future<void> _ensureConfigured(bool? foreground) async {
+    // Only reconfigure if setting changed
+    if (_isConfigured && _lastForegroundSetting == foreground) return;
+
+    final downloader = FileDownloader();
+
+    if (foreground == true) {
+      // Always foreground
+      await downloader.configure(
+        androidConfig: [(Config.runInForeground, Config.always)],
+      );
+      debugPrint('📲 SmartDownloader: Configured for ALWAYS foreground');
+    } else if (foreground == false) {
+      // Never foreground
+      await downloader.configure(
+        androidConfig: [(Config.runInForeground, Config.never)],
+      );
+      debugPrint('📲 SmartDownloader: Configured for NEVER foreground');
+    } else {
+      // Auto-detect based on file size (default)
+      await downloader.configure(
+        globalConfig: [
+          (Config.runInForegroundIfFileLargerThan, _foregroundThresholdMB),
+        ],
+      );
+      debugPrint(
+          '📲 SmartDownloader: Configured for AUTO foreground (>${_foregroundThresholdMB}MB)');
+    }
+
+    _isConfigured = true;
+    _lastForegroundSetting = foreground;
+  }
+
+  /// Check if URL is from HuggingFace CDN (uses weak ETag, resume not reliable)
+  static bool _isHuggingFaceUrl(String url) {
+    return url.contains('huggingface.co') ||
+        url.contains('cdn-lfs.huggingface.co') ||
+        url.contains('cdn-lfs-us-1.huggingface.co') ||
+        url.contains('cdn-lfs-eu-1.huggingface.co');
+  }
 
   // Global broadcast stream for FileDownloader.updates
   // This allows multiple downloads to listen simultaneously
@@ -76,6 +130,11 @@ class SmartDownloader {
   /// [token] - Optional authorization token (e.g., HuggingFace, custom auth)
   /// [maxRetries] - Maximum number of retry attempts for transient errors (default: 10)
   /// [cancelToken] - Optional token for cancellation
+  /// [foreground] - Android foreground service mode:
+  ///   - null (default): auto-detect based on file size (>500MB = foreground)
+  ///   - true: always use foreground (shows notification)
+  ///   - false: never use foreground
+  ///
   /// Note: Auth errors (401/403/404) fail after 1 attempt, regardless of maxRetries.
   /// Only network errors and server errors (5xx) will be retried up to maxRetries times.
   /// Returns a stream of progress percentages (0-100)
@@ -87,6 +146,7 @@ class SmartDownloader {
     String? token,
     int maxRetries = 10,
     CancelToken? cancelToken,
+    bool? foreground,
   }) {
     final progress = StreamController<int>();
     StreamSubscription? currentListener;
@@ -123,22 +183,25 @@ class SmartDownloader {
       });
     }
 
-    _downloadWithSmartRetry(
-      url: url,
-      targetPath: targetPath,
-      token: token,
-      maxRetries: maxRetries,
-      progress: progress,
-      currentAttempt: 1,
-      currentListener: currentListener,
-      cancelToken: cancelToken,
-      onListenerCreated: (listener) {
-        currentListener = listener;
-      },
-      onTaskCreated: (taskId) {
-        currentTaskId = taskId; // ← ADD: Store task ID when created
-      },
-    ).whenComplete(() {
+    // Configure FileDownloader and start download
+    _ensureConfigured(foreground).then((_) {
+      _downloadWithSmartRetry(
+        url: url,
+        targetPath: targetPath,
+        token: token,
+        maxRetries: maxRetries,
+        progress: progress,
+        currentAttempt: 1,
+        currentListener: currentListener,
+        cancelToken: cancelToken,
+        onListenerCreated: (listener) {
+          currentListener = listener;
+        },
+        onTaskCreated: (taskId) {
+          currentTaskId = taskId;
+        },
+      );
+    }).whenComplete(() {
       // Clean up cancellation listener when download completes
       cancellationListener?.cancel();
     });
@@ -169,17 +232,82 @@ class SmartDownloader {
       return;
     }
 
+    // Generate deterministic taskId based on URL + targetPath
+    // This prevents duplicate downloads of the same file
+    final taskId = '${url.hashCode.toUnsigned(32).toRadixString(16)}_${targetPath.hashCode.toUnsigned(32).toRadixString(16)}';
+
     debugPrint('🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
     debugPrint('🔵 URL: $url');
     debugPrint('🔵 Target: $targetPath');
+    debugPrint('🔵 TaskId: $taskId');
 
     // Declare listener outside try block so it's accessible in catch
     StreamSubscription? listener;
 
     try {
+      final downloader = FileDownloader();
+
+      // Check if task already exists (e.g., after app restart or sleep/wake)
+      final existingTask = await downloader.taskForId(taskId);
+      if (existingTask != null) {
+        debugPrint('🔵 Task $taskId already in progress, attaching to existing...');
+
+        // Create completer to wait for existing task completion
+        final completer = Completer<void>();
+
+        // Attach listener to existing task
+        listener = _getUpdatesStream().listen((update) async {
+          if (update.task.taskId != taskId) return;
+
+          if (update is TaskProgressUpdate) {
+            final percents = (update.progress * 100).round();
+            debugPrint('📊 Progress (existing): $percents%');
+            if (!progress.isClosed) {
+              progress.add(percents.clamp(0, 100));
+            }
+          } else if (update is TaskStatusUpdate) {
+            debugPrint('📡 TaskStatusUpdate (existing): ${update.status}');
+            if (update.status == TaskStatus.complete) {
+              if (!progress.isClosed) {
+                progress.add(100);
+                progress.close();
+              }
+              await listener?.cancel();
+              completer.complete();
+            } else if (update.status == TaskStatus.failed ||
+                update.status == TaskStatus.canceled) {
+              // Existing task failed - let caller handle retry
+              if (!progress.isClosed) {
+                progress.addError(
+                  DownloadException(
+                    DownloadError.network('Existing download failed: ${update.status}'),
+                  ),
+                );
+                progress.close();
+              }
+              await listener?.cancel();
+              completer.complete();
+            }
+          }
+        });
+
+        onListenerCreated?.call(listener);
+        onTaskCreated?.call(taskId);
+
+        await completer.future;
+        return;
+      }
+
       final (baseDirectory, directory, filename) = await Task.split(filePath: targetPath);
 
+      // Auto-detect allowPause based on URL
+      // HuggingFace uses weak ETags - resume not reliable
+      // Other servers (GCS, Kaggle, custom) - resume usually works
+      final allowPause = !_isHuggingFaceUrl(url);
+      debugPrint('🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})');
+
       final task = DownloadTask(
+        taskId: taskId,
         url: url,
         group: _downloadGroup,
         headers: token != null
@@ -199,13 +327,11 @@ class SmartDownloader {
         directory: directory,
         filename: filename,
         requiresWiFi: false,
-        allowPause: true, // Try resume first
+        allowPause: allowPause, // Auto-detect: false for HuggingFace, true for others
         priority: 10,
-        retries: 0, // No automatic retries - we handle ALL retries with HTTP-aware logic
-        updates: Updates.statusAndProgress, // ✅ Get both status AND progress updates
+        retries: 0, // We handle retries manually with HTTP-aware logic
+        updates: Updates.statusAndProgress,
       );
-
-      final downloader = FileDownloader();
 
       // Create a completer to wait for download completion
       final completer = Completer<void>();

@@ -183,13 +183,14 @@ class PigeonInterfacePigeonCodec: FlutterStandardMessageCodec, @unchecked Sendab
 
 /// Generated protocol from Pigeon that represents a handler of messages from Flutter.
 protocol PlatformService {
-  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: PreferredBackend?, maxNumImages: Int64?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: PreferredBackend?, maxNumImages: Int64?, supportAudio: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeModel(completion: @escaping (Result<Void, Error>) -> Void)
-  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, enableVisionModality: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, enableVisionModality: Bool?, enableAudioModality: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeSession(completion: @escaping (Result<Void, Error>) -> Void)
   func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, Error>) -> Void)
   func addQueryChunk(prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
   func addImage(imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, Error>) -> Void)
+  func addAudio(audioBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, Error>) -> Void)
   func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
   func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
   func stopGeneration(completion: @escaping (Result<Void, Error>) -> Void)
@@ -221,7 +222,8 @@ class PlatformServiceSetup {
         let loraRanksArg: [Int64]? = nilOrValue(args[2])
         let preferredBackendArg: PreferredBackend? = nilOrValue(args[3])
         let maxNumImagesArg: Int64? = nilOrValue(args[4])
-        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg, preferredBackend: preferredBackendArg, maxNumImages: maxNumImagesArg) { result in
+        let supportAudioArg: Bool? = nilOrValue(args[5])
+        api.createModel(maxTokens: maxTokensArg, modelPath: modelPathArg, loraRanks: loraRanksArg, preferredBackend: preferredBackendArg, maxNumImages: maxNumImagesArg, supportAudio: supportAudioArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))
@@ -258,7 +260,8 @@ class PlatformServiceSetup {
         let topPArg: Double? = nilOrValue(args[3])
         let loraPathArg: String? = nilOrValue(args[4])
         let enableVisionModalityArg: Bool? = nilOrValue(args[5])
-        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg, enableVisionModality: enableVisionModalityArg) { result in
+        let enableAudioModalityArg: Bool? = nilOrValue(args[6])
+        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg, enableVisionModality: enableVisionModalityArg, enableAudioModality: enableAudioModalityArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))
@@ -335,6 +338,23 @@ class PlatformServiceSetup {
       }
     } else {
       addImageChannel.setMessageHandler(nil)
+    }
+    let addAudioChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addAudio\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addAudioChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let audioBytesArg = args[0] as! FlutterStandardTypedData
+        api.addAudio(audioBytes: audioBytesArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addAudioChannel.setMessageHandler(nil)
     }
     let generateResponseChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponse\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

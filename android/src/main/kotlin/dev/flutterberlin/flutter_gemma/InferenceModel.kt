@@ -26,6 +26,7 @@ data class InferenceModelConfig(
     val supportedLoraRanks: List<Int>?,
     val preferredBackend: PreferredBackendEnum?,
     val maxNumImages: Int?,
+    val supportAudio: Boolean?,
 )
 
 data class InferenceSessionConfig(
@@ -35,6 +36,7 @@ data class InferenceSessionConfig(
     val topP: Float?,
     val loraPath: String?,
     val enableVisionModality: Boolean?,
+    val enableAudioModality: Boolean?,
 )
 
 // Updated InferenceModel
@@ -76,6 +78,12 @@ class InferenceModel(
                         setPreferredBackend(backendEnum)
                     }
                     config.maxNumImages?.let { setMaxNumImages(it) }
+                    // Enable audio model options if supportAudio is true (required for Gemma 3n audio)
+                    if (config.supportAudio == true) {
+                        setAudioModelOptions(
+                            com.google.mediapipe.tasks.genai.llminference.AudioModelOptions.builder().build()
+                        )
+                    }
                 }
             val options = optionsBuilder.build()
             llmInference = LlmInference.createFromOptions(context, options)
@@ -111,10 +119,14 @@ class InferenceModelSession(
             .apply {
                 config.topP?.let { setTopP(it) }
                 config.loraPath?.let { setLoraPath(it) }
-                config.enableVisionModality?.let { enableVision ->
+                // Set GraphOptions if vision or audio modality is enabled
+                val enableVision = config.enableVisionModality ?: false
+                val enableAudio = config.enableAudioModality ?: false
+                if (enableVision || enableAudio) {
                     setGraphOptions(
                         GraphOptions.builder()
                             .setEnableVisionModality(enableVision)
+                            .setEnableAudioModality(enableAudio)
                             .build()
                     )
                 }
@@ -133,6 +145,10 @@ class InferenceModelSession(
             ?: throw IllegalArgumentException("Failed to decode image bytes")
         val mpImage = BitmapImageBuilder(bitmap).build()
         session.addImage(mpImage)
+    }
+
+    fun addAudio(audioBytes: ByteArray) {
+        session.addAudio(audioBytes)
     }
 
     fun generateResponse(): String = session.generateResponse()

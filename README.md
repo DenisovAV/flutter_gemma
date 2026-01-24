@@ -8,7 +8,7 @@
 
 **The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct).
 
-*Note: The flutter_gemma plugin supports Gemma3n (with **multimodal vision support**), FastVLM (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4, DeepSeek R1 and SmolLM. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
+*Note: The flutter_gemma plugin supports Gemma3n (with **multimodal vision and audio support**), FastVLM (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4, DeepSeek R1 and SmolLM. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
@@ -29,7 +29,8 @@ There is an example of using:
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🖥️ Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM (gRPC architecture).
-- **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models 
+- **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models
+- **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Web, Desktop)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks 
 - **🛑 Stop Generation:** Cancel text generation mid-process on Android devices 
@@ -37,8 +38,9 @@ There is an example of using:
 - **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
 - **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app 
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
-- **📥 Enhanced Downloads:** Smart retry logic and ETag handling for reliable model downloads from HuggingFace CDN
-- **🔧 Download Reliability:** Automatic resume/restart logic for interrupted downloads with exponential backoff
+- **📥 Enhanced Downloads:** Smart retry logic with exponential backoff for reliable model downloads
+- **🔧 Download Reliability:** Automatic restart logic for interrupted downloads (resume not supported by HuggingFace CDN)
+- **📱 Android Foreground Service:** Large downloads (>500MB) automatically use foreground service to bypass 9-minute timeout
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
 - **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
@@ -564,7 +566,7 @@ Flutter Gemma supports multiple model sources with different capabilities:
 
 | Source Type | Platform | Progress | Resume | Authentication | Use Case |
 |-------------|----------|----------|--------|----------------|----------|
-| **NetworkSource** | All | ✅ Detailed | ✅ Yes | ✅ Supported | HuggingFace, CDNs, private servers |
+| **NetworkSource** | All | ✅ Detailed | ⚠️ Server-dependent | ✅ Supported | HuggingFace, CDNs, private servers |
 | **AssetSource** | All | ⚠️ End only | ❌ No | ❌ N/A | Models bundled in app assets |
 | **BundledSource** | All | ⚠️ End only | ❌ No | ❌ N/A | Native platform resources |
 | **FileSource** | Mobile only | ⚠️ End only | ❌ No | ❌ N/A | User-selected files (file picker) |
@@ -575,11 +577,12 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 
 **Features:**
 - ✅ Progress tracking (0-100%)
-- ✅ Resume after interruption (ETag support)
+- ⚠️ Resume after interruption (server-dependent, not supported by HuggingFace CDN)
 - ✅ HuggingFace authentication
 - ✅ Smart retry logic with exponential backoff
 - ✅ Background downloads on mobile
 - ✅ Cancellable downloads with CancelToken
+- ✅ **Android foreground service** for large downloads (>500MB)
 
 **Example:**
 ```dart
@@ -602,6 +605,34 @@ await FlutterGemma.installModel(
   .withProgress((progress) => setState(() => _progress = progress))
   .install();
 ```
+
+**Android Foreground Service (Large Downloads):**
+
+Android has a 9-minute background execution limit. For large models (>500MB), you can use foreground service mode which shows a notification but bypasses this timeout:
+
+```dart
+// Auto-detect based on file size (>500MB = foreground) - DEFAULT
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork(url)  // foreground: null (auto-detect)
+  .install();
+
+// Force foreground mode (always show notification)
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork(url, foreground: true)
+  .install();
+
+// Force background mode (may fail for large files)
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork(url, foreground: false)
+  .install();
+```
+
+**Foreground Parameter:**
+- `null` (default): Auto-detect based on file size. Files >500MB use foreground service.
+- `true`: Always use foreground service (shows notification, no timeout)
+- `false`: Never use foreground service (subject to 9-minute timeout)
+
+**Note:** iOS uses native URLSession which handles long downloads automatically - no foreground service needed.
 
 **Cancelling Downloads:**
 
@@ -1948,6 +1979,7 @@ Function calling is currently supported by the following models:
 |---------|---------|-----|-----|-------|
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | Gemma3n models |
+| **Audio Input** | ✅ Full | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B only |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | Select models only |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | DeepSeek models |
 | **Stop Generation** | ✅ Android only | ❌ Not supported | ❌ Not supported | Cancel mid-process |
@@ -2131,13 +2163,14 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ## **🚀 What's New**
 
+✅ **🎙️ Audio Input** - Record and send audio messages with Gemma3n E2B/E4B models (Android, Web, Desktop)
 ✅ **📊 Text Embeddings** - Generate vector embeddings with EmbeddingGemma and Gecko models for semantic search applications
 ✅ **🔧 Unified Model Management** - Single system for managing both inference and embedding models with automatic validation
 
 **Coming Soon:**
 - On-Device RAG Pipelines
 - Desktop Support (macOS, Windows, Linux)
-- Audio & Video Input
+- Video Input
 - Audio Output (Text-to-Speech)
 - System Instruction support
 

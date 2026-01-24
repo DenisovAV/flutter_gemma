@@ -13,7 +13,13 @@ sealed class ModelSource {
   const ModelSource();
 
   /// Creates a network-based source (HTTPS/HTTP)
-  factory ModelSource.network(String url, {String? authToken}) = NetworkSource;
+  ///
+  /// [foreground] controls Android foreground service:
+  /// - null (default): auto-detect based on file size (>500MB = foreground)
+  /// - true: always use foreground (shows notification)
+  /// - false: never use foreground
+  factory ModelSource.network(String url, {String? authToken, bool? foreground}) =
+      NetworkSource;
 
   /// Creates an asset-based source (Flutter assets)
   factory ModelSource.asset(String path) = AssetSource;
@@ -42,7 +48,13 @@ final class NetworkSource extends ModelSource {
   final String url;
   final String? authToken;
 
-  NetworkSource(this.url, {this.authToken}) {
+  /// Whether to use foreground service on Android (shows notification)
+  /// - null: auto-detect based on file size (>500MB = foreground)
+  /// - true: always use foreground
+  /// - false: never use foreground
+  final bool? foreground;
+
+  NetworkSource(this.url, {this.authToken, this.foreground}) {
     if (url.isEmpty) {
       throw ArgumentError('URL cannot be empty');
     }
@@ -70,14 +82,17 @@ final class NetworkSource extends ModelSource {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is NetworkSource && other.url == url && other.authToken == authToken;
+      other is NetworkSource &&
+          other.url == url &&
+          other.authToken == authToken &&
+          other.foreground == foreground;
 
   @override
-  int get hashCode => Object.hash(url, authToken);
+  int get hashCode => Object.hash(url, authToken, foreground);
 
   @override
   String toString() =>
-      'NetworkSource(url: $url, secure: $isSecure, hasToken: ${authToken != null})';
+      'NetworkSource(url: $url, secure: $isSecure, hasToken: ${authToken != null}, foreground: $foreground)';
 }
 
 /// Asset source - copies from Flutter assets

@@ -78,6 +78,13 @@ class ImagePromptPart extends PromptPart {
   }
 }
 
+/// Audio prompt part with raw audio bytes
+/// For Gemma 3n E4B models - supports PCM audio (16kHz, 16-bit, mono)
+class AudioPromptPart extends PromptPart {
+  final Uint8List audioBytes;
+  AudioPromptPart(this.audioBytes);
+}
+
 class FlutterGemmaWeb extends FlutterGemmaPlugin {
   FlutterGemmaWeb();
 
@@ -116,6 +123,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     List<int>? loraRanks,
     int? maxNumImages,
     bool supportImage = false, // Enabling image support
+    bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
   }) async {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
@@ -133,6 +141,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         existing.modelType != modelType ||
         existing.maxTokens != maxTokens ||
         existing.supportImage != supportImage ||
+        existing.supportAudio != supportAudio ||
         (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
 
       if (parametersChanged) {
@@ -152,6 +161,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       modelManager:
           modelManager as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
       supportImage: supportImage, // Passing the flag
+      supportAudio: supportAudio, // Passing the audio flag
       maxNumImages: maxNumImages,
       onClose: () {
         _initializedModel = null;
@@ -340,6 +350,7 @@ class WebInferenceModel extends InferenceModel {
   final List<int>? loraRanks;
   final WebModelManager modelManager;
   final bool supportImage; // Enabling image support
+  final bool supportAudio; // Enabling audio support (Gemma 3n E4B)
   final int? maxNumImages;
   Completer<InferenceModelSession>? _initCompleter;
   @override
@@ -353,6 +364,7 @@ class WebInferenceModel extends InferenceModel {
     this.loraRanks,
     required this.modelManager,
     this.supportImage = false,
+    this.supportAudio = false,
     this.maxNumImages,
   });
 
@@ -364,11 +376,19 @@ class WebInferenceModel extends InferenceModel {
     double? topP,
     String? loraPath,
     bool? enableVisionModality, // Enabling vision modality support
+    bool? enableAudioModality, // Enabling audio modality support (Gemma 3n E4B)
   }) async {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
         debugPrint('Warning: Vision modality is not yet implemented for web platform');
+      }
+    }
+
+    // Audio modality is handled via supportAudio flag in the model
+    if (enableAudioModality == true && !supportAudio) {
+      if (kDebugMode) {
+        debugPrint('Warning: Audio modality requested but supportAudio is false');
       }
     }
 
@@ -452,6 +472,7 @@ class WebInferenceModel extends InferenceModel {
         fileType: fileType,
         llmInference: llmInference,
         supportImage: supportImage, // Enabling image support
+        supportAudio: supportAudio, // Enabling audio support
         onClose: onClose,
       );
 
@@ -477,6 +498,7 @@ class WebModelSession extends InferenceModelSession {
   final LlmInference llmInference;
   final VoidCallback onClose;
   final bool supportImage; // Enabling image support
+  final bool supportAudio; // Enabling audio support (Gemma 3n E4B)
   StreamController<String>? _controller;
   final List<PromptPart> _promptParts = [];
 
@@ -486,6 +508,7 @@ class WebModelSession extends InferenceModelSession {
     required this.modelType,
     this.fileType = ModelFileType.task,
     this.supportImage = false,
+    this.supportAudio = false,
   });
 
   @override
@@ -498,7 +521,7 @@ class WebModelSession extends InferenceModelSession {
   Future<void> addQueryChunk(Message message) async {
     if (kDebugMode) {
       debugPrint(
-          '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, supportImage: $supportImage');
+          '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, hasAudio: ${message.hasAudio}, supportImage: $supportImage, supportAudio: $supportAudio');
     }
 
     final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
@@ -526,6 +549,25 @@ class WebModelSession extends InferenceModelSession {
       _promptParts.add(imagePart);
       if (kDebugMode) {
         debugPrint('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+      }
+    }
+
+    // Handle audio processing for web (Gemma 3n E4B)
+    if (message.hasAudio && message.audioBytes != null) {
+      if (kDebugMode) {
+        debugPrint('🎵 Processing audio: ${message.audioBytes!.length} bytes');
+      }
+      if (!supportAudio) {
+        if (kDebugMode) {
+          debugPrint('🔴 Model does not support audio - throwing exception');
+        }
+        throw ArgumentError('This model does not support audio');
+      }
+      // Add audio part
+      final audioPart = AudioPromptPart(message.audioBytes!);
+      _promptParts.add(audioPart);
+      if (kDebugMode) {
+        debugPrint('🎵 Added audio part with ${message.audioBytes!.length} bytes');
       }
     }
 
@@ -592,6 +634,19 @@ class WebModelSession extends InferenceModelSession {
           debugPrint('🖼️ _createPromptArray: Created image object with jsify()');
         }
         jsArray.add(imageObj as JSAny);
+      } else if (part is AudioPromptPart) {
+        if (kDebugMode) {
+          debugPrint(
+              '🎵 _createPromptArray: Adding audio part with ${part.audioBytes.length} bytes');
+        }
+
+        // Create proper audio object for MediaPipe
+        // Audio is passed as raw PCM bytes (16kHz, 16-bit, mono)
+        final audioObj = <String, Object>{'audioSource': part.audioBytes.buffer.asUint8List()}.jsify();
+        if (kDebugMode) {
+          debugPrint('🎵 _createPromptArray: Created audio object with jsify()');
+        }
+        jsArray.add(audioObj as JSAny);
       } else {
         if (kDebugMode) {
           debugPrint('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');

@@ -8,6 +8,7 @@ class DesktopInferenceModel extends InferenceModel {
     required this.modelType,
     this.fileType = ModelFileType.task,
     this.supportImage = false,
+    this.supportAudio = false,
     required this.onClose,
   });
 
@@ -18,6 +19,7 @@ class DesktopInferenceModel extends InferenceModel {
   @override
   final int maxTokens;
   final bool supportImage;
+  final bool supportAudio;
   final VoidCallback onClose;
 
   DesktopInferenceModelSession? _session;
@@ -35,6 +37,7 @@ class DesktopInferenceModel extends InferenceModel {
     double? topP,
     String? loraPath,
     bool? enableVisionModality,
+    bool? enableAudioModality,
   }) async {
     if (_isClosed) {
       throw StateError('Model is closed. Create a new instance to use it again');
@@ -55,6 +58,7 @@ class DesktopInferenceModel extends InferenceModel {
         modelType: modelType,
         fileType: fileType,
         supportImage: enableVisionModality ?? supportImage,
+        supportAudio: supportAudio,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -79,6 +83,7 @@ class DesktopInferenceModel extends InferenceModel {
     int tokenBuffer = 256,
     String? loraPath,
     bool? supportImage,
+    bool? supportAudio,
     List<Tool> tools = const [],
     bool? supportsFunctionCalls,
     bool isThinking = false,
@@ -92,10 +97,12 @@ class DesktopInferenceModel extends InferenceModel {
         topP: topP,
         loraPath: loraPath,
         enableVisionModality: supportImage ?? this.supportImage,
+        enableAudioModality: supportAudio ?? this.supportAudio,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
       supportImage: supportImage ?? this.supportImage,
+      supportAudio: supportAudio ?? this.supportAudio,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
       modelType: modelType ?? this.modelType,
@@ -132,6 +139,7 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     required this.modelType,
     required this.fileType,
     required this.supportImage,
+    required this.supportAudio,
     required this.onClose,
   });
 
@@ -139,10 +147,12 @@ class DesktopInferenceModelSession extends InferenceModelSession {
   final ModelType modelType;
   final ModelFileType fileType;
   final bool supportImage;
+  final bool supportAudio;
   final VoidCallback onClose;
 
   final StringBuffer _queryBuffer = StringBuffer();
   Uint8List? _pendingImage;
+  Uint8List? _pendingAudio;
   bool _isClosed = false;
 
   void _assertNotClosed() {
@@ -161,6 +171,10 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     if (message.hasImage && message.imageBytes != null && supportImage) {
       _pendingImage = message.imageBytes;
     }
+
+    if (message.hasAudio && message.audioBytes != null && supportAudio) {
+      _pendingAudio = message.audioBytes;
+    }
   }
 
   @override
@@ -172,7 +186,12 @@ class DesktopInferenceModelSession extends InferenceModelSession {
 
     final buffer = StringBuffer();
 
-    if (_pendingImage != null) {
+    if (_pendingAudio != null) {
+      await for (final token in grpcClient.chatWithAudio(text, _pendingAudio!)) {
+        buffer.write(token);
+      }
+      _pendingAudio = null;
+    } else if (_pendingImage != null) {
       await for (final token in grpcClient.chatWithImage(text, _pendingImage!)) {
         buffer.write(token);
       }
@@ -193,7 +212,10 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
 
-    if (_pendingImage != null) {
+    if (_pendingAudio != null) {
+      yield* grpcClient.chatWithAudio(text, _pendingAudio!);
+      _pendingAudio = null;
+    } else if (_pendingImage != null) {
       yield* grpcClient.chatWithImage(text, _pendingImage!);
       _pendingImage = null;
     } else {

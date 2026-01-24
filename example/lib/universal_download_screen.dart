@@ -59,6 +59,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         licenseUrl: widget.model.licenseUrl ?? '',
         modelType: inferenceModel.modelType,
         fileType: inferenceModel.fileType,
+        foreground: inferenceModel.foreground,
       );
     }
   }

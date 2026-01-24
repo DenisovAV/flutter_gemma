@@ -23,6 +23,7 @@ class InitializeRequest extends $pb.GeneratedMessage {
     $core.int? maxTokens,
     $core.bool? enableVision,
     $core.int? maxNumImages,
+    $core.bool? enableAudio,
   }) {
     final result = create();
     if (modelPath != null) result.modelPath = modelPath;
@@ -30,6 +31,7 @@ class InitializeRequest extends $pb.GeneratedMessage {
     if (maxTokens != null) result.maxTokens = maxTokens;
     if (enableVision != null) result.enableVision = enableVision;
     if (maxNumImages != null) result.maxNumImages = maxNumImages;
+    if (enableAudio != null) result.enableAudio = enableAudio;
     return result;
   }
 
@@ -51,6 +53,7 @@ class InitializeRequest extends $pb.GeneratedMessage {
     ..aI(3, _omitFieldNames ? '' : 'maxTokens')
     ..aOB(4, _omitFieldNames ? '' : 'enableVision')
     ..aI(5, _omitFieldNames ? '' : 'maxNumImages')
+    ..aOB(6, _omitFieldNames ? '' : 'enableAudio')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -116,6 +119,15 @@ class InitializeRequest extends $pb.GeneratedMessage {
   $core.bool hasMaxNumImages() => $_has(4);
   @$pb.TagNumber(5)
   void clearMaxNumImages() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get enableAudio => $_getBF(5);
+  @$pb.TagNumber(6)
+  set enableAudio($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEnableAudio() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEnableAudio() => $_clearField(6);
 }
 
 class InitializeResponse extends $pb.GeneratedMessage {
@@ -555,6 +567,85 @@ class ChatWithImageRequest extends $pb.GeneratedMessage {
   $core.bool hasImage() => $_has(2);
   @$pb.TagNumber(3)
   void clearImage() => $_clearField(3);
+}
+
+class ChatWithAudioRequest extends $pb.GeneratedMessage {
+  factory ChatWithAudioRequest({
+    $core.String? conversationId,
+    $core.String? text,
+    $core.List<$core.int>? audio,
+  }) {
+    final result = create();
+    if (conversationId != null) result.conversationId = conversationId;
+    if (text != null) result.text = text;
+    if (audio != null) result.audio = audio;
+    return result;
+  }
+
+  ChatWithAudioRequest._();
+
+  factory ChatWithAudioRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ChatWithAudioRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ChatWithAudioRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'litertlm'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..aOS(2, _omitFieldNames ? '' : 'text')
+    ..a<$core.List<$core.int>>(
+        3, _omitFieldNames ? '' : 'audio', $pb.PbFieldType.OY)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChatWithAudioRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ChatWithAudioRequest copyWith(void Function(ChatWithAudioRequest) updates) =>
+      super.copyWith((message) => updates(message as ChatWithAudioRequest))
+          as ChatWithAudioRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ChatWithAudioRequest create() => ChatWithAudioRequest._();
+  @$core.override
+  ChatWithAudioRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ChatWithAudioRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ChatWithAudioRequest>(create);
+  static ChatWithAudioRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get text => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set text($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasText() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearText() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.List<$core.int> get audio => $_getN(2);
+  @$pb.TagNumber(3)
+  set audio($core.List<$core.int> value) => $_setBytes(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAudio() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAudio() => $_clearField(3);
 }
 
 class ChatResponse extends $pb.GeneratedMessage {

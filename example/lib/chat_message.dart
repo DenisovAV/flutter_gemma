@@ -1,6 +1,9 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+
+import 'utils/audio_converter.dart';
 
 class ChatMessageWidget extends StatelessWidget {
   const ChatMessageWidget({super.key, required this.message});
@@ -40,6 +43,12 @@ class ChatMessageWidget extends StatelessWidget {
                     if (message.text.isNotEmpty) const SizedBox(height: 8),
                   ],
 
+                  // Display audio if available
+                  if (message.hasAudio) ...[
+                    _buildAudioWidget(message.audioBytes!),
+                    if (message.text.isNotEmpty) const SizedBox(height: 8),
+                  ],
+
                   // Display text
                   if (message.text.isNotEmpty)
                     MarkdownBody(
@@ -60,7 +69,7 @@ class ChatMessageWidget extends StatelessWidget {
                         ),
                       ),
                     )
-                  else if (!message.hasImage)
+                  else if (!message.hasImage && !message.hasAudio)
                     const Center(child: CircularProgressIndicator()),
                 ],
               ),
@@ -117,6 +126,47 @@ class ChatMessageWidget extends StatelessWidget {
             },
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAudioWidget(Uint8List audioBytes) {
+    final duration = AudioConverter.calculateDuration(
+      audioBytes,
+      sampleRate: AudioConverter.targetSampleRate,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2a5a8c),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.audiotrack,
+            color: Colors.white70,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Audio: ${AudioConverter.formatDuration(duration)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '(${(audioBytes.length / 1024).toStringAsFixed(1)} KB)',
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+            ),
+          ),
+        ],
       ),
     );
   }

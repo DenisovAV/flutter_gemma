@@ -40,6 +40,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// [loraRanks] — optional supported LoRA ranks.
   /// [maxNumImages] — maximum number of images (for multimodal models).
   /// [supportImage] — whether the model supports images.
+  /// [supportAudio] — whether the model supports audio (Gemma 3n E4B only).
   Future<InferenceModel> createModel({
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
@@ -48,6 +49,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     List<int>? loraRanks,
     int? maxNumImages, // Add image support
     bool supportImage = false, // Add image support flag
+    bool supportAudio = false, // Add audio support flag (Gemma 3n E4B)
   });
 
   /// Creates and returns a new [EmbeddingModel] instance.
@@ -115,6 +117,7 @@ abstract class InferenceModel {
   /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.
   /// [loraPath] — optional path to LoRA model.
   /// [enableVisionModality] — enable vision modality for multimodal models.
+  /// [enableAudioModality] — enable audio modality for Gemma 3n E4B models.
   Future<InferenceModelSession> createSession({
     double temperature = .8,
     int randomSeed = 1,
@@ -122,6 +125,7 @@ abstract class InferenceModel {
     double? topP,
     String? loraPath,
     bool? enableVisionModality, // Add vision modality support
+    bool? enableAudioModality, // Add audio modality support (Gemma 3n E4B)
   });
 
   Future<InferenceChat> createChat({
@@ -132,6 +136,7 @@ abstract class InferenceModel {
     int tokenBuffer = 256,
     String? loraPath,
     bool? supportImage,
+    bool? supportAudio,
     List<Tool> tools = const [],
     bool? supportsFunctionCalls,
     bool isThinking = false, // Add isThinking parameter
@@ -145,10 +150,12 @@ abstract class InferenceModel {
         topP: topP,
         loraPath: loraPath,
         enableVisionModality: supportImage ?? false,
+        enableAudioModality: supportAudio ?? false,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
       supportImage: supportImage ?? false,
+      supportAudio: supportAudio ?? false,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
       isThinking: isThinking, // Pass isThinking parameter

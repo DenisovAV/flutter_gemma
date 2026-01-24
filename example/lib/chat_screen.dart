@@ -134,6 +134,7 @@ class ChatScreenState extends State<ChatScreen> {
         preferredBackend: widget.selectedBackend ?? widget.model.preferredBackend,
         supportImage: widget.model.supportImage,
         maxNumImages: widget.model.maxNumImages,
+        supportAudio: widget.model.supportAudio,
       );
       debugPrint('[ChatScreen] Step 2: InferenceModel created ✅');
 
@@ -146,6 +147,7 @@ class ChatScreenState extends State<ChatScreen> {
         topP: widget.model.topP,
         tokenBuffer: 256,
         supportImage: widget.model.supportImage,
+        supportAudio: widget.model.supportAudio,
         supportsFunctionCalls: widget.model.supportsFunctionCalls,
         tools: _tools,
         isThinking: widget.model.isThinking,
@@ -379,10 +381,12 @@ class ChatScreenState extends State<ChatScreen> {
             ? Column(children: [
                 if (_error != null) _buildErrorBanner(_error!),
                 if (chat?.supportsImages == true && _messages.isEmpty) _buildImageSupportInfo(),
+                if (widget.model.supportAudio && _messages.isEmpty) _buildAudioSupportInfo(),
                 Expanded(
                   child: ChatListWidget(
                     chat: chat,
                     useSyncMode: _useSyncMode,
+                    supportsAudio: widget.model.supportAudio,
                     gemmaHandler: _handleGemmaResponse,
                     messageHandler: (message) {
                       // Handles all message additions to history
@@ -452,6 +456,49 @@ class ChatScreenState extends State<ChatScreen> {
                 ),
                 Text(
                   'Use the 📷 button to add images to your messages',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAudioSupportInfo() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a3a5c),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.mic,
+            color: Colors.blue,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Model supports audio',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Text(
+                  'Use the 🎤 button to record audio messages (Android, Web, Desktop only)',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 12,

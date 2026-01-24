@@ -64,6 +64,14 @@ private func nilOrValue<T>(_ value: Any?) -> T? {
   return value as! T?
 }
 
+/// Hardware backend for model inference.
+///
+/// Platform support:
+/// - [cpu]: All platforms
+/// - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux, OpenCL on Android)
+/// - [npu]: Android only with LiteRT-LM (.litertlm models) - Qualcomm, MediaTek, Google Tensor
+///
+/// If selected backend is unavailable, engine falls back to GPU, then CPU.
 enum PreferredBackend: Int {
   case cpu = 0
   case gpu = 1

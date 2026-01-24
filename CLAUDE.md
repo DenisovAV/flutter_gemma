@@ -99,9 +99,19 @@ final spec = InferenceModelSpec(
 
 **Runtime accepts configuration each time:**
 - `maxTokens` - Context size (default: 1024)
-- `preferredBackend` - CPU/GPU preference
+- `preferredBackend` - Hardware backend (see PreferredBackend below)
 - `supportImage` - Multimodal support
 - `maxNumImages` - Image limits
+
+**PreferredBackend enum:**
+| Value | Android | iOS | Web | Desktop |
+|-------|---------|-----|-----|---------|
+| `cpu` | ✅ | ✅ | ❌ | ✅ |
+| `gpu` | ✅ | ✅ | ✅ (required) | ✅ |
+| `npu` | ✅ (.litertlm) | ❌ | ❌ | ❌ |
+
+> - **NPU**: Qualcomm, MediaTek, Google Tensor. Up to 25x faster than CPU.
+> - **Web**: GPU only (MediaPipe limitation).
 
 **Usage:**
 ```dart
@@ -513,6 +523,75 @@ use_frameworks! :linkage => :static
 <uses-native-library android:name="libOpenCL.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
+```
+
+#### Android LiteRT-LM Engine (v0.12.x+)
+
+Android now supports **dual inference engines** - MediaPipe and LiteRT-LM - with automatic selection based on file extension.
+
+**Engine Selection:**
+| File Extension | Engine | Android | Desktop | Web |
+|----------------|--------|---------|---------|-----|
+| `.task`, `.bin`, `.tflite` | MediaPipe | Yes | No | Yes |
+| `.litertlm` | LiteRT-LM | Yes | Yes | No |
+
+**Architecture:**
+```
+android/src/main/kotlin/dev/flutterberlin/flutter_gemma/
+├── FlutterGemmaPlugin.kt          # Plugin entry point
+├── PlatformService.g.kt           # Pigeon-generated interface
+└── engines/                       # Engine abstraction layer
+    ├── InferenceEngine.kt         # Strategy interface
+    ├── InferenceSession.kt        # Session interface
+    ├── EngineConfig.kt            # Configuration data classes
+    ├── EngineFactory.kt           # Factory for engine creation
+    ├── FlowFactory.kt             # SharedFlow factory
+    ├── mediapipe/
+    │   ├── MediaPipeEngine.kt     # MediaPipe adapter (wraps LlmInference)
+    │   └── MediaPipeSession.kt    # MediaPipe session adapter
+    └── litertlm/
+        ├── LiteRtLmEngine.kt      # LiteRT-LM implementation
+        └── LiteRtLmSession.kt     # LiteRT-LM session with chunk buffering
+```
+
+**Key Design Decisions:**
+
+1. **Strategy Pattern**: `InferenceEngine` interface allows interchangeable engine implementations
+2. **Adapter Pattern**: `MediaPipeEngine` wraps existing MediaPipe code without modifications
+3. **Chunk Buffering**: LiteRT-LM uses `sendMessage()` not `addQueryChunk()`, so `LiteRtLmSession` buffers chunks in `StringBuilder` and sends complete message on `generateResponse()`
+
+**LiteRT-LM Limitations:**
+
+⚠️ **Token Counting**: LiteRT-LM SDK does not expose tokenizer API. The implementation uses an estimate of ~4 characters per token with a warning log:
+```kotlin
+Log.w(TAG, "sizeInTokens: LiteRT-LM does not support token counting. " +
+        "Using estimate (~4 chars/token): $estimate tokens for ${prompt.length} chars. " +
+        "This may be inaccurate for non-English text.")
+```
+
+⚠️ **Cancellation**: `cancelGeneration()` is not yet supported by LiteRT-LM SDK 0.9.x
+
+**LiteRT-LM Behavioral Differences:**
+
+1. **Chunk Buffering**: Unlike MediaPipe which processes `addQueryChunk()` directly, LiteRT-LM buffers chunks in `StringBuilder` and sends complete message on `generateResponse()`.
+2. **Thread-Safe Accumulation**: Uses `synchronized(promptLock)` for safe concurrent chunk additions.
+3. **Cache Support**: Engine configured with `cacheDir` for faster reloads (~10s cold → ~1-2s cached).
+
+**Dependency (build.gradle):**
+```gradle
+implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-alpha01'
+```
+
+**Usage (Dart - no changes required):**
+```dart
+// Engine is automatically selected based on file extension
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork('https://example.com/model.litertlm')  // → LiteRtLmEngine
+  .install();
+
+await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+  .fromNetwork('https://example.com/model.task')      // → MediaPipeEngine
+  .install();
 ```
 
 #### Web Configuration
@@ -1080,7 +1159,27 @@ flutter_gemma/
 └── CLAUDE.md              # This file
 ```
 
-## Recent Updates (2026-01-01)
+## Recent Updates (2026-01-18)
+
+### ✅ Android LiteRT-LM Engine (v0.12.x+)
+- **Dual Engine Support** - MediaPipe and LiteRT-LM on Android
+- **Automatic Selection** - Engine chosen by file extension (`.litertlm` → LiteRT-LM, `.task/.bin` → MediaPipe)
+- **Strategy Pattern** - `InferenceEngine` interface with interchangeable implementations
+- **Adapter Pattern** - `MediaPipeEngine` wraps existing code without modifications
+- **Chunk Buffering** - LiteRT-LM session buffers `addQueryChunk()` calls for `sendMessage()` API
+- **Token Estimation** - ~4 chars/token with warning log (LiteRT-LM lacks tokenizer API)
+- **Zero Flutter API Changes** - Transparent to Dart layer
+
+**Key Files:**
+- `android/.../engines/InferenceEngine.kt` - Strategy interface
+- `android/.../engines/EngineFactory.kt` - Factory for engine creation
+- `android/.../engines/mediapipe/` - MediaPipe adapter
+- `android/.../engines/litertlm/` - LiteRT-LM implementation
+
+**Dependency:**
+```gradle
+implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-alpha01'
+```
 
 ### ✅ Desktop Platform Support (v0.12.0+)
 - **macOS, Windows, Linux** support via LiteRT-LM JVM

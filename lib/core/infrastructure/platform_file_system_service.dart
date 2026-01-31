@@ -132,7 +132,18 @@ class PlatformFileSystemService implements FileSystemService {
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()
   }
 
-  /// Gets the app documents directory with caching
+  /// Gets the model storage directory with caching.
+  ///
+  /// On desktop platforms, uses platform-specific local app data directories
+  /// that are NOT synced to cloud services (OneDrive, iCloud, Dropbox).
+  /// This is critical because native code (LiteRT-LM JNI) cannot reliably
+  /// access files in cloud-synced folders.
+  ///
+  /// Storage locations:
+  /// - Windows: %LOCALAPPDATA%\flutter_gemma (truly local, never synced)
+  /// - macOS: ~/Library/Application Support/flutter_gemma
+  /// - Linux: ~/.local/share/flutter_gemma
+  /// - Android/iOS: App documents directory (standard behavior)
   Future<Directory> _getDocumentsDirectory() async {
     // Web doesn't support local file system
     if (kIsWeb) {
@@ -143,7 +154,40 @@ class PlatformFileSystemService implements FileSystemService {
       return _documentsDirectory!;
     }
 
-    _documentsDirectory = await getApplicationDocumentsDirectory();
+    if (Platform.isWindows) {
+      // Use LOCALAPPDATA on Windows - truly local and never synced
+      final localAppData = Platform.environment['LOCALAPPDATA'];
+      if (localAppData != null) {
+        _documentsDirectory = Directory(path.join(localAppData, 'OroForge', 'models'));
+      } else {
+        _documentsDirectory = await getApplicationSupportDirectory();
+      }
+    } else if (Platform.isMacOS) {
+      // Use Application Support on macOS - not synced by default
+      final home = Platform.environment['HOME'];
+      if (home != null) {
+        _documentsDirectory = Directory(path.join(home, 'Library', 'Application Support', 'OroForge', 'models'));
+      } else {
+        _documentsDirectory = await getApplicationSupportDirectory();
+      }
+    } else if (Platform.isLinux) {
+      // Use XDG data directory on Linux
+      final xdgDataHome = Platform.environment['XDG_DATA_HOME'];
+      if (xdgDataHome != null) {
+        _documentsDirectory = Directory(path.join(xdgDataHome, 'OroForge', 'models'));
+      } else {
+        final home = Platform.environment['HOME'];
+        if (home != null) {
+          _documentsDirectory = Directory(path.join(home, '.local', 'share', 'OroForge', 'models'));
+        } else {
+          _documentsDirectory = await getApplicationSupportDirectory();
+        }
+      }
+    } else {
+      // Mobile platforms use standard documents directory
+      _documentsDirectory = await getApplicationDocumentsDirectory();
+    }
+
     return _documentsDirectory!;
   }
 }

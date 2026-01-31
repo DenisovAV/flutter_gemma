@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+import 'package:path/path.dart' as p;
 
 /// Smart downloader with HTTP-aware retry logic
 ///
@@ -177,7 +179,28 @@ class SmartDownloader {
     StreamSubscription? listener;
 
     try {
-      final (baseDirectory, directory, filename) = await Task.split(filePath: targetPath);
+      // CRITICAL: Task.split() has a bug on Windows where it strips the drive letter
+      // from paths that don't match known base directories, causing files to be written
+      // to the wrong location. We handle Windows paths manually to preserve the full path.
+      final BaseDirectory baseDirectory;
+      final String directory;
+      final String filename;
+
+      if (!kIsWeb && Platform.isWindows) {
+        // On Windows, use BaseDirectory.root with the FULL directory path including drive letter.
+        // background_downloader's baseDirectoryPath(BaseDirectory.root) returns '' on Windows,
+        // so path.join('', fullDirectory, filename) correctly produces the absolute path.
+        baseDirectory = BaseDirectory.root;
+        directory = p.dirname(targetPath);  // Full directory with drive letter (e.g., C:\Users\...)
+        filename = p.basename(targetPath);
+        debugPrint('🔵 Windows path handling: dir=$directory, file=$filename');
+      } else {
+        // On other platforms, Task.split() works correctly
+        final splitResult = await Task.split(filePath: targetPath);
+        baseDirectory = splitResult.$1;
+        directory = splitResult.$2;
+        filename = splitResult.$3;
+      }
 
       final task = DownloadTask(
         url: url,

@@ -136,8 +136,9 @@ class ChatInputFieldState extends State<ChatInputField> {
       return;
     }
 
-    // Check microphone permission
-    if (!kIsWeb) {
+    // Check microphone permission (only on mobile where permission_handler works)
+    // Desktop platforms (macOS/Windows/Linux) will show OS permission dialog automatically
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
       final status = await Permission.microphone.request();
       if (!status.isGranted) {
         scaffoldMessenger.showSnackBar(
@@ -209,6 +210,7 @@ class ChatInputFieldState extends State<ChatInputField> {
 
     try {
       final path = await _audioRecorder.stop();
+      debugPrint('[AudioRecording] Stop returned path: $path');
 
       if (path != null) {
         Uint8List audioBytes;
@@ -220,15 +222,17 @@ class ChatInputFieldState extends State<ChatInputField> {
         } else {
           // On mobile/desktop, read from file
           final file = File(path);
-          final wavData = await file.readAsBytes();
+          debugPrint('[AudioRecording] Reading file: ${file.path}');
+          debugPrint('[AudioRecording] File exists: ${await file.exists()}');
 
-          // Parse WAV and convert to PCM 16kHz mono
-          final parsed = AudioConverter.parseWav(wavData);
-          audioBytes = AudioConverter.toPCM16kHzMono(
-            parsed.pcmData,
-            sourceSampleRate: parsed.sampleRate,
-            sourceChannels: parsed.channels,
-          );
+          final wavData = await file.readAsBytes();
+          debugPrint('[AudioRecording] Read ${wavData.length} bytes');
+          debugPrint('[AudioRecording] First 12 bytes: ${wavData.take(12).toList()}');
+
+          // Send original WAV directly - record package already creates 16kHz mono WAV
+          // Skipping parse/re-wrap as it may lose metadata needed by miniaudio
+          audioBytes = wavData;
+          debugPrint('[AudioRecording] Using original WAV: ${audioBytes.length} bytes');
 
           // Clean up temp file
           await file.delete();

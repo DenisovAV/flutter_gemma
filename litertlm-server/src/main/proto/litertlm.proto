@@ -18,6 +18,9 @@ service LiteRtLmService {
   // Send message with image (multimodal)
   rpc ChatWithImage(ChatWithImageRequest) returns (stream ChatResponse);
 
+  // Send message with image SYNC (for testing)
+  rpc ChatWithImageSync(ChatWithImageRequest) returns (ChatResponse);
+
   // Send message with audio (Gemma 3n E4B)
   rpc ChatWithAudio(ChatWithAudioRequest) returns (stream ChatResponse);
 

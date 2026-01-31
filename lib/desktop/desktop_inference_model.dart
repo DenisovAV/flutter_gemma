@@ -50,15 +50,19 @@ class DesktopInferenceModel extends InferenceModel {
     final completer = _createCompleter = Completer<InferenceModelSession>();
 
     try {
-      // Create conversation on server
-      await grpcClient.createConversation();
+      // Create conversation on server with sampler config
+      await grpcClient.createConversation(
+        temperature: temperature,
+        topK: topK,
+        topP: topP,
+      );
 
       final session = _session = DesktopInferenceModelSession(
         grpcClient: grpcClient,
         modelType: modelType,
         fileType: fileType,
         supportImage: enableVisionModality ?? supportImage,
-        supportAudio: supportAudio,
+        supportAudio: enableAudioModality ?? supportAudio,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -164,6 +168,7 @@ class DesktopInferenceModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     _assertNotClosed();
+    debugPrint('[DesktopSession] addQueryChunk: hasAudio=${message.hasAudio}, audioBytes=${message.audioBytes?.length}, supportAudio=$supportAudio');
 
     final prompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
     _queryBuffer.write(prompt);
@@ -184,18 +189,23 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
 
+    // Capture and clear pending media BEFORE making the call
+    // This prevents stale media from being reused if the call fails
+    final audio = _pendingAudio;
+    final image = _pendingImage;
+    _pendingAudio = null;
+    _pendingImage = null;
+
     final buffer = StringBuffer();
 
-    if (_pendingAudio != null) {
-      await for (final token in grpcClient.chatWithAudio(text, _pendingAudio!)) {
+    if (audio != null) {
+      await for (final token in grpcClient.chatWithAudio(text, audio)) {
         buffer.write(token);
       }
-      _pendingAudio = null;
-    } else if (_pendingImage != null) {
-      await for (final token in grpcClient.chatWithImage(text, _pendingImage!)) {
+    } else if (image != null) {
+      await for (final token in grpcClient.chatWithImage(text, image)) {
         buffer.write(token);
       }
-      _pendingImage = null;
     } else {
       await for (final token in grpcClient.chat(text)) {
         buffer.write(token);
@@ -212,13 +222,23 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
 
-    if (_pendingAudio != null) {
-      yield* grpcClient.chatWithAudio(text, _pendingAudio!);
-      _pendingAudio = null;
-    } else if (_pendingImage != null) {
-      yield* grpcClient.chatWithImage(text, _pendingImage!);
-      _pendingImage = null;
+    // Capture and clear pending media BEFORE making the call
+    // This prevents stale media from being reused if the call fails
+    final audio = _pendingAudio;
+    final image = _pendingImage;
+    _pendingAudio = null;
+    _pendingImage = null;
+
+    debugPrint('[DesktopSession] getResponseAsync: audio=${audio?.length}, image=${image?.length}');
+
+    if (audio != null) {
+      debugPrint('[DesktopSession] Calling chatWithAudio: audio=${audio.length} bytes');
+      yield* grpcClient.chatWithAudio(text, audio);
+    } else if (image != null) {
+      debugPrint('[DesktopSession] Calling chatWithImage: image=${image.length} bytes');
+      yield* grpcClient.chatWithImage(text, image);
     } else {
+      debugPrint('[DesktopSession] Calling chat (no image/audio)');
       yield* grpcClient.chat(text);
     }
   }

@@ -67,6 +67,14 @@ class LiteRtLmServiceClient extends $grpc.Client {
         options: options);
   }
 
+  /// Send message with image SYNC (for testing)
+  $grpc.ResponseFuture<$0.ChatResponse> chatWithImageSync(
+    $0.ChatWithImageRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$chatWithImageSync, request, options: options);
+  }
+
   /// Send message with audio (Gemma 3n E4B)
   $grpc.ResponseStream<$0.ChatResponse> chatWithAudio(
     $0.ChatWithAudioRequest request, {
@@ -120,6 +128,11 @@ class LiteRtLmServiceClient extends $grpc.Client {
   static final _$chatWithImage =
       $grpc.ClientMethod<$0.ChatWithImageRequest, $0.ChatResponse>(
           '/litertlm.LiteRtLmService/ChatWithImage',
+          ($0.ChatWithImageRequest value) => value.writeToBuffer(),
+          $0.ChatResponse.fromBuffer);
+  static final _$chatWithImageSync =
+      $grpc.ClientMethod<$0.ChatWithImageRequest, $0.ChatResponse>(
+          '/litertlm.LiteRtLmService/ChatWithImageSync',
           ($0.ChatWithImageRequest value) => value.writeToBuffer(),
           $0.ChatResponse.fromBuffer);
   static final _$chatWithAudio =
@@ -177,6 +190,14 @@ abstract class LiteRtLmServiceBase extends $grpc.Service {
         chatWithImage_Pre,
         false,
         true,
+        ($core.List<$core.int> value) =>
+            $0.ChatWithImageRequest.fromBuffer(value),
+        ($0.ChatResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ChatWithImageRequest, $0.ChatResponse>(
+        'ChatWithImageSync',
+        chatWithImageSync_Pre,
+        false,
+        false,
         ($core.List<$core.int> value) =>
             $0.ChatWithImageRequest.fromBuffer(value),
         ($0.ChatResponse value) => value.writeToBuffer()));
@@ -246,6 +267,14 @@ abstract class LiteRtLmServiceBase extends $grpc.Service {
   }
 
   $async.Stream<$0.ChatResponse> chatWithImage(
+      $grpc.ServiceCall call, $0.ChatWithImageRequest request);
+
+  $async.Future<$0.ChatResponse> chatWithImageSync_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ChatWithImageRequest> $request) async {
+    return chatWithImageSync($call, await $request);
+  }
+
+  $async.Future<$0.ChatResponse> chatWithImageSync(
       $grpc.ServiceCall call, $0.ChatWithImageRequest request);
 
   $async.Stream<$0.ChatResponse> chatWithAudio_Pre($grpc.ServiceCall $call,

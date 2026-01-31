@@ -66,16 +66,19 @@ class LiteRtLmEngine(
             // Configure engine with cache directory for faster reloads
             // visionBackend is required for multimodal models (image support)
             val visionBackend = if (config.maxNumImages != null && config.maxNumImages > 0) backend else null
+            // audioBackend must be CPU for Gemma 3n (per Google AI Edge Gallery reference)
+            val audioBackend = if (config.supportAudio == true) Backend.CPU else null
 
             val engineConfig = LiteRtEngineConfig(
                 modelPath = config.modelPath,
                 backend = backend,
                 visionBackend = visionBackend,
+                audioBackend = audioBackend,
                 maxNumTokens = config.maxTokens,
                 cacheDir = context.cacheDir.absolutePath, // Improves reload time 10s→1-2s
             )
 
-            Log.i(TAG, "Initializing LiteRT-LM engine with backend: $backend, maxTokens: ${config.maxTokens}")
+            Log.i(TAG, "Initializing LiteRT-LM engine with backend: $backend, visionBackend: $visionBackend, audioBackend: $audioBackend, maxTokens: ${config.maxTokens}")
 
             val newEngine = Engine(engineConfig)
             newEngine.initialize() // Can take 10+ seconds on cold start, 1-2s with cache

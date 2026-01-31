@@ -30,7 +30,7 @@ There is an example of using:
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🖥️ Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM (gRPC architecture).
 - **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models
-- **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Web, Desktop)
+- **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop - LiteRT-LM engine)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks 
 - **🛑 Stop Generation:** Cancel text generation mid-process on Android devices 
@@ -52,7 +52,7 @@ Flutter Gemma supports different model file formats, which are grouped into **tw
 
 ### Type 1: MediaPipe-Managed Templates
 - **`.task` files:** MediaPipe-optimized format for mobile (Android/iOS)
-- **`.litertlm` files:** LiterTLM format optimized for web platform
+- **`.litertlm` files:** LiteRT-LM format for Android (NPU) and Desktop platforms
 
 Both formats have **identical behavior** — MediaPipe handles chat templates internally.
 
@@ -1991,7 +1991,7 @@ Function calling is currently supported by the following models:
 |---------|---------|-----|-----|-------|
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | Gemma3n models |
-| **Audio Input** | ✅ Full | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B only |
+| **Audio Input** | ✅ Android + Desktop | ❌ Not supported | ❌ Not supported | Gemma3n E2B/E4B, LiteRT-LM only |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | Select models only |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | DeepSeek models |
 | **Stop Generation** | ✅ Android only | ❌ Not supported | ❌ Not supported | Cancel mid-process |
@@ -2174,13 +2174,13 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ## **🚀 What's New**
 
-✅ **🎙️ Audio Input** - Record and send audio messages with Gemma3n E2B/E4B models (Android, Web, Desktop)
+✅ **🎙️ Audio Input** - Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop)
 ✅ **📊 Text Embeddings** - Generate vector embeddings with EmbeddingGemma and Gecko models for semantic search applications
 ✅ **🔧 Unified Model Management** - Single system for managing both inference and embedding models with automatic validation
+✅ **🖥️ Desktop Support** - Full support for macOS, Windows, and Linux with LiteRT-LM
 
 **Coming Soon:**
 - On-Device RAG Pipelines
-- Desktop Support (macOS, Windows, Linux)
 - Video Input
 - Audio Output (Text-to-Speech)
 - System Instruction support

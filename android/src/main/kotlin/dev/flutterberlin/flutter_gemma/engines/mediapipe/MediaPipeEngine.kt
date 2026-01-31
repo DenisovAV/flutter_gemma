@@ -26,7 +26,7 @@ class MediaPipeEngine(
 
     override val capabilities = EngineCapabilities(
         supportsVision = true,
-        supportsAudio = false,
+        supportsAudio = false, // Audio is LiteRT-LM only (not supported by MediaPipe SDK)
         supportsFunctionCalls = true, // Manual via chat templates
         supportsStreaming = true,
         supportsTokenCounting = true, // MediaPipe has sizeInTokens()
@@ -63,6 +63,12 @@ class MediaPipeEngine(
                         backendEnum?.let { backend -> setPreferredBackend(backend) }
                     }
                     config.maxNumImages?.let { setMaxNumImages(it) }
+                    // Enable audio model options when supportAudio is true
+                    if (config.supportAudio == true) {
+                        setAudioModelOptions(
+                            com.google.mediapipe.tasks.genai.llminference.AudioModelOptions.builder().build()
+                        )
+                    }
                 }
 
             val options = optionsBuilder.build()

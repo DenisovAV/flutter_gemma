@@ -91,23 +91,30 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       );
     }
 
-    // Check if singleton exists and matches active model
+    // Check if singleton exists and matches active model + runtime params
     if (_initCompleter != null &&
         _initializedModel != null &&
         _lastActiveInferenceSpec != null) {
       final currentSpec = _lastActiveInferenceSpec!;
       final requestedSpec = activeModel as InferenceModelSpec;
+      final currentModel = _initializedModel as DesktopInferenceModel?;
 
-      if (currentSpec.name != requestedSpec.name) {
-        // Active model changed - close old and create new
-        debugPrint('Active model changed: ${currentSpec.name} -> ${requestedSpec.name}');
+      final modelChanged = currentSpec.name != requestedSpec.name;
+      final paramsChanged = currentModel != null &&
+          (currentModel.supportImage != supportImage ||
+           currentModel.supportAudio != supportAudio ||
+           currentModel.maxTokens != maxTokens);
+
+      if (modelChanged || paramsChanged) {
+        // Active model or runtime params changed - close old and create new
+        debugPrint('Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
         await _initializedModel?.close();
         // Explicitly null these out (onClose callback also does this, but be safe)
         _initCompleter = null;
         _initializedModel = null;
         _lastActiveInferenceSpec = null;
       } else {
-        // Same model - return existing
+        // Same model and params - return existing
         debugPrint('Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
@@ -150,7 +157,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
           backend: preferredBackend == PreferredBackend.cpu ? 'cpu' : 'gpu',
           maxTokens: maxTokens,
           enableVision: supportImage,
-          maxNumImages: supportImage ? (maxNumImages ?? 1) : 1,
+          maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
           enableAudio: supportAudio,
         );
       } catch (e) {

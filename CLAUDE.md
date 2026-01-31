@@ -35,6 +35,13 @@
 - ✅ **REQUIRED**: Simple, clean commit messages without AI mentions
 - ✅ **REQUIRED**: Use `--author="Sasha Denisov <denisov.shureg@gmail.com>"`
 
+## Rule 5: SEARCH ALL FILES ⛔
+- ❌ **FORBIDDEN**: Using grep/search with file extension filters unless explicitly requested
+- ✅ **REQUIRED**: When user says "search for X", search ALL files without extension filters
+- ✅ **REQUIRED**: Use `grep -rn "pattern" /path/ 2>/dev/null | grep -v node_modules | grep -v ".gradle/"` (no --include flags)
+
+**Why:** Filtering by extensions misses important files like `.podspec`, `.plist`, `.json`, etc.
+
 ---
 
 ## Project Overview
@@ -614,10 +621,37 @@ Desktop platforms (macOS, Windows, Linux) use LiteRT-LM via Kotlin/JVM with gRPC
 **Automatic Setup (recommended):**
 
 The build script automatically:
-1. Downloads Temurin JRE 21 (cached in `~/.cache/flutter_gemma/jre/`)
+1. Downloads Azul Zulu JRE 24 (cached in `~/.cache/flutter_gemma/jre/`)
 2. Copies JAR from `litertlm-server/build/libs/`
 3. Signs binaries for development
 4. Removes quarantine attributes
+
+> ⚠️ **CRITICAL: Use Azul Zulu, NOT Temurin!**
+> Temurin JRE causes Jinja template errors with LiteRT-LM native library on macOS.
+> The error manifests as: `messages[0]['content'][0]['text']` parsing failure.
+> Zulu JRE 24 works correctly with both CPU and GPU backends.
+
+**Vision/Multimodal Status (macOS):**
+
+> ⚠️ **Known Issue:** Vision is currently broken on macOS with LiteRT-LM JVM SDK.
+> - Image bytes are sent to the model (verified in logs)
+> - Model **does NOT see the image** and hallucinates a response
+> - GitHub Issue: https://github.com/google-ai-edge/LiteRT-LM/issues/684
+>
+> **Workaround:** Use text-only mode until the SDK bug is fixed.
+
+**If you encounter "Failed to create executor for subgraph" error:**
+Clear GPU cache (required after JRE changes):
+```bash
+find /var/folders -path "*/C/dev.flutterberlin.flutterGemmaExample55*" -type d 2>/dev/null | xargs rm -rf
+```
+See `DESKTOP_DEBUG.md` for full cache clearing instructions.
+
+**Technical details:**
+- Vision enablement uses same logic as Android: `visionBackend = if (maxNumImages > 0) backend else null`
+- When `supportImage: true`, client sends `maxNumImages: 1`
+- Server sets `visionBackend=GPU`, image bytes are transmitted
+- SDK internal logs show `max_num_images: 0` - this is internal default, not our code
 
 Just run:
 ```bash
@@ -1183,10 +1217,14 @@ implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-alpha01'
 ### ✅ Desktop Platform Support (v0.12.0+)
 - **macOS, Windows, Linux** support via LiteRT-LM JVM
 - **gRPC architecture** - Dart client communicates with Kotlin/JVM server
-- **Bundled JRE** - Temurin 21 automatically downloaded and bundled
+- **Bundled JRE** - Azul Zulu 24 automatically downloaded and bundled
 - **Automatic setup** - Xcode build phase handles JRE/JAR bundling
 - **Code signing** - Development signing handled automatically
 - **New models added** - Qwen3 0.6B, Gemma 3 1B LiteRT-LM format
+- **GPU acceleration** - Works on Apple Silicon (Metal backend)
+- **Vision/Multimodal** - Currently broken on macOS (SDK bug #684), image sent but model hallucinates
+
+> ⚠️ **JRE Compatibility Note:** Temurin JRE causes Jinja template errors with LiteRT-LM native library. Use Azul Zulu JRE instead.
 
 **Key Files:**
 - `lib/desktop/flutter_gemma_desktop.dart` - Dart plugin implementation

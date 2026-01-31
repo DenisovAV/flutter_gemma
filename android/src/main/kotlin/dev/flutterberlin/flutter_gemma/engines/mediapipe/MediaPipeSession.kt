@@ -32,12 +32,14 @@ class MediaPipeSession(
             .apply {
                 config.topP?.let { setTopP(it) }
                 config.loraPath?.let { setLoraPath(it) }
-                config.enableVisionModality?.let { enableVision ->
-                    setGraphOptions(
-                        GraphOptions.builder()
-                            .setEnableVisionModality(enableVision)
-                            .build()
-                    )
+                // Set GraphOptions for vision and/or audio modality
+                val enableVision = config.enableVisionModality
+                val enableAudio = config.enableAudioModality
+                if (enableVision != null || enableAudio != null) {
+                    val graphOptionsBuilder = GraphOptions.builder()
+                    enableVision?.let { graphOptionsBuilder.setEnableVisionModality(it) }
+                    enableAudio?.let { graphOptionsBuilder.setEnableAudioModality(it) }
+                    setGraphOptions(graphOptionsBuilder.build())
                 }
             }
 
@@ -54,6 +56,10 @@ class MediaPipeSession(
             ?: throw IllegalArgumentException("Failed to decode image bytes")
         val mpImage = BitmapImageBuilder(bitmap).build()
         session.addImage(mpImage)
+    }
+
+    override fun addAudio(audioBytes: ByteArray) {
+        session.addAudio(audioBytes)
     }
 
     override fun generateResponse(): String {

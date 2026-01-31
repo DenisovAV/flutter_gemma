@@ -50,21 +50,12 @@ class AudioConverter {
   static ({Uint8List pcmData, int sampleRate, int channels}) parseWav(
     Uint8List wavData,
   ) {
-    // WAV header structure:
+    // WAV header structure (standard layout):
     // 0-3: "RIFF"
     // 4-7: file size
     // 8-11: "WAVE"
-    // 12-15: "fmt "
-    // 16-19: format chunk size
-    // 20-21: audio format (1 = PCM)
-    // 22-23: number of channels
-    // 24-27: sample rate
-    // 28-31: byte rate
-    // 32-33: block align
-    // 34-35: bits per sample
-    // 36-39: "data"
-    // 40-43: data chunk size
-    // 44+: PCM data
+    // Then chunks: "fmt ", "data", etc.
+    // Note: macOS Core Audio may add extra chunks, so we search for them
 
     if (wavData.length < 44) {
       throw ArgumentError('Invalid WAV data: too short');
@@ -84,28 +75,93 @@ class AudioConverter {
       throw ArgumentError('Invalid WAV: missing WAVE format');
     }
 
-    // Parse format info
-    final channels = byteData.getUint16(22, Endian.little);
-    final sampleRate = byteData.getUint32(24, Endian.little);
+    // Search for chunks starting after WAVE header
+    int offset = 12;
+    int sampleRate = 0;
+    int channels = 0;
+    Uint8List? pcmData;
 
-    // Find data chunk (might not be at position 36)
-    int dataOffset = 12;
-    while (dataOffset < wavData.length - 8) {
-      final chunkId = String.fromCharCodes(wavData.sublist(dataOffset, dataOffset + 4));
-      final chunkSize = byteData.getUint32(dataOffset + 4, Endian.little);
+    while (offset < wavData.length - 8) {
+      final chunkId = String.fromCharCodes(wavData.sublist(offset, offset + 4));
+      final chunkSize = byteData.getUint32(offset + 4, Endian.little);
+      final chunkDataStart = offset + 8;
 
-      if (chunkId == 'data') {
-        final pcmStart = dataOffset + 8;
-        final pcmData = wavData.sublist(pcmStart, pcmStart + chunkSize);
-        return (pcmData: Uint8List.fromList(pcmData), sampleRate: sampleRate, channels: channels);
+      if (chunkId == 'fmt ') {
+        // Format chunk found
+        // Offset 0-1: audio format (1 = PCM)
+        // Offset 2-3: number of channels
+        // Offset 4-7: sample rate
+        channels = byteData.getUint16(chunkDataStart + 2, Endian.little);
+        sampleRate = byteData.getUint32(chunkDataStart + 4, Endian.little);
+      } else if (chunkId == 'data') {
+        // Data chunk found
+        pcmData = Uint8List.fromList(wavData.sublist(chunkDataStart, chunkDataStart + chunkSize));
       }
 
-      dataOffset += 8 + chunkSize;
+      // Move to next chunk
+      offset = chunkDataStart + chunkSize;
       // Align to even byte
-      if (chunkSize % 2 != 0) dataOffset++;
+      if (chunkSize % 2 != 0) offset++;
     }
 
-    throw ArgumentError('Invalid WAV: data chunk not found');
+    if (pcmData == null) {
+      throw ArgumentError('Invalid WAV: data chunk not found');
+    }
+
+    if (sampleRate == 0 || channels == 0) {
+      throw ArgumentError('Invalid WAV: fmt chunk not found or invalid');
+    }
+
+    return (pcmData: pcmData, sampleRate: sampleRate, channels: channels);
+  }
+
+  /// Create WAV file from PCM data.
+  ///
+  /// [pcmData] - Raw PCM data (16-bit signed, little-endian)
+  /// [sampleRate] - Sample rate in Hz (default 16000)
+  /// [channels] - Number of channels (default 1 = mono)
+  /// [bitsPerSample] - Bits per sample (default 16)
+  ///
+  /// Returns complete WAV file with header
+  static Uint8List pcmToWav(
+    Uint8List pcmData, {
+    int sampleRate = 16000,
+    int channels = 1,
+    int bitsPerSample = 16,
+  }) {
+    final byteRate = sampleRate * channels * (bitsPerSample ~/ 8);
+    final blockAlign = channels * (bitsPerSample ~/ 8);
+    final dataSize = pcmData.length;
+    final fileSize = 36 + dataSize;
+
+    final header = Uint8List(44);
+    final byteData = ByteData.sublistView(header);
+
+    // RIFF header
+    header.setAll(0, 'RIFF'.codeUnits);
+    byteData.setUint32(4, fileSize, Endian.little);
+    header.setAll(8, 'WAVE'.codeUnits);
+
+    // fmt chunk
+    header.setAll(12, 'fmt '.codeUnits);
+    byteData.setUint32(16, 16, Endian.little); // chunk size
+    byteData.setUint16(20, 1, Endian.little); // audio format (PCM)
+    byteData.setUint16(22, channels, Endian.little);
+    byteData.setUint32(24, sampleRate, Endian.little);
+    byteData.setUint32(28, byteRate, Endian.little);
+    byteData.setUint16(32, blockAlign, Endian.little);
+    byteData.setUint16(34, bitsPerSample, Endian.little);
+
+    // data chunk
+    header.setAll(36, 'data'.codeUnits);
+    byteData.setUint32(40, dataSize, Endian.little);
+
+    // Combine header + PCM data
+    final wav = Uint8List(44 + dataSize);
+    wav.setAll(0, header);
+    wav.setAll(44, pcmData);
+
+    return wav;
   }
 
   /// Calculate audio duration from PCM data.

@@ -35,7 +35,7 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
-    supportAudio: false, // E2B does NOT have TF_LITE_AUDIO_ENCODER - only vision
+    supportAudio: true, // E2B .litertlm has TF_LITE_AUDIO_ENCODER
     maxTokens: 4096,
     maxNumImages: 1,
     supportsFunctionCalls: false, // Disabled - causes issues with multimodal
@@ -126,9 +126,9 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
+    supportAudio: true, // .litertlm files have TF_LITE_AUDIO_ENCODER
     maxTokens: 4096,
     maxNumImages: 1,
-    supportsFunctionCalls: true,
   ),
 
   // Gemma 3 Nano E4B LiteRT-LM (same model, different engine)
@@ -146,6 +146,7 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
+    supportAudio: true, // .litertlm files have TF_LITE_AUDIO_ENCODER
     maxTokens: 4096,
     maxNumImages: 1,
     supportsFunctionCalls: true,

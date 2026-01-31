@@ -84,6 +84,9 @@ class InitializeRequest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearModelPath() => $_clearField(1);
 
+  /// Backend: "cpu" or "gpu"
+  /// GPU uses Metal (macOS), DirectX 12 (Windows), Vulkan (Linux)
+  /// Note: "npu" is not supported on desktop (Android only)
   @$pb.TagNumber(2)
   $core.String get backend => $_getSZ(1);
   @$pb.TagNumber(2)

@@ -76,11 +76,13 @@ class ServerProcessManager {
 
     if (_isStarting) {
       debugPrint('[ServerProcessManager] Server is starting, waiting...');
-      return _startCompleter?.future;
+      // _startCompleter is guaranteed to be set before _isStarting becomes true
+      return _startCompleter!.future;
     }
 
-    _isStarting = true;
+    // Set completer BEFORE flag to prevent race condition
     _startCompleter = Completer<void>();
+    _isStarting = true;
     _currentPort = port ?? await _findFreePort();
 
     try {
@@ -202,58 +204,15 @@ class ServerProcessManager {
 
   /// Find Java executable
   Future<String> _findJava() async {
-    // Try JAVA_HOME first
-    final javaHome = Platform.environment['JAVA_HOME'];
-    if (javaHome != null) {
-      final javaPath = path.join(
-        javaHome,
-        'bin',
-        Platform.isWindows ? 'java.exe' : 'java',
-      );
-      if (await File(javaPath).exists()) {
-        return javaPath;
-      }
-    }
-
-    // Try bundled JRE
+    // Use bundled JRE (required for sandbox compatibility on macOS,
+    // and provides consistent experience on all platforms)
     final bundledJre = await _getBundledJrePath();
     if (bundledJre != null && await File(bundledJre).exists()) {
       return bundledJre;
     }
 
-    // Try system PATH
-    final result = await Process.run(
-      Platform.isWindows ? 'where' : 'which',
-      ['java'],
-    );
-    if (result.exitCode == 0) {
-      final javaPath = (result.stdout as String).trim().split('\n').first;
-      // Verify it's a real Java, not macOS stub
-      if (!javaPath.startsWith('/usr/bin')) {
-        return javaPath;
-      }
-    }
-
-    // Fallback: Try common installation paths (macOS sandbox can't see PATH)
-    if (Platform.isMacOS) {
-      final commonPaths = [
-        '/opt/homebrew/opt/openjdk/bin/java', // Apple Silicon Homebrew
-        '/opt/homebrew/opt/openjdk@21/bin/java',
-        '/opt/homebrew/opt/openjdk@17/bin/java',
-        '/usr/local/opt/openjdk/bin/java', // Intel Homebrew
-        '/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home/bin/java',
-        '/Library/Java/JavaVirtualMachines/temurin-17.jdk/Contents/Home/bin/java',
-      ];
-      for (final javaPath in commonPaths) {
-        if (await File(javaPath).exists()) {
-          return javaPath;
-        }
-      }
-    }
-
     throw Exception(
-      'Java not found. Please install Java 17+ or set JAVA_HOME.\n'
-      'Download from: https://adoptium.net/',
+      'Bundled JRE not found. Run the build script to bundle JRE with the app.',
     );
   }
 

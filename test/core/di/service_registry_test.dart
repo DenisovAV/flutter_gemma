@@ -54,6 +54,7 @@ class MockDownloadService implements DownloadService {
     String? token,
     int maxRetries = 10,
     CancelToken? cancelToken,
+    bool? foreground,
   }) async* {
     yield 100;
   }

@@ -390,6 +390,23 @@ Future<void> close() async {
 | Qwen2.5 | ✅ | ❌ | ❌ | Android, iOS, Web |
 | Phi-4 | ❌ | ❌ | ❌ | Android, iOS, Web |
 
+### Platform Limitations
+
+| Platform | Vision/Multimodal | Audio | Notes |
+|----------|-------------------|-------|-------|
+| Android | ✅ Works | ✅ LiteRT-LM only | Full support |
+| iOS Device | ✅ Works | ❌ Not supported | Full vision support |
+| iOS Simulator | ❌ Broken | ❌ Not supported | MediaPipe incompatible with Apple Silicon simulator |
+| Web | ✅ Works | ❌ Not supported | MediaPipe only |
+| macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | Vision: image sent but model hallucinates |
+| Windows | ✅ Works | ✅ LiteRT-LM only | Desktop via gRPC |
+| Linux | ✅ Works | ✅ LiteRT-LM only | Desktop via gRPC |
+
+**Known Issues:**
+- **iOS Simulator (#178)**: Vision doesn't work on Apple Silicon simulators due to MediaPipe dependency incompatibility. Use physical device.
+- **macOS Vision (#684)**: LiteRT-LM JVM SDK vision bug - image bytes sent correctly but model hallucinates response
+- **Audio**: Only supported with LiteRT-LM models (`.litertlm`), not MediaPipe (`.task`)
+
 ## Development Environment
 
 ### Required Versions

@@ -172,6 +172,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
         }
 
         // Audio second (if present)
+        // LiteRT-LM expects WAV format (16kHz, 16-bit, mono)
+        // Flutter client sends WAV via AudioConverter.pcmToWav()
         audioBytes?.let {
             contents.add(Content.AudioBytes(it))
         }
@@ -301,19 +303,26 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             val imageBytes = request.image.toByteArray()
             logger.info("Chat with image request: text='${request.text.take(50)}', imageBytes=${imageBytes.size}, visionEnabled=$visionEnabled")
 
-            // If vision is not enabled, ignore image and send text only (will hallucinate but won't crash)
-            // This is a workaround for Desktop where GPU vision doesn't work (LiteRT-LM issues #684, #1050)
-            val message = if (visionEnabled) {
-                // Log image format (first bytes indicate format: JPEG=FFD8, PNG=89504E47)
-                if (imageBytes.size >= 4) {
-                    val header = imageBytes.take(4).map { String.format("%02X", it) }.joinToString("")
-                    logger.info("Image header: $header (JPEG=FFD8, PNG=89504E47)")
-                }
-                buildContents(request.text, imageBytes = imageBytes)
-            } else {
-                logger.warn("Vision not enabled - ignoring image, sending text only. Model will hallucinate.")
-                buildContents(request.text)  // Text only, no image
+            // Fail fast if vision is not enabled - don't silently ignore image
+            if (!visionEnabled) {
+                logger.error("chatWithImage called but vision not enabled")
+                trySend(
+                    ChatResponse.newBuilder()
+                        .setError("Vision not available. Engine was initialized without vision support " +
+                                 "(visionBackend failed or model doesn't support vision).")
+                        .setDone(true)
+                        .build()
+                )
+                close()
+                return@callbackFlow
             }
+
+            // Log image format (first bytes indicate format: JPEG=FFD8, PNG=89504E47)
+            if (imageBytes.size >= 4) {
+                val header = imageBytes.take(4).map { String.format("%02X", it) }.joinToString("")
+                logger.info("Image header: $header (JPEG=FFD8, PNG=89504E47)")
+            }
+            val message = buildContents(request.text, imageBytes = imageBytes)
 
             logger.info("Sending message to conversation...")
             var responseCount = 0

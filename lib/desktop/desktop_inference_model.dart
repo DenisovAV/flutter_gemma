@@ -136,7 +136,14 @@ class DesktopInferenceModel extends InferenceModel {
   }
 }
 
-/// Desktop implementation of InferenceModelSession
+/// Desktop implementation of InferenceModelSession.
+///
+/// Uses gRPC to communicate with the LiteRT-LM server.
+/// Buffers query chunks, images, and audio until [getResponse] is called.
+///
+/// **Thread Safety:** This session is NOT thread-safe. All method calls
+/// must originate from the same isolate. Concurrent access from multiple
+/// isolates may cause undefined behavior.
 class DesktopInferenceModelSession extends InferenceModelSession {
   DesktopInferenceModelSession({
     required this.grpcClient,
@@ -260,6 +267,12 @@ class DesktopInferenceModelSession extends InferenceModelSession {
   @override
   Future<void> close() async {
     _isClosed = true;
+
+    // Clear pending buffers to prevent memory leaks
+    _queryBuffer.clear();
+    _pendingImage = null;
+    _pendingAudio = null;
+
     await grpcClient.closeConversation();
     onClose();
   }

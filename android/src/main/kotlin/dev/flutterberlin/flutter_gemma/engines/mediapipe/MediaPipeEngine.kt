@@ -82,6 +82,14 @@ class MediaPipeEngine(
     override fun createSession(config: SessionConfig): InferenceSession {
         val inference = llmInference
             ?: throw IllegalStateException("Engine not initialized. Call initialize() first.")
+
+        // Validate capabilities against config
+        if (config.enableAudioModality == true && !capabilities.supportsAudio) {
+            throw UnsupportedOperationException(
+                "MediaPipe engine does not support audio. Use LiteRT-LM engine (.litertlm models) for audio support."
+            )
+        }
+
         return MediaPipeSession(inference, config, _partialResults, _errors)
     }
 

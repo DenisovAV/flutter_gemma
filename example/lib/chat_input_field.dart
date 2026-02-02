@@ -296,8 +296,8 @@ class ChatInputFieldState extends State<ChatInputField> {
       builder: (context) => AlertDialog(
         title: const Text('Audio Not Supported'),
         content: const Text(
-          'Audio input is not supported on iOS due to MediaPipe limitations.\n\n'
-          'Audio recording is available on Android, Web, and Desktop platforms.',
+          'Audio input requires LiteRT-LM models (.litertlm files).\n\n'
+          'MediaPipe models (.task files) do not support audio on any platform.',
         ),
         actions: [
           TextButton(

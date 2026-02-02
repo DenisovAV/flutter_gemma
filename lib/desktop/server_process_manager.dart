@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 
+import 'grpc_client.dart';
+
 /// Manages the LiteRT-LM gRPC server process lifecycle
 class ServerProcessManager {
   static ServerProcessManager? _instance;
@@ -180,6 +182,19 @@ class ServerProcessManager {
     }
 
     debugPrint('[ServerProcessManager] Stopping server...');
+
+    // Try to send shutdown RPC to release model resources gracefully
+    if (_currentPort > 0) {
+      try {
+        final client = LiteRtLmClient();
+        await client.connect(port: _currentPort);
+        await client.shutdown();
+        await client.disconnect();
+        debugPrint('[ServerProcessManager] Shutdown RPC sent');
+      } catch (e) {
+        debugPrint('[ServerProcessManager] Failed to send shutdown RPC: $e');
+      }
+    }
 
     // Try graceful shutdown first
     _serverProcess!.kill(ProcessSignal.sigterm);

@@ -5,6 +5,7 @@ import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
+import android.util.Log
 import dev.flutterberlin.flutter_gemma.engines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 
@@ -20,6 +21,10 @@ class MediaPipeSession(
     private val resultFlow: MutableSharedFlow<Pair<String, Boolean>>,
     private val errorFlow: MutableSharedFlow<Throwable>
 ) : InferenceSession {
+
+    companion object {
+        private const val TAG = "MediaPipeSession"
+    }
 
     private val session: LlmInferenceSession
 
@@ -63,7 +68,14 @@ class MediaPipeSession(
     }
 
     override fun generateResponse(): String {
-        return session.generateResponse() ?: ""
+        return try {
+            session.generateResponse()
+                ?: throw RuntimeException("MediaPipe returned null response")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating response", e)
+            errorFlow.tryEmit(e)
+            throw e
+        }
     }
 
     override fun generateResponseAsync() {

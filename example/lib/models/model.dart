@@ -115,6 +115,8 @@ enum Model implements InferenceModelInterface {
   gemma3n_2B_litertlm(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
+    desktopUrl:
+        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.litertlm',
     displayName: 'Gemma 3 Nano E2B IT (LiteRT-LM)',
     size: '3.1GB',
@@ -134,6 +136,8 @@ enum Model implements InferenceModelInterface {
   // Gemma 3 Nano E4B LiteRT-LM (same model, different engine)
   gemma3n_4B_litertlm(
     baseUrl:
+        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
+    desktopUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.litertlm',
     displayName: 'Gemma 3 Nano E4B IT (LiteRT-LM)',

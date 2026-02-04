@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/core/infrastructure/background_downloader_service.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
@@ -11,6 +12,21 @@ void main() {
 
     setUp(() {
       service = BackgroundDownloaderService();
+
+      // Mock the background_downloader plugin channel
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('com.bbflight.background_downloader'),
+        (call) async => null,
+      );
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('com.bbflight.background_downloader'),
+        null,
+      );
     });
 
     group('Interface Implementation', () {

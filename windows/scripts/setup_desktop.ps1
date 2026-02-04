@@ -49,9 +49,9 @@ Write-Host "=== LiteRT-LM Desktop Setup (Windows) ===" -ForegroundColor Cyan
 Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)" -ForegroundColor Gray
 Write-Host "Working Directory: $(Get-Location)" -ForegroundColor Gray
 
-# Configuration
-$JreVersion = "21.0.5+11"
-$JreVersionUnderscore = $JreVersion -replace '\+', '_'
+# Configuration - Azul Zulu JRE 24 (required for LiteRT-LM compatibility)
+# Note: Temurin JRE causes Jinja template errors with LiteRT-LM native library
+$JreVersion = "24.0.2"
 $JreCacheDir = "$env:LOCALAPPDATA\flutter_gemma\jre"
 
 # Detect architecture
@@ -77,20 +77,19 @@ if ($Arch -eq "ARM64") {
     Write-Host "Detected x64 architecture"
 }
 
-$JreArchive = "OpenJDK21U-jre_${JreArch}_windows_hotspot_$JreVersionUnderscore.zip"
-$JreUrl = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-$JreVersion/$JreArchive"
+$JreArchive = "zulu24.32.13-ca-jre${JreVersion}-win_x64.zip"
+$JreUrl = "https://cdn.azul.com/zulu/bin/$JreArchive"
 
-# SHA256 checksums from Adoptium (https://adoptium.net/temurin/releases/)
+# SHA256 checksum from Azul (https://www.azul.com/downloads/?version=java-24-lts&package=jre)
 $JreChecksums = @{
-    "x64" = "1749b36cfac273cee11802bf3e90caada5062de6a3fef1a3814c0568b25fd654"
-    "aarch64" = "2f689ae673479c87f07daf6b7729de022a5fc415d3304ed4d25031eac0b9ce42"
+    "x64" = "da107dc05c4dfe7fde1836998544c6b1867555894f07b8a218084289e62ebf37"
 }
 
 # JAR settings
 $JarName = "litertlm-server.jar"
-$JarVersion = "0.12.0"
+$JarVersion = "0.12.3"
 $JarUrl = "https://github.com/DenisovAV/flutter_gemma/releases/download/v$JarVersion/$JarName"
-$JarChecksum = "b9aaa8a0af31caaa51eb9efbd5d62d1bbb1c7817b44ddc19c16723dbcf90183c"
+$JarChecksum = "c43018ff29516d522f03dc0d6dad07065e439e5c0c8a58fc2730acf25f45ce55"
 $JarCacheDir = "$env:LOCALAPPDATA\flutter_gemma\jar"
 $PluginRoot = Split-Path -Parent $PluginDir
 
@@ -132,7 +131,8 @@ function Install-Jre {
     New-Item -ItemType Directory -Force -Path $JreCacheDir | Out-Null
 
     $archive = "$JreCacheDir\$JreArchive"
-    $extractedDir = "$JreCacheDir\jdk-$JreVersion-jre"
+    # Zulu archive extracts to folder named like: zulu24.32.13-ca-jre24.0.2-win_x64
+    $extractedDir = "$JreCacheDir\zulu24.32.13-ca-jre$JreVersion-win_x64"
 
     # Download if not cached
     if (-not (Test-Path $archive)) {

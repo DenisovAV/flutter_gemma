@@ -1,6 +1,4 @@
 // Integration test for supportAudio parameter in Pigeon API
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
@@ -10,7 +8,6 @@ void main() {
 
   group('PlatformService.createModel supportAudio parameter', () {
     late List<List<Object?>> capturedMessages;
-    late BinaryMessenger mockMessenger;
 
     setUp(() {
       capturedMessages = [];
@@ -21,12 +18,8 @@ void main() {
         'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel',
         (ByteData? message) async {
           if (message != null) {
-            // Decode the Pigeon message
-            final ReadBuffer buffer = ReadBuffer(message);
-            // Skip the first byte (message type)
-            final List<Object?> args = [];
             // Pigeon uses StandardMessageCodec
-            final codec = StandardMessageCodec();
+            const codec = StandardMessageCodec();
             final decoded = codec.decodeMessage(message);
             if (decoded is List) {
               capturedMessages.add(decoded);

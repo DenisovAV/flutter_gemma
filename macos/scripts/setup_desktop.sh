@@ -33,8 +33,8 @@ PLUGIN_ROOT="$(cd "$PODS_ROOT/.." && pwd)"
 RESOURCES_DIR="$APP_BUNDLE/Contents/Resources"
 FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
 
-# JRE settings
-JRE_VERSION="21.0.5+11"
+# JRE settings - Using Azul Zulu (Temurin has Jinja template issues on macOS)
+JRE_VERSION="24.0.2"
 # Use macOS standard cache location (~/Library/Caches per Apple guidelines)
 JRE_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jre"
 JRE_DEST="$RESOURCES_DIR/jre"
@@ -47,19 +47,20 @@ else
     JRE_ARCH="x64"
 fi
 
-JRE_ARCHIVE="OpenJDK21U-jre_${JRE_ARCH}_mac_hotspot_${JRE_VERSION/+/_}.tar.gz"
-JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-${JRE_VERSION}/${JRE_ARCHIVE}"
+# Azul Zulu JRE - more compatible with LiteRT-LM native libraries
+JRE_ARCHIVE="zulu24.32.13-ca-jre${JRE_VERSION}-macosx_${JRE_ARCH}.tar.gz"
+JRE_URL="https://cdn.azul.com/zulu/bin/${JRE_ARCHIVE}"
 
-# SHA256 checksums from Adoptium (https://adoptium.net/temurin/releases/)
+# SHA256 checksums for Azul Zulu JRE 24.0.2
 # Note: Using simple variables instead of associative arrays for bash 3.x compatibility (macOS default)
-JRE_CHECKSUM_AARCH64="12249a1c5386957c93fc372260c483ae921b1ec6248a5136725eabd0abc07f93"
-JRE_CHECKSUM_X64="0e0dcb571f7bf7786c111fe066932066d9eab080c9f86d8178da3e564324ee81"
+JRE_CHECKSUM_AARCH64="709ae98bcbcb94de7c5211769df7bf83b3ba9d742c7fd2f6594ba88fd2921388"
+JRE_CHECKSUM_X64="4a36280b411db58952bc97a26f96b184222b23d36ea5008a6ee34744989ff929"
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.12.0"
+JAR_VERSION="0.12.3"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="b9aaa8a0af31caaa51eb9efbd5d62d1bbb1c7817b44ddc19c16723dbcf90183c"
+JAR_CHECKSUM="c43018ff29516d522f03dc0d6dad07065e439e5c0c8a58fc2730acf25f45ce55"
 JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"
 
 echo "Plugin root: $PLUGIN_ROOT"
@@ -83,7 +84,8 @@ download_jre() {
     mkdir -p "$JRE_CACHE_DIR"
 
     local archive="$JRE_CACHE_DIR/$JRE_ARCHIVE"
-    local extracted="$JRE_CACHE_DIR/jdk-${JRE_VERSION}-jre"
+    # Zulu archive extracts to zulu24.32.13-ca-jre24.0.2-macosx_<arch>/
+    local extracted="$JRE_CACHE_DIR/zulu24.32.13-ca-jre${JRE_VERSION}-macosx_${JRE_ARCH}"
     local extraction_marker="$extracted/.extracted"
 
     # Download if not cached
@@ -132,9 +134,10 @@ download_jre() {
     fi
 
     # Copy to app bundle
+    # Zulu has bin/ and lib/ directly in root (no Contents/Home)
     echo "Copying JRE to app bundle..."
     mkdir -p "$JRE_DEST"
-    cp -R "$extracted/Contents/Home/"* "$JRE_DEST/"
+    cp -R "$extracted/"* "$JRE_DEST/"
 
     echo "JRE installed successfully"
 }
@@ -142,7 +145,7 @@ download_jre() {
 # === Check JDK version ===
 check_jdk_version() {
     local java_cmd="$1"
-    local required_version=21
+    local required_version=24
 
     if [[ ! -x "$java_cmd" ]]; then
         return 1

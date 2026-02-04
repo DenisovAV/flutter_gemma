@@ -36,6 +36,11 @@ dependencies:
   # Dependencies for working with images
   image_picker: ^1.0.4 # For selecting images on mobile devices
 
+  # Dependencies for working with audio
+  record: ^6.0.0                  # Audio recording
+  permission_handler: ^11.3.1     # Microphone permissions
+  just_audio: ^0.9.36             # Audio playback (for preview)
+
 dev_dependencies:
   integration_test:
     sdk: flutter

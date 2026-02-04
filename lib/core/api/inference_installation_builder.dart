@@ -40,8 +40,16 @@ class InferenceInstallationBuilder {
   /// Parameters:
   /// - [url]: The HTTP/HTTPS URL to download from
   /// - [token]: Optional authentication token (e.g., HuggingFace token)
-  InferenceInstallationBuilder fromNetwork(String url, {String? token}) {
-    _modelSource = ModelSource.network(url, authToken: token);
+  /// - [foreground]: Android foreground service mode (shows notification, no timeout)
+  ///   - null (default): auto-detect based on file size (>500MB = foreground)
+  ///   - true: always use foreground
+  ///   - false: never use foreground
+  InferenceInstallationBuilder fromNetwork(
+    String url, {
+    String? token,
+    bool? foreground,
+  }) {
+    _modelSource = ModelSource.network(url, authToken: token, foreground: foreground);
     return this;
   }
 

@@ -43,6 +43,7 @@ class BackgroundDownloaderService implements DownloadService {
     String? token,
     int maxRetries = 10,
     CancelToken? cancelToken,
+    bool? foreground,
   }) {
     // Delegate to SmartDownloader for all URLs
     // SmartDownloader provides HTTP-aware retry logic for ANY URL
@@ -52,6 +53,7 @@ class BackgroundDownloaderService implements DownloadService {
       token: token,
       maxRetries: maxRetries,
       cancelToken: cancelToken,
+      foreground: foreground,
     );
   }
 }

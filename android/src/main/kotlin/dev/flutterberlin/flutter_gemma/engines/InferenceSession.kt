@@ -22,6 +22,12 @@ interface InferenceSession {
     fun addImage(imageBytes: ByteArray)
 
     /**
+     * Add audio to current query (for multimodal models).
+     * Throws UnsupportedOperationException if engine doesn't support audio.
+     */
+    fun addAudio(audioBytes: ByteArray)
+
+    /**
      * Generate response synchronously (blocking).
      * Consumes accumulated chunks/images.
      */

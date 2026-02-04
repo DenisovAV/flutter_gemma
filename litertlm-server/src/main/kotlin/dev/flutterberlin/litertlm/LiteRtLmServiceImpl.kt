@@ -1,15 +1,22 @@
 package dev.flutterberlin.litertlm
 
 import com.google.ai.edge.litertlm.*
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import dev.flutterberlin.litertlm.proto.*
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.slf4j.LoggerFactory
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import javax.imageio.ImageIO
 
 class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBase() {
 
@@ -18,11 +25,13 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
     // Mutex to protect engine state from concurrent access
     private val engineMutex = Mutex()
     private var engine: Engine? = null
+    private var visionEnabled: Boolean = false  // Track if vision backend was initialized
     private val conversations = ConcurrentHashMap<String, Conversation>()
     private val conversationCounter = AtomicInteger(0)
 
     override suspend fun initialize(request: InitializeRequest): InitializeResponse {
         logger.info("Initializing engine with model: ${request.modelPath}")
+        logger.info("Request params: enableVision=${request.enableVision}, enableAudio=${request.enableAudio}, backend=${request.backend}, maxNumImages=${request.maxNumImages}")
 
         // Validate model path
         if (request.modelPath.isBlank()) {
@@ -46,23 +55,36 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 // Close existing engine if any
                 engine?.close()
 
+                // Match Android behavior: use same backend for main and vision
                 val backend = when (request.backend.lowercase()) {
                     "gpu" -> Backend.GPU
                     else -> Backend.CPU
                 }
+                // Vision on macOS Desktop: GPU required by Gemma 3n model but macOS GPU accelerator
+                // doesn't work (issue #1050). CPU gives "Vision backend constraint mismatch".
+                // Workaround: disable vision (maxNumImages=0 from client) until Google fixes GPU on macOS.
+                val visionBackend = if (request.maxNumImages > 0) backend else null
+                val audioBackend = if (request.enableAudio) Backend.CPU else null
 
-                // Use data class constructor (LiteRT-LM 0.9+ API)
+                // Use model directory as cache dir (like Android does)
+                val cacheDir = modelFile.parentFile?.absolutePath
+
+                logger.info("Creating EngineConfig: backend=$backend, visionBackend=$visionBackend, audioBackend=$audioBackend, maxTokens=${request.maxTokens}, cacheDir=$cacheDir")
+
                 val engineConfig = EngineConfig(
                     modelPath = request.modelPath,
                     backend = backend,
                     maxNumTokens = request.maxTokens,
-                    visionBackend = if (request.enableVision) backend else null
+                    visionBackend = visionBackend,
+                    audioBackend = audioBackend,
+                    cacheDir = cacheDir
                 )
 
                 engine = Engine(engineConfig)
                 engine!!.initialize()
+                visionEnabled = visionBackend != null
 
-                logger.info("Engine initialized successfully")
+                logger.info("Engine initialized successfully with visionEnabled=$visionEnabled, audioBackend=$audioBackend")
 
                 InitializeResponse.newBuilder()
                     .setSuccess(true)
@@ -114,11 +136,12 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 samplerConfig = samplerConfig
             )
 
+            logger.info("Creating conversation with config: samplerConfig=$samplerConfig")
             val conversation = engine.createConversation(conversationConfig)
             val id = "conv_${conversationCounter.incrementAndGet()}"
             conversations[id] = conversation
 
-            logger.info("Created conversation: $id")
+            logger.info("Created conversation: $id (conversation class: ${conversation.javaClass.name})")
 
             CreateConversationResponse.newBuilder()
                 .setConversationId(id)
@@ -131,106 +154,318 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
         }
     }
 
-    override fun chat(request: ChatRequest): Flow<ChatResponse> = flow {
+    /**
+     * Build Contents from components (matches Android's buildAndConsumeMessage pattern).
+     * Order: Image → Audio → Text (text last for multimodal compatibility)
+     */
+    private fun buildContents(
+        text: String,
+        imageBytes: ByteArray? = null,
+        audioBytes: ByteArray? = null
+    ): Contents {
+        val contents = mutableListOf<Content>()
+
+        // Image first (if present)
+        imageBytes?.let {
+            val pngBytes = convertToPng(it)
+            contents.add(Content.ImageBytes(pngBytes))
+        }
+
+        // Audio second (if present)
+        // LiteRT-LM expects WAV format (16kHz, 16-bit, mono)
+        // Flutter client sends WAV via AudioConverter.pcmToWav()
+        audioBytes?.let {
+            contents.add(Content.AudioBytes(it))
+        }
+
+        // Text last (always add if non-empty, or if no other content)
+        if (text.isNotEmpty() || contents.isEmpty()) {
+            contents.add(Content.Text(text))
+        }
+
+        return Contents.of(contents)
+    }
+
+    override fun chat(request: ChatRequest): Flow<ChatResponse> = callbackFlow {
         val conversation = conversations[request.conversationId]
         if (conversation == null) {
-            emit(
+            trySend(
                 ChatResponse.newBuilder()
                     .setError("Conversation not found: ${request.conversationId}")
                     .setDone(true)
                     .build()
             )
-            return@flow
+            close()
+            return@callbackFlow
         }
 
         try {
-            logger.debug("Chat request: ${request.text.take(50)}...")
+            logger.info("=== CHAT REQUEST ===")
+            logger.info("conversationId: '${request.conversationId}'")
+            logger.info("text: '${request.text}' (length=${request.text.length})")
+            logger.info("text bytes: ${request.text.toByteArray().take(20).map { it.toInt() and 0xFF }}")
 
-            val message = Message.of(request.text)
+            // Use Contents format (like Android does)
+            val message = Contents.of(listOf(Content.Text(request.text)))
+            logger.info("Created Contents: $message")
 
-            // Stream response using Flow
-            conversation.sendMessageAsync(message).collect { response ->
-                emit(
-                    ChatResponse.newBuilder()
-                        .setText(response.toString())
-                        .setDone(false)
-                        .build()
-                )
-            }
+            // Use callback-based API (like Android does)
+            conversation.sendMessageAsync(message, object : MessageCallback {
+                override fun onMessage(msg: Message) {
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setText(msg.toString())
+                            .setDone(false)
+                            .build()
+                    )
+                }
 
-            // Send completion
-            emit(
-                ChatResponse.newBuilder()
-                    .setDone(true)
-                    .build()
-            )
+                override fun onDone() {
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setDone(true)
+                            .build()
+                    )
+                    close()
+                    logger.debug("Chat completed for ${request.conversationId}")
+                }
 
-            logger.debug("Chat completed for ${request.conversationId}")
+                override fun onError(throwable: Throwable) {
+                    logger.error("Error during chat", throwable)
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setError(throwable.message ?: "Unknown error during chat")
+                            .setDone(true)
+                            .build()
+                    )
+                    close(throwable)
+                }
+            })
         } catch (e: Exception) {
-            logger.error("Error during chat", e)
-            emit(
+            logger.error("Error starting chat", e)
+            trySend(
                 ChatResponse.newBuilder()
                     .setError(e.message ?: "Unknown error during chat")
                     .setDone(true)
                     .build()
             )
+            close(e)
+        }
+
+        awaitClose { }
+    }
+
+    override suspend fun chatWithImageSync(request: ChatWithImageRequest): ChatResponse {
+        val conversation = conversations[request.conversationId]
+            ?: return ChatResponse.newBuilder()
+                .setError("Conversation not found: ${request.conversationId}")
+                .setDone(true)
+                .build()
+
+        return try {
+            val imageBytes = request.image.toByteArray()
+            logger.info("ChatWithImageSync: text='${request.text.take(50)}', imageBytes=${imageBytes.size}")
+
+            val message = buildContents(request.text, imageBytes = imageBytes)
+
+            logger.info("Calling SYNC sendMessage...")
+            val response = conversation.sendMessage(message)
+            val responseText = response.toString()
+            logger.info("Sync response (${responseText.length} chars): ${responseText.take(200)}")
+
+            ChatResponse.newBuilder()
+                .setText(responseText)
+                .setDone(true)
+                .build()
+        } catch (e: Exception) {
+            logger.error("Error during sync chat with image", e)
+            ChatResponse.newBuilder()
+                .setError(e.message ?: "Unknown error")
+                .setDone(true)
+                .build()
         }
     }
 
-    override fun chatWithImage(request: ChatWithImageRequest): Flow<ChatResponse> = flow {
+    override fun chatWithImage(request: ChatWithImageRequest): Flow<ChatResponse> = callbackFlow {
         val conversation = conversations[request.conversationId]
         if (conversation == null) {
-            emit(
+            trySend(
                 ChatResponse.newBuilder()
                     .setError("Conversation not found: ${request.conversationId}")
                     .setDone(true)
                     .build()
             )
-            return@flow
+            close()
+            return@callbackFlow
         }
 
         try {
-            logger.debug("Chat with image request: ${request.text.take(50)}...")
+            val imageBytes = request.image.toByteArray()
+            logger.info("Chat with image request: text='${request.text.take(50)}', imageBytes=${imageBytes.size}, visionEnabled=$visionEnabled")
 
-            // Create multimodal message with image
-            val contents = mutableListOf<Content>()
-
-            if (request.image.size() > 0) {
-                contents.add(Content.ImageBytes(request.image.toByteArray()))
-            }
-
-            if (request.text.isNotEmpty()) {
-                contents.add(Content.Text(request.text))
-            }
-
-            val message = Message.of(contents)
-
-            // Stream response
-            conversation.sendMessageAsync(message).collect { response ->
-                emit(
+            // Fail fast if vision is not enabled - don't silently ignore image
+            if (!visionEnabled) {
+                logger.error("chatWithImage called but vision not enabled")
+                trySend(
                     ChatResponse.newBuilder()
-                        .setText(response.toString())
-                        .setDone(false)
+                        .setError("Vision not available. Engine was initialized without vision support " +
+                                 "(visionBackend failed or model doesn't support vision).")
+                        .setDone(true)
                         .build()
                 )
+                close()
+                return@callbackFlow
             }
 
-            emit(
-                ChatResponse.newBuilder()
-                    .setDone(true)
-                    .build()
-            )
+            // Log image format (first bytes indicate format: JPEG=FFD8, PNG=89504E47)
+            if (imageBytes.size >= 4) {
+                val header = imageBytes.take(4).map { String.format("%02X", it) }.joinToString("")
+                logger.info("Image header: $header (JPEG=FFD8, PNG=89504E47)")
+            }
+            val message = buildContents(request.text, imageBytes = imageBytes)
 
-            logger.debug("Chat with image completed for ${request.conversationId}")
+            logger.info("Sending message to conversation...")
+            var responseCount = 0
+
+            // Use callback-based API (like Android does)
+            conversation.sendMessageAsync(message, object : MessageCallback {
+                override fun onMessage(msg: Message) {
+                    responseCount++
+                    if (responseCount <= 3) {
+                        logger.info("Response chunk $responseCount: '${msg.toString().take(100)}'")
+                    }
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setText(msg.toString())
+                            .setDone(false)
+                            .build()
+                    )
+                }
+
+                override fun onDone() {
+                    logger.info("Chat with image completed, total chunks: $responseCount")
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setDone(true)
+                            .build()
+                    )
+                    close()
+                }
+
+                override fun onError(throwable: Throwable) {
+                    logger.error("Error during chat with image", throwable)
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setError(throwable.message ?: "Unknown error during chat with image")
+                            .setDone(true)
+                            .build()
+                    )
+                    close(throwable)
+                }
+            })
         } catch (e: Exception) {
-            logger.error("Error during chat with image", e)
-            emit(
+            logger.error("Error starting chat with image", e)
+            trySend(
                 ChatResponse.newBuilder()
                     .setError(e.message ?: "Unknown error during chat with image")
                     .setDone(true)
                     .build()
             )
+            close(e)
         }
+
+        awaitClose { }
+    }
+
+    override fun chatWithAudio(request: ChatWithAudioRequest): Flow<ChatResponse> = callbackFlow {
+        val conversation = conversations[request.conversationId]
+        if (conversation == null) {
+            trySend(
+                ChatResponse.newBuilder()
+                    .setError("Conversation not found: ${request.conversationId}")
+                    .setDone(true)
+                    .build()
+            )
+            close()
+            return@callbackFlow
+        }
+
+        try {
+            val audioBytes = request.audio.toByteArray()
+            logger.info("Chat with audio request: text='${request.text.take(50)}', audioBytes=${audioBytes.size}")
+
+            // Log audio format info (first 44 bytes are WAV header if it's WAV)
+            if (audioBytes.size >= 44) {
+                val header = audioBytes.take(12).map { it.toInt() and 0xFF }
+                val headerStr = audioBytes.take(4).map { it.toInt().toChar() }.joinToString("")
+                logger.info("Audio header: $headerStr, first 12 bytes: $header")
+
+                // If WAV, parse some info
+                if (headerStr == "RIFF") {
+                    val channels = (audioBytes[22].toInt() and 0xFF) or ((audioBytes[23].toInt() and 0xFF) shl 8)
+                    val sampleRate = (audioBytes[24].toInt() and 0xFF) or
+                                    ((audioBytes[25].toInt() and 0xFF) shl 8) or
+                                    ((audioBytes[26].toInt() and 0xFF) shl 16) or
+                                    ((audioBytes[27].toInt() and 0xFF) shl 24)
+                    val bitsPerSample = (audioBytes[34].toInt() and 0xFF) or ((audioBytes[35].toInt() and 0xFF) shl 8)
+                    logger.info("WAV info: sampleRate=$sampleRate, channels=$channels, bitsPerSample=$bitsPerSample")
+                }
+            }
+
+            val message = buildContents(request.text, audioBytes = audioBytes)
+
+            logger.info("Sending message to conversation...")
+            var responseCount = 0
+
+            // Use callback-based API (like Android does)
+            conversation.sendMessageAsync(message, object : MessageCallback {
+                override fun onMessage(msg: Message) {
+                    responseCount++
+                    val responseText = msg.toString()
+                    if (responseCount <= 3) {
+                        logger.info("Response chunk $responseCount: '${responseText.take(100)}'")
+                    }
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setText(responseText)
+                            .setDone(false)
+                            .build()
+                    )
+                }
+
+                override fun onDone() {
+                    logger.info("Chat with audio completed, total chunks: $responseCount")
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setDone(true)
+                            .build()
+                    )
+                    close()
+                }
+
+                override fun onError(throwable: Throwable) {
+                    logger.error("Error during chat with audio", throwable)
+                    trySend(
+                        ChatResponse.newBuilder()
+                            .setError(throwable.message ?: "Unknown error during chat with audio")
+                            .setDone(true)
+                            .build()
+                    )
+                    close(throwable)
+                }
+            })
+        } catch (e: Exception) {
+            logger.error("Error starting chat with audio", e)
+            trySend(
+                ChatResponse.newBuilder()
+                    .setError(e.message ?: "Unknown error during chat with audio")
+                    .setDone(true)
+                    .build()
+            )
+            close(e)
+        }
+
+        awaitClose { }
     }
 
     override suspend fun closeConversation(request: CloseConversationRequest): CloseConversationResponse {
@@ -290,5 +525,48 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
         }
 
         logger.info("Service shutdown complete")
+    }
+
+    /**
+     * Convert any image format to PNG (LiteRT-LM expects PNG like AI Edge Gallery)
+     */
+    private fun convertToPng(imageBytes: ByteArray): ByteArray {
+        return try {
+            // Check if already PNG (89 50 4E 47 = 0x89PNG)
+            if (imageBytes.size >= 4 &&
+                imageBytes[0] == 0x89.toByte() &&
+                imageBytes[1] == 0x50.toByte() &&
+                imageBytes[2] == 0x4E.toByte() &&
+                imageBytes[3] == 0x47.toByte()) {
+                logger.info("Image already PNG, returning as-is")
+                return imageBytes
+            }
+
+            // Read image (JPEG, PNG, BMP, etc.)
+            val inputStream = ByteArrayInputStream(imageBytes)
+            val bufferedImage = ImageIO.read(inputStream)
+            if (bufferedImage == null) {
+                logger.warn("Failed to read image, returning original bytes")
+                return imageBytes
+            }
+
+            logger.info("Read image: ${bufferedImage.width}x${bufferedImage.height}, type=${bufferedImage.type}")
+
+            // Write as PNG
+            val outputStream = ByteArrayOutputStream()
+            ImageIO.write(bufferedImage, "PNG", outputStream)
+            val pngBytes = outputStream.toByteArray()
+
+            // Verify PNG header
+            if (pngBytes.size >= 4) {
+                val header = pngBytes.take(4).map { String.format("%02X", it) }.joinToString("")
+                logger.info("PNG output header: $header")
+            }
+
+            pngBytes
+        } catch (e: Exception) {
+            logger.error("Failed to convert image to PNG: ${e.message}", e)
+            imageBytes // Return original on error
+        }
     }
 }

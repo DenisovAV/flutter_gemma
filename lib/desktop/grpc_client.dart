@@ -41,13 +41,27 @@ class LiteRtLmClient {
     required String modelPath,
     String backend = 'gpu',
     int maxTokens = 2048,
+    bool enableVision = false,
+    int maxNumImages = 1,
+    bool enableAudio = false,
   }) async {
     _assertConnected();
+
+    debugPrint('[LiteRtLmClient] Initializing with:');
+    debugPrint('[LiteRtLmClient]   modelPath: $modelPath');
+    debugPrint('[LiteRtLmClient]   backend: $backend');
+    debugPrint('[LiteRtLmClient]   maxTokens: $maxTokens');
+    debugPrint('[LiteRtLmClient]   enableVision: $enableVision');
+    debugPrint('[LiteRtLmClient]   enableAudio: $enableAudio');
+    debugPrint('[LiteRtLmClient]   maxNumImages: $maxNumImages');
 
     final request = InitializeRequest()
       ..modelPath = modelPath
       ..backend = backend
-      ..maxTokens = maxTokens;
+      ..maxTokens = maxTokens
+      ..enableVision = enableVision
+      ..maxNumImages = maxNumImages
+      ..enableAudio = enableAudio;
 
     final response = await _client!.initialize(request);
 
@@ -60,12 +74,25 @@ class LiteRtLmClient {
   }
 
   /// Create a new conversation
-  Future<String> createConversation({String? systemMessage}) async {
+  Future<String> createConversation({
+    String? systemMessage,
+    double? temperature,
+    int? topK,
+    double? topP,
+  }) async {
     _assertInitialized();
 
     final request = CreateConversationRequest();
     if (systemMessage != null) {
       request.systemMessage = systemMessage;
+    }
+
+    // Add sampler config if any parameter provided
+    if (temperature != null || topK != null || topP != null) {
+      request.samplerConfig = SamplerConfig()
+        ..temperature = temperature ?? 0.8
+        ..topK = topK ?? 40
+        ..topP = (topP ?? 0.95);
     }
 
     final response = await _client!.createConversation(request);
@@ -123,6 +150,7 @@ class LiteRtLmClient {
     String? conversationId,
   }) async* {
     _assertInitialized();
+    debugPrint('[LiteRtLmClient] chatWithImage: text=${text.length} chars, image=${imageBytes.length} bytes');
 
     final convId = conversationId ?? _currentConversationId;
     if (convId == null) {
@@ -136,6 +164,71 @@ class LiteRtLmClient {
 
     // Add timeout to prevent infinite hanging
     await for (final response in _client!.chatWithImage(request).timeout(
+      _streamTimeout,
+      onTimeout: (sink) {
+        sink.addError(TimeoutException(
+          'Model response timed out after ${_streamTimeout.inMinutes} minutes',
+        ));
+        sink.close();
+      },
+    )) {
+      if (response.hasError() && response.error.isNotEmpty) {
+        throw Exception('Chat error: ${response.error}');
+      }
+
+      if (response.hasText()) {
+        yield response.text;
+      }
+    }
+  }
+
+  /// Send a multimodal chat message (text + image) - SYNC version
+  Future<String> chatWithImageSync(
+    String text,
+    Uint8List imageBytes, {
+    String? conversationId,
+  }) async {
+    _assertInitialized();
+
+    final convId = conversationId ?? _currentConversationId;
+    if (convId == null) {
+      throw StateError('No conversation. Call createConversation() first.');
+    }
+
+    final request = ChatWithImageRequest()
+      ..conversationId = convId
+      ..text = text
+      ..image = imageBytes;
+
+    final response = await _client!.chatWithImageSync(request);
+
+    if (response.hasError() && response.error.isNotEmpty) {
+      throw Exception('Chat error: ${response.error}');
+    }
+
+    return response.text;
+  }
+
+  /// Send a multimodal chat message (text + audio) - Gemma 3n E4B only
+  Stream<String> chatWithAudio(
+    String text,
+    Uint8List audioBytes, {
+    String? conversationId,
+  }) async* {
+    _assertInitialized();
+
+    final convId = conversationId ?? _currentConversationId;
+    if (convId == null) {
+      throw StateError('No conversation. Call createConversation() first.');
+    }
+
+    final request = ChatWithAudioRequest()
+      ..conversationId = convId
+      ..text = text
+      ..audio = audioBytes;
+
+    // Add timeout to prevent infinite hanging
+    await for (final response in _client!.chatWithAudio(request).timeout(
       _streamTimeout,
       onTimeout: (sink) {
         sink.addError(TimeoutException(

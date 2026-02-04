@@ -38,6 +38,10 @@ abstract interface class DownloadService {
   /// - [maxRetries]: Max retry attempts for transient errors (default: 10)
   ///   Note: Auth errors (401/403/404) fail after 1 attempt regardless of this value
   /// - [cancelToken]: Optional token for cancellation
+  /// - [foreground]: Android foreground service mode (shows notification, no timeout)
+  ///   - null (default): auto-detect based on file size (>500MB = foreground)
+  ///   - true: always use foreground
+  ///   - false: never use foreground
   ///
   /// Throws:
   /// - [DownloadCancelledException] if cancelled via cancelToken
@@ -56,5 +60,6 @@ abstract interface class DownloadService {
     String? token,
     int maxRetries = 10,
     CancelToken? cancelToken,
+    bool? foreground,
   });
 }

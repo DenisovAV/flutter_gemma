@@ -21,9 +21,9 @@ echo "=== LiteRT-LM Desktop Setup (Linux) ==="
 echo "Plugin dir: $PLUGIN_DIR"
 echo "Output dir: $OUTPUT_DIR"
 
-# Configuration
-JRE_VERSION="21.0.5+11"
-JRE_VERSION_UNDERSCORE="${JRE_VERSION//+/_}"
+# Configuration - Azul Zulu JRE 24 (required for LiteRT-LM compatibility)
+# Note: Temurin JRE causes Jinja template errors with LiteRT-LM native library
+JRE_VERSION="24.0.2"
 CACHE_DIR="$HOME/.cache/flutter_gemma"
 
 # Detect architecture
@@ -33,14 +33,16 @@ case "$ARCH" in
         JRE_ARCH="x64"
         NATIVE_ARCH="linux-x86_64"
         NATIVE_LIB="liblitertlm_jni.so"
-        JRE_CHECKSUM="553dda64b3b1c3c16f8afe402377ffebe64fb4a1721a46ed426a91fd18185e62"
+        JRE_ARCHIVE="zulu24.32.13-ca-jre${JRE_VERSION}-linux_x64.tar.gz"
+        JRE_CHECKSUM="d769e0fc2b853a066f5a1a1777df800e3be944c21b470bb5df0b943cb3766f37"
         echo "Detected x86_64 architecture"
         ;;
     aarch64)
         JRE_ARCH="aarch64"
         NATIVE_ARCH="linux-aarch64"
         NATIVE_LIB="liblitertlm_jni.so"
-        JRE_CHECKSUM="a44c85cd2decfe67690e9e1dc77c058b3c0e55d79e5bb65d60ce5e42e5be814e"
+        JRE_ARCHIVE="zulu24.32.13-ca-jre${JRE_VERSION}-linux_aarch64.tar.gz"
+        JRE_CHECKSUM="a26c4c49f73aba1992761342e46c628d57d4f9ff689b9c031a9a9ca93e4c4ac6"
         echo "Detected ARM64 architecture"
         ;;
     *)
@@ -52,15 +54,14 @@ case "$ARCH" in
         ;;
 esac
 
-# JRE settings (Adoptium Temurin)
-JRE_ARCHIVE="OpenJDK21U-jre_${JRE_ARCH}_linux_hotspot_${JRE_VERSION_UNDERSCORE}.tar.gz"
-JRE_URL="https://github.com/adoptium/temurin21-binaries/releases/download/jdk-${JRE_VERSION}/${JRE_ARCHIVE}"
+# JRE settings (Azul Zulu)
+JRE_URL="https://cdn.azul.com/zulu/bin/${JRE_ARCHIVE}"
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.12.0"
+JAR_VERSION="0.12.3"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="b9aaa8a0af31caaa51eb9efbd5d62d1bbb1c7817b44ddc19c16723dbcf90183c"
+JAR_CHECKSUM="c43018ff29516d522f03dc0d6dad07065e439e5c0c8a58fc2730acf25f45ce55"
 
 # Plugin root (parent of linux/)
 PLUGIN_ROOT=$(dirname "$PLUGIN_DIR")
@@ -106,7 +107,8 @@ install_jre() {
 
     echo "Setting up JRE..."
     local ARCHIVE="$CACHE_DIR/jre/$JRE_ARCHIVE"
-    local EXTRACTED_DIR="$CACHE_DIR/jre/jdk-${JRE_VERSION}-jre"
+    # Zulu archive extracts to folder named like: zulu24.32.13-ca-jre24.0.2-linux_x64
+    local EXTRACTED_DIR="$CACHE_DIR/jre/zulu24.32.13-ca-jre${JRE_VERSION}-linux_${JRE_ARCH}"
 
     # Download if not cached
     if [ ! -f "$ARCHIVE" ]; then

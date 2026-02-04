@@ -72,14 +72,14 @@ Desktop support uses a different architecture than mobile platforms:
 
 ## Supported Platforms
 
-| Platform | Architecture | GPU Acceleration | Status |
-|----------|-------------|------------------|--------|
-| macOS | arm64 (Apple Silicon) | Metal | ✅ Ready |
-| macOS | x86_64 (Intel) | - | ❌ Not Supported |
-| Windows | x86_64 | DirectX 12 | ✅ Ready |
-| Windows | arm64 | - | ❌ Not Supported |
-| Linux | x86_64 | Vulkan | ✅ Ready |
-| Linux | arm64 | Vulkan | ✅ Ready |
+| Platform | Architecture | GPU Acceleration | Vision | Audio | Status |
+|----------|-------------|------------------|--------|-------|--------|
+| macOS | arm64 (Apple Silicon) | Metal | ❌ | ✅ | ✅ Ready |
+| macOS | x86_64 (Intel) | - | - | - | ❌ Not Supported |
+| Windows | x86_64 | DirectX 12 | ❌ | ✅ | ✅ Ready |
+| Windows | arm64 | - | - | - | ❌ Not Supported |
+| Linux | x86_64 | Vulkan | ❌ | ✅ | ✅ Ready |
+| Linux | arm64 | Vulkan | ❌ | ✅ | ✅ Ready |
 
 > **⚠️ Platform Limitations**
 >
@@ -98,7 +98,7 @@ Desktop support uses a different architecture than mobile platforms:
 
 - **Flutter**: 3.24.0 or higher
 - **Dart**: 3.4.0 or higher
-- **Java Runtime**: JRE 21 (automatically downloaded if not present)
+- **Java Runtime**: JRE 24 Zulu (automatically downloaded if not present)
 - **Model Format**: LiteRT-LM `.litertlm` files only (MediaPipe `.bin`/`.task` not supported)
 
 ### macOS
@@ -229,7 +229,7 @@ This is necessary because:
 2. `macos/scripts/setup_desktop.sh` executes after app bundle is created:
    - **Builds JAR from source** if JDK 21+ is available (checks JAVA_HOME, Homebrew, system)
    - Falls back to downloading pre-built JAR from GitHub Releases
-   - Downloads Temurin JRE 21 (cached in `~/Library/Caches/flutter_gemma/jre/`)
+   - Downloads Azul Zulu JRE 24 (cached in `~/Library/Caches/flutter_gemma/jre/`)
    - Extracts native library to `Frameworks/litertlm/`
    - Signs all binaries with sandbox inheritance entitlements
 
@@ -289,7 +289,7 @@ Windows uses CMake with a PowerShell build script. No additional configuration r
 2. `windows/scripts/setup_desktop.ps1` executes:
    - **Builds JAR from source** if JDK 21+ is available (checks JAVA_HOME, common install locations)
    - Falls back to downloading pre-built JAR from GitHub Releases
-   - Downloads Temurin JRE 21 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
+   - Downloads Azul Zulu JRE 24 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
    - Extracts DLLs from JAR
 
 #### App Directory Structure

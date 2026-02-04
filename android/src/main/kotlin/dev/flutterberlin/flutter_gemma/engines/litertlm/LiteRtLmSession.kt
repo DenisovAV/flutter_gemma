@@ -2,6 +2,7 @@ package dev.flutterberlin.flutter_gemma.engines.litertlm
 
 import android.util.Log
 import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Conversation
 import com.google.ai.edge.litertlm.ConversationConfig
 import com.google.ai.edge.litertlm.Engine
@@ -34,6 +35,7 @@ class LiteRtLmSession(
     private val pendingPrompt = StringBuilder()
     private val promptLock = Any()
     @Volatile private var pendingImage: ByteArray? = null
+    @Volatile private var pendingAudio: ByteArray? = null
 
     init {
         // Build sampler config
@@ -67,6 +69,14 @@ class LiteRtLmSession(
             pendingImage = imageBytes
         }
         Log.d(TAG, "Added image: ${imageBytes.size} bytes")
+    }
+
+    override fun addAudio(audioBytes: ByteArray) {
+        // Store audio for multimodal message (thread-safe)
+        synchronized(promptLock) {
+            pendingAudio = audioBytes
+        }
+        Log.d(TAG, "Added audio: ${audioBytes.size} bytes")
     }
 
     override fun generateResponse(): String {
@@ -137,31 +147,51 @@ class LiteRtLmSession(
     }
 
     /**
-     * Build Message from accumulated chunks/images and clear buffer.
-     * Thread-safe: uses synchronized access to pendingPrompt and pendingImage.
+     * Build Message from accumulated chunks/images/audio and clear buffer.
+     * Thread-safe: uses synchronized access to pending data.
      *
-     * Note: Message.of() is deprecated in newer SDK versions but Contents
-     * is not exported in 0.9.0-alpha01. Text comes first per API convention.
+     * Note: Use Contents.of() for multimodal messages (audio/image support).
+     * Message.of() only works for text-only messages.
+     *
+     * Content order: Image → Audio → Text (last)
+     * AI Edge Gallery: "add text after image and audio for accurate last token"
      */
-    private fun buildAndConsumeMessage(): Message {
+    private fun buildAndConsumeMessage(): Contents {
         val text: String
         val image: ByteArray?
+        val audio: ByteArray?
         synchronized(promptLock) {
             text = pendingPrompt.toString()
             pendingPrompt.clear()
             image = pendingImage
             pendingImage = null
+            audio = pendingAudio
+            pendingAudio = null
         }
 
-        return if (image != null) {
-            // Multimodal message: text first, then image (per API convention)
-            Message.of(
-                Content.Text(text),
-                Content.ImageBytes(image)
-            )
-        } else {
-            // Text-only message
-            Message.of(text)
+        // Build content list based on available modalities
+        // Order: Image → Audio → Text (matching AI Edge Gallery pattern)
+        val contents = mutableListOf<Content>()
+
+        image?.let {
+            contents.add(Content.ImageBytes(it))
+            Log.d(TAG, "Added image: ${it.size} bytes")
         }
+
+        audio?.let {
+            // LiteRT-LM expects WAV format (miniaudio decoder needs container format)
+            // Flutter sends WAV data, pass it through directly
+            contents.add(Content.AudioBytes(it))
+            Log.d(TAG, "Added audio: ${it.size} bytes (WAV format)")
+        }
+
+        // Text should be last for multimodal messages
+        if (text.isNotEmpty() || contents.isEmpty()) {
+            contents.add(Content.Text(text))
+            Log.d(TAG, "Added text: ${text.length} chars")
+        }
+
+        Log.d(TAG, "Building message with ${contents.size} content items")
+        return Contents.of(contents)
     }
 }

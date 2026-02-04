@@ -213,4 +213,85 @@ class LiteRtLmSessionTest {
         // Only last image should be used (implementation detail)
         // No assertion needed - just verify no crash
     }
+
+    // ===========================================
+    // Audio Handling Tests
+    // ===========================================
+
+    @Test
+    fun `addAudio stores audio bytes`() {
+        val audioBytes = byteArrayOf(0x52, 0x49, 0x46, 0x46) // WAV header "RIFF"
+
+        session.addAudio(audioBytes)
+
+        // Should not throw - audio stored for later use
+    }
+
+    @Test
+    fun `addAudio replaces previous audio`() {
+        session.addAudio(byteArrayOf(1, 2, 3))
+        session.addAudio(byteArrayOf(4, 5, 6))
+
+        // Only last audio should be used (implementation detail)
+        // No assertion needed - just verify no crash
+    }
+
+    @Test
+    fun `concurrent addAudio and addQueryChunk are thread-safe`() {
+        val executor = Executors.newFixedThreadPool(10)
+        val latch = CountDownLatch(100)
+
+        repeat(50) { i ->
+            executor.submit {
+                try {
+                    session.addQueryChunk("chunk$i ")
+                } finally {
+                    latch.countDown()
+                }
+            }
+            executor.submit {
+                try {
+                    session.addAudio(byteArrayOf(i.toByte()))
+                } finally {
+                    latch.countDown()
+                }
+            }
+        }
+
+        assertTrue("Should complete without deadlock", latch.await(5, TimeUnit.SECONDS))
+        executor.shutdown()
+    }
+
+    @Test
+    fun `concurrent addImage, addAudio and addQueryChunk are thread-safe`() {
+        val executor = Executors.newFixedThreadPool(15)
+        val latch = CountDownLatch(150)
+
+        repeat(50) { i ->
+            executor.submit {
+                try {
+                    session.addQueryChunk("chunk$i ")
+                } finally {
+                    latch.countDown()
+                }
+            }
+            executor.submit {
+                try {
+                    session.addImage(byteArrayOf(i.toByte()))
+                } finally {
+                    latch.countDown()
+                }
+            }
+            executor.submit {
+                try {
+                    session.addAudio(byteArrayOf(i.toByte()))
+                } finally {
+                    latch.countDown()
+                }
+            }
+        }
+
+        assertTrue("Should complete without deadlock", latch.await(5, TimeUnit.SECONDS))
+        executor.shutdown()
+    }
 }

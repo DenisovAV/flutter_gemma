@@ -62,8 +62,10 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         loraRanks: [Int64]?,
         preferredBackend: PreferredBackend?,
         maxNumImages: Int64?,
+        supportAudio: Bool?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
+        // Note: supportAudio is ignored on iOS as audio input is not supported on this platform
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 self.model = try InferenceModel(
@@ -95,6 +97,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         topP: Double?,
         loraPath: String?,
         enableVisionModality: Bool?,
+        enableAudioModality: Bool?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
         guard let inference = model?.inference else {
@@ -102,6 +105,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             return
         }
 
+        // Note: enableAudioModality is ignored on iOS as audio input is not supported on this platform
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let newSession = try InferenceSession(
@@ -196,6 +200,15 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                 }
             }
         }
+    }
+
+    // Add method for adding audio - NOT SUPPORTED on iOS
+    func addAudio(audioBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, any Error>) -> Void) {
+        completion(.failure(PigeonError(
+            code: "audio_not_supported",
+            message: "Audio input is not supported on iOS platform. Use Android or Web instead.",
+            details: nil
+        )))
     }
 
     func generateResponse(completion: @escaping (Result<String, any Error>) -> Void) {

@@ -30,6 +30,7 @@ class WebDownloadService implements DownloadService {
     String? token,
     int maxRetries = 10,
     CancelToken? cancelToken,
+    bool? foreground,
   }) {
     throw UnsupportedError('WebDownloadService is only available on web platform');
   }

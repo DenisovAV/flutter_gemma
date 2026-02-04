@@ -201,6 +201,7 @@ class FlutterGemma {
   /// - [maxTokens]: Maximum context size (default: 1024)
   /// - [preferredBackend]: CPU or GPU preference (optional)
   /// - [supportImage]: Enable multimodal image support (default: false)
+  /// - [supportAudio]: Enable audio input support for Gemma 3n E4B (default: false)
   /// - [maxNumImages]: Maximum number of images if supportImage is true
   ///
   /// Throws:
@@ -223,11 +224,17 @@ class FlutterGemma {
   ///   maxTokens: 4096,
   ///   preferredBackend: PreferredBackend.gpu,
   /// );
+  ///
+  /// // Create with audio support (Gemma 3n E4B only)
+  /// final audioModel = await FlutterGemma.getActiveModel(
+  ///   supportAudio: true,
+  /// );
   /// ```
   static Future<InferenceModel> getActiveModel({
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
     bool supportImage = false,
+    bool supportAudio = false,
     int? maxNumImages,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
@@ -253,6 +260,7 @@ class FlutterGemma {
       maxTokens: maxTokens,
       preferredBackend: preferredBackend,
       supportImage: supportImage,
+      supportAudio: supportAudio,
       maxNumImages: maxNumImages,
     );
   }

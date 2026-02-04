@@ -1,3 +1,19 @@
+## 0.12.3
+- **Android LiteRT-LM Engine**: Added LiteRT-LM inference engine for Android
+  - Automatic engine selection based on file extension (`.litertlm` → LiteRT-LM, `.task/.bin` → MediaPipe)
+  - NPU acceleration support (Qualcomm, MediaTek, Google Tensor)
+- **Audio Input Support**: Audio input for Gemma 3n models via LiteRT-LM
+  - Platforms: Android + Desktop (macOS, Windows, Linux)
+  - WAV format (16kHz, mono, 16-bit PCM)
+  - `supportAudio` parameter in session configuration
+- **Desktop LiteRT-LM Fixes**: Fixed text chat and audio on desktop platforms
+  - Switched from Flow-based to Callback-based async API (matches Android)
+  - Audio transcription now works correctly
+- **Bug Fixes**:
+  - Fixed model deletion not removing metadata
+  - Fixed model creation failure blocking switching to another model
+  - Fixed download issues for large models
+
 ## 0.12.2
 - **Model Deletion Fix**: Fixed model deletion not removing metadata (#169)
 - **Model Switch Fix**: Fixed model creation failure blocking switching to another model (#170)

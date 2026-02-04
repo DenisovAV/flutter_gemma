@@ -24,6 +24,7 @@ const InitializeRequest$json = {
     {'1': 'max_tokens', '3': 3, '4': 1, '5': 5, '10': 'maxTokens'},
     {'1': 'enable_vision', '3': 4, '4': 1, '5': 8, '10': 'enableVision'},
     {'1': 'max_num_images', '3': 5, '4': 1, '5': 5, '10': 'maxNumImages'},
+    {'1': 'enable_audio', '3': 6, '4': 1, '5': 8, '10': 'enableAudio'},
   ],
 };
 
@@ -32,7 +33,7 @@ final $typed_data.Uint8List initializeRequestDescriptor = $convert.base64Decode(
     'ChFJbml0aWFsaXplUmVxdWVzdBIdCgptb2RlbF9wYXRoGAEgASgJUgltb2RlbFBhdGgSGAoHYm'
     'Fja2VuZBgCIAEoCVIHYmFja2VuZBIdCgptYXhfdG9rZW5zGAMgASgFUgltYXhUb2tlbnMSIwoN'
     'ZW5hYmxlX3Zpc2lvbhgEIAEoCFIMZW5hYmxlVmlzaW9uEiQKDm1heF9udW1faW1hZ2VzGAUgAS'
-    'gFUgxtYXhOdW1JbWFnZXM=');
+    'gFUgxtYXhOdW1JbWFnZXMSIQoMZW5hYmxlX2F1ZGlvGAYgASgIUgtlbmFibGVBdWRpbw==');
 
 @$core.Deprecated('Use initializeResponseDescriptor instead')
 const InitializeResponse$json = {
@@ -129,6 +130,21 @@ const ChatWithImageRequest$json = {
 final $typed_data.Uint8List chatWithImageRequestDescriptor = $convert.base64Decode(
     'ChRDaGF0V2l0aEltYWdlUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
     'NhdGlvbklkEhIKBHRleHQYAiABKAlSBHRleHQSFAoFaW1hZ2UYAyABKAxSBWltYWdl');
+
+@$core.Deprecated('Use chatWithAudioRequestDescriptor instead')
+const ChatWithAudioRequest$json = {
+  '1': 'ChatWithAudioRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+    {'1': 'text', '3': 2, '4': 1, '5': 9, '10': 'text'},
+    {'1': 'audio', '3': 3, '4': 1, '5': 12, '10': 'audio'},
+  ],
+};
+
+/// Descriptor for `ChatWithAudioRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List chatWithAudioRequestDescriptor = $convert.base64Decode(
+    'ChRDaGF0V2l0aEF1ZGlvUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
+    'NhdGlvbklkEhIKBHRleHQYAiABKAlSBHRleHQSFAoFYXVkaW8YAyABKAxSBWF1ZGlv');
 
 @$core.Deprecated('Use chatResponseDescriptor instead')
 const ChatResponse$json = {

@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Permission for audio recording (Gemma 3n E4B audio input) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <application
         android:label="flutter_gemma_example"
         android:name="${applicationName}"

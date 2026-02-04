@@ -107,6 +107,7 @@ private class PlatformServiceImpl(
     loraRanks: List<Long>?,
     preferredBackend: PreferredBackend?,
     maxNumImages: Long?,
+    supportAudio: Boolean?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
@@ -117,7 +118,8 @@ private class PlatformServiceImpl(
           maxTokens = maxTokens.toInt(),
           supportedLoraRanks = loraRanks?.map { it.toInt() },
           preferredBackend = preferredBackend,
-          maxNumImages = maxNumImages?.toInt()
+          maxNumImages = maxNumImages?.toInt(),
+          supportAudio = supportAudio,
         )
 
         // Create and initialize new engine BEFORE clearing old state
@@ -161,6 +163,7 @@ private class PlatformServiceImpl(
     topP: Double?,
     loraPath: String?,
     enableVisionModality: Boolean?,
+    enableAudioModality: Boolean?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
@@ -175,7 +178,8 @@ private class PlatformServiceImpl(
             topK = topK.toInt(),
             topP = topP?.toFloat(),
             loraPath = loraPath,
-            enableVisionModality = enableVisionModality
+            enableVisionModality = enableVisionModality,
+            enableAudioModality = enableAudioModality,
           )
 
           session?.close()
@@ -232,6 +236,17 @@ private class PlatformServiceImpl(
         val currentSession = session
           ?: throw IllegalStateException("Session not created")
         currentSession.addImage(imageBytes)
+        callback(Result.success(Unit))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun addAudio(audioBytes: ByteArray, callback: (Result<Unit>) -> Unit) {
+    scope.launch {
+      try {
+        session?.addAudio(audioBytes) ?: throw IllegalStateException("Session not created")
         callback(Result.success(Unit))
       } catch (e: Exception) {
         callback(Result.failure(e))

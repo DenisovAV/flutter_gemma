@@ -14,6 +14,7 @@ class ChatListWidget extends StatefulWidget {
     this.chat,
     this.isProcessing = false,
     this.useSyncMode = false,
+    this.supportsAudio = false,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class ChatListWidget extends StatefulWidget {
   final bool
       isProcessing; // Indicates if the model is currently processing (including function calls)
   final bool useSyncMode; // Toggle for sync/async mode
+  final bool supportsAudio; // Whether the model supports audio input
 
   @override
   State<ChatListWidget> createState() => _ChatListWidgetState();
@@ -95,6 +97,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
             return ChatInputField(
               handleSubmitted: _handleNewMessage,
               supportsImages: widget.chat?.supportsImages ?? false,
+              supportsAudio: widget.supportsAudio,
             );
           }
         } else if (index == 1) {

@@ -142,7 +142,7 @@ class PlatformService {
 
   final String pigeonVar_messageChannelSuffix;
 
-  Future<void> createModel({required int maxTokens, required String modelPath, required List<int>? loraRanks, PreferredBackend? preferredBackend, int? maxNumImages, }) async {
+  Future<void> createModel({required int maxTokens, required String modelPath, required List<int>? loraRanks, PreferredBackend? preferredBackend, int? maxNumImages, bool? supportAudio, }) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -150,7 +150,7 @@ class PlatformService {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[maxTokens, modelPath, loraRanks, preferredBackend, maxNumImages]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[maxTokens, modelPath, loraRanks, preferredBackend, maxNumImages, supportAudio]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -186,7 +186,7 @@ class PlatformService {
     }
   }
 
-  Future<void> createSession({required double temperature, required int randomSeed, required int topK, double? topP, String? loraPath, bool? enableVisionModality, }) async {
+  Future<void> createSession({required double temperature, required int randomSeed, required int topK, double? topP, String? loraPath, bool? enableVisionModality, bool? enableAudioModality, }) async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createSession$pigeonVar_messageChannelSuffix';
     final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
@@ -194,7 +194,7 @@ class PlatformService {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[temperature, randomSeed, topK, topP, loraPath, enableVisionModality]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[temperature, randomSeed, topK, topP, loraPath, enableVisionModality, enableAudioModality]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -288,6 +288,28 @@ class PlatformService {
     );
     final List<Object?>? pigeonVar_replyList =
         await pigeonVar_channel.send(<Object?>[imageBytes]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
+  Future<void> addAudio(Uint8List audioBytes) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.addAudio$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[audioBytes]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {

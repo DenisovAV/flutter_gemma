@@ -34,6 +34,7 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
       licenseUrl: widget.model.licenseUrl,
       modelType: widget.model.modelType,
       fileType: widget.model.fileType,
+      foreground: widget.model.foreground,
     );
     _initialize();
   }

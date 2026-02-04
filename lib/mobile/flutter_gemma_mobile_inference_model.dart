@@ -9,6 +9,7 @@ class MobileInferenceModel extends InferenceModel {
     this.preferredBackend,
     this.supportedLoraRanks,
     this.supportImage = false, // Enabling image support
+    this.supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     this.maxNumImages,
   });
 
@@ -24,6 +25,7 @@ class MobileInferenceModel extends InferenceModel {
     int tokenBuffer = 256,
     String? loraPath,
     bool? supportImage,
+    bool? supportAudio,
     List<Tool> tools = const [],
     bool? supportsFunctionCalls,
     bool isThinking = false,
@@ -37,10 +39,12 @@ class MobileInferenceModel extends InferenceModel {
         topP: topP,
         loraPath: loraPath,
         enableVisionModality: supportImage ?? false,
+        enableAudioModality: supportAudio ?? this.supportAudio,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
       supportImage: supportImage ?? false,
+      supportAudio: supportAudio ?? this.supportAudio,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
       modelType: modelType ?? this.modelType,
@@ -57,6 +61,7 @@ class MobileInferenceModel extends InferenceModel {
   final PreferredBackend? preferredBackend;
   final List<int>? supportedLoraRanks;
   final bool supportImage;
+  final bool supportAudio;
   final int? maxNumImages;
 
   bool _isClosed = false;
@@ -74,6 +79,7 @@ class MobileInferenceModel extends InferenceModel {
     double? topP,
     String? loraPath,
     bool? enableVisionModality,
+    bool? enableAudioModality,
   }) async {
     if (_isClosed) {
       throw StateError('Model is closed. Create a new instance to use it again');
@@ -94,12 +100,15 @@ class MobileInferenceModel extends InferenceModel {
         loraPath: resolvedLoraPath,
         // Enable vision modality if the model supports it
         enableVisionModality: enableVisionModality ?? supportImage,
+        // Enable audio modality if the model supports it (Gemma 3n E4B)
+        enableAudioModality: enableAudioModality ?? supportAudio,
       );
 
       final session = _session = MobileInferenceModelSession(
         modelType: modelType,
         fileType: fileType,
-        supportImage: supportImage,
+        supportImage: enableVisionModality ?? supportImage,
+        supportAudio: enableAudioModality ?? supportAudio,
         onClose: () {
           _session = null;
           _createCompleter = null;

@@ -14,6 +14,7 @@ class ModelDownloadService {
     required this.licenseUrl,
     required this.modelType,
     this.fileType = ModelFileType.task,
+    this.foreground,
   });
 
   final String modelUrl;
@@ -21,6 +22,12 @@ class ModelDownloadService {
   final String licenseUrl;
   final ModelType modelType;
   final ModelFileType fileType;
+
+  /// Whether to use foreground service on Android for large downloads.
+  /// - null: auto-detect based on file size (>500MB = foreground)
+  /// - true: always use foreground (shows notification, bypasses 9-min timeout)
+  /// - false: never use foreground
+  final bool? foreground;
 
   /// Load the token from SharedPreferences.
   Future<String?> loadToken() => AuthTokenService.loadToken();
@@ -104,7 +111,7 @@ class ModelDownloadService {
       await FlutterGemma.installModel(
         modelType: modelType,
         fileType: fileType,
-      ).fromNetwork(modelUrl, token: authToken).withProgress((progress) {
+      ).fromNetwork(modelUrl, token: authToken, foreground: foreground).withProgress((progress) {
         onProgress(progress.toDouble());
       }).install();
     } catch (e) {

@@ -13,6 +13,7 @@ data class EngineConfig(
     val supportedLoraRanks: List<Int>? = null,
     val preferredBackend: PreferredBackend? = null,
     val maxNumImages: Int? = null,
+    val supportAudio: Boolean? = null,
 )
 
 /**
@@ -25,6 +26,7 @@ data class SessionConfig(
     val topP: Float? = null,
     val loraPath: String? = null,
     val enableVisionModality: Boolean? = null,
+    val enableAudioModality: Boolean? = null,
 )
 
 /**

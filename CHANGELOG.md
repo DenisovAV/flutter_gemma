@@ -1,3 +1,6 @@
+## 0.12.4
+- **Android ProGuard Fix**: Added ProGuard rules for LiteRT-LM classes (#185)
+
 ## 0.12.3
 - **Android LiteRT-LM Engine**: Added LiteRT-LM inference engine for Android
   - Automatic engine selection based on file extension (`.litertlm` → LiteRT-LM, `.task/.bin` → MediaPipe)

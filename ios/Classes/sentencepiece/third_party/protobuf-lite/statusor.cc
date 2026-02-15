@@ -33,7 +33,7 @@
 #include <google/protobuf/stubs/logging.h>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace util {
 namespace internal {
 
@@ -44,5 +44,5 @@ void StatusOrHelper::Crash(const Status& status) {
 
 }  // namespace internal
 }  // namespace util
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

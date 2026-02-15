@@ -115,7 +115,7 @@
 #endif
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 using ConstStringParam = const std::string &;
 
@@ -397,7 +397,7 @@ class BigEndian {
   }
 };
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

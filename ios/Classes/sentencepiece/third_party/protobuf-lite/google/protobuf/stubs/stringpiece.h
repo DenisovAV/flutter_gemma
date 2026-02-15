@@ -153,7 +153,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 // StringPiece has *two* size types.
 // StringPiece::size_type
 //   is unsigned
@@ -469,7 +469,7 @@ struct StringPiecePod {
 };
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 GOOGLE_PROTOBUF_HASH_NAMESPACE_DECLARATION_START

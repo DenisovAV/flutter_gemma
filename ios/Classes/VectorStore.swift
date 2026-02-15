@@ -247,6 +247,111 @@ class VectorStore {
         }
     }
 
+    /// Get all documents with embeddings for HNSW index rebuild
+    /// Used during initialize() to rebuild in-memory HNSW index
+    func getAllDocumentsWithEmbeddings() throws -> [DocumentWithEmbedding] {
+        guard let db = db else {
+            throw VectorStoreError.databaseNotInitialized
+        }
+
+        let querySQL = """
+        SELECT \(Self.columnId), \(Self.columnContent), \(Self.columnEmbedding), \(Self.columnMetadata)
+        FROM \(Self.tableName);
+        """
+
+        var stmt: OpaquePointer?
+        var results: [DocumentWithEmbedding] = []
+
+        if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                // Extract columns
+                let id = String(cString: sqlite3_column_text(stmt, 0))
+                let content = String(cString: sqlite3_column_text(stmt, 1))
+
+                // Extract BLOB
+                if let embeddingBlob = sqlite3_column_blob(stmt, 2) {
+                    let embeddingSize = sqlite3_column_bytes(stmt, 2)
+
+                    // Deep copy of BLOB data
+                    var embeddingData = Data(count: Int(embeddingSize))
+                    embeddingData.withUnsafeMutableBytes { destPtr in
+                        destPtr.copyMemory(from: UnsafeRawBufferPointer(start: embeddingBlob, count: Int(embeddingSize)))
+                    }
+
+                    let embedding = blobToEmbedding(embeddingData)
+
+                    var metadata: String? = nil
+                    if sqlite3_column_type(stmt, 3) != SQLITE_NULL {
+                        metadata = String(cString: sqlite3_column_text(stmt, 3))
+                    }
+
+                    let doc = DocumentWithEmbedding(
+                        id: id,
+                        content: content,
+                        embedding: embedding,
+                        metadata: metadata
+                    )
+                    results.append(doc)
+                }
+            }
+        }
+
+        sqlite3_finalize(stmt)
+        return results
+    }
+
+    /// Get documents by IDs with full content
+    /// After HNSW returns candidate IDs, fetch full documents
+    func getDocumentsByIds(_ ids: [String]) throws -> [RetrievalResult] {
+        guard let db = db else {
+            throw VectorStoreError.databaseNotInitialized
+        }
+
+        if ids.isEmpty {
+            return []
+        }
+
+        // Build placeholder for IN clause
+        let placeholders = ids.map { _ in "?" }.joined(separator: ",")
+        let querySQL = """
+        SELECT \(Self.columnId), \(Self.columnContent), \(Self.columnMetadata)
+        FROM \(Self.tableName)
+        WHERE \(Self.columnId) IN (\(placeholders));
+        """
+
+        var stmt: OpaquePointer?
+        var results: [RetrievalResult] = []
+
+        if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
+            // Bind IDs
+            for (index, id) in ids.enumerated() {
+                sqlite3_bind_text(stmt, Int32(index + 1), (id as NSString).utf8String, -1, nil)
+            }
+
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                let id = String(cString: sqlite3_column_text(stmt, 0))
+                let content = String(cString: sqlite3_column_text(stmt, 1))
+
+                var metadata: String? = nil
+                if sqlite3_column_type(stmt, 2) != SQLITE_NULL {
+                    metadata = String(cString: sqlite3_column_text(stmt, 2))
+                }
+
+                // Similarity will be recalculated by Dart HNSW layer
+                let result = RetrievalResult(
+                    id: id,
+                    content: content,
+                    similarity: 0.0,  // Placeholder, recalculated in Dart
+                    metadata: metadata
+                )
+                results.append(result)
+            }
+        }
+
+        sqlite3_finalize(stmt)
+        return results
+    }
+
     // MARK: - Private Methods
 
     private func createTable() throws {

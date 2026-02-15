@@ -43,7 +43,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 
@@ -794,7 +794,7 @@ bool MergePartialFromCodedStreamImpl(MessageLite* msg, const ParseTable& table,
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

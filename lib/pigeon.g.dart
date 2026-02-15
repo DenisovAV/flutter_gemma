@@ -91,6 +91,46 @@ class VectorStoreStats {
   }
 }
 
+/// Document with embedding for HNSW rebuild
+///
+/// Used by [getAllDocumentsWithEmbeddings] to return documents
+/// with their vectors for in-memory index reconstruction.
+class DocumentWithEmbedding {
+  DocumentWithEmbedding({
+    required this.id,
+    required this.content,
+    required this.embedding,
+    this.metadata,
+  });
+
+  String id;
+
+  String content;
+
+  List<double> embedding;
+
+  String? metadata;
+
+  Object encode() {
+    return <Object?>[
+      id,
+      content,
+      embedding,
+      metadata,
+    ];
+  }
+
+  static DocumentWithEmbedding decode(Object result) {
+    result as List<Object?>;
+    return DocumentWithEmbedding(
+      id: result[0]! as String,
+      content: result[1]! as String,
+      embedding: (result[2] as List<Object?>?)!.cast<double>(),
+      metadata: result[3] as String?,
+    );
+  }
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -108,6 +148,9 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is VectorStoreStats) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
+    }    else if (value is DocumentWithEmbedding) {
+      buffer.putUint8(132);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -123,6 +166,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return RetrievalResult.decode(readValue(buffer)!);
       case 131: 
         return VectorStoreStats.decode(readValue(buffer)!);
+      case 132: 
+        return DocumentWithEmbedding.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -658,6 +703,81 @@ class PlatformService {
       );
     } else {
       return;
+    }
+  }
+
+  /// Get all documents with embeddings for HNSW index rebuild
+  ///
+  /// **Use case:**
+  /// Called during initialize() to rebuild in-memory HNSW index
+  /// from SQLite persistence layer.
+  ///
+  /// **Performance:**
+  /// - Returns all documents in single call
+  /// - Embeddings as List<double> (decoded from BLOB)
+  ///
+  /// Returns empty list if no documents stored.
+  Future<List<DocumentWithEmbedding>> getAllDocumentsWithEmbeddings() async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getAllDocumentsWithEmbeddings$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(null) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<DocumentWithEmbedding>();
+    }
+  }
+
+  /// Get documents by IDs with full content
+  ///
+  /// **Use case:**
+  /// After HNSW returns candidate IDs, fetch full documents
+  /// for final result construction.
+  ///
+  /// **Parameters:**
+  /// - [ids]: List of document IDs to retrieve
+  ///
+  /// Returns only documents that exist (missing IDs are skipped).
+  Future<List<RetrievalResult>> getDocumentsByIds(List<String> ids) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getDocumentsByIds$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[ids]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<RetrievalResult>();
     }
   }
 }

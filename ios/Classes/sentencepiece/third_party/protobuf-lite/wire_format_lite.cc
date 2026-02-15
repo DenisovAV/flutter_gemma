@@ -49,7 +49,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 #if !defined(_MSC_VER) || _MSC_VER >= 1900
@@ -774,5 +774,5 @@ size_t WireFormatLite::SInt64Size(const RepeatedField<int64>& value) {
 #endif
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

@@ -38,7 +38,7 @@
 #include <google/protobuf/wire_format_lite.h>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 namespace {
@@ -102,5 +102,5 @@ bool MergePartialFromCodedStreamLite(MessageLite* msg, const ParseTable& table,
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

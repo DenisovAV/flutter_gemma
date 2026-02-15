@@ -496,4 +496,28 @@ private class PlatformServiceImpl(
       callback(Result.failure(e))
     }
   }
+
+  override fun getAllDocumentsWithEmbeddings(callback: (Result<List<DocumentWithEmbedding>>) -> Unit) {
+    scope.launch {
+      try {
+        val results = vectorStore?.getAllDocumentsWithEmbeddings()
+          ?: throw IllegalStateException("Vector store not initialized")
+        callback(Result.success(results))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
+  override fun getDocumentsByIds(ids: List<String>, callback: (Result<List<RetrievalResult>>) -> Unit) {
+    scope.launch {
+      try {
+        val results = vectorStore?.getDocumentsByIds(ids)
+          ?: throw IllegalStateException("Vector store not initialized")
+        callback(Result.success(results))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
 }

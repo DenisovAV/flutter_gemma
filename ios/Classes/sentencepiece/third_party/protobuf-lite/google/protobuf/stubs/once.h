@@ -37,7 +37,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 using once_flag = std::once_flag;
@@ -47,7 +47,7 @@ void call_once(Args&&... args ) {
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

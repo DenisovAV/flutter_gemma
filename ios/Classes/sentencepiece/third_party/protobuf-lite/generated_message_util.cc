@@ -58,7 +58,7 @@
 
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 void DestroyMessage(const void* message) {
@@ -800,5 +800,5 @@ void InitSCCImpl(SCCInfoBase* scc) {
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

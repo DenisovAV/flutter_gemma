@@ -58,6 +58,6 @@ void ParseCommandLineFlags(const char *usage, int *argc, char ***argv,
   }
 }
 
-void ShutdownLibrary() { google::protobuf::ShutdownProtobufLibrary(); }
+void ShutdownLibrary() { google::protobuf_sp::ShutdownProtobufLibrary(); }
 
 }  // namespace sentencepiece

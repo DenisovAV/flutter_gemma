@@ -64,7 +64,7 @@
 #endif
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 class Arena;
 class Message;
@@ -262,7 +262,7 @@ inline void OnShutdownDestroyString(const std::string* ptr) {
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

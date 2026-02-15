@@ -37,7 +37,7 @@
 #include <type_traits>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 // Use implicit_cast as a safe version of static_cast or const_cast
@@ -131,7 +131,7 @@ using internal::implicit_cast;
 using internal::down_cast;
 using internal::bit_cast;
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

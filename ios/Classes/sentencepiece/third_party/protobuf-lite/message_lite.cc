@@ -58,7 +58,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 std::string MessageLite::InitializationErrorString() const {
   return "(cannot determine missing fields for lite message)";
@@ -579,5 +579,5 @@ void ShutdownProtobufLibrary() {
 }
 
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

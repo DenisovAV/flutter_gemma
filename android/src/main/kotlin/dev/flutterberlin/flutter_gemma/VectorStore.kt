@@ -177,6 +177,91 @@ class VectorStore(
         detectedDimension = null
     }
 
+    /**
+     * Get all documents with embeddings for HNSW index rebuild
+     *
+     * Used during initialize() to rebuild in-memory HNSW index
+     * from SQLite persistence layer.
+     */
+    fun getAllDocumentsWithEmbeddings(): List<DocumentWithEmbedding> {
+        val db = database ?: throw IllegalStateException("Database not initialized")
+
+        val cursor = db.query(TABLE_DOCUMENTS, null, null, null, null, null, null)
+        val results = mutableListOf<DocumentWithEmbedding>()
+
+        cursor.use {
+            val idIndex = cursor.getColumnIndexOrThrow(COLUMN_ID)
+            val contentIndex = cursor.getColumnIndexOrThrow(COLUMN_CONTENT)
+            val embeddingIndex = cursor.getColumnIndexOrThrow(COLUMN_EMBEDDING)
+            val metadataIndex = cursor.getColumnIndexOrThrow(COLUMN_METADATA)
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(idIndex)
+                val content = cursor.getString(contentIndex)
+                val embeddingBlob = cursor.getBlob(embeddingIndex)
+                val metadata = cursor.getString(metadataIndex)
+
+                // Convert BLOB to embedding
+                val embedding = blobToEmbedding(embeddingBlob)
+
+                results.add(DocumentWithEmbedding(
+                    id = id,
+                    content = content,
+                    embedding = embedding,
+                    metadata = metadata
+                ))
+            }
+        }
+
+        return results
+    }
+
+    /**
+     * Get documents by IDs with full content
+     *
+     * After HNSW returns candidate IDs, fetch full documents
+     * for final result construction.
+     */
+    fun getDocumentsByIds(ids: List<String>): List<RetrievalResult> {
+        val db = database ?: throw IllegalStateException("Database not initialized")
+
+        if (ids.isEmpty()) return emptyList()
+
+        // Build placeholder for IN clause
+        val placeholders = ids.joinToString(",") { "?" }
+        val cursor = db.query(
+            TABLE_DOCUMENTS,
+            arrayOf(COLUMN_ID, COLUMN_CONTENT, COLUMN_METADATA),
+            "$COLUMN_ID IN ($placeholders)",
+            ids.toTypedArray(),
+            null, null, null
+        )
+
+        val results = mutableListOf<RetrievalResult>()
+
+        cursor.use {
+            val idIndex = cursor.getColumnIndexOrThrow(COLUMN_ID)
+            val contentIndex = cursor.getColumnIndexOrThrow(COLUMN_CONTENT)
+            val metadataIndex = cursor.getColumnIndexOrThrow(COLUMN_METADATA)
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(idIndex)
+                val content = cursor.getString(contentIndex)
+                val metadata = cursor.getString(metadataIndex)
+
+                // Similarity will be recalculated by Dart HNSW layer
+                results.add(RetrievalResult(
+                    id = id,
+                    content = content,
+                    similarity = 0.0,  // Placeholder, recalculated in Dart
+                    metadata = metadata
+                ))
+            }
+        }
+
+        return results
+    }
+
     private fun cosineSimilarity(a: List<Double>, b: List<Double>): Double {
         if (a.size != b.size) return 0.0
 

@@ -39,7 +39,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace util {
 namespace error {
 // These values must match error codes defined in google/rpc/code.proto.
@@ -117,7 +117,7 @@ class PROTOBUF_EXPORT Status {
 PROTOBUF_EXPORT std::ostream& operator<<(std::ostream& os, const Status& x);
 
 }  // namespace util
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

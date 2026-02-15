@@ -60,9 +60,9 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.24
     'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
     'CLANG_CXX_LIBRARY' => 'libc++',
-    # Rename protobuf namespace to avoid conflict with MediaPipe's protobuf
-    # SPM_PROTOBUF_NAMESPACE renames google::protobuf to google::protobuf_sp
-    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) HAVE_PTHREAD=1 GOOGLE_PROTOBUF_NO_RTTI=1 protobuf=protobuf_sentencepiece',
+    # Protobuf namespace renamed in port_def.inc to avoid symbol conflicts with MediaPipe
+    # See: https://github.com/DenisovAV/flutter_gemma/issues/184
+    'GCC_PREPROCESSOR_DEFINITIONS' => '$(inherited) HAVE_PTHREAD=1 GOOGLE_PROTOBUF_NO_RTTI=1',
     'HEADER_SEARCH_PATHS' => '"${PODS_TARGET_SRCROOT}/Classes/sentencepiece" "${PODS_TARGET_SRCROOT}/Classes/sentencepiece/src" "${PODS_TARGET_SRCROOT}/Classes/sentencepiece/src/builtin_pb" "${PODS_TARGET_SRCROOT}/Classes/sentencepiece/third_party/protobuf-lite" "${PODS_TARGET_SRCROOT}/Classes/sentencepiece/third_party"',
     'OTHER_CPLUSPLUSFLAGS' => '-fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections',
     # Conditional force_load: only for device builds (TensorFlowLiteSelectTfOps doesn't have simulator slice)

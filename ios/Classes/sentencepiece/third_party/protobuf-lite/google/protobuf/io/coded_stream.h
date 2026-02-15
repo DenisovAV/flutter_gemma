@@ -148,7 +148,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 class DescriptorPool;
 class MessageFactory;
@@ -639,8 +639,8 @@ class PROTOBUF_EXPORT CodedInputStream {
 
   static int default_recursion_limit_;  // 100 by default.
 
-  friend class google::protobuf::ZeroCopyCodedInputStream;
-  friend class google::protobuf::internal::EpsCopyByteStream;
+  friend class google::protobuf_sp::ZeroCopyCodedInputStream;
+  friend class google::protobuf_sp::internal::EpsCopyByteStream;
 };
 
 // EpsCopyOutputStream wraps a ZeroCopyOutputStream and exposes a new stream,
@@ -1702,7 +1702,7 @@ inline uint8* CodedOutputStream::WriteStringToArray(const std::string& str,
 }
 
 }  // namespace io
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #if defined(_MSC_VER) && _MSC_VER >= 1300 && !defined(__INTEL_COMPILER)

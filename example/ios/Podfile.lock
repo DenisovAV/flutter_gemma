@@ -4,7 +4,7 @@ PODS:
   - background_downloader (0.0.1):
     - Flutter
   - Flutter (1.0.0)
-  - flutter_gemma (0.12.3):
+  - flutter_gemma (0.12.4):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.24)
     - MediaPipeTasksGenAIC (= 0.10.24)
@@ -101,7 +101,7 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 1ed92344566f8c14a815ce25d85f86e1781cf67e
+  flutter_gemma: 5ef4aa01993a04f1272240f7cbf85b0d5309e83f
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed

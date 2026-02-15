@@ -36,7 +36,7 @@
 #include <google/protobuf/metadata_lite.h>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 template <typename T>
@@ -270,7 +270,7 @@ const char* ExtensionSet::ParseMessageSetItemTmpl(
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #endif  // GOOGLE_PROTOBUF_EXTENSION_SET_INL_H__

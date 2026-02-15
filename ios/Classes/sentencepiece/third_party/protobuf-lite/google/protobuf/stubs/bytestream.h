@@ -61,7 +61,7 @@
 class CordByteSink;
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace strings {
 
 // An abstract interface for an object that consumes a sequence of bytes. This
@@ -343,7 +343,7 @@ class PROTOBUF_EXPORT LimitByteSource : public ByteSource {
 };
 
 }  // namespace strings
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

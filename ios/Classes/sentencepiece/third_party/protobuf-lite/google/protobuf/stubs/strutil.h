@@ -42,7 +42,7 @@
 #include <vector>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 #if defined(_MSC_VER) && _MSC_VER < 1800
 #define strtoll  _strtoi64
@@ -945,7 +945,7 @@ double NoLocaleStrtod(const char* str, char** endptr);
 
 }  // namespace internal
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

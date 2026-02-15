@@ -72,7 +72,7 @@
 #include <vector>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace io {
 namespace win32 {
 namespace {
@@ -464,7 +464,7 @@ bool wcs_to_utf8(const wchar_t* input, string* out) {
 }  // namespace strings
 }  // namespace win32
 }  // namespace io
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #endif  // defined(_WIN32)

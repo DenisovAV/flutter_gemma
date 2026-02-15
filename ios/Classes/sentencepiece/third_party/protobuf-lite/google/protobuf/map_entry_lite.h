@@ -51,7 +51,7 @@
 #endif
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 template <typename Derived, typename Key, typename Value,
           WireFormatLite::FieldType kKeyFieldType,
@@ -62,11 +62,11 @@ template <typename Derived, typename Key, typename Value,
           WireFormatLite::FieldType kValueFieldType>
 class MapFieldLite;
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 // MoveHelper::Move is used to set *dest.  It copies *src, or moves it (in
@@ -223,7 +223,7 @@ class MapEntryImpl : public Base {
   std::string GetTypeName() const override { return ""; }
 
   void CheckTypeAndMergeFrom(const MessageLite& other) override {
-    MergeFromInternal(*::google::protobuf::internal::DownCast<const Derived*>(&other));
+    MergeFromInternal(*::google::protobuf_sp::internal::DownCast<const Derived*>(&other));
   }
 
   const char* _InternalParse(const char* ptr, ParseContext* ctx) final {
@@ -262,7 +262,7 @@ class MapEntryImpl : public Base {
     return size;
   }
 
-  ::google::protobuf::uint8* _InternalSerialize(::google::protobuf::uint8* ptr,
+  ::google::protobuf_sp::uint8* _InternalSerialize(::google::protobuf_sp::uint8* ptr,
                               io::EpsCopyOutputStream* stream) const override {
     ptr = KeyTypeHandler::Write(kKeyFieldNumber, key(), ptr, stream);
     return ValueTypeHandler::Write(kValueFieldNumber, value(), ptr, stream);
@@ -645,7 +645,7 @@ struct MapEntryHelper<
 };
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

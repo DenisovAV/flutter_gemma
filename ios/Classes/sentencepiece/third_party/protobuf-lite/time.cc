@@ -6,7 +6,7 @@
 #include <google/protobuf/stubs/strutil.h>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 namespace {
@@ -361,5 +361,5 @@ bool ParseTime(const std::string& value, int64* seconds, int32* nanos) {
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

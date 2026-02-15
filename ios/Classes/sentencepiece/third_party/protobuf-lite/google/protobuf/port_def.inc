@@ -156,13 +156,15 @@
 #endif
 
 
-#define PROTOBUF_NAMESPACE "google::protobuf"
-#define PROTOBUF_NAMESPACE_ID google::protobuf
+// IMPORTANT: Renamed namespace to avoid symbol conflicts with MediaPipe's protobuf
+// See: https://github.com/DenisovAV/flutter_gemma/issues/184
+#define PROTOBUF_NAMESPACE "google::protobuf_sp"
+#define PROTOBUF_NAMESPACE_ID google::protobuf_sp
 #define PROTOBUF_NAMESPACE_OPEN \
   namespace google {            \
-  namespace protobuf {
+  namespace protobuf_sp {
 #define PROTOBUF_NAMESPACE_CLOSE \
-  } /* namespace protobuf */     \
+  } /* namespace protobuf_sp */  \
   } /* namespace google */
 
 #if defined(__GNUC__) || defined(__clang__)

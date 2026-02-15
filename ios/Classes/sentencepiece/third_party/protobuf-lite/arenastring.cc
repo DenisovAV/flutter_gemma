@@ -44,7 +44,7 @@
 // clang-format on
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 const std::string& LazyString::Init() const {
@@ -63,7 +63,7 @@ const std::string& LazyString::Init() const {
 
 
 void ArenaStringPtr::Set(const std::string* default_value,
-                         ConstStringParam value, ::google::protobuf::Arena* arena) {
+                         ConstStringParam value, ::google::protobuf_sp::Arena* arena) {
   if (IsDefault(default_value)) {
     tagged_ptr_.Set(Arena::Create<std::string>(arena, value));
   } else {
@@ -72,7 +72,7 @@ void ArenaStringPtr::Set(const std::string* default_value,
 }
 
 void ArenaStringPtr::Set(const std::string* default_value, std::string&& value,
-                         ::google::protobuf::Arena* arena) {
+                         ::google::protobuf_sp::Arena* arena) {
   if (IsDefault(default_value)) {
     if (arena == nullptr) {
       tagged_ptr_.Set(new std::string(std::move(value)));
@@ -90,26 +90,26 @@ void ArenaStringPtr::Set(const std::string* default_value, std::string&& value,
 }
 
 void ArenaStringPtr::Set(EmptyDefault, ConstStringParam value,
-                         ::google::protobuf::Arena* arena) {
+                         ::google::protobuf_sp::Arena* arena) {
   Set(&GetEmptyStringAlreadyInited(), value, arena);
 }
 
 void ArenaStringPtr::Set(EmptyDefault, std::string&& value,
-                         ::google::protobuf::Arena* arena) {
+                         ::google::protobuf_sp::Arena* arena) {
   Set(&GetEmptyStringAlreadyInited(), std::move(value), arena);
 }
 
 void ArenaStringPtr::Set(NonEmptyDefault, ConstStringParam value,
-                         ::google::protobuf::Arena* arena) {
+                         ::google::protobuf_sp::Arena* arena) {
   Set(nullptr, value, arena);
 }
 
 void ArenaStringPtr::Set(NonEmptyDefault, std::string&& value,
-                         ::google::protobuf::Arena* arena) {
+                         ::google::protobuf_sp::Arena* arena) {
   Set(nullptr, std::move(value), arena);
 }
 
-std::string* ArenaStringPtr::Mutable(EmptyDefault, ::google::protobuf::Arena* arena) {
+std::string* ArenaStringPtr::Mutable(EmptyDefault, ::google::protobuf_sp::Arena* arena) {
   if (!IsDonatedString() && !IsDefault(&GetEmptyStringAlreadyInited())) {
     return UnsafeMutablePointer();
   } else {
@@ -118,7 +118,7 @@ std::string* ArenaStringPtr::Mutable(EmptyDefault, ::google::protobuf::Arena* ar
 }
 
 std::string* ArenaStringPtr::Mutable(const LazyString& default_value,
-                                     ::google::protobuf::Arena* arena) {
+                                     ::google::protobuf_sp::Arena* arena) {
   if (!IsDonatedString() && !IsDefault(nullptr)) {
     return UnsafeMutablePointer();
   } else {
@@ -127,7 +127,7 @@ std::string* ArenaStringPtr::Mutable(const LazyString& default_value,
 }
 
 std::string* ArenaStringPtr::MutableNoCopy(const std::string* default_value,
-                                           ::google::protobuf::Arena* arena) {
+                                           ::google::protobuf_sp::Arena* arena) {
   if (!IsDonatedString() && !IsDefault(default_value)) {
     return UnsafeMutablePointer();
   } else {
@@ -140,7 +140,7 @@ std::string* ArenaStringPtr::MutableNoCopy(const std::string* default_value,
 }
 
 template <typename... Lazy>
-std::string* ArenaStringPtr::MutableSlow(::google::protobuf::Arena* arena,
+std::string* ArenaStringPtr::MutableSlow(::google::protobuf_sp::Arena* arena,
                                          const Lazy&... lazy_default) {
   const std::string* const default_value =
       sizeof...(Lazy) == 0 ? &GetEmptyStringAlreadyInited() : nullptr;
@@ -152,7 +152,7 @@ std::string* ArenaStringPtr::MutableSlow(::google::protobuf::Arena* arena,
 }
 
 std::string* ArenaStringPtr::Release(const std::string* default_value,
-                                     ::google::protobuf::Arena* arena) {
+                                     ::google::protobuf_sp::Arena* arena) {
   if (IsDefault(default_value)) {
     return nullptr;
   } else {
@@ -161,7 +161,7 @@ std::string* ArenaStringPtr::Release(const std::string* default_value,
 }
 
 std::string* ArenaStringPtr::ReleaseNonDefault(const std::string* default_value,
-                                               ::google::protobuf::Arena* arena) {
+                                               ::google::protobuf_sp::Arena* arena) {
   GOOGLE_DCHECK(!IsDefault(default_value));
 
   if (!IsDonatedString()) {
@@ -183,7 +183,7 @@ std::string* ArenaStringPtr::ReleaseNonDefault(const std::string* default_value,
 }
 
 void ArenaStringPtr::SetAllocated(const std::string* default_value,
-                                  std::string* value, ::google::protobuf::Arena* arena) {
+                                  std::string* value, ::google::protobuf_sp::Arena* arena) {
   // Release what we have first.
   if (arena == nullptr && !IsDefault(default_value)) {
     delete UnsafeMutablePointer();
@@ -208,7 +208,7 @@ void ArenaStringPtr::SetAllocated(const std::string* default_value,
 }
 
 void ArenaStringPtr::Destroy(const std::string* default_value,
-                             ::google::protobuf::Arena* arena) {
+                             ::google::protobuf_sp::Arena* arena) {
   if (arena == nullptr) {
     GOOGLE_DCHECK(!IsDonatedString());
     if (!IsDefault(default_value)) {
@@ -217,11 +217,11 @@ void ArenaStringPtr::Destroy(const std::string* default_value,
   }
 }
 
-void ArenaStringPtr::Destroy(EmptyDefault, ::google::protobuf::Arena* arena) {
+void ArenaStringPtr::Destroy(EmptyDefault, ::google::protobuf_sp::Arena* arena) {
   Destroy(&GetEmptyStringAlreadyInited(), arena);
 }
 
-void ArenaStringPtr::Destroy(NonEmptyDefault, ::google::protobuf::Arena* arena) {
+void ArenaStringPtr::Destroy(NonEmptyDefault, ::google::protobuf_sp::Arena* arena) {
   Destroy(nullptr, arena);
 }
 
@@ -239,7 +239,7 @@ void ArenaStringPtr::ClearToEmpty() {
 }
 
 void ArenaStringPtr::ClearToDefault(const LazyString& default_value,
-                                    ::google::protobuf::Arena* arena) {
+                                    ::google::protobuf_sp::Arena* arena) {
   (void)arena;
   if (IsDefault(nullptr)) {
     // Already set to default -- do nothing.
@@ -250,5 +250,5 @@ void ArenaStringPtr::ClearToDefault(const LazyString& default_value,
 
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

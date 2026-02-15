@@ -59,7 +59,7 @@
 #endif
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 template <typename T>
 class RepeatedPtrField;
@@ -333,7 +333,7 @@ class PROTOBUF_EXPORT MessageLite {
   // This function takes a string in the (non-human-readable) binary wire
   // format, matching the encoding output by MessageLite::SerializeToString().
   // If you'd like to convert a human-readable string into a protocol buffer
-  // object, see google::protobuf::TextFormat::ParseFromString().
+  // object, see google::protobuf_sp::TextFormat::ParseFromString().
   PROTOBUF_ATTRIBUTE_REINITIALIZES bool ParseFromString(ConstStringParam data);
   // Like ParseFromString(), but accepts messages that are missing
   // required fields.
@@ -613,7 +613,7 @@ T* OnShutdownDelete(T* p) {
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

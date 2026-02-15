@@ -51,7 +51,7 @@
 
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace io {
 
 #ifdef _WIN32
@@ -60,11 +60,11 @@ namespace io {
 #define lseek(fd, offset, origin) ((off_t)-1)
 // DO NOT include <io.h>, instead create functions in io_win32.{h,cc} and import
 // them like we do below.
-using google::protobuf::io::win32::access;
-using google::protobuf::io::win32::close;
-using google::protobuf::io::win32::open;
-using google::protobuf::io::win32::read;
-using google::protobuf::io::win32::write;
+using google::protobuf_sp::io::win32::access;
+using google::protobuf_sp::io::win32::close;
+using google::protobuf_sp::io::win32::open;
+using google::protobuf_sp::io::win32::read;
+using google::protobuf_sp::io::win32::write;
 #endif
 
 namespace {
@@ -362,5 +362,5 @@ int64_t ConcatenatingInputStream::ByteCount() const {
 // ===================================================================
 
 }  // namespace io
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

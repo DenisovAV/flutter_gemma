@@ -48,7 +48,7 @@
 // generated code.
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 // An implementation of MessageLite that treats all data as unknown. This type
@@ -182,7 +182,7 @@ struct WeakRepeatedPtrField {
   };
 };
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

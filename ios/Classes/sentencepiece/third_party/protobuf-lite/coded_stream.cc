@@ -57,7 +57,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace io {
 
 namespace {
@@ -952,5 +952,5 @@ uint8* CodedOutputStream::WriteStringWithSizeToArray(const std::string& str,
 }
 
 }  // namespace io
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

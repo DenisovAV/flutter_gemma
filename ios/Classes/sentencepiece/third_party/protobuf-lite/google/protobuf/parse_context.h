@@ -50,7 +50,7 @@
 
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 class UnknownFieldSet;
 class DescriptorPool;
@@ -861,7 +861,7 @@ PROTOBUF_EXPORT PROTOBUF_MUST_USE_RESULT const char* UnknownFieldParse(
     uint32 tag, std::string* unknown, const char* ptr, ParseContext* ctx);
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

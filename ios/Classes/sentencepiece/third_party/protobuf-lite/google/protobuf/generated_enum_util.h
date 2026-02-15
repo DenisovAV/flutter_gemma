@@ -43,7 +43,7 @@
 #endif
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 // This type trait can be used to cause templates to only match proto2 enum
 // types.
@@ -75,7 +75,7 @@ PROTOBUF_EXPORT bool InitializeEnumStrings(
     internal::ExplicitlyConstructed<std::string>* enum_strings);
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

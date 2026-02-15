@@ -35,7 +35,7 @@
 #include <utility>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace util {
 namespace error {
 inline std::string CodeEnumToString(error::Code code) {
@@ -130,5 +130,5 @@ std::ostream& operator<<(std::ostream& os, const Status& x) {
 }
 
 }  // namespace util
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

@@ -115,7 +115,7 @@
 
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace io {
 
 // Defined in this file.
@@ -245,7 +245,7 @@ class PROTOBUF_EXPORT ZeroCopyOutputStream {
 };
 
 }  // namespace io
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

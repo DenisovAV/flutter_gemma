@@ -64,7 +64,7 @@
 // ===================================================================
 // emulates google3/base/mutex.h
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 #define GOOGLE_PROTOBUF_LINKER_INITIALIZED
@@ -175,7 +175,7 @@ using internal::ReaderMutexLock;
 using internal::WriterMutexLock;
 using internal::MutexLockMaybe;
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #undef GOOGLE_PROTOBUF_ACQUIRE

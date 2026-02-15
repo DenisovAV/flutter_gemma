@@ -48,7 +48,7 @@
 
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 // Lazy string instance to support string fields with non-empty default.
@@ -182,13 +182,13 @@ struct PROTOBUF_EXPORT ArenaStringPtr {
   struct NonEmptyDefault {};
 
   void Set(const std::string* default_value, ConstStringParam value,
-           ::google::protobuf::Arena* arena);
+           ::google::protobuf_sp::Arena* arena);
   void Set(const std::string* default_value, std::string&& value,
-           ::google::protobuf::Arena* arena);
-  void Set(EmptyDefault, ConstStringParam value, ::google::protobuf::Arena* arena);
-  void Set(EmptyDefault, std::string&& value, ::google::protobuf::Arena* arena);
-  void Set(NonEmptyDefault, ConstStringParam value, ::google::protobuf::Arena* arena);
-  void Set(NonEmptyDefault, std::string&& value, ::google::protobuf::Arena* arena);
+           ::google::protobuf_sp::Arena* arena);
+  void Set(EmptyDefault, ConstStringParam value, ::google::protobuf_sp::Arena* arena);
+  void Set(EmptyDefault, std::string&& value, ::google::protobuf_sp::Arena* arena);
+  void Set(NonEmptyDefault, ConstStringParam value, ::google::protobuf_sp::Arena* arena);
+  void Set(NonEmptyDefault, std::string&& value, ::google::protobuf_sp::Arena* arena);
 
   // Basic accessors.
   const std::string& Get() const PROTOBUF_ALWAYS_INLINE {
@@ -201,24 +201,24 @@ struct PROTOBUF_EXPORT ArenaStringPtr {
   }
 
   // For fields with an empty default value.
-  std::string* Mutable(EmptyDefault, ::google::protobuf::Arena* arena);
+  std::string* Mutable(EmptyDefault, ::google::protobuf_sp::Arena* arena);
   // For fields with a non-empty default value.
-  std::string* Mutable(const LazyString& default_value, ::google::protobuf::Arena* arena);
+  std::string* Mutable(const LazyString& default_value, ::google::protobuf_sp::Arena* arena);
 
   // Release returns a std::string* instance that is heap-allocated and is not
   // Own()'d by any arena. If the field is not set, this returns NULL. The
   // caller retains ownership. Clears this field back to NULL state. Used to
   // implement release_<field>() methods on generated classes.
   std::string* Release(const std::string* default_value,
-                       ::google::protobuf::Arena* arena);
+                       ::google::protobuf_sp::Arena* arena);
   std::string* ReleaseNonDefault(const std::string* default_value,
-                                 ::google::protobuf::Arena* arena);
+                                 ::google::protobuf_sp::Arena* arena);
 
   // Takes a std::string that is heap-allocated, and takes ownership. The
   // std::string's destructor is registered with the arena. Used to implement
   // set_allocated_<field> in generated classes.
   void SetAllocated(const std::string* default_value, std::string* value,
-                    ::google::protobuf::Arena* arena);
+                    ::google::protobuf_sp::Arena* arena);
 
   // Swaps internal pointers. Arena-safety semantics: this is guarded by the
   // logic in Swap()/UnsafeArenaSwap() at the message level, so this method is
@@ -227,9 +227,9 @@ struct PROTOBUF_EXPORT ArenaStringPtr {
                    Arena* arena) PROTOBUF_ALWAYS_INLINE;
 
   // Frees storage (if not on an arena).
-  void Destroy(const std::string* default_value, ::google::protobuf::Arena* arena);
-  void Destroy(EmptyDefault, ::google::protobuf::Arena* arena);
-  void Destroy(NonEmptyDefault, ::google::protobuf::Arena* arena);
+  void Destroy(const std::string* default_value, ::google::protobuf_sp::Arena* arena);
+  void Destroy(EmptyDefault, ::google::protobuf_sp::Arena* arena);
+  void Destroy(NonEmptyDefault, ::google::protobuf_sp::Arena* arena);
 
   // Clears content, but keeps allocated std::string, to avoid the overhead of
   // heap operations. After this returns, the content (as seen by the user) will
@@ -244,7 +244,7 @@ struct PROTOBUF_EXPORT ArenaStringPtr {
   // Clears content, but keeps allocated std::string if arena != NULL, to avoid
   // the overhead of heap operations. After this returns, the content (as seen
   // by the user) will always be equal to |default_value|.
-  void ClearToDefault(const LazyString& default_value, ::google::protobuf::Arena* arena);
+  void ClearToDefault(const LazyString& default_value, ::google::protobuf_sp::Arena* arena);
 
   // Called from generated code / reflection runtime only. Resets value to point
   // to a default string pointer, with the semantics that this
@@ -261,7 +261,7 @@ struct PROTOBUF_EXPORT ArenaStringPtr {
   // Similar to `MutableNoArenaNoDefault`, but also handles the arena case.
   // If the value was donated, the contents are discarded.
   std::string* MutableNoCopy(const std::string* default_value,
-                             ::google::protobuf::Arena* arena);
+                             ::google::protobuf_sp::Arena* arena);
 
   // Destroy the string. Assumes `arena == nullptr`.
   void DestroyNoArena(const std::string* default_value);
@@ -294,7 +294,7 @@ struct PROTOBUF_EXPORT ArenaStringPtr {
   // MutableSlow requires that !IsString() || IsDefault
   // Variadic to support 0 args for EmptyDefault and 1 arg for LazyString.
   template <typename... Lazy>
-  std::string* MutableSlow(::google::protobuf::Arena* arena, const Lazy&... lazy_default);
+  std::string* MutableSlow(::google::protobuf_sp::Arena* arena, const Lazy&... lazy_default);
 
 };
 
@@ -367,7 +367,7 @@ inline std::string* ArenaStringPtr::UnsafeMutablePointer() {
 
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

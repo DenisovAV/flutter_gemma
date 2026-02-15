@@ -47,7 +47,7 @@
 
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 
 struct ArenaOptions;
 
@@ -483,7 +483,7 @@ class PROTOBUF_EXPORT ArenaImpl {
 };
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

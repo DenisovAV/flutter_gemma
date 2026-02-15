@@ -74,7 +74,7 @@
 namespace std {}
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 // Some of these constants are macros rather than const ints so that they can
@@ -115,7 +115,7 @@ std::string PROTOBUF_EXPORT VersionString(int version);
 // matches the headers you compiled against.  If a version mismatch is
 // detected, the process will abort.
 #define GOOGLE_PROTOBUF_VERIFY_VERSION                                    \
-  ::google::protobuf::internal::VerifyVersion(                            \
+  ::google::protobuf_sp::internal::VerifyVersion(                            \
     GOOGLE_PROTOBUF_VERSION, GOOGLE_PROTOBUF_MIN_LIBRARY_VERSION,         \
     __FILE__)
 
@@ -194,7 +194,7 @@ class FatalException : public std::exception {
 // in some versions of MSVC.
 using std::string;
 
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google
 
 #include <google/protobuf/port_undef.inc>

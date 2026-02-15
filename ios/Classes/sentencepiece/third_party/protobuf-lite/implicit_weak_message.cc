@@ -38,7 +38,7 @@
 #include <google/protobuf/port_def.inc>
 
 namespace google {
-namespace protobuf {
+namespace protobuf_sp {
 namespace internal {
 
 const char* ImplicitWeakMessage::_InternalParse(const char* ptr,
@@ -61,5 +61,5 @@ const ImplicitWeakMessage* ImplicitWeakMessage::default_instance() {
 }
 
 }  // namespace internal
-}  // namespace protobuf
+}  // namespace protobuf_sp
 }  // namespace google

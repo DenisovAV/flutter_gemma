@@ -56,6 +56,10 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
 
   external JSPromise<JSAny?> close();
 
+  external JSPromise<JSArray<JSObject>> getAllDocumentsWithEmbeddings();
+
+  external JSPromise<JSArray<JSObject>> getDocumentsByIds(JSArray<JSString> ids);
+
   // ========================================================================
   // Dart Helper Methods (type conversion wrappers)
   // ========================================================================
@@ -126,6 +130,29 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
     );
   }
 
+  /// Get all documents with embeddings for HNSW rebuild (Dart-friendly API)
+  ///
+  /// Used during initialize() to rebuild in-memory HNSW index
+  Future<List<DocumentWithEmbedding>> getAllDocumentsWithEmbeddingsDart() async {
+    final jsResults = await getAllDocumentsWithEmbeddings().toDart;
+
+    return jsResults.toDart
+        .map((jsObj) => _parseDocumentWithEmbedding(jsObj))
+        .toList();
+  }
+
+  /// Get documents by IDs (Dart-friendly API)
+  ///
+  /// After HNSW returns candidate IDs, fetch full documents
+  Future<List<RetrievalResult>> getDocumentsByIdsDart(List<String> ids) async {
+    final jsIds = ids.map((id) => id.toJS).toList().toJS;
+    final jsResults = await getDocumentsByIds(jsIds).toDart;
+
+    return jsResults.toDart
+        .map((jsObj) => _parseRetrievalResult(jsObj))
+        .toList();
+  }
+
   // ========================================================================
   // Private Helpers
   // ========================================================================
@@ -147,6 +174,29 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
       id: (jsObj['id'] as JSString).toDart,
       content: (jsObj['content'] as JSString).toDart,
       similarity: (jsObj['similarity'] as JSNumber).toDartDouble,
+      metadata: metadata.isNull ? null : (metadata as JSString).toDart,
+    );
+  }
+
+  /// Parse JS object to DocumentWithEmbedding
+  ///
+  /// JS object structure:
+  /// ```javascript
+  /// {
+  ///   id: string,
+  ///   content: string,
+  ///   embedding: number[],
+  ///   metadata: string | null
+  /// }
+  /// ```
+  static DocumentWithEmbedding _parseDocumentWithEmbedding(JSObject jsObj) {
+    final metadata = jsObj['metadata'];
+    final jsEmbedding = jsObj['embedding'] as JSArray<JSNumber>;
+
+    return DocumentWithEmbedding(
+      id: (jsObj['id'] as JSString).toDart,
+      content: (jsObj['content'] as JSString).toDart,
+      embedding: jsEmbedding.toDart.map((n) => n.toDartDouble).toList(),
       metadata: metadata.isNull ? null : (metadata as JSString).toDart,
     );
   }

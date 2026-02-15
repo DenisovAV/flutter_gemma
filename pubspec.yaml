@@ -30,6 +30,8 @@ dependencies:
   # Desktop gRPC support
   grpc: ^5.0.0
   protobuf: ^6.0.0
+  # HNSW vector search for O(log n) similarity queries
+  local_hnsw: ^1.0.0
 
 dev_dependencies:
   flutter_test:

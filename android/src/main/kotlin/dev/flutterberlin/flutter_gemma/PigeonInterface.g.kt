@@ -115,6 +115,40 @@ data class VectorStoreStats (
     )
   }
 }
+
+/**
+ * Document with embedding for HNSW rebuild
+ *
+ * Used by [getAllDocumentsWithEmbeddings] to return documents
+ * with their vectors for in-memory index reconstruction.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class DocumentWithEmbedding (
+  val id: String,
+  val content: String,
+  val embedding: List<Double>,
+  val metadata: String? = null
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): DocumentWithEmbedding {
+      val id = pigeonVar_list[0] as String
+      val content = pigeonVar_list[1] as String
+      val embedding = pigeonVar_list[2] as List<Double>
+      val metadata = pigeonVar_list[3] as String?
+      return DocumentWithEmbedding(id, content, embedding, metadata)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      id,
+      content,
+      embedding,
+      metadata,
+    )
+  }
+}
 private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
   override fun readValueOfType(type: Byte, buffer: ByteBuffer): Any? {
     return when (type) {
@@ -133,6 +167,11 @@ private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
           VectorStoreStats.fromList(it)
         }
       }
+      132.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          DocumentWithEmbedding.fromList(it)
+        }
+      }
       else -> super.readValueOfType(type, buffer)
     }
   }
@@ -148,6 +187,10 @@ private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
       }
       is VectorStoreStats -> {
         stream.write(131)
+        writeValue(stream, value.toList())
+      }
+      is DocumentWithEmbedding -> {
+        stream.write(132)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -180,6 +223,33 @@ interface PlatformService {
   fun getVectorStoreStats(callback: (Result<VectorStoreStats>) -> Unit)
   fun clearVectorStore(callback: (Result<Unit>) -> Unit)
   fun closeVectorStore(callback: (Result<Unit>) -> Unit)
+  /**
+   * Get all documents with embeddings for HNSW index rebuild
+   *
+   * **Use case:**
+   * Called during initialize() to rebuild in-memory HNSW index
+   * from SQLite persistence layer.
+   *
+   * **Performance:**
+   * - Returns all documents in single call
+   * - Embeddings as List<double> (decoded from BLOB)
+   *
+   * Returns empty list if no documents stored.
+   */
+  fun getAllDocumentsWithEmbeddings(callback: (Result<List<DocumentWithEmbedding>>) -> Unit)
+  /**
+   * Get documents by IDs with full content
+   *
+   * **Use case:**
+   * After HNSW returns candidate IDs, fetch full documents
+   * for final result construction.
+   *
+   * **Parameters:**
+   * - [ids]: List of document IDs to retrieve
+   *
+   * Returns only documents that exist (missing IDs are skipped).
+   */
+  fun getDocumentsByIds(ids: List<String>, callback: (Result<List<RetrievalResult>>) -> Unit)
 
   companion object {
     /** The codec used by PlatformService. */
@@ -606,6 +676,44 @@ interface PlatformService {
                 reply.reply(wrapError(error))
               } else {
                 reply.reply(wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.getAllDocumentsWithEmbeddings$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            api.getAllDocumentsWithEmbeddings{ result: Result<List<DocumentWithEmbedding>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.getDocumentsByIds$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val idsArg = args[0] as List<String>
+            api.getDocumentsByIds(idsArg) { result: Result<List<RetrievalResult>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
               }
             }
           }

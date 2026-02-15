@@ -128,6 +128,33 @@ abstract class PlatformService {
 
   @async
   void closeVectorStore();
+
+  /// Get all documents with embeddings for HNSW index rebuild
+  ///
+  /// **Use case:**
+  /// Called during initialize() to rebuild in-memory HNSW index
+  /// from SQLite persistence layer.
+  ///
+  /// **Performance:**
+  /// - Returns all documents in single call
+  /// - Embeddings as List<double> (decoded from BLOB)
+  ///
+  /// Returns empty list if no documents stored.
+  @async
+  List<DocumentWithEmbedding> getAllDocumentsWithEmbeddings();
+
+  /// Get documents by IDs with full content
+  ///
+  /// **Use case:**
+  /// After HNSW returns candidate IDs, fetch full documents
+  /// for final result construction.
+  ///
+  /// **Parameters:**
+  /// - [ids]: List of document IDs to retrieve
+  ///
+  /// Returns only documents that exist (missing IDs are skipped).
+  @async
+  List<RetrievalResult> getDocumentsByIds(List<String> ids);
 }
 
 // === RAG Data Classes ===
@@ -153,5 +180,23 @@ class VectorStoreStats {
   VectorStoreStats({
     required this.documentCount,
     required this.vectorDimension,
+  });
+}
+
+/// Document with embedding for HNSW rebuild
+///
+/// Used by [getAllDocumentsWithEmbeddings] to return documents
+/// with their vectors for in-memory index reconstruction.
+class DocumentWithEmbedding {
+  final String id;
+  final String content;
+  final List<double> embedding;
+  final String? metadata;
+
+  DocumentWithEmbedding({
+    required this.id,
+    required this.content,
+    required this.embedding,
+    this.metadata,
   });
 }

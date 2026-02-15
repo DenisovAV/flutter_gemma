@@ -1,11 +1,15 @@
 import 'dart:typed_data';
 import 'dart:math' show sqrt;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_gemma/core/infrastructure/hnsw_vector_index.dart';
 
 /// Cross-Platform Parity Tests for VectorStore
 ///
 /// These tests verify that BLOB encoding and cosine similarity
 /// produce IDENTICAL results across all platforms (Android, iOS, Web).
+///
+/// Also includes HNSW parity tests to verify HNSW search results
+/// are consistent with brute-force cosine similarity.
 ///
 /// Run on web: flutter test test/vector_store_parity_test.dart -p chrome
 /// Run on VM:  flutter test test/vector_store_parity_test.dart
@@ -181,6 +185,163 @@ void main() {
 
       // Should be identical (within float32 precision)
       expect(simAfter, closeTo(simBefore, 0.0001));
+    });
+  });
+
+  group('HNSW vs Brute-Force Parity', () {
+    test('HNSW similarity matches brute-force for exact match', () {
+      final index = HnswVectorIndex();
+
+      // Add documents
+      final embeddings = {
+        'doc1': [1.0, 0.0, 0.0],
+        'doc2': [0.9, 0.1, 0.0],
+        'doc3': [0.0, 1.0, 0.0],
+      };
+
+      for (final entry in embeddings.entries) {
+        index.add(entry.key, entry.value);
+      }
+
+      // Query for exact match
+      final query = [1.0, 0.0, 0.0];
+      final results = index.search(query, 3);
+
+      // Find doc1 result
+      final doc1Result = results.firstWhere((r) => r.id == 'doc1');
+
+      // Brute-force calculation
+      final bruteForceSim = cosineSimilarity(query, embeddings['doc1']!);
+
+      // Should match exactly (both are 1.0 for exact match)
+      expect(doc1Result.similarity, closeTo(bruteForceSim, 0.0001));
+      expect(doc1Result.similarity, closeTo(1.0, 0.0001));
+    });
+
+    test('HNSW similarity matches brute-force for similar vectors', () {
+      final index = HnswVectorIndex();
+
+      // Add documents with known similarity relationships
+      final embeddings = {
+        'exact': [1.0, 0.0, 0.0],
+        'similar': [0.9, 0.1, 0.0],
+        'somewhat': [0.7, 0.7, 0.0],
+        'orthogonal': [0.0, 1.0, 0.0],
+      };
+
+      for (final entry in embeddings.entries) {
+        index.add(entry.key, entry.value);
+      }
+
+      final query = [1.0, 0.0, 0.0];
+      final results = index.search(query, 4);
+
+      // Verify each result's similarity matches brute-force
+      for (final result in results) {
+        final embedding = embeddings[result.id]!;
+        final expected = cosineSimilarity(query, embedding);
+        expect(result.similarity, closeTo(expected, 0.0001),
+            reason: 'Similarity mismatch for ${result.id}');
+      }
+    });
+
+    test('HNSW finds exact match in top-K', () {
+      final index = HnswVectorIndex();
+
+      // Add documents - starting from 1 to avoid doc0 being exact match
+      final embeddings = <String, List<double>>{};
+      for (int i = 1; i < 20; i++) {
+        final id = 'doc$i';
+        // Create embeddings with varying similarity to [1, 0, 0]
+        final embedding = [
+          1.0 - i * 0.05,  // First component decreases
+          i * 0.05,        // Second component increases
+          0.0,
+        ];
+        embeddings[id] = embedding;
+        index.add(id, embedding);
+      }
+
+      // Add exact match last
+      index.add('exact', [1.0, 0.0, 0.0]);
+      embeddings['exact'] = [1.0, 0.0, 0.0];
+
+      final query = [1.0, 0.0, 0.0];
+
+      // Get HNSW results
+      final hnswResults = index.search(query, 5);
+
+      // HNSW should always find the exact match
+      expect(hnswResults.isNotEmpty, true,
+          reason: 'HNSW should return results');
+
+      // First result should have similarity 1.0 (exact match)
+      expect(hnswResults[0].similarity, closeTo(1.0, 0.0001),
+          reason: 'First result should have similarity 1.0 (exact match)');
+
+      // Verify it's the 'exact' document
+      expect(hnswResults[0].id, 'exact',
+          reason: 'First result should be exact match');
+
+      // All results should have valid similarity values
+      for (final result in hnswResults) {
+        final bruteForce = cosineSimilarity(query, embeddings[result.id]!);
+        expect(result.similarity, closeTo(bruteForce, 0.0001),
+            reason: 'Similarity should match brute-force calculation');
+      }
+    });
+
+    test('HNSW respects threshold same as brute-force', () {
+      final index = HnswVectorIndex();
+
+      // Add documents
+      index.add('high', [1.0, 0.0, 0.0]);     // sim = 1.0
+      index.add('medium', [0.7, 0.7, 0.0]);   // sim ~= 0.707
+      index.add('low', [0.0, 1.0, 0.0]);      // sim = 0.0
+
+      final query = [1.0, 0.0, 0.0];
+      final threshold = 0.5;
+
+      // HNSW search with threshold
+      final results = index.search(query, 10, threshold: threshold);
+
+      // All results should be above threshold
+      for (final result in results) {
+        expect(result.similarity, greaterThanOrEqualTo(threshold),
+            reason: '${result.id} should be above threshold');
+      }
+
+      // 'low' should not be in results (similarity = 0.0)
+      expect(results.any((r) => r.id == 'low'), false,
+          reason: "'low' has similarity 0.0, should not pass threshold");
+    });
+
+    test('HNSW and brute-force produce same ranking order', () {
+      final index = HnswVectorIndex();
+
+      // Add documents with clear ranking
+      final embeddings = {
+        'first': [1.0, 0.0, 0.0],    // Exact match
+        'second': [0.95, 0.05, 0.0], // Very similar
+        'third': [0.8, 0.2, 0.0],    // Less similar
+        'fourth': [0.5, 0.5, 0.0],   // Even less similar
+      };
+
+      for (final entry in embeddings.entries) {
+        index.add(entry.key, entry.value);
+      }
+
+      final query = [1.0, 0.0, 0.0];
+      final results = index.search(query, 4);
+
+      // Verify ranking order
+      expect(results[0].id, 'first');
+
+      // Verify all similarities are in descending order
+      for (int i = 1; i < results.length; i++) {
+        expect(results[i].similarity, lessThanOrEqualTo(results[i - 1].similarity),
+            reason: 'Results should be sorted by similarity descending');
+      }
     });
   });
 }

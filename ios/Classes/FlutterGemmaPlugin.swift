@@ -644,6 +644,74 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
+    func getAllDocumentsWithEmbeddings(completion: @escaping (Result<[DocumentWithEmbedding], Error>) -> Void) {
+        print("[PLUGIN] Getting all documents with embeddings for HNSW rebuild")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let vectorStore = self.vectorStore else {
+                DispatchQueue.main.async {
+                    completion(.failure(PigeonError(
+                        code: "NotInitialized",
+                        message: "Vector store not initialized",
+                        details: nil
+                    )))
+                }
+                return
+            }
+
+            do {
+                let results = try vectorStore.getAllDocumentsWithEmbeddings()
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Retrieved \(results.count) documents with embeddings")
+                    completion(.success(results))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to get documents: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "GetDocumentsFailed",
+                        message: "Failed to get documents: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+
+    func getDocumentsByIds(ids: [String], completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
+        print("[PLUGIN] Getting documents by IDs: \(ids.count) IDs")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let vectorStore = self.vectorStore else {
+                DispatchQueue.main.async {
+                    completion(.failure(PigeonError(
+                        code: "NotInitialized",
+                        message: "Vector store not initialized",
+                        details: nil
+                    )))
+                }
+                return
+            }
+
+            do {
+                let results = try vectorStore.getDocumentsByIds(ids)
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Retrieved \(results.count) documents by IDs")
+                    completion(.success(results))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    print("[PLUGIN] Failed to get documents by IDs: \(error)")
+                    completion(.failure(PigeonError(
+                        code: "GetDocumentsByIdsFailed",
+                        message: "Failed to get documents: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events
         return nil

@@ -1,14 +1,18 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/infrastructure/hnsw_vector_index.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/web/vector_store_web.dart';
 import 'dart:js_interop';
 
-/// Web implementation of VectorStoreRepository using SQLite WASM
+/// Web implementation of VectorStoreRepository using SQLite WASM + HNSW
 ///
 /// **Architecture**:
 /// ```
 /// WebVectorStoreRepository (Dart)
-///         ↓ (JS Interop)
+///         ↓ (HNSW for fast search)
+/// HnswVectorIndex (in-memory, O(log n))
+///         ↓ (JS Interop for persistence)
 /// vector_store_web.dart
 ///         ↓ (wa-sqlite)
 /// sqlite_vector_store.js
@@ -17,22 +21,27 @@ import 'dart:js_interop';
 /// ```
 ///
 /// **Design Principles**:
-/// - Thin wrapper: Delegates all logic to JS implementation
-/// - Type-safe: Uses extension types for JS interop
-/// - Error translation: JS errors → VectorStoreException
-/// - SOLID: Separation of concerns (Dart state + JS business logic)
+/// - SQLite WASM = source of truth (persistence via OPFS)
+/// - HNSW = cache (fast search, rebuilt on initialize)
+/// - Hybrid search: HNSW candidates → exact similarity recalculation
 ///
 /// **State Management**:
 /// - [_isInitialized]: Tracks whether initialize() was called
 /// - [_store]: SQLiteVectorStore JS instance
+/// - [_hnswIndex]: In-memory HNSW index for O(log n) search
 ///
 /// **Performance**:
 /// - OPFS storage: ~3-4x faster than IndexedDB
 /// - BLOB format: ~70% smaller than JSON
-/// - Search: ~10-20ms for 1k vectors
+/// - HNSW search: O(log n) vs O(n) brute-force
 class WebVectorStoreRepository implements VectorStoreRepository {
   SQLiteVectorStore? _store;
+  final HnswVectorIndex _hnswIndex = HnswVectorIndex();
   bool _isInitialized = false;
+
+  /// Minimum document count to use HNSW
+  /// Below this threshold, brute-force is fast enough
+  static const int _hnswThreshold = 100;
 
   @override
   bool get isInitialized => _isInitialized;
@@ -52,8 +61,39 @@ class WebVectorStoreRepository implements VectorStoreRepository {
       await _store!.initialize(databasePath).toDart;
 
       _isInitialized = true;
+
+      // Rebuild HNSW index from SQLite data
+      await _rebuildHnswIndex();
     } catch (e) {
       throw VectorStoreException('Failed to initialize SQLite WASM', e);
+    }
+  }
+
+  /// Rebuild HNSW index from SQLite data
+  ///
+  /// Called during initialize() to restore index after page reload
+  Future<void> _rebuildHnswIndex() async {
+    try {
+      final documents = await _store!.getAllDocumentsWithEmbeddingsDart();
+
+      if (documents.isEmpty) {
+        _hnswIndex.clear();
+        return;
+      }
+
+      // Convert web types to HNSW types
+      final hnswDocs = documents.map((doc) => DocumentEmbedding(
+        id: doc.id,
+        embedding: doc.embedding,
+      )).toList();
+
+      _hnswIndex.rebuild(hnswDocs);
+
+      debugPrint('[WebVectorStore] HNSW index rebuilt with ${documents.length} documents');
+    } catch (e) {
+      // Log but don't fail - fallback to brute-force search
+      debugPrint('[WebVectorStore] Warning: Failed to rebuild HNSW index: $e');
+      _hnswIndex.clear();
     }
   }
 
@@ -94,7 +134,16 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     }
 
     try {
+      // 1. Persist to SQLite WASM (source of truth)
       await _store!.addDocumentDart(id, content, embedding, metadata);
+
+      // 2. Add to HNSW index (cache)
+      try {
+        _hnswIndex.add(id, embedding);
+      } catch (e) {
+        // Log but don't fail - HNSW is optional optimization
+        debugPrint('[WebVectorStore] Warning: Failed to add to HNSW: $e');
+      }
     } catch (e) {
       // Dimension mismatch errors from JS are rethrown as-is
       // Other errors wrapped in VectorStoreException
@@ -116,10 +165,59 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     }
 
     try {
+      // Use HNSW if index has enough documents
+      if (_hnswIndex.count >= _hnswThreshold) {
+        return await _searchWithHnsw(queryEmbedding, topK, threshold);
+      }
+
+      // Fallback to brute-force for small datasets
       return await _store!.searchSimilarDart(queryEmbedding, topK, threshold);
     } catch (e) {
       throw VectorStoreException('Search failed', e);
     }
+  }
+
+  /// Search using HNSW index with exact similarity recalculation
+  ///
+  /// Strategy:
+  /// 1. HNSW returns candidate IDs (approximate, fast)
+  /// 2. Fetch full documents from SQLite WASM by IDs
+  /// 3. Recalculate exact cosine similarity
+  /// 4. Filter by threshold and sort
+  Future<List<RetrievalResult>> _searchWithHnsw(
+    List<double> queryEmbedding,
+    int topK,
+    double threshold,
+  ) async {
+    // 1. Get candidates from HNSW (already has exact similarity calculated)
+    final hnswResults = _hnswIndex.search(
+      queryEmbedding,
+      topK,
+      threshold: threshold,
+    );
+
+    if (hnswResults.isEmpty) {
+      return [];
+    }
+
+    // 2. Fetch full documents from SQLite WASM
+    final ids = hnswResults.map((r) => r.id).toList();
+    final documents = await _store!.getDocumentsByIdsDart(ids);
+
+    // 3. Build result map for fast lookup
+    final docMap = {for (var doc in documents) doc.id: doc};
+
+    // 4. Combine HNSW similarity with document content
+    // HNSW already calculated exact similarity, so we use it directly
+    return hnswResults
+        .where((r) => docMap.containsKey(r.id))
+        .map((r) => RetrievalResult(
+              id: r.id,
+              content: docMap[r.id]!.content,
+              similarity: r.similarity,
+              metadata: docMap[r.id]!.metadata,
+            ))
+        .toList();
   }
 
   @override
@@ -142,7 +240,11 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     }
 
     try {
+      // 1. Clear SQLite WASM
       await _store!.clear().toDart;
+
+      // 2. Clear HNSW index
+      _hnswIndex.clear();
     } catch (e) {
       throw VectorStoreException('Failed to clear vector store', e);
     }
@@ -157,11 +259,13 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     try {
       await _store!.close().toDart;
       _store = null;
+      _hnswIndex.clear();
       _isInitialized = false;
     } catch (e) {
       // Best-effort cleanup: Even if close() fails,
       // mark as uninitialized to prevent further operations
       _store = null;
+      _hnswIndex.clear();
       _isInitialized = false;
       throw VectorStoreException('Failed to close vector store', e);
     }

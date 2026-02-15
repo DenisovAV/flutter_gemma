@@ -134,6 +134,43 @@ struct VectorStoreStats {
   }
 }
 
+/// Document with embedding for HNSW rebuild
+///
+/// Used by [getAllDocumentsWithEmbeddings] to return documents
+/// with their vectors for in-memory index reconstruction.
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct DocumentWithEmbedding {
+  var id: String
+  var content: String
+  var embedding: [Double]
+  var metadata: String? = nil
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> DocumentWithEmbedding? {
+    let id = pigeonVar_list[0] as! String
+    let content = pigeonVar_list[1] as! String
+    let embedding = pigeonVar_list[2] as! [Double]
+    let metadata: String? = nilOrValue(pigeonVar_list[3])
+
+    return DocumentWithEmbedding(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      id,
+      content,
+      embedding,
+      metadata,
+    ]
+  }
+}
+
 private class PigeonInterfacePigeonCodecReader: FlutterStandardReader {
   override func readValue(ofType type: UInt8) -> Any? {
     switch type {
@@ -147,6 +184,8 @@ private class PigeonInterfacePigeonCodecReader: FlutterStandardReader {
       return RetrievalResult.fromList(self.readValue() as! [Any?])
     case 131:
       return VectorStoreStats.fromList(self.readValue() as! [Any?])
+    case 132:
+      return DocumentWithEmbedding.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
     }
@@ -163,6 +202,9 @@ private class PigeonInterfacePigeonCodecWriter: FlutterStandardWriter {
       super.writeValue(value.toList())
     } else if let value = value as? VectorStoreStats {
       super.writeByte(131)
+      super.writeValue(value.toList())
+    } else if let value = value as? DocumentWithEmbedding {
+      super.writeByte(132)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -209,6 +251,29 @@ protocol PlatformService {
   func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void)
   func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void)
   func closeVectorStore(completion: @escaping (Result<Void, Error>) -> Void)
+  /// Get all documents with embeddings for HNSW index rebuild
+  ///
+  /// **Use case:**
+  /// Called during initialize() to rebuild in-memory HNSW index
+  /// from SQLite persistence layer.
+  ///
+  /// **Performance:**
+  /// - Returns all documents in single call
+  /// - Embeddings as List<double> (decoded from BLOB)
+  ///
+  /// Returns empty list if no documents stored.
+  func getAllDocumentsWithEmbeddings(completion: @escaping (Result<[DocumentWithEmbedding], Error>) -> Void)
+  /// Get documents by IDs with full content
+  ///
+  /// **Use case:**
+  /// After HNSW returns candidate IDs, fetch full documents
+  /// for final result construction.
+  ///
+  /// **Parameters:**
+  /// - [ids]: List of document IDs to retrieve
+  ///
+  /// Returns only documents that exist (missing IDs are skipped).
+  func getDocumentsByIds(ids: [String], completion: @escaping (Result<[RetrievalResult], Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -588,6 +653,59 @@ class PlatformServiceSetup {
       }
     } else {
       closeVectorStoreChannel.setMessageHandler(nil)
+    }
+    /// Get all documents with embeddings for HNSW index rebuild
+    ///
+    /// **Use case:**
+    /// Called during initialize() to rebuild in-memory HNSW index
+    /// from SQLite persistence layer.
+    ///
+    /// **Performance:**
+    /// - Returns all documents in single call
+    /// - Embeddings as List<double> (decoded from BLOB)
+    ///
+    /// Returns empty list if no documents stored.
+    let getAllDocumentsWithEmbeddingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.getAllDocumentsWithEmbeddings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getAllDocumentsWithEmbeddingsChannel.setMessageHandler { _, reply in
+        api.getAllDocumentsWithEmbeddings { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getAllDocumentsWithEmbeddingsChannel.setMessageHandler(nil)
+    }
+    /// Get documents by IDs with full content
+    ///
+    /// **Use case:**
+    /// After HNSW returns candidate IDs, fetch full documents
+    /// for final result construction.
+    ///
+    /// **Parameters:**
+    /// - [ids]: List of document IDs to retrieve
+    ///
+    /// Returns only documents that exist (missing IDs are skipped).
+    let getDocumentsByIdsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.getDocumentsByIds\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      getDocumentsByIdsChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let idsArg = args[0] as! [String]
+        api.getDocumentsByIds(ids: idsArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      getDocumentsByIdsChannel.setMessageHandler(nil)
     }
   }
 }

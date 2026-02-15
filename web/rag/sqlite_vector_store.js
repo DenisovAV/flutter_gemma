@@ -108,6 +108,22 @@ class SQLiteVectorStore {
     }
 
     /**
+     * Get all documents with embeddings for HNSW index rebuild
+     * Used during initialize() to rebuild in-memory HNSW index
+     */
+    async getAllDocumentsWithEmbeddings() {
+        return this._call('getAllDocumentsWithEmbeddings', []);
+    }
+
+    /**
+     * Get documents by IDs with full content
+     * After HNSW returns candidate IDs, fetch full documents
+     */
+    async getDocumentsByIds(ids) {
+        return this._call('getDocumentsByIds', [ids]);
+    }
+
+    /**
      * Call worker method and wait for response
      */
     _call(method, args) {

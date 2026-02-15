@@ -257,6 +257,70 @@ async function close() {
     return true;
 }
 
+/**
+ * Get all documents with embeddings for HNSW index rebuild
+ * Used during initialize() to rebuild in-memory HNSW index
+ */
+async function getAllDocumentsWithEmbeddings() {
+    if (!db) {
+        throw new Error('Database not initialized');
+    }
+
+    const sql = `SELECT ${COLUMN_ID}, ${COLUMN_CONTENT}, ${COLUMN_EMBEDDING}, ${COLUMN_METADATA} FROM ${TABLE_DOCUMENTS}`;
+    const results = [];
+
+    for await (const stmt of sqlite3.statements(db, sql)) {
+        while (await sqlite3.step(stmt) === SQLite.SQLITE_ROW) {
+            const row = sqlite3.row(stmt);
+            const id = row[0];
+            const content = row[1];
+            const embeddingBlob = row[2];
+            const metadata = row[3];
+
+            const embedding = blobToEmbedding(embeddingBlob);
+
+            results.push({ id, content, embedding, metadata });
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Get documents by IDs with full content
+ * After HNSW returns candidate IDs, fetch full documents
+ */
+async function getDocumentsByIds(ids) {
+    if (!db) {
+        throw new Error('Database not initialized');
+    }
+
+    if (!ids || ids.length === 0) {
+        return [];
+    }
+
+    // Build placeholder for IN clause
+    const placeholders = ids.map(() => '?').join(',');
+    const sql = `SELECT ${COLUMN_ID}, ${COLUMN_CONTENT}, ${COLUMN_METADATA} FROM ${TABLE_DOCUMENTS} WHERE ${COLUMN_ID} IN (${placeholders})`;
+
+    const results = [];
+
+    for await (const stmt of sqlite3.statements(db, sql)) {
+        sqlite3.bind_collection(stmt, ids);
+        while (await sqlite3.step(stmt) === SQLite.SQLITE_ROW) {
+            const row = sqlite3.row(stmt);
+            const id = row[0];
+            const content = row[1];
+            const metadata = row[2];
+
+            // Similarity will be recalculated by Dart HNSW layer
+            results.push({ id, content, similarity: 0.0, metadata });
+        }
+    }
+
+    return results;
+}
+
 // ============================================================================
 // Message Handler
 // ============================================================================
@@ -285,6 +349,12 @@ self.onmessage = async (event) => {
                 break;
             case 'close':
                 result = await close();
+                break;
+            case 'getAllDocumentsWithEmbeddings':
+                result = await getAllDocumentsWithEmbeddings();
+                break;
+            case 'getDocumentsByIds':
+                result = await getDocumentsByIds(args[0]);
                 break;
             default:
                 throw new Error(`Unknown method: ${method}`);

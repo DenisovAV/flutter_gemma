@@ -2,7 +2,7 @@ import Foundation
 
 /// Production-ready SentencePiece tokenizer using native C++ library
 /// Provides proper BPE/Unigram tokenization matching the model training
-class SentencePieceTokenizer {
+class SentencePieceTokenizer: TokenizerProtocol {
 
     // MARK: - Properties
 

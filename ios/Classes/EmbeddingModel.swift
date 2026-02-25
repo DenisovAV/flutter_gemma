@@ -7,7 +7,7 @@ class EmbeddingModel {
     
     // MARK: - Properties
     private var interpreter: Interpreter?
-    private var tokenizer: SentencePieceTokenizer?  // ✅ NEW: Correct BPE tokenizer
+    private var tokenizer: TokenizerProtocol?
     private let modelPath: String
     private let tokenizerPath: String
     private let useGPU: Bool
@@ -43,8 +43,14 @@ class EmbeddingModel {
     
     /// Load model and tokenizer (equivalent to Android's loadModel)
     func loadModel() throws {
-        // Load tokenizer first - using SentencePiece with BPE algorithm
-        tokenizer = try SentencePieceTokenizer(modelPath: tokenizerPath)
+        // Load tokenizer — prefer bundled JSON (pure Swift, no protobuf conflict)
+        if let bundledJson = Bundle.main.path(forResource: "embeddinggemma_tokenizer", ofType: "json") {
+            tokenizer = try UnigramTokenizer(jsonPath: bundledJson)
+        } else if tokenizerPath.hasSuffix(".json") {
+            tokenizer = try UnigramTokenizer(jsonPath: tokenizerPath)
+        } else {
+            tokenizer = try SentencePieceTokenizer(modelPath: tokenizerPath)
+        }
 
         // Configure TensorFlow Lite options
         var options = Interpreter.Options()
@@ -106,8 +112,14 @@ class EmbeddingModel {
         }
 
         // Tokenization - combine prefix + text, then add BOS/EOS once
-        // Add space marker before text ONLY if it follows a prefix with space
-        let textToEncode = taskPrefix.isEmpty ? text : ("▁" + text)
+        let textToEncode: String
+        if tokenizer is UnigramTokenizer {
+            // UnigramTokenizer handles normalization (prepend ▁) inside encode()
+            textToEncode = text
+        } else {
+            // SentencePiece C++ — historical manual ▁ prefix
+            textToEncode = taskPrefix.isEmpty ? text : ("▁" + text)
+        }
         let textTokens = tokenizer.encode(textToEncode)
 
         // Combine prefix + text tokens (both without BOS/EOS)

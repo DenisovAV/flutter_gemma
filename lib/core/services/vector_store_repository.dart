@@ -113,6 +113,16 @@ abstract class VectorStoreRepository {
   ///
   /// Returns true if [initialize] was called successfully
   bool get isInitialized;
+
+  /// Whether HNSW indexing is enabled
+  ///
+  /// When true, search uses O(log n) HNSW algorithm for large datasets.
+  /// When false, always uses O(n) brute-force search.
+  ///
+  /// Can be toggled at runtime for performance testing.
+  /// Default: true
+  bool get enableHnsw;
+  set enableHnsw(bool value);
 }
 
 /// Exception thrown by VectorStore operations

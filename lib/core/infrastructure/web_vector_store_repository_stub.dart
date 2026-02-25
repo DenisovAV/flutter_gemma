@@ -47,4 +47,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   Future<void> close() async {
     // No-op for stub
   }
+
+  @override
+  bool enableHnsw = true;
 }

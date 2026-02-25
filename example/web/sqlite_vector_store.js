@@ -29,6 +29,11 @@ class SQLiteVectorStore {
         // Use relative path to avoid Vite converting to data URI
         const workerPath = './sqlite_vector_store_worker.js';
         const response = await fetch(workerPath);
+
+        if (!response.ok) {
+            throw new Error(`Failed to load worker script: ${response.status} ${response.statusText} (${workerPath})`);
+        }
+
         const workerCode = await response.text();
 
         // Create blob URL for worker (same-origin, bypasses Worker restriction)

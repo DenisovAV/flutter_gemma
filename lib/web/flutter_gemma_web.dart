@@ -337,6 +337,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
     await _vectorStoreRepository!.clear();
   }
+
+  @override
+  bool get enableHnsw => _vectorStoreRepository?.enableHnsw ?? true;
+
+  @override
+  set enableHnsw(bool value) {
+    if (_vectorStoreRepository != null) {
+      _vectorStoreRepository!.enableHnsw = value;
+    }
+  }
 }
 
 class WebInferenceModel extends InferenceModel {

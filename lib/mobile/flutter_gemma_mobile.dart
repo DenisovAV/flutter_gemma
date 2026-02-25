@@ -537,4 +537,12 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   Future<void> clearVectorStore() async {
     await ServiceRegistry.instance.vectorStoreRepository.clear();
   }
+
+  @override
+  bool get enableHnsw => ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
+
+  @override
+  set enableHnsw(bool value) {
+    ServiceRegistry.instance.vectorStoreRepository.enableHnsw = value;
+  }
 }

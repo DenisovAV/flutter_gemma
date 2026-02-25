@@ -43,6 +43,11 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   /// Below this threshold, brute-force is fast enough
   static const int _hnswThreshold = 100;
 
+  /// Whether HNSW indexing is enabled
+  /// Can be toggled at runtime for performance testing
+  @override
+  bool enableHnsw = true;
+
   @override
   bool get isInitialized => _isInitialized;
 
@@ -165,25 +170,26 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     }
 
     try {
-      // Use HNSW if index has enough documents
-      if (_hnswIndex.count >= _hnswThreshold) {
+      // Use HNSW if enabled and index has enough documents
+      if (enableHnsw && _hnswIndex.count >= _hnswThreshold) {
+        debugPrint('[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)');
         return await _searchWithHnsw(queryEmbedding, topK, threshold);
       }
 
-      // Fallback to brute-force for small datasets
+      // Fallback to brute-force for small datasets or when HNSW disabled
+      debugPrint('[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})');
       return await _store!.searchSimilarDart(queryEmbedding, topK, threshold);
     } catch (e) {
       throw VectorStoreException('Search failed', e);
     }
   }
 
-  /// Search using HNSW index with exact similarity recalculation
+  /// Search using HNSW index
   ///
   /// Strategy:
-  /// 1. HNSW returns candidate IDs (approximate, fast)
+  /// 1. HNSW search returns candidate IDs with pre-computed similarity
   /// 2. Fetch full documents from SQLite WASM by IDs
-  /// 3. Recalculate exact cosine similarity
-  /// 4. Filter by threshold and sort
+  /// 3. Combine document content with HNSW similarity scores
   Future<List<RetrievalResult>> _searchWithHnsw(
     List<double> queryEmbedding,
     int topK,

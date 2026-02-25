@@ -16,9 +16,9 @@ import 'package:local_hnsw/local_hnsw.item.dart';
 ///
 /// **Key Design Decisions:**
 /// - In-memory index: Rebuilt on initialize() from SQLite data
-/// - ID mapping: HNSW uses integer labels, we map to string document IDs
+/// - Generic string IDs: LocalHNSW<String> stores document IDs directly
 /// - Cosine metric: Matches SQLite brute-force implementation
-/// - Over-fetch + rerank: Search 2x candidates, recalculate exact similarity
+/// - Exact similarity: Recalculated from cached embeddings during search
 ///
 /// **Thread Safety:**
 /// - Not thread-safe: Designed for single-isolate use

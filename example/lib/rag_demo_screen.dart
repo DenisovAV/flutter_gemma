@@ -44,6 +44,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   int _addTimeMs = 0;
   int _searchTimeMs = 0;
 
+  /// HNSW enabled flag - for testing performance difference
+  bool _enableHnsw = true;
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +88,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
 
       final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
+
+      // Sync HNSW toggle with current state
+      FlutterGemmaPlugin.instance.enableHnsw = _enableHnsw;
 
       setState(() {
         _isInitialized = true;
@@ -267,6 +273,45 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
               ),
 
             if (_isInitialized) ...[
+              // HNSW Toggle
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'HNSW Indexing',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            _enableHnsw ? 'O(log n) search' : 'O(n) brute-force',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      Switch(
+                        value: _enableHnsw,
+                        onChanged: (value) {
+                          setState(() {
+                            _enableHnsw = value;
+                            FlutterGemmaPlugin.instance.enableHnsw = value;
+                          });
+                          debugPrint('[RagDemo] HNSW enabled: $value');
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               KnowledgeBaseSection(
                 isLoading: _isLoading,
                 addTimeMs: _addTimeMs,

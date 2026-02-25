@@ -262,41 +262,45 @@ class VectorStore {
         var stmt: OpaquePointer?
         var results: [DocumentWithEmbedding] = []
 
-        if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                // Extract columns
-                let id = String(cString: sqlite3_column_text(stmt, 0))
-                let content = String(cString: sqlite3_column_text(stmt, 1))
+        guard sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            throw VectorStoreError.queryFailed("Failed to prepare getAllDocumentsWithEmbeddings query: \(errorMsg)")
+        }
 
-                // Extract BLOB
-                if let embeddingBlob = sqlite3_column_blob(stmt, 2) {
-                    let embeddingSize = sqlite3_column_bytes(stmt, 2)
+        defer { sqlite3_finalize(stmt) }
 
-                    // Deep copy of BLOB data
-                    var embeddingData = Data(count: Int(embeddingSize))
-                    embeddingData.withUnsafeMutableBytes { destPtr in
-                        destPtr.copyMemory(from: UnsafeRawBufferPointer(start: embeddingBlob, count: Int(embeddingSize)))
-                    }
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            // Extract columns
+            let id = String(cString: sqlite3_column_text(stmt, 0))
+            let content = String(cString: sqlite3_column_text(stmt, 1))
 
-                    let embedding = blobToEmbedding(embeddingData)
+            // Extract BLOB
+            if let embeddingBlob = sqlite3_column_blob(stmt, 2) {
+                let embeddingSize = sqlite3_column_bytes(stmt, 2)
 
-                    var metadata: String? = nil
-                    if sqlite3_column_type(stmt, 3) != SQLITE_NULL {
-                        metadata = String(cString: sqlite3_column_text(stmt, 3))
-                    }
-
-                    let doc = DocumentWithEmbedding(
-                        id: id,
-                        content: content,
-                        embedding: embedding,
-                        metadata: metadata
-                    )
-                    results.append(doc)
+                // Deep copy of BLOB data
+                var embeddingData = Data(count: Int(embeddingSize))
+                embeddingData.withUnsafeMutableBytes { destPtr in
+                    destPtr.copyMemory(from: UnsafeRawBufferPointer(start: embeddingBlob, count: Int(embeddingSize)))
                 }
+
+                let embedding = blobToEmbedding(embeddingData)
+
+                var metadata: String? = nil
+                if sqlite3_column_type(stmt, 3) != SQLITE_NULL {
+                    metadata = String(cString: sqlite3_column_text(stmt, 3))
+                }
+
+                let doc = DocumentWithEmbedding(
+                    id: id,
+                    content: content,
+                    embedding: embedding,
+                    metadata: metadata
+                )
+                results.append(doc)
             }
         }
 
-        sqlite3_finalize(stmt)
         return results
     }
 
@@ -322,33 +326,41 @@ class VectorStore {
         var stmt: OpaquePointer?
         var results: [RetrievalResult] = []
 
-        if sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK {
-            // Bind IDs
-            for (index, id) in ids.enumerated() {
-                sqlite3_bind_text(stmt, Int32(index + 1), (id as NSString).utf8String, -1, nil)
-            }
-
-            while sqlite3_step(stmt) == SQLITE_ROW {
-                let id = String(cString: sqlite3_column_text(stmt, 0))
-                let content = String(cString: sqlite3_column_text(stmt, 1))
-
-                var metadata: String? = nil
-                if sqlite3_column_type(stmt, 2) != SQLITE_NULL {
-                    metadata = String(cString: sqlite3_column_text(stmt, 2))
-                }
-
-                // Similarity will be recalculated by Dart HNSW layer
-                let result = RetrievalResult(
-                    id: id,
-                    content: content,
-                    similarity: 0.0,  // Placeholder, recalculated in Dart
-                    metadata: metadata
-                )
-                results.append(result)
-            }
+        guard sqlite3_prepare_v2(db, querySQL, -1, &stmt, nil) == SQLITE_OK else {
+            let errorMsg = String(cString: sqlite3_errmsg(db))
+            throw VectorStoreError.queryFailed("Failed to prepare getDocumentsByIds query: \(errorMsg)")
         }
 
-        sqlite3_finalize(stmt)
+        defer { sqlite3_finalize(stmt) }
+
+        // SQLITE_TRANSIENT tells SQLite to copy the string immediately
+        // This is required because (id as NSString).utf8String may not remain valid
+        let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+
+        // Bind IDs with SQLITE_TRANSIENT for memory safety
+        for (index, id) in ids.enumerated() {
+            sqlite3_bind_text(stmt, Int32(index + 1), (id as NSString).utf8String, -1, SQLITE_TRANSIENT)
+        }
+
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let id = String(cString: sqlite3_column_text(stmt, 0))
+            let content = String(cString: sqlite3_column_text(stmt, 1))
+
+            var metadata: String? = nil
+            if sqlite3_column_type(stmt, 2) != SQLITE_NULL {
+                metadata = String(cString: sqlite3_column_text(stmt, 2))
+            }
+
+            // Similarity will be filled by Dart HNSW layer
+            let result = RetrievalResult(
+                id: id,
+                content: content,
+                similarity: 0.0,  // Placeholder, filled in Dart
+                metadata: metadata
+            )
+            results.append(result)
+        }
+
         return results
     }
 
@@ -419,6 +431,7 @@ enum VectorStoreError: Error, LocalizedError {
     case tableCreationFailed(String)
     case insertFailed(String)
     case deleteFailed(String)
+    case queryFailed(String)
     case dimensionMismatch(expected: Int, actual: Int)
 
     var errorDescription: String? {
@@ -433,6 +446,8 @@ enum VectorStoreError: Error, LocalizedError {
             return "Failed to insert document: \(message)"
         case .deleteFailed(let message):
             return "Failed to delete: \(message)"
+        case .queryFailed(let message):
+            return "Query failed: \(message)"
         case .dimensionMismatch(let expected, let actual):
             return "Embedding dimension mismatch: expected \(expected), got \(actual)"
         }

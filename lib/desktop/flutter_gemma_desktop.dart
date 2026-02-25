@@ -254,6 +254,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   Future<void> clearVectorStore() async {
     throw UnsupportedError('VectorStore not yet supported on desktop');
   }
+
+  @override
+  bool get enableHnsw => true;
+
+  @override
+  set enableHnsw(bool value) {
+    // VectorStore not supported on desktop yet
+  }
 }
 
 /// Check if current platform is desktop

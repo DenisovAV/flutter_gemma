@@ -100,6 +100,15 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   /// Clear all documents from vector store.
   Future<void> clearVectorStore();
+
+  /// Whether HNSW indexing is enabled for vector store.
+  ///
+  /// When true, search uses O(log n) HNSW algorithm for large datasets.
+  /// When false, always uses O(n) brute-force search.
+  ///
+  /// Can be toggled at runtime for performance testing.
+  bool get enableHnsw;
+  set enableHnsw(bool value);
 }
 
 /// Represents an LLM model instance.

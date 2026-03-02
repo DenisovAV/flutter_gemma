@@ -59,10 +59,13 @@ class EmbeddingInstallationBuilder {
 
   /// Set tokenizer source from network URL (HTTP/HTTPS)
   ///
+  /// [token] optional auth token for the main tokenizer URL (e.g. HuggingFace token).
   /// [iosPath] optional alternative URL for iOS platform (same source type: network).
   /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
   /// Pass a tokenizer.json URL here to use on iOS instead.
-  /// [iosToken] optional auth token for the iOS tokenizer URL (separate from main [token]).
+  /// [iosToken] optional auth token for the iOS tokenizer URL. If omitted, the iOS
+  /// download will be unauthenticated. This is fine for public URLs (e.g. GitHub Releases)
+  /// but required for private/gated iOS tokenizer URLs.
   EmbeddingInstallationBuilder tokenizerFromNetwork(String url,
       {String? token, String? iosPath, String? iosToken}) {
     _tokenizerSource = ModelSource.network(url, authToken: token);
@@ -175,6 +178,8 @@ class EmbeddingInstallationBuilder {
       effectiveTokenizerSource = _tokenizerIosSource!;
     }
 
+    _validateTokenizerIosCompatibility(effectiveTokenizerSource);
+
     // Create spec
     final modelFilename = _extractFilename(_modelSource!);
     final tokenizerFilename = _extractFilename(effectiveTokenizerSource);
@@ -249,6 +254,28 @@ class EmbeddingInstallationBuilder {
     debugPrint('✅ Embedding model installed and set as active: ${spec.name}');
 
     return EmbeddingInstallation(spec: spec);
+  }
+
+  /// Validates that the tokenizer source is compatible with iOS.
+  /// Throws if the resolved path ends with .model on iOS (sentencepiece protobuf conflict).
+  void _validateTokenizerIosCompatibility(ModelSource source) {
+    if (kIsWeb || !Platform.isIOS) return;
+
+    final sourcePath = switch (source) {
+      NetworkSource(:final url) => Uri.parse(url).path,
+      AssetSource(:final path) => path,
+      FileSource(:final path) => path,
+      BundledSource(:final resourceName) => resourceName,
+    };
+
+    if (sourcePath.endsWith('.model')) {
+      throw UnsupportedError(
+        'iOS does not support sentencepiece.model tokenizers due to protobuf conflict. '
+        'Use tokenizer.json instead.\n'
+        'Pass via: tokenizerFromNetwork(url, iosPath: "<tokenizer.json url>")\n'
+        'Or for assets: tokenizerFromAsset(path, iosPath: "assets/models/tokenizer.json")',
+      );
+    }
   }
 
   String _extractFilename(ModelSource source) {

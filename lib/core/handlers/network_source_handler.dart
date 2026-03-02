@@ -1,6 +1,3 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
@@ -43,7 +40,6 @@ class NetworkSourceHandler implements SourceHandler {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
 
-    _validateIosCompatibility(source);
     final effectiveToken =
         source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
@@ -82,7 +78,6 @@ class NetworkSourceHandler implements SourceHandler {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
 
-    _validateIosCompatibility(source);
     final effectiveToken =
         source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
@@ -120,22 +115,6 @@ class NetworkSourceHandler implements SourceHandler {
   bool supportsResume(ModelSource source) {
     if (source is! NetworkSource) return false;
     return source.supportsResume;
-  }
-
-  /// Validates that the source is compatible with iOS.
-  /// Throws if URL path ends with .model on iOS (sentencepiece protobuf conflict).
-  void _validateIosCompatibility(NetworkSource source) {
-    if (!kIsWeb && Platform.isIOS) {
-      final uriPath = Uri.parse(source.url).path;
-      if (uriPath.endsWith('.model')) {
-        throw UnsupportedError(
-          'iOS does not support sentencepiece.model tokenizers due to protobuf conflict. '
-          'Use tokenizer.json instead.\n'
-          'Pass via: tokenizerFromNetwork(url, iosPath: "<tokenizer.json url>")\n'
-          'Or for assets: tokenizerFromAsset(path, iosPath: "assets/models/tokenizer.json")',
-        );
-      }
-    }
   }
 
   /// Checks if URL is a HuggingFace URL that may require authentication

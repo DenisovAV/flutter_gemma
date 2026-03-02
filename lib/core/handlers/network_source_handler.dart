@@ -123,15 +123,18 @@ class NetworkSourceHandler implements SourceHandler {
   }
 
   /// Validates that the source is compatible with iOS.
-  /// Throws if URL ends with .model on iOS (sentencepiece protobuf conflict).
+  /// Throws if URL path ends with .model on iOS (sentencepiece protobuf conflict).
   void _validateIosCompatibility(NetworkSource source) {
-    if (!kIsWeb && Platform.isIOS && source.url.endsWith('.model')) {
-      throw UnsupportedError(
-        'iOS does not support sentencepiece.model tokenizers due to protobuf conflict. '
-        'Use tokenizer.json instead.\n'
-        'Pass via: tokenizerFromNetwork(url, iosPath: "<tokenizer.json url>")\n'
-        'Or for assets: tokenizerFromAsset(path, iosPath: "assets/models/tokenizer.json")',
-      );
+    if (!kIsWeb && Platform.isIOS) {
+      final uriPath = Uri.parse(source.url).path;
+      if (uriPath.endsWith('.model')) {
+        throw UnsupportedError(
+          'iOS does not support sentencepiece.model tokenizers due to protobuf conflict. '
+          'Use tokenizer.json instead.\n'
+          'Pass via: tokenizerFromNetwork(url, iosPath: "<tokenizer.json url>")\n'
+          'Or for assets: tokenizerFromAsset(path, iosPath: "assets/models/tokenizer.json")',
+        );
+      }
     }
   }
 

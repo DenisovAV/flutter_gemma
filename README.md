@@ -1619,13 +1619,13 @@ await FlutterGemma.installEmbedder()
   .tokenizerFromNetwork(
     'https://huggingface.co/.../sentencepiece.model',
     token: hfToken,
-    iosUrl: 'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
+    iosPath: 'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
   )
   .install();
 ```
 
-On Android and Web, the original `sentencepiece.model` URL is used. On iOS, the `iosUrl` is
-automatically selected. If `iosUrl` is not provided and the tokenizer URL ends with `.model`,
+On Android and Web, the original `sentencepiece.model` URL is used. On iOS, the `iosPath` is
+automatically selected. If `iosPath` is not provided and the tokenizer URL ends with `.model`,
 an error is thrown with instructions.
 
 To convert your own tokenizer, use the provided script:

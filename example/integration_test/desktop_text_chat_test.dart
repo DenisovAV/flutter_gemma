@@ -21,7 +21,6 @@ void main() {
   setUpAll(() async {
     // Find model - try multiple possible locations
     final possiblePaths = [
-      '/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/gemma-3n-E2B-it-int4.litertlm',
       '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/gemma-3n-E2B-it-int4.litertlm',
     ];
 

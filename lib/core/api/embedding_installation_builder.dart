@@ -62,11 +62,12 @@ class EmbeddingInstallationBuilder {
   /// [iosPath] optional alternative URL for iOS platform (same source type: network).
   /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
   /// Pass a tokenizer.json URL here to use on iOS instead.
+  /// [iosToken] optional auth token for the iOS tokenizer URL (separate from main [token]).
   EmbeddingInstallationBuilder tokenizerFromNetwork(String url,
-      {String? token, String? iosPath}) {
+      {String? token, String? iosPath, String? iosToken}) {
     _tokenizerSource = ModelSource.network(url, authToken: token);
     if (iosPath != null) {
-      _tokenizerIosSource = ModelSource.network(iosPath);
+      _tokenizerIosSource = ModelSource.network(iosPath, authToken: iosToken);
     }
     return this;
   }

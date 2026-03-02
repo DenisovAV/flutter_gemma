@@ -1213,13 +1213,13 @@ flutter_gemma/
 
 ### ✅ iOS Tokenizer.json Support (v0.12.5)
 - **Problem**: SentencePiece C++ and TFLite conflict on iOS due to protobuf symbol clash
-- **Solution**: `iosUrl` parameter in `tokenizerFromNetwork()` — downloads tokenizer.json on iOS instead of sentencepiece.model
-- **NetworkSource**: New `iosUrl` field for platform-aware URL selection
-- **NetworkSourceHandler**: Auto-selects iosUrl on iOS, throws `UnsupportedError` for `.model` without iosUrl
+- **Solution**: `iosPath` parameter in `tokenizerFromNetwork()` — downloads tokenizer.json on iOS instead of sentencepiece.model
+- **NetworkSource**: New `iosPath` field for platform-aware URL selection
+- **NetworkSourceHandler**: Auto-selects iosPath on iOS, throws `UnsupportedError` for `.model` without iosPath
 - **EmbeddingModel.swift**: Simple `.json`/`.model` branching (removed Bundle.main fallback)
 - **CDN**: Pre-converted files hosted on GitHub Releases v0.12.5
-- **UnigramTokenizer.swift**: Pure Swift JSON tokenizer, no C++ dependencies
-- **Zero breaking changes** — iosUrl is optional, Android/Web unaffected
+- **BPETokenizer.swift**: Pure Swift BPE tokenizer matching SentencePiece C++ output, no C++ dependencies
+- **Zero breaking changes** — iosPath is optional, Android/Web unaffected
 
 ### ✅ Android LiteRT-LM Engine (v0.12.x+)
 - **Dual Engine Support** - MediaPipe and LiteRT-LM on Android

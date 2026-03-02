@@ -50,8 +50,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var model: InferenceModel?
     private var session: InferenceSession?
 
-    // Embedding-related properties
-    private var embeddingWrapper: GemmaEmbeddingWrapper?
+    // Embedding model (like Android EmbeddingModel — no wrapper)
+    private var embeddingModel: EmbeddingModel?
 
     // VectorStore property
     private var vectorStore: VectorStore?
@@ -307,18 +307,17 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                // Create embedding wrapper instance (like Android GemmaEmbeddingModel)
-                self.embeddingWrapper = try GemmaEmbeddingWrapper(
+                // Create EmbeddingModel directly (like Android EmbeddingModel)
+                self.embeddingModel = EmbeddingModel(
                     modelPath: modelPath,
                     tokenizerPath: tokenizerPath,
                     useGPU: useGPU
                 )
 
-                // Initialize the wrapper
-                try self.embeddingWrapper?.initialize()
+                try self.embeddingModel?.loadModel()
 
                 DispatchQueue.main.async {
-                    print("[PLUGIN] Embedding wrapper created successfully")
+                    print("[PLUGIN] Embedding model created successfully")
                     completion(.success(()))
                 }
             } catch {
@@ -338,9 +337,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         print("[PLUGIN] Closing embedding model")
 
         DispatchQueue.global(qos: .userInitiated).async {
-            // Close and release embedding wrapper
-            self.embeddingWrapper?.close()
-            self.embeddingWrapper = nil
+            self.embeddingModel?.close()
+            self.embeddingModel = nil
 
             DispatchQueue.main.async {
                 print("[PLUGIN] Embedding model closed successfully")
@@ -352,7 +350,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void) {
         print("[PLUGIN] Generating embedding for text: \(text)")
 
-        guard let embeddingWrapper = embeddingWrapper else {
+        guard let embeddingModel = embeddingModel else {
             completion(.failure(PigeonError(
                 code: "EmbeddingModelNotInitialized",
                 message: "Embedding model not initialized. Call createEmbeddingModel first.",
@@ -363,9 +361,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                // ⚠️ FIX: Use embedDirect to avoid double prefix
-                // embedDirect() only adds prefix once (in cached tokens)
-                let doubleEmbeddings = try embeddingWrapper.embedDirect(text: text)
+                let floatEmbeddings = try embeddingModel.generateEmbedding(for: text)
+                let doubleEmbeddings = floatEmbeddings.map { Double($0) }
 
                 DispatchQueue.main.async {
                     print("[PLUGIN] Generated embedding with \(doubleEmbeddings.count) dimensions")
@@ -387,7 +384,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void) {
         print("[PLUGIN] Generating embeddings for \(texts.count) texts")
 
-        guard let embeddingWrapper = embeddingWrapper else {
+        guard let embeddingModel = embeddingModel else {
             completion(.failure(PigeonError(
                 code: "EmbeddingModelNotInitialized",
                 message: "Embedding model not initialized. Call createEmbeddingModel first.",
@@ -400,14 +397,12 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             do {
                 var embeddings: [[Double]] = []
                 for text in texts {
-                    // ⚠️ FIX: Use embedDirect to avoid double prefix
-                    let embedding = try embeddingWrapper.embedDirect(text: text)
-                    embeddings.append(embedding)
+                    let floatEmbedding = try embeddingModel.generateEmbedding(for: text)
+                    embeddings.append(floatEmbedding.map { Double($0) })
                 }
 
                 DispatchQueue.main.async {
                     print("[PLUGIN] Generated \(embeddings.count) embeddings")
-                    // Convert to [Any?] for pigeon compatibility (deep cast on Dart side)
                     completion(.success(embeddings as [Any?]))
                 }
             } catch {
@@ -426,7 +421,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void) {
         print("[PLUGIN] Getting embedding dimension")
 
-        guard let embeddingWrapper = embeddingWrapper else {
+        guard let embeddingModel = embeddingModel else {
             completion(.failure(PigeonError(
                 code: "EmbeddingModelNotInitialized",
                 message: "Embedding model not initialized. Call createEmbeddingModel first.",
@@ -437,9 +432,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
 
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                // Generate a small test embedding to get dimension
-                // ⚠️ FIX: Use embedDirect to avoid double prefix
-                let testEmbedding = try embeddingWrapper.embedDirect(text: "test")
+                let testEmbedding = try embeddingModel.generateEmbedding(for: "test")
                 let dimension = Int64(testEmbedding.count)
 
                 DispatchQueue.main.async {

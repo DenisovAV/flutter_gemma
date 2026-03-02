@@ -49,6 +49,12 @@ android {
         targetSdk = 34
         versionCode = flutterVersionCode.toInt()
         versionName = flutterVersionName
+        testInstrumentationRunner = "pl.leancode.patrol.PatrolJUnitRunner"
+        testInstrumentationRunnerArguments["clearPackageData"] = "true"
+    }
+
+    testOptions {
+        execution = "ANDROIDX_TEST_ORCHESTRATOR"
     }
 
     buildTypes {
@@ -68,4 +74,6 @@ flutter {
     source = "../.."
 }
 
-dependencies {}
+dependencies {
+    androidTestUtil("androidx.test:orchestrator:1.5.1")
+}

@@ -8,12 +8,10 @@
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
+import 'package:patrol/patrol.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
+  patrolTest('getPlatformVersion test', ($) async {
     final FlutterGemmaPlugin gemma = FlutterGemmaPlugin.instance;
     final InferenceModel model = await gemma.createModel(modelType: ModelType.general);
     final InferenceModelSession session = await model.createSession();

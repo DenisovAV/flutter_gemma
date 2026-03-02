@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
+import 'package:patrol/patrol.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -11,8 +11,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 ///
 /// Run with: flutter test integration_test/vector_store_test.dart
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
   late String databasePath;
   late PlatformService platformService;
 
@@ -49,15 +47,14 @@ void main() {
   });
 
   group('VectorStore Integration Tests', () {
-    testWidgets('Test 1: Initialize VectorStore', (WidgetTester tester) async {
+    patrolTest('Test 1: Initialize VectorStore', ($) async {
       // Verify database is initialized by checking stats
       final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 0);
       expect(stats.vectorDimension, 0); // No documents yet
     });
 
-    testWidgets('Test 2: Add Document with Embedding',
-        (WidgetTester tester) async {
+    patrolTest('Test 2: Add Document with Embedding', ($) async {
       // Add a document with a simple 3D embedding
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -72,8 +69,7 @@ void main() {
       expect(stats.vectorDimension, 3);
     });
 
-    testWidgets('Test 3: Search Similar Documents',
-        (WidgetTester tester) async {
+    patrolTest('Test 3: Search Similar Documents', ($) async {
       // Add multiple documents with different embeddings
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -109,7 +105,7 @@ void main() {
       expect(results[1].similarity, greaterThan(0.9));
     });
 
-    testWidgets('Test 4: Get Stats', (WidgetTester tester) async {
+    patrolTest('Test 4: Get Stats', ($) async {
       // Add 5 documents
       for (int i = 0; i < 5; i++) {
         await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
@@ -124,7 +120,7 @@ void main() {
       expect(stats.vectorDimension, 3);
     });
 
-    testWidgets('Test 5: Clear Store', (WidgetTester tester) async {
+    patrolTest('Test 5: Clear Store', ($) async {
       // Add documents
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -144,8 +140,7 @@ void main() {
       expect(stats.documentCount, 0);
     });
 
-    testWidgets('Test 6: Dimension Validation - Reject Mismatched',
-        (WidgetTester tester) async {
+    patrolTest('Test 6: Dimension Validation - Reject Mismatched', ($) async {
       // Add first document with 3D embedding
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -164,8 +159,7 @@ void main() {
       );
     });
 
-    testWidgets('Test 7: BLOB Compatibility - Round Trip',
-        (WidgetTester tester) async {
+    patrolTest('Test 7: BLOB Compatibility - Round Trip', ($) async {
       // Add document with precise floating point values
       final originalEmbedding = [
         0.123456789,
@@ -194,8 +188,7 @@ void main() {
       expect(results[0].similarity, closeTo(1.0, 0.0001));
     });
 
-    testWidgets('Test 8: Metadata Storage and Retrieval',
-        (WidgetTester tester) async {
+    patrolTest('Test 8: Metadata Storage and Retrieval', ($) async {
       // Add document with metadata
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -224,7 +217,7 @@ void main() {
       expect(results[1].metadata, isNull);
     });
 
-    testWidgets('Test 9: Threshold Filtering', (WidgetTester tester) async {
+    patrolTest('Test 9: Threshold Filtering', ($) async {
       // Add documents with varying similarity
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -266,8 +259,7 @@ void main() {
       expect(resultsLowThreshold.length, 3);
     });
 
-    testWidgets('Test 10: INSERT OR REPLACE - Document Update',
-        (WidgetTester tester) async {
+    patrolTest('Test 10: INSERT OR REPLACE - Document Update', ($) async {
       // Add initial document
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',

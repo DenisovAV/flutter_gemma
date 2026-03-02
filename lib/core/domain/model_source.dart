@@ -18,7 +18,8 @@ sealed class ModelSource {
   /// - null (default): auto-detect based on file size (>500MB = foreground)
   /// - true: always use foreground (shows notification)
   /// - false: never use foreground
-  factory ModelSource.network(String url, {String? authToken, bool? foreground}) =
+  factory ModelSource.network(String url,
+          {String? authToken, bool? foreground}) =
       NetworkSource;
 
   /// Creates an asset-based source (Flutter assets)

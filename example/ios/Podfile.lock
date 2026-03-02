@@ -3,13 +3,13 @@ PODS:
     - Flutter
   - background_downloader (0.0.1):
     - Flutter
+  - CocoaAsyncSocket (7.6.5)
   - Flutter (1.0.0)
   - flutter_gemma (0.12.4):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.24)
     - MediaPipeTasksGenAIC (= 0.10.24)
     - TensorFlowLiteC (= 0.0.1-nightly.20250619)
-    - TensorFlowLiteSelectTfOps (= 0.0.1-nightly.20250619)
     - TensorFlowLiteSwift (= 0.0.1-nightly.20250619)
   - image_picker_ios (0.0.1):
     - Flutter
@@ -26,6 +26,10 @@ PODS:
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
+  - patrol (0.0.1):
+    - CocoaAsyncSocket (~> 7.6)
+    - Flutter
+    - FlutterMacOS
   - permission_handler_apple (9.3.0):
     - Flutter
   - record_ios (1.1.0):
@@ -36,7 +40,6 @@ PODS:
   - TensorFlowLiteC (0.0.1-nightly.20250619):
     - TensorFlowLiteC/Core (= 0.0.1-nightly.20250619)
   - TensorFlowLiteC/Core (0.0.1-nightly.20250619)
-  - TensorFlowLiteSelectTfOps (0.0.1-nightly.20250619)
   - TensorFlowLiteSwift (0.0.1-nightly.20250619):
     - TensorFlowLiteSwift/Core (= 0.0.1-nightly.20250619)
   - TensorFlowLiteSwift/Core (0.0.1-nightly.20250619):
@@ -56,6 +59,7 @@ DEPENDENCIES:
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - large_file_handler (from `.symlinks/plugins/large_file_handler/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
+  - patrol (from `.symlinks/plugins/patrol/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - record_ios (from `.symlinks/plugins/record_ios/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -63,10 +67,10 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - CocoaAsyncSocket
     - MediaPipeTasksGenAI
     - MediaPipeTasksGenAIC
     - TensorFlowLiteC
-    - TensorFlowLiteSelectTfOps
     - TensorFlowLiteSwift
 
 EXTERNAL SOURCES:
@@ -88,6 +92,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/large_file_handler/ios"
   path_provider_foundation:
     :path: ".symlinks/plugins/path_provider_foundation/darwin"
+  patrol:
+    :path: ".symlinks/plugins/patrol/darwin"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
   record_ios:
@@ -100,8 +106,9 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
+  CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 5ef4aa01993a04f1272240f7cbf85b0d5309e83f
+  flutter_gemma: ca215b6f6022d1bb8a30cf2f90d7a6af802667f2
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
@@ -109,14 +116,14 @@ SPEC CHECKSUMS:
   MediaPipeTasksGenAI: 076ba7032a6e9da16db9c7cf0c3b67c751c18bc1
   MediaPipeTasksGenAIC: ec35d9f431f6a6b651a0bc9f67a4ed149ffa575c
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
+  patrol: cea8074f183a2a4232d0ebd10569ae05149ada42
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   record_ios: f75fa1d57f840012775c0e93a38a7f3ceea1a374
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   TensorFlowLiteC: 215ef57653dd0fa09a474e7d94d79ae64a870b28
-  TensorFlowLiteSelectTfOps: c71d7dcd063f5d66ae1b9a85cc5aa993f824eff9
   TensorFlowLiteSwift: 6de8da348de331778167a0f751ad74c41d8b0554
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
-PODFILE CHECKSUM: 385352bed6848ade8e0c551cdeb2c2305e05e5bb
+PODFILE CHECKSUM: 3c5e7b7ba6d0610bb1153408f99811572e78397d
 
 COCOAPODS: 1.16.2

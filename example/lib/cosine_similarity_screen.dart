@@ -84,7 +84,8 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
 
       await FlutterGemma.installEmbedder()
           .modelFromNetwork(widget.model.url, token: token)
-          .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
+          .tokenizerFromNetwork(widget.model.tokenizerUrl,
+              token: token, iosPath: widget.model.iosTokenizerPath)
           .install();
 
       if (kDebugMode) {

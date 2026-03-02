@@ -1604,6 +1604,36 @@ await FlutterGemma.installEmbedder()
   .install();
 ```
 
+### iOS: Tokenizer Compatibility
+
+> **Important:** On iOS, SentencePiece `.model` tokenizers are not supported due to a protobuf
+> conflict between SentencePiece C++ and TensorFlow Lite. Use `.json` tokenizers instead.
+
+Pre-converted tokenizer files are available on GitHub CDN:
+- **EmbeddingGemma:** `https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json`
+- **Gecko:** `https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/gecko_tokenizer.json`
+
+```dart
+await FlutterGemma.installEmbedder()
+  .modelFromNetwork(modelUrl, token: hfToken)
+  .tokenizerFromNetwork(
+    'https://huggingface.co/.../sentencepiece.model',
+    token: hfToken,
+    iosUrl: 'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
+  )
+  .install();
+```
+
+On Android and Web, the original `sentencepiece.model` URL is used. On iOS, the `iosUrl` is
+automatically selected. If `iosUrl` is not provided and the tokenizer URL ends with `.model`,
+an error is thrown with instructions.
+
+To convert your own tokenizer, use the provided script:
+```bash
+pip install -r tools/requirements.txt
+python tools/convert_sentencepiece_to_json.py --input path/to/sentencepiece.model --output tokenizer.json
+```
+
 ### Generate Text Embeddings
 
 ```dart

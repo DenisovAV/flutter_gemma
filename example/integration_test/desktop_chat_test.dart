@@ -2,13 +2,11 @@
 // Run with: flutter test integration_test/desktop_chat_test.dart -d macos
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
+import 'package:patrol/patrol.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
   group('Desktop LiteRT-LM Chat Test', () {
     late InferenceModel model;
     late InferenceChat chat;
@@ -49,7 +47,7 @@ void main() {
       await model.close();
     });
 
-    testWidgets('Simple text chat should work', (tester) async {
+    patrolTest('Simple text chat should work', ($) async {
       print('\n=== Test: Simple text chat ===');
 
       // Add a simple query

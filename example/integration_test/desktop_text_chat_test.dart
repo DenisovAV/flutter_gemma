@@ -9,14 +9,12 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
+import 'package:patrol/patrol.dart';
 
 import 'package:flutter_gemma/desktop/grpc_client.dart';
 import 'package:flutter_gemma/desktop/server_process_manager.dart';
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
   late LiteRtLmClient client;
   String modelPath = '';
 
@@ -63,7 +61,7 @@ void main() {
     } catch (_) {}
   });
 
-  testWidgets('Initialize model with enableVision=false (bug #684 fix)', (tester) async {
+  patrolTest('Initialize model with enableVision=false (bug #684 fix)', ($) async {
     // This tests the FIXED behavior - enableVision must be false on Desktop
     await client.initialize(
       modelPath: modelPath,
@@ -77,7 +75,7 @@ void main() {
     expect(client.isInitialized, isTrue);
   });
 
-  testWidgets('Create conversation', (tester) async {
+  patrolTest('Create conversation', ($) async {
     final convId = await client.createConversation(
       temperature: 0.8,
       topK: 40,
@@ -87,10 +85,10 @@ void main() {
     expect(client.conversationId, equals(convId));
   });
 
-  testWidgets('Text chat returns response', (tester) async {
+  patrolTest('Text chat returns response', ($) async {
     final buffer = StringBuffer();
 
-    await tester.runAsync(() async {
+    await $.tester.runAsync(() async {
       await for (final chunk in client.chat('Hi')) {
         buffer.write(chunk);
       }
@@ -100,10 +98,10 @@ void main() {
     expect(buffer.length, greaterThan(10));
   });
 
-  testWidgets('Follow-up message works', (tester) async {
+  patrolTest('Follow-up message works', ($) async {
     final buffer = StringBuffer();
 
-    await tester.runAsync(() async {
+    await $.tester.runAsync(() async {
       await for (final chunk in client.chat('What is 2+2?')) {
         buffer.write(chunk);
       }
@@ -113,7 +111,7 @@ void main() {
     expect(buffer.toString().toLowerCase(), contains('4'));
   });
 
-  testWidgets('Close conversation', (tester) async {
+  patrolTest('Close conversation', ($) async {
     await client.closeConversation();
     expect(client.conversationId, isNull);
   });

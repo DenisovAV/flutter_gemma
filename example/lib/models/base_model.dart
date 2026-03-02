@@ -85,4 +85,9 @@ abstract class EmbeddingModelInterface extends BaseModel {
   /// Type of source for model and tokenizer files
   /// Determines which installation method to use (network, asset, bundled)
   ModelSourceType get sourceType;
+
+  /// Alternative tokenizer path for iOS (tokenizer.json instead of sentencepiece.model)
+  /// On iOS, sentencepiece.model is not supported due to protobuf conflict with TFLite.
+  /// The path type matches the source type (URL for network, asset path for asset, etc.)
+  String? get iosTokenizerPath => null;
 }

@@ -72,11 +72,14 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       // Add tokenizer source
       switch (widget.model.sourceType) {
         case ModelSourceType.network:
-          builder = builder.tokenizerFromNetwork(widget.model.tokenizerUrl, token: token);
+          builder = builder.tokenizerFromNetwork(widget.model.tokenizerUrl,
+              token: token, iosPath: widget.model.iosTokenizerPath);
         case ModelSourceType.asset:
-          builder = builder.tokenizerFromAsset(widget.model.tokenizerUrl);
+          builder = builder.tokenizerFromAsset(widget.model.tokenizerUrl,
+              iosPath: widget.model.iosTokenizerPath);
         case ModelSourceType.bundled:
-          builder = builder.tokenizerFromBundled(widget.model.tokenizerUrl);
+          builder = builder.tokenizerFromBundled(widget.model.tokenizerUrl,
+              iosPath: widget.model.iosTokenizerPath);
       }
 
       await builder.install();

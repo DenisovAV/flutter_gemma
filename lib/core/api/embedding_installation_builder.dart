@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
@@ -22,6 +24,7 @@ import 'package:path/path.dart' as path;
 class EmbeddingInstallationBuilder {
   ModelSource? _modelSource;
   ModelSource? _tokenizerSource;
+  ModelSource? _tokenizerIosSource;
   void Function(int progress)? _onModelProgress;
   void Function(int progress)? _onTokenizerProgress;
   CancelToken? _cancelToken;
@@ -55,26 +58,55 @@ class EmbeddingInstallationBuilder {
   // === Tokenizer source setters ===
 
   /// Set tokenizer source from network URL (HTTP/HTTPS)
-  EmbeddingInstallationBuilder tokenizerFromNetwork(String url, {String? token}) {
+  ///
+  /// [iosPath] optional alternative URL for iOS platform (same source type: network).
+  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
+  /// Pass a tokenizer.json URL here to use on iOS instead.
+  EmbeddingInstallationBuilder tokenizerFromNetwork(String url,
+      {String? token, String? iosPath}) {
     _tokenizerSource = ModelSource.network(url, authToken: token);
+    if (iosPath != null) {
+      _tokenizerIosSource = ModelSource.network(iosPath);
+    }
     return this;
   }
 
   /// Set tokenizer source from Flutter asset
-  EmbeddingInstallationBuilder tokenizerFromAsset(String path) {
+  ///
+  /// [iosPath] optional alternative asset path for iOS platform (same source type: asset).
+  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
+  /// Pass a tokenizer.json asset path here to use on iOS instead.
+  EmbeddingInstallationBuilder tokenizerFromAsset(String path, {String? iosPath}) {
     _tokenizerSource = ModelSource.asset(path);
+    if (iosPath != null) {
+      _tokenizerIosSource = ModelSource.asset(iosPath);
+    }
     return this;
   }
 
   /// Set tokenizer source from bundled native resource
-  EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName) {
+  ///
+  /// [iosPath] optional alternative resource name for iOS platform (same source type: bundled).
+  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
+  /// Pass a tokenizer.json resource name here to use on iOS instead.
+  EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName, {String? iosPath}) {
     _tokenizerSource = ModelSource.bundled(resourceName);
+    if (iosPath != null) {
+      _tokenizerIosSource = ModelSource.bundled(iosPath);
+    }
     return this;
   }
 
   /// Set tokenizer source from external file path
-  EmbeddingInstallationBuilder tokenizerFromFile(String path) {
+  ///
+  /// [iosPath] optional alternative file path for iOS platform (same source type: file).
+  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
+  /// Pass a tokenizer.json file path here to use on iOS instead.
+  EmbeddingInstallationBuilder tokenizerFromFile(String path, {String? iosPath}) {
     _tokenizerSource = ModelSource.file(path);
+    if (iosPath != null) {
+      _tokenizerIosSource = ModelSource.file(iosPath);
+    }
     return this;
   }
 
@@ -135,14 +167,21 @@ class EmbeddingInstallationBuilder {
       );
     }
 
+    // On iOS, substitute tokenizer source with iOS alternative if provided
+    // This avoids sentencepiece.model protobuf conflict with TFLite on iOS
+    var effectiveTokenizerSource = _tokenizerSource!;
+    if (!kIsWeb && Platform.isIOS && _tokenizerIosSource != null) {
+      effectiveTokenizerSource = _tokenizerIosSource!;
+    }
+
     // Create spec
     final modelFilename = _extractFilename(_modelSource!);
-    final tokenizerFilename = _extractFilename(_tokenizerSource!);
+    final tokenizerFilename = _extractFilename(effectiveTokenizerSource);
 
     final spec = EmbeddingModelSpec(
       name: FileNameUtils.getBaseName(modelFilename),
       modelSource: _modelSource!,
-      tokenizerSource: _tokenizerSource!,
+      tokenizerSource: effectiveTokenizerSource,
       replacePolicy: ModelReplacePolicy.keep,
     );
 
@@ -183,17 +222,17 @@ class EmbeddingInstallationBuilder {
       // Install tokenizer file if not already installed
       if (!isTokenizerInstalled) {
         debugPrint('📥 Installing tokenizer...');
-        final tokenizerHandler = handlerRegistry.getHandler(_tokenizerSource!);
+        final tokenizerHandler = handlerRegistry.getHandler(effectiveTokenizerSource);
         if (_onTokenizerProgress != null) {
           await for (final progress in tokenizerHandler!.installWithProgress(
-            _tokenizerSource!,
+            effectiveTokenizerSource,
             cancelToken: _cancelToken,
           )) {
             _onTokenizerProgress!(progress);
           }
         } else {
           await tokenizerHandler!.install(
-            _tokenizerSource!,
+            effectiveTokenizerSource,
             cancelToken: _cancelToken,
           );
         }

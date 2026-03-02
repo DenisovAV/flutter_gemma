@@ -16,17 +16,13 @@ class EmbeddingModel {
     private var maxSequenceLength = 1024 // Will be detected from model
     private var embeddingDimension = 768 // Will be detected from model
 
-    // Optimization: Cache tokenized prefix to avoid repeated tokenization
-    private var cachedPrefixTokens: [Int] = []
-    // ✅ CONCLUSION: "task: search result | query: " gives best iOS results (8.4% diff)
-    // Without prefix: results are WORSE (wrong order: Different > Similar)
-    // Android embeddings still don't match - likely native preprocessing difference
     private let taskPrefix = "task: search result | query: "
 
     // Memory optimization: Reuse buffers to avoid allocations
     private var inputBuffer: Data?
     private var paddedTokensBuffer: [Int] = []
     private var outputBuffer: [Float] = []
+
     
     // MARK: - Initialization
     
@@ -43,23 +39,17 @@ class EmbeddingModel {
     
     /// Load model and tokenizer (equivalent to Android's loadModel)
     func loadModel() throws {
-        // Load tokenizer — prefer bundled JSON (pure Swift, no protobuf conflict)
-        if let bundledJson = Bundle.main.path(forResource: "embeddinggemma_tokenizer", ofType: "json") {
-            tokenizer = try UnigramTokenizer(jsonPath: bundledJson)
-        } else if tokenizerPath.hasSuffix(".json") {
-            tokenizer = try UnigramTokenizer(jsonPath: tokenizerPath)
-        } else {
-            tokenizer = try SentencePieceTokenizer(modelPath: tokenizerPath)
-        }
+        // Load tokenizer (BPE — matches SentencePiece C++ on Android)
+        tokenizer = try BPETokenizer(jsonPath: tokenizerPath)
 
         // Configure TensorFlow Lite options
         var options = Interpreter.Options()
         options.threadCount = 4 // Optimize for mobile performance
 
-        // XNNPACK disabled for embeddings - causes crashes on repeated inference
-        // Speed difference is negligible (~30-80ms vs ~10-30ms with XNNPACK)
-        // See: https://github.com/DenisovAV/flutter_gemma/issues/155
-        options.isXNNPackEnabled = false
+        // XNNPACK required for correct mixed-precision inference
+        // Was disabled in v0.11.16 (#155) due to crash, but root cause was
+        // SentencePiece C++ protobuf conflict — now resolved (pure Swift BPETokenizer)
+        options.isXNNPackEnabled = true
 
         // Note: Select TF Ops should be automatically available when TensorFlowLiteSelectTfOps is linked
 
@@ -90,9 +80,6 @@ class EmbeddingModel {
                 }
             }
 
-            // Optimization: Pre-tokenize task prefix once during initialization
-            initializePrefixCache()
-
         } catch let error as InterpreterError {
             print("[MODEL] InterpreterError: \(error)")
             throw EmbeddingError.modelLoadFailed("InterpreterError: \(error)")
@@ -111,19 +98,10 @@ class EmbeddingModel {
             throw EmbeddingError.modelNotLoaded("Model not loaded. Call loadModel() first.")
         }
 
-        // Tokenization - combine prefix + text, then add BOS/EOS once
-        let textToEncode: String
-        if tokenizer is UnigramTokenizer {
-            // UnigramTokenizer handles normalization (prepend ▁) inside encode()
-            textToEncode = text
-        } else {
-            // SentencePiece C++ — historical manual ▁ prefix
-            textToEncode = taskPrefix.isEmpty ? text : ("▁" + text)
-        }
-        let textTokens = tokenizer.encode(textToEncode)
-
-        // Combine prefix + text tokens (both without BOS/EOS)
-        var tokens = cachedPrefixTokens + textTokens
+        // Tokenize full string in one call (not prefix + text separately)
+        // This matches Android behavior where SentencePiece encodes the complete string
+        let fullText = taskPrefix + text
+        var tokens = tokenizer.encode(fullText)
 
         // Add BOS at beginning and EOS at end - ONCE for entire sequence
         // BOS token ID = 2, EOS token ID = 1 (from Gemma vocabulary)
@@ -148,7 +126,6 @@ class EmbeddingModel {
     func close() {
         interpreter = nil
         tokenizer = nil
-        cachedPrefixTokens.removeAll()
 
         // Clear reusable buffers to free memory
         inputBuffer = nil
@@ -157,16 +134,6 @@ class EmbeddingModel {
     }
     
     // MARK: - Private Methods
-
-    /// Initialize prefix token cache for performance optimization
-    private func initializePrefixCache() {
-        guard let tokenizer = tokenizer else {
-            return
-        }
-
-        // Tokenize the task prefix once and cache it
-        cachedPrefixTokens = tokenizer.encode(taskPrefix)
-    }
 
     private func prepareInputTensor(tokens: [Int]) throws -> Data {
         // Pad or truncate to maxSequenceLength (reusing buffer)
@@ -203,9 +170,11 @@ class EmbeddingModel {
             buffer[i] = tokens[i]
         }
 
-        // Fill remaining with padding (0)
+        // Fill remaining with PAD token (0)
+        // PAD=0 is standard for Gemma vocabulary
+        let padToken = 0
         for i in copyCount..<length {
-            buffer[i] = 0
+            buffer[i] = padToken
         }
     }
     
@@ -235,6 +204,7 @@ class EmbeddingModel {
             for i in 0..<embeddingDimension {
                 result[i] = outputBuffer[i]
             }
+
             return result
         } else {
             throw EmbeddingError.invalidOutput("Unexpected embedding dimension: \(outputBuffer.count)")

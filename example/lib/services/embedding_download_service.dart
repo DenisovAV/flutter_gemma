@@ -96,11 +96,12 @@ class EmbeddingModelDownloadService {
       switch (model.sourceType) {
         case ModelSourceType.network:
           final authToken = token.isEmpty ? null : token;
-          builder = builder.tokenizerFromNetwork(model.tokenizerUrl, token: authToken);
+          builder = builder.tokenizerFromNetwork(model.tokenizerUrl,
+              token: authToken, iosPath: model.iosTokenizerPath);
         case ModelSourceType.asset:
-          builder = builder.tokenizerFromAsset(model.tokenizerUrl);
+          builder = builder.tokenizerFromAsset(model.tokenizerUrl, iosPath: model.iosTokenizerPath);
         case ModelSourceType.bundled:
-          builder = builder.tokenizerFromBundled(model.tokenizerUrl);
+          builder = builder.tokenizerFromBundled(model.tokenizerUrl, iosPath: model.iosTokenizerPath);
       }
 
       // Add progress callbacks and install

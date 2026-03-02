@@ -15,6 +15,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
     maxSeqLen: 1024,
     needsAuth: true,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
   ),
 
   embeddingGemma2048(
@@ -29,6 +31,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
     maxSeqLen: 2048,
     needsAuth: true,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
   ),
 
   embeddingGemma256(
@@ -43,6 +47,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
     maxSeqLen: 256,
     needsAuth: true,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
   ),
 
   // Local model for fast testing (no auth required)
@@ -60,6 +66,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     maxSeqLen: 256,
     needsAuth: false,
     sourceType: ModelSourceType.asset, // Use Flutter assets - works in debug and production
+    iosTokenizerPath: 'assets/models/embeddinggemma_tokenizer.json',
   ),
 
   embeddingGemma512(
@@ -74,6 +81,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
     maxSeqLen: 512,
     needsAuth: true,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/embeddinggemma_tokenizer.json',
   ),
 
   // Gecko-110m models (generate 768D embeddings)
@@ -89,6 +98,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for Gecko-110m
     maxSeqLen: 64,
     needsAuth: false,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/gecko_tokenizer.json',
   ),
 
   gecko256(
@@ -103,6 +114,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for Gecko-110m
     maxSeqLen: 256,
     needsAuth: false,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/gecko_tokenizer.json',
   ),
 
   gecko512(
@@ -117,6 +130,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for Gecko-110m
     maxSeqLen: 512,
     needsAuth: false,
+    iosTokenizerPath:
+        'https://github.com/DenisovAV/flutter_gemma/releases/download/v0.12.5/gecko_tokenizer.json',
   );
 
   /// Enum fields
@@ -140,6 +155,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   final bool needsAuth;
   @override
   final ModelSourceType sourceType;
+  @override
+  final String? iosTokenizerPath;
 
   /// Constructor
   const EmbeddingModel({
@@ -153,6 +170,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     required this.maxSeqLen,
     required this.needsAuth,
     this.sourceType = ModelSourceType.network, // Default to network for backward compatibility
+    this.iosTokenizerPath,
   });
 
   // BaseModel interface implementation

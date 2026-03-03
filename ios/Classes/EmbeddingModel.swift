@@ -39,8 +39,8 @@ class EmbeddingModel {
     
     /// Load model and tokenizer (equivalent to Android's loadModel)
     func loadModel() throws {
-        // Load tokenizer (BPE — matches SentencePiece C++ on Android)
-        tokenizer = try BPETokenizer(jsonPath: tokenizerPath)
+        // Auto-detect tokenizer type from JSON model.type field
+        tokenizer = try EmbeddingModel.loadTokenizer(jsonPath: tokenizerPath)
 
         // Configure TensorFlow Lite options
         var options = Interpreter.Options()
@@ -134,6 +134,27 @@ class EmbeddingModel {
     }
     
     // MARK: - Private Methods
+
+    /// Load tokenizer by auto-detecting type from tokenizer.json
+    private static func loadTokenizer(jsonPath: String) throws -> TokenizerProtocol {
+        let data = try Data(contentsOf: URL(fileURLWithPath: jsonPath))
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let model = json["model"] as? [String: Any],
+              let type = model["type"] as? String else {
+            throw NSError(domain: "EmbeddingModel", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Cannot detect tokenizer type from JSON"])
+        }
+
+        switch type {
+        case "BPE":
+            return try BPETokenizer(jsonPath: jsonPath)
+        case "Unigram":
+            return try UnigramTokenizer(jsonPath: jsonPath)
+        default:
+            throw NSError(domain: "EmbeddingModel", code: -1,
+                          userInfo: [NSLocalizedDescriptionKey: "Unknown tokenizer type: \(type)"])
+        }
+    }
 
     private func prepareInputTensor(tokens: [Int]) throws -> Data {
         // Pad or truncate to maxSequenceLength (reusing buffer)

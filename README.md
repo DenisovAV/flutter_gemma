@@ -1854,6 +1854,29 @@ As of version 0.11.7, the VectorStore has been significantly optimized for bette
 - 3072D: OpenAI Large
 - 4096D: Qwen-3
 
+### HNSW Vector Search (v0.12.5)
+
+VectorStore now supports O(log n) approximate nearest neighbor search using HNSW (Hierarchical Navigable Small World) algorithm for large datasets:
+
+```dart
+// HNSW is enabled by default
+// For large datasets, search is automatically accelerated
+final results = await FlutterGemmaPlugin.instance.searchSimilar(
+  queryEmbedding: queryEmbedding,
+  topK: 5,
+  threshold: 0.7,
+);
+
+// Disable HNSW if needed (falls back to brute-force)
+FlutterGemmaPlugin.instance.enableHnsw = false;
+```
+
+**Features:**
+- **Cross-platform**: Native implementations on Android (Kotlin), iOS (Swift), and Web (JavaScript)
+- **Automatic fallback**: Uses brute-force for small datasets, HNSW for large ones
+- **Configurable**: M and efConstruction parameters for tuning recall vs speed
+- **Transparent**: Same `searchSimilar()` API — no code changes required
+
 11. **Checking Token Usage**
 You can check the token size of a prompt before inference. The accumulated context should not exceed maxTokens to ensure smooth operation.
 

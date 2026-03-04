@@ -1209,7 +1209,7 @@ flutter_gemma/
 └── CLAUDE.md              # This file
 ```
 
-## Recent Updates (2026-02-25)
+## Recent Updates (2026-03-04)
 
 ### ✅ iOS Tokenizer.json Support (v0.12.5)
 - **Problem**: SentencePiece C++ and TFLite conflict on iOS due to protobuf symbol clash
@@ -1219,7 +1219,20 @@ flutter_gemma/
 - **EmbeddingModel.swift**: Simple `.json`/`.model` branching (removed Bundle.main fallback)
 - **CDN**: Pre-converted files hosted on GitHub Releases v0.12.5
 - **BPETokenizer.swift**: Pure Swift BPE tokenizer matching SentencePiece C++ output, no C++ dependencies
+- **UnigramTokenizer.swift**: Pure Swift Unigram tokenizer for Gecko models
+- **Auto-detect**: `EmbeddingModel.loadTokenizer()` reads `model.type` from tokenizer.json to select BPE or Unigram
 - **Zero breaking changes** — iosPath is optional, Android/Web unaffected
+
+### ✅ HNSW Vector Search (v0.12.5)
+- **O(log n) approximate nearest neighbor search** for VectorStore
+- **Cross-platform**: Android (Kotlin), iOS (Swift), Web (JavaScript)
+- **Configurable parameters**: M and efConstruction for tuning recall vs speed
+- **Automatic fallback**: brute-force for small datasets
+- **Integration**: works with existing VectorStore API
+
+### ✅ Desktop JAR Fix (v0.12.5)
+- **JAR_VERSION** updated to 0.12.5 in setup scripts (#189)
+- Fixes desktop build failures when downloading `litertlm-server.jar`
 
 ### ✅ Android LiteRT-LM Engine (v0.12.x+)
 - **Dual Engine Support** - MediaPipe and LiteRT-LM on Android
@@ -1343,7 +1356,7 @@ implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-alpha01'
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.11.11
+- **Current Version**: 0.12.5
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 

@@ -1,3 +1,19 @@
+## 0.12.5
+- **iOS Tokenizer Rewrite**: Replaced SentencePiece C++ with pure Swift tokenizers (BPE + Unigram)
+  - Eliminates protobuf symbol conflict between SentencePiece and TensorFlow Lite (#184)
+  - Auto-detects tokenizer type from `model.type` field in tokenizer.json
+  - Supports both EmbeddingGemma (BPE) and Gecko (Unigram) models
+- **HNSW Vector Search**: O(log n) approximate nearest neighbor search for VectorStore
+  - Cross-platform: Android (Kotlin), iOS (Swift), Web (JavaScript)
+  - Configurable M and efConstruction parameters
+  - Falls back to brute-force for small datasets
+- **iOS Embeddings**: `iosPath` parameter for platform-aware tokenizer downloads
+  - Pre-converted tokenizer.json files on CDN (no SentencePiece dependency on iOS)
+- **Desktop JAR Fix**: Updated `litertlm-server.jar` URL to v0.12.5 (#189)
+- **Bug Fixes**:
+  - Fixed iOS embedder crash due to protobuf symbol conflict (#184)
+  - Removed deprecated `package` attribute from AndroidManifest.xml
+
 ## 0.12.4
 - **Android ProGuard Fix**: Added ProGuard rules for LiteRT-LM classes (#185)
 

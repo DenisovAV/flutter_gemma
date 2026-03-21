@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.flutterberlin"
-version = "0.12.3"
+version = "0.12.6"
 
 repositories {
     mavenCentral()

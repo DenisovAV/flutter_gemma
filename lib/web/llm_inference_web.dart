@@ -60,33 +60,6 @@ class LlmInferenceBaseOptions {
   });
 }
 
-class LlmInferenceWrapper {
-  final LlmInference _inference;
-  final List<String> _queryChunks = [];
-
-  LlmInferenceWrapper(this._inference);
-
-  void addQueryChunk(String text) {
-    _queryChunks.add(text);
-  }
-
-  Future<String> generateResponse({Function(String, bool)? callback}) async {
-    final String fullPrompt = _queryChunks.join(" ");
-    _queryChunks.clear();
-    final response = await (_inference
-        .generateResponse(
-          fullPrompt.toJS,
-          callback == null
-              ? null
-              : (JSString partial, JSAny complete) {
-                  callback.call(partial.toDart, complete.parseBool());
-                }.toJS,
-        )
-        .toDart);
-    return response.toDart;
-  }
-}
-
 extension JSAnyExt on JSAny {
   bool parseBool() {
     if (isA<JSBoolean>()) {

@@ -249,7 +249,7 @@ class LiteRtLmClient {
 
   /// Cancel ongoing generation for a conversation
   Future<void> cancelGeneration({String? conversationId}) async {
-    _assertInitialized();
+    if (!_isInitialized) return;
 
     final convId = conversationId ?? _currentConversationId;
     if (convId == null) return;

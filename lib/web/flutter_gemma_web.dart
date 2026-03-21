@@ -489,6 +489,7 @@ class WebInferenceModel extends InferenceModel {
       completer.complete(session);
       return completer.future;
     } catch (e, st) {
+      _initCompleter = null;
       completer.completeError(e, st);
       rethrow;
     }
@@ -816,6 +817,7 @@ class WebModelSession extends InferenceModelSession {
     llmInference.cancelProcessing();
     _controller?.close();
     _controller = null;
+    _promptParts.clear();
   }
 
   @override

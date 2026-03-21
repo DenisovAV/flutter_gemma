@@ -57,14 +57,14 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
                 // Match Android behavior: use same backend for main and vision
                 val backend = when (request.backend.lowercase()) {
-                    "gpu" -> Backend.GPU
-                    else -> Backend.CPU
+                    "gpu" -> Backend.GPU()
+                    else -> Backend.CPU()
                 }
                 // Vision on macOS Desktop: GPU required by Gemma 3n model but macOS GPU accelerator
                 // doesn't work (issue #1050). CPU gives "Vision backend constraint mismatch".
                 // Workaround: disable vision (maxNumImages=0 from client) until Google fixes GPU on macOS.
                 val visionBackend = if (request.maxNumImages > 0) backend else null
-                val audioBackend = if (request.enableAudio) Backend.CPU else null
+                val audioBackend = if (request.enableAudio) Backend.CPU() else null
 
                 // Use model directory as cache dir (like Android does)
                 val cacheDir = modelFile.parentFile?.absolutePath
@@ -466,6 +466,30 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
         }
 
         awaitClose { }
+    }
+
+    override suspend fun cancelGeneration(request: CancelGenerationRequest): CancelGenerationResponse {
+        val conversation = conversations[request.conversationId]
+        if (conversation == null) {
+            return CancelGenerationResponse.newBuilder()
+                .setSuccess(false)
+                .setError("Conversation not found: ${request.conversationId}")
+                .build()
+        }
+
+        return try {
+            conversation.cancelProcess()
+            logger.info("Cancelled generation for conversation: ${request.conversationId}")
+            CancelGenerationResponse.newBuilder()
+                .setSuccess(true)
+                .build()
+        } catch (e: Exception) {
+            logger.error("Failed to cancel generation", e)
+            CancelGenerationResponse.newBuilder()
+                .setSuccess(false)
+                .setError(e.message ?: "Unknown error cancelling generation")
+                .build()
+        }
     }
 
     override suspend fun closeConversation(request: CloseConversationRequest): CloseConversationResponse {

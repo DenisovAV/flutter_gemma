@@ -161,6 +161,35 @@ final $typed_data.Uint8List chatResponseDescriptor = $convert.base64Decode(
     'CgxDaGF0UmVzcG9uc2USEgoEdGV4dBgBIAEoCVIEdGV4dBISCgRkb25lGAIgASgIUgRkb25lEh'
     'QKBWVycm9yGAMgASgJUgVlcnJvcg==');
 
+@$core.Deprecated('Use cancelGenerationRequestDescriptor instead')
+const CancelGenerationRequest$json = {
+  '1': 'CancelGenerationRequest',
+  '2': [
+    {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
+  ],
+};
+
+/// Descriptor for `CancelGenerationRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cancelGenerationRequestDescriptor =
+    $convert.base64Decode(
+        'ChdDYW5jZWxHZW5lcmF0aW9uUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbn'
+        'ZlcnNhdGlvbklk');
+
+@$core.Deprecated('Use cancelGenerationResponseDescriptor instead')
+const CancelGenerationResponse$json = {
+  '1': 'CancelGenerationResponse',
+  '2': [
+    {'1': 'success', '3': 1, '4': 1, '5': 8, '10': 'success'},
+    {'1': 'error', '3': 2, '4': 1, '5': 9, '10': 'error'},
+  ],
+};
+
+/// Descriptor for `CancelGenerationResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List cancelGenerationResponseDescriptor =
+    $convert.base64Decode(
+        'ChhDYW5jZWxHZW5lcmF0aW9uUmVzcG9uc2USGAoHc3VjY2VzcxgBIAEoCFIHc3VjY2VzcxIUCg'
+        'VlcnJvchgCIAEoCVIFZXJyb3I=');
+
 @$core.Deprecated('Use closeConversationRequestDescriptor instead')
 const CloseConversationRequest$json = {
   '1': 'CloseConversationRequest',

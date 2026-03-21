@@ -425,7 +425,7 @@ class WebInferenceModel extends InferenceModel {
       }
 
       final fileset = await FilesetResolver.forGenAiTasks(
-              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@latest/wasm'.toJS)
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26/wasm'.toJS)
           .toDart;
 
       // Get LoRA path if available
@@ -813,7 +813,9 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> stopGeneration() async {
-    throw UnimplementedError('Stop generation is not supported on Web platform yet');
+    llmInference.cancelProcessing();
+    _controller?.close();
+    _controller = null;
   }
 
   @override

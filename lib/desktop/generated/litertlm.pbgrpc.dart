@@ -85,6 +85,14 @@ class LiteRtLmServiceClient extends $grpc.Client {
         options: options);
   }
 
+  /// Cancel ongoing generation
+  $grpc.ResponseFuture<$0.CancelGenerationResponse> cancelGeneration(
+    $0.CancelGenerationRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$cancelGeneration, request, options: options);
+  }
+
   /// Close conversation
   $grpc.ResponseFuture<$0.CloseConversationResponse> closeConversation(
     $0.CloseConversationRequest request, {
@@ -140,6 +148,11 @@ class LiteRtLmServiceClient extends $grpc.Client {
           '/litertlm.LiteRtLmService/ChatWithAudio',
           ($0.ChatWithAudioRequest value) => value.writeToBuffer(),
           $0.ChatResponse.fromBuffer);
+  static final _$cancelGeneration = $grpc.ClientMethod<
+          $0.CancelGenerationRequest, $0.CancelGenerationResponse>(
+      '/litertlm.LiteRtLmService/CancelGeneration',
+      ($0.CancelGenerationRequest value) => value.writeToBuffer(),
+      $0.CancelGenerationResponse.fromBuffer);
   static final _$closeConversation = $grpc.ClientMethod<
           $0.CloseConversationRequest, $0.CloseConversationResponse>(
       '/litertlm.LiteRtLmService/CloseConversation',
@@ -209,6 +222,15 @@ abstract class LiteRtLmServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ChatWithAudioRequest.fromBuffer(value),
         ($0.ChatResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.CancelGenerationRequest,
+            $0.CancelGenerationResponse>(
+        'CancelGeneration',
+        cancelGeneration_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.CancelGenerationRequest.fromBuffer(value),
+        ($0.CancelGenerationResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.CloseConversationRequest,
             $0.CloseConversationResponse>(
         'CloseConversation',
@@ -284,6 +306,15 @@ abstract class LiteRtLmServiceBase extends $grpc.Service {
 
   $async.Stream<$0.ChatResponse> chatWithAudio(
       $grpc.ServiceCall call, $0.ChatWithAudioRequest request);
+
+  $async.Future<$0.CancelGenerationResponse> cancelGeneration_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.CancelGenerationRequest> $request) async {
+    return cancelGeneration($call, await $request);
+  }
+
+  $async.Future<$0.CancelGenerationResponse> cancelGeneration(
+      $grpc.ServiceCall call, $0.CancelGenerationRequest request);
 
   $async.Future<$0.CloseConversationResponse> closeConversation_Pre(
       $grpc.ServiceCall $call,

@@ -437,9 +437,9 @@ dev_dependencies:
 
 ### MediaPipe GenAI Integration
 
-- **Current Version Web**: v0.10.25
+- **Current Version Web**: v0.10.26
 - **Current Version iOS/Android**: v0.10.24
-- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.25`
+- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26`
 - **iOS/Android**: Integrated via CocoaPods/Gradle
 
 ## Development Best Practices

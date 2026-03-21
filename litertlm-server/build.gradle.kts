@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     // LiteRT-LM JVM (only version with Contents API for multimodal)
-    implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.9.0-alpha02")
+    implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.9.0-beta")
 
     // gRPC + Protobuf
     implementation("io.grpc:grpc-kotlin-stub:1.4.1")

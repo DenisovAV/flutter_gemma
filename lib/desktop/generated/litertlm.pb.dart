@@ -729,6 +729,128 @@ class ChatResponse extends $pb.GeneratedMessage {
   void clearError() => $_clearField(3);
 }
 
+class CancelGenerationRequest extends $pb.GeneratedMessage {
+  factory CancelGenerationRequest({
+    $core.String? conversationId,
+  }) {
+    final result = create();
+    if (conversationId != null) result.conversationId = conversationId;
+    return result;
+  }
+
+  CancelGenerationRequest._();
+
+  factory CancelGenerationRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CancelGenerationRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CancelGenerationRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'litertlm'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'conversationId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelGenerationRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelGenerationRequest copyWith(
+          void Function(CancelGenerationRequest) updates) =>
+      super.copyWith((message) => updates(message as CancelGenerationRequest))
+          as CancelGenerationRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CancelGenerationRequest create() => CancelGenerationRequest._();
+  @$core.override
+  CancelGenerationRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CancelGenerationRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CancelGenerationRequest>(create);
+  static CancelGenerationRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get conversationId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set conversationId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasConversationId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearConversationId() => $_clearField(1);
+}
+
+class CancelGenerationResponse extends $pb.GeneratedMessage {
+  factory CancelGenerationResponse({
+    $core.bool? success,
+    $core.String? error,
+  }) {
+    final result = create();
+    if (success != null) result.success = success;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  CancelGenerationResponse._();
+
+  factory CancelGenerationResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory CancelGenerationResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CancelGenerationResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'litertlm'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'success')
+    ..aOS(2, _omitFieldNames ? '' : 'error')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelGenerationResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CancelGenerationResponse copyWith(
+          void Function(CancelGenerationResponse) updates) =>
+      super.copyWith((message) => updates(message as CancelGenerationResponse))
+          as CancelGenerationResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static CancelGenerationResponse create() => CancelGenerationResponse._();
+  @$core.override
+  CancelGenerationResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static CancelGenerationResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CancelGenerationResponse>(create);
+  static CancelGenerationResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get success => $_getBF(0);
+  @$pb.TagNumber(1)
+  set success($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSuccess() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSuccess() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get error => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set error($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasError() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearError() => $_clearField(2);
+}
+
 class CloseConversationRequest extends $pb.GeneratedMessage {
   factory CloseConversationRequest({
     $core.String? conversationId,

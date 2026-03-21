@@ -1,6 +1,7 @@
 package dev.flutterberlin.flutter_gemma
 
 import android.content.Context
+import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 
@@ -72,6 +73,9 @@ class FlutterGemmaPlugin: FlutterPlugin {
 private class PlatformServiceImpl(
   val context: Context
 ) : PlatformService, EventChannel.StreamHandler {
+  companion object {
+    private const val TAG = "FlutterGemmaPlugin"
+  }
   private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
   private var eventSink: EventChannel.EventSink? = null
   private var streamJob: kotlinx.coroutines.Job? = null  // Track stream collection job
@@ -129,7 +133,12 @@ private class PlatformServiceImpl(
 
         // Only now clear old state and swap in new engine (thread-safe)
         synchronized(engineLock) {
-          session?.close()
+          session?.cancelGeneration()
+          try {
+            session?.close()
+          } catch (e: Exception) {
+            Log.w(TAG, "Session close during active inference: ${e.message}")
+          }
           session = null
           engine?.close()
           engine = newEngine
@@ -145,7 +154,12 @@ private class PlatformServiceImpl(
   override fun closeModel(callback: (Result<Unit>) -> Unit) {
     synchronized(engineLock) {
       try {
-        session?.close()
+        session?.cancelGeneration()
+        try {
+          session?.close()
+        } catch (e: Exception) {
+          Log.w(TAG, "Session close during active inference: ${e.message}")
+        }
         session = null
         engine?.close()
         engine = null

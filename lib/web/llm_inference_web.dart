@@ -26,6 +26,9 @@ extension type LlmInference._(JSObject _) implements JSObject {
   external JSNumber sizeInTokens(JSString text);
   external JSPromise addQueryChunk(JSString text);
 
+  // Cancel ongoing inference processing (MediaPipe 0.10.26+)
+  external void cancelProcessing();
+
   // Cleanup method to free WASM resources (critical for memory management)
   external void close();
 }

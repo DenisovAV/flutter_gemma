@@ -24,6 +24,9 @@ service LiteRtLmService {
   // Send message with audio (Gemma 3n E4B)
   rpc ChatWithAudio(ChatWithAudioRequest) returns (stream ChatResponse);
 
+  // Cancel ongoing generation
+  rpc CancelGeneration(CancelGenerationRequest) returns (CancelGenerationResponse);
+
   // Close conversation
   rpc CloseConversation(CloseConversationRequest) returns (CloseConversationResponse);
 
@@ -89,6 +92,15 @@ message ChatResponse {
   string text = 1;           // Partial or complete text
   bool done = 2;             // Is generation complete
   string error = 3;
+}
+
+message CancelGenerationRequest {
+  string conversation_id = 1;
+}
+
+message CancelGenerationResponse {
+  bool success = 1;
+  string error = 2;
 }
 
 message CloseConversationRequest {

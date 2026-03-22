@@ -56,10 +56,10 @@ class LiteRtLmEngine(
 
         // Map PreferredBackend to LiteRT-LM Backend
         val backend = when (config.preferredBackend) {
-            PreferredBackend.GPU -> Backend.GPU
-            PreferredBackend.NPU -> Backend.NPU // LiteRT-LM supports NPU (Google Tensor, Qualcomm)
+            PreferredBackend.GPU -> Backend.GPU()
+            PreferredBackend.NPU -> Backend.NPU()
             PreferredBackend.CPU,
-            null -> Backend.CPU
+            null -> Backend.CPU()
         }
 
         try {
@@ -67,7 +67,7 @@ class LiteRtLmEngine(
             // visionBackend is required for multimodal models (image support)
             val visionBackend = if (config.maxNumImages != null && config.maxNumImages > 0) backend else null
             // audioBackend must be CPU for Gemma 3n (per Google AI Edge Gallery reference)
-            val audioBackend = if (config.supportAudio == true) Backend.CPU else null
+            val audioBackend = if (config.supportAudio == true) Backend.CPU() else null
 
             val engineConfig = LiteRtEngineConfig(
                 modelPath = config.modelPath,

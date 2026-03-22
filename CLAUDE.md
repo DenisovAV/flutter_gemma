@@ -46,14 +46,14 @@
 
 ## Project Overview
 
-**Flutter Gemma** is a multi-platform Flutter plugin that enables running Google's Gemma AI models locally on devices (Android, iOS, Web). The plugin supports various model types including Gemma 3 Nano with multimodal vision capabilities, DeepSeek with thinking mode, and function calling capabilities.
+**Flutter Gemma** is a multi-platform Flutter plugin that enables running Google's Gemma AI models locally on devices (Android, iOS, Web, macOS, Windows, Linux). The plugin supports various model types including Gemma 3 Nano with multimodal vision capabilities, DeepSeek with thinking mode, and function calling capabilities.
 
 ### Key Features
 - 🔥 **Local AI Inference** - Run Gemma models directly on device
 - 🖼️ **Multimodal Support** - Text + Image input with Gemma 3 Nano
 - 🛠️ **Function Calling** - Enable models to call external functions
 - 🧠 **Thinking Mode** - View reasoning process of DeepSeek models
-- 📱 **Cross-Platform** - Android, iOS, Web support
+- 📱 **Cross-Platform** - Android, iOS, Web, macOS, Windows, Linux
 - ⚡ **GPU Acceleration** - Hardware-accelerated inference
 - 🔧 **LoRA Support** - Efficient fine-tuning weights
 
@@ -412,7 +412,7 @@ Future<void> close() async {
 ### Required Versions
 
 - **Flutter**: `>=3.24.0` (Current master: 3.33.0-1.0.pre-1105)
-- **Dart SDK**: `>=3.4.0 <4.0.0` (Current: 3.10.0)
+- **Dart SDK**: `>=3.6.0 <4.0.0`
 - **iOS**: Minimum iOS 16.0 required for MediaPipe GenAI
 - **Android**: API level varies by MediaPipe support
 
@@ -437,9 +437,10 @@ dev_dependencies:
 
 ### MediaPipe GenAI Integration
 
-- **Current Version Web**: v0.10.25
-- **Current Version iOS/Android**: v0.10.24
-- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.25`
+- **Current Version Web**: v0.10.26
+- **Current Version Android**: v0.10.29
+- **Current Version iOS**: v0.10.24
+- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26`
 - **iOS/Android**: Integrated via CocoaPods/Gradle
 
 ## Development Best Practices
@@ -563,7 +564,7 @@ Android now supports **dual inference engines** - MediaPipe and LiteRT-LM - with
 ```
 android/src/main/kotlin/dev/flutterberlin/flutter_gemma/
 ├── FlutterGemmaPlugin.kt          # Plugin entry point
-├── PlatformService.g.kt           # Pigeon-generated interface
+├── PigeonInterface.g.kt           # Pigeon-generated interface
 └── engines/                       # Engine abstraction layer
     ├── InferenceEngine.kt         # Strategy interface
     ├── InferenceSession.kt        # Session interface
@@ -592,7 +593,7 @@ Log.w(TAG, "sizeInTokens: LiteRT-LM does not support token counting. " +
         "This may be inaccurate for non-English text.")
 ```
 
-⚠️ **Cancellation**: `cancelGeneration()` is not yet supported by LiteRT-LM SDK 0.9.x
+✅ **Cancellation**: `cancelGeneration()` supported via `Conversation.cancelProcess()` (LiteRT-LM 0.9.0-beta)
 
 **LiteRT-LM Behavioral Differences:**
 
@@ -602,7 +603,7 @@ Log.w(TAG, "sizeInTokens: LiteRT-LM does not support token counting. " +
 
 **Dependency (build.gradle):**
 ```gradle
-implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-alpha01'
+implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-beta'
 ```
 
 **Usage (Dart - no changes required):**
@@ -621,7 +622,7 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 ```html
 <!-- index.html -->
 <script type="module">
-import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.24';
+import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26';
 window.FilesetResolver = FilesetResolver;
 window.LlmInference = LlmInference;
 </script>
@@ -680,7 +681,7 @@ flutter run -d macos
 1. Build the server:
 ```bash
 cd litertlm-server
-./gradlew shadowJar
+./gradlew fatJar
 ```
 
 2. The build phase copies:
@@ -835,6 +836,7 @@ class Message {
     required this.text,
     this.isUser = false,     // ⚠️ DEFAULT IS FALSE!
     this.imageBytes,
+    this.audioBytes,
     this.type = MessageType.text,
     this.toolName,
   });
@@ -1209,161 +1211,11 @@ flutter_gemma/
 └── CLAUDE.md              # This file
 ```
 
-## Recent Updates (2026-03-04)
-
-### ✅ iOS Tokenizer.json Support (v0.12.5)
-- **Problem**: SentencePiece C++ and TFLite conflict on iOS due to protobuf symbol clash
-- **Solution**: `iosPath` parameter in `tokenizerFromNetwork()` — downloads tokenizer.json on iOS instead of sentencepiece.model
-- **NetworkSource**: New `iosPath` field for platform-aware URL selection
-- **NetworkSourceHandler**: Auto-selects iosPath on iOS, throws `UnsupportedError` for `.model` without iosPath
-- **EmbeddingModel.swift**: Simple `.json`/`.model` branching (removed Bundle.main fallback)
-- **CDN**: Pre-converted files hosted on GitHub Releases v0.12.5
-- **BPETokenizer.swift**: Pure Swift BPE tokenizer matching SentencePiece C++ output, no C++ dependencies
-- **UnigramTokenizer.swift**: Pure Swift Unigram tokenizer for Gecko models
-- **Auto-detect**: `EmbeddingModel.loadTokenizer()` reads `model.type` from tokenizer.json to select BPE or Unigram
-- **Zero breaking changes** — iosPath is optional, Android/Web unaffected
-
-### ✅ HNSW Vector Search (v0.12.5)
-- **O(log n) approximate nearest neighbor search** for VectorStore
-- **Cross-platform**: Android (Kotlin), iOS (Swift), Web (JavaScript)
-- **Configurable parameters**: M and efConstruction for tuning recall vs speed
-- **Automatic fallback**: brute-force for small datasets
-- **Integration**: works with existing VectorStore API
-
-### ✅ Desktop JAR Fix (v0.12.5)
-- **JAR_VERSION** updated to 0.12.5 in setup scripts (#189)
-- Fixes desktop build failures when downloading `litertlm-server.jar`
-
-### ✅ Android LiteRT-LM Engine (v0.12.x+)
-- **Dual Engine Support** - MediaPipe and LiteRT-LM on Android
-- **Automatic Selection** - Engine chosen by file extension (`.litertlm` → LiteRT-LM, `.task/.bin` → MediaPipe)
-- **Strategy Pattern** - `InferenceEngine` interface with interchangeable implementations
-- **Adapter Pattern** - `MediaPipeEngine` wraps existing code without modifications
-- **Chunk Buffering** - LiteRT-LM session buffers `addQueryChunk()` calls for `sendMessage()` API
-- **Token Estimation** - ~4 chars/token with warning log (LiteRT-LM lacks tokenizer API)
-- **Zero Flutter API Changes** - Transparent to Dart layer
-
-**Key Files:**
-- `android/.../engines/InferenceEngine.kt` - Strategy interface
-- `android/.../engines/EngineFactory.kt` - Factory for engine creation
-- `android/.../engines/mediapipe/` - MediaPipe adapter
-- `android/.../engines/litertlm/` - LiteRT-LM implementation
-
-**Dependency:**
-```gradle
-implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-alpha01'
-```
-
-### ✅ Desktop Platform Support (v0.12.0+)
-- **macOS, Windows, Linux** support via LiteRT-LM JVM
-- **gRPC architecture** - Dart client communicates with Kotlin/JVM server
-- **Bundled JRE** - Azul Zulu 24 automatically downloaded and bundled
-- **Automatic setup** - Xcode build phase handles JRE/JAR bundling
-- **Code signing** - Development signing handled automatically
-- **New models added** - Qwen3 0.6B, Gemma 3 1B LiteRT-LM format
-- **GPU acceleration** - Works on Apple Silicon (Metal backend)
-- **Vision/Multimodal** - Currently broken on macOS (SDK bug #684), image sent but model hallucinates
-
-> ⚠️ **JRE Compatibility Note:** Temurin JRE causes Jinja template errors with LiteRT-LM native library. Use Azul Zulu JRE instead.
-
-**Key Files:**
-- `lib/desktop/flutter_gemma_desktop.dart` - Dart plugin implementation
-- `lib/desktop/grpc_client.dart` - gRPC client
-- `lib/desktop/server_process_manager.dart` - JVM process lifecycle
-- `litertlm-server/` - Kotlin gRPC server
-- `example/macos/scripts/setup_desktop.sh` - Build automation
-
-### ✅ Web Cache Management Fix (v0.11.10+)
-- **CRITICAL FIX** - Hot restart with enableCache=false no longer crashes
-- **InMemoryModelRepository** - Ephemeral metadata storage for web without cache
-- **Repository Type Selection** - ServiceRegistry selects based on enableWebCache
-- **Metadata Lifetime Alignment** - Metadata lifetime matches blob URL lifetime
-- **Hot Restart Cleanup** - Proper disposal of LiteRT and MediaPipe WASM resources
-- **Simplified Handlers** - Removed conditional metadata saving logic
-- **SOLID Compliance** - Clean separation of concerns (handlers vs repository)
-- **100% Backward Compatible** - enableCache=true works as before
-
-### ✅ Modern API Completion (v0.11.4)
-- **FULLY IMPLEMENTED** - All features working as documented
-- Type-safe ModelSource sealed classes
-- Separation of concerns: install (identity) vs runtime (config)
-- Automatic active model management
-- Modern facade methods: `getActiveModel()` and `getActiveEmbedder()`
-- 100% backward compatibility with Legacy API
-
-### ✅ ModelSource Migration (v0.11.x)
-- **Type-safe sealed classes** replace string URLs
-- **Pattern matching** support with exhaustiveness checking
-- **100% backward compatibility** via `.fromLegacyUrl()`
-- **SOLID compliance** (Single Responsibility, Open/Closed)
-- **Zero breaking changes** - all existing code works
-- See `MIGRATION_SUMMARY.md` for details
-
-### ✅ Storage System Improvements
-- Multi-model support (replaced single-model storage)
-- Backward compatibility with legacy keys
-- Atomic operations for model installation
-- Protected file registry
-
-### ✅ Download System
-- Implemented `background_downloader` (v9.2.3)
-- Smart retry with HTTP-aware error handling
-- Resume support for interrupted downloads
-- Progress tracking with background support
-
-### ✅ VectorStore with SQLite (v0.11.12)
-
-**Cross-Platform RAG Support:**
-- **Android/iOS**: Native SQLite with BLOB storage (float32)
-- **Web**: SQLite WASM (wa-sqlite + OPFS) - 10x faster than IndexedDB
-
-**Key Files:**
-- `lib/core/services/vector_store_repository.dart` - Interface
-- `lib/core/infrastructure/mobile_vector_store_repository.dart` - Mobile
-- `lib/core/infrastructure/web_vector_store_repository.dart` - Web
-- `web/rag/sqlite_vector_store.js` - SQLite WASM implementation
-
-**Testing:**
-- 10 E2E integration tests (pass on iOS, Android, Chrome)
-- 14 parity tests for BLOB encoding and cosine similarity
-
----
-
-## Future Improvements
-
-### Performance Enhancements
-1. ✅ Implemented `background_downloader` for improved download performance
-2. ✅ Background download support with recovery
-3. ✅ Type-safe ModelSource architecture
-4. Add parallel download support
-5. Optimize memory usage for multimodal models
-
-### Feature Additions
-1. Enhanced web platform support for images
-2. Video/Audio input capabilities
-3. More multimodal model support
-4. Advanced caching strategies
-5. Migration to modern FlutterGemma facade API
-
-### Code Quality
-1. ✅ ModelSource sealed classes (type safety)
-2. ✅ SOLID compliance in model management
-3. Improve test coverage
-4. Add performance benchmarks
-5. Better error handling and logging
-
 ## Repository Information
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.12.5
+- **Current Version**: 0.12.6
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
-
-## Contact & Support
-
-For development questions or contributions, refer to:
-- GitHub Issues for bug reports
-- README.md for basic usage
-- Example app for implementation reference
-- This CLAUDE.md for development guidelines
+- **Changelog**: See `CHANGELOG.md` for version history

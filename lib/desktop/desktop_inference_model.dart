@@ -259,9 +259,7 @@ class DesktopInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> stopGeneration() async {
-    // gRPC streaming doesn't support mid-stream cancellation easily
-    // For MVP, this is a no-op
-    debugPrint('[DesktopSession] stopGeneration not fully implemented');
+    await grpcClient.cancelGeneration();
   }
 
   @override

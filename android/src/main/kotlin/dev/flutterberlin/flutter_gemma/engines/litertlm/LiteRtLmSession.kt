@@ -133,8 +133,12 @@ class LiteRtLmSession(
     }
 
     override fun cancelGeneration() {
-        // LiteRT-LM 0.9.x doesn't expose cancellation API
-        Log.w(TAG, "cancelGeneration: Not yet supported by LiteRT-LM SDK")
+        try {
+            conversation.cancelProcess()
+            Log.i(TAG, "cancelGeneration: cancelled via Conversation.cancelProcess()")
+        } catch (e: Exception) {
+            Log.w(TAG, "cancelGeneration: failed to cancel", e)
+        }
     }
 
     override fun close() {

@@ -26,6 +26,9 @@ extension type LlmInference._(JSObject _) implements JSObject {
   external JSNumber sizeInTokens(JSString text);
   external JSPromise addQueryChunk(JSString text);
 
+  // Cancel ongoing inference processing (MediaPipe 0.10.26+)
+  external void cancelProcessing();
+
   // Cleanup method to free WASM resources (critical for memory management)
   external void close();
 }
@@ -55,33 +58,6 @@ class LlmInferenceBaseOptions {
     String? modelAssetPath,      // For cacheApi/none modes (Blob URL)
     JSAny? modelAssetBuffer,     // For streaming mode (ReadableStreamDefaultReader from OPFS)
   });
-}
-
-class LlmInferenceWrapper {
-  final LlmInference _inference;
-  final List<String> _queryChunks = [];
-
-  LlmInferenceWrapper(this._inference);
-
-  void addQueryChunk(String text) {
-    _queryChunks.add(text);
-  }
-
-  Future<String> generateResponse({Function(String, bool)? callback}) async {
-    final String fullPrompt = _queryChunks.join(" ");
-    _queryChunks.clear();
-    final response = await (_inference
-        .generateResponse(
-          fullPrompt.toJS,
-          callback == null
-              ? null
-              : (JSString partial, JSAny complete) {
-                  callback.call(partial.toDart, complete.parseBool());
-                }.toJS,
-        )
-        .toDart);
-    return response.toDart;
-  }
 }
 
 extension JSAnyExt on JSAny {

@@ -247,6 +247,27 @@ class LiteRtLmClient {
     }
   }
 
+  /// Cancel ongoing generation for a conversation
+  Future<void> cancelGeneration({String? conversationId}) async {
+    if (!_isInitialized) return;
+
+    final convId = conversationId ?? _currentConversationId;
+    if (convId == null) return;
+
+    try {
+      final request = CancelGenerationRequest()..conversationId = convId;
+      final response = await _client!.cancelGeneration(request);
+
+      if (response.hasError() && response.error.isNotEmpty) {
+        debugPrint('[LiteRtLmClient] Cancel generation error: ${response.error}');
+      } else {
+        debugPrint('[LiteRtLmClient] Generation cancelled for: $convId');
+      }
+    } catch (e) {
+      debugPrint('[LiteRtLmClient] Warning: Failed to cancel generation: $e');
+    }
+  }
+
   /// Close current conversation
   Future<void> closeConversation({String? conversationId}) async {
     final convId = conversationId ?? _currentConversationId;

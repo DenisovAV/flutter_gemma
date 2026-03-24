@@ -17,10 +17,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-14
+          - os: macos-15
             arch: arm64
             artifact: libtensorflowlite_c_darwin_arm64.dylib
-          - os: macos-13
+          - os: macos-15-large
             arch: x86_64
             artifact: libtensorflowlite_c_darwin_x86_64.dylib
           - os: ubuntu-24.04
@@ -29,7 +29,7 @@ jobs:
           - os: ubuntu-24.04-arm
             arch: arm64
             artifact: libtensorflowlite_c_linux_arm64.so
-          - os: windows-latest
+          - os: windows-2022
             arch: amd64
             artifact: tensorflowlite_c_windows_amd64.dll
     runs-on: ${{ matrix.os }}
@@ -47,13 +47,12 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Setup Bazel (Unix)
-        if: runner.os != 'Windows'
-        run: npm install -g @bazel/bazelisk
-
-      - name: Setup Bazel (Windows)
-        if: runner.os == 'Windows'
-        run: choco install bazelisk -y
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.19.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ matrix.os }}-${{ matrix.arch }}
+          repository-cache: true
 
       - name: Build TFLite C shared library
         working-directory: tf_src

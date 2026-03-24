@@ -61,8 +61,11 @@ class TfLiteInterpreter {
 
     // Create options
     final options = bindings.tfLiteInterpreterOptionsCreate();
+    if (options == nullptr) {
+      bindings.tfLiteModelDelete(model);
+      throw StateError('Failed to create TFLite interpreter options');
+    }
     bindings.tfLiteInterpreterOptionsSetNumThreads(options, numThreads);
-    debugPrint('[TfLite] Options created, numThreads=$numThreads');
 
     // Create interpreter (fallback to WithSelectedOps for quantized models)
     debugPrint('[TfLite] Trying TfLiteInterpreterCreate...');
@@ -92,14 +95,31 @@ class TfLiteInterpreter {
 
     // Auto-detect dimensions from model tensors
     final inputTensor = bindings.tfLiteInterpreterGetInputTensor(interpreter, 0);
+    if (inputTensor == nullptr) {
+      bindings.tfLiteInterpreterDelete(interpreter);
+      bindings.tfLiteModelDelete(model);
+      throw StateError('Input tensor not found at index 0');
+    }
     final outputTensor =
         bindings.tfLiteInterpreterGetOutputTensor(interpreter, 0);
+    if (outputTensor == nullptr) {
+      bindings.tfLiteInterpreterDelete(interpreter);
+      bindings.tfLiteModelDelete(model);
+      throw StateError('Output tensor not found at index 0');
+    }
 
     // Input shape: [1, sequenceLength]
     final inputSeqLen = bindings.tfLiteTensorDim(inputTensor, 1);
 
     // Output shape: [1, embeddingDimension]
     final outputDim = bindings.tfLiteTensorDim(outputTensor, 1);
+
+    if (inputSeqLen <= 0 || outputDim <= 0) {
+      bindings.tfLiteInterpreterDelete(interpreter);
+      bindings.tfLiteModelDelete(model);
+      throw StateError(
+          'Invalid model tensor dimensions: input=$inputSeqLen, output=$outputDim');
+    }
 
     return TfLiteInterpreter._(
       bindings: bindings,
@@ -129,6 +149,9 @@ class TfLiteInterpreter {
     // Copy input data to tensor
     final inputTensor =
         _bindings.tfLiteInterpreterGetInputTensor(_interpreter, 0);
+    if (inputTensor == nullptr) {
+      throw StateError('Input tensor not available');
+    }
     final inputBytes = padded.lengthInBytes;
     final inputPtr = malloc<Int32>(inputSequenceLength);
     try {
@@ -150,6 +173,9 @@ class TfLiteInterpreter {
       // Read output
       final outputTensor =
           _bindings.tfLiteInterpreterGetOutputTensor(_interpreter, 0);
+      if (outputTensor == nullptr) {
+        throw StateError('Output tensor not available');
+      }
       final outputPtr = malloc<Float>(outputDimension);
       try {
         final outputStatus = _bindings.tfLiteTensorCopyToBuffer(

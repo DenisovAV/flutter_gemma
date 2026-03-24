@@ -185,11 +185,15 @@ setup_jar() {
                 exit 1
             }
 
-            # Verify checksum
-            echo "Verifying JAR checksum..."
-            if ! verify_checksum "$CACHED_JAR" "$JAR_CHECKSUM"; then
-                rm -f "$CACHED_JAR"
-                exit 1
+            # Verify checksum (skip if not yet available for this version)
+            if [ -n "$JAR_CHECKSUM" ]; then
+                echo "Verifying JAR checksum..."
+                if ! verify_checksum "$CACHED_JAR" "$JAR_CHECKSUM"; then
+                    rm -f "$CACHED_JAR"
+                    exit 1
+                fi
+            else
+                echo "WARNING: JAR checksum not set, skipping verification"
             fi
         else
             echo "Using cached JAR"
@@ -271,6 +275,9 @@ install_tflite() {
 
     mkdir -p "$TFLITE_CACHE" "$TFLITE_DIR"
 
+    # SHA256 checksum (fill from CI artifacts after build)
+    local TFLITE_CHECKSUM=""
+
     local CACHED="$TFLITE_CACHE/$TFLITE_ARTIFACT"
     if [ ! -f "$CACHED" ]; then
         echo "Downloading TFLite C library..."
@@ -279,6 +286,18 @@ install_tflite() {
             rm -f "$CACHED"
             return
         }
+
+        # Verify checksum if available
+        if [ -n "$TFLITE_CHECKSUM" ]; then
+            echo "Verifying TFLite checksum..."
+            if ! verify_checksum "$CACHED" "$TFLITE_CHECKSUM"; then
+                rm -f "$CACHED"
+                echo "Desktop embeddings will not work"
+                return
+            fi
+        else
+            echo "WARNING: TFLite checksum not set, skipping verification"
+        fi
     else
         echo "Using cached TFLite C library"
     fi

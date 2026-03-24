@@ -62,6 +62,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   // Embedding model
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
+  String? _lastActiveEmbeddingModelName;
 
   @override
   ModelFileManager get modelManager => _modelManager;
@@ -211,6 +212,23 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
+    // Check if active embedding model changed
+    final currentActiveModel = _modelManager.activeEmbeddingModel;
+    if (_initEmbeddingCompleter != null &&
+        _initializedEmbeddingModel != null &&
+        _lastActiveEmbeddingModelName != null) {
+      final modelChanged = currentActiveModel != null &&
+          currentActiveModel.name != _lastActiveEmbeddingModelName;
+      if (modelChanged) {
+        await _initializedEmbeddingModel?.close();
+        _initEmbeddingCompleter = null;
+        _initializedEmbeddingModel = null;
+        _lastActiveEmbeddingModelName = null;
+      } else {
+        return _initEmbeddingCompleter!.future;
+      }
+    }
+
     // Return existing if initialization in progress
     if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
       return completer.future;
@@ -286,9 +304,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         onClose: () {
           _initializedEmbeddingModel = null;
           _initEmbeddingCompleter = null;
+          _lastActiveEmbeddingModelName = null;
         },
       );
 
+      _lastActiveEmbeddingModelName = currentActiveModel?.name;
       completer.complete(model);
       return model;
     } catch (e, st) {

@@ -545,6 +545,9 @@ function Install-TfLite {
     New-Item -ItemType Directory -Force -Path $tfliteCacheDir | Out-Null
     New-Item -ItemType Directory -Force -Path $tfliteDir | Out-Null
 
+    # SHA256 checksum (fill from CI artifacts after build)
+    $tfliteChecksum = ""
+
     $cachedDll = "$tfliteCacheDir\$tfliteArtifact"
     if (-not (Test-Path $cachedDll)) {
         Write-Host "  Downloading TFLite C library..."
@@ -555,6 +558,21 @@ function Install-TfLite {
             Write-Warning "  Failed to download TFLite C library: $_"
             Write-Host "  Desktop embeddings will not work" -ForegroundColor Yellow
             return
+        }
+
+        # Verify checksum if available
+        if ($tfliteChecksum) {
+            Write-Host "  Verifying TFLite checksum..."
+            $actualChecksum = Get-SHA256Hash -FilePath $cachedDll
+            if ($actualChecksum -ne $tfliteChecksum.ToLower()) {
+                Remove-Item $cachedDll -Force -ErrorAction SilentlyContinue
+                Write-Warning "  TFLite checksum mismatch! Expected: $tfliteChecksum, Got: $actualChecksum"
+                Write-Host "  Desktop embeddings will not work" -ForegroundColor Yellow
+                return
+            }
+            Write-Host "  Checksum verified" -ForegroundColor Green
+        } else {
+            Write-Host "  WARNING: TFLite checksum not set, skipping verification" -ForegroundColor Yellow
         }
     } else {
         Write-Host "  Using cached TFLite C library" -ForegroundColor Green

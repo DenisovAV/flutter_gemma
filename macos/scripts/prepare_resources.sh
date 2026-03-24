@@ -396,6 +396,9 @@ setup_tflite() {
     echo "Setting up TFLite C library..."
     mkdir -p "$TFLITE_CACHE_DIR" "$tflite_dest"
 
+    # SHA256 checksum (fill from CI artifacts after build)
+    local TFLITE_CHECKSUM=""
+
     local cached="$TFLITE_CACHE_DIR/$archive_name"
     if [[ ! -f "$cached" ]]; then
         echo "Downloading TFLite C library from $tflite_url..."
@@ -403,6 +406,21 @@ setup_tflite() {
             echo "WARNING: Failed to download TFLite C library"
             rm -f "$cached"
             return 0
+        fi
+
+        # Verify checksum if available
+        if [[ -n "$TFLITE_CHECKSUM" ]]; then
+            echo "Verifying TFLite checksum..."
+            local actual_checksum
+            actual_checksum=$(shasum -a 256 "$cached" | awk '{print $1}')
+            if [[ "$actual_checksum" != "$TFLITE_CHECKSUM" ]]; then
+                rm -f "$cached"
+                echo "ERROR: TFLite checksum mismatch!"
+                return 0
+            fi
+            echo "Checksum verified"
+        else
+            echo "WARNING: TFLite checksum not set, skipping verification"
         fi
     else
         echo "Using cached TFLite C library"

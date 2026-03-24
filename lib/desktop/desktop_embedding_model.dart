@@ -64,7 +64,10 @@ class DesktopEmbeddingModel extends EmbeddingModel {
   Future<void> close() async {
     if (_isClosed) return;
     _isClosed = true;
-    _interpreter.close();
-    onClose();
+    try {
+      _interpreter.close();
+    } finally {
+      onClose();
+    }
   }
 }

@@ -1,3 +1,10 @@
+## 0.12.7
+- **Desktop Embeddings**: Run `.tflite` embedding models (EmbeddingGemma, Gecko) on macOS, Windows, Linux
+  - TFLite C API via `dart:ffi` — no gRPC, no JVM overhead
+  - Pure Dart tokenizer via `dart_sentencepiece_tokenizer` (BPE + Unigram, auto-detect format)
+  - TFLite C library built from TF 2.19.0 (supports EMBEDDING_LOOKUP v4)
+  - CI workflow for building TFLite C library on all 5 platform/arch combinations
+
 ## 0.12.6
 - **LiteRT-LM 0.9.0-beta**: Updated from 0.9.0-alpha02 on Android and Desktop (JVM)
   - Breaking API change: Backend enum to Backend factory constructors

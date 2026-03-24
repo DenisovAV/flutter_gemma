@@ -1,0 +1,122 @@
+name: Build TFLite C Library
+
+on:
+  workflow_dispatch:
+    inputs:
+      tf_version:
+        description: 'TensorFlow version to build'
+        required: true
+        default: '2.19.0'
+      upload_release:
+        description: 'Upload to release tag (e.g. v0.12.6)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+            arch: arm64
+            artifact: libtensorflowlite_c_darwin_arm64.dylib
+          - os: macos-13
+            arch: x86_64
+            artifact: libtensorflowlite_c_darwin_x86_64.dylib
+          - os: ubuntu-24.04
+            arch: amd64
+            artifact: libtensorflowlite_c_linux_amd64.so
+          - os: ubuntu-24.04-arm
+            arch: arm64
+            artifact: libtensorflowlite_c_linux_arm64.so
+          - os: windows-latest
+            arch: amd64
+            artifact: tensorflowlite_c_windows_amd64.dll
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout TensorFlow
+        env:
+          TF_VERSION: ${{ inputs.tf_version }}
+        run: git clone --depth 1 --branch "v${TF_VERSION}" https://github.com/tensorflow/tensorflow.git tf_src
+        shell: bash
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Bazel (Unix)
+        if: runner.os != 'Windows'
+        run: npm install -g @bazel/bazelisk
+
+      - name: Setup Bazel (Windows)
+        if: runner.os == 'Windows'
+        run: choco install bazelisk -y
+
+      - name: Build TFLite C shared library
+        working-directory: tf_src
+        env:
+          HERMETIC_PYTHON_VERSION: '3.12'
+        run: bazelisk build -c opt //tensorflow/lite/c:tensorflowlite_c
+        shell: bash
+
+      - name: Copy artifact (macOS)
+        if: runner.os == 'macOS'
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact }}
+        run: cp tf_src/bazel-bin/tensorflow/lite/c/libtensorflowlite_c.dylib "${ARTIFACT_NAME}"
+
+      - name: Copy artifact (Linux)
+        if: runner.os == 'Linux'
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact }}
+        run: cp tf_src/bazel-bin/tensorflow/lite/c/libtensorflowlite_c.so "${ARTIFACT_NAME}"
+
+      - name: Copy artifact (Windows)
+        if: runner.os == 'Windows'
+        run: copy tf_src\bazel-bin\tensorflow\lite\c\tensorflowlite_c.dll ${{ matrix.artifact }}
+        shell: cmd
+
+      - name: Show artifact info
+        env:
+          ARTIFACT_NAME: ${{ matrix.artifact }}
+        run: ls -lh "${ARTIFACT_NAME}"
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          retention-days: 90
+
+  release:
+    needs: build
+    if: inputs.upload_release != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: artifacts
+        run: |
+          sha256sum * > checksums_tflite.txt
+          cat checksums_tflite.txt
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ inputs.upload_release }}
+          files: |
+            artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

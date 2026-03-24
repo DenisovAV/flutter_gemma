@@ -15,14 +15,12 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-15
             arch: arm64
             artifact: libtensorflowlite_c_darwin_arm64.dylib
-          - os: macos-15-large
-            arch: x86_64
-            artifact: libtensorflowlite_c_darwin_x86_64.dylib
           - os: ubuntu-24.04
             arch: amd64
             artifact: libtensorflowlite_c_linux_amd64.so

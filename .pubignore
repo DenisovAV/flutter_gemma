@@ -57,7 +57,14 @@ example/web/*.model
 !example/web/favicon.png
 !example/web/icons/
 
+# Log files
+*.log
+firebase-debug.log
+litertlm-server/hs_err_*.log
+
 # Misc
 test_exports.dart
 trash_*
 .env
+.firecrawl/
+example/kill

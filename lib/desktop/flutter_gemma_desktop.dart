@@ -12,8 +12,12 @@ import '../core/tool.dart';
 import '../core/chat.dart';
 import '../core/extensions.dart';
 
+import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart'
+    show SentencePieceConfig, SentencePieceTokenizer, TokenizerJsonLoader;
+
 import 'grpc_client.dart';
 import 'server_process_manager.dart';
+import 'tflite/tflite_interpreter.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
@@ -21,7 +25,10 @@ import '../mobile/flutter_gemma_mobile.dart'
         InferenceModelSpec,
         MobileModelManager;
 
+import '../core/model_management/constants/preferences_keys.dart';
+
 part 'desktop_inference_model.dart';
+part 'desktop_embedding_model.dart';
 
 /// Desktop implementation of FlutterGemma plugin
 ///
@@ -52,8 +59,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   InferenceModel? _initializedModel;
   InferenceModelSpec? _lastActiveInferenceSpec;
 
-  // Embedding model (not supported in MVP)
+  // Embedding model
+  Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
+  String? _lastActiveEmbeddingModelName;
 
   @override
   ModelFileManager get modelManager => _modelManager;
@@ -203,11 +212,110 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? tokenizerPath,
     PreferredBackend? preferredBackend,
   }) async {
-    // Embedding not supported in desktop MVP
-    throw UnsupportedError(
-      'Embedding models are not yet supported on desktop. '
-      'This feature is planned for a future release.',
-    );
+    // Check if active embedding model changed
+    final currentActiveModel = _modelManager.activeEmbeddingModel;
+    if (_initEmbeddingCompleter != null &&
+        _initializedEmbeddingModel != null &&
+        _lastActiveEmbeddingModelName != null) {
+      final modelChanged = currentActiveModel != null &&
+          currentActiveModel.name != _lastActiveEmbeddingModelName;
+      if (modelChanged) {
+        await _initializedEmbeddingModel?.close();
+        _initEmbeddingCompleter = null;
+        _initializedEmbeddingModel = null;
+        _lastActiveEmbeddingModelName = null;
+      } else {
+        return _initEmbeddingCompleter!.future;
+      }
+    }
+
+    // Return existing if initialization in progress
+    if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
+      return completer.future;
+    }
+
+    final completer = _initEmbeddingCompleter = Completer<EmbeddingModel>();
+
+    try {
+      // Resolve model and tokenizer paths from active embedding model
+      if (modelPath == null || tokenizerPath == null) {
+        final activeModel = _modelManager.activeEmbeddingModel;
+        if (activeModel == null) {
+          throw StateError(
+            'No active embedding model set. '
+            'Use `FlutterGemma.installEmbedder()` first.',
+          );
+        }
+
+        final filePaths = await _modelManager.getModelFilePaths(activeModel);
+        if (filePaths == null || filePaths.isEmpty) {
+          throw StateError('Embedding model file paths not found');
+        }
+
+        modelPath ??= filePaths[PreferencesKeys.embeddingModelFile];
+        tokenizerPath ??= filePaths[PreferencesKeys.embeddingTokenizerFile];
+      }
+
+      if (modelPath == null) {
+        throw StateError('Embedding model path is required');
+      }
+
+      debugPrint('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
+
+      // Load TFLite interpreter via dart:ffi
+      final numThreads =
+          preferredBackend == PreferredBackend.cpu ? 4 : 6;
+      final interpreter = TfLiteInterpreter.fromFile(
+        modelPath,
+        numThreads: numThreads,
+      );
+
+      debugPrint(
+        '[FlutterGemmaDesktop] Embedding model loaded: '
+        'seqLen=${interpreter.inputSequenceLength}, '
+        'dim=${interpreter.outputDimension}',
+      );
+
+      // Load tokenizer - auto-detect format by file extension
+      // SentencePieceConfig.gemma adds BOS + EOS tokens automatically
+      if (tokenizerPath == null) {
+        throw StateError('Tokenizer path is required for desktop embeddings');
+      }
+      final SentencePieceTokenizer tokenizer;
+      if (tokenizerPath.endsWith('.json')) {
+        tokenizer = await TokenizerJsonLoader.fromJsonFile(
+          tokenizerPath,
+          config: SentencePieceConfig.gemma,
+        );
+      } else {
+        tokenizer = await SentencePieceTokenizer.fromModelFile(
+          tokenizerPath,
+          config: SentencePieceConfig.gemma,
+        );
+      }
+
+      List<int> tokenize(String text) {
+        return tokenizer.encode(text).ids.toList();
+      }
+
+      final model = _initializedEmbeddingModel = DesktopEmbeddingModel(
+        interpreter: interpreter,
+        tokenize: tokenize,
+        onClose: () {
+          _initializedEmbeddingModel = null;
+          _initEmbeddingCompleter = null;
+          _lastActiveEmbeddingModelName = null;
+        },
+      );
+
+      _lastActiveEmbeddingModelName = currentActiveModel?.name;
+      completer.complete(model);
+      return model;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      _initEmbeddingCompleter = null;
+      rethrow;
+    }
   }
 
   // === RAG Methods (not supported in MVP) ===

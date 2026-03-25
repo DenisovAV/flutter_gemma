@@ -217,7 +217,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     if (_initEmbeddingCompleter != null &&
         _initializedEmbeddingModel != null &&
         _lastActiveEmbeddingModelName != null) {
-      final modelChanged = currentActiveModel != null &&
+      final modelChanged = currentActiveModel == null ||
           currentActiveModel.name != _lastActiveEmbeddingModelName;
       if (modelChanged) {
         await _initializedEmbeddingModel?.close();
@@ -279,19 +279,25 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // Load tokenizer - auto-detect format by file extension
       // SentencePieceConfig.gemma adds BOS + EOS tokens automatically
       if (tokenizerPath == null) {
+        interpreter.close();
         throw StateError('Tokenizer path is required for desktop embeddings');
       }
       final SentencePieceTokenizer tokenizer;
-      if (tokenizerPath.endsWith('.json')) {
-        tokenizer = await TokenizerJsonLoader.fromJsonFile(
-          tokenizerPath,
-          config: SentencePieceConfig.gemma,
-        );
-      } else {
-        tokenizer = await SentencePieceTokenizer.fromModelFile(
-          tokenizerPath,
-          config: SentencePieceConfig.gemma,
-        );
+      try {
+        if (tokenizerPath.endsWith('.json')) {
+          tokenizer = await TokenizerJsonLoader.fromJsonFile(
+            tokenizerPath,
+            config: SentencePieceConfig.gemma,
+          );
+        } else {
+          tokenizer = await SentencePieceTokenizer.fromModelFile(
+            tokenizerPath,
+            config: SentencePieceConfig.gemma,
+          );
+        }
+      } catch (e) {
+        interpreter.close();
+        rethrow;
       }
 
       List<int> tokenize(String text) {

@@ -3,16 +3,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
 
 /// Integration tests for VectorStore (Level 1: E2E on real devices)
 ///
-/// Tests full stack: Dart → Pigeon → Native (iOS/Android)
+/// Tests full stack: Dart → sqlite3 dart:ffi (unified across all native platforms)
 /// Requires real device/simulator to run
 ///
 /// Run with: flutter test integration_test/vector_store_test.dart
 void main() {
   late String databasePath;
-  late PlatformService platformService;
 
   setUpAll(() async {
     // Initialize FlutterGemma (required for ServiceRegistry)
@@ -21,9 +21,6 @@ void main() {
     // Get a unique temporary database path for tests
     final tempDir = await getTemporaryDirectory();
     databasePath = '${tempDir.path}/test_vector_store.db';
-
-    // Create platform service for direct API access (bypasses embedding model requirement)
-    platformService = PlatformService();
   });
 
   setUp(() async {
@@ -90,8 +87,8 @@ void main() {
       );
 
       // Search for documents similar to [1.0, 0.0, 0.0]
-      // Use PlatformService directly to search by embedding (no embedding model required)
-      final results = await platformService.searchSimilar(
+      // Use VectorStoreRepository directly to search by embedding (no embedding model required)
+      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 2,
         threshold: 0.5,
@@ -176,7 +173,7 @@ void main() {
       );
 
       // Search with same embedding - should get exact match with similarity ~1.0
-      final results = await platformService.searchSimilar(
+      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: originalEmbedding,
         topK: 1,
         threshold: 0.0,
@@ -205,7 +202,7 @@ void main() {
       );
 
       // Search and verify metadata is preserved
-      final results = await platformService.searchSimilar(
+      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 2,
         threshold: 0.0,
@@ -238,7 +235,7 @@ void main() {
       );
 
       // Search with high threshold (0.8)
-      final resultsHighThreshold = await platformService.searchSimilar(
+      final resultsHighThreshold = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 10,
         threshold: 0.8,
@@ -249,7 +246,7 @@ void main() {
       expect(resultsHighThreshold[0].id, 'doc1');
 
       // Search with low threshold (0.0)
-      final resultsLowThreshold = await platformService.searchSimilar(
+      final resultsLowThreshold = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 10,
         threshold: 0.0,
@@ -284,7 +281,7 @@ void main() {
       expect(stats.documentCount, 1);
 
       // Verify updated content is returned
-      final results = await platformService.searchSimilar(
+      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [0.0, 1.0, 0.0],
         topK: 1,
         threshold: 0.0,

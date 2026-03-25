@@ -4,6 +4,12 @@
   - Pure Dart tokenizer via `dart_sentencepiece_tokenizer` (BPE + Unigram, auto-detect format)
   - TFLite C library built from TF 2.19.0 (supports EMBEDDING_LOOKUP v4)
   - CI workflow for building TFLite C library on all 5 platform/arch combinations
+- **Unified VectorStore**: Replaced platform-specific VectorStore (Android Kotlin, iOS Swift) with single Dart implementation using `sqlite3` dart:ffi
+  - ~1000 lines of native code removed
+  - Desktop VectorStore support (macOS, Windows, Linux) — previously `UnsupportedError`
+  - Performance: dart:ffi (~100ns overhead) vs Pigeon platform channels (~0.1-1ms)
+  - Same BLOB format (float32 LE) and SQL schema — no data migration needed
+  - Web VectorStore unchanged (wa-sqlite WASM + OPFS)
 
 ## 0.12.6
 - **LiteRT-LM 0.9.0-beta**: Updated from 0.9.0-alpha02 on Android and Desktop (JVM)

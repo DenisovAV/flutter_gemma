@@ -10,6 +10,7 @@ import '../core/message.dart';
 import '../core/model.dart';
 import '../core/tool.dart';
 import '../core/chat.dart';
+import '../core/di/service_registry.dart';
 import '../core/extensions.dart';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart'
@@ -324,11 +325,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     }
   }
 
-  // === RAG Methods (not supported in MVP) ===
+  // === RAG Methods ===
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    throw UnsupportedError('VectorStore not yet supported on desktop');
+    await ServiceRegistry.instance.vectorStoreRepository.initialize(databasePath);
   }
 
   @override
@@ -338,7 +339,12 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     required List<double> embedding,
     String? metadata,
   }) async {
-    throw UnsupportedError('VectorStore not yet supported on desktop');
+    await ServiceRegistry.instance.vectorStoreRepository.addDocument(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata,
+    );
   }
 
   @override
@@ -347,7 +353,16 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     required String content,
     String? metadata,
   }) async {
-    throw UnsupportedError('VectorStore not yet supported on desktop');
+    if (initializedEmbeddingModel == null) {
+      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+    }
+    final embedding = await initializedEmbeddingModel!.generateEmbedding(content);
+    await addDocumentWithEmbedding(
+      id: id,
+      content: content,
+      embedding: embedding,
+      metadata: metadata,
+    );
   }
 
   @override
@@ -356,25 +371,33 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     int topK = 5,
     double threshold = 0.0,
   }) async {
-    throw UnsupportedError('VectorStore not yet supported on desktop');
+    if (initializedEmbeddingModel == null) {
+      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+    }
+    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
+    return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      queryEmbedding: queryEmbedding,
+      topK: topK,
+      threshold: threshold,
+    );
   }
 
   @override
   Future<VectorStoreStats> getVectorStoreStats() async {
-    throw UnsupportedError('VectorStore not yet supported on desktop');
+    return await ServiceRegistry.instance.vectorStoreRepository.getStats();
   }
 
   @override
   Future<void> clearVectorStore() async {
-    throw UnsupportedError('VectorStore not yet supported on desktop');
+    await ServiceRegistry.instance.vectorStoreRepository.clear();
   }
 
   @override
-  bool get enableHnsw => true;
+  bool get enableHnsw => ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
 
   @override
   set enableHnsw(bool value) {
-    // VectorStore not supported on desktop yet
+    ServiceRegistry.instance.vectorStoreRepository.enableHnsw = value;
   }
 }
 

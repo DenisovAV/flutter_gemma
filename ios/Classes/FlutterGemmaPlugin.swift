@@ -53,9 +53,6 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     // Embedding model (like Android EmbeddingModel — no wrapper)
     private var embeddingModel: EmbeddingModel?
 
-    // VectorStore property
-    private var vectorStore: VectorStore?
-
     func createModel(
         maxTokens: Int64,
         modelPath: String,
@@ -452,257 +449,38 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
     
-    // MARK: - RAG VectorStore Methods (iOS Implementation)
+    // MARK: - RAG VectorStore Methods (no-ops: VectorStore is now handled entirely in Dart via sqlite3)
 
     func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        print("[PLUGIN] Initializing vector store at: \(databasePath)")
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                // Create new VectorStore instance
-                self.vectorStore = VectorStore()
-
-                // Initialize with database path
-                try self.vectorStore?.initialize(databasePath: databasePath)
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Vector store initialized successfully")
-                    completion(.success(()))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to initialize vector store: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "VectorStoreInitFailed",
-                        message: "Failed to initialize vector store: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success(()))
     }
 
     func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void) {
-        print("[PLUGIN] Adding document: \(id)")
-
-        guard let vectorStore = vectorStore else {
-            completion(.failure(PigeonError(
-                code: "VectorStoreNotInitialized",
-                message: "Vector store not initialized. Call initializeVectorStore first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try vectorStore.addDocument(
-                    id: id,
-                    content: content,
-                    embedding: embedding,
-                    metadata: metadata
-                )
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Document added successfully")
-                    completion(.success(()))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to add document: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "AddDocumentFailed",
-                        message: "Failed to add document: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success(()))
     }
 
     func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
-        print("[PLUGIN] Searching similar documents (topK: \(topK), threshold: \(threshold))")
-
-        guard let vectorStore = vectorStore else {
-            completion(.failure(PigeonError(
-                code: "VectorStoreNotInitialized",
-                message: "Vector store not initialized. Call initializeVectorStore first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let results = try vectorStore.searchSimilar(
-                    queryEmbedding: queryEmbedding,
-                    topK: Int(topK),
-                    threshold: threshold
-                )
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Found \(results.count) similar documents")
-                    completion(.success(results))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Search failed: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "SearchFailed",
-                        message: "Search failed: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success([]))
     }
 
     func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void) {
-        print("[PLUGIN] Getting vector store stats")
-
-        guard let vectorStore = vectorStore else {
-            completion(.failure(PigeonError(
-                code: "VectorStoreNotInitialized",
-                message: "Vector store not initialized. Call initializeVectorStore first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let stats = try vectorStore.getStats()
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Vector store stats: \(stats.documentCount) documents, \(stats.vectorDimension)D")
-                    completion(.success(stats))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to get stats: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "GetStatsFailed",
-                        message: "Failed to get stats: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success(VectorStoreStats(documentCount: 0, vectorDimension: 0)))
     }
 
     func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
-        print("[PLUGIN] Clearing vector store")
-
-        guard let vectorStore = vectorStore else {
-            completion(.failure(PigeonError(
-                code: "VectorStoreNotInitialized",
-                message: "Vector store not initialized. Call initializeVectorStore first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                try vectorStore.clear()
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Vector store cleared successfully")
-                    completion(.success(()))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to clear vector store: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "ClearFailed",
-                        message: "Failed to clear vector store: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success(()))
     }
 
     func closeVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
-        print("[PLUGIN] Closing vector store")
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.vectorStore?.close()
-            self.vectorStore = nil
-
-            DispatchQueue.main.async {
-                print("[PLUGIN] Vector store closed successfully")
-                completion(.success(()))
-            }
-        }
+        completion(.success(()))
     }
 
     func getAllDocumentsWithEmbeddings(completion: @escaping (Result<[DocumentWithEmbedding], Error>) -> Void) {
-        print("[PLUGIN] Getting all documents with embeddings for HNSW rebuild")
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let vectorStore = self.vectorStore else {
-                DispatchQueue.main.async {
-                    completion(.failure(PigeonError(
-                        code: "NotInitialized",
-                        message: "Vector store not initialized",
-                        details: nil
-                    )))
-                }
-                return
-            }
-
-            do {
-                let results = try vectorStore.getAllDocumentsWithEmbeddings()
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Retrieved \(results.count) documents with embeddings")
-                    completion(.success(results))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to get documents: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "GetDocumentsFailed",
-                        message: "Failed to get documents: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success([]))
     }
 
     func getDocumentsByIds(ids: [String], completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
-        print("[PLUGIN] Getting documents by IDs: \(ids.count) IDs")
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            guard let vectorStore = self.vectorStore else {
-                DispatchQueue.main.async {
-                    completion(.failure(PigeonError(
-                        code: "NotInitialized",
-                        message: "Vector store not initialized",
-                        details: nil
-                    )))
-                }
-                return
-            }
-
-            do {
-                let results = try vectorStore.getDocumentsByIds(ids)
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Retrieved \(results.count) documents by IDs")
-                    completion(.success(results))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to get documents by IDs: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "GetDocumentsByIdsFailed",
-                        message: "Failed to get documents: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
+        completion(.success([]))
     }
 
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {

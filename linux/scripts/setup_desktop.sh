@@ -261,9 +261,16 @@ install_tflite() {
 
     local TFLITE_VERSION="0.12.7"
     local TFLITE_ARTIFACT=""
+    local TFLITE_CHECKSUM=""
     case "$ARCH" in
-        x86_64)  TFLITE_ARTIFACT="libtensorflowlite_c_linux_amd64.so" ;;
-        aarch64) TFLITE_ARTIFACT="libtensorflowlite_c_linux_arm64.so" ;;
+        x86_64)
+            TFLITE_ARTIFACT="libtensorflowlite_c_linux_amd64.so"
+            TFLITE_CHECKSUM="2a26d1175db1d4304b963b91d8ce70cee06e3a3973c3e14e197b731e3632881b"
+            ;;
+        aarch64)
+            TFLITE_ARTIFACT="libtensorflowlite_c_linux_arm64.so"
+            TFLITE_CHECKSUM="1a3d3984c317237a7a35104eef8a99034abb933dc3807beb3d318276ea832941"
+            ;;
         *)
             echo "WARNING: TFLite C library not available for $ARCH"
             echo "Desktop embeddings will not work on this architecture"
@@ -274,9 +281,6 @@ install_tflite() {
     local TFLITE_CACHE="$CACHE_DIR/tflite"
 
     mkdir -p "$TFLITE_CACHE" "$TFLITE_DIR"
-
-    # SHA256 checksum (fill from CI artifacts after build)
-    local TFLITE_CHECKSUM=""
 
     local CACHED="$TFLITE_CACHE/$TFLITE_ARTIFACT"
     if [ ! -f "$CACHED" ]; then

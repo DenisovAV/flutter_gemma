@@ -545,8 +545,8 @@ function Install-TfLite {
     New-Item -ItemType Directory -Force -Path $tfliteCacheDir | Out-Null
     New-Item -ItemType Directory -Force -Path $tfliteDir | Out-Null
 
-    # SHA256 checksum (fill from CI artifacts after build)
-    $tfliteChecksum = ""
+    # SHA256 checksum from CI build (TF 2.19.0)
+    $tfliteChecksum = "44fb8b282f7e4b36bbf2cc30171f2354dcfea04792e4092573de14908771afb8"
 
     $cachedDll = "$tfliteCacheDir\$tfliteArtifact"
     if (-not (Test-Path $cachedDll)) {

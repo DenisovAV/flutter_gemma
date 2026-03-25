@@ -495,7 +495,7 @@ setup_tflite() {
     mkdir -p "$tflite_cache" "$tflite_dest"
 
     # SHA256 checksum (fill from CI artifacts after build)
-    local TFLITE_CHECKSUM=""
+    local TFLITE_CHECKSUM="465257ce5c11ef4bcc39e6b25ca02876523942fe797da8d785daf1c024c07680"
 
     local cached="$tflite_cache/$archive_name"
     if [[ ! -f "$cached" ]]; then

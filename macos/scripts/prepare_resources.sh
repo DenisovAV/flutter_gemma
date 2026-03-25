@@ -39,7 +39,7 @@ TFLITE_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/tflite"
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.12.7"
+JAR_VERSION="0.12.6"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
 JAR_CHECKSUM="fefc53d076533de164b5ce07c65f9aedc4739f83efc93e67625f0d90029ae5b7"
 JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"
@@ -396,8 +396,8 @@ setup_tflite() {
     echo "Setting up TFLite C library..."
     mkdir -p "$TFLITE_CACHE_DIR" "$tflite_dest"
 
-    # SHA256 checksum (fill from CI artifacts after build)
-    local TFLITE_CHECKSUM=""
+    # SHA256 checksum from CI build (TF 2.19.0)
+    local TFLITE_CHECKSUM="465257ce5c11ef4bcc39e6b25ca02876523942fe797da8d785daf1c024c07680"
 
     local cached="$TFLITE_CACHE_DIR/$archive_name"
     if [[ ! -f "$cached" ]]; then

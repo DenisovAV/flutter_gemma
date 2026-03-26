@@ -58,7 +58,7 @@ Both formats have **identical behavior** — MediaPipe handles chat templates in
 
 ### Type 2: Manual Template Formatting
 - **`.bin` files:** Standard binary format
-- **`.tflite` files:** TensorFlow Lite format
+- **`.tflite` files:** LiteRT format (formerly TensorFlow Lite)
 
 Both formats require **manual chat template formatting** in your code.
 
@@ -250,7 +250,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 > Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
 > MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
 
-Desktop support uses a different architecture — a bundled JVM gRPC server that communicates with your Flutter app.
+Desktop **inference** uses a bundled JVM gRPC server that communicates with your Flutter app. Desktop **embeddings** use a different, lighter architecture — LiteRT C API via `dart:ffi` directly in the Dart process (no JVM, no gRPC).
 
 | Platform | Architecture | GPU Acceleration | Status |
 |----------|-------------|------------------|--------|
@@ -1566,13 +1566,14 @@ Generate vector embeddings from text and perform semantic search with local vect
 
 ### Platform Support
 
-| Feature | Android | iOS | Web |
-|---------|---------|-----|-----|
-| **Embedding Generation** | ✅ Full | ✅ Full | ✅ Full |
-| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM |
+| Feature | Android | iOS | Web | Desktop |
+|---------|---------|-----|-----|---------|
+| **Embedding Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM | ✅ SQLite |
 
 - **Mobile (Android/iOS)**: Full RAG support with SQLite-based VectorStore
 - **Web**: Full RAG support with SQLite WASM (wa-sqlite + OPFS) - see [Web Setup](#web-setup-embeddings--vectorstore) below
+- **Desktop (macOS/Windows/Linux)**: Full RAG support. Embeddings use LiteRT C API via `dart:ffi` (no gRPC, no JVM). VectorStore uses SQLite.
 
 ### Supported Embedding Models
 

@@ -22,7 +22,14 @@ class DesktopEmbeddingModel extends EmbeddingModel {
   final VoidCallback onClose;
   bool _isClosed = false;
 
-  static const String _taskPrefix = 'task: search result | query: ';
+  static const String _queryPrefix = 'task: search result | query: ';
+  static const String _docPrefix = 'title: none | text: ';
+
+  /// Gemma standard special token IDs.
+  /// dart_sentencepiece_tokenizer defaults to bosId=1/eosId=2 (swapped),
+  /// so we add them manually with the correct IDs.
+  static const int _bosId = 2;
+  static const int _eosId = 1;
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -31,11 +38,14 @@ class DesktopEmbeddingModel extends EmbeddingModel {
     }
   }
 
-  /// Tokenize text with task prefix.
-  /// BOS/EOS are added by the tokenizer via SentencePieceConfig.gemma.
-  List<int> _prepareTokens(String text) {
-    final fullText = _taskPrefix + text;
-    return tokenize(fullText);
+  /// Tokenize text with prefix, add BOS/EOS with correct Gemma IDs.
+  List<int> _prepareTokens(String text, {bool isDocument = false}) {
+    final prefix = isDocument ? _docPrefix : _queryPrefix;
+    final fullText = prefix + text;
+    final tokens = tokenize(fullText);
+    final withSpecial = [_bosId, ...tokens, _eosId];
+    debugPrint('[DesktopEmbedding] "$text" → ${withSpecial.length} tokens: $withSpecial');
+    return withSpecial;
   }
 
   @override

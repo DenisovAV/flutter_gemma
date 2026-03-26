@@ -3,6 +3,39 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
+/// XNNPACK delegate flags (matching Python LiteRT behavior).
+class XNNPackFlags {
+  static const int enableLatestOperators = 0x00000040;
+  static const int enableSubgraphReshaping = 0x00000080;
+}
+
+/// FFI struct matching C `TfLiteXNNPackDelegateOptions`.
+final class TfLiteXNNPackDelegateOptions extends Struct {
+  @Int32()
+  external int numThreads;
+
+  @Uint32()
+  external int runtimeFlags;
+
+  @Uint32()
+  external int flags;
+
+  external Pointer<Void> weightsCache;
+
+  @Bool()
+  external bool handleVariableOps;
+
+  external Pointer<Utf8> weightCacheFilePath;
+
+  @Int32()
+  external int weightCacheFileDescriptor;
+
+  external Pointer<Void> weightCacheProvider;
+
+  @Bool()
+  external bool weightCacheLockMemory;
+}
+
 /// Raw FFI bindings to the TensorFlow Lite C API.
 ///
 /// Loads `libtensorflowlite_c` from the app bundle and exposes the minimal
@@ -114,6 +147,20 @@ class TfLiteBindings {
               'TfLiteInterpreterInvoke')
           .asFunction();
 
+  // --- Tensor Counts ---
+
+  late final int Function(Pointer<Void> interpreter)
+      tfLiteInterpreterGetInputTensorCount = _lib
+          .lookup<NativeFunction<Int32 Function(Pointer<Void>)>>(
+              'TfLiteInterpreterGetInputTensorCount')
+          .asFunction();
+
+  late final int Function(Pointer<Void> interpreter)
+      tfLiteInterpreterGetOutputTensorCount = _lib
+          .lookup<NativeFunction<Int32 Function(Pointer<Void>)>>(
+              'TfLiteInterpreterGetOutputTensorCount')
+          .asFunction();
+
   // --- Input/Output Tensors ---
 
   late final Pointer<Void> Function(Pointer<Void> interpreter, int inputIndex)
@@ -150,6 +197,31 @@ class TfLiteBindings {
               NativeFunction<
                   Int32 Function(Pointer<Void>, Pointer<Void>,
                       IntPtr)>>('TfLiteTensorCopyToBuffer')
+          .asFunction();
+
+  // --- XNNPACK Delegate ---
+
+  late final void Function(Pointer<Void> options, Pointer<Void> delegate)
+      tfLiteInterpreterOptionsAddDelegate = _lib
+          .lookup<
+              NativeFunction<
+                  Void Function(Pointer<Void>,
+                      Pointer<Void>)>>('TfLiteInterpreterOptionsAddDelegate')
+          .asFunction();
+
+  late final Pointer<Void> Function(
+          Pointer<TfLiteXNNPackDelegateOptions> options)
+      tfLiteXNNPackDelegateCreate = _lib
+          .lookup<
+              NativeFunction<
+                  Pointer<Void> Function(
+                      Pointer<TfLiteXNNPackDelegateOptions>)>>('TfLiteXNNPackDelegateCreate')
+          .asFunction();
+
+  late final void Function(Pointer<Void> delegate)
+      tfLiteXNNPackDelegateDelete = _lib
+          .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
+              'TfLiteXNNPackDelegateDelete')
           .asFunction();
 
   // --- Tensor Shape ---

@@ -67,7 +67,26 @@ class TfLiteInterpreter {
     }
     bindings.tfLiteInterpreterOptionsSetNumThreads(options, numThreads);
 
-    // Create interpreter (fallback to WithSelectedOps for quantized models)
+    // Create XNNPACK delegate with options matching Python LiteRT behavior
+    Pointer<Void>? xnnpackDelegate;
+    final xnnpackOpts = calloc<TfLiteXNNPackDelegateOptions>();
+    try {
+      xnnpackOpts.ref.numThreads = numThreads;
+      xnnpackOpts.ref.flags = XNNPackFlags.enableLatestOperators |
+          XNNPackFlags.enableSubgraphReshaping;
+      xnnpackDelegate = bindings.tfLiteXNNPackDelegateCreate(xnnpackOpts);
+      if (xnnpackDelegate != nullptr) {
+        bindings.tfLiteInterpreterOptionsAddDelegate(options, xnnpackDelegate);
+        debugPrint('[TfLite] XNNPACK delegate added to options');
+      }
+    } catch (e) {
+      debugPrint('[TfLite] XNNPACK delegate not available: $e');
+      xnnpackDelegate = null;
+    } finally {
+      calloc.free(xnnpackOpts);
+    }
+
+    // Create interpreter (delegate applied during creation, matching Python LiteRT)
     debugPrint('[TfLite] Trying TfLiteInterpreterCreate...');
     var interpreter = bindings.tfLiteInterpreterCreate(model, options);
     debugPrint('[TfLite] Result: $interpreter (nullptr: ${interpreter == nullptr})');
@@ -80,6 +99,9 @@ class TfLiteInterpreter {
     bindings.tfLiteInterpreterOptionsDelete(options);
 
     if (interpreter == nullptr) {
+      if (xnnpackDelegate != null) {
+        bindings.tfLiteXNNPackDelegateDelete(xnnpackDelegate);
+      }
       bindings.tfLiteModelDelete(model);
       throw StateError('Failed to create TFLite interpreter from: $modelPath');
     }
@@ -91,6 +113,21 @@ class TfLiteInterpreter {
       bindings.tfLiteModelDelete(model);
       throw StateError(
           'Failed to allocate tensors (status: $allocStatus)');
+    }
+
+    // Log tensor counts
+    final inputCount = bindings.tfLiteInterpreterGetInputTensorCount(interpreter);
+    final outputCount = bindings.tfLiteInterpreterGetOutputTensorCount(interpreter);
+    debugPrint('[TfLite] Input tensors: $inputCount, Output tensors: $outputCount');
+
+    // Log all input tensor shapes
+    for (var t = 0; t < inputCount; t++) {
+      final tensor = bindings.tfLiteInterpreterGetInputTensor(interpreter, t);
+      if (tensor != nullptr) {
+        final nd = bindings.tfLiteTensorNumDims(tensor);
+        final dims = List.generate(nd, (i) => bindings.tfLiteTensorDim(tensor, i));
+        debugPrint('[TfLite] Input[$t] shape: $dims');
+      }
     }
 
     // Auto-detect dimensions from model tensors
@@ -110,6 +147,13 @@ class TfLiteInterpreter {
 
     // Input shape: [1, sequenceLength]
     final inputSeqLen = bindings.tfLiteTensorDim(inputTensor, 1);
+
+    // Output shape: check number of dimensions
+    final numDims = bindings.tfLiteTensorNumDims(outputTensor);
+    debugPrint('[TfLite] Output tensor: numDims=$numDims');
+    for (var i = 0; i < numDims; i++) {
+      debugPrint('[TfLite] Output dim[$i] = ${bindings.tfLiteTensorDim(outputTensor, i)}');
+    }
 
     // Output shape: [1, embeddingDimension]
     final outputDim = bindings.tfLiteTensorDim(outputTensor, 1);

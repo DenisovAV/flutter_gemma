@@ -278,7 +278,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       );
 
       // Load tokenizer - auto-detect format by file extension
-      // SentencePieceConfig.gemma adds BOS + EOS tokens automatically
+      // BOS/EOS are added manually in DesktopEmbeddingModel with correct Gemma IDs
+      // (dart_sentencepiece_tokenizer defaults to bosId=1/eosId=2, but Gemma uses bosId=2/eosId=1)
       if (tokenizerPath == null) {
         interpreter.close();
         throw StateError('Tokenizer path is required for desktop embeddings');
@@ -288,12 +289,12 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         if (tokenizerPath.endsWith('.json')) {
           tokenizer = await TokenizerJsonLoader.fromJsonFile(
             tokenizerPath,
-            config: SentencePieceConfig.gemma,
+            config: const SentencePieceConfig(),
           );
         } else {
           tokenizer = await SentencePieceTokenizer.fromModelFile(
             tokenizerPath,
-            config: SentencePieceConfig.gemma,
+            config: const SentencePieceConfig(),
           );
         }
       } catch (e) {

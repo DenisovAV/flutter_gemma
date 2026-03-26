@@ -215,6 +215,7 @@ interface PlatformService {
   fun createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, callback: (Result<Unit>) -> Unit)
   fun closeEmbeddingModel(callback: (Result<Unit>) -> Unit)
   fun generateEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit)
+  fun generateDocumentEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit)
   fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<Any?>>) -> Unit)
   fun getEmbeddingDimension(callback: (Result<Long>) -> Unit)
   fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit)
@@ -517,6 +518,26 @@ interface PlatformService {
             val args = message as List<Any?>
             val textArg = args[0] as String
             api.generateEmbeddingFromModel(textArg) { result: Result<List<Double>> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateDocumentEmbeddingFromModel$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val textArg = args[0] as String
+            api.generateDocumentEmbeddingFromModel(textArg) { result: Result<List<Double>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

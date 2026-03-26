@@ -357,7 +357,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     if (initializedEmbeddingModel == null) {
       throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
-    final embedding = await initializedEmbeddingModel!.generateEmbedding(content);
+    final embedding = await initializedEmbeddingModel!.generateEmbedding(
+      content,
+      taskType: TaskType.retrievalDocument,
+    );
     await addDocumentWithEmbedding(
       id: id,
       content: content,

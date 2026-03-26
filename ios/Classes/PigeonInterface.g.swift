@@ -243,6 +243,7 @@ protocol PlatformService {
   func createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeEmbeddingModel(completion: @escaping (Result<Void, Error>) -> Void)
   func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void)
+  func generateDocumentEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void)
   func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void)
   func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void)
   func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void)
@@ -520,6 +521,23 @@ class PlatformServiceSetup {
       }
     } else {
       generateEmbeddingFromModelChannel.setMessageHandler(nil)
+    }
+    let generateDocumentEmbeddingFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateDocumentEmbeddingFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      generateDocumentEmbeddingFromModelChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let textArg = args[0] as! String
+        api.generateDocumentEmbeddingFromModel(text: textArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      generateDocumentEmbeddingFromModelChannel.setMessageHandler(nil)
     }
     let generateEmbeddingsFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

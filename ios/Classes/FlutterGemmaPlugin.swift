@@ -378,6 +378,36 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
+    func generateDocumentEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void) {
+        guard let embeddingModel = embeddingModel else {
+            completion(.failure(PigeonError(
+                code: "EmbeddingModelNotInitialized",
+                message: "Embedding model not initialized. Call createEmbeddingModel first.",
+                details: nil
+            )))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let floatEmbeddings = try embeddingModel.generateDocumentEmbedding(for: text)
+                let doubleEmbeddings = floatEmbeddings.map { Double($0) }
+
+                DispatchQueue.main.async {
+                    completion(.success(doubleEmbeddings))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(PigeonError(
+                        code: "DocumentEmbeddingGenerationFailed",
+                        message: "Failed to generate document embedding: \(error.localizedDescription)",
+                        details: nil
+                    )))
+                }
+            }
+        }
+    }
+
     func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void) {
         print("[PLUGIN] Generating embeddings for \(texts.count) texts")
 

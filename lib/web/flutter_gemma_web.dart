@@ -288,7 +288,10 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     // Generate embedding and add document
-    final embedding = await _initializedEmbeddingModel!.generateEmbedding(content);
+    final embedding = await _initializedEmbeddingModel!.generateEmbedding(
+      content,
+      taskType: TaskType.retrievalDocument,
+    );
     await _vectorStoreRepository!.addDocument(
       id: id,
       content: content,

@@ -19,6 +19,7 @@ import { SentencePieceProcessor } from '@sctg/sentencepiece-js';
 // ============================================================================
 
 const TASK_PREFIX = "task: search result | query: ";
+const DOC_PREFIX = "title: none | text: ";
 const BOS_TOKEN = 2;
 const EOS_TOKEN = 1;
 const PAD_TOKEN = 0;
@@ -168,6 +169,23 @@ function preprocessTextForEmbedding(text) {
   return combinedTokens;
 }
 
+function preprocessDocumentForEmbedding(text) {
+  const prefixTokens = tokenizer.encode(DOC_PREFIX, false);
+  const processedText = "▁" + text;
+  const textTokens = tokenizer.encode(processedText, false);
+  let combinedTokens = [...prefixTokens, ...textTokens];
+  combinedTokens.unshift(BOS_TOKEN);
+  combinedTokens.push(EOS_TOKEN);
+
+  if (combinedTokens.length > MAX_SEQUENCE_LENGTH) {
+    combinedTokens = combinedTokens.slice(0, MAX_SEQUENCE_LENGTH);
+  } else if (combinedTokens.length < MAX_SEQUENCE_LENGTH) {
+    const padLength = MAX_SEQUENCE_LENGTH - combinedTokens.length;
+    combinedTokens = [...combinedTokens, ...new Array(padLength).fill(PAD_TOKEN)];
+  }
+  return combinedTokens;
+}
+
 // ============================================================================
 // Embedding Generation
 // ============================================================================
@@ -221,6 +239,51 @@ async function generateEmbeddingInternal(text) {
     return embeddingArray;
   } catch (error) {
     // Cleanup on error
+    try {
+      if (gpuTensor !== inputTensor && !gpuTensor.deleted) gpuTensor.delete();
+      if (!inputTensor.deleted) inputTensor.delete();
+    } catch {}
+    throw error;
+  }
+}
+
+async function generateDocumentEmbeddingInternal(text) {
+  if (!tfliteModel || !tokenizer) {
+    throw new Error('Model or tokenizer not initialized. Call loadLiteRtEmbeddings first.');
+  }
+
+  const tokens = preprocessDocumentForEmbedding(text);
+  const inputArray = new Int32Array(tokens);
+  const inputTensor = new Tensor(inputArray, [1, MAX_SEQUENCE_LENGTH]);
+
+  let gpuTensor = inputTensor;
+  if (tfliteModel.accelerator === 'webgpu') {
+    gpuTensor = await inputTensor.moveTo('webgpu');
+  }
+
+  try {
+    const outputTensors = tfliteModel.run(gpuTensor);
+    const outputTensor = outputTensors[0];
+
+    let cpuTensor = outputTensor;
+    if (outputTensor.accelerator === 'webgpu') {
+      cpuTensor = await outputTensor.moveTo('wasm');
+    }
+
+    const embeddingsTypedArray = cpuTensor.toTypedArray();
+    const embeddingArray = Array.from(embeddingsTypedArray);
+
+    if (embeddingArray.length !== EXPECTED_EMBEDDING_DIM) {
+      console.warn(`Unexpected embedding dimension: ${embeddingArray.length}, expected ${EXPECTED_EMBEDDING_DIM}`);
+    }
+
+    if (gpuTensor !== inputTensor && !gpuTensor.deleted) gpuTensor.delete();
+    if (!inputTensor.deleted) inputTensor.delete();
+    if (cpuTensor !== outputTensor && !cpuTensor.deleted) cpuTensor.delete();
+    if (!outputTensor.deleted) outputTensor.delete();
+
+    return embeddingArray;
+  } catch (error) {
     try {
       if (gpuTensor !== inputTensor && !gpuTensor.deleted) gpuTensor.delete();
       if (!inputTensor.deleted) inputTensor.delete();
@@ -293,6 +356,22 @@ window.generateEmbedding = async function(text) {
   }
 
   const embedding = await generateEmbeddingInternal(text);
+  return new Float32Array(embedding);
+};
+
+/**
+ * Generate document embedding for a single text (uses document prefix)
+ * @param {string} text - Text to embed
+ * @returns {Promise<Float32Array>} Embedding vector
+ */
+window.generateDocumentEmbedding = async function(text) {
+  if (!isInitialized) {
+    throw new Error('LiteRT embeddings not initialized. Call loadLiteRtEmbeddings first.');
+  }
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('Text must be a non-empty string');
+  }
+  const embedding = await generateDocumentEmbeddingInternal(text);
   return new Float32Array(embedding);
 };
 

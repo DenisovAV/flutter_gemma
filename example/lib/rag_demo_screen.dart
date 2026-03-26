@@ -126,7 +126,10 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
       // Batch embedding - one call instead of multiple
       final embeddingModel = FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
-      final embeddings = await embeddingModel.generateEmbeddings(contents);
+      final embeddings = await embeddingModel.generateEmbeddings(
+        contents,
+        taskType: TaskType.retrievalDocument,
+      );
 
       // Add documents with pre-computed embeddings
       for (int i = 0; i < sampleDocuments.length; i++) {

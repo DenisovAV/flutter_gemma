@@ -17,6 +17,7 @@ class EmbeddingModel {
     private var embeddingDimension = 768 // Will be detected from model
 
     private let taskPrefix = "task: search result | query: "
+    private let docPrefix = "title: none | text: "
 
     // Memory optimization: Reuse buffers to avoid allocations
     private var inputBuffer: Data?
@@ -122,6 +123,26 @@ class EmbeddingModel {
         return embeddings
     }
     
+    /// Generate embeddings for input text using document prefix (for RAG indexing)
+    func generateDocumentEmbedding(for text: String) throws -> [Float] {
+        guard let interpreter = interpreter,
+              let tokenizer = tokenizer else {
+            throw EmbeddingError.modelNotLoaded("Model not loaded. Call loadModel() first.")
+        }
+
+        let fullText = docPrefix + text
+        var tokens = tokenizer.encode(fullText)
+        tokens.insert(2, at: 0)  // BOS
+        tokens.append(1)         // EOS
+
+        let inputTensor = try prepareInputTensor(tokens: tokens)
+        try interpreter.copy(inputTensor, toInputAt: 0)
+        try interpreter.invoke()
+
+        let outputTensor = try interpreter.output(at: 0)
+        return try extractEmbeddings(from: outputTensor)
+    }
+
     /// Close model and release resources
     func close() {
         interpreter = nil

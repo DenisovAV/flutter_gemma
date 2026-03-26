@@ -65,7 +65,7 @@ class EmbeddingModel(
             // Create embedding request with proper structure
             val embedData = EmbedData.builder<String>()
                 .setData(text)
-                .setTask(EmbedData.TaskType.SEMANTIC_SIMILARITY)
+                .setTask(EmbedData.TaskType.RETRIEVAL_QUERY)
                 .build()
 
             val request = EmbeddingRequest.create(ImmutableList.of(embedData))
@@ -81,6 +81,26 @@ class EmbeddingModel(
         }
     }
     
+    fun embedDocument(text: String): List<Double> {
+        val model = gemmaEmbeddingModel ?: throw IllegalStateException("Tokenizer not initialized")
+
+        try {
+            val embedData = EmbedData.builder<String>()
+                .setData(text)
+                .setTask(EmbedData.TaskType.RETRIEVAL_DOCUMENT)
+                .build()
+
+            val request = EmbeddingRequest.create(ImmutableList.of(embedData))
+
+            return runBlocking {
+                val embeddings = model.getEmbeddings(request).await()
+                embeddings.map { it.toDouble() }
+            }
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to generate document embedding", e)
+        }
+    }
+
     fun close() {
         // GemmaEmbeddingModel doesn't have explicit close in the RAG library
         // but we can null it out to free resources

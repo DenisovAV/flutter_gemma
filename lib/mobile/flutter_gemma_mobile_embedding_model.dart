@@ -15,14 +15,30 @@ class MobileEmbeddingModel extends EmbeddingModel {
   }
 
   @override
-  Future<List<double>> generateEmbedding(String text) async {
+  Future<List<double>> generateEmbedding(
+    String text, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
     _assertNotClosed();
+    if (taskType == TaskType.retrievalDocument) {
+      return await _platformService.generateDocumentEmbeddingFromModel(text);
+    }
     return await _platformService.generateEmbeddingFromModel(text);
   }
 
   @override
-  Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
+  Future<List<List<double>>> generateEmbeddings(
+    List<String> texts, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
     _assertNotClosed();
+    if (taskType == TaskType.retrievalDocument) {
+      final results = <List<double>>[];
+      for (final text in texts) {
+        results.add(await _platformService.generateDocumentEmbeddingFromModel(text));
+      }
+      return results;
+    }
     final result = await _platformService.generateEmbeddingsFromModel(texts);
     // Deep cast: platform channel returns List<Object?> with inner List<Object?>
     try {

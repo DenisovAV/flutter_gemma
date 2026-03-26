@@ -52,11 +52,17 @@ class WebEmbeddingModel extends EmbeddingModel {
   }
 
   @override
-  Future<List<double>> generateEmbedding(String text) async {
+  Future<List<double>> generateEmbedding(
+    String text, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
     _assertNotClosed();
     await _ensureInitialized();
 
     try {
+      if (taskType == TaskType.retrievalDocument) {
+        return await LiteRTWebEmbeddings.generateDocumentEmbedding(text);
+      }
       return await LiteRTWebEmbeddings.generateEmbedding(text);
     } catch (e) {
       if (kDebugMode) {
@@ -67,11 +73,21 @@ class WebEmbeddingModel extends EmbeddingModel {
   }
 
   @override
-  Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
+  Future<List<List<double>>> generateEmbeddings(
+    List<String> texts, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
     _assertNotClosed();
     await _ensureInitialized();
 
     try {
+      if (taskType == TaskType.retrievalDocument) {
+        final results = <List<double>>[];
+        for (final text in texts) {
+          results.add(await LiteRTWebEmbeddings.generateDocumentEmbedding(text));
+        }
+        return results;
+      }
       final embeddings = await LiteRTWebEmbeddings.generateEmbeddings(texts);
       if (kDebugMode) {
         debugPrint('✅ Generated ${embeddings.length} embeddings');

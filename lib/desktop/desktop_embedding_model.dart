@@ -39,27 +39,34 @@ class DesktopEmbeddingModel extends EmbeddingModel {
   }
 
   /// Tokenize text with prefix, add BOS/EOS with correct Gemma IDs.
-  List<int> _prepareTokens(String text, {bool isDocument = false}) {
-    final prefix = isDocument ? _docPrefix : _queryPrefix;
+  List<int> _prepareTokens(String text, {required TaskType taskType}) {
+    final prefix = taskType == TaskType.retrievalDocument
+        ? _docPrefix
+        : _queryPrefix;
     final fullText = prefix + text;
     final tokens = tokenize(fullText);
     final withSpecial = [_bosId, ...tokens, _eosId];
-    debugPrint('[DesktopEmbedding] "$text" → ${withSpecial.length} tokens: $withSpecial');
     return withSpecial;
   }
 
   @override
-  Future<List<double>> generateEmbedding(String text) async {
+  Future<List<double>> generateEmbedding(
+    String text, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
     _assertNotClosed();
-    final tokens = _prepareTokens(text);
+    final tokens = _prepareTokens(text, taskType: taskType);
     return _interpreter.run(tokens);
   }
 
   @override
-  Future<List<List<double>>> generateEmbeddings(List<String> texts) async {
+  Future<List<List<double>>> generateEmbeddings(
+    List<String> texts, {
+    TaskType taskType = TaskType.retrievalQuery,
+  }) async {
     _assertNotClosed();
     return texts.map((text) {
-      final tokens = _prepareTokens(text);
+      final tokens = _prepareTokens(text, taskType: taskType);
       return _interpreter.run(tokens);
     }).toList();
   }

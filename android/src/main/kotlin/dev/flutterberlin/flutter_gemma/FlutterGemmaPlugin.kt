@@ -389,6 +389,18 @@ private class PlatformServiceImpl(
     }
   }
 
+  override fun generateDocumentEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit) {
+    scope.launch {
+      try {
+        val embedding = embeddingModel?.embedDocument(text)
+          ?: throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
+        callback(Result.success(embedding))
+      } catch (e: Exception) {
+        callback(Result.failure(e))
+      }
+    }
+  }
+
   override fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<Any?>>) -> Unit) {
     scope.launch {
       try {

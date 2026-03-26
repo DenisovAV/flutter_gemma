@@ -1642,17 +1642,21 @@ final embeddingModel = await FlutterGemma.getActiveEmbedder(
   preferredBackend: PreferredBackend.gpu, // Optional: use GPU acceleration
 );
 
-// Generate embedding for single text
-final embedding = await embeddingModel.generateEmbedding('Hello, world!');
-print('Embedding vector: ${embedding.take(5)}...'); // Show first 5 dimensions
-print('Embedding dimension: ${embedding.length}');
+// Generate query embedding (for search)
+final queryEmb = await embeddingModel.generateEmbedding('What is Flutter?');
+print('Query embedding: ${queryEmb.take(5)}...'); // Show first 5 dimensions
 
-// Generate embeddings for multiple texts
-final embeddings = await embeddingModel.generateEmbeddings([
-  'Hello, world!',
-  'How are you?',
-  'Flutter is awesome!'
-]);
+// Generate document embedding (for indexing) — uses document prefix
+final docEmb = await embeddingModel.generateEmbedding(
+  'Flutter is a UI framework by Google',
+  taskType: TaskType.retrievalDocument,
+);
+
+// Batch embeddings
+final embeddings = await embeddingModel.generateEmbeddings(
+  ['Hello, world!', 'How are you?', 'Flutter is awesome!'],
+  taskType: TaskType.retrievalDocument, // optional, default is retrievalQuery
+);
 print('Generated ${embeddings.length} embeddings');
 
 // Get embedding model dimension
@@ -1702,8 +1706,11 @@ final documents = [
 ];
 
 for (final doc in documents) {
-  // Generate embedding
-  final embedding = await embeddingModel.generateEmbedding(doc);
+  // Generate document embedding (uses document prefix for better retrieval)
+  final embedding = await embeddingModel.generateEmbedding(
+    doc,
+    taskType: TaskType.retrievalDocument,
+  );
 
   // Add to vector store
   await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(

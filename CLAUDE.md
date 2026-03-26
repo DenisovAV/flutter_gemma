@@ -419,9 +419,9 @@ Future<void> close() async {
 | iOS Device | ✅ Works | ❌ Not supported | ✅ Works | Full vision support |
 | iOS Simulator | ❌ Broken | ❌ Not supported | ✅ Works | MediaPipe incompatible with Apple Silicon simulator |
 | Web | ✅ Works | ❌ Not supported | ✅ Works | MediaPipe only |
-| macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ Works | Desktop via TFLite FFI |
-| Windows | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC + TFLite FFI |
-| Linux | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC + TFLite FFI |
+| macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ Works | Vision: image sent but model hallucinates |
+| Windows | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC |
+| Linux | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC |
 
 **Known Issues:**
 - **iOS Simulator (#178)**: Vision doesn't work on Apple Silicon simulators due to MediaPipe dependency incompatibility. Use physical device.

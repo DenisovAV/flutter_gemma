@@ -6,10 +6,10 @@
   - All platforms: Android, iOS, Web, Desktop
   - `addDocument()` automatically uses document prefix
 - **Desktop Embeddings**: Run `.tflite` embedding models (EmbeddingGemma, Gecko) on macOS, Windows, Linux
-  - TFLite C API via `dart:ffi` — no gRPC, no JVM overhead
+  - LiteRT C API via `dart:ffi` — no gRPC, no JVM overhead
   - Pure Dart tokenizer via `dart_sentencepiece_tokenizer` (BPE + Unigram, auto-detect format)
-  - TFLite C library built from TF 2.19.0 (supports EMBEDDING_LOOKUP v4)
-  - CI workflow for building TFLite C library on all 5 platform/arch combinations
+  - LiteRT C library built from TF 2.19.0 (supports EMBEDDING_LOOKUP v4)
+  - CI workflow for building LiteRT C library on all 5 platform/arch combinations
 - **Unified VectorStore**: Replaced platform-specific VectorStore (Android Kotlin, iOS Swift) with single Dart implementation using `sqlite3` dart:ffi
   - ~1000 lines of native code removed
   - Desktop VectorStore support (macOS, Windows, Linux) — previously `UnsupportedError`

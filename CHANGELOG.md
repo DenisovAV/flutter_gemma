@@ -1,4 +1,10 @@
 ## 0.12.7
+- **Dual-Prefix Embeddings (TaskType)**: Improved RAG retrieval quality with query/document prefixes
+  - `TaskType.retrievalQuery` (default) — for search queries
+  - `TaskType.retrievalDocument` — for document indexing
+  - Follows Google RAG SDK convention (`EmbedData.TaskType`)
+  - All platforms: Android, iOS, Web, Desktop
+  - `addDocument()` automatically uses document prefix
 - **Desktop Embeddings**: Run `.tflite` embedding models (EmbeddingGemma, Gecko) on macOS, Windows, Linux
   - TFLite C API via `dart:ffi` — no gRPC, no JVM overhead
   - Pure Dart tokenizer via `dart_sentencepiece_tokenizer` (BPE + Unigram, auto-detect format)

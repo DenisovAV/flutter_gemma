@@ -35,6 +35,23 @@
 - ✅ **REQUIRED**: Simple, clean commit messages without AI mentions
 - ✅ **REQUIRED**: Use `--author="Sasha Denisov <denisov.shureg@gmail.com>"`
 
+## Rule 6: NEVER HARDCODE SECRETS IN CODE ⛔
+- ❌ **FORBIDDEN**: Putting API keys, tokens, passwords directly in source code
+- ❌ **FORBIDDEN**: HuggingFace tokens, Firebase keys, any credentials inline
+- ✅ **REQUIRED**: Use `String.fromEnvironment('KEY_NAME')` or env variables
+- ✅ **REQUIRED**: Pass secrets via `--dart-define=KEY=value` at runtime
+
+**Why:** GitHub Push Protection blocks commits with secrets. Even if amend removes the secret, it may be exposed in logs. Always use environment variables.
+
+**Example:**
+```dart
+// ❌ BAD
+const token = 'hf_ABC123...';
+
+// ✅ GOOD
+final token = const String.fromEnvironment('HF_TOKEN');
+```
+
 ## Rule 5: SEARCH ALL FILES ⛔
 - ❌ **FORBIDDEN**: Using grep/search with file extension filters unless explicitly requested
 - ✅ **REQUIRED**: When user says "search for X", search ALL files without extension filters
@@ -195,7 +212,11 @@ final embedder = await FlutterGemma.getActiveEmbedder(
 );
 
 // Step 3: Generate embeddings
-final embedding = await embedder.generateEmbedding('Hello, world!');
+final queryEmb = await embedder.generateEmbedding('What is Flutter?');
+final docEmb = await embedder.generateEmbedding(
+  'Flutter is a UI framework...',
+  taskType: TaskType.retrievalDocument,
+);
 ```
 
 **Benefits:**
@@ -392,15 +413,15 @@ Future<void> close() async {
 
 ### Platform Limitations
 
-| Platform | Vision/Multimodal | Audio | Notes |
-|----------|-------------------|-------|-------|
-| Android | ✅ Works | ✅ LiteRT-LM only | Full support |
-| iOS Device | ✅ Works | ❌ Not supported | Full vision support |
-| iOS Simulator | ❌ Broken | ❌ Not supported | MediaPipe incompatible with Apple Silicon simulator |
-| Web | ✅ Works | ❌ Not supported | MediaPipe only |
-| macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | Vision: image sent but model hallucinates |
-| Windows | ✅ Works | ✅ LiteRT-LM only | Desktop via gRPC |
-| Linux | ✅ Works | ✅ LiteRT-LM only | Desktop via gRPC |
+| Platform | Vision/Multimodal | Audio | Embeddings | Notes |
+|----------|-------------------|-------|------------|-------|
+| Android | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Full support |
+| iOS Device | ✅ Works | ❌ Not supported | ✅ Works | Full vision support |
+| iOS Simulator | ❌ Broken | ❌ Not supported | ✅ Works | MediaPipe incompatible with Apple Silicon simulator |
+| Web | ✅ Works | ❌ Not supported | ✅ Works | MediaPipe only |
+| macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ Works | Desktop via TFLite FFI |
+| Windows | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC + TFLite FFI |
+| Linux | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC + TFLite FFI |
 
 **Known Issues:**
 - **iOS Simulator (#178)**: Vision doesn't work on Apple Silicon simulators due to MediaPipe dependency incompatibility. Use physical device.
@@ -878,12 +899,20 @@ final embeddingModel = await FlutterGemmaPlugin.instance.createEmbeddingModel();
 
 **Step 3: Generate Embeddings**
 ```dart
-// Single text
-final embedding = await embeddingModel.generateEmbedding('Hello, world!');
-print('Dimensions: ${embedding.length}');
+// Query embedding (for search)
+final queryEmb = await embeddingModel.generateEmbedding('What is Flutter?');
 
-// Multiple texts
-final embeddings = await embeddingModel.generateEmbeddings(['text1', 'text2']);
+// Document embedding (for indexing) — uses TaskType.retrievalDocument
+final docEmb = await embeddingModel.generateEmbedding(
+  'Flutter is a UI framework...',
+  taskType: TaskType.retrievalDocument,
+);
+
+// Batch embeddings
+final embeddings = await embeddingModel.generateEmbeddings(
+  ['text1', 'text2'],
+  taskType: TaskType.retrievalDocument, // optional, default is retrievalQuery
+);
 ```
 
 **Step 4: Cleanup**

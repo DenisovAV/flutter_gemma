@@ -57,3 +57,9 @@ macos/Resources/tflite/libtensorflowlite_c.dylib
 # Temporary/internal documentation
 temporary_docs/
 DESKTOP_DEBUG.md
+
+# Test reports and review artifacts
+test_reports/
+
+# Investigation scripts
+example/scripts/

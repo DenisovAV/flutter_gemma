@@ -290,7 +290,7 @@ setup_jre() {
     # Copy to Resources
     echo "Copying JRE to Resources..."
     mkdir -p "$jre_dest"
-    cp -R "$extracted/Contents/Home/"* "$jre_dest/"
+    cp -R "$extracted/"* "$jre_dest/"
     touch "$jre_marker"
 
     echo "JRE installed: $(du -sh "$jre_dest" | cut -f1)"
@@ -416,7 +416,7 @@ setup_tflite() {
             if [[ "$actual_checksum" != "$TFLITE_CHECKSUM" ]]; then
                 rm -f "$cached"
                 echo "ERROR: TFLite checksum mismatch!"
-                return 0
+                return 1
             fi
             echo "Checksum verified"
         else

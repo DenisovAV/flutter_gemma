@@ -4,7 +4,7 @@ PODS:
   - CocoaAsyncSocket (7.6.5)
   - file_selector_macos (0.0.1):
     - FlutterMacOS
-  - flutter_gemma (0.11.14):
+  - flutter_gemma (0.12.7):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - just_audio (0.0.1):
@@ -67,7 +67,7 @@ SPEC CHECKSUMS:
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   file_selector_macos: 6280b52b459ae6c590af5d78fc35c7267a3c4b31
-  flutter_gemma: 91f6b6df28c2fb230f709e42690d8d65ae4d04b9
+  flutter_gemma: 5d837b2ab7f400b7cf5b73fd6f83cc87ffce2b65
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564

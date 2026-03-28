@@ -516,7 +516,7 @@ setup_tflite() {
                 echo "ERROR: TFLite checksum mismatch!"
                 echo "  Expected: $TFLITE_CHECKSUM"
                 echo "  Got: $actual_checksum"
-                return 0
+                return 1
             fi
             echo "Checksum verified"
         else

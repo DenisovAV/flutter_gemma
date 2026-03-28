@@ -5,11 +5,12 @@ PODS:
     - Flutter
   - CocoaAsyncSocket (7.6.5)
   - Flutter (1.0.0)
-  - flutter_gemma (0.12.4):
+  - flutter_gemma (0.12.6):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.24)
     - MediaPipeTasksGenAIC (= 0.10.24)
     - TensorFlowLiteC (= 0.0.1-nightly.20250619)
+    - TensorFlowLiteSelectTfOps (= 0.0.1-nightly.20250619)
     - TensorFlowLiteSwift (= 0.0.1-nightly.20250619)
   - image_picker_ios (0.0.1):
     - Flutter
@@ -40,6 +41,7 @@ PODS:
   - TensorFlowLiteC (0.0.1-nightly.20250619):
     - TensorFlowLiteC/Core (= 0.0.1-nightly.20250619)
   - TensorFlowLiteC/Core (0.0.1-nightly.20250619)
+  - TensorFlowLiteSelectTfOps (0.0.1-nightly.20250619)
   - TensorFlowLiteSwift (0.0.1-nightly.20250619):
     - TensorFlowLiteSwift/Core (= 0.0.1-nightly.20250619)
   - TensorFlowLiteSwift/Core (0.0.1-nightly.20250619):
@@ -71,6 +73,7 @@ SPEC REPOS:
     - MediaPipeTasksGenAI
     - MediaPipeTasksGenAIC
     - TensorFlowLiteC
+    - TensorFlowLiteSelectTfOps
     - TensorFlowLiteSwift
 
 EXTERNAL SOURCES:
@@ -108,7 +111,7 @@ SPEC CHECKSUMS:
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: fd714a4a20c7aa1465a02c61cdc590f390a63949
+  flutter_gemma: 7ce2780a9f4afaa3ba14efc24841415994e3b2c0
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
@@ -121,6 +124,7 @@ SPEC CHECKSUMS:
   record_ios: f75fa1d57f840012775c0e93a38a7f3ceea1a374
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   TensorFlowLiteC: 215ef57653dd0fa09a474e7d94d79ae64a870b28
+  TensorFlowLiteSelectTfOps: c71d7dcd063f5d66ae1b9a85cc5aa993f824eff9
   TensorFlowLiteSwift: 6de8da348de331778167a0f751ad74c41d8b0554
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 

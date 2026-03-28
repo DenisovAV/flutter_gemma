@@ -51,6 +51,9 @@ example/macos/jre/
 macos/Resources/litertlm-server.jar
 **/litertlm-server.jar
 
+# Desktop - TFLite C library (downloaded at build time)
+macos/Resources/tflite/libtensorflowlite_c.dylib
+
 # Temporary/internal documentation
 temporary_docs/
 DESKTOP_DEBUG.md

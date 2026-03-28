@@ -101,7 +101,9 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     try {
       _hnswIndex.add(id, embedding);
     } catch (e) {
-      debugPrint('[DartVectorStore] Warning: Failed to add to HNSW: $e');
+      // Keep SQLite and HNSW in sync — remove from SQLite if HNSW add fails
+      _db!.execute('DELETE FROM $_tableName WHERE id = ?', [id]);
+      rethrow;
     }
   }
 

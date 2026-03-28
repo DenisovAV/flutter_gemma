@@ -242,7 +242,9 @@ async function generateEmbeddingInternal(text) {
     try {
       if (gpuTensor !== inputTensor && !gpuTensor.deleted) gpuTensor.delete();
       if (!inputTensor.deleted) inputTensor.delete();
-    } catch {}
+    } catch (cleanupErr) {
+      console.warn('[LiteRT] Tensor cleanup failed:', cleanupErr);
+    }
     throw error;
   }
 }
@@ -287,7 +289,9 @@ async function generateDocumentEmbeddingInternal(text) {
     try {
       if (gpuTensor !== inputTensor && !gpuTensor.deleted) gpuTensor.delete();
       if (!inputTensor.deleted) inputTensor.delete();
-    } catch {}
+    } catch (cleanupErr) {
+      console.warn('[LiteRT] Tensor cleanup failed:', cleanupErr);
+    }
     throw error;
   }
 }

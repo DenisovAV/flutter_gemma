@@ -43,6 +43,11 @@ cp config.json.example config.json
 flutter run --dart-define-from-file=config.json
 ```
 
+**With token directly (without config file):**
+```bash
+flutter run --dart-define=HUGGINGFACE_TOKEN=hf_your_token_here
+```
+
 **Without configuration** (works for public and local models):
 ```bash
 flutter run

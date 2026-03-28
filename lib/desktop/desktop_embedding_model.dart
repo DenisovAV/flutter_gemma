@@ -45,8 +45,7 @@ class DesktopEmbeddingModel extends EmbeddingModel {
         : _queryPrefix;
     final fullText = prefix + text;
     final tokens = tokenize(fullText);
-    final withSpecial = [_bosId, ...tokens, _eosId];
-    return withSpecial;
+    return [_bosId, ...tokens, _eosId];
   }
 
   @override

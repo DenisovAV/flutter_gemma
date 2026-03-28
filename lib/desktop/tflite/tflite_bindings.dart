@@ -3,12 +3,6 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
-/// XNNPACK delegate flags (matching Python LiteRT behavior).
-class XNNPackFlags {
-  static const int enableLatestOperators = 0x00000040;
-  static const int enableSubgraphReshaping = 0x00000080;
-}
-
 /// FFI struct matching C `TfLiteXNNPackDelegateOptions`.
 final class TfLiteXNNPackDelegateOptions extends Struct {
   @Int32()
@@ -66,7 +60,15 @@ class TfLiteBindings {
           '$execDir/../Frameworks/libtensorflowlite_c.dylib';
       if (File(frameworksPath).existsSync()) return frameworksPath;
       // Fallback: Contents/Resources/tflite/
-      return '$execDir/../Resources/tflite/libtensorflowlite_c.dylib';
+      final resourcesPath =
+          '$execDir/../Resources/tflite/libtensorflowlite_c.dylib';
+      if (File(resourcesPath).existsSync()) return resourcesPath;
+      throw StateError(
+        'TFLite C library not found. Searched:\n'
+        '  1. $frameworksPath\n'
+        '  2. $resourcesPath\n'
+        'Run macos/scripts/setup_desktop.sh to download it.',
+      );
     } else if (Platform.isWindows) {
       return '$execDir\\tflite\\tensorflowlite_c.dll';
     } else {

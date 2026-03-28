@@ -22,15 +22,18 @@ class TfLiteInterpreter {
     required TfLiteBindings bindings,
     required Pointer<Void> model,
     required Pointer<Void> interpreter,
+    required Pointer<Void>? xnnpackDelegate,
     required this.inputSequenceLength,
     required this.outputDimension,
   })  : _bindings = bindings,
         _model = model,
-        _interpreter = interpreter;
+        _interpreter = interpreter,
+        _xnnpackDelegate = xnnpackDelegate;
 
   final TfLiteBindings _bindings;
   final Pointer<Void> _model;
   final Pointer<Void> _interpreter;
+  final Pointer<Void>? _xnnpackDelegate;
   bool _isClosed = false;
 
   /// Input tensor shape: [1, inputSequenceLength]
@@ -38,6 +41,13 @@ class TfLiteInterpreter {
 
   /// Output tensor shape: [1, outputDimension] (typically 768)
   final int outputDimension;
+
+  /// Helper to free delegate if non-null.
+  static void _deleteDelegate(TfLiteBindings bindings, Pointer<Void>? delegate) {
+    if (delegate != null && delegate != nullptr) {
+      bindings.tfLiteXNNPackDelegateDelete(delegate);
+    }
+  }
 
   /// Create an interpreter from a `.tflite` model file.
   ///
@@ -66,21 +76,16 @@ class TfLiteInterpreter {
     }
     bindings.tfLiteInterpreterOptionsSetNumThreads(options, numThreads);
 
-    // Create XNNPACK delegate with options matching Python LiteRT behavior
+    // Create XNNPACK delegate with default options (nullptr = use built-in defaults
+    // which include QS8/QU8 quantization support, matching Python LiteRT behavior)
     Pointer<Void>? xnnpackDelegate;
-    final xnnpackOpts = calloc<TfLiteXNNPackDelegateOptions>();
     try {
-      xnnpackOpts.ref.numThreads = numThreads;
-      xnnpackOpts.ref.flags = XNNPackFlags.enableLatestOperators |
-          XNNPackFlags.enableSubgraphReshaping;
-      xnnpackDelegate = bindings.tfLiteXNNPackDelegateCreate(xnnpackOpts);
+      xnnpackDelegate = bindings.tfLiteXNNPackDelegateCreate(nullptr);
       if (xnnpackDelegate != nullptr) {
         bindings.tfLiteInterpreterOptionsAddDelegate(options, xnnpackDelegate);
       }
-    } catch (e) {
+    } catch (_) {
       xnnpackDelegate = null;
-    } finally {
-      calloc.free(xnnpackOpts);
     }
 
     // Create interpreter (delegate applied during creation, matching Python LiteRT)
@@ -92,9 +97,7 @@ class TfLiteInterpreter {
     bindings.tfLiteInterpreterOptionsDelete(options);
 
     if (interpreter == nullptr) {
-      if (xnnpackDelegate != null) {
-        bindings.tfLiteXNNPackDelegateDelete(xnnpackDelegate);
-      }
+      _deleteDelegate(bindings, xnnpackDelegate);
       bindings.tfLiteModelDelete(model);
       throw StateError('Failed to create TFLite interpreter from: $modelPath');
     }
@@ -103,6 +106,7 @@ class TfLiteInterpreter {
     final allocStatus = bindings.tfLiteInterpreterAllocateTensors(interpreter);
     if (allocStatus != TfLiteStatus.ok) {
       bindings.tfLiteInterpreterDelete(interpreter);
+      _deleteDelegate(bindings, xnnpackDelegate);
       bindings.tfLiteModelDelete(model);
       throw StateError(
           'Failed to allocate tensors (status: $allocStatus)');
@@ -112,6 +116,7 @@ class TfLiteInterpreter {
     final inputTensor = bindings.tfLiteInterpreterGetInputTensor(interpreter, 0);
     if (inputTensor == nullptr) {
       bindings.tfLiteInterpreterDelete(interpreter);
+      _deleteDelegate(bindings, xnnpackDelegate);
       bindings.tfLiteModelDelete(model);
       throw StateError('Input tensor not found at index 0');
     }
@@ -119,6 +124,7 @@ class TfLiteInterpreter {
         bindings.tfLiteInterpreterGetOutputTensor(interpreter, 0);
     if (outputTensor == nullptr) {
       bindings.tfLiteInterpreterDelete(interpreter);
+      _deleteDelegate(bindings, xnnpackDelegate);
       bindings.tfLiteModelDelete(model);
       throw StateError('Output tensor not found at index 0');
     }
@@ -131,6 +137,7 @@ class TfLiteInterpreter {
 
     if (inputSeqLen <= 0 || outputDim <= 0) {
       bindings.tfLiteInterpreterDelete(interpreter);
+      _deleteDelegate(bindings, xnnpackDelegate);
       bindings.tfLiteModelDelete(model);
       throw StateError(
           'Invalid model tensor dimensions: input=$inputSeqLen, output=$outputDim');
@@ -140,6 +147,7 @@ class TfLiteInterpreter {
       bindings: bindings,
       model: model,
       interpreter: interpreter,
+      xnnpackDelegate: xnnpackDelegate,
       inputSequenceLength: inputSeqLen,
       outputDimension: outputDim,
     );
@@ -214,6 +222,7 @@ class TfLiteInterpreter {
     if (_isClosed) return;
     _isClosed = true;
     _bindings.tfLiteInterpreterDelete(_interpreter);
+    _deleteDelegate(_bindings, _xnnpackDelegate);
     _bindings.tfLiteModelDelete(_model);
   }
 

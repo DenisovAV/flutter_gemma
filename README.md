@@ -16,7 +16,7 @@
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/assets/gemma3.png" alt="gemma_github_cover">
 </p>
 
-Bring the power of Google's lightweight Gemma language models directly to your Flutter applications. With Flutter Gemma, you can seamlessly incorporate advanced AI capabilities into your iOS and Android apps, all without relying on external servers.
+Bring the power of Google's lightweight Gemma language models directly to your Flutter applications. With Flutter Gemma, you can seamlessly incorporate advanced AI capabilities into your Flutter applications, all without relying on external servers.
 
 There is an example of using:
 
@@ -33,7 +33,7 @@ There is an example of using:
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop - LiteRT-LM engine)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks 
-- **🛑 Stop Generation:** Cancel text generation mid-process on Android devices 
+- **🛑 Stop Generation:** Cancel text generation mid-process on Android, Web, and Desktop
 - **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app 
 - **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
 - **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app 
@@ -125,7 +125,7 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 > **⚠️ Important:** Complete platform-specific setup before using the plugin.
 
-1. **Download Model and optionally LoRA Weights:** Obtain a pre-trained Gemma model (recommended: 2b or 2b-it) [from Kaggle](https://www.kaggle.com/models/google/gemma/frameworks/tfLite/)
+1. **Download Model and optionally LoRA Weights:** Obtain a model from the [Supported Models](#-supported-models) section or [HuggingFace](https://huggingface.co/litert-community)
 * For **multimodal support**, download [Gemma3n models](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) or [Gemma3n in LitertLM format](https://huggingface.co/google/gemma-3n-E2B-it-litert-lm) that support vision input
 * Optionally, [fine-tune a model for your specific use case]( https://www.kaggle.com/code/juanmerinobermejo/llm-pr-fine-tuning-with-gemma-2b?scriptVersionId=169776634)
 * If you have LoRA weights, you can use them to customize the model's behavior without retraining the entire model.
@@ -303,7 +303,7 @@ Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
 **Windows Setup:**
 
 No additional configuration required. The plugin automatically:
-- Downloads JRE 21 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
+- Downloads JRE 24 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
 - Extracts native DLLs from the server JAR
 - Starts gRPC server on dynamic port
 
@@ -359,7 +359,6 @@ await chat.addQueryChunk(Message.text(
 final response = await chat.generateChatResponse();
 
 // Cleanup
-await chat.close();
 await model.close();
 ```
 
@@ -1473,6 +1472,7 @@ final chat = await model.createChat(
 | Android | ✅ Full support |
 | iOS | ✅ Full support |
 | Web | ❌ Not supported yet |
+| Desktop | ✅ Full support |
 
 #### Fine-tuning FunctionGemma
 
@@ -1760,10 +1760,10 @@ await embeddingModel.close();
 
 Add script tags to your `index.html`:
 ```html
-<!-- Load from jsDelivr CDN (version 0.11.14) -->
-<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/cache_api.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/litert_embeddings.js"></script>
-<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/sqlite_vector_store.js"></script>
+<!-- Load from jsDelivr CDN (version 0.12.7) -->
+<script src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.12.7/web/cache_api.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.12.7/web/litert_embeddings.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.12.7/web/sqlite_vector_store.js"></script>
 ```
 
 **Option 2: Build locally (For development or customization)**
@@ -1893,7 +1893,7 @@ int tokenCount = await session.sizeInTokens('Your prompt text here');
 print('Prompt size in tokens: $tokenCount');
 ```
 
-11. **Closing the Model**
+12. **Closing the Model**
 
 When you no longer need to perform any further inferences, call the close method to release resources:
 
@@ -2055,7 +2055,7 @@ Function calling is currently supported by the following models:
 | **Audio Input** | ✅ Android + Desktop | ❌ Not supported | ❌ Not supported | Gemma3n E2B/E4B, LiteRT-LM only |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | Select models only |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | DeepSeek models |
-| **Stop Generation** | ✅ Android only | ❌ Not supported | ❌ Not supported | Cancel mid-process |
+| **Stop Generation** | ✅ Full | ❌ Not supported | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | Recommended |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
@@ -2241,7 +2241,6 @@ This is automatically handled by the chat API, but can be useful for custom infe
 ✅ **🖥️ Desktop Support** - Full support for macOS, Windows, and Linux with LiteRT-LM
 
 **Coming Soon:**
-- On-Device RAG Pipelines
 - Video Input
 - Audio Output (Text-to-Speech)
 - System Instruction support

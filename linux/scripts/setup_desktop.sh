@@ -265,11 +265,11 @@ install_tflite() {
     case "$ARCH" in
         x86_64)
             TFLITE_ARTIFACT="libtensorflowlite_c_linux_amd64.so"
-            TFLITE_CHECKSUM="2a26d1175db1d4304b963b91d8ce70cee06e3a3973c3e14e197b731e3632881b"
+            TFLITE_CHECKSUM="f98dcaa2f8033794725413542625a396744928dc5c0a6fd90ff3c0c5b1209327"
             ;;
         aarch64)
             TFLITE_ARTIFACT="libtensorflowlite_c_linux_arm64.so"
-            TFLITE_CHECKSUM="1a3d3984c317237a7a35104eef8a99034abb933dc3807beb3d318276ea832941"
+            TFLITE_CHECKSUM="602a0aea312d36697adc042058b3231875b84b7679461214450030f6eace0999"
             ;;
         *)
             echo "WARNING: TFLite C library not available for $ARCH"

@@ -396,8 +396,8 @@ setup_tflite() {
     echo "Setting up TFLite C library..."
     mkdir -p "$TFLITE_CACHE_DIR" "$tflite_dest"
 
-    # SHA256 checksum from CI build (TF 2.19.0)
-    local TFLITE_CHECKSUM="465257ce5c11ef4bcc39e6b25ca02876523942fe797da8d785daf1c024c07680"
+    # SHA256 checksum from CI build (LiteRT 2.1.3)
+    local TFLITE_CHECKSUM="13bcd426b62a0b8b12fb10b6c540cd30f4c2858dd0ce42c0ed67090eb7a60ed1"
 
     local cached="$TFLITE_CACHE_DIR/$archive_name"
     if [[ ! -f "$cached" ]]; then

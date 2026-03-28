@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'dart:typed_data';
 
 import 'tflite_bindings.dart';
@@ -84,7 +85,8 @@ class TfLiteInterpreter {
       if (xnnpackDelegate != nullptr) {
         bindings.tfLiteInterpreterOptionsAddDelegate(options, xnnpackDelegate);
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[TfLiteInterpreter] XNNPACK delegate not available, using CPU: $e');
       xnnpackDelegate = null;
     }
 

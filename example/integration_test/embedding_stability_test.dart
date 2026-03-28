@@ -1,13 +1,15 @@
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patrol/patrol.dart';
+import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Integration test for embedding model stability.
 ///
-/// Single patrolTest to avoid repeated heavy setUp (model install ~30s+).
-/// In Patrol, each patrolTest runs in a separate app instance — no shared state.
+/// Run: flutter test integration_test/embedding_stability_test.dart -d macos
+/// Run: flutter test integration_test/embedding_stability_test.dart -d emulator-5554
 void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
   const queryText = 'Which planet is known as the Red Planet';
   const similarText = 'Mars is famous for its reddish appearance';
   const differentText = 'The stock market closed higher today';
@@ -23,8 +25,7 @@ void main() {
     return dot / (math.sqrt(normA) * math.sqrt(normB));
   }
 
-  patrolTest('Embedding: install, generate, compare', ($) async {
-    // Setup
+  testWidgets('Embedding: install, generate, compare', (tester) async {
     await FlutterGemma.initialize();
 
     await FlutterGemma.installEmbedder()
@@ -41,9 +42,6 @@ void main() {
       final queryEmb = await model.generateEmbedding(queryText);
       expect(queryEmb, isNotEmpty);
       expect(queryEmb.any((v) => v != 0), isTrue);
-
-
-
 
       // 2. Repeatability — same text produces identical embeddings
       final queryEmb2 = await model.generateEmbedding(queryText);
@@ -66,5 +64,5 @@ void main() {
     } finally {
       await model.close();
     }
-  });
+  }, timeout: const Timeout(Duration(minutes: 10)));
 }

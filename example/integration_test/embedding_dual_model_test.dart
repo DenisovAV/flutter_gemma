@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:patrol/patrol.dart';
+import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Integration test verifying both tokenizer types via public API.
@@ -8,7 +8,11 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 /// EmbeddingGemma uses BPE tokenizer, Gecko uses Unigram tokenizer.
 /// On iOS, tokenizer.json is auto-detected by model.type field in EmbeddingModel.swift.
 /// On Android, SentencePiece C++ handles both formats natively.
+///
+/// Run: flutter test integration_test/embedding_dual_model_test.dart -d macos
 void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
   const queryText = 'Which planet is known as the Red Planet';
   const similarText = 'Mars is famous for its reddish appearance';
   const differentText = 'The stock market closed higher today';
@@ -26,12 +30,10 @@ void main() {
 
   Future<void> verifyEmbeddings(EmbeddingModel model, String label,
       {double minSimThreshold = 0.5, double maxDiffThreshold = 0.3}) async {
-    // 1. Non-zero embeddings
     final queryEmb = await model.generateEmbedding(queryText);
     expect(queryEmb, isNotEmpty, reason: '$label: empty embeddings');
     expect(queryEmb.any((v) => v != 0), isTrue, reason: '$label: all zeros');
 
-    // 2. Repeatability — same text produces identical embeddings
     final queryEmb2 = await model.generateEmbedding(queryText);
     expect(queryEmb.length, equals(queryEmb2.length));
     for (int i = 0; i < queryEmb.length; i++) {
@@ -39,14 +41,12 @@ void main() {
           reason: '$label: not repeatable at index $i');
     }
 
-    // 3. Similar texts — high cosine similarity
     final similarEmb = await model.generateEmbedding(similarText);
     final simScore = cosineSimilarity(queryEmb, similarEmb);
     print('$label simSimilarity: $simScore');
     expect(simScore, greaterThan(minSimThreshold),
         reason: '$label: similar texts too different ($simScore)');
 
-    // 4. Different texts — low cosine similarity
     final diffEmb = await model.generateEmbedding(differentText);
     final diffScore = cosineSimilarity(queryEmb, diffEmb);
     print('$label diffSimilarity: $diffScore');
@@ -54,7 +54,8 @@ void main() {
         reason: '$label: different texts too similar ($diffScore)');
   }
 
-  patrolTest('Embedding: EmbeddingGemma (BPE) + Gecko (Unigram)', ($) async {
+  testWidgets('Embedding: EmbeddingGemma (BPE) + Gecko (Unigram)',
+      (tester) async {
     await FlutterGemma.initialize();
 
     // --- EmbeddingGemma (BPE tokenizer on iOS) ---
@@ -86,5 +87,5 @@ void main() {
     } finally {
       await model.close();
     }
-  });
+  }, timeout: const Timeout(Duration(minutes: 10)));
 }

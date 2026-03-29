@@ -36,6 +36,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
   bool _processing = false;
   StreamSubscription<ModelResponse>? _streamSubscription;
   FunctionCallResponse? _pendingFunctionCall; // Store function to send in onDone
+  ParallelFunctionCallResponse? _pendingParallelCall; // Store parallel calls
   String _thinkingContent = ''; // Accumulate thinking content
   bool _isThinkingExpanded = false; // Thinking block expansion state
   bool _thinkingCompleted = false; // Thinking completed
@@ -98,6 +99,7 @@ class GemmaInputFieldState extends State<GemmaInputField> {
       _thinkingCompleted = false;
       _completedThinking = null;
       _pendingFunctionCall = null;
+      _pendingParallelCall = null;
     });
 
     try {
@@ -121,13 +123,20 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 } else if (response is FunctionCallResponse) {
                   debugPrint('🔧 GemmaInputField: Function call received: ${response.name}');
                   _pendingFunctionCall = response;
+                  _pendingParallelCall = null;
+                } else if (response is ParallelFunctionCallResponse) {
+                  debugPrint('🔧 GemmaInputField: Parallel calls received: ${response.calls.length}');
+                  _pendingParallelCall = response;
+                  _pendingFunctionCall = null;
                 }
               });
             }
           },
           onError: (error) {
             if (mounted) {
-              if (_pendingFunctionCall != null) {
+              if (_pendingParallelCall != null) {
+                widget.streamHandler(_pendingParallelCall!);
+              } else if (_pendingFunctionCall != null) {
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
                 final text = _message.text.isNotEmpty ? _message.text : '...';
@@ -151,7 +160,11 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 widget.onThinkingCompleted?.call(_thinkingContent);
               }
 
-              if (_pendingFunctionCall != null) {
+              if (_pendingParallelCall != null) {
+                debugPrint(
+                    '🔧 GemmaInputField: Sending parallel calls: ${_pendingParallelCall!.calls.length}');
+                widget.streamHandler(_pendingParallelCall!);
+              } else if (_pendingFunctionCall != null) {
                 debugPrint(
                     '🔧 GemmaInputField: Sending function call: ${_pendingFunctionCall!.name}');
                 widget.streamHandler(_pendingFunctionCall!);

@@ -12,10 +12,8 @@ import 'model.dart';
 
 // Constants
 /// Maximum length for function call buffer before flushing as text.
-/// 150 characters is sufficient for most JSON function calls while preventing
-/// infinite buffering of malformed JSON that never completes.
-/// Typical function call: {"name": "func_name", "parameters": {...}} ≈ 50-120 chars
-const int _maxFunctionBufferLength = 150;
+/// Must accommodate verbose formats (DeepSeek tags, parallel calls).
+const int _maxFunctionBufferLength = 1024;
 
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
@@ -27,6 +25,7 @@ class InferenceChat {
   final ModelType modelType; // Add modelType parameter
   final bool isThinking; // Add isThinking flag for thinking models
   final ModelFileType fileType; // Add fileType parameter
+  final ToolChoice toolChoice; // Tool calling mode
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -50,6 +49,7 @@ class InferenceChat {
     this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
     this.isThinking = false, // Default to false for backward compatibility
     this.fileType = ModelFileType.task, // Default to task for backward compatibility
+    this.toolChoice = ToolChoice.auto, // Default to auto for backward compatibility
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -71,7 +71,8 @@ class InferenceChat {
         !_toolsInstructionSent &&
         tools.isNotEmpty &&
         !noTool &&
-        supportsFunctionCalls) {
+        supportsFunctionCalls &&
+        toolChoice != ToolChoice.none) {
       _toolsInstructionSent = true;
       final toolsPrompt = createToolsPrompt();
 
@@ -120,18 +121,21 @@ class InferenceChat {
         'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
 
     // Try to parse as function call if tools are available and model supports function calls
-    if (tools.isNotEmpty && supportsFunctionCalls) {
-      final functionCall = FunctionCallParser.parse(
+    if (tools.isNotEmpty && supportsFunctionCalls && toolChoice != ToolChoice.none) {
+      final allCalls = FunctionCallParser.parseAll(
         cleanedResponse,
         modelType: modelType,
       );
-      if (functionCall != null) {
-        debugPrint('InferenceChat: Detected function call in sync response');
+      if (allCalls.isNotEmpty) {
+        debugPrint('InferenceChat: Detected ${allCalls.length} function call(s) in sync response');
         final toolCallMessage = Message.toolCall(text: cleanedResponse);
         _fullHistory.add(toolCallMessage);
         _modelHistory.add(toolCallMessage);
         debugPrint('InferenceChat: Added tool call to history: ${toolCallMessage.text}');
-        return functionCall;
+        if (allCalls.length == 1) {
+          return allCalls.first;
+        }
+        return ParallelFunctionCallResponse(calls: allCalls);
       }
     }
 
@@ -165,6 +169,10 @@ class InferenceChat {
 
     debugPrint('InferenceChat: Starting to iterate over native tokens...');
 
+    // Track if we emitted a function call (to record correct history and skip session clearing)
+    bool emittedFunctionCall = false;
+    String lastFuncBuffer = ''; // Preserve funcBuffer content for history recording
+
     final originalStream = session.getResponseAsync().map((token) => TextResponse(token));
 
     // Apply thinking filter if needed using ModelThinkingFilter
@@ -181,7 +189,7 @@ class InferenceChat {
         bool shouldAddToBuffer = true;
 
         // Continuous scanning for function calls in text - for models like DeepSeek
-        if (tools.isNotEmpty && supportsFunctionCalls) {
+        if (tools.isNotEmpty && supportsFunctionCalls && toolChoice != ToolChoice.none) {
           // Check if we're currently buffering potential JSON
           if (funcBuffer.isNotEmpty) {
             // We're already buffering - add token and check for completion
@@ -207,19 +215,25 @@ class InferenceChat {
                 debugPrint('InferenceChat: Failed to parse JSON for message extraction: $e');
               }
 
-              // If no message field found, try parsing as function call
-              final functionCall = FunctionCallParser.parse(
+              // If no message field found, try parsing as function call(s)
+              final allCalls = FunctionCallParser.parseAll(
                 funcBuffer,
                 modelType: modelType,
               );
-              if (functionCall != null) {
-                debugPrint('InferenceChat: Found function call in complete buffer!');
-                yield functionCall;
+              if (allCalls.isNotEmpty) {
+                debugPrint('InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!');
+                emittedFunctionCall = true;
+                lastFuncBuffer = funcBuffer;
+                if (allCalls.length == 1) {
+                  yield allCalls.first;
+                } else {
+                  yield ParallelFunctionCallResponse(calls: allCalls);
+                }
                 funcBuffer = '';
-                shouldAddToBuffer = false; // Don't add function call tokens to buffer
+                shouldAddToBuffer = false;
                 continue;
               } else {
-                // Not a valid JSON - emit as text and clear buffer
+                // Not a valid function call - emit as text and clear buffer
                 debugPrint('InferenceChat: Invalid JSON, emitting as text');
                 yield TextResponse(funcBuffer);
                 funcBuffer = '';
@@ -240,9 +254,9 @@ class InferenceChat {
             // Still buffering, don't emit yet
             shouldAddToBuffer = false;
           } else {
-            // Not currently buffering - check if this token starts JSON
-            if (token.contains('{') || token.contains('```')) {
-              debugPrint('InferenceChat: Found potential JSON start in token: "$token"');
+            // Not currently buffering - check if this token starts a function call
+            if (FunctionCallParser.isFunctionCallStart(token, modelType: modelType)) {
+              debugPrint('InferenceChat: Found potential function call start in token: "$token"');
               funcBuffer = token;
               shouldAddToBuffer = false; // Don't add to main buffer while we determine if it's JSON
             } else {
@@ -273,9 +287,6 @@ class InferenceChat {
     final response = buffer.toString();
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
 
-    // Track if we emitted a function call (to skip history clearing)
-    bool emittedFunctionCall = false;
-
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
       debugPrint(
@@ -303,15 +314,20 @@ class InferenceChat {
             }
           }
 
-          // Try to parse as function call
-          final functionCall = FunctionCallParser.parse(
+          // Try to parse as function call(s)
+          final allCalls = FunctionCallParser.parseAll(
             contentToCheck,
             modelType: modelType,
           );
-          if (functionCall != null) {
-            debugPrint('InferenceChat: Function call found at end of stream');
+          if (allCalls.isNotEmpty) {
+            debugPrint('InferenceChat: ${allCalls.length} function call(s) found at end of stream');
             emittedFunctionCall = true;
-            yield functionCall;
+            lastFuncBuffer = contentToCheck;
+            if (allCalls.length == 1) {
+              yield allCalls.first;
+            } else {
+              yield ParallelFunctionCallResponse(calls: allCalls);
+            }
           } else {
             yield TextResponse(funcBuffer);
           }
@@ -343,8 +359,11 @@ class InferenceChat {
 
     try {
       debugPrint('InferenceChat: Adding message to history...');
-      final chatMessage = Message(text: response, isUser: false);
-      debugPrint('InferenceChat: Created message object: ${chatMessage.text}');
+      // Use toolCall message for function calls, text message otherwise
+      final chatMessage = emittedFunctionCall
+          ? Message.toolCall(text: lastFuncBuffer.isNotEmpty ? lastFuncBuffer : response)
+          : Message(text: response, isUser: false);
+      debugPrint('InferenceChat: Created message object (toolCall=$emittedFunctionCall): ${chatMessage.text}');
       _fullHistory.add(chatMessage);
       debugPrint('InferenceChat: Added to full history');
       _modelHistory.add(chatMessage);
@@ -414,11 +433,16 @@ class InferenceChat {
 
   Future<void> stopGeneration() => session.stopGeneration();
 
-  /// Creates tools prompt based on model type.
+  /// Creates tools prompt based on model type and tool choice.
   /// Made package-private for testing.
   @visibleForTesting
   String createToolsPrompt() {
     if (tools.isEmpty) {
+      return '';
+    }
+
+    // ToolChoice.none — don't inject tools prompt at all
+    if (toolChoice == ToolChoice.none) {
       return '';
     }
 
@@ -432,8 +456,19 @@ class InferenceChat {
 
   String _createJsonToolsPrompt() {
     final toolsPrompt = StringBuffer();
-    toolsPrompt.writeln(
-        'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+
+    // Instruction varies by ToolChoice mode
+    switch (toolChoice) {
+      case ToolChoice.auto:
+        toolsPrompt.writeln(
+            'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+      case ToolChoice.required:
+        toolsPrompt.writeln(
+            'You have access to functions. You MUST respond with a function call. Do not respond with plain text. Always select the most appropriate function based on the user\'s message.');
+      case ToolChoice.none:
+        return ''; // Should not reach here, but defensive
+    }
+
     toolsPrompt.writeln(
         'When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
     toolsPrompt.writeln(

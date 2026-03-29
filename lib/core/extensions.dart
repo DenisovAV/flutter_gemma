@@ -62,6 +62,7 @@ extension MessageExtension on Message {
       ModelType.llama => _transformLlama(),
       ModelType.hammer => _transformHammer(),
       ModelType.functionGemma => _transformFunctionGemma(),
+      ModelType.phi => _transformGeneral(),
     };
     return result;
   }
@@ -236,6 +237,7 @@ class ModelThinkingFilter {
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.functionGemma:
+      case ModelType.phi:
         // For all other models just pass original stream
         // Thinking not supported
         yield* originalStream;
@@ -258,6 +260,7 @@ class ModelThinkingFilter {
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.functionGemma:
+      case ModelType.phi:
         // For all other models return text without changes
         // Thinking not supported
         return text;
@@ -294,6 +297,7 @@ class ModelThinkingFilter {
       case ModelType.hammer:
       case ModelType.deepSeek:
       case ModelType.functionGemma:
+      case ModelType.phi:
         // These models don't use special end tags, just trim whitespace
         return cleaned.trim();
     }

@@ -8,6 +8,7 @@ docs/
 .idea/
 .vscode/
 .claude/
+test_reports/
 
 # Build artifacts
 build/
@@ -64,6 +65,9 @@ litertlm-server/hs_err_*.log
 
 # Desktop - TFLite C library (downloaded at build time)
 macos/Resources/tflite/
+
+# Desktop - JAR (downloaded at build time via prepare_resources.sh)
+macos/Resources/litertlm-server.jar
 
 # Misc
 test_exports.dart

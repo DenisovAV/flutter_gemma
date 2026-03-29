@@ -1,5 +1,10 @@
 // Shared helpers for inference integration tests.
 // Not a test file — imported by inference_*_test.dart files.
+//
+// Prerequisites: push models to device before running tests:
+//   ./scripts/prepare_test_models.sh [device_id]
+//
+// Models are loaded from /data/local/tmp/flutter_gemma_test/ on device.
 
 import 'dart:io' show Platform;
 
@@ -12,87 +17,63 @@ void initIntegrationTest() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 }
 
-/// Model URLs for FunctionGemma 270M IT (284MB, no auth required)
-const _taskUrl =
-    'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task';
-const _litertlmUrl =
-    'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm';
+/// Device path where models are pushed via adb.
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 
 /// Platform-aware model configuration for inference tests.
+/// Models loaded from device filesystem (pushed via adb).
 class TestModelConfig {
-  final String url;
+  final String filePath;
   final String filename;
   final ModelFileType fileType;
 
   const TestModelConfig({
-    required this.url,
+    required this.filePath,
     required this.filename,
     required this.fileType,
   });
 
-  /// Default config for current platform:
-  /// - Web/iOS/Android → .task (MediaPipe)
-  /// - Desktop (macOS/Windows/Linux) → .litertlm (LiteRT-LM)
+  /// Default config for current platform.
   static TestModelConfig forCurrentPlatform() {
-    if (kIsWeb) return mediapipeConfig;
-    if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      return litertlmConfig;
-    }
-    return mediapipeConfig; // Android, iOS
+    return mediapipeConfig;
   }
 
   /// MediaPipe engine (.task)
   static const mediapipeConfig = TestModelConfig(
-    url: _taskUrl,
+    filePath: '$_deviceModelDir/functiongemma-270M-it.task',
     filename: 'functiongemma-270M-it.task',
     fileType: ModelFileType.task,
   );
 
-  /// LiteRT-LM engine (.litertlm)
-  static const litertlmConfig = TestModelConfig(
-    url: _litertlmUrl,
-    filename: 'functiongemma-270M-it.litertlm',
-    fileType: ModelFileType.task,
-  );
-
   /// All engine configs to test on current platform.
-  /// Android gets both engines, others get one.
   static List<({TestModelConfig config, String label})>
       allForCurrentPlatform() {
-    final configs = [
+    return [
       (config: forCurrentPlatform(), label: 'default engine'),
     ];
-    if (!kIsWeb && Platform.isAndroid) {
-      configs.add((config: litertlmConfig, label: 'LiteRT-LM'));
-    }
-    return configs;
   }
 }
 
-/// Idempotent model installation — skips download if already active.
+/// Idempotent model installation — skips if already active.
 Future<void> ensureModelInstalled([TestModelConfig? config]) async {
   config ??= TestModelConfig.forCurrentPlatform();
 
   if (FlutterGemma.hasActiveModel()) {
-    debugPrint('[Test] Active model found, skipping download');
+    debugPrint('[Test] Active model found, skipping install');
     return;
   }
 
   await forceInstallModel(config);
 }
 
-/// Force install a specific model config (always installs, even if another model is active).
+/// Force install a specific model config from device file.
 Future<void> forceInstallModel(TestModelConfig config) async {
-  debugPrint('[Test] Installing model: ${config.filename} from ${config.url}');
+  debugPrint('[Test] Installing model from file: ${config.filePath}');
 
   await FlutterGemma.installModel(
     modelType: ModelType.functionGemma,
     fileType: config.fileType,
-  )
-      .fromNetwork(config.url)
-      .withProgress(
-          (progress) => debugPrint('[Test] Download progress: $progress%'))
-      .install();
+  ).fromFile(config.filePath).install();
 
   debugPrint('[Test] Model installed successfully');
 }

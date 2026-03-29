@@ -92,6 +92,7 @@ class DesktopInferenceModel extends InferenceModel {
     bool? supportsFunctionCalls,
     bool isThinking = false,
     ModelType? modelType,
+    ToolChoice toolChoice = ToolChoice.auto,
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -112,6 +113,7 @@ class DesktopInferenceModel extends InferenceModel {
       modelType: modelType ?? this.modelType,
       isThinking: isThinking,
       fileType: fileType,
+      toolChoice: toolChoice,
     );
     await chat!.initSession();
     return chat!;

@@ -1,4 +1,5 @@
-// Integration test: diagnose RAG ranking quality with EmbeddingGemma on desktop.
+// Integration test: diagnose RAG ranking quality with EmbeddingGemma.
+// Uses model from assets (no network download).
 // Run: flutter test integration_test/embedding_rag_diagnosis_test.dart -d macos
 
 import 'dart:math' as math;
@@ -6,10 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-const _modelUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
-const _tokenizerUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
+const _modelPath =
+    'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
+const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 const _documents = {
   'flutter_intro': 'Flutter is an open-source UI framework by Google for building natively compiled applications for mobile, web, and desktop from a single codebase.',
@@ -30,16 +30,14 @@ void main() {
   testWidgets('RAG ranking diagnosis with EmbeddingGemma', (tester) async {
     await FlutterGemma.initialize();
 
-    final hfToken = const String.fromEnvironment('HF_TOKEN');
     await FlutterGemma.installEmbedder()
-        .modelFromNetwork(_modelUrl, token: hfToken.isNotEmpty ? hfToken : null)
-        .tokenizerFromNetwork(_tokenizerUrl, token: hfToken.isNotEmpty ? hfToken : null)
+        .modelFromAsset(_modelPath)
+        .tokenizerFromAsset(_tokenizerPath)
         .install();
 
     final model = await FlutterGemma.getActiveEmbedder();
 
     try {
-      // Test: standard (prefix already in DesktopEmbeddingModel)
       print('\n\n========== RAW embeddings ==========');
       final docEmbRaw = <String, List<double>>{};
       for (final entry in _documents.entries) {
@@ -50,7 +48,6 @@ void main() {
         _printRanking(query, queryEmb, docEmbRaw);
       }
 
-      // Test: L2 normalized embeddings
       print('\n\n========== L2 NORMALIZED embeddings ==========');
       final docEmbNorm = <String, List<double>>{};
       for (final entry in docEmbRaw.entries) {

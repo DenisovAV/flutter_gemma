@@ -1357,30 +1357,53 @@ final chat = await inferenceModel.createChat(
   topK: 1,
   tools: _tools, // Pass your tools
   supportsFunctionCalls: true, // Enable function calling (required for tools)
-  // tokenBuffer: 256, // Adjust if needed for function calling
+  toolChoice: ToolChoice.auto, // auto (default) | required | none
 );
 ```
 
-**Step 3: Handle Different Response Types**
+**ToolChoice modes:**
+| Mode | Behavior |
+|------|----------|
+| `ToolChoice.auto` | Model decides whether to call a tool (default) |
+| `ToolChoice.required` | Model must respond with a function call |
+| `ToolChoice.none` | Tools are hidden, model responds with text only |
 
-The model can now return two types of responses:
+**Step 3: Handle Response Types**
+
+The model can return text, a single function call, or multiple parallel function calls:
 
 ```dart
-// Add user message
 await chat.addQueryChunk(Message.text(text: 'Change the background to blue', isUser: true));
 
-// Handle async responses
-chat.generateChatResponseAsync().listen((response) {
-  if (response is TextResponse) {
-    // Regular text token from the model
-    print('Text: ${response.token}');
-    // Update your UI with the text
-  } else if (response is FunctionCallResponse) {
-    // Model wants to call a function
-    print('Function Call: ${response.name}(${response.args})');
-    _handleFunctionCall(response);
+// Sync mode
+final response = await chat.generateChatResponse();
+
+if (response is TextResponse) {
+  print('Text: ${response.token}');
+} else if (response is FunctionCallResponse) {
+  // Single function call
+  print('Call: ${response.name}(${response.args})');
+  _handleFunctionCall(response);
+} else if (response is ParallelFunctionCallResponse) {
+  // Multiple function calls (e.g. "Change title and background color")
+  for (final call in response.calls) {
+    print('Call: ${call.name}(${call.args})');
+    await _handleFunctionCall(call);
   }
-});
+}
+
+// Streaming mode — same types arrive via stream
+await for (final response in chat.generateChatResponseAsync()) {
+  if (response is TextResponse) {
+    print(response.token);
+  } else if (response is FunctionCallResponse) {
+    _handleFunctionCall(response);
+  } else if (response is ParallelFunctionCallResponse) {
+    for (final call in response.calls) {
+      await _handleFunctionCall(call);
+    }
+  }
+}
 ```
 
 **Step 4: Execute Function and Send Response Back**
@@ -1681,6 +1704,9 @@ double cosineSimilarity(List<double> a, List<double> b) {
 
 final similarity = cosineSimilarity(embeddings[0], embeddings[1]);
 print('Similarity: $similarity');
+
+// Note: EmbeddingGemma and Gecko return L2-normalized vectors (‖v‖ ≈ 1.0),
+// so dot product alone equals cosine similarity — you can skip normalization.
 
 // Close model when done
 await embeddingModel.close();

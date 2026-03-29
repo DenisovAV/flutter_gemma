@@ -150,6 +150,7 @@ abstract class InferenceModel {
     bool? supportsFunctionCalls,
     bool isThinking = false, // Add isThinking parameter
     ModelType? modelType, // Add modelType parameter
+    ToolChoice toolChoice = ToolChoice.auto, // Tool calling mode
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -170,6 +171,7 @@ abstract class InferenceModel {
       isThinking: isThinking, // Pass isThinking parameter
       modelType: modelType ?? ModelType.gemmaIt, // Use provided modelType or default
       fileType: fileType, // Pass fileType from model
+      toolChoice: toolChoice, // Pass tool calling mode
     );
     await chat!.initSession();
     return chat!;

@@ -6,9 +6,7 @@
 //
 // Models are loaded from /data/local/tmp/flutter_gemma_test/ on device.
 
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:integration_test/integration_test.dart';
 

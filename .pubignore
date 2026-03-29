@@ -40,6 +40,9 @@ training_data/
 # Example app model files
 example/assets/models/
 
+# Example scripts (for local test setup, not needed in package)
+example/scripts/
+
 # Test files
 test/
 example/build/

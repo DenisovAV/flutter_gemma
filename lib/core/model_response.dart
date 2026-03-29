@@ -32,6 +32,13 @@ class FunctionCallResponse extends ModelResponse {
   final Map<String, dynamic> args;
 }
 
+/// Multiple function calls in a single model response.
+class ParallelFunctionCallResponse extends ModelResponse {
+  const ParallelFunctionCallResponse({required this.calls});
+
+  final List<FunctionCallResponse> calls;
+}
+
 /// Thinking process content from the model
 class ThinkingResponse extends ModelResponse {
   final String content;

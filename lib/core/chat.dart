@@ -27,6 +27,7 @@ class InferenceChat {
   final ModelType modelType; // Add modelType parameter
   final bool isThinking; // Add isThinking flag for thinking models
   final ModelFileType fileType; // Add fileType parameter
+  final ToolChoice toolChoice; // Tool calling mode
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -50,6 +51,7 @@ class InferenceChat {
     this.modelType = ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
     this.isThinking = false, // Default to false for backward compatibility
     this.fileType = ModelFileType.task, // Default to task for backward compatibility
+    this.toolChoice = ToolChoice.auto, // Default to auto for backward compatibility
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -121,17 +123,20 @@ class InferenceChat {
 
     // Try to parse as function call if tools are available and model supports function calls
     if (tools.isNotEmpty && supportsFunctionCalls) {
-      final functionCall = FunctionCallParser.parse(
+      final allCalls = FunctionCallParser.parseAll(
         cleanedResponse,
         modelType: modelType,
       );
-      if (functionCall != null) {
-        debugPrint('InferenceChat: Detected function call in sync response');
+      if (allCalls.isNotEmpty) {
+        debugPrint('InferenceChat: Detected ${allCalls.length} function call(s) in sync response');
         final toolCallMessage = Message.toolCall(text: cleanedResponse);
         _fullHistory.add(toolCallMessage);
         _modelHistory.add(toolCallMessage);
         debugPrint('InferenceChat: Added tool call to history: ${toolCallMessage.text}');
-        return functionCall;
+        if (allCalls.length == 1) {
+          return allCalls.first;
+        }
+        return ParallelFunctionCallResponse(calls: allCalls);
       }
     }
 
@@ -414,11 +419,16 @@ class InferenceChat {
 
   Future<void> stopGeneration() => session.stopGeneration();
 
-  /// Creates tools prompt based on model type.
+  /// Creates tools prompt based on model type and tool choice.
   /// Made package-private for testing.
   @visibleForTesting
   String createToolsPrompt() {
     if (tools.isEmpty) {
+      return '';
+    }
+
+    // ToolChoice.none — don't inject tools prompt at all
+    if (toolChoice == ToolChoice.none) {
       return '';
     }
 
@@ -432,8 +442,19 @@ class InferenceChat {
 
   String _createJsonToolsPrompt() {
     final toolsPrompt = StringBuffer();
-    toolsPrompt.writeln(
-        'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+
+    // Instruction varies by ToolChoice mode
+    switch (toolChoice) {
+      case ToolChoice.auto:
+        toolsPrompt.writeln(
+            'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+      case ToolChoice.required:
+        toolsPrompt.writeln(
+            'You have access to functions. You MUST respond with a function call. Do not respond with plain text. Always select the most appropriate function based on the user\'s message.');
+      case ToolChoice.none:
+        return ''; // Should not reach here, but defensive
+    }
+
     toolsPrompt.writeln(
         'When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
     toolsPrompt.writeln(

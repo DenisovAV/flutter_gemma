@@ -93,7 +93,7 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
 
     // Match each tool call block
     final callRegex = RegExp(
-      '${RegExp.escape(_toolCallBegin)}.*?${RegExp.escape(_toolSep)}(\\S+)\\s*([\\s\\S]*?)${RegExp.escape(_toolCallEnd)}',
+      '${RegExp.escape(_toolCallBegin)}[\\s\\S]*?${RegExp.escape(_toolSep)}(\\S+)\\s*([\\s\\S]*?)${RegExp.escape(_toolCallEnd)}',
     );
 
     for (final match in callRegex.allMatches(text)) {

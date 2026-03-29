@@ -32,13 +32,13 @@ class JsonParsingUtils {
             (decoded['args'] as Map<String, dynamic>?) ??
             (decoded['arguments'] as Map<String, dynamic>?);
 
-        if (args != null) {
-          debugPrint('JsonParsingUtils: Parsed function: $name($args)');
-          return FunctionCallResponse(name: name, args: args);
-        }
+        // Use empty map for zero-argument functions (get_time, refresh, etc.)
+        final resolvedArgs = args ?? <String, dynamic>{};
+        debugPrint('JsonParsingUtils: Parsed function: $name($resolvedArgs)');
+        return FunctionCallResponse(name: name, args: resolvedArgs);
       }
 
-      debugPrint('JsonParsingUtils: JSON missing required fields');
+      debugPrint('JsonParsingUtils: JSON missing "name" field or not a Map');
       return null;
     } catch (e) {
       debugPrint('JsonParsingUtils: Failed to decode JSON: $e');

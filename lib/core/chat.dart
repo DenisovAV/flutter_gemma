@@ -71,7 +71,8 @@ class InferenceChat {
         !_toolsInstructionSent &&
         tools.isNotEmpty &&
         !noTool &&
-        supportsFunctionCalls) {
+        supportsFunctionCalls &&
+        toolChoice != ToolChoice.none) {
       _toolsInstructionSent = true;
       final toolsPrompt = createToolsPrompt();
 
@@ -168,6 +169,10 @@ class InferenceChat {
 
     debugPrint('InferenceChat: Starting to iterate over native tokens...');
 
+    // Track if we emitted a function call (to record correct history and skip session clearing)
+    bool emittedFunctionCall = false;
+    String lastFuncBuffer = ''; // Preserve funcBuffer content for history recording
+
     final originalStream = session.getResponseAsync().map((token) => TextResponse(token));
 
     // Apply thinking filter if needed using ModelThinkingFilter
@@ -210,19 +215,25 @@ class InferenceChat {
                 debugPrint('InferenceChat: Failed to parse JSON for message extraction: $e');
               }
 
-              // If no message field found, try parsing as function call
-              final functionCall = FunctionCallParser.parse(
+              // If no message field found, try parsing as function call(s)
+              final allCalls = FunctionCallParser.parseAll(
                 funcBuffer,
                 modelType: modelType,
               );
-              if (functionCall != null) {
-                debugPrint('InferenceChat: Found function call in complete buffer!');
-                yield functionCall;
+              if (allCalls.isNotEmpty) {
+                debugPrint('InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!');
+                emittedFunctionCall = true;
+                lastFuncBuffer = funcBuffer;
+                if (allCalls.length == 1) {
+                  yield allCalls.first;
+                } else {
+                  yield ParallelFunctionCallResponse(calls: allCalls);
+                }
                 funcBuffer = '';
-                shouldAddToBuffer = false; // Don't add function call tokens to buffer
+                shouldAddToBuffer = false;
                 continue;
               } else {
-                // Not a valid JSON - emit as text and clear buffer
+                // Not a valid function call - emit as text and clear buffer
                 debugPrint('InferenceChat: Invalid JSON, emitting as text');
                 yield TextResponse(funcBuffer);
                 funcBuffer = '';
@@ -276,9 +287,6 @@ class InferenceChat {
     final response = buffer.toString();
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
 
-    // Track if we emitted a function call (to skip history clearing)
-    bool emittedFunctionCall = false;
-
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
       debugPrint(
@@ -314,6 +322,7 @@ class InferenceChat {
           if (allCalls.isNotEmpty) {
             debugPrint('InferenceChat: ${allCalls.length} function call(s) found at end of stream');
             emittedFunctionCall = true;
+            lastFuncBuffer = contentToCheck;
             if (allCalls.length == 1) {
               yield allCalls.first;
             } else {
@@ -350,8 +359,11 @@ class InferenceChat {
 
     try {
       debugPrint('InferenceChat: Adding message to history...');
-      final chatMessage = Message(text: response, isUser: false);
-      debugPrint('InferenceChat: Created message object: ${chatMessage.text}');
+      // Use toolCall message for function calls, text message otherwise
+      final chatMessage = emittedFunctionCall
+          ? Message.toolCall(text: lastFuncBuffer.isNotEmpty ? lastFuncBuffer : response)
+          : Message(text: response, isUser: false);
+      debugPrint('InferenceChat: Created message object (toolCall=$emittedFunctionCall): ${chatMessage.text}');
       _fullHistory.add(chatMessage);
       debugPrint('InferenceChat: Added to full history');
       _modelHistory.add(chatMessage);

@@ -71,4 +71,10 @@ install(CODE "
     file(COPY \"\${SETUP_DIR}/litertlm\" DESTINATION \"\${BUNDLE_DIR}/lib\")
     message(STATUS \"Installed native libs to bundle/lib/litertlm/\")
   endif()
+
+  # Copy TFLite C library for desktop embeddings
+  if(EXISTS \"\${SETUP_DIR}/tflite\")
+    file(COPY \"\${SETUP_DIR}/tflite\" DESTINATION \"\${BUNDLE_DIR}/lib\")
+    message(STATUS \"Installed TFLite C library to bundle/lib/tflite/\")
+  endif()
 ")

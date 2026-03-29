@@ -6,6 +6,7 @@
 - **ModelType.phi**: Dedicated model type for Phi-4 with `<|tool_calls|>` format support
 - **NPU Fix**: Pass `nativeLibraryDir` to LiteRT-LM `Backend.NPU()`
 - **Embeddings**: Models return L2-normalized vectors (dot product = cosine similarity)
+- **Windows/Linux Embeddings Fix**: TFLite C library now correctly copied to build output (#200)
 
 ## 0.12.7
 - **Dual-Prefix Embeddings (TaskType)**: Improved RAG retrieval quality with query/document prefixes

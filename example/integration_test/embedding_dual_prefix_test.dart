@@ -1,16 +1,16 @@
 // Integration test: compare single-prefix vs dual-prefix RAG ranking.
-// Run on macOS:   flutter test integration_test/embedding_dual_prefix_test.dart -d macos --dart-define=HF_TOKEN=...
-// Run on Android: flutter test integration_test/embedding_dual_prefix_test.dart -d <device_id> --dart-define=HF_TOKEN=...
+// Uses model from assets (no network download).
+// Run on macOS:   flutter test integration_test/embedding_dual_prefix_test.dart -d macos
+// Run on Android: flutter test integration_test/embedding_dual_prefix_test.dart -d <device_id>
 
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-const _modelUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
-const _tokenizerUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
+const _modelPath =
+    'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
+const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 const _documents = {
   'flutter_intro': 'Flutter is an open-source UI framework by Google for building natively compiled applications for mobile, web, and desktop from a single codebase.',
@@ -31,10 +31,9 @@ void main() {
   testWidgets('Dual prefix vs single prefix RAG ranking', (tester) async {
     await FlutterGemma.initialize();
 
-    final hfToken = const String.fromEnvironment('HF_TOKEN');
     await FlutterGemma.installEmbedder()
-        .modelFromNetwork(_modelUrl, token: hfToken.isNotEmpty ? hfToken : null)
-        .tokenizerFromNetwork(_tokenizerUrl, token: hfToken.isNotEmpty ? hfToken : null)
+        .modelFromAsset(_modelPath)
+        .tokenizerFromAsset(_tokenizerPath)
         .install();
 
     final model = await FlutterGemma.getActiveEmbedder();

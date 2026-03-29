@@ -1,40 +1,31 @@
 // Cross-platform embedding score comparison test.
-// Downloads model from network, runs same texts, prints scores.
-// Run on Android: flutter test integration_test/embedding_score_comparison_test.dart -d emulator-5554 --dart-define=HF_TOKEN=...
-// Run on macOS:   flutter test integration_test/embedding_score_comparison_test.dart -d macos --dart-define=HF_TOKEN=...
+// Uses model from assets (no network download).
+// Run on Android: flutter test integration_test/embedding_score_comparison_test.dart -d <device>
+// Run on macOS:   flutter test integration_test/embedding_score_comparison_test.dart -d macos
 
 import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-// EmbeddingGemma 300M seq256 — gated model, requires HF token
-const _modelUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
-const _tokenizerUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
+const _modelPath =
+    'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
+const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Embedding score comparison', (WidgetTester tester) async {
-    final hfToken = const String.fromEnvironment('HF_TOKEN');
-
     await FlutterGemma.initialize();
 
     await FlutterGemma.installEmbedder()
-        .modelFromNetwork(_modelUrl,
-            token: hfToken.isNotEmpty ? hfToken : null)
-        .tokenizerFromNetwork(_tokenizerUrl,
-            token: hfToken.isNotEmpty ? hfToken : null)
-        .withModelProgress(
-            (progress) => print('[model] $progress%'))
+        .modelFromAsset(_modelPath)
+        .tokenizerFromAsset(_tokenizerPath)
         .install();
 
     final model = await FlutterGemma.getActiveEmbedder();
 
     try {
-      // Same texts as desktop_embedding_test
       final queryEmb = await model
           .generateEmbedding('Which planet is known as the Red Planet');
       final similarEmb = await model
@@ -51,13 +42,12 @@ void main() {
       print('Gap: ${simScore - diffScore}');
       print('Dimension: ${queryEmb.length}');
 
-      // Basic sanity
       expect(queryEmb.length, equals(768));
       expect(diffScore, lessThan(simScore));
     } finally {
       await model.close();
     }
-  }, timeout: const Timeout(Duration(minutes: 15)));
+  }, timeout: const Timeout(Duration(minutes: 10)));
 }
 
 double _cosineSimilarity(List<double> a, List<double> b) {

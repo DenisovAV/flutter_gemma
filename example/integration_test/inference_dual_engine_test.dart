@@ -1,6 +1,10 @@
 // Integration test: Android dual engine (MediaPipe + LiteRT-LM).
 // Run: flutter test integration_test/inference_dual_engine_test.dart -d <android_device>
 // Skipped on non-Android platforms.
+//
+// Prerequisites: push models to device via adb:
+//   ./scripts/prepare_test_models.sh [device_id]
+//   adb push functiongemma-270M-it.litertlm /data/local/tmp/flutter_gemma_test/
 
 import 'dart:io' show Platform;
 
@@ -11,6 +15,10 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'inference_test_helpers.dart';
 
 bool get _isAndroid => !kIsWeb && Platform.isAndroid;
+
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+const _taskPath = '$_deviceModelDir/functiongemma-270M-it.task';
+const _litertlmPath = '$_deviceModelDir/functiongemma-270M-it.litertlm';
 
 void main() {
   initIntegrationTest();
@@ -23,7 +31,10 @@ void main() {
 
       // --- Engine 1: MediaPipe (.task) ---
       print('[DualEngine] Testing MediaPipe (.task)...');
-      await ensureModelInstalled(TestModelConfig.mediapipeConfig);
+      await FlutterGemma.installModel(
+        modelType: ModelType.functionGemma,
+        fileType: ModelFileType.task,
+      ).fromFile(_taskPath).install();
 
       var model = await createTestModel();
       try {
@@ -42,17 +53,10 @@ void main() {
 
       // --- Engine 2: LiteRT-LM (.litertlm) ---
       print('[DualEngine] Testing LiteRT-LM (.litertlm)...');
-
-      // Install .litertlm model (different file, same weights)
-      const litertlmConfig = TestModelConfig.litertlmConfig;
       await FlutterGemma.installModel(
         modelType: ModelType.functionGemma,
-        fileType: litertlmConfig.fileType,
-      )
-          .fromNetwork(litertlmConfig.url)
-          .withProgress((progress) =>
-              print('[DualEngine] LiteRT-LM download: $progress%'))
-          .install();
+        fileType: ModelFileType.task,
+      ).fromFile(_litertlmPath).install();
 
       model = await createTestModel();
       try {

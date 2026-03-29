@@ -2,12 +2,11 @@
 // Run on Android: flutter test integration_test/tool_calling_test.dart -d <android-device>
 //
 // Prerequisites:
-//   - Small models (<2GB): copy to example/assets/models/
-//   - Large models (>2GB): use networkUrl or adb push to /data/local/tmp/
-//   - Run one model at a time to avoid APK size limits
+//   Push models to device: ./scripts/prepare_test_models.sh [device_id]
+//   Models loaded from /data/local/tmp/flutter_gemma_test/ on device.
 //
 // Tests per model:
-//   - install: model loads from asset/network
+//   - install: model loads from device file
 //   - auto: model decides whether to call a tool
 //   - required: model must call a tool
 //   - none: model must NOT call a tool (even if tools are provided)
@@ -19,10 +18,12 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/function_call_parser.dart';
 
+const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
+
 /// Test model configuration for tool calling tests.
 class ToolCallingTestModel {
   final String name;
-  final String assetPath;
+  final String filePath;
   final String filename;
   final ModelType modelType;
   final ModelFileType fileType;
@@ -31,11 +32,10 @@ class ToolCallingTestModel {
   final int topK;
   final double topP;
   final int maxTokens;
-  final String? networkUrl;
 
   const ToolCallingTestModel({
     required this.name,
-    required this.assetPath,
+    required this.filePath,
     required this.filename,
     required this.modelType,
     this.fileType = ModelFileType.task,
@@ -44,33 +44,32 @@ class ToolCallingTestModel {
     this.topK = 64,
     this.topP = 0.95,
     this.maxTokens = 1024,
-    this.networkUrl,
   });
 }
 
-/// Test models — .task format, from assets or network.
+/// Test models — .task format, loaded from device filesystem.
 const _testModels = [
   ToolCallingTestModel(
     name: 'FunctionGemma 270M',
-    assetPath: 'assets/models/functiongemma-270M-it.task',
+    filePath: '$_deviceModelDir/functiongemma-270M-it.task',
     filename: 'functiongemma-270M-it.task',
     modelType: ModelType.functionGemma,
   ),
   ToolCallingTestModel(
     name: 'Gemma 3 1B',
-    assetPath: 'assets/models/gemma3-1b-it-int4.task',
+    filePath: '$_deviceModelDir/gemma3-1b-it-int4.task',
     filename: 'gemma3-1b-it-int4.task',
     modelType: ModelType.gemmaIt,
   ),
   ToolCallingTestModel(
     name: 'Qwen 2.5 0.5B',
-    assetPath: 'assets/models/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
+    filePath: '$_deviceModelDir/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
     filename: 'Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
     modelType: ModelType.qwen,
   ),
   ToolCallingTestModel(
     name: 'DeepSeek R1 1.5B',
-    assetPath: 'assets/models/deepseek_q8_ekv1280.task',
+    filePath: '$_deviceModelDir/deepseek_q8_ekv1280.task',
     filename: 'deepseek_q8_ekv1280.task',
     modelType: ModelType.deepSeek,
     isThinking: true,
@@ -80,11 +79,10 @@ const _testModels = [
   ),
   ToolCallingTestModel(
     name: 'Gemma 3n E2B',
-    assetPath: 'assets/models/gemma-3n-E2B-it-int4.task',
+    filePath: '$_deviceModelDir/gemma-3n-E2B-it-int4.task',
     filename: 'gemma-3n-E2B-it-int4.task',
     modelType: ModelType.gemmaIt,
     maxTokens: 4096,
-    networkUrl: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
   ),
 ];
 
@@ -147,20 +145,11 @@ void main() {
       testWidgets('install model', (tester) async {
         await FlutterGemma.initialize();
 
-        if (model.networkUrl != null) {
-          const hfToken = String.fromEnvironment('HF_TOKEN');
-          print('[${model.name}] Installing from network: ${model.networkUrl}');
-          await FlutterGemma.installModel(
-            modelType: model.modelType,
-            fileType: model.fileType,
-          ).fromNetwork(model.networkUrl!, token: hfToken.isNotEmpty ? hfToken : null).install();
-        } else {
-          print('[${model.name}] Installing from asset: ${model.assetPath}');
-          await FlutterGemma.installModel(
-            modelType: model.modelType,
-            fileType: model.fileType,
-          ).fromAsset(model.assetPath).install();
-        }
+        print('[${model.name}] Installing from file: ${model.filePath}');
+        await FlutterGemma.installModel(
+          modelType: model.modelType,
+          fileType: model.fileType,
+        ).fromFile(model.filePath).install();
 
         expect(FlutterGemma.hasActiveModel(), isTrue);
         print('[${model.name}] Installed successfully');
@@ -436,18 +425,10 @@ void main() {
 Future<void> _ensureModelInstalled(ToolCallingTestModel model) async {
   if (FlutterGemma.hasActiveModel()) return;
 
-  if (model.networkUrl != null) {
-    const hfToken = String.fromEnvironment('HF_TOKEN');
-    await FlutterGemma.installModel(
-      modelType: model.modelType,
-      fileType: model.fileType,
-    ).fromNetwork(model.networkUrl!, token: hfToken.isNotEmpty ? hfToken : null).install();
-  } else {
-    await FlutterGemma.installModel(
-      modelType: model.modelType,
-      fileType: model.fileType,
-    ).fromAsset(model.assetPath).install();
-  }
+  await FlutterGemma.installModel(
+    modelType: model.modelType,
+    fileType: model.fileType,
+  ).fromFile(model.filePath).install();
 }
 
 /// Truncate text for logging.

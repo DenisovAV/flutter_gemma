@@ -99,6 +99,14 @@ add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
   VERBATIM
 )
 
+# POST_BUILD: Copy TFLite C library for desktop embeddings
+add_custom_command(TARGET ${PLUGIN_NAME} POST_BUILD
+  COMMAND powershell -NoProfile -ExecutionPolicy Bypass -Command
+    "if (-not (Test-Path '${RUNNER_BASE_DIR}/$<CONFIG>/tflite/tensorflowlite_c.dll')) { Write-Host 'Copying TFLite C library...'; New-Item -ItemType Directory -Path '${RUNNER_BASE_DIR}/$<CONFIG>/tflite' -Force | Out-Null; Copy-Item -Path '${SETUP_OUTPUT_DIR}/tflite/*' -Destination '${RUNNER_BASE_DIR}/$<CONFIG>/tflite' -Recurse -Force } else { Write-Host 'TFLite C library already exists, skipping copy' }"
+  COMMENT "Checking/copying TFLite C library to runner/$<CONFIG>/tflite/..."
+  VERBATIM
+)
+
 # === Install rules for Release builds ===
 if(DEFINED INSTALL_BUNDLE_DATA_DIR AND NOT "${INSTALL_BUNDLE_DATA_DIR}" STREQUAL "")
   # Install JAR to data directory
@@ -147,6 +155,27 @@ if(DEFINED CMAKE_INSTALL_PREFIX AND NOT "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
         file(COPY \"\${SRC_DIR}/\" DESTINATION \"\${DST_DIR}\")
       else()
         message(STATUS \"Native libraries already exist at \${DST_DIR}, skipping\")
+      endif()
+    endif()
+  ")
+
+  # Install TFLite C library for desktop embeddings
+  install(CODE "
+    if(\"\${CMAKE_INSTALL_CONFIG_NAME}\" STREQUAL \"\")
+      set(CONFIG \"Release\")
+    else()
+      set(CONFIG \"\${CMAKE_INSTALL_CONFIG_NAME}\")
+    endif()
+
+    set(SRC_DIR \"${SETUP_OUTPUT_DIR}/tflite\")
+    set(DST_DIR \"${RUNNER_BASE_DIR}/\${CONFIG}/tflite\")
+    if(EXISTS \"\${SRC_DIR}\")
+      if(NOT EXISTS \"\${DST_DIR}/tensorflowlite_c.dll\")
+        message(STATUS \"Installing TFLite C library to \${DST_DIR}\")
+        file(MAKE_DIRECTORY \"\${DST_DIR}\")
+        file(COPY \"\${SRC_DIR}/\" DESTINATION \"\${DST_DIR}\")
+      else()
+        message(STATUS \"TFLite C library already exists at \${DST_DIR}, skipping\")
       endif()
     endif()
   ")

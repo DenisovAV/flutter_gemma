@@ -1,4 +1,5 @@
 // Integration test: compare embedding vectors across platforms.
+// Uses model from assets (no network download).
 // Run on macOS:   flutter test integration_test/embedding_vector_comparison_test.dart -d macos
 // Run on Android: flutter test integration_test/embedding_vector_comparison_test.dart -d <device_id>
 
@@ -7,11 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-// EmbeddingGemma 300M seq256 — same model used in RAG example
-const _modelUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
-const _tokenizerUrl =
-    'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model';
+const _modelPath =
+    'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
+const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -20,21 +19,15 @@ void main() {
     final platform = Platform.operatingSystem;
     print('=== Platform: $platform ===');
 
-    // 1. Initialize
     await FlutterGemma.initialize();
 
-    // 2. Install embedding model
-    final hfToken = const String.fromEnvironment('HF_TOKEN');
     await FlutterGemma.installEmbedder()
-        .modelFromNetwork(_modelUrl, token: hfToken.isNotEmpty ? hfToken : null)
-        .tokenizerFromNetwork(_tokenizerUrl, token: hfToken.isNotEmpty ? hfToken : null)
-        .withModelProgress((p) => print('[Download] $p%'))
+        .modelFromAsset(_modelPath)
+        .tokenizerFromAsset(_tokenizerPath)
         .install();
 
-    // 3. Create embedding model
     final embedder = await FlutterGemma.getActiveEmbedder();
 
-    // 4. Generate embeddings for test phrases
     final testPhrases = [
       'Hello world',
       'The cat sat on the mat',
@@ -45,12 +38,9 @@ void main() {
       final embedding = await embedder.generateEmbedding(phrase);
       final dim = embedding.length;
 
-      // Log first 10 values
       final first10 = embedding.take(10).map((v) => v.toStringAsFixed(6)).join(', ');
-      // Log last 5 values
       final last5 = embedding.skip(dim - 5).map((v) => v.toStringAsFixed(6)).join(', ');
 
-      // Compute L2 norm
       double norm = 0;
       for (final v in embedding) {
         norm += v * v;
@@ -64,7 +54,6 @@ void main() {
       print('[$platform] last5:  [$last5]');
     }
 
-    // 5. Cosine similarity between phrases
     final emb1 = await embedder.generateEmbedding(testPhrases[0]);
     final emb2 = await embedder.generateEmbedding(testPhrases[1]);
     final emb3 = await embedder.generateEmbedding(testPhrases[2]);

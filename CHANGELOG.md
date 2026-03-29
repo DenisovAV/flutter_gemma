@@ -3,6 +3,7 @@
 - **Parallel Tool Calls**: `ParallelFunctionCallResponse` for multiple function calls in one response
 - **Strategy Pattern Parser**: Per-model `FunctionCallFormat` implementations (Gemma, Qwen, DeepSeek, Llama, Phi, FunctionGemma)
 - **`<tool_call>` Format**: Qwen/Mistral-style function call parsing
+- **ModelType.phi**: Dedicated model type for Phi-4 with `<|tool_calls|>` format support
 - **NPU Fix**: Pass `nativeLibraryDir` to LiteRT-LM `Backend.NPU()`
 - **Embeddings**: Models return L2-normalized vectors (dot product = cosine similarity)
 

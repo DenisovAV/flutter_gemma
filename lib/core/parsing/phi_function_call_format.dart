@@ -13,7 +13,7 @@ import 'json_parsing_utils.dart';
 ///
 /// Note: Phi-4 always outputs a JSON **array**, even for single calls.
 ///
-/// Used by: ModelType.general (Phi-4 currently maps to general)
+/// Used by: ModelType.phi
 class PhiFunctionCallFormat extends FunctionCallFormat {
   final _jsonFallback = JsonFunctionCallFormat();
 

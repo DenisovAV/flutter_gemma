@@ -123,16 +123,20 @@ class GemmaInputFieldState extends State<GemmaInputField> {
                 } else if (response is FunctionCallResponse) {
                   debugPrint('🔧 GemmaInputField: Function call received: ${response.name}');
                   _pendingFunctionCall = response;
+                  _pendingParallelCall = null;
                 } else if (response is ParallelFunctionCallResponse) {
                   debugPrint('🔧 GemmaInputField: Parallel calls received: ${response.calls.length}');
                   _pendingParallelCall = response;
+                  _pendingFunctionCall = null;
                 }
               });
             }
           },
           onError: (error) {
             if (mounted) {
-              if (_pendingFunctionCall != null) {
+              if (_pendingParallelCall != null) {
+                widget.streamHandler(_pendingParallelCall!);
+              } else if (_pendingFunctionCall != null) {
                 widget.streamHandler(_pendingFunctionCall!);
               } else {
                 final text = _message.text.isNotEmpty ? _message.text : '...';

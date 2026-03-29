@@ -12,10 +12,8 @@ import 'model.dart';
 
 // Constants
 /// Maximum length for function call buffer before flushing as text.
-/// 150 characters is sufficient for most JSON function calls while preventing
-/// infinite buffering of malformed JSON that never completes.
-/// Typical function call: {"name": "func_name", "parameters": {...}} ≈ 50-120 chars
-const int _maxFunctionBufferLength = 150;
+/// Must accommodate verbose formats (DeepSeek tags, parallel calls).
+const int _maxFunctionBufferLength = 1024;
 
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
@@ -122,7 +120,7 @@ class InferenceChat {
         'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
 
     // Try to parse as function call if tools are available and model supports function calls
-    if (tools.isNotEmpty && supportsFunctionCalls) {
+    if (tools.isNotEmpty && supportsFunctionCalls && toolChoice != ToolChoice.none) {
       final allCalls = FunctionCallParser.parseAll(
         cleanedResponse,
         modelType: modelType,
@@ -186,7 +184,7 @@ class InferenceChat {
         bool shouldAddToBuffer = true;
 
         // Continuous scanning for function calls in text - for models like DeepSeek
-        if (tools.isNotEmpty && supportsFunctionCalls) {
+        if (tools.isNotEmpty && supportsFunctionCalls && toolChoice != ToolChoice.none) {
           // Check if we're currently buffering potential JSON
           if (funcBuffer.isNotEmpty) {
             // We're already buffering - add token and check for completion
@@ -245,9 +243,9 @@ class InferenceChat {
             // Still buffering, don't emit yet
             shouldAddToBuffer = false;
           } else {
-            // Not currently buffering - check if this token starts JSON
-            if (token.contains('{') || token.contains('```')) {
-              debugPrint('InferenceChat: Found potential JSON start in token: "$token"');
+            // Not currently buffering - check if this token starts a function call
+            if (FunctionCallParser.isFunctionCallStart(token, modelType: modelType)) {
+              debugPrint('InferenceChat: Found potential function call start in token: "$token"');
               funcBuffer = token;
               shouldAddToBuffer = false; // Don't add to main buffer while we determine if it's JSON
             } else {

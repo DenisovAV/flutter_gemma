@@ -57,7 +57,7 @@ class LiteRtLmEngine(
         // Map PreferredBackend to LiteRT-LM Backend
         val backend = when (config.preferredBackend) {
             PreferredBackend.GPU -> Backend.GPU()
-            PreferredBackend.NPU -> Backend.NPU()
+            PreferredBackend.NPU -> Backend.NPU(nativeLibraryDir = context.applicationInfo.nativeLibraryDir)
             PreferredBackend.CPU,
             null -> Backend.CPU()
         }

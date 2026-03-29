@@ -1244,7 +1244,7 @@ flutter_gemma/
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.12.6
+- **Current Version**: 0.12.8
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 - **Changelog**: See `CHANGELOG.md` for version history

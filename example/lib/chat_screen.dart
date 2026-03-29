@@ -235,6 +235,10 @@ class ChatScreenState extends State<ChatScreen> {
   Future<void> _handleGemmaResponse(ModelResponse response) async {
     if (response is FunctionCallResponse) {
       await _handleFunctionCall(response);
+    } else if (response is ParallelFunctionCallResponse) {
+      for (final call in response.calls) {
+        await _handleFunctionCall(call);
+      }
     } else if (response is TextResponse) {
       // DEBUG: Track what text we're receiving from GemmaInputField
       setState(() {

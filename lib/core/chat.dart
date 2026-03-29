@@ -308,15 +308,19 @@ class InferenceChat {
             }
           }
 
-          // Try to parse as function call
-          final functionCall = FunctionCallParser.parse(
+          // Try to parse as function call(s)
+          final allCalls = FunctionCallParser.parseAll(
             contentToCheck,
             modelType: modelType,
           );
-          if (functionCall != null) {
-            debugPrint('InferenceChat: Function call found at end of stream');
+          if (allCalls.isNotEmpty) {
+            debugPrint('InferenceChat: ${allCalls.length} function call(s) found at end of stream');
             emittedFunctionCall = true;
-            yield functionCall;
+            if (allCalls.length == 1) {
+              yield allCalls.first;
+            } else {
+              yield ParallelFunctionCallResponse(calls: allCalls);
+            }
           } else {
             yield TextResponse(funcBuffer);
           }

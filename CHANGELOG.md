@@ -1,3 +1,11 @@
+## 0.12.8
+- **ToolChoice enum**: `auto` / `required` / `none` parameter in `createChat()` to control tool calling behavior
+- **Parallel Tool Calls**: `ParallelFunctionCallResponse` for multiple function calls in one response
+- **Strategy Pattern Parser**: Per-model `FunctionCallFormat` implementations (Gemma, Qwen, DeepSeek, Llama, Phi, FunctionGemma)
+- **`<tool_call>` Format**: Qwen/Mistral-style function call parsing
+- **NPU Fix**: Pass `nativeLibraryDir` to LiteRT-LM `Backend.NPU()`
+- **Embeddings**: Models return L2-normalized vectors (dot product = cosine similarity)
+
 ## 0.12.7
 - **Dual-Prefix Embeddings (TaskType)**: Improved RAG retrieval quality with query/document prefixes
   - `TaskType.retrievalQuery` (default) — for search queries

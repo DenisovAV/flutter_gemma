@@ -131,12 +131,6 @@ class ChatInputFieldState extends State<ChatInputField> {
   Future<void> _startRecording() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    // Check if iOS - audio not supported
-    if (!kIsWeb && platformIsIOS) {
-      _showAudioNotSupportedDialog();
-      return;
-    }
-
     // Check microphone permission (only on mobile where permission_handler works)
     // Desktop platforms (macOS/Windows/Linux) will show OS permission dialog automatically
     if (!kIsWeb && (platformIsAndroid || platformIsIOS)) {
@@ -272,25 +266,6 @@ class ChatInputFieldState extends State<ChatInputField> {
     );
 
     return pcmData;
-  }
-
-  void _showAudioNotSupportedDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Audio Not Supported'),
-        content: const Text(
-          'Audio input requires LiteRT-LM models (.litertlm files).\n\n'
-          'MediaPipe models (.task files) do not support audio on any platform.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override

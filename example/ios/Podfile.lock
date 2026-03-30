@@ -6,8 +6,8 @@ PODS:
   - Flutter (1.0.0)
   - flutter_gemma (0.12.8):
     - Flutter
-    - MediaPipeTasksGenAI (= 0.10.24)
-    - MediaPipeTasksGenAIC (= 0.10.24)
+    - MediaPipeTasksGenAI (= 0.10.33)
+    - MediaPipeTasksGenAIC (= 0.10.33)
     - TensorFlowLiteC (= 0.0.1-nightly.20250619)
     - TensorFlowLiteSelectTfOps (= 0.0.1-nightly.20250619)
     - TensorFlowLiteSwift (= 0.0.1-nightly.20250619)
@@ -20,9 +20,9 @@ PODS:
     - FlutterMacOS
   - large_file_handler (0.0.1):
     - Flutter
-  - MediaPipeTasksGenAI (0.10.24):
-    - MediaPipeTasksGenAIC (= 0.10.24)
-  - MediaPipeTasksGenAIC (0.10.24)
+  - MediaPipeTasksGenAI (0.10.33):
+    - MediaPipeTasksGenAIC (= 0.10.33)
+  - MediaPipeTasksGenAIC (0.10.33)
   - path_provider_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -101,13 +101,13 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: c82bece088275ffc3365250b55f5b00596a9e3e4
+  flutter_gemma: cce2dfcdea31a3fd2e2890a0ed701ea5bdb77bdc
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   large_file_handler: b37481e9b4972562ffcdc8f75700f47cd592bcec
-  MediaPipeTasksGenAI: 076ba7032a6e9da16db9c7cf0c3b67c751c18bc1
-  MediaPipeTasksGenAIC: ec35d9f431f6a6b651a0bc9f67a4ed149ffa575c
+  MediaPipeTasksGenAI: 8eed8e6d03fe26d30c4205cb5295ec7b394432ad
+  MediaPipeTasksGenAIC: cb098ecea44e248efe8fe7e2f62b4cb0df781802
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   record_ios: f75fa1d57f840012775c0e93a38a7f3ceea1a374

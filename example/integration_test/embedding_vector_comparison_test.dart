@@ -3,7 +3,7 @@
 // Run on macOS:   flutter test integration_test/embedding_vector_comparison_test.dart -d macos
 // Run on Android: flutter test integration_test/embedding_vector_comparison_test.dart -d <device_id>
 
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -16,7 +16,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Embedding vector comparison', (tester) async {
-    final platform = Platform.operatingSystem;
+    final platform = defaultTargetPlatform.name;
     print('=== Platform: $platform ===');
 
     await FlutterGemma.initialize();

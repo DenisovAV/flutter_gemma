@@ -26,8 +26,8 @@ import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository_stub.dart';
-     if (dart.library.io) 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository_stub.dart'
+    if (dart.library.io) 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_vector_store_repository_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_vector_store_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'

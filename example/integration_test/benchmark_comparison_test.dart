@@ -89,8 +89,10 @@ const _textQuestions = <(String name, String question)>[
   ('explanation', 'Explain quantum entanglement in simple terms'),
   ('creative', 'Write a short poem about the sea'),
   ('technical', 'What are the main differences between TCP and UDP?'),
-  ('multilingual',
-      "Translate 'Hello, how are you?' to Spanish, French, and German"),
+  (
+    'multilingual',
+    "Translate 'Hello, how are you?' to Spanish, French, and German"
+  ),
 ];
 
 const _chatSteps = <String>[
@@ -301,7 +303,8 @@ void main() {
 
   testWidgets('Benchmark: Gemma 3 Nano E2B vs Gemma 4 E2B', (tester) async {
     if (!Platform.isAndroid) {
-      markTestSkipped('Benchmark only runs on Android (requires /data/local/tmp models)');
+      markTestSkipped(
+          'Benchmark only runs on Android (requires /data/local/tmp models)');
       return;
     }
 

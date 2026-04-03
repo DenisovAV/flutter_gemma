@@ -43,8 +43,8 @@ List<({String path, ModelFileType fileType, String label})> _testConfigs() {
         '$home/Documents/gemma-4-E2B-it.litertlm',
         '$home/Documents/gemma-3n-E2B-it-int4.litertlm',
       ];
-      final path =
-          candidates.firstWhere((p) => File(p).existsSync(), orElse: () => candidates.first);
+      final path = candidates.firstWhere((p) => File(p).existsSync(),
+          orElse: () => candidates.first);
       return [
         (
           path: path,
@@ -61,9 +61,6 @@ List<({String path, ModelFileType fileType, String label})> _testConfigs() {
 /// Each test creates its own model instance to avoid singleton issues.
 Future<InferenceModel> _createModel(String path, ModelFileType fileType) async {
   await FlutterGemma.initialize();
-
-  final filename = path.split('/').last;
-  final modelName = filename.replaceAll(RegExp(r'\.(task|litertlm|bin)$'), '');
 
   await FlutterGemma.installModel(
     modelType: ModelType.gemmaIt,
@@ -91,7 +88,8 @@ void _runTests(String path, ModelFileType fileType, String label) {
       final model = await _createModel(path, fileType);
       try {
         final chat = await model.createChat(
-          systemInstruction: 'You are a pirate. Always start your response with "Arrr!".',
+          systemInstruction:
+              'You are a pirate. Always start your response with "Arrr!".',
         );
         await chat.addQueryChunk(const Message(text: 'Hello', isUser: true));
 
@@ -106,8 +104,10 @@ void _runTests(String path, ModelFileType fileType, String label) {
         print('[$label / chat / instruction] "$response"');
         expect(response, isNotEmpty);
         // The pirate instruction should influence the response
-        expect(response.toLowerCase(), anyOf(contains('arr'), contains('pirate'), contains('ye'),
-            contains('matey'), contains('ship'), contains('ahoy')));
+        expect(
+            response.toLowerCase(),
+            anyOf(contains('arr'), contains('pirate'), contains('ye'),
+                contains('matey'), contains('ship'), contains('ahoy')));
       } finally {
         await model.close();
       }
@@ -117,7 +117,8 @@ void _runTests(String path, ModelFileType fileType, String label) {
       final model = await _createModel(path, fileType);
       try {
         final chat = await model.createChat();
-        await chat.addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
+        await chat
+            .addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
 
         final chunks = <String>[];
         await tester.runAsync(() async {
@@ -140,7 +141,8 @@ void _runTests(String path, ModelFileType fileType, String label) {
       final model = await _createModel(path, fileType);
       try {
         final session = await model.createSession(
-          systemInstruction: 'You are a pirate. Always start your response with "Arrr!".',
+          systemInstruction:
+              'You are a pirate. Always start your response with "Arrr!".',
         );
         await session.addQueryChunk(const Message(text: 'Hello', isUser: true));
 
@@ -154,18 +156,22 @@ void _runTests(String path, ModelFileType fileType, String label) {
         final response = chunks.join();
         print('[$label / session / instruction] "$response"');
         expect(response, isNotEmpty);
-        expect(response.toLowerCase(), anyOf(contains('arr'), contains('pirate'), contains('ye'),
-            contains('matey'), contains('ship'), contains('ahoy')));
+        expect(
+            response.toLowerCase(),
+            anyOf(contains('arr'), contains('pirate'), contains('ye'),
+                contains('matey'), contains('ship'), contains('ahoy')));
       } finally {
         await model.close();
       }
     }, timeout: const Timeout(Duration(minutes: 5)));
 
-    testWidgets('session: no systemInstruction — no regression', (tester) async {
+    testWidgets('session: no systemInstruction — no regression',
+        (tester) async {
       final model = await _createModel(path, fileType);
       try {
         final session = await model.createSession();
-        await session.addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
+        await session
+            .addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
 
         final chunks = <String>[];
         await tester.runAsync(() async {

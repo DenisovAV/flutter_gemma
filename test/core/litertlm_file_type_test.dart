@@ -93,9 +93,8 @@ void main() {
         fileType: ModelFileType.binary,
       );
 
-      // Note: the regex in cleanResponse uses double-escaped backslashes,
-      // so it doesn't actually strip <end_of_turn> — existing behavior
-      expect(result, equals('Hello world<end_of_turn>'));
+      // Binary + gemmaIt: trailing <end_of_turn> is stripped
+      expect(result, equals('Hello world'));
     });
   });
 

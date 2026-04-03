@@ -33,7 +33,7 @@ void main() {
 
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.binary,
+      fileType: ModelFileType.litertlm,
     )
         .fromNetwork(_litertlmUrl, token: _hfToken)
         .withProgress((p) => print('[Download] $p%'))

@@ -313,10 +313,10 @@ class ModelThinkingFilter {
         return cleaned.trim();
       case ModelType.gemmaIt:
         // Remove trailing <end_of_turn> tags and trim whitespace
-        return cleaned.replaceAll(RegExp(r'<end_of_turn>\\s*\$'), '').trim();
+        return cleaned.replaceAll(RegExp(r'<end_of_turn>\s*$'), '').trim();
       case ModelType.qwen:
         // Remove trailing <|im_end|> tags and trim whitespace
-        return cleaned.replaceAll(RegExp(r'<\\|im_end\\|>\\s*\$'), '').trim();
+        return cleaned.replaceAll(RegExp(r'<\|im_end\|>\s*$'), '').trim();
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.deepSeek:

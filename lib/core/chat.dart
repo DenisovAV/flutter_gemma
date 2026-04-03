@@ -26,7 +26,6 @@ class InferenceChat {
   final bool isThinking; // Add isThinking flag for thinking models
   final ModelFileType fileType; // Add fileType parameter
   final ToolChoice toolChoice; // Tool calling mode
-  final String? systemInstruction;
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -51,7 +50,7 @@ class InferenceChat {
     this.isThinking = false, // Default to false for backward compatibility
     this.fileType = ModelFileType.task, // Default to task for backward compatibility
     this.toolChoice = ToolChoice.auto, // Default to auto for backward compatibility
-    this.systemInstruction,
+    String? systemInstruction, // kept for API compatibility, forwarded to session via sessionCreator
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -104,9 +103,11 @@ class InferenceChat {
 
     await session.addQueryChunk(messageToSend);
 
-    // Add the message that was actually sent to the model to history
+    // Store original message in _modelHistory (not messageToSend) so that
+    // _recreateSessionWithReducedChunks replay does not double-apply transformations
+    // (e.g. systemInstruction prepend, tools prompt) when the session is recreated.
     _fullHistory.add(messageToSend);
-    _modelHistory.add(messageToSend);
+    _modelHistory.add(message);
   }
 
   Future<ModelResponse> generateChatResponse() async {
@@ -439,6 +440,8 @@ class InferenceChat {
   int get imageMessageCount => _fullHistory.where((msg) => msg.hasImage).length;
 
   Future<void> stopGeneration() => session.stopGeneration();
+
+  Future<void> close() => session.close();
 
   /// Creates tools prompt based on model type and tool choice.
   /// Made package-private for testing.

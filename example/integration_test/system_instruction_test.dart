@@ -189,7 +189,10 @@ void main() {
 
   final configs = _testConfigs();
   if (configs.isEmpty) {
-    fail('No test configs for this platform');
+    test('skip — no config for this platform', () {
+      markTestSkipped('No test configs for this platform');
+    });
+    return;
   }
 
   for (final (:path, :fileType, :label) in configs) {

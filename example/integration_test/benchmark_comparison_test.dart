@@ -181,44 +181,48 @@ Future<BenchmarkResult> _runVisionBenchmark({
     supportImage: true,
   );
 
-  final sw = Stopwatch()..start();
-  int firstTokenMs = -1;
+  try {
+    final sw = Stopwatch()..start();
+    int firstTokenMs = -1;
 
-  await chat.addQueryChunk(Message.withImage(
-    text: question,
-    imageBytes: imageBytes,
-    isUser: true,
-  ));
+    await chat.addQueryChunk(Message.withImage(
+      text: question,
+      imageBytes: imageBytes,
+      isUser: true,
+    ));
 
-  final buffer = StringBuffer();
-  await for (final response in chat.generateChatResponseAsync()) {
-    if (response is TextResponse) {
-      if (firstTokenMs < 0) {
-        firstTokenMs = sw.elapsedMilliseconds;
+    final buffer = StringBuffer();
+    await for (final response in chat.generateChatResponseAsync()) {
+      if (response is TextResponse) {
+        if (firstTokenMs < 0) {
+          firstTokenMs = sw.elapsedMilliseconds;
+        }
+        buffer.write(response.token);
       }
-      buffer.write(response.token);
     }
+    sw.stop();
+
+    final result = BenchmarkResult(
+      modelName: modelName,
+      testCategory: 'vision',
+      testName: testName,
+      question: question,
+      response: buffer.toString(),
+      durationMs: sw.elapsedMilliseconds,
+      firstTokenMs: firstTokenMs,
+      timestamp: DateTime.now(),
+    );
+
+    print('[Benchmark] $modelName / vision / $testName');
+    print(
+        '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
+    print(
+        '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
+
+    return result;
+  } finally {
+    await chat.close();
   }
-  sw.stop();
-
-  final result = BenchmarkResult(
-    modelName: modelName,
-    testCategory: 'vision',
-    testName: testName,
-    question: question,
-    response: buffer.toString(),
-    durationMs: sw.elapsedMilliseconds,
-    firstTokenMs: firstTokenMs,
-    timestamp: DateTime.now(),
-  );
-
-  print('[Benchmark] $modelName / vision / $testName');
-  print(
-      '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
-  print(
-      '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
-
-  return result;
 }
 
 /// Run an audio query via streaming and measure timing.
@@ -234,44 +238,48 @@ Future<BenchmarkResult> _runAudioBenchmark({
     supportAudio: true,
   );
 
-  final sw = Stopwatch()..start();
-  int firstTokenMs = -1;
+  try {
+    final sw = Stopwatch()..start();
+    int firstTokenMs = -1;
 
-  await chat.addQueryChunk(Message.withAudio(
-    text: question,
-    audioBytes: audioBytes,
-    isUser: true,
-  ));
+    await chat.addQueryChunk(Message.withAudio(
+      text: question,
+      audioBytes: audioBytes,
+      isUser: true,
+    ));
 
-  final buffer = StringBuffer();
-  await for (final response in chat.generateChatResponseAsync()) {
-    if (response is TextResponse) {
-      if (firstTokenMs < 0) {
-        firstTokenMs = sw.elapsedMilliseconds;
+    final buffer = StringBuffer();
+    await for (final response in chat.generateChatResponseAsync()) {
+      if (response is TextResponse) {
+        if (firstTokenMs < 0) {
+          firstTokenMs = sw.elapsedMilliseconds;
+        }
+        buffer.write(response.token);
       }
-      buffer.write(response.token);
     }
+    sw.stop();
+
+    final result = BenchmarkResult(
+      modelName: modelName,
+      testCategory: 'audio',
+      testName: testName,
+      question: question,
+      response: buffer.toString(),
+      durationMs: sw.elapsedMilliseconds,
+      firstTokenMs: firstTokenMs,
+      timestamp: DateTime.now(),
+    );
+
+    print('[Benchmark] $modelName / audio / $testName');
+    print(
+        '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
+    print(
+        '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
+
+    return result;
+  } finally {
+    await chat.close();
   }
-  sw.stop();
-
-  final result = BenchmarkResult(
-    modelName: modelName,
-    testCategory: 'audio',
-    testName: testName,
-    question: question,
-    response: buffer.toString(),
-    durationMs: sw.elapsedMilliseconds,
-    firstTokenMs: firstTokenMs,
-    timestamp: DateTime.now(),
-  );
-
-  print('[Benchmark] $modelName / audio / $testName');
-  print(
-      '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
-  print(
-      '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
-
-  return result;
 }
 
 Future<void> _saveResults() async {
@@ -292,6 +300,11 @@ void main() {
   initIntegrationTest();
 
   testWidgets('Benchmark: Gemma 3 Nano E2B vs Gemma 4 E2B', (tester) async {
+    if (!Platform.isAndroid) {
+      markTestSkipped('Benchmark only runs on Android (requires /data/local/tmp models)');
+      return;
+    }
+
     await FlutterGemma.initialize();
 
     // Pre-load test assets

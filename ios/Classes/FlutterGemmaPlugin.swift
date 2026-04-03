@@ -62,14 +62,15 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         supportAudio: Bool?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
-        // Note: supportAudio is ignored on iOS as audio input is not supported on this platform
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 self.model = try InferenceModel(
                     modelPath: modelPath,
                     maxTokens: Int(maxTokens),
                     supportedLoraRanks: loraRanks?.map(Int.init),
-                    maxNumImages: Int(maxNumImages ?? 0)
+                    maxNumImages: Int(maxNumImages ?? 0),
+                    preferredBackend: preferredBackend,
+                    supportAudio: supportAudio ?? false
                 )
                 DispatchQueue.main.async {
                     completion(.success(()))
@@ -95,6 +96,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         loraPath: String?,
         enableVisionModality: Bool?,
         enableAudioModality: Bool?,
+        systemInstruction: String?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
         guard let inference = model?.inference else {
@@ -102,7 +104,6 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             return
         }
 
-        // Note: enableAudioModality is ignored on iOS as audio input is not supported on this platform
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let newSession = try InferenceSession(
@@ -112,7 +113,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                     topk: Int(topK),
                     topP: topP,
                     loraPath: loraPath,
-                    enableVisionModality: enableVisionModality ?? false
+                    enableVisionModality: enableVisionModality ?? false,
+                    enableAudioModality: enableAudioModality ?? false
                 )
                 DispatchQueue.main.async {
                     self.session = newSession
@@ -199,13 +201,25 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
-    // Add method for adding audio - NOT SUPPORTED on iOS
+    // Add audio input (supported since MediaPipe 0.10.33)
     func addAudio(audioBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, any Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "audio_not_supported",
-            message: "Audio input is not supported on iOS platform. Use Android or Web instead.",
-            details: nil
-        )))
+        guard let session = session else {
+            completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            return
+        }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try session.addAudio(audio: audioBytes.data)
+                DispatchQueue.main.async {
+                    completion(.success(()))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    completion(.failure(error))
+                }
+            }
+        }
     }
 
     func generateResponse(completion: @escaping (Result<String, any Error>) -> Void) {
@@ -283,11 +297,17 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     }
 
     func stopGeneration(completion: @escaping (Result<Void, any Error>) -> Void) {
-        completion(.failure(PigeonError(
-            code: "stop_not_supported", 
-            message: "Stop generation is not supported on iOS platform yet", 
-            details: nil
-        )))
+        guard let session = session else {
+            completion(.failure(PigeonError(code: "Session not created", message: nil, details: nil)))
+            return
+        }
+
+        do {
+            try session.cancelGeneration()
+            completion(.success(()))
+        } catch {
+            completion(.failure(error))
+        }
     }
 
     // MARK: - RAG Methods (iOS Implementation)

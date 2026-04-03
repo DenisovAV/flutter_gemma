@@ -1,13 +1,14 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import 'utils/audio_converter.dart';
+import 'utils/platform_io_helper.dart';
 
 class ChatInputField extends StatefulWidget {
   final ValueChanged<Message> handleSubmitted;
@@ -130,15 +131,9 @@ class ChatInputFieldState extends State<ChatInputField> {
   Future<void> _startRecording() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
-    // Check if iOS - audio not supported
-    if (!kIsWeb && Platform.isIOS) {
-      _showAudioNotSupportedDialog();
-      return;
-    }
-
     // Check microphone permission (only on mobile where permission_handler works)
     // Desktop platforms (macOS/Windows/Linux) will show OS permission dialog automatically
-    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    if (!kIsWeb && (platformIsAndroid || platformIsIOS)) {
       final status = await Permission.microphone.request();
       if (!status.isGranted) {
         scaffoldMessenger.showSnackBar(
@@ -176,7 +171,7 @@ class ChatInputFieldState extends State<ChatInputField> {
           numChannels: 1,
           bitRate: 256000,
         ),
-        path: kIsWeb ? '' : '${Directory.systemTemp.path}/audio_recording.wav',
+        path: kIsWeb ? '' : '$systemTempPath/audio_recording.wav',
       );
 
       setState(() {
@@ -221,7 +216,7 @@ class ChatInputFieldState extends State<ChatInputField> {
           audioBytes = response;
         } else {
           // On mobile/desktop, read from file
-          final file = File(path);
+          final file = createFile(path);
           debugPrint('[AudioRecording] Reading file: ${file.path}');
           debugPrint('[AudioRecording] File exists: ${await file.exists()}');
 
@@ -258,55 +253,19 @@ class ChatInputFieldState extends State<ChatInputField> {
   }
 
   Future<Uint8List> _fetchWebBlob(String blobUrl) async {
-    // On web, we need to use HttpRequest to fetch blob URLs
-    // The record package returns blob URLs on web platform
-    final completer = Completer<Uint8List>();
+    // On web, the record package returns blob URLs — fetch via http package
+    final response = await http.get(Uri.parse(blobUrl));
+    final wavData = response.bodyBytes;
 
-    // Use dart:html indirectly via conditional import in production
-    // For now, read the blob via HTTP
-    try {
-      final uri = Uri.parse(blobUrl);
-      final request = await HttpClient().getUrl(uri);
-      final response = await request.close();
-      final bytes = await response.fold<List<int>>(
-        <int>[],
-        (previous, element) => previous..addAll(element),
-      );
-
-      // Parse WAV and extract PCM
-      final wavData = Uint8List.fromList(bytes);
-      final parsed = AudioConverter.parseWav(wavData);
-      final pcmData = AudioConverter.toPCM16kHzMono(
-        parsed.pcmData,
-        sourceSampleRate: parsed.sampleRate,
-        sourceChannels: parsed.channels,
-      );
-
-      completer.complete(pcmData);
-    } catch (e) {
-      completer.completeError(e);
-    }
-
-    return completer.future;
-  }
-
-  void _showAudioNotSupportedDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Audio Not Supported'),
-        content: const Text(
-          'Audio input requires LiteRT-LM models (.litertlm files).\n\n'
-          'MediaPipe models (.task files) do not support audio on any platform.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+    // Parse WAV and extract PCM
+    final parsed = AudioConverter.parseWav(wavData);
+    final pcmData = AudioConverter.toPCM16kHzMono(
+      parsed.pcmData,
+      sourceSampleRate: parsed.sampleRate,
+      sourceChannels: parsed.channels,
     );
+
+    return pcmData;
   }
 
   @override

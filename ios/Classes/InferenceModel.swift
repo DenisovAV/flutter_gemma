@@ -8,7 +8,9 @@ struct InferenceModel {
     init(modelPath: String,
          maxTokens: Int,
          supportedLoraRanks: [Int]? = nil,
-         maxNumImages: Int = 0) throws {
+         maxNumImages: Int = 0,
+         preferredBackend: PreferredBackend? = nil,
+         supportAudio: Bool = false) throws {
 
         // Use modelPath directly - MediaPipe can handle bundle paths, Documents paths, etc.
         // No need to transform the path - it's already correct from the caller
@@ -23,6 +25,23 @@ struct InferenceModel {
 
         if maxNumImages > 0 {
             llmOptions.maxImages = maxNumImages
+        }
+
+        // Set preferred backend (exposed in MediaPipe 0.10.33)
+        if let backend = preferredBackend {
+            switch backend {
+            case .gpu:
+                llmOptions.preferredBackend = .gpu
+            case .cpu:
+                llmOptions.preferredBackend = .cpu
+            case .npu:
+                break  // NPU not supported on iOS
+            }
+        }
+
+        // Enable audio modality if requested
+        if supportAudio {
+            llmOptions.enableAudioModality = true
         }
 
         self.inference = try LlmInference(options: llmOptions)
@@ -43,7 +62,8 @@ final class InferenceSession {
          topk: Int,
          topP: Double? = nil,
          loraPath: String? = nil,
-         enableVisionModality: Bool = false) throws {
+         enableVisionModality: Bool = false,
+         enableAudioModality: Bool = false) throws {
 
         let options = LlmInference.Session.Options()
         options.temperature = temperature
@@ -59,6 +79,7 @@ final class InferenceSession {
         }
 
         options.enableVisionModality = enableVisionModality
+        options.enableAudioModality = enableAudioModality
 
         // Initialize session with proper error handling for Gemma 3n
         do {
@@ -73,6 +94,7 @@ final class InferenceSession {
             fallbackOptions.randomSeed = randomSeed
             fallbackOptions.topk = topk
             fallbackOptions.enableVisionModality = enableVisionModality
+            fallbackOptions.enableAudioModality = enableAudioModality
 
             if let topP = topP {
                 fallbackOptions.topp = Float(topP)
@@ -94,6 +116,14 @@ final class InferenceSession {
 
     func addImage(image: CGImage) throws {
         try session.addImage(image: image)
+    }
+
+    func addAudio(audio: Data) throws {
+        try session.addAudio(audio: audio)
+    }
+
+    func cancelGeneration() throws {
+        try session.cancelGenerateResponseAsync()
     }
 
     // Clone session (GPU models only)

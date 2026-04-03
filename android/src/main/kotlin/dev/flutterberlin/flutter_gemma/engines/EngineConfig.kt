@@ -27,6 +27,7 @@ data class SessionConfig(
     val loraPath: String? = null,
     val enableVisionModality: Boolean? = null,
     val enableAudioModality: Boolean? = null,
+    val systemInstruction: String? = null,
 )
 
 /**

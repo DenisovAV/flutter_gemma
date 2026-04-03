@@ -48,7 +48,7 @@ class LiteRtLmSession(
         // Build conversation config
         val conversationConfig = ConversationConfig(
             samplerConfig = samplerConfig,
-            systemMessage = null, // System message not exposed in current API
+            systemInstruction = config.systemInstruction?.let { Contents.of(it) },
         )
 
         conversation = engine.createConversation(conversationConfig)

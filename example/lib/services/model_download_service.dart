@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
+import 'package:flutter_gemma_example/utils/platform_io_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -61,8 +60,13 @@ class ModelDownloadService {
       }
 
       // Fallback: check physical file existence with size validation
+      // (not available on web — File/path_provider don't work in WASM)
+      if (kIsWeb) {
+        return false;
+      }
+
       final filePath = await getFilePath();
-      final file = File(filePath);
+      final file = createFile(filePath);
 
       if (!file.existsSync()) {
         return false;

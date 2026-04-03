@@ -40,12 +40,24 @@ class MobileInferenceModelSession extends InferenceModelSession {
   StreamController<String>? _asyncResponseController;
   StreamSubscription? _eventSubscription;
 
+  final String? systemInstruction;
+  bool _systemInstructionSent = false;
+
+  bool get _isNativeSystemInstruction =>
+      fileType == ModelFileType.litertlm &&
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+       defaultTargetPlatform == TargetPlatform.macOS ||
+       defaultTargetPlatform == TargetPlatform.windows ||
+       defaultTargetPlatform == TargetPlatform.linux);
+
   MobileInferenceModelSession({
     required this.onClose,
     required this.modelType,
     this.fileType = ModelFileType.task,
     this.supportImage = false,
     this.supportAudio = false,
+    this.systemInstruction,
   });
 
   void _assertNotClosed() {
@@ -65,8 +77,19 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> addQueryChunk(Message message) async {
+    var messageToSend = message;
+    if (message.isUser &&
+        !_systemInstructionSent &&
+        systemInstruction != null &&
+        systemInstruction!.isNotEmpty &&
+        !_isNativeSystemInstruction) {
+      _systemInstructionSent = true;
+      messageToSend = message.copyWith(
+        text: '[System: ${systemInstruction!}]\n\n${message.text}',
+      );
+    }
     debugPrint('[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
-    final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
+    final finalPrompt = messageToSend.transformToChatPrompt(type: modelType, fileType: fileType);
     debugPrint('[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
     await _platformService.addQueryChunk(finalPrompt);
     if (message.hasImage && message.imageBytes != null && supportImage) {

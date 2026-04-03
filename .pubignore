@@ -1,14 +1,14 @@
 # Files and directories to exclude from pub.dev package
 docs/
-*.md
-!README.md
-!LICENSE
-!CHANGELOG.md
 .github/
 .idea/
 .vscode/
 .claude/
 test_reports/
+**/*.md
+!README.md
+!CHANGELOG.md
+tools/
 
 # Build artifacts
 build/
@@ -30,6 +30,7 @@ web/*.js.map
 !web/rag/
 
 # Media files (for README, not needed in package)
+docs/
 assets/
 colabs/
 training_data/
@@ -71,6 +72,8 @@ macos/Resources/tflite/
 
 # Desktop - JAR (downloaded at build time via prepare_resources.sh)
 macos/Resources/litertlm-server.jar
+litertlm-server/litertlm-server.jar
+**/*.jar
 
 # Misc
 test_exports.dart

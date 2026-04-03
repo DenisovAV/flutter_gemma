@@ -16,6 +16,54 @@ bool get _isDesktop {
 enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
+  // Gemma 4 models (Next-gen multimodal: text + image + audio)
+  gemma4_E2B(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    filename: 'gemma-4-E2B-it.litertlm',
+    displayName: 'Gemma 4 E2B IT',
+    size: '2.4GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: true,
+    maxTokens: 4096,
+    maxNumImages: 1,
+  ),
+  gemma4_E4B(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
+    filename: 'gemma-4-E4B-it.litertlm',
+    displayName: 'Gemma 4 E4B IT',
+    size: '4.3GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: true,
+    maxTokens: 4096,
+    maxNumImages: 1,
+  ),
+
   // Gemma 3 Nano models (Multimodal + Function Calls)
   gemma3n_2B(
     baseUrl:
@@ -35,7 +83,7 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
-    supportAudio: true, // E2B .litertlm has TF_LITE_AUDIO_ENCODER
+    supportAudio: false, // .task files don't have TF_LITE_AUDIO_ENCODER - audio only in .litertlm
     maxTokens: 4096,
     maxNumImages: 1,
     supportsFunctionCalls: false, // Disabled - causes issues with multimodal
@@ -124,13 +172,13 @@ enum Model implements InferenceModelInterface {
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.litertlm,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
-    supportImage: true,
-    supportAudio: true, // .litertlm files have TF_LITE_AUDIO_ENCODER
+    supportImage: false, // Disabled: MediaPipe iOS can't find Vision/Audio calculators for .litertlm
+    supportAudio: false, // Disabled: testing text-only mode first
     maxTokens: 4096,
-    maxNumImages: 1,
   ),
 
   // Gemma 3 Nano E4B LiteRT-LM (same model, different engine)
@@ -146,6 +194,7 @@ enum Model implements InferenceModelInterface {
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.litertlm,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
@@ -200,6 +249,7 @@ enum Model implements InferenceModelInterface {
     localModel: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.litertlm,
     temperature: 0.1,
     topK: 5,
     topP: 0.95,
@@ -223,6 +273,7 @@ enum Model implements InferenceModelInterface {
     needsAuth: false,
     preferredBackend: PreferredBackend.cpu,
     modelType: ModelType.qwen,
+    fileType: ModelFileType.litertlm,
     temperature: 0.7,
     topK: 40,
     topP: 0.95,
@@ -316,6 +367,7 @@ enum Model implements InferenceModelInterface {
     needsAuth: false,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
     temperature: 0.7,
     topK: 40,
     topP: 0.95,
@@ -381,6 +433,7 @@ enum Model implements InferenceModelInterface {
 
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.functionGemma,
+    fileType: ModelFileType.litertlm,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,

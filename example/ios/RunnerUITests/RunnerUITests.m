@@ -1,5 +1,13 @@
 @import XCTest;
-@import patrol;
-@import ObjectiveC.runtime;
+@import Flutter;
 
-PATROL_INTEGRATION_TEST_IOS_RUNNER(RunnerUITests)
+@interface RunnerUITests : XCTestCase
+@end
+
+@implementation RunnerUITests
+
+- (void)testFlutterIntegrationTest {
+    [[[XCUIApplication alloc] init] launch];
+}
+
+@end

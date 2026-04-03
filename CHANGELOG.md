@@ -1,3 +1,17 @@
+## 0.13.0
+- **Gemma 4 E2B/E4B**: Added support for next-gen multimodal models (text + image + audio)
+- **systemInstruction**: New parameter in `createChat()` and `createSession()` for setting system-level context
+- **ModelFileType.litertlm**: New file type to properly handle `.litertlm` models across platforms
+- **iOS LiteRT-LM support**: `.litertlm` models now work on iOS
+- **stopGeneration on iOS**: Supported for `.litertlm` models
+- **MediaPipe GenAI 0.10.33**: Updated iOS (from 0.10.24) and Android (from 0.10.29)
+  - iOS: GPU backend selection via `preferredBackend` (Metal delegate now activated)
+  - iOS: Audio modality support (`addAudio` + `enableAudioModality`)
+  - Android: Unified inference engine (CPU-only path removed), improved error handling
+  - Web: Updated to 0.10.27
+- **Example WASM compatibility**: Replaced direct `dart:io` imports with conditional imports for WASM compilation support
+- **Benchmark integration test**: `example/integration_test/benchmark_comparison_test.dart` for comparing model performance on device
+
 ## 0.12.8
 - **ToolChoice enum**: `auto` / `required` / `none` parameter in `createChat()` to control tool calling behavior
 - **Parallel Tool Calls**: `ParallelFunctionCallResponse` for multiple function calls in one response

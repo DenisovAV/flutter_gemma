@@ -6,7 +6,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct).
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/google/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct).
 
 *Note: The flutter_gemma plugin supports Gemma3n (with **multimodal vision and audio support**), FastVLM (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4, DeepSeek R1 and SmolLM. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
@@ -72,6 +72,8 @@ The example app offers a curated list of models, each suited for different tasks
 
 | Model Family | Best For | Function Calling | Thinking Mode | Vision | Languages | Size |
 |---|---|:---:|:---:|:---:|---|---|
+| **Gemma 4 E2B** | Next-gen multimodal chat — text, image, audio | ✅ | ❌ | ✅ | Multilingual | 2.4GB |
+| **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ❌ | ✅ | Multilingual | 4.3GB |
 | **Gemma3n** | On-device multimodal chat and image analysis | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
 | **FastVLM 0.5B** | Fast vision-language inference | ❌ | ❌ | ✅ | Multilingual | 0.5GB |
 | **Phi-4 Mini** | Advanced reasoning and instruction following | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
@@ -89,7 +91,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 
 | Model Family | ModelType | Examples |
 |--------------|-----------|----------|
-| **Gemma (all variants)** | `ModelType.gemmaIt` | Gemma 3 1B, Gemma 3 270M, Gemma3n E2B/E4B |
+| **Gemma (all variants)** | `ModelType.gemmaIt` | Gemma 4 E2B/E4B, Gemma 3 1B, Gemma 3 270M, Gemma3n E2B/E4B |
 | **DeepSeek** | `ModelType.deepSeek` | DeepSeek R1 |
 | **Qwen** | `ModelType.qwen` | Qwen3 0.6B, Qwen 2.5 1.5B, Qwen 2.5 0.5B |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
@@ -237,7 +239,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 * Add dependencies to `index.html` file in web folder
 ```html
   <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26';
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>
@@ -361,6 +363,20 @@ final response = await chat.generateChatResponse();
 // Cleanup
 await model.close();
 ```
+
+### System Instructions
+
+Control model behavior with a system-level instruction:
+
+```dart
+final chat = await model.createChat(
+  systemInstruction: 'You are a concise assistant. Always respond in bullet points.',
+);
+```
+
+**Platform support:**
+- **Android `.litertlm` / Desktop**: Passed natively via `ConversationConfig.systemInstruction`
+- **Android `.task` / iOS / Web**: Prepended to first user message as fallback
 
 ### 3. Multiple Instances from Same Model
 
@@ -2074,24 +2090,25 @@ Function calling is currently supported by the following models:
 
 ### Feature Comparison
 
-| Feature | Android | iOS | Web | Notes |
-|---------|---------|-----|-----|-------|
-| **Text Generation** | ✅ Full | ✅ Full | ✅ Full | All models supported |
-| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | Gemma3n models |
-| **Audio Input** | ✅ Android + Desktop | ❌ Not supported | ❌ Not supported | Gemma3n E2B/E4B, LiteRT-LM only |
-| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | Select models only |
-| **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | DeepSeek models |
-| **Stop Generation** | ✅ Full | ❌ Not supported | ✅ Full | Cancel mid-process |
-| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | Recommended |
-| **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | MediaPipe limitation |
-| **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
-| **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | Fine-tuned weights |
-| **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
-| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM | Semantic search, RAG |
-| **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | Platform-specific |
-| **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | All source types |
-| **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | Native bundles |
-| **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | No local FS on web |
+| Feature | Android | iOS | Web | Desktop | Notes |
+|---------|---------|-----|-----|---------|-------|
+| **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
+| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ⚠️ Broken (#684) | macOS: model hallucinates |
+| **Audio Input** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B |
+| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
+| **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | DeepSeek models |
+| **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
+| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ⚠️ Partial | macOS GPU broken |
+| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ❌ Not supported | Android only (.litertlm) |
+| **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | MediaPipe limitation |
+| **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
+| **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
+| **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
+| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM | ✅ SQLite | Semantic search, RAG |
+| **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | ✅ Background | Platform-specific |
+| **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Flutter assets N/A |
+| **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Native bundles only |
+| **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | No local FS on web |
 
 ### Web Platform Specifics
 
@@ -2261,6 +2278,9 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ## **🚀 What's New**
 
+✅ **🤖 Gemma 4 E2B/E4B** - Next-gen multimodal models with native audio, improved vision, 128K context window
+✅ **📋 systemInstruction** - Set system-level context in `createChat()` and `createSession()`
+✅ **📊 Benchmark test** - Run `example/integration_test/benchmark_comparison_test.dart` to compare models on your device
 ✅ **🎙️ Audio Input** - Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop)
 ✅ **📊 Text Embeddings** - Generate vector embeddings with EmbeddingGemma and Gecko models for semantic search applications
 ✅ **🔧 Unified Model Management** - Single system for managing both inference and embedding models with automatic validation
@@ -2269,7 +2289,6 @@ This is automatically handled by the chat API, but can be useful for custom infe
 **Coming Soon:**
 - Video Input
 - Audio Output (Text-to-Speech)
-- System Instruction support
 
 ---
 

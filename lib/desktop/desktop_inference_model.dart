@@ -38,6 +38,7 @@ class DesktopInferenceModel extends InferenceModel {
     String? loraPath,
     bool? enableVisionModality,
     bool? enableAudioModality,
+    String? systemInstruction,
   }) async {
     if (_isClosed) {
       throw StateError('Model is closed. Create a new instance to use it again');
@@ -52,6 +53,7 @@ class DesktopInferenceModel extends InferenceModel {
     try {
       // Create conversation on server with sampler config
       await grpcClient.createConversation(
+        systemMessage: systemInstruction,
         temperature: temperature,
         topK: topK,
         topP: topP,
@@ -93,6 +95,7 @@ class DesktopInferenceModel extends InferenceModel {
     bool isThinking = false,
     ModelType? modelType,
     ToolChoice toolChoice = ToolChoice.auto,
+    String? systemInstruction,
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -103,6 +106,7 @@ class DesktopInferenceModel extends InferenceModel {
         loraPath: loraPath,
         enableVisionModality: supportImage ?? this.supportImage,
         enableAudioModality: supportAudio ?? this.supportAudio,
+        systemInstruction: systemInstruction,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
@@ -114,6 +118,7 @@ class DesktopInferenceModel extends InferenceModel {
       isThinking: isThinking,
       fileType: fileType,
       toolChoice: toolChoice,
+      systemInstruction: systemInstruction,
     );
     await chat!.initSession();
     return chat!;

@@ -1,13 +1,13 @@
 import com.google.protobuf.gradle.*
 
 plugins {
-    kotlin("jvm") version "2.1.0"
+    kotlin("jvm") version "2.3.0"
     id("com.google.protobuf") version "0.9.4"
     application
 }
 
 group = "dev.flutterberlin"
-version = "0.12.6"
+version = "0.13.0"
 
 repositories {
     mavenCentral()
@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     // LiteRT-LM JVM (only version with Contents API for multimodal)
-    implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.9.0-beta")
+    implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.9.0")
 
     // gRPC + Protobuf
     implementation("io.grpc:grpc-kotlin-stub:1.4.1")

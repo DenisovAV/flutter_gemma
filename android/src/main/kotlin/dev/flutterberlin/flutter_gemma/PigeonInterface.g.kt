@@ -203,7 +203,7 @@ private open class PigeonInterfacePigeonCodec : StandardMessageCodec() {
 interface PlatformService {
   fun createModel(maxTokens: Long, modelPath: String, loraRanks: List<Long>?, preferredBackend: PreferredBackend?, maxNumImages: Long?, supportAudio: Boolean?, callback: (Result<Unit>) -> Unit)
   fun closeModel(callback: (Result<Unit>) -> Unit)
-  fun createSession(temperature: Double, randomSeed: Long, topK: Long, topP: Double?, loraPath: String?, enableVisionModality: Boolean?, enableAudioModality: Boolean?, callback: (Result<Unit>) -> Unit)
+  fun createSession(temperature: Double, randomSeed: Long, topK: Long, topP: Double?, loraPath: String?, enableVisionModality: Boolean?, enableAudioModality: Boolean?, systemInstruction: String?, callback: (Result<Unit>) -> Unit)
   fun closeSession(callback: (Result<Unit>) -> Unit)
   fun sizeInTokens(prompt: String, callback: (Result<Long>) -> Unit)
   fun addQueryChunk(prompt: String, callback: (Result<Unit>) -> Unit)
@@ -314,7 +314,8 @@ interface PlatformService {
             val loraPathArg = args[4] as String?
             val enableVisionModalityArg = args[5] as Boolean?
             val enableAudioModalityArg = args[6] as Boolean?
-            api.createSession(temperatureArg, randomSeedArg, topKArg, topPArg, loraPathArg, enableVisionModalityArg, enableAudioModalityArg) { result: Result<Unit> ->
+            val systemInstructionArg = args[7] as String?
+            api.createSession(temperatureArg, randomSeedArg, topKArg, topPArg, loraPathArg, enableVisionModalityArg, enableAudioModalityArg, systemInstructionArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(wrapError(error))

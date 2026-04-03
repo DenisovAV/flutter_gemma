@@ -175,6 +175,7 @@ private class PlatformServiceImpl(
     loraPath: String?,
     enableVisionModality: Boolean?,
     enableAudioModality: Boolean?,
+    systemInstruction: String?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
@@ -191,6 +192,7 @@ private class PlatformServiceImpl(
             loraPath = loraPath,
             enableVisionModality = enableVisionModality,
             enableAudioModality = enableAudioModality,
+            systemInstruction = systemInstruction,
           )
 
           session?.close()

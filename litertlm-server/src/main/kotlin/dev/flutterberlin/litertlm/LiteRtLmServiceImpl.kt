@@ -132,7 +132,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
             // Use data class constructor (LiteRT-LM 0.9+ API)
             val conversationConfig = ConversationConfig(
-                systemMessage = if (request.systemMessage.isNotEmpty()) Message.of(request.systemMessage) else null,
+                systemInstruction = if (request.systemMessage.isNotEmpty()) Contents.of(request.systemMessage) else null,
                 samplerConfig = samplerConfig
             )
 

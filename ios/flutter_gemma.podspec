@@ -4,11 +4,11 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '0.12.8'
+  s.version          = '0.13.0'
   s.summary          = 'Flutter plugin for running Gemma AI models locally with Gemma 3 Nano support.'
   s.description      = <<-DESC
 The plugin allows running the Gemma AI model locally on a device from a Flutter application.
-Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.24.
+Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.33.
                        DESC
   s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
   s.license          = { :file => '../LICENSE' }
@@ -16,8 +16,8 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.24
   s.source           = { :path => '.' }
   s.source_files = 'Classes/*.swift'
   s.dependency 'Flutter'
-  s.dependency 'MediaPipeTasksGenAI', '= 0.10.24'
-  s.dependency 'MediaPipeTasksGenAIC', '= 0.10.24'
+  s.dependency 'MediaPipeTasksGenAI', '= 0.10.33'
+  s.dependency 'MediaPipeTasksGenAIC', '= 0.10.33'
   s.dependency 'TensorFlowLiteC', '0.0.1-nightly.20250619'
   s.dependency 'TensorFlowLiteSwift', '0.0.1-nightly.20250619'
   s.dependency 'TensorFlowLiteSelectTfOps', '0.0.1-nightly.20250619'

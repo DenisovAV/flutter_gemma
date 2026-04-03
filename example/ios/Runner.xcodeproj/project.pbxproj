@@ -279,24 +279,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		F7A8C0A12D0F000000000031 /* Embed Flutter Framework */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Embed Flutter Framework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "FLUTTER_FW=\"${BUILT_PRODUCTS_DIR}/Flutter.framework\"\nif [ -d \"$FLUTTER_FW\" ]; then\n  # Copy into xctest bundle Frameworks\n  XCTEST_DEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.xctest/Frameworks\"\n  mkdir -p \"$XCTEST_DEST\"\n  rsync -av --delete \"$FLUTTER_FW\" \"$XCTEST_DEST/\"\n  # Copy into test runner app Frameworks\n  RUNNER_DEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}-Runner.app/Frameworks\"\n  mkdir -p \"$RUNNER_DEST\"\n  rsync -av --delete \"$FLUTTER_FW\" \"$RUNNER_DEST/\"\nfi\n";
-		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -405,6 +387,24 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		F7A8C0A12D0F000000000031 /* Embed Flutter Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Flutter Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "FLUTTER_FW=\"${BUILT_PRODUCTS_DIR}/Flutter.framework\"\nif [ -d \"$FLUTTER_FW\" ]; then\n  # Copy into xctest bundle Frameworks\n  XCTEST_DEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.xctest/Frameworks\"\n  mkdir -p \"$XCTEST_DEST\"\n  rsync -av --delete \"$FLUTTER_FW\" \"$XCTEST_DEST/\"\n  # Copy into test runner app Frameworks\n  RUNNER_DEST=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}-Runner.app/Frameworks\"\n  mkdir -p \"$RUNNER_DEST\"\n  rsync -av --delete \"$FLUTTER_FW\" \"$RUNNER_DEST/\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -515,7 +515,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
-				DEVELOPMENT_TEAM = 2U7DD3DNRL;
+				DEVELOPMENT_TEAM = 5U8U76PYF4;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

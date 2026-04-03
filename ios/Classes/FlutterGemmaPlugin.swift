@@ -96,6 +96,7 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         loraPath: String?,
         enableVisionModality: Bool?,
         enableAudioModality: Bool?,
+        systemInstruction: String?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
         guard let inference = model?.inference else {

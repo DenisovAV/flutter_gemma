@@ -415,18 +415,17 @@ Future<void> close() async {
 
 | Platform | Vision/Multimodal | Audio | Embeddings | Notes |
 |----------|-------------------|-------|------------|-------|
-| Android | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Full support |
-| iOS Device | ✅ Works | ❌ Not supported | ✅ Works | Full vision support |
-| iOS Simulator | ❌ Broken | ❌ Not supported | ✅ Works | MediaPipe incompatible with Apple Silicon simulator |
+| Android | ✅ Works | ✅ Works | ✅ Works | Full support |
+| iOS Device | ✅ Works | ✅ Works | ✅ Works | Full support |
+| iOS Simulator | ❌ Not supported | ❌ Not supported | ✅ Works | Vision calculator not in simulator build |
 | Web | ✅ Works | ❌ Not supported | ✅ Works | MediaPipe only |
 | macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ Works | Vision: image sent but model hallucinates |
 | Windows | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC |
 | Linux | ✅ Works | ✅ LiteRT-LM only | ✅ Works | Desktop via gRPC |
 
 **Known Issues:**
-- **iOS Simulator (#178)**: Vision doesn't work on Apple Silicon simulators due to MediaPipe dependency incompatibility. Use physical device.
 - **macOS Vision (#684)**: LiteRT-LM JVM SDK vision bug - image bytes sent correctly but model hallucinates response
-- **Audio**: Only supported with LiteRT-LM models (`.litertlm`), not MediaPipe (`.task`)
+- **Audio**: Supported with MediaPipe (`.task`) on iOS and Android, and with LiteRT-LM (`.litertlm`) on all platforms
 
 ## Development Environment
 
@@ -459,8 +458,8 @@ dev_dependencies:
 ### MediaPipe GenAI Integration
 
 - **Current Version Web**: v0.10.26
-- **Current Version Android**: v0.10.29
-- **Current Version iOS**: v0.10.24
+- **Current Version Android**: v0.10.33
+- **Current Version iOS**: v0.10.33
 - **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26`
 - **iOS/Android**: Integrated via CocoaPods/Gradle
 
@@ -1244,7 +1243,7 @@ flutter_gemma/
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.12.8
+- **Current Version**: 0.13.0
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 - **Changelog**: See `CHANGELOG.md` for version history

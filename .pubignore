@@ -30,6 +30,7 @@ web/*.js.map
 !web/rag/
 
 # Media files (for README, not needed in package)
+docs/
 assets/
 colabs/
 training_data/

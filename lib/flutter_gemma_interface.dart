@@ -135,6 +135,7 @@ abstract class InferenceModel {
     String? loraPath,
     bool? enableVisionModality, // Add vision modality support
     bool? enableAudioModality, // Add audio modality support (Gemma 3n E4B)
+    String? systemInstruction,
   });
 
   Future<InferenceChat> createChat({
@@ -151,6 +152,7 @@ abstract class InferenceModel {
     bool isThinking = false, // Add isThinking parameter
     ModelType? modelType, // Add modelType parameter
     ToolChoice toolChoice = ToolChoice.auto, // Tool calling mode
+    String? systemInstruction,
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -161,6 +163,7 @@ abstract class InferenceModel {
         loraPath: loraPath,
         enableVisionModality: supportImage ?? false,
         enableAudioModality: supportAudio ?? false,
+        systemInstruction: systemInstruction,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
@@ -172,6 +175,7 @@ abstract class InferenceModel {
       modelType: modelType ?? ModelType.gemmaIt, // Use provided modelType or default
       fileType: fileType, // Pass fileType from model
       toolChoice: toolChoice, // Pass tool calling mode
+      systemInstruction: systemInstruction,
     );
     await chat!.initSession();
     return chat!;

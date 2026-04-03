@@ -53,7 +53,20 @@ extension MessageExtension on Message {
       return result;
     }
 
-    // .bin/.tflite files - apply manual formatting based on model type
+    // .litertlm files - platform-dependent behavior
+    if (fileType == ModelFileType.litertlm) {
+      // iOS: MediaPipe doesn't handle turn markers for .litertlm → format manually (like binary)
+      // Android/Desktop/Web: LiteRT-LM SDK handles templates → return raw text (like task)
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        // Fall through to manual formatting below
+      } else {
+        final result = _formatToolResponseContent();
+        debugPrint('[transformToChatPrompt] litertlm non-iOS, using raw text, result length=${result.length}');
+        return result;
+      }
+    }
+
+    // .bin/.tflite files (and .litertlm on iOS) - apply manual formatting based on model type
     final result = switch (type) {
       ModelType.general => _transformGeneral(),
       ModelType.gemmaIt => _transformGemmaIt(),
@@ -282,7 +295,18 @@ class ModelThinkingFilter {
       return cleaned.trim();
     }
 
-    // For .bin/.tflite files, apply model-specific cleaning
+    // For .litertlm files - platform-dependent cleaning
+    if (fileType == ModelFileType.litertlm) {
+      // iOS: MediaPipe doesn't strip turn markers → clean like binary
+      // Android/Desktop/Web: LiteRT-LM SDK handles cleanup → just trim
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        // Fall through to model-specific cleaning below
+      } else {
+        return cleaned.trim();
+      }
+    }
+
+    // For .bin/.tflite files (and .litertlm on iOS), apply model-specific cleaning
     switch (modelType) {
       case ModelType.general:
         // General models - no special cleaning needed

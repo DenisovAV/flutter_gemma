@@ -2278,6 +2278,9 @@ This is automatically handled by the chat API, but can be useful for custom infe
 
 ## **🚀 What's New**
 
+✅ **🤖 Gemma 4 E2B/E4B** - Next-gen multimodal models with native audio, improved vision, 128K context window
+✅ **📋 systemInstruction** - Set system-level context in `createChat()` and `createSession()`
+✅ **📊 Benchmark test** - Run `example/integration_test/benchmark_comparison_test.dart` to compare models on your device
 ✅ **🎙️ Audio Input** - Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop)
 ✅ **📊 Text Embeddings** - Generate vector embeddings with EmbeddingGemma and Gecko models for semantic search applications
 ✅ **🔧 Unified Model Management** - Single system for managing both inference and embedding models with automatic validation
@@ -2286,7 +2289,6 @@ This is automatically handled by the chat API, but can be useful for custom infe
 **Coming Soon:**
 - Video Input
 - Audio Output (Text-to-Speech)
-- System Instruction support
 
 ---
 

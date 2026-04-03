@@ -10,6 +10,7 @@
   - Android: Unified inference engine (CPU-only path removed), improved error handling
   - Web: Updated to 0.10.27
 - **Example WASM compatibility**: Replaced direct `dart:io` imports with conditional imports for WASM compilation support
+- **Benchmark integration test**: `example/integration_test/benchmark_comparison_test.dart` for comparing model performance on device
 
 ## 0.12.8
 - **ToolChoice enum**: `auto` / `required` / `none` parameter in `createChat()` to control tool calling behavior

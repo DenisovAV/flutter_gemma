@@ -1,14 +1,14 @@
 # Files and directories to exclude from pub.dev package
 docs/
-*.md
-!README.md
-!LICENSE
-!CHANGELOG.md
 .github/
 .idea/
 .vscode/
 .claude/
 test_reports/
+**/*.md
+!README.md
+!CHANGELOG.md
+tools/
 
 # Build artifacts
 build/

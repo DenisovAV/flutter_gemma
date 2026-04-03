@@ -390,6 +390,7 @@ class WebInferenceModel extends InferenceModel {
     String? loraPath,
     bool? enableVisionModality, // Enabling vision modality support
     bool? enableAudioModality, // Enabling audio modality support (Gemma 3n E4B)
+    String? systemInstruction,
   }) async {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
@@ -428,7 +429,7 @@ class WebInferenceModel extends InferenceModel {
       }
 
       final fileset = await FilesetResolver.forGenAiTasks(
-              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26/wasm'.toJS)
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'.toJS)
           .toDart;
 
       // Get LoRA path if available
@@ -486,6 +487,7 @@ class WebInferenceModel extends InferenceModel {
         llmInference: llmInference,
         supportImage: supportImage, // Enabling image support
         supportAudio: supportAudio, // Enabling audio support
+        systemInstruction: systemInstruction,
         onClose: onClose,
       );
 
@@ -516,6 +518,9 @@ class WebModelSession extends InferenceModelSession {
   StreamController<String>? _controller;
   final List<PromptPart> _promptParts = [];
 
+  final String? systemInstruction;
+  bool _systemInstructionSent = false;
+
   WebModelSession({
     required this.llmInference,
     required this.onClose,
@@ -523,6 +528,7 @@ class WebModelSession extends InferenceModelSession {
     this.fileType = ModelFileType.task,
     this.supportImage = false,
     this.supportAudio = false,
+    this.systemInstruction,
   });
 
   @override
@@ -538,7 +544,18 @@ class WebModelSession extends InferenceModelSession {
           '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, hasAudio: ${message.hasAudio}, supportImage: $supportImage, supportAudio: $supportAudio');
     }
 
-    final finalPrompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
+    var messageToSend = message;
+    if (message.isUser &&
+        !_systemInstructionSent &&
+        systemInstruction != null &&
+        systemInstruction!.isNotEmpty) {
+      _systemInstructionSent = true;
+      messageToSend = message.copyWith(
+        text: '[System: ${systemInstruction!}]\n\n${message.text}',
+      );
+    }
+
+    final finalPrompt = messageToSend.transformToChatPrompt(type: modelType, fileType: fileType);
 
     // Add text part
     _promptParts.add(TextPromptPart(finalPrompt));

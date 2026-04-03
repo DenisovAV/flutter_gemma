@@ -26,6 +26,7 @@ class InferenceChat {
   final bool isThinking; // Add isThinking flag for thinking models
   final ModelFileType fileType; // Add fileType parameter
   final ToolChoice toolChoice; // Tool calling mode
+  final String? systemInstruction;
   late InferenceModelSession session;
   final List<Tool> tools;
 
@@ -50,6 +51,7 @@ class InferenceChat {
     this.isThinking = false, // Default to false for backward compatibility
     this.fileType = ModelFileType.task, // Default to task for backward compatibility
     this.toolChoice = ToolChoice.auto, // Default to auto for backward compatibility
+    this.systemInstruction,
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -64,6 +66,7 @@ class InferenceChat {
 
   Future<void> addQueryChunk(Message message, [bool noTool = false]) async {
     var messageToSend = message;
+
     // Only add tools prompt for the first user text message (not a tool response)
     // and only if the model supports function calls
     if (message.isUser &&
@@ -79,11 +82,11 @@ class InferenceChat {
       // For FunctionGemma, manually construct the full prompt with turn markers
       // because tools prompt already has developer turn markers
       if (modelType == ModelType.functionGemma) {
-        final newText = '$toolsPrompt$startTurn$userPrefix\n${message.text}\n$endTurn\n$startTurn$modelPrefix\n';
-        messageToSend = message.copyWith(text: newText);
+        final newText = '$toolsPrompt$startTurn$userPrefix\n${messageToSend.text}\n$endTurn\n$startTurn$modelPrefix\n';
+        messageToSend = messageToSend.copyWith(text: newText);
       } else {
-        final newText = '$toolsPrompt\n${message.text}';
-        messageToSend = message.copyWith(text: newText);
+        final newText = '$toolsPrompt\n${messageToSend.text}';
+        messageToSend = messageToSend.copyWith(text: newText);
       }
     } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
       // Log warning if model doesn't support function calls but tools are provided
@@ -180,7 +183,11 @@ class InferenceChat {
         ? ModelThinkingFilter.filterThinkingStream(originalStream, modelType: modelType)
         : originalStream;
 
-    await for (final response in filteredStream) {
+    // Apply stop token filter for .litertlm on iOS (MediaPipe doesn't handle stop tokens)
+    final Stream<ModelResponse> stopFilteredStream =
+        StopTokenFilter.filterStopTokens(filteredStream, fileType: fileType);
+
+    await for (final response in stopFilteredStream) {
       if (response is TextResponse) {
         final token = response.token;
         debugPrint('InferenceChat: Received filtered token: "$token"');
@@ -416,7 +423,7 @@ class InferenceChat {
     _fullHistory.clear();
     _modelHistory.clear();
     _currentTokens = 0;
-    _toolsInstructionSent = false; // Reset the flag when clearing history
+    _toolsInstructionSent = false;
     await session.close();
     session = await sessionCreator!();
 
@@ -553,5 +560,75 @@ class InferenceChat {
 
     toolsPrompt.write('$endTurn\n');
     return toolsPrompt.toString();
+  }
+}
+
+/// Filters stop tokens from model response stream.
+/// For .litertlm on iOS, MediaPipe doesn't handle `<end_of_turn>` —
+/// this filter detects and terminates the stream at the stop token,
+/// with buffering for partial tag matches.
+class StopTokenFilter {
+  static const String _stopToken = '<end_of_turn>';
+
+  static Stream<ModelResponse> filterStopTokens(
+    Stream<ModelResponse> originalStream, {
+    required ModelFileType fileType,
+  }) async* {
+    // Only apply for litertlm on iOS
+    if (fileType != ModelFileType.litertlm ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      yield* originalStream;
+      return;
+    }
+
+    String buffer = '';
+
+    await for (final response in originalStream) {
+      if (response is TextResponse) {
+        buffer += response.token;
+
+        // Check if buffer contains the stop token
+        final stopIndex = buffer.indexOf(_stopToken);
+        if (stopIndex >= 0) {
+          // Emit text before stop token, then stop
+          final textBefore = buffer.substring(0, stopIndex);
+          if (textBefore.isNotEmpty) {
+            yield TextResponse(textBefore);
+          }
+          return;
+        }
+
+        // Check if buffer ends with a partial match of the stop token
+        int partialLen = 0;
+        for (int i = 1; i <= _stopToken.length && i <= buffer.length; i++) {
+          if (buffer.endsWith(_stopToken.substring(0, i))) {
+            partialLen = i;
+          }
+        }
+
+        if (partialLen > 0) {
+          // Emit safe portion, keep potential partial match
+          final safe = buffer.substring(0, buffer.length - partialLen);
+          if (safe.isNotEmpty) {
+            yield TextResponse(safe);
+          }
+          buffer = buffer.substring(buffer.length - partialLen);
+        } else {
+          // No partial match, emit everything
+          if (buffer.isNotEmpty) {
+            yield TextResponse(buffer);
+          }
+          buffer = '';
+        }
+      } else {
+        yield response;
+      }
+    }
+
+    // Emit any remaining buffer (wasn't a complete stop token)
+    if (buffer.isNotEmpty) {
+      yield TextResponse(buffer);
+    }
   }
 }

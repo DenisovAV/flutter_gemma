@@ -239,7 +239,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 * Add dependencies to `index.html` file in web folder
 ```html
   <script type="module">
-  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26';
+  import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
   window.FilesetResolver = FilesetResolver;
   window.LlmInference = LlmInference;
   </script>

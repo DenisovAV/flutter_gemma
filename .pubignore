@@ -72,6 +72,8 @@ macos/Resources/tflite/
 
 # Desktop - JAR (downloaded at build time via prepare_resources.sh)
 macos/Resources/litertlm-server.jar
+litertlm-server/litertlm-server.jar
+**/*.jar
 
 # Misc
 test_exports.dart

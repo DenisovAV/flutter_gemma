@@ -53,6 +53,8 @@ abstract class PlatformService {
     bool? enableAudioModality,
     // System instruction for LiteRT-LM native support
     String? systemInstruction,
+    // Enable thinking mode (Gemma 4 via extraContext)
+    bool? enableThinking,
   });
 
   @async

@@ -111,7 +111,7 @@ class LiteRtLmClient {
   static const _streamTimeout = Duration(minutes: 5);
 
   /// Send a chat message and get streaming response
-  Stream<String> chat(String text, {String? conversationId}) async* {
+  Stream<String> chat(String text, {String? conversationId, bool enableThinking = false}) async* {
     _assertInitialized();
 
     final convId = conversationId ?? _currentConversationId;
@@ -121,7 +121,8 @@ class LiteRtLmClient {
 
     final request = ChatRequest()
       ..conversationId = convId
-      ..text = text;
+      ..text = text
+      ..enableThinking = enableThinking;
 
     // Add timeout to prevent infinite hanging
     await for (final response in _client!.chat(request).timeout(
@@ -137,7 +138,11 @@ class LiteRtLmClient {
         throw Exception('Chat error: ${response.error}');
       }
 
-      if (response.hasText()) {
+      if (response.hasThinking() && response.thinking.isNotEmpty) {
+        yield '<|channel>thought\n${response.thinking}<channel|>';
+      }
+
+      if (response.hasText() && response.text.isNotEmpty) {
         yield response.text;
       }
     }
@@ -148,6 +153,7 @@ class LiteRtLmClient {
     String text,
     Uint8List imageBytes, {
     String? conversationId,
+    bool enableThinking = false,
   }) async* {
     _assertInitialized();
     debugPrint('[LiteRtLmClient] chatWithImage: text=${text.length} chars, image=${imageBytes.length} bytes');
@@ -160,7 +166,8 @@ class LiteRtLmClient {
     final request = ChatWithImageRequest()
       ..conversationId = convId
       ..text = text
-      ..image = imageBytes;
+      ..image = imageBytes
+      ..enableThinking = enableThinking;
 
     // Add timeout to prevent infinite hanging
     await for (final response in _client!.chatWithImage(request).timeout(
@@ -176,7 +183,11 @@ class LiteRtLmClient {
         throw Exception('Chat error: ${response.error}');
       }
 
-      if (response.hasText()) {
+      if (response.hasThinking() && response.thinking.isNotEmpty) {
+        yield '<|channel>thought\n${response.thinking}<channel|>';
+      }
+
+      if (response.hasText() && response.text.isNotEmpty) {
         yield response.text;
       }
     }
@@ -214,6 +225,7 @@ class LiteRtLmClient {
     String text,
     Uint8List audioBytes, {
     String? conversationId,
+    bool enableThinking = false,
   }) async* {
     _assertInitialized();
 
@@ -225,7 +237,8 @@ class LiteRtLmClient {
     final request = ChatWithAudioRequest()
       ..conversationId = convId
       ..text = text
-      ..audio = audioBytes;
+      ..audio = audioBytes
+      ..enableThinking = enableThinking;
 
     // Add timeout to prevent infinite hanging
     await for (final response in _client!.chatWithAudio(request).timeout(
@@ -241,7 +254,11 @@ class LiteRtLmClient {
         throw Exception('Chat error: ${response.error}');
       }
 
-      if (response.hasText()) {
+      if (response.hasThinking() && response.thinking.isNotEmpty) {
+        yield '<|channel>thought\n${response.thinking}<channel|>';
+      }
+
+      if (response.hasText() && response.text.isNotEmpty) {
         yield response.text;
       }
     }

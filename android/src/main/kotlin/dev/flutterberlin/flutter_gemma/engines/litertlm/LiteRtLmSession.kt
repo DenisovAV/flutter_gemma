@@ -31,6 +31,13 @@ class LiteRtLmSession(
 
     private val conversation: Conversation
 
+    // Extra context for thinking mode (Gemma 4 via Jinja template variable)
+    private val extraContext: Map<String, Any> = if (config.enableThinking) {
+        mapOf("enable_thinking" to true)
+    } else {
+        emptyMap()
+    }
+
     // Chunk buffering (MediaPipe compatibility) - thread-safe access
     private val pendingPrompt = StringBuilder()
     private val promptLock = Any()
@@ -84,8 +91,18 @@ class LiteRtLmSession(
         Log.d(TAG, "Generating sync response for message: ${message.toString().length} chars")
 
         return try {
-            val response = conversation.sendMessage(message)
-            response.toString()
+            val response = if (extraContext.isNotEmpty()) {
+                conversation.sendMessage(message, extraContext)
+            } else {
+                conversation.sendMessage(message)
+            }
+            val thinking = response.channels["thought"]
+            val text = response.toString()
+            if (!thinking.isNullOrEmpty()) {
+                "<|channel>thought\n$thinking<channel|>$text"
+            } else {
+                text
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error generating response", e)
             errorFlow.tryEmit(e)
@@ -97,24 +114,37 @@ class LiteRtLmSession(
         val message = buildAndConsumeMessage()
         Log.d(TAG, "Generating async response for message: ${message.toString().length} chars")
 
-        try {
-            // Use callback-based API
-            conversation.sendMessageAsync(message, object : MessageCallback {
-                override fun onMessage(message: Message) {
-                    val text = message.toString()
+        val callback = object : MessageCallback {
+            override fun onMessage(msg: Message) {
+                // Emit thinking channel content first (if present)
+                val thinking = msg.channels["thought"]
+                if (!thinking.isNullOrEmpty()) {
+                    resultFlow.tryEmit("<|channel>thought\n$thinking<channel|>" to false)
+                }
+                // Then emit regular text
+                val text = msg.toString()
+                if (text.isNotEmpty()) {
                     resultFlow.tryEmit(text to false)
                 }
+            }
 
-                override fun onDone() {
-                    resultFlow.tryEmit("" to true)
-                }
+            override fun onDone() {
+                resultFlow.tryEmit("" to true)
+            }
 
-                override fun onError(throwable: Throwable) {
-                    Log.e(TAG, "Async generation error", throwable)
-                    errorFlow.tryEmit(throwable)
-                    resultFlow.tryEmit("" to true)
-                }
-            })
+            override fun onError(throwable: Throwable) {
+                Log.e(TAG, "Async generation error", throwable)
+                errorFlow.tryEmit(throwable)
+                resultFlow.tryEmit("" to true)
+            }
+        }
+
+        try {
+            if (extraContext.isNotEmpty()) {
+                conversation.sendMessageAsync(message, callback, extraContext)
+            } else {
+                conversation.sendMessageAsync(message, callback)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start async generation", e)
             errorFlow.tryEmit(e)

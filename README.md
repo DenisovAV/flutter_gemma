@@ -8,7 +8,7 @@
 
 **The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/google/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct).
 
-*Note: The flutter_gemma plugin supports Gemma3n (with **multimodal vision and audio support**), FastVLM (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4, DeepSeek R1 and SmolLM. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
+*Note: The flutter_gemma plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4, DeepSeek R1 and SmolLM. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
 [Gemma](https://ai.google.dev/gemma) is a family of lightweight, state-of-the art open models built from the same research and technology used to create the Gemini models
 
@@ -32,7 +32,7 @@ There is an example of using:
 - **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop - LiteRT-LM engine)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
-- **🧠 Thinking Mode:** View the reasoning process of DeepSeek models with <think> blocks 
+- **🧠 Thinking Mode:** View the reasoning process of DeepSeek and Gemma 4 models with thinking blocks
 - **🛑 Stop Generation:** Cancel text generation mid-process on Android, Web, and Desktop
 - **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app 
 - **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
@@ -72,8 +72,8 @@ The example app offers a curated list of models, each suited for different tasks
 
 | Model Family | Best For | Function Calling | Thinking Mode | Vision | Languages | Size |
 |---|---|:---:|:---:|:---:|---|---|
-| **Gemma 4 E2B** | Next-gen multimodal chat — text, image, audio | ✅ | ❌ | ✅ | Multilingual | 2.4GB |
-| **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ❌ | ✅ | Multilingual | 4.3GB |
+| **Gemma 4 E2B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ | ✅ | Multilingual | 2.4GB |
+| **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ | ✅ | Multilingual | 4.3GB |
 | **Gemma3n** | On-device multimodal chat and image analysis | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
 | **FastVLM 0.5B** | Fast vision-language inference | ❌ | ❌ | ✅ | Multilingual | 0.5GB |
 | **Phi-4 Mini** | Advanced reasoning and instruction following | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
@@ -1544,11 +1544,11 @@ FunctionGemma uses a special format (different from JSON-based function calling)
 
 The `flutter_gemma` plugin handles this format automatically via `FunctionCallParser`.
 
-9. **🧠 Thinking Mode (DeepSeek Models)**
+9. **🧠 Thinking Mode (DeepSeek & Gemma 4 Models)**
 
-DeepSeek models support "thinking mode" where you can see the model's reasoning process before it generates the final response. This provides transparency into how the model approaches problems.
+DeepSeek and Gemma 4 (E2B/E4B) models support "thinking mode" where you can see the model's reasoning process before it generates the final response. This provides transparency into how the model approaches problems.
 
-**Enable Thinking Mode:**
+**Enable Thinking Mode (DeepSeek):**
 
 ```dart
 final chat = await inferenceModel.createChat(
@@ -1559,7 +1559,6 @@ final chat = await inferenceModel.createChat(
   modelType: ModelType.deepSeek, // Required for DeepSeek models
   supportsFunctionCalls: true, // DeepSeek also supports function calls
   tools: _tools, // Optional: add tools for function calling
-  // tokenBuffer: 256, // Token buffer for context management
 );
 ```
 
@@ -1586,12 +1585,25 @@ chat.generateChatResponseAsync().listen((response) {
 });
 ```
 
+**Enable Thinking Mode (Gemma 4):**
+
+```dart
+final chat = await inferenceModel.createChat(
+  temperature: 1.0,
+  topK: 64,
+  topP: 0.95,
+  isThinking: true, // Enable thinking mode
+  modelType: ModelType.gemmaIt, // Gemma 4 E2B/E4B
+);
+// <|think|> is auto-injected into systemInstruction — no manual prompt needed.
+```
+
 **Thinking Mode Features:**
 - ✅ **Transparent Reasoning**: See how the model thinks through problems
 - ✅ **Interactive UI**: Show/hide thinking bubbles with expandable content
 - ✅ **Streaming Support**: Thinking content streams in real-time
 - ✅ **Function Integration**: Models can think before calling functions
-- ✅ **DeepSeek Optimized**: Designed specifically for DeepSeek model architecture
+- ✅ **Supported Models**: DeepSeek R1 and Gemma 4 E2B/E4B
 
 **Example Thinking Flow:**
 1. User asks: "Change the background to blue and explain why blue is calming"
@@ -2096,7 +2108,7 @@ Function calling is currently supported by the following models:
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ⚠️ Broken (#684) | macOS: model hallucinates |
 | **Audio Input** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
-| **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | DeepSeek models |
+| **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ⚠️ Partial | macOS GPU broken |
 | **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ❌ Not supported | Android only (.litertlm) |
@@ -2264,13 +2276,14 @@ import 'package:flutter_gemma/core/extensions.dart';
 
 // Clean response based on model type
 String cleanedResponse = ModelThinkingFilter.cleanResponse(
-  rawResponse, 
+  rawResponse,
   ModelType.deepSeek
 );
 
 // The filter automatically removes model-specific tokens like:
 // - <end_of_turn> tags (Gemma models)
-// - Special DeepSeek tokens
+// - <think>...</think> blocks (DeepSeek)
+// - <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
 // - Extra whitespace and formatting
 ```
 

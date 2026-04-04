@@ -136,6 +136,7 @@ abstract class InferenceModel {
     bool? enableVisionModality, // Add vision modality support
     bool? enableAudioModality, // Add audio modality support (Gemma 3n E4B)
     String? systemInstruction,
+    bool enableThinking = false, // Enable thinking mode (Gemma 4 via extraContext)
   });
 
   Future<InferenceChat> createChat({
@@ -164,6 +165,7 @@ abstract class InferenceModel {
         enableVisionModality: supportImage ?? false,
         enableAudioModality: supportAudio ?? false,
         systemInstruction: systemInstruction,
+        enableThinking: isThinking,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
@@ -171,10 +173,10 @@ abstract class InferenceModel {
       supportAudio: supportAudio ?? false,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
       tools: tools,
-      isThinking: isThinking, // Pass isThinking parameter
-      modelType: modelType ?? ModelType.gemmaIt, // Use provided modelType or default
-      fileType: fileType, // Pass fileType from model
-      toolChoice: toolChoice, // Pass tool calling mode
+      isThinking: isThinking,
+      modelType: modelType ?? ModelType.gemmaIt,
+      fileType: fileType,
+      toolChoice: toolChoice,
       systemInstruction: systemInstruction,
     );
     await chat!.initSession();

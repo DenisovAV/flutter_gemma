@@ -176,6 +176,7 @@ private class PlatformServiceImpl(
     enableVisionModality: Boolean?,
     enableAudioModality: Boolean?,
     systemInstruction: String?,
+    enableThinking: Boolean?,
     callback: (Result<Unit>) -> Unit
   ) {
     scope.launch {
@@ -193,6 +194,7 @@ private class PlatformServiceImpl(
             enableVisionModality = enableVisionModality,
             enableAudioModality = enableAudioModality,
             systemInstruction = systemInstruction,
+            enableThinking = enableThinking ?: false,
           )
 
           session?.close()

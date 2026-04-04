@@ -22,13 +22,14 @@ All files that contain the version:
 
 | File | Variable/Field | Example |
 |------|---------------|---------|
-| `pubspec.yaml` | `version:` | `version: 0.14.0` |
-| `litertlm-server/build.gradle.kts` | `version =` | `version = "0.14.0"` |
-| `CLAUDE.md` | `Current Version:` | `- **Current Version**: 0.14.0` |
-| `macos/scripts/setup_desktop.sh:61` | `JAR_VERSION=` | `JAR_VERSION="0.14.0"` |
-| `macos/scripts/prepare_resources.sh:42` | `JAR_VERSION=` | `JAR_VERSION="0.14.0"` |
-| `linux/scripts/setup_desktop.sh:62` | `JAR_VERSION=` | `JAR_VERSION="0.14.0"` |
-| `windows/scripts/setup_desktop.ps1:90` | `$JarVersion =` | `$JarVersion = "0.14.0"` |
+| `pubspec.yaml` | `version:` | `version: <VERSION>` |
+| `ios/flutter_gemma.podspec` | `s.version` | `s.version = '<VERSION>'` |
+| `litertlm-server/build.gradle.kts` | `version =` | `version = "<VERSION>"` |
+| `CLAUDE.md` | `Current Version:` | `- **Current Version**: <VERSION>` |
+| `macos/scripts/setup_desktop.sh:61` | `JAR_VERSION=` | `JAR_VERSION="<VERSION>"` |
+| `macos/scripts/prepare_resources.sh:42` | `JAR_VERSION=` | `JAR_VERSION="<VERSION>"` |
+| `linux/scripts/setup_desktop.sh:62` | `JAR_VERSION=` | `JAR_VERSION="<VERSION>"` |
+| `windows/scripts/setup_desktop.ps1:90` | `$JarVersion =` | `$JarVersion = "<VERSION>"` |
 
 > JAR_URL is auto-derived from JAR_VERSION in all scripts — no separate update needed.
 

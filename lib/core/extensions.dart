@@ -190,8 +190,8 @@ extension MessageExtension on Message {
 
 // Filter class for thinking models
 class ModelThinkingFilter {
-  /// Filters ModelResponse stream for models with thinking support
-  /// Only supports DeepSeek models with `<think>...</think>` blocks
+  /// Filters ModelResponse stream for models with thinking support.
+  /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
   static Stream<ModelResponse> filterThinkingStream(Stream<ModelResponse> originalStream,
       {required ModelType modelType}) async* {
     switch (modelType) {
@@ -319,8 +319,9 @@ class ModelThinkingFilter {
     }
   }
 
-  /// Removes thinking blocks from final text
-  /// Only supports DeepSeek (`<think>...</think>`) models
+  /// Removes thinking blocks from final text.
+  /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
+  /// Note: For streaming thinking output, use [filterThinkingStream] with generateChatResponseAsync() instead.
   static String removeThinkingFromText(String text, {required ModelType modelType}) {
     switch (modelType) {
       case ModelType.deepSeek:

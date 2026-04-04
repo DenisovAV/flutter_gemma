@@ -105,6 +105,11 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             return
         }
 
+        if enableThinking == true {
+            print("[FlutterGemma] Warning: enableThinking=true is not supported on iOS (MediaPipe). " +
+                  "Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.")
+        }
+
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let newSession = try InferenceSession(

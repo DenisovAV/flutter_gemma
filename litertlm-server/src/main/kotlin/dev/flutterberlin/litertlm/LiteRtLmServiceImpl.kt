@@ -605,10 +605,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // Read image (JPEG, PNG, BMP, etc.)
             val inputStream = ByteArrayInputStream(imageBytes)
             val bufferedImage = ImageIO.read(inputStream)
-            if (bufferedImage == null) {
-                logger.warn("Failed to read image, returning original bytes")
-                return imageBytes
-            }
+                ?: throw IllegalArgumentException("Failed to read image: unsupported format or corrupt data")
 
             logger.info("Read image: ${bufferedImage.width}x${bufferedImage.height}, type=${bufferedImage.type}")
 
@@ -625,8 +622,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
             pngBytes
         } catch (e: Exception) {
-            logger.error("Failed to convert image to PNG: ${e.message}", e)
-            imageBytes // Return original on error
+            throw IllegalArgumentException("Image conversion to PNG failed: ${e.message}", e)
         }
     }
 }

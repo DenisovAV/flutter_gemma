@@ -41,7 +41,7 @@ TFLITE_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/tflite"
 JAR_NAME="litertlm-server.jar"
 JAR_VERSION="0.13.1"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="8cd65901f2ce5e57ef65f9824be2f55df8f38f87cdf39a538846a0157ec07232"
+JAR_CHECKSUM="97e01020f921c098f7cfc0a9509e4b207b8bc326703ae2f26bbce3c11b957430"
 JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"
 
 # Create Resources directory
@@ -147,9 +147,23 @@ download_jar() {
     local cached_jar="$JAR_CACHE_DIR/$JAR_NAME"
 
     if [[ -f "$cached_jar" ]]; then
-        echo "Using cached JAR" >&2
-        echo "$cached_jar"
-        return 0
+        # Verify cached JAR checksum before reuse
+        if [[ -n "$JAR_CHECKSUM" ]]; then
+            local actual_checksum
+            actual_checksum=$(shasum -a 256 "$cached_jar" | awk '{print $1}')
+            if [[ "$actual_checksum" != "$JAR_CHECKSUM" ]]; then
+                echo "Cached JAR checksum mismatch, re-downloading..." >&2
+                rm -f "$cached_jar"
+            else
+                echo "Using cached JAR (checksum verified)" >&2
+                echo "$cached_jar"
+                return 0
+            fi
+        else
+            echo "Using cached JAR" >&2
+            echo "$cached_jar"
+            return 0
+        fi
     fi
 
     if ! curl -L -o "$cached_jar" "$JAR_URL" --fail --retry 3 --progress-bar; then

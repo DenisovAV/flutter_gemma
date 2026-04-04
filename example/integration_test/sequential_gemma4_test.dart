@@ -5,6 +5,8 @@
 //   cd example
 //   flutter test integration_test/sequential_gemma4_test.dart -d <device>
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -13,6 +15,15 @@ const _modelPath = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    if (!Platform.isAndroid) {
+      fail('Test requires Android with .litertlm models');
+    }
+    if (!File(_modelPath).existsSync()) {
+      fail('Model not found: $_modelPath\nPush it first: adb push <model> $_modelPath');
+    }
+  });
 
   testWidgets('Gemma 4 E2B: two sequential queries on same chat', (tester) async {
     await FlutterGemma.initialize();

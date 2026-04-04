@@ -393,6 +393,14 @@ class WebInferenceModel extends InferenceModel {
     String? systemInstruction,
     bool enableThinking = false, // Not supported on Web (MediaPipe)
   }) async {
+    // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
+    if (enableThinking) {
+      if (kDebugMode) {
+        debugPrint('Warning: enableThinking is not supported on Web (MediaPipe). '
+            'Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.');
+      }
+    }
+
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
@@ -505,6 +513,7 @@ class WebInferenceModel extends InferenceModel {
   Future<void> close() async {
     await session?.close();
     session = null;
+    _initCompleter = null;
     onClose();
   }
 }
@@ -741,6 +750,7 @@ class WebModelSession extends InferenceModelSession {
         debugPrint('❌ getResponse: Exception caught: $e');
         debugPrint('❌ getResponse: Stack trace: $stackTrace');
       }
+      _promptParts.clear();
       rethrow;
     }
   }
@@ -751,6 +761,8 @@ class WebModelSession extends InferenceModelSession {
       debugPrint('🌊 getResponseAsync: Starting async response generation');
     }
 
+    // Close previous controller to prevent leak if called again before completion
+    _controller?.close();
     _controller = StreamController<String>();
 
     try {
@@ -835,10 +847,17 @@ class WebModelSession extends InferenceModelSession {
 
   @override
   Future<void> stopGeneration() async {
-    llmInference.cancelProcessing();
-    _controller?.close();
-    _controller = null;
-    _promptParts.clear();
+    try {
+      llmInference.cancelProcessing();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[WebModelSession] cancelProcessing error: $e');
+      }
+    } finally {
+      _controller?.close();
+      _controller = null;
+      _promptParts.clear();
+    }
   }
 
   @override

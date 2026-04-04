@@ -105,7 +105,9 @@ class LiteRtLmSession(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error generating response", e)
-            errorFlow.tryEmit(e)
+            if (!errorFlow.tryEmit(e)) {
+                Log.w(TAG, "Error emission dropped (buffer full): ${e.message}")
+            }
             throw e
         }
     }
@@ -116,15 +118,20 @@ class LiteRtLmSession(
 
         val callback = object : MessageCallback {
             override fun onMessage(msg: Message) {
-                // Emit thinking channel content first (if present)
+                // Combine thinking + text into single emission to prevent DROP_OLDEST loss
+                // (buffer=1, two rapid tryEmit calls would drop the first)
                 val thinking = msg.channels["thought"]
-                if (!thinking.isNullOrEmpty()) {
-                    resultFlow.tryEmit("<|channel>thought\n$thinking<channel|>" to false)
-                }
-                // Then emit regular text
                 val text = msg.toString()
-                if (text.isNotEmpty()) {
-                    resultFlow.tryEmit(text to false)
+                val combined = buildString {
+                    if (!thinking.isNullOrEmpty()) {
+                        append("<|channel>thought\n$thinking<channel|>")
+                    }
+                    if (text.isNotEmpty()) {
+                        append(text)
+                    }
+                }
+                if (combined.isNotEmpty()) {
+                    resultFlow.tryEmit(combined to false)
                 }
             }
 
@@ -134,7 +141,9 @@ class LiteRtLmSession(
 
             override fun onError(throwable: Throwable) {
                 Log.e(TAG, "Async generation error", throwable)
-                errorFlow.tryEmit(throwable)
+                if (!errorFlow.tryEmit(throwable)) {
+                    Log.w(TAG, "Error emission dropped (buffer full): ${throwable.message}")
+                }
                 resultFlow.tryEmit("" to true)
             }
         }
@@ -147,7 +156,9 @@ class LiteRtLmSession(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start async generation", e)
-            errorFlow.tryEmit(e)
+            if (!errorFlow.tryEmit(e)) {
+                Log.w(TAG, "Error emission dropped (buffer full): ${e.message}")
+            }
             resultFlow.tryEmit("" to true)
         }
     }

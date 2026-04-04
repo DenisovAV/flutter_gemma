@@ -198,6 +198,7 @@ class LiteRtLmClient {
     String text,
     Uint8List imageBytes, {
     String? conversationId,
+    bool enableThinking = false,
   }) async {
     _assertInitialized();
 
@@ -209,7 +210,8 @@ class LiteRtLmClient {
     final request = ChatWithImageRequest()
       ..conversationId = convId
       ..text = text
-      ..image = imageBytes;
+      ..image = imageBytes
+      ..enableThinking = enableThinking;
 
     final response = await _client!.chatWithImageSync(request);
 

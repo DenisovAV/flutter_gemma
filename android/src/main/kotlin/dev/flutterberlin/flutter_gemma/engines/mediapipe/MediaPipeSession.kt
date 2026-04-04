@@ -50,6 +50,11 @@ class MediaPipeSession(
 
         val sessionOptions = sessionOptionsBuilder.build()
         session = LlmInferenceSession.createFromOptions(llmInference, sessionOptions)
+
+        if (config.enableThinking) {
+            Log.w(TAG, "enableThinking=true is not supported by MediaPipe engine. " +
+                "Use LiteRT-LM (.litertlm) models for thinking mode.")
+        }
     }
 
     override fun addQueryChunk(prompt: String) {
@@ -93,7 +98,11 @@ class MediaPipeSession(
     }
 
     override fun cancelGeneration() {
-        session.cancelGenerateResponseAsync()
+        try {
+            session.cancelGenerateResponseAsync()
+        } catch (e: Exception) {
+            Log.w(TAG, "cancelGeneration failed", e)
+        }
     }
 
     override fun close() {

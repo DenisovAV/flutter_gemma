@@ -11,6 +11,8 @@
 //   - thinking_stream: async stream verifies ThinkingResponse + TextResponse ordering
 //   - no_thinking: isThinking: false produces only TextResponse
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -70,6 +72,16 @@ void main() {
 
   for (final model in _testModels) {
     group(model.name, () {
+      setUpAll(() {
+        if (!Platform.isAndroid) {
+          fail('Test requires Android with .litertlm/.task models');
+        }
+        if (!File(model.filePath).existsSync()) {
+          fail('Model not found: ${model.filePath}\n'
+              'Push it first: adb push <model> ${model.filePath}');
+        }
+      });
+
       testWidgets('install', (tester) async {
         await FlutterGemma.initialize();
 
@@ -103,9 +115,11 @@ void main() {
           );
 
           final responses = <ModelResponse>[];
-          await for (final response in chat.generateChatResponseAsync()) {
-            responses.add(response);
-          }
+          await tester.runAsync(() async {
+            await for (final response in chat.generateChatResponseAsync()) {
+              responses.add(response);
+            }
+          });
 
           final thinkingTokens = responses
               .whereType<ThinkingResponse>()
@@ -165,9 +179,11 @@ void main() {
           );
 
           final responses = <ModelResponse>[];
-          await for (final response in chat.generateChatResponseAsync()) {
-            responses.add(response);
-          }
+          await tester.runAsync(() async {
+            await for (final response in chat.generateChatResponseAsync()) {
+              responses.add(response);
+            }
+          });
 
           // Without thinking enabled, no ThinkingResponse should appear
           final thinkingResponses = responses.whereType<ThinkingResponse>().toList();

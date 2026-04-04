@@ -69,9 +69,11 @@ void main() {
         );
 
         final responses = <ModelResponse>[];
-        await for (final response in chat.generateChatResponseAsync()) {
-          responses.add(response);
-        }
+        await tester.runAsync(() async {
+          await for (final response in chat.generateChatResponseAsync()) {
+            responses.add(response);
+          }
+        });
 
         final thinkingTokens = responses
             .whereType<ThinkingResponse>()
@@ -135,9 +137,11 @@ void main() {
         );
 
         final responses = <ModelResponse>[];
-        await for (final response in chat.generateChatResponseAsync()) {
-          responses.add(response);
-        }
+        await tester.runAsync(() async {
+          await for (final response in chat.generateChatResponseAsync()) {
+            responses.add(response);
+          }
+        });
 
         // Without thinking enabled, no ThinkingResponse should appear
         final thinkingResponses = responses.whereType<ThinkingResponse>().toList();

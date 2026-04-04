@@ -191,7 +191,7 @@ extension MessageExtension on Message {
 // Filter class for thinking models
 class ModelThinkingFilter {
   /// Filters ModelResponse stream for models with thinking support
-  /// Only supports DeepSeek models with <think>...</think> blocks
+  /// Only supports DeepSeek models with `<think>...</think>` blocks
   static Stream<ModelResponse> filterThinkingStream(Stream<ModelResponse> originalStream,
       {required ModelType modelType}) async* {
     switch (modelType) {
@@ -320,7 +320,7 @@ class ModelThinkingFilter {
   }
 
   /// Removes thinking blocks from final text
-  /// Only supports DeepSeek (<think>...</think>) models
+  /// Only supports DeepSeek (`<think>...</think>`) models
   static String removeThinkingFromText(String text, {required ModelType modelType}) {
     switch (modelType) {
       case ModelType.deepSeek:

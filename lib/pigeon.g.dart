@@ -741,7 +741,7 @@ class PlatformService {
   ///
   /// **Performance:**
   /// - Returns all documents in single call
-  /// - Embeddings as List<double> (decoded from BLOB)
+  /// - Embeddings as `List<double>` (decoded from BLOB)
   ///
   /// Returns empty list if no documents stored.
   Future<List<DocumentWithEmbedding>> getAllDocumentsWithEmbeddings() async {

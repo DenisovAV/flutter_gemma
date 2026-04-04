@@ -401,8 +401,8 @@ Future<void> close() async {
 
 | Model Family | Function Calling | Thinking Mode | Multimodal | Platform Support |
 |--------------|------------------|---------------|------------|------------------|
-| Gemma 4 E2B | ✅ | ✅ | ✅ | Android, iOS, Web, Desktop |
-| Gemma 4 E4B | ✅ | ✅ | ✅ | Android, iOS, Web, Desktop |
+| Gemma 4 E2B | ✅ | ✅ ¹ | ✅ | Android, iOS, Web, Desktop |
+| Gemma 4 E4B | ✅ | ✅ ¹ | ✅ | Android, iOS, Web, Desktop |
 | Gemma 3 Nano | ✅ | ❌ | ✅ | Android, iOS, Web |
 | Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web |
 | Gemma-3 1B | ✅ | ❌ | ❌ | Android, iOS, Web |
@@ -412,6 +412,8 @@ Future<void> close() async {
 | DeepSeek | ✅ | ✅ | ❌ | Android, iOS, Web |
 | Qwen2.5 | ✅ | ❌ | ❌ | Android, iOS, Web |
 | Phi-4 | ❌ | ❌ | ❌ | Android, iOS, Web |
+
+> ¹ Thinking Mode for Gemma 4: Android, iOS, Desktop only. Web (MediaPipe) does not support `extraContext`.
 
 ### Platform Limitations
 
@@ -1245,7 +1247,7 @@ flutter_gemma/
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.13.0
+- **Current Version**: 0.13.1
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 - **Changelog**: See `CHANGELOG.md` for version history

@@ -39,9 +39,9 @@ TFLITE_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/tflite"
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.13.0"
+JAR_VERSION="0.13.1"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="61191862ae56f130366f5539e0a2d36adc9cb4ea99fe6568fb9a7b7cd2e88f02"
+JAR_CHECKSUM="8cd65901f2ce5e57ef65f9824be2f55df8f38f87cdf39a538846a0157ec07232"
 JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"
 
 # Create Resources directory

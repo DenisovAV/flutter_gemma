@@ -1,6 +1,8 @@
 ## 0.13.1
 - **LiteRT-LM 0.10.0**: Updated Android and JVM SDK from 0.9.0 to 0.10.0
-- **Gemma 4 Thinking Mode**: `isThinking: true` now works with Gemma 4 E2B/E4B models
+- **Gemma 4 Thinking Mode**: `isThinking: true` now works with Gemma 4 E2B/E4B models (Android, iOS, Desktop; not Web)
+- **Fix cancel download**: Cancel download now works correctly (#196)
+- **Fix `large_file_handler` platform support**: Conditional imports for pub.dev platform analysis compatibility
 
 ## 0.13.0
 - **Gemma 4 E2B/E4B**: Added support for next-gen multimodal models (text + image + audio)

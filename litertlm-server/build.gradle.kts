@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "dev.flutterberlin"
-version = "0.13.0"
+version = "0.13.1"
 
 repositories {
     mavenCentral()
@@ -16,7 +16,7 @@ repositories {
 
 dependencies {
     // LiteRT-LM JVM (only version with Contents API for multimodal)
-    implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.9.0")
+    implementation("com.google.ai.edge.litertlm:litertlm-jvm:0.10.0")
 
     // gRPC + Protobuf
     implementation("io.grpc:grpc-kotlin-stub:1.4.1")

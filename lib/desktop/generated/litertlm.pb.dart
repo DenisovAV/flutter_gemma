@@ -431,10 +431,12 @@ class ChatRequest extends $pb.GeneratedMessage {
   factory ChatRequest({
     $core.String? conversationId,
     $core.String? text,
+    $core.bool? enableThinking,
   }) {
     final result = create();
     if (conversationId != null) result.conversationId = conversationId;
     if (text != null) result.text = text;
+    if (enableThinking != null) result.enableThinking = enableThinking;
     return result;
   }
 
@@ -453,6 +455,7 @@ class ChatRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'conversationId')
     ..aOS(2, _omitFieldNames ? '' : 'text')
+    ..aOB(3, _omitFieldNames ? '' : 'enableThinking')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -491,6 +494,15 @@ class ChatRequest extends $pb.GeneratedMessage {
   $core.bool hasText() => $_has(1);
   @$pb.TagNumber(2)
   void clearText() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get enableThinking => $_getBF(2);
+  @$pb.TagNumber(3)
+  set enableThinking($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEnableThinking() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEnableThinking() => $_clearField(3);
 }
 
 class ChatWithImageRequest extends $pb.GeneratedMessage {
@@ -498,11 +510,13 @@ class ChatWithImageRequest extends $pb.GeneratedMessage {
     $core.String? conversationId,
     $core.String? text,
     $core.List<$core.int>? image,
+    $core.bool? enableThinking,
   }) {
     final result = create();
     if (conversationId != null) result.conversationId = conversationId;
     if (text != null) result.text = text;
     if (image != null) result.image = image;
+    if (enableThinking != null) result.enableThinking = enableThinking;
     return result;
   }
 
@@ -523,6 +537,7 @@ class ChatWithImageRequest extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'text')
     ..a<$core.List<$core.int>>(
         3, _omitFieldNames ? '' : 'image', $pb.PbFieldType.OY)
+    ..aOB(4, _omitFieldNames ? '' : 'enableThinking')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -570,6 +585,15 @@ class ChatWithImageRequest extends $pb.GeneratedMessage {
   $core.bool hasImage() => $_has(2);
   @$pb.TagNumber(3)
   void clearImage() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get enableThinking => $_getBF(3);
+  @$pb.TagNumber(4)
+  set enableThinking($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEnableThinking() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEnableThinking() => $_clearField(4);
 }
 
 class ChatWithAudioRequest extends $pb.GeneratedMessage {
@@ -577,11 +601,13 @@ class ChatWithAudioRequest extends $pb.GeneratedMessage {
     $core.String? conversationId,
     $core.String? text,
     $core.List<$core.int>? audio,
+    $core.bool? enableThinking,
   }) {
     final result = create();
     if (conversationId != null) result.conversationId = conversationId;
     if (text != null) result.text = text;
     if (audio != null) result.audio = audio;
+    if (enableThinking != null) result.enableThinking = enableThinking;
     return result;
   }
 
@@ -602,6 +628,7 @@ class ChatWithAudioRequest extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'text')
     ..a<$core.List<$core.int>>(
         3, _omitFieldNames ? '' : 'audio', $pb.PbFieldType.OY)
+    ..aOB(4, _omitFieldNames ? '' : 'enableThinking')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -649,6 +676,15 @@ class ChatWithAudioRequest extends $pb.GeneratedMessage {
   $core.bool hasAudio() => $_has(2);
   @$pb.TagNumber(3)
   void clearAudio() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get enableThinking => $_getBF(3);
+  @$pb.TagNumber(4)
+  set enableThinking($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEnableThinking() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEnableThinking() => $_clearField(4);
 }
 
 class ChatResponse extends $pb.GeneratedMessage {
@@ -656,11 +692,13 @@ class ChatResponse extends $pb.GeneratedMessage {
     $core.String? text,
     $core.bool? done,
     $core.String? error,
+    $core.String? thinking,
   }) {
     final result = create();
     if (text != null) result.text = text;
     if (done != null) result.done = done;
     if (error != null) result.error = error;
+    if (thinking != null) result.thinking = thinking;
     return result;
   }
 
@@ -680,6 +718,7 @@ class ChatResponse extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'text')
     ..aOB(2, _omitFieldNames ? '' : 'done')
     ..aOS(3, _omitFieldNames ? '' : 'error')
+    ..aOS(4, _omitFieldNames ? '' : 'thinking')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -727,6 +766,15 @@ class ChatResponse extends $pb.GeneratedMessage {
   $core.bool hasError() => $_has(2);
   @$pb.TagNumber(3)
   void clearError() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get thinking => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set thinking($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasThinking() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearThinking() => $_clearField(4);
 }
 
 class CancelGenerationRequest extends $pb.GeneratedMessage {

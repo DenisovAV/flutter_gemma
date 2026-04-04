@@ -87,7 +87,7 @@ class LiteRTWebEmbeddings {
   ///
   /// [text] - Text to embed
   ///
-  /// Returns [List<double>] - Embedding vector (768 dimensions)
+  /// Returns `List<double>` - Embedding vector (768 dimensions)
   ///
   /// Throws [Exception] if not initialized or generation fails
   static Future<List<double>> generateEmbedding(String text) async {
@@ -122,7 +122,7 @@ class LiteRTWebEmbeddings {
   ///
   /// [text] - Text to embed
   ///
-  /// Returns [List<double>] - Embedding vector (768 dimensions)
+  /// Returns `List<double>` - Embedding vector (768 dimensions)
   ///
   /// Throws [Exception] if not initialized or generation fails
   static Future<List<double>> generateDocumentEmbedding(String text) async {
@@ -154,7 +154,7 @@ class LiteRTWebEmbeddings {
   ///
   /// [texts] - List of texts to embed
   ///
-  /// Returns [List<List<double>>] - List of embedding vectors
+  /// Returns `List<List<double>>` - List of embedding vectors
   ///
   /// Throws [Exception] if not initialized or generation fails
   static Future<List<List<double>>> generateEmbeddings(List<String> texts) async {

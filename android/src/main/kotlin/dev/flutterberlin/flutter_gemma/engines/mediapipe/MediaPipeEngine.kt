@@ -24,7 +24,7 @@ class MediaPipeEngine(
     override var isInitialized: Boolean = false
         private set
 
-    override val capabilities = EngineCapabilities(
+    override var capabilities = EngineCapabilities(
         supportsVision = true,
         supportsAudio = false, // Audio is LiteRT-LM only (not supported by MediaPipe SDK)
         supportsFunctionCalls = true, // Manual via chat templates
@@ -74,6 +74,10 @@ class MediaPipeEngine(
             val options = optionsBuilder.build()
             llmInference = LlmInference.createFromOptions(context, options)
             isInitialized = true
+            // Update audio capability if audio was successfully configured
+            if (config.supportAudio == true) {
+                capabilities = capabilities.copy(supportsAudio = true)
+            }
         } catch (e: Exception) {
             throw RuntimeException("Failed to initialize MediaPipe LlmInference: ${e.message}", e)
         }

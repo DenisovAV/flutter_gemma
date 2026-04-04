@@ -4,7 +4,8 @@ import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/services/asset_loader.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
+import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart'
+    if (dart.library.io) 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
 import 'package:path/path.dart' as path;
 
 /// Handles installation of models from Flutter assets

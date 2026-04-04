@@ -59,9 +59,9 @@ JRE_URL="https://cdn.azul.com/zulu/bin/${JRE_ARCHIVE}"
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.13.0"
+JAR_VERSION="0.13.1"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="61191862ae56f130366f5539e0a2d36adc9cb4ea99fe6568fb9a7b7cd2e88f02"
+JAR_CHECKSUM="97e01020f921c098f7cfc0a9509e4b207b8bc326703ae2f26bbce3c11b957430"
 
 # Plugin root (parent of linux/)
 PLUGIN_ROOT=$(dirname "$PLUGIN_DIR")
@@ -81,8 +81,8 @@ verify_checksum() {
     elif command -v shasum &> /dev/null; then
         actual=$(shasum -a 256 "$file" | awk '{print $1}')
     else
-        echo "WARNING: No sha256sum or shasum available, skipping checksum verification"
-        return 0
+        echo "ERROR: No sha256sum or shasum available, cannot verify checksum"
+        return 1
     fi
 
     if [ "$actual" != "$expected" ]; then
@@ -177,6 +177,15 @@ setup_jar() {
     if [ -z "$JAR_SOURCE" ]; then
         local CACHED_JAR="$CACHE_DIR/jar/$JAR_NAME"
 
+        if [ -f "$CACHED_JAR" ] && [ -n "$JAR_CHECKSUM" ]; then
+            # Verify cached JAR checksum
+            echo "Verifying cached JAR checksum..."
+            if ! verify_checksum "$CACHED_JAR" "$JAR_CHECKSUM"; then
+                echo "Cached JAR checksum mismatch, re-downloading..."
+                rm -f "$CACHED_JAR"
+            fi
+        fi
+
         if [ ! -f "$CACHED_JAR" ]; then
             echo "Downloading JAR from $JAR_URL..."
             curl -L --progress-bar -o "$CACHED_JAR" "$JAR_URL" || {
@@ -185,7 +194,7 @@ setup_jar() {
                 exit 1
             }
 
-            # Verify checksum (skip if not yet available for this version)
+            # Verify checksum
             if [ -n "$JAR_CHECKSUM" ]; then
                 echo "Verifying JAR checksum..."
                 if ! verify_checksum "$CACHED_JAR" "$JAR_CHECKSUM"; then
@@ -196,7 +205,7 @@ setup_jar() {
                 echo "WARNING: JAR checksum not set, skipping verification"
             fi
         else
-            echo "Using cached JAR"
+            echo "Using cached JAR (checksum verified)"
         fi
 
         JAR_SOURCE="$CACHED_JAR"

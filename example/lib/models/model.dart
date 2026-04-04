@@ -39,6 +39,7 @@ enum Model implements InferenceModelInterface {
     supportAudio: true,
     maxTokens: 4096,
     maxNumImages: 1,
+    isThinking: true,
   ),
   gemma4_E4B(
     baseUrl:
@@ -62,6 +63,7 @@ enum Model implements InferenceModelInterface {
     supportAudio: true,
     maxTokens: 4096,
     maxNumImages: 1,
+    isThinking: true,
   ),
 
   // Gemma 3 Nano models (Multimodal + Function Calls)

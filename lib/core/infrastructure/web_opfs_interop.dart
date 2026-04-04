@@ -14,13 +14,13 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
   /// Check if a model is cached in OPFS
   ///
   /// @param filename Model filename (cache key)
-  /// @returns Promise<boolean>
+  /// @returns `Promise<boolean>`
   external JSPromise<JSBoolean> isModelCached(JSString filename);
 
   /// Get the size of a cached model file
   ///
   /// @param filename Model filename
-  /// @returns Promise<number|null> Size in bytes, or null if not found
+  /// @returns `Promise<number|null>` Size in bytes, or null if not found
   external JSPromise<JSNumber?> getCachedModelSize(JSString filename);
 
   /// Download a model to OPFS with progress tracking and cancellation support
@@ -30,7 +30,7 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
   /// @param authToken Optional authentication token (HuggingFace, etc.)
   /// @param onProgress Progress callback (receives 0-100)
   /// @param abortSignal Optional AbortSignal for cancellation
-  /// @returns Promise<boolean> True on success
+  /// @returns `Promise<boolean>` True on success
   /// @throws Error on download failure, quota exceeded, or cancellation
   external JSPromise<JSBoolean> downloadToOPFS(
     JSString url,
@@ -45,14 +45,14 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
   /// This is passed to MediaPipe's modelAssetBuffer parameter.
   ///
   /// @param filename Model filename in OPFS
-  /// @returns Promise<ReadableStreamDefaultReader>
+  /// @returns `Promise<ReadableStreamDefaultReader>`
   /// @throws Error if file not found
   external JSPromise<JSAny> getStreamReader(JSString filename);
 
   /// Delete a model from OPFS
   ///
   /// @param filename Model filename to delete
-  /// @returns Promise<void>
+  /// @returns `Promise<void>`
   external JSPromise<JSAny> deleteModel(JSString filename);
 
   /// Get current storage statistics
@@ -62,7 +62,7 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
 
   /// Clear all files from OPFS (for testing/development)
   ///
-  /// @returns Promise<number> Number of files deleted
+  /// @returns `Promise<number>` Number of files deleted
   external JSPromise<JSNumber> clearAll();
 }
 

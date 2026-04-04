@@ -231,7 +231,7 @@ class PigeonInterfacePigeonCodec: FlutterStandardMessageCodec, @unchecked Sendab
 protocol PlatformService {
   func createModel(maxTokens: Int64, modelPath: String, loraRanks: [Int64]?, preferredBackend: PreferredBackend?, maxNumImages: Int64?, supportAudio: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeModel(completion: @escaping (Result<Void, Error>) -> Void)
-  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, enableVisionModality: Bool?, enableAudioModality: Bool?, systemInstruction: String?, completion: @escaping (Result<Void, Error>) -> Void)
+  func createSession(temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, enableVisionModality: Bool?, enableAudioModality: Bool?, systemInstruction: String?, enableThinking: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
   func closeSession(completion: @escaping (Result<Void, Error>) -> Void)
   func sizeInTokens(prompt: String, completion: @escaping (Result<Int64, Error>) -> Void)
   func addQueryChunk(prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
@@ -332,7 +332,8 @@ class PlatformServiceSetup {
         let enableVisionModalityArg: Bool? = nilOrValue(args[5])
         let enableAudioModalityArg: Bool? = nilOrValue(args[6])
         let systemInstructionArg: String? = nilOrValue(args[7])
-        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg, enableVisionModality: enableVisionModalityArg, enableAudioModality: enableAudioModalityArg, systemInstruction: systemInstructionArg) { result in
+        let enableThinkingArg: Bool? = nilOrValue(args[8])
+        api.createSession(temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg, enableVisionModality: enableVisionModalityArg, enableAudioModality: enableAudioModalityArg, systemInstruction: systemInstructionArg, enableThinking: enableThinkingArg) { result in
           switch result {
           case .success:
             reply(wrapResult(nil))

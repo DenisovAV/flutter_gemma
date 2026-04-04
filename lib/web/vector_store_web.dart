@@ -67,8 +67,8 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
   /// Add document with embedding (Dart-friendly API)
   ///
   /// Type conversions:
-  /// - Dart List<double> → JS Array<JSNumber>
-  /// - Dart String? → JS String | null
+  /// - Dart `List<double>` → JS `Array<JSNumber>`
+  /// - Dart `String?` → JS `String | null`
   ///
   /// Throws:
   /// - Dimension mismatch
@@ -86,10 +86,10 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
   /// Search for similar documents (Dart-friendly API)
   ///
   /// Type conversions:
-  /// - Dart List<double> → JS Array<JSNumber>
+  /// - Dart `List<double>` → JS `Array<JSNumber>`
   /// - Dart int → JS Number
   /// - Dart double → JS Number
-  /// - JS Array<JSObject> → Dart List<RetrievalResult>
+  /// - JS `Array<JSObject>` → Dart `List<RetrievalResult>`
   ///
   /// Returns:
   /// - List sorted by similarity (descending)

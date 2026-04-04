@@ -74,24 +74,28 @@ message CreateConversationResponse {
 message ChatRequest {
   string conversation_id = 1;
   string text = 2;
+  bool enable_thinking = 3;
 }
 
 message ChatWithImageRequest {
   string conversation_id = 1;
   string text = 2;
   bytes image = 3;  // Image bytes (JPEG/PNG)
+  bool enable_thinking = 4;
 }
 
 message ChatWithAudioRequest {
   string conversation_id = 1;
   string text = 2;
   bytes audio = 3;  // Audio bytes (PCM 16kHz, 16-bit, mono)
+  bool enable_thinking = 4;
 }
 
 message ChatResponse {
   string text = 1;           // Partial or complete text
   bool done = 2;             // Is generation complete
   string error = 3;
+  string thinking = 4;       // Thinking channel content (Gemma 4)
 }
 
 message CancelGenerationRequest {

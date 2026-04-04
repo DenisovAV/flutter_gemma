@@ -203,21 +203,23 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             logger.info("=== CHAT REQUEST ===")
             logger.info("conversationId: '${request.conversationId}'")
             logger.info("text: '${request.text}' (length=${request.text.length})")
-            logger.info("text bytes: ${request.text.toByteArray().take(20).map { it.toInt() and 0xFF }}")
+            logger.info("enableThinking: ${request.enableThinking}")
 
             // Use Contents format (like Android does)
             val message = Contents.of(listOf(Content.Text(request.text)))
-            logger.info("Created Contents: $message")
 
-            // Use callback-based API (like Android does)
-            conversation.sendMessageAsync(message, object : MessageCallback {
+            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
+
+            val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
-                    trySend(
-                        ChatResponse.newBuilder()
-                            .setText(msg.toString())
-                            .setDone(false)
-                            .build()
-                    )
+                    val builder = ChatResponse.newBuilder()
+                        .setText(msg.toString())
+                        .setDone(false)
+                    val thinking = msg.channels["thought"]
+                    if (!thinking.isNullOrEmpty()) {
+                        builder.setThinking(thinking)
+                    }
+                    trySend(builder.build())
                 }
 
                 override fun onDone() {
@@ -240,7 +242,14 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                     )
                     close(throwable)
                 }
-            })
+            }
+
+            // Use callback-based API (like Android does)
+            if (extraContext.isNotEmpty()) {
+                conversation.sendMessageAsync(message, messageCallback, extraContext)
+            } else {
+                conversation.sendMessageAsync(message, messageCallback)
+            }
         } catch (e: Exception) {
             logger.error("Error starting chat", e)
             trySend(
@@ -267,16 +276,25 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             logger.info("ChatWithImageSync: text='${request.text.take(50)}', imageBytes=${imageBytes.size}")
 
             val message = buildContents(request.text, imageBytes = imageBytes)
+            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
 
             logger.info("Calling SYNC sendMessage...")
-            val response = conversation.sendMessage(message)
+            val response = if (extraContext.isNotEmpty()) {
+                conversation.sendMessage(message, extraContext)
+            } else {
+                conversation.sendMessage(message)
+            }
             val responseText = response.toString()
+            val thinking = response.channels["thought"]
             logger.info("Sync response (${responseText.length} chars): ${responseText.take(200)}")
 
-            ChatResponse.newBuilder()
+            val builder = ChatResponse.newBuilder()
                 .setText(responseText)
                 .setDone(true)
-                .build()
+            if (!thinking.isNullOrEmpty()) {
+                builder.setThinking(thinking)
+            }
+            builder.build()
         } catch (e: Exception) {
             logger.error("Error during sync chat with image", e)
             ChatResponse.newBuilder()
@@ -323,23 +341,25 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 logger.info("Image header: $header (JPEG=FFD8, PNG=89504E47)")
             }
             val message = buildContents(request.text, imageBytes = imageBytes)
+            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
 
             logger.info("Sending message to conversation...")
             var responseCount = 0
 
-            // Use callback-based API (like Android does)
-            conversation.sendMessageAsync(message, object : MessageCallback {
+            val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
                     responseCount++
                     if (responseCount <= 3) {
                         logger.info("Response chunk $responseCount: '${msg.toString().take(100)}'")
                     }
-                    trySend(
-                        ChatResponse.newBuilder()
-                            .setText(msg.toString())
-                            .setDone(false)
-                            .build()
-                    )
+                    val builder = ChatResponse.newBuilder()
+                        .setText(msg.toString())
+                        .setDone(false)
+                    val thinking = msg.channels["thought"]
+                    if (!thinking.isNullOrEmpty()) {
+                        builder.setThinking(thinking)
+                    }
+                    trySend(builder.build())
                 }
 
                 override fun onDone() {
@@ -362,7 +382,14 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                     )
                     close(throwable)
                 }
-            })
+            }
+
+            // Use callback-based API (like Android does)
+            if (extraContext.isNotEmpty()) {
+                conversation.sendMessageAsync(message, messageCallback, extraContext)
+            } else {
+                conversation.sendMessageAsync(message, messageCallback)
+            }
         } catch (e: Exception) {
             logger.error("Error starting chat with image", e)
             trySend(
@@ -413,24 +440,26 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             }
 
             val message = buildContents(request.text, audioBytes = audioBytes)
+            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
 
             logger.info("Sending message to conversation...")
             var responseCount = 0
 
-            // Use callback-based API (like Android does)
-            conversation.sendMessageAsync(message, object : MessageCallback {
+            val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
                     responseCount++
                     val responseText = msg.toString()
                     if (responseCount <= 3) {
                         logger.info("Response chunk $responseCount: '${responseText.take(100)}'")
                     }
-                    trySend(
-                        ChatResponse.newBuilder()
-                            .setText(responseText)
-                            .setDone(false)
-                            .build()
-                    )
+                    val builder = ChatResponse.newBuilder()
+                        .setText(responseText)
+                        .setDone(false)
+                    val thinking = msg.channels["thought"]
+                    if (!thinking.isNullOrEmpty()) {
+                        builder.setThinking(thinking)
+                    }
+                    trySend(builder.build())
                 }
 
                 override fun onDone() {
@@ -453,7 +482,14 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                     )
                     close(throwable)
                 }
-            })
+            }
+
+            // Use callback-based API (like Android does)
+            if (extraContext.isNotEmpty()) {
+                conversation.sendMessageAsync(message, messageCallback, extraContext)
+            } else {
+                conversation.sendMessageAsync(message, messageCallback)
+            }
         } catch (e: Exception) {
             logger.error("Error starting chat with audio", e)
             trySend(
@@ -569,10 +605,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // Read image (JPEG, PNG, BMP, etc.)
             val inputStream = ByteArrayInputStream(imageBytes)
             val bufferedImage = ImageIO.read(inputStream)
-            if (bufferedImage == null) {
-                logger.warn("Failed to read image, returning original bytes")
-                return imageBytes
-            }
+                ?: throw IllegalArgumentException("Failed to read image: unsupported format or corrupt data")
 
             logger.info("Read image: ${bufferedImage.width}x${bufferedImage.height}, type=${bufferedImage.type}")
 
@@ -589,8 +622,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
             pngBytes
         } catch (e: Exception) {
-            logger.error("Failed to convert image to PNG: ${e.message}", e)
-            imageBytes // Return original on error
+            throw IllegalArgumentException("Image conversion to PNG failed: ${e.message}", e)
         }
     }
 }

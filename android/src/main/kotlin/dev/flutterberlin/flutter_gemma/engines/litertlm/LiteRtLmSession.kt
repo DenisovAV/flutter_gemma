@@ -31,6 +31,13 @@ class LiteRtLmSession(
 
     private val conversation: Conversation
 
+    // Extra context for thinking mode (Gemma 4 via Jinja template variable)
+    private val extraContext: Map<String, Any> = if (config.enableThinking) {
+        mapOf("enable_thinking" to true)
+    } else {
+        emptyMap()
+    }
+
     // Chunk buffering (MediaPipe compatibility) - thread-safe access
     private val pendingPrompt = StringBuilder()
     private val promptLock = Any()
@@ -84,11 +91,23 @@ class LiteRtLmSession(
         Log.d(TAG, "Generating sync response for message: ${message.toString().length} chars")
 
         return try {
-            val response = conversation.sendMessage(message)
-            response.toString()
+            val response = if (extraContext.isNotEmpty()) {
+                conversation.sendMessage(message, extraContext)
+            } else {
+                conversation.sendMessage(message)
+            }
+            val thinking = response.channels["thought"]
+            val text = response.toString()
+            if (!thinking.isNullOrEmpty()) {
+                "<|channel>thought\n$thinking<channel|>$text"
+            } else {
+                text
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Error generating response", e)
-            errorFlow.tryEmit(e)
+            if (!errorFlow.tryEmit(e)) {
+                Log.w(TAG, "Error emission dropped (buffer full): ${e.message}")
+            }
             throw e
         }
     }
@@ -97,27 +116,49 @@ class LiteRtLmSession(
         val message = buildAndConsumeMessage()
         Log.d(TAG, "Generating async response for message: ${message.toString().length} chars")
 
+        val callback = object : MessageCallback {
+            override fun onMessage(msg: Message) {
+                // Combine thinking + text into single emission to prevent DROP_OLDEST loss
+                // (buffer=1, two rapid tryEmit calls would drop the first)
+                val thinking = msg.channels["thought"]
+                val text = msg.toString()
+                val combined = buildString {
+                    if (!thinking.isNullOrEmpty()) {
+                        append("<|channel>thought\n$thinking<channel|>")
+                    }
+                    if (text.isNotEmpty()) {
+                        append(text)
+                    }
+                }
+                if (combined.isNotEmpty()) {
+                    resultFlow.tryEmit(combined to false)
+                }
+            }
+
+            override fun onDone() {
+                resultFlow.tryEmit("" to true)
+            }
+
+            override fun onError(throwable: Throwable) {
+                Log.e(TAG, "Async generation error", throwable)
+                if (!errorFlow.tryEmit(throwable)) {
+                    Log.w(TAG, "Error emission dropped (buffer full): ${throwable.message}")
+                }
+                resultFlow.tryEmit("" to true)
+            }
+        }
+
         try {
-            // Use callback-based API
-            conversation.sendMessageAsync(message, object : MessageCallback {
-                override fun onMessage(message: Message) {
-                    val text = message.toString()
-                    resultFlow.tryEmit(text to false)
-                }
-
-                override fun onDone() {
-                    resultFlow.tryEmit("" to true)
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e(TAG, "Async generation error", throwable)
-                    errorFlow.tryEmit(throwable)
-                    resultFlow.tryEmit("" to true)
-                }
-            })
+            if (extraContext.isNotEmpty()) {
+                conversation.sendMessageAsync(message, callback, extraContext)
+            } else {
+                conversation.sendMessageAsync(message, callback)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start async generation", e)
-            errorFlow.tryEmit(e)
+            if (!errorFlow.tryEmit(e)) {
+                Log.w(TAG, "Error emission dropped (buffer full): ${e.message}")
+            }
             resultFlow.tryEmit("" to true)
         }
     }

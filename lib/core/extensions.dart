@@ -190,8 +190,8 @@ extension MessageExtension on Message {
 
 // Filter class for thinking models
 class ModelThinkingFilter {
-  /// Filters ModelResponse stream for models with thinking support
-  /// Only supports DeepSeek models with <think>...</think> blocks
+  /// Filters ModelResponse stream for models with thinking support.
+  /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
   static Stream<ModelResponse> filterThinkingStream(Stream<ModelResponse> originalStream,
       {required ModelType modelType}) async* {
     switch (modelType) {
@@ -244,8 +244,69 @@ class ModelThinkingFilter {
         }
         break;
 
-      case ModelType.general:
       case ModelType.gemmaIt:
+        // Gemma 4 E2B/E4B: <|channel>thought\n...<channel|>
+        const startMarker = '<|channel>thought\n';
+        const endMarker = '<channel|>';
+        bool gemmaInsideThinking = false;
+        String gemmaBuffer = '';
+
+        await for (final response in originalStream) {
+          if (response is TextResponse) {
+            gemmaBuffer += response.token;
+
+            while (gemmaBuffer.isNotEmpty) {
+              if (gemmaInsideThinking) {
+                final endIdx = gemmaBuffer.indexOf(endMarker);
+                if (endIdx >= 0) {
+                  final thinkingContent = gemmaBuffer.substring(0, endIdx);
+                  if (thinkingContent.isNotEmpty) {
+                    yield ThinkingResponse(thinkingContent);
+                  }
+                  gemmaBuffer = gemmaBuffer.substring(endIdx + endMarker.length);
+                  gemmaInsideThinking = false;
+                } else {
+                  // Check for partial end marker at tail
+                  final partial = _findPartialSuffix(gemmaBuffer, endMarker);
+                  final safe = gemmaBuffer.substring(0, gemmaBuffer.length - partial);
+                  if (safe.isNotEmpty) {
+                    yield ThinkingResponse(safe);
+                  }
+                  gemmaBuffer = gemmaBuffer.substring(gemmaBuffer.length - partial);
+                  break;
+                }
+              } else {
+                final startIdx = gemmaBuffer.indexOf(startMarker);
+                if (startIdx >= 0) {
+                  final textBefore = gemmaBuffer.substring(0, startIdx);
+                  if (textBefore.isNotEmpty) {
+                    yield TextResponse(textBefore);
+                  }
+                  gemmaBuffer = gemmaBuffer.substring(startIdx + startMarker.length);
+                  gemmaInsideThinking = true;
+                } else {
+                  // Check for partial start marker at tail
+                  final partial = _findPartialSuffix(gemmaBuffer, startMarker);
+                  final safe = gemmaBuffer.substring(0, gemmaBuffer.length - partial);
+                  if (safe.isNotEmpty) {
+                    yield TextResponse(safe);
+                  }
+                  gemmaBuffer = gemmaBuffer.substring(gemmaBuffer.length - partial);
+                  break;
+                }
+              }
+            }
+          } else {
+            yield response;
+          }
+        }
+        // Flush remaining buffer
+        if (gemmaBuffer.isNotEmpty) {
+          yield gemmaInsideThinking ? ThinkingResponse(gemmaBuffer) : TextResponse(gemmaBuffer);
+        }
+        break;
+
+      case ModelType.general:
       case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
@@ -258,8 +319,9 @@ class ModelThinkingFilter {
     }
   }
 
-  /// Removes thinking blocks from final text
-  /// Only supports DeepSeek (<think>...</think>) models
+  /// Removes thinking blocks from final text.
+  /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
+  /// Note: For streaming thinking output, use [filterThinkingStream] with generateChatResponseAsync() instead.
   static String removeThinkingFromText(String text, {required ModelType modelType}) {
     switch (modelType) {
       case ModelType.deepSeek:
@@ -267,8 +329,12 @@ class ModelThinkingFilter {
         RegExp thinkingRegex = RegExp(r'<think>.*?</think>', dotAll: true);
         return text.replaceAll(thinkingRegex, '').trim();
 
-      case ModelType.general:
       case ModelType.gemmaIt:
+        // Remove all <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
+        return text.replaceAll(
+          RegExp(r'<\|channel>thought\n.*?<channel\|>', dotAll: true), '').trim();
+
+      case ModelType.general:
       case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
@@ -325,5 +391,15 @@ class ModelThinkingFilter {
         // These models don't use special end tags, just trim whitespace
         return cleaned.trim();
     }
+  }
+
+  /// Returns length of the longest suffix of [text] that is a prefix of [marker].
+  static int _findPartialSuffix(String text, String marker) {
+    for (int i = marker.length.clamp(0, text.length); i >= 1; i--) {
+      if (text.endsWith(marker.substring(0, i))) {
+        return i;
+      }
+    }
+    return 0;
   }
 }

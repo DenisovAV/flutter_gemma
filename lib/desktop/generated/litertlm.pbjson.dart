@@ -108,13 +108,15 @@ const ChatRequest$json = {
   '2': [
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'text', '3': 2, '4': 1, '5': 9, '10': 'text'},
+    {'1': 'enable_thinking', '3': 3, '4': 1, '5': 8, '10': 'enableThinking'},
   ],
 };
 
 /// Descriptor for `ChatRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List chatRequestDescriptor = $convert.base64Decode(
     'CgtDaGF0UmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcnNhdGlvbklkEh'
-    'IKBHRleHQYAiABKAlSBHRleHQ=');
+    'IKBHRleHQYAiABKAlSBHRleHQSJwoPZW5hYmxlX3RoaW5raW5nGAMgASgIUg5lbmFibGVUaGlu'
+    'a2luZw==');
 
 @$core.Deprecated('Use chatWithImageRequestDescriptor instead')
 const ChatWithImageRequest$json = {
@@ -123,13 +125,15 @@ const ChatWithImageRequest$json = {
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'text', '3': 2, '4': 1, '5': 9, '10': 'text'},
     {'1': 'image', '3': 3, '4': 1, '5': 12, '10': 'image'},
+    {'1': 'enable_thinking', '3': 4, '4': 1, '5': 8, '10': 'enableThinking'},
   ],
 };
 
 /// Descriptor for `ChatWithImageRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List chatWithImageRequestDescriptor = $convert.base64Decode(
     'ChRDaGF0V2l0aEltYWdlUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
-    'NhdGlvbklkEhIKBHRleHQYAiABKAlSBHRleHQSFAoFaW1hZ2UYAyABKAxSBWltYWdl');
+    'NhdGlvbklkEhIKBHRleHQYAiABKAlSBHRleHQSFAoFaW1hZ2UYAyABKAxSBWltYWdlEicKD2Vu'
+    'YWJsZV90aGlua2luZxgEIAEoCFIOZW5hYmxlVGhpbmtpbmc=');
 
 @$core.Deprecated('Use chatWithAudioRequestDescriptor instead')
 const ChatWithAudioRequest$json = {
@@ -138,13 +142,15 @@ const ChatWithAudioRequest$json = {
     {'1': 'conversation_id', '3': 1, '4': 1, '5': 9, '10': 'conversationId'},
     {'1': 'text', '3': 2, '4': 1, '5': 9, '10': 'text'},
     {'1': 'audio', '3': 3, '4': 1, '5': 12, '10': 'audio'},
+    {'1': 'enable_thinking', '3': 4, '4': 1, '5': 8, '10': 'enableThinking'},
   ],
 };
 
 /// Descriptor for `ChatWithAudioRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List chatWithAudioRequestDescriptor = $convert.base64Decode(
     'ChRDaGF0V2l0aEF1ZGlvUmVxdWVzdBInCg9jb252ZXJzYXRpb25faWQYASABKAlSDmNvbnZlcn'
-    'NhdGlvbklkEhIKBHRleHQYAiABKAlSBHRleHQSFAoFYXVkaW8YAyABKAxSBWF1ZGlv');
+    'NhdGlvbklkEhIKBHRleHQYAiABKAlSBHRleHQSFAoFYXVkaW8YAyABKAxSBWF1ZGlvEicKD2Vu'
+    'YWJsZV90aGlua2luZxgEIAEoCFIOZW5hYmxlVGhpbmtpbmc=');
 
 @$core.Deprecated('Use chatResponseDescriptor instead')
 const ChatResponse$json = {
@@ -153,13 +159,14 @@ const ChatResponse$json = {
     {'1': 'text', '3': 1, '4': 1, '5': 9, '10': 'text'},
     {'1': 'done', '3': 2, '4': 1, '5': 8, '10': 'done'},
     {'1': 'error', '3': 3, '4': 1, '5': 9, '10': 'error'},
+    {'1': 'thinking', '3': 4, '4': 1, '5': 9, '10': 'thinking'},
   ],
 };
 
 /// Descriptor for `ChatResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List chatResponseDescriptor = $convert.base64Decode(
     'CgxDaGF0UmVzcG9uc2USEgoEdGV4dBgBIAEoCVIEdGV4dBISCgRkb25lGAIgASgIUgRkb25lEh'
-    'QKBWVycm9yGAMgASgJUgVlcnJvcg==');
+    'QKBWVycm9yGAMgASgJUgVlcnJvchIaCgh0aGlua2luZxgEIAEoCVIIdGhpbmtpbmc=');
 
 @$core.Deprecated('Use cancelGenerationRequestDescriptor instead')
 const CancelGenerationRequest$json = {

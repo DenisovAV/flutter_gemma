@@ -9,16 +9,16 @@ class PreferencesKeys {
   // Multi-model lists (NEW system - supports multiple models)
   // ============================================================================
 
-  /// List<String> of installed inference model files
+  /// `List<String>` of installed inference model files
   static const String installedModels = 'installed_models';
 
-  /// List<String> of installed LoRA files
+  /// `List<String>` of installed LoRA files
   static const String installedLoras = 'installed_loras';
 
-  /// List<String> of installed embedding model files
+  /// `List<String>` of installed embedding model files
   static const String installedEmbeddingModels = 'installed_embedding_models';
 
-  /// List<String> of installed tokenizer files
+  /// `List<String>` of installed tokenizer files
   static const String installedTokenizers = 'installed_tokenizers';
 
   // ============================================================================

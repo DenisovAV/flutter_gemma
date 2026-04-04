@@ -87,9 +87,9 @@ $JreChecksums = @{
 
 # JAR settings
 $JarName = "litertlm-server.jar"
-$JarVersion = "0.13.0"
+$JarVersion = "0.13.1"
 $JarUrl = "https://github.com/DenisovAV/flutter_gemma/releases/download/v$JarVersion/$JarName"
-$JarChecksum = "61191862ae56f130366f5539e0a2d36adc9cb4ea99fe6568fb9a7b7cd2e88f02"
+$JarChecksum = "97e01020f921c098f7cfc0a9509e4b207b8bc326703ae2f26bbce3c11b957430"
 $JarCacheDir = "$env:LOCALAPPDATA\flutter_gemma\jar"
 $PluginRoot = Split-Path -Parent $PluginDir
 
@@ -386,9 +386,23 @@ function Setup-Jar {
         # Check cache first
         $cachedJar = "$JarCacheDir\$JarName"
         if (Test-Path $cachedJar) {
-            Write-Host "Using cached JAR" -ForegroundColor Green
-            $jarSource = $cachedJar
-        } else {
+            # Verify cached JAR checksum before reuse
+            if ($JarChecksum) {
+                $actualChecksum = (Get-FileHash -Path $cachedJar -Algorithm SHA256).Hash.ToLower()
+                if ($actualChecksum -ne $JarChecksum.ToLower()) {
+                    Write-Host "Cached JAR checksum mismatch, re-downloading..." -ForegroundColor Yellow
+                    Remove-Item -Path $cachedJar -Force
+                } else {
+                    Write-Host "Using cached JAR (checksum verified)" -ForegroundColor Green
+                    $jarSource = $cachedJar
+                }
+            } else {
+                Write-Host "Using cached JAR" -ForegroundColor Green
+                $jarSource = $cachedJar
+            }
+        }
+        # Download if no valid cached JAR (missing or checksum mismatch)
+        if (-not $jarSource) {
             $jarSource = Download-Jar
             if (-not $jarSource) {
                 Write-Error "Could not obtain JAR (build failed, download failed)"

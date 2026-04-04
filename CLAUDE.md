@@ -69,7 +69,7 @@ final token = const String.fromEnvironment('HF_TOKEN');
 - 🔥 **Local AI Inference** - Run Gemma models directly on device
 - 🖼️ **Multimodal Support** - Text + Image input with Gemma 3 Nano
 - 🛠️ **Function Calling** - Enable models to call external functions
-- 🧠 **Thinking Mode** - View reasoning process of DeepSeek models
+- 🧠 **Thinking Mode** - View reasoning process of DeepSeek and Gemma 4 models
 - 📱 **Cross-Platform** - Android, iOS, Web, macOS, Windows, Linux
 - ⚡ **GPU Acceleration** - Hardware-accelerated inference
 - 🔧 **LoRA Support** - Efficient fine-tuning weights
@@ -401,6 +401,8 @@ Future<void> close() async {
 
 | Model Family | Function Calling | Thinking Mode | Multimodal | Platform Support |
 |--------------|------------------|---------------|------------|------------------|
+| Gemma 4 E2B | ✅ | ✅ ¹ | ✅ | Android, iOS, Web, Desktop |
+| Gemma 4 E4B | ✅ | ✅ ¹ | ✅ | Android, iOS, Web, Desktop |
 | Gemma 3 Nano | ✅ | ❌ | ✅ | Android, iOS, Web |
 | Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web |
 | Gemma-3 1B | ✅ | ❌ | ❌ | Android, iOS, Web |
@@ -410,6 +412,8 @@ Future<void> close() async {
 | DeepSeek | ✅ | ✅ | ❌ | Android, iOS, Web |
 | Qwen2.5 | ✅ | ❌ | ❌ | Android, iOS, Web |
 | Phi-4 | ❌ | ❌ | ❌ | Android, iOS, Web |
+
+> ¹ Thinking Mode for Gemma 4: Android, iOS, Desktop only. Web (MediaPipe) does not support `extraContext`.
 
 ### Platform Limitations
 
@@ -457,10 +461,10 @@ dev_dependencies:
 
 ### MediaPipe GenAI Integration
 
-- **Current Version Web**: v0.10.26
+- **Current Version Web**: v0.10.27
 - **Current Version Android**: v0.10.33
 - **Current Version iOS**: v0.10.33
-- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26`
+- **Web CDN**: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27`
 - **iOS/Android**: Integrated via CocoaPods/Gradle
 
 ## Development Best Practices
@@ -623,7 +627,7 @@ Log.w(TAG, "sizeInTokens: LiteRT-LM does not support token counting. " +
 
 **Dependency (build.gradle):**
 ```gradle
-implementation 'com.google.ai.edge.litertlm:litertlm-android:0.9.0-beta'
+implementation 'com.google.ai.edge.litertlm:litertlm-android:0.10.0'
 ```
 
 **Usage (Dart - no changes required):**
@@ -642,7 +646,7 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 ```html
 <!-- index.html -->
 <script type="module">
-import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.26';
+import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
 window.FilesetResolver = FilesetResolver;
 window.LlmInference = LlmInference;
 </script>
@@ -1243,7 +1247,7 @@ flutter_gemma/
 
 - **GitHub**: https://github.com/DenisovAV/flutter_gemma
 - **Pub.dev**: https://pub.dev/packages/flutter_gemma
-- **Current Version**: 0.13.0
+- **Current Version**: 0.13.1
 - **License**: Check repository for license details
 - **Issues**: Report bugs via GitHub Issues
 - **Changelog**: See `CHANGELOG.md` for version history

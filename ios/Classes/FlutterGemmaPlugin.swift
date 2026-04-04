@@ -97,11 +97,17 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         enableVisionModality: Bool?,
         enableAudioModality: Bool?,
         systemInstruction: String?,
+        enableThinking: Bool?,
         completion: @escaping (Result<Void, any Error>) -> Void
     ) {
         guard let inference = model?.inference else {
             completion(.failure(PigeonError(code: "Inference model not created", message: nil, details: nil)))
             return
+        }
+
+        if enableThinking == true {
+            print("[FlutterGemma] Warning: enableThinking=true is not supported on iOS (MediaPipe). " +
+                  "Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.")
         }
 
         DispatchQueue.global(qos: .userInitiated).async {

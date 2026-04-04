@@ -28,6 +28,7 @@ data class SessionConfig(
     val enableVisionModality: Boolean? = null,
     val enableAudioModality: Boolean? = null,
     val systemInstruction: String? = null,
+    val enableThinking: Boolean = false,
 )
 
 /**

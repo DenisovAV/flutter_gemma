@@ -184,8 +184,8 @@ class SmartDownloader {
     }
 
     // Configure FileDownloader and start download
-    _ensureConfigured(foreground).then((_) {
-      _downloadWithSmartRetry(
+    _ensureConfigured(foreground).then((_) async {
+      await _downloadWithSmartRetry(
         url: url,
         targetPath: targetPath,
         token: token,

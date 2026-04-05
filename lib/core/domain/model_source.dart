@@ -19,8 +19,7 @@ sealed class ModelSource {
   /// - true: always use foreground (shows notification)
   /// - false: never use foreground
   factory ModelSource.network(String url,
-          {String? authToken, bool? foreground}) =
-      NetworkSource;
+      {String? authToken, bool? foreground}) = NetworkSource;
 
   /// Creates an asset-based source (Flutter assets)
   factory ModelSource.asset(String path) = AssetSource;
@@ -78,7 +77,8 @@ final class NetworkSource extends ModelSource {
   bool get supportsResume => true;
 
   @override
-  bool validateLoraSource(ModelSource loraSource) => loraSource is NetworkSource;
+  bool validateLoraSource(ModelSource loraSource) =>
+      loraSource is NetworkSource;
 
   @override
   bool operator ==(Object other) =>
@@ -148,7 +148,8 @@ final class AssetSource extends ModelSource {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is AssetSource && other.normalizedPath == normalizedPath;
+      identical(this, other) ||
+      other is AssetSource && other.normalizedPath == normalizedPath;
 
   @override
   int get hashCode => normalizedPath.hashCode;
@@ -184,11 +185,13 @@ final class BundledSource extends ModelSource {
   bool get supportsResume => false;
 
   @override
-  bool validateLoraSource(ModelSource loraSource) => loraSource is BundledSource;
+  bool validateLoraSource(ModelSource loraSource) =>
+      loraSource is BundledSource;
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is BundledSource && other.resourceName == resourceName;
+      identical(this, other) ||
+      other is BundledSource && other.resourceName == resourceName;
 
   @override
   int get hashCode => resourceName.hashCode;
@@ -208,8 +211,8 @@ final class FileSource extends ModelSource {
     if (path.isEmpty) {
       throw ArgumentError('File path cannot be empty');
     }
-    if (!path.startsWith(_pathSeparator)) {
-      throw ArgumentError('File path must be absolute (start with $_pathSeparator)');
+    if (!path.startsWith('/') && !RegExp(r'^[A-Za-z]:[/\\]').hasMatch(path)) {
+      throw ArgumentError('File path must be absolute');
     }
   }
 

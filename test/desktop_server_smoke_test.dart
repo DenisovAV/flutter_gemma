@@ -24,17 +24,6 @@ void main() {
     expect(healthy, isFalse);
   });
 
-  test('Initialize with nonexistent model returns error', () async {
-    expect(
-      () => client.initialize(
-        modelPath: '/nonexistent/model.litertlm',
-        backend: 'cpu',
-        maxTokens: 512,
-      ),
-      throwsA(isA<Exception>()),
-    );
-  });
-
   test('Initialize with real model succeeds', () async {
     if (modelPath.isEmpty) {
       markTestSkipped('SMOKE_TEST_MODEL_PATH not set');
@@ -49,4 +38,16 @@ void main() {
     final healthy = await client.healthCheck();
     expect(healthy, isTrue);
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  // Last: nonexistent model may crash the JVM server on some platforms
+  test('Initialize with nonexistent model returns error', () async {
+    expect(
+      () => client.initialize(
+        modelPath: '/nonexistent/model.litertlm',
+        backend: 'cpu',
+        maxTokens: 512,
+      ),
+      throwsA(isA<Exception>()),
+    );
+  });
 }

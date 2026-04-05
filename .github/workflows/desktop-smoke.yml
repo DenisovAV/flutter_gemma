@@ -260,11 +260,7 @@ jobs:
           }
 
       - name: Run smoke tests
-        shell: pwsh
-        run: |
-          flutter test test/desktop_server_smoke_test.dart `
-            --dart-define=SMOKE_TEST_PORT=50051 `
-            --dart-define=SMOKE_TEST_MODEL_PATH=C:\temp\test-models\$env:MODEL_FILENAME
+        run: flutter test test/desktop_server_smoke_test.dart --dart-define=SMOKE_TEST_PORT=50051 --dart-define=SMOKE_TEST_MODEL_PATH=C:\temp\test-models\${{ env.MODEL_FILENAME }}
 
       - name: Stop server
         if: always()

@@ -71,6 +71,18 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
                 logger.info("Creating EngineConfig: backend=$backend, visionBackend=$visionBackend, audioBackend=$audioBackend, maxTokens=${request.maxTokens}, cacheDir=$cacheDir")
 
+                // Diagnostic: check native library resolution
+                val libPath = System.getProperty("java.library.path") ?: ""
+                logger.info("java.library.path = $libPath")
+                libPath.split(File.pathSeparator).forEach { dir ->
+                    val dirFile = File(dir)
+                    logger.info("  lib dir: $dir (exists=${dirFile.exists()}, absolute=${dirFile.absolutePath})")
+                    if (dirFile.exists()) {
+                        dirFile.listFiles()?.forEach { f -> logger.info("    - ${f.name} (${f.length()} bytes)") }
+                    }
+                }
+
+                logger.info("Creating Engine instance...")
                 val engineConfig = EngineConfig(
                     modelPath = request.modelPath,
                     backend = backend,
@@ -81,6 +93,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 )
 
                 engine = Engine(engineConfig)
+                logger.info("Engine instance created, calling initialize()...")
                 engine!!.initialize()
                 visionEnabled = visionBackend != null
 

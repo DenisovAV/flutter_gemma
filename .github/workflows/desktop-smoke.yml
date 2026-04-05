@@ -215,7 +215,7 @@ jobs:
       - name: Start JVM server
         shell: pwsh
         run: |
-          $Bundle = "example\build\windows\x64\runner\Release"
+          $Bundle = Resolve-Path "example\build\windows\x64\runner\Release"
           $Java = "$Bundle\jre\bin\java.exe"
           $Jar = "$Bundle\data\litertlm-server.jar"
           $Natives = "$Bundle\litertlm"

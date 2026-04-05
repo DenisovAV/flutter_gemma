@@ -44,6 +44,7 @@ void main() {
       modelPath: modelPath,
       backend: 'cpu',
       maxTokens: 512,
+      maxNumImages: 0,
     );
     final healthy = await client.healthCheck();
     expect(healthy, isTrue);

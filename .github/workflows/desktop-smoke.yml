@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+env:
+  MODEL_URL: https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm
+  MODEL_FILENAME: functiongemma-270M-it.litertlm
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest
@@ -32,6 +36,23 @@ jobs:
           path: ~/.cache/flutter_gemma
           key: litertlm-linux-${{ hashFiles('linux/scripts/setup_desktop.sh') }}
           restore-keys: litertlm-linux-
+
+      - name: Cache test model
+        uses: actions/cache@v4
+        with:
+          path: /tmp/test-models
+          key: smoke-model-functiongemma-270M
+
+      - name: Download test model
+        run: |
+          mkdir -p /tmp/test-models
+          if [ ! -f "/tmp/test-models/$MODEL_FILENAME" ]; then
+            echo "Downloading $MODEL_FILENAME (271MB)..."
+            curl -L --progress-bar -o "/tmp/test-models/$MODEL_FILENAME" "$MODEL_URL"
+          else
+            echo "Using cached model"
+          fi
+          ls -lh "/tmp/test-models/$MODEL_FILENAME"
 
       - name: Install plugin dependencies
         run: flutter pub get
@@ -100,7 +121,10 @@ jobs:
           exit 1
 
       - name: Run smoke tests
-        run: flutter test test/desktop_server_smoke_test.dart --dart-define=SMOKE_TEST_PORT=50051
+        run: |
+          flutter test test/desktop_server_smoke_test.dart \
+            --dart-define=SMOKE_TEST_PORT=50051 \
+            --dart-define=SMOKE_TEST_MODEL_PATH=/tmp/test-models/${{ env.MODEL_FILENAME }}
 
       - name: Stop server
         if: always()
@@ -137,6 +161,25 @@ jobs:
           path: ~\AppData\Local\flutter_gemma
           key: litertlm-windows-${{ hashFiles('windows/scripts/setup_desktop.ps1') }}
           restore-keys: litertlm-windows-
+
+      - name: Cache test model
+        uses: actions/cache@v4
+        with:
+          path: C:\temp\test-models
+          key: smoke-model-functiongemma-270M
+
+      - name: Download test model
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "C:\temp\test-models" | Out-Null
+          if (-not (Test-Path "C:\temp\test-models\$env:MODEL_FILENAME")) {
+            Write-Host "Downloading $env:MODEL_FILENAME (271MB)..."
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+            Invoke-WebRequest -Uri $env:MODEL_URL -OutFile "C:\temp\test-models\$env:MODEL_FILENAME" -UseBasicParsing
+          } else {
+            Write-Host "Using cached model"
+          }
+          Get-Item "C:\temp\test-models\$env:MODEL_FILENAME" | Select-Object Name, @{N='Size(MB)';E={[math]::Round($_.Length/1MB,1)}}
 
       - name: Install plugin dependencies
         run: flutter pub get
@@ -217,7 +260,11 @@ jobs:
           }
 
       - name: Run smoke tests
-        run: flutter test test/desktop_server_smoke_test.dart --dart-define=SMOKE_TEST_PORT=50051
+        shell: pwsh
+        run: |
+          flutter test test/desktop_server_smoke_test.dart `
+            --dart-define=SMOKE_TEST_PORT=50051 `
+            --dart-define=SMOKE_TEST_MODEL_PATH=C:\temp\test-models\$env:MODEL_FILENAME
 
       - name: Stop server
         if: always()

@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const port = int.fromEnvironment('SMOKE_TEST_PORT', defaultValue: 50051);
+  const modelPath = String.fromEnvironment('SMOKE_TEST_MODEL_PATH');
 
   late LiteRtLmClient client;
 
@@ -18,9 +19,9 @@ void main() {
     await client.disconnect();
   });
 
-  test('Server responds to health check', () async {
+  test('Server responds to health check before model load', () async {
     final healthy = await client.healthCheck();
-    expect(healthy, isTrue);
+    expect(healthy, isFalse);
   });
 
   test('Initialize with nonexistent model returns error', () async {
@@ -33,4 +34,18 @@ void main() {
       throwsA(isA<Exception>()),
     );
   });
+
+  test('Initialize with real model succeeds', () async {
+    if (modelPath.isEmpty) {
+      markTestSkipped('SMOKE_TEST_MODEL_PATH not set');
+      return;
+    }
+    await client.initialize(
+      modelPath: modelPath,
+      backend: 'cpu',
+      maxTokens: 512,
+    );
+    final healthy = await client.healthCheck();
+    expect(healthy, isTrue);
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

@@ -76,7 +76,7 @@ jobs:
 
       - name: Build Linux release
         working-directory: example
-        run: flutter build linux --release
+        run: flutter build linux --release -v
 
       - name: Verify build artifacts
         run: |
@@ -217,7 +217,7 @@ jobs:
 
       - name: Build Windows release
         working-directory: example
-        run: flutter build windows --release
+        run: flutter build windows --release -v
 
       - name: Verify build artifacts
         shell: pwsh

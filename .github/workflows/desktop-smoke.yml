@@ -25,10 +25,20 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
       - name: Install Linux desktop dependencies
         run: |
           sudo apt-get update -y
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+
+      - name: Build server JAR from source
+        working-directory: litertlm-server
+        run: ./gradlew fatJar --no-daemon
 
       - name: Cache LiteRT-LM resources
         uses: actions/cache@v4
@@ -154,6 +164,16 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Build server JAR from source
+        working-directory: litertlm-server
+        run: ./gradlew.bat fatJar --no-daemon
 
       - name: Cache LiteRT-LM resources
         uses: actions/cache@v4

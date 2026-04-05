@@ -47,6 +47,9 @@ jobs:
           key: litertlm-linux-${{ hashFiles('linux/scripts/setup_desktop.sh') }}
           restore-keys: litertlm-linux-
 
+      - name: Clear cached JAR so setup uses locally built one
+        run: rm -f ~/.cache/flutter_gemma/jar/litertlm-server.jar
+
       - name: Cache test model
         uses: actions/cache@v4
         with:
@@ -181,6 +184,10 @@ jobs:
           path: ~\AppData\Local\flutter_gemma
           key: litertlm-windows-${{ hashFiles('windows/scripts/setup_desktop.ps1') }}
           restore-keys: litertlm-windows-
+
+      - name: Clear cached JAR so setup uses locally built one
+        shell: pwsh
+        run: Remove-Item "$env:LOCALAPPDATA\flutter_gemma\jar\litertlm-server.jar" -Force -ErrorAction SilentlyContinue
 
       - name: Cache test model
         uses: actions/cache@v4

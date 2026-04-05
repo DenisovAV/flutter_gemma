@@ -71,18 +71,24 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
                 logger.info("Creating EngineConfig: backend=$backend, visionBackend=$visionBackend, audioBackend=$audioBackend, maxTokens=${request.maxTokens}, cacheDir=$cacheDir")
 
-                // Diagnostic: check native library resolution
+                // Diagnostic: check native library resolution (flush after each line for crash safety)
                 val libPath = System.getProperty("java.library.path") ?: ""
-                logger.info("java.library.path = $libPath")
+                println("[DIAG] java.library.path = $libPath")
+                System.out.flush()
                 libPath.split(File.pathSeparator).forEach { dir ->
                     val dirFile = File(dir)
-                    logger.info("  lib dir: $dir (exists=${dirFile.exists()}, absolute=${dirFile.absolutePath})")
+                    println("[DIAG]   lib dir: $dir (exists=${dirFile.exists()}, absolute=${dirFile.absolutePath})")
+                    System.out.flush()
                     if (dirFile.exists()) {
-                        dirFile.listFiles()?.forEach { f -> logger.info("    - ${f.name} (${f.length()} bytes)") }
+                        dirFile.listFiles()?.forEach { f ->
+                            println("[DIAG]     - ${f.name} (${f.length()} bytes)")
+                            System.out.flush()
+                        }
                     }
                 }
 
-                logger.info("Creating Engine instance...")
+                println("[DIAG] Creating EngineConfig...")
+                System.out.flush()
                 val engineConfig = EngineConfig(
                     modelPath = request.modelPath,
                     backend = backend,
@@ -92,9 +98,14 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                     cacheDir = cacheDir
                 )
 
+                println("[DIAG] Creating Engine instance...")
+                System.out.flush()
                 engine = Engine(engineConfig)
-                logger.info("Engine instance created, calling initialize()...")
+                println("[DIAG] Engine created, calling initialize()...")
+                System.out.flush()
                 engine!!.initialize()
+                println("[DIAG] Engine initialized OK")
+                System.out.flush()
                 visionEnabled = visionBackend != null
 
                 logger.info("Engine initialized successfully with visionEnabled=$visionEnabled, audioBackend=$audioBackend")

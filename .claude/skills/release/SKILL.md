@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release flutter_gemma — rebuild JAR, update all version numbers, checksums, CHANGELOG, upload to GitHub release
+description: Release flutter_gemma — update versions, checksums, CHANGELOG, optionally rebuild JAR, upload to GitHub release
 user_invocable: true
 ---
 
@@ -16,28 +16,44 @@ git status
 git log --oneline -5
 ```
 
-## Step 1: Update version numbers
+## Step 1: Check if server changed
 
-All files that contain the version:
+```bash
+git diff main -- litertlm-server/src/
+```
+
+If **no changes** in `litertlm-server/src/` — skip Steps 3, 4, 5, 7 (JAR build, checksum, GitHub release upload). The existing JAR from the previous release is reused. Still update `JAR_VERSION` in scripts to match the **previous release version** that has the JAR (do NOT bump to new version).
+
+If **server changed** — proceed with all steps.
+
+## Step 2: Update version numbers
+
+### Always update (plugin version):
 
 | File | Variable/Field | Example |
 |------|---------------|---------|
 | `pubspec.yaml` | `version:` | `version: <VERSION>` |
 | `ios/flutter_gemma.podspec` | `s.version` | `s.version = '<VERSION>'` |
-| `litertlm-server/build.gradle.kts` | `version =` | `version = "<VERSION>"` |
 | `CLAUDE.md` | `Current Version:` | `- **Current Version**: <VERSION>` |
+
+### Only if server changed (JAR version):
+
+| File | Variable/Field | Example |
+|------|---------------|---------|
+| `litertlm-server/build.gradle.kts` | `version =` | `version = "<VERSION>"` |
 | `macos/scripts/setup_desktop.sh:61` | `JAR_VERSION=` | `JAR_VERSION="<VERSION>"` |
 | `macos/scripts/prepare_resources.sh:42` | `JAR_VERSION=` | `JAR_VERSION="<VERSION>"` |
 | `linux/scripts/setup_desktop.sh:62` | `JAR_VERSION=` | `JAR_VERSION="<VERSION>"` |
 | `windows/scripts/setup_desktop.ps1:90` | `$JarVersion =` | `$JarVersion = "<VERSION>"` |
 
 > JAR_URL is auto-derived from JAR_VERSION in all scripts — no separate update needed.
+> If server didn't change, leave JAR_VERSION pointing to the last release that included a JAR rebuild.
 
-## Step 2: Update CHANGELOG.md
+## Step 3: Update CHANGELOG.md
 
 Add new section at top with all changes. Categories: features, fixes, breaking changes.
 
-## Step 3: Build JAR
+## Step 4: Build JAR (only if server changed)
 
 ```bash
 cd litertlm-server && ./gradlew fatJar
@@ -45,13 +61,13 @@ cd litertlm-server && ./gradlew fatJar
 
 Verify build success. JAR output: `litertlm-server/build/libs/litertlm-server-<VERSION>-all.jar`
 
-## Step 4: Compute new SHA256
+## Step 5: Compute new SHA256 (only if server changed)
 
 ```bash
 shasum -a 256 litertlm-server/build/libs/litertlm-server-*-all.jar
 ```
 
-## Step 5: Update JAR checksums in all 4 scripts
+## Step 6: Update JAR checksums (only if server changed)
 
 | File | Variable |
 |------|----------|
@@ -62,7 +78,7 @@ shasum -a 256 litertlm-server/build/libs/litertlm-server-*-all.jar
 
 JAR is cross-platform (JVM bytecode) — same checksum for all platforms.
 
-## Step 6: Verify
+## Step 7: Verify
 
 ```bash
 flutter analyze    # 0 errors
@@ -72,7 +88,7 @@ dart pub publish --dry-run   # 0 warnings
 
 **NEVER publish without dry-run first.** Publishing is IRREVERSIBLE.
 
-## Step 7: Create/update GitHub release
+## Step 8: Create/update GitHub release (only if server changed)
 
 ```bash
 # Create new release
@@ -91,14 +107,14 @@ Verify JAR URL returns 200:
 curl -sI "https://github.com/DenisovAV/flutter_gemma/releases/download/v<VERSION>/litertlm-server.jar" | head -1
 ```
 
-## Step 8: Commit & PR
+## Step 9: Commit & PR
 
 - Author: `--author="Sasha Denisov <denisov.shureg@gmail.com>"`
 - No AI attribution in commit messages
 - No "Co-Authored-By" or "Generated with Claude" footers
 - Create PR via `gh pr create`
 
-## Step 9: After merge — publish
+## Step 10: After merge — publish
 
 ```bash
 dart pub publish --dry-run   # verify one more time

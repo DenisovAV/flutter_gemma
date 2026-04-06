@@ -52,7 +52,7 @@ Flutter Gemma supports different model file formats, which are grouped into **tw
 
 ### Type 1: MediaPipe-Managed Templates
 - **`.task` files:** MediaPipe-optimized format for mobile (Android/iOS)
-- **`.litertlm` files:** LiteRT-LM format for Android (NPU) and Desktop platforms
+- **`.litertlm` files:** LiteRT-LM format for Android, iOS, and Desktop platforms
 
 Both formats have **identical behavior** — MediaPipe handles chat templates internally.
 
@@ -65,6 +65,18 @@ Both formats require **manual chat template formatting** in your code.
 **Note:** The plugin automatically detects the file extension and applies appropriate formatting. When specifying `ModelFileType` in your code:
 - Use `ModelFileType.task` for `.task` and `.litertlm` files (same behavior)
 - Use `ModelFileType.binary` for `.bin` and `.tflite` files (same behavior)
+
+### Format by Platform
+
+| Format | Android | iOS | Web | Desktop | Use Case |
+|--------|:-------:|:---:|:---:|:-------:|----------|
+| `.task` | ✅ | ✅ | ✅ | ❌ | Older models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) |
+| `.litertlm` | ✅ | ⚠️ ¹ | ❌ | ✅ | Newer models (Gemma 4, Qwen3, FastVLM + desktop for all) |
+| `-web.task` | ❌ | ❌ | ✅ | ❌ | Web-specific builds (e.g. Gemma 4, Gemma3n) |
+| `.bin` | ✅ | ✅ | ✅ | ❌ | Manual chat template formatting required |
+| `.tflite` | ✅ | ✅ | ✅ | ✅ | Embeddings only (EmbeddingGemma, Gecko) |
+
+> ¹ iOS `.litertlm` — text only, no vision or audio support
 
 ## Model Capabilities
 

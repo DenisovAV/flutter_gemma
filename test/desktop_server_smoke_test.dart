@@ -10,12 +10,12 @@ void main() {
 
   late LiteRtLmClient client;
 
-  setUp(() async {
+  setUpAll(() async {
     client = LiteRtLmClient();
     await client.connect(port: port);
   });
 
-  tearDown(() async {
+  tearDownAll(() async {
     await client.disconnect();
   });
 

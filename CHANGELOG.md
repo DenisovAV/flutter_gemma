@@ -1,3 +1,8 @@
+## 0.13.2
+- **FileSource absolute paths**: Accept both Unix (`/path`) and Windows (`C:\path`) absolute paths in FileSource validation
+- **Package metadata**: Updated pubspec description to reflect current feature set (desktop, vision, audio, function calling, embeddings, on-device RAG)
+- **Desktop CI**: Added Linux smoke tests for gRPC server integration
+
 ## 0.13.1
 - **LiteRT-LM 0.10.0**: Updated Android and JVM SDK from 0.9.0 to 0.10.0
 - **Gemma 4 Thinking Mode**: `isThinking: true` now works with Gemma 4 E2B/E4B models (Android, iOS, Desktop; not Web)

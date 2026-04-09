@@ -49,6 +49,22 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 .build()
         }
 
+        // Windows workaround: litertlm_jni.dll uses 32-bit stat() which overflows for files > 2 GiB.
+        // See: https://github.com/google-ai-edge/LiteRT-LM/issues/1494
+        if (System.getProperty("os.name")?.lowercase()?.contains("windows") == true
+            && modelFile.length() > 2L * 1024 * 1024 * 1024) {
+            val sizeGb = modelFile.length().toDouble() / (1024.0 * 1024.0 * 1024.0)
+            return InitializeResponse.newBuilder()
+                .setSuccess(false)
+                .setError(
+                    "Model file (%.1f GB) exceeds the 2 GB Windows limit. ".format(sizeGb) +
+                    "Known upstream bug in litertlm_jni.dll (google-ai-edge/LiteRT-LM#1494): " +
+                    "32-bit stat() overflows for files > 2 GB. " +
+                    "Use a smaller model (< 2 GB) until Google fixes this upstream."
+                )
+                .build()
+        }
+
         // Use mutex to protect engine state
         return engineMutex.withLock {
             try {

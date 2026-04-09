@@ -25,7 +25,7 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.33
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
-    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386 arm64',
     # Conditional force_load: only for device builds (TensorFlowLiteSelectTfOps doesn't have simulator slice)
     'OTHER_LDFLAGS[sdk=iphoneos*]' => '-force_load $(SRCROOT)/Pods/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps',
     'OTHER_LDFLAGS[sdk=iphonesimulator*]' => ''

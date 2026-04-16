@@ -427,5 +427,112 @@ void main() {
         await model.close();
       }
     }, timeout: const Timeout(Duration(minutes: 10)));
+
+    // C3: Disconnect during prefill — the most reliable way to trigger Bug B.
+    //     Prefill takes ~1-2s on Qwen 2.5. We start generation and close the
+    //     model after a short delay, before the first token arrives.
+    //     At that moment native sendMessageAsync is guaranteed to be running.
+    //     Without Fix B: awaitClose { } exits immediately → SIGSEGV.
+    //     After Fix B: cancelProcess() + done.await() → clean shutdown.
+    //
+    //     Success: a subsequent request on a NEW model instance works,
+    //     proving the server did not crash.
+    testWidgets('C3: disconnect during prefill does not crash server',
+        (tester) async {
+      await FlutterGemma.initialize();
+
+      await FlutterGemma.installModel(
+        modelType: ModelType.qwen,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(qwenModelPath).install();
+
+      // Long prompt forces a slow prefill (~1-2s), giving us a reliable window
+      // to disconnect before the first decode token arrives.
+      const longPrompt =
+          'Please write a very detailed essay about the history of computing, '
+          'starting from Charles Babbage and Ada Lovelace, through ENIAC, '
+          'transistors, integrated circuits, personal computers, the internet, '
+          'smartphones, and modern AI. Include technical details about each era. '
+          'This should be at least 2000 words.';
+
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        print(
+            '[C3] Attempt $attempt/3 — starting generation then disconnecting during prefill...');
+
+        final model1 = await FlutterGemma.getActiveModel(
+          maxTokens: 2048,
+          preferredBackend: PreferredBackend.gpu,
+        );
+
+        // Start generation and close immediately — race is guaranteed if
+        // prefill hasn't finished yet (typically ~1s for this prompt).
+        bool streamStarted = false;
+        final streamFuture = tester.runAsync(() async {
+          try {
+            final chat = await model1.createChat();
+            await chat.addQueryChunk(
+              const Message(text: longPrompt, isUser: true),
+            );
+            await for (final response in chat.generateChatResponseAsync()) {
+              if (response is TextResponse && response.token.isNotEmpty) {
+                streamStarted = true;
+                // First token received — stop consuming, trigger disconnect.
+                break;
+              }
+            }
+          } catch (_) {
+            // Expected: stream throws when model is closed mid-generation.
+          }
+        });
+
+        // Close the model 2s after starting — prefill takes ~4s on this prompt,
+        // so this hits squarely in the middle of prefill execution.
+        await Future<void>.delayed(const Duration(seconds: 2));
+        await model1.close();
+        print(
+            '[C3] Attempt $attempt: model1 closed (streamStarted=$streamStarted)');
+
+        // Wait for the stream future to settle.
+        await streamFuture;
+
+        // Give native code time to invoke the callback on a dead coroutine.
+        await Future<void>.delayed(const Duration(seconds: 1));
+
+        // If server crashed (SIGSEGV), the next model creation or request
+        // will fail / hang. This is the observable test signal.
+        print('[C3] Attempt $attempt — verifying server is still alive...');
+        final model2 = await FlutterGemma.getActiveModel(
+          maxTokens: 64,
+          preferredBackend: PreferredBackend.gpu,
+        );
+
+        try {
+          final chat2 = await model2.createChat();
+          await chat2.addQueryChunk(
+            const Message(text: 'Say "ok"', isUser: true),
+          );
+
+          final chunks = <String>[];
+          await tester.runAsync(() async {
+            await for (final response in chat2.generateChatResponseAsync()) {
+              if (response is TextResponse) chunks.add(response.token);
+            }
+          });
+
+          final text = chunks.join();
+          print(
+              '[C3] Attempt $attempt alive-check: "${text.length > 50 ? text.substring(0, 50) : text}"');
+          expect(text, isNotEmpty,
+              reason:
+                  'Server crashed after attempt $attempt disconnect during prefill. '
+                  'Bug B: empty awaitClose let coroutine exit while native code ran. '
+                  'See issue #219.');
+        } finally {
+          await model2.close();
+        }
+
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+      }
+    }, timeout: const Timeout(Duration(minutes: 15)));
   });
 }

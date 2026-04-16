@@ -19,7 +19,6 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.33
   s.dependency 'MediaPipeTasksGenAI', '= 0.10.33'
   s.dependency 'MediaPipeTasksGenAIC', '= 0.10.33'
   s.dependency 'TensorFlowLiteC', '0.0.1-nightly.20250619'
-  s.dependency 'TensorFlowLiteSwift', '0.0.1-nightly.20250619'
   s.dependency 'TensorFlowLiteSelectTfOps', '0.0.1-nightly.20250619'
   s.platform = :ios, '16.0'
 

@@ -58,9 +58,9 @@ JRE_CHECKSUM_X64="4a36280b411db58952bc97a26f96b184222b23d36ea5008a6ee34744989ff9
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.13.1"
+JAR_VERSION="0.13.3"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="97e01020f921c098f7cfc0a9509e4b207b8bc326703ae2f26bbce3c11b957430"
+JAR_CHECKSUM="6cb0ac8aa0b89c542bb9acd265c8881eb70e11e7aeab9f15d78197536b207e77"
 JAR_CACHE_DIR="$HOME/Library/Caches/flutter_gemma/jar"
 
 echo "Plugin root: $PLUGIN_ROOT"
@@ -480,6 +480,60 @@ ENTITLEMENTS
     echo "JRE signed with sandbox inheritance"
 }
 
+# === Download and install LiteRT Metal accelerator (GPU inference) ===
+# libLiteRtMetalAccelerator.dylib provides the Metal-based GPU sampler for LiteRT-LM.
+# Without it, inference falls back to the statically linked C API sampler, which
+# can crash with certain models (see: https://github.com/DenisovAV/flutter_gemma/issues/219).
+setup_litert_gpu() {
+    local NATIVES_DIR="$FRAMEWORKS_DIR/litertlm"
+    local METAL_DYLIB="$NATIVES_DIR/libLiteRtMetalAccelerator.dylib"
+
+    if [[ -f "$METAL_DYLIB" ]]; then
+        echo "LiteRT Metal accelerator already installed"
+        return 0
+    fi
+
+    if [[ "$ARCH" != "arm64" ]]; then
+        echo "WARNING: LiteRT Metal accelerator only available for arm64 macOS"
+        return 0
+    fi
+
+    local METAL_VERSION="0.13.1"
+    local METAL_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${METAL_VERSION}/libLiteRtMetalAccelerator.dylib"
+    local METAL_CHECKSUM="2a1ec5b062f509451d0377283c752e0dde7231b9e5cbb6eee927757f7c10fa65"
+    local CACHE_DIR="$HOME/Library/Caches/flutter_gemma/litert_gpu"
+    local CACHED="$CACHE_DIR/libLiteRtMetalAccelerator.dylib"
+
+    echo "Setting up LiteRT Metal accelerator (GPU inference)..."
+    mkdir -p "$CACHE_DIR" "$NATIVES_DIR"
+
+    if [[ ! -f "$CACHED" ]]; then
+        echo "Downloading from $METAL_URL..."
+        if ! curl -L -o "$CACHED" "$METAL_URL" --fail --retry 3 --progress-bar; then
+            echo "WARNING: Failed to download Metal accelerator — GPU inference may crash on some models"
+            echo "  See: https://github.com/DenisovAV/flutter_gemma/issues/219"
+            rm -f "$CACHED"
+            return 0
+        fi
+
+        local actual_checksum
+        actual_checksum=$(shasum -a 256 "$CACHED" | awk '{print $1}')
+        if [[ "$actual_checksum" != "$METAL_CHECKSUM" ]]; then
+            rm -f "$CACHED"
+            echo "WARNING: Metal accelerator checksum mismatch (expected $METAL_CHECKSUM, got $actual_checksum)"
+            return 0
+        fi
+        echo "Checksum verified"
+    else
+        echo "Using cached Metal accelerator"
+    fi
+
+    cp "$CACHED" "$METAL_DYLIB"
+    xattr -r -d com.apple.quarantine "$METAL_DYLIB" 2>/dev/null || true
+    codesign --force --sign - "$METAL_DYLIB"
+    echo "LiteRT Metal accelerator installed ($(du -h "$METAL_DYLIB" | cut -f1))"
+}
+
 # === Download and install TFLite C library (for desktop embeddings) ===
 setup_tflite() {
     local tflite_dest="$RESOURCES_DIR/tflite"
@@ -553,6 +607,7 @@ setup_tflite() {
 download_jre
 setup_jar
 extract_natives
+setup_litert_gpu
 setup_tflite
 remove_quarantine
 sign_jre

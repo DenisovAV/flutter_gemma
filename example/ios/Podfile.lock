@@ -4,13 +4,12 @@ PODS:
   - background_downloader (0.0.1):
     - Flutter
   - Flutter (1.0.0)
-  - flutter_gemma (0.13.0):
+  - flutter_gemma (0.13.3):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.33)
     - MediaPipeTasksGenAIC (= 0.10.33)
     - TensorFlowLiteC (= 0.0.1-nightly.20250619)
     - TensorFlowLiteSelectTfOps (= 0.0.1-nightly.20250619)
-    - TensorFlowLiteSwift (= 0.0.1-nightly.20250619)
   - image_picker_ios (0.0.1):
     - Flutter
   - integration_test (0.0.1):
@@ -37,12 +36,6 @@ PODS:
     - TensorFlowLiteC/Core (= 0.0.1-nightly.20250619)
   - TensorFlowLiteC/Core (0.0.1-nightly.20250619)
   - TensorFlowLiteSelectTfOps (0.0.1-nightly.20250619)
-  - TensorFlowLiteSwift (0.0.1-nightly.20250619):
-    - TensorFlowLiteSwift/Core (= 0.0.1-nightly.20250619)
-  - TensorFlowLiteSwift/Core (0.0.1-nightly.20250619):
-    - TensorFlowLiteC (= 0.0.1-nightly.20250619)
-    - TensorFlowLiteSwift/Privacy (= 0.0.1-nightly.20250619)
-  - TensorFlowLiteSwift/Privacy (0.0.1-nightly.20250619)
   - url_launcher_ios (0.0.1):
     - Flutter
 
@@ -67,7 +60,6 @@ SPEC REPOS:
     - MediaPipeTasksGenAIC
     - TensorFlowLiteC
     - TensorFlowLiteSelectTfOps
-    - TensorFlowLiteSwift
 
 EXTERNAL SOURCES:
   audio_session:
@@ -101,7 +93,7 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 68d9763fd4d9281348678039358bf3deb706c74b
+  flutter_gemma: 285a66dbfff8949e1eeef7dfeb76a5840fb49b16
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
@@ -114,7 +106,6 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   TensorFlowLiteC: 215ef57653dd0fa09a474e7d94d79ae64a870b28
   TensorFlowLiteSelectTfOps: c71d7dcd063f5d66ae1b9a85cc5aa993f824eff9
-  TensorFlowLiteSwift: 6de8da348de331778167a0f751ad74c41d8b0554
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
 PODFILE CHECKSUM: 3efd182c50317a46ac0f4e91a35a38918e286303

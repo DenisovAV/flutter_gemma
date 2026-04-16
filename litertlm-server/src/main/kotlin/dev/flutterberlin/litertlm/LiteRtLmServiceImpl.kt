@@ -4,12 +4,15 @@ import com.google.ai.edge.litertlm.*
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import dev.flutterberlin.litertlm.proto.*
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -215,6 +218,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             return@callbackFlow
         }
 
+        val done = CompletableDeferred<Unit>()
+
         try {
             logger.info("=== CHAT REQUEST ===")
             logger.info("conversationId: '${request.conversationId}'")
@@ -244,6 +249,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                             .setDone(true)
                             .build()
                     )
+                    done.complete(Unit)
                     close()
                     logger.debug("Chat completed for ${request.conversationId}")
                 }
@@ -256,6 +262,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                             .setDone(true)
                             .build()
                     )
+                    done.complete(Unit)
                     close(throwable)
                 }
             }
@@ -277,7 +284,19 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        awaitClose { }
+        // Wait for native sendMessageAsync to finish before allowing the coroutine
+        // to exit. Without this, a client disconnect (gRPC cancel / model.close())
+        // causes the coroutine to exit immediately while the native thread still
+        // holds a reference to messageCallback → SIGSEGV in jni_CallVoidMethodV.
+        // See: https://github.com/DenisovAV/flutter_gemma/issues/219
+        awaitClose {
+            try {
+                conversation.cancelProcess()
+            } catch (_: Exception) { /* conversation may already be closed */ }
+            runBlocking {
+                withTimeoutOrNull(5_000) { done.await() }
+            }
+        }
     }
 
     override suspend fun chatWithImageSync(request: ChatWithImageRequest): ChatResponse {
@@ -333,6 +352,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             return@callbackFlow
         }
 
+        val done = CompletableDeferred<Unit>()
+
         try {
             val imageBytes = request.image.toByteArray()
             logger.info("Chat with image request: text='${request.text.take(50)}', imageBytes=${imageBytes.size}, visionEnabled=$visionEnabled")
@@ -385,6 +406,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                             .setDone(true)
                             .build()
                     )
+                    done.complete(Unit)
                     close()
                 }
 
@@ -396,6 +418,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                             .setDone(true)
                             .build()
                     )
+                    done.complete(Unit)
                     close(throwable)
                 }
             }
@@ -417,7 +440,15 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        awaitClose { }
+        // See chat() awaitClose comment — same race condition applies here.
+        awaitClose {
+            try {
+                conversation.cancelProcess()
+            } catch (_: Exception) { /* conversation may already be closed */ }
+            runBlocking {
+                withTimeoutOrNull(5_000) { done.await() }
+            }
+        }
     }
 
     override fun chatWithAudio(request: ChatWithAudioRequest): Flow<ChatResponse> = callbackFlow {
@@ -432,6 +463,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close()
             return@callbackFlow
         }
+
+        val done = CompletableDeferred<Unit>()
 
         try {
             val audioBytes = request.audio.toByteArray()
@@ -485,6 +518,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                             .setDone(true)
                             .build()
                     )
+                    done.complete(Unit)
                     close()
                 }
 
@@ -496,6 +530,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                             .setDone(true)
                             .build()
                     )
+                    done.complete(Unit)
                     close(throwable)
                 }
             }
@@ -517,7 +552,15 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        awaitClose { }
+        // See chat() awaitClose comment — same race condition applies here.
+        awaitClose {
+            try {
+                conversation.cancelProcess()
+            } catch (_: Exception) { /* conversation may already be closed */ }
+            runBlocking {
+                withTimeoutOrNull(5_000) { done.await() }
+            }
+        }
     }
 
     override suspend fun cancelGeneration(request: CancelGenerationRequest): CancelGenerationResponse {

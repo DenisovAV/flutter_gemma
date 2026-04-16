@@ -20,6 +20,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
@@ -53,7 +54,7 @@ void main() {
         (tester) async {
       final response = await _headFollowingRedirects(client, _smallModelUrl);
       final acceptRanges = response.headers['accept-ranges'];
-      print('[CDN] Accept-Ranges: $acceptRanges');
+      debugPrint('[CDN] Accept-Ranges: $acceptRanges');
       expect(acceptRanges, equals('bytes'),
           reason: 'ParallelDownloadTask requires Range request support. '
               'If this fails, chunked download cannot be used with HuggingFace URLs.');
@@ -65,17 +66,17 @@ void main() {
         (tester) async {
       final response = await _headFollowingRedirects(client, _smallModelUrl);
       final contentLength = response.headers['content-length'];
-      print('[CDN] Content-Length: $contentLength');
+      debugPrint('[CDN] Content-Length: $contentLength');
 
       // Document result — don't hard-fail since CDN nodes may vary.
       // If null → ParallelDownloadTask will fail with HuggingFace URLs.
       if (contentLength == null) {
-        print('[CDN] WARNING: Content-Length missing after redirects. '
+        debugPrint('[CDN] WARNING: Content-Length missing after redirects. '
             'ParallelDownloadTask will NOT work with this HF URL. '
             'Workaround: pass Known-Content-Length header manually.');
       } else {
         final bytes = int.tryParse(contentLength) ?? 0;
-        print(
+        debugPrint(
             '[CDN] Model size: ${(bytes / 1024 / 1024).toStringAsFixed(1)} MB');
         expect(bytes, greaterThan(0),
             reason: 'Content-Length must be a positive integer');
@@ -90,20 +91,20 @@ void main() {
         (tester) async {
       final response = await _headFollowingRedirects(client, _smallModelUrl);
       final etag = response.headers['etag'];
-      print('[CDN] ETag: $etag');
+      debugPrint('[CDN] ETag: $etag');
 
       final isWeak = etag?.startsWith('W/') ?? false;
       final isStrong = etag != null && !isWeak;
-      print(
+      debugPrint(
           '[CDN] ETag is ${isWeak ? "WEAK" : isStrong ? "STRONG" : "ABSENT"}');
 
       if (isWeak) {
-        print('[CDN] KNOWN LIMITATION (issue #192): weak ETag prevents '
+        debugPrint('[CDN] KNOWN LIMITATION (issue #192): weak ETag prevents '
             'background_downloader from resuming interrupted downloads. '
             'timeout → fail → full restart from byte 0. '
             'Fix: wait for HF to switch to strong ETags, or use ParallelDownloadTask.');
       } else if (isStrong) {
-        print(
+        debugPrint(
             '[CDN] Strong ETag detected — allowPause: true fix is NOW viable! '
             'Consider re-enabling pause/resume for HuggingFace URLs.');
       }
@@ -140,7 +141,7 @@ void main() {
         modelType: ModelType.functionGemma,
         fileType: ModelFileType.task,
       ).fromNetwork(_smallModelUrl).withProgress((p) {
-        print('[Download] Progress: $p%');
+        debugPrint('[Download] Progress: $p%');
         progressValues.add(p);
       }).install();
 
@@ -173,7 +174,7 @@ void main() {
         if (p > 0 && p < maxProgress - 5) {
           progressReset = true;
           resetFromPercent = maxProgress;
-          print(
+          debugPrint(
               '[Download] Progress reset detected: was $maxProgress%, now $p%');
         }
         if (p > maxProgress) maxProgress = p;
@@ -234,7 +235,7 @@ void main() {
           fileType: ModelFileType.task,
         )
             .fromNetwork(_smallModelUrl, foreground: true)
-            .withProgress((p) => print('[Foreground] Progress: $p%'))
+            .withProgress((p) => debugPrint('[Foreground] Progress: $p%'))
             .install();
 
         expect(await FlutterGemma.isModelInstalled(_smallModelFilename), isTrue,
@@ -259,7 +260,7 @@ Future<http.Response> _headFollowingRedirects(
 
   while (hops < maxHops) {
     final response = await client.head(uri);
-    print('[CDN] HEAD $uri → ${response.statusCode}');
+    debugPrint('[CDN] HEAD $uri → ${response.statusCode}');
 
     if (response.statusCode == 301 ||
         response.statusCode == 302 ||
@@ -270,7 +271,7 @@ Future<http.Response> _headFollowingRedirects(
       uri = uri.resolve(location);
       hops++;
     } else {
-      print('[CDN] Final URL after $hops redirects: $uri');
+      debugPrint('[CDN] Final URL after $hops redirects: $uri');
       return response;
     }
   }

@@ -23,6 +23,9 @@ class EmbeddingModel {
     private var paddedTokensBuffer: [Int32] = []
     private var outputBuffer: [Float] = []
 
+    // XNNPack delegate — caller owns it in TFLiteC API, must be deleted after interpreter
+    private var xnnpackDelegate: OpaquePointer?
+
     // MARK: - Initialization
 
     init(modelPath: String, tokenizerPath: String, useGPU: Bool = true) {
@@ -54,9 +57,12 @@ class EmbeddingModel {
         // now resolved (pure Swift BPETokenizer).
         var xnnpackOptions = TfLiteXNNPackDelegateOptionsDefault()
         xnnpackOptions.num_threads = 6
-        if let xnnpackDelegate = TfLiteXNNPackDelegateCreate(&xnnpackOptions) {
-            TfLiteInterpreterOptionsAddDelegate(options, xnnpackDelegate)
-            // Delegate is owned by the interpreter after this point
+        // NOTE: TfLiteXNNPackDelegateCreate returns a caller-owned pointer.
+        // TfLiteInterpreterOptionsAddDelegate does NOT take ownership in the C API.
+        // We store it in self.xnnpackDelegate and delete it in close() AFTER the interpreter.
+        if let xDelegate = TfLiteXNNPackDelegateCreate(&xnnpackOptions) {
+            TfLiteInterpreterOptionsAddDelegate(options, xDelegate)
+            xnnpackDelegate = xDelegate
         }
 
         guard let interp = TfLiteInterpreterCreate(model, options) else {
@@ -104,6 +110,11 @@ class EmbeddingModel {
         if let interp = interpreter {
             TfLiteInterpreterDelete(interp)
             interpreter = nil
+        }
+        // Delete XNNPack delegate AFTER interpreter (interpreter must not use it after this)
+        if let xDelegate = xnnpackDelegate {
+            TfLiteXNNPackDelegateDelete(xDelegate)
+            xnnpackDelegate = nil
         }
         tokenizer = nil
         paddedTokensBuffer.removeAll()
@@ -156,8 +167,11 @@ class EmbeddingModel {
         if outputBuffer.count != floatCount {
             outputBuffer = [Float](repeating: 0.0, count: floatCount)
         }
-        outputBuffer.withUnsafeMutableBytes { ptr in
+        let outputStatus = outputBuffer.withUnsafeMutableBytes { ptr in
             TfLiteTensorCopyToBuffer(outputTensor, ptr.baseAddress!, outputByteCount)
+        }
+        guard outputStatus == kTfLiteOk else {
+            throw EmbeddingError.inferenceFailed("TfLiteTensorCopyToBuffer failed")
         }
 
         guard outputBuffer.count >= embeddingDimension else {

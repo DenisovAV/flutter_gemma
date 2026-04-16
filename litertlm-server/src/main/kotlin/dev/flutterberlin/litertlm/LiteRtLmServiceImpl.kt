@@ -298,7 +298,9 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // Hold the per-conversation mutex for the entire duration of sendMessageAsync.
             // closeConversation also acquires this mutex, so conversation.close() cannot
             // be called while native decode is running → prevents use-after-free SIGSEGV.
-            val convMutex = conversationMutexes.getOrPut(request.conversationId) { Mutex() }
+            // computeIfAbsent is used (not getOrPut) because it is atomic on ConcurrentHashMap:
+            // guarantees a single Mutex instance per conversationId under concurrent calls.
+            val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
             convMutex.withLock {
                 if (extraContext.isNotEmpty()) {
                     conversation.sendMessageAsync(message, messageCallback, extraContext)
@@ -461,11 +463,17 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
             }
 
-            // Use callback-based API (like Android does)
-            if (extraContext.isNotEmpty()) {
-                conversation.sendMessageAsync(message, messageCallback, extraContext)
-            } else {
-                conversation.sendMessageAsync(message, messageCallback)
+            // Hold per-conversation mutex (same pattern as chat()) to prevent
+            // closeConversation() from calling conversation.close() while native
+            // image decode is running → prevents use-after-free SIGSEGV.
+            val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
+            convMutex.withLock {
+                if (extraContext.isNotEmpty()) {
+                    conversation.sendMessageAsync(message, messageCallback, extraContext)
+                } else {
+                    conversation.sendMessageAsync(message, messageCallback)
+                }
+                withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {
             logger.error("Error starting chat with image", e)
@@ -478,14 +486,10 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        // See chat() awaitClose comment — same race condition applies here.
         awaitClose {
-            try {
-                conversation.cancelProcess()
-            } catch (_: Exception) { /* conversation may already be closed */ }
-            runBlocking {
-                withTimeoutOrNull(5_000) { done.await() }
-            }
+            active.set(false)
+            try { conversation.cancelProcess() } catch (_: Exception) { }
+            runBlocking { withTimeoutOrNull(5_000) { done.await() } }
         }
     }
 
@@ -584,11 +588,17 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
             }
 
-            // Use callback-based API (like Android does)
-            if (extraContext.isNotEmpty()) {
-                conversation.sendMessageAsync(message, messageCallback, extraContext)
-            } else {
-                conversation.sendMessageAsync(message, messageCallback)
+            // Hold per-conversation mutex (same pattern as chat()) to prevent
+            // closeConversation() from calling conversation.close() while native
+            // audio decode is running → prevents use-after-free SIGSEGV.
+            val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
+            convMutex.withLock {
+                if (extraContext.isNotEmpty()) {
+                    conversation.sendMessageAsync(message, messageCallback, extraContext)
+                } else {
+                    conversation.sendMessageAsync(message, messageCallback)
+                }
+                withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {
             logger.error("Error starting chat with audio", e)
@@ -601,14 +611,10 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        // See chat() awaitClose comment — same race condition applies here.
         awaitClose {
-            try {
-                conversation.cancelProcess()
-            } catch (_: Exception) { /* conversation may already be closed */ }
-            runBlocking {
-                withTimeoutOrNull(5_000) { done.await() }
-            }
+            active.set(false)
+            try { conversation.cancelProcess() } catch (_: Exception) { }
+            runBlocking { withTimeoutOrNull(5_000) { done.await() } }
         }
     }
 

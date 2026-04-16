@@ -25,8 +25,6 @@ import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-import 'inference_test_helpers.dart';
-
 // Small public model — 284 MB, no auth token required.
 const _smallModelUrl =
     'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task';

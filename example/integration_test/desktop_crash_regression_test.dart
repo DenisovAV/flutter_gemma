@@ -26,6 +26,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -106,7 +107,7 @@ void main() {
         });
 
         final text = chunks.join();
-        print(
+        debugPrint(
             '[A1] Response: "${text.length > 80 ? text.substring(0, 80) : text}"');
         expect(text, isNotEmpty,
             reason: 'First message must produce a response. '
@@ -154,7 +155,7 @@ void main() {
           });
 
           final text = chunks.join();
-          print(
+          debugPrint(
               '[A2] Message $i response: "${text.length > 60 ? text.substring(0, 60) : text}"');
           expect(text, isNotEmpty,
               reason: 'Message $i must produce a response. '
@@ -184,7 +185,7 @@ void main() {
       ).fromFile(modelPath).install();
 
       for (var cycle = 1; cycle <= 3; cycle++) {
-        print('[B1] Cycle $cycle/3 — opening model...');
+        debugPrint('[B1] Cycle $cycle/3 — opening model...');
         final model = await FlutterGemma.getActiveModel(
           maxTokens: 128,
           preferredBackend: PreferredBackend.gpu,
@@ -206,13 +207,13 @@ void main() {
           });
 
           final text = chunks.join();
-          print(
+          debugPrint(
               '[B1] Cycle $cycle response: "${text.length > 60 ? text.substring(0, 60) : text}"');
           expect(text, isNotEmpty,
               reason: 'Cycle $cycle must produce a response.');
         } finally {
           await model.close();
-          print('[B1] Cycle $cycle/3 — model closed');
+          debugPrint('[B1] Cycle $cycle/3 — model closed');
         }
 
         // Brief pause between cycles to allow gRPC teardown.
@@ -239,7 +240,7 @@ void main() {
       ).fromFile(modelPath).install();
 
       // First request: close the model after receiving just the first chunk.
-      print('[B2] Starting first request (will disconnect mid-stream)...');
+      debugPrint('[B2] Starting first request (will disconnect mid-stream)...');
       final model1 = await FlutterGemma.getActiveModel(
         maxTokens: 512,
         preferredBackend: PreferredBackend.gpu,
@@ -261,7 +262,7 @@ void main() {
                 chunksReceived++;
                 if (chunksReceived >= 3) {
                   // Disconnect mid-stream by closing the model.
-                  print(
+                  debugPrint(
                       '[B2] Disconnecting mid-stream after $chunksReceived chunks...');
                   break;
                 }
@@ -274,13 +275,13 @@ void main() {
       });
 
       await model1.close();
-      print('[B2] model1 closed (mid-stream disconnect done)');
+      debugPrint('[B2] model1 closed (mid-stream disconnect done)');
 
       // Give native code time to race (makes Bug B more likely to manifest).
       await Future<void>.delayed(const Duration(seconds: 2));
 
       // Second request: server must still be alive.
-      print(
+      debugPrint(
           '[B2] Starting second request (verifying server is still alive)...');
       final model2 = await FlutterGemma.getActiveModel(
         maxTokens: 128,
@@ -303,7 +304,7 @@ void main() {
         });
 
         final text = chunks.join();
-        print(
+        debugPrint(
             '[B2] Second response: "${text.length > 80 ? text.substring(0, 80) : text}"');
         expect(text, isNotEmpty,
             reason: 'Server must still respond after mid-stream disconnect. '
@@ -369,7 +370,7 @@ void main() {
         });
 
         final text = chunks.join();
-        print(
+        debugPrint(
             '[C1] Qwen response: "${text.length > 80 ? text.substring(0, 80) : text}"');
         expect(text, isNotEmpty,
             reason: 'First message on Qwen 2.5 must complete without SIGSEGV. '
@@ -417,7 +418,7 @@ void main() {
           });
 
           final text = chunks.join();
-          print(
+          debugPrint(
               '[C2] Msg $i: "${text.length > 60 ? text.substring(0, 60) : text}"');
           expect(text, isNotEmpty,
               reason:
@@ -456,7 +457,7 @@ void main() {
           'This should be at least 2000 words.';
 
       for (var attempt = 1; attempt <= 3; attempt++) {
-        print(
+        debugPrint(
             '[C3] Attempt $attempt/3 — starting generation then disconnecting during prefill...');
 
         final model1 = await FlutterGemma.getActiveModel(
@@ -489,7 +490,7 @@ void main() {
         // so this hits squarely in the middle of prefill execution.
         await Future<void>.delayed(const Duration(seconds: 2));
         await model1.close();
-        print(
+        debugPrint(
             '[C3] Attempt $attempt: model1 closed (streamStarted=$streamStarted)');
 
         // Wait for the stream future to settle.
@@ -500,7 +501,8 @@ void main() {
 
         // If server crashed (SIGSEGV), the next model creation or request
         // will fail / hang. This is the observable test signal.
-        print('[C3] Attempt $attempt — verifying server is still alive...');
+        debugPrint(
+            '[C3] Attempt $attempt — verifying server is still alive...');
         final model2 = await FlutterGemma.getActiveModel(
           maxTokens: 64,
           preferredBackend: PreferredBackend.gpu,
@@ -520,7 +522,7 @@ void main() {
           });
 
           final text = chunks.join();
-          print(
+          debugPrint(
               '[C3] Attempt $attempt alive-check: "${text.length > 50 ? text.substring(0, 50) : text}"');
           expect(text, isNotEmpty,
               reason:

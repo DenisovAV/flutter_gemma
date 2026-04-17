@@ -192,27 +192,6 @@ platform :ios, '16.0'  # Required for MediaPipe GenAI
 use_frameworks! :linkage => :static
 ```
 
-* **For embedding models**, add force_load to `Podfile`'s post_install hook:
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-
-    # Required for embedding models (TensorFlow Lite SelectTfOps)
-    if target.name == 'Runner'
-      target.build_configurations.each do |config|
-        sdk = config.build_settings['SDKROOT']
-        if sdk.nil? || !sdk.include?('simulator')
-          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
-          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
-          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
-        end
-      end
-    end
-  end
-end
-```
-
 **Android**
 
 * If you want to use a GPU to work with the model, you need to add OpenGL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
@@ -2213,7 +2192,7 @@ final supported = await FlutterGemma.isStreamingSupported();
 - **Memory entitlements:** Required for large models (see Setup section)
 - **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
 - **Storage:** Local file system in app documents directory
-- **Embedding models:** Require force_load for TensorFlowLiteSelectTfOps in Podfile (see Setup section)
+- **Embedding models:** Supported via TensorFlowLiteC — no extra Podfile configuration needed
 
 The full and complete example you can find in `example` folder
 
@@ -2253,29 +2232,6 @@ The full and complete example you can find in `example` folder
 - Use static linking: `use_frameworks! :linkage => :static`
 - Clean and reinstall pods: `cd ios && pod install --repo-update`
 - Check that all required entitlements are in `Runner.entitlements`
-
-**iOS Embedding Models:**
-For embedding models on iOS, you must add force_load to your Podfile's post_install hook:
-
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-
-    # Required for embedding models
-    if target.name == 'Runner'
-      target.build_configurations.each do |config|
-        sdk = config.build_settings['SDKROOT']
-        if sdk.nil? || !sdk.include?('simulator')
-          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
-          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
-          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
-        end
-      end
-    end
-  end
-end
-```
 
 ## Advanced Usage
 

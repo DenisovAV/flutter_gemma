@@ -234,11 +234,27 @@ class LiteRtLmFfiClient {
   }
 
   /// Extract text from a LiteRT-LM JSON response chunk.
-  /// Input: `{"role":"assistant","content":[{"type":"text","text":"hello"}]}`
-  /// Output: `"hello"`
+  ///
+  /// Handles two response formats:
+  /// - Text: `{"role":"assistant","content":[{"type":"text","text":"hello"}]}`
+  ///   → returns `"hello"`
+  /// - Thinking: `{"role":"assistant","channels":{"thought":"reasoning..."}}`
+  ///   → returns `<|channel>thought\nreasoning...<channel|>`
+  ///   (compatible with ThinkingFilter in extensions.dart)
   static String extractTextFromResponse(String jsonStr) {
     try {
       final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      // Check for thinking channels first
+      final channels = json['channels'] as Map<String, dynamic>?;
+      if (channels != null) {
+        final thought = channels['thought'] as String?;
+        if (thought != null && thought.isNotEmpty) {
+          return '<|channel>thought\n$thought<channel|>';
+        }
+      }
+
+      // Regular text content
       final content = json['content'] as List<dynamic>?;
       if (content == null) return jsonStr;
       final buffer = StringBuffer();

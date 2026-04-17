@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -119,10 +120,23 @@ class LiteRtLmFfiClient {
         calloc.free(cacheDirPtr);
       }
 
-      // Create engine (loads model, compiles shaders etc.)
+      // Create engine in a background isolate to avoid blocking UI.
+      // Pass settings pointer as int address (Pointer can't cross isolates).
       debugPrint('[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...');
+      final settingsAddr = settings.address;
       final sw = Stopwatch()..start();
-      _engine = b.litert_lm_engine_create(settings);
+      final engineAddr = await Isolate.run(() {
+        final lib = Platform.isMacOS
+            ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
+            : Platform.isLinux
+                ? DynamicLibrary.open('libLiteRtLm.so')
+                : DynamicLibrary.open('LiteRtLm.dll');
+        final create = lib.lookupFunction<
+            Pointer Function(Pointer),
+            Pointer Function(Pointer)>('litert_lm_engine_create');
+        return create(Pointer.fromAddress(settingsAddr)).address;
+      });
+      _engine = Pointer<LiteRtLmEngine>.fromAddress(engineAddr);
       sw.stop();
       debugPrint('[LiteRtLmFfi] litert_lm_engine_create took ${sw.elapsedMilliseconds}ms');
       b.litert_lm_engine_settings_delete(settings);

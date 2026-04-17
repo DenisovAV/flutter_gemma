@@ -220,13 +220,13 @@ class LiteRtLmFfiClient {
     if (imageBytes != null) {
       content.add({
         'type': 'image',
-        'data': base64Encode(imageBytes),
+        'blob': base64Encode(imageBytes),
       });
     }
     if (audioBytes != null) {
       content.add({
         'type': 'audio',
-        'data': base64Encode(audioBytes),
+        'blob': base64Encode(audioBytes),
       });
     }
     content.add({'type': 'text', 'text': text});

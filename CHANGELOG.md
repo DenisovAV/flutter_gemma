@@ -1,3 +1,7 @@
+## 0.13.4
+- **Fix iOS compile error (#222)**: XNNPack delegate type mismatch in `EmbeddingModel.swift`
+- **Fix iOS arm64 simulator (#216)**: Removed `TensorFlowLiteSelectTfOps` — simulator builds work on Apple Silicon
+
 ## 0.13.3
 - **Fix macOS SIGSEGV (#219)**: Per-conversation mutex in gRPC server prevents `conversation.close()` racing with `sendMessageAsync` on a native thread → use-after-free in C++ fixed
 - **Fix macOS desktop Metal accelerator**: `setup_desktop.sh` now downloads `libLiteRtMetalAccelerator.dylib` from GitHub Release so GPU inference uses the Metal delegate instead of falling back to static C API

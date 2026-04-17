@@ -24,7 +24,7 @@ class EmbeddingModel {
     private var outputBuffer: [Float] = []
 
     // XNNPack delegate — caller owns it in TFLiteC API, must be deleted after interpreter
-    private var xnnpackDelegate: OpaquePointer?
+    private var xnnpackDelegate: UnsafeMutablePointer<TfLiteDelegate>?
 
     // MARK: - Initialization
 

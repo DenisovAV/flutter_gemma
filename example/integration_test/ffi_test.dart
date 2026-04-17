@@ -48,6 +48,40 @@ void main() {
       print('CPU TEST PASSED');
     });
 
+    testWidgets('GPU: install → create → session → chat', (tester) async {
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(_modelPath).install();
+
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.gpu,
+      );
+      expect(model, isNotNull);
+      print('GPU Model created');
+
+      final session = await model.createSession(
+        temperature: 0.8,
+        topK: 1,
+      );
+      expect(session, isNotNull);
+      print('GPU Session created');
+
+      await session.addQueryChunk(const Message(
+        text: 'What is 2+2?',
+        isUser: true,
+      ));
+
+      final response = await session.getResponse();
+      print('GPU Response: $response');
+      expect(response, isNotEmpty);
+
+      await session.close();
+      await model.close();
+      print('GPU TEST PASSED');
+    });
+
     testWidgets('CPU: streaming response', (tester) async {
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,

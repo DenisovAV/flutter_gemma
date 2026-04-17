@@ -10,6 +10,8 @@ import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
 import '../core/di/service_registry.dart';
+import '../core/ffi/litert_lm_client.dart';
+import '../core/ffi/ffi_inference_model.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
@@ -333,30 +335,64 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     debugPrint('Using unified model file: $modelPath');
 
     try {
-      await _platformService.createModel(
-        maxTokens: maxTokens,
-        modelPath: modelPath,
-        loraRanks: loraRanks ?? supportedLoraRanks,
-        preferredBackend: preferredBackend,
-        maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
-        supportAudio: supportAudio ? true : null, // Pass to native (Android/iOS)
-      );
+      final InferenceModel model;
 
-      final model = _initializedModel = MobileInferenceModel(
-        maxTokens: maxTokens,
-        modelType: modelType,
-        fileType: fileType,
-        preferredBackend: preferredBackend,
-        supportedLoraRanks: loraRanks ?? supportedLoraRanks,
-        supportImage: supportImage,
-        supportAudio: supportAudio,
-        maxNumImages: maxNumImages,
-        onClose: () {
-          _initializedModel = null;
-          _initCompleter = null;
-          _lastActiveInferenceSpec = null;
-        },
-      );
+      // .litertlm files on iOS → use FFI (same as desktop)
+      // .task/.bin files → use MediaPipe via Pigeon (existing path)
+      if (fileType == ModelFileType.litertlm && Platform.isIOS) {
+        debugPrint('[FlutterGemmaMobile] Using FFI path for .litertlm on iOS');
+        final cacheDir = (await getApplicationSupportDirectory()).path;
+        final ffiClient = LiteRtLmFfiClient();
+        await ffiClient.initialize(
+          modelPath: modelPath,
+          backend: preferredBackend == PreferredBackend.cpu ? 'cpu' : 'gpu',
+          maxTokens: maxTokens,
+          cacheDir: cacheDir,
+          enableVision: supportImage,
+          maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
+          enableAudio: supportAudio,
+        );
+
+        model = _initializedModel = FfiInferenceModel(
+          ffiClient: ffiClient,
+          maxTokens: maxTokens,
+          modelType: modelType,
+          fileType: fileType,
+          supportImage: supportImage,
+          supportAudio: supportAudio,
+          onClose: () {
+            _initializedModel = null;
+            _initCompleter = null;
+            _lastActiveInferenceSpec = null;
+          },
+        );
+      } else {
+        // MediaPipe path (Android, iOS .task files)
+        await _platformService.createModel(
+          maxTokens: maxTokens,
+          modelPath: modelPath,
+          loraRanks: loraRanks ?? supportedLoraRanks,
+          preferredBackend: preferredBackend,
+          maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
+          supportAudio: supportAudio ? true : null,
+        );
+
+        model = _initializedModel = MobileInferenceModel(
+          maxTokens: maxTokens,
+          modelType: modelType,
+          fileType: fileType,
+          preferredBackend: preferredBackend,
+          supportedLoraRanks: loraRanks ?? supportedLoraRanks,
+          supportImage: supportImage,
+          supportAudio: supportAudio,
+          maxNumImages: maxNumImages,
+          onClose: () {
+            _initializedModel = null;
+            _initCompleter = null;
+            _lastActiveInferenceSpec = null;
+          },
+        );
+      }
 
       // Save the spec that was used to create this model
       _lastActiveInferenceSpec = activeModel as InferenceModelSpec;

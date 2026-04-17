@@ -15,6 +15,7 @@ import '../core/chat.dart';
 import '../core/di/service_registry.dart';
 import '../core/extensions.dart';
 import '../core/ffi/litert_lm_client.dart';
+import '../core/ffi/ffi_inference_model.dart';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart'
     show SentencePieceConfig, SentencePieceTokenizer, TokenizerJsonLoader;

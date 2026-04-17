@@ -6,20 +6,29 @@ import 'package:hooks/hooks.dart';
 const _packageName = 'flutter_gemma';
 const _mainLibName = 'LiteRtLm';
 
-String _prebuiltDirName(OS os, Architecture arch) {
+/// Resolve prebuilt directory name for the given OS + architecture.
+/// iOS distinguishes device vs simulator via IOSSdk.
+String _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
+  if (os == OS.iOS) {
+    if (iOSSdk == IOSSdk.iPhoneSimulator) {
+      return 'ios_sim_${_archName(arch)}';
+    }
+    return 'ios_${_archName(arch)}';
+  }
   final osName = switch (os) {
     OS.macOS => 'macos',
     OS.linux => 'linux',
     OS.windows => 'windows',
     _ => throw UnsupportedError('Unsupported OS: $os'),
   };
-  final archName = switch (arch) {
-    Architecture.arm64 => 'arm64',
-    Architecture.x64 => 'x86_64',
-    _ => throw UnsupportedError('Unsupported arch: $arch'),
-  };
-  return '${osName}_$archName';
+  return '${osName}_${_archName(arch)}';
 }
+
+String _archName(Architecture arch) => switch (arch) {
+      Architecture.arm64 => 'arm64',
+      Architecture.x64 => 'x86_64',
+      _ => throw UnsupportedError('Unsupported arch: $arch'),
+    };
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
@@ -28,10 +37,15 @@ void main(List<String> args) async {
     final codeConfig = input.config.code;
     final os = codeConfig.targetOS;
 
-    if (os != OS.macOS && os != OS.linux && os != OS.windows) return;
+    // Supported platforms: desktop + iOS
+    // Android uses JNI engine, Web uses MediaPipe JS
+    if (os != OS.macOS && os != OS.linux && os != OS.windows && os != OS.iOS) {
+      return;
+    }
 
     final arch = codeConfig.targetArchitecture;
-    final dirName = _prebuiltDirName(os, arch);
+    final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
+    final dirName = _prebuiltDirName(os, arch, iOSSdk: iOSSdk);
     final prebuiltDir =
         input.packageRoot.resolve('native/litert_lm/prebuilt/$dirName/');
 
@@ -41,10 +55,6 @@ void main(List<String> args) async {
       throw Exception('Main library not found: $mainFileUri');
     }
 
-    // Only the main C API library is a CodeAsset.
-    // Companion libs (accelerators, constraint provider) are copied
-    // by platform build scripts to preserve their original filenames
-    // (Dart SDK renames dylibs inside frameworks, breaking dlopen).
     output.assets.code.add(
       CodeAsset(
         package: _packageName,
@@ -55,7 +65,6 @@ void main(List<String> args) async {
     );
 
     // Stream proxy — tiny C lib that copies callback strings to heap
-    // so NativeCallable.listener receives valid pointers
     final proxyFileName = os.dylibFileName('StreamProxy');
     final proxyFileUri = prebuiltDir.resolve(proxyFileName);
     if (File.fromUri(proxyFileUri).existsSync()) {

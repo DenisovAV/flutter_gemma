@@ -60,10 +60,11 @@ class EmbeddingModel {
         // NOTE: TfLiteXNNPackDelegateCreate returns a caller-owned pointer.
         // TfLiteInterpreterOptionsAddDelegate does NOT take ownership in the C API.
         // We store it in self.xnnpackDelegate and delete it in close() AFTER the interpreter.
-        if let xDelegate = TfLiteXNNPackDelegateCreate(&xnnpackOptions) {
-            TfLiteInterpreterOptionsAddDelegate(options, xDelegate)
-            xnnpackDelegate = xDelegate
+        guard let xDelegate = TfLiteXNNPackDelegateCreate(&xnnpackOptions) else {
+            throw EmbeddingError.modelLoadFailed("XNNPack delegate creation failed — required for correct mixed-precision inference")
         }
+        TfLiteInterpreterOptionsAddDelegate(options, xDelegate)
+        xnnpackDelegate = xDelegate
 
         guard let interp = TfLiteInterpreterCreate(model, options) else {
             throw EmbeddingError.modelLoadFailed("TfLiteInterpreterCreate failed")

@@ -415,7 +415,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Find flutter_gemma plugin path\nPLUGIN_PATH=\"${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos\"\nif [ -f \"$PLUGIN_PATH/scripts/setup_desktop.sh\" ]; then\n  sh \"$PLUGIN_PATH/scripts/setup_desktop.sh\" \"$PLUGIN_PATH\" \"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app\"\nfi\n";
+			shellScript = "# Copy LiteRT-LM companion libraries to Frameworks\n# These are loaded by libLiteRtLm via dlopen at runtime\nPLUGIN_PATH=\"${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma\"\nPREBUILT=\"$PLUGIN_PATH/native/litert_lm/prebuilt/macos_arm64\"\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\nfor lib in libGemmaModelConstraintProvider.dylib libLiteRtMetalAccelerator.dylib libLiteRtTopKWebGpuSampler.dylib; do\n  if [ -f \"$PREBUILT/$lib\" ]; then\n    cp -f \"$PREBUILT/$lib\" \"$FRAMEWORKS/$lib\"\n    codesign --force --sign - \"$FRAMEWORKS/$lib\" 2>/dev/null || true\n  fi\ndone\n";
 		};
 		A8E9FFDD1D6DFFDCCA844887 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;

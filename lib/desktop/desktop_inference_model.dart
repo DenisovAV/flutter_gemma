@@ -1,18 +1,18 @@
 part of 'flutter_gemma_desktop.dart';
 
-/// Desktop implementation of InferenceModel using gRPC
+/// Desktop implementation of InferenceModel using dart:ffi → LiteRT-LM C API
 class DesktopInferenceModel extends InferenceModel {
   DesktopInferenceModel({
-    required this.grpcClient,
+    required this.ffiClient,
     required this.maxTokens,
     required this.modelType,
-    this.fileType = ModelFileType.task,
+    this.fileType = ModelFileType.litertlm,
     this.supportImage = false,
     this.supportAudio = false,
     required this.onClose,
   });
 
-  final LiteRtLmClient grpcClient;
+  final LiteRtLmFfiClient ffiClient;
   final ModelType modelType;
   @override
   final ModelFileType fileType;
@@ -52,16 +52,17 @@ class DesktopInferenceModel extends InferenceModel {
     final completer = _createCompleter = Completer<InferenceModelSession>();
 
     try {
-      // Create conversation on server with sampler config
-      await grpcClient.createConversation(
+      // Create conversation on the native engine
+      ffiClient.createConversation(
         systemMessage: systemInstruction,
         temperature: temperature,
         topK: topK,
         topP: topP,
+        seed: randomSeed,
       );
 
       final session = _session = DesktopInferenceModelSession(
-        grpcClient: grpcClient,
+        ffiClient: ffiClient,
         modelType: modelType,
         fileType: fileType,
         supportImage: enableVisionModality ?? supportImage,
@@ -133,30 +134,19 @@ class DesktopInferenceModel extends InferenceModel {
     try {
       await _session?.close();
     } finally {
-      try {
-        await grpcClient.shutdown();
-      } finally {
-        try {
-          await grpcClient.disconnect();
-        } finally {
-          onClose();
-        }
-      }
+      ffiClient.shutdown();
+      onClose();
     }
   }
 }
 
-/// Desktop implementation of InferenceModelSession.
+/// Desktop implementation of InferenceModelSession using dart:ffi.
 ///
-/// Uses gRPC to communicate with the LiteRT-LM server.
-/// Buffers query chunks, images, and audio until [getResponse] is called.
-///
-/// **Thread Safety:** This session is NOT thread-safe. All method calls
-/// must originate from the same isolate. Concurrent access from multiple
-/// isolates may cause undefined behavior.
+/// Buffers query chunks until [getResponse] is called, then sends
+/// the complete message to LiteRT-LM via the C API.
 class DesktopInferenceModelSession extends InferenceModelSession {
   DesktopInferenceModelSession({
-    required this.grpcClient,
+    required this.ffiClient,
     required this.modelType,
     required this.fileType,
     required this.supportImage,
@@ -165,7 +155,7 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     required this.onClose,
   });
 
-  final LiteRtLmClient grpcClient;
+  final LiteRtLmFfiClient ffiClient;
   final ModelType modelType;
   final ModelFileType fileType;
   final bool supportImage;
@@ -187,8 +177,8 @@ class DesktopInferenceModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     _assertNotClosed();
-    debugPrint('[DesktopSession] addQueryChunk: hasAudio=${message.hasAudio}, audioBytes=${message.audioBytes?.length}, supportAudio=$supportAudio');
 
+    // For .litertlm on desktop, LiteRT-LM handles templates — use raw text
     final prompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
     _queryBuffer.write(prompt);
 
@@ -208,27 +198,19 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
 
-    // Capture and clear pending media BEFORE making the call
-    // This prevents stale media from being reused if the call fails
     final audio = _pendingAudio;
     final image = _pendingImage;
     _pendingAudio = null;
     _pendingImage = null;
 
     final buffer = StringBuffer();
-
-    if (audio != null) {
-      await for (final token in grpcClient.chatWithAudio(text, audio, enableThinking: enableThinking)) {
-        buffer.write(token);
-      }
-    } else if (image != null) {
-      await for (final token in grpcClient.chatWithImage(text, image, enableThinking: enableThinking)) {
-        buffer.write(token);
-      }
-    } else {
-      await for (final token in grpcClient.chat(text, enableThinking: enableThinking)) {
-        buffer.write(token);
-      }
+    await for (final token in ffiClient.chat(
+      text,
+      imageBytes: image,
+      audioBytes: audio,
+      enableThinking: enableThinking,
+    )) {
+      buffer.write(token);
     }
 
     return buffer.toString();
@@ -241,49 +223,37 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
 
-    // Capture and clear pending media BEFORE making the call
-    // This prevents stale media from being reused if the call fails
     final audio = _pendingAudio;
     final image = _pendingImage;
     _pendingAudio = null;
     _pendingImage = null;
 
-    debugPrint('[DesktopSession] getResponseAsync: audio=${audio?.length}, image=${image?.length}');
-
-    if (audio != null) {
-      debugPrint('[DesktopSession] Calling chatWithAudio: audio=${audio.length} bytes');
-      yield* grpcClient.chatWithAudio(text, audio, enableThinking: enableThinking);
-    } else if (image != null) {
-      debugPrint('[DesktopSession] Calling chatWithImage: image=${image.length} bytes');
-      yield* grpcClient.chatWithImage(text, image, enableThinking: enableThinking);
-    } else {
-      debugPrint('[DesktopSession] Calling chat (no image/audio)');
-      yield* grpcClient.chat(text, enableThinking: enableThinking);
-    }
+    yield* ffiClient.chat(
+      text,
+      imageBytes: image,
+      audioBytes: audio,
+      enableThinking: enableThinking,
+    );
   }
 
   @override
   Future<int> sizeInTokens(String text) async {
-    // Approximate token count (LiteRT-LM doesn't expose tokenizer directly)
-    // Using ~4 chars per token as rough estimate
+    // Approximate token count (LiteRT-LM C API doesn't expose tokenizer)
     return (text.length / 4).ceil();
   }
 
   @override
   Future<void> stopGeneration() async {
-    await grpcClient.cancelGeneration();
+    ffiClient.cancelGeneration();
   }
 
   @override
   Future<void> close() async {
     _isClosed = true;
-
-    // Clear pending buffers to prevent memory leaks
     _queryBuffer.clear();
     _pendingImage = null;
     _pendingAudio = null;
-
-    await grpcClient.closeConversation();
+    ffiClient.closeConversation();
     onClose();
   }
 }

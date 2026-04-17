@@ -204,13 +204,13 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     _pendingImage = null;
 
     final buffer = StringBuffer();
-    await for (final token in ffiClient.chat(
+    await for (final jsonChunk in ffiClient.chat(
       text,
       imageBytes: image,
       audioBytes: audio,
       enableThinking: enableThinking,
     )) {
-      buffer.write(token);
+      buffer.write(_extractText(jsonChunk));
     }
 
     return buffer.toString();
@@ -228,12 +228,34 @@ class DesktopInferenceModelSession extends InferenceModelSession {
     _pendingAudio = null;
     _pendingImage = null;
 
-    yield* ffiClient.chat(
+    await for (final jsonChunk in ffiClient.chat(
       text,
       imageBytes: image,
       audioBytes: audio,
       enableThinking: enableThinking,
-    );
+    )) {
+      yield _extractText(jsonChunk);
+    }
+  }
+
+  /// Extract text from LiteRT-LM JSON response chunk.
+  /// Input: {"role":"assistant","content":[{"type":"text","text":"hello"}]}
+  /// Output: "hello"
+  static String _extractText(String jsonStr) {
+    try {
+      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final content = json['content'] as List<dynamic>?;
+      if (content == null) return jsonStr;
+      final parts = <String>[];
+      for (final item in content) {
+        if (item is Map<String, dynamic> && item['type'] == 'text') {
+          parts.add(item['text'] as String? ?? '');
+        }
+      }
+      return parts.join();
+    } catch (_) {
+      return jsonStr;
+    }
   }
 
   @override

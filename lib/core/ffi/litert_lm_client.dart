@@ -153,61 +153,57 @@ class LiteRtLmFfiClient {
     _assertInitialized();
     final b = _bindings!;
 
-    // Create session config with sampler params
-    final sessionConfig = b.litert_lm_session_config_create();
-
-    final samplerParams = calloc<LiteRtLmSamplerParams>();
-    samplerParams.ref.typeAsInt = topP != null ? 2 : 1; // kTopP=2, kTopK=1
-    samplerParams.ref.top_k = topK;
-    samplerParams.ref.top_p = topP ?? 0.95;
-    samplerParams.ref.temperature = temperature;
-    samplerParams.ref.seed = seed;
-    b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
-    calloc.free(samplerParams);
-
-    // Create conversation config
-    final systemPtr = systemMessage != null
-        ? systemMessage.toNativeUtf8()
-        : nullptr;
-    final toolsPtr = toolsJson != null
-        ? toolsJson.toNativeUtf8()
-        : nullptr;
-
-    final convConfig = b.litert_lm_conversation_config_create(
-      _engine!,
-      sessionConfig,
-      systemPtr == nullptr ? nullptr : systemPtr.cast(),
-      toolsPtr == nullptr ? nullptr : toolsPtr.cast(),
-      nullptr, // messages_json
-      toolsJson != null, // enable_constrained_decoding
-    );
-
-    b.litert_lm_session_config_delete(sessionConfig);
-    if (systemPtr != nullptr) calloc.free(systemPtr);
-    if (toolsPtr != nullptr) calloc.free(toolsPtr);
-
-    debugPrint('[LiteRtLmFfi] convConfig address: ${convConfig.address}');
-    if (convConfig == nullptr) {
-      throw Exception('Failed to create conversation config');
-    }
-
     // Close existing conversation if any
     if (_conversation != null && _conversation != nullptr) {
       b.litert_lm_conversation_delete(_conversation!);
+      _conversation = null;
     }
 
-    debugPrint('[LiteRtLmFfi] Creating conversation (trying with config)...');
-    _conversation = b.litert_lm_conversation_create(_engine!, convConfig);
-    debugPrint('[LiteRtLmFfi] conversation address: ${_conversation?.address}');
+    // Only create custom config if system message or tools are provided.
+    // Default config (nullptr) uses model's built-in sampler params.
+    Pointer<LiteRtLmConversationConfig>? convConfig;
+    if (systemMessage != null || toolsJson != null) {
+      final sessionConfig = b.litert_lm_session_config_create();
 
-    if (_conversation == nullptr) {
-      // Config-based creation failed — try with default config (nullptr)
-      debugPrint('[LiteRtLmFfi] Config failed, trying with nullptr...');
-      _conversation = b.litert_lm_conversation_create(_engine!, nullptr);
-      debugPrint('[LiteRtLmFfi] conversation (nullptr config) address: ${_conversation?.address}');
+      final samplerParams = calloc<LiteRtLmSamplerParams>();
+      samplerParams.ref.typeAsInt = topP != null ? 2 : 1;
+      samplerParams.ref.top_k = topK;
+      samplerParams.ref.top_p = topP ?? 0.95;
+      samplerParams.ref.temperature = temperature;
+      samplerParams.ref.seed = seed;
+      b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
+      calloc.free(samplerParams);
+
+      final systemPtr = systemMessage?.toNativeUtf8();
+      final toolsPtr = toolsJson?.toNativeUtf8();
+
+      convConfig = b.litert_lm_conversation_config_create(
+        _engine!,
+        sessionConfig,
+        systemPtr?.cast() ?? nullptr,
+        toolsPtr?.cast() ?? nullptr,
+        nullptr,
+        toolsJson != null,
+      );
+
+      b.litert_lm_session_config_delete(sessionConfig);
+      if (systemPtr != null) calloc.free(systemPtr);
+      if (toolsPtr != null) calloc.free(toolsPtr);
+
+      if (convConfig == nullptr) {
+        debugPrint('[LiteRtLmFfi] Custom config failed, using default');
+        convConfig = null;
+      }
     }
 
-    b.litert_lm_conversation_config_delete(convConfig);
+    _conversation = b.litert_lm_conversation_create(
+      _engine!,
+      convConfig ?? nullptr,
+    );
+
+    if (convConfig != null && convConfig != nullptr) {
+      b.litert_lm_conversation_config_delete(convConfig);
+    }
 
     if (_conversation == null || _conversation == nullptr) {
       throw Exception('Failed to create conversation');
@@ -237,11 +233,27 @@ class LiteRtLmFfiClient {
     return jsonEncode({'role': 'user', 'content': content});
   }
 
-  /// Send a message and get streaming response.
-  ///
-  /// [text] is the user message text.
-  /// [extraContext] is optional JSON for extra context (e.g. thinking mode).
-  /// Returns a Stream of text chunks.
+  /// Extract text from a LiteRT-LM JSON response chunk.
+  /// Input: `{"role":"assistant","content":[{"type":"text","text":"hello"}]}`
+  /// Output: `"hello"`
+  static String extractTextFromResponse(String jsonStr) {
+    try {
+      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+      final content = json['content'] as List<dynamic>?;
+      if (content == null) return jsonStr;
+      final buffer = StringBuffer();
+      for (final item in content) {
+        if (item is Map<String, dynamic> && item['type'] == 'text') {
+          buffer.write(item['text'] as String? ?? '');
+        }
+      }
+      return buffer.toString();
+    } catch (_) {
+      return jsonStr;
+    }
+  }
+
+  /// Send a message and get streaming response as plain text chunks.
   Stream<String> chat(String text, {
     Uint8List? imageBytes,
     Uint8List? audioBytes,
@@ -249,7 +261,8 @@ class LiteRtLmFfiClient {
   }) {
     final messageJson = buildMessageJson(text, imageBytes: imageBytes, audioBytes: audioBytes);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return sendMessageStreamRaw(messageJson, extraContext: extraContext);
+    return sendMessageStreamRaw(messageJson, extraContext: extraContext)
+        .map(extractTextFromResponse);
   }
 
   /// Send a raw JSON message and get streaming response.

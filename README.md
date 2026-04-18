@@ -90,7 +90,7 @@ The example app offers a curated list of models, each suited for different tasks
 | **FastVLM 0.5B** | Fast vision-language inference | ❌ | ❌ | ✅ | Multilingual | 0.5GB |
 | **Phi-4 Mini** | Advanced reasoning and instruction following | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
 | **DeepSeek R1** | High-performance reasoning and code generation | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
-| **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ❌ | ❌ | Multilingual | 586MB |
+| **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ✅ | ❌ | Multilingual | 586MB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following | ✅ | ❌ | ❌ | Multilingual | 0.5-1.6GB |
 | **Gemma 3 1B** | Balanced and efficient text generation | ❌ | ❌ | ❌ | Multilingual | 0.5GB |
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
@@ -1535,9 +1535,11 @@ FunctionGemma uses a special format (different from JSON-based function calling)
 
 The `flutter_gemma` plugin handles this format automatically via `FunctionCallParser`.
 
-9. **🧠 Thinking Mode (DeepSeek & Gemma 4 Models)**
+9. **🧠 Thinking Mode (DeepSeek, Qwen3 & Gemma 4 Models)**
 
-DeepSeek and Gemma 4 (E2B/E4B) models support "thinking mode" where you can see the model's reasoning process before it generates the final response. This provides transparency into how the model approaches problems.
+DeepSeek, Qwen3, and Gemma 4 (E2B/E4B) models support "thinking mode" where you can see the model's reasoning process before it generates the final response. This provides transparency into how the model approaches problems.
+
+> **Note:** Qwen3 generates thinking blocks by default. When `isThinking: false`, thinking content is automatically stripped from the response. Set `isThinking: true` to see the reasoning process.
 
 **Enable Thinking Mode (DeepSeek):**
 

@@ -5,7 +5,8 @@ import 'package:flutter_gemma/core/model_response.dart';
 
 const userPrefix = "user";
 const modelPrefix = "model";
-const developerPrefix = "developer"; // FunctionGemma uses developer role for tools
+const developerPrefix =
+    "developer"; // FunctionGemma uses developer role for tools
 const startTurn = "<start_of_turn>";
 const endTurn = "<end_of_turn>";
 
@@ -36,9 +37,11 @@ const functionGemmaEscape = '<escape>';
 
 extension MessageExtension on Message {
   String transformToChatPrompt(
-      {ModelType type = ModelType.general, ModelFileType fileType = ModelFileType.binary}) {
+      {ModelType type = ModelType.general,
+      ModelFileType fileType = ModelFileType.binary}) {
     // DEBUG LOG
-    debugPrint('[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
+    debugPrint(
+        '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
 
     // System messages should not be sent to the model
     if (this.type == MessageType.systemInfo) {
@@ -49,7 +52,8 @@ extension MessageExtension on Message {
     // EXCEPT FunctionGemma which needs manual formatting (no prefix/suffix in .task)
     if (fileType == ModelFileType.task && type != ModelType.functionGemma) {
       final result = _formatToolResponseContent();
-      debugPrint('[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
+      debugPrint(
+          '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
       return result;
     }
 
@@ -61,7 +65,8 @@ extension MessageExtension on Message {
         // Fall through to manual formatting below
       } else {
         final result = _formatToolResponseContent();
-        debugPrint('[transformToChatPrompt] litertlm non-iOS, using raw text, result length=${result.length}');
+        debugPrint(
+            '[transformToChatPrompt] litertlm non-iOS, using raw text, result length=${result.length}');
         return result;
       }
     }
@@ -181,8 +186,8 @@ extension MessageExtension on Message {
     // Format tool response in FunctionGemma format
     if (type == MessageType.toolResponse && toolName != null) {
       return '$functionGemmaStartResp'
-             'response:$toolName{result:$functionGemmaEscape$text$functionGemmaEscape}'
-             '$functionGemmaEndResp';
+          'response:$toolName{result:$functionGemmaEscape$text$functionGemmaEscape}'
+          '$functionGemmaEndResp';
     }
     return text;
   }
@@ -192,12 +197,12 @@ extension MessageExtension on Message {
 class ModelThinkingFilter {
   /// Filters ModelResponse stream for models with thinking support.
   /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
-  static Stream<ModelResponse> filterThinkingStream(Stream<ModelResponse> originalStream,
+  static Stream<ModelResponse> filterThinkingStream(
+      Stream<ModelResponse> originalStream,
       {required ModelType modelType}) async* {
     switch (modelType) {
       case ModelType.deepSeek:
-        // Apply DeepSeek thinking filtration
-        // DeepSeek starts with thinking content, ends with </think>
+        // DeepSeek starts with raw thinking (no opening <think> tag), ends with </think>
         bool insideThinking = true;
         StringBuffer thinkingBuffer = StringBuffer();
 
@@ -206,39 +211,94 @@ class ModelThinkingFilter {
             String token = response.token;
 
             if (insideThinking) {
-              // Check for thinking block end
               if (token.contains('</think>')) {
-                // Add text before </think> to thinking
                 final beforeEnd = token.split('</think>')[0];
                 if (beforeEnd.isNotEmpty) {
                   thinkingBuffer.write(beforeEnd);
                 }
-
-                // Send completed thinking block
                 if (thinkingBuffer.isNotEmpty) {
                   yield ThinkingResponse(thinkingBuffer.toString());
                 }
-
-                // Switch to normal mode
                 insideThinking = false;
-
-                // Process text after </think> - pass as regular text for function call parsing
-                final afterEnd = token.split('</think>').skip(1).join('</think>');
+                final afterEnd =
+                    token.split('</think>').skip(1).join('</think>');
                 if (afterEnd.isNotEmpty) {
                   yield TextResponse(afterEnd);
                 }
               } else {
-                // Accumulate thinking content
                 thinkingBuffer.write(token);
-                // Send intermediate thinking
                 yield ThinkingResponse(token);
               }
             } else {
-              // Normal mode - pass tokens as is for function call parsing
               yield response;
             }
           } else {
-            // For FunctionCallResponse and other types just pass without changes
+            yield response;
+          }
+        }
+        break;
+
+      case ModelType.qwen:
+        // Qwen3 emits <think>...</think>, Qwen2.5 emits nothing.
+        // Start insideThinking=false — only enter thinking when <think> is found.
+        bool qwenInsideThinking = false;
+        StringBuffer qwenThinkingBuffer = StringBuffer();
+
+        await for (final response in originalStream) {
+          if (response is TextResponse) {
+            String token = response.token;
+
+            if (qwenInsideThinking) {
+              if (token.contains('</think>')) {
+                final beforeEnd = token.split('</think>')[0];
+                if (beforeEnd.isNotEmpty) {
+                  qwenThinkingBuffer.write(beforeEnd);
+                  yield ThinkingResponse(beforeEnd);
+                }
+                qwenInsideThinking = false;
+                qwenThinkingBuffer.clear();
+                final afterEnd =
+                    token.split('</think>').skip(1).join('</think>');
+                if (afterEnd.isNotEmpty) {
+                  yield TextResponse(afterEnd);
+                }
+              } else {
+                qwenThinkingBuffer.write(token);
+                yield ThinkingResponse(token);
+              }
+            } else {
+              if (token.contains('<think>')) {
+                final beforeStart = token.split('<think>')[0];
+                if (beforeStart.isNotEmpty) {
+                  yield TextResponse(beforeStart);
+                }
+                qwenInsideThinking = true;
+                qwenThinkingBuffer.clear();
+                final afterStart =
+                    token.split('<think>').skip(1).join('<think>');
+                if (afterStart.isNotEmpty) {
+                  if (afterStart.contains('</think>')) {
+                    final thinking = afterStart.split('</think>')[0];
+                    if (thinking.isNotEmpty) {
+                      yield ThinkingResponse(thinking);
+                    }
+                    qwenInsideThinking = false;
+                    final afterEnd =
+                        afterStart.split('</think>').skip(1).join('</think>');
+                    if (afterEnd.isNotEmpty) {
+                      yield TextResponse(afterEnd);
+                    }
+                  } else {
+                    qwenThinkingBuffer.write(afterStart);
+                    yield ThinkingResponse(afterStart);
+                  }
+                }
+              } else {
+                // No thinking tags — pass through as text (Qwen2.5 path)
+                yield response;
+              }
+            }
+          } else {
             yield response;
           }
         }
@@ -263,16 +323,19 @@ class ModelThinkingFilter {
                   if (thinkingContent.isNotEmpty) {
                     yield ThinkingResponse(thinkingContent);
                   }
-                  gemmaBuffer = gemmaBuffer.substring(endIdx + endMarker.length);
+                  gemmaBuffer =
+                      gemmaBuffer.substring(endIdx + endMarker.length);
                   gemmaInsideThinking = false;
                 } else {
                   // Check for partial end marker at tail
                   final partial = _findPartialSuffix(gemmaBuffer, endMarker);
-                  final safe = gemmaBuffer.substring(0, gemmaBuffer.length - partial);
+                  final safe =
+                      gemmaBuffer.substring(0, gemmaBuffer.length - partial);
                   if (safe.isNotEmpty) {
                     yield ThinkingResponse(safe);
                   }
-                  gemmaBuffer = gemmaBuffer.substring(gemmaBuffer.length - partial);
+                  gemmaBuffer =
+                      gemmaBuffer.substring(gemmaBuffer.length - partial);
                   break;
                 }
               } else {
@@ -282,16 +345,19 @@ class ModelThinkingFilter {
                   if (textBefore.isNotEmpty) {
                     yield TextResponse(textBefore);
                   }
-                  gemmaBuffer = gemmaBuffer.substring(startIdx + startMarker.length);
+                  gemmaBuffer =
+                      gemmaBuffer.substring(startIdx + startMarker.length);
                   gemmaInsideThinking = true;
                 } else {
                   // Check for partial start marker at tail
                   final partial = _findPartialSuffix(gemmaBuffer, startMarker);
-                  final safe = gemmaBuffer.substring(0, gemmaBuffer.length - partial);
+                  final safe =
+                      gemmaBuffer.substring(0, gemmaBuffer.length - partial);
                   if (safe.isNotEmpty) {
                     yield TextResponse(safe);
                   }
-                  gemmaBuffer = gemmaBuffer.substring(gemmaBuffer.length - partial);
+                  gemmaBuffer =
+                      gemmaBuffer.substring(gemmaBuffer.length - partial);
                   break;
                 }
               }
@@ -302,12 +368,13 @@ class ModelThinkingFilter {
         }
         // Flush remaining buffer
         if (gemmaBuffer.isNotEmpty) {
-          yield gemmaInsideThinking ? ThinkingResponse(gemmaBuffer) : TextResponse(gemmaBuffer);
+          yield gemmaInsideThinking
+              ? ThinkingResponse(gemmaBuffer)
+              : TextResponse(gemmaBuffer);
         }
         break;
 
       case ModelType.general:
-      case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.functionGemma:
@@ -322,20 +389,23 @@ class ModelThinkingFilter {
   /// Removes thinking blocks from final text.
   /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
   /// Note: For streaming thinking output, use [filterThinkingStream] with generateChatResponseAsync() instead.
-  static String removeThinkingFromText(String text, {required ModelType modelType}) {
+  static String removeThinkingFromText(String text,
+      {required ModelType modelType}) {
     switch (modelType) {
       case ModelType.deepSeek:
-        // Remove all <think>...</think> blocks (DeepSeek specific)
+      case ModelType.qwen:
+        // Remove all <think>...</think> blocks (DeepSeek/Qwen3 format)
         RegExp thinkingRegex = RegExp(r'<think>.*?</think>', dotAll: true);
         return text.replaceAll(thinkingRegex, '').trim();
 
       case ModelType.gemmaIt:
         // Remove all <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
-        return text.replaceAll(
-          RegExp(r'<\|channel>thought\n.*?<channel\|>', dotAll: true), '').trim();
+        return text
+            .replaceAll(
+                RegExp(r'<\|channel>thought\n.*?<channel\|>', dotAll: true), '')
+            .trim();
 
       case ModelType.general:
-      case ModelType.qwen:
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.functionGemma:
@@ -348,11 +418,16 @@ class ModelThinkingFilter {
 
   /// Cleans model response from service tags and thinking blocks
   static String cleanResponse(String response,
-      {required bool isThinking, required ModelType modelType, required ModelFileType fileType}) {
+      {required bool isThinking,
+      required ModelType modelType,
+      required ModelFileType fileType}) {
     String cleaned = response;
 
-    // Remove <think> blocks if model supports thinking
-    if (isThinking) {
+    // Always strip thinking tags for models that may generate them (Qwen3, DeepSeek, Gemma 4)
+    final bool modelCanThink = modelType == ModelType.deepSeek ||
+        modelType == ModelType.qwen ||
+        modelType == ModelType.gemmaIt;
+    if (isThinking || modelCanThink) {
       cleaned = removeThinkingFromText(cleaned, modelType: modelType);
     }
 

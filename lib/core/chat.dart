@@ -194,15 +194,24 @@ class InferenceChat {
     final originalStream =
         session.getResponseAsync().map((token) => TextResponse(token));
 
-    // Apply thinking filter if needed using ModelThinkingFilter
-    final Stream<ModelResponse> filteredStream = isThinking
+    // Apply thinking filter — some models (Qwen3, DeepSeek) generate <think> by default
+    final bool modelCanThink = modelType == ModelType.deepSeek ||
+        modelType == ModelType.qwen ||
+        modelType == ModelType.gemmaIt;
+    final Stream<ModelResponse> filteredStream = (isThinking || modelCanThink)
         ? ModelThinkingFilter.filterThinkingStream(originalStream,
             modelType: modelType)
         : originalStream;
 
+    // If user didn't request thinking, discard ThinkingResponse events
+    final Stream<ModelResponse> thinkingHandledStream = isThinking
+        ? filteredStream
+        : filteredStream.where((r) => r is! ThinkingResponse);
+
     // Apply stop token filter for .litertlm on iOS (MediaPipe doesn't handle stop tokens)
     final Stream<ModelResponse> stopFilteredStream =
-        StopTokenFilter.filterStopTokens(filteredStream, fileType: fileType);
+        StopTokenFilter.filterStopTokens(thinkingHandledStream,
+            fileType: fileType);
 
     await for (final response in stopFilteredStream) {
       if (response is TextResponse) {

@@ -196,111 +196,120 @@ extension MessageExtension on Message {
 // Filter class for thinking models
 class ModelThinkingFilter {
   /// Filters ModelResponse stream for models with thinking support.
-  /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
+  /// Supports DeepSeek/Qwen3 (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`).
   static Stream<ModelResponse> filterThinkingStream(
       Stream<ModelResponse> originalStream,
       {required ModelType modelType}) async* {
     switch (modelType) {
       case ModelType.deepSeek:
-        // DeepSeek starts with raw thinking (no opening <think> tag), ends with </think>
-        bool insideThinking = true;
-        StringBuffer thinkingBuffer = StringBuffer();
+        // DeepSeek starts in thinking mode (no opening <think> tag).
+        // Uses buffer to handle partial </think> across token boundaries.
+        const endTag = '</think>';
+        bool dsInside = true;
+        String dsBuffer = '';
 
         await for (final response in originalStream) {
           if (response is TextResponse) {
-            String token = response.token;
+            dsBuffer += response.token;
 
-            if (insideThinking) {
-              if (token.contains('</think>')) {
-                final beforeEnd = token.split('</think>')[0];
-                if (beforeEnd.isNotEmpty) {
-                  thinkingBuffer.write(beforeEnd);
-                }
-                if (thinkingBuffer.isNotEmpty) {
-                  yield ThinkingResponse(thinkingBuffer.toString());
-                }
-                insideThinking = false;
-                final afterEnd =
-                    token.split('</think>').skip(1).join('</think>');
-                if (afterEnd.isNotEmpty) {
-                  yield TextResponse(afterEnd);
+            while (dsBuffer.isNotEmpty) {
+              if (dsInside) {
+                final endIdx = dsBuffer.indexOf(endTag);
+                if (endIdx >= 0) {
+                  final thinking = dsBuffer.substring(0, endIdx);
+                  if (thinking.isNotEmpty) {
+                    yield ThinkingResponse(thinking);
+                  }
+                  dsBuffer = dsBuffer.substring(endIdx + endTag.length);
+                  dsInside = false;
+                } else {
+                  final partial = _findPartialSuffix(dsBuffer, endTag);
+                  final safe = dsBuffer.substring(0, dsBuffer.length - partial);
+                  if (safe.isNotEmpty) {
+                    yield ThinkingResponse(safe);
+                  }
+                  dsBuffer = dsBuffer.substring(dsBuffer.length - partial);
+                  break;
                 }
               } else {
-                thinkingBuffer.write(token);
-                yield ThinkingResponse(token);
+                yield TextResponse(dsBuffer);
+                dsBuffer = '';
+                break;
               }
-            } else {
-              yield response;
             }
           } else {
             yield response;
           }
         }
+        if (dsBuffer.isNotEmpty) {
+          yield dsInside ? ThinkingResponse(dsBuffer) : TextResponse(dsBuffer);
+        }
         break;
 
       case ModelType.qwen:
         // Qwen3 emits <think>...</think>, Qwen2.5 emits nothing.
-        // Start insideThinking=false — only enter thinking when <think> is found.
-        bool qwenInsideThinking = false;
-        StringBuffer qwenThinkingBuffer = StringBuffer();
+        // Starts insideThinking=false — safe for non-thinking models.
+        // Uses buffer to handle partial tags across token boundaries.
+        const startTag = '<think>';
+        const endTag = '</think>';
+        bool qwenInside = false;
+        String qwenBuffer = '';
 
         await for (final response in originalStream) {
           if (response is TextResponse) {
-            String token = response.token;
+            qwenBuffer += response.token;
 
-            if (qwenInsideThinking) {
-              if (token.contains('</think>')) {
-                final beforeEnd = token.split('</think>')[0];
-                if (beforeEnd.isNotEmpty) {
-                  qwenThinkingBuffer.write(beforeEnd);
-                  yield ThinkingResponse(beforeEnd);
-                }
-                qwenInsideThinking = false;
-                qwenThinkingBuffer.clear();
-                final afterEnd =
-                    token.split('</think>').skip(1).join('</think>');
-                if (afterEnd.isNotEmpty) {
-                  yield TextResponse(afterEnd);
-                }
-              } else {
-                qwenThinkingBuffer.write(token);
-                yield ThinkingResponse(token);
-              }
-            } else {
-              if (token.contains('<think>')) {
-                final beforeStart = token.split('<think>')[0];
-                if (beforeStart.isNotEmpty) {
-                  yield TextResponse(beforeStart);
-                }
-                qwenInsideThinking = true;
-                qwenThinkingBuffer.clear();
-                final afterStart =
-                    token.split('<think>').skip(1).join('<think>');
-                if (afterStart.isNotEmpty) {
-                  if (afterStart.contains('</think>')) {
-                    final thinking = afterStart.split('</think>')[0];
-                    if (thinking.isNotEmpty) {
-                      yield ThinkingResponse(thinking);
-                    }
-                    qwenInsideThinking = false;
-                    final afterEnd =
-                        afterStart.split('</think>').skip(1).join('</think>');
-                    if (afterEnd.isNotEmpty) {
-                      yield TextResponse(afterEnd);
-                    }
-                  } else {
-                    qwenThinkingBuffer.write(afterStart);
-                    yield ThinkingResponse(afterStart);
+            while (qwenBuffer.isNotEmpty) {
+              if (qwenInside) {
+                final endIdx = qwenBuffer.indexOf(endTag);
+                if (endIdx >= 0) {
+                  final thinking = qwenBuffer.substring(0, endIdx);
+                  if (thinking.isNotEmpty) {
+                    yield ThinkingResponse(thinking);
                   }
+                  qwenBuffer = qwenBuffer.substring(endIdx + endTag.length);
+                  qwenInside = false;
+                } else {
+                  final partial = _findPartialSuffix(qwenBuffer, endTag);
+                  final safe =
+                      qwenBuffer.substring(0, qwenBuffer.length - partial);
+                  if (safe.isNotEmpty) {
+                    yield ThinkingResponse(safe);
+                  }
+                  qwenBuffer =
+                      qwenBuffer.substring(qwenBuffer.length - partial);
+                  break;
                 }
               } else {
-                // No thinking tags — pass through as text (Qwen2.5 path)
-                yield response;
+                final startIdx = qwenBuffer.indexOf(startTag);
+                if (startIdx >= 0) {
+                  final textBefore = qwenBuffer.substring(0, startIdx);
+                  if (textBefore.isNotEmpty) {
+                    yield TextResponse(textBefore);
+                  }
+                  qwenBuffer = qwenBuffer.substring(startIdx + startTag.length);
+                  qwenInside = true;
+                } else {
+                  final partial = _findPartialSuffix(qwenBuffer, startTag);
+                  final safe =
+                      qwenBuffer.substring(0, qwenBuffer.length - partial);
+                  if (safe.isNotEmpty) {
+                    yield TextResponse(safe);
+                  }
+                  qwenBuffer =
+                      qwenBuffer.substring(qwenBuffer.length - partial);
+                  break;
+                }
               }
             }
           } else {
             yield response;
           }
+        }
+        if (qwenBuffer.isNotEmpty) {
+          yield qwenInside
+              ? ThinkingResponse(qwenBuffer)
+              : TextResponse(qwenBuffer);
         }
         break;
 
@@ -387,7 +396,7 @@ class ModelThinkingFilter {
   }
 
   /// Removes thinking blocks from final text.
-  /// Supports DeepSeek (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`) models.
+  /// Supports DeepSeek/Qwen3 (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`).
   /// Note: For streaming thinking output, use [filterThinkingStream] with generateChatResponseAsync() instead.
   static String removeThinkingFromText(String text,
       {required ModelType modelType}) {

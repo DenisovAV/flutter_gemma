@@ -80,6 +80,20 @@ void main(List<String> args) async {
       );
     }
 
+    // Companion lib: GemmaModelConstraintProvider (loaded by libLiteRtLm via dlopen)
+    final companionFileName = os.dylibFileName('GemmaModelConstraintProvider');
+    final companionFileUri = prebuiltDir.resolve(companionFileName);
+    if (File.fromUri(companionFileUri).existsSync()) {
+      output.assets.code.add(
+        CodeAsset(
+          package: _packageName,
+          name: 'src/native/GemmaModelConstraintProvider',
+          linkMode: DynamicLoadingBundled(),
+          file: companionFileUri,
+        ),
+      );
+    }
+
     output.dependencies.add(prebuiltDir);
   });
 }

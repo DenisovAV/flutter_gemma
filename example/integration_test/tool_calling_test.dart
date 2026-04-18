@@ -13,6 +13,7 @@
 //   - streaming: function call detection in async mode
 //   - parallel: multi-action prompt for multiple function calls
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -63,7 +64,8 @@ const _testModels = [
   ),
   ToolCallingTestModel(
     name: 'Qwen 2.5 0.5B',
-    filePath: '$_deviceModelDir/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
+    filePath:
+        '$_deviceModelDir/Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
     filename: 'Qwen2.5-0.5B-Instruct_multi-prefill-seq_q8_ekv1280.task',
     modelType: ModelType.qwen,
   ),
@@ -145,14 +147,14 @@ void main() {
       testWidgets('install model', (tester) async {
         await FlutterGemma.initialize();
 
-        print('[${model.name}] Installing from file: ${model.filePath}');
+        debugPrint('[${model.name}] Installing from file: ${model.filePath}');
         await FlutterGemma.installModel(
           modelType: model.modelType,
           fileType: model.fileType,
         ).fromFile(model.filePath).install();
 
         expect(FlutterGemma.hasActiveModel(), isTrue);
-        print('[${model.name}] Installed successfully');
+        debugPrint('[${model.name}] Installed successfully');
       }, timeout: const Timeout(Duration(minutes: 10)));
 
       testWidgets('ToolChoice.auto — model calls function on action request',
@@ -185,20 +187,21 @@ void main() {
           );
 
           final response = await chat.generateChatResponse();
-          print('[${model.name}/auto] Response type: ${response.runtimeType}');
+          debugPrint(
+              '[${model.name}/auto] Response type: ${response.runtimeType}');
 
           if (response is FunctionCallResponse) {
-            print(
+            debugPrint(
                 '[${model.name}/auto] Function: ${response.name}(${response.args})');
             expect(response.name, equals('show_alert'));
             expect(response.args['title'], isNotNull);
           } else if (response is ParallelFunctionCallResponse) {
-            print(
+            debugPrint(
                 '[${model.name}/auto] Parallel calls: ${response.calls.length}');
             expect(response.calls, isNotEmpty);
             expect(response.calls.first.name, equals('show_alert'));
           } else if (response is TextResponse) {
-            print(
+            debugPrint(
                 '[${model.name}/auto] Text: "${_truncate(response.token)}"');
           }
         } finally {
@@ -236,19 +239,19 @@ void main() {
           );
 
           final response = await chat.generateChatResponse();
-          print(
+          debugPrint(
               '[${model.name}/required] Response type: ${response.runtimeType}');
 
           if (response is FunctionCallResponse) {
-            print(
+            debugPrint(
                 '[${model.name}/required] Function: ${response.name}(${response.args})');
             expect(response.name, isNotEmpty);
           } else if (response is ParallelFunctionCallResponse) {
-            print(
+            debugPrint(
                 '[${model.name}/required] Parallel calls: ${response.calls.length}');
             expect(response.calls, isNotEmpty);
           } else {
-            print(
+            debugPrint(
                 '[${model.name}/required] WARNING: Expected function call but got ${response.runtimeType}');
           }
         } finally {
@@ -286,13 +289,14 @@ void main() {
           );
 
           final response = await chat.generateChatResponse();
-          print('[${model.name}/none] Response type: ${response.runtimeType}');
+          debugPrint(
+              '[${model.name}/none] Response type: ${response.runtimeType}');
 
           expect(response, isA<TextResponse>(),
               reason:
                   'ToolChoice.none should produce text response, not function call');
           final text = (response as TextResponse).token;
-          print('[${model.name}/none] Text: "${_truncate(text)}"');
+          debugPrint('[${model.name}/none] Text: "${_truncate(text)}"');
           expect(text, isNotEmpty);
         } finally {
           await inferenceModel.close();
@@ -342,7 +346,7 @@ void main() {
             }
           }
 
-          print(
+          debugPrint(
               '[${model.name}/streaming] FunctionCall: ${functionCall?.name}, '
               'Parallel: ${parallelCall?.calls.length}, '
               'Text: "${_truncate(textBuffer.toString())}"');
@@ -381,35 +385,48 @@ void main() {
 
           await chat.addQueryChunk(
             const Message(
-              text: 'Do two things: 1) Change the app title to "New Title" 2) Change the background color to blue',
+              text:
+                  'Do two things: 1) Change the app title to "New Title" 2) Change the background color to blue',
               isUser: true,
             ),
           );
 
           final response = await chat.generateChatResponse();
-          print('[${model.name}/parallel] Response type: ${response.runtimeType}');
+          debugPrint(
+              '[${model.name}/parallel] Response type: ${response.runtimeType}');
 
           if (response is FunctionCallResponse) {
-            print('[${model.name}/parallel] Single call: ${response.name}(${response.args})');
-            expect(response.name, isNotEmpty, reason: 'Function name must not be empty');
-            print('[${model.name}/parallel] VERIFIED: parser returned valid function name "${response.name}"');
+            debugPrint(
+                '[${model.name}/parallel] Single call: ${response.name}(${response.args})');
+            expect(response.name, isNotEmpty,
+                reason: 'Function name must not be empty');
+            debugPrint(
+                '[${model.name}/parallel] VERIFIED: parser returned valid function name "${response.name}"');
           } else if (response is ParallelFunctionCallResponse) {
-            print('[${model.name}/parallel] Parallel calls: ${response.calls.length}');
+            debugPrint(
+                '[${model.name}/parallel] Parallel calls: ${response.calls.length}');
             for (final call in response.calls) {
-              print('[${model.name}/parallel]   CALL: ${call.name}(${call.args})');
-              expect(call.name, isNotEmpty, reason: 'Each parallel call must have a name');
+              debugPrint(
+                  '[${model.name}/parallel]   CALL: ${call.name}(${call.args})');
+              expect(call.name, isNotEmpty,
+                  reason: 'Each parallel call must have a name');
             }
             expect(response.calls.length, greaterThanOrEqualTo(2));
-            print('[${model.name}/parallel] VERIFIED: ${response.calls.length} parallel calls parsed');
+            debugPrint(
+                '[${model.name}/parallel] VERIFIED: ${response.calls.length} parallel calls parsed');
           } else if (response is TextResponse) {
             final rawText = response.token;
-            print('[${model.name}/parallel] Text response: "${_truncate(rawText)}"');
+            debugPrint(
+                '[${model.name}/parallel] Text response: "${_truncate(rawText)}"');
             // Verify parseAll on raw text to confirm no calls were missed
-            final manualParse = FunctionCallParser.parseAll(rawText, modelType: model.modelType);
-            print('[${model.name}/parallel] Manual parseAll: found ${manualParse.length} calls');
+            final manualParse = FunctionCallParser.parseAll(rawText,
+                modelType: model.modelType);
+            debugPrint(
+                '[${model.name}/parallel] Manual parseAll: found ${manualParse.length} calls');
             if (manualParse.isNotEmpty) {
               for (final call in manualParse) {
-                print('[${model.name}/parallel]   MISSED CALL: ${call.name}(${call.args})');
+                debugPrint(
+                    '[${model.name}/parallel]   MISSED CALL: ${call.name}(${call.args})');
               }
             }
           }

@@ -4,12 +4,16 @@ import com.google.ai.edge.litertlm.*
 import com.google.ai.edge.litertlm.Content
 import com.google.ai.edge.litertlm.Contents
 import dev.flutterberlin.litertlm.proto.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -28,6 +32,10 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
     private var visionEnabled: Boolean = false  // Track if vision backend was initialized
     private val conversations = ConcurrentHashMap<String, Conversation>()
     private val conversationCounter = AtomicInteger(0)
+    // Per-conversation mutex: held during sendMessageAsync, prevents closeConversation
+    // from calling conversation.close() while native decode is running (use-after-free).
+    // See: https://github.com/DenisovAV/flutter_gemma/issues/219
+    private val conversationMutexes = ConcurrentHashMap<String, Mutex>()
 
     override suspend fun initialize(request: InitializeRequest): InitializeResponse {
         logger.info("Initializing engine with model: ${request.modelPath}")
@@ -46,6 +54,22 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             return InitializeResponse.newBuilder()
                 .setSuccess(false)
                 .setError("Model file not found: ${request.modelPath}")
+                .build()
+        }
+
+        // Windows workaround: litertlm_jni.dll uses 32-bit stat() which overflows for files > 2 GiB.
+        // See: https://github.com/google-ai-edge/LiteRT-LM/issues/1494
+        if (System.getProperty("os.name")?.lowercase()?.contains("windows") == true
+            && modelFile.length() > 2L * 1024 * 1024 * 1024) {
+            val sizeGb = modelFile.length().toDouble() / (1024.0 * 1024.0 * 1024.0)
+            return InitializeResponse.newBuilder()
+                .setSuccess(false)
+                .setError(
+                    "Model file (%.1f GB) exceeds the 2 GB Windows limit. ".format(sizeGb) +
+                    "Known upstream bug in litertlm_jni.dll (google-ai-edge/LiteRT-LM#1494): " +
+                    "32-bit stat() overflows for files > 2 GB. " +
+                    "Use a smaller model (< 2 GB) until Google fixes this upstream."
+                )
                 .build()
         }
 
@@ -199,6 +223,27 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             return@callbackFlow
         }
 
+        val done = CompletableDeferred<Unit>()
+        // Guards the MessageCallback JNI methods. Once the gRPC stream is cancelled
+        // (client disconnect / model.close()), native sendMessageAsync may still be
+        // running on a background thread. Setting this flag to false prevents the
+        // callback from touching the (potentially invalid) callbackFlow channel,
+        // avoiding SIGSEGV in jni_CallVoidMethodV.
+        // See: https://github.com/DenisovAV/flutter_gemma/issues/219
+        val active = java.util.concurrent.atomic.AtomicBoolean(true)
+
+        // Register a cancellation handler on the coroutine Job so that active is
+        // deactivated even if the coroutine is cancelled before reaching awaitClose.
+        coroutineContext[kotlinx.coroutines.Job]?.invokeOnCompletion {
+            active.set(false)
+            if (it != null) {
+                // Coroutine was cancelled — signal native code to stop.
+                logger.info("Job cancelled for ${request.conversationId}, cancelling native inference")
+                try { conversation.cancelProcess() } catch (_: Exception) { }
+                done.complete(Unit)
+            }
+        }
+
         try {
             logger.info("=== CHAT REQUEST ===")
             logger.info("conversationId: '${request.conversationId}'")
@@ -212,6 +257,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
             val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
+                    if (!active.get()) return
                     val builder = ChatResponse.newBuilder()
                         .setText(msg.toString())
                         .setDone(false)
@@ -223,6 +269,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
 
                 override fun onDone() {
+                    done.complete(Unit)
+                    if (!active.get()) return
                     trySend(
                         ChatResponse.newBuilder()
                             .setDone(true)
@@ -233,6 +281,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
 
                 override fun onError(throwable: Throwable) {
+                    done.complete(Unit)
+                    if (!active.get()) return
                     logger.error("Error during chat", throwable)
                     trySend(
                         ChatResponse.newBuilder()
@@ -244,11 +294,21 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
             }
 
-            // Use callback-based API (like Android does)
-            if (extraContext.isNotEmpty()) {
-                conversation.sendMessageAsync(message, messageCallback, extraContext)
-            } else {
-                conversation.sendMessageAsync(message, messageCallback)
+            // Use callback-based API (like Android does).
+            // Hold the per-conversation mutex for the entire duration of sendMessageAsync.
+            // closeConversation also acquires this mutex, so conversation.close() cannot
+            // be called while native decode is running → prevents use-after-free SIGSEGV.
+            // computeIfAbsent is used (not getOrPut) because it is atomic on ConcurrentHashMap:
+            // guarantees a single Mutex instance per conversationId under concurrent calls.
+            val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
+            convMutex.withLock {
+                if (extraContext.isNotEmpty()) {
+                    conversation.sendMessageAsync(message, messageCallback, extraContext)
+                } else {
+                    conversation.sendMessageAsync(message, messageCallback)
+                }
+                // Wait for native code to call onDone/onError before releasing the lock.
+                withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {
             logger.error("Error starting chat", e)
@@ -261,7 +321,11 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        awaitClose { }
+        awaitClose {
+            active.set(false)
+            try { conversation.cancelProcess() } catch (_: Exception) { }
+            runBlocking { withTimeoutOrNull(5_000) { done.await() } }
+        }
     }
 
     override suspend fun chatWithImageSync(request: ChatWithImageRequest): ChatResponse {
@@ -317,6 +381,16 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             return@callbackFlow
         }
 
+        val done = CompletableDeferred<Unit>()
+        val active = java.util.concurrent.atomic.AtomicBoolean(true)
+        coroutineContext[Job]?.invokeOnCompletion {
+            active.set(false)
+            if (it != null) {
+                try { conversation.cancelProcess() } catch (_: Exception) { }
+                done.complete(Unit)
+            }
+        }
+
         try {
             val imageBytes = request.image.toByteArray()
             logger.info("Chat with image request: text='${request.text.take(50)}', imageBytes=${imageBytes.size}, visionEnabled=$visionEnabled")
@@ -348,6 +422,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
             val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
+                    if (!active.get()) return
                     responseCount++
                     if (responseCount <= 3) {
                         logger.info("Response chunk $responseCount: '${msg.toString().take(100)}'")
@@ -363,6 +438,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
 
                 override fun onDone() {
+                    done.complete(Unit)
+                    if (!active.get()) return
                     logger.info("Chat with image completed, total chunks: $responseCount")
                     trySend(
                         ChatResponse.newBuilder()
@@ -373,6 +450,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
 
                 override fun onError(throwable: Throwable) {
+                    done.complete(Unit)
+                    if (!active.get()) return
                     logger.error("Error during chat with image", throwable)
                     trySend(
                         ChatResponse.newBuilder()
@@ -384,11 +463,17 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
             }
 
-            // Use callback-based API (like Android does)
-            if (extraContext.isNotEmpty()) {
-                conversation.sendMessageAsync(message, messageCallback, extraContext)
-            } else {
-                conversation.sendMessageAsync(message, messageCallback)
+            // Hold per-conversation mutex (same pattern as chat()) to prevent
+            // closeConversation() from calling conversation.close() while native
+            // image decode is running → prevents use-after-free SIGSEGV.
+            val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
+            convMutex.withLock {
+                if (extraContext.isNotEmpty()) {
+                    conversation.sendMessageAsync(message, messageCallback, extraContext)
+                } else {
+                    conversation.sendMessageAsync(message, messageCallback)
+                }
+                withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {
             logger.error("Error starting chat with image", e)
@@ -401,7 +486,11 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        awaitClose { }
+        awaitClose {
+            active.set(false)
+            try { conversation.cancelProcess() } catch (_: Exception) { }
+            runBlocking { withTimeoutOrNull(5_000) { done.await() } }
+        }
     }
 
     override fun chatWithAudio(request: ChatWithAudioRequest): Flow<ChatResponse> = callbackFlow {
@@ -415,6 +504,16 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             )
             close()
             return@callbackFlow
+        }
+
+        val done = CompletableDeferred<Unit>()
+        val active = java.util.concurrent.atomic.AtomicBoolean(true)
+        coroutineContext[Job]?.invokeOnCompletion {
+            active.set(false)
+            if (it != null) {
+                try { conversation.cancelProcess() } catch (_: Exception) { }
+                done.complete(Unit)
+            }
         }
 
         try {
@@ -447,6 +546,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
 
             val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
+                    if (!active.get()) return
                     responseCount++
                     val responseText = msg.toString()
                     if (responseCount <= 3) {
@@ -463,6 +563,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
 
                 override fun onDone() {
+                    done.complete(Unit)
+                    if (!active.get()) return
                     logger.info("Chat with audio completed, total chunks: $responseCount")
                     trySend(
                         ChatResponse.newBuilder()
@@ -473,6 +575,8 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
 
                 override fun onError(throwable: Throwable) {
+                    done.complete(Unit)
+                    if (!active.get()) return
                     logger.error("Error during chat with audio", throwable)
                     trySend(
                         ChatResponse.newBuilder()
@@ -484,11 +588,17 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 }
             }
 
-            // Use callback-based API (like Android does)
-            if (extraContext.isNotEmpty()) {
-                conversation.sendMessageAsync(message, messageCallback, extraContext)
-            } else {
-                conversation.sendMessageAsync(message, messageCallback)
+            // Hold per-conversation mutex (same pattern as chat()) to prevent
+            // closeConversation() from calling conversation.close() while native
+            // audio decode is running → prevents use-after-free SIGSEGV.
+            val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
+            convMutex.withLock {
+                if (extraContext.isNotEmpty()) {
+                    conversation.sendMessageAsync(message, messageCallback, extraContext)
+                } else {
+                    conversation.sendMessageAsync(message, messageCallback)
+                }
+                withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {
             logger.error("Error starting chat with audio", e)
@@ -501,7 +611,11 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             close(e)
         }
 
-        awaitClose { }
+        awaitClose {
+            active.set(false)
+            try { conversation.cancelProcess() } catch (_: Exception) { }
+            runBlocking { withTimeoutOrNull(5_000) { done.await() } }
+        }
     }
 
     override suspend fun cancelGeneration(request: CancelGenerationRequest): CancelGenerationResponse {
@@ -531,9 +645,22 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
     override suspend fun closeConversation(request: CloseConversationRequest): CloseConversationResponse {
         val conversation = conversations.remove(request.conversationId)
         if (conversation != null) {
+            // Acquire the per-conversation mutex before closing. This waits for any
+            // ongoing sendMessageAsync to finish (or be cancelled) before calling
+            // conversation.close(), preventing use-after-free in native decode.
+            val convMutex = conversationMutexes.remove(request.conversationId)
             try {
-                conversation.close()
-                logger.info("Closed conversation: ${request.conversationId}")
+                if (convMutex != null) {
+                    // Signal native to stop, then wait for the lock.
+                    try { conversation.cancelProcess() } catch (_: Exception) { }
+                    convMutex.withLock {
+                        conversation.close()
+                        logger.info("Closed conversation (waited for inference): ${request.conversationId}")
+                    }
+                } else {
+                    conversation.close()
+                    logger.info("Closed conversation: ${request.conversationId}")
+                }
             } catch (e: Exception) {
                 logger.warn("Error closing conversation", e)
             }

@@ -6,7 +6,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/google/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct).
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct).
 
 *Note: The flutter_gemma plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4, DeepSeek R1 and SmolLM. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
@@ -52,7 +52,7 @@ Flutter Gemma supports different model file formats, which are grouped into **tw
 
 ### Type 1: MediaPipe-Managed Templates
 - **`.task` files:** MediaPipe-optimized format for mobile (Android/iOS)
-- **`.litertlm` files:** LiteRT-LM format for Android (NPU) and Desktop platforms
+- **`.litertlm` files:** LiteRT-LM format for Android, iOS, and Desktop platforms
 
 Both formats have **identical behavior** — MediaPipe handles chat templates internally.
 
@@ -65,6 +65,18 @@ Both formats require **manual chat template formatting** in your code.
 **Note:** The plugin automatically detects the file extension and applies appropriate formatting. When specifying `ModelFileType` in your code:
 - Use `ModelFileType.task` for `.task` and `.litertlm` files (same behavior)
 - Use `ModelFileType.binary` for `.bin` and `.tflite` files (same behavior)
+
+### Format by Platform
+
+| Format | Android | iOS | Web | Desktop | Use Case |
+|--------|:-------:|:---:|:---:|:-------:|----------|
+| `.task` | ✅ | ✅ | ✅ | ❌ | Older models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) |
+| `.litertlm` | ✅ | ⚠️ ¹ | ❌ | ✅ | Newer models (Gemma 4, Qwen3, FastVLM + desktop for all) |
+| `-web.task` | ❌ | ❌ | ✅ | ❌ | Web-specific builds (e.g. Gemma 4, Gemma3n) |
+| `.bin` | ✅ | ✅ | ✅ | ❌ | Manual chat template formatting required |
+| `.tflite` | ✅ | ✅ | ✅ | ✅ | Embeddings only (EmbeddingGemma, Gecko) |
+
+> ¹ iOS `.litertlm` — text only, no vision or audio support
 
 ## Model Capabilities
 
@@ -178,27 +190,6 @@ platform :ios, '16.0'  # Required for MediaPipe GenAI
 * **Change the linking type** of pods to static in `Podfile`:
 ```ruby
 use_frameworks! :linkage => :static
-```
-
-* **For embedding models**, add force_load to `Podfile`'s post_install hook:
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-
-    # Required for embedding models (TensorFlow Lite SelectTfOps)
-    if target.name == 'Runner'
-      target.build_configurations.each do |config|
-        sdk = config.build_settings['SDKROOT']
-        if sdk.nil? || !sdk.include?('simulator')
-          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
-          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
-          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
-        end
-      end
-    end
-  end
-end
 ```
 
 **Android**
@@ -2201,7 +2192,7 @@ final supported = await FlutterGemma.isStreamingSupported();
 - **Memory entitlements:** Required for large models (see Setup section)
 - **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
 - **Storage:** Local file system in app documents directory
-- **Embedding models:** Require force_load for TensorFlowLiteSelectTfOps in Podfile (see Setup section)
+- **Embedding models:** Supported via TensorFlowLiteC — no extra Podfile configuration needed
 
 The full and complete example you can find in `example` folder
 
@@ -2241,29 +2232,6 @@ The full and complete example you can find in `example` folder
 - Use static linking: `use_frameworks! :linkage => :static`
 - Clean and reinstall pods: `cd ios && pod install --repo-update`
 - Check that all required entitlements are in `Runner.entitlements`
-
-**iOS Embedding Models:**
-For embedding models on iOS, you must add force_load to your Podfile's post_install hook:
-
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-
-    # Required for embedding models
-    if target.name == 'Runner'
-      target.build_configurations.each do |config|
-        sdk = config.build_settings['SDKROOT']
-        if sdk.nil? || !sdk.include?('simulator')
-          config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
-          config.build_settings['OTHER_LDFLAGS'] << '-force_load'
-          config.build_settings['OTHER_LDFLAGS'] << '$(PODS_ROOT)/TensorFlowLiteSelectTfOps/Frameworks/TensorFlowLiteSelectTfOps.xcframework/ios-arm64/TensorFlowLiteSelectTfOps.framework/TensorFlowLiteSelectTfOps'
-        end
-      end
-    end
-  end
-end
-```
 
 ## Advanced Usage
 

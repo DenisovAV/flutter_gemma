@@ -59,9 +59,9 @@ JRE_URL="https://cdn.azul.com/zulu/bin/${JRE_ARCHIVE}"
 
 # JAR settings
 JAR_NAME="litertlm-server.jar"
-JAR_VERSION="0.13.1"
+JAR_VERSION="0.13.3"
 JAR_URL="https://github.com/DenisovAV/flutter_gemma/releases/download/v${JAR_VERSION}/${JAR_NAME}"
-JAR_CHECKSUM="97e01020f921c098f7cfc0a9509e4b207b8bc326703ae2f26bbce3c11b957430"
+JAR_CHECKSUM="6cb0ac8aa0b89c542bb9acd265c8881eb70e11e7aeab9f15d78197536b207e77"
 
 # Plugin root (parent of linux/)
 PLUGIN_ROOT=$(dirname "$PLUGIN_DIR")

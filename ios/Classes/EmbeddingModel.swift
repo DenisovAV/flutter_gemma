@@ -1,162 +1,186 @@
 import Foundation
-import TensorFlowLite
+import TensorFlowLiteC
 
 /// iOS implementation of EmbeddingGemma model - equivalent to Android LiteRT implementation
 /// Supports any .tflite embedding model with 768-dimensional output
 class EmbeddingModel {
-    
+
     // MARK: - Properties
-    private var interpreter: Interpreter?
+    // TfLiteInterpreter* — owned, deleted in close()
+    private var interpreter: OpaquePointer?
     private var tokenizer: TokenizerProtocol?
     private let modelPath: String
     private let tokenizerPath: String
-    private let useGPU: Bool
-    
-    // Model configuration
-    private var maxSequenceLength = 1024 // Will be detected from model
-    private var embeddingDimension = 768 // Will be detected from model
+
+    // Model configuration — detected from model tensors after allocateTensors
+    private var maxSequenceLength = 1024
+    private var embeddingDimension = 768
 
     private let taskPrefix = "task: search result | query: "
     private let docPrefix = "title: none | text: "
 
-    // Memory optimization: Reuse buffers to avoid allocations
-    private var inputBuffer: Data?
-    private var paddedTokensBuffer: [Int] = []
+    // Memory optimization: reuse buffers to avoid per-inference allocations
+    private var paddedTokensBuffer: [Int32] = []
     private var outputBuffer: [Float] = []
 
-    
+    // XNNPack delegate — caller owns it in TFLiteC API, must be deleted after interpreter
+    private var xnnpackDelegate: UnsafeMutablePointer<TfLiteDelegate>?
+
     // MARK: - Initialization
-    
-    /// Initialize embedding model with paths
-    /// - Parameters:
-    ///   - modelPath: Path to .tflite model file
-    ///   - tokenizerPath: Path to sentencepiece.model file
-    ///   - useGPU: Whether to use GPU acceleration
+
     init(modelPath: String, tokenizerPath: String, useGPU: Bool = true) {
         self.modelPath = modelPath
         self.tokenizerPath = tokenizerPath
-        self.useGPU = useGPU
+        // useGPU kept for API compatibility; threading handles performance
     }
-    
+
     /// Load model and tokenizer (equivalent to Android's loadModel)
     func loadModel() throws {
-        // Auto-detect tokenizer type from JSON model.type field
         tokenizer = try EmbeddingModel.loadTokenizer(jsonPath: tokenizerPath)
 
-        // Configure TensorFlow Lite options
-        var options = Interpreter.Options()
-        options.threadCount = 4 // Optimize for mobile performance
-
-        // XNNPACK required for correct mixed-precision inference
-        // Was disabled in v0.11.16 (#155) due to crash, but root cause was
-        // SentencePiece C++ protobuf conflict — now resolved (pure Swift BPETokenizer)
-        options.isXNNPackEnabled = true
-
-        // Note: Select TF Ops should be automatically available when TensorFlowLiteSelectTfOps is linked
-
-        // Load the model with optimized settings
-        do {
-            // Use optimized threading based on GPU preference
-            if useGPU {
-                options.threadCount = 6 // Use more threads for GPU-level performance
-            } else {
-                options.threadCount = 4
-            }
-
-            interpreter = try Interpreter(modelPath: modelPath, options: options)
-            try interpreter?.allocateTensors()
-
-            // Extract dimensions from model tensors
-            if let inputTensor = try? interpreter?.input(at: 0) {
-                let detectedSequenceLength = inputTensor.shape.dimensions[1]
-                if detectedSequenceLength != maxSequenceLength {
-                    maxSequenceLength = detectedSequenceLength
-                }
-            }
-
-            if let outputTensor = try? interpreter?.output(at: 0) {
-                let detectedEmbeddingDimension = outputTensor.shape.dimensions[1]
-                if detectedEmbeddingDimension != embeddingDimension {
-                    embeddingDimension = detectedEmbeddingDimension
-                }
-            }
-
-        } catch let error as InterpreterError {
-            print("[MODEL] InterpreterError: \(error)")
-            throw EmbeddingError.modelLoadFailed("InterpreterError: \(error)")
-        } catch {
-            print("[MODEL] Unknown error: \(error)")
-            throw EmbeddingError.modelLoadFailed("Failed to load model: \(error.localizedDescription)")
+        // Load model from file
+        guard let model = TfLiteModelCreateFromFile(modelPath) else {
+            throw EmbeddingError.modelLoadFailed("TfLiteModelCreateFromFile failed for: \(modelPath)")
         }
+        defer { TfLiteModelDelete(model) }
+
+        // Build interpreter options
+        guard let options = TfLiteInterpreterOptionsCreate() else {
+            throw EmbeddingError.modelLoadFailed("Failed to create interpreter options")
+        }
+        defer { TfLiteInterpreterOptionsDelete(options) }
+
+        TfLiteInterpreterOptionsSetNumThreads(options, 6)
+
+        // XNNPACK required for correct mixed-precision inference.
+        // Was disabled in v0.11.16 (#155) due to SentencePiece C++ protobuf conflict —
+        // now resolved (pure Swift BPETokenizer).
+        var xnnpackOptions = TfLiteXNNPackDelegateOptionsDefault()
+        xnnpackOptions.num_threads = 6
+        // NOTE: TfLiteXNNPackDelegateCreate returns a caller-owned pointer.
+        // TfLiteInterpreterOptionsAddDelegate does NOT take ownership in the C API.
+        // We store it in self.xnnpackDelegate and delete it in close() AFTER the interpreter.
+        guard let xDelegate = TfLiteXNNPackDelegateCreate(&xnnpackOptions) else {
+            throw EmbeddingError.modelLoadFailed("XNNPack delegate creation failed — required for correct mixed-precision inference")
+        }
+        TfLiteInterpreterOptionsAddDelegate(options, xDelegate)
+        xnnpackDelegate = xDelegate
+
+        guard let interp = TfLiteInterpreterCreate(model, options) else {
+            throw EmbeddingError.modelLoadFailed("TfLiteInterpreterCreate failed")
+        }
+
+        guard TfLiteInterpreterAllocateTensors(interp) == kTfLiteOk else {
+            TfLiteInterpreterDelete(interp)
+            throw EmbeddingError.modelLoadFailed("TfLiteInterpreterAllocateTensors failed")
+        }
+
+        // Detect sequence length from input tensor shape [1, seqLen]
+        if let inputTensor = TfLiteInterpreterGetInputTensor(interp, 0) {
+            let dims = TfLiteTensorNumDims(inputTensor)
+            if dims >= 2 {
+                let detected = Int(TfLiteTensorDim(inputTensor, 1))
+                if detected > 0 { maxSequenceLength = detected }
+            }
+        }
+
+        // Detect embedding dimension from output tensor shape [1, dim]
+        if let outputTensor = TfLiteInterpreterGetOutputTensor(interp, 0) {
+            let dims = TfLiteTensorNumDims(outputTensor)
+            if dims >= 2 {
+                let detected = Int(TfLiteTensorDim(outputTensor, 1))
+                if detected > 0 { embeddingDimension = detected }
+            }
+        }
+
+        interpreter = interp
     }
-    
+
     /// Generate embeddings for input text (equivalent to Android's generateEmbedding)
-    /// - Parameter text: Input text to embed
-    /// - Returns: 768-dimensional embedding vector
     func generateEmbedding(for text: String) throws -> [Float] {
-        guard let interpreter = interpreter,
-              let tokenizer = tokenizer else {
-            throw EmbeddingError.modelNotLoaded("Model not loaded. Call loadModel() first.")
-        }
-
-        // Tokenize full string in one call (not prefix + text separately)
-        // This matches Android behavior where SentencePiece encodes the complete string
-        let fullText = taskPrefix + text
-        var tokens = tokenizer.encode(fullText)
-
-        // Add BOS at beginning and EOS at end - ONCE for entire sequence
-        // BOS token ID = 2, EOS token ID = 1 (from Gemma vocabulary)
-        tokens.insert(2, at: 0)  // Add BOS
-        tokens.append(1)         // Add EOS
-
-        // Prepare and copy input tensor
-        let inputTensor = try prepareInputTensor(tokens: tokens)
-        try interpreter.copy(inputTensor, toInputAt: 0)
-
-        // Run inference
-        try interpreter.invoke()
-
-        // Extract embeddings from output
-        let outputTensor = try interpreter.output(at: 0)
-        let embeddings = try extractEmbeddings(from: outputTensor)
-
-        return embeddings
+        return try runInference(fullText: taskPrefix + text)
     }
-    
-    /// Generate embeddings for input text using document prefix (for RAG indexing)
+
+    /// Generate embeddings using document prefix (for RAG indexing)
     func generateDocumentEmbedding(for text: String) throws -> [Float] {
-        guard let interpreter = interpreter,
-              let tokenizer = tokenizer else {
-            throw EmbeddingError.modelNotLoaded("Model not loaded. Call loadModel() first.")
-        }
-
-        let fullText = docPrefix + text
-        var tokens = tokenizer.encode(fullText)
-        tokens.insert(2, at: 0)  // BOS
-        tokens.append(1)         // EOS
-
-        let inputTensor = try prepareInputTensor(tokens: tokens)
-        try interpreter.copy(inputTensor, toInputAt: 0)
-        try interpreter.invoke()
-
-        let outputTensor = try interpreter.output(at: 0)
-        return try extractEmbeddings(from: outputTensor)
+        return try runInference(fullText: docPrefix + text)
     }
 
     /// Close model and release resources
     func close() {
-        interpreter = nil
+        if let interp = interpreter {
+            TfLiteInterpreterDelete(interp)
+            interpreter = nil
+        }
+        // Delete XNNPack delegate AFTER interpreter (interpreter must not use it after this)
+        if let xDelegate = xnnpackDelegate {
+            TfLiteXNNPackDelegateDelete(xDelegate)
+            xnnpackDelegate = nil
+        }
         tokenizer = nil
-
-        // Clear reusable buffers to free memory
-        inputBuffer = nil
         paddedTokensBuffer.removeAll()
         outputBuffer.removeAll()
     }
-    
+
     // MARK: - Private Methods
 
-    /// Load tokenizer by auto-detecting type from tokenizer.json
+    private func runInference(fullText: String) throws -> [Float] {
+        guard let interp = interpreter, let tokenizer = tokenizer else {
+            throw EmbeddingError.modelNotLoaded("Model not loaded. Call loadModel() first.")
+        }
+
+        var tokens = tokenizer.encode(fullText)
+        tokens.insert(2, at: 0)  // BOS (Gemma vocabulary)
+        tokens.append(1)         // EOS
+
+        // Pad/truncate to maxSequenceLength into Int32 buffer
+        let seqLen = maxSequenceLength
+        if paddedTokensBuffer.count != seqLen {
+            paddedTokensBuffer = [Int32](repeating: 0, count: seqLen)
+        }
+        let copyCount = min(tokens.count, seqLen)
+        for i in 0..<copyCount { paddedTokensBuffer[i] = Int32(tokens[i]) }
+        for i in copyCount..<seqLen { paddedTokensBuffer[i] = 0 }
+
+        // Copy into input tensor
+        guard let inputTensor = TfLiteInterpreterGetInputTensor(interp, 0) else {
+            throw EmbeddingError.inferenceFailed("Cannot get input tensor")
+        }
+        let byteCount = seqLen * MemoryLayout<Int32>.size
+        let status = paddedTokensBuffer.withUnsafeBytes { ptr in
+            TfLiteTensorCopyFromBuffer(inputTensor, ptr.baseAddress!, byteCount)
+        }
+        guard status == kTfLiteOk else {
+            throw EmbeddingError.inferenceFailed("TfLiteTensorCopyFromBuffer failed")
+        }
+
+        // Run inference
+        guard TfLiteInterpreterInvoke(interp) == kTfLiteOk else {
+            throw EmbeddingError.inferenceFailed("TfLiteInterpreterInvoke failed")
+        }
+
+        // Extract output
+        guard let outputTensor = TfLiteInterpreterGetOutputTensor(interp, 0) else {
+            throw EmbeddingError.inferenceFailed("Cannot get output tensor")
+        }
+        let outputByteCount = TfLiteTensorByteSize(outputTensor)
+        let floatCount = outputByteCount / MemoryLayout<Float>.size
+        if outputBuffer.count != floatCount {
+            outputBuffer = [Float](repeating: 0.0, count: floatCount)
+        }
+        let outputStatus = outputBuffer.withUnsafeMutableBytes { ptr in
+            TfLiteTensorCopyToBuffer(outputTensor, ptr.baseAddress!, outputByteCount)
+        }
+        guard outputStatus == kTfLiteOk else {
+            throw EmbeddingError.inferenceFailed("TfLiteTensorCopyToBuffer failed")
+        }
+
+        guard outputBuffer.count >= embeddingDimension else {
+            throw EmbeddingError.invalidOutput("Unexpected embedding dimension: \(outputBuffer.count)")
+        }
+        return Array(outputBuffer.prefix(embeddingDimension))
+    }
+
     private static func loadTokenizer(jsonPath: String) throws -> TokenizerProtocol {
         let data = try Data(contentsOf: URL(fileURLWithPath: jsonPath))
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -165,94 +189,14 @@ class EmbeddingModel {
             throw NSError(domain: "EmbeddingModel", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: "Cannot detect tokenizer type from JSON"])
         }
-
         switch type {
-        case "BPE":
-            return try BPETokenizer(jsonPath: jsonPath)
-        case "Unigram":
-            return try UnigramTokenizer(jsonPath: jsonPath)
+        case "BPE":    return try BPETokenizer(jsonPath: jsonPath)
+        case "Unigram": return try UnigramTokenizer(jsonPath: jsonPath)
         default:
             throw NSError(domain: "EmbeddingModel", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: "Unknown tokenizer type: \(type)"])
         }
     }
-
-    private func prepareInputTensor(tokens: [Int]) throws -> Data {
-        // Pad or truncate to maxSequenceLength (reusing buffer)
-        padTokens(tokens, toLength: maxSequenceLength, intoBuffer: &paddedTokensBuffer)
-
-        // Reuse input buffer if possible
-        let requiredSize = paddedTokensBuffer.count * MemoryLayout<Int32>.size
-        if inputBuffer == nil || inputBuffer!.count != requiredSize {
-            inputBuffer = Data(count: requiredSize)
-        }
-
-        // Copy Int tokens to Int32 buffer efficiently
-        inputBuffer!.withUnsafeMutableBytes { bytes in
-            let int32Pointer = bytes.bindMemory(to: Int32.self)
-            for i in 0..<paddedTokensBuffer.count {
-                int32Pointer[i] = Int32(paddedTokensBuffer[i])
-            }
-        }
-
-        return inputBuffer!
-    }
-    
-    private func padTokens(_ tokens: [Int], toLength length: Int, intoBuffer buffer: inout [Int]) {
-        // Resize buffer if needed
-        if buffer.count != length {
-            buffer = Array(repeating: 0, count: length)
-        }
-
-        // Copy tokens and handle truncation/padding
-        let copyCount = min(tokens.count, length)
-
-        // Copy input tokens
-        for i in 0..<copyCount {
-            buffer[i] = tokens[i]
-        }
-
-        // Fill remaining with PAD token (0)
-        // PAD=0 is standard for Gemma vocabulary
-        let padToken = 0
-        for i in copyCount..<length {
-            buffer[i] = padToken
-        }
-    }
-    
-    private func extractEmbeddings(from tensor: Tensor) throws -> [Float] {
-        // Extract embeddings from output tensor
-        let outputData = tensor.data
-
-        // Convert bytes to Float32 array (reusing buffer)
-        let floatCount = outputData.count / MemoryLayout<Float>.size
-
-        // Resize output buffer if needed
-        if outputBuffer.count != floatCount {
-            outputBuffer = [Float](repeating: 0.0, count: floatCount)
-        }
-
-        outputData.withUnsafeBytes { bytes in
-            let floatPointer = bytes.bindMemory(to: Float.self)
-            for i in 0..<floatCount {
-                outputBuffer[i] = floatPointer[i]
-            }
-        }
-
-        // Model returns [1, 768] - just take the 768 values directly
-        // No mean pooling - model already outputs final embedding
-        if outputBuffer.count >= embeddingDimension {
-            var result = [Float](repeating: 0.0, count: embeddingDimension)
-            for i in 0..<embeddingDimension {
-                result[i] = outputBuffer[i]
-            }
-
-            return result
-        } else {
-            throw EmbeddingError.invalidOutput("Unexpected embedding dimension: \(outputBuffer.count)")
-        }
-    }
-    
 }
 
 // MARK: - Error Types
@@ -283,40 +227,29 @@ enum EmbeddingError: Error, LocalizedError {
 // MARK: - Extensions for debugging
 
 extension EmbeddingModel {
-    
-    /// Get model information for debugging
+
     var modelInfo: [String: Any] {
-        guard let interpreter = interpreter else {
+        guard let interp = interpreter else {
             return ["status": "not_loaded"]
         }
-        
         var info: [String: Any] = [
             "status": "loaded",
-            "use_gpu": useGPU,
             "max_sequence_length": maxSequenceLength,
             "embedding_dimension": embeddingDimension,
-            "input_tensor_count": interpreter.inputTensorCount,
-            "output_tensor_count": interpreter.outputTensorCount
+            "input_tensor_count": TfLiteInterpreterGetInputTensorCount(interp),
+            "output_tensor_count": TfLiteInterpreterGetOutputTensorCount(interp),
         ]
-        
-        // Add tensor shapes if available
-        if let inputTensor = try? interpreter.input(at: 0) {
-            info["input_shape"] = inputTensor.shape.dimensions
-            info["input_type"] = "\(inputTensor.dataType)"
+        if let t = TfLiteInterpreterGetInputTensor(interp, 0) {
+            info["input_dims"] = TfLiteTensorNumDims(t)
         }
-        
-        if let outputTensor = try? interpreter.output(at: 0) {
-            info["output_shape"] = outputTensor.shape.dimensions
-            info["output_type"] = "\(outputTensor.dataType)"
+        if let t = TfLiteInterpreterGetOutputTensor(interp, 0) {
+            info["output_dims"] = TfLiteTensorNumDims(t)
         }
-        
         return info
     }
-    
-    /// Test embedding generation with sample text
+
     func testEmbedding() throws -> [Float] {
-        let testText = "machine learning algorithms"
-        return try generateEmbedding(for: testText)
+        return try generateEmbedding(for: "machine learning algorithms")
     }
 }
 

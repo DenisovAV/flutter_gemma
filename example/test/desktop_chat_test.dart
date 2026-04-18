@@ -1,6 +1,7 @@
 // Integration test for Desktop LiteRT-LM chat
 // Run with: cd example && flutter test test/desktop_chat_test.dart -d macos
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model_response.dart';
@@ -13,18 +14,19 @@ void main() {
     late InferenceChat chat;
 
     setUpAll(() async {
-      print('=== Setting up Desktop Chat Test ===');
+      debugPrint('=== Setting up Desktop Chat Test ===');
 
       // Initialize FlutterGemma
       await FlutterGemma.initialize();
-      print('FlutterGemma initialized');
+      debugPrint('FlutterGemma initialized');
 
       // Check if model is installed
       final hasModel = FlutterGemma.hasActiveModel();
-      print('Has active model: $hasModel');
+      debugPrint('Has active model: $hasModel');
 
       if (!hasModel) {
-        fail('No active model set. Install gemma-3n-E2B-it-int4 first via the example app.');
+        fail(
+            'No active model set. Install gemma-3n-E2B-it-int4 first via the example app.');
       }
 
       // Create model with minimal config - NO audio/image support to test pure text
@@ -34,30 +36,30 @@ void main() {
         supportAudio: false,
         supportImage: false,
       );
-      print('Model created: ${model.runtimeType}');
+      debugPrint('Model created: ${model.runtimeType}');
 
       // Create chat
       chat = await model.createChat();
-      print('Chat created: ${chat.runtimeType}');
+      debugPrint('Chat created: ${chat.runtimeType}');
     });
 
     tearDownAll(() async {
-      print('=== Tearing down ===');
+      debugPrint('=== Tearing down ===');
       await model.close();
     });
 
     test('Simple text chat should work', () async {
-      print('\n=== Test: Simple text chat ===');
+      debugPrint('\n=== Test: Simple text chat ===');
 
       // Add a simple query
       const query = 'Hi';
-      print('Sending query: "$query"');
+      debugPrint('Sending query: "$query"');
 
       await chat.addQueryChunk(const Message(text: query, isUser: true));
-      print('Query added to chat');
+      debugPrint('Query added to chat');
 
       // Get response
-      print('Getting response...');
+      debugPrint('Getting response...');
       final response = await chat.generateChatResponse();
 
       String responseText = '';
@@ -65,31 +67,32 @@ void main() {
         responseText = response.token;
       }
 
-      print('Response received: "${responseText.take(100)}"');
-      print('Response length: ${responseText.length}');
+      debugPrint('Response received: "${responseText.take(100)}"');
+      debugPrint('Response length: ${responseText.length}');
 
       expect(responseText, isNotEmpty);
       expect(responseText.length, greaterThan(1));
     });
 
     test('Streaming response should work', () async {
-      print('\n=== Test: Streaming response ===');
+      debugPrint('\n=== Test: Streaming response ===');
 
-      await chat.addQueryChunk(const Message(text: 'Count from 1 to 3', isUser: true));
+      await chat.addQueryChunk(
+          const Message(text: 'Count from 1 to 3', isUser: true));
 
       final chunks = <String>[];
       await for (final response in chat.generateChatResponseAsync()) {
         if (response is TextResponse) {
           chunks.add(response.token);
           if (chunks.length <= 10) {
-            print('Chunk ${chunks.length}: "${response.token}"');
+            debugPrint('Chunk ${chunks.length}: "${response.token}"');
           }
         }
       }
 
       final fullResponse = chunks.join();
-      print('Total chunks: ${chunks.length}');
-      print('Full response: "${fullResponse.take(100)}"');
+      debugPrint('Total chunks: ${chunks.length}');
+      debugPrint('Full response: "${fullResponse.take(100)}"');
 
       expect(chunks, isNotEmpty);
       expect(fullResponse, isNotEmpty);

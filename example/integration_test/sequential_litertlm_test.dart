@@ -28,6 +28,11 @@ const _models = <({String path, String name, ModelType modelType})>[
     name: 'Gemma 4 E2B',
     modelType: ModelType.gemmaIt,
   ),
+  (
+    path: '$_deviceDir/Qwen3-0.6B.litertlm',
+    name: 'Qwen3 0.6B',
+    modelType: ModelType.qwen,
+  ),
 ];
 
 Future<InferenceModel> _installAndLoad(String path, ModelType modelType) async {

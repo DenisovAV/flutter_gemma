@@ -53,8 +53,11 @@ class LiteRtLmFfiClient {
     debugPrint('[LiteRtLmFfi] Loading native libraries...');
     final DynamicLibrary lib;
     final DynamicLibrary proxyLib;
-    if (Platform.isMacOS || Platform.isIOS) {
-      // Flutter Native Assets wraps dylibs in .framework bundles on Apple platforms
+    if (Platform.isIOS) {
+      // On iOS, Native Assets bundles dylibs in Frameworks/ inside Runner.app
+      lib = DynamicLibrary.open('@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm');
+      proxyLib = DynamicLibrary.open('@executable_path/Frameworks/StreamProxy.framework/StreamProxy');
+    } else if (Platform.isMacOS) {
       lib = DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
       proxyLib = DynamicLibrary.open('StreamProxy.framework/StreamProxy');
     } else if (Platform.isLinux) {
@@ -127,11 +130,13 @@ class LiteRtLmFfiClient {
       final settingsAddr = settings.address;
       final sw = Stopwatch()..start();
       final engineAddr = await Isolate.run(() {
-        final lib = (Platform.isMacOS || Platform.isIOS)
-            ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
-            : Platform.isLinux
-                ? DynamicLibrary.open('libLiteRtLm.so')
-                : DynamicLibrary.open('LiteRtLm.dll');
+        final lib = Platform.isIOS
+            ? DynamicLibrary.open('@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm')
+            : Platform.isMacOS
+                ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
+                : Platform.isLinux
+                    ? DynamicLibrary.open('libLiteRtLm.so')
+                    : DynamicLibrary.open('LiteRtLm.dll');
         final create = lib.lookupFunction<
             Pointer Function(Pointer),
             Pointer Function(Pointer)>('litert_lm_engine_create');

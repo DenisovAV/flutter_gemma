@@ -11,9 +11,11 @@ const _mainLibName = 'LiteRtLm';
 String _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   if (os == OS.iOS) {
     if (iOSSdk == IOSSdk.iPhoneSimulator) {
-      return 'ios_sim_${_archName(arch)}';
+      // Simulator on Apple Silicon is arm64, on Intel is x86_64.
+      // We only ship arm64 simulator builds.
+      return 'ios_sim_arm64';
     }
-    return 'ios_${_archName(arch)}';
+    return 'ios_arm64';
   }
   final osName = switch (os) {
     OS.macOS => 'macos',

@@ -1,3 +1,6 @@
+## 0.13.5
+- **Fix Qwen3 thinking mode (#224)**: Qwen3 `<think>` tags now stripped automatically
+
 ## 0.13.4
 - **Fix iOS compile error (#222)**: XNNPack delegate type mismatch in `EmbeddingModel.swift`
 - **Fix iOS arm64 simulator (#216)**: Removed `TensorFlowLiteSelectTfOps` — simulator builds work on Apple Silicon

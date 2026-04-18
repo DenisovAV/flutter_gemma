@@ -48,10 +48,12 @@
 | Llama 3.2 1B | ❌ | ❌ | ❌ | Android, iOS, Web |
 | Hammer 2.1 0.5B | ✅ | ❌ | ❌ | Android, iOS, Web |
 | DeepSeek | ✅ | ✅ | ❌ | Android, iOS, Web |
+| Qwen3 | ✅ | ✅ ² | ❌ | Android, iOS, Web, Desktop |
 | Qwen2.5 | ✅ | ❌ | ❌ | Android, iOS, Web |
 | Phi-4 | ❌ | ❌ | ❌ | Android, iOS, Web |
 
 > ¹ Thinking Mode for Gemma 4: Android, iOS, Desktop only. Web (MediaPipe) does not support `extraContext`.
+> ² Qwen3 generates thinking by default; tags are stripped when `isThinking: false`.
 
 ### Platform Limitations
 
@@ -108,7 +110,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM Android**: `com.google.ai.edge.litertlm:litertlm-android:0.10.0`
-- **Current Version**: 0.13.4
+- **Current Version**: 0.13.5
 
 ## Platform-Specific Setup
 

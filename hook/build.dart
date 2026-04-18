@@ -8,29 +8,29 @@ const _mainLibName = 'LiteRtLm';
 
 /// Resolve prebuilt directory name for the given OS + architecture.
 /// iOS distinguishes device vs simulator via IOSSdk.
-String _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
+String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   if (os == OS.iOS) {
     if (iOSSdk == IOSSdk.iPhoneSimulator) {
-      // Simulator on Apple Silicon is arm64, on Intel is x86_64.
-      // We only ship arm64 simulator builds.
       return 'ios_sim_arm64';
     }
     return 'ios_arm64';
   }
+  final archName = switch (arch) {
+    Architecture.arm64 => 'arm64',
+    Architecture.x64 => 'x86_64',
+    _ => null,
+  };
+  if (archName == null) return null;
   final osName = switch (os) {
     OS.macOS => 'macos',
     OS.linux => 'linux',
     OS.windows => 'windows',
-    _ => throw UnsupportedError('Unsupported OS: $os'),
+    OS.android => 'android',
+    _ => null,
   };
-  return '${osName}_${_archName(arch)}';
+  if (osName == null) return null;
+  return '${osName}_$archName';
 }
-
-String _archName(Architecture arch) => switch (arch) {
-      Architecture.arm64 => 'arm64',
-      Architecture.x64 => 'x86_64',
-      _ => throw UnsupportedError('Unsupported arch: $arch'),
-    };
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
@@ -39,23 +39,22 @@ void main(List<String> args) async {
     final codeConfig = input.config.code;
     final os = codeConfig.targetOS;
 
-    // Supported platforms: desktop + iOS
-    // Android uses JNI engine, Web uses MediaPipe JS
-    if (os != OS.macOS && os != OS.linux && os != OS.windows && os != OS.iOS) {
+    // Supported platforms: desktop + iOS + Android
+    // Web uses MediaPipe JS (dart:ffi blocked in WASM)
+    if (os != OS.macOS && os != OS.linux && os != OS.windows && os != OS.iOS && os != OS.android) {
       return;
     }
 
     final arch = codeConfig.targetArchitecture;
     final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
     final dirName = _prebuiltDirName(os, arch, iOSSdk: iOSSdk);
+    if (dirName == null) return; // Unsupported arch (e.g. arm32), skip
     final prebuiltDir =
         input.packageRoot.resolve('native/litert_lm/prebuilt/$dirName/');
 
     final mainFileName = os.dylibFileName(_mainLibName);
     final mainFileUri = prebuiltDir.resolve(mainFileName);
-    if (!File.fromUri(mainFileUri).existsSync()) {
-      throw Exception('Main library not found: $mainFileUri');
-    }
+    if (!File.fromUri(mainFileUri).existsSync()) return; // No prebuilt for this arch
 
     output.assets.code.add(
       CodeAsset(

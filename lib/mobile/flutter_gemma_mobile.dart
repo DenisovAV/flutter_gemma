@@ -339,8 +339,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
       // .litertlm files on iOS → use FFI (same as desktop)
       // .task/.bin files → use MediaPipe via Pigeon (existing path)
-      if (fileType == ModelFileType.litertlm && Platform.isIOS) {
-        debugPrint('[FlutterGemmaMobile] Using FFI path for .litertlm on iOS');
+      if (fileType == ModelFileType.litertlm && (Platform.isIOS || Platform.isAndroid)) {
+        debugPrint('[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
         final cacheDir = (await getApplicationSupportDirectory()).path;
         final ffiClient = LiteRtLmFfiClient();
         await ffiClient.initialize(

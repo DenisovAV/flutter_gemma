@@ -66,6 +66,9 @@ class LiteRtLmFfiClient {
     } else if (Platform.isWindows) {
       lib = DynamicLibrary.open('LiteRtLm.dll');
       proxyLib = DynamicLibrary.open('StreamProxy.dll');
+    } else if (Platform.isAndroid) {
+      lib = DynamicLibrary.open('libLiteRtLm.so');
+      proxyLib = DynamicLibrary.open('libStreamProxy.so');
     } else {
       throw UnsupportedError('Platform not supported for FFI: ${Platform.operatingSystem}');
     }
@@ -134,7 +137,7 @@ class LiteRtLmFfiClient {
             ? DynamicLibrary.open('@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm')
             : Platform.isMacOS
                 ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
-                : Platform.isLinux
+                : (Platform.isLinux || Platform.isAndroid)
                     ? DynamicLibrary.open('libLiteRtLm.so')
                     : DynamicLibrary.open('LiteRtLm.dll');
         final create = lib.lookupFunction<

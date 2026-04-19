@@ -79,18 +79,26 @@ void main(List<String> args) async {
       );
     }
 
-    // Companion lib: GemmaModelConstraintProvider (loaded by libLiteRtLm via dlopen)
-    final companionFileName = os.dylibFileName('GemmaModelConstraintProvider');
-    final companionFileUri = prebuiltDir.resolve(companionFileName);
-    if (File.fromUri(companionFileUri).existsSync()) {
-      output.assets.code.add(
-        CodeAsset(
-          package: _packageName,
-          name: 'src/native/GemmaModelConstraintProvider',
-          linkMode: DynamicLoadingBundled(),
-          file: companionFileUri,
-        ),
-      );
+    // Companion libs (loaded by libLiteRtLm via dlopen at runtime)
+    final companions = [
+      'GemmaModelConstraintProvider',
+      'LiteRtMetalAccelerator',    // macOS GPU
+      'LiteRtGpuAccelerator',      // Android GPU
+      'LiteRtOpenClAccelerator',   // Android OpenCL
+    ];
+    for (final name in companions) {
+      final fileName = os.dylibFileName(name);
+      final fileUri = prebuiltDir.resolve(fileName);
+      if (File.fromUri(fileUri).existsSync()) {
+        output.assets.code.add(
+          CodeAsset(
+            package: _packageName,
+            name: 'src/native/$name',
+            linkMode: DynamicLoadingBundled(),
+            file: fileUri,
+          ),
+        );
+      }
     }
 
     output.dependencies.add(prebuiltDir);

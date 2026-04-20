@@ -1,0 +1,106 @@
+import 'dart:ffi';
+import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:ffi/ffi.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
+
+const _g4 = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
+const _img = '/data/local/tmp/flutter_gemma_test/test_image.jpg';
+
+typedef _CreateSettingsC = Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>);
+typedef _DeleteSettingsC = Void Function(Pointer);
+typedef _SetMaxTokensC = Void Function(Pointer, Int32);
+typedef _SetCacheDirC = Void Function(Pointer, Pointer<Utf8>);
+typedef _CreateEngineC = Pointer Function(Pointer);
+typedef _DeleteEngineC = Void Function(Pointer);
+typedef _CreateConvC = Pointer Function(Pointer, Pointer);
+typedef _DeleteConvC = Void Function(Pointer);
+typedef _SendMsgC = Pointer Function(Pointer, Pointer<Utf8>, Pointer);
+typedef _GetRespStrC = Pointer<Utf8> Function(Pointer);
+typedef _DeleteRespC = Void Function(Pointer);
+
+void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  late DynamicLibrary lib;
+
+  setUpAll(() {
+    lib = DynamicLibrary.open('libLiteRtLm.so');
+    print('Library loaded');
+  });
+
+  void runTest(String name, String backend, String? vision, String? audio, {bool sendImage = false}) {
+    testWidgets('$name: b=$backend v=$vision a=$audio img=$sendImage', (t) async {
+      final cs = lib.lookupFunction<_CreateSettingsC, Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>('litert_lm_engine_settings_create');
+      final ds = lib.lookupFunction<_DeleteSettingsC, void Function(Pointer)>('litert_lm_engine_settings_delete');
+      final mt = lib.lookupFunction<_SetMaxTokensC, void Function(Pointer, int)>('litert_lm_engine_settings_set_max_num_tokens');
+      final cd = lib.lookupFunction<_SetCacheDirC, void Function(Pointer, Pointer<Utf8>)>('litert_lm_engine_settings_set_cache_dir');
+      final ce = lib.lookupFunction<_CreateEngineC, Pointer Function(Pointer)>('litert_lm_engine_create');
+      final de = lib.lookupFunction<_DeleteEngineC, void Function(Pointer)>('litert_lm_engine_delete');
+      final cc = lib.lookupFunction<_CreateConvC, Pointer Function(Pointer, Pointer)>('litert_lm_conversation_create');
+      final dc = lib.lookupFunction<_DeleteConvC, void Function(Pointer)>('litert_lm_conversation_delete');
+      final sm = lib.lookupFunction<_SendMsgC, Pointer Function(Pointer, Pointer<Utf8>, Pointer)>('litert_lm_conversation_send_message');
+      final gr = lib.lookupFunction<_GetRespStrC, Pointer<Utf8> Function(Pointer)>('litert_lm_json_response_get_string');
+      final dr = lib.lookupFunction<_DeleteRespC, void Function(Pointer)>('litert_lm_json_response_delete');
+
+      final mp = _g4.toNativeUtf8();
+      final bp = backend.toNativeUtf8();
+      final vp = vision?.toNativeUtf8();
+      final ap = audio?.toNativeUtf8();
+
+      final s = cs(mp, bp, vp ?? Pointer.fromAddress(0).cast(), ap ?? Pointer.fromAddress(0).cast());
+      if (s.address == 0) { print('| $name | $backend | $vision | $audio | SETTINGS_FAIL |'); return; }
+
+      mt(s, 4096);
+
+      final e = ce(s); ds(s);
+      if (e.address == 0) { print('| $name | $backend | $vision | $audio | ENGINE_FAIL |'); return; }
+
+      final conv = cc(e, nullptr);
+      if (conv.address == 0) { de(e); print('| $name | $backend | $vision | $audio | CONV_FAIL |'); return; }
+
+      String msgJson;
+      if (sendImage && File(_img).existsSync()) {
+        final imgBytes = File(_img).readAsBytesSync();
+        final b64 = base64Encode(imgBytes);
+        msgJson = '{"role":"user","content":[{"type":"image","blob":"$b64"},{"type":"text","text":"What is in this image?"}]}';
+      } else {
+        msgJson = '{"role":"user","content":[{"type":"text","text":"Hi"}]}';
+      }
+
+      final msg = msgJson.toNativeUtf8();
+      final r = sm(conv, msg, nullptr);
+      String result;
+      if (r.address == 0) {
+        result = 'SEND_NULL';
+      } else {
+        final str = gr(r).toDartString();
+        dr(r);
+        result = 'OK: ${str.substring(0, str.length.clamp(0, 80))}';
+      }
+
+      calloc.free(msg); dc(conv); de(e);
+      calloc.free(mp); calloc.free(bp);
+      if (vp != null) calloc.free(vp);
+      if (ap != null) calloc.free(ap);
+
+      print('| $name | $backend | $vision | $audio | img=$sendImage | $result |');
+    });
+  }
+
+  group('Gemma4 backend matrix', () {
+    runTest('g4', 'gpu', null, null);
+    runTest('g4', 'gpu', 'gpu', null);
+    runTest('g4', 'gpu', 'gpu', 'cpu');
+    runTest('g4', 'cpu', null, null);
+  });
+
+  group('Gemma4 vision', () {
+    // GPU without vision backend, but send image in JSON
+    runTest('g4-img', 'gpu', null, null, sendImage: true);
+    // GPU with vision backend, send image in JSON
+    runTest('g4-img', 'gpu', 'gpu', null, sendImage: true);
+  });
+}

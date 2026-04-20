@@ -47,3 +47,13 @@ void* stream_proxy_create(LiteRtLmStreamCallback dart_callback,
 void stream_proxy_free_string(char* str) {
   free(str);
 }
+
+// Load a shared library with RTLD_GLOBAL so its symbols are visible
+// to other dlopen'd libraries (e.g. GPU accelerator plugins).
+// Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
+#ifndef _WIN32
+#include <dlfcn.h>
+void* stream_proxy_load_global(const char* path) {
+  return dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
+}
+#endif

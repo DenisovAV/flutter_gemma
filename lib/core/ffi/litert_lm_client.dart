@@ -67,8 +67,21 @@ class LiteRtLmFfiClient {
       lib = DynamicLibrary.open('LiteRtLm.dll');
       proxyLib = DynamicLibrary.open('StreamProxy.dll');
     } else if (Platform.isAndroid) {
-      lib = DynamicLibrary.open('libLiteRtLm.so');
+      // Load StreamProxy first (it has stream_proxy_load_global helper)
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
+      // Load LiteRtLm with RTLD_GLOBAL so GPU accelerator plugins
+      // can find LiteRt* symbols via dlsym(RTLD_DEFAULT).
+      // Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
+      final loadGlobal = proxyLib.lookupFunction<
+          Pointer Function(Pointer<Utf8>),
+          Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+      final pathPtr = 'libLiteRtLm.so'.toNativeUtf8();
+      final handle = loadGlobal(pathPtr);
+      calloc.free(pathPtr);
+      if (handle == nullptr) {
+        throw Exception('Failed to load libLiteRtLm.so with RTLD_GLOBAL');
+      }
+      lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
     } else {
       throw UnsupportedError('Platform not supported for FFI: ${Platform.operatingSystem}');
     }
@@ -98,8 +111,11 @@ class LiteRtLmFfiClient {
     // Create engine settings
     final modelPathPtr = modelPath.toNativeUtf8();
     final backendPtr = backend.toNativeUtf8();
-    final visionBackendPtr = enableVision ? backend.toNativeUtf8() : nullptr;
-    // Audio backend: CPU only (model constraint), but only set if audio enabled
+    // Vision/audio backends: only set on macOS where Metal accelerator is available.
+    // On iOS/Android, setting vision backend causes ENGINE_FAIL for some models.
+    // The Conversation API handles multimodal input via JSON content (image/audio blobs)
+    // without requiring explicit vision/audio backend configuration.
+    final visionBackendPtr = (enableVision && Platform.isMacOS) ? backend.toNativeUtf8() : nullptr;
     final audioBackendPtr = enableAudio ? 'cpu'.toNativeUtf8() : nullptr;
 
     try {

@@ -347,6 +347,24 @@ class LiteRtLmBindings {
       _litert_lm_engine_settings_set_num_decode_tokensPtr.asFunction<
           void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
 
+  void litert_lm_engine_settings_set_max_num_images(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int max_num_images,
+  ) {
+    return _litert_lm_engine_settings_set_max_num_images(
+      settings,
+      max_num_images,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_max_num_imagesPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
+              ffi.Int)>>('litert_lm_engine_settings_set_max_num_images');
+  late final _litert_lm_engine_settings_set_max_num_images =
+      _litert_lm_engine_settings_set_max_num_imagesPtr.asFunction<
+          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+
   ffi.Pointer<LiteRtLmEngine> litert_lm_engine_create(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {

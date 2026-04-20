@@ -6,7 +6,8 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-const _g4 = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
+const _gemma3n = '/data/local/tmp/flutter_gemma_test/gemma-3n-E2B-it-int4.litertlm';
+const _gemma4 = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
 const _img = '/data/local/tmp/flutter_gemma_test/test_image.jpg';
 
 typedef _CreateSettingsC = Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>);
@@ -47,7 +48,7 @@ void main() {
     print('Library loaded (RTLD_GLOBAL + GPU preloaded)');
   });
 
-  void runTest(String name, String backend, String? vision, String? audio, {bool sendImage = false}) {
+  void runTest(String name, String modelPath, String backend, String? vision, String? audio, {bool sendImage = false}) {
     testWidgets('$name: b=$backend v=$vision a=$audio img=$sendImage', (t) async {
       final cs = lib.lookupFunction<_CreateSettingsC, Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>('litert_lm_engine_settings_create');
       final ds = lib.lookupFunction<_DeleteSettingsC, void Function(Pointer)>('litert_lm_engine_settings_delete');
@@ -61,7 +62,7 @@ void main() {
       final gr = lib.lookupFunction<_GetRespStrC, Pointer<Utf8> Function(Pointer)>('litert_lm_json_response_get_string');
       final dr = lib.lookupFunction<_DeleteRespC, void Function(Pointer)>('litert_lm_json_response_delete');
 
-      final mp = _g4.toNativeUtf8();
+      final mp = modelPath.toNativeUtf8();
       final bp = backend.toNativeUtf8();
       final vp = vision?.toNativeUtf8();
       final ap = audio?.toNativeUtf8();
@@ -106,17 +107,16 @@ void main() {
     });
   }
 
-  group('Gemma4 backend matrix', () {
-    runTest('g4', 'gpu', null, null);
-    runTest('g4', 'gpu', 'gpu', null);
-    runTest('g4', 'gpu', 'gpu', 'cpu');
-    runTest('g4', 'cpu', null, null);
+  // Gemma3n — Kotlin AAR vision works with this model
+  group('Gemma3n vision', () {
+    runTest('g3n', _gemma3n, 'gpu', null, null);
+    runTest('g3n', _gemma3n, 'gpu', 'gpu', null);
+    runTest('g3n', _gemma3n, 'cpu', 'gpu', null);
   });
 
+  // Gemma4
   group('Gemma4 vision', () {
-    // GPU without vision backend, but send image in JSON
-    runTest('g4-img', 'gpu', null, null, sendImage: true);
-    // GPU with vision backend, send image in JSON
-    runTest('g4-img', 'gpu', 'gpu', null, sendImage: true);
+    runTest('g4', _gemma4, 'gpu', null, null);
+    runTest('g4', _gemma4, 'gpu', 'gpu', null);
   });
 }

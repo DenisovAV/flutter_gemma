@@ -111,11 +111,7 @@ class LiteRtLmFfiClient {
     // Create engine settings
     final modelPathPtr = modelPath.toNativeUtf8();
     final backendPtr = backend.toNativeUtf8();
-    // Vision/audio backends: only set on macOS where Metal accelerator is available.
-    // On iOS/Android, setting vision backend causes ENGINE_FAIL for some models.
-    // The Conversation API handles multimodal input via JSON content (image/audio blobs)
-    // without requiring explicit vision/audio backend configuration.
-    final visionBackendPtr = (enableVision && Platform.isMacOS) ? backend.toNativeUtf8() : nullptr;
+    final visionBackendPtr = enableVision ? backend.toNativeUtf8() : nullptr;
     final audioBackendPtr = enableAudio ? 'cpu'.toNativeUtf8() : nullptr;
 
     try {
@@ -139,8 +135,13 @@ class LiteRtLmFfiClient {
 
       if (cacheDir != null) {
         final cacheDirPtr = cacheDir.toNativeUtf8();
+        // Sets cache dir on main, vision, and audio executors (C API patched)
         b.litert_lm_engine_settings_set_cache_dir(settings, cacheDirPtr.cast());
         calloc.free(cacheDirPtr);
+      }
+
+      if (maxNumImages > 0) {
+        b.litert_lm_engine_settings_set_max_num_images(settings, maxNumImages);
       }
 
       // Create engine in a background isolate to avoid blocking UI.

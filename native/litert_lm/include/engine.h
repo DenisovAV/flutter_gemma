@@ -241,6 +241,10 @@ LITERT_LM_C_API_EXPORT
 void litert_lm_engine_settings_set_num_decode_tokens(
     LiteRtLmEngineSettings* settings, int num_decode_tokens);
 
+// Sets the maximum number of images for multimodal vision support.
+LITERT_LM_C_API_EXPORT
+void litert_lm_engine_settings_set_max_num_images(
+    LiteRtLmEngineSettings* settings, int max_num_images);
 // Creates a LiteRT LM Engine from the given settings. The caller is responsible
 // for destroying the engine using `litert_lm_engine_delete`.
 //

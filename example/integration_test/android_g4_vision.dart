@@ -27,8 +27,24 @@ void main() {
   late DynamicLibrary lib;
 
   setUpAll(() {
+    // Load with RTLD_GLOBAL so GPU accelerator can find LiteRt* symbols
+    final proxy = DynamicLibrary.open('libStreamProxy.so');
+    final loadGlobal = proxy.lookupFunction<
+        Pointer Function(Pointer<Utf8>),
+        Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+
+    // Load main lib with RTLD_GLOBAL
+    var p = 'libLiteRtLm.so'.toNativeUtf8();
+    loadGlobal(p); calloc.free(p);
+
+    // Pre-load GPU accelerator with RTLD_GLOBAL BEFORE engine_create
+    p = 'libLiteRtGpuAccelerator.so'.toNativeUtf8();
+    loadGlobal(p); calloc.free(p);
+    p = 'libLiteRtOpenClAccelerator.so'.toNativeUtf8();
+    loadGlobal(p); calloc.free(p);
+
     lib = DynamicLibrary.open('libLiteRtLm.so');
-    print('Library loaded');
+    print('Library loaded (RTLD_GLOBAL + GPU preloaded)');
   });
 
   void runTest(String name, String backend, String? vision, String? audio, {bool sendImage = false}) {

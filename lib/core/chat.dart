@@ -10,10 +10,9 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'model.dart';
 
-// Constants
-/// Maximum length for function call buffer before flushing as text.
+/// Default maximum length for function call buffer before flushing as text.
 /// Must accommodate verbose formats (DeepSeek tags, parallel calls).
-const int _maxFunctionBufferLength = 1024;
+const int defaultMaxFunctionBufferLength = 1024;
 
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
@@ -22,6 +21,7 @@ class InferenceChat {
   final bool supportImage;
   final bool supportAudio;
   final bool supportsFunctionCalls;
+  final int maxFunctionBufferLength;
   final ModelType modelType; // Add modelType parameter
   final bool isThinking; // Add isThinking flag for thinking models
   final ModelFileType fileType; // Add fileType parameter
@@ -46,6 +46,7 @@ class InferenceChat {
     this.supportImage = false,
     this.supportAudio = false,
     this.supportsFunctionCalls = false,
+    this.maxFunctionBufferLength = defaultMaxFunctionBufferLength,
     this.tools = const [],
     this.modelType =
         ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
@@ -283,7 +284,7 @@ class InferenceChat {
             }
 
             // If buffer gets too long without completing, flush as text
-            if (funcBuffer.length > _maxFunctionBufferLength) {
+            if (funcBuffer.length > maxFunctionBufferLength) {
               debugPrint(
                   'InferenceChat: Buffer too long without completion, flushing as text');
               yield TextResponse(funcBuffer);

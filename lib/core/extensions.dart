@@ -432,7 +432,7 @@ class ModelThinkingFilter {
       required ModelFileType fileType}) {
     String cleaned = response;
 
-    // Always strip thinking tags for models that may generate them (Qwen3, DeepSeek, Gemma 4)
+    // Strip thinking tags for models that may generate them
     final bool modelCanThink = modelType == ModelType.deepSeek ||
         modelType == ModelType.qwen ||
         modelType == ModelType.gemmaIt;

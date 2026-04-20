@@ -253,7 +253,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // Use Contents format (like Android does)
             val message = Contents.of(listOf(Content.Text(request.text)))
 
-            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
+            val extraContext = mapOf("enable_thinking" to request.enableThinking)
 
             val messageCallback = object : MessageCallback {
                 override fun onMessage(msg: Message) {
@@ -302,11 +302,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // guarantees a single Mutex instance per conversationId under concurrent calls.
             val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
             convMutex.withLock {
-                if (extraContext.isNotEmpty()) {
-                    conversation.sendMessageAsync(message, messageCallback, extraContext)
-                } else {
-                    conversation.sendMessageAsync(message, messageCallback)
-                }
+                conversation.sendMessageAsync(message, messageCallback, extraContext)
                 // Wait for native code to call onDone/onError before releasing the lock.
                 withTimeoutOrNull(300_000) { done.await() }
             }
@@ -340,14 +336,10 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             logger.info("ChatWithImageSync: text='${request.text.take(50)}', imageBytes=${imageBytes.size}")
 
             val message = buildContents(request.text, imageBytes = imageBytes)
-            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
+            val extraContext = mapOf("enable_thinking" to request.enableThinking)
 
             logger.info("Calling SYNC sendMessage...")
-            val response = if (extraContext.isNotEmpty()) {
-                conversation.sendMessage(message, extraContext)
-            } else {
-                conversation.sendMessage(message)
-            }
+            val response = conversation.sendMessage(message, extraContext)
             val responseText = response.toString()
             val thinking = response.channels["thought"]
             logger.info("Sync response (${responseText.length} chars): ${responseText.take(200)}")
@@ -415,7 +407,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
                 logger.info("Image header: $header (JPEG=FFD8, PNG=89504E47)")
             }
             val message = buildContents(request.text, imageBytes = imageBytes)
-            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
+            val extraContext = mapOf("enable_thinking" to request.enableThinking)
 
             logger.info("Sending message to conversation...")
             var responseCount = 0
@@ -468,11 +460,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // image decode is running → prevents use-after-free SIGSEGV.
             val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
             convMutex.withLock {
-                if (extraContext.isNotEmpty()) {
-                    conversation.sendMessageAsync(message, messageCallback, extraContext)
-                } else {
-                    conversation.sendMessageAsync(message, messageCallback)
-                }
+                conversation.sendMessageAsync(message, messageCallback, extraContext)
                 withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {
@@ -539,7 +527,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             }
 
             val message = buildContents(request.text, audioBytes = audioBytes)
-            val extraContext = if (request.enableThinking) mapOf("enable_thinking" to true) else emptyMap()
+            val extraContext = mapOf("enable_thinking" to request.enableThinking)
 
             logger.info("Sending message to conversation...")
             var responseCount = 0
@@ -593,11 +581,7 @@ class LiteRtLmServiceImpl : LiteRtLmServiceGrpcKt.LiteRtLmServiceCoroutineImplBa
             // audio decode is running → prevents use-after-free SIGSEGV.
             val convMutex = conversationMutexes.computeIfAbsent(request.conversationId) { Mutex() }
             convMutex.withLock {
-                if (extraContext.isNotEmpty()) {
-                    conversation.sendMessageAsync(message, messageCallback, extraContext)
-                } else {
-                    conversation.sendMessageAsync(message, messageCallback)
-                }
+                conversation.sendMessageAsync(message, messageCallback, extraContext)
                 withTimeoutOrNull(300_000) { done.await() }
             }
         } catch (e: Exception) {

@@ -110,7 +110,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM Android**: `com.google.ai.edge.litertlm:litertlm-android:0.10.0`
-- **Current Version**: 0.13.5
+- **Current Version**: 0.13.6
 
 ## Platform-Specific Setup
 

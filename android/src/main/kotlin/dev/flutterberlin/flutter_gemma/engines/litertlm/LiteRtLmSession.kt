@@ -31,12 +31,9 @@ class LiteRtLmSession(
 
     private val conversation: Conversation
 
-    // Extra context for thinking mode (Gemma 4 via Jinja template variable)
-    private val extraContext: Map<String, Any> = if (config.enableThinking) {
-        mapOf("enable_thinking" to true)
-    } else {
-        emptyMap()
-    }
+    // Extra context for thinking mode (Jinja template variable)
+    // Always pass enable_thinking: Qwen3 needs explicit false to disable thinking
+    private val extraContext: Map<String, Any> = mapOf("enable_thinking" to config.enableThinking)
 
     // Chunk buffering (MediaPipe compatibility) - thread-safe access
     private val pendingPrompt = StringBuilder()

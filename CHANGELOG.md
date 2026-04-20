@@ -1,3 +1,7 @@
+## 0.13.6
+- **Disable Qwen3 thinking at model level**: `/no_think` appended automatically when `isThinking: false` — faster TTFT
+- **Pass `enable_thinking` via extraContext**: LiteRT-LM models receive explicit thinking flag in Jinja template context
+
 ## 0.13.5
 - **Fix Qwen3 thinking mode (#224)**: Qwen3 `<think>` tags now stripped automatically
 

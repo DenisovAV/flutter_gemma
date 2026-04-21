@@ -58,15 +58,19 @@ jobs:
   build-windows-x86_64:
     name: Windows x86_64
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         shell: pwsh
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
       ANDROID_NDK_HOME: ''
+      BAZEL_OUTPUT_BASE: 'D:\b'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Enable symlinks
+        run: git config --global core.symlinks true
 
       - name: Clone LiteRT-LM
         run: |
@@ -82,7 +86,12 @@ jobs:
       - name: Build LiteRtLm.dll
         run: |
           cd C:\LiteRT-LM
-          bazel build --build_tag_filters='-nowindows' '//c:libLiteRtLm.dylib'
+          bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
+            build --build_tag_filters='-nowindows' `
+            --features=compiler_param_file `
+            --features=archive_param_file `
+            --spawn_strategy=local `
+            '//c:libLiteRtLm.dylib'
 
       - name: Build StreamProxy.dll
         run: |

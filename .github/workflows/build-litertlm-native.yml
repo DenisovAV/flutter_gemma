@@ -93,6 +93,8 @@ jobs:
             --spawn_strategy=local `
             '//c:libLiteRtLm.dylib'
 
+      - uses: ilammy/msvc-dev-cmd@v1
+
       - name: Build StreamProxy.dll
         run: |
           cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c

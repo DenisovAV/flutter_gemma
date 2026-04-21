@@ -166,8 +166,12 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     if (!_isInitialized || _store == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
-    await _store!.removeDocumentDart(id);
-    _hnswIndex.remove(id);
+    try {
+      await _store!.removeDocumentDart(id);
+      _hnswIndex.remove(id);
+    } catch (e) {
+      throw VectorStoreException('Failed to remove document', e);
+    }
   }
 
   @override

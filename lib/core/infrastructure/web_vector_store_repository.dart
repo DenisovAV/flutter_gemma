@@ -87,14 +87,17 @@ class WebVectorStoreRepository implements VectorStoreRepository {
       }
 
       // Convert web types to HNSW types
-      final hnswDocs = documents.map((doc) => DocumentEmbedding(
-        id: doc.id,
-        embedding: doc.embedding,
-      )).toList();
+      final hnswDocs = documents
+          .map((doc) => DocumentEmbedding(
+                id: doc.id,
+                embedding: doc.embedding,
+              ))
+          .toList();
 
       _hnswIndex.rebuild(hnswDocs);
 
-      debugPrint('[WebVectorStore] HNSW index rebuilt with ${documents.length} documents');
+      debugPrint(
+          '[WebVectorStore] HNSW index rebuilt with ${documents.length} documents');
     } catch (e) {
       // Log but don't fail - fallback to brute-force search
       debugPrint('[WebVectorStore] Warning: Failed to rebuild HNSW index: $e');
@@ -107,7 +110,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   /// ES modules with top-level await load asynchronously.
   /// This polls until window.SQLiteVectorStore is available.
   Future<void> _waitForSQLiteModule() async {
-    const maxAttempts = 50;  // 5 seconds max
+    const maxAttempts = 50; // 5 seconds max
     const delay = Duration(milliseconds: 100);
 
     for (int i = 0; i < maxAttempts; i++) {
@@ -122,9 +125,8 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     }
 
     throw StateError(
-      'SQLiteVectorStore module failed to load after ${maxAttempts * delay.inMilliseconds}ms. '
-      'Add <script type="module" src="sqlite_vector_store.js"></script> to index.html'
-    );
+        'SQLiteVectorStore module failed to load after ${maxAttempts * delay.inMilliseconds}ms. '
+        'Add <script type="module" src="sqlite_vector_store.js"></script> to index.html');
   }
 
   @override
@@ -160,6 +162,15 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   }
 
   @override
+  Future<void> removeDocument({required String id}) async {
+    if (!_isInitialized || _store == null) {
+      throw StateError('VectorStore not initialized. Call initialize() first.');
+    }
+    await _store!.removeDocumentDart(id);
+    _hnswIndex.remove(id);
+  }
+
+  @override
   Future<List<RetrievalResult>> searchSimilar({
     required List<double> queryEmbedding,
     required int topK,
@@ -172,12 +183,14 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     try {
       // Use HNSW if enabled and index has enough documents
       if (enableHnsw && _hnswIndex.count >= _hnswThreshold) {
-        debugPrint('[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)');
+        debugPrint(
+            '[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)');
         return await _searchWithHnsw(queryEmbedding, topK, threshold);
       }
 
       // Fallback to brute-force for small datasets or when HNSW disabled
-      debugPrint('[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})');
+      debugPrint(
+          '[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})');
       return await _store!.searchSimilarDart(queryEmbedding, topK, threshold);
     } catch (e) {
       throw VectorStoreException('Search failed', e);

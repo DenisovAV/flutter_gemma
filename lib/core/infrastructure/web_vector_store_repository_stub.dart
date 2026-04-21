@@ -25,6 +25,11 @@ class WebVectorStoreRepository implements VectorStoreRepository {
   }
 
   @override
+  Future<void> removeDocument({required String id}) async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
   Future<List<RetrievalResult>> searchSimilar({
     required List<double> queryEmbedding,
     required int topK,

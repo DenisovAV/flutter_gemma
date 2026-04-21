@@ -238,7 +238,7 @@ void main() {
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
       ).toList();
 
       final thinking =
@@ -258,7 +258,7 @@ void main() {
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
       ).toList();
 
       final thinking =
@@ -277,7 +277,7 @@ void main() {
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
       ).toList();
 
       final thinking =
@@ -296,7 +296,7 @@ void main() {
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
       ).toList();
 
       final thinking =
@@ -315,7 +315,7 @@ void main() {
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
       ).toList();
 
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
@@ -330,7 +330,7 @@ void main() {
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
       ).toList();
 
       final text = results.whereType<TextResponse>().map((r) => r.token).join();

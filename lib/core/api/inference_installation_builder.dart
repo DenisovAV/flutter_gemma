@@ -49,7 +49,8 @@ class InferenceInstallationBuilder {
     String? token,
     bool? foreground,
   }) {
-    _modelSource = ModelSource.network(url, authToken: token, foreground: foreground);
+    _modelSource =
+        ModelSource.network(url, authToken: token, foreground: foreground);
     return this;
   }
 
@@ -89,7 +90,8 @@ class InferenceInstallationBuilder {
   }
 
   /// Convenience: Add LoRA weights from network URL
-  InferenceInstallationBuilder withLoraFromNetwork(String url, {String? token}) {
+  InferenceInstallationBuilder withLoraFromNetwork(String url,
+      {String? token}) {
     _loraSource = ModelSource.network(url, authToken: token);
     return this;
   }
@@ -115,7 +117,8 @@ class InferenceInstallationBuilder {
   /// Add progress callback
   ///
   /// Called periodically during installation with progress percentage (0-100).
-  InferenceInstallationBuilder withProgress(void Function(int progress) onProgress) {
+  InferenceInstallationBuilder withProgress(
+      void Function(int progress) onProgress) {
     _onProgress = onProgress;
     return this;
   }
@@ -220,9 +223,9 @@ class InferenceInstallationBuilder {
   String _extractFilename(ModelSource source) {
     return switch (source) {
       NetworkSource(:final url) => path.basename(Uri.parse(url).path),
-      AssetSource(:final path) => path.split('/').last,
+      AssetSource(:final path) => path.split(RegExp(r'[/\\]')).last,
       BundledSource(:final resourceName) => resourceName,
-      FileSource(:final path) => path.split('/').last,
+      FileSource(:final path) => path.split(RegExp(r'[/\\]')).last,
     };
   }
 }

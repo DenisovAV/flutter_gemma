@@ -101,7 +101,7 @@ class InferenceChat {
     }
 
     // Qwen3: append /no_think to suppress thinking at model level when not requested
-    if (!isThinking && modelType == ModelType.qwen && message.isUser) {
+    if (!isThinking && modelType == ModelType.qwen3 && message.isUser) {
       messageToSend =
           messageToSend.copyWith(text: '${messageToSend.text} /no_think');
     }
@@ -206,6 +206,7 @@ class InferenceChat {
     // reliable for all model bundles — keep filter as safety net.
     final bool modelCanThink = modelType == ModelType.deepSeek ||
         modelType == ModelType.qwen ||
+        modelType == ModelType.qwen3 ||
         modelType == ModelType.gemmaIt;
     final Stream<ModelResponse> filteredStream = (isThinking || modelCanThink)
         ? ModelThinkingFilter.filterThinkingStream(originalStream,

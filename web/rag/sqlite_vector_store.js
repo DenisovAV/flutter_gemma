@@ -75,6 +75,13 @@ class SQLiteVectorStore {
     }
 
     /**
+     * Remove a document by ID
+     */
+    async removeDocument(id) {
+        return this._call('removeDocument', [id]);
+    }
+
+    /**
      * Search similar documents using cosine similarity
      */
     async searchSimilar(queryEmbedding, topK, threshold) {

@@ -14,6 +14,7 @@ class FunctionCallFormatFactory {
     return switch (modelType) {
       ModelType.functionGemma => FunctionGemmaCallFormat(),
       ModelType.qwen => QwenFunctionCallFormat(),
+      ModelType.qwen3 => QwenFunctionCallFormat(),
       ModelType.deepSeek => DeepSeekFunctionCallFormat(),
       ModelType.llama => LlamaFunctionCallFormat(),
       ModelType.phi => PhiFunctionCallFormat(),

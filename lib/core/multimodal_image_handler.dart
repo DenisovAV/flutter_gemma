@@ -18,12 +18,14 @@ class MultimodalImageHandler {
     bool enableProcessing = true,
   }) async {
     try {
-      debugPrint('MultimodalImageHandler: Starting image processing for $modelType...');
+      debugPrint(
+          'MultimodalImageHandler: Starting image processing for $modelType...');
 
       // Step 1: Validate image for vision encoder compatibility
       ProcessedImage? processedImage;
       if (enableProcessing) {
-        processedImage = await _processImageWithValidation(imageBytes, modelType, originalFormat);
+        processedImage = await _processImageWithValidation(
+            imageBytes, modelType, originalFormat);
       } else {
         // Just validate format if processing is disabled
         final format = ImageProcessor.detectFormat(imageBytes);
@@ -53,7 +55,8 @@ class MultimodalImageHandler {
         }
       }
 
-      debugPrint('MultimodalImageHandler: Image processing completed successfully');
+      debugPrint(
+          'MultimodalImageHandler: Image processing completed successfully');
 
       return MultimodalImageResult(
         success: true,
@@ -108,7 +111,8 @@ class MultimodalImageHandler {
     bool isUser = true,
   }) {
     try {
-      debugPrint('MultimodalImageHandler: Creating multimodal message for $modelType...');
+      debugPrint(
+          'MultimodalImageHandler: Creating multimodal message for $modelType...');
 
       // Validate inputs
       if (text.isEmpty) {
@@ -126,10 +130,12 @@ class MultimodalImageHandler {
         isUser: isUser,
       );
     } catch (e) {
-      debugPrint('MultimodalImageHandler: Failed to create multimodal message - $e');
+      debugPrint(
+          'MultimodalImageHandler: Failed to create multimodal message - $e');
 
       // Try to create a fallback text-only message
-      final fallbackText = '$text\n[Note: Image could not be processed properly]';
+      final fallbackText =
+          '$text\n[Note: Image could not be processed properly]';
       return Message.text(text: fallbackText, isUser: isUser);
     }
   }
@@ -141,7 +147,8 @@ class MultimodalImageHandler {
     required ModelType modelType,
   }) {
     try {
-      debugPrint('MultimodalImageHandler: Creating tokenized prompt for $modelType...');
+      debugPrint(
+          'MultimodalImageHandler: Creating tokenized prompt for $modelType...');
 
       // Use ImageTokenizer to create properly formatted prompt
       final prompt = tokenizer.ImageTokenizer.createImagePrompt(
@@ -151,12 +158,15 @@ class MultimodalImageHandler {
       );
 
       // Validate the prompt contains proper image tokens
-      final hasValidTokens = tokenizer.ImageTokenizer.validateImageTokens(prompt, 1);
+      final hasValidTokens =
+          tokenizer.ImageTokenizer.validateImageTokens(prompt, 1);
       if (!hasValidTokens) {
-        debugPrint('MultimodalImageHandler: Warning - Prompt may have tokenization issues');
+        debugPrint(
+            'MultimodalImageHandler: Warning - Prompt may have tokenization issues');
       }
 
-      debugPrint('MultimodalImageHandler: Tokenized prompt created (${prompt.length} chars)');
+      debugPrint(
+          'MultimodalImageHandler: Tokenized prompt created (${prompt.length} chars)');
 
       return prompt;
     } catch (e) {
@@ -172,7 +182,8 @@ class MultimodalImageHandler {
       );
 
       // Return fallback prompt
-      return tokenizer.ImageTokenizer.createFallbackPrompt(text, errorMessage: errorResult.message);
+      return tokenizer.ImageTokenizer.createFallbackPrompt(text,
+          errorMessage: errorResult.message);
     }
   }
 
@@ -186,7 +197,8 @@ class MultimodalImageHandler {
       debugPrint('MultimodalImageHandler: Validating model response...');
 
       // Detect corruption patterns
-      final corruptionResult = ImageErrorHandler.detectResponseCorruption(response);
+      final corruptionResult =
+          ImageErrorHandler.detectResponseCorruption(response);
 
       if (corruptionResult.isCorrupted) {
         debugPrint(
@@ -201,7 +213,8 @@ class MultimodalImageHandler {
           isCorrupted: true,
           confidence: corruptionResult.confidence,
           analysis: corruptionResult.analysis,
-          suggestedAction: _convertToResponseAction(corruptionResult.suggestedAction),
+          suggestedAction:
+              _convertToResponseAction(corruptionResult.suggestedAction),
           originalResponse: response,
         );
       }
@@ -214,7 +227,8 @@ class MultimodalImageHandler {
         isCorrupted: false, // Not corrupted
         confidence: 0.0, // Low confidence in corruption (none detected)
         analysis: {'status': 'validation_passed', 'length': response.length},
-        suggestedAction: ResponseAction.none, // No action needed - response is good
+        suggestedAction:
+            ResponseAction.none, // No action needed - response is good
         originalResponse: response,
       );
     } catch (e) {
@@ -239,6 +253,7 @@ class MultimodalImageHandler {
       case ModelType.deepSeek:
       case ModelType.general:
       case ModelType.qwen:
+      case ModelType.qwen3:
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.functionGemma:
@@ -256,6 +271,7 @@ class MultimodalImageHandler {
         return tokenizer.ModelType.deepSeek;
       case ModelType.general:
       case ModelType.qwen:
+      case ModelType.qwen3:
       case ModelType.llama:
       case ModelType.hammer:
       case ModelType.functionGemma:

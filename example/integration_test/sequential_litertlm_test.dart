@@ -31,7 +31,7 @@ const _models = <({String path, String name, ModelType modelType})>[
   (
     path: '$_deviceDir/Qwen3-0.6B.litertlm',
     name: 'Qwen3 0.6B',
-    modelType: ModelType.qwen,
+    modelType: ModelType.qwen3,
   ),
 ];
 
@@ -71,7 +71,9 @@ void main() {
 
           // First query — should work
           await chat.addQueryChunk(
-            const Message(text: 'What is 2+2? Answer with just the number.', isUser: true),
+            const Message(
+                text: 'What is 2+2? Answer with just the number.',
+                isUser: true),
           );
           final r1 = await chat.generateChatResponse();
           expect(r1, isA<TextResponse>());
@@ -81,7 +83,9 @@ void main() {
 
           // Second query — crashes with SIGSEGV in issue #209
           await chat.addQueryChunk(
-            const Message(text: 'What is 3+3? Answer with just the number.', isUser: true),
+            const Message(
+                text: 'What is 3+3? Answer with just the number.',
+                isUser: true),
           );
           final r2 = await chat.generateChatResponse();
           expect(r2, isA<TextResponse>());
@@ -115,7 +119,8 @@ void main() {
       }, timeout: const Timeout(Duration(minutes: 15)));
 
       // --- Test 3: Streaming sequential queries ---
-      testWidgets('two sequential streaming queries on same chat', (tester) async {
+      testWidgets('two sequential streaming queries on same chat',
+          (tester) async {
         final model = await _installAndLoad(path, modelType);
         try {
           final chat = await model.createChat(modelType: modelType);

@@ -30,9 +30,9 @@ cc_binary(
     deps = [":engine"],
 )
 BUILDEOF
-  echo "  ✓ Added cc_binary(linkshared=True) to c/BUILD"
+  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD"
 else
-  echo "  ℹ c/BUILD already has shared lib target"
+  echo "  SKIP: c/BUILD already has shared lib target"
 fi
 
 # ── 2. Add set_max_num_images to c/engine.h ──
@@ -46,9 +46,9 @@ void litert_lm_engine_settings_set_max_num_images(\
     LiteRtLmEngineSettings* settings, int max_num_images);\
 ' "$DIR/c/engine.h"
   rm -f "$DIR/c/engine.h.bak"
-  echo "  ✓ Added set_max_num_images to c/engine.h"
+  echo "  OK: Added set_max_num_images to c/engine.h"
 else
-  echo "  ℹ c/engine.h already has set_max_num_images"
+  echo "  SKIP: c/engine.h already has set_max_num_images"
 fi
 
 # ── 3. Add set_max_num_images impl + patch set_cache_dir in c/engine.cc ──
@@ -64,9 +64,9 @@ void litert_lm_engine_settings_set_max_num_images(\
 }\
 ' "$DIR/c/engine.cc"
   rm -f "$DIR/c/engine.cc.bak"
-  echo "  ✓ Added set_max_num_images impl to c/engine.cc"
+  echo "  OK: Added set_max_num_images impl to c/engine.cc"
 else
-  echo "  ℹ c/engine.cc already has set_max_num_images"
+  echo "  SKIP: c/engine.cc already has set_max_num_images"
 fi
 
 # Patch set_cache_dir to also set on vision/audio executors
@@ -100,12 +100,12 @@ if old in content:
     content = content.replace(old, new)
     with open('$DIR/c/engine.cc', 'w') as f:
         f.write(content)
-    print('  ✓ Patched set_cache_dir to propagate to vision/audio executors')
+    print('  OK: Patched set_cache_dir to propagate to vision/audio executors')
 else:
-    print('  ℹ set_cache_dir already patched or different format')
+    print('  SKIP: set_cache_dir already patched or different format')
 "
 else
-  echo "  ℹ set_cache_dir already propagates to vision/audio"
+  echo "  SKIP: set_cache_dir already propagates to vision/audio"
 fi
 
 echo "Patch complete."

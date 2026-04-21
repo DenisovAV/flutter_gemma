@@ -1,0 +1,97 @@
+name: Build LiteRT-LM Native Libraries
+
+on:
+  workflow_dispatch:
+    inputs:
+      litertlm_version:
+        description: 'LiteRT-LM version tag'
+        required: true
+        default: 'v0.10.2'
+
+jobs:
+  build-linux-x86_64:
+    name: Linux x86_64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone LiteRT-LM
+        run: |
+          git clone --depth 1 --branch "$LITERTLM_VERSION" \
+            https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
+          cd /tmp/LiteRT-LM && git lfs pull --include="prebuilt/linux_x86_64/*"
+
+      - name: Patch C API
+        run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+
+      - name: Build libLiteRtLm.so
+        run: |
+          cd /tmp/LiteRT-LM
+          bazelisk build '//c:libLiteRtLm.dylib'
+
+      - name: Build libStreamProxy.so
+        run: |
+          gcc -shared -fPIC -o /tmp/libStreamProxy.so \
+            native/litert_lm/stream_proxy.c
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
+          cp /tmp/libStreamProxy.so artifacts/
+          cp /tmp/LiteRT-LM/prebuilt/linux_x86_64/*.so artifacts/ 2>/dev/null || true
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: litertlm-linux-x86_64
+          path: artifacts/
+
+  build-windows-x86_64:
+    name: Windows x86_64
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone LiteRT-LM
+        run: |
+          git clone --depth 1 --branch "$env:LITERTLM_VERSION" `
+            https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
+          cd C:\LiteRT-LM
+          git lfs pull --include="prebuilt/windows_x86_64/*"
+
+      - name: Patch C API
+        shell: bash
+        run: bash native/litert_lm/patch_c_api.sh C:/LiteRT-LM
+
+      - name: Build LiteRtLm.dll
+        run: |
+          cd C:\LiteRT-LM
+          bazel build --build_tag_filters='-nowindows' '//c:libLiteRtLm.dylib'
+
+      - name: Build StreamProxy.dll
+        run: |
+          cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
+
+      - name: Collect artifacts
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force
+          Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
+          Copy-Item StreamProxy.dll artifacts\
+          Get-ChildItem C:\LiteRT-LM\prebuilt\windows_x86_64\*.dll |
+            Copy-Item -Destination artifacts\ -ErrorAction SilentlyContinue
+          Get-ChildItem artifacts\
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: litertlm-windows-x86_64
+          path: artifacts/

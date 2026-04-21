@@ -18,7 +18,7 @@ void main() {
   final models = <String, _TestModel>{
     'Qwen3-0.6B': _TestModel(
       path: '$sandboxDir/Qwen3-0.6B.litertlm',
-      modelType: ModelType.qwen,
+      modelType: ModelType.qwen3,
       fileType: ModelFileType.litertlm,
       generatesThinking: true,
     ),

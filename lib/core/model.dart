@@ -3,6 +3,7 @@ enum ModelType {
   gemmaIt,
   deepSeek,
   qwen,
+  qwen3,
   llama,
   hammer,
   functionGemma,

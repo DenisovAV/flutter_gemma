@@ -19,7 +19,7 @@ void main() {
 
     // Install Qwen3 model
     await FlutterGemma.installModel(
-      modelType: ModelType.qwen,
+      modelType: ModelType.qwen3,
       fileType: ModelFileType.litertlm,
     ).fromNetwork(modelUrl).install();
 
@@ -27,7 +27,7 @@ void main() {
     try {
       // Create chat WITHOUT thinking mode
       final chat = await model.createChat(
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
         isThinking: false,
       );
 
@@ -61,7 +61,7 @@ void main() {
     try {
       // Create chat WITH thinking mode
       final chat = await model.createChat(
-        modelType: ModelType.qwen,
+        modelType: ModelType.qwen3,
         isThinking: true,
       );
 

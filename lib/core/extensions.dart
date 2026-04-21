@@ -77,6 +77,7 @@ extension MessageExtension on Message {
       ModelType.gemmaIt => _transformGemmaIt(),
       ModelType.deepSeek => _transformDeepSeek(),
       ModelType.qwen => _transformQwen(),
+      ModelType.qwen3 => _transformQwen(),
       ModelType.llama => _transformLlama(),
       ModelType.hammer => _transformHammer(),
       ModelType.functionGemma => _transformFunctionGemma(),
@@ -247,6 +248,7 @@ class ModelThinkingFilter {
         break;
 
       case ModelType.qwen:
+      case ModelType.qwen3:
         // Qwen3 emits <think>...</think>, Qwen2.5 emits nothing.
         // Starts insideThinking=false — safe for non-thinking models.
         // Uses buffer to handle partial tags across token boundaries.
@@ -403,6 +405,7 @@ class ModelThinkingFilter {
     switch (modelType) {
       case ModelType.deepSeek:
       case ModelType.qwen:
+      case ModelType.qwen3:
         // Remove all <think>...</think> blocks (DeepSeek/Qwen3 format)
         RegExp thinkingRegex = RegExp(r'<think>.*?</think>', dotAll: true);
         return text.replaceAll(thinkingRegex, '').trim();
@@ -432,9 +435,10 @@ class ModelThinkingFilter {
       required ModelFileType fileType}) {
     String cleaned = response;
 
-    // Always strip thinking tags for models that may generate them (Qwen3, DeepSeek, Gemma 4)
+    // Strip thinking tags for models that may generate them
     final bool modelCanThink = modelType == ModelType.deepSeek ||
         modelType == ModelType.qwen ||
+        modelType == ModelType.qwen3 ||
         modelType == ModelType.gemmaIt;
     if (isThinking || modelCanThink) {
       cleaned = removeThinkingFromText(cleaned, modelType: modelType);
@@ -465,6 +469,7 @@ class ModelThinkingFilter {
         // Remove trailing <end_of_turn> tags and trim whitespace
         return cleaned.replaceAll(RegExp(r'<end_of_turn>\s*$'), '').trim();
       case ModelType.qwen:
+      case ModelType.qwen3:
         // Remove trailing <|im_end|> tags and trim whitespace
         return cleaned.replaceAll(RegExp(r'<\|im_end\|>\s*$'), '').trim();
       case ModelType.llama:

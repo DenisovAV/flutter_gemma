@@ -277,7 +277,7 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/Qwen3-0.6B',
     needsAuth: false,
     preferredBackend: PreferredBackend.cpu,
-    modelType: ModelType.qwen,
+    modelType: ModelType.qwen3,
     fileType: ModelFileType.litertlm,
     temperature: 0.7,
     topK: 40,

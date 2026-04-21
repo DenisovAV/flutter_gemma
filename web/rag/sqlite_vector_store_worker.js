@@ -174,6 +174,18 @@ async function addDocument(id, content, embedding, metadata) {
     return true;
 }
 
+async function removeDocument(id) {
+    if (!db) {
+        throw new Error('Database not initialized');
+    }
+    const sql = `DELETE FROM ${TABLE_DOCUMENTS} WHERE ${COLUMN_ID} = ?`;
+    for await (const stmt of sqlite3.statements(db, sql)) {
+        sqlite3.bind_collection(stmt, [id]);
+        await sqlite3.step(stmt);
+    }
+    return true;
+}
+
 async function searchSimilar(queryEmbedding, topK, threshold) {
     if (!db) {
         throw new Error('Database not initialized');
@@ -337,6 +349,9 @@ self.onmessage = async (event) => {
                 break;
             case 'addDocument':
                 result = await addDocument(args[0], args[1], args[2], args[3]);
+                break;
+            case 'removeDocument':
+                result = await removeDocument(args[0]);
                 break;
             case 'searchSimilar':
                 result = await searchSimilar(args[0], args[1], args[2]);

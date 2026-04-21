@@ -1,6 +1,11 @@
 name: Build LiteRT-LM Native Libraries
 
 on:
+  push:
+    branches:
+      - feature/desktop-ffi
+    paths:
+      - '.github/workflows/build-litertlm-native.yml'
   workflow_dispatch:
     inputs:
       litertlm_version:
@@ -14,7 +19,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,7 +63,8 @@ jobs:
       run:
         shell: pwsh
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
+      ANDROID_NDK_HOME: ''
     steps:
       - uses: actions/checkout@v4
 

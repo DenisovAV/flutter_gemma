@@ -196,6 +196,14 @@ jobs:
           cd release && sha256sum *.tar.gz > checksums_litertlm.txt
           cat checksums_litertlm.txt
 
+      - name: Delete old CI assets from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for asset in litertlm-linux_x86_64.tar.gz litertlm-linux_arm64.tar.gz litertlm-windows_x86_64.tar.gz checksums_litertlm.txt; do
+            gh release delete-asset "native-$LITERTLM_VERSION" "$asset" -y 2>/dev/null || true
+          done
+
       - name: Create/update GitHub Release
         uses: softprops/action-gh-release@v2
         with:

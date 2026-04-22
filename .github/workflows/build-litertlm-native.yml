@@ -20,21 +20,12 @@ on:
 jobs:
   build-linux-x86_64:
     name: Linux x86_64
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install clang 17
-        run: |
-          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-          echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" | sudo tee /etc/apt/sources.list.d/llvm-17.list
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq clang-17 lld-17
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100
 
       - name: Clone LiteRT-LM
         run: |
@@ -48,8 +39,7 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          export CC=clang-17 CXX=clang++-17
-          bazelisk build --action_env=CC=clang-17 --action_env=CXX=clang++-17 '//c:libLiteRtLm.dylib'
+          bazelisk build '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |

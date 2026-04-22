@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: litertlm-linux-x86_64
+          name: litertlm-linux_x86_64
           path: artifacts/
 
   build-linux-arm64:
@@ -97,7 +97,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: litertlm-linux-arm64
+          name: litertlm-linux_arm64
           path: artifacts/
 
   build-windows-x86_64:
@@ -155,7 +155,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: litertlm-windows-x86_64
+          name: litertlm-windows_x86_64
           path: artifacts/
 
   publish-release:
@@ -175,11 +175,12 @@ jobs:
       - name: Package archives
         run: |
           mkdir -p release
-          for platform in linux-x86_64 linux-arm64 windows-x86_64; do
-            dir="artifacts/litertlm-${platform}"
+          for dir_name in linux_x86_64 linux_arm64 windows_x86_64; do
+            dir="artifacts/litertlm-${dir_name}"
+            archive="litertlm-${dir_name}.tar.gz"
             if [ -d "$dir" ]; then
-              tar -czf "release/litertlm-${platform}.tar.gz" -C "$dir" .
-              echo "Packaged: litertlm-${platform}.tar.gz"
+              tar -czf "release/${archive}" -C "$dir" .
+              echo "Packaged: ${archive}"
             fi
           done
           cd release && sha256sum *.tar.gz > checksums_litertlm.txt

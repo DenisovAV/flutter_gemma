@@ -12,6 +12,10 @@ on:
         description: 'LiteRT-LM version tag'
         required: true
         default: 'v0.10.2'
+      publish_release:
+        description: 'Publish to GitHub Release'
+        type: boolean
+        default: false
 
 jobs:
   build-linux-x86_64:
@@ -53,6 +57,47 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: litertlm-linux-x86_64
+          path: artifacts/
+
+  build-linux-arm64:
+    name: Linux arm64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone LiteRT-LM
+        run: |
+          git clone --depth 1 --branch "$LITERTLM_VERSION" \
+            https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
+          cd /tmp/LiteRT-LM && git lfs pull --include="prebuilt/linux_arm64/*"
+
+      - name: Patch C API
+        run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+
+      - name: Build libLiteRtLm.so
+        run: |
+          cd /tmp/LiteRT-LM
+          bazelisk build '//c:libLiteRtLm.dylib'
+
+      - name: Build libStreamProxy.so
+        run: |
+          gcc -shared -fPIC -o /tmp/libStreamProxy.so \
+            native/litert_lm/stream_proxy.c
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
+          cp /tmp/libStreamProxy.so artifacts/
+          cp /tmp/LiteRT-LM/prebuilt/linux_arm64/*.so artifacts/ 2>/dev/null || true
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: litertlm-linux-arm64
           path: artifacts/
 
   build-windows-x86_64:
@@ -112,3 +157,47 @@ jobs:
         with:
           name: litertlm-windows-x86_64
           path: artifacts/
+
+  publish-release:
+    name: Publish to GitHub Release
+    needs: [build-linux-x86_64, build-linux-arm64, build-windows-x86_64]
+    if: inputs.publish_release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Package archives
+        run: |
+          mkdir -p release
+          for platform in linux-x86_64 linux-arm64 windows-x86_64; do
+            dir="artifacts/litertlm-${platform}"
+            if [ -d "$dir" ]; then
+              tar -czf "release/litertlm-${platform}.tar.gz" -C "$dir" .
+              echo "Packaged: litertlm-${platform}.tar.gz"
+            fi
+          done
+          cd release && sha256sum *.tar.gz > checksums_litertlm.txt
+          cat checksums_litertlm.txt
+
+      - name: Create/update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: native-${{ env.LITERTLM_VERSION }}
+          name: Native Libraries ${{ env.LITERTLM_VERSION }}
+          body: |
+            LiteRT-LM native libraries built from source ${{ env.LITERTLM_VERSION }}.
+
+            Platforms included (CI-built):
+            - Linux x86_64
+            - Linux arm64
+            - Windows x86_64
+
+            macOS/iOS/Android archives are uploaded separately after local builds.
+          files: release/*
+          fail_on_unmatched_files: false

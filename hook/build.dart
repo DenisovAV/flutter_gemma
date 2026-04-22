@@ -1,10 +1,30 @@
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
+import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
 const _packageName = 'flutter_gemma';
 const _mainLibName = 'LiteRtLm';
+
+/// LiteRT-LM native library version and release info.
+const _nativeVersion = '0.10.2';
+const _releaseTag = 'native-v$_nativeVersion';
+const _releaseBase =
+    'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
+
+/// SHA256 checksums for each platform archive.
+/// Updated when new native libs are published to GitHub Release.
+const _checksums = <String, String>{
+  // TODO: Fill in after first release upload
+  // 'litertlm-linux-x86_64.tar.gz': '...',
+  // 'litertlm-linux-arm64.tar.gz': '...',
+  // 'litertlm-windows-x86_64.tar.gz': '...',
+  // 'litertlm-macos-arm64.tar.gz': '...',
+  // 'litertlm-ios-arm64.tar.gz': '...',
+  // 'litertlm-ios-sim-arm64.tar.gz': '...',
+  // 'litertlm-android-arm64.tar.gz': '...',
+};
 
 /// Resolve prebuilt directory name for the given OS + architecture.
 /// iOS distinguishes device vs simulator via IOSSdk.
@@ -32,6 +52,126 @@ String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   return '${osName}_$archName';
 }
 
+/// Platform-appropriate cache directory.
+Directory _cacheDir() {
+  final home = Platform.environment['HOME'] ??
+      Platform.environment['USERPROFILE'] ??
+      '';
+  if (Platform.isWindows) {
+    final localAppData = Platform.environment['LOCALAPPDATA'] ?? '$home\\AppData\\Local';
+    return Directory('$localAppData\\flutter_gemma\\native');
+  }
+  if (Platform.isMacOS) {
+    return Directory('$home/Library/Caches/flutter_gemma/native');
+  }
+  // Linux and others
+  return Directory('$home/.cache/flutter_gemma/native');
+}
+
+/// Archive name for a given platform directory.
+String _archiveName(String dirName) => 'litertlm-$dirName.tar.gz';
+
+/// Try to resolve libs from a directory. Returns the directory if main lib exists.
+Directory? _resolveLibDir(String dirName, Uri packageRoot) {
+  final localDir =
+      Directory.fromUri(packageRoot.resolve('native/litert_lm/prebuilt/$dirName/'));
+  if (_hasMainLib(localDir, dirName)) return localDir;
+
+  final cacheDir = Directory('${_cacheDir().path}/$dirName');
+  if (_hasMainLib(cacheDir, dirName)) return cacheDir;
+
+  return null;
+}
+
+bool _hasMainLib(Directory dir, String dirName) {
+  if (!dir.existsSync()) return false;
+  final os = dirName.startsWith('ios') || dirName.startsWith('macos')
+      ? 'macos' // dylib
+      : dirName.startsWith('windows')
+          ? 'windows' // dll
+          : 'linux'; // so
+  final ext = os == 'macos' ? 'dylib' : os == 'windows' ? 'dll' : 'so';
+  final prefix = os == 'windows' ? '' : 'lib';
+  final fileName = '$prefix$_mainLibName.$ext';
+  return File('${dir.path}/$fileName').existsSync();
+}
+
+/// Download archive from GitHub Release, verify SHA256, extract to cache.
+Future<Directory?> _downloadAndExtract(String dirName) async {
+  final archiveName = _archiveName(dirName);
+  final expectedChecksum = _checksums[archiveName];
+  if (expectedChecksum == null) {
+    // No checksum registered — cannot download safely
+    return null;
+  }
+
+  final cacheBase = _cacheDir();
+  final targetDir = Directory('${cacheBase.path}/$dirName');
+  final archiveFile = File('${cacheBase.path}/$archiveName');
+
+  try {
+    // Create cache directory
+    if (!cacheBase.existsSync()) {
+      cacheBase.createSync(recursive: true);
+    }
+
+    // Download
+    final url = '$_releaseBase/$archiveName';
+    stderr.writeln('flutter_gemma: Downloading native libs from $url ...');
+
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        stderr.writeln('flutter_gemma: Download failed (HTTP ${response.statusCode})');
+        return null;
+      }
+      final sink = archiveFile.openWrite();
+      await response.pipe(sink);
+    } finally {
+      client.close();
+    }
+
+    // Verify SHA256
+    final bytes = await archiveFile.readAsBytes();
+    final actualChecksum = sha256.convert(bytes).toString();
+    if (actualChecksum != expectedChecksum) {
+      stderr.writeln('flutter_gemma: Checksum mismatch!');
+      stderr.writeln('  Expected: $expectedChecksum');
+      stderr.writeln('  Actual:   $actualChecksum');
+      archiveFile.deleteSync();
+      return null;
+    }
+    stderr.writeln('flutter_gemma: Checksum verified');
+
+    // Extract
+    if (targetDir.existsSync()) {
+      targetDir.deleteSync(recursive: true);
+    }
+    targetDir.createSync(recursive: true);
+
+    final result = await Process.run(
+      'tar',
+      ['-xzf', archiveFile.path, '-C', targetDir.path],
+    );
+    if (result.exitCode != 0) {
+      stderr.writeln('flutter_gemma: tar extraction failed: ${result.stderr}');
+      return null;
+    }
+
+    // Clean up archive
+    archiveFile.deleteSync();
+
+    stderr.writeln('flutter_gemma: Native libs cached to ${targetDir.path}');
+    return targetDir;
+  } catch (e) {
+    stderr.writeln('flutter_gemma: Download failed: $e');
+    if (archiveFile.existsSync()) archiveFile.deleteSync();
+    return null;
+  }
+}
+
 void main(List<String> args) async {
   await build(args, (input, output) async {
     if (!input.config.buildCodeAssets) return;
@@ -41,7 +181,11 @@ void main(List<String> args) async {
 
     // Supported platforms: desktop + iOS + Android
     // Web uses MediaPipe JS (dart:ffi blocked in WASM)
-    if (os != OS.macOS && os != OS.linux && os != OS.windows && os != OS.iOS && os != OS.android) {
+    if (os != OS.macOS &&
+        os != OS.linux &&
+        os != OS.windows &&
+        os != OS.iOS &&
+        os != OS.android) {
       return;
     }
 
@@ -49,12 +193,19 @@ void main(List<String> args) async {
     final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
     final dirName = _prebuiltDirName(os, arch, iOSSdk: iOSSdk);
     if (dirName == null) return; // Unsupported arch (e.g. arm32), skip
-    final prebuiltDir =
-        input.packageRoot.resolve('native/litert_lm/prebuilt/$dirName/');
+
+    // Priority: local prebuilt/ → cache → download from GitHub Release
+    var libDir = _resolveLibDir(dirName, input.packageRoot);
+    if (libDir == null) {
+      // Try downloading
+      libDir = await _downloadAndExtract(dirName);
+      if (libDir == null) return; // No prebuilt available
+    }
+    final prebuiltDir = libDir.uri;
 
     final mainFileName = os.dylibFileName(_mainLibName);
     final mainFileUri = prebuiltDir.resolve(mainFileName);
-    if (!File.fromUri(mainFileUri).existsSync()) return; // No prebuilt for this arch
+    if (!File.fromUri(mainFileUri).existsSync()) return;
 
     output.assets.code.add(
       CodeAsset(
@@ -82,9 +233,9 @@ void main(List<String> args) async {
     // Companion libs (loaded by libLiteRtLm via dlopen at runtime)
     final companions = [
       'GemmaModelConstraintProvider',
-      'LiteRtMetalAccelerator',    // macOS GPU
-      'LiteRtGpuAccelerator',      // Android GPU
-      'LiteRtOpenClAccelerator',   // Android OpenCL
+      'LiteRtMetalAccelerator', // macOS GPU
+      'LiteRtGpuAccelerator', // Android GPU
+      'LiteRtOpenClAccelerator', // Android OpenCL
     ];
     for (final name in companions) {
       final fileName = os.dylibFileName(name);

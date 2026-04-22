@@ -20,7 +20,7 @@ on:
 jobs:
   build-linux-x86_64:
     name: Linux x86_64
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}

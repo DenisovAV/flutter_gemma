@@ -27,6 +27,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install clang 17
+        run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          echo "deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" | sudo tee /etc/apt/sources.list.d/llvm-17.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-17 lld-17
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-17 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-17 100
+
       - name: Clone LiteRT-LM
         run: |
           git clone --depth 1 --branch "$LITERTLM_VERSION" \
@@ -39,7 +48,8 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build '//c:libLiteRtLm.dylib'
+          export CC=clang-17 CXX=clang++-17
+          bazelisk build --action_env=CC=clang-17 --action_env=CXX=clang++-17 '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |

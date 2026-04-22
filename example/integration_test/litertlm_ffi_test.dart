@@ -111,6 +111,8 @@ void main() {
     for (final path in [
       '$_androidDir/test_image.jpg',
       '$_macosDir/test_image.png',
+      if (Platform.isLinux) '$_linuxDir/test_image.png',
+      if (Platform.isLinux) '$_linuxDir/test_image.jpg',
       '${Platform.environment['HOME']}/Downloads/test_image.jpg',
     ]) {
       if (File(path).existsSync()) {
@@ -121,6 +123,7 @@ void main() {
     for (final path in [
       '$_androidDir/test_audio.wav',
       '$_macosDir/test_audio.wav',
+      if (Platform.isLinux) '$_linuxDir/test_audio.wav',
     ]) {
       if (File(path).existsSync()) {
         _testAudio = File(path).readAsBytesSync();

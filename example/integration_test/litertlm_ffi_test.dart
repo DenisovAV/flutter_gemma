@@ -26,6 +26,7 @@ const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 String get _androidDir => '/data/local/tmp/flutter_gemma_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
+String get _linuxDir => '${Platform.environment['HOME']}/models';
 
 Uint8List _testImage = Uint8List(0);
 Uint8List _testAudio = Uint8List(0);
@@ -52,6 +53,7 @@ Future<void> _install({
 String? _localPath(String filename) {
   if (Platform.isAndroid) return '$_androidDir/$filename';
   if (Platform.isMacOS) return '$_macosDir/$filename';
+  if (Platform.isLinux) return '$_linuxDir/$filename';
   return null; // iOS: use network download
 }
 

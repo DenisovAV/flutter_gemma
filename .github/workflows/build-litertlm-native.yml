@@ -148,6 +148,12 @@ jobs:
         run: bash native/litert_lm/patch_c_api.sh C:/LiteRT-LM
 
       - name: Build LiteRtLm.dll
+        # litert_link_capi_so=true + resolve_symbols_in_exec=false is the same
+        # trick we use on Linux to avoid statically linking the LiteRt C API
+        # inside libLiteRtLm (which conflicts with the prebuilt WebGPU
+        # accelerator's expected separate libLiteRt). On Windows the second
+        # define is required — without it bazel cannot resolve LiteRt* imports
+        # at link time (167 unresolved externals, see commit f4c485e).
         run: |
           cd C:\LiteRT-LM
           bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
@@ -155,10 +161,9 @@ jobs:
             --features=compiler_param_file `
             --features=archive_param_file `
             --spawn_strategy=local `
+            --define=litert_link_capi_so=true `
+            --define=resolve_symbols_in_exec=false `
             '//c:libLiteRtLm.dylib'
-        # Note: litert_link_capi_so=true works on Linux (needs libLiteRt.so
-        # preload at runtime) but fails on Windows with 167 unresolved LiteRt*
-        # externals. Windows GPU path is a separate effort.
 
       - uses: ilammy/msvc-dev-cmd@v1
 
@@ -167,12 +172,16 @@ jobs:
           cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
 
       - name: Collect artifacts
+        # Native Assets uses no "lib" prefix on Windows — rename Google's
+        # libLiteRt.dll → LiteRt.dll etc. so hook/build.dart finds them.
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
           Copy-Item StreamProxy.dll artifacts\
-          Get-ChildItem C:\LiteRT-LM\prebuilt\windows_x86_64\*.dll |
-            Copy-Item -Destination artifacts\ -ErrorAction SilentlyContinue
+          Get-ChildItem C:\LiteRT-LM\prebuilt\windows_x86_64\*.dll | ForEach-Object {
+            $name = $_.Name -replace '^lib', ''
+            Copy-Item $_.FullName -Destination "artifacts\$name" -ErrorAction SilentlyContinue
+          }
           Get-ChildItem artifacts\
 
       - uses: actions/upload-artifact@v4

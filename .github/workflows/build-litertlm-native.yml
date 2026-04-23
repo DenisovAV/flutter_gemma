@@ -39,7 +39,7 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build '//c:libLiteRtLm.dylib'
+          bazelisk build --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -80,7 +80,7 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build '//c:libLiteRtLm.dylib'
+          bazelisk build --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -136,6 +136,7 @@ jobs:
             --features=compiler_param_file `
             --features=archive_param_file `
             --spawn_strategy=local `
+            --define=litert_link_capi_so=true `
             '//c:libLiteRtLm.dylib'
 
       - uses: ilammy/msvc-dev-cmd@v1

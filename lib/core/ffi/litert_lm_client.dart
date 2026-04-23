@@ -61,8 +61,24 @@ class LiteRtLmFfiClient {
       lib = DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
       proxyLib = DynamicLibrary.open('StreamProxy.framework/StreamProxy');
     } else if (Platform.isLinux) {
-      lib = DynamicLibrary.open('libLiteRtLm.so');
+      // Load order matters: libLiteRt.so must be loaded first with
+      // RTLD_GLOBAL so libLiteRtLm.so (built with litert_link_capi_so=true)
+      // and the WebGPU accelerator can resolve LiteRt* C API symbols
+      // against it. StreamProxy exposes a dlopen helper because Dart's
+      // DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
+      final loadGlobal = proxyLib.lookupFunction<
+          Pointer Function(Pointer<Utf8>),
+          Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+      for (final name in const ['libLiteRt.so', 'libLiteRtLm.so']) {
+        final pathPtr = name.toNativeUtf8();
+        final handle = loadGlobal(pathPtr);
+        calloc.free(pathPtr);
+        if (handle == nullptr) {
+          throw Exception('Failed to load $name with RTLD_GLOBAL');
+        }
+      }
+      lib = DynamicLibrary.open('libLiteRtLm.so');
     } else if (Platform.isWindows) {
       lib = DynamicLibrary.open('LiteRtLm.dll');
       proxyLib = DynamicLibrary.open('StreamProxy.dll');

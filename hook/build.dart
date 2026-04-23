@@ -17,11 +17,11 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      '5ab0cef8b59984ea1cc0f1376d3ded82c76c91982cbd9374c32c58d616f8d705',
+      '7f8ae74271e927b506270f8fcd15b7c90ceca4bf3e34525708bc69c8a04e2fb6',
   'litertlm-linux_arm64.tar.gz':
-      '409695a1fc2fd664deb2aba6cffb998e97e7bd2b61b5ffb9acb4b27091f7cc3d',
+      '631b3fdbb2671002c7385c835fb1c87b4ee2ca6b72ca124c2854a12d9003207d',
   'litertlm-windows_x86_64.tar.gz':
-      'd2f8442ecf1c0d460b07c357a6fad0fe566ffe41a5cee5d0d0fea5da31307b1c',
+      '203ff671d800e9f642a644a6e66de22f0a3c761ea99ab39bde167bea0a52f14d',
   'litertlm-macos_arm64.tar.gz':
       '9f643ac50aeffa3b12a8b120189132c99b2784c73b19f905a5cbf0e5ac366da0',
   'litertlm-ios_arm64.tar.gz':
@@ -242,6 +242,9 @@ void main(List<String> args) async {
       'LiteRtMetalAccelerator', // macOS GPU
       'LiteRtGpuAccelerator', // Android GPU
       'LiteRtOpenClAccelerator', // Android OpenCL
+      'LiteRtWebGpuAccelerator', // Linux/Windows GPU (WebGPU → Vulkan/DX12)
+      'LiteRtTopKWebGpuSampler', // Linux/Windows GPU sampler
+      'LiteRt', // Linux/Windows core runtime
     ];
     for (final name in companions) {
       final fileName = os.dylibFileName(name);

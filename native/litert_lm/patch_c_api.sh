@@ -14,21 +14,22 @@ DIR="${1:?Usage: patch_c_api.sh <litert_lm_dir>}"
 echo "Patching LiteRT-LM C API in $DIR..."
 
 # ── 1. Add shared library target to c/BUILD ──
-# On Linux, use a version script to hide all non-public symbols (same as
-# macOS -exported_symbol whitelist). Without this, libLiteRtLm.so exports
-# ~31k symbols including TFLite internals, and the Google-prebuilt
-# libLiteRtWebGpuAccelerator.so resolves tflite::Subgraph::* via
-# dlsym(RTLD_DEFAULT) against our exports instead of its own embedded
-# copy — causing ABI mismatch and segfault in ModifyGraphWithDelegate.
+# On Linux, use --dynamic-list (Google's own pattern from
+# runtime/engine/litert_lm_main.exported_symbols) to extend the dynamic
+# export set with LiteRt*/litert_lm_* while keeping internal symbols
+# visible — the WebGPU accelerator plugin needs to resolve LiteRt* C API
+# via dlsym(RTLD_DEFAULT) during auto-registration.
+#
+# Requires building with --define=litert_link_capi_so=true so that
+# libLiteRtLm.so references libLiteRt.so dynamically at runtime instead
+# of statically linking the LiteRt C API (which would create two copies
+# of TFLite in the process alongside the prebuilt accelerator).
 if ! grep -q "linkshared" "$DIR/c/BUILD"; then
-  # Version script: whitelist public C API, hide everything else
-  cat > "$DIR/c/symbols.lds" << 'LDSEOF'
+  # Dynamic-list: make these symbols visible in the dynamic export table.
+  cat > "$DIR/c/dynamic_list.lds" << 'LDSEOF'
 {
-  global:
-    LiteRt*;
-    litert_lm_*;
-  local:
-    *;
+  LiteRt*;
+  litert_lm_*;
 };
 LDSEOF
 
@@ -41,22 +42,21 @@ cc_binary(
         "@platforms//os:macos": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
         "@platforms//os:ios": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
         "@platforms//os:linux": [
-            "-Wl,--version-script=$(location :symbols.lds)",
-            "-Wl,--exclude-libs,ALL",
+            "-Wl,--dynamic-list=$(location :dynamic_list.lds)",
         ],
         "//conditions:default": [],
     }),
     additional_linker_inputs = select({
-        "@platforms//os:linux": [":symbols.lds"],
+        "@platforms//os:linux": [":dynamic_list.lds"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
     deps = [":engine"],
 )
 
-exports_files(["symbols.lds"])
+exports_files(["dynamic_list.lds"])
 BUILDEOF
-  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD with Linux version script"
+  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD with Linux dynamic-list"
 else
   echo "  SKIP: c/BUILD already has shared lib target"
 fi

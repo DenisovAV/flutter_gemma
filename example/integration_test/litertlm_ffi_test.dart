@@ -27,6 +27,7 @@ String get _androidDir => '/data/local/tmp/flutter_gemma_test';
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
 String get _linuxDir => '${Platform.environment['HOME']}/models';
+String get _windowsDir => '${Platform.environment['USERPROFILE']}\\models';
 
 Uint8List _testImage = Uint8List(0);
 Uint8List _testAudio = Uint8List(0);
@@ -54,6 +55,7 @@ String? _localPath(String filename) {
   if (Platform.isAndroid) return '$_androidDir/$filename';
   if (Platform.isMacOS) return '$_macosDir/$filename';
   if (Platform.isLinux) return '$_linuxDir/$filename';
+  if (Platform.isWindows) return '$_windowsDir\\$filename';
   return null; // iOS: use network download
 }
 
@@ -113,6 +115,8 @@ void main() {
       '$_macosDir/test_image.png',
       if (Platform.isLinux) '$_linuxDir/test_image.png',
       if (Platform.isLinux) '$_linuxDir/test_image.jpg',
+      if (Platform.isWindows) '$_windowsDir\\test_image.png',
+      if (Platform.isWindows) '$_windowsDir\\test_image.jpg',
       '${Platform.environment['HOME']}/Downloads/test_image.jpg',
     ]) {
       if (File(path).existsSync()) {
@@ -124,6 +128,7 @@ void main() {
       '$_androidDir/test_audio.wav',
       '$_macosDir/test_audio.wav',
       if (Platform.isLinux) '$_linuxDir/test_audio.wav',
+      if (Platform.isWindows) '$_windowsDir\\test_audio.wav',
     ]) {
       if (File(path).existsSync()) {
         _testAudio = File(path).readAsBytesSync();

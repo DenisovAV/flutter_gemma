@@ -155,8 +155,10 @@ jobs:
             --features=compiler_param_file `
             --features=archive_param_file `
             --spawn_strategy=local `
-            --define=litert_link_capi_so=true `
             '//c:libLiteRtLm.dylib'
+        # Note: litert_link_capi_so=true works on Linux (needs libLiteRt.so
+        # preload at runtime) but fails on Windows with 167 unresolved LiteRt*
+        # externals. Windows GPU path is a separate effort.
 
       - uses: ilammy/msvc-dev-cmd@v1
 

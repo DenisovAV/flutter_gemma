@@ -14,7 +14,24 @@ DIR="${1:?Usage: patch_c_api.sh <litert_lm_dir>}"
 echo "Patching LiteRT-LM C API in $DIR..."
 
 # ── 1. Add shared library target to c/BUILD ──
+# On Linux, use a version script to hide all non-public symbols (same as
+# macOS -exported_symbol whitelist). Without this, libLiteRtLm.so exports
+# ~31k symbols including TFLite internals, and the Google-prebuilt
+# libLiteRtWebGpuAccelerator.so resolves tflite::Subgraph::* via
+# dlsym(RTLD_DEFAULT) against our exports instead of its own embedded
+# copy — causing ABI mismatch and segfault in ModifyGraphWithDelegate.
 if ! grep -q "linkshared" "$DIR/c/BUILD"; then
+  # Version script: whitelist public C API, hide everything else
+  cat > "$DIR/c/symbols.lds" << 'LDSEOF'
+{
+  global:
+    LiteRt*;
+    litert_lm_*;
+  local:
+    *;
+};
+LDSEOF
+
   cat >> "$DIR/c/BUILD" << 'BUILDEOF'
 
 cc_binary(
@@ -23,14 +40,23 @@ cc_binary(
     linkopts = select({
         "@platforms//os:macos": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
         "@platforms//os:ios": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
-        "@platforms//os:linux": ["-Wl,--export-dynamic-symbol=LiteRt*", "-Wl,--export-dynamic-symbol=litert_lm_*"],
+        "@platforms//os:linux": [
+            "-Wl,--version-script=$(location :symbols.lds)",
+            "-Wl,--exclude-libs,ALL",
+        ],
+        "//conditions:default": [],
+    }),
+    additional_linker_inputs = select({
+        "@platforms//os:linux": [":symbols.lds"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
     deps = [":engine"],
 )
+
+exports_files(["symbols.lds"])
 BUILDEOF
-  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD"
+  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD with Linux version script"
 else
   echo "  SKIP: c/BUILD already has shared lib target"
 fi

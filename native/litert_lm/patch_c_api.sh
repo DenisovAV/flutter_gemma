@@ -33,6 +33,58 @@ if ! grep -q "linkshared" "$DIR/c/BUILD"; then
 };
 LDSEOF
 
+  # Windows .def: whitelist of symbols to export from LiteRtLm.dll.
+  # Derived from lib/core/ffi/litert_lm_bindings.dart lookupFunction calls.
+  cat > "$DIR/c/windows_exports.def" << 'DEFEOF'
+LIBRARY "LiteRtLm"
+EXPORTS
+  litert_lm_benchmark_info_delete
+  litert_lm_benchmark_info_get_decode_token_count_at
+  litert_lm_benchmark_info_get_decode_tokens_per_sec_at
+  litert_lm_benchmark_info_get_num_decode_turns
+  litert_lm_benchmark_info_get_num_prefill_turns
+  litert_lm_benchmark_info_get_prefill_token_count_at
+  litert_lm_benchmark_info_get_prefill_tokens_per_sec_at
+  litert_lm_benchmark_info_get_time_to_first_token
+  litert_lm_benchmark_info_get_total_init_time_in_second
+  litert_lm_conversation_cancel_process
+  litert_lm_conversation_config_create
+  litert_lm_conversation_config_delete
+  litert_lm_conversation_create
+  litert_lm_conversation_delete
+  litert_lm_conversation_get_benchmark_info
+  litert_lm_conversation_send_message
+  litert_lm_conversation_send_message_stream
+  litert_lm_engine_create
+  litert_lm_engine_create_session
+  litert_lm_engine_delete
+  litert_lm_engine_settings_create
+  litert_lm_engine_settings_delete
+  litert_lm_engine_settings_enable_benchmark
+  litert_lm_engine_settings_set_activation_data_type
+  litert_lm_engine_settings_set_cache_dir
+  litert_lm_engine_settings_set_max_num_images
+  litert_lm_engine_settings_set_max_num_tokens
+  litert_lm_engine_settings_set_num_decode_tokens
+  litert_lm_engine_settings_set_num_prefill_tokens
+  litert_lm_engine_settings_set_parallel_file_section_loading
+  litert_lm_engine_settings_set_prefill_chunk_size
+  litert_lm_json_response_delete
+  litert_lm_json_response_get_string
+  litert_lm_responses_delete
+  litert_lm_responses_get_num_candidates
+  litert_lm_responses_get_response_text_at
+  litert_lm_session_config_create
+  litert_lm_session_config_delete
+  litert_lm_session_config_set_max_output_tokens
+  litert_lm_session_config_set_sampler_params
+  litert_lm_session_delete
+  litert_lm_session_generate_content
+  litert_lm_session_generate_content_stream
+  litert_lm_session_get_benchmark_info
+  litert_lm_set_min_log_level
+DEFEOF
+
   cat >> "$DIR/c/BUILD" << 'BUILDEOF'
 
 cc_binary(
@@ -44,19 +96,23 @@ cc_binary(
         "@platforms//os:linux": [
             "-Wl,--dynamic-list=$(location :dynamic_list.lds)",
         ],
+        "@platforms//os:windows": [
+            "/DEF:$(location :windows_exports.def)",
+        ],
         "//conditions:default": [],
     }),
     additional_linker_inputs = select({
         "@platforms//os:linux": [":dynamic_list.lds"],
+        "@platforms//os:windows": [":windows_exports.def"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
     deps = [":engine"],
 )
 
-exports_files(["dynamic_list.lds"])
+exports_files(["dynamic_list.lds", "windows_exports.def"])
 BUILDEOF
-  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD with Linux dynamic-list"
+  echo "  OK: Added cc_binary(linkshared=True) to c/BUILD with Linux dynamic-list + Windows .def"
 else
   echo "  SKIP: c/BUILD already has shared lib target"
 fi

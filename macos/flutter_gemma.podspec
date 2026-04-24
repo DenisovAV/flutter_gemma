@@ -16,16 +16,12 @@ Flutter plugin for running Gemma AI models locally on macOS using LiteRT-LM.
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
 
-  # Resources - JAR file for LiteRT-LM server
-  s.resources        = ['Resources/**/*']
-
   s.dependency 'FlutterMacOS'
 
   s.platform = :osx, '10.14'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 
-  # Note: LiteRT-LM setup script is added to Runner target via Podfile post_install hook
-  # This ensures the script runs AFTER the app bundle is created
-  # See DESKTOP_SUPPORT.md for required Podfile configuration
+  # Native LiteRT-LM dylibs are bundled via hook/build.dart (Native Assets)
+  # which downloads them at build time — no pod resources / prepare scripts.
 end

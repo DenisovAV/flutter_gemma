@@ -17,11 +17,11 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      '313df6626694261c8728252762fb1b45c3216a5a21b792bff5e981ef59b894b3',
+      'b994af448b6a157daae69d900a32188d86eddba4dc5d702f8e2a9ed86df5baf3',
   'litertlm-linux_arm64.tar.gz':
-      '7e8b8d7ba3f30b0be57bfed5bdeb6338cad3231a29087ec40973437bd764955f',
+      'af35b2e65727fd2a153a2227485c8de04861cad373b369080b45921271449dfa',
   'litertlm-windows_x86_64.tar.gz':
-      '9c4f1c1be9608fef6852a90559cfd0dcb2f2646edf857fdcc2d0a7980f80da1a',
+      '0573fcca3826a56b1d6326dc578740a74d288ee9fbbffd05876f68a7258db08c',
   'litertlm-macos_arm64.tar.gz':
       '9f643ac50aeffa3b12a8b120189132c99b2784c73b19f905a5cbf0e5ac366da0',
   'litertlm-ios_arm64.tar.gz':

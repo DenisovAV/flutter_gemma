@@ -32,9 +32,9 @@ class InferenceModelFile extends ModelFile {
   static String _extractFilenameFromSource(ModelSource source) {
     return switch (source) {
       NetworkSource(:final url) => Uri.parse(url).pathSegments.last,
-      AssetSource(:final path) => path.split('/').last,
+      AssetSource(path: final p) => p.split('/').last,
       BundledSource(:final resourceName) => resourceName,
-      FileSource(:final path) => path.split('/').last,
+      FileSource(path: final p) => path.basename(p),
     };
   }
 }

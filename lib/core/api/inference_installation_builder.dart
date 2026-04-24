@@ -222,7 +222,7 @@ class InferenceInstallationBuilder {
       NetworkSource(:final url) => path.basename(Uri.parse(url).path),
       AssetSource(:final path) => path.split('/').last,
       BundledSource(:final resourceName) => resourceName,
-      FileSource(:final path) => path.split('/').last,
+      FileSource(path: final filePath) => path.basename(filePath),
     };
   }
 }

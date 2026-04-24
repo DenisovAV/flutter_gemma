@@ -1,6 +1,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#define STREAM_PROXY_EXPORT __declspec(dllexport)
+#else
+#define STREAM_PROXY_EXPORT __attribute__((visibility("default")))
+#endif
+
 // Callback type matching LiteRtLmStreamCallback
 typedef void (*LiteRtLmStreamCallback)(void* callback_data, const char* chunk,
                                        _Bool is_final, const char* error_msg);
@@ -33,6 +39,7 @@ static void stream_proxy_callback(void* callback_data, const char* chunk,
 // Create a proxy that wraps a Dart callback.
 // Returns: proxy callback function pointer (to pass to LiteRT-LM)
 // Out: proxy_data (to pass as callback_data to LiteRT-LM)
+STREAM_PROXY_EXPORT
 void* stream_proxy_create(LiteRtLmStreamCallback dart_callback,
                           void* dart_data,
                           LiteRtLmStreamCallback* out_proxy_fn) {
@@ -44,6 +51,7 @@ void* stream_proxy_create(LiteRtLmStreamCallback dart_callback,
 }
 
 // Free a chunk or error string that was strdup'd by the proxy.
+STREAM_PROXY_EXPORT
 void stream_proxy_free_string(char* str) {
   free(str);
 }
@@ -53,6 +61,7 @@ void stream_proxy_free_string(char* str) {
 // Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
 #ifndef _WIN32
 #include <dlfcn.h>
+STREAM_PROXY_EXPORT
 void* stream_proxy_load_global(const char* path) {
   return dlopen(path, RTLD_LAZY | RTLD_GLOBAL);
 }

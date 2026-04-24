@@ -90,20 +90,20 @@ DEFEOF
 cc_binary(
     name = "libLiteRtLm.dylib",
     linkshared = True,
+    # Pass .def file via win_def_file (Bazel native Windows attribute) —
+    # linkopts /DEF: doesn't work because bazel's MSVC link.exe action
+    # already owns the linker invocation and will clobber stray /DEF flags.
+    win_def_file = "windows_exports.def",
     linkopts = select({
         "@platforms//os:macos": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
         "@platforms//os:ios": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
         "@platforms//os:linux": [
             "-Wl,--dynamic-list=$(location :dynamic_list.lds)",
         ],
-        "@platforms//os:windows": [
-            "/DEF:$(location :windows_exports.def)",
-        ],
         "//conditions:default": [],
     }),
     additional_linker_inputs = select({
         "@platforms//os:linux": [":dynamic_list.lds"],
-        "@platforms//os:windows": [":windows_exports.def"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],

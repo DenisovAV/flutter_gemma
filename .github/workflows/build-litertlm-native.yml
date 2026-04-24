@@ -172,15 +172,23 @@ jobs:
           cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
 
       - name: Collect artifacts
-        # Native Assets uses no "lib" prefix on Windows — rename Google's
-        # libLiteRt.dll → LiteRt.dll etc. so hook/build.dart finds them.
+        # Ship BOTH naming conventions for Google's prebuilt companion DLLs:
+        # - Prefixless (LiteRt.dll) for Native Assets on Windows
+        # - Original lib* (libLiteRt.dll) to satisfy LiteRtLm.dll's PE import table
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
           Copy-Item StreamProxy.dll artifacts\
-          Get-ChildItem C:\LiteRT-LM\prebuilt\windows_x86_64\*.dll | ForEach-Object {
-            $name = $_.Name -replace '^lib', ''
-            Copy-Item $_.FullName -Destination "artifacts\$name" -ErrorAction SilentlyContinue
+          $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
+          foreach ($base in @('libGemmaModelConstraintProvider','libLiteRt','libLiteRtTopKWebGpuSampler','libLiteRtWebGpuAccelerator')) {
+            $src = "$prebuilt\$base.dll"
+            if (Test-Path $src) {
+              # Keep original name for PE imports
+              Copy-Item $src "artifacts\$base.dll"
+              # And prefixless copy for Native Assets registration
+              $stripped = $base -replace '^lib',''
+              Copy-Item $src "artifacts\$stripped.dll"
+            }
           }
           Get-ChildItem artifacts\
 

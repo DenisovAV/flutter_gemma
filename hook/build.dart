@@ -261,6 +261,34 @@ void main(List<String> args) async {
       }
     }
 
+    // Windows: LiteRtLm.dll references companion DLLs by their original
+    // Google filenames with "lib" prefix (libLiteRt.dll etc.) via PE imports.
+    // Native Assets uses no prefix on Windows (LiteRt.dll), so we ship both
+    // names from the CI artifact — register the lib-prefixed copies here
+    // so the PE loader can resolve imports at LoadLibrary time.
+    if (os == OS.windows) {
+      const windowsLibPrefixed = [
+        'libGemmaModelConstraintProvider',
+        'libLiteRt',
+        'libLiteRtTopKWebGpuSampler',
+        'libLiteRtWebGpuAccelerator',
+      ];
+      for (final name in windowsLibPrefixed) {
+        final fileName = os.dylibFileName(name);
+        final fileUri = prebuiltDir.resolve(fileName);
+        if (File.fromUri(fileUri).existsSync()) {
+          output.assets.code.add(
+            CodeAsset(
+              package: _packageName,
+              name: 'src/native/$name',
+              linkMode: DynamicLoadingBundled(),
+              file: fileUri,
+            ),
+          );
+        }
+      }
+    }
+
     output.dependencies.add(prebuiltDir);
   });
 }

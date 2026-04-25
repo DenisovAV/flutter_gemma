@@ -28,21 +28,21 @@ struct InferenceModel {
         }
 
         // Set preferred backend (exposed in MediaPipe 0.10.33)
-        if let backend = preferredBackend {
-            switch backend {
-            case .gpu:
-                llmOptions.preferredBackend = .gpu
-            case .cpu:
-                llmOptions.preferredBackend = .cpu
-            case .npu:
-                break  // NPU not supported on iOS
-            }
-        }
+        // if let backend = preferredBackend {
+        //     switch backend {
+        //     case .gpu:
+        //         llmOptions.preferredBackend = .gpu
+        //     case .cpu:
+        //         llmOptions.preferredBackend = .cpu
+        //     case .npu:
+        //         break  // NPU not supported on iOS
+        //     }
+        // }
 
         // Enable audio modality if requested
-        if supportAudio {
-            llmOptions.enableAudioModality = true
-        }
+        // if supportAudio {
+        //     llmOptions.enableAudioModality = true
+        // }
 
         self.inference = try LlmInference(options: llmOptions)
     }
@@ -79,7 +79,7 @@ final class InferenceSession {
         }
 
         options.enableVisionModality = enableVisionModality
-        options.enableAudioModality = enableAudioModality
+        // options.enableAudioModality = enableAudioModality
 
         // Initialize session with proper error handling for Gemma 3n
         do {
@@ -94,7 +94,7 @@ final class InferenceSession {
             fallbackOptions.randomSeed = randomSeed
             fallbackOptions.topk = topk
             fallbackOptions.enableVisionModality = enableVisionModality
-            fallbackOptions.enableAudioModality = enableAudioModality
+            // fallbackOptions.enableAudioModality = enableAudioModality
 
             if let topP = topP {
                 fallbackOptions.topp = Float(topP)
@@ -119,11 +119,11 @@ final class InferenceSession {
     }
 
     func addAudio(audio: Data) throws {
-        try session.addAudio(audio: audio)
+        // try session.addAudio(audio: audio)
     }
 
     func cancelGeneration() throws {
-        try session.cancelGenerateResponseAsync()
+        // try session.cancelGenerateResponseAsync()
     }
 
     // Clone session (GPU models only)

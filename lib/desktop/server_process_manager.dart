@@ -116,8 +116,8 @@ class ServerProcessManager {
           _currentPort.toString(),
         ],
         environment: {
-          if (Platform.isLinux) 'LD_LIBRARY_PATH': nativesPath,
-          if (Platform.isMacOS) 'DYLD_LIBRARY_PATH': nativesPath,
+          if (Platform.isLinux) 'LD_LIBRARY_PATH': '$nativesPath:${Platform.environment['LD_LIBRARY_PATH'] ?? ''}',
+          if (Platform.isMacOS) 'DYLD_LIBRARY_PATH': '$nativesPath:${Platform.environment['DYLD_LIBRARY_PATH'] ?? ''}',
         },
       );
 

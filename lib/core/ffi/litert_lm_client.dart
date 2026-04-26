@@ -101,36 +101,19 @@ class LiteRtLmFfiClient {
       // and the WebGPU accelerator can resolve LiteRt* C API symbols
       // against it. StreamProxy exposes a dlopen helper because Dart's
       // DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
-      //
-      // Native Assets places .so files in <bundle>/lib/ next to the
-      // executable. Dart's DynamicLibrary.open seems to find them by
-      // basename (Flutter sets up RPATH), but a raw C dlopen via
-      // stream_proxy_load_global doesn't see that — pass an absolute
-      // path so it resolves regardless of LD_LIBRARY_PATH.
-      final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final libDir = '$exeDir/lib';
-      proxyLib = DynamicLibrary.open('$libDir/libStreamProxy.so');
+      proxyLib = DynamicLibrary.open('libStreamProxy.so');
       final loadGlobal = proxyLib.lookupFunction<
           Pointer Function(Pointer<Utf8>),
           Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
-      // libLiteRt.so first (provides LiteRt C API symbols for the WebGPU
-      // accelerator), then companion that libLiteRtLm.so soname-depends on,
-      // then libLiteRtLm.so itself. With absolute paths so dlopen doesn't
-      // depend on LD_LIBRARY_PATH / RPATH being inherited.
-      for (final name in const [
-        'libLiteRt.so',
-        'libGemmaModelConstraintProvider.so',
-        'libLiteRtLm.so',
-      ]) {
-        final fullPath = '$libDir/$name';
-        final pathPtr = fullPath.toNativeUtf8();
+      for (final name in const ['libLiteRt.so', 'libLiteRtLm.so']) {
+        final pathPtr = name.toNativeUtf8();
         final handle = loadGlobal(pathPtr);
         calloc.free(pathPtr);
         if (handle == nullptr) {
-          throw Exception('Failed to load $fullPath with RTLD_GLOBAL');
+          throw Exception('Failed to load $name with RTLD_GLOBAL');
         }
       }
-      lib = DynamicLibrary.open('$libDir/libLiteRtLm.so');
+      lib = DynamicLibrary.open('libLiteRtLm.so');
     } else if (Platform.isWindows) {
       // Preload LiteRt.dll first so the WebGPU accelerator and TopK sampler
       // can resolve LiteRt* C API + their own exports through the process
@@ -261,22 +244,15 @@ class LiteRtLmFfiClient {
       // Pass settings pointer as int address (Pointer can't cross isolates).
       debugPrint('[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...');
       final settingsAddr = settings.address;
-      // Resolve absolute lib path on Linux — RPATH set by Flutter only applies
-      // to the main isolate's dlopen, not to the spawned Isolate.run isolate.
-      final linuxLibPath = Platform.isLinux
-          ? '${File(Platform.resolvedExecutable).parent.path}/lib/libLiteRtLm.so'
-          : null;
       final sw = Stopwatch()..start();
       final engineAddr = await Isolate.run(() {
         final lib = Platform.isIOS
             ? DynamicLibrary.open('@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm')
             : Platform.isMacOS
                 ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
-                : Platform.isLinux
-                    ? DynamicLibrary.open(linuxLibPath!)
-                    : Platform.isAndroid
-                        ? DynamicLibrary.open('libLiteRtLm.so')
-                        : DynamicLibrary.open('LiteRtLm.dll');
+                : (Platform.isLinux || Platform.isAndroid)
+                    ? DynamicLibrary.open('libLiteRtLm.so')
+                    : DynamicLibrary.open('LiteRtLm.dll');
         final create = lib.lookupFunction<
             Pointer Function(Pointer),
             Pointer Function(Pointer)>('litert_lm_engine_create');

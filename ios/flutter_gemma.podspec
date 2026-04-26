@@ -25,4 +25,28 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.33
     'DEFINES_MODULE' => 'YES'
   }
   s.swift_version = '5.0'
+
+  # LiteRT-LM gpu_registry calls SharedLibrary::Load by basename (e.g.
+  # "libLiteRtMetalAccelerator.dylib") at runtime. Native Assets ships these
+  # as *.framework/<binary>, but iOS dyld 4 doesn't auto-fallback by basename
+  # the way macOS does. We add lib*.dylib symlinks alongside the bundled
+  # frameworks so dlopen resolves at runtime — without this, Metal GPU
+  # delegate fails to load and the model silently runs on CPU.
+  s.script_phase = {
+    :name => 'Setup LiteRT-LM iOS',
+    :execution_position => :after_compile,
+    :script => <<~SHELL
+      set -e
+      FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Frameworks"
+      [ -d "${FRAMEWORKS}" ] || exit 0
+      for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
+        src="${base}.framework/${base}"
+        dst="${FRAMEWORKS}/lib${base}.dylib"
+        if [ -e "${FRAMEWORKS}/${src}" ] && [ ! -e "${dst}" ]; then
+          ln -sf "${src}" "${dst}"
+          echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
+        fi
+      done
+    SHELL
+  }
 end

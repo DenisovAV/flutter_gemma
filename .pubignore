@@ -81,3 +81,20 @@ trash_*
 .env
 .firecrawl/
 example/kill
+
+# Native prebuilts — fetched by hook/build.dart from native-v0.10.2 release
+native/litert_lm/prebuilt/
+
+# Ad-hoc integration tests (kept in repo for dev, not for users)
+example/integration_test/ios_*.dart
+example/integration_test/kotlin_*.dart
+example/integration_test/android_*.dart
+example/integration_test/desktop_full_test.dart
+example/integration_test/raw_ffi_test.dart
+example/integration_test/ffi_test.dart
+
+# LLVM coverage
+*.profraw
+
+# Working notes (drafts, plans, articles, investigation reports)
+_notes/

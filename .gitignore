@@ -65,3 +65,16 @@ test_reports/
 example/scripts/
 
 docs/plans
+
+# LLVM coverage drift
+*.profraw
+
+# Working notes (drafts, plans, articles, investigation reports)
+_notes/
+
+# Misc
+firebase-debug.log
+tables.html
+test_audio.txt
+ai-edge-gallery/
+colabs/*.ipynb

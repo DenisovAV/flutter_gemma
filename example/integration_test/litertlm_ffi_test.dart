@@ -352,7 +352,10 @@ void main() {
     });
 
     testWidgets('session sizeInTokens', (t) async {
-      final model = await _ensureModel(PreferredBackend.cpu, 4096);
+      // sizeInTokens is tokenizer-only, doesn't touch the backend — keep using
+      // the shared GPU model to avoid destroying the engine (which on
+      // Linux/Vulkan triggers the upstream wgpu::Instance singleton issue).
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
       final n = await session.sizeInTokens('Hello, how many tokens am I?');
       print('[Gemma4 sizeInTokens] $n');

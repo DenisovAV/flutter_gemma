@@ -28,7 +28,7 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
-- **🖥️ Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM (gRPC architecture).
+- **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop - LiteRT-LM engine)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)

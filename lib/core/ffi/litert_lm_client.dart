@@ -112,13 +112,21 @@ class LiteRtLmFfiClient {
       final loadGlobal = proxyLib.lookupFunction<
           Pointer Function(Pointer<Utf8>),
           Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
-      // libLiteRt.so first (provides LiteRt C API used by the WebGPU
-      // accelerator at registration), then libGemmaModelConstraintProvider.so
-      // because libLiteRtLm.so has a SONAME-level dependency on it, then
-      // libLiteRtLm.so itself.
+      // Preload sequence:
+      // - libLiteRt.so first (provides LiteRt C API used by the WebGPU
+      //   accelerator at registration)
+      // - libGemmaModelConstraintProvider.so (libLiteRtLm.so has a
+      //   SONAME-level dependency on it)
+      // - libLiteRtWebGpuAccelerator.so + libLiteRtTopKWebGpuSampler.so
+      //   so gpu_registry.cc:162 can resolve them via the loader's
+      //   already-loaded modules table when it does basename-only dlopen
+      //   (mirrors the Windows LoadLibraryEx preload pattern)
+      // - libLiteRtLm.so itself
       for (final name in const [
         'libLiteRt.so',
         'libGemmaModelConstraintProvider.so',
+        'libLiteRtWebGpuAccelerator.so',
+        'libLiteRtTopKWebGpuSampler.so',
         'libLiteRtLm.so',
       ]) {
         final fullPath = '$libDir/$name';

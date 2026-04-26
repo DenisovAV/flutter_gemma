@@ -101,16 +101,24 @@ class LiteRtLmFfiClient {
       // and the WebGPU accelerator can resolve LiteRt* C API symbols
       // against it. StreamProxy exposes a dlopen helper because Dart's
       // DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
+      //
+      // Native Assets places .so files in <bundle>/lib/. Dart's
+      // DynamicLibrary.open finds them by basename via Flutter-set RPATH,
+      // but a raw C dlopen via stream_proxy_load_global doesn't see that
+      // path — pass an absolute path so it resolves regardless of
+      // LD_LIBRARY_PATH / RPATH inheritance.
+      final libDir = '${File(Platform.resolvedExecutable).parent.path}/lib';
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
       final loadGlobal = proxyLib.lookupFunction<
           Pointer Function(Pointer<Utf8>),
           Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
       for (final name in const ['libLiteRt.so', 'libLiteRtLm.so']) {
-        final pathPtr = name.toNativeUtf8();
+        final fullPath = '$libDir/$name';
+        final pathPtr = fullPath.toNativeUtf8();
         final handle = loadGlobal(pathPtr);
         calloc.free(pathPtr);
         if (handle == nullptr) {
-          throw Exception('Failed to load $name with RTLD_GLOBAL');
+          throw Exception('Failed to load $fullPath with RTLD_GLOBAL');
         }
       }
       lib = DynamicLibrary.open('libLiteRtLm.so');

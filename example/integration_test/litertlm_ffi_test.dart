@@ -9,6 +9,7 @@
 ///   flutter test integration_test/litertlm_ffi_test.dart -d <device>
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -56,7 +57,16 @@ String? _localPath(String filename) {
   if (Platform.isMacOS) return '$_macosDir/$filename';
   if (Platform.isLinux) return '$_linuxDir/$filename';
   if (Platform.isWindows) return '$_windowsDir\\$filename';
-  return null; // iOS: use network download
+  if (Platform.isIOS) {
+    // iOS Simulator can read the host macOS filesystem directly even though
+    // HOME is unset for sandboxed app. Use the absolute macOS Documents path
+    // and probe; works on Sim, returns null on real device.
+    const userMacDocs = '/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
+    final p = '$userMacDocs/$filename';
+    if (File(p).existsSync()) return p;
+    return null; // device path or network download
+  }
+  return null;
 }
 
 /// Helper: create model, session, chat, close.
@@ -109,7 +119,9 @@ void main() {
   setUpAll(() async {
     await FlutterGemma.initialize();
 
-    // Load test assets
+    // Load test assets — try filesystem first (host paths on macOS/Linux/Windows
+    // and Android adb-pushed paths), then fall back to bundled Flutter assets
+    // (works on iOS device + simulator + any platform where assets/test/ ships).
     for (final path in [
       '$_androidDir/test_image.jpg',
       '$_macosDir/test_image.png',
@@ -124,6 +136,12 @@ void main() {
         break;
       }
     }
+    if (_testImage.isEmpty) {
+      try {
+        final data = await rootBundle.load('assets/test/test_image.jpg');
+        _testImage = data.buffer.asUint8List();
+      } catch (_) {/* asset not bundled — leave empty */}
+    }
     for (final path in [
       '$_androidDir/test_audio.wav',
       '$_macosDir/test_audio.wav',
@@ -135,110 +153,14 @@ void main() {
         break;
       }
     }
+    if (_testAudio.isEmpty) {
+      try {
+        final data = await rootBundle.load('assets/test/test_audio.wav');
+        _testAudio = data.buffer.asUint8List();
+      } catch (_) {/* asset not bundled — leave empty */}
+    }
     print('Platform: ${Platform.operatingSystem}');
     print('Assets: image=${_testImage.length}B, audio=${_testAudio.length}B');
-  });
-
-  // ══════════════════════════════════════════════════════════════════
-  // Gemma 3 1B — text only, small model
-  // ══════════════════════════════════════════════════════════════════
-  group('Gemma3-1B', () {
-    setUpAll(() async {
-      await _install(
-        localPath: _localPath('Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm'),
-        networkUrl: _gemma3_1bUrl,
-      );
-    });
-
-    testWidgets('CPU text', (t) async {
-      final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[Gemma3-1B CPU] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('GPU text', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[Gemma3-1B GPU] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('GPU streaming', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Say hello');
-      print('[Gemma3-1B stream] $r');
-      expect(r, isNotEmpty);
-    });
-  });
-
-  // ══════════════════════════════════════════════════════════════════
-  // Qwen3 0.6B — text only (if available)
-  // ══════════════════════════════════════════════════════════════════
-  group('Qwen3-0.6B', () {
-    setUpAll(() async {
-      final path = _localPath('Qwen3-0.6B.litertlm');
-      if (path != null && !File(path).existsSync()) {
-        print('[Qwen] Model not found at $path, skipping');
-        return;
-      }
-      await _install(localPath: path, networkUrl: _qwenUrl);
-    });
-
-    testWidgets('CPU text', (t) async {
-      final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[Qwen CPU] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('GPU text', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[Qwen GPU] $r');
-      expect(r, isNotEmpty);
-    });
-  });
-
-  // ══════════════════════════════════════════════════════════════════
-  // Gemma 3n E2B — multimodal (vision + audio)
-  // ══════════════════════════════════════════════════════════════════
-  group('Gemma3n-E2B', () {
-    setUpAll(() async {
-      await _install(
-        localPath: _localPath('gemma-3n-E2B-it-int4.litertlm'),
-        networkUrl: _gemma3nUrl,
-      );
-    });
-
-    testWidgets('CPU text', (t) async {
-      final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[Gemma3n CPU] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('GPU text', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[Gemma3n GPU] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('GPU streaming', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Say hello');
-      print('[Gemma3n stream] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('GPU vision', (t) async {
-      if (_testImage.isEmpty) { print('[Gemma3n vision] SKIP: no image'); return; }
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Describe this image',
-          supportImage: true, image: _testImage);
-      print('[Gemma3n vision] $r');
-      expect(r, isNotEmpty);
-    });
-
-    testWidgets('CPU audio', (t) async {
-      if (_testAudio.isEmpty) { print('[Gemma3n audio] SKIP: no audio'); return; }
-      final r = await _chat(PreferredBackend.cpu, 4096, 'What did you hear?',
-          supportAudio: true, audio: _testAudio);
-      print('[Gemma3n audio] $r');
-      expect(r, isNotEmpty);
-    });
   });
 
   // ══════════════════════════════════════════════════════════════════

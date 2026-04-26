@@ -239,7 +239,7 @@ void main(List<String> args) async {
     // Companion libs (loaded by libLiteRtLm via dlopen at runtime)
     final companions = [
       'GemmaModelConstraintProvider',
-      'LiteRtMetalAccelerator', // macOS GPU
+      'LiteRtMetalAccelerator', // macOS + iOS GPU (Metal)
       'LiteRtGpuAccelerator', // Android GPU
       'LiteRtOpenClAccelerator', // Android OpenCL
       'LiteRtWebGpuAccelerator', // Linux/Windows GPU (WebGPU → Vulkan/DX12)

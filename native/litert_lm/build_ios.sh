@@ -61,6 +61,10 @@ cc_binary(
 BUILDEOF
 fi
 
+# 3b. Apply C API patch (adds set_max_num_images, set_litert_dispatch_lib_dir, etc).
+# git checkout above resets the source tree, so we re-apply on every build.
+bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
+
 # 4. Pull LFS files
 echo "Pulling LFS files..."
 git lfs pull --include="prebuilt/ios_arm64/*,prebuilt/ios_sim_arm64/*"
@@ -109,7 +113,12 @@ echo "StreamProxy (simulator): OK"
 # 8. Copy companion libs
 echo ""
 echo "=== Copying companion libs ==="
-for lib in libGemmaModelConstraintProvider.dylib; do
+# libLiteRtMetalAccelerator.dylib was added upstream in commit 5e0d86b ("Update
+# dependencies of litert_lm") — must be on a tag/commit that includes it. The
+# v0.10.2 tag predates that commit. libLiteRt.dylib and libLiteRtTopKMetalSampler.dylib
+# in 5e0d86b are mistakenly x86_64 macOS binaries (upstream issue #2072), so we
+# only pick up the Metal accelerator which is actually arm64 iOS / arm64 iOSSim.
+for lib in libGemmaModelConstraintProvider.dylib libLiteRtMetalAccelerator.dylib; do
   [ -f "prebuilt/ios_arm64/$lib" ] && cp "prebuilt/ios_arm64/$lib" "$DEVICE_DIR/$lib" && echo "  $lib → device"
   [ -f "prebuilt/ios_sim_arm64/$lib" ] && cp "prebuilt/ios_sim_arm64/$lib" "$SIM_DIR/$lib" && echo "  $lib → simulator"
 done

@@ -190,4 +190,46 @@ else
   echo "  SKIP: set_cache_dir already propagates to vision/audio"
 fi
 
+# ── 4. Add set_litert_dispatch_lib_dir for accelerator plugin discovery ──
+# On iOS the gpu_registry dlopens accelerator dylibs by relative basename,
+# which dyld 4 cannot resolve in a sandboxed app. Expose SetLitertDispatchLibDir
+# so callers (Dart FFI) can pass the absolute Frameworks directory.
+if ! grep -q "set_litert_dispatch_lib_dir" "$DIR/c/engine.h"; then
+  sed -i.bak '/Creates a LiteRT LM Engine from the given settings/i\
+// Sets the directory where LiteRT dispatch libraries (e.g. accelerator\
+// plugins like libLiteRtMetalAccelerator.dylib) are located. On iOS this\
+// must be set to the absolute path of the app bundle Frameworks directory\
+// because dyld cannot resolve plugin libraries by basename in app sandboxes.\
+LITERT_LM_C_API_EXPORT\
+void litert_lm_engine_settings_set_litert_dispatch_lib_dir(\
+    LiteRtLmEngineSettings* settings, const char* lib_dir);\
+' "$DIR/c/engine.h"
+  rm -f "$DIR/c/engine.h.bak"
+  echo "  OK: Added set_litert_dispatch_lib_dir to c/engine.h"
+else
+  echo "  SKIP: c/engine.h already has set_litert_dispatch_lib_dir"
+fi
+
+if ! grep -q "set_litert_dispatch_lib_dir" "$DIR/c/engine.cc"; then
+  sed -i.bak '/void litert_lm_engine_settings_set_activation_data_type/i\
+void litert_lm_engine_settings_set_litert_dispatch_lib_dir(\
+    LiteRtLmEngineSettings* settings, const char* lib_dir) {\
+  if (settings \&\& settings->settings \&\& lib_dir) {\
+    settings->settings->GetMutableMainExecutorSettings().SetLitertDispatchLibDir(\
+        lib_dir);\
+    if (settings->settings->GetVisionExecutorSettings().has_value()) {\
+      settings->settings->GetMutableVisionExecutorSettings()->SetLitertDispatchLibDir(lib_dir);\
+    }\
+    if (settings->settings->GetAudioExecutorSettings().has_value()) {\
+      settings->settings->GetMutableAudioExecutorSettings()->SetLitertDispatchLibDir(lib_dir);\
+    }\
+  }\
+}\
+' "$DIR/c/engine.cc"
+  rm -f "$DIR/c/engine.cc.bak"
+  echo "  OK: Added set_litert_dispatch_lib_dir impl to c/engine.cc"
+else
+  echo "  SKIP: c/engine.cc already has set_litert_dispatch_lib_dir"
+fi
+
 echo "Patch complete."

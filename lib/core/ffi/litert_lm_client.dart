@@ -112,7 +112,15 @@ class LiteRtLmFfiClient {
       final loadGlobal = proxyLib.lookupFunction<
           Pointer Function(Pointer<Utf8>),
           Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
-      for (final name in const ['libLiteRt.so', 'libLiteRtLm.so']) {
+      // libLiteRt.so first (provides LiteRt C API used by the WebGPU
+      // accelerator at registration), then libGemmaModelConstraintProvider.so
+      // because libLiteRtLm.so has a SONAME-level dependency on it, then
+      // libLiteRtLm.so itself.
+      for (final name in const [
+        'libLiteRt.so',
+        'libGemmaModelConstraintProvider.so',
+        'libLiteRtLm.so',
+      ]) {
         final fullPath = '$libDir/$name';
         final pathPtr = fullPath.toNativeUtf8();
         final handle = loadGlobal(pathPtr);

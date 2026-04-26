@@ -21,13 +21,13 @@ const _checksums = <String, String>{
   'litertlm-linux_arm64.tar.gz':
       'af35b2e65727fd2a153a2227485c8de04861cad373b369080b45921271449dfa',
   'litertlm-windows_x86_64.tar.gz':
-      '0573fcca3826a56b1d6326dc578740a74d288ee9fbbffd05876f68a7258db08c',
+      'e69d7181390667134e70a163e8f0cf990fc308f961972a5abde811f3207be81a',
   'litertlm-macos_arm64.tar.gz':
-      '9f643ac50aeffa3b12a8b120189132c99b2784c73b19f905a5cbf0e5ac366da0',
+      '56756ca98db9d761e93c078d9eda406dee9372f7b5d259a1a9f657847dcebe73',
   'litertlm-ios_arm64.tar.gz':
-      '4b60f558098174795042015c1cee3bff5194d1043eceae591580f6a0a5369eca',
+      '1c6d140399a1f2bc51d8a804b5968284c7920065d91a7b27616fb632a9f467aa',
   'litertlm-ios_sim_arm64.tar.gz':
-      'ad59c07e4bbc0c3494252e0207047c2af55ee0ea674d312d5225a1d28bb58dea',
+      'f83eef28e7c274a09c6040c3ce2fe7bbe445ce9a6cc40d5232d34cc7044d8597',
   'litertlm-android_arm64.tar.gz':
       'f8d24a050d6ede531c173b99d265a0890d6b08d536b4340dfa0147e62c99172d',
 };
@@ -273,7 +273,12 @@ void main(List<String> args) async {
         'libLiteRtTopKWebGpuSampler',
         'libLiteRtWebGpuAccelerator',
       ];
-      for (final name in windowsLibPrefixed) {
+      // DirectXShaderCompiler runtime — required for WebGPU/DX12 shader
+      // compilation. Without these the GPU delegate fails at runtime when
+      // it tries to compile compute shaders for the LLM kernels.
+      // Sourced from microsoft/DirectXShaderCompiler GitHub releases.
+      const windowsDxc = ['dxil', 'dxcompiler'];
+      for (final name in [...windowsLibPrefixed, ...windowsDxc]) {
         final fileName = os.dylibFileName(name);
         final fileUri = prebuiltDir.resolve(fileName);
         if (File.fromUri(fileUri).existsSync()) {

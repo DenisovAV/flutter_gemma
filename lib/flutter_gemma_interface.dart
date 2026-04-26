@@ -153,6 +153,7 @@ abstract class InferenceModel {
     bool isThinking = false, // Add isThinking parameter
     ModelType? modelType, // Add modelType parameter
     ToolChoice toolChoice = ToolChoice.auto, // Tool calling mode
+    int? maxFunctionBufferLength,
     String? systemInstruction,
   }) async {
     chat = InferenceChat(
@@ -172,6 +173,8 @@ abstract class InferenceModel {
       supportImage: supportImage ?? false,
       supportAudio: supportAudio ?? false,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
+      maxFunctionBufferLength:
+          maxFunctionBufferLength ?? defaultMaxFunctionBufferLength,
       tools: tools,
       isThinking: isThinking,
       modelType: modelType ?? ModelType.gemmaIt,

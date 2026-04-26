@@ -12,7 +12,8 @@ class DartVectorStoreRepository implements VectorStoreRepository {
 
   @override
   Future<void> initialize(String databasePath) async =>
-      throw UnimplementedError('DartVectorStoreRepository is not available on web');
+      throw UnimplementedError(
+          'DartVectorStoreRepository is not available on web');
 
   @override
   Future<void> addDocument({
@@ -21,7 +22,13 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     required List<double> embedding,
     String? metadata,
   }) async =>
-      throw UnimplementedError('DartVectorStoreRepository is not available on web');
+      throw UnimplementedError(
+          'DartVectorStoreRepository is not available on web');
+
+  @override
+  Future<void> removeDocument({required String id}) async =>
+      throw UnimplementedError(
+          'DartVectorStoreRepository is not available on web');
 
   @override
   Future<List<RetrievalResult>> searchSimilar({
@@ -29,15 +36,16 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     required int topK,
     double threshold = 0.0,
   }) async =>
-      throw UnimplementedError('DartVectorStoreRepository is not available on web');
+      throw UnimplementedError(
+          'DartVectorStoreRepository is not available on web');
 
   @override
-  Future<VectorStoreStats> getStats() async =>
-      throw UnimplementedError('DartVectorStoreRepository is not available on web');
+  Future<VectorStoreStats> getStats() async => throw UnimplementedError(
+      'DartVectorStoreRepository is not available on web');
 
   @override
-  Future<void> clear() async =>
-      throw UnimplementedError('DartVectorStoreRepository is not available on web');
+  Future<void> clear() async => throw UnimplementedError(
+      'DartVectorStoreRepository is not available on web');
 
   @override
   Future<void> close() async {}

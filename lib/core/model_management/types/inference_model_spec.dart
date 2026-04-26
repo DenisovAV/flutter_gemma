@@ -32,9 +32,9 @@ class InferenceModelFile extends ModelFile {
   static String _extractFilenameFromSource(ModelSource source) {
     return switch (source) {
       NetworkSource(:final url) => Uri.parse(url).pathSegments.last,
-      AssetSource(path: final p) => p.split('/').last,
+      AssetSource(:final path) => path.split(RegExp(r'[/\\]')).last,
       BundledSource(:final resourceName) => resourceName,
-      FileSource(path: final p) => path.basename(p),
+      FileSource(:final path) => path.split(RegExp(r'[/\\]')).last,
     };
   }
 }
@@ -187,6 +187,7 @@ class InferenceModelSpec extends ModelSpec {
 
   @override
   int get hashCode {
-    return Object.hash(_name, _modelSource, _loraSource, _replacePolicy, _modelType, _fileType);
+    return Object.hash(_name, _modelSource, _loraSource, _replacePolicy,
+        _modelType, _fileType);
   }
 }

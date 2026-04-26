@@ -108,6 +108,15 @@ class DartVectorStoreRepository implements VectorStoreRepository {
   }
 
   @override
+  Future<void> removeDocument({required String id}) async {
+    if (!_isInitialized) {
+      throw StateError('VectorStore not initialized. Call initialize() first.');
+    }
+    _db!.execute('DELETE FROM $_tableName WHERE id = ?', [id]);
+    _hnswIndex.remove(id);
+  }
+
+  @override
   Future<List<RetrievalResult>> searchSimilar({
     required List<double> queryEmbedding,
     required int topK,

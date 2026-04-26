@@ -209,7 +209,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.13.4"
+    version: "0.13.6"
   flutter_lints:
     dependency: "direct dev"
     description:

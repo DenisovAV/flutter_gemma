@@ -1,3 +1,13 @@
+## 0.13.6
+- **ModelType.qwen3**: New model type for Qwen3 models with thinking support
+- **Disable Qwen3 thinking at model level**: `/no_think` appended automatically when `isThinking: false` — faster TTFT
+- **Configurable maxFunctionBufferLength** (#229): `createChat(maxFunctionBufferLength: 2048)` for long function call args
+- **Fix Windows path parsing** (#233): `FileSource` now handles backslash paths correctly
+- **removeDocument** (#232): `VectorStoreRepository.removeDocument(id:)` to delete documents from vector store
+
+## 0.13.5
+- **Fix Qwen3 thinking mode (#224)**: Qwen3 `<think>` tags now stripped automatically
+
 ## 0.13.4
 - **Fix iOS compile error (#222)**: XNNPack delegate type mismatch in `EmbeddingModel.swift`
 - **Fix iOS arm64 simulator (#216)**: Removed `TensorFlowLiteSelectTfOps` — simulator builds work on Apple Silicon

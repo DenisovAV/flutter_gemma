@@ -10,10 +10,9 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'model.dart';
 
-// Constants
-/// Maximum length for function call buffer before flushing as text.
+/// Default maximum length for function call buffer before flushing as text.
 /// Must accommodate verbose formats (DeepSeek tags, parallel calls).
-const int _maxFunctionBufferLength = 1024;
+const int defaultMaxFunctionBufferLength = 1024;
 
 class InferenceChat {
   final Future<InferenceModelSession> Function()? sessionCreator;
@@ -22,6 +21,7 @@ class InferenceChat {
   final bool supportImage;
   final bool supportAudio;
   final bool supportsFunctionCalls;
+  final int maxFunctionBufferLength;
   final ModelType modelType; // Add modelType parameter
   final bool isThinking; // Add isThinking flag for thinking models
   final ModelFileType fileType; // Add fileType parameter
@@ -46,6 +46,7 @@ class InferenceChat {
     this.supportImage = false,
     this.supportAudio = false,
     this.supportsFunctionCalls = false,
+    this.maxFunctionBufferLength = defaultMaxFunctionBufferLength,
     this.tools = const [],
     this.modelType =
         ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
@@ -97,6 +98,12 @@ class InferenceChat {
       // Log warning if model doesn't support function calls but tools are provided
       debugPrint(
           'WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.');
+    }
+
+    // Qwen3: append /no_think to suppress thinking at model level when not requested
+    if (!isThinking && modelType == ModelType.qwen3 && message.isUser) {
+      messageToSend =
+          messageToSend.copyWith(text: '${messageToSend.text} /no_think');
     }
 
     // --- DETAILED LOGGING ---
@@ -194,15 +201,27 @@ class InferenceChat {
     final originalStream =
         session.getResponseAsync().map((token) => TextResponse(token));
 
-    // Apply thinking filter if needed using ModelThinkingFilter
-    final Stream<ModelResponse> filteredStream = isThinking
+    // Apply thinking filter for models that may generate <think> tags.
+    // enable_thinking=false is passed via extraContext for .litertlm but is not
+    // reliable for all model bundles — keep filter as safety net.
+    final bool modelCanThink = modelType == ModelType.deepSeek ||
+        modelType == ModelType.qwen ||
+        modelType == ModelType.qwen3 ||
+        modelType == ModelType.gemmaIt;
+    final Stream<ModelResponse> filteredStream = (isThinking || modelCanThink)
         ? ModelThinkingFilter.filterThinkingStream(originalStream,
             modelType: modelType)
         : originalStream;
 
+    // If user didn't request thinking, discard ThinkingResponse events
+    final Stream<ModelResponse> thinkingHandledStream = isThinking
+        ? filteredStream
+        : filteredStream.where((r) => r is! ThinkingResponse);
+
     // Apply stop token filter for .litertlm on iOS (MediaPipe doesn't handle stop tokens)
     final Stream<ModelResponse> stopFilteredStream =
-        StopTokenFilter.filterStopTokens(filteredStream, fileType: fileType);
+        StopTokenFilter.filterStopTokens(thinkingHandledStream,
+            fileType: fileType);
 
     await for (final response in stopFilteredStream) {
       if (response is TextResponse) {
@@ -274,7 +293,7 @@ class InferenceChat {
             }
 
             // If buffer gets too long without completing, flush as text
-            if (funcBuffer.length > _maxFunctionBufferLength) {
+            if (funcBuffer.length > maxFunctionBufferLength) {
               debugPrint(
                   'InferenceChat: Buffer too long without completion, flushing as text');
               yield TextResponse(funcBuffer);

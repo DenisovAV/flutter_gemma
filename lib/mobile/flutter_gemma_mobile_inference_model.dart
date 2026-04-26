@@ -31,6 +31,7 @@ class MobileInferenceModel extends InferenceModel {
     bool isThinking = false,
     ModelType? modelType,
     ToolChoice toolChoice = ToolChoice.auto,
+    int? maxFunctionBufferLength,
     String? systemInstruction,
   }) async {
     chat = InferenceChat(
@@ -50,6 +51,8 @@ class MobileInferenceModel extends InferenceModel {
       supportImage: supportImage ?? false,
       supportAudio: supportAudio ?? this.supportAudio,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
+      maxFunctionBufferLength:
+          maxFunctionBufferLength ?? defaultMaxFunctionBufferLength,
       tools: tools,
       modelType: modelType ?? this.modelType,
       isThinking: isThinking,

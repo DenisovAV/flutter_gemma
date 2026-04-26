@@ -51,6 +51,13 @@ abstract class VectorStoreRepository {
     String? metadata,
   });
 
+  /// Remove a document from the vector store by its ID.
+  ///
+  /// If the document does not exist, this is a no-op (does not throw).
+  ///
+  /// Throws [StateError] if not initialized.
+  Future<void> removeDocument({required String id});
+
   /// Search for similar documents using cosine similarity
   ///
   /// Returns documents sorted by similarity (descending) where:
@@ -133,5 +140,6 @@ class VectorStoreException implements Exception {
   const VectorStoreException(this.message, [this.cause]);
 
   @override
-  String toString() => 'VectorStoreException: $message${cause != null ? '\nCause: $cause' : ''}';
+  String toString() =>
+      'VectorStoreException: $message${cause != null ? '\nCause: $cause' : ''}';
 }

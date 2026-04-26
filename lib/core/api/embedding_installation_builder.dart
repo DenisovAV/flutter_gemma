@@ -80,7 +80,8 @@ class EmbeddingInstallationBuilder {
   /// [iosPath] optional alternative asset path for iOS platform (same source type: asset).
   /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
   /// Pass a tokenizer.json asset path here to use on iOS instead.
-  EmbeddingInstallationBuilder tokenizerFromAsset(String path, {String? iosPath}) {
+  EmbeddingInstallationBuilder tokenizerFromAsset(String path,
+      {String? iosPath}) {
     _tokenizerSource = ModelSource.asset(path);
     if (iosPath != null) {
       _tokenizerIosSource = ModelSource.asset(iosPath);
@@ -93,7 +94,8 @@ class EmbeddingInstallationBuilder {
   /// [iosPath] optional alternative resource name for iOS platform (same source type: bundled).
   /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
   /// Pass a tokenizer.json resource name here to use on iOS instead.
-  EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName, {String? iosPath}) {
+  EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName,
+      {String? iosPath}) {
     _tokenizerSource = ModelSource.bundled(resourceName);
     if (iosPath != null) {
       _tokenizerIosSource = ModelSource.bundled(iosPath);
@@ -106,7 +108,8 @@ class EmbeddingInstallationBuilder {
   /// [iosPath] optional alternative file path for iOS platform (same source type: file).
   /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
   /// Pass a tokenizer.json file path here to use on iOS instead.
-  EmbeddingInstallationBuilder tokenizerFromFile(String path, {String? iosPath}) {
+  EmbeddingInstallationBuilder tokenizerFromFile(String path,
+      {String? iosPath}) {
     _tokenizerSource = ModelSource.file(path);
     if (iosPath != null) {
       _tokenizerIosSource = ModelSource.file(iosPath);
@@ -117,13 +120,15 @@ class EmbeddingInstallationBuilder {
   // === Progress callbacks ===
 
   /// Add model file progress callback
-  EmbeddingInstallationBuilder withModelProgress(void Function(int progress) onProgress) {
+  EmbeddingInstallationBuilder withModelProgress(
+      void Function(int progress) onProgress) {
     _onModelProgress = onProgress;
     return this;
   }
 
   /// Add tokenizer file progress callback
-  EmbeddingInstallationBuilder withTokenizerProgress(void Function(int progress) onProgress) {
+  EmbeddingInstallationBuilder withTokenizerProgress(
+      void Function(int progress) onProgress) {
     _onTokenizerProgress = onProgress;
     return this;
   }
@@ -196,7 +201,8 @@ class EmbeddingInstallationBuilder {
 
     // Check if both model and tokenizer are already installed
     final isModelInstalled = await repository.isInstalled(modelFilename);
-    final isTokenizerInstalled = await repository.isInstalled(tokenizerFilename);
+    final isTokenizerInstalled =
+        await repository.isInstalled(tokenizerFilename);
 
     if (isModelInstalled && isTokenizerInstalled) {
       debugPrint(
@@ -222,13 +228,15 @@ class EmbeddingInstallationBuilder {
           );
         }
       } else {
-        debugPrint('ℹ️  Embedding model file already installed: $modelFilename');
+        debugPrint(
+            'ℹ️  Embedding model file already installed: $modelFilename');
       }
 
       // Install tokenizer file if not already installed
       if (!isTokenizerInstalled) {
         debugPrint('📥 Installing tokenizer...');
-        final tokenizerHandler = handlerRegistry.getHandler(effectiveTokenizerSource);
+        final tokenizerHandler =
+            handlerRegistry.getHandler(effectiveTokenizerSource);
         if (_onTokenizerProgress != null) {
           await for (final progress in tokenizerHandler!.installWithProgress(
             effectiveTokenizerSource,
@@ -281,9 +289,9 @@ class EmbeddingInstallationBuilder {
   String _extractFilename(ModelSource source) {
     return switch (source) {
       NetworkSource(:final url) => path.basename(Uri.parse(url).path),
-      AssetSource(:final path) => path.split('/').last,
+      AssetSource(:final path) => path.split(RegExp(r'[/\\]')).last,
       BundledSource(:final resourceName) => resourceName,
-      FileSource(path: final filePath) => path.basename(filePath),
+      FileSource(:final path) => path.split(RegExp(r'[/\\]')).last,
     };
   }
 }

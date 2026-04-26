@@ -85,7 +85,8 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
-    supportAudio: false, // .task files don't have TF_LITE_AUDIO_ENCODER - audio only in .litertlm
+    supportAudio:
+        false, // .task files don't have TF_LITE_AUDIO_ENCODER - audio only in .litertlm
     maxTokens: 4096,
     maxNumImages: 1,
     supportsFunctionCalls: false, // Disabled - causes issues with multimodal
@@ -109,7 +110,8 @@ enum Model implements InferenceModelInterface {
     topK: 64,
     topP: 0.95,
     supportImage: true,
-    supportAudio: false, // .task files don't have TF_LITE_AUDIO_ENCODER - need .litertlm
+    supportAudio:
+        false, // .task files don't have TF_LITE_AUDIO_ENCODER - need .litertlm
     maxTokens: 4096,
     maxNumImages: 1,
     supportsFunctionCalls: false, // Disabled - causes issues with multimodal
@@ -178,7 +180,8 @@ enum Model implements InferenceModelInterface {
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
-    supportImage: false, // Disabled: MediaPipe iOS can't find Vision/Audio calculators for .litertlm
+    supportImage:
+        false, // Disabled: MediaPipe iOS can't find Vision/Audio calculators for .litertlm
     supportAudio: false, // Disabled: testing text-only mode first
     maxTokens: 4096,
   ),
@@ -274,13 +277,14 @@ enum Model implements InferenceModelInterface {
     licenseUrl: 'https://huggingface.co/litert-community/Qwen3-0.6B',
     needsAuth: false,
     preferredBackend: PreferredBackend.cpu,
-    modelType: ModelType.qwen,
+    modelType: ModelType.qwen3,
     fileType: ModelFileType.litertlm,
     temperature: 0.7,
     topK: 40,
     topP: 0.95,
     maxTokens: 4096,
     supportsFunctionCalls: true,
+    isThinking: true,
   ),
 
   deepseek(
@@ -432,7 +436,6 @@ enum Model implements InferenceModelInterface {
     licenseUrl: '',
     needsAuth: false,
     localModel: true,
-
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.functionGemma,
     fileType: ModelFileType.litertlm,
@@ -450,7 +453,8 @@ enum Model implements InferenceModelInterface {
     filename: 'functiongemma-flutter_q8_ekv1024.task',
     displayName: 'FunctionGemma Demo (Fine-tuned)',
     size: '284MB',
-    licenseUrl: 'https://huggingface.co/sasha-denisov/functiongemma-flutter-gemma-demo',
+    licenseUrl:
+        'https://huggingface.co/sasha-denisov/functiongemma-flutter-gemma-demo',
     needsAuth: false,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.functionGemma,
@@ -460,6 +464,7 @@ enum Model implements InferenceModelInterface {
     maxTokens: 1024,
     supportsFunctionCalls: true,
   );
+
   // Define fields for the enum
   final String baseUrl;
   final String? webUrl;

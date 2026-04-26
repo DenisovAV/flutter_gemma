@@ -117,16 +117,24 @@ class LiteRtLmFfiClient {
       //   accelerator at registration)
       // - libGemmaModelConstraintProvider.so (libLiteRtLm.so has a
       //   SONAME-level dependency on it)
-      // - libLiteRtWebGpuAccelerator.so + libLiteRtTopKWebGpuSampler.so
-      //   so gpu_registry.cc:162 can resolve them via the loader's
-      //   already-loaded modules table when it does basename-only dlopen
-      //   (mirrors the Windows LoadLibraryEx preload pattern)
+      // - libLiteRtWebGpuAccelerator.so so gpu_registry.cc:162 can find it
+      //   via the loader's already-loaded modules table when it does
+      //   basename-only dlopen
       // - libLiteRtLm.so itself
+      //
+      // libLiteRtTopKWebGpuSampler.so is intentionally NOT preloaded:
+      // its Create() holds a process-static wgpu::Instance and rejects
+      // any second engine_create with `wgpu::Instance already set`,
+      // making model swap and multi-session tests impossible. With the
+      // sampler not preloaded, sampler_factory.cc:443's dlopen returns
+      // Unavailable and the factory falls back to the static / CPU
+      // sampler chain — inference itself still runs on the GPU
+      // accelerator, only the per-token argmax happens on CPU
+      // (negligible perf hit, ~1-5ms/token).
       for (final name in const [
         'libLiteRt.so',
         'libGemmaModelConstraintProvider.so',
         'libLiteRtWebGpuAccelerator.so',
-        'libLiteRtTopKWebGpuSampler.so',
         'libLiteRtLm.so',
       ]) {
         final fullPath = '$libDir/$name';

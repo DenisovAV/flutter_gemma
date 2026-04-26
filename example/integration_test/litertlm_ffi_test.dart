@@ -73,7 +73,45 @@ String? _localPath(String filename) {
   return null;
 }
 
-/// Helper: create model, session, chat, close.
+/// Group-scoped model instance. We create it once per test group (with full
+/// vision+audio capabilities + the selected backend) and reuse it across all
+/// tests in that group — destroying & recreating the engine between every
+/// test would re-initialize the GPU adapter, which on Linux/Vulkan trips an
+/// upstream LiteRT-LM bug `ALREADY_EXISTS: wgpu::Instance already set` and
+/// also adds 2-3 s engine_create overhead per test.
+///
+/// This mirrors how a real Flutter app uses the plugin: create one
+/// `InferenceModel` per chat surface, open many sessions on it.
+InferenceModel? _sharedModel;
+PreferredBackend? _sharedBackend;
+
+Future<InferenceModel> _ensureModel(PreferredBackend backend, int maxTokens) async {
+  if (_sharedModel != null && _sharedBackend == backend) return _sharedModel!;
+  if (_sharedModel != null && _sharedBackend != backend) {
+    await _sharedModel!.close();
+    _sharedModel = null;
+  }
+  _sharedBackend = backend;
+  _sharedModel = await FlutterGemma.getActiveModel(
+    maxTokens: maxTokens,
+    preferredBackend: backend,
+    supportImage: true,
+    maxNumImages: 1,
+    supportAudio: true,
+  );
+  return _sharedModel!;
+}
+
+Future<void> _closeSharedModel() async {
+  if (_sharedModel != null) {
+    await _sharedModel!.close();
+    _sharedModel = null;
+    _sharedBackend = null;
+  }
+}
+
+/// Helper: open a session on the shared model, send a single prompt, return
+/// the streamed response.
 Future<String> _chat(
   PreferredBackend backend,
   int maxTokens,
@@ -84,13 +122,7 @@ Future<String> _chat(
   Uint8List? image,
   Uint8List? audio,
 }) async {
-  final model = await FlutterGemma.getActiveModel(
-    maxTokens: maxTokens,
-    preferredBackend: backend,
-    supportImage: supportImage,
-    maxNumImages: supportImage ? 1 : null,
-    supportAudio: supportAudio,
-  );
+  final model = await _ensureModel(backend, maxTokens);
   final session = await model.createSession(
     temperature: 0.8,
     topK: 1,
@@ -113,7 +145,8 @@ Future<String> _chat(
   final response = chunks.join();
 
   await session.close();
-  await model.close();
+  // Don't close the model — it's shared across tests in this group and
+  // closed once in tearDownAll via _closeSharedModel().
   return response;
 }
 
@@ -178,6 +211,8 @@ void main() {
       );
     });
 
+    tearDownAll(_closeSharedModel);
+
     testWidgets('CPU text', (t) async {
       final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
       print('[Gemma4 CPU] $r');
@@ -225,20 +260,17 @@ void main() {
     // ══════════════════════════════════════════════════════════════════
 
     testWidgets('chat generateChatResponse (sync)', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
       await chat.addQueryChunk(Message(text: 'Say hi', isUser: true));
       final r = await chat.generateChatResponse();
       print('[Gemma4 chat sync] ${r.runtimeType}: $r');
       expect(r.toString(), isNotEmpty);
       await chat.close();
-      await model.close();
     });
 
     testWidgets('chat generateChatResponseAsync (stream)', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
       await chat.addQueryChunk(Message(text: 'Say hi', isUser: true));
       final chunks = <String>[];
@@ -248,12 +280,10 @@ void main() {
       print('[Gemma4 chat stream] ${chunks.length} chunks: ${chunks.join()}');
       expect(chunks, isNotEmpty);
       await chat.close();
-      await model.close();
     });
 
     testWidgets('chat multi-turn (history retained)', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
 
       await chat.addQueryChunk(
@@ -271,12 +301,10 @@ void main() {
       expect(r2.toString().toLowerCase(), contains('purple'));
 
       await chat.close();
-      await model.close();
     });
 
     testWidgets('chat clearHistory resets conversation', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
 
       await chat.addQueryChunk(
@@ -294,12 +322,10 @@ void main() {
       expect(r.toString().toLowerCase(), isNot(contains('banana')));
 
       await chat.close();
-      await model.close();
     });
 
     testWidgets('chat stopGeneration interrupts stream', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
       await chat.addQueryChunk(Message(
           text: 'Write a 1000-word essay about Berlin.', isUser: true));
@@ -323,23 +349,19 @@ void main() {
       expect(received.length, lessThan(500));
 
       await chat.close();
-      await model.close();
     });
 
     testWidgets('session sizeInTokens', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.cpu);
+      final model = await _ensureModel(PreferredBackend.cpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
       final n = await session.sizeInTokens('Hello, how many tokens am I?');
       print('[Gemma4 sizeInTokens] $n');
       expect(n, greaterThan(0));
       await session.close();
-      await model.close();
     });
 
     testWidgets('session stopGeneration (low-level)', (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
       await session.addQueryChunk(Message(
           text: 'Write a 1000-word essay about the Berlin Wall.',
@@ -362,13 +384,11 @@ void main() {
       expect(received.length, lessThan(500));
 
       await session.close();
-      await model.close();
     });
 
     testWidgets('stream cancel via subscription.cancel (no stopGeneration)',
         (t) async {
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
       await session.addQueryChunk(Message(
           text: 'Write a 1000-word essay about Paris.', isUser: true));
@@ -394,14 +414,12 @@ void main() {
 
       // Closing the session cleanly after stream cancel must not crash.
       await session.close();
-      await model.close();
     });
 
     testWidgets('multiple createSession on same model', (t) async {
       // FfiInferenceModel is single-session at a time — this test verifies
       // we can sequentially create + close sessions without leaking the engine.
-      final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final model = await _ensureModel(PreferredBackend.gpu, 4096);
 
       for (var i = 0; i < 3; i++) {
         final session = await model.createSession(temperature: 0.8, topK: 1);
@@ -415,8 +433,6 @@ void main() {
         expect(chunks, isNotEmpty);
         await session.close();
       }
-
-      await model.close();
     });
   });
 }

@@ -7,6 +7,7 @@
 ///
 /// Run:
 ///   flutter test integration_test/litertlm_ffi_test.dart -d <device>
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
@@ -217,6 +218,205 @@ void main() {
       final hasThinking = r.contains('<|channel>thought');
       print('[Gemma4 thinking] ${r.length} chars, thinking=$hasThinking');
       expect(r, isNotEmpty);
+    });
+
+    // ══════════════════════════════════════════════════════════════════
+    // InferenceChat surface — covers methods that session-level tests miss
+    // ══════════════════════════════════════════════════════════════════
+
+    testWidgets('chat generateChatResponse (sync)', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final chat = await model.createChat(temperature: 0.8, topK: 1);
+      await chat.addQueryChunk(Message(text: 'Say hi', isUser: true));
+      final r = await chat.generateChatResponse();
+      print('[Gemma4 chat sync] ${r.runtimeType}: $r');
+      expect(r.toString(), isNotEmpty);
+      await chat.close();
+      await model.close();
+    });
+
+    testWidgets('chat generateChatResponseAsync (stream)', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final chat = await model.createChat(temperature: 0.8, topK: 1);
+      await chat.addQueryChunk(Message(text: 'Say hi', isUser: true));
+      final chunks = <String>[];
+      await for (final r in chat.generateChatResponseAsync()) {
+        chunks.add(r.toString());
+      }
+      print('[Gemma4 chat stream] ${chunks.length} chunks: ${chunks.join()}');
+      expect(chunks, isNotEmpty);
+      await chat.close();
+      await model.close();
+    });
+
+    testWidgets('chat multi-turn (history retained)', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final chat = await model.createChat(temperature: 0.8, topK: 1);
+
+      await chat.addQueryChunk(
+          Message(text: 'My favourite colour is purple.', isUser: true));
+      final r1 = await chat.generateChatResponse();
+      print('[Gemma4 chat turn 1] $r1');
+      expect(r1.toString(), isNotEmpty);
+
+      await chat.addQueryChunk(
+          Message(text: 'What is my favourite colour?', isUser: true));
+      final r2 = await chat.generateChatResponse();
+      print('[Gemma4 chat turn 2] $r2');
+      expect(r2.toString(), isNotEmpty);
+      // Sanity: model should mention the colour from turn 1.
+      expect(r2.toString().toLowerCase(), contains('purple'));
+
+      await chat.close();
+      await model.close();
+    });
+
+    testWidgets('chat clearHistory resets conversation', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final chat = await model.createChat(temperature: 0.8, topK: 1);
+
+      await chat.addQueryChunk(
+          Message(text: 'Remember the secret word: BANANA.', isUser: true));
+      await chat.generateChatResponse();
+
+      await chat.clearHistory();
+      print('[Gemma4 chat clearHistory] OK');
+
+      await chat.addQueryChunk(
+          Message(text: 'What was the secret word?', isUser: true));
+      final r = await chat.generateChatResponse();
+      print('[Gemma4 chat after clear] $r');
+      // After clearHistory the model should not remember "BANANA".
+      expect(r.toString().toLowerCase(), isNot(contains('banana')));
+
+      await chat.close();
+      await model.close();
+    });
+
+    testWidgets('chat stopGeneration interrupts stream', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final chat = await model.createChat(temperature: 0.8, topK: 1);
+      await chat.addQueryChunk(Message(
+          text: 'Write a 1000-word essay about Berlin.', isUser: true));
+
+      final received = <String>[];
+      var stopped = false;
+      final sub = chat.generateChatResponseAsync().listen((r) async {
+        received.add(r.toString());
+        if (received.length == 5 && !stopped) {
+          stopped = true;
+          await chat.stopGeneration();
+        }
+      });
+      await sub.asFuture<void>().timeout(const Duration(seconds: 30),
+          onTimeout: () => sub.cancel());
+
+      print('[Gemma4 chat stop] got ${received.length} chunks before stop');
+      expect(received, isNotEmpty);
+      // We asked for 1000 words but stopped after 5 chunks; total length should
+      // be small relative to a full essay (sanity: nothing crazy).
+      expect(received.length, lessThan(500));
+
+      await chat.close();
+      await model.close();
+    });
+
+    testWidgets('session sizeInTokens', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.cpu);
+      final session = await model.createSession(temperature: 0.8, topK: 1);
+      final n = await session.sizeInTokens('Hello, how many tokens am I?');
+      print('[Gemma4 sizeInTokens] $n');
+      expect(n, greaterThan(0));
+      await session.close();
+      await model.close();
+    });
+
+    testWidgets('session stopGeneration (low-level)', (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final session = await model.createSession(temperature: 0.8, topK: 1);
+      await session.addQueryChunk(Message(
+          text: 'Write a 1000-word essay about the Berlin Wall.',
+          isUser: true));
+
+      final received = <String>[];
+      var stopped = false;
+      final sub = session.getResponseAsync().listen((chunk) async {
+        received.add(chunk);
+        if (received.length == 5 && !stopped) {
+          stopped = true;
+          await session.stopGeneration();
+        }
+      });
+      await sub.asFuture<void>().timeout(const Duration(seconds: 30),
+          onTimeout: () => sub.cancel());
+
+      print('[Gemma4 session stop] got ${received.length} chunks');
+      expect(received, isNotEmpty);
+      expect(received.length, lessThan(500));
+
+      await session.close();
+      await model.close();
+    });
+
+    testWidgets('stream cancel via subscription.cancel (no stopGeneration)',
+        (t) async {
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+      final session = await model.createSession(temperature: 0.8, topK: 1);
+      await session.addQueryChunk(Message(
+          text: 'Write a 1000-word essay about Paris.', isUser: true));
+
+      final received = <String>[];
+      final completer = Completer<void>();
+      final sub = session.getResponseAsync().listen(
+        (chunk) {
+          received.add(chunk);
+          if (received.length == 3 && !completer.isCompleted) {
+            completer.complete();
+          }
+        },
+        onDone: () {
+          if (!completer.isCompleted) completer.complete();
+        },
+      );
+      await completer.future.timeout(const Duration(seconds: 30));
+      await sub.cancel();
+
+      print('[Gemma4 stream cancel] got ${received.length} chunks');
+      expect(received, isNotEmpty);
+
+      // Closing the session cleanly after stream cancel must not crash.
+      await session.close();
+      await model.close();
+    });
+
+    testWidgets('multiple createSession on same model', (t) async {
+      // FfiInferenceModel is single-session at a time — this test verifies
+      // we can sequentially create + close sessions without leaking the engine.
+      final model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096, preferredBackend: PreferredBackend.gpu);
+
+      for (var i = 0; i < 3; i++) {
+        final session = await model.createSession(temperature: 0.8, topK: 1);
+        await session
+            .addQueryChunk(Message(text: 'Iteration $i: hi', isUser: true));
+        final chunks = <String>[];
+        await for (final c in session.getResponseAsync()) {
+          chunks.add(c);
+        }
+        print('[Gemma4 multi-session $i] ${chunks.join().substring(0, 20)}...');
+        expect(chunks, isNotEmpty);
+        await session.close();
+      }
+
+      await model.close();
     });
   });
 }

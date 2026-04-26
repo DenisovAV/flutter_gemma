@@ -451,8 +451,16 @@ class LiteRtLmFfiClient {
         if (errorMsg != nullptr && errorMsg.address != 0) {
           final error = errorMsg.cast<Utf8>().toDartString();
           _proxyFreeString!(errorMsg); // free strdup'd string
-          controller.addError(Exception('Stream error: $error'));
-          controller.close();
+          // stopGeneration() (and any other caller-initiated cancel) surfaces
+          // here as a CANCELLED error from native. That's not an error from
+          // the API consumer's perspective — the stream just stops cleanly
+          // at whatever token was last delivered.
+          if (error.startsWith('CANCELLED')) {
+            controller.close();
+          } else {
+            controller.addError(Exception('Stream error: $error'));
+            controller.close();
+          }
           callable.close();
           calloc.free(messagePtr);
           if (extraPtr != nullptr) calloc.free(extraPtr);

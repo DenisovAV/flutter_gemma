@@ -43,6 +43,33 @@ class LiteRtLmFfiClient {
   Pointer<LiteRtLmEngine>? _engine;
   Pointer<LiteRtLmConversation>? _conversation;
   bool _isInitialized = false;
+  String? _nativeLogPath;
+
+  /// Reads back the native log file (set by stream_proxy_redirect_stderr) and
+  /// pipes its contents through debugPrint in 200-char chunks. Used after a
+  /// failed engine_create to surface absl/glog output that wouldn't otherwise
+  /// reach the Flutter test harness.
+  void _dumpNativeLog() {
+    final p = _nativeLogPath;
+    if (p == null) return;
+    try {
+      final f = File(p);
+      if (!f.existsSync()) {
+        debugPrint('[LiteRtLmFfi/native] log file missing: $p');
+        return;
+      }
+      final content = f.readAsStringSync();
+      debugPrint('[LiteRtLmFfi/native] === BEGIN native log ($p, ${content.length} bytes) ===');
+      const chunkSize = 800;
+      for (var i = 0; i < content.length; i += chunkSize) {
+        final end = (i + chunkSize < content.length) ? i + chunkSize : content.length;
+        debugPrint(content.substring(i, end));
+      }
+      debugPrint('[LiteRtLmFfi/native] === END native log ===');
+    } catch (e) {
+      debugPrint('[LiteRtLmFfi/native] failed to read $p: $e');
+    }
+  }
 
   bool get isInitialized => _isInitialized;
 
@@ -54,7 +81,12 @@ class LiteRtLmFfiClient {
     final DynamicLibrary lib;
     final DynamicLibrary proxyLib;
     if (Platform.isIOS) {
-      // On iOS, Native Assets bundles dylibs in Frameworks/ inside Runner.app
+      // On iOS, Native Assets bundles dylibs in Frameworks/ inside Runner.app.
+      // The host app's Xcode project must also copy raw lib*.dylib files
+      // alongside the .framework bundles (see "Setup LiteRT-LM iOS" build
+      // phase in example/ios/Runner.xcodeproj/project.pbxproj) — needed
+      // because gpu_registry.cc uses relative-basename dlopen which iOS
+      // dyld 4 cannot resolve from .framework names alone.
       lib = DynamicLibrary.open('@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm');
       proxyLib = DynamicLibrary.open('@executable_path/Frameworks/StreamProxy.framework/StreamProxy');
     } else if (Platform.isMacOS) {
@@ -80,8 +112,28 @@ class LiteRtLmFfiClient {
       }
       lib = DynamicLibrary.open('libLiteRtLm.so');
     } else if (Platform.isWindows) {
-      lib = DynamicLibrary.open('LiteRtLm.dll');
+      // Preload LiteRt.dll first so the WebGPU accelerator and TopK sampler
+      // can resolve LiteRt* C API + their own exports through the process
+      // module list before sampler_factory does its LoadLibrary lookup
+      // (mirrors the Linux/Android RTLD_GLOBAL pattern).
       proxyLib = DynamicLibrary.open('StreamProxy.dll');
+      final loadGlobal = proxyLib.lookupFunction<
+          Pointer Function(Pointer<Utf8>),
+          Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+      for (final name in const [
+        'LiteRt.dll',
+        'libLiteRtTopKWebGpuSampler.dll',
+        'libLiteRtWebGpuAccelerator.dll',
+        'LiteRtLm.dll',
+      ]) {
+        final pathPtr = name.toNativeUtf8();
+        final handle = loadGlobal(pathPtr);
+        calloc.free(pathPtr);
+        if (handle == nullptr) {
+          throw Exception('Failed to preload $name (LoadLibraryEx)');
+        }
+      }
+      lib = DynamicLibrary.open('LiteRtLm.dll');
     } else if (Platform.isAndroid) {
       // Load StreamProxy first (it has stream_proxy_load_global helper)
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
@@ -108,6 +160,28 @@ class LiteRtLmFfiClient {
         'stream_proxy_create');
     _proxyFreeString = proxyLib.lookupFunction<_ProxyFreeStringNative, _ProxyFreeStringDart>(
         'stream_proxy_free_string');
+
+    // DEBUG: redirect native stderr to a file so we can see absl/glog output
+    // from libLiteRtLm on iOS where flutter_test doesn't surface native logs.
+    // After engine_create completes (or fails), we'll read the file and dump
+    // its contents through debugPrint so they survive flutter_test's app
+    // uninstall. See _dumpNativeLog().
+    if (Platform.isIOS) {
+      // iOS app sandbox HOME is empty in env; use Directory.systemTemp which
+      // resolves to NSTemporaryDirectory == <sandbox>/tmp.
+      _nativeLogPath = '${Directory.systemTemp.path}/litertlm_native.log';
+      try {
+        final redirect = proxyLib.lookupFunction<Int32 Function(Pointer<Utf8>),
+            int Function(Pointer<Utf8>)>('stream_proxy_redirect_stderr');
+        final pathPtr = _nativeLogPath!.toNativeUtf8();
+        final result = redirect(pathPtr);
+        calloc.free(pathPtr);
+        debugPrint('[LiteRtLmFfi] stderr redirected to $_nativeLogPath (rc=$result)');
+      } catch (e) {
+        debugPrint('[LiteRtLmFfi] stderr redirect skipped: $e');
+      }
+    }
+
     debugPrint('[LiteRtLmFfi] Libraries loaded');
   }
 
@@ -184,6 +258,7 @@ class LiteRtLmFfiClient {
       b.litert_lm_engine_settings_delete(settings);
 
       if (_engine == null || _engine == nullptr) {
+        _dumpNativeLog();
         throw Exception('Failed to create engine. Model may be invalid: $modelPath');
       }
 

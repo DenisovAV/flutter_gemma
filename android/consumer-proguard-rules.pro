@@ -11,11 +11,6 @@
 -keep class com.google.ai.edge.localagents.** { *; }
 -dontwarn com.google.ai.edge.localagents.**
 
-# LiteRT-LM engine (for .litertlm models)
--keep class com.google.ai.edge.litertlm.** { *; }
--keepclassmembers class com.google.ai.edge.litertlm.** { *; }
--dontwarn com.google.ai.edge.litertlm.**
-
 # Guava (used by RAG)
 -keep class com.google.guava.** { *; }
 -dontwarn com.google.guava.**

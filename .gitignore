@@ -77,4 +77,5 @@ firebase-debug.log
 tables.html
 test_audio.txt
 ai-edge-gallery/
-colabs/*.ipynb
+# Note: colabs/*.ipynb are tracked in repo (training notebooks) but
+# excluded from pub package via .pubignore.

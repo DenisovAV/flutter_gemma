@@ -169,6 +169,14 @@ includes:
 - `dxil.dll` + `dxcompiler.dll` (DirectX Shader Compiler runtime — required for WebGPU/DX12 shader compilation; sourced from
   [microsoft/DirectXShaderCompiler v1.9.2602](https://github.com/microsoft/DirectXShaderCompiler/releases/tag/v1.9.2602))
 
+`StreamProxy.dll` exposes a `LoadLibraryExA(LOAD_WITH_ALTERED_SEARCH_PATH)`
+helper that the plugin uses to pre-load `libLiteRt.dll`, `libLiteRtWebGpuAccelerator.dll`,
+and `libLiteRtTopKWebGpuSampler.dll` before opening `LiteRtLm.dll`. Without
+this, modern Windows DLL search order doesn't always include the application
+directory for secondary `LoadLibrary` calls made by `gpu_registry.cc` /
+`sampler_factory.cc` at runtime — they would fail to find the GPU accelerator
+DLL and silently fall back to CPU. (Mirrors the Linux `RTLD_GLOBAL` pattern.)
+
 Make sure your end-users have the **Microsoft Visual C++ Redistributable 2019+**
 installed; LLM DLLs depend on its `vcruntime140.dll`/`msvcp140.dll`. Most modern
 Windows 10/11 systems already have it; for distribution see
@@ -180,6 +188,15 @@ The bundle includes:
 
 - `libLiteRtLm.so`, `libLiteRt.so`, `libGemmaModelConstraintProvider.so`
 - `libLiteRtWebGpuAccelerator.so`, `libLiteRtTopKWebGpuSampler.so`, `libStreamProxy.so`
+
+`libStreamProxy.so` is a tiny helper that exposes `stream_proxy_load_global`
+(an `RTLD_GLOBAL` `dlopen`). The plugin uses it to pre-load `libLiteRt.so`
+before `libLiteRtLm.so` so the WebGPU accelerator's runtime
+`dlsym(RTLD_DEFAULT, "LiteRt*")` resolves — without `RTLD_GLOBAL` Dart's
+default `RTLD_LOCAL` would hide the symbols. The Windows variant of the
+same helper (`StreamProxy.dll` → `LoadLibraryExA`) plays the equivalent
+role on Windows; macOS dyld auto-resolves by basename so no helper is
+needed there.
 
 Linux GPU uses Dawn/WebGPU on top of Vulkan, so you need a working Vulkan
 driver. On NVIDIA install the proprietary driver; on Intel/AMD the open-source

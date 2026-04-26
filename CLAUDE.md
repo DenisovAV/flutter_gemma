@@ -175,7 +175,7 @@ flutter analyze && dart format . && flutter test
 | `hook/build.dart` | Native Assets hook: fetches+verifies native prebuilts |
 | `native/litert_lm/build_ios.sh` | Local iOS dylib rebuild script (calls patch_c_api.sh) |
 | `native/litert_lm/patch_c_api.sh` | C API source patcher (linkshared, set_max_num_images, dispatch_lib_dir) |
-| `native/litert_lm/stream_proxy.c` | RTLD_GLOBAL/LoadLibraryEx preload + stderr redirect |
+| `native/litert_lm/stream_proxy.c` | RTLD_GLOBAL/LoadLibraryEx preload helper + stderr redirect for debug logs |
 | `ios/flutter_gemma.podspec` | iOS pod with script_phase for dylib symlinks |
 | `example/lib/models/model.dart` | Model configurations & URLs |
 

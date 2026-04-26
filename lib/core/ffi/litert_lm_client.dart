@@ -113,7 +113,15 @@ class LiteRtLmFfiClient {
       final loadGlobal = proxyLib.lookupFunction<
           Pointer Function(Pointer<Utf8>),
           Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
-      for (final name in const ['libLiteRt.so', 'libLiteRtLm.so']) {
+      // libLiteRt.so first (provides LiteRt C API symbols for the WebGPU
+      // accelerator), then companion that libLiteRtLm.so soname-depends on,
+      // then libLiteRtLm.so itself. With absolute paths so dlopen doesn't
+      // depend on LD_LIBRARY_PATH / RPATH being inherited.
+      for (final name in const [
+        'libLiteRt.so',
+        'libGemmaModelConstraintProvider.so',
+        'libLiteRtLm.so',
+      ]) {
         final fullPath = '$libDir/$name';
         final pathPtr = fullPath.toNativeUtf8();
         final handle = loadGlobal(pathPtr);

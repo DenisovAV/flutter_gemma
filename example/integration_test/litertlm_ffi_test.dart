@@ -52,18 +52,21 @@ Future<void> _install({
 }
 
 /// Get local path for a model filename (null on iOS — download instead).
+///
+/// iOS Simulator can read the host macOS filesystem; pass the host Documents
+/// dir via `--dart-define=IOS_TEST_DOCS_DIR=...` to reuse host-cached models
+/// instead of re-downloading on every test run.
 String? _localPath(String filename) {
   if (Platform.isAndroid) return '$_androidDir/$filename';
   if (Platform.isMacOS) return '$_macosDir/$filename';
   if (Platform.isLinux) return '$_linuxDir/$filename';
   if (Platform.isWindows) return '$_windowsDir\\$filename';
   if (Platform.isIOS) {
-    // iOS Simulator can read the host macOS filesystem directly even though
-    // HOME is unset for sandboxed app. Use the absolute macOS Documents path
-    // and probe; works on Sim, returns null on real device.
-    const userMacDocs = '/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
-    final p = '$userMacDocs/$filename';
-    if (File(p).existsSync()) return p;
+    const iosDocs = String.fromEnvironment('IOS_TEST_DOCS_DIR');
+    if (iosDocs.isNotEmpty) {
+      final p = '$iosDocs/$filename';
+      if (File(p).existsSync()) return p;
+    }
     return null; // device path or network download
   }
   return null;

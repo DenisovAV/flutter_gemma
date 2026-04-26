@@ -38,15 +38,25 @@ Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.33
     :script => <<~SHELL
       set -e
       FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Frameworks"
-      [ -d "${FRAMEWORKS}" ] || exit 0
+      if [ ! -d "${FRAMEWORKS}" ]; then
+        echo "error: ${FRAMEWORKS} missing — Native Assets did not run; LiteRT-LM GPU delegate cannot resolve dylibs at runtime" >&2
+        exit 1
+      fi
+      missing=0
       for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
         src="${base}.framework/${base}"
+        if [ ! -e "${FRAMEWORKS}/${src}" ]; then
+          echo "error: ${FRAMEWORKS}/${src} not found — flutter_gemma's hook/build.dart did not bundle the framework" >&2
+          missing=1
+          continue
+        fi
         dst="${FRAMEWORKS}/lib${base}.dylib"
-        if [ -e "${FRAMEWORKS}/${src}" ] && [ ! -e "${dst}" ]; then
+        if [ ! -e "${dst}" ]; then
           ln -sf "${src}" "${dst}"
           echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
         fi
       done
+      [ "${missing}" -eq 0 ] || exit 1
     SHELL
   }
 end

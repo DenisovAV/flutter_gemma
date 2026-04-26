@@ -161,24 +161,27 @@ class LiteRtLmFfiClient {
     _proxyFreeString = proxyLib.lookupFunction<_ProxyFreeStringNative, _ProxyFreeStringDart>(
         'stream_proxy_free_string');
 
-    // DEBUG: redirect native stderr to a file so we can see absl/glog output
-    // from libLiteRtLm on iOS where flutter_test doesn't surface native logs.
-    // After engine_create completes (or fails), we'll read the file and dump
-    // its contents through debugPrint so they survive flutter_test's app
-    // uninstall. See _dumpNativeLog().
-    if (Platform.isIOS) {
+    // DEBUG-only: redirect native stderr to a file so we can dump absl/glog
+    // output through debugPrint after engine_create failure. Skipped in
+    // release builds — production users see crashes via os_log/Crashlytics
+    // streams; redirecting stderr would silently swallow those.
+    if (kDebugMode && Platform.isIOS) {
       // iOS app sandbox HOME is empty in env; use Directory.systemTemp which
       // resolves to NSTemporaryDirectory == <sandbox>/tmp.
       _nativeLogPath = '${Directory.systemTemp.path}/litertlm_native.log';
-      try {
-        final redirect = proxyLib.lookupFunction<Int32 Function(Pointer<Utf8>),
-            int Function(Pointer<Utf8>)>('stream_proxy_redirect_stderr');
-        final pathPtr = _nativeLogPath!.toNativeUtf8();
-        final result = redirect(pathPtr);
-        calloc.free(pathPtr);
-        debugPrint('[LiteRtLmFfi] stderr redirected to $_nativeLogPath (rc=$result)');
-      } catch (e) {
-        debugPrint('[LiteRtLmFfi] stderr redirect skipped: $e');
+      final redirect = proxyLib.lookupFunction<Int32 Function(Pointer<Utf8>),
+          int Function(Pointer<Utf8>)>('stream_proxy_redirect_stderr');
+      final pathPtr = _nativeLogPath!.toNativeUtf8();
+      final rc = redirect(pathPtr);
+      calloc.free(pathPtr);
+      if (rc != 0) {
+        // Log capture is best-effort but its failure makes _dumpNativeLog
+        // useless. Surface it instead of silently continuing.
+        debugPrint('[LiteRtLmFfi] WARNING: stderr redirect failed (rc=$rc) — '
+            'native log dumps will be empty');
+        _nativeLogPath = null;
+      } else {
+        debugPrint('[LiteRtLmFfi] stderr redirected to $_nativeLogPath');
       }
     }
 
@@ -322,8 +325,13 @@ class LiteRtLmFfiClient {
       if (toolsPtr != null) calloc.free(toolsPtr);
 
       if (convConfig == nullptr) {
-        debugPrint('[LiteRtLmFfi] Custom config failed, using default');
-        convConfig = null;
+        // Don't silently fall back to defaults — the caller asked for specific
+        // sampler/system/tools config and those would be dropped on the floor
+        // while createConversation appears to succeed.
+        throw Exception(
+          'litert_lm_conversation_config_create returned null '
+          '(systemMessage=${systemMessage != null}, tools=${toolsJson != null}, '
+          'temperature=$temperature, topK=$topK, topP=$topP)');
       }
     }
 
@@ -373,31 +381,36 @@ class LiteRtLmFfiClient {
   ///   → returns `<|channel>thought\nreasoning...<channel|>`
   ///   (compatible with ThinkingFilter in extensions.dart)
   static String extractTextFromResponse(String jsonStr) {
+    final Map<String, dynamic> json;
     try {
-      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
-
-      // Check for thinking channels first
-      final channels = json['channels'] as Map<String, dynamic>?;
-      if (channels != null) {
-        final thought = channels['thought'] as String?;
-        if (thought != null && thought.isNotEmpty) {
-          return '<|channel>thought\n$thought<channel|>';
-        }
-      }
-
-      // Regular text content
-      final content = json['content'] as List<dynamic>?;
-      if (content == null) return jsonStr;
-      final buffer = StringBuffer();
-      for (final item in content) {
-        if (item is Map<String, dynamic> && item['type'] == 'text') {
-          buffer.write(item['text'] as String? ?? '');
-        }
-      }
-      return buffer.toString();
-    } catch (_) {
+      json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    } on FormatException {
+      // Partial / non-JSON chunks pass through verbatim. This is the only
+      // shape we want to be permissive about — any other parse error
+      // (TypeError, RangeError, etc.) signals a real contract change with
+      // LiteRT-LM and must surface, not be silently swallowed.
       return jsonStr;
     }
+
+    // Check for thinking channels first
+    final channels = json['channels'] as Map<String, dynamic>?;
+    if (channels != null) {
+      final thought = channels['thought'] as String?;
+      if (thought != null && thought.isNotEmpty) {
+        return '<|channel>thought\n$thought<channel|>';
+      }
+    }
+
+    // Regular text content
+    final content = json['content'] as List<dynamic>?;
+    if (content == null) return jsonStr;
+    final buffer = StringBuffer();
+    for (final item in content) {
+      if (item is Map<String, dynamic> && item['type'] == 'text') {
+        buffer.write(item['text'] as String? ?? '');
+      }
+    }
+    return buffer.toString();
   }
 
   /// Send a message and get streaming response as plain text chunks.

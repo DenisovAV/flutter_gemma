@@ -85,38 +85,22 @@ String? _localPath(String filename) {
 InferenceModel? _sharedModel;
 PreferredBackend? _sharedBackend;
 
-Future<InferenceModel> _ensureModel(
-  PreferredBackend backend,
-  int maxTokens, {
-  bool supportImage = false,
-  bool supportAudio = false,
-}) async {
-  // Re-use the shared model only when capabilities exactly match.
-  if (_sharedModel != null &&
-      _sharedBackend == backend &&
-      _sharedSupportImage == supportImage &&
-      _sharedSupportAudio == supportAudio) {
-    return _sharedModel!;
-  }
-  if (_sharedModel != null) {
+Future<InferenceModel> _ensureModel(PreferredBackend backend, int maxTokens) async {
+  if (_sharedModel != null && _sharedBackend == backend) return _sharedModel!;
+  if (_sharedModel != null && _sharedBackend != backend) {
     await _sharedModel!.close();
     _sharedModel = null;
   }
   _sharedBackend = backend;
-  _sharedSupportImage = supportImage;
-  _sharedSupportAudio = supportAudio;
   _sharedModel = await FlutterGemma.getActiveModel(
     maxTokens: maxTokens,
     preferredBackend: backend,
-    supportImage: supportImage,
-    maxNumImages: supportImage ? 1 : null,
-    supportAudio: supportAudio,
+    supportImage: true,
+    maxNumImages: 1,
+    supportAudio: true,
   );
   return _sharedModel!;
 }
-
-bool _sharedSupportImage = false;
-bool _sharedSupportAudio = false;
 
 Future<void> _closeSharedModel() async {
   if (_sharedModel != null) {
@@ -138,8 +122,7 @@ Future<String> _chat(
   Uint8List? image,
   Uint8List? audio,
 }) async {
-  final model = await _ensureModel(backend, maxTokens,
-      supportImage: supportImage, supportAudio: supportAudio);
+  final model = await _ensureModel(backend, maxTokens);
   final session = await model.createSession(
     temperature: 0.8,
     topK: 1,

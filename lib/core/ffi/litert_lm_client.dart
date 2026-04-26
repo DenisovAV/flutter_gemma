@@ -183,10 +183,13 @@ class LiteRtLmFfiClient {
     // DEBUG-only: redirect native stderr to a file so we can dump absl/glog
     // output through debugPrint after engine_create failure. Skipped in
     // release builds — production users see crashes via os_log/Crashlytics
-    // streams; redirecting stderr would silently swallow those.
-    if (kDebugMode && Platform.isIOS) {
-      // iOS app sandbox HOME is empty in env; use Directory.systemTemp which
-      // resolves to NSTemporaryDirectory == <sandbox>/tmp.
+    // streams (or systemd journal on Linux); redirecting stderr would
+    // silently swallow those.
+    //
+    // Linux: flutter test does not surface child-process stderr, so without
+    // this Linux integration tests get the same opaque 'Failed to create
+    // engine' as iOS without any native diagnostics.
+    if (kDebugMode && (Platform.isIOS || Platform.isLinux)) {
       _nativeLogPath = '${Directory.systemTemp.path}/litertlm_native.log';
       final redirect = proxyLib.lookupFunction<Int32 Function(Pointer<Utf8>),
           int Function(Pointer<Utf8>)>('stream_proxy_redirect_stderr');

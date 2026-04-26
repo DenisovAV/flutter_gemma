@@ -33,7 +33,7 @@
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.)
 - **Engine selection by file extension**: `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **Desktop**: Dart → gRPC → Kotlin/JVM server → LiteRT-LM native libs
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API. Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.10.2`.
 
 ### Supported Models
 
@@ -60,12 +60,12 @@
 | Platform | Vision/Multimodal | Audio | Embeddings | Notes |
 |----------|-------------------|-------|------------|-------|
 | Android | ✅ | ✅ | ✅ | Full support |
-| iOS Device | ✅ | ✅ | ✅ | Full support |
-| iOS Simulator | ❌ | ❌ | ✅ | Vision calculator not in simulator build |
+| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Auto-setup via podspec script_phase |
+| iOS Simulator | ❌ GPU | ❌ GPU | ✅ | CPU only — Metal sim has 256 MB single-allocation cap, LLM weights exceed |
 | Web | ✅ | ❌ | ✅ | MediaPipe only |
 | macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ | Vision: SDK bug, model hallucinates |
-| Windows | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via gRPC |
-| Linux | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via gRPC |
+| Windows | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via FFI; GPU via WebGPU/DX12 |
+| Linux | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via FFI; GPU via WebGPU/Vulkan |
 
 ### PreferredBackend
 
@@ -110,7 +110,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM Android**: `com.google.ai.edge.litertlm:litertlm-android:0.10.0`
-- **Current Version**: 0.13.6
+- **Current Version**: 0.14.0
 
 ## Platform-Specific Setup
 
@@ -138,14 +138,13 @@ window.LlmInference = LlmInference;
 ```
 
 ### Desktop (macOS/Windows/Linux)
-- Architecture: Dart → gRPC → Kotlin/JVM server → LiteRT-LM native libs
-- Build script auto-downloads Azul Zulu JRE 24 + JAR + extracts natives
-- ⚠️ **Use Azul Zulu, NOT Temurin!** Temurin causes Jinja template errors
+- Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
+- Native libs fetched at build time by `hook/build.dart` from `native-v0.10.2` GitHub release; SHA256-verified, bundled via Native Assets
 - ⚠️ **macOS Vision broken** (#684): SDK bug, use text-only mode
 - Desktop uses `.litertlm` format only (not `.task`)
-- See `DESKTOP_DEBUG.md` for GPU cache clearing
+- Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 
-Entitlements needed: `allow-jit`, `network.client`, `network.server`, `extended-virtual-addressing`, `increased-memory-limit`
+Entitlements needed: `network.client`, `extended-virtual-addressing`, `increased-memory-limit`
 
 ## Code Quality
 
@@ -167,25 +166,33 @@ flutter analyze && dart format . && flutter test
 | `lib/flutter_gemma_interface.dart` | Main plugin interface |
 | `lib/core/message.dart` | Message class (isUser gotcha) |
 | `lib/core/domain/` | ModelSource sealed classes |
-| `lib/mobile/flutter_gemma_mobile.dart` | Mobile implementation |
-| `lib/web/flutter_gemma_web.dart` | Web implementation |
-| `lib/desktop/grpc_client.dart` | Desktop gRPC client |
-| `lib/desktop/server_process_manager.dart` | JVM server lifecycle |
+| `lib/core/ffi/litert_lm_client.dart` | Per-platform FFI client (loading, preload, log capture) |
+| `lib/core/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API |
+| `lib/core/ffi/ffi_inference_model.dart` | Shared FFI inference model (used by mobile + desktop) |
+| `lib/mobile/flutter_gemma_mobile.dart` | Mobile implementation (FFI for .litertlm, MediaPipe for .task) |
+| `lib/web/flutter_gemma_web.dart` | Web implementation (MediaPipe JS) |
+| `lib/desktop/flutter_gemma_desktop.dart` | Desktop entrypoint, delegates to FFI client |
+| `hook/build.dart` | Native Assets hook: fetches+verifies native prebuilts |
+| `native/litert_lm/build_ios.sh` | Local iOS dylib rebuild script (calls patch_c_api.sh) |
+| `native/litert_lm/patch_c_api.sh` | C API source patcher (linkshared, set_max_num_images, dispatch_lib_dir) |
+| `native/litert_lm/stream_proxy.c` | RTLD_GLOBAL/LoadLibraryEx preload + stderr redirect |
+| `ios/flutter_gemma.podspec` | iOS pod with script_phase for dylib symlinks |
 | `example/lib/models/model.dart` | Model configurations & URLs |
-| `MIGRATION_SUMMARY.md` | ModelSource migration details |
 
 ## Project Structure
 
 ```
 flutter_gemma/
-├── android/              # Android native (Kotlin, MediaPipe + LiteRT-LM engines)
-├── ios/                  # iOS native (Swift)
+├── android/              # Android native (Kotlin, MediaPipe + LiteRT-LM JNI)
+├── ios/                  # iOS native (Swift) + podspec script_phase
 ├── lib/                  # Dart implementation
 │   ├── core/            # Domain, DI, handlers, model management
-│   ├── mobile/          # Mobile platform code
+│   │   └── ffi/         # dart:ffi client + bindings (used by all 5 platforms)
+│   ├── mobile/          # Mobile entrypoint (selects FFI vs MediaPipe)
 │   ├── web/             # Web platform code
-│   └── desktop/         # Desktop gRPC client + server manager
-├── litertlm-server/     # Kotlin/JVM gRPC server for desktop
+│   └── desktop/         # Desktop entrypoint (delegates to lib/core/ffi/)
+├── native/litert_lm/    # Native build scripts + C API patcher + stream_proxy.c
+├── hook/build.dart       # Native Assets hook (fetches CI prebuilts at build time)
 ├── example/             # Example app + integration tests
 └── test/                # Unit tests
 ```

@@ -1,3 +1,11 @@
+## 0.14.0
+- **Desktop FFI rewrite**: macOS, Linux, Windows now run LiteRT-LM directly via `dart:ffi` against the C API. Removed Kotlin/JVM gRPC server, Azul Zulu JRE 24 download, and `litertlm-server.jar` bundling. Engine creation ~2 s (was ~10–15 s incl. JVM cold-start)
+- **iOS GPU acceleration**: Metal delegate for `.litertlm` models on iPhone (Gemma 3 1B, Gemma 3n E2B, Gemma 4 E2B). Multimodal vision + audio work on device. Auto-setup via podspec script_phase (no manual Xcode build phase needed)
+- **iOS Simulator**: CPU-only — Metal sim has 256 MB single-allocation cap, LLM weight tensors exceed it
+- **Unified FFI client**: All five platforms (Android, iOS, macOS, Linux, Windows) share `LiteRtLmFfiClient` (`lib/core/ffi/`)
+- **Native log capture**: `stream_proxy_redirect_stderr` exposes glog/abseil output on iOS/Android via temp file; helps diagnose engine init failures
+- **Native prebuilts**: Fetched at build time via `hook/build.dart` from GitHub release `native-v0.10.2`; SHA256-verified, bundled via Native Assets
+
 ## 0.13.6
 - **ModelType.qwen3**: New model type for Qwen3 models with thinking support
 - **Disable Qwen3 thinking at model level**: `/no_think` appended automatically when `isThinking: false` — faster TTFT

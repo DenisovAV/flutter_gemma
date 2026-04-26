@@ -111,6 +111,7 @@ class FfiInferenceModel extends InferenceModel {
     bool isThinking = false,
     ModelType? modelType,
     ToolChoice toolChoice = ToolChoice.auto,
+    int? maxFunctionBufferLength,
     String? systemInstruction,
   }) async {
     chat = InferenceChat(
@@ -130,6 +131,8 @@ class FfiInferenceModel extends InferenceModel {
       supportImage: supportImage ?? this.supportImage,
       supportAudio: supportAudio ?? this.supportAudio,
       supportsFunctionCalls: supportsFunctionCalls ?? false,
+      maxFunctionBufferLength:
+          maxFunctionBufferLength ?? defaultMaxFunctionBufferLength,
       tools: tools,
       modelType: modelType ?? this.modelType,
       isThinking: isThinking,

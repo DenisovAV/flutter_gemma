@@ -75,7 +75,10 @@ int stream_proxy_redirect_stderr(const char* path) {
   setvbuf(stdout, NULL, _IOLBF, 0);
   return 0;
 #else
-  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  // Append mode so multi-session test runs accumulate log instead of
+  // truncating on every _ensureBindings call (different LiteRtLmFfiClient
+  // instances each redirect to the same path).
+  int fd = open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
   if (fd < 0) return 1;
   // Redirect both fd 1 (stdout) and fd 2 (stderr).
   dup2(fd, 1);

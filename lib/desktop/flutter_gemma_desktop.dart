@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,12 +7,8 @@ import 'package:path_provider/path_provider.dart';
 import '../flutter_gemma_interface.dart';
 import '../model_file_manager_interface.dart';
 import '../pigeon.g.dart';
-import '../core/message.dart';
 import '../core/model.dart';
-import '../core/tool.dart';
-import '../core/chat.dart';
 import '../core/di/service_registry.dart';
-import '../core/extensions.dart';
 import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 

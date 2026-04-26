@@ -37,6 +37,9 @@ typedef _ProxyFreeStringDart = void Function(Pointer<Char> str);
 /// managing memory and translating C callbacks into Dart Streams.
 class LiteRtLmFfiClient {
   LiteRtLmBindings? _bindings;
+  // Holding a reference prevents the proxy DynamicLibrary from being GC'd
+  // while function pointers obtained via lookupFunction are still in use.
+  // ignore: unused_field
   DynamicLibrary? _proxyLib;
   _ProxyCreateDart? _proxyCreate;
   _ProxyFreeStringDart? _proxyFreeString;

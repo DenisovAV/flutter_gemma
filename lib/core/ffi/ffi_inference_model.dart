@@ -1,11 +1,8 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 
 import '../../flutter_gemma_interface.dart';
-import '../../pigeon.g.dart';
 import '../message.dart';
 import '../model.dart';
 import '../tool.dart';

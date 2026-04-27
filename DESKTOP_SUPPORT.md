@@ -293,71 +293,111 @@ Why this is the case:
 Once upstream lands the missing exports / a wgpu reset API, the plugin will
 re-enable GPU sampling on the affected platforms.
 
-### `randomSeed` is honored on CPU but not on GPU (upstream design)
+### `randomSeed` / `temperature` / `topK` / `topP` honoring on GPU
 
-`createSession(temperature: 1.0, randomSeed: 42)` and `randomSeed: 99` produce
-**different** output when `preferredBackend: PreferredBackend.cpu` on every
-platform that ships a freshly-rebuilt `libLiteRtLm` with the 0.14.0
-`patch_c_api.sh` (6-arg `litert_lm_conversation_config_create`).
+**Status as of 0.14.0**: works on CPU and GPU on all platforms that ship
+the patched `libLiteRtLm` build (macOS, iOS, Linux, Windows, Android).
 
-When `preferredBackend: PreferredBackend.gpu`, output is **deterministic**
-(two runs with the same prompt → identical text) but **does not vary
-across seeds**. After tracing through upstream LiteRT-LM 5e0d86b, this
-turns out to be **two stacked upstream bugs** that aren't fixable from
-the Flutter plugin layer:
+This required a **two-layer downstream patch** to upstream LiteRT-LM
+5e0d86b applied at build time via `native/litert_lm/patch_c_api.sh`. The
+patch is open-sourceable and we plan to send it upstream as a PR once it
+has been validated in the wild.
 
-**1. Executor hardcodes sampler params on the GPU path.**
-`runtime/executor/llm_litert_compiled_model_executor.cc:1271-1279` builds
-`SamplerParameters` from constants (`type=TOP_P, k=1, p=0.0,
-temperature=1.0, seed=0`) inside `InitializeSampler()` and passes that
-to `CreateSampler(GPU, ...)`. Session-level sampler params from
-`session_config.GetSamplerParams()` are not threaded through. There's
-even a stray copy at `runtime/framework/resource_management/resource_manager.cc:536-562`
-that copies session sampler params into `RuntimeConfig.sampler_params`,
-but no caller reads `runtime_config.sampler_params` anywhere in the
-executor — it's dead code.
+#### Why it didn't work on stock upstream
 
-**2. The `seed` field is dropped during proto conversion.**
-The same resource_manager translation block reads
-`session_config.GetSamplerParams()` and copies `type`, `k`, `p`,
-`temperature` into `odml::infra::proto::SamplerParameters` but
-**`set_seed(...)` is missing**. Even if executor started honoring
-`runtime_config.sampler_params`, the seed would still be dropped during
-the proto conversion.
+Tracing the GPU sampler path in upstream commit 5e0d86b:
 
-**3. GPU sampler dlopen fails on every platform**, so the fallback path
-goes through `sampler_factory.cc:728 ABSL_FALLTHROUGH_INTENDED` to
-`CreateCpuSampler(sampler_params)` — but `sampler_params` here is the
-hardcoded one from #1, not the session config. So even the CPU sampler
-fallback gets `seed=0`.
+1. **Executor hardcodes sampler params on the GPU path.**
+   `runtime/executor/llm_litert_compiled_model_executor.cc:1271-1279` builds
+   `proto::SamplerParameters` from constants (`type=TOP_P, k=1, p=0.0,
+   temperature=1.0, seed=0`) inside `InitializeSampler()` and passes that
+   to `CreateSampler(GPU, ...)`. `SessionConfig::GetSamplerParams()` is
+   never read by the executor.
 
-| Platform | GPU sampler dlopen failure |
-|---|---|
-| macOS / iOS | `libLiteRtTopKMetalSampler.dylib` ships without `LiteRtTopKMetalSampler_Create` C API export |
-| Windows | `libLiteRtTopKWebGpuSampler.dll` exports 3/7 of the required symbols |
-| Linux | sampler `.so` not preloaded on purpose (see `wgpu::Instance` issue above) |
-| Android | `libLiteRtTopKOpenClSampler.so` `dlopen` fails with `cannot locate symbol "LiteRtCreateEnvironment"` because Android Native Assets loads `libLiteRtLm.so` with `RTLD_LOCAL` and the `LiteRt*` exports are not visible to the dlopen'd sampler |
+2. **`runtime/framework/resource_management/resource_manager.cc` would
+   thread params through but is dead code in OSS.** Its `BUILD` file ships
+   only license + visibility — no `cc_library` targets. The same file
+   forgets `set_seed()` during proto conversion (lines 536-562 set type,
+   k, p, temperature only).
 
-Net effect: with `PreferredBackend.gpu` you get a deterministic argmax
-sampler regardless of `temperature`, `topK`, `topP`, or `randomSeed`.
-The forward pass still runs on the GPU accelerator — only the per-token
-pick is on CPU argmax.
+3. **GPU sampler dlopen fails on every platform**, so the factory falls
+   through to `CreateCpuSampler(sampler_params)` at `sampler_factory.cc:735`
+   — but `sampler_params` here is the hardcoded one from (1), not the
+   session config.
 
-For comparison: on flutter_gemma **0.13.6** even CPU did not honor any
-sampler params (`temperature`, `topK`, `topP`, `randomSeed`) because the
-Dart-side `createConversation` gated session config on
-`systemMessage != null`, and the prebuilt `libLiteRtLm` had a no-args
-`config_create` that silently ignored the session config we tried to
-attach. 0.14.0's `patch_c_api.sh` fixes that for CPU on every platform
-that ships the patched `libLiteRtLm` build (macOS today; Linux, Windows,
-Android, iOS pending CI rebuild). GPU stays seed-deaf until upstream
-plumbs session sampler params into the executor's `InitializeSampler`
-and adds `set_seed` to the resource_manager proto conversion.
+4. **`TopPSampler::UpdateConfig` ignores seed**. `top_p_cpu_sampler.cc:168`
+   only mutates `k_/p_/temperature_/batch_size_`. The `std::default_random_engine`
+   is left as-is, so two consecutive `UpdateConfig(seed=42)` and
+   `UpdateConfig(seed=99)` produce different but seed-disconnected outputs.
 
-Tracking issues:
+5. **`session_basic.cc:108` only feeds session params to the sampler when
+   `sampler_backend == Backend::CPU`**. The `GPU` and `NPU` branches
+   delegate sampler creation to the executor, which then hardcodes (1).
+
+So upstream is structurally seed-deaf on GPU end-to-end. Confirmation:
+upstream's own commit `7ef9fee` ("Add SamplerConfig support to the Python
+API and CLI") that closed [#1992](https://github.com/google-ai-edge/LiteRT-LM/issues/1992)
+touched only `python/` files — zero changes to `runtime/executor/`,
+`runtime/core/`, `runtime/components/`, or `c/`. **Upstream's own Python
+SamplerConfig is also seed-deaf on GPU.**
+
+#### What our patch does
+
+`native/litert_lm/patch_c_api.sh` (Strategy D — see plan file) extends
+the upstream source with four edits applied at build time, then runs
+`bazelisk build` to produce a patched `libLiteRtLm.{so,dylib,dll}`:
+
+- **Section 6** — `runtime/executor/llm_executor_base.h`: add
+  ```cpp
+  virtual absl::Status SetPendingSamplerParams(
+      const proto::SamplerParameters& sampler_params) {
+    return absl::UnimplementedError(...);
+  }
+  ```
+  Defaulted body so executors that don't override (e.g. NPU) keep upstream
+  behavior — the new virtual is opt-in per executor.
+
+- **Section 7** — `runtime/executor/llm_litert_compiled_model_executor.h`:
+  add the override declaration plus a member field
+  `std::optional<proto::SamplerParameters> pending_sampler_params_;`.
+
+- **Section 8** — `runtime/executor/llm_litert_compiled_model_executor.cc`:
+  - Replace the hardcoded `SamplerParameters` block in `InitializeSampler`
+    with a `pending_sampler_params_.value_or(hardcoded_defaults)` read,
+    backfilling proto-zero fields so callers that pass an empty proto
+    don't get pathological values (e.g. `temperature=0`).
+  - Add the `SetPendingSamplerParams` definition. **Crucially, it does
+    `sampler_.reset()` unconditionally** instead of relying on
+    `Sampler::UpdateConfig`, because the upstream CPU sampler's
+    `UpdateConfig` ignores the seed (bug #4 above) and the GPU sampler
+    libs may not export `UpdateConfig` at all (bug #1990). Recreate-on-set
+    is the only reliable way to honor a fresh seed across sessions.
+
+- **Section 9** — `runtime/core/session_basic.cc`: invert the existing
+  GPU/NPU else-if to actively call `executor->SetPendingSamplerParams(
+  session_config.GetSamplerParams())` before the executor's first
+  `InitializeSampler`. `Unimplemented` returns from the base class are
+  silently ignored so unmodified executors keep working.
+
+The patch is a strict superset of upstream behavior — callers that don't
+push session sampler params see no change.
+
+#### Validation matrix (0.14.0)
+
+| Platform | CPU honors seed | GPU honors seed (Strategy D) |
+|---|---|---|
+| macOS | ✅ | ✅ (verified Apr 27, regression_bugs_test.dart) |
+| iOS (iPhone 16 Pro device) | ✅ | ✅ (validated after iOS rebuild) |
+| Linux T4 / L4 VM | ✅ | ✅ (CPU sampler fallback path; UpdateConfig export confirmed) |
+| Windows T4 VM | ✅ | ✅ (CPU sampler fallback) |
+| Android Pixel 8 | ✅ | ✅ (UpdateConfig export confirmed in `libLiteRtTopKOpenClSampler.so`) |
+
+#### Tracking
+
 - [google-ai-edge/LiteRT-LM #1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990) — Metal sampler missing prebuilt
 - [google-ai-edge/LiteRT-LM #2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073) — WebGpu sampler exports 3/7 functions
-- New (to be filed): executor hardcodes sampler params on GPU path; `seed` missing in resource_manager proto conversion
+- [google-ai-edge/LiteRT-LM #1992](https://github.com/google-ai-edge/LiteRT-LM/issues/1992) (closed) — Python parity, fix didn't reach executor
+- **TBD: open upstream PR** with our Strategy D patch + reproducer test (run with `flutter test integration_test/regression_bugs_test.dart` on any platform, `randomSeed=42` vs `randomSeed=99` at `temperature=1.0` on `PreferredBackend.gpu`).
 
 ### macOS vision is broken upstream
 

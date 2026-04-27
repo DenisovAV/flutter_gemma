@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       litertlm_version:
-        description: 'LiteRT-LM version tag'
+        description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-        default: 'v0.10.2'
+        default: '5e0d86b'
       publish_release:
         description: 'Publish to GitHub Release'
         type: boolean
@@ -40,9 +40,10 @@ jobs:
 
       - name: Clone LiteRT-LM
         run: |
-          git clone --depth 1 --branch "$LITERTLM_VERSION" \
-            https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
-          cd /tmp/LiteRT-LM && git lfs pull --include="prebuilt/linux_x86_64/*"
+          # Use unshallow + checkout to support both tags and commit SHAs.
+          # `git clone --branch SHA` only works for refs, not arbitrary commits.
+          git clone https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
+          cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_x86_64/*"
 
       - name: Patch C API
         run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
@@ -89,9 +90,8 @@ jobs:
 
       - name: Clone LiteRT-LM
         run: |
-          git clone --depth 1 --branch "$LITERTLM_VERSION" \
-            https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
-          cd /tmp/LiteRT-LM && git lfs pull --include="prebuilt/linux_arm64/*"
+          git clone https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
+          cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_arm64/*"
 
       - name: Patch C API
         run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
@@ -138,9 +138,9 @@ jobs:
 
       - name: Clone LiteRT-LM
         run: |
-          git clone --depth 1 --branch "$env:LITERTLM_VERSION" `
-            https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
+          git clone https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
           cd C:\LiteRT-LM
+          git checkout "$env:LITERTLM_VERSION"
           git lfs pull --include="prebuilt/windows_x86_64/*"
 
       - name: Patch C API

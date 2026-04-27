@@ -330,6 +330,18 @@ void main() {
     // CPU sampler honors seed correctly (asserted above). When upstream
     // ships proper sampler exports we can promote this to a seed-sensitivity
     // check; until then determinism is the load-bearing guarantee.
+    // GPU stochastic seed-sensitivity test (Strategy D upstream patch).
+    // Verifies session-level sampler params (seed, temperature, topK, topP)
+    // reach the GPU executor's InitializeSampler() via the patched
+    // SetPendingSamplerParams virtual. Before the patch this was hardcoded
+    // (seed=0, temperature=1.0) regardless of session config — different
+    // randomSeed values produced identical output. After the patch, two
+    // engine-level CreateSession() with seed=42 vs seed=99 at temperature=1.0
+    // must produce different outputs.
+    testWidgets('GPU stochastic decode honors randomSeed', (_) async {
+      await runStochasticSeedCheck(PreferredBackend.gpu);
+    }, timeout: const Timeout(Duration(minutes: 5)));
+
     testWidgets('GPU produces deterministic output across runs', (_) async {
       final model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,

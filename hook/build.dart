@@ -17,19 +17,19 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      'ef3cda21315a9a00f08f1955ad68ab978965863bb2e96760bc6c3110db6f59c7',
+      'ddeebb24ac8df974abbb7072ade0f170e5199dfb3b4f53ebf435d10671549840',
   'litertlm-linux_arm64.tar.gz':
-      '1c34306e4e0a67ece94819061a51ede60a48a5778d8beca1bbe9b959551c45c0',
+      '87b703ca9387985e0e945d096c290233946b17b5cf601dfdc70c9e82dd172e21',
   'litertlm-windows_x86_64.tar.gz':
-      '491e00f060a3db334e5b45dd7dcaf376983894f8f8c026c4bad96e0a5a15dcfa',
+      'cb7a742ba537f722e294e62c55b4de720e5a96ff1f1e2933ba7a20a96aecc7b6',
   'litertlm-macos_arm64.tar.gz':
-      '56756ca98db9d761e93c078d9eda406dee9372f7b5d259a1a9f657847dcebe73',
+      '3cb6aeef5315fba3ba51b19cebfbad1bd711c6de74bd6d3feb62d14b4e232ea6',
   'litertlm-ios_arm64.tar.gz':
-      '1c6d140399a1f2bc51d8a804b5968284c7920065d91a7b27616fb632a9f467aa',
+      '9f724221f1e15f7b8b267de7fcfa193b46d4d3c5f5c7b43917fc4ea9b313b6f5',
   'litertlm-ios_sim_arm64.tar.gz':
-      'f83eef28e7c274a09c6040c3ce2fe7bbe445ce9a6cc40d5232d34cc7044d8597',
+      '7bf4a61cee9d3c7a2515c647f03dbf3d2dae780fbf74fb0d79a455fc504a7393',
   'litertlm-android_arm64.tar.gz':
-      'f8d24a050d6ede531c173b99d265a0890d6b08d536b4340dfa0147e62c99172d',
+      '73382823402e7fc6e983153a912104ef271933dc0e0b89008a323f05242bcfe8',
 };
 
 /// Resolve prebuilt directory name for the given OS + architecture.

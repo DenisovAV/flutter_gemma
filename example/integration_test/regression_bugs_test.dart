@@ -24,20 +24,30 @@ const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
 String get _macosDir =>
     '${Platform.environment['HOME']}/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents';
+String get _linuxDir => '${Platform.environment['HOME']}/models';
+String get _windowsDir => '${Platform.environment['USERPROFILE']}\\models';
+const String _androidDir = '/data/local/tmp/flutter_gemma_test';
 
 Future<void> _installGemma4() async {
-  final localPath = '$_macosDir/gemma-4-E2B-it.litertlm';
-  if (Platform.isMacOS && File(localPath).existsSync()) {
-    await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromFile(localPath).install();
-  } else {
-    await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromNetwork(_gemma4Url, token: _token).install();
+  final candidates = [
+    '$_macosDir/gemma-4-E2B-it.litertlm',
+    '$_linuxDir/gemma-4-E2B-it.litertlm',
+    '$_windowsDir\\gemma-4-E2B-it.litertlm',
+    '$_androidDir/gemma-4-E2B-it.litertlm',
+  ];
+  for (final path in candidates) {
+    if (File(path).existsSync()) {
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(path).install();
+      return;
+    }
   }
+  await FlutterGemma.installModel(
+    modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.litertlm,
+  ).fromNetwork(_gemma4Url, token: _token).install();
 }
 
 void main() {

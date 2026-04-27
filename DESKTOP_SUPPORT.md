@@ -293,15 +293,43 @@ Why this is the case:
 Once upstream lands the missing exports / a wgpu reset API, the plugin will
 re-enable GPU sampling on the affected platforms.
 
-### `randomSeed` is honored on CPU but not on GPU
+### `randomSeed` is honored on CPU but not on GPU (upstream design)
 
 `createSession(temperature: 1.0, randomSeed: 42)` and `randomSeed: 99` produce
-**different** output on CPU (proper stochastic sampling) on every platform
-that ships a freshly-rebuilt `libLiteRtLm` with the 0.14.0 patch
-(`patch_c_api.sh` 6-arg `litert_lm_conversation_config_create`). On GPU,
-output is **deterministic** (two runs with the same prompt → identical text)
-but **does not vary across seeds** — the GPU sampler dynamic-load chain
-fails before reaching the seed-aware path:
+**different** output when `preferredBackend: PreferredBackend.cpu` on every
+platform that ships a freshly-rebuilt `libLiteRtLm` with the 0.14.0
+`patch_c_api.sh` (6-arg `litert_lm_conversation_config_create`).
+
+When `preferredBackend: PreferredBackend.gpu`, output is **deterministic**
+(two runs with the same prompt → identical text) but **does not vary
+across seeds**. After tracing through upstream LiteRT-LM 5e0d86b, this
+turns out to be **two stacked upstream bugs** that aren't fixable from
+the Flutter plugin layer:
+
+**1. Executor hardcodes sampler params on the GPU path.**
+`runtime/executor/llm_litert_compiled_model_executor.cc:1271-1279` builds
+`SamplerParameters` from constants (`type=TOP_P, k=1, p=0.0,
+temperature=1.0, seed=0`) inside `InitializeSampler()` and passes that
+to `CreateSampler(GPU, ...)`. Session-level sampler params from
+`session_config.GetSamplerParams()` are not threaded through. There's
+even a stray copy at `runtime/framework/resource_management/resource_manager.cc:536-562`
+that copies session sampler params into `RuntimeConfig.sampler_params`,
+but no caller reads `runtime_config.sampler_params` anywhere in the
+executor — it's dead code.
+
+**2. The `seed` field is dropped during proto conversion.**
+The same resource_manager translation block reads
+`session_config.GetSamplerParams()` and copies `type`, `k`, `p`,
+`temperature` into `odml::infra::proto::SamplerParameters` but
+**`set_seed(...)` is missing**. Even if executor started honoring
+`runtime_config.sampler_params`, the seed would still be dropped during
+the proto conversion.
+
+**3. GPU sampler dlopen fails on every platform**, so the fallback path
+goes through `sampler_factory.cc:728 ABSL_FALLTHROUGH_INTENDED` to
+`CreateCpuSampler(sampler_params)` — but `sampler_params` here is the
+hardcoded one from #1, not the session config. So even the CPU sampler
+fallback gets `seed=0`.
 
 | Platform | GPU sampler dlopen failure |
 |---|---|
@@ -310,10 +338,10 @@ fails before reaching the seed-aware path:
 | Linux | sampler `.so` not preloaded on purpose (see `wgpu::Instance` issue above) |
 | Android | `libLiteRtTopKOpenClSampler.so` `dlopen` fails with `cannot locate symbol "LiteRtCreateEnvironment"` because Android Native Assets loads `libLiteRtLm.so` with `RTLD_LOCAL` and the `LiteRt*` exports are not visible to the dlopen'd sampler |
 
-`sampler_factory.cc:728` falls back to `CPU sampling` (a deterministic
-statically-linked argmax) which ignores `randomSeed` entirely. The forward
-pass still runs on the GPU accelerator — only the per-token pick is on CPU
-argmax.
+Net effect: with `PreferredBackend.gpu` you get a deterministic argmax
+sampler regardless of `temperature`, `topK`, `topP`, or `randomSeed`.
+The forward pass still runs on the GPU accelerator — only the per-token
+pick is on CPU argmax.
 
 For comparison: on flutter_gemma **0.13.6** even CPU did not honor any
 sampler params (`temperature`, `topK`, `topP`, `randomSeed`) because the
@@ -322,11 +350,14 @@ Dart-side `createConversation` gated session config on
 `config_create` that silently ignored the session config we tried to
 attach. 0.14.0's `patch_c_api.sh` fixes that for CPU on every platform
 that ships the patched `libLiteRtLm` build (macOS today; Linux, Windows,
-Android, iOS pending CI rebuild). GPU honors-seed remains blocked on the
-upstream sampler exports above.
+Android, iOS pending CI rebuild). GPU stays seed-deaf until upstream
+plumbs session sampler params into the executor's `InitializeSampler`
+and adds `set_seed` to the resource_manager proto conversion.
 
-Tracking issues: [#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990),
-[#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073).
+Tracking issues:
+- [google-ai-edge/LiteRT-LM #1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990) — Metal sampler missing prebuilt
+- [google-ai-edge/LiteRT-LM #2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073) — WebGpu sampler exports 3/7 functions
+- New (to be filed): executor hardcodes sampler params on GPU path; `seed` missing in resource_manager proto conversion
 
 ### macOS vision is broken upstream
 

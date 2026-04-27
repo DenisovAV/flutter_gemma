@@ -171,10 +171,22 @@ jobs:
         run: |
           cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
 
+      - name: Download DirectXShaderCompiler runtime
+        # WebGPU/DX12 backend on Windows requires dxil.dll + dxcompiler.dll
+        # at runtime to compile compute shaders for the LLM kernels.
+        # Sourced from microsoft/DirectXShaderCompiler GitHub releases.
+        run: |
+          $dxcVer = 'v1.9.2602'
+          $dxcUrl = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$dxcVer/dxc_2026_02_20.zip"
+          Invoke-WebRequest -Uri $dxcUrl -OutFile dxc.zip
+          Expand-Archive -Path dxc.zip -DestinationPath dxc -Force
+          Get-ChildItem -Recurse dxc | Where-Object { $_.Name -in 'dxil.dll','dxcompiler.dll' } | Select-Object FullName, Length
+
       - name: Collect artifacts
         # Ship BOTH naming conventions for Google's prebuilt companion DLLs:
         # - Prefixless (LiteRt.dll) for Native Assets on Windows
         # - Original lib* (libLiteRt.dll) to satisfy LiteRtLm.dll's PE import table
+        # Plus DXC runtime DLLs (dxil + dxcompiler) for WebGPU/DX12 GPU init.
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
@@ -188,6 +200,19 @@ jobs:
               # And prefixless copy for Native Assets registration
               $stripped = $base -replace '^lib',''
               Copy-Item $src "artifacts\$stripped.dll"
+            }
+          }
+          # DXC runtime — search recursively because the zip layout puts the
+          # x64 binaries in bin\x64\ inside the archive root.
+          foreach ($dxc in 'dxil.dll', 'dxcompiler.dll') {
+            $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+            if (-not $src) {
+              $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Select-Object -First 1
+            }
+            if ($src) {
+              Copy-Item $src.FullName "artifacts\$dxc"
+            } else {
+              throw "DXC runtime missing: $dxc"
             }
           }
           Get-ChildItem artifacts\

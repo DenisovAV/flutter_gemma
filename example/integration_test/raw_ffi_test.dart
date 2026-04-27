@@ -29,8 +29,6 @@ typedef _DeleteRespC = Void Function(Pointer);
 // Using Uint8 for bool to test if Bool causes issues
 typedef _StreamCallbackC = Void Function(
     Pointer<Void>, Pointer<Char>, Uint8, Pointer<Char>);
-typedef _StreamCallbackDart = void Function(
-    Pointer<Void>, Pointer<Char>, int, Pointer<Char>);
 
 // send_message_stream
 typedef _SendMsgStreamC = Int Function(

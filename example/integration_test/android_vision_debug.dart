@@ -1,6 +1,4 @@
 import 'dart:ffi';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -8,7 +6,6 @@ import 'package:integration_test/integration_test.dart';
 const _dir = '/data/local/tmp/flutter_gemma_test';
 const _gemma3n = '$_dir/gemma-3n-E2B-it-int4.litertlm';
 const _gemma4 = '$_dir/gemma-4-E2B-it.litertlm';
-const _imgPath = '$_dir/test_image.jpg';
 
 typedef _CreateSettingsC = Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>);
 typedef _DeleteSettingsC = Void Function(Pointer);
@@ -89,15 +86,7 @@ void main() {
           result = 'CONV_FAIL';
         } else {
           // Try with image if vision enabled
-          String msgJson;
-          if (vision != null) {
-            final imgBytes = File(_imgPath).readAsBytesSync();
-            final b64 = Uri.encodeFull(String.fromCharCodes(imgBytes)); // wrong, need base64
-            // Simple text for now
-            msgJson = '{"role":"user","content":[{"type":"text","text":"Hi"}]}';
-          } else {
-            msgJson = '{"role":"user","content":[{"type":"text","text":"Hi"}]}';
-          }
+          final msgJson = '{"role":"user","content":[{"type":"text","text":"Hi"}]}';
           final msg = msgJson.toNativeUtf8();
           final resp = sendMsg(conv, msg, nullptr);
           if (resp.address == 0) {

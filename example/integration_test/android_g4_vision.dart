@@ -1,7 +1,6 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -13,7 +12,6 @@ const _img = '/data/local/tmp/flutter_gemma_test/test_image.jpg';
 typedef _CreateSettingsC = Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>);
 typedef _DeleteSettingsC = Void Function(Pointer);
 typedef _SetMaxTokensC = Void Function(Pointer, Int32);
-typedef _SetCacheDirC = Void Function(Pointer, Pointer<Utf8>);
 typedef _CreateEngineC = Pointer Function(Pointer);
 typedef _DeleteEngineC = Void Function(Pointer);
 typedef _CreateConvC = Pointer Function(Pointer, Pointer);
@@ -53,7 +51,6 @@ void main() {
       final cs = lib.lookupFunction<_CreateSettingsC, Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>('litert_lm_engine_settings_create');
       final ds = lib.lookupFunction<_DeleteSettingsC, void Function(Pointer)>('litert_lm_engine_settings_delete');
       final mt = lib.lookupFunction<_SetMaxTokensC, void Function(Pointer, int)>('litert_lm_engine_settings_set_max_num_tokens');
-      final cd = lib.lookupFunction<_SetCacheDirC, void Function(Pointer, Pointer<Utf8>)>('litert_lm_engine_settings_set_cache_dir');
       final ce = lib.lookupFunction<_CreateEngineC, Pointer Function(Pointer)>('litert_lm_engine_create');
       final de = lib.lookupFunction<_DeleteEngineC, void Function(Pointer)>('litert_lm_engine_delete');
       final cc = lib.lookupFunction<_CreateConvC, Pointer Function(Pointer, Pointer)>('litert_lm_conversation_create');

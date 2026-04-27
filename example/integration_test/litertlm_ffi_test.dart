@@ -17,9 +17,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
 
 // ── Model URLs (for iOS download, macOS/Android use local files) ──
-const _gemma3_1bUrl = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
-const _qwenUrl = 'https://huggingface.co/nickmeinhold/Qwen3-0.6B-IT-litertlm/resolve/main/Qwen3-0.6B_multi-prefill-seq_q8_ekv4096.litertlm';
-const _gemma3nUrl = 'https://huggingface.co/litert-community/Gemma3n-E2B-IT/resolve/main/gemma-3n-E2B-it-int4.litertlm';
 const _gemma4Url = 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');

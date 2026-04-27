@@ -232,4 +232,83 @@ else
   echo "  SKIP: c/engine.cc already has set_litert_dispatch_lib_dir"
 fi
 
+# ── 5. Patch litert_lm_conversation_config_create to 6-arg signature ──
+# Upstream 5e0d86b ships the new no-args + setter pattern:
+#   create() -> set_session_config -> set_system_message -> set_tools -> ...
+# but our Dart bindings.dart and patched engine.h declare a 6-arg monolithic
+# overload because it pre-dates the upstream split. The mismatch was silent:
+# our 6-arg call ABI-compatibly resolved to the 0-arg create() (extra args
+# discarded), so session_config + sampler params were always lost — every
+# inference ran with model defaults.
+#
+# Fix: rewrite upstream's no-args create() to be the 6-arg version we
+# need. Internally apply each non-null arg through the existing setter
+# functions. This keeps bindings.dart unchanged.
+if ! grep -q "// PATCH: 6-arg overload" "$DIR/c/engine.cc"; then
+  python3 -c "
+with open('$DIR/c/engine.cc', 'r') as f:
+    content = f.read()
+
+old = '''LiteRtLmConversationConfig* litert_lm_conversation_config_create() {
+  return new LiteRtLmConversationConfig;
+}'''
+
+new = '''LiteRtLmConversationConfig* litert_lm_conversation_config_create(
+    LiteRtLmEngine* engine, const LiteRtLmSessionConfig* session_config,
+    const char* system_message_json, const char* tools_json,
+    const char* messages_json, bool enable_constrained_decoding) {
+  // PATCH: 6-arg overload of upstream's no-args create() — keeps our
+  // Dart bindings.dart in sync with the existing C++ setter functions.
+  // engine pointer is currently unused (kept in signature for symmetry
+  // with upstream proposed monolithic API).
+  (void)engine;
+  auto* config = new LiteRtLmConversationConfig;
+  if (session_config && session_config->config) {
+    config->session_config = *session_config->config;
+  }
+  if (system_message_json) {
+    config->system_message_json = system_message_json;
+  }
+  if (tools_json) {
+    config->tools_json = tools_json;
+  }
+  if (messages_json) {
+    config->messages_json = messages_json;
+  }
+  config->enable_constrained_decoding = enable_constrained_decoding;
+  return config;
+}'''
+
+if old in content:
+    content = content.replace(old, new)
+    with open('$DIR/c/engine.cc', 'w') as f:
+        f.write(content)
+    print('  OK: Patched litert_lm_conversation_config_create to 6-arg overload')
+else:
+    print('  SKIP: config_create already patched or different format')
+"
+else
+  echo "  SKIP: c/engine.cc already has 6-arg config_create patch"
+fi
+
+# Also patch the upstream header to expose the 6-arg signature so
+# downstream Bazel users (and our generated bindings) match the impl.
+if grep -q "LiteRtLmConversationConfig\* litert_lm_conversation_config_create();" "$DIR/c/engine.h"; then
+  python3 -c "
+with open('$DIR/c/engine.h', 'r') as f:
+    content = f.read()
+
+old = 'LiteRtLmConversationConfig* litert_lm_conversation_config_create();'
+new = '''LiteRtLmConversationConfig* litert_lm_conversation_config_create(
+    LiteRtLmEngine* engine, const LiteRtLmSessionConfig* session_config,
+    const char* system_message_json, const char* tools_json,
+    const char* messages_json, bool enable_constrained_decoding);'''
+if old in content:
+    content = content.replace(old, new)
+    with open('$DIR/c/engine.h', 'w') as f:
+        f.write(content)
+    print('  OK: Patched c/engine.h declaration to 6-arg signature')
+"
+fi
+
 echo "Patch complete."

@@ -293,6 +293,41 @@ Why this is the case:
 Once upstream lands the missing exports / a wgpu reset API, the plugin will
 re-enable GPU sampling on the affected platforms.
 
+### `randomSeed` is honored on CPU but not on GPU
+
+`createSession(temperature: 1.0, randomSeed: 42)` and `randomSeed: 99` produce
+**different** output on CPU (proper stochastic sampling) on every platform
+that ships a freshly-rebuilt `libLiteRtLm` with the 0.14.0 patch
+(`patch_c_api.sh` 6-arg `litert_lm_conversation_config_create`). On GPU,
+output is **deterministic** (two runs with the same prompt → identical text)
+but **does not vary across seeds** — the GPU sampler dynamic-load chain
+fails before reaching the seed-aware path:
+
+| Platform | GPU sampler dlopen failure |
+|---|---|
+| macOS / iOS | `libLiteRtTopKMetalSampler.dylib` ships without `LiteRtTopKMetalSampler_Create` C API export |
+| Windows | `libLiteRtTopKWebGpuSampler.dll` exports 3/7 of the required symbols |
+| Linux | sampler `.so` not preloaded on purpose (see `wgpu::Instance` issue above) |
+| Android | `libLiteRtTopKOpenClSampler.so` `dlopen` fails with `cannot locate symbol "LiteRtCreateEnvironment"` because Android Native Assets loads `libLiteRtLm.so` with `RTLD_LOCAL` and the `LiteRt*` exports are not visible to the dlopen'd sampler |
+
+`sampler_factory.cc:728` falls back to `CPU sampling` (a deterministic
+statically-linked argmax) which ignores `randomSeed` entirely. The forward
+pass still runs on the GPU accelerator — only the per-token pick is on CPU
+argmax.
+
+For comparison: on flutter_gemma **0.13.6** even CPU did not honor any
+sampler params (`temperature`, `topK`, `topP`, `randomSeed`) because the
+Dart-side `createConversation` gated session config on
+`systemMessage != null`, and the prebuilt `libLiteRtLm` had a no-args
+`config_create` that silently ignored the session config we tried to
+attach. 0.14.0's `patch_c_api.sh` fixes that for CPU on every platform
+that ships the patched `libLiteRtLm` build (macOS today; Linux, Windows,
+Android, iOS pending CI rebuild). GPU honors-seed remains blocked on the
+upstream sampler exports above.
+
+Tracking issues: [#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990),
+[#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073).
+
 ### macOS vision is broken upstream
 
 Vision input (`supportImage: true`) on macOS produces hallucinated answers

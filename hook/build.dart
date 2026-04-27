@@ -243,6 +243,7 @@ void main(List<String> args) async {
       'LiteRtGpuAccelerator', // Android GPU
       'LiteRtOpenClAccelerator', // Android OpenCL
       'LiteRtWebGpuAccelerator', // Linux/Windows GPU (WebGPU → Vulkan/DX12)
+      'LiteRtTopKOpenClSampler', // Android OpenCL GPU sampler — honors seed
       'LiteRtTopKWebGpuSampler', // Linux/Windows GPU sampler
       'LiteRt', // Linux/Windows core runtime
     ];

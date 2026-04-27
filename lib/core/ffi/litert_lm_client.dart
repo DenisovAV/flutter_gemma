@@ -205,7 +205,7 @@ class LiteRtLmFfiClient {
     // Linux: flutter test does not surface child-process stderr, so without
     // this Linux integration tests get the same opaque 'Failed to create
     // engine' as iOS without any native diagnostics.
-    if (kDebugMode && (Platform.isIOS || Platform.isLinux)) {
+    if (kDebugMode && (Platform.isIOS || Platform.isLinux || Platform.isMacOS)) {
       _nativeLogPath = '${Directory.systemTemp.path}/litertlm_native.log';
       final redirect = proxyLib.lookupFunction<Int32 Function(Pointer<Utf8>),
           int Function(Pointer<Utf8>)>('stream_proxy_redirect_stderr');
@@ -331,58 +331,63 @@ class LiteRtLmFfiClient {
       _conversation = null;
     }
 
-    // Only create custom config if system message or tools are provided.
-    // Default config (nullptr) uses model's built-in sampler params.
-    Pointer<LiteRtLmConversationConfig>? convConfig;
-    if (systemMessage != null || toolsJson != null) {
-      final sessionConfig = b.litert_lm_session_config_create();
+    // Always build a sessionConfig with the caller's sampler params — even
+    // when there's no systemMessage/tools. Otherwise temperature, topK,
+    // topP, and seed get silently dropped on the floor and the model
+    // falls back to its baked-in defaults (typically greedy), making
+    // every call ignore stochastic decoding requests.
+    //
+    // This requires a patched libLiteRtLm.{so,dylib,dll} where
+    // litert_lm_conversation_config_create accepts the 6-arg overload
+    // and applies session_config via the upstream setter chain. See
+    // native/litert_lm/patch_c_api.sh ("PATCH: 6-arg overload").
+    final sessionConfig = b.litert_lm_session_config_create();
 
-      final samplerParams = calloc<LiteRtLmSamplerParams>();
-      samplerParams.ref.typeAsInt = topP != null ? 2 : 1;
-      samplerParams.ref.top_k = topK;
-      samplerParams.ref.top_p = topP ?? 0.95;
-      samplerParams.ref.temperature = temperature;
-      samplerParams.ref.seed = seed;
-      b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
-      calloc.free(samplerParams);
+    final samplerParams = calloc<LiteRtLmSamplerParams>();
+    // Upstream LiteRT-LM (commit 5e0d86b) only implements TopP sampling at
+    // engine level — sampler type 1 (TopK) and 3 (Greedy) are rejected with
+    // "UNIMPLEMENTED: Sampler type: N not implemented yet." Use TopP (=2)
+    // unconditionally and pass top_k as a hint; native respects both fields
+    // even though it's gated by the type tag.
+    samplerParams.ref.typeAsInt = 2; // always TopP
+    samplerParams.ref.top_k = topK;
+    samplerParams.ref.top_p = topP ?? 0.95;
+    samplerParams.ref.temperature = temperature;
+    samplerParams.ref.seed = seed;
+    b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
+    calloc.free(samplerParams);
 
-      final systemPtr = systemMessage?.toNativeUtf8();
-      final toolsPtr = toolsJson?.toNativeUtf8();
+    final systemPtr = systemMessage?.toNativeUtf8();
+    final toolsPtr = toolsJson?.toNativeUtf8();
 
-      convConfig = b.litert_lm_conversation_config_create(
-        _engine!,
-        sessionConfig,
-        systemPtr?.cast() ?? nullptr,
-        toolsPtr?.cast() ?? nullptr,
-        nullptr,
-        toolsJson != null,
-      );
-
-      b.litert_lm_session_config_delete(sessionConfig);
-      if (systemPtr != null) calloc.free(systemPtr);
-      if (toolsPtr != null) calloc.free(toolsPtr);
-
-      if (convConfig == nullptr) {
-        // Don't silently fall back to defaults — the caller asked for specific
-        // sampler/system/tools config and those would be dropped on the floor
-        // while createConversation appears to succeed.
-        throw Exception(
-          'litert_lm_conversation_config_create returned null '
-          '(systemMessage=${systemMessage != null}, tools=${toolsJson != null}, '
-          'temperature=$temperature, topK=$topK, topP=$topP)');
-      }
-    }
-
-    _conversation = b.litert_lm_conversation_create(
+    final Pointer<LiteRtLmConversationConfig> convConfig =
+        b.litert_lm_conversation_config_create(
       _engine!,
-      convConfig ?? nullptr,
+      sessionConfig,
+      systemPtr?.cast() ?? nullptr,
+      toolsPtr?.cast() ?? nullptr,
+      nullptr,
+      toolsJson != null,
     );
 
-    if (convConfig != null && convConfig != nullptr) {
-      b.litert_lm_conversation_config_delete(convConfig);
+    b.litert_lm_session_config_delete(sessionConfig);
+    if (systemPtr != null) calloc.free(systemPtr);
+    if (toolsPtr != null) calloc.free(toolsPtr);
+
+    if (convConfig == nullptr) {
+      throw Exception(
+        'litert_lm_conversation_config_create returned null '
+        '(systemMessage=${systemMessage != null}, tools=${toolsJson != null}, '
+        'temperature=$temperature, topK=$topK, topP=$topP)',
+      );
     }
 
+    _conversation = b.litert_lm_conversation_create(_engine!, convConfig);
+
+    b.litert_lm_conversation_config_delete(convConfig);
+
     if (_conversation == null || _conversation == nullptr) {
+      _dumpNativeLog();
       throw Exception('Failed to create conversation');
     }
 

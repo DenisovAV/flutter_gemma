@@ -144,9 +144,17 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       // Initialize via dart:ffi → C API (no JRE, no gRPC)
       final ffiClient = LiteRtLmFfiClient();
+      final backend = switch (preferredBackend) {
+        PreferredBackend.cpu => 'cpu',
+        PreferredBackend.gpu || null => 'gpu',
+        PreferredBackend.npu => throw UnsupportedError(
+            'PreferredBackend.npu is only supported on Android with .litertlm '
+            'models; not available on desktop.',
+          ),
+      };
       await ffiClient.initialize(
         modelPath: modelPath,
-        backend: preferredBackend == PreferredBackend.cpu ? 'cpu' : 'gpu',
+        backend: backend,
         maxTokens: maxTokens,
         cacheDir: cacheDir,
         enableVision: supportImage,
@@ -237,8 +245,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       debugPrint('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
 
       // Load TFLite interpreter via dart:ffi
-      final numThreads =
-          preferredBackend == PreferredBackend.cpu ? 4 : 6;
+      final numThreads = switch (preferredBackend) {
+        PreferredBackend.cpu => 4,
+        PreferredBackend.gpu || null => 6,
+        PreferredBackend.npu => throw UnsupportedError(
+            'PreferredBackend.npu is only supported on Android with .litertlm '
+            'models; not available for desktop embeddings.',
+          ),
+      };
       final interpreter = TfLiteInterpreter.fromFile(
         modelPath,
         numThreads: numThreads,

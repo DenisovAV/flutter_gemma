@@ -56,6 +56,14 @@ class FfiInferenceModel extends InferenceModel {
       throw StateError('Model is closed. Create a new instance to use it again');
     }
 
+    if (loraPath != null) {
+      throw UnsupportedError(
+        'LoRA weights are not supported on the .litertlm FFI path '
+        '(loraPath=$loraPath). Track upstream LiteRT-LM C API support; '
+        'remove loraPath or use a MediaPipe .task model on Android/iOS.',
+      );
+    }
+
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
     }
@@ -111,6 +119,9 @@ class FfiInferenceModel extends InferenceModel {
     int? maxFunctionBufferLength,
     String? systemInstruction,
   }) async {
+    if (_isClosed) {
+      throw StateError('Model is closed. Create a new instance to use it again');
+    }
     chat = InferenceChat(
       sessionCreator: () => createSession(
         temperature: temperature,

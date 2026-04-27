@@ -34,11 +34,11 @@ fi
 # 2. Checkout version
 if [ -n "$VERSION" ]; then
   echo "Checking out $VERSION..."
-  git checkout "$VERSION"
+  git checkout -f "$VERSION"
 else
   LATEST_TAG=$(git tag -l "v*" | sort -V | tail -1)
   echo "Checking out latest tag: $LATEST_TAG..."
-  git checkout "$LATEST_TAG"
+  git checkout -f "$LATEST_TAG"
 fi
 
 echo "Building from: $(git log --oneline -1)"
@@ -56,6 +56,12 @@ cc_binary(
 )
 BUILDEOF
 fi
+
+# 3b. Apply C API patch (adds set_max_num_images, set_litert_dispatch_lib_dir,
+# 6-arg conversation_config_create, etc). git checkout above resets the
+# source tree, so we re-apply on every build. Use SCRIPT_DIR captured
+# at top of file (we are now in $LITERT_LM_DIR after cd above).
+bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
 
 # 4. Pull LFS files (prebuilt companion libs)
 echo "Pulling LFS files..."

@@ -343,9 +343,17 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         debugPrint('[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
         final cacheDir = (await getApplicationSupportDirectory()).path;
         final ffiClient = LiteRtLmFfiClient();
+        final backend = switch (preferredBackend) {
+          PreferredBackend.cpu => 'cpu',
+          PreferredBackend.gpu || null => 'gpu',
+          PreferredBackend.npu => throw UnsupportedError(
+              'PreferredBackend.npu is not supported on the .litertlm FFI path. '
+              'Use a MediaPipe .task model on Android for NPU acceleration.',
+            ),
+        };
         await ffiClient.initialize(
           modelPath: modelPath,
-          backend: preferredBackend == PreferredBackend.cpu ? 'cpu' : 'gpu',
+          backend: backend,
           maxTokens: maxTokens,
           cacheDir: cacheDir,
           enableVision: supportImage,

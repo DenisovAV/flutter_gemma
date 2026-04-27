@@ -39,4 +39,38 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
   end
+
+  # LiteRT-LM gpu_registry calls SharedLibrary::Load by basename
+  # ("libLiteRtMetalAccelerator.dylib") at runtime. Native Assets bundles
+  # dylibs as *.framework/<binary>, but dlopen by basename can't find the
+  # bare framework binary. Pod-level script_phase runs in the pod target
+  # whose Frameworks/ is empty (Native Assets only fills the host app),
+  # so symlinks must be created in the host app target after Native Assets
+  # has populated Contents/Frameworks/.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_targets.each do |user_target|
+      next if user_target.shell_script_build_phases.any? { |p| p.name == '[flutter_gemma] Setup LiteRT-LM macOS' }
+      phase = user_target.new_shell_script_build_phase('[flutter_gemma] Setup LiteRT-LM macOS')
+      phase.shell_script = <<~SHELL
+        set -e
+        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
+        if [ ! -d "${FRAMEWORKS}" ]; then
+          echo "[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping"
+          exit 0
+        fi
+        for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
+          src="${base}.framework/Versions/Current/${base}"
+          if [ ! -e "${FRAMEWORKS}/${src}" ]; then
+            echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"
+            continue
+          fi
+          dst="${FRAMEWORKS}/lib${base}.dylib"
+          if [ ! -e "${dst}" ]; then
+            ln -sf "${src}" "${dst}"
+            echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
+          fi
+        done
+      SHELL
+    end
+  end
 end

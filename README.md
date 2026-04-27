@@ -256,7 +256,11 @@ Desktop **inference** uses a bundled JVM gRPC server that communicates with your
 
 **macOS Setup:**
 
-Add to `macos/Podfile` in `post_install` block:
+The plugin uses Flutter Native Assets to bundle LiteRT-LM dylibs as
+`.framework`s. The LiteRT-LM runtime, however, calls
+`dlopen("libLiteRtMetalAccelerator.dylib")` by basename at runtime, so each
+framework also needs a flat `lib*.dylib` symlink alongside it. Add this to
+your `macos/Podfile` `post_install` block:
 
 ```ruby
 post_install do |installer|
@@ -264,23 +268,32 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # Add LiteRT-LM setup script to Runner target
-  main_project = installer.aggregate_targets.first.user_project
-  runner_target = main_project.targets.find { |t| t.name == 'Runner' }
-
-  if runner_target
-    phase_name = 'Setup LiteRT-LM Desktop'
-    existing_phase = runner_target.shell_script_build_phases.find { |p| p.name == phase_name }
-
-    unless existing_phase
-      phase = runner_target.new_shell_script_build_phase(phase_name)
-      phase.shell_script = <<-SCRIPT
-PLUGIN_PATH="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos"
-if [ -f "$PLUGIN_PATH/scripts/setup_desktop.sh" ]; then
-  sh "$PLUGIN_PATH/scripts/setup_desktop.sh" "$PLUGIN_PATH" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
-fi
-SCRIPT
-      main_project.save
+  # flutter_gemma: create lib*.dylib symlinks next to the bundled
+  # .framework so LiteRT-LM's gpu_registry can dlopen by basename.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_targets.each do |user_target|
+      next if user_target.shell_script_build_phases.any? { |p| p.name == '[flutter_gemma] Setup LiteRT-LM macOS' }
+      phase = user_target.new_shell_script_build_phase('[flutter_gemma] Setup LiteRT-LM macOS')
+      phase.shell_script = <<~SHELL
+        set -e
+        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
+        if [ ! -d "${FRAMEWORKS}" ]; then
+          echo "[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping"
+          exit 0
+        fi
+        for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
+          src="${base}.framework/Versions/Current/${base}"
+          if [ ! -e "${FRAMEWORKS}/${src}" ]; then
+            echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"
+            continue
+          fi
+          dst="${FRAMEWORKS}/lib${base}.dylib"
+          if [ ! -e "${dst}" ]; then
+            ln -sf "${src}" "${dst}"
+            echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
+          fi
+        done
+      SHELL
     end
   end
 end

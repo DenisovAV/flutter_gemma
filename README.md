@@ -243,7 +243,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 > Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
 > MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
 
-Desktop **inference** uses a bundled JVM gRPC server that communicates with your Flutter app. Desktop **embeddings** use a different, lighter architecture — LiteRT C API via `dart:ffi` directly in the Dart process (no JVM, no gRPC).
+Since 0.14.0 desktop inference and embeddings both use the LiteRT-LM C API via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically. Engine startup is ~2 s instead of ~10–15 s.
 
 | Platform | Architecture | GPU Acceleration | Status |
 |----------|-------------|------------------|--------|
@@ -308,10 +308,7 @@ Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
 
 **Windows Setup:**
 
-No additional configuration required. The plugin automatically:
-- Downloads JRE 24 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
-- Extracts native DLLs from the server JAR
-- Starts gRPC server on dynamic port
+No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need the **Microsoft Visual C++ Redistributable 2019+** ([download](https://aka.ms/vs/17/release/vc_redist.x64.exe)) — most modern Windows 10/11 systems already have it.
 
 **Linux Setup:**
 

@@ -1,10 +1,14 @@
 ## 0.14.0
 - **Desktop FFI rewrite**: macOS, Linux, Windows now run LiteRT-LM directly via `dart:ffi` against the C API. Removed Kotlin/JVM gRPC server, Azul Zulu JRE 24 download, and `litertlm-server.jar` bundling. Engine creation ~2 s (was ~10–15 s incl. JVM cold-start)
-- **iOS GPU acceleration**: Metal delegate for `.litertlm` models on iPhone (Gemma 3 1B, Gemma 3n E2B, Gemma 4 E2B). Multimodal vision + audio work on device. Auto-setup via podspec script_phase (no manual Xcode build phase needed)
+- **iOS GPU acceleration**: Metal delegate for `.litertlm` models on iPhone (Gemma 3 1B, Gemma 3n E2B, Gemma 4 E2B). Multimodal vision + audio work on device
+- **Linux + Windows GPU**: WebGPU/Vulkan on Linux, WebGPU/DX12 on Windows; DXC runtime (`dxil.dll` + `dxcompiler.dll` v1.9.2602) bundled in the Windows native archive — no manual install required
+- **Android: drop Kotlin LiteRtLm dependency** — `.litertlm` models on Android now go through the same Dart FFI path as desktop/iOS (was `com.google.ai.edge.litertlm:litertlm-android` AAR before). MediaPipe stays for `.task`/`.bin` models
+- **GPU sampler params honored** (seed/temperature/topK/topP): inference on `PreferredBackend.gpu` now respects user-supplied `randomSeed`, `temperature`, `topK`, `topP` — previously these silently fell through to hardcoded defaults inside `LlmLiteRtCompiledModelExecutor::InitializeSampler`. Fix is a build-time patch on top of upstream LiteRT-LM (see [google-ai-edge/LiteRT-LM#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) and [PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081))
 - **iOS Simulator**: CPU-only — Metal sim has 256 MB single-allocation cap, LLM weight tensors exceed it
 - **Unified FFI client**: All five platforms (Android, iOS, macOS, Linux, Windows) share `LiteRtLmFfiClient` (`lib/core/ffi/`)
 - **Native log capture**: `stream_proxy_redirect_stderr` exposes glog/abseil output on iOS/Android via temp file; helps diagnose engine init failures
 - **Native prebuilts**: Fetched at build time via `hook/build.dart` from GitHub release `native-v0.10.2`; SHA256-verified, bundled via Native Assets
+- **macOS / iOS setup**: requires a small `post_install` block in your `Podfile` to symlink `lib*.dylib` next to the bundled `.framework`s — `gpu_registry` calls `dlopen` by basename. See the [macOS Setup section in README](README.md#macos-setup) for the exact snippet (iOS works via the same pattern in `example/ios/Podfile`)
 
 ## 0.13.6
 - **ModelType.qwen3**: New model type for Qwen3 models with thinking support

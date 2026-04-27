@@ -20,8 +20,7 @@ external JSPromise<JSAny?> _cachePutJS(
     JSString cacheName, JSString url, JSUint8Array data);
 
 @JS('cacheDelete')
-external JSPromise<JSBoolean> _cacheDeleteJS(
-    JSString cacheName, JSString url);
+external JSPromise<JSBoolean> _cacheDeleteJS(JSString cacheName, JSString url);
 
 @JS('cacheDeleteCache')
 external JSPromise<JSBoolean> _cacheDeleteCacheJS(JSString cacheName);
@@ -55,7 +54,8 @@ class StorageQuota {
   int get available => quota - usage;
 
   @override
-  String toString() => 'StorageQuota(usage: $usage, quota: $quota, percent: ${usagePercent.toStringAsFixed(1)}%)';
+  String toString() =>
+      'StorageQuota(usage: $usage, quota: $quota, percent: ${usagePercent.toStringAsFixed(1)}%)';
 }
 
 /// Dart wrapper for Cache API JavaScript functions
@@ -74,8 +74,7 @@ class WebCacheInterop {
   /// Get blob URL from cache
   Future<String?> getBlobUrl(String cacheName, String url) async {
     try {
-      final result =
-          await _cacheGetBlobUrlJS(cacheName.toJS, url.toJS).toDart;
+      final result = await _cacheGetBlobUrlJS(cacheName.toJS, url.toJS).toDart;
       return result?.toDart;
     } catch (e) {
       debugPrint('[WebCacheInterop] ❌ getBlobUrl failed for $url: $e');
@@ -96,8 +95,7 @@ class WebCacheInterop {
   /// Delete cached entry
   Future<bool> delete(String cacheName, String url) async {
     try {
-      final result =
-          await _cacheDeleteJS(cacheName.toJS, url.toJS).toDart;
+      final result = await _cacheDeleteJS(cacheName.toJS, url.toJS).toDart;
       return result.toDart;
     } catch (e) {
       debugPrint('[WebCacheInterop] ❌ delete failed for $url: $e');

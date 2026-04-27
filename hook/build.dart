@@ -60,11 +60,11 @@ String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
 
 /// Platform-appropriate cache directory.
 Directory _cacheDir() {
-  final home = Platform.environment['HOME'] ??
-      Platform.environment['USERPROFILE'] ??
-      '';
+  final home =
+      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
   if (Platform.isWindows) {
-    final localAppData = Platform.environment['LOCALAPPDATA'] ?? '$home\\AppData\\Local';
+    final localAppData =
+        Platform.environment['LOCALAPPDATA'] ?? '$home\\AppData\\Local';
     return Directory('$localAppData\\flutter_gemma\\native');
   }
   if (Platform.isMacOS) {
@@ -79,8 +79,8 @@ String _archiveName(String dirName) => 'litertlm-$dirName.tar.gz';
 
 /// Try to resolve libs from a directory. Returns the directory if main lib exists.
 Directory? _resolveLibDir(String dirName, Uri packageRoot) {
-  final localDir =
-      Directory.fromUri(packageRoot.resolve('native/litert_lm/prebuilt/$dirName/'));
+  final localDir = Directory.fromUri(
+      packageRoot.resolve('native/litert_lm/prebuilt/$dirName/'));
   if (_hasMainLib(localDir, dirName)) return localDir;
 
   final cacheDir = Directory('${_cacheDir().path}/$dirName');
@@ -96,7 +96,11 @@ bool _hasMainLib(Directory dir, String dirName) {
       : dirName.startsWith('windows')
           ? 'windows' // dll
           : 'linux'; // so
-  final ext = os == 'macos' ? 'dylib' : os == 'windows' ? 'dll' : 'so';
+  final ext = os == 'macos'
+      ? 'dylib'
+      : os == 'windows'
+          ? 'dll'
+          : 'so';
   final prefix = os == 'windows' ? '' : 'lib';
   final fileName = '$prefix$_mainLibName.$ext';
   return File('${dir.path}/$fileName').existsSync();
@@ -130,7 +134,8 @@ Future<Directory?> _downloadAndExtract(String dirName) async {
       final request = await client.getUrl(Uri.parse(url));
       final response = await request.close();
       if (response.statusCode != 200) {
-        stderr.writeln('flutter_gemma: Download failed (HTTP ${response.statusCode})');
+        stderr.writeln(
+            'flutter_gemma: Download failed (HTTP ${response.statusCode})');
         return null;
       }
       final sink = archiveFile.openWrite();

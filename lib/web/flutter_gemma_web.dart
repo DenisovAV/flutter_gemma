@@ -128,7 +128,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
       if (kDebugMode) {
-        debugPrint('Warning: Image support is not yet implemented for web platform');
+        debugPrint(
+            'Warning: Image support is not yet implemented for web platform');
       }
     }
 
@@ -137,16 +138,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       final existing = _initializedModel! as WebInferenceModel;
 
       // Check if parameters match
-      final bool parametersChanged =
-        existing.modelType != modelType ||
-        existing.maxTokens != maxTokens ||
-        existing.supportImage != supportImage ||
-        existing.supportAudio != supportAudio ||
-        (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
+      final bool parametersChanged = existing.modelType != modelType ||
+          existing.maxTokens != maxTokens ||
+          existing.supportImage != supportImage ||
+          existing.supportAudio != supportAudio ||
+          (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
 
       if (parametersChanged) {
         if (kDebugMode) {
-          debugPrint('[FlutterGemmaWeb] Model parameters changed, closing existing model');
+          debugPrint(
+              '[FlutterGemmaWeb] Model parameters changed, closing existing model');
         }
         await existing.close();
         _initializedModel = null;
@@ -158,8 +159,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       fileType: fileType,
       maxTokens: maxTokens,
       loraRanks: loraRanks,
-      modelManager:
-          modelManager as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
+      modelManager: modelManager
+          as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
       supportImage: supportImage, // Passing the flag
       supportAudio: supportAudio, // Passing the audio flag
       maxNumImages: maxNumImages,
@@ -197,18 +198,22 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
 
       // Extract model and tokenizer paths from spec
-      final activeModelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
-      final activeTokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
+      final activeModelPath =
+          modelFilePaths[PreferencesKeys.embeddingModelFile];
+      final activeTokenizerPath =
+          modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
 
       if (activeModelPath == null || activeTokenizerPath == null) {
-        throw StateError('Could not find model or tokenizer path in active embedding model');
+        throw StateError(
+            'Could not find model or tokenizer path in active embedding model');
       }
 
       modelPath = activeModelPath;
       tokenizerPath = activeTokenizerPath;
 
       if (kDebugMode) {
-        debugPrint('Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
+        debugPrint(
+            'Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
       }
     }
 
@@ -217,13 +222,13 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       final existing = _initializedEmbeddingModel! as WebEmbeddingModel;
 
       // Check if paths changed (indicates different model)
-      final bool modelChanged =
-        existing.modelPath != modelPath ||
-        existing.tokenizerPath != tokenizerPath;
+      final bool modelChanged = existing.modelPath != modelPath ||
+          existing.tokenizerPath != tokenizerPath;
 
       if (modelChanged) {
         if (kDebugMode) {
-          debugPrint('[FlutterGemmaWeb] Embedding model paths changed, closing existing model');
+          debugPrint(
+              '[FlutterGemmaWeb] Embedding model paths changed, closing existing model');
         }
         await existing.close();
         _initializedEmbeddingModel = null;
@@ -262,7 +267,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     String? metadata,
   }) async {
     if (_vectorStoreRepository == null) {
-      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+      throw StateError(
+          'VectorStore not initialized. Call initializeVectorStore() first.');
     }
 
     await _vectorStoreRepository!.addDocument(
@@ -280,11 +286,13 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     String? metadata,
   }) async {
     if (_vectorStoreRepository == null) {
-      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+      throw StateError(
+          'VectorStore not initialized. Call initializeVectorStore() first.');
     }
 
     if (_initializedEmbeddingModel == null) {
-      throw StateError('Embedding model not created. Call createEmbeddingModel() first.');
+      throw StateError(
+          'Embedding model not created. Call createEmbeddingModel() first.');
     }
 
     // Generate embedding and add document
@@ -307,15 +315,18 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     double threshold = 0.0,
   }) async {
     if (_vectorStoreRepository == null) {
-      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+      throw StateError(
+          'VectorStore not initialized. Call initializeVectorStore() first.');
     }
 
     if (_initializedEmbeddingModel == null) {
-      throw StateError('Embedding model not created. Call createEmbeddingModel() first.');
+      throw StateError(
+          'Embedding model not created. Call createEmbeddingModel() first.');
     }
 
     // Generate query embedding and search
-    final queryEmbedding = await _initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding =
+        await _initializedEmbeddingModel!.generateEmbedding(query);
     return await _vectorStoreRepository!.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,
@@ -326,7 +337,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<VectorStoreStats> getVectorStoreStats() async {
     if (_vectorStoreRepository == null) {
-      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+      throw StateError(
+          'VectorStore not initialized. Call initializeVectorStore() first.');
     }
 
     return await _vectorStoreRepository!.getStats();
@@ -335,7 +347,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<void> clearVectorStore() async {
     if (_vectorStoreRepository == null) {
-      throw StateError('VectorStore not initialized. Call initializeVectorStore() first.');
+      throw StateError(
+          'VectorStore not initialized. Call initializeVectorStore() first.');
     }
 
     await _vectorStoreRepository!.clear();
@@ -396,7 +409,8 @@ class WebInferenceModel extends InferenceModel {
     // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
     if (enableThinking) {
       if (kDebugMode) {
-        debugPrint('Warning: enableThinking is not supported on Web (MediaPipe). '
+        debugPrint(
+            'Warning: enableThinking is not supported on Web (MediaPipe). '
             'Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.');
       }
     }
@@ -404,14 +418,16 @@ class WebInferenceModel extends InferenceModel {
     // TODO: Implement vision modality for web
     if (enableVisionModality == true) {
       if (kDebugMode) {
-        debugPrint('Warning: Vision modality is not yet implemented for web platform');
+        debugPrint(
+            'Warning: Vision modality is not yet implemented for web platform');
       }
     }
 
     // Audio modality is handled via supportAudio flag in the model
     if (enableAudioModality == true && !supportAudio) {
       if (kDebugMode) {
-        debugPrint('Warning: Audio modality requested but supportAudio is false');
+        debugPrint(
+            'Warning: Audio modality requested but supportAudio is false');
       }
     }
 
@@ -438,11 +454,13 @@ class WebInferenceModel extends InferenceModel {
       }
 
       final fileset = await FilesetResolver.forGenAiTasks(
-              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'.toJS)
+              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'
+                  .toJS)
           .toDart;
 
       // Get LoRA path if available
-      final loraPathToUse = loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
+      final loraPathToUse =
+          loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
       // Check if using OPFS streaming mode
@@ -484,11 +502,13 @@ class WebInferenceModel extends InferenceModel {
           topK: topK,
           temperature: temperature,
           topP: topP,
-          supportedLoraRanks: !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
+          supportedLoraRanks:
+              !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
           loraPath: !hasLoraParams ? null : loraPathToUse,
           maxNumImages: supportImage ? (maxNumImages ?? 1) : null);
 
-      final llmInference = await LlmInference.createFromOptions(fileset, config).toDart;
+      final llmInference =
+          await LlmInference.createFromOptions(fileset, config).toDart;
 
       session = WebModelSession(
         modelType: modelType,
@@ -565,7 +585,8 @@ class WebModelSession extends InferenceModelSession {
       );
     }
 
-    final finalPrompt = messageToSend.transformToChatPrompt(type: modelType, fileType: fileType);
+    final finalPrompt = messageToSend.transformToChatPrompt(
+        type: modelType, fileType: fileType);
 
     // Add text part
     _promptParts.add(TextPromptPart(finalPrompt));
@@ -589,7 +610,8 @@ class WebModelSession extends InferenceModelSession {
       final imagePart = ImagePromptPart.fromBytes(message.imageBytes!);
       _promptParts.add(imagePart);
       if (kDebugMode) {
-        debugPrint('🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+        debugPrint(
+            '🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
       }
     }
 
@@ -608,7 +630,8 @@ class WebModelSession extends InferenceModelSession {
       final audioPart = AudioPromptPart(message.audioBytes!);
       _promptParts.add(audioPart);
       if (kDebugMode) {
-        debugPrint('🎵 Added audio part with ${message.audioBytes!.length} bytes');
+        debugPrint(
+            '🎵 Added audio part with ${message.audioBytes!.length} bytes');
       }
     }
 
@@ -620,19 +643,22 @@ class WebModelSession extends InferenceModelSession {
   /// Convert PromptParts to JavaScript array for MediaPipe
   JSAny _createPromptArray() {
     if (kDebugMode) {
-      debugPrint('🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
+      debugPrint(
+          '🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
     }
 
     if (_promptParts.isEmpty) {
       if (kDebugMode) {
-        debugPrint('📝 _createPromptArray: Empty prompt parts, returning empty string');
+        debugPrint(
+            '📝 _createPromptArray: Empty prompt parts, returning empty string');
       }
       return ''.toJS; // Empty string fallback
     }
 
     // If only text parts, join them
     if (_promptParts.every((part) => part is TextPromptPart)) {
-      final fullText = _promptParts.cast<TextPromptPart>().map((part) => part.text).join('');
+      final fullText =
+          _promptParts.cast<TextPromptPart>().map((part) => part.text).join('');
       if (kDebugMode) {
         debugPrint(
             '📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
@@ -644,7 +670,8 @@ class WebModelSession extends InferenceModelSession {
 
     // Multimodal: create array of parts following MediaPipe documentation format
     if (kDebugMode) {
-      debugPrint('🎯 _createPromptArray: Multimodal mode - creating array with proper format');
+      debugPrint(
+          '🎯 _createPromptArray: Multimodal mode - creating array with proper format');
     }
 
     final jsArray = <JSAny>[];
@@ -672,7 +699,8 @@ class WebModelSession extends InferenceModelSession {
         // Create proper image object for MediaPipe
         final imageObj = <String, String>{'imageSource': part.dataUrl}.jsify();
         if (kDebugMode) {
-          debugPrint('🖼️ _createPromptArray: Created image object with jsify()');
+          debugPrint(
+              '🖼️ _createPromptArray: Created image object with jsify()');
         }
         jsArray.add(imageObj as JSAny);
       } else if (part is AudioPromptPart) {
@@ -683,14 +711,18 @@ class WebModelSession extends InferenceModelSession {
 
         // Create proper audio object for MediaPipe
         // Audio is passed as raw PCM bytes (16kHz, 16-bit, mono)
-        final audioObj = <String, Object>{'audioSource': part.audioBytes.buffer.asUint8List()}.jsify();
+        final audioObj = <String, Object>{
+          'audioSource': part.audioBytes.buffer.asUint8List()
+        }.jsify();
         if (kDebugMode) {
-          debugPrint('🎵 _createPromptArray: Created audio object with jsify()');
+          debugPrint(
+              '🎵 _createPromptArray: Created audio object with jsify()');
         }
         jsArray.add(audioObj as JSAny);
       } else {
         if (kDebugMode) {
-          debugPrint('❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
+          debugPrint(
+              '❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
         }
         throw Exception('Unsupported prompt part type: $part');
       }
@@ -718,7 +750,8 @@ class WebModelSession extends InferenceModelSession {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        debugPrint('🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
+        debugPrint(
+            '🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
         debugPrint('🎯 getResponse: Is JSString? ${promptArray is JSString}');
       }
 
@@ -727,18 +760,26 @@ class WebModelSession extends InferenceModelSession {
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          debugPrint('📝 getResponse: Using generateResponse for text-only prompt');
+          debugPrint(
+              '📝 getResponse: Using generateResponse for text-only prompt');
         }
-        response = (await llmInference.generateResponse(promptArray, null).toDart).toDart;
+        response =
+            (await llmInference.generateResponse(promptArray, null).toDart)
+                .toDart;
       } else {
         if (kDebugMode) {
-          debugPrint('🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
+          debugPrint(
+              '🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
         }
-        response = (await llmInference.generateResponseMultimodal(promptArray, null).toDart).toDart;
+        response = (await llmInference
+                .generateResponseMultimodal(promptArray, null)
+                .toDart)
+            .toDart;
       }
 
       if (kDebugMode) {
-        debugPrint('✅ getResponse: Successfully generated response of length ${response.length}');
+        debugPrint(
+            '✅ getResponse: Successfully generated response of length ${response.length}');
         debugPrint(
             '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
       }
@@ -769,14 +810,17 @@ class WebModelSession extends InferenceModelSession {
       final promptArray = _createPromptArray();
 
       if (kDebugMode) {
-        debugPrint('🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
-        debugPrint('🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
+        debugPrint(
+            '🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
+        debugPrint(
+            '🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
       }
 
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
-          debugPrint('📝 getResponseAsync: Using generateResponse for text-only prompt');
+          debugPrint(
+              '📝 getResponseAsync: Using generateResponse for text-only prompt');
         }
         llmInference.generateResponse(
           promptArray,
@@ -821,13 +865,15 @@ class WebModelSession extends InferenceModelSession {
               _controller?.add(partial);
               if (complete) {
                 if (kDebugMode) {
-                  debugPrint('✅ getResponseAsync: Multimodal response completed');
+                  debugPrint(
+                      '✅ getResponseAsync: Multimodal response completed');
                 }
                 _controller?.close();
               }
             } catch (e) {
               if (kDebugMode) {
-                debugPrint('❌ getResponseAsync: Error in multimodal callback: $e');
+                debugPrint(
+                    '❌ getResponseAsync: Error in multimodal callback: $e');
               }
               _controller?.addError(e);
             }

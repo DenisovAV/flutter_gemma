@@ -17,13 +17,15 @@ class VisionEncoderValidator {
     String? originalFormat,
   }) {
     try {
-      debugPrint('VisionEncoderValidator: Validating image for $encoderType...');
+      debugPrint(
+          'VisionEncoderValidator: Validating image for $encoderType...');
 
       // Get appropriate specifications
       final specs = _getSpecsForEncoder(encoderType);
 
       // Perform comprehensive validation
-      final formatValidation = _validateFormat(imageBytes, originalFormat, specs);
+      final formatValidation =
+          _validateFormat(imageBytes, originalFormat, specs);
       if (!formatValidation.isValid) {
         return formatValidation;
       }
@@ -38,12 +40,14 @@ class VisionEncoderValidator {
         return dimensionValidation;
       }
 
-      final compatibilityValidation = _validateEncoderCompatibility(imageBytes, encoderType);
+      final compatibilityValidation =
+          _validateEncoderCompatibility(imageBytes, encoderType);
       if (!compatibilityValidation.isValid) {
         return compatibilityValidation;
       }
 
-      debugPrint('VisionEncoderValidator: Image validation passed for $encoderType');
+      debugPrint(
+          'VisionEncoderValidator: Image validation passed for $encoderType');
 
       return ValidationResult(
         isValid: true,
@@ -57,7 +61,9 @@ class VisionEncoderValidator {
         isValid: false,
         encoderType: encoderType,
         message: 'Validation failed: $e',
-        suggestions: ['Check image format and try processing with ImageProcessor'],
+        suggestions: [
+          'Check image format and try processing with ImageProcessor'
+        ],
       );
     }
   }
@@ -85,7 +91,8 @@ class VisionEncoderValidator {
       return ValidationResult(
         isValid: false,
         encoderType: specs.encoderType,
-        message: 'Unsupported format: $format. Supported: ${specs.supportedFormats.join(', ')}',
+        message:
+            'Unsupported format: $format. Supported: ${specs.supportedFormats.join(', ')}',
         suggestions: ['Convert image to PNG format using ImageProcessor'],
       );
     }
@@ -99,7 +106,8 @@ class VisionEncoderValidator {
   }
 
   /// Validates image file size
-  static ValidationResult _validateSize(Uint8List imageBytes, VisionSpecs specs) {
+  static ValidationResult _validateSize(
+      Uint8List imageBytes, VisionSpecs specs) {
     final sizeInBytes = imageBytes.length;
     final sizeInMB = sizeInBytes / (1024 * 1024);
 
@@ -117,7 +125,8 @@ class VisionEncoderValidator {
       return ValidationResult(
         isValid: false,
         encoderType: specs.encoderType,
-        message: 'File size ($sizeInBytes bytes) is too small, may be corrupted',
+        message:
+            'File size ($sizeInBytes bytes) is too small, may be corrupted',
         suggestions: ['Check if image is valid and not corrupted'],
       );
     }
@@ -131,7 +140,8 @@ class VisionEncoderValidator {
   }
 
   /// Validates image dimensions
-  static ValidationResult _validateDimensions(Uint8List imageBytes, VisionSpecs specs) {
+  static ValidationResult _validateDimensions(
+      Uint8List imageBytes, VisionSpecs specs) {
     try {
       // This is a simplified check - in a real implementation,
       // you would decode the image to get actual dimensions
@@ -155,7 +165,9 @@ class VisionEncoderValidator {
           encoderType: specs.encoderType,
           message:
               'Image dimensions too large: ${estimatedDimensions.width}x${estimatedDimensions.height}',
-          suggestions: ['Resize image to ${specs.targetWidth}x${specs.targetHeight}'],
+          suggestions: [
+            'Resize image to ${specs.targetWidth}x${specs.targetHeight}'
+          ],
         );
       }
 
@@ -273,7 +285,8 @@ class VisionEncoderValidator {
     // Check for excessive repetition of specific byte patterns
     final patternCounts = <String, int>{};
     for (int i = 0; i < imageBytes.length - 3; i++) {
-      final pattern = '${imageBytes[i]}-${imageBytes[i + 1]}-${imageBytes[i + 2]}';
+      final pattern =
+          '${imageBytes[i]}-${imageBytes[i + 1]}-${imageBytes[i + 2]}';
       patternCounts[pattern] = (patternCounts[pattern] ?? 0) + 1;
     }
 

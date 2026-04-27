@@ -53,7 +53,8 @@ class FfiInferenceModel extends InferenceModel {
     bool enableThinking = false,
   }) async {
     if (_isClosed) {
-      throw StateError('Model is closed. Create a new instance to use it again');
+      throw StateError(
+          'Model is closed. Create a new instance to use it again');
     }
 
     if (loraPath != null) {
@@ -120,7 +121,8 @@ class FfiInferenceModel extends InferenceModel {
     String? systemInstruction,
   }) async {
     if (_isClosed) {
-      throw StateError('Model is closed. Create a new instance to use it again');
+      throw StateError(
+          'Model is closed. Create a new instance to use it again');
     }
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -199,7 +201,8 @@ class FfiInferenceModelSession extends InferenceModelSession {
   @override
   Future<void> addQueryChunk(Message message) async {
     _assertNotClosed();
-    final prompt = message.transformToChatPrompt(type: modelType, fileType: fileType);
+    final prompt =
+        message.transformToChatPrompt(type: modelType, fileType: fileType);
     _queryBuffer.write(prompt);
 
     if (message.hasImage && message.imageBytes != null && supportImage) {
@@ -222,7 +225,10 @@ class FfiInferenceModelSession extends InferenceModelSession {
 
     final buffer = StringBuffer();
     await for (final chunk in ffiClient.chat(
-      text, imageBytes: image, audioBytes: audio, enableThinking: enableThinking,
+      text,
+      imageBytes: image,
+      audioBytes: audio,
+      enableThinking: enableThinking,
     )) {
       buffer.write(chunk);
     }
@@ -240,7 +246,10 @@ class FfiInferenceModelSession extends InferenceModelSession {
     _pendingImage = null;
 
     await for (final chunk in ffiClient.chat(
-      text, imageBytes: image, audioBytes: audio, enableThinking: enableThinking,
+      text,
+      imageBytes: image,
+      audioBytes: audio,
+      enableThinking: enableThinking,
     )) {
       yield chunk;
     }

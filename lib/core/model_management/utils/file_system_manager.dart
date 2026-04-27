@@ -6,7 +6,8 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 /// string operations, and provides mobile-specific file system operations.
 class ModelFileSystemManager {
   /// Supported model file extensions (delegates to FileNameUtils)
-  static const List<String> supportedExtensions = FileNameUtils.supportedExtensions;
+  static const List<String> supportedExtensions =
+      FileNameUtils.supportedExtensions;
 
   /// Small file extensions (configs, tokenizers) - use smaller minimum size
   static const List<String> smallFileExtensions = ['.json', '.model'];
@@ -18,24 +19,28 @@ class ModelFileSystemManager {
   /// Example: 'gemma-2b.task' -> 'gemma-2b'
   ///
   /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
-  static String getBaseName(String filename) => FileNameUtils.getBaseName(filename);
+  static String getBaseName(String filename) =>
+      FileNameUtils.getBaseName(filename);
 
   /// Creates regex pattern for matching extensions (delegates to FileNameUtils)
   ///
   /// Example: r'\.(task|bin|tflite|json|model|litertlm)$'
   ///
   /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
-  static String get extensionRegexPattern => FileNameUtils.extensionRegexPattern;
+  static String get extensionRegexPattern =>
+      FileNameUtils.extensionRegexPattern;
 
   /// Checks if file extension requires smaller minimum size (delegates to FileNameUtils)
   ///
   /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
-  static bool isSmallFile(String extension) => FileNameUtils.isSmallFile(extension);
+  static bool isSmallFile(String extension) =>
+      FileNameUtils.isSmallFile(extension);
 
   /// Gets minimum file size based on extension (delegates to FileNameUtils)
   ///
   /// Platform Support: All (delegates to platform-agnostic FileNameUtils)
-  static int getMinimumSize(String extension) => FileNameUtils.getMinimumSize(extension);
+  static int getMinimumSize(String extension) =>
+      FileNameUtils.getMinimumSize(extension);
 
   /// Corrects Android path from /data/user/0/ to /data/data/ for proper file access
   /// Uses path.join() for cross-platform path separator handling
@@ -43,7 +48,8 @@ class ModelFileSystemManager {
     // Check if this is the problematic Android path format
     if (originalPath.contains('/data/user/0/')) {
       // Replace with the correct Android app data path
-      final correctedPath = originalPath.replaceFirst('/data/user/0/', '/data/data/');
+      final correctedPath =
+          originalPath.replaceFirst('/data/user/0/', '/data/data/');
       return path.join(correctedPath, filename);
     }
     // For other platforms, use path.join for correct separators (\ on Windows, / on Unix)
@@ -65,7 +71,8 @@ class ModelFileSystemManager {
       // Basic size check - model files should be at least the minimum size
       final sizeInBytes = await file.length();
       if (sizeInBytes < minSizeBytes) {
-        debugPrint('File $filePath too small: $sizeInBytes bytes (minimum: $minSizeBytes)');
+        debugPrint(
+            'File $filePath too small: $sizeInBytes bytes (minimum: $minSizeBytes)');
         return false;
       }
 
@@ -91,7 +98,8 @@ class ModelFileSystemManager {
     List<String>? supportedExtensions,
   }) async {
     final directory = await getApplicationDocumentsDirectory();
-    final extensions = supportedExtensions ?? ModelFileSystemManager.supportedExtensions;
+    final extensions =
+        supportedExtensions ?? ModelFileSystemManager.supportedExtensions;
     final protected = protectedFiles ?? [];
 
     final orphaned = <OrphanedFileInfo>[];
@@ -137,7 +145,8 @@ class ModelFileSystemManager {
     final files = directory
         .listSync()
         .whereType<File>()
-        .where((file) => supportedExtensions.any((ext) => file.path.endsWith(ext)))
+        .where(
+            (file) => supportedExtensions.any((ext) => file.path.endsWith(ext)))
         .toList();
 
     int totalSize = 0;
@@ -172,8 +181,9 @@ class ModelFileSystemManager {
 
       // Check database records
       final records = await downloader.database.allRecords();
-      if (records.any(
-          (record) => record.task.filename == filename && record.status != TaskStatus.complete)) {
+      if (records.any((record) =>
+          record.task.filename == filename &&
+          record.status != TaskStatus.complete)) {
         return true;
       }
 
@@ -323,7 +333,8 @@ class ModelFileSystemManager {
     return false;
   }
 
-  static const MethodChannel _bundledChannel = MethodChannel('flutter_gemma_bundled');
+  static const MethodChannel _bundledChannel =
+      MethodChannel('flutter_gemma_bundled');
 
   /// Get platform-specific bundled resource path
   static Future<String> _getBundledResourcePath(String resourceName) async {

@@ -49,9 +49,9 @@ class MobileInferenceModelSession extends InferenceModelSession {
       fileType == ModelFileType.litertlm &&
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
-       defaultTargetPlatform == TargetPlatform.macOS ||
-       defaultTargetPlatform == TargetPlatform.windows ||
-       defaultTargetPlatform == TargetPlatform.linux);
+          defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
 
   MobileInferenceModelSession({
     required this.onClose,
@@ -64,7 +64,8 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   void _assertNotClosed() {
     if (_isClosed) {
-      throw StateError('Model is closed. Create a new instance to use it again');
+      throw StateError(
+          'Model is closed. Create a new instance to use it again');
     }
   }
 
@@ -90,9 +91,12 @@ class MobileInferenceModelSession extends InferenceModelSession {
         text: '[System: ${systemInstruction!}]\n\n${message.text}',
       );
     }
-    debugPrint('[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
-    final finalPrompt = messageToSend.transformToChatPrompt(type: modelType, fileType: fileType);
-    debugPrint('[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
+    debugPrint(
+        '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
+    final finalPrompt = messageToSend.transformToChatPrompt(
+        type: modelType, fileType: fileType);
+    debugPrint(
+        '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
     await _platformService.addQueryChunk(finalPrompt);
     if (message.hasImage && message.imageBytes != null && supportImage) {
       await _addImage(message.imageBytes!);
@@ -146,8 +150,11 @@ class MobileInferenceModelSession extends InferenceModelSession {
         (event) {
           // Check if controller is still open before adding events
           if (!controller.isClosed) {
-            if (event is Map && event.containsKey('code') && event['code'] == "ERROR") {
-              controller.addError(Exception(event['message'] ?? 'Unknown async error occurred'));
+            if (event is Map &&
+                event.containsKey('code') &&
+                event['code'] == "ERROR") {
+              controller.addError(Exception(
+                  event['message'] ?? 'Unknown async error occurred'));
             } else if (event is Map && event.containsKey('partialResult')) {
               final partial = event['partialResult'] as String;
               controller.add(partial);
@@ -278,20 +285,24 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
 
     // Check if singleton exists and matches the active model
-    if (_initCompleter != null && _initializedModel != null && _lastActiveInferenceSpec != null) {
+    if (_initCompleter != null &&
+        _initializedModel != null &&
+        _lastActiveInferenceSpec != null) {
       final currentSpec = _lastActiveInferenceSpec!;
       final requestedSpec = activeModel as InferenceModelSpec;
 
       if (currentSpec.name != requestedSpec.name) {
         // Active model changed - close old model and create new one
-        debugPrint('⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}');
+        debugPrint(
+            '⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}');
         debugPrint('🔄 Closing old model and creating new one...');
         await _initializedModel?.close();
         // onClose callback will reset _initializedModel and _initCompleter
         _lastActiveInferenceSpec = null;
       } else {
         // Same model - return existing singleton
-        debugPrint('ℹ️  Reusing existing model instance for ${requestedSpec.name}');
+        debugPrint(
+            'ℹ️  Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
     }
@@ -317,7 +328,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     final modelFilePaths = await manager.getModelFilePaths(activeModel);
     if (modelFilePaths == null || modelFilePaths.isEmpty) {
       completer.completeError(
-        Exception('Model file paths not found. Use the `modelManager` to load the model first'),
+        Exception(
+            'Model file paths not found. Use the `modelManager` to load the model first'),
       );
       return completer.future;
     }
@@ -339,8 +351,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
       // .litertlm files on iOS → use FFI (same as desktop)
       // .task/.bin files → use MediaPipe via Pigeon (existing path)
-      if (fileType == ModelFileType.litertlm && (Platform.isIOS || Platform.isAndroid)) {
-        debugPrint('[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
+      if (fileType == ModelFileType.litertlm &&
+          (Platform.isIOS || Platform.isAndroid)) {
+        debugPrint(
+            '[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
         final cacheDir = (await getApplicationSupportDirectory()).path;
         final ffiClient = LiteRtLmFfiClient();
         final backend = switch (preferredBackend) {
@@ -442,11 +456,14 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       }
 
       // Extract model and tokenizer paths from spec
-      final activeModelPath = modelFilePaths[PreferencesKeys.embeddingModelFile];
-      final activeTokenizerPath = modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
+      final activeModelPath =
+          modelFilePaths[PreferencesKeys.embeddingModelFile];
+      final activeTokenizerPath =
+          modelFilePaths[PreferencesKeys.embeddingTokenizerFile];
 
       if (activeModelPath == null || activeTokenizerPath == null) {
-        throw StateError('Could not find model or tokenizer path in active embedding model');
+        throw StateError(
+            'Could not find model or tokenizer path in active embedding model');
       }
 
       // Check if singleton exists and matches the active model
@@ -466,7 +483,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           _lastActiveEmbeddingSpec = null;
         } else {
           // Same model - return existing singleton
-          debugPrint('ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}');
+          debugPrint(
+              'ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}');
           return _initEmbeddingCompleter!.future;
         }
       }
@@ -474,11 +492,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       modelPath = activeModelPath;
       tokenizerPath = activeTokenizerPath;
 
-      debugPrint('Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
+      debugPrint(
+          'Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
     } else {
       // Legacy API with explicit paths - check if singleton exists
       if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
-        debugPrint('ℹ️  Reusing existing embedding model instance (Legacy API)');
+        debugPrint(
+            'ℹ️  Reusing existing embedding model instance (Legacy API)');
         return completer.future;
       }
     }
@@ -536,7 +556,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await ServiceRegistry.instance.vectorStoreRepository.initialize(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository
+        .initialize(databasePath);
   }
 
   @override
@@ -562,7 +583,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   }) async {
     // Generate embedding for content first
     if (initializedEmbeddingModel == null) {
-      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError(
+          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(
       content,
@@ -586,9 +608,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   }) async {
     // Generate embedding for query
     if (initializedEmbeddingModel == null) {
-      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError(
+          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
-    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding =
+        await initializedEmbeddingModel!.generateEmbedding(query);
 
     // Search similar vectors
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
@@ -609,7 +633,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   }
 
   @override
-  bool get enableHnsw => ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
+  bool get enableHnsw =>
+      ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
 
   @override
   set enableHnsw(bool value) {

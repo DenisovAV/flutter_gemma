@@ -29,8 +29,10 @@ class LegacyPreferencesMigrator {
 
     final installedModels = prefs.getStringList('installed_models') ?? [];
     final installedLoras = prefs.getStringList('installed_loras') ?? [];
-    final installedEmbedding = prefs.getStringList('installed_embedding_models') ?? [];
-    final installedTokenizers = prefs.getStringList('installed_tokenizers') ?? [];
+    final installedEmbedding =
+        prefs.getStringList('installed_embedding_models') ?? [];
+    final installedTokenizers =
+        prefs.getStringList('installed_tokenizers') ?? [];
 
     return installedModels.isNotEmpty ||
         installedLoras.isNotEmpty ||
@@ -106,7 +108,8 @@ class LegacyPreferencesMigrator {
       }
 
       // 3. Migrate embedding models from 'installed_embedding_models'
-      final installedEmbedding = prefs.getStringList('installed_embedding_models') ?? [];
+      final installedEmbedding =
+          prefs.getStringList('installed_embedding_models') ?? [];
       for (final filename in installedEmbedding) {
         try {
           await _migrateFile(
@@ -126,7 +129,8 @@ class LegacyPreferencesMigrator {
       }
 
       // 4. Migrate tokenizers from 'installed_tokenizers'
-      final installedTokenizers = prefs.getStringList('installed_tokenizers') ?? [];
+      final installedTokenizers =
+          prefs.getStringList('installed_tokenizers') ?? [];
       for (final filename in installedTokenizers) {
         try {
           await _migrateFile(
@@ -154,7 +158,8 @@ class LegacyPreferencesMigrator {
       // Mark migration as completed
       await prefs.setBool('_migration_completed_v1', true);
 
-      debugPrint('✅ Migration completed! Migrated: $migratedCount, Skipped: $skippedCount');
+      debugPrint(
+          '✅ Migration completed! Migrated: $migratedCount, Skipped: $skippedCount');
 
       return MigrationResult(
         migratedCount: migratedCount,

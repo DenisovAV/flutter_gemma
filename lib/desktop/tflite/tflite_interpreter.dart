@@ -44,7 +44,8 @@ class TfLiteInterpreter {
   final int outputDimension;
 
   /// Helper to free delegate if non-null.
-  static void _deleteDelegate(TfLiteBindings bindings, Pointer<Void>? delegate) {
+  static void _deleteDelegate(
+      TfLiteBindings bindings, Pointer<Void>? delegate) {
     if (delegate != null && delegate != nullptr) {
       bindings.tfLiteXNNPackDelegateDelete(delegate);
     }
@@ -86,7 +87,8 @@ class TfLiteInterpreter {
         bindings.tfLiteInterpreterOptionsAddDelegate(options, xnnpackDelegate);
       }
     } catch (e) {
-      debugPrint('[TfLiteInterpreter] XNNPACK delegate not available, using CPU: $e');
+      debugPrint(
+          '[TfLiteInterpreter] XNNPACK delegate not available, using CPU: $e');
       xnnpackDelegate = null;
     }
 
@@ -110,12 +112,12 @@ class TfLiteInterpreter {
       bindings.tfLiteInterpreterDelete(interpreter);
       _deleteDelegate(bindings, xnnpackDelegate);
       bindings.tfLiteModelDelete(model);
-      throw StateError(
-          'Failed to allocate tensors (status: $allocStatus)');
+      throw StateError('Failed to allocate tensors (status: $allocStatus)');
     }
 
     // Auto-detect dimensions from model tensors
-    final inputTensor = bindings.tfLiteInterpreterGetInputTensor(interpreter, 0);
+    final inputTensor =
+        bindings.tfLiteInterpreterGetInputTensor(interpreter, 0);
     if (inputTensor == nullptr) {
       bindings.tfLiteInterpreterDelete(interpreter);
       _deleteDelegate(bindings, xnnpackDelegate);
@@ -164,8 +166,9 @@ class TfLiteInterpreter {
 
     // Pad/truncate to input sequence length
     final padded = Int32List(inputSequenceLength);
-    final copyLen =
-        tokenIds.length < inputSequenceLength ? tokenIds.length : inputSequenceLength;
+    final copyLen = tokenIds.length < inputSequenceLength
+        ? tokenIds.length
+        : inputSequenceLength;
     for (var i = 0; i < copyLen; i++) {
       padded[i] = tokenIds[i];
     }
@@ -230,8 +233,7 @@ class TfLiteInterpreter {
 
   void _assertNotClosed() {
     if (_isClosed) {
-      throw StateError(
-          'TfLiteInterpreter is closed. Create a new instance.');
+      throw StateError('TfLiteInterpreter is closed. Create a new instance.');
     }
   }
 }

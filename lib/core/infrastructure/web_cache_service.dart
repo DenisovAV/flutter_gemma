@@ -95,7 +95,8 @@ class WebCacheService {
       final blobUrl = await _cacheInterop.getBlobUrl(cacheName, normalizedUrl);
 
       if (blobUrl == null) {
-        debugPrint('[WebCacheService] ❌ Failed to create blob URL for $normalizedUrl');
+        debugPrint(
+            '[WebCacheService] ❌ Failed to create blob URL for $normalizedUrl');
         // Cache corrupted? Delete metadata
         await _deleteMetadata(url);
         return null;
@@ -146,7 +147,8 @@ class WebCacheService {
 
       // Handle QuotaExceededError
       if (e.toString().contains('quota')) {
-        debugPrint('[WebCacheService] ⚠️  Storage quota exceeded, attempting cleanup');
+        debugPrint(
+            '[WebCacheService] ⚠️  Storage quota exceeded, attempting cleanup');
         await _cleanupOldEntries();
         // Retry once after cleanup
         try {
@@ -208,7 +210,8 @@ class WebCacheService {
       final granted = await _cacheInterop.requestPersistentStorage();
 
       if (kDebugMode) {
-        debugPrint('[WebCacheService] ${granted ? "✅" : "⚠️ "} Persistent storage ${granted ? "granted" : "denied"}');
+        debugPrint(
+            '[WebCacheService] ${granted ? "✅" : "⚠️ "} Persistent storage ${granted ? "granted" : "denied"}');
       }
 
       // Save grant status
@@ -356,13 +359,15 @@ class WebCacheService {
           deletedCount++;
 
           if (kDebugMode) {
-            debugPrint('[WebCacheService] 🗑️ Deleted old entry: ${meta.url} (age: ${age.inDays} days)');
+            debugPrint(
+                '[WebCacheService] 🗑️ Deleted old entry: ${meta.url} (age: ${age.inDays} days)');
           }
         }
       }
 
       if (kDebugMode) {
-        debugPrint('[WebCacheService] ✅ Cleanup complete, deleted $deletedCount entries');
+        debugPrint(
+            '[WebCacheService] ✅ Cleanup complete, deleted $deletedCount entries');
       }
 
       // Update last cleanup timestamp
@@ -387,7 +392,8 @@ class WebCacheService {
   /// Returns: Stream of progress percentages (0-100)
   Stream<int> getOrCacheAndRegisterWithProgress({
     required String cacheKey,
-    required Future<Uint8List> Function(void Function(double) onProgress) loader,
+    required Future<Uint8List> Function(void Function(double) onProgress)
+        loader,
     required String targetPath,
   }) async* {
     try {
@@ -403,7 +409,8 @@ class WebCacheService {
       }
 
       // 2. Load data with progress tracking
-      debugPrint('[WebCacheService] 📥 Loading: $cacheKey (cache: ${enableCache ? "enabled" : "disabled"})');
+      debugPrint(
+          '[WebCacheService] 📥 Loading: $cacheKey (cache: ${enableCache ? "enabled" : "disabled"})');
 
       final controller = StreamController<int>();
       Uint8List? loadedData;
@@ -459,7 +466,8 @@ class WebCacheService {
 
       yield 100; // Final completion
     } catch (e) {
-      debugPrint('[WebCacheService] ❌ getOrCacheAndRegisterWithProgress failed: $e');
+      debugPrint(
+          '[WebCacheService] ❌ getOrCacheAndRegisterWithProgress failed: $e');
       rethrow;
     }
   }

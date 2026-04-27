@@ -161,7 +161,8 @@ class JsonParsingUtils {
 
   /// Check if text is definitely plain text (not a function call).
   /// Shared heuristic for JSON-based formats.
-  static bool isDefinitelyText(String buffer, {List<String> extraIndicators = const []}) {
+  static bool isDefinitelyText(String buffer,
+      {List<String> extraIndicators = const []}) {
     final clean = buffer.trim();
     if (clean.length < 5) return false;
 

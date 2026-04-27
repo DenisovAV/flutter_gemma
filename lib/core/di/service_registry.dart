@@ -36,7 +36,8 @@ import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart
 import 'package:flutter_gemma/core/infrastructure/web_js_interop_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'platform/mobile_service_factory.dart'
-    if (dart.library.js_interop) 'platform/web_service_factory.dart' as platform;
+    if (dart.library.js_interop) 'platform/web_service_factory.dart'
+    as platform;
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_protected_registry.dart';
 
 /// Dependency Injection Container for managing service lifecycle
@@ -83,7 +84,8 @@ class ServiceRegistry {
   late final VectorStoreRepository _vectorStoreRepository;
 
   // Handlers (created once with dependencies)
-  late final SourceHandler _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
+  late final SourceHandler
+      _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
   late final SourceHandler _assetHandler;
   late final SourceHandler _bundledHandler; // Changed from BundledSourceHandler
   late final SourceHandler _fileHandler; // Changed from FileSourceHandler
@@ -271,11 +273,12 @@ class ServiceRegistry {
     final prefs = await SharedPreferences.getInstance();
 
     // Create download service
-    final download = downloadService ?? _createDefaultDownloadService(
-      fileSystem,
-      webStorageMode,
-      prefs,
-    );
+    final download = downloadService ??
+        _createDefaultDownloadService(
+          fileSystem,
+          webStorageMode,
+          prefs,
+        );
 
     return ServiceRegistry._(
       huggingFaceToken: huggingFaceToken,
@@ -310,17 +313,18 @@ class ServiceRegistry {
     // Web with cache enabled (cacheApi/streaming): use SharedPreferences (persistent metadata)
     // Mobile: always use SharedPreferences (files persist on disk)
     _modelRepository = modelRepository ??
-      (kIsWeb && webStorageMode == WebStorageMode.none
-        ? InMemoryModelRepository()
-        : SharedPreferencesModelRepository());
+        (kIsWeb && webStorageMode == WebStorageMode.none
+            ? InMemoryModelRepository()
+            : SharedPreferencesModelRepository());
 
-    _protectedFilesRegistry = protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
+    _protectedFilesRegistry =
+        protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
 
     // Initialize VectorStoreRepository (platform-specific)
     _vectorStoreRepository = vectorStoreRepository ??
-      (kIsWeb
-        ? WebVectorStoreRepository()  // SQLite WASM for web
-        : DartVectorStoreRepository());
+        (kIsWeb
+            ? WebVectorStoreRepository() // SQLite WASM for web
+            : DartVectorStoreRepository());
 
     // Initialize handlers with dependencies
     _networkHandler = _createNetworkSourceHandler(
@@ -375,17 +379,15 @@ class ServiceRegistry {
   /// ```
   static ServiceRegistry get instance {
     if (_instance == null) {
-      throw StateError(
-        'FlutterGemma not initialized!\n\n'
-        'You must call FlutterGemma.initialize() in main() before using the plugin.\n\n'
-        'Example:\n'
-        '  void main() async {\n'
-        '    WidgetsFlutterBinding.ensureInitialized();\n'
-        '    await FlutterGemma.initialize();\n'
-        '    runApp(MyApp());\n'
-        '  }\n\n'
-        'For more information, see: https://pub.dev/packages/flutter_gemma#initialization'
-      );
+      throw StateError('FlutterGemma not initialized!\n\n'
+          'You must call FlutterGemma.initialize() in main() before using the plugin.\n\n'
+          'Example:\n'
+          '  void main() async {\n'
+          '    WidgetsFlutterBinding.ensureInitialized();\n'
+          '    await FlutterGemma.initialize();\n'
+          '    runApp(MyApp());\n'
+          '  }\n\n'
+          'For more information, see: https://pub.dev/packages/flutter_gemma#initialization');
     }
     return _instance!;
   }
@@ -421,12 +423,12 @@ class ServiceRegistry {
       // Warn if critical parameters changed
       if (_instance!.webStorageMode != webStorageMode) {
         debugPrint(
-          'WARNING: webStorageMode cannot be changed after initialization.\n'
-          'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
-          'Restart the application to change this setting.'
-        );
+            'WARNING: webStorageMode cannot be changed after initialization.\n'
+            'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
+            'Restart the application to change this setting.');
       }
-      debugPrint('ServiceRegistry: Already initialized, skipping re-initialization');
+      debugPrint(
+          'ServiceRegistry: Already initialized, skipping re-initialization');
       return;
     }
 

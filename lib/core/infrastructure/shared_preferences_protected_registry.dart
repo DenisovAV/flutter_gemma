@@ -62,7 +62,8 @@ class SharedPreferencesProtectedRegistry implements ProtectedFilesRegistry {
   }
 
   @override
-  Future<void> registerExternalPath(String filename, String externalPath) async {
+  Future<void> registerExternalPath(
+      String filename, String externalPath) async {
     final prefs = await _prefsProvider();
     final paths = await _getExternalPaths(prefs);
 
@@ -93,7 +94,8 @@ class SharedPreferencesProtectedRegistry implements ProtectedFilesRegistry {
   }
 
   /// Saves set of protected filenames
-  Future<void> _saveProtectedFiles(SharedPreferences prefs, Set<String> files) async {
+  Future<void> _saveProtectedFiles(
+      SharedPreferences prefs, Set<String> files) async {
     final json = jsonEncode(files.toList());
     await prefs.setString(_protectedKey, json);
   }
@@ -114,7 +116,8 @@ class SharedPreferencesProtectedRegistry implements ProtectedFilesRegistry {
   }
 
   /// Saves map of external paths
-  Future<void> _saveExternalPaths(SharedPreferences prefs, Map<String, String> paths) async {
+  Future<void> _saveExternalPaths(
+      SharedPreferences prefs, Map<String, String> paths) async {
     final json = jsonEncode(paths);
     await prefs.setString(_externalPathsKey, json);
   }

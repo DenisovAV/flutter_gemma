@@ -73,7 +73,8 @@ class ImageErrorHandler {
       expectedImageCount,
     );
 
-    final message = _createTokenizationErrorMessage(error, errorType, modelType);
+    final message =
+        _createTokenizationErrorMessage(error, errorType, modelType);
 
     debugPrint('Tokenization Recovery: ${suggestions.join(', ')}');
     debugPrint('================================');
@@ -111,7 +112,8 @@ class ImageErrorHandler {
       suggestions.addAll(_getValidationRecoverySuggestions(validationResult));
     }
 
-    final message = 'Vision encoder validation failed: ${validationResult.message}';
+    final message =
+        'Vision encoder validation failed: ${validationResult.message}';
 
     debugPrint('Validation Recovery: ${suggestions.join(', ')}');
     debugPrint('======================================');
@@ -131,7 +133,8 @@ class ImageErrorHandler {
       debugPrint('=== DETECTING RESPONSE CORRUPTION ===');
       debugPrint('Response Length: ${response.length}');
       if (response.length < _maxLogSize) {
-        debugPrint('Response Preview: ${_sanitizeResponseForLogging(response)}');
+        debugPrint(
+            'Response Preview: ${_sanitizeResponseForLogging(response)}');
       }
 
       // Check for known corruption patterns
@@ -141,7 +144,8 @@ class ImageErrorHandler {
       final analysis = _analyzeResponseCharacteristics(response);
 
       // Determine confidence level
-      final confidence = _calculateCorruptionConfidence(hasCorruption, analysis);
+      final confidence =
+          _calculateCorruptionConfidence(hasCorruption, analysis);
 
       debugPrint('Corruption Detected: $hasCorruption');
       debugPrint('Confidence Level: ${confidence.toStringAsFixed(2)}');
@@ -200,13 +204,16 @@ class ImageErrorHandler {
     if (errorMessage.contains('size') || errorMessage.contains('dimension')) {
       return ErrorType.imageDimensions;
     }
-    if (errorMessage.contains('memory') || errorMessage.contains('allocation')) {
+    if (errorMessage.contains('memory') ||
+        errorMessage.contains('allocation')) {
       return ErrorType.memoryLimit;
     }
-    if (errorMessage.contains('corruption') || errorMessage.contains('corrupt')) {
+    if (errorMessage.contains('corruption') ||
+        errorMessage.contains('corrupt')) {
       return ErrorType.imageCorruption;
     }
-    if (errorMessage.contains('network') || errorMessage.contains('transmission')) {
+    if (errorMessage.contains('network') ||
+        errorMessage.contains('transmission')) {
       return ErrorType.networkTransmission;
     }
 
@@ -223,7 +230,9 @@ class ImageErrorHandler {
     if (errorMessage.contains('0 image tokens')) {
       return ErrorType.imageTokenMismatch;
     }
-    if (errorMessage.contains('prompt') && prompt != null && !prompt.contains('image')) {
+    if (errorMessage.contains('prompt') &&
+        prompt != null &&
+        !prompt.contains('image')) {
       return ErrorType.missingImageTokens;
     }
 
@@ -231,7 +240,8 @@ class ImageErrorHandler {
   }
 
   /// Generates recovery suggestions based on error type
-  static List<String> _generateRecoverySuggestions(ErrorType errorType, Uint8List? imageBytes) {
+  static List<String> _generateRecoverySuggestions(
+      ErrorType errorType, Uint8List? imageBytes) {
     final suggestions = <String>[];
 
     switch (errorType) {
@@ -315,7 +325,8 @@ class ImageErrorHandler {
   }
 
   /// Gets validation-specific recovery suggestions
-  static List<String> _getValidationRecoverySuggestions(ValidationResult result) {
+  static List<String> _getValidationRecoverySuggestions(
+      ValidationResult result) {
     return List<String>.from(result.suggestions);
   }
 
@@ -341,11 +352,14 @@ class ImageErrorHandler {
     // Pattern analysis
     analysis['hasRepeatingDots'] = response.contains(RegExp(r'\.{3,}'));
     analysis['hasRepeatingChars'] = response.contains(RegExp(r'(.)\1{5,}'));
-    analysis['hasSingleChars'] = response.contains(RegExp(r'\b.\b.*\b.\b.*\b.\b'));
+    analysis['hasSingleChars'] =
+        response.contains(RegExp(r'\b.\b.*\b.\b.*\b.\b'));
 
     // Content analysis
-    analysis['isMostlySymbols'] = RegExp(r'^[^a-zA-Z0-9\s]{10,}').hasMatch(response);
-    analysis['hasDescribeLoop'] = response.contains(RegExp(r'describe\.describe\.describe'));
+    analysis['isMostlySymbols'] =
+        RegExp(r'^[^a-zA-Z0-9\s]{10,}').hasMatch(response);
+    analysis['hasDescribeLoop'] =
+        response.contains(RegExp(r'describe\.describe\.describe'));
 
     return analysis;
   }
@@ -433,7 +447,8 @@ class ImageErrorHandler {
       return '${prompt.substring(0, _maxLogSize)}...[truncated]';
     }
     // Remove potentially sensitive Base64 data
-    return prompt.replaceAll(RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'), '[IMAGE_DATA]');
+    return prompt.replaceAll(
+        RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'), '[IMAGE_DATA]');
   }
 
   /// Sanitizes response for safe logging

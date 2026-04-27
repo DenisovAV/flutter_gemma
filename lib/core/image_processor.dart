@@ -14,7 +14,8 @@ class ImageProcessor {
 
   /// Processes an image to ensure compatibility with AI vision encoders
   /// and prevents corruption issues that cause repeating text patterns.
-  static Future<ProcessedImage> processImage(Uint8List imageBytes, {String? originalFormat}) async {
+  static Future<ProcessedImage> processImage(Uint8List imageBytes,
+      {String? originalFormat}) async {
     try {
       debugPrint('ImageProcessor: Starting image processing...');
 
@@ -23,12 +24,15 @@ class ImageProcessor {
 
       // Step 2: Decode image to check format and get dimensions
       final decodedImage = await _decodeImage(imageBytes);
-      debugPrint('ImageProcessor: Original image - Format: ${originalFormat ?? 'unknown'}, '
+      debugPrint(
+          'ImageProcessor: Original image - Format: ${originalFormat ?? 'unknown'}, '
           'Width: ${decodedImage.width}, Height: ${decodedImage.height}');
 
       // Step 3: Resize to target dimensions (896x896 for Gemma 3)
-      final resizedImage = await _resizeImage(decodedImage, _targetWidth, _targetHeight);
-      debugPrint('ImageProcessor: Image resized to ${_targetWidth}x$_targetHeight');
+      final resizedImage =
+          await _resizeImage(decodedImage, _targetWidth, _targetHeight);
+      debugPrint(
+          'ImageProcessor: Image resized to ${_targetWidth}x$_targetHeight');
 
       // Step 4: Convert to optimal format (PNG for lossless quality)
       final processedBytes = await _encodeToPng(resizedImage);
@@ -36,7 +40,8 @@ class ImageProcessor {
 
       // Step 5: Create Base64 encoded version for transmission
       final base64String = _encodeBase64Safe(processedBytes);
-      debugPrint('ImageProcessor: Base64 encoding completed (${base64String.length} chars)');
+      debugPrint(
+          'ImageProcessor: Base64 encoding completed (${base64String.length} chars)');
 
       // Step 6: Validate final output
       _validateProcessedImage(processedBytes, base64String);
@@ -71,7 +76,8 @@ class ImageProcessor {
 
     // Check for minimum viable image size (roughly 100x100 pixels in most formats)
     if (imageBytes.length < 1024) {
-      debugPrint('ImageProcessor: Warning - Image appears very small (${imageBytes.length} bytes)');
+      debugPrint(
+          'ImageProcessor: Warning - Image appears very small (${imageBytes.length} bytes)');
     }
   }
 
@@ -87,7 +93,8 @@ class ImageProcessor {
   }
 
   /// Resizes image to target dimensions using high-quality filtering
-  static Future<ui.Image> _resizeImage(ui.Image image, int width, int height) async {
+  static Future<ui.Image> _resizeImage(
+      ui.Image image, int width, int height) async {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
 
@@ -185,7 +192,8 @@ class ImageProcessor {
   }
 
   /// Validates the processed image output
-  static void _validateProcessedImage(Uint8List processedBytes, String base64String) {
+  static void _validateProcessedImage(
+      Uint8List processedBytes, String base64String) {
     if (processedBytes.isEmpty) {
       throw const ImageProcessingException('Processed image bytes are empty');
     }
@@ -198,7 +206,8 @@ class ImageProcessor {
     try {
       final decodedBytes = base64.decode(base64String);
       if (!_listEquals(decodedBytes, processedBytes)) {
-        throw const ImageProcessingException('Base64 encoding/decoding verification failed');
+        throw const ImageProcessingException(
+            'Base64 encoding/decoding verification failed');
       }
     } catch (e) {
       throw ImageProcessingException('Base64 validation failed: $e');
@@ -210,7 +219,10 @@ class ImageProcessor {
     if (bytes.length < 8) return 'unknown';
 
     // PNG signature: 89 50 4E 47 0D 0A 1A 0A
-    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
       return 'png';
     }
 
@@ -220,7 +232,10 @@ class ImageProcessor {
     }
 
     // WebP signature: RIFF....WEBP
-    if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46) {
+    if (bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46) {
       if (bytes.length >= 12) {
         final webpSig = String.fromCharCodes(bytes.sublist(8, 12));
         if (webpSig == 'WEBP') return 'webp';

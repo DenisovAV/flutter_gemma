@@ -56,8 +56,7 @@ class TfLiteBindings {
 
     if (Platform.isMacOS) {
       // macOS: Contents/Frameworks/libtensorflowlite_c.dylib
-      final frameworksPath =
-          '$execDir/../Frameworks/libtensorflowlite_c.dylib';
+      final frameworksPath = '$execDir/../Frameworks/libtensorflowlite_c.dylib';
       if (File(frameworksPath).existsSync()) return frameworksPath;
       // Fallback: Contents/Resources/tflite/
       final resourcesPath =
@@ -86,8 +85,7 @@ class TfLiteBindings {
           .asFunction();
 
   late final void Function(Pointer<Void> model) tfLiteModelDelete = _lib
-      .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-          'TfLiteModelDelete')
+      .lookup<NativeFunction<Void Function(Pointer<Void>)>>('TfLiteModelDelete')
       .asFunction();
 
   // --- Interpreter Options ---
@@ -105,25 +103,21 @@ class TfLiteBindings {
 
   late final void Function(Pointer<Void> options, int numThreads)
       tfLiteInterpreterOptionsSetNumThreads = _lib
-          .lookup<
-              NativeFunction<
-                  Void Function(
-                      Pointer<Void>, Int32)>>('TfLiteInterpreterOptionsSetNumThreads')
+          .lookup<NativeFunction<Void Function(Pointer<Void>, Int32)>>(
+              'TfLiteInterpreterOptionsSetNumThreads')
           .asFunction();
 
   // --- Interpreter ---
 
-  late final Pointer<Void> Function(
-          Pointer<Void> model, Pointer<Void> options)
+  late final Pointer<Void> Function(Pointer<Void> model, Pointer<Void> options)
       tfLiteInterpreterCreate = _lib
           .lookup<
               NativeFunction<
-                  Pointer<Void> Function(Pointer<Void>,
-                      Pointer<Void>)>>('TfLiteInterpreterCreate')
+                  Pointer<Void> Function(
+                      Pointer<Void>, Pointer<Void>)>>('TfLiteInterpreterCreate')
           .asFunction();
 
-  late final Pointer<Void> Function(
-          Pointer<Void> model, Pointer<Void> options)
+  late final Pointer<Void> Function(Pointer<Void> model, Pointer<Void> options)
       tfLiteInterpreterCreateWithSelectedOps = _lib
           .lookup<
               NativeFunction<
@@ -131,8 +125,8 @@ class TfLiteBindings {
                       Pointer<Void>)>>('TfLiteInterpreterCreateWithSelectedOps')
           .asFunction();
 
-  late final void Function(Pointer<Void> interpreter)
-      tfLiteInterpreterDelete = _lib
+  late final void Function(Pointer<Void> interpreter) tfLiteInterpreterDelete =
+      _lib
           .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
               'TfLiteInterpreterDelete')
           .asFunction();
@@ -167,18 +161,14 @@ class TfLiteBindings {
 
   late final Pointer<Void> Function(Pointer<Void> interpreter, int inputIndex)
       tfLiteInterpreterGetInputTensor = _lib
-          .lookup<
-              NativeFunction<
-                  Pointer<Void> Function(Pointer<Void>,
-                      Int32)>>('TfLiteInterpreterGetInputTensor')
+          .lookup<NativeFunction<Pointer<Void> Function(Pointer<Void>, Int32)>>(
+              'TfLiteInterpreterGetInputTensor')
           .asFunction();
 
   late final Pointer<Void> Function(Pointer<Void> interpreter, int outputIndex)
       tfLiteInterpreterGetOutputTensor = _lib
-          .lookup<
-              NativeFunction<
-                  Pointer<Void> Function(Pointer<Void>,
-                      Int32)>>('TfLiteInterpreterGetOutputTensor')
+          .lookup<NativeFunction<Pointer<Void> Function(Pointer<Void>, Int32)>>(
+              'TfLiteInterpreterGetOutputTensor')
           .asFunction();
 
   // --- Tensor Data ---
@@ -205,23 +195,22 @@ class TfLiteBindings {
 
   late final void Function(Pointer<Void> options, Pointer<Void> delegate)
       tfLiteInterpreterOptionsAddDelegate = _lib
-          .lookup<
-              NativeFunction<
-                  Void Function(Pointer<Void>,
-                      Pointer<Void>)>>('TfLiteInterpreterOptionsAddDelegate')
+          .lookup<NativeFunction<Void Function(Pointer<Void>, Pointer<Void>)>>(
+              'TfLiteInterpreterOptionsAddDelegate')
           .asFunction();
 
   late final Pointer<Void> Function(
           Pointer<TfLiteXNNPackDelegateOptions> options)
       tfLiteXNNPackDelegateCreate = _lib
           .lookup<
-              NativeFunction<
-                  Pointer<Void> Function(
-                      Pointer<TfLiteXNNPackDelegateOptions>)>>('TfLiteXNNPackDelegateCreate')
+                  NativeFunction<
+                      Pointer<Void> Function(
+                          Pointer<TfLiteXNNPackDelegateOptions>)>>(
+              'TfLiteXNNPackDelegateCreate')
           .asFunction();
 
-  late final void Function(Pointer<Void> delegate)
-      tfLiteXNNPackDelegateDelete = _lib
+  late final void Function(Pointer<Void> delegate) tfLiteXNNPackDelegateDelete =
+      _lib
           .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
               'TfLiteXNNPackDelegateDelete')
           .asFunction();
@@ -233,8 +222,8 @@ class TfLiteBindings {
           'TfLiteTensorNumDims')
       .asFunction();
 
-  late final int Function(Pointer<Void> tensor, int dimIndex)
-      tfLiteTensorDim = _lib
+  late final int Function(Pointer<Void> tensor, int dimIndex) tfLiteTensorDim =
+      _lib
           .lookup<NativeFunction<Int32 Function(Pointer<Void>, Int32)>>(
               'TfLiteTensorDim')
           .asFunction();

@@ -58,7 +58,8 @@ class PreferencesKeys {
   static const String webCacheMetadataPrefix = 'web_cache_';
 
   /// Whether persistent storage was granted
-  static const String webCachePersistentGranted = 'web_cache_persistent_granted';
+  static const String webCachePersistentGranted =
+      'web_cache_persistent_granted';
 
   /// Last cache cleanup timestamp
   static const String webCacheLastCleanup = 'web_cache_last_cleanup';

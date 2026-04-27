@@ -12,7 +12,8 @@ class StorageQuota {
   int get available => quota - usage;
 
   @override
-  String toString() => 'StorageQuota(usage: $usage, quota: $quota, percent: ${usagePercent.toStringAsFixed(1)}%)';
+  String toString() =>
+      'StorageQuota(usage: $usage, quota: $quota, percent: ${usagePercent.toStringAsFixed(1)}%)';
 }
 
 /// Stub implementation of WebCacheInterop for non-web platforms

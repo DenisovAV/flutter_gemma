@@ -19,9 +19,7 @@ import 'tflite/tflite_interpreter.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
-    show
-        InferenceModelSpec,
-        MobileModelManager;
+    show InferenceModelSpec, MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
 
@@ -38,7 +36,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   static FlutterGemmaDesktop? _instance;
 
   /// Get the singleton instance
-  static FlutterGemmaDesktop get instance => _instance ??= FlutterGemmaDesktop._();
+  static FlutterGemmaDesktop get instance =>
+      _instance ??= FlutterGemmaDesktop._();
 
   /// Register this implementation as the plugin instance
   ///
@@ -101,11 +100,12 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       final modelChanged = currentSpec.name != requestedSpec.name;
       final paramsChanged = currentModel != null &&
           (currentModel.supportImage != supportImage ||
-           currentModel.supportAudio != supportAudio ||
-           currentModel.maxTokens != maxTokens);
+              currentModel.supportAudio != supportAudio ||
+              currentModel.maxTokens != maxTokens);
 
       if (modelChanged || paramsChanged) {
-        debugPrint('Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
+        debugPrint(
+            'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
         await _initializedModel?.close();
         _initCompleter = null;
         _initializedModel = null;
@@ -314,7 +314,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await ServiceRegistry.instance.vectorStoreRepository.initialize(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository
+        .initialize(databasePath);
   }
 
   @override
@@ -339,7 +340,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? metadata,
   }) async {
     if (initializedEmbeddingModel == null) {
-      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError(
+          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(
       content,
@@ -360,9 +362,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     double threshold = 0.0,
   }) async {
     if (initializedEmbeddingModel == null) {
-      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError(
+          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
-    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding =
+        await initializedEmbeddingModel!.generateEmbedding(query);
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,
@@ -381,7 +385,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }
 
   @override
-  bool get enableHnsw => ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
+  bool get enableHnsw =>
+      ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
 
   @override
   set enableHnsw(bool value) {

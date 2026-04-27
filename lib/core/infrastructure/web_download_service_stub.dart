@@ -10,7 +10,8 @@ class WebDownloadService implements DownloadService {
     dynamic blobUrlManager,
     dynamic cacheService,
   ) {
-    throw UnsupportedError('WebDownloadService is only available on web platform');
+    throw UnsupportedError(
+        'WebDownloadService is only available on web platform');
   }
 
   @override
@@ -20,7 +21,8 @@ class WebDownloadService implements DownloadService {
     String? token,
     CancelToken? cancelToken,
   }) {
-    throw UnsupportedError('WebDownloadService is only available on web platform');
+    throw UnsupportedError(
+        'WebDownloadService is only available on web platform');
   }
 
   @override
@@ -32,10 +34,12 @@ class WebDownloadService implements DownloadService {
     CancelToken? cancelToken,
     bool? foreground,
   }) {
-    throw UnsupportedError('WebDownloadService is only available on web platform');
+    throw UnsupportedError(
+        'WebDownloadService is only available on web platform');
   }
 
-  dynamic get cacheService => throw UnsupportedError('WebDownloadService is only available on web platform');
+  dynamic get cacheService => throw UnsupportedError(
+      'WebDownloadService is only available on web platform');
 
   dynamic get opfsService => null;
 }

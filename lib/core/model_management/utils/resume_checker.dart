@@ -49,11 +49,13 @@ class ResumeChecker {
       try {
         final directory = file.parent;
         final directoryExists = await directory.exists();
-        debugPrint('ResumeChecker: Directory exists: $directoryExists - ${directory.path}');
+        debugPrint(
+            'ResumeChecker: Directory exists: $directoryExists - ${directory.path}');
 
         if (directoryExists) {
           final files = await directory.list().toList();
-          debugPrint('ResumeChecker: Directory contents (${files.length} items):');
+          debugPrint(
+              'ResumeChecker: Directory contents (${files.length} items):');
           for (final item in files) {
             final name = item.path.split('/').last;
             final isFile = item is File;
@@ -69,7 +71,8 @@ class ResumeChecker {
       debugPrint('ResumeChecker: File exists: $fileExists for $filename');
 
       if (!fileExists) {
-        debugPrint('ResumeChecker: File not found: $filename at path: $filePath');
+        debugPrint(
+            'ResumeChecker: File not found: $filename at path: $filePath');
         return ResumeStatus.fileNotFound;
       }
 
@@ -77,7 +80,8 @@ class ResumeChecker {
       final fileSize = await file.length();
       final isValid = await ModelFileSystemManager.isFileValid(filePath);
 
-      debugPrint('ResumeChecker: File size: $fileSize, isValid: $isValid for $filename');
+      debugPrint(
+          'ResumeChecker: File size: $fileSize, isValid: $isValid for $filename');
 
       if (isValid && fileSize > 0) {
         debugPrint('ResumeChecker: File is already complete: $filename');
@@ -107,7 +111,8 @@ class ResumeChecker {
       }
 
       if (task == null) {
-        debugPrint('ResumeChecker: No tracked task for $filename - returning noTask status');
+        debugPrint(
+            'ResumeChecker: No tracked task for $filename - returning noTask status');
         return ResumeStatus.noTask;
       }
 
@@ -123,7 +128,8 @@ class ResumeChecker {
         return ResumeStatus.cannotResume;
       }
     } catch (e) {
-      debugPrint('ResumeChecker: Error checking resume status for $filename: $e');
+      debugPrint(
+          'ResumeChecker: Error checking resume status for $filename: $e');
       return ResumeStatus.error;
     }
   }
@@ -132,7 +138,8 @@ class ResumeChecker {
   ///
   /// [spec] - The model specification to check
   /// Returns map of filename -> ResumeStatus for each file
-  static Future<Map<String, ResumeStatus>> checkModelResume(ModelSpec spec) async {
+  static Future<Map<String, ResumeStatus>> checkModelResume(
+      ModelSpec spec) async {
     debugPrint('ResumeChecker: Checking resume status for model: ${spec.name}');
 
     final results = <String, ResumeStatus>{};
@@ -152,7 +159,8 @@ class ResumeChecker {
   ///
   /// [spec] - The model specification to analyze
   /// Returns structured recommendations for each file
-  static Future<Map<String, ResumeRecommendation>> getResumeRecommendations(ModelSpec spec) async {
+  static Future<Map<String, ResumeRecommendation>> getResumeRecommendations(
+      ModelSpec spec) async {
     final statuses = await checkModelResume(spec);
     final recommendations = <String, ResumeRecommendation>{};
 
@@ -196,7 +204,8 @@ class ResumeChecker {
   /// [spec] - The model specification to clean
   /// Returns the number of cleaned up files
   static Future<int> cleanupInvalidResumeStates(ModelSpec spec) async {
-    debugPrint('ResumeChecker: Cleaning up invalid resume states for ${spec.name}');
+    debugPrint(
+        'ResumeChecker: Cleaning up invalid resume states for ${spec.name}');
 
     final statuses = await checkModelResume(spec);
     int cleanedCount = 0;
@@ -212,7 +221,8 @@ class ResumeChecker {
           try {
             await ModelFileSystemManager.deleteModelFile(filename);
             cleanedCount++;
-            debugPrint('ResumeChecker: Cleaned up invalid resume state for $filename');
+            debugPrint(
+                'ResumeChecker: Cleaned up invalid resume state for $filename');
           } catch (e) {
             debugPrint('ResumeChecker: Failed to cleanup $filename: $e');
           }
@@ -221,17 +231,20 @@ class ResumeChecker {
         case ResumeStatus.noTask:
           // File exists but no task - check if it's partial
           try {
-            final filePath = await ModelFileSystemManager.getModelFilePath(filename);
+            final filePath =
+                await ModelFileSystemManager.getModelFilePath(filename);
             final isValid = await ModelFileSystemManager.isFileValid(filePath);
 
             if (!isValid) {
               // Partial file without task - delete it
               await ModelFileSystemManager.deleteModelFile(filename);
               cleanedCount++;
-              debugPrint('ResumeChecker: Removed orphaned partial file: $filename');
+              debugPrint(
+                  'ResumeChecker: Removed orphaned partial file: $filename');
             }
           } catch (e) {
-            debugPrint('ResumeChecker: Error checking orphaned file $filename: $e');
+            debugPrint(
+                'ResumeChecker: Error checking orphaned file $filename: $e');
           }
           break;
 
@@ -241,7 +254,8 @@ class ResumeChecker {
       }
     }
 
-    debugPrint('ResumeChecker: Cleaned up $cleanedCount files for model ${spec.name}');
+    debugPrint(
+        'ResumeChecker: Cleaned up $cleanedCount files for model ${spec.name}');
     return cleanedCount;
   }
 

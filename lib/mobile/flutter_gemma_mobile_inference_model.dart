@@ -93,7 +93,8 @@ class MobileInferenceModel extends InferenceModel {
     bool enableThinking = false,
   }) async {
     if (_isClosed) {
-      throw StateError('Model is closed. Create a new instance to use it again');
+      throw StateError(
+          'Model is closed. Create a new instance to use it again');
     }
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;

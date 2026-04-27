@@ -23,7 +23,8 @@ class WebEmbeddingModel extends EmbeddingModel {
 
   void _assertNotClosed() {
     if (_isClosed) {
-      throw StateError('EmbeddingModel is closed. Create a new instance to use it again');
+      throw StateError(
+          'EmbeddingModel is closed. Create a new instance to use it again');
     }
   }
 
@@ -84,7 +85,8 @@ class WebEmbeddingModel extends EmbeddingModel {
       if (taskType == TaskType.retrievalDocument) {
         final results = <List<double>>[];
         for (final text in texts) {
-          results.add(await LiteRTWebEmbeddings.generateDocumentEmbedding(text));
+          results
+              .add(await LiteRTWebEmbeddings.generateDocumentEmbedding(text));
         }
         return results;
       }

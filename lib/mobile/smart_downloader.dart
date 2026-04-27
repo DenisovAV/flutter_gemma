@@ -155,15 +155,16 @@ class SmartDownloader {
 
     // Listen for cancellation
     if (cancelToken != null) {
-      cancellationListener = cancelToken.whenCancelled.asStream().listen((_) async {
+      cancellationListener =
+          cancelToken.whenCancelled.asStream().listen((_) async {
         debugPrint('🚫 Cancellation requested');
 
         // Cancel the actual download task
         if (currentTaskId != null) {
           debugPrint('🚫 Cancelling task: $currentTaskId');
           try {
-            await FileDownloader()
-                .cancelTaskWithId(currentTaskId!); // ← ADD: Actually cancel the task
+            await FileDownloader().cancelTaskWithId(
+                currentTaskId!); // ← ADD: Actually cancel the task
           } catch (e) {
             debugPrint('⚠️ Failed to cancel task: $e');
           }
@@ -234,9 +235,11 @@ class SmartDownloader {
 
     // Generate deterministic taskId based on URL + targetPath
     // This prevents duplicate downloads of the same file
-    final taskId = '${url.hashCode.toUnsigned(32).toRadixString(16)}_${targetPath.hashCode.toUnsigned(32).toRadixString(16)}';
+    final taskId =
+        '${url.hashCode.toUnsigned(32).toRadixString(16)}_${targetPath.hashCode.toUnsigned(32).toRadixString(16)}';
 
-    debugPrint('🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
+    debugPrint(
+        '🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
     debugPrint('🔵 URL: $url');
     debugPrint('🔵 Target: $targetPath');
     debugPrint('🔵 TaskId: $taskId');
@@ -250,7 +253,8 @@ class SmartDownloader {
       // Check if task already exists (e.g., after app restart or sleep/wake)
       final existingTask = await downloader.taskForId(taskId);
       if (existingTask != null) {
-        debugPrint('🔵 Task $taskId already in progress, attaching to existing...');
+        debugPrint(
+            '🔵 Task $taskId already in progress, attaching to existing...');
 
         // Create completer to wait for existing task completion
         final completer = Completer<void>();
@@ -280,7 +284,8 @@ class SmartDownloader {
               if (!progress.isClosed) {
                 progress.addError(
                   DownloadException(
-                    DownloadError.network('Existing download failed: ${update.status}'),
+                    DownloadError.network(
+                        'Existing download failed: ${update.status}'),
                   ),
                 );
                 progress.close();
@@ -298,13 +303,15 @@ class SmartDownloader {
         return;
       }
 
-      final (baseDirectory, directory, filename) = await Task.split(filePath: targetPath);
+      final (baseDirectory, directory, filename) =
+          await Task.split(filePath: targetPath);
 
       // Auto-detect allowPause based on URL
       // HuggingFace uses weak ETags - resume not reliable
       // Other servers (GCS, Kaggle, custom) - resume usually works
       final allowPause = !_isHuggingFaceUrl(url);
-      debugPrint('🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})');
+      debugPrint(
+          '🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})');
 
       final task = DownloadTask(
         taskId: taskId,
@@ -327,7 +334,8 @@ class SmartDownloader {
         directory: directory,
         filename: filename,
         requiresWiFi: false,
-        allowPause: allowPause, // Auto-detect: false for HuggingFace, true for others
+        allowPause:
+            allowPause, // Auto-detect: false for HuggingFace, true for others
         priority: 10,
         retries: 0, // We handle retries manually with HTTP-aware logic
         updates: Updates.statusAndProgress,
@@ -341,7 +349,8 @@ class SmartDownloader {
       listener = _getUpdatesStream().listen((update) async {
         if (update.task.taskId != task.taskId) return;
 
-        debugPrint('📡 Received update for task ${task.taskId}: ${update.runtimeType}');
+        debugPrint(
+            '📡 Received update for task ${task.taskId}: ${update.runtimeType}');
 
         if (update is TaskProgressUpdate) {
           final percents = (update.progress * 100).round();
@@ -350,7 +359,8 @@ class SmartDownloader {
             progress.add(percents.clamp(0, 100));
           }
         } else if (update is TaskStatusUpdate) {
-          debugPrint('📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}');
+          debugPrint(
+              '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}');
 
           switch (update.status) {
             case TaskStatus.complete:
@@ -364,7 +374,8 @@ class SmartDownloader {
 
             case TaskStatus.failed:
               debugPrint('🔴 SmartDownloader: TaskStatus.failed detected');
-              debugPrint('🔴 HTTP Status Code from update: ${update.responseStatusCode}');
+              debugPrint(
+                  '🔴 HTTP Status Code from update: ${update.responseStatusCode}');
               debugPrint('🔴 Exception: ${update.exception}');
               debugPrint('🔴 Progress closed: ${progress.isClosed}');
               debugPrint('🔴 Current attempt: $currentAttempt');
@@ -375,8 +386,10 @@ class SmartDownloader {
               // If not in responseStatusCode, check exception
               if (httpCode == null && update.exception != null) {
                 if (update.exception is TaskHttpException) {
-                  httpCode = (update.exception as TaskHttpException).httpResponseCode;
-                  debugPrint('🔴 HTTP Status Code from TaskHttpException: $httpCode');
+                  httpCode =
+                      (update.exception as TaskHttpException).httpResponseCode;
+                  debugPrint(
+                      '🔴 HTTP Status Code from TaskHttpException: $httpCode');
                 }
               }
 
@@ -419,7 +432,8 @@ class SmartDownloader {
               break;
 
             case TaskStatus.notFound:
-              debugPrint('🔴 SmartDownloader: TaskStatus.notFound detected (404)');
+              debugPrint(
+                  '🔴 SmartDownloader: TaskStatus.notFound detected (404)');
 
               // 404 is a non-retryable error - handle immediately
               // Note: 404 always returns false (no resume), but using same pattern for consistency
@@ -476,8 +490,10 @@ class SmartDownloader {
       await listener?.cancel();
 
       if (currentAttempt < maxRetries) {
-        debugPrint('⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries');
-        await Future.delayed(Duration(seconds: currentAttempt * 2)); // Exponential backoff
+        debugPrint(
+            '⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries');
+        await Future.delayed(
+            Duration(seconds: currentAttempt * 2)); // Exponential backoff
 
         // Check cancellation before retry
         try {

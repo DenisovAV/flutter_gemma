@@ -55,8 +55,9 @@ class LlmInferenceOptions {
 @staticInterop
 class LlmInferenceBaseOptions {
   external factory LlmInferenceBaseOptions({
-    String? modelAssetPath,      // For cacheApi/none modes (Blob URL)
-    JSAny? modelAssetBuffer,     // For streaming mode (ReadableStreamDefaultReader from OPFS)
+    String? modelAssetPath, // For cacheApi/none modes (Blob URL)
+    JSAny?
+        modelAssetBuffer, // For streaming mode (ReadableStreamDefaultReader from OPFS)
   });
 }
 

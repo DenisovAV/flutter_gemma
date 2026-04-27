@@ -8,7 +8,8 @@ abstract class ModelException implements Exception {
   const ModelException(this.message, [this.cause]);
 
   @override
-  String toString() => 'ModelException: $message${cause != null ? ' (caused by: $cause)' : ''}';
+  String toString() =>
+      'ModelException: $message${cause != null ? ' (caused by: $cause)' : ''}';
 }
 
 /// Exception thrown when model download fails
@@ -48,7 +49,8 @@ class ModelValidationException extends ModelException {
   String toString() {
     var details = filePath ?? 'unknown file';
     if (actualSize != null && expectedMinSize != null) {
-      details += ' (size: $actualSize bytes, expected: >=$expectedMinSize bytes)';
+      details +=
+          ' (size: $actualSize bytes, expected: >=$expectedMinSize bytes)';
     }
     return 'ModelValidationException: $message ($details)${cause != null ? ' (caused by: $cause)' : ''}';
   }

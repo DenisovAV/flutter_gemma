@@ -19,7 +19,8 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    return clean.startsWith('<tool_call>') || _jsonFallback.isFunctionCallStart(buffer);
+    return clean.startsWith('<tool_call>') ||
+        _jsonFallback.isFunctionCallStart(buffer);
   }
 
   @override
@@ -40,7 +41,8 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    if (clean.contains('<tool_call>') && clean.contains('</tool_call>')) return true;
+    if (clean.contains('<tool_call>') && clean.contains('</tool_call>'))
+      return true;
     return _jsonFallback.isFunctionCallComplete(buffer);
   }
 
@@ -58,7 +60,8 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
     final content = JsonParsingUtils.cleanModelResponse(text);
 
     final results = <FunctionCallResponse>[];
-    final regex = RegExp(r'<tool_call>\s*([\s\S]*?)\s*</tool_call>', multiLine: true);
+    final regex =
+        RegExp(r'<tool_call>\s*([\s\S]*?)\s*</tool_call>', multiLine: true);
     for (final match in regex.allMatches(content)) {
       final result = JsonParsingUtils.parseJsonString(match.group(1)!.trim());
       if (result != null) results.add(result);
@@ -70,7 +73,8 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
 
   /// Parse `<tool_call>JSON</tool_call>` format.
   FunctionCallResponse? _parseToolCallBlock(String content) {
-    final regex = RegExp(r'<tool_call>\s*([\s\S]*?)\s*</tool_call>', multiLine: true);
+    final regex =
+        RegExp(r'<tool_call>\s*([\s\S]*?)\s*</tool_call>', multiLine: true);
     final match = regex.firstMatch(content);
 
     if (match != null) {

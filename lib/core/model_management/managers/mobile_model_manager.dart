@@ -31,7 +31,8 @@ class MobileModelManager extends ModelFileManager {
       await _ensureModelReady(spec);
       debugPrint('UnifiedModelManager: Model ${spec.name} is ready');
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e');
       rethrow;
     }
   }
@@ -67,7 +68,8 @@ class MobileModelManager extends ModelFileManager {
     final handlerRegistry = registry.sourceHandlerRegistry;
 
     for (final file in spec.files) {
-      debugPrint('🔀 Routing file: ${file.filename}, source type: ${file.source.runtimeType}');
+      debugPrint(
+          '🔀 Routing file: ${file.filename}, source type: ${file.source.runtimeType}');
 
       try {
         final handler = handlerRegistry.getHandler(file.source);
@@ -97,7 +99,8 @@ class MobileModelManager extends ModelFileManager {
   Future<void> _handleModelSwitching(ModelSpec spec) async {
     // If replace policy, clean up ALL models of this type before installing new one
     if (spec.replacePolicy == ModelReplacePolicy.replace) {
-      debugPrint('Policy-based replacement: cleaning up ALL ${spec.type.name} models');
+      debugPrint(
+          'Policy-based replacement: cleaning up ALL ${spec.type.name} models');
 
       // Delete all installed models of this type from ModelRepository
       final installedFiles = await getInstalledModels(spec.type);
@@ -198,10 +201,12 @@ class MobileModelManager extends ModelFileManager {
 
   /// Downloads a model with progress tracking
   @override
-  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token}) async* {
+  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec,
+      {String? token}) async* {
     await _ensureInitialized();
 
-    debugPrint('UnifiedModelManager: Starting download with progress - ${spec.name}');
+    debugPrint(
+        'UnifiedModelManager: Starting download with progress - ${spec.name}');
 
     try {
       yield* _downloadModelWithProgress(spec, token: token);
@@ -216,13 +221,15 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Internal implementation of download with progress
-  Stream<DownloadProgress> _downloadModelWithProgress(ModelSpec spec, {String? token}) async* {
+  Stream<DownloadProgress> _downloadModelWithProgress(ModelSpec spec,
+      {String? token}) async* {
     try {
       final totalFiles = spec.files.length;
 
       for (int i = 0; i < spec.files.length; i++) {
         final file = spec.files[i];
-        final filePath = await ModelFileSystemManager.getModelFilePath(file.filename);
+        final filePath =
+            await ModelFileSystemManager.getModelFilePath(file.filename);
 
         // Emit progress for current file start
         yield DownloadProgress(
@@ -248,7 +255,8 @@ class MobileModelManager extends ModelFileManager {
 
         // Validate downloaded file
         final minSize = ModelFileSystemManager.getMinimumSize(file.extension);
-        if (!await ModelFileSystemManager.isFileValid(filePath, minSizeBytes: minSize)) {
+        if (!await ModelFileSystemManager.isFileValid(filePath,
+            minSizeBytes: minSize)) {
           throw ModelValidationException(
             'Downloaded file failed validation: ${file.filename}',
             null,
@@ -296,7 +304,8 @@ class MobileModelManager extends ModelFileManager {
     }
 
     // Create new NetworkSource with token if provided
-    final networkSource = token != null ? NetworkSource(source.url, authToken: token) : source;
+    final networkSource =
+        token != null ? NetworkSource(source.url, authToken: token) : source;
 
     final registry = ServiceRegistry.instance;
     final handler = registry.networkHandler;
@@ -338,7 +347,8 @@ class MobileModelManager extends ModelFileManager {
       debugPrint('UnifiedModelManager: Model ${spec.name} installed: $result');
       return result;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to check if model installed - ${spec.name}: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to check if model installed - ${spec.name}: $e');
       return false;
     }
   }
@@ -378,7 +388,8 @@ class MobileModelManager extends ModelFileManager {
 
       debugPrint('UnifiedModelManager: Model deleted - ${spec.name}');
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to delete model - ${spec.name}: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to delete model - ${spec.name}: $e');
       throw ModelStorageException(
         'Failed to delete model: ${spec.name}',
         e,
@@ -403,13 +414,17 @@ class MobileModelManager extends ModelFileManager {
 
       // Get all installed models and filter by type
       final allModels = await repository.listInstalled();
-      final files =
-          allModels.where((info) => info.type == modelType).map((info) => info.id).toList();
+      final files = allModels
+          .where((info) => info.type == modelType)
+          .map((info) => info.id)
+          .toList();
 
-      debugPrint('UnifiedModelManager: Found ${files.length} installed files for type $type');
+      debugPrint(
+          'UnifiedModelManager: Found ${files.length} installed files for type $type');
       return files;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to get installed models for type $type: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to get installed models for type $type: $e');
       return [];
     }
   }
@@ -476,7 +491,8 @@ class MobileModelManager extends ModelFileManager {
       debugPrint('UnifiedModelManager: Model ${spec.name} validation: $result');
       return result;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to validate model - ${spec.name}: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to validate model - ${spec.name}: $e');
       return false;
     }
   }
@@ -505,7 +521,8 @@ class MobileModelManager extends ModelFileManager {
         } else if (file.source is BundledSource) {
           // Bundled source - get platform-specific bundled path
           final bundledSource = file.source as BundledSource;
-          path = await fileSystem.getBundledResourcePath(bundledSource.resourceName);
+          path = await fileSystem
+              .getBundledResourcePath(bundledSource.resourceName);
         } else {
           // Downloaded/Asset file - use standard app directory
           path = await ModelFileSystemManager.getModelFilePath(file.filename);
@@ -515,7 +532,8 @@ class MobileModelManager extends ModelFileManager {
 
       return filePaths;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to get file paths for ${spec.name}: $e');
+      debugPrint(
+          'UnifiedModelManager: Failed to get file paths for ${spec.name}: $e');
       return null;
     }
   }
@@ -577,7 +595,8 @@ class MobileModelManager extends ModelFileManager {
     return InferenceModelSpec(
       name: name,
       modelSource: BundledSource(resourceName),
-      loraSource: loraResourceName != null ? BundledSource(loraResourceName) : null,
+      loraSource:
+          loraResourceName != null ? BundledSource(loraResourceName) : null,
       replacePolicy: replacePolicy,
       modelType: modelType,
       fileType: fileType,
@@ -623,7 +642,8 @@ class MobileModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds");
+      throw UnsupportedError(
+          "Asset model loading is not supported in release builds");
     }
 
     await _ensureInitialized();
@@ -638,9 +658,11 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
+  Stream<int> installModelFromAssetWithProgress(String path,
+      {String? loraPath}) async* {
     if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds");
+      throw UnsupportedError(
+          "Asset model loading is not supported in release builds");
     }
 
     await _ensureInitialized();
@@ -701,7 +723,8 @@ class MobileModelManager extends ModelFileManager {
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
-  ModelSpec? get currentActiveModel => _activeInferenceModel ?? _activeEmbeddingModel;
+  ModelSpec? get currentActiveModel =>
+      _activeInferenceModel ?? _activeEmbeddingModel;
 
   /// Sets the active model for subsequent operations
   ///
@@ -803,11 +826,14 @@ class MobileModelManager extends ModelFileManager {
       stats['totalSizeMB'] = (totalSize / (1024 * 1024)).round();
 
       // Get counts by type from ModelRepository
-      final inferenceFiles = await getInstalledModels(ModelManagementType.inference);
-      final embeddingFiles = await getInstalledModels(ModelManagementType.embedding);
+      final inferenceFiles =
+          await getInstalledModels(ModelManagementType.inference);
+      final embeddingFiles =
+          await getInstalledModels(ModelManagementType.embedding);
 
       stats['inferenceModels'] = inferenceFiles.length;
-      stats['embeddingModels'] = embeddingFiles.length ~/ 2; // Each embedding model has 2 files
+      stats['embeddingModels'] =
+          embeddingFiles.length ~/ 2; // Each embedding model has 2 files
 
       return stats;
     } catch (e) {
@@ -879,7 +905,8 @@ class MobileModelManager extends ModelFileManager {
         enableResumeDetection: true,
       );
 
-      debugPrint('UnifiedModelManager: Cleaned up $deletedCount orphaned files');
+      debugPrint(
+          'UnifiedModelManager: Cleaned up $deletedCount orphaned files');
       return deletedCount;
     } catch (e) {
       debugPrint('UnifiedModelManager: Failed to cleanup storage: $e');
@@ -907,14 +934,17 @@ class MobileModelManager extends ModelFileManager {
       }
 
       // Add all installed inference models
-      final installedInference = await getInstalledModels(ModelManagementType.inference);
+      final installedInference =
+          await getInstalledModels(ModelManagementType.inference);
       protected.addAll(installedInference);
 
       // Add all installed embedding models
-      final installedEmbedding = await getInstalledModels(ModelManagementType.embedding);
+      final installedEmbedding =
+          await getInstalledModels(ModelManagementType.embedding);
       protected.addAll(installedEmbedding);
 
-      debugPrint('UnifiedModelManager: Protected files count: ${protected.length}');
+      debugPrint(
+          'UnifiedModelManager: Protected files count: ${protected.length}');
     } catch (e) {
       debugPrint('UnifiedModelManager: Failed to get protected files: $e');
     }

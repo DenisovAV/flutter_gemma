@@ -25,7 +25,8 @@ class WebFileSystemService implements FileSystemService {
     // On web, we can't write files to local file system
     // Instead, we create a blob URL via WebJsInterop (handled by WebDownloadService)
     // For now, this is primarily used for registration
-    debugPrint('WebFileSystemService: writeFile called for $path (${data.length} bytes)');
+    debugPrint(
+        'WebFileSystemService: writeFile called for $path (${data.length} bytes)');
 
     // Store a marker that this file exists
     // Note: Actual blob URL creation is handled by WebDownloadService + WebJsInterop
@@ -98,18 +99,21 @@ class WebFileSystemService implements FileSystemService {
     // Use absolute path starting with / to ensure proper resolution
     final assetPath = '/$resourceName';
 
-    debugPrint('WebFileSystemService: Bundled resource path for $resourceName: $assetPath');
+    debugPrint(
+        'WebFileSystemService: Bundled resource path for $resourceName: $assetPath');
 
     return assetPath;
   }
 
   @override
-  Future<void> registerExternalFile(String filename, String externalPath) async {
+  Future<void> registerExternalFile(
+      String filename, String externalPath) async {
     // Register the external path as a URL
     // On web, external paths are URLs
     _urlMappings[filename] = externalPath;
 
-    debugPrint('WebFileSystemService: Registered external file $filename -> $externalPath');
+    debugPrint(
+        'WebFileSystemService: Registered external file $filename -> $externalPath');
   }
 
   /// Registers a URL for a model (web-specific extension)
@@ -147,7 +151,8 @@ class WebFileSystemService implements FileSystemService {
     // Trigger cleanup callback for all blob URLs
     for (final entry in _urlMappings.entries) {
       if (_isBlobUrl[entry.key] == true) {
-        debugPrint('WebFileSystemService: Triggering blob URL cleanup for ${entry.key}');
+        debugPrint(
+            'WebFileSystemService: Triggering blob URL cleanup for ${entry.key}');
         _onBlobUrlRemoved?.call(entry.value);
       }
     }

@@ -48,7 +48,8 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token}) async* {
+  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec,
+      {String? token}) async* {
     await _ensureInitialized();
 
     debugPrint('WebModelManager: Starting download for ${spec.name}');
@@ -88,7 +89,8 @@ class WebModelManager extends ModelFileManager {
       // Download via Modern API handler with progress
       // All handlers implement installWithProgress (handlers that don't support
       // true progress will emit 100% immediately)
-      await for (final progress in handler.installWithProgress(sourceToInstall)) {
+      await for (final progress
+          in handler.installWithProgress(sourceToInstall)) {
         yield DownloadProgress(
           currentFileIndex: i,
           totalFiles: totalFiles,
@@ -243,28 +245,34 @@ class WebModelManager extends ModelFileManager {
         // If URL lost (page reload), restore from Cache API
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
-          debugPrint('[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...');
+          debugPrint(
+              '[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...');
 
           // Try to restore from Cache API
           final networkSource = file.source as NetworkSource;
-          final downloadService = registry.downloadService as WebDownloadService;
+          final downloadService =
+              registry.downloadService as WebDownloadService;
           final cacheService = downloadService.cacheService;
 
           // Get cached blob URL (cache service handles URL normalization internally)
-          final cachedBlobUrl = await cacheService.getCachedBlobUrl(networkSource.url);
+          final cachedBlobUrl =
+              await cacheService.getCachedBlobUrl(networkSource.url);
           if (cachedBlobUrl != null) {
-            debugPrint('[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl');
+            debugPrint(
+                '[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl');
             // Re-register the blob URL
             fileSystem.registerUrl(file.filename, cachedBlobUrl);
             url = cachedBlobUrl;
           } else {
-            debugPrint('[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)');
+            debugPrint(
+                '[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)');
           }
         }
         path = url ?? (file.source as NetworkSource).url;
       } else if (file.source is BundledSource) {
         // Web: Bundled resources
-        path = await fileSystem.getBundledResourcePath((file.source as BundledSource).resourceName);
+        path = await fileSystem.getBundledResourcePath(
+            (file.source as BundledSource).resourceName);
       } else if (file.source is AssetSource) {
         // Web: Get registered Blob URL (created by WebAssetSourceHandler)
         // If URL lost (page reload), recreate it
@@ -273,7 +281,8 @@ class WebModelManager extends ModelFileManager {
           debugPrint(
               '[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...');
           // Recreate Blob URL by reinstalling
-          final handler = registry.sourceHandlerRegistry.getHandler(file.source);
+          final handler =
+              registry.sourceHandlerRegistry.getHandler(file.source);
           if (handler != null) {
             await handler.install(file.source);
             url = fileSystem.getUrl(file.filename);
@@ -312,8 +321,10 @@ class WebModelManager extends ModelFileManager {
     final installedCount = allInstalled.length;
 
     // Count by type
-    final inferenceCount = allInstalled.where((m) => m.type == repo.ModelType.inference).length;
-    final embeddingCount = allInstalled.where((m) => m.type == repo.ModelType.embedding).length;
+    final inferenceCount =
+        allInstalled.where((m) => m.type == repo.ModelType.inference).length;
+    final embeddingCount =
+        allInstalled.where((m) => m.type == repo.ModelType.embedding).length;
 
     return {
       'protectedFiles': installedCount,
@@ -442,7 +453,8 @@ class WebModelManager extends ModelFileManager {
     return InferenceModelSpec(
       name: name,
       modelSource: BundledSource(resourceName),
-      loraSource: loraResourceName != null ? BundledSource(loraResourceName) : null,
+      loraSource:
+          loraResourceName != null ? BundledSource(loraResourceName) : null,
       replacePolicy: replacePolicy,
       modelType: modelType,
       fileType: fileType,
@@ -490,7 +502,8 @@ class WebModelManager extends ModelFileManager {
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
-  ModelSpec? get currentActiveModel => _activeInferenceModel ?? _activeEmbeddingModel;
+  ModelSpec? get currentActiveModel =>
+      _activeInferenceModel ?? _activeEmbeddingModel;
 
   // === Legacy Asset Loading Methods Implementation ===
 
@@ -514,7 +527,8 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds. "
+      throw UnsupportedError(
+          "Asset model loading is not supported in release builds. "
           "Use fromNetwork() or fromBundled() instead.");
     }
 
@@ -552,11 +566,14 @@ class WebModelManager extends ModelFileManager {
   ///   debugPrint('Progress: ${progress.currentFileProgress}%');
   /// }
   /// ```
-  @Deprecated('Use FlutterGemma.installModel().fromAsset().installWithProgress() instead')
+  @Deprecated(
+      'Use FlutterGemma.installModel().fromAsset().installWithProgress() instead')
   @override
-  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath}) async* {
+  Stream<int> installModelFromAssetWithProgress(String path,
+      {String? loraPath}) async* {
     if (kReleaseMode) {
-      throw UnsupportedError("Asset model loading is not supported in release builds. "
+      throw UnsupportedError(
+          "Asset model loading is not supported in release builds. "
           "Use fromNetwork() or fromBundled() instead.");
     }
 
@@ -602,11 +619,14 @@ class WebModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     // Create ModelSource based on path type
-    final modelSource =
-        path.startsWith('http') ? ModelSource.network(path) : ModelSource.file(path);
+    final modelSource = path.startsWith('http')
+        ? ModelSource.network(path)
+        : ModelSource.file(path);
 
     final loraSource = loraPath != null
-        ? (loraPath.startsWith('http') ? ModelSource.network(loraPath) : ModelSource.file(loraPath))
+        ? (loraPath.startsWith('http')
+            ? ModelSource.network(loraPath)
+            : ModelSource.file(loraPath))
         : null;
 
     // Convert legacy parameters to Modern API ModelSpec
@@ -652,7 +672,9 @@ class WebModelManager extends ModelFileManager {
     final current = _activeInferenceModel as InferenceModelSpec;
 
     // Create LoRA source from path
-    final loraSource = path.startsWith('http') ? ModelSource.network(path) : ModelSource.file(path);
+    final loraSource = path.startsWith('http')
+        ? ModelSource.network(path)
+        : ModelSource.file(path);
 
     final updatedSpec = InferenceModelSpec(
       name: current.name,

@@ -45,7 +45,8 @@ class PhiFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    if (clean.contains('<|tool_calls|>') && clean.contains('<|/tool_calls|>')) return true;
+    if (clean.contains('<|tool_calls|>') && clean.contains('<|/tool_calls|>'))
+      return true;
     return _jsonFallback.isFunctionCallComplete(buffer);
   }
 

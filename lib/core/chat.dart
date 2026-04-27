@@ -31,6 +31,7 @@ class InferenceChat {
   final List<Tool> tools;
 
   final List<Message> _fullHistory = [];
+  final List<Message> _prefixes = []; // Prefix messages (tools prompt + context message) for replay across sessions
   final List<Message> _modelHistory = [];
   int _currentTokens = 0;
   bool _toolsInstructionSent =
@@ -70,7 +71,7 @@ class InferenceChat {
     await addQueryChunk(message);
   }
 
-  Future<void> addQueryChunk(Message message, [bool noTool = false]) async {
+  Future<void> addQueryChunk(Message message, [bool noTool = false, bool prefix = false]) async {
     var messageToSend = message;
 
     // Only add tools prompt for the first user text message (not a tool response)
@@ -89,16 +90,17 @@ class InferenceChat {
       _toolsInstructionSent = true;
       final toolsPrompt = createToolsPrompt();
 
-      // For FunctionGemma, manually construct the full prompt with turn markers
-      // because tools prompt already has developer turn markers
-      if (modelType == ModelType.functionGemma) {
-        final newText =
-            '$toolsPrompt$startTurn$userPrefix\n${messageToSend.text}\n$endTurn\n$startTurn$modelPrefix\n';
-        messageToSend = messageToSend.copyWith(text: newText);
-      } else {
-        final newText = '$toolsPrompt\n${messageToSend.text}';
-        messageToSend = messageToSend.copyWith(text: newText);
-      }
+      // Create tools prompt message for both storage and session
+      final toolsPromptMessage = Message(
+        text: toolsPrompt,
+        isUser: true,
+      );
+
+      // Send to session
+      await session.addQueryChunk(toolsPromptMessage);
+
+      // Store in _prefixes for replay
+      _prefixes.add(toolsPromptMessage);
     } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
       // Log warning if model doesn't support function calls but tools are provided
       debugPrint(
@@ -121,11 +123,18 @@ class InferenceChat {
 
     await session.addQueryChunk(messageToSend);
 
-    // Store original message in _modelHistory (not messageToSend) so that
-    // _recreateSessionWithReducedChunks replay does not double-apply transformations
-    // (e.g. systemInstruction prepend, tools prompt) when the session is recreated.
+    // Store message in history
     _fullHistory.add(messageToSend);
-    _modelHistory.add(message);
+    // If this is a prefix message, add to _prefixes
+    if (prefix) {
+      _prefixes.add(message);
+    } else {
+      _modelHistory.add(message);
+    }
+
+    if (message.hasImage) {
+      _currentTokens += 257;
+    }
   }
 
   Future<ModelResponse> generateChatResponse() async {
@@ -203,6 +212,7 @@ class InferenceChat {
       debugPrint(
           'InferenceChat: Single-turn model detected, clearing model history...');
       _modelHistory.clear();
+      _prefixes.clear();
       _currentTokens = 0;
       _toolsInstructionSent = false;
 
@@ -509,6 +519,7 @@ class InferenceChat {
         debugPrint(
             'InferenceChat: Single-turn model detected (text response), clearing model history...');
         _modelHistory.clear();
+        _prefixes.clear();
         _currentTokens = 0;
         _toolsInstructionSent = false;
 
@@ -545,6 +556,12 @@ class InferenceChat {
     await session.close();
     session = await sessionCreator!();
 
+    // Replay prefixes first (explicit prefix messages)
+    for (final prefix in _prefixes) {
+      await session.addQueryChunk(prefix);
+    }
+
+    // Then replay model history
     for (final message in _modelHistory) {
       await session.addQueryChunk(message);
     }
@@ -552,6 +569,7 @@ class InferenceChat {
 
   Future<void> clearHistory({List<Message>? replayHistory}) async {
     _fullHistory.clear();
+    _prefixes.clear();
     _modelHistory.clear();
     _currentTokens = 0;
     _toolsInstructionSent = false;
@@ -560,7 +578,7 @@ class InferenceChat {
 
     if (replayHistory != null) {
       for (final message in replayHistory) {
-        await addQueryChunk(message, true);
+        await addQueryChunk(message);
       }
     }
   }

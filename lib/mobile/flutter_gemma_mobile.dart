@@ -98,6 +98,12 @@ class MobileInferenceModelSession extends InferenceModelSession {
         text: '[System: ${systemInstruction!}]\n\n${message.text}',
       );
     }
+    if (message.hasImage && message.imageBytes != null && supportImage) {
+      await _addImage(message.imageBytes!);
+    }
+    if (message.hasAudio && message.audioBytes != null && supportAudio) {
+      await _addAudio(message.audioBytes!);
+    }
     debugPrint(
         '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
     final finalPrompt = messageToSend.transformToChatPrompt(
@@ -105,12 +111,6 @@ class MobileInferenceModelSession extends InferenceModelSession {
     debugPrint(
         '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
     await _platformService.addQueryChunk(finalPrompt);
-    if (message.hasImage && message.imageBytes != null && supportImage) {
-      await _addImage(message.imageBytes!);
-    }
-    if (message.hasAudio && message.audioBytes != null && supportAudio) {
-      await _addAudio(message.audioBytes!);
-    }
   }
 
   Future<void> _addImage(Uint8List imageBytes) async {

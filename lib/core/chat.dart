@@ -306,6 +306,12 @@ class InferenceChat {
                     'InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!');
                 emittedFunctionCall = true;
                 lastFuncBuffer = funcBuffer;
+                // Add function call to history IMMEDIATELY (before yielding)
+                // so tool response from caller comes AFTER in history order
+                final toolCallMessage = Message.toolCall(text: funcBuffer);
+                _fullHistory.add(toolCallMessage);
+                _modelHistory.add(toolCallMessage);
+                debugPrint('InferenceChat: Added function call to history before yielding');
                 if (allCalls.length == 1) {
                   yield allCalls.first;
                 } else {
@@ -440,6 +446,11 @@ class InferenceChat {
                 'InferenceChat: ${allCalls.length} function call(s) found at end of stream');
             emittedFunctionCall = true;
             lastFuncBuffer = contentToCheck;
+            // Add function call to history IMMEDIATELY (before yielding)
+            final toolCallMessage = Message.toolCall(text: contentToCheck);
+            _fullHistory.add(toolCallMessage);
+            _modelHistory.add(toolCallMessage);
+            debugPrint('InferenceChat: Added function call to history at end of stream');
             if (allCalls.length == 1) {
               yield allCalls.first;
             } else {
@@ -477,17 +488,19 @@ class InferenceChat {
 
     try {
       debugPrint('InferenceChat: Adding message to history...');
-      // Use toolCall message for function calls, text message otherwise
-      final chatMessage = emittedFunctionCall
-          ? Message.toolCall(
-              text: lastFuncBuffer.isNotEmpty ? lastFuncBuffer : response)
-          : Message(text: response, isUser: false);
-      debugPrint(
-          'InferenceChat: Created message object (toolCall=$emittedFunctionCall): ${chatMessage.text}');
-      _fullHistory.add(chatMessage);
-      debugPrint('InferenceChat: Added to full history');
-      _modelHistory.add(chatMessage);
-      debugPrint('InferenceChat: Added to model history');
+      // For function calls: already added to history when yielded (above)
+      // For text responses: add now since they weren't added during streaming
+      if (!emittedFunctionCall) {
+        final chatMessage = Message(text: response, isUser: false);
+        debugPrint(
+            'InferenceChat: Created text message object: ${chatMessage.text}');
+        _fullHistory.add(chatMessage);
+        debugPrint('InferenceChat: Added to full history');
+        _modelHistory.add(chatMessage);
+        debugPrint('InferenceChat: Added to model history');
+      } else {
+        debugPrint('InferenceChat: Function call was already added to history when yielded');
+      }
       debugPrint('InferenceChat: Message added to history successfully');
 
       // Clear model history for single-turn models (e.g., FunctionGemma)

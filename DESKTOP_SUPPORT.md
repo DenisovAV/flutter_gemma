@@ -43,8 +43,12 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 **Native libraries** are fetched at build time by `hook/build.dart` from the
 GitHub release `native-v0.10.2`, SHA256-verified, and bundled by Flutter
 [Native Assets](https://docs.flutter.dev/development/platform-integration/c-interop)
-into the application bundle. There is nothing for end-users to install
-manually.
+into the application bundle. End-users only need to add a small
+`post_install` snippet to their **macOS** `Podfile` so the bundled
+companion `.framework`s get matching `lib*.dylib` symlinks for LiteRT-LM's
+`gpu_registry` to find them by basename — see
+[macOS setup in the README](README.md#macos-setup) for the exact block.
+Linux and Windows are fully self-contained (no manual setup).
 
 The Dart FFI layer is shared with mobile — Android and iOS use the same
 `LiteRtLmFfiClient` against the same C API. Only the dynamic library
@@ -139,7 +143,15 @@ For the high-level chat API with history + thinking + tool calling, use
 
 ### macOS
 
-`flutter_gemma` ships everything via Native Assets — no manual setup needed.
+Native libs are fetched and bundled automatically via Native Assets. The
+**only manual step** is adding a `post_install` block to your app's
+`macos/Podfile` so the bundled companion `.framework`s get matching
+`lib*.dylib` symlinks (LiteRT-LM's `gpu_registry` calls
+`dlopen("libLiteRtMetalAccelerator.dylib")` by basename and won't find a
+bare framework binary on its own). See the
+[macOS setup snippet in the README](README.md#macos-setup) for the exact
+block. Without it `engine_create` returns null on `PreferredBackend.gpu`
+and the model silently falls back to CPU.
 
 **Entitlements** required for the LLM to load weights and run inference:
 
@@ -343,9 +355,12 @@ SamplerConfig is also seed-deaf on GPU.**
 
 #### What our patch does
 
-`native/litert_lm/patch_c_api.sh` (Strategy D — see plan file) extends
-the upstream source with four edits applied at build time, then runs
-`bazelisk build` to produce a patched `libLiteRtLm.{so,dylib,dll}`:
+`native/litert_lm/patch_c_api.sh` extends the upstream source with four
+edits applied at build time, then runs `bazelisk build` to produce a
+patched `libLiteRtLm.{so,dylib,dll}` (the same patch is also offered
+upstream as
+[google-ai-edge/LiteRT-LM#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080)
+and [PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081)):
 
 - **Section 6** — `runtime/executor/llm_executor_base.h`: add
   ```cpp
@@ -397,7 +412,8 @@ push session sampler params see no change.
 - [google-ai-edge/LiteRT-LM #1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990) — Metal sampler missing prebuilt
 - [google-ai-edge/LiteRT-LM #2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073) — WebGpu sampler exports 3/7 functions
 - [google-ai-edge/LiteRT-LM #1992](https://github.com/google-ai-edge/LiteRT-LM/issues/1992) (closed) — Python parity, fix didn't reach executor
-- **TBD: open upstream PR** with our Strategy D patch + reproducer test (run with `flutter test integration_test/regression_bugs_test.dart` on any platform, `randomSeed=42` vs `randomSeed=99` at `temperature=1.0` on `PreferredBackend.gpu`).
+- [google-ai-edge/LiteRT-LM #2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) — bug report we filed (executor + `session_basic.cc:108` together drop GPU/NPU sampler params)
+- [google-ai-edge/LiteRT-LM PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081) — our proposed fix (Strategy D — `LlmExecutor::SetPendingSamplerParams` virtual + override on `LlmLiteRtCompiledModelExecutorBase` + `session_basic.cc` push). Reproducer: `flutter test integration_test/regression_bugs_test.dart` on any platform, `randomSeed=42` vs `randomSeed=99` at `temperature=1.0` on `PreferredBackend.gpu`.
 
 ### macOS vision is broken upstream
 

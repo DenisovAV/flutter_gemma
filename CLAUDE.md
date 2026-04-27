@@ -60,7 +60,7 @@
 | Platform | Vision/Multimodal | Audio | Embeddings | Notes |
 |----------|-------------------|-------|------------|-------|
 | Android | ✅ | ✅ | ✅ | Full support |
-| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Auto-setup via podspec script_phase |
+| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Setup via Podfile `post_install` (creates `lib*.dylib` symlinks next to bundled frameworks) |
 | iOS Simulator | ❌ GPU | ❌ GPU | ✅ | CPU only — Metal sim has 256 MB single-allocation cap, LLM weights exceed |
 | Web | ✅ | ❌ | ✅ | MediaPipe only |
 | macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ | Vision: SDK bug, model hallucinates |
@@ -176,7 +176,9 @@ flutter analyze && dart format . && flutter test
 | `native/litert_lm/build_ios.sh` | Local iOS dylib rebuild script (calls patch_c_api.sh) |
 | `native/litert_lm/patch_c_api.sh` | C API source patcher (linkshared, set_max_num_images, dispatch_lib_dir) |
 | `native/litert_lm/stream_proxy.c` | RTLD_GLOBAL/LoadLibraryEx preload helper + stderr redirect for debug logs |
-| `ios/flutter_gemma.podspec` | iOS pod with script_phase for dylib symlinks |
+| `ios/flutter_gemma.podspec` | iOS pod (companion `lib*.dylib` symlinks come from `example/ios/Podfile` `post_install` — pod-level `script_phase` doesn't reach the host app target) |
+| `example/ios/Podfile` | iOS host app `post_install` block — creates `lib*.dylib` symlinks next to `.framework`s for `gpu_registry` basename `dlopen` |
+| `example/macos/Podfile` | Same `post_install` pattern for macOS (added in 0.14.0) |
 | `example/lib/models/model.dart` | Model configurations & URLs |
 
 ## Project Structure

@@ -104,13 +104,18 @@ class MobileInferenceModelSession extends InferenceModelSession {
         type: modelType, fileType: fileType);
     debugPrint(
         '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
-    await _platformService.addQueryChunk(finalPrompt);
-    if (message.hasImage && message.imageBytes != null && supportImage) {
-      await _addImage(message.imageBytes!);
+    if (message.hasImage && supportImage) {
+      final images = message.images.isNotEmpty
+          ? message.images
+          : (message.imageBytes != null ? [message.imageBytes!] : const <Uint8List>[]);
+      for (final image in images) {
+        await _addImage(image);
+      }
     }
     if (message.hasAudio && message.audioBytes != null && supportAudio) {
       await _addAudio(message.audioBytes!);
     }
+    await _platformService.addQueryChunk(finalPrompt);
   }
 
   Future<void> _addImage(Uint8List imageBytes) async {

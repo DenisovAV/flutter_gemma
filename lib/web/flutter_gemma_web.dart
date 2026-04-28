@@ -589,30 +589,30 @@ class WebModelSession extends InferenceModelSession {
     final finalPrompt = messageToSend.transformToChatPrompt(
         type: modelType, fileType: fileType);
 
-    // Add text part
-    _promptParts.add(TextPromptPart(finalPrompt));
-    if (kDebugMode) {
-      debugPrint(
-          '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
-    }
-
-    // Handle image processing for web
-    if (message.hasImage && message.imageBytes != null) {
-      if (kDebugMode) {
-        debugPrint('🟢 Processing image: ${message.imageBytes!.length} bytes');
-      }
+    // Add image parts first, then audio, then text last.
+    if (message.hasImage) {
       if (!supportImage) {
         if (kDebugMode) {
           debugPrint('🔴 Model does not support images - throwing exception');
         }
         throw ArgumentError('This model does not support images');
       }
-      // Add image part
-      final imagePart = ImagePromptPart.fromBytes(message.imageBytes!);
-      _promptParts.add(imagePart);
-      if (kDebugMode) {
-        debugPrint(
-            '🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+
+      final images = message.images.isNotEmpty
+          ? message.images
+          : (message.imageBytes != null
+              ? [message.imageBytes!]
+              : const <Uint8List>[]);
+      for (final imageBytes in images) {
+        if (kDebugMode) {
+          debugPrint('🟢 Processing image: ${imageBytes.length} bytes');
+        }
+        final imagePart = ImagePromptPart.fromBytes(imageBytes);
+        _promptParts.add(imagePart);
+        if (kDebugMode) {
+          debugPrint(
+              '🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+        }
       }
     }
 
@@ -634,6 +634,12 @@ class WebModelSession extends InferenceModelSession {
         debugPrint(
             '🎵 Added audio part with ${message.audioBytes!.length} bytes');
       }
+    }
+
+    // Add text part last so multimodal turns keep image/audio context first.
+    _promptParts.add(TextPromptPart(finalPrompt));
+    if (kDebugMode) {
+      debugPrint('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
     }
 
     if (kDebugMode) {

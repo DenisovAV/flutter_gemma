@@ -9,25 +9,41 @@ on:
   workflow_dispatch:
     inputs:
       litertlm_version:
-        description: 'LiteRT-LM version tag'
+        description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-        default: 'v0.10.2'
+        default: '5e0d86b'
+      publish_release:
+        description: 'Publish to GitHub Release'
+        type: boolean
+        default: false
 
 jobs:
   build-linux-x86_64:
     name: Linux x86_64
-    runs-on: ubuntu-24.04
+    # Pin to ubuntu-22.04 (glibc 2.35) for broader compatibility. Our
+    # libLiteRtLm.so ends up needing only GLIBC_2.34, which works on
+    # Ubuntu 22.04+ / Debian 12+ / RHEL 9+.
+    # Google prebuilt companions (libLiteRt.so etc.) only require 2.26-2.27.
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install clang-17 (XNNPACK AVX-VNNI requires >=15)
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 17
+          sudo ln -sf /usr/bin/clang-17 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-17 /usr/bin/clang++
+          clang --version
+
       - name: Clone LiteRT-LM
         run: |
-          git clone --depth 1 --branch "$LITERTLM_VERSION" \
-            https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
-          cd /tmp/LiteRT-LM && git lfs pull --include="prebuilt/linux_x86_64/*"
+          # Use unshallow + checkout to support both tags and commit SHAs.
+          # `git clone --branch SHA` only works for refs, not arbitrary commits.
+          git clone https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
+          cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_x86_64/*"
 
       - name: Patch C API
         run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
@@ -35,7 +51,7 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build '//c:libLiteRtLm.dylib'
+          bazelisk build --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -52,27 +68,79 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: litertlm-linux-x86_64
+          name: litertlm-linux_x86_64
+          path: artifacts/
+
+  build-linux-arm64:
+    name: Linux arm64
+    # Pin to ubuntu-22.04-arm (glibc 2.35) for broader compatibility.
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 60
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-17 (XNNPACK compatibility)
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 17
+          sudo ln -sf /usr/bin/clang-17 /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-17 /usr/bin/clang++
+          clang --version
+
+      - name: Clone LiteRT-LM
+        run: |
+          git clone https://github.com/google-ai-edge/LiteRT-LM /tmp/LiteRT-LM
+          cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_arm64/*"
+
+      - name: Patch C API
+        run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+
+      - name: Build libLiteRtLm.so
+        run: |
+          cd /tmp/LiteRT-LM
+          bazelisk build --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+
+      - name: Build libStreamProxy.so
+        run: |
+          gcc -shared -fPIC -o /tmp/libStreamProxy.so \
+            native/litert_lm/stream_proxy.c
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
+          cp /tmp/libStreamProxy.so artifacts/
+          cp /tmp/LiteRT-LM/prebuilt/linux_arm64/*.so artifacts/ 2>/dev/null || true
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: litertlm-linux_arm64
           path: artifacts/
 
   build-windows-x86_64:
     name: Windows x86_64
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     defaults:
       run:
         shell: pwsh
     env:
       LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
       ANDROID_NDK_HOME: ''
+      BAZEL_OUTPUT_BASE: 'D:\b'
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable symlinks
+        run: git config --global core.symlinks true
+
       - name: Clone LiteRT-LM
         run: |
-          git clone --depth 1 --branch "$env:LITERTLM_VERSION" `
-            https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
+          git clone https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
           cd C:\LiteRT-LM
+          git checkout "$env:LITERTLM_VERSION"
           git lfs pull --include="prebuilt/windows_x86_64/*"
 
       - name: Patch C API
@@ -80,24 +148,129 @@ jobs:
         run: bash native/litert_lm/patch_c_api.sh C:/LiteRT-LM
 
       - name: Build LiteRtLm.dll
+        # litert_link_capi_so=true + resolve_symbols_in_exec=false is the same
+        # trick we use on Linux to avoid statically linking the LiteRt C API
+        # inside libLiteRtLm (which conflicts with the prebuilt WebGPU
+        # accelerator's expected separate libLiteRt). On Windows the second
+        # define is required — without it bazel cannot resolve LiteRt* imports
+        # at link time (167 unresolved externals, see commit f4c485e).
         run: |
           cd C:\LiteRT-LM
-          bazel build --build_tag_filters='-nowindows' '//c:libLiteRtLm.dylib'
+          bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
+            build --build_tag_filters='-nowindows' `
+            --features=compiler_param_file `
+            --features=archive_param_file `
+            --spawn_strategy=local `
+            --define=litert_link_capi_so=true `
+            --define=resolve_symbols_in_exec=false `
+            '//c:libLiteRtLm.dylib'
+
+      - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build StreamProxy.dll
         run: |
           cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
 
+      - name: Download DirectXShaderCompiler runtime
+        # WebGPU/DX12 backend on Windows requires dxil.dll + dxcompiler.dll
+        # at runtime to compile compute shaders for the LLM kernels.
+        # Sourced from microsoft/DirectXShaderCompiler GitHub releases.
+        run: |
+          $dxcVer = 'v1.9.2602'
+          $dxcUrl = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$dxcVer/dxc_2026_02_20.zip"
+          Invoke-WebRequest -Uri $dxcUrl -OutFile dxc.zip
+          Expand-Archive -Path dxc.zip -DestinationPath dxc -Force
+          Get-ChildItem -Recurse dxc | Where-Object { $_.Name -in 'dxil.dll','dxcompiler.dll' } | Select-Object FullName, Length
+
       - name: Collect artifacts
+        # Ship BOTH naming conventions for Google's prebuilt companion DLLs:
+        # - Prefixless (LiteRt.dll) for Native Assets on Windows
+        # - Original lib* (libLiteRt.dll) to satisfy LiteRtLm.dll's PE import table
+        # Plus DXC runtime DLLs (dxil + dxcompiler) for WebGPU/DX12 GPU init.
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
           Copy-Item StreamProxy.dll artifacts\
-          Get-ChildItem C:\LiteRT-LM\prebuilt\windows_x86_64\*.dll |
-            Copy-Item -Destination artifacts\ -ErrorAction SilentlyContinue
+          $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
+          foreach ($base in @('libGemmaModelConstraintProvider','libLiteRt','libLiteRtTopKWebGpuSampler','libLiteRtWebGpuAccelerator')) {
+            $src = "$prebuilt\$base.dll"
+            if (Test-Path $src) {
+              # Keep original name for PE imports
+              Copy-Item $src "artifacts\$base.dll"
+              # And prefixless copy for Native Assets registration
+              $stripped = $base -replace '^lib',''
+              Copy-Item $src "artifacts\$stripped.dll"
+            }
+          }
+          # DXC runtime — search recursively because the zip layout puts the
+          # x64 binaries in bin\x64\ inside the archive root.
+          foreach ($dxc in 'dxil.dll', 'dxcompiler.dll') {
+            $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+            if (-not $src) {
+              $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Select-Object -First 1
+            }
+            if ($src) {
+              Copy-Item $src.FullName "artifacts\$dxc"
+            } else {
+              throw "DXC runtime missing: $dxc"
+            }
+          }
           Get-ChildItem artifacts\
 
       - uses: actions/upload-artifact@v4
         with:
-          name: litertlm-windows-x86_64
+          name: litertlm-windows_x86_64
           path: artifacts/
+
+  publish-release:
+    name: Publish to GitHub Release
+    needs: [build-linux-x86_64, build-linux-arm64, build-windows-x86_64]
+    if: inputs.publish_release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.10.2' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Package archives
+        run: |
+          mkdir -p release
+          for dir_name in linux_x86_64 linux_arm64 windows_x86_64; do
+            dir="artifacts/litertlm-${dir_name}"
+            archive="litertlm-${dir_name}.tar.gz"
+            if [ -d "$dir" ]; then
+              tar -czf "release/${archive}" -C "$dir" .
+              echo "Packaged: ${archive}"
+            fi
+          done
+          cd release && sha256sum *.tar.gz > checksums_litertlm.txt
+          cat checksums_litertlm.txt
+
+      - name: Delete old CI assets from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for asset in litertlm-linux_x86_64.tar.gz litertlm-linux_arm64.tar.gz litertlm-windows_x86_64.tar.gz checksums_litertlm.txt; do
+            gh release delete-asset "native-$LITERTLM_VERSION" "$asset" -y 2>/dev/null || true
+          done
+
+      - name: Create/update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: native-${{ env.LITERTLM_VERSION }}
+          name: Native Libraries ${{ env.LITERTLM_VERSION }}
+          body: |
+            LiteRT-LM native libraries built from source ${{ env.LITERTLM_VERSION }}.
+
+            Platforms included (CI-built):
+            - Linux x86_64
+            - Linux arm64
+            - Windows x86_64
+
+            macOS/iOS/Android archives are uploaded separately after local builds.
+          files: release/*
+          fail_on_unmatched_files: false

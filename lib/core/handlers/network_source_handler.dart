@@ -40,8 +40,8 @@ class NetworkSourceHandler implements SourceHandler {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
 
-    final effectiveToken =
-        source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
+    final effectiveToken = source.authToken ??
+        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getTargetPath(filename);
 
@@ -78,8 +78,8 @@ class NetworkSourceHandler implements SourceHandler {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
 
-    final effectiveToken =
-        source.authToken ?? (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
+    final effectiveToken = source.authToken ??
+        (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getTargetPath(filename);
 

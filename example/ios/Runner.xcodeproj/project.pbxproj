@@ -187,6 +187,7 @@
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				42F9AD361A8968AA697F843D /* [CP] Copy Pods Resources */,
+				899D228D8844E0850FF8A76B /* [flutter_gemma] Setup LiteRT-LM iOS */,
 			);
 			buildRules = (
 			);
@@ -207,6 +208,7 @@
 				F7A8C0A12D0F000000000012 /* Resources */,
 				B8CC58BE8642F70FCF2DD33C /* [CP] Copy Pods Resources */,
 				F7A8C0A12D0F000000000031 /* Embed Flutter Framework */,
+				670D28A18186124603F5F88C /* [flutter_gemma] Setup LiteRT-LM iOS */,
 			);
 			buildRules = (
 			);
@@ -312,6 +314,24 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		670D28A18186124603F5F88C /* [flutter_gemma] Setup LiteRT-LM iOS */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[flutter_gemma] Setup LiteRT-LM iOS";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Frameworks\"\nif [ ! -d \"${FRAMEWORKS}\" ]; then\n  echo \"[flutter_gemma] no Frameworks/ in ${PRODUCT_NAME}.app — skipping\"\n  exit 0\nfi\nfor base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do\n  src=\"${base}.framework/${base}\"\n  if [ ! -e \"${FRAMEWORKS}/${src}\" ]; then\n    echo \"[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it\"\n    continue\n  fi\n  dst=\"${FRAMEWORKS}/lib${base}.dylib\"\n  if [ ! -e \"${dst}\" ]; then\n    ln -sf \"${src}\" \"${dst}\"\n    echo \"[flutter_gemma] symlinked lib${base}.dylib -> ${src}\"\n  fi\ndone\n";
+		};
 		8575A0DDAE95520CBA3A918B /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -333,6 +353,24 @@
 			shellPath = /bin/sh;
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
+		};
+		899D228D8844E0850FF8A76B /* [flutter_gemma] Setup LiteRT-LM iOS */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[flutter_gemma] Setup LiteRT-LM iOS";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Frameworks\"\nif [ ! -d \"${FRAMEWORKS}\" ]; then\n  echo \"[flutter_gemma] no Frameworks/ in ${PRODUCT_NAME}.app — skipping\"\n  exit 0\nfi\nfor base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do\n  src=\"${base}.framework/${base}\"\n  if [ ! -e \"${FRAMEWORKS}/${src}\" ]; then\n    echo \"[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it\"\n    continue\n  fi\n  dst=\"${FRAMEWORKS}/lib${base}.dylib\"\n  if [ ! -e \"${dst}\" ]; then\n    ln -sf \"${src}\" \"${dst}\"\n    echo \"[flutter_gemma] symlinked lib${base}.dylib -> ${src}\"\n  fi\ndone\n";
 		};
 		9740EEB61CF901F6004384FC /* Run Script */ = {
 			isa = PBXShellScriptBuildPhase;

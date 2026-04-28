@@ -10,7 +10,8 @@ class WebNetworkSourceHandler implements SourceHandler {
     required dynamic cacheService,
     dynamic huggingFaceToken,
   }) {
-    throw UnsupportedError('WebNetworkSourceHandler is only available on web platform');
+    throw UnsupportedError(
+        'WebNetworkSourceHandler is only available on web platform');
   }
 
   @override
@@ -18,12 +19,15 @@ class WebNetworkSourceHandler implements SourceHandler {
 
   @override
   Future<void> install(ModelSource source, {CancelToken? cancelToken}) {
-    throw UnsupportedError('WebNetworkSourceHandler is only available on web platform');
+    throw UnsupportedError(
+        'WebNetworkSourceHandler is only available on web platform');
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source, {CancelToken? cancelToken}) {
-    throw UnsupportedError('WebNetworkSourceHandler is only available on web platform');
+  Stream<int> installWithProgress(ModelSource source,
+      {CancelToken? cancelToken}) {
+    throw UnsupportedError(
+        'WebNetworkSourceHandler is only available on web platform');
   }
 
   @override

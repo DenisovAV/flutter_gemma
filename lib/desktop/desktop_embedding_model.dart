@@ -11,7 +11,7 @@ class DesktopEmbeddingModel extends EmbeddingModel {
     required TfLiteInterpreter interpreter,
     required this.tokenize,
     required this.onClose,
-  })  : _interpreter = interpreter;
+  }) : _interpreter = interpreter;
 
   final TfLiteInterpreter _interpreter;
 
@@ -40,9 +40,8 @@ class DesktopEmbeddingModel extends EmbeddingModel {
 
   /// Tokenize text with prefix, add BOS/EOS with correct Gemma IDs.
   List<int> _prepareTokens(String text, {required TaskType taskType}) {
-    final prefix = taskType == TaskType.retrievalDocument
-        ? _docPrefix
-        : _queryPrefix;
+    final prefix =
+        taskType == TaskType.retrievalDocument ? _docPrefix : _queryPrefix;
     final fullText = prefix + text;
     final tokens = tokenize(fullText);
     return [_bosId, ...tokens, _eosId];

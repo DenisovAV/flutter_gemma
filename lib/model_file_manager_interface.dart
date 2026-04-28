@@ -14,7 +14,8 @@ abstract class ModelFileManager {
   Future<bool> isModelInstalled(ModelSpec spec);
 
   /// Downloads a model with progress tracking
-  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec, {String? token});
+  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec,
+      {String? token});
 
   /// Downloads a model without progress tracking
   Future<void> downloadModel(ModelSpec spec, {String? token});
@@ -62,8 +63,10 @@ abstract class ModelFileManager {
   Future<void> installModelFromAsset(String path, {String? loraPath});
 
   /// Legacy API: Installs model from Flutter assets with progress tracking (debug only)
-  @Deprecated('Use FlutterGemma.installModel().fromAsset().withProgress() instead')
-  Stream<int> installModelFromAssetWithProgress(String path, {String? loraPath});
+  @Deprecated(
+      'Use FlutterGemma.installModel().fromAsset().withProgress() instead')
+  Stream<int> installModelFromAssetWithProgress(String path,
+      {String? loraPath});
 
   /// Legacy API: Sets direct path to existing model files
   @Deprecated('Use FlutterGemma.installModel().fromFile() instead')

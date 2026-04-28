@@ -4,7 +4,8 @@
 enum EmbeddingModel {
   // EmbeddingGemma models
   embeddingGemma300M(
-    url: 'https://huggingface.co/google/embeddinggemma-300m/resolve/main/model.tflite',
+    url:
+        'https://huggingface.co/google/embeddinggemma-300m/resolve/main/model.tflite',
     tokenizerUrl:
         'https://huggingface.co/google/embeddinggemma-300m/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m.tflite',
@@ -16,7 +17,8 @@ enum EmbeddingModel {
   ),
 
   embeddingGemma300M8bit(
-    url: 'https://huggingface.co/google/embeddinggemma-300m-8bit/resolve/main/model.tflite',
+    url:
+        'https://huggingface.co/google/embeddinggemma-300m-8bit/resolve/main/model.tflite',
     tokenizerUrl:
         'https://huggingface.co/google/embeddinggemma-300m-8bit/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m-8bit.tflite',
@@ -28,7 +30,8 @@ enum EmbeddingModel {
   ),
 
   embeddingGemma300M4bit(
-    url: 'https://huggingface.co/google/embeddinggemma-300m-4bit/resolve/main/model.tflite',
+    url:
+        'https://huggingface.co/google/embeddinggemma-300m-4bit/resolve/main/model.tflite',
     tokenizerUrl:
         'https://huggingface.co/google/embeddinggemma-300m-4bit/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m-4bit.tflite',
@@ -40,7 +43,8 @@ enum EmbeddingModel {
   ),
 
   embeddingGemma300M2bit(
-    url: 'https://huggingface.co/google/embeddinggemma-300m-2bit/resolve/main/model.tflite',
+    url:
+        'https://huggingface.co/google/embeddinggemma-300m-2bit/resolve/main/model.tflite',
     tokenizerUrl:
         'https://huggingface.co/google/embeddinggemma-300m-2bit/resolve/main/sentencepiece.model',
     filename: 'embeddinggemma-300m-2bit.tflite',
@@ -52,7 +56,8 @@ enum EmbeddingModel {
   ),
 
   gecko110M(
-    url: 'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/gecko.tflite',
+    url:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/gecko.tflite',
     tokenizerUrl:
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
     filename: 'gecko-110m.tflite',

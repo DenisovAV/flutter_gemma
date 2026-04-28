@@ -46,11 +46,11 @@ class WebAssetSourceHandler implements SourceHandler {
     CancelToken? cancelToken,
   }) async {
     // Delegate to installWithProgress, ignore progress events
-    await for (final _ in installWithProgress(source, cancelToken: cancelToken)) {
+    await for (final _
+        in installWithProgress(source, cancelToken: cancelToken)) {
       // Ignore progress updates
     }
   }
-
 
   @override
   Stream<int> installWithProgress(
@@ -69,7 +69,8 @@ class WebAssetSourceHandler implements SourceHandler {
       yield* cacheService.getOrCacheAndRegisterWithProgress(
         cacheKey: cacheKey,
         loader: (onProgress) async {
-          debugPrint('[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
+          debugPrint(
+              '[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
 
           onProgress(0.0);
           final byteData = await rootBundle.load(source.normalizedPath);
@@ -77,13 +78,12 @@ class WebAssetSourceHandler implements SourceHandler {
 
           // Validate asset is not empty
           if (bytes.isEmpty) {
-            throw StateError(
-              'Asset file is empty: ${source.normalizedPath}. '
-              'Check that the file exists and is not corrupted.'
-            );
+            throw StateError('Asset file is empty: ${source.normalizedPath}. '
+                'Check that the file exists and is not corrupted.');
           }
 
-          debugPrint('[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
+          debugPrint(
+              '[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
           onProgress(1.0);
 
           return bytes;

@@ -91,19 +91,25 @@ class WebDownloadService implements DownloadService {
     // STREAMING MODE: Use OPFS for large models
     if (webStorageMode == WebStorageMode.streaming) {
       if (opfsService == null) {
-        debugPrint('[WARNING] OPFS not available, falling back to cacheApi mode');
-        debugPrint('[WARNING] Large models (>2GB) may fail with ArrayBuffer limit');
-        debugPrint('[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)');
+        debugPrint(
+            '[WARNING] OPFS not available, falling back to cacheApi mode');
+        debugPrint(
+            '[WARNING] Large models (>2GB) may fail with ArrayBuffer limit');
+        debugPrint(
+            '[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)');
         // Fall back to cache API mode
-        yield* _downloadToCache(url, targetPath, token: token, cancelToken: cancelToken);
+        yield* _downloadToCache(url, targetPath,
+            token: token, cancelToken: cancelToken);
         return;
       }
-      yield* _downloadToOPFS(url, targetPath, token: token, cancelToken: cancelToken);
+      yield* _downloadToOPFS(url, targetPath,
+          token: token, cancelToken: cancelToken);
       return;
     }
 
     // CACHE API / NONE MODES: Use blob URLs
-    yield* _downloadToCache(url, targetPath, token: token, cancelToken: cancelToken);
+    yield* _downloadToCache(url, targetPath,
+        token: token, cancelToken: cancelToken);
   }
 
   /// Download to cache (Cache API or None mode)
@@ -138,9 +144,11 @@ class WebDownloadService implements DownloadService {
       yield* _downloadPublic(url, normalizedUrl, targetPath, cancelToken);
     } else {
       // PRIVATE PATH: Fetch with auth
-      debugPrint('WebDownloadService: Starting authenticated download for $targetPath');
+      debugPrint(
+          'WebDownloadService: Starting authenticated download for $targetPath');
 
-      yield* _downloadWithAuth(url, normalizedUrl, targetPath, token, cancelToken);
+      yield* _downloadWithAuth(
+          url, normalizedUrl, targetPath, token, cancelToken);
     }
   }
 
@@ -159,7 +167,8 @@ class WebDownloadService implements DownloadService {
     try {
       cancelToken?.throwIfCancelled();
 
-      debugPrint('[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
+      debugPrint(
+          '[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
 
       // Check if already in OPFS
       final isAlreadyCached = await opfsService!.isModelCached(targetPath);
@@ -193,7 +202,8 @@ class WebDownloadService implements DownloadService {
         },
         abortSignal: abortController.signal,
       ).then((_) {
-        debugPrint('[WebDownloadService] ✅ OPFS download complete: $targetPath');
+        debugPrint(
+            '[WebDownloadService] ✅ OPFS download complete: $targetPath');
 
         // Register as OPFS file
         _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
@@ -217,7 +227,8 @@ class WebDownloadService implements DownloadService {
     } on DownloadCancelledException {
       // Abort the JS fetch request
       abortController?.abort();
-      debugPrint('[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
+      debugPrint(
+          '[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
       rethrow;
     } catch (e) {
       debugPrint('[WebDownloadService] ❌ OPFS download error: $e');
@@ -253,7 +264,8 @@ class WebDownloadService implements DownloadService {
           // Note: fetchFile doesn't support progress callbacks yet
           final response = await _jsInterop.fetchFile(url);
 
-          debugPrint('[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
+          debugPrint(
+              '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
           onProgress(1.0);
 
           return response.data;
@@ -288,7 +300,8 @@ class WebDownloadService implements DownloadService {
     try {
       cancelToken?.throwIfCancelled();
 
-      debugPrint('WebDownloadService: Starting authenticated download for $targetPath');
+      debugPrint(
+          'WebDownloadService: Starting authenticated download for $targetPath');
 
       // Use unified caching helper with auth download
       yield* cacheService.getOrCacheAndRegisterWithProgress(
@@ -296,18 +309,22 @@ class WebDownloadService implements DownloadService {
         loader: (onProgress) async {
           cancelToken?.throwIfCancelled();
 
-          debugPrint('[WebDownloadService] 📥 Downloading authenticated model: $url');
+          debugPrint(
+              '[WebDownloadService] 📥 Downloading authenticated model: $url');
 
           // Create completer for async result
           final completer = Completer<Uint8List>();
 
           // Start download with streaming progress
-          _jsInterop.fetchWithAuth(
+          _jsInterop
+              .fetchWithAuth(
             url,
             authToken,
             onProgress: onProgress, // Pass progress callback directly
-          ).then((response) {
-            debugPrint('[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
+          )
+              .then((response) {
+            debugPrint(
+                '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
             completer.complete(response.data);
           }).catchError((error) {
             completer.completeError(error);
@@ -324,7 +341,8 @@ class WebDownloadService implements DownloadService {
         _blobUrlManager.track(targetPath, blobUrl);
       }
 
-      debugPrint('[WebDownloadService] ✅ Authenticated model downloaded and cached');
+      debugPrint(
+          '[WebDownloadService] ✅ Authenticated model downloaded and cached');
     } on DownloadCancelledException {
       debugPrint('WebDownloadService: Download cancelled for $targetPath');
       rethrow;
@@ -335,5 +353,4 @@ class WebDownloadService implements DownloadService {
       );
     }
   }
-
 }

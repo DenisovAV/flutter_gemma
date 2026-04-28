@@ -71,10 +71,14 @@ class ModelInfo {
         hasLoraWeights: json['hasLoraWeights'] as bool,
       );
 
-  static Map<String, dynamic> _sourceToJson(ModelSource source) => switch (source) {
+  static Map<String, dynamic> _sourceToJson(ModelSource source) =>
+      switch (source) {
         NetworkSource(:final url) => {'type': 'network', 'url': url},
         AssetSource(:final path) => {'type': 'asset', 'path': path},
-        BundledSource(:final resourceName) => {'type': 'bundled', 'resourceName': resourceName},
+        BundledSource(:final resourceName) => {
+            'type': 'bundled',
+            'resourceName': resourceName
+          },
         FileSource(:final path) => {'type': 'file', 'path': path},
       };
 

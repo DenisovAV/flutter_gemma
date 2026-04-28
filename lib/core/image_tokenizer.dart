@@ -21,7 +21,8 @@ class ImageTokenizer {
       }
 
       if (processedImage.base64String.isEmpty) {
-        throw const ImageTokenizationException('Processed image Base64 string cannot be empty');
+        throw const ImageTokenizationException(
+            'Processed image Base64 string cannot be empty');
       }
 
       // Create structured message following multimodal AI model requirements
@@ -77,7 +78,8 @@ class ImageTokenizer {
   }
 
   /// Creates Gemma-specific image prompt format
-  static String _createGemmaImagePrompt(String text, ProcessedImage processedImage) {
+  static String _createGemmaImagePrompt(
+      String text, ProcessedImage processedImage) {
     // Gemma models expect specific formatting to avoid tokenization errors
     final prompt = StringBuffer();
 
@@ -99,7 +101,8 @@ class ImageTokenizer {
   }
 
   /// Creates DeepSeek-specific image prompt format
-  static String _createDeepSeekImagePrompt(String text, ProcessedImage processedImage) {
+  static String _createDeepSeekImagePrompt(
+      String text, ProcessedImage processedImage) {
     // DeepSeek models use different tokenization patterns
     final prompt = StringBuffer();
 
@@ -110,12 +113,14 @@ class ImageTokenizer {
     prompt.write('<｜/image｜><｜Assistant｜>');
 
     final result = prompt.toString();
-    debugPrint('ImageTokenizer: Created DeepSeek prompt (${result.length} chars)');
+    debugPrint(
+        'ImageTokenizer: Created DeepSeek prompt (${result.length} chars)');
     return result;
   }
 
   /// Creates general-purpose image prompt format
-  static String _createGeneralImagePrompt(String text, ProcessedImage processedImage) {
+  static String _createGeneralImagePrompt(
+      String text, ProcessedImage processedImage) {
     // General format that works with most vision-language models
     final prompt = StringBuffer();
 
@@ -127,14 +132,16 @@ class ImageTokenizer {
     prompt.write('<start_of_turn>model\n');
 
     final result = prompt.toString();
-    debugPrint('ImageTokenizer: Created general prompt (${result.length} chars)');
+    debugPrint(
+        'ImageTokenizer: Created general prompt (${result.length} chars)');
     return result;
   }
 
   /// Validates that a message contains proper image tokens
   static bool validateImageTokens(String prompt, int expectedImageCount) {
     try {
-      debugPrint('ImageTokenizer: Validating image tokens - expected: $expectedImageCount');
+      debugPrint(
+          'ImageTokenizer: Validating image tokens - expected: $expectedImageCount');
 
       // Count image tokens using various patterns
       int imageTokenCount = 0;
@@ -160,7 +167,8 @@ class ImageTokenizer {
         imageTokenCount += base64Matches.length;
       }
 
-      debugPrint('ImageTokenizer: Found $imageTokenCount image tokens in prompt');
+      debugPrint(
+          'ImageTokenizer: Found $imageTokenCount image tokens in prompt');
 
       return imageTokenCount >= expectedImageCount;
     } catch (e) {
@@ -176,7 +184,8 @@ class ImageTokenizer {
 
       // Patterns that indicate image corruption
       final corruptionPatterns = [
-        RegExp(r'describe\.describe\.describe\.+'), // Infinite "describe" repetition
+        RegExp(
+            r'describe\.describe\.describe\.+'), // Infinite "describe" repetition
         RegExp(r'^[₹]{10,}'), // Rupee symbol repetition
         RegExp(r'\bph\b.*\bph\b.*\bph\b'), // Repeating "ph" pattern
         RegExp(r'^(.)\1{10,}'), // Any single character repeated 10+ times
@@ -187,7 +196,8 @@ class ImageTokenizer {
 
       for (final pattern in corruptionPatterns) {
         if (pattern.hasMatch(response)) {
-          debugPrint('ImageTokenizer: Detected corruption pattern - ${pattern.pattern}');
+          debugPrint(
+              'ImageTokenizer: Detected corruption pattern - ${pattern.pattern}');
           return true;
         }
       }
@@ -223,10 +233,12 @@ class ImageTokenizer {
 
   /// Creates a safe fallback prompt when image processing fails
   static String createFallbackPrompt(String text, {String? errorMessage}) {
-    debugPrint('ImageTokenizer: Creating fallback prompt due to: $errorMessage');
+    debugPrint(
+        'ImageTokenizer: Creating fallback prompt due to: $errorMessage');
 
     final prompt = StringBuffer();
-    prompt.write('User provided an image but it could not be processed properly. ');
+    prompt.write(
+        'User provided an image but it could not be processed properly. ');
     if (errorMessage != null) {
       prompt.write('Error: $errorMessage. ');
     }

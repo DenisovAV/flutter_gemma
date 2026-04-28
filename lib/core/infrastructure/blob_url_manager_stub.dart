@@ -20,7 +20,9 @@ class BlobUrlManager {
     throw UnsupportedError('BlobUrlManager is only available on web platform');
   }
 
-  int get activeBlobCount => throw UnsupportedError('BlobUrlManager is only available on web platform');
+  int get activeBlobCount => throw UnsupportedError(
+      'BlobUrlManager is only available on web platform');
 
-  bool isTracking(String blobUrl) => throw UnsupportedError('BlobUrlManager is only available on web platform');
+  bool isTracking(String blobUrl) => throw UnsupportedError(
+      'BlobUrlManager is only available on web platform');
 }

@@ -10,7 +10,8 @@ class MobileEmbeddingModel extends EmbeddingModel {
 
   void _assertNotClosed() {
     if (_isClosed) {
-      throw StateError('EmbeddingModel is closed. Create a new instance to use it again');
+      throw StateError(
+          'EmbeddingModel is closed. Create a new instance to use it again');
     }
   }
 
@@ -35,7 +36,8 @@ class MobileEmbeddingModel extends EmbeddingModel {
     if (taskType == TaskType.retrievalDocument) {
       final results = <List<double>>[];
       for (final text in texts) {
-        results.add(await _platformService.generateDocumentEmbeddingFromModel(text));
+        results.add(
+            await _platformService.generateDocumentEmbeddingFromModel(text));
       }
       return results;
     }

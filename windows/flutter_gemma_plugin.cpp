@@ -1,8 +1,10 @@
 // Flutter Gemma Windows Plugin
 //
-// This is a placeholder plugin class for Windows.
-// The actual implementation is in Dart (FlutterGemmaDesktop) using gRPC
-// to communicate with a Kotlin/JVM server process.
+// Placeholder plugin class. The actual implementation is in Dart
+// (FlutterGemmaDesktop) which calls the LiteRT-LM C API via dart:ffi. Native
+// libraries (LiteRtLm.dll + companions, including dxil.dll/dxcompiler.dll for
+// WebGPU/DX12 shader compilation) are bundled via hook/build.dart (Native
+// Assets) and placed next to the executable at build time.
 
 #include "flutter_gemma/flutter_gemma_plugin.h"
 
@@ -11,8 +13,8 @@ namespace flutter_gemma {
 // static
 void FlutterGemmaPlugin::RegisterWithRegistrar(
     flutter::PluginRegistrarWindows *registrar) {
-  // No-op: Desktop implementation is pure Dart using gRPC
-  // This class exists only for CMake/plugin registration compatibility
+  // No-op: desktop implementation is pure Dart over dart:ffi. This class
+  // exists only for CMake / Flutter plugin registration compatibility.
 }
 
 FlutterGemmaPlugin::FlutterGemmaPlugin() {}

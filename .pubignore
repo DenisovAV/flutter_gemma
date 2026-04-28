@@ -81,3 +81,18 @@ trash_*
 .env
 .firecrawl/
 example/kill
+
+# Native prebuilts — fetched by hook/build.dart from native-v0.10.2 release
+native/litert_lm/prebuilt/
+
+# Training/conversion notebooks — useful for plugin dev, not for users
+colabs/
+
+# Integration tests (kept in repo for dev, not for users)
+example/integration_test/
+
+# LLVM coverage
+*.profraw
+
+# Working notes (drafts, plans, articles, investigation reports)
+_notes/

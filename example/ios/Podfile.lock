@@ -4,7 +4,7 @@ PODS:
   - background_downloader (0.0.1):
     - Flutter
   - Flutter (1.0.0)
-  - flutter_gemma (0.13.3):
+  - flutter_gemma (0.14.0):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.33)
     - MediaPipeTasksGenAIC (= 0.10.33)
@@ -90,7 +90,7 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   background_downloader: 50e91d979067b82081aba359d7d916b3ba5fadad
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 9c2e4bb34f83c0346119291d6a40b89d62dfad09
+  flutter_gemma: 09cafe82a11595f6d2c35c9a106b17075d2cf072
   image_picker_ios: 7fe1ff8e34c1790d6fff70a32484959f563a928a
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
@@ -104,6 +104,6 @@ SPEC CHECKSUMS:
   TensorFlowLiteC: 215ef57653dd0fa09a474e7d94d79ae64a870b28
   url_launcher_ios: 694010445543906933d732453a59da0a173ae33d
 
-PODFILE CHECKSUM: c61502891ef153f16fe017dcbdbba41944a588fb
+PODFILE CHECKSUM: b9e1a591d900d445df94fd1fe818445f82fc44d0
 
 COCOAPODS: 1.16.2

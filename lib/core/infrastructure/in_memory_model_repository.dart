@@ -38,7 +38,8 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final model = _models[id];
-    debugPrint('[InMemoryModelRepository] ${model != null ? "✅ Loaded" : "❌ Not found"}: $id');
+    debugPrint(
+        '[InMemoryModelRepository] ${model != null ? "✅ Loaded" : "❌ Not found"}: $id');
     return model;
   }
 
@@ -48,13 +49,15 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final existed = _models.remove(id) != null;
-    debugPrint('[InMemoryModelRepository] ${existed ? "🗑️  Deleted" : "⚠️  Not found"}: $id');
+    debugPrint(
+        '[InMemoryModelRepository] ${existed ? "🗑️  Deleted" : "⚠️  Not found"}: $id');
   }
 
   @override
   Future<List<ModelInfo>> listInstalled() async {
     final models = _models.values.toList();
-    debugPrint('[InMemoryModelRepository] 📋 Listing ${models.length} installed models');
+    debugPrint(
+        '[InMemoryModelRepository] 📋 Listing ${models.length} installed models');
     return models;
   }
 
@@ -64,7 +67,8 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final installed = _models.containsKey(id);
-    debugPrint('[InMemoryModelRepository] ${installed ? "✅" : "❌"} isInstalled($id): $installed');
+    debugPrint(
+        '[InMemoryModelRepository] ${installed ? "✅" : "❌"} isInstalled($id): $installed');
     return installed;
   }
 
@@ -75,7 +79,8 @@ class InMemoryModelRepository implements ModelRepository {
   void clear() {
     final count = _models.length;
     _models.clear();
-    debugPrint('[InMemoryModelRepository] 🧹 Cleared $count models from memory');
+    debugPrint(
+        '[InMemoryModelRepository] 🧹 Cleared $count models from memory');
   }
 
   /// Gets the current number of installed models

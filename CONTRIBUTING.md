@@ -189,9 +189,13 @@ flutter_gemma/
 │   ├── lib/                     # Example app code
 │   └── integration_test/        # Integration tests
 ├── test/                        # Unit tests
-├── litertlm-server/             # Kotlin/JVM server for desktop
+├── native/litert_lm/            # LiteRT-LM native build scripts + C API patcher
+│   ├── prebuilt/                # Per-platform .so/.dylib/.dll committed for local dev
+│   ├── patch_c_api.sh           # Source-level patches applied at build time
+│   └── stream_proxy.c           # RTLD_GLOBAL/LoadLibraryEx preload helper
+├── hook/build.dart              # Native Assets hook (downloads native libs from GitHub release at build time)
 ├── web/                         # Web-specific JS files
-└── [platform]/                  # Platform-specific code (macos/, windows/, linux/)
+└── [platform]/                  # Platform-specific code (macos/, windows/, linux/, android/, ios/)
 ```
 
 **Key Files to Know:**
@@ -249,17 +253,16 @@ If you're working on desktop support:
 
 1. **Read the documentation:**
    - `DESKTOP_SUPPORT.md` - Complete desktop guide
-   - `LINUX_DESKTOP_PLAN.md` - Linux-specific plans
 
 2. **Understand the architecture:**
-   - Desktop uses gRPC to communicate with a Kotlin/JVM server
-   - Server code is in `litertlm-server/`
-   - Client code is in `lib/desktop/`
+   - Since 0.14.0 desktop runs LiteRT-LM directly via `dart:ffi` against the C API. No JVM/JRE/gRPC.
+   - Shared FFI client lives in `lib/core/ffi/litert_lm_client.dart` (used by all five platforms)
+   - Native libs are downloaded by `hook/build.dart` at build time from the `native-v0.10.2` GitHub release; SHA256-verified and bundled by Native Assets
 
 3. **Test your changes:**
-   - Test on macOS (Apple Silicon) and/or Windows x64
-   - Verify JRE download and server startup work correctly
-   - Check that models initialize and inference works
+   - Test on macOS (Apple Silicon) and/or Windows x64 / Linux x86_64
+   - Run `flutter test integration_test/regression_bugs_test.dart -d <device> --plain-name stochastic` to validate sampler params honoring on GPU
+   - Check that engine init succeeds and inference works on both `PreferredBackend.cpu` and `PreferredBackend.gpu`
 
 ### Web Contributions
 

@@ -43,7 +43,8 @@ class WebJsInterop {
       );
 
       // Concatenate chunks
-      final totalLength = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final totalLength =
+          chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
       final data = Uint8List(totalLength);
       int offset = 0;
       for (final chunk in chunks) {
@@ -111,7 +112,8 @@ class WebJsInterop {
       );
 
       // Concatenate chunks
-      final totalLength = chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final totalLength =
+          chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
       final data = Uint8List(totalLength);
       int offset = 0;
       for (final chunk in chunks) {
@@ -199,7 +201,8 @@ class WebJsInterop {
           'CORS error: Server does not allow requests from this origin. '
           'For HuggingFace models, ensure you have access to the repository.',
         );
-      } else if (errorStr.contains('network') || errorStr.contains('Failed to fetch')) {
+      } else if (errorStr.contains('network') ||
+          errorStr.contains('Failed to fetch')) {
         throw JsInteropException(
           'Network error: Check your internet connection and try again.',
         );
@@ -257,11 +260,13 @@ class WebJsInterop {
     final chunks = <Uint8List>[];
     int bytesReceived = 0;
 
-    debugPrint('🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
+    debugPrint(
+        '🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
 
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {
-      debugPrint('Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
+      debugPrint(
+          'Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
           'May encounter memory limits on some browsers.');
     }
 

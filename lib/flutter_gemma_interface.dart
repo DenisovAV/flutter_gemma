@@ -136,7 +136,8 @@ abstract class InferenceModel {
     bool? enableVisionModality, // Add vision modality support
     bool? enableAudioModality, // Add audio modality support (Gemma 3n E4B)
     String? systemInstruction,
-    bool enableThinking = false, // Enable thinking mode (Gemma 4 via extraContext)
+    bool enableThinking =
+        false, // Enable thinking mode (Gemma 4 via extraContext)
   });
 
   Future<InferenceChat> createChat({

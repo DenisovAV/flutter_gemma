@@ -48,7 +48,8 @@ class WebBundledSourceHandler implements SourceHandler {
     CancelToken? cancelToken,
   }) async {
     // Delegate to installWithProgress, ignore progress events
-    await for (final _ in installWithProgress(source, cancelToken: cancelToken)) {
+    await for (final _
+        in installWithProgress(source, cancelToken: cancelToken)) {
       // Ignore progress updates
     }
   }
@@ -59,7 +60,8 @@ class WebBundledSourceHandler implements SourceHandler {
     CancelToken? cancelToken,
   }) async* {
     if (source is! BundledSource) {
-      throw ArgumentError('WebBundledSourceHandler only supports BundledSource');
+      throw ArgumentError(
+          'WebBundledSourceHandler only supports BundledSource');
     }
 
     final resourceName = source.resourceName;
@@ -71,20 +73,20 @@ class WebBundledSourceHandler implements SourceHandler {
       yield* cacheService.getOrCacheAndRegisterWithProgress(
         cacheKey: cacheKey,
         loader: (onProgress) async {
-          debugPrint('[WebBundledSourceHandler] Fetching bundled resource: $resourceName');
+          debugPrint(
+              '[WebBundledSourceHandler] Fetching bundled resource: $resourceName');
 
           onProgress(0.0);
           final response = await jsInterop.fetchFile('/$resourceName');
 
           // Validate resource is not empty
           if (response.data.isEmpty) {
-            throw StateError(
-              'Bundled resource is empty: $resourceName. '
-              'Check that the resource exists in the web bundle.'
-            );
+            throw StateError('Bundled resource is empty: $resourceName. '
+                'Check that the resource exists in the web bundle.');
           }
 
-          debugPrint('[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes');
+          debugPrint(
+              '[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes');
           onProgress(1.0);
 
           return response.data;
@@ -107,7 +109,8 @@ class WebBundledSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } catch (e) {
-      debugPrint('[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e');
+      debugPrint(
+          '[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e');
       rethrow;
     }
   }

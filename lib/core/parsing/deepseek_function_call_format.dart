@@ -57,7 +57,8 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    if (clean.contains(_toolCallBegin) && clean.contains(_toolCallEnd)) return true;
+    if (clean.contains(_toolCallBegin) && clean.contains(_toolCallEnd))
+      return true;
     return _jsonFallback.isFunctionCallComplete(buffer);
   }
 
@@ -107,7 +108,8 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
           results.add(FunctionCallResponse(name: functionName, args: args));
         }
       } catch (e) {
-        debugPrint('DeepSeekFormat: Failed to parse args for $functionName: $e');
+        debugPrint(
+            'DeepSeekFormat: Failed to parse args for $functionName: $e');
       }
     }
 

@@ -37,7 +37,8 @@ class BundledSourceHandler implements SourceHandler {
 
     // Get platform-specific bundled resource path
     // This path is used directly by the native layer (no copying needed)
-    final bundledPath = await fileSystem.getBundledResourcePath(source.resourceName);
+    final bundledPath =
+        await fileSystem.getBundledResourcePath(source.resourceName);
 
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(bundledPath);
@@ -66,7 +67,8 @@ class BundledSourceHandler implements SourceHandler {
     }
 
     // Get platform-specific bundled resource path
-    final bundledPath = await fileSystem.getBundledResourcePath(source.resourceName);
+    final bundledPath =
+        await fileSystem.getBundledResourcePath(source.resourceName);
 
     // Bundled resources are immediately available, report 100% after verification
     yield 100;

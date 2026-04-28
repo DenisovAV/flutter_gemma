@@ -28,7 +28,7 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
-- **🖥️ Desktop Support:** Native desktop apps with GPU acceleration via LiteRT-LM (gRPC architecture).
+- **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, Desktop - LiteRT-LM engine)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
@@ -243,7 +243,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 > Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
 > MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
 
-Desktop **inference** uses a bundled JVM gRPC server that communicates with your Flutter app. Desktop **embeddings** use a different, lighter architecture — LiteRT C API via `dart:ffi` directly in the Dart process (no JVM, no gRPC).
+Since 0.14.0 desktop inference and embeddings both use the LiteRT-LM C API via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically. Engine startup is ~2 s instead of ~10–15 s.
 
 | Platform | Architecture | GPU Acceleration | Status |
 |----------|-------------|------------------|--------|
@@ -256,7 +256,11 @@ Desktop **inference** uses a bundled JVM gRPC server that communicates with your
 
 **macOS Setup:**
 
-Add to `macos/Podfile` in `post_install` block:
+The plugin uses Flutter Native Assets to bundle LiteRT-LM dylibs as
+`.framework`s. The LiteRT-LM runtime, however, calls
+`dlopen("libLiteRtMetalAccelerator.dylib")` by basename at runtime, so each
+framework also needs a flat `lib*.dylib` symlink alongside it. Add this to
+your `macos/Podfile` `post_install` block:
 
 ```ruby
 post_install do |installer|
@@ -264,23 +268,32 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # Add LiteRT-LM setup script to Runner target
-  main_project = installer.aggregate_targets.first.user_project
-  runner_target = main_project.targets.find { |t| t.name == 'Runner' }
-
-  if runner_target
-    phase_name = 'Setup LiteRT-LM Desktop'
-    existing_phase = runner_target.shell_script_build_phases.find { |p| p.name == phase_name }
-
-    unless existing_phase
-      phase = runner_target.new_shell_script_build_phase(phase_name)
-      phase.shell_script = <<-SCRIPT
-PLUGIN_PATH="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/macos"
-if [ -f "$PLUGIN_PATH/scripts/setup_desktop.sh" ]; then
-  sh "$PLUGIN_PATH/scripts/setup_desktop.sh" "$PLUGIN_PATH" "${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app"
-fi
-SCRIPT
-      main_project.save
+  # flutter_gemma: create lib*.dylib symlinks next to the bundled
+  # .framework so LiteRT-LM's gpu_registry can dlopen by basename.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_targets.each do |user_target|
+      next if user_target.shell_script_build_phases.any? { |p| p.name == '[flutter_gemma] Setup LiteRT-LM macOS' }
+      phase = user_target.new_shell_script_build_phase('[flutter_gemma] Setup LiteRT-LM macOS')
+      phase.shell_script = <<~SHELL
+        set -e
+        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
+        if [ ! -d "${FRAMEWORKS}" ]; then
+          echo "[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping"
+          exit 0
+        fi
+        for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
+          src="${base}.framework/Versions/Current/${base}"
+          if [ ! -e "${FRAMEWORKS}/${src}" ]; then
+            echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"
+            continue
+          fi
+          dst="${FRAMEWORKS}/lib${base}.dylib"
+          if [ ! -e "${dst}" ]; then
+            ln -sf "${src}" "${dst}"
+            echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
+          fi
+        done
+      SHELL
     end
   end
 end
@@ -295,10 +308,7 @@ Add to `macos/Runner/DebugProfile.entitlements` and `Release.entitlements`:
 
 **Windows Setup:**
 
-No additional configuration required. The plugin automatically:
-- Downloads JRE 24 (cached in `%LOCALAPPDATA%\flutter_gemma\jre\`)
-- Extracts native DLLs from the server JAR
-- Starts gRPC server on dynamic port
+No additional configuration required. `hook/build.dart` (Native Assets) downloads `LiteRtLm.dll` + companion DLLs + the DXC runtime (`dxil.dll`, `dxcompiler.dll` v1.9.2602) from the GitHub release on first build, verifies them via SHA256, and bundles them next to your `app.exe`. End users need the **Microsoft Visual C++ Redistributable 2019+** ([download](https://aka.ms/vs/17/release/vc_redist.x64.exe)) — most modern Windows 10/11 systems already have it.
 
 **Linux Setup:**
 

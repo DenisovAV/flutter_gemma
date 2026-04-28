@@ -3,7 +3,7 @@ PODS:
     - FlutterMacOS
   - file_selector_macos (0.0.1):
     - FlutterMacOS
-  - flutter_gemma (0.12.8):
+  - flutter_gemma (0.14.0):
     - FlutterMacOS
   - FlutterMacOS (1.0.0)
   - just_audio (0.0.1):
@@ -54,7 +54,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   audio_session: eaca2512cf2b39212d724f35d11f46180ad3a33e
   file_selector_macos: 6280b52b459ae6c590af5d78fc35c7267a3c4b31
-  flutter_gemma: 775b3683116a44786fff00d641ddbd774a531686
+  flutter_gemma: 6d2de93c6472b2509a7b585de171de2c3a4447b6
   FlutterMacOS: d0db08ddef1a9af05a5ec4b724367152bb0500b1
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   path_provider_foundation: 080d55be775b7414fd5a5ef3ac137b97b097e564
@@ -62,6 +62,6 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 9e1978ff2562383bd5676f64ec4e9aa8fa06a6f7
   url_launcher_macos: 0fba8ddabfc33ce0a9afe7c5fef5aab3d8d2d673
 
-PODFILE CHECKSUM: 989ee1b0731a4cd295e8d7b0713f784c8795a4fa
+PODFILE CHECKSUM: af44f04fff1ba11958761617487c9e4171efcc39
 
 COCOAPODS: 1.16.2

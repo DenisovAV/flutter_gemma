@@ -2,29 +2,24 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../flutter_gemma_interface.dart';
 import '../model_file_manager_interface.dart';
 import '../pigeon.g.dart';
-import '../core/message.dart';
 import '../core/model.dart';
-import '../core/tool.dart';
-import '../core/chat.dart';
 import '../core/di/service_registry.dart';
-import '../core/extensions.dart';
+import '../core/ffi/litert_lm_client.dart';
+import '../core/ffi/ffi_inference_model.dart';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart'
     show SentencePieceConfig, SentencePieceTokenizer, TokenizerJsonLoader;
 
-import 'grpc_client.dart';
-import 'server_process_manager.dart';
 import 'tflite/tflite_interpreter.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
-    show
-        InferenceModelSpec,
-        MobileModelManager;
+    show InferenceModelSpec, MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
 
@@ -33,15 +28,16 @@ part 'desktop_embedding_model.dart';
 
 /// Desktop implementation of FlutterGemma plugin
 ///
-/// Uses gRPC to communicate with a local Kotlin/JVM server
-/// running LiteRT-LM for model inference.
+/// Uses dart:ffi to communicate directly with LiteRT-LM C API
+/// via libLiteRtLm.dylib/so/dll for model inference.
 class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   FlutterGemmaDesktop._();
 
   static FlutterGemmaDesktop? _instance;
 
   /// Get the singleton instance
-  static FlutterGemmaDesktop get instance => _instance ??= FlutterGemmaDesktop._();
+  static FlutterGemmaDesktop get instance =>
+      _instance ??= FlutterGemmaDesktop._();
 
   /// Register this implementation as the plugin instance
   ///
@@ -74,14 +70,6 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   @override
   EmbeddingModel? get initializedEmbeddingModel => _initializedEmbeddingModel;
 
-  /// Start the gRPC server if not running
-  Future<void> _ensureServerRunning() async {
-    final serverManager = ServerProcessManager.instance;
-    if (!serverManager.isRunning) {
-      await serverManager.start();
-    }
-  }
-
   @override
   Future<InferenceModel> createModel({
     required ModelType modelType,
@@ -112,25 +100,23 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       final modelChanged = currentSpec.name != requestedSpec.name;
       final paramsChanged = currentModel != null &&
           (currentModel.supportImage != supportImage ||
-           currentModel.supportAudio != supportAudio ||
-           currentModel.maxTokens != maxTokens);
+              currentModel.supportAudio != supportAudio ||
+              currentModel.maxTokens != maxTokens);
 
       if (modelChanged || paramsChanged) {
-        // Active model or runtime params changed - close old and create new
-        debugPrint('Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
+        debugPrint(
+            'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
         await _initializedModel?.close();
-        // Explicitly null these out (onClose callback also does this, but be safe)
         _initCompleter = null;
         _initializedModel = null;
         _lastActiveInferenceSpec = null;
       } else {
-        // Same model and params - return existing
         debugPrint('Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
     }
 
-    // Return existing completer if initialization in progress (re-check after potential close)
+    // Return existing completer if initialization in progress
     if (_initCompleter case Completer<InferenceModel> completer) {
       return completer.future;
     }
@@ -153,37 +139,32 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       final modelPath = modelFilePaths.values.first;
       debugPrint('[FlutterGemmaDesktop] Using model: $modelPath');
 
-      // Start server and create gRPC client
-      await _ensureServerRunning();
+      // Get cache dir for faster reloads
+      final cacheDir = (await getApplicationSupportDirectory()).path;
 
-      final grpcClient = LiteRtLmClient();
-      await grpcClient.connect();
-
-      // Initialize model - server validates file existence
-      // This avoids TOCTOU race condition (file could be deleted between check and use)
-      try {
-        await grpcClient.initialize(
-          modelPath: modelPath,
-          backend: preferredBackend == PreferredBackend.cpu ? 'cpu' : 'gpu',
-          maxTokens: maxTokens,
-          enableVision: supportImage,
-          maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
-          enableAudio: supportAudio,
-        );
-      } catch (e) {
-        // Provide clearer error message for file-related issues
-        final errorMsg = e.toString();
-        if (errorMsg.contains('FileNotFoundException') ||
-            errorMsg.contains('No such file') ||
-            errorMsg.contains('not found')) {
-          throw Exception('Model file not found or inaccessible: $modelPath');
-        }
-        rethrow;
-      }
+      // Initialize via dart:ffi → C API (no JRE, no gRPC)
+      final ffiClient = LiteRtLmFfiClient();
+      final backend = switch (preferredBackend) {
+        PreferredBackend.cpu => 'cpu',
+        PreferredBackend.gpu || null => 'gpu',
+        PreferredBackend.npu => throw UnsupportedError(
+            'PreferredBackend.npu is only supported on Android with .litertlm '
+            'models; not available on desktop.',
+          ),
+      };
+      await ffiClient.initialize(
+        modelPath: modelPath,
+        backend: backend,
+        maxTokens: maxTokens,
+        cacheDir: cacheDir,
+        enableVision: supportImage,
+        maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
+        enableAudio: supportAudio,
+      );
 
       // Create model instance
       final model = _initializedModel = DesktopInferenceModel(
-        grpcClient: grpcClient,
+        ffiClient: ffiClient,
         maxTokens: maxTokens,
         modelType: modelType,
         fileType: fileType,
@@ -264,8 +245,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       debugPrint('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
 
       // Load TFLite interpreter via dart:ffi
-      final numThreads =
-          preferredBackend == PreferredBackend.cpu ? 4 : 6;
+      final numThreads = switch (preferredBackend) {
+        PreferredBackend.cpu => 4,
+        PreferredBackend.gpu || null => 6,
+        PreferredBackend.npu => throw UnsupportedError(
+            'PreferredBackend.npu is only supported on Android with .litertlm '
+            'models; not available for desktop embeddings.',
+          ),
+      };
       final interpreter = TfLiteInterpreter.fromFile(
         modelPath,
         numThreads: numThreads,
@@ -277,9 +264,6 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         'dim=${interpreter.outputDimension}',
       );
 
-      // Load tokenizer - auto-detect format by file extension
-      // BOS/EOS are added manually in DesktopEmbeddingModel with correct Gemma IDs
-      // (dart_sentencepiece_tokenizer defaults to bosId=1/eosId=2, but Gemma uses bosId=2/eosId=1)
       if (tokenizerPath == null) {
         interpreter.close();
         throw StateError('Tokenizer path is required for desktop embeddings');
@@ -330,7 +314,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await ServiceRegistry.instance.vectorStoreRepository.initialize(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository
+        .initialize(databasePath);
   }
 
   @override
@@ -355,7 +340,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     String? metadata,
   }) async {
     if (initializedEmbeddingModel == null) {
-      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError(
+          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(
       content,
@@ -376,9 +362,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     double threshold = 0.0,
   }) async {
     if (initializedEmbeddingModel == null) {
-      throw StateError('EmbeddingModel not initialized. Call createEmbeddingModel first.');
+      throw StateError(
+          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
     }
-    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding =
+        await initializedEmbeddingModel!.generateEmbedding(query);
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,
@@ -397,7 +385,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }
 
   @override
-  bool get enableHnsw => ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
+  bool get enableHnsw =>
+      ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
 
   @override
   set enableHnsw(bool value) {

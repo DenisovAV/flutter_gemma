@@ -121,12 +121,14 @@ class PlatformFileSystemService implements FileSystemService {
 
       return bundlePath;
     } else {
-      throw UnsupportedError('Bundled resources not supported on ${Platform.operatingSystem}');
+      throw UnsupportedError(
+          'Bundled resources not supported on ${Platform.operatingSystem}');
     }
   }
 
   @override
-  Future<void> registerExternalFile(String filename, String externalPath) async {
+  Future<void> registerExternalFile(
+      String filename, String externalPath) async {
     // External file registration is handled by ProtectedFilesRegistry
     // This method is a no-op here since file system doesn't track registrations
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()

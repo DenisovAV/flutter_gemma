@@ -8,12 +8,15 @@ import 'package:flutter_gemma/core/services/asset_loader.dart';
 /// Stub class - should never be instantiated on web platform
 class FlutterAssetLoader implements AssetLoader {
   @override
-  Future<Uint8List> loadAsset(String path) =>
-      throw UnsupportedError('FlutterAssetLoader is not available on this platform');
+  Future<Uint8List> loadAsset(String path) => throw UnsupportedError(
+      'FlutterAssetLoader is not available on this platform');
 
   Future<void> copyAssetToFile(String assetPath, String targetPath) =>
-      throw UnsupportedError('FlutterAssetLoader is not available on this platform');
+      throw UnsupportedError(
+          'FlutterAssetLoader is not available on this platform');
 
-  Stream<int> copyAssetToFileWithProgress(String assetPath, String targetPath) =>
-      throw UnsupportedError('FlutterAssetLoader is not available on this platform');
+  Stream<int> copyAssetToFileWithProgress(
+          String assetPath, String targetPath) =>
+      throw UnsupportedError(
+          'FlutterAssetLoader is not available on this platform');
 }

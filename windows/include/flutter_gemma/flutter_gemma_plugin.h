@@ -1,8 +1,7 @@
 // Flutter Gemma Windows Plugin
 //
-// This is a placeholder plugin class for Windows.
-// The actual implementation is in Dart (FlutterGemmaDesktop) using gRPC
-// to communicate with a Kotlin/JVM server process.
+// Placeholder plugin class. The real implementation is in Dart
+// (FlutterGemmaDesktop) using dart:ffi against the LiteRT-LM C API.
 
 #ifndef FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
 #define FLUTTER_PLUGIN_FLUTTER_GEMMA_PLUGIN_H_
@@ -30,7 +29,7 @@ FLUTTER_PLUGIN_EXPORT void FlutterGemmaPluginRegisterWithRegistrar(
 
 namespace flutter_gemma {
 
-// Placeholder plugin class - actual implementation is in Dart using gRPC
+// Placeholder plugin class — actual implementation is in Dart over dart:ffi
 class FlutterGemmaPlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);

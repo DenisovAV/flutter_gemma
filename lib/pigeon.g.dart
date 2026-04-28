@@ -131,7 +131,6 @@ class DocumentWithEmbedding {
   }
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -139,16 +138,16 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is PreferredBackend) {
+    } else if (value is PreferredBackend) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
-    }    else if (value is RetrievalResult) {
+    } else if (value is RetrievalResult) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is VectorStoreStats) {
+    } else if (value is VectorStoreStats) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    }    else if (value is DocumentWithEmbedding) {
+    } else if (value is DocumentWithEmbedding) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
     } else {
@@ -159,14 +158,14 @@ class _PigeonCodec extends StandardMessageCodec {
   @override
   Object? readValueOfType(int type, ReadBuffer buffer) {
     switch (type) {
-      case 129: 
+      case 129:
         final int? value = readValue(buffer) as int?;
         return value == null ? null : PreferredBackend.values[value];
-      case 130: 
+      case 130:
         return RetrievalResult.decode(readValue(buffer)!);
-      case 131: 
+      case 131:
         return VectorStoreStats.decode(readValue(buffer)!);
-      case 132: 
+      case 132:
         return DocumentWithEmbedding.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -178,24 +177,42 @@ class PlatformService {
   /// Constructor for [PlatformService].  The [binaryMessenger] named argument is
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  PlatformService({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
+  PlatformService(
+      {BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
       : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+        pigeonVar_messageChannelSuffix =
+            messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
 
   final String pigeonVar_messageChannelSuffix;
 
-  Future<void> createModel({required int maxTokens, required String modelPath, required List<int>? loraRanks, PreferredBackend? preferredBackend, int? maxNumImages, bool? supportAudio, }) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  Future<void> createModel({
+    required int maxTokens,
+    required String modelPath,
+    required List<int>? loraRanks,
+    PreferredBackend? preferredBackend,
+    int? maxNumImages,
+    bool? supportAudio,
+  }) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[maxTokens, modelPath, loraRanks, preferredBackend, maxNumImages, supportAudio]) as List<Object?>?;
+    final List<Object?>? pigeonVar_replyList = await pigeonVar_channel
+        .send(<Object?>[
+      maxTokens,
+      modelPath,
+      loraRanks,
+      preferredBackend,
+      maxNumImages,
+      supportAudio
+    ]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -210,8 +227,10 @@ class PlatformService {
   }
 
   Future<void> closeModel() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.closeModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.closeModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -231,15 +250,37 @@ class PlatformService {
     }
   }
 
-  Future<void> createSession({required double temperature, required int randomSeed, required int topK, double? topP, String? loraPath, bool? enableVisionModality, bool? enableAudioModality, String? systemInstruction, bool? enableThinking, }) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createSession$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  Future<void> createSession({
+    required double temperature,
+    required int randomSeed,
+    required int topK,
+    double? topP,
+    String? loraPath,
+    bool? enableVisionModality,
+    bool? enableAudioModality,
+    String? systemInstruction,
+    bool? enableThinking,
+  }) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.createSession$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[temperature, randomSeed, topK, topP, loraPath, enableVisionModality, enableAudioModality, systemInstruction, enableThinking]) as List<Object?>?;
+        await pigeonVar_channel.send(<Object?>[
+      temperature,
+      randomSeed,
+      topK,
+      topP,
+      loraPath,
+      enableVisionModality,
+      enableAudioModality,
+      systemInstruction,
+      enableThinking
+    ]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -254,8 +295,10 @@ class PlatformService {
   }
 
   Future<void> closeSession() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.closeSession$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.closeSession$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -276,8 +319,10 @@ class PlatformService {
   }
 
   Future<int> sizeInTokens(String prompt) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.sizeInTokens$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.sizeInTokens$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -303,8 +348,10 @@ class PlatformService {
   }
 
   Future<void> addQueryChunk(String prompt) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.addQueryChunk$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.addQueryChunk$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -325,8 +372,10 @@ class PlatformService {
   }
 
   Future<void> addImage(Uint8List imageBytes) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.addImage$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.addImage$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -347,8 +396,10 @@ class PlatformService {
   }
 
   Future<void> addAudio(Uint8List audioBytes) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.addAudio$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.addAudio$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -369,8 +420,10 @@ class PlatformService {
   }
 
   Future<String> generateResponse() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponse$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponse$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -396,8 +449,10 @@ class PlatformService {
   }
 
   Future<void> generateResponseAsync() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseAsync$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseAsync$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -418,8 +473,10 @@ class PlatformService {
   }
 
   Future<void> stopGeneration() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.stopGeneration$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.stopGeneration$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -439,15 +496,22 @@ class PlatformService {
     }
   }
 
-  Future<void> createEmbeddingModel({required String modelPath, required String tokenizerPath, PreferredBackend? preferredBackend, }) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  Future<void> createEmbeddingModel({
+    required String modelPath,
+    required String tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[modelPath, tokenizerPath, preferredBackend]) as List<Object?>?;
+    final List<Object?>? pigeonVar_replyList = await pigeonVar_channel
+            .send(<Object?>[modelPath, tokenizerPath, preferredBackend])
+        as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -462,8 +526,10 @@ class PlatformService {
   }
 
   Future<void> closeEmbeddingModel() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -484,8 +550,10 @@ class PlatformService {
   }
 
   Future<List<double>> generateEmbeddingFromModel(String text) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -511,8 +579,10 @@ class PlatformService {
   }
 
   Future<List<double>> generateDocumentEmbeddingFromModel(String text) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateDocumentEmbeddingFromModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.generateDocumentEmbeddingFromModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -538,8 +608,10 @@ class PlatformService {
   }
 
   Future<List<Object?>> generateEmbeddingsFromModel(List<String> texts) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -565,8 +637,10 @@ class PlatformService {
   }
 
   Future<int> getEmbeddingDimension() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -592,8 +666,10 @@ class PlatformService {
   }
 
   Future<void> initializeVectorStore(String databasePath) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.initializeVectorStore$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.initializeVectorStore$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -613,15 +689,22 @@ class PlatformService {
     }
   }
 
-  Future<void> addDocument({required String id, required String content, required List<double> embedding, String? metadata, }) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.addDocument$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  Future<void> addDocument({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  }) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.addDocument$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[id, content, embedding, metadata]) as List<Object?>?;
+    final List<Object?>? pigeonVar_replyList = await pigeonVar_channel
+        .send(<Object?>[id, content, embedding, metadata]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -635,15 +718,21 @@ class PlatformService {
     }
   }
 
-  Future<List<RetrievalResult>> searchSimilar({required List<double> queryEmbedding, required int topK, double threshold = 0.0, }) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.searchSimilar$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+  Future<List<RetrievalResult>> searchSimilar({
+    required List<double> queryEmbedding,
+    required int topK,
+    double threshold = 0.0,
+  }) async {
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.searchSimilar$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final List<Object?>? pigeonVar_replyList =
-        await pigeonVar_channel.send(<Object?>[queryEmbedding, topK, threshold]) as List<Object?>?;
+    final List<Object?>? pigeonVar_replyList = await pigeonVar_channel
+        .send(<Object?>[queryEmbedding, topK, threshold]) as List<Object?>?;
     if (pigeonVar_replyList == null) {
       throw _createConnectionError(pigeonVar_channelName);
     } else if (pigeonVar_replyList.length > 1) {
@@ -658,13 +747,16 @@ class PlatformService {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<RetrievalResult>();
+      return (pigeonVar_replyList[0] as List<Object?>?)!
+          .cast<RetrievalResult>();
     }
   }
 
   Future<VectorStoreStats> getVectorStoreStats() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getVectorStoreStats$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.getVectorStoreStats$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -690,8 +782,10 @@ class PlatformService {
   }
 
   Future<void> clearVectorStore() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.clearVectorStore$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.clearVectorStore$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -712,8 +806,10 @@ class PlatformService {
   }
 
   Future<void> closeVectorStore() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.closeVectorStore$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.closeVectorStore$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -745,8 +841,10 @@ class PlatformService {
   ///
   /// Returns empty list if no documents stored.
   Future<List<DocumentWithEmbedding>> getAllDocumentsWithEmbeddings() async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getAllDocumentsWithEmbeddings$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.getAllDocumentsWithEmbeddings$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -767,7 +865,8 @@ class PlatformService {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<DocumentWithEmbedding>();
+      return (pigeonVar_replyList[0] as List<Object?>?)!
+          .cast<DocumentWithEmbedding>();
     }
   }
 
@@ -782,8 +881,10 @@ class PlatformService {
   ///
   /// Returns only documents that exist (missing IDs are skipped).
   Future<List<RetrievalResult>> getDocumentsByIds(List<String> ids) async {
-    final String pigeonVar_channelName = 'dev.flutter.pigeon.flutter_gemma.PlatformService.getDocumentsByIds$pigeonVar_messageChannelSuffix';
-    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+    final String pigeonVar_channelName =
+        'dev.flutter.pigeon.flutter_gemma.PlatformService.getDocumentsByIds$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel =
+        BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
@@ -804,7 +905,8 @@ class PlatformService {
         message: 'Host platform returned null value for non-null return value.',
       );
     } else {
-      return (pigeonVar_replyList[0] as List<Object?>?)!.cast<RetrievalResult>();
+      return (pigeonVar_replyList[0] as List<Object?>?)!
+          .cast<RetrievalResult>();
     }
   }
 }

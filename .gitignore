@@ -2,7 +2,8 @@
 .DS_Store
 trash_*
 .env
-docs/
+docs/*
+!docs/LEGACY_API.md
 .claude/settings.local.json
 
 # Backup files

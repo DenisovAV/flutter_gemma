@@ -96,3 +96,30 @@ example/integration_test/
 
 # Working notes (drafts, plans, articles, investigation reports)
 _notes/
+
+# Pigeon spec — build-time input that generates lib/pigeon.g.dart.
+# Consumers ship the already-generated .g.dart, they don't re-run pigeon.
+pigeon.dart
+
+# Native FFI smoke-test — compiled into a standalone binary by maintainers
+# during dev, not loaded at runtime. End users don't need the .c source.
+native/litert_lm/test_ffi_minimal.c
+
+# Stray maintainer scratch files. tables.html is leftover Mac/HTML debug
+# from a much older session; test_audio.txt is a 53-byte text fixture
+# that's only referenced by integration tests (already excluded above).
+tables.html
+test_audio.txt
+
+# Reference clone of google-ai-edge/gallery used during research — this
+# is third-party Apache 2.0 source (Google's), not part of flutter_gemma.
+# Should never be in the pub package.
+ai-edge-gallery/
+
+# CocoaPods lock files — environment-specific, regenerated on every
+# `pod install`. pub.dev's lints flag these.
+example/ios/Podfile.lock
+example/macos/Podfile.lock
+
+# Example web test HTML fixture (used by vector store dev tests).
+example/web/test_vectorstore.html

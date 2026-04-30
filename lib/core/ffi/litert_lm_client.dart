@@ -475,14 +475,17 @@ class LiteRtLmFfiClient {
   /// Build the JSON message for the Conversation API.
   ///
   /// Format: `{"role": "user", "content": [{"type": "text", "text": "..."}]}`
-  static String buildMessageJson(String text,
-      {Uint8List? imageBytes, Uint8List? audioBytes}) {
+  /// Supports multiple images via `imagesBytes` list.
+  static String buildMessageJson(
+    String text, {
+    List<Uint8List>? imagesBytes,
+    Uint8List? audioBytes,
+  }) {
     final content = <Map<String, dynamic>>[];
-    if (imageBytes != null) {
-      content.add({
-        'type': 'image',
-        'blob': base64Encode(imageBytes),
-      });
+    if (imagesBytes != null) {
+      for (final imageBytes in imagesBytes) {
+        content.add({'type': 'image', 'blob': base64Encode(imageBytes)});
+      }
     }
     if (audioBytes != null) {
       content.add({
@@ -536,14 +539,18 @@ class LiteRtLmFfiClient {
   }
 
   /// Send a message and get streaming response as plain text chunks.
+  /// Supports multiple images via `imageBytes` list.
   Stream<String> chat(
     String text, {
-    Uint8List? imageBytes,
+    List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
     bool enableThinking = false,
   }) {
-    final messageJson =
-        buildMessageJson(text, imageBytes: imageBytes, audioBytes: audioBytes);
+    final messageJson = buildMessageJson(
+      text,
+      imagesBytes: imageBytes,
+      audioBytes: audioBytes,
+    );
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
     return sendMessageStreamRaw(messageJson, extraContext: extraContext)
         .map(extractTextFromResponse);

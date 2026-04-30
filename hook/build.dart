@@ -23,11 +23,11 @@ const _checksums = <String, String>{
   'litertlm-windows_x86_64.tar.gz':
       'cb7a742ba537f722e294e62c55b4de720e5a96ff1f1e2933ba7a20a96aecc7b6',
   'litertlm-macos_arm64.tar.gz':
-      '3cb6aeef5315fba3ba51b19cebfbad1bd711c6de74bd6d3feb62d14b4e232ea6',
+      '2f4a7d5b37b2a16c89b5ab305c55900c5b47e796273422f2d922c4f52d21716d',
   'litertlm-ios_arm64.tar.gz':
-      '9f724221f1e15f7b8b267de7fcfa193b46d4d3c5f5c7b43917fc4ea9b313b6f5',
+      'e057425fb758bf7791f0cd9b9f4848059fb2bf14e19b5dacb3aead497c80c59e',
   'litertlm-ios_sim_arm64.tar.gz':
-      '7bf4a61cee9d3c7a2515c647f03dbf3d2dae780fbf74fb0d79a455fc504a7393',
+      '01fa29c1bd425074fa38904ad1257f43890a6f88dce610cb0c1ab0c141867fc5',
   'litertlm-android_arm64.tar.gz':
       '73382823402e7fc6e983153a912104ef271933dc0e0b89008a323f05242bcfe8',
 };

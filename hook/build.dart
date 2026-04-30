@@ -36,6 +36,11 @@ const _checksums = <String, String>{
 /// iOS distinguishes device vs simulator via IOSSdk.
 String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   if (os == OS.iOS) {
+    // Only arm64 is supported. On Apple Silicon Macs, Flutter still invokes
+    // the hook for x86_64 simulator slices; returning null skips them so
+    // Native Assets's lipo step doesn't try to merge two arm64-only inputs
+    // and fail with "same architectures and can't be in the same fat file".
+    if (arch != Architecture.arm64) return null;
     if (iOSSdk == IOSSdk.iPhoneSimulator) {
       return 'ios_sim_arm64';
     }
@@ -245,6 +250,7 @@ void main(List<String> args) async {
     final companions = [
       'GemmaModelConstraintProvider',
       'LiteRtMetalAccelerator', // macOS + iOS GPU (Metal)
+      'LiteRtTopKMetalSampler', // macOS + iOS device GPU sampler (Metal)
       'LiteRtGpuAccelerator', // Android GPU
       'LiteRtOpenClAccelerator', // Android OpenCL
       'LiteRtWebGpuAccelerator', // Linux/Windows GPU (WebGPU → Vulkan/DX12)

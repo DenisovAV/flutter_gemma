@@ -562,4 +562,93 @@ else
   fi
 fi
 
+# ── 10. Patch sampler_factory.cc + WORKSPACE for App-Store-safe dlopen on Apple ──
+#
+# `gpu_registry.cc` (LiteRT) and `sampler_factory.cc` (LiteRT-LM) hardcode the
+# dylib basename "libLiteRtMetalAccelerator.dylib" / "libLiteRtTopKMetalSampler.dylib"
+# in their dlopen calls. Native Assets bundles each prebuilt dylib as
+# `<X>.framework/<X>` (Apple's required structure for iOS) — there is no flat
+# `lib<X>.dylib` file in the app bundle for dyld to find by basename.
+#
+# Older flutter_gemma versions worked around this by symlinking lib*.dylib
+# alongside the frameworks in `Frameworks/`, but Apple App Store Connect
+# rejects that with ITMS-90432 ("Unexpected file found in Frameworks").
+#
+# Proper fix: rewrite the dlopen path on Apple to a relative-to-executable
+# framework path, which dyld resolves natively:
+#   `@executable_path/../Frameworks/<X>.framework/<X>` on macOS
+#   `@executable_path/Frameworks/<X>.framework/<X>` on iOS
+#
+# Verified empirically (2026-04-30) on a built macOS Runner.app: the
+# @executable_path-relative form resolves both from a binary in Contents/MacOS
+# and from a binary inside another framework's Versions/A — i.e. it works for
+# gpu_registry's call site inside libLiteRtLm.dylib.
+
+# 10a. sampler_factory.cc — DELIBERATELY NOT PATCHED.
+#
+# Patching the Metal sampler dlopen to find the framework binary exposes a
+# different bug: the bundled libLiteRtTopKMetalSampler.dylib only exports 3
+# of the 7 C ABI functions sampler_factory expects (upstream issue #2073).
+# When dlopen succeeds, GetSamplerCApi() does dlsym for UpdateConfig which
+# returns NULL — and a later virtual call through the half-built sampler
+# vtable dereferences uninitialized memory, crashing the app with
+# EXC_BAD_ACCESS deep inside the inference pipeline (observed on iPhone
+# 16 Pro device with Gemma 4 E2B GPU temperature=0.0 test 2026-04-30).
+#
+# Leaving the original "libLiteRtTopKMetalSampler.dylib" basename means
+# dlopen on Apple cannot resolve it (Native Assets bundles a framework, not
+# a flat .dylib), so sampler_factory.cc falls back to the CPU sampling
+# path — same behavior we had pre-0.14.1. Inference still runs on the GPU
+# accelerator; only the per-token argmax happens on CPU (~1-5 ms/token).
+#
+# When upstream ships a 7/7 export sampler dylib, revisit this patch.
+
+# 10b. gpu_registry.cc lives in LiteRT (transitive dep). Bazel applies
+# patch_cmds AFTER extracting an http_archive — that's the canonical hook for
+# patching transitive deps. Use python with a separator to avoid the multi-
+# layer shell-inside-Bazel-string-inside-python quoting nightmare.
+export WORKSPACE_FILE="$DIR/WORKSPACE"
+if [ -f "$WORKSPACE_FILE" ] && ! grep -q "FLUTTER_GEMMA_GPU_REGISTRY_PATCH" "$WORKSPACE_FILE"; then
+  python3 << 'PYEOF'
+import os
+ws = os.environ['WORKSPACE_FILE']
+with open(ws, 'r') as f:
+    content = f.read()
+
+# The existing third_party-rewrite line is the anchor. Use a stable substring
+# match (the file path is unique enough).
+anchor_substring = 'third_party/*/*",'
+new_line_after_anchor = """
+        # FLUTTER_GEMMA_GPU_REGISTRY_PATCH — App Store ITMS-90432 fix:
+        # rewrite gpu_registry.cc dlopen path on Apple to a framework path so
+        # dyld resolves the bundled .framework/<X> via @executable_path. iOS
+        # bundle is flat (Frameworks/), macOS bundle has Contents/Frameworks/.
+        "sed -i.bak 's|\\"libLiteRtMetalAccelerator\\" SO_EXT|FLUTTER_GEMMA_METAL_FW_PATH|g' litert/runtime/accelerators/gpu_registry.cc",
+        # Inject the macro definition AFTER the namespace opens (i.e. after
+        # the SO_EXT block has fully closed, since SO_EXT is defined before
+        # the namespace block). Using awk to avoid sed nesting issues.
+        "awk 'BEGIN{p=0} /^namespace litert::internal/ && !p {print; print \\"\\"; print \\"#include <TargetConditionals.h>\\"; print \\"#if TARGET_OS_OSX\\"; print \\"#define FLUTTER_GEMMA_METAL_FW_PATH \\\\\\"@executable_path/../Frameworks/LiteRtMetalAccelerator.framework/LiteRtMetalAccelerator\\\\\\"\\"; print \\"#elif TARGET_OS_IPHONE\\"; print \\"#define FLUTTER_GEMMA_METAL_FW_PATH \\\\\\"@executable_path/Frameworks/LiteRtMetalAccelerator.framework/LiteRtMetalAccelerator\\\\\\"\\"; print \\"#else\\"; print \\"#define FLUTTER_GEMMA_METAL_FW_PATH \\\\\\"libLiteRtMetalAccelerator.dylib\\\\\\"\\"; print \\"#endif\\"; p=1; next} {print}' litert/runtime/accelerators/gpu_registry.cc > /tmp/gpu_registry.cc.new && mv /tmp/gpu_registry.cc.new litert/runtime/accelerators/gpu_registry.cc","""
+
+# Find the anchor line and insert our new lines right after it.
+idx = content.find(anchor_substring)
+if idx < 0:
+    print("  WARN: anchor line not found in WORKSPACE; skipping section 10b")
+else:
+    # End-of-line for the anchor
+    eol = content.find('\n', idx)
+    if eol < 0:
+        eol = len(content)
+    content = content[:eol] + new_line_after_anchor + content[eol:]
+    with open(ws, 'w') as f:
+        f.write(content)
+    print("  OK: Patched WORKSPACE litert.patch_cmds with gpu_registry.cc dlopen rewrite")
+PYEOF
+else
+  if [ -f "$WORKSPACE_FILE" ]; then
+    echo "  SKIP: WORKSPACE already has FLUTTER_GEMMA_GPU_REGISTRY_PATCH"
+  else
+    echo "  WARN: $WORKSPACE_FILE not found"
+  fi
+fi
+
 echo "Patch complete."

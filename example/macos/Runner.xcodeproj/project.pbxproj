@@ -416,7 +416,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\nif [ ! -d \"${FRAMEWORKS}\" ]; then\n  echo \"[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping\"\n  exit 0\nfi\nfor base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do\n  src=\"${base}.framework/Versions/Current/${base}\"\n  if [ ! -e \"${FRAMEWORKS}/${src}\" ]; then\n    echo \"[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it\"\n    continue\n  fi\n  dst=\"${FRAMEWORKS}/lib${base}.dylib\"\n  if [ ! -e \"${dst}\" ]; then\n    ln -sf \"${src}\" \"${dst}\"\n    echo \"[flutter_gemma] symlinked lib${base}.dylib -> ${src}\"\n  fi\ndone\n";
+			shellScript = "set -e\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\nif [ ! -d \"${FRAMEWORKS}\" ]; then\n  exit 0\nfi\nfor base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do\n  rm -f \"${FRAMEWORKS}/lib${base}.dylib\"\ndone\n";
 		};
 		A8E9FFDD1D6DFFDCCA844887 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -456,7 +456,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\nif [ ! -d \"${FRAMEWORKS}\" ]; then\n  echo \"[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping\"\n  exit 0\nfi\nfor base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do\n  src=\"${base}.framework/Versions/Current/${base}\"\n  if [ ! -e \"${FRAMEWORKS}/${src}\" ]; then\n    echo \"[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it\"\n    continue\n  fi\n  dst=\"${FRAMEWORKS}/lib${base}.dylib\"\n  if [ ! -e \"${dst}\" ]; then\n    ln -sf \"${src}\" \"${dst}\"\n    echo \"[flutter_gemma] symlinked lib${base}.dylib -> ${src}\"\n  fi\ndone\n";
+			shellScript = "set -e\nFRAMEWORKS=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks\"\nif [ ! -d \"${FRAMEWORKS}\" ]; then\n  exit 0\nfi\nfor base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do\n  rm -f \"${FRAMEWORKS}/lib${base}.dylib\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -21,6 +21,11 @@
 - Never use file extension filters unless explicitly requested
 - Use `grep -rn "pattern" /path/ 2>/dev/null | grep -v node_modules | grep -v ".gradle/"`
 
+## Rule 6: NEVER USE `flutter drive` ⛔
+- iPhone/iOS integration tests ALWAYS use `flutter test integration_test/<file>.dart -d <device-id>`
+- If `flutter test` hangs on "Dart VM Service was not discovered" or fails with "Cannot start app on wirelessly tethered iOS device", fix iPhone/macOS USB tunnel (Personal Hotspot off, iPhone USB enabled in Network settings, Trust dialog) — do NOT switch to `flutter drive` as a workaround
+- `flutter drive` is forbidden in this project, full stop
+
 ---
 
 ## Project Overview
@@ -110,7 +115,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.10.2` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms
-- **Current Version**: 0.14.0
+- **Current Version**: 0.14.1
 
 ## Platform-Specific Setup
 

@@ -80,3 +80,5 @@ test_audio.txt
 ai-edge-gallery/
 # Note: colabs/*.ipynb are tracked in repo (training notebooks) but
 # excluded from pub package via .pubignore.
+
+.remember/

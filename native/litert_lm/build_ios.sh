@@ -8,8 +8,12 @@
 #
 # Usage:
 #   ./build_ios.sh [version]
-#   ./build_ios.sh v0.10.2
-#   ./build_ios.sh          # uses latest tag
+#   ./build_ios.sh                # default: commit 5e0d86b (required for GPU)
+#   ./build_ios.sh 5e0d86b        # explicit
+#   ./build_ios.sh v0.10.2        # WARNING: predates Metal accelerator,
+#                                 # produces libLiteRtLm.dylib that crashes
+#                                 # iPhone GPU with EXC_BAD_ACCESS in
+#                                 # litert_lm_engine_create.
 
 set -euo pipefail
 
@@ -31,14 +35,15 @@ else
 fi
 
 # 2. Checkout version
-if [ -n "$VERSION" ]; then
-  echo "Checking out $VERSION..."
-  git checkout -f "$VERSION"
-else
-  LATEST_TAG=$(git tag -l "v*" | sort -V | tail -1)
-  echo "Checking out latest tag: $LATEST_TAG..."
-  git checkout -f "$LATEST_TAG"
-fi
+# Default to commit 5e0d86b (post-v0.10.2) because it's the first commit that
+# adds libLiteRtMetalAccelerator.dylib for iOS — required for GPU. Building
+# against an earlier ref (e.g. v0.10.2) produces a libLiteRtLm.dylib whose
+# Metal accelerator ABI doesn't match the prebuilt framework, causing
+# EXC_BAD_ACCESS in litert_lm_engine_create at runtime on iPhone GPU.
+DEFAULT_REF="5e0d86b"
+TARGET_REF="${VERSION:-$DEFAULT_REF}"
+echo "Checking out $TARGET_REF..."
+git checkout -f "$TARGET_REF"
 echo "Building from: $(git log --oneline -1)"
 
 # 3. Ensure shared library target exists

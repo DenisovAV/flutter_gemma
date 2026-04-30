@@ -10,8 +10,15 @@ import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
 import '../core/di/service_registry.dart';
-import '../core/ffi/litert_lm_client.dart';
-import '../core/ffi/ffi_inference_model.dart';
+// Conditional imports: on web, swap FFI client + inference model for stubs that
+// don't pull in dart:ffi (which can't be compiled to JS/Wasm). The web plugin
+// (FlutterGemmaWeb) registers itself as FlutterGemmaPlugin.instance via
+// registerWith() before any of this code can run, so the stubs' constructors
+// (which throw UnsupportedError) are never reached on web.
+import '../core/ffi/litert_lm_client.dart'
+    if (dart.library.js_interop) '../core/ffi/litert_lm_client_stub.dart';
+import '../core/ffi/ffi_inference_model.dart'
+    if (dart.library.js_interop) '../core/ffi/ffi_inference_model_stub.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';

@@ -138,6 +138,7 @@ abstract class InferenceModel {
     String? systemInstruction,
     bool enableThinking =
         false, // Enable thinking mode (Gemma 4 via extraContext)
+    List<Tool> tools = const [], // Native tool calling (Gemma 4 → SDK tools_json)
   });
 
   Future<InferenceChat> createChat({
@@ -203,6 +204,16 @@ abstract class InferenceModelSession {
   Future<void> stopGeneration();
 
   Future<void> close();
+}
+
+/// Mixin for sessions that surface the SDK's structured raw JSON response
+/// (LiteRT-LM Gemma 4 path with `tool_calls`). Allows [InferenceChat] to read
+/// the structured tool calls without a hard dependency on a concrete session
+/// type, and lets non-FFI sessions opt out by simply not implementing this
+/// mixin.
+mixin RawSdkResponseSession on InferenceModelSession {
+  /// Most recent raw SDK JSON. Null until first generation completes.
+  String? get lastRawResponse;
 }
 
 /// Task type for embedding generation, following Google RAG SDK convention.

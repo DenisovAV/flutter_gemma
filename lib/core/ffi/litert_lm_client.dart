@@ -75,6 +75,11 @@ class LiteRtLmFfiClient {
 
   bool get isInitialized => _isInitialized;
 
+  /// Path to the redirected native stderr log (LiteRT-LM absl/glog output).
+  /// Set after [_ensureBindings] runs the stderr redirect; null on platforms
+  /// where redirection isn't wired (currently it works on macOS + iOS).
+  String? get nativeLogPath => _nativeLogPath;
+
   /// Load the native library and create bindings.
   void _ensureBindings() {
     if (_bindings != null) return;
@@ -473,6 +478,21 @@ class LiteRtLmFfiClient {
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
     return sendMessageStreamRaw(messageJson, extraContext: extraContext)
         .map(extractTextFromResponse);
+  }
+
+  /// Same as [chat] but yields raw SDK JSON chunks without `extractTextFromResponse`
+  /// mapping. Required by Gemma 4 path so callers can read the structured
+  /// `tool_calls` field via [extractToolCalls].
+  Stream<String> chatRaw(
+    String text, {
+    Uint8List? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    final messageJson =
+        buildMessageJson(text, imageBytes: imageBytes, audioBytes: audioBytes);
+    final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
+    return sendMessageStreamRaw(messageJson, extraContext: extraContext);
   }
 
   /// Send a raw JSON message and get streaming response.

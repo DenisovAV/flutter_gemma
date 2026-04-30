@@ -249,6 +249,7 @@ class MultimodalImageHandler {
   static VisionEncoderType _getVisionEncoderType(ModelType modelType) {
     switch (modelType) {
       case ModelType.gemmaIt:
+      case ModelType.gemma4:
         return VisionEncoderType.gemma3SigLIP;
       case ModelType.deepSeek:
       case ModelType.general:
@@ -266,6 +267,7 @@ class MultimodalImageHandler {
   static tokenizer.ModelType _convertToTokenizerModelType(ModelType modelType) {
     switch (modelType) {
       case ModelType.gemmaIt:
+      case ModelType.gemma4:
         return tokenizer.ModelType.gemmaIt;
       case ModelType.deepSeek:
         return tokenizer.ModelType.deepSeek;

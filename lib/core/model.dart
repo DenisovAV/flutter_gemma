@@ -1,6 +1,7 @@
 enum ModelType {
   general,
   gemmaIt,
+  gemma4, // Gemma 4 E2B/E4B with native function calling tokens
   deepSeek,
   qwen,
   qwen3,

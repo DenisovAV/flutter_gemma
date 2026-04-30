@@ -8,6 +8,7 @@ import '../model.dart';
 import '../tool.dart';
 import '../chat.dart';
 import '../extensions.dart';
+import '../parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
@@ -51,6 +52,7 @@ class FfiInferenceModel extends InferenceModel {
     bool? enableAudioModality,
     String? systemInstruction,
     bool enableThinking = false,
+    List<Tool> tools = const [],
   }) async {
     if (_isClosed) {
       throw StateError(
@@ -72,8 +74,16 @@ class FfiInferenceModel extends InferenceModel {
     final completer = _createCompleter = Completer<InferenceModelSession>();
 
     try {
+      // For Gemma 4, push tools into the SDK conversation config so it can
+      // render native `<|tool>declaration:...<tool|>` tokens via minja. Other
+      // model types still use Dart-side prompt injection in chat.dart.
+      final toolsJson = (modelType == ModelType.gemma4 && tools.isNotEmpty)
+          ? SdkResponseParser.serializeToolsForSdk(tools)
+          : null;
+
       ffiClient.createConversation(
         systemMessage: systemInstruction,
+        toolsJson: toolsJson,
         temperature: temperature,
         topK: topK,
         topP: topP,
@@ -135,6 +145,7 @@ class FfiInferenceModel extends InferenceModel {
         enableAudioModality: supportAudio ?? this.supportAudio,
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
+        tools: tools,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
@@ -168,7 +179,8 @@ class FfiInferenceModel extends InferenceModel {
 
 /// FFI implementation of InferenceModelSession.
 /// Buffers query chunks until [getResponse] is called.
-class FfiInferenceModelSession extends InferenceModelSession {
+class FfiInferenceModelSession extends InferenceModelSession
+    with RawSdkResponseSession {
   FfiInferenceModelSession({
     required this.ffiClient,
     required this.modelType,
@@ -191,6 +203,17 @@ class FfiInferenceModelSession extends InferenceModelSession {
   Uint8List? _pendingImage;
   Uint8List? _pendingAudio;
   bool _isClosed = false;
+
+  /// Last full raw JSON response from SDK. For Gemma 4 this is the structured
+  /// OpenAI Chat Completions object (with `tool_calls` if any). chat.dart reads
+  /// it via [lastRawResponse] before fallback to text extraction.
+  String? _lastRawResponse;
+
+  /// Most recent raw SDK JSON. Returns the response of the last [getResponse]
+  /// or [getResponseAsync]. For Gemma 4 use [LiteRtLmFfiClient.extractToolCalls]
+  /// on this string to surface tool calls.
+  @override
+  String? get lastRawResponse => _lastRawResponse;
 
   void _assertNotClosed() {
     if (_isClosed) {
@@ -223,6 +246,26 @@ class FfiInferenceModelSession extends InferenceModelSession {
     _pendingAudio = null;
     _pendingImage = null;
 
+    // For Gemma 4, walk raw SDK JSON so chat.dart can read `tool_calls` via
+    // [LiteRtLmFfiClient.extractToolCalls]. Other models keep the existing
+    // text-only fast path (raw JSON cache stays null).
+    if (modelType == ModelType.gemma4) {
+      final rawBuffer = StringBuffer();
+      final textBuffer = StringBuffer();
+      await for (final rawChunk in ffiClient.chatRaw(
+        text,
+        imageBytes: image,
+        audioBytes: audio,
+        enableThinking: enableThinking,
+      )) {
+        rawBuffer.write(rawChunk);
+        textBuffer.write(LiteRtLmFfiClient.extractTextFromResponse(rawChunk));
+      }
+      _lastRawResponse = rawBuffer.toString();
+      return textBuffer.toString();
+    }
+
+    _lastRawResponse = null;
     final buffer = StringBuffer();
     await for (final chunk in ffiClient.chat(
       text,
@@ -245,6 +288,22 @@ class FfiInferenceModelSession extends InferenceModelSession {
     _pendingAudio = null;
     _pendingImage = null;
 
+    if (modelType == ModelType.gemma4) {
+      final rawBuffer = StringBuffer();
+      await for (final rawChunk in ffiClient.chatRaw(
+        text,
+        imageBytes: image,
+        audioBytes: audio,
+        enableThinking: enableThinking,
+      )) {
+        rawBuffer.write(rawChunk);
+        yield LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
+      }
+      _lastRawResponse = rawBuffer.toString();
+      return;
+    }
+
+    _lastRawResponse = null;
     await for (final chunk in ffiClient.chat(
       text,
       imageBytes: image,

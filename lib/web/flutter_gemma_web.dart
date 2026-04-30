@@ -405,6 +405,7 @@ class WebInferenceModel extends InferenceModel {
     bool? enableAudioModality, // Enabling audio modality support (Gemma 3n E4B)
     String? systemInstruction,
     bool enableThinking = false, // Not supported on Web (MediaPipe)
+    List<Tool> tools = const [], // Tools wired through chat.dart prompt; SDK tools_json N/A on web
   }) async {
     // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
     if (enableThinking) {

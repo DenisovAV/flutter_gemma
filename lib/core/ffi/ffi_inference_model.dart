@@ -383,6 +383,11 @@ class FfiInferenceModelSession extends InferenceModelSession
   }
 
   @override
+  SessionMetrics getSessionMetrics() {
+    return ffiClient.getSessionMetrics();
+  }
+
+  @override
   Future<int> sizeInTokens(String text) async {
     return (text.length / 4).ceil();
   }

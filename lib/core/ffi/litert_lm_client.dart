@@ -7,6 +7,7 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../flutter_gemma_interface.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
@@ -722,6 +723,79 @@ class LiteRtLmFfiClient {
     }
 
     _isInitialized = false;
+  }
+
+  /// Get session metrics from current conversation including token usage.
+  /// Returns empty SessionMetrics if no conversation or benchmark unavailable.
+  SessionMetrics getSessionMetrics() {
+    if (_conversation == null ||
+        _conversation == nullptr ||
+        _bindings == null) {
+      return SessionMetrics();
+    }
+
+    final benchmarkInfo =
+        _bindings!.litert_lm_conversation_get_benchmark_info(_conversation!);
+    if (benchmarkInfo == nullptr) {
+      return SessionMetrics();
+    }
+
+    try {
+      // Get number of turns
+      final numPrefillTurns = _bindings!
+          .litert_lm_benchmark_info_get_num_prefill_turns(benchmarkInfo);
+      final numDecodeTurns = _bindings!
+          .litert_lm_benchmark_info_get_num_decode_turns(benchmarkInfo);
+
+      // Sum up tokens from all turns
+      var inputTokens = 0;
+      var outputTokens = 0;
+
+      for (var i = 0; i < numPrefillTurns; i++) {
+        inputTokens += _bindings!
+            .litert_lm_benchmark_info_get_prefill_token_count_at(
+                benchmarkInfo, i);
+      }
+
+      for (var i = 0; i < numDecodeTurns; i++) {
+        outputTokens += _bindings!
+            .litert_lm_benchmark_info_get_decode_token_count_at(
+                benchmarkInfo, i);
+      }
+
+      // Get timing info if available
+      final timeToFirstToken = _bindings!
+          .litert_lm_benchmark_info_get_time_to_first_token(benchmarkInfo);
+      final initTime = _bindings!
+          .litert_lm_benchmark_info_get_total_init_time_in_second(
+              benchmarkInfo);
+
+      // Calculate average tokens per second from last decode turn if available
+      double? tokensPerSecond;
+      if (numDecodeTurns > 0) {
+        tokensPerSecond = _bindings!
+            .litert_lm_benchmark_info_get_decode_tokens_per_sec_at(
+                benchmarkInfo, numDecodeTurns - 1);
+        if (tokensPerSecond <= 0) tokensPerSecond = null;
+      }
+
+      // Cleanup benchmark info
+      _bindings!.litert_lm_benchmark_info_delete(benchmarkInfo);
+
+      return SessionMetrics(
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        totalTokens: inputTokens + outputTokens,
+        timeToFirstTokenMs:
+            timeToFirstToken > 0 ? timeToFirstToken * 1000 : null,
+        tokensPerSecond: tokensPerSecond,
+        initTimeMs: initTime > 0 ? initTime * 1000 : null,
+      );
+    } catch (e) {
+      debugPrint('[LiteRtLmFfiClient] Error getting metrics: $e');
+      _bindings!.litert_lm_benchmark_info_delete(benchmarkInfo);
+      return SessionMetrics();
+    }
   }
 
   void _assertInitialized() {

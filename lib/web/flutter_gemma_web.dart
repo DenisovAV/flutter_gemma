@@ -914,6 +914,13 @@ class WebModelSession extends InferenceModelSession {
   }
 
   @override
+  SessionMetrics getSessionMetrics() {
+    // Web MediaPipe implementation doesn't expose detailed token metrics.
+    // Users can estimate using sizeInTokens() before/after generation.
+    return SessionMetrics();
+  }
+
+  @override
   Future<void> close() async {
     // Cleanup MediaPipe LlmInference WASM resources (important for hot restart)
     // This prevents memory leaks and "memory access out of bounds" errors

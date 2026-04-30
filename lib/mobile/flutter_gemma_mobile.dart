@@ -215,6 +215,19 @@ class MobileInferenceModelSession extends InferenceModelSession {
   }
 
   @override
+  SessionMetrics getSessionMetrics() {
+    // MediaPipe doesn't expose detailed token metrics via the current platform channel.
+    // To get metrics on mobile, you would need to:
+    // 1. Add a new platform method to fetch metrics from native side
+    // 2. Or track tokens manually using sizeInTokens() before/after generation
+    //
+    // For now, return empty metrics. Users can estimate using:
+    //   final inputTokens = await session.sizeInTokens(prompt);
+    //   final outputTokens = await session.sizeInTokens(responseText);
+    return SessionMetrics();
+  }
+
+  @override
   Future<void> close() async {
     _isClosed = true;
 

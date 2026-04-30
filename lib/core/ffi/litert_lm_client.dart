@@ -313,6 +313,9 @@ class LiteRtLmFfiClient {
       // Configure settings
       b.litert_lm_engine_settings_set_max_num_tokens(settings, maxTokens);
 
+      // Enable benchmarking for session metrics (token counts, timing)
+      b.litert_lm_engine_settings_enable_benchmark(settings);
+
       if (cacheDir != null) {
         final cacheDirPtr = cacheDir.toNativeUtf8();
         // Sets cache dir on main, vision, and audio executors (C API patched)

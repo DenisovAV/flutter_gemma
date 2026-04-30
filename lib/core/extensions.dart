@@ -75,6 +75,7 @@ extension MessageExtension on Message {
     final result = switch (type) {
       ModelType.general => _transformGeneral(),
       ModelType.gemmaIt => _transformGemmaIt(),
+      ModelType.gemma4 => _transformGemmaIt(),
       ModelType.deepSeek => _transformDeepSeek(),
       ModelType.qwen => _transformQwen(),
       ModelType.qwen3 => _transformQwen(),
@@ -316,6 +317,7 @@ class ModelThinkingFilter {
         break;
 
       case ModelType.gemmaIt:
+      case ModelType.gemma4:
         // Gemma 4 E2B/E4B: <|channel>thought\n...<channel|>
         const startMarker = '<|channel>thought\n';
         const endMarker = '<channel|>';
@@ -411,6 +413,7 @@ class ModelThinkingFilter {
         return text.replaceAll(thinkingRegex, '').trim();
 
       case ModelType.gemmaIt:
+      case ModelType.gemma4:
         // Remove all <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
         return text
             .replaceAll(
@@ -439,7 +442,8 @@ class ModelThinkingFilter {
     final bool modelCanThink = modelType == ModelType.deepSeek ||
         modelType == ModelType.qwen ||
         modelType == ModelType.qwen3 ||
-        modelType == ModelType.gemmaIt;
+        modelType == ModelType.gemmaIt ||
+        modelType == ModelType.gemma4;
     if (isThinking || modelCanThink) {
       cleaned = removeThinkingFromText(cleaned, modelType: modelType);
     }
@@ -466,6 +470,7 @@ class ModelThinkingFilter {
         // General models - no special cleaning needed
         return cleaned.trim();
       case ModelType.gemmaIt:
+      case ModelType.gemma4:
         // Remove trailing <end_of_turn> tags and trim whitespace
         return cleaned.replaceAll(RegExp(r'<end_of_turn>\s*$'), '').trim();
       case ModelType.qwen:

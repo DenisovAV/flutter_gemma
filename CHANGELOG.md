@@ -1,3 +1,8 @@
+## 0.14.1
+- **Gemma 4 native function calling**: New `ModelType.gemma4` routes tool definitions to LiteRT-LM SDK via `litert_lm_conversation_config_set_tools` (OpenAI Chat Completions JSON). SDK applies `chat_template.jinja` through minja, renders native `<|tool>declaration:...<tool|>` tokens, and parses the model's `<|tool_call>...<tool_call|>` response back into structured `tool_calls` JSON. flutter_gemma reads the result via `SdkResponseParser.extractToolCalls` (handles parallel calls and the multimodal `content[]` path) and returns `FunctionCallResponse` to the app — no Dart-side prompt engineering needed.
+- **Escape token cleanup**: Strips leftover `<|"|>` Gemma 4 escape tokens from string arguments (recursively, including nested maps/lists).
+- **`example/lib/models/model.dart`**: Gemma 4 E2B / E4B entries switched to `modelType: ModelType.gemma4`.
+
 ## 0.14.0
 - **Desktop FFI rewrite**: macOS, Linux, Windows now run LiteRT-LM directly via `dart:ffi` against the C API. Removed Kotlin/JVM gRPC server, Azul Zulu JRE 24 download, and `litertlm-server.jar` bundling. Engine creation ~2 s (was ~10–15 s incl. JVM cold-start)
 - **iOS GPU acceleration**: Metal delegate for `.litertlm` models on iPhone (Gemma 3 1B, Gemma 3n E2B, Gemma 4 E2B). Multimodal vision + audio work on device

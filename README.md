@@ -3,6 +3,7 @@
 [![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
 [![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
 [![pub package](https://img.shields.io/pub/v/flutter_gemma.svg)](https://pub.dev/packages/flutter_gemma)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/DenisovAV/flutter_gemma)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
@@ -45,6 +46,10 @@ There is an example of using:
 - **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
+
+## What's new in 0.14.1
+
+- 🛠️ **Gemma 4 native function calling** — `ModelType.gemma4` routes tool definitions through the LiteRT-LM SDK's chat-template path (minja). The SDK renders native `<|tool>declaration:...<tool|>` tokens, the model emits `<|tool_call>...<tool_call|>`, and the SDK parses the response into structured `tool_calls` JSON. flutter_gemma surfaces it as `FunctionCallResponse` — no Dart-side prompt engineering required.
 
 ## What's new in 0.14.0
 
@@ -112,13 +117,16 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 
 | Model Family | ModelType | Examples |
 |--------------|-----------|----------|
-| **Gemma (all variants)** | `ModelType.gemmaIt` | Gemma 4 E2B/E4B, Gemma 3 1B, Gemma 3 270M, Gemma3n E2B/E4B |
+| **Gemma 4** | `ModelType.gemma4` | Gemma 4 E2B, Gemma 4 E4B (native function-call tokens) |
+| **Gemma 3 / Gemma3n** | `ModelType.gemmaIt` | Gemma 3 1B, Gemma 3 270M, Gemma3n E2B/E4B |
 | **DeepSeek** | `ModelType.deepSeek` | DeepSeek R1 |
 | **Qwen 2.5** | `ModelType.qwen` | Qwen 2.5 1.5B, Qwen 2.5 0.5B |
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M |
+
+> **Note**: Gemma 4 uses `ModelType.gemma4` (introduced in 0.14.1) so its native `<\|tool_call>...<tool_call\|>` tokens are routed through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`.
 
 **Usage Example:**
 ```dart
@@ -215,8 +223,9 @@ post_install do |installer|
   # .framework so LiteRT-LM's gpu_registry can dlopen by basename.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
-      next if user_target.shell_script_build_phases.any? { |p| p.name == '[flutter_gemma] Setup LiteRT-LM iOS' }
-      phase = user_target.new_shell_script_build_phase('[flutter_gemma] Setup LiteRT-LM iOS')
+      phase_name = '[flutter_gemma] Setup LiteRT-LM iOS'
+      existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
+      phase = existing || user_target.new_shell_script_build_phase(phase_name)
       phase.shell_script = <<~SHELL
         set -e
         FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Frameworks"
@@ -224,7 +233,7 @@ post_install do |installer|
           echo "[flutter_gemma] no Frameworks/ in ${PRODUCT_NAME}.app — skipping"
           exit 0
         fi
-        for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
+        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
           src="${base}.framework/${base}"
           if [ ! -e "${FRAMEWORKS}/${src}" ]; then
             echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"
@@ -322,8 +331,9 @@ post_install do |installer|
   # .framework so LiteRT-LM's gpu_registry can dlopen by basename.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
-      next if user_target.shell_script_build_phases.any? { |p| p.name == '[flutter_gemma] Setup LiteRT-LM macOS' }
-      phase = user_target.new_shell_script_build_phase('[flutter_gemma] Setup LiteRT-LM macOS')
+      phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
+      existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
+      phase = existing || user_target.new_shell_script_build_phase(phase_name)
       phase.shell_script = <<~SHELL
         set -e
         FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
@@ -331,7 +341,7 @@ post_install do |installer|
           echo "[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping"
           exit 0
         fi
-        for base in LiteRtMetalAccelerator GemmaModelConstraintProvider; do
+        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
           src="${base}.framework/Versions/Current/${base}"
           if [ ! -e "${FRAMEWORKS}/${src}" ]; then
             echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"

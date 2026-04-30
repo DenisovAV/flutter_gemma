@@ -5,6 +5,7 @@ import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
@@ -73,14 +74,18 @@ class InferenceChat {
     var messageToSend = message;
 
     // Only add tools prompt for the first user text message (not a tool response)
-    // and only if the model supports function calls
+    // and only if the model supports function calls.
+    // Gemma 4 is exempt: SDK renders <|tool>declaration:...<tool|> from
+    // tools_json passed at conversation creation, so a Dart-side prompt
+    // injection would double-wrap the tools.
     if (message.isUser &&
         message.type == MessageType.text &&
         !_toolsInstructionSent &&
         tools.isNotEmpty &&
         !noTool &&
         supportsFunctionCalls &&
-        toolChoice != ToolChoice.none) {
+        toolChoice != ToolChoice.none &&
+        modelType != ModelType.gemma4) {
       _toolsInstructionSent = true;
       final toolsPrompt = createToolsPrompt();
 
@@ -128,6 +133,29 @@ class InferenceChat {
     final response = await session.getResponse();
     final cleanedResponse = ModelThinkingFilter.cleanResponse(response,
         isThinking: isThinking, modelType: modelType, fileType: fileType);
+
+    // Gemma 4 path: SDK already parsed `<|tool_call>...<tool_call|>` into
+    // structured `tool_calls` JSON. Read it from session.lastRawResponse
+    // before falling back to the legacy regex parser on cleanedResponse.
+    if (modelType == ModelType.gemma4 &&
+        tools.isNotEmpty &&
+        supportsFunctionCalls &&
+        toolChoice != ToolChoice.none &&
+        session is RawSdkResponseSession) {
+      final raw = (session as RawSdkResponseSession).lastRawResponse;
+      if (raw != null) {
+        final allCalls = SdkResponseParser.extractToolCalls(raw);
+        if (allCalls.isNotEmpty) {
+          debugPrint(
+              'InferenceChat: Detected ${allCalls.length} SDK-parsed tool call(s)');
+          final toolCallMessage = Message.toolCall(text: raw);
+          _fullHistory.add(toolCallMessage);
+          _modelHistory.add(toolCallMessage);
+          if (allCalls.length == 1) return allCalls.first;
+          return ParallelFunctionCallResponse(calls: allCalls);
+        }
+      }
+    }
 
     if (cleanedResponse.isEmpty) {
       debugPrint(
@@ -341,6 +369,31 @@ class InferenceChat {
     debugPrint('InferenceChat: Native token stream ended');
     final response = buffer.toString();
     debugPrint('InferenceChat: Complete response accumulated: "$response"');
+
+    // Gemma 4 path: streaming yielded plain text via the SDK passthrough
+    // format. The tool calls live in the structured `lastRawResponse` JSON.
+    // Surface them at end-of-stream as the final ModelResponse.
+    if (modelType == ModelType.gemma4 &&
+        tools.isNotEmpty &&
+        supportsFunctionCalls &&
+        toolChoice != ToolChoice.none &&
+        session is RawSdkResponseSession) {
+      final raw = (session as RawSdkResponseSession).lastRawResponse;
+      if (raw != null) {
+        final allCalls = SdkResponseParser.extractToolCalls(raw);
+        if (allCalls.isNotEmpty) {
+          debugPrint(
+              'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream');
+          emittedFunctionCall = true;
+          lastFuncBuffer = raw;
+          if (allCalls.length == 1) {
+            yield allCalls.first;
+          } else {
+            yield ParallelFunctionCallResponse(calls: allCalls);
+          }
+        }
+      }
+    }
 
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {

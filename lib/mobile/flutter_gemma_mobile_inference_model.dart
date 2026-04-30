@@ -91,6 +91,7 @@ class MobileInferenceModel extends InferenceModel {
     bool? enableAudioModality,
     String? systemInstruction,
     bool enableThinking = false,
+    List<Tool> tools = const [], // MediaPipe path: tools handled via chat.dart prompt
   }) async {
     if (_isClosed) {
       throw StateError(

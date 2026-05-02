@@ -72,6 +72,7 @@ class FfiInferenceModel extends InferenceModel {
     }
 
     final completer = _createCompleter = Completer<InferenceModelSession>();
+    final sessionSw = Stopwatch()..start();
 
     try {
       // For Gemma 4, push tools into the SDK conversation config so it can
@@ -81,6 +82,7 @@ class FfiInferenceModel extends InferenceModel {
           ? SdkResponseParser.serializeToolsForSdk(tools)
           : null;
 
+      final beforeConv = sessionSw.elapsedMilliseconds;
       ffiClient.createConversation(
         systemMessage: systemInstruction,
         toolsJson: toolsJson,
@@ -89,6 +91,8 @@ class FfiInferenceModel extends InferenceModel {
         topP: topP,
         seed: randomSeed,
       );
+      debugPrint(
+          '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms');
 
       final session = _session = FfiInferenceModelSession(
         ffiClient: ffiClient,
@@ -104,6 +108,8 @@ class FfiInferenceModel extends InferenceModel {
       );
 
       completer.complete(session);
+      debugPrint(
+          '[FfiInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms');
       return session;
     } catch (e, st) {
       completer.completeError(e, st);
@@ -246,6 +252,10 @@ class FfiInferenceModelSession extends InferenceModelSession
     _pendingAudio = null;
     _pendingImage = null;
 
+    final genSw = Stopwatch()..start();
+    int? firstChunkMs;
+    var chunkCount = 0;
+
     // For Gemma 4, walk raw SDK JSON so chat.dart can read `tool_calls` via
     // [LiteRtLmFfiClient.extractToolCalls]. Other models keep the existing
     // text-only fast path (raw JSON cache stays null).
@@ -258,10 +268,17 @@ class FfiInferenceModelSession extends InferenceModelSession
         audioBytes: audio,
         enableThinking: enableThinking,
       )) {
+        if (firstChunkMs == null) {
+          firstChunkMs = genSw.elapsedMilliseconds;
+          debugPrint(
+              '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms');
+        }
+        chunkCount++;
         rawBuffer.write(rawChunk);
         textBuffer.write(LiteRtLmFfiClient.extractTextFromResponse(rawChunk));
       }
       _lastRawResponse = rawBuffer.toString();
+      _logGenerationStats(genSw, firstChunkMs, chunkCount);
       return textBuffer.toString();
     }
 
@@ -273,9 +290,33 @@ class FfiInferenceModelSession extends InferenceModelSession
       audioBytes: audio,
       enableThinking: enableThinking,
     )) {
+      if (firstChunkMs == null) {
+        firstChunkMs = genSw.elapsedMilliseconds;
+        debugPrint(
+            '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms');
+      }
+      chunkCount++;
       buffer.write(chunk);
     }
+    _logGenerationStats(genSw, firstChunkMs, chunkCount);
     return buffer.toString();
+  }
+
+  void _logGenerationStats(Stopwatch sw, int? firstChunkMs, int chunks) {
+    final total = sw.elapsedMilliseconds;
+    if (firstChunkMs == null || chunks == 0) {
+      debugPrint(
+          '[FfiInferenceModelSession/perf] generation total: ${total}ms (no chunks emitted)');
+      return;
+    }
+    final decodeMs = total - firstChunkMs;
+    final decodeRate = chunks > 1 && decodeMs > 0
+        ? ((chunks - 1) * 1000.0 / decodeMs).toStringAsFixed(1)
+        : 'n/a';
+    debugPrint(
+        '[FfiInferenceModelSession/perf] generation total: ${total}ms '
+        '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks, '
+        '~$decodeRate chunks/sec)');
   }
 
   @override
@@ -288,6 +329,10 @@ class FfiInferenceModelSession extends InferenceModelSession
     _pendingAudio = null;
     _pendingImage = null;
 
+    final genSw = Stopwatch()..start();
+    int? firstChunkMs;
+    var chunkCount = 0;
+
     if (modelType == ModelType.gemma4) {
       final rawBuffer = StringBuffer();
       await for (final rawChunk in ffiClient.chatRaw(
@@ -296,10 +341,17 @@ class FfiInferenceModelSession extends InferenceModelSession
         audioBytes: audio,
         enableThinking: enableThinking,
       )) {
+        if (firstChunkMs == null) {
+          firstChunkMs = genSw.elapsedMilliseconds;
+          debugPrint(
+              '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms');
+        }
+        chunkCount++;
         rawBuffer.write(rawChunk);
         yield LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
       }
       _lastRawResponse = rawBuffer.toString();
+      _logGenerationStats(genSw, firstChunkMs, chunkCount);
       return;
     }
 
@@ -310,8 +362,15 @@ class FfiInferenceModelSession extends InferenceModelSession
       audioBytes: audio,
       enableThinking: enableThinking,
     )) {
+      if (firstChunkMs == null) {
+        firstChunkMs = genSw.elapsedMilliseconds;
+        debugPrint(
+            '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms');
+      }
+      chunkCount++;
       yield chunk;
     }
+    _logGenerationStats(genSw, firstChunkMs, chunkCount);
   }
 
   @override

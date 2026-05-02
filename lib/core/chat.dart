@@ -148,7 +148,11 @@ class InferenceChat {
         if (allCalls.isNotEmpty) {
           debugPrint(
               'InferenceChat: Detected ${allCalls.length} SDK-parsed tool call(s)');
-          final toolCallMessage = Message.toolCall(text: raw);
+          // Strip Gemma 4 escape tokens (`<|"|>`) before persisting to history.
+          // Keeping raw lets the SDK echo those tokens back into the next
+          // prompt and the model reproduces them in later tool_calls (#248).
+          final cleanRaw = SdkResponseParser.cleanRawForHistory(raw);
+          final toolCallMessage = Message.toolCall(text: cleanRaw);
           _fullHistory.add(toolCallMessage);
           _modelHistory.add(toolCallMessage);
           if (allCalls.length == 1) return allCalls.first;
@@ -385,7 +389,8 @@ class InferenceChat {
           debugPrint(
               'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream');
           emittedFunctionCall = true;
-          lastFuncBuffer = raw;
+          // Strip `<|"|>` escape tokens before history write — see #248.
+          lastFuncBuffer = SdkResponseParser.cleanRawForHistory(raw);
           if (allCalls.length == 1) {
             yield allCalls.first;
           } else {

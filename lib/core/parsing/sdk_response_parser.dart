@@ -136,6 +136,24 @@ class SdkResponseParser {
     return value;
   }
 
+  /// Clean a raw SDK response JSON string by recursively stripping
+  /// `<|"|>` escape tokens. Used by `chat.dart` before writing the
+  /// assistant turn into chat history — without this the next request
+  /// echoes the escape tokens back to the model and Gemma 4 starts
+  /// reproducing them in subsequent `tool_calls` arguments (#248).
+  ///
+  /// Returns the cleaned JSON string, or the input unchanged if it isn't
+  /// valid JSON (the caller falls back to writing the raw string in that
+  /// case).
+  static String cleanRawForHistory(String rawJson) {
+    try {
+      final decoded = jsonDecode(rawJson);
+      return jsonEncode(_stripEscapeTokens(decoded));
+    } on FormatException {
+      return rawJson;
+    }
+  }
+
   /// Serialize [tools] into the OpenAI Chat Completions JSON format that
   /// LiteRT-LM SDK expects in `litert_lm_conversation_config_set_tools`.
   /// SDK then applies `chat_template.jinja` (via minja) to render native

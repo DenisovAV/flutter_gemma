@@ -43,15 +43,21 @@ npm run build
 ```
 
 **What this does:**
-- Reads `litert_embeddings_api.js` (source file)
+- Reads `litert_embeddings_api.js` and `sqlite_vector_store.js` (source files)
 - Bundles all dependencies (LiteRT.js, SentencePiece.js, TensorFlow.js)
-- Outputs to `dist/` directory:
+- Outputs everything required for runtime to `dist/`:
   - `litert_embeddings.js` - Main embedding module
-  - `litert-*.js` - LiteRT.js runtime
-  - `sentencepiece-*.js` - Tokenizer module
-  - `tensorflow-*.js` - TensorFlow.js backend
+  - `sqlite_vector_store.js` + `sqlite_vector_store_worker.js` - VectorStore (RAG)
+  - `cache_api.js` - Hand-written helpers (`window.cacheHas/cachePut/cacheGet`)
+    that the runtime requires; copied automatically from `web/cache_api.js`
+  - `litert.js` / `sentencepiece.js` / `tensorflow.js` - Bundled runtimes
+  - `wasm/` - LiteRT WASM runtime (`litert_wasm_internal.{js,wasm}` plus the
+    threaded and compat variants)
 
-**Build time:** ~10-30 seconds (depends on your machine)
+The build script is cross-platform — it works on macOS, Linux, and Windows
+(Git Bash / PowerShell / cmd) without any shell tricks.
+
+**Build time:** ~10-30 seconds (depends on your machine).
 
 ### Step 3: Copy to Your Web App
 
@@ -67,34 +73,39 @@ cp dist/* ../../example/web/
 **Option B: Your Own Flutter Project**
 
 ```bash
-# Copy to your project's web directory
-cp dist/* <your_flutter_project>/web/
+# Copy the entire dist/ contents (preserve subdirectory structure for wasm/)
+cp -r dist/* <your_flutter_project>/web/
 ```
 
-**Example:**
-```bash
-# If your project is at ~/my_flutter_app/
-cp dist/* ~/my_flutter_app/web/
-```
+This will place at the root of your `web/`: the JS modules, `cache_api.js`,
+and a `wasm/` directory with the LiteRT WASM runtime.
 
-### Step 4: Add Script Tag to index.html
+### Step 4: Add Script Tags to index.html
 
-Open your project's `web/index.html` and add these lines **before** the closing `</head>` tag:
+Open your project's `web/index.html` and add these lines **before** the
+closing `</head>` tag:
 
 ```html
 <head>
   <!-- ... other head content ... -->
 
   <!-- flutter_gemma web support -->
+  <!-- cache_api.js MUST come first and be a non-module script — it
+       defines window.cacheHas / cachePut / cacheGet that the runtime
+       calls during embedding init. -->
+  <script src="cache_api.js"></script>
   <script type="module" src="litert_embeddings.js"></script>
   <script type="module" src="sqlite_vector_store.js"></script>
 </head>
 ```
 
-**Important:** Scripts must use `type="module"` and be placed in the `<head>` section.
-
-- `litert_embeddings.js` - Required for embedding generation
-- `sqlite_vector_store.js` - Required for VectorStore (RAG)
+**Important:**
+- `cache_api.js` is **NOT** a module — load it with a plain `<script src=...>`
+  tag, before the module scripts. Without it the runtime fails with
+  `NoSuchMethodError: tried to call a non-function: 'dart.global.cacheHas'`.
+- The `wasm/` directory is loaded automatically by `litert_embeddings.js`
+  from `/wasm/` — no script tag needed, just make sure the files are
+  copied next to `index.html` under `web/wasm/`.
 
 ### Step 5: Run Your Flutter Web App
 
@@ -126,20 +137,28 @@ print('Dimensions: ${embedding.length}');
 
 ```
 web/rag/
-├── README.md                 # This file
-├── package.json              # NPM dependencies
-├── package-lock.json         # Locked dependency versions
-├── vite.config.js            # Vite build configuration
-├── litert_embeddings_api.js  # Source code for embedding API
-├── sqlite_vector_store.js    # Source code for VectorStore (SQLite WASM)
-├── node_modules/             # Installed dependencies (after npm install)
-└── dist/                     # Built output (after npm run build)
-    ├── litert_embeddings.js  # Embedding module (~6 KB)
-    ├── sqlite_vector_store.js # VectorStore module (~1.6 MB, includes wa-sqlite)
-    ├── litert-*.js
-    ├── sentencepiece-*.js
-    └── tensorflow-*.js
+├── README.md                       # This file
+├── package.json                    # NPM dependencies + build script
+├── vite.config.js                  # Vite build configuration (main bundle)
+├── vite.config.worker.js           # Vite build configuration (worker)
+├── litert_embeddings_api.js        # Source code for embedding API
+├── sqlite_vector_store.js          # Source code for VectorStore (SQLite WASM)
+├── sqlite_vector_store_worker.js   # Source code for the SQLite worker
+├── node_modules/                   # Installed dependencies (after npm install)
+└── dist/                           # Built output (after npm run build)
+    ├── litert_embeddings.js        # Embedding module
+    ├── sqlite_vector_store.js      # VectorStore module
+    ├── sqlite_vector_store_worker.js  # SQLite worker (includes wa-sqlite)
+    ├── cache_api.js                # window.cacheHas/cachePut/cacheGet helpers
+    ├── litert.js / sentencepiece.js / tensorflow.js  # Bundled runtimes
+    └── wasm/
+        ├── litert_wasm_internal.{js,wasm}
+        ├── litert_wasm_threaded_internal.{js,wasm}
+        └── litert_wasm_compat_internal.{js,wasm}
 ```
+
+`cache_api.js` itself lives one level up at `<package>/web/cache_api.js`
+(not in `web/rag/`); the build script copies it into `dist/` automatically.
 
 ---
 
@@ -162,9 +181,25 @@ npm run build
 
 **Checklist:**
 1. ✅ Built modules: `npm run build` in `web/rag/`
-2. ✅ Copied files: `cp dist/* <your_project>/web/`
-3. ✅ Added script tag: `<script type="module" src="litert_embeddings.js"></script>` in `index.html`
-4. ✅ Restart Flutter: `flutter run -d chrome` (hot reload won't load new scripts)
+2. ✅ Copied files: `cp -r dist/* <your_project>/web/`
+   (the `-r` matters — it preserves the `wasm/` subdirectory)
+3. ✅ Added script tags in `index.html`, **with `cache_api.js` before
+   the module scripts and as a plain `<script src=...>` (not module)**.
+4. ✅ `wasm/` directory is at `<your_project>/web/wasm/` — verify
+   `<your_project>/web/wasm/litert_wasm_internal.wasm` exists.
+5. ✅ Restart Flutter: `flutter run -d chrome` (hot reload won't load
+   new scripts).
+
+### Common error messages
+
+**`NoSuchMethodError: tried to call a non-function: 'dart.global.cacheHas'`**
+→ `cache_api.js` is missing or loaded as a module. Use a plain
+`<script src="cache_api.js"></script>` tag, no `type="module"`,
+before the other scripts.
+
+**`Failed to initialize LiteRT embeddings: ... Failed to load LiteRT model: undefined`**
+→ The `wasm/` directory is missing or in the wrong place. Confirm
+`<your_project>/web/wasm/litert_wasm_internal.{js,wasm}` exists.
 
 ### Models download but embeddings fail
 

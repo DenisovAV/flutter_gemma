@@ -39,6 +39,13 @@ export default defineConfig({
   build: {
     target: 'esnext',
     outDir: 'dist',
+    // Don't wipe dist/ — the main vite.config.js already wrote
+    // litert_embeddings.js + sqlite_vector_store.js + cache_api.js + wasm/
+    // there. Worker build only adds sqlite_vector_store_worker.js next to
+    // them. (Without this, the second `vite build` clobbered the first —
+    // which is what the now-removed POSIX `mkdir -p /tmp/...` shell glue
+    // in package.json was working around. See #251.)
+    emptyOutDir: false,
     lib: {
       entry: resolve(__dirname, 'sqlite_vector_store_worker.js'),
       name: 'SQLiteVectorStoreWorker',

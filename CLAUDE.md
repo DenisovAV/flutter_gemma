@@ -114,8 +114,8 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **Dart SDK**: `>=3.6.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.10.2` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms
-- **Current Version**: 0.14.2
+- **LiteRT-LM**: native libs from `native-v0.10.2-a` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-a` patches: Android `libLiteRtLm.so` 16KB-aligned, iOS `libGemmaModelConstraintProvider.dylib` minos lowered 26.2 → 14.0
+- **Current Version**: 0.14.3
 
 ## Platform-Specific Setup
 

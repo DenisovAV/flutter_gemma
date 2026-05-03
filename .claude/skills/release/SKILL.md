@@ -12,8 +12,8 @@ Run as `/release <plugin-version>` (e.g. `/release 0.14.1`).
 
 flutter_gemma 0.14.0+ has **no Kotlin/JVM/gRPC server**. Native libs come from one of two sources, decided per-platform by `hook/build.dart` (Native Assets):
 
-1. **In-repo prebuilts** at `native/litert_lm/prebuilt/<os>_<arch>/` — these are checked in for **every supported platform** (iOS, macOS, Linux, Windows, Android). They are **excluded from the pub package** via `.pubignore` (`native/litert_lm/prebuilt/`). End users never see them; the hook downloads from GitHub Release on `pub get`.
-2. **GitHub Release `native-v<NATIVE_VERSION>` archives** (e.g. `native-v0.10.2`) — these are the **canonical source for end users**. URL pattern: `litertlm-<os>_<arch>.tar.gz` flat archive of the matching `prebuilt/` folder.
+1. **Local prebuilts** at `native/litert_lm/prebuilt/<os>_<arch>/` — populated locally by `native/litert_lm/build_*.sh` scripts. **NOT tracked in git** (gitignored since 0.14.3 — keeps clones lean) and **excluded from the pub package** via `.pubignore`. Maintainers regenerate them on demand and upload to a GitHub Release.
+2. **GitHub Release `native-v<NATIVE_VERSION>` archives** (e.g. `native-v0.10.2-a`) — the **canonical source for both end users and CI**. URL pattern: `litertlm-<os>_<arch>.tar.gz` flat archive of the matching `prebuilt/` folder. End users fetch from there at `pub get` time via `hook/build.dart`. Maintainers re-fetch from there too if their local `prebuilt/` is missing (`gh release download native-v<X>` then extract — see Step 5).
 
 Whether to bump `native-v<NATIVE_VERSION>` or re-publish the existing tag is the **central decision** of every release.
 
@@ -154,6 +154,34 @@ done
 ## Step 7: Update CHANGELOG.md
 
 Add new section at top. Categories: **App Store / packaging fixes**, **Features**, **Bug fixes**, **Breaking changes**, **Native runtime updates** (if `_nativeVersion` bumped). Reference issue / PR numbers (`#245`, `#239`).
+
+### Style: terse, one line per item, mirror 0.13.x pattern
+
+The user has rejected verbose CHANGELOG entries multiple times. Write each
+bullet as **one short sentence** describing what was fixed and the
+issue/PR reference. Do NOT explain root cause, history, build details,
+or include workaround code blocks — that lives in commit messages and
+issue threads, not in CHANGELOG.
+
+Bad (rejected):
+```
+- **Fix Apple companion dylib min iOS** (#245): `libGemmaModelConstraintProvider.dylib`
+  was built upstream with `minos 26.2`, causing App Store Connect to reject any
+  app whose `Info.plist` minimum iOS is below 26.2. Patched to `minos 14.0` post-
+  download (other companion dylibs already on 14.0/16.0). Filed upstream;
+  permanent fix needs Google rebuild.
+```
+
+Good (matches 0.13.x):
+```
+- **Fix App Store ITMS-90208 rejection on iOS** (#245): downgraded patched
+  `libGemmaModelConstraintProvider.dylib` minos 26.2 → 14.0 to match other
+  companion dylibs.
+```
+
+Rule of thumb: each entry ≤ 2 lines wrapped at 100 cols. If you need more
+to explain it, that's a sign it should be split into multiple entries
+or moved to a separate doc.
 
 ## Step 8: Verify
 

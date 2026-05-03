@@ -82,3 +82,10 @@ ai-edge-gallery/
 # excluded from pub package via .pubignore.
 
 .remember/
+
+# Native prebuilts — built locally / fetched from native-v* GitHub Release
+# by hook/build.dart. Maintainers populate via native/litert_lm/build_*.sh
+# scripts, then upload to a native-v<X> GitHub Release tag; consumers
+# fetch from there at `pub get` time. Not tracked in git to keep clones
+# lean (each set is ~350 MB across all platforms).
+native/litert_lm/prebuilt/

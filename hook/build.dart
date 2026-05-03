@@ -8,7 +8,15 @@ const _packageName = 'flutter_gemma';
 const _mainLibName = 'LiteRtLm';
 
 /// LiteRT-LM native library version and release info.
-const _nativeVersion = '0.10.2';
+///
+/// 0.10.2-a is a re-release of 0.10.2 with three patched tarballs:
+///   - android_arm64: libLiteRtLm.so rebuilt with -Wl,-z,max-page-size=16384
+///     (Google Play 16KB page-size requirement, #253)
+///   - ios_arm64 / ios_sim_arm64: libGemmaModelConstraintProvider.dylib
+///     LC_BUILD_VERSION minos lowered 26.2 → 14.0 via vtool to fix
+///     App Store Connect ITMS-90208 rejection (#245).
+/// Linux / macOS / Windows tarballs are byte-identical to 0.10.2.
+const _nativeVersion = '0.10.2-a';
 const _releaseTag = 'native-v$_nativeVersion';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
@@ -25,11 +33,11 @@ const _checksums = <String, String>{
   'litertlm-macos_arm64.tar.gz':
       '2f4a7d5b37b2a16c89b5ab305c55900c5b47e796273422f2d922c4f52d21716d',
   'litertlm-ios_arm64.tar.gz':
-      'e057425fb758bf7791f0cd9b9f4848059fb2bf14e19b5dacb3aead497c80c59e',
+      '477a76233a9f265993a703fc3fe7190fafbd7cae9dba476d5788163d9ffc89e1',
   'litertlm-ios_sim_arm64.tar.gz':
-      '01fa29c1bd425074fa38904ad1257f43890a6f88dce610cb0c1ab0c141867fc5',
+      '5e80d3b284b402df3614deadbc31e6aded426647a785467e67a53e187d5002c5',
   'litertlm-android_arm64.tar.gz':
-      '73382823402e7fc6e983153a912104ef271933dc0e0b89008a323f05242bcfe8',
+      'fd2bad9a28c55e9cc6dec7804f44bd49fb1da1ab6c920617e15162a8b241efb8',
 };
 
 /// Resolve prebuilt directory name for the given OS + architecture.

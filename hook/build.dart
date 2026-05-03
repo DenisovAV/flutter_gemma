@@ -33,11 +33,11 @@ const _checksums = <String, String>{
   'litertlm-macos_arm64.tar.gz':
       '2f4a7d5b37b2a16c89b5ab305c55900c5b47e796273422f2d922c4f52d21716d',
   'litertlm-ios_arm64.tar.gz':
-      '15c1c11ae92e59e0c7fde888e703d5b2dcaca5bf98f2fc1c11a47f3b8fb09728',
+      '477a76233a9f265993a703fc3fe7190fafbd7cae9dba476d5788163d9ffc89e1',
   'litertlm-ios_sim_arm64.tar.gz':
-      'bd9f8be9b84d77f0a7231eac8f5d2155eb0a2f0c76050d7be79b79a302da3a26',
+      '5e80d3b284b402df3614deadbc31e6aded426647a785467e67a53e187d5002c5',
   'litertlm-android_arm64.tar.gz':
-      'd856f78c2ea7c48f7116ff2cecf76ba7cd9d3935321d54c48d0ff998e48d86c6',
+      'fd2bad9a28c55e9cc6dec7804f44bd49fb1da1ab6c920617e15162a8b241efb8',
 };
 
 /// Resolve prebuilt directory name for the given OS + architecture.

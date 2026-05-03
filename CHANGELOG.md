@@ -1,3 +1,8 @@
+## 0.14.3
+- **Fix App Store ITMS-90208 rejection on iOS** (#245): downgraded patched `libGemmaModelConstraintProvider.dylib` minos 26.2 → 14.0 to match the other companion dylibs.
+- **Fix Android Google Play 16KB page-size requirement** (#253): rebuilt `libLiteRtLm.so` with `-Wl,-z,max-page-size=16384`.
+- **Fix Web RAG build pipeline** (#251): cross-platform `npm run build`, bundles `cache_api.js` + LiteRT WASM into `dist/`, ships `package.json` + `vite.config.js` in pub tarball.
+
 ## 0.14.2
 - **Fix macOS `install_name_tool` failure** (#247): `dart run` / `build_runner` / `flutter test` on a pure-Dart library aborted with `larger updated load commands do not fit` because upstream Apple companion dylibs lack `-headerpad_max_install_names`. Skip them from Native Assets on macOS and bundle via `Podfile post_install` instead.
 - **Fix Gemma 4 escape-token leakage in chat history** (#248): `<|"|>` tokens from `tool_calls.arguments` were written to history raw, making the model echo them on later turns. Strip recursively before persist via new `SdkResponseParser.cleanRawForHistory`.

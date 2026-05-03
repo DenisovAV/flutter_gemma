@@ -155,6 +155,34 @@ done
 
 Add new section at top. Categories: **App Store / packaging fixes**, **Features**, **Bug fixes**, **Breaking changes**, **Native runtime updates** (if `_nativeVersion` bumped). Reference issue / PR numbers (`#245`, `#239`).
 
+### Style: terse, one line per item, mirror 0.13.x pattern
+
+The user has rejected verbose CHANGELOG entries multiple times. Write each
+bullet as **one short sentence** describing what was fixed and the
+issue/PR reference. Do NOT explain root cause, history, build details,
+or include workaround code blocks — that lives in commit messages and
+issue threads, not in CHANGELOG.
+
+Bad (rejected):
+```
+- **Fix Apple companion dylib min iOS** (#245): `libGemmaModelConstraintProvider.dylib`
+  was built upstream with `minos 26.2`, causing App Store Connect to reject any
+  app whose `Info.plist` minimum iOS is below 26.2. Patched to `minos 14.0` post-
+  download (other companion dylibs already on 14.0/16.0). Filed upstream;
+  permanent fix needs Google rebuild.
+```
+
+Good (matches 0.13.x):
+```
+- **Fix App Store ITMS-90208 rejection on iOS** (#245): downgraded patched
+  `libGemmaModelConstraintProvider.dylib` minos 26.2 → 14.0 to match other
+  companion dylibs.
+```
+
+Rule of thumb: each entry ≤ 2 lines wrapped at 100 cols. If you need more
+to explain it, that's a sign it should be split into multiple entries
+or moved to a separate doc.
+
 ## Step 8: Verify
 
 ```bash

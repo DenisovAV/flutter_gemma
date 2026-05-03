@@ -18,8 +18,11 @@ devtools_options.yaml
 # NPM files (should not be in pub package)
 node_modules/
 package-lock.json
-package.json
-vite.config.js
+# Top-level package.json / vite.config.js (none in current repo, but
+# protect against future accidental add). web/rag/ ones ARE shipped —
+# consumers re-build the web bundle from source.
+/package.json
+/vite.config.js
 web/rag/node_modules/
 web/rag/dist/
 
@@ -28,6 +31,8 @@ web/*.js
 web/*.js.map
 # But keep source files in web/rag/
 !web/rag/
+# And keep cache_api.js (hand-written, runtime needs window.cacheHas/Put/Get)
+!web/cache_api.js
 
 # Media files (for README, not needed in package)
 docs/

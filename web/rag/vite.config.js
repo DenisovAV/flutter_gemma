@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
   // Plugins
@@ -14,6 +15,22 @@ export default defineConfig({
       },
       // Enable polyfills for specific modules
       protocolImports: true,
+    }),
+    // Copy hand-written cache_api.js (lives one folder up at web/cache_api.js
+    // and defines window.cacheHas/cachePut/cacheGet that the runtime needs)
+    // and the LiteRT WASM runtime files into dist/ so consumers get a
+    // self-contained build output (#251).
+    viteStaticCopy({
+      targets: [
+        {
+          src: resolve(__dirname, '../cache_api.js'),
+          dest: '.',
+        },
+        {
+          src: resolve(__dirname, 'node_modules/@litertjs/core/wasm/*'),
+          dest: 'wasm',
+        },
+      ],
     }),
   ],
 

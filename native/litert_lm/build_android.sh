@@ -99,8 +99,14 @@ echo "=== Building for Android arm64 ==="
 # from Dart. On Android, upstream's prebuilt accelerator libs are already
 # linked against a fully self-contained libLiteRtLm.so (LiteRt symbols
 # linked statically into libLiteRtLm.so), so we build the same way.
+#
+# 16KB page size support (Android 15+ on Pixel 8 and beyond, mandatory for
+# Google Play uploads since Nov 2025 — see #253). max-page-size=16384 makes
+# the linker pad PT_LOAD segments to 16KB boundaries; the binary is still
+# loadable on 4KB-page kernels, just ~12KB larger per segment.
 bazelisk build \
   --config=android_arm64 \
+  --linkopt=-Wl,-z,max-page-size=16384 \
   '//c:libLiteRtLm.dylib'
 
 # 6. Copy + rename .dylib → .so (bazel target name is hardcoded to .dylib).
@@ -129,7 +135,10 @@ fi
 
 echo ""
 echo "=== Building StreamProxy with $NDK_CLANG ==="
+# 16KB page-size flag for Google Play parity with libLiteRtLm.so build above.
+# NDK r25+ defaults to this anyway, but make it explicit so older NDKs work.
 "$NDK_CLANG" -shared -fPIC \
+  -Wl,-z,max-page-size=16384 \
   -o "$PREBUILT_DIR/libStreamProxy.so" \
   "$SCRIPT_DIR/stream_proxy.c"
 echo "  libStreamProxy.so → $PREBUILT_DIR/"

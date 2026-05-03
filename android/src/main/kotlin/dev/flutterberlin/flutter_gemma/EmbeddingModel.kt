@@ -24,6 +24,18 @@ class EmbeddingModel(
     }
     
     fun initialize() {
+        // localagents-rag:0.3.0 ships native libs only for arm64-v8a — fail
+        // fast with a typed message rather than the opaque UnsatisfiedLinkError
+        // that GemmaEmbeddingModel's JNI loader would surface on x86_64
+        // emulators or armeabi-v7a devices (#250).
+        if (!Build.SUPPORTED_ABIS.contains("arm64-v8a")) {
+            throw UnsupportedOperationException(
+                "flutter_gemma embedding requires an arm64-v8a Android device " +
+                "(got ${Build.SUPPORTED_ABIS.joinToString()}). " +
+                "Google's localagents-rag library does not ship x86_64 / armeabi-v7a native libs."
+            )
+        }
+
         // Verify files exist
         val modelFile = File(modelPath)
         if (!modelFile.exists()) {

@@ -154,6 +154,40 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 2.  Run `flutter pub get` to install.
 
+## Platform & Architecture Support
+
+The plugin ships native prebuilts only for the architectures below. Other ABIs fail at native load with a typed error.
+
+| Platform        | Supported architecture            | Not supported            |
+|-----------------|-----------------------------------|--------------------------|
+| Android         | `arm64-v8a` (full)                | `armeabi-v7a`, `x86_64`¹ |
+| iOS device      | `arm64`                           | —                        |
+| iOS Simulator   | `arm64` (Apple Silicon Mac)       | `x86_64` (Intel Mac)     |
+| macOS           | `arm64` (Apple Silicon)           | `x86_64` (Intel Mac)     |
+| Linux           | `x86_64`, `arm64`                 | —                        |
+| Windows         | `x86_64`                          | `arm64`                  |
+
+¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything else (`.litertlm` FFI, embedding via `localagents-rag`, image generation) is `arm64-v8a` only:
+
+| Android feature                      | arm64-v8a | x86_64 | armeabi-v7a |
+|--------------------------------------|:---------:|:------:|:-----------:|
+| Text inference (`.task` / `.bin`)    |     ✅    |   ✅   |      ✅      |
+| `.litertlm` (FFI)                    |     ✅    |   ❌   |      ❌      |
+| Embedding (`localagents-rag`)        |     ✅    |   ❌   |      ❌      |
+| Image generation (vision)            |     ✅    |   ❌   |      ❌      |
+
+If your Android app uses only the arm64-only features, restrict the build to arm64 so the Play Store does not offer broken APKs to incompatible devices:
+
+```gradle
+android {
+    defaultConfig {
+        ndk { abiFilters 'arm64-v8a' }
+    }
+}
+```
+
+For development, prefer an Apple Silicon Mac — the Android emulator runs `arm64-v8a` natively, and macOS / iOS Simulator builds are arm64.
+
 ## Setup
 
 > **⚠️ Important:** Complete platform-specific setup before using the plugin.

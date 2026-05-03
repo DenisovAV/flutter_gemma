@@ -198,6 +198,18 @@ class LiteRtLmFfiClient {
       }
       lib = DynamicLibrary.open('LiteRtLm.dll');
     } else if (Platform.isAndroid) {
+      // LiteRT-LM ships native libs only for android_arm64 — bail with a
+      // typed message before dlopen surfaces a generic ENOENT on x86_64
+      // emulators / armeabi-v7a devices (#250). MediaPipe `.task` text
+      // inference still works on those ABIs through the Kotlin path; only
+      // `.litertlm` (FFI) requires arm64.
+      if (Abi.current() != Abi.androidArm64) {
+        throw UnsupportedError(
+          'flutter_gemma .litertlm models require an arm64-v8a Android device '
+          '(got ${Abi.current()}). Use a `.task` MediaPipe model on this ABI '
+          'or run on an arm64-v8a device / Apple Silicon emulator.',
+        );
+      }
       // Load StreamProxy first (it has stream_proxy_load_global helper)
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
       // Load LiteRtLm with RTLD_GLOBAL so GPU accelerator plugins

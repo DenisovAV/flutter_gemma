@@ -258,7 +258,25 @@ void main(List<String> args) async {
       'LiteRtTopKWebGpuSampler', // Linux/Windows GPU sampler
       'LiteRt', // Linux/Windows core runtime
     ];
+    // On macOS, skip the upstream Apple companion dylibs from Native Assets
+    // bundling (#247). The three dylibs Google ships in
+    // `prebuilt/macos_arm64/` (`libGemmaModelConstraintProvider.dylib`,
+    // `libLiteRtMetalAccelerator.dylib`, `libLiteRtTopKMetalSampler.dylib`)
+    // were linked without `-Wl,-headerpad_max_install_names`, leaving only
+    // 32 bytes of slack in the load-commands area. Dart Native Assets'
+    // JIT path (`dart run`, `dart build_runner`, `flutter test` on a pure
+    // Dart library) calls `install_name_tool -id <absolute_path>` with paths
+    // 80–110 chars long, which doesn't fit and aborts the whole bundling
+    // step. By dropping these from the asset list, Native Assets never
+    // touches them — instead `example/macos/Podfile` post_install copies
+    // each dylib into `App.app/Contents/Frameworks/<X>.framework/` itself
+    // and patches LiteRtLm.dylib's `LC_LOAD_DYLIB` reference to the new
+    // framework path. iOS / Linux / Windows / Android are unaffected: their
+    // Native Assets paths (Xcode build phases on iOS, no install_name_tool
+    // on Linux/Windows/Android) don't trigger the bug.
+    final skipCompanions = os == OS.macOS;
     for (final name in companions) {
+      if (skipCompanions) continue;
       final fileName = os.dylibFileName(name);
       final fileUri = prebuiltDir.resolve(fileName);
       if (File.fromUri(fileUri).existsSync()) {

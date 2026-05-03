@@ -154,6 +154,40 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 2.  Run `flutter pub get` to install.
 
+## Platform & Architecture Support
+
+The plugin ships native prebuilts only for the architectures below. Other ABIs fail at native load with a typed error.
+
+| Platform        | Supported architecture            | Not supported            |
+|-----------------|-----------------------------------|--------------------------|
+| Android         | `arm64-v8a` (full)                | `armeabi-v7a`, `x86_64`¹ |
+| iOS device      | `arm64`                           | —                        |
+| iOS Simulator   | `arm64` (Apple Silicon Mac)       | `x86_64` (Intel Mac)     |
+| macOS           | `arm64` (Apple Silicon)           | `x86_64` (Intel Mac)     |
+| Linux           | `x86_64`, `arm64`                 | —                        |
+| Windows         | `x86_64`                          | `arm64`                  |
+
+¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything else (`.litertlm` FFI, embedding via `localagents-rag`, image generation) is `arm64-v8a` only:
+
+| Android feature                      | arm64-v8a | x86_64 | armeabi-v7a |
+|--------------------------------------|:---------:|:------:|:-----------:|
+| Text inference (`.task` / `.bin`)    |     ✅    |   ✅   |      ✅      |
+| `.litertlm` (FFI)                    |     ✅    |   ❌   |      ❌      |
+| Embedding (`localagents-rag`)        |     ✅    |   ❌   |      ❌      |
+| Image generation (vision)            |     ✅    |   ❌   |      ❌      |
+
+If your Android app uses only the arm64-only features, restrict the build to arm64 so the Play Store does not offer broken APKs to incompatible devices:
+
+```gradle
+android {
+    defaultConfig {
+        ndk { abiFilters 'arm64-v8a' }
+    }
+}
+```
+
+For development, prefer an Apple Silicon Mac — the Android emulator runs `arm64-v8a` natively, and macOS / iOS Simulator builds are arm64.
+
 ## Setup
 
 > **⚠️ Important:** Complete platform-specific setup before using the plugin.
@@ -211,45 +245,7 @@ platform :ios, '16.0'  # Required for MediaPipe GenAI
 use_frameworks! :linkage => :static
 ```
 
-* **Setup LiteRT-LM dylib symlinks** in `ios/Podfile` `post_install` block. LiteRT-LM's `gpu_registry` calls `dlopen("libLiteRtMetalAccelerator.dylib")` by basename at runtime. Native Assets bundles the dylibs as `.framework`s, so each framework also needs a flat `lib*.dylib` symlink alongside it (required for GPU on physical iOS devices):
-
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-  end
-
-  # flutter_gemma: create lib*.dylib symlinks next to the bundled
-  # .framework so LiteRT-LM's gpu_registry can dlopen by basename.
-  installer.aggregate_targets.each do |aggregate_target|
-    aggregate_target.user_targets.each do |user_target|
-      phase_name = '[flutter_gemma] Setup LiteRT-LM iOS'
-      existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
-      phase = existing || user_target.new_shell_script_build_phase(phase_name)
-      phase.shell_script = <<~SHELL
-        set -e
-        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Frameworks"
-        if [ ! -d "${FRAMEWORKS}" ]; then
-          echo "[flutter_gemma] no Frameworks/ in ${PRODUCT_NAME}.app — skipping"
-          exit 0
-        fi
-        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
-          src="${base}.framework/${base}"
-          if [ ! -e "${FRAMEWORKS}/${src}" ]; then
-            echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"
-            continue
-          fi
-          dst="${FRAMEWORKS}/lib${base}.dylib"
-          if [ ! -e "${dst}" ]; then
-            ln -sf "${src}" "${dst}"
-            echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
-          fi
-        done
-      SHELL
-    end
-  end
-end
-```
+> Since 0.14.1, no host-side `Podfile` `post_install` is required on iOS — flutter_gemma patches the upstream LiteRT-LM `dlopen` path to use `@executable_path/Frameworks/<X>.framework/<X>` so dyld resolves Metal accelerators directly through the Native-Assets-bundled framework. This also keeps `Runner.app/Frameworks/` App-Store-clean (fixes ITMS-90432, see #245).
 
 **Android**
 
@@ -315,11 +311,21 @@ Since 0.14.0 desktop inference and embeddings both use the LiteRT-LM C API via `
 
 **macOS Setup:**
 
-The plugin uses Flutter Native Assets to bundle LiteRT-LM dylibs as
-`.framework`s. The LiteRT-LM runtime, however, calls
-`dlopen("libLiteRtMetalAccelerator.dylib")` by basename at runtime, so each
-framework also needs a flat `lib*.dylib` symlink alongside it. Add this to
-your `macos/Podfile` `post_install` block:
+flutter_gemma 0.14.2+ requires a small `post_install` block in your
+`macos/Podfile`. The Apple accelerator dylibs Google ships upstream
+(`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`,
+`libLiteRtTopKMetalSampler.dylib`) were linked without
+`-Wl,-headerpad_max_install_names`, so Dart Native Assets' JIT bundling path
+(used by `dart run` / `dart build_runner` / `flutter test` on a pure Dart
+library) cannot rewrite their install_name to a long absolute path inside
+`.dart_tool/lib/` and aborts (#247). To unblock both `dart run` and
+`flutter build macos`, the plugin's `hook/build.dart` skips bundling those
+three through Native Assets on macOS, and we instead copy them into
+`App.app/Contents/Frameworks/` ourselves and patch `LiteRtLm.dylib`'s
+`LC_LOAD_DYLIB` reference to the new framework path.
+
+Paste this into your `macos/Podfile` (replacing any existing
+`post_install` block) and run `pod install`:
 
 ```ruby
 post_install do |installer|
@@ -327,8 +333,10 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # flutter_gemma: create lib*.dylib symlinks next to the bundled
-  # .framework so LiteRT-LM's gpu_registry can dlopen by basename.
+  # flutter_gemma 0.14.2: bundle Apple accelerator dylibs as .framework
+  # bundles into Contents/Frameworks/ and re-point LiteRtLm.dylib's
+  # LC_LOAD_DYLIB reference to GemmaModelConstraintProvider's new path.
+  # See README -> macOS Setup and #247 for context.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
@@ -338,21 +346,55 @@ post_install do |installer|
         set -e
         FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
         if [ ! -d "${FRAMEWORKS}" ]; then
-          echo "[flutter_gemma] no Contents/Frameworks/ in ${PRODUCT_NAME}.app — skipping"
           exit 0
         fi
+        # Sweep any leftover lib*.dylib symlinks from older flutter_gemma versions.
         for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
-          src="${base}.framework/Versions/Current/${base}"
-          if [ ! -e "${FRAMEWORKS}/${src}" ]; then
-            echo "[flutter_gemma] ${FRAMEWORKS}/${src} missing — Native Assets did not bundle it"
+          rm -f "${FRAMEWORKS}/lib${base}.dylib"
+        done
+        # Wrap each upstream dylib into a .framework bundle inside the app's
+        # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
+        # (the path the patched gpu_registry.cc uses) resolves at runtime.
+        PLUGIN_PREBUILT="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64"
+        if [ ! -d "${PLUGIN_PREBUILT}" ]; then
+          # Fallback: maybe flutter_gemma was added via a path: dependency
+          PLUGIN_PREBUILT="${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"
+        fi
+        for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
+          src="${PLUGIN_PREBUILT}/lib${base}.dylib"
+          if [ ! -f "${src}" ]; then
+            echo "[flutter_gemma] WARNING: ${src} not found — runtime dlopen will fail"
             continue
           fi
-          dst="${FRAMEWORKS}/lib${base}.dylib"
-          if [ ! -e "${dst}" ]; then
-            ln -sf "${src}" "${dst}"
-            echo "[flutter_gemma] symlinked lib${base}.dylib -> ${src}"
-          fi
+          fw_dir="${FRAMEWORKS}/${base}.framework"
+          mkdir -p "${fw_dir}/Versions/A/Resources"
+          cp "${src}" "${fw_dir}/Versions/A/${base}"
+          install_name_tool -id "@rpath/${base}.framework/Versions/A/${base}" \\
+            "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
+          (cd "${fw_dir}" && ln -sfh A Versions/Current && ln -sfh "Versions/Current/${base}" "${base}" && ln -sfh "Versions/Current/Resources" Resources)
+          cat > "${fw_dir}/Versions/A/Resources/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key><string>${base}</string>
+  <key>CFBundleIdentifier</key><string>dev.flutterberlin.flutter_gemma.${base}</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundlePackageType</key><string>FMWK</string>
+</dict>
+</plist>
+EOF
         done
+        # Re-point LiteRtLm.dylib's LC_LOAD_DYLIB at the new framework path.
+        LITERTLM="${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm"
+        if [ -f "${LITERTLM}" ]; then
+          install_name_tool -change \\
+            @rpath/libGemmaModelConstraintProvider.dylib \\
+            @rpath/GemmaModelConstraintProvider.framework/Versions/A/GemmaModelConstraintProvider \\
+            "${LITERTLM}" 2>/dev/null || true
+          codesign --force --sign - "${LITERTLM}" 2>/dev/null || true
+        fi
       SHELL
     end
   end

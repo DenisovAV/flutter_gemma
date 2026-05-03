@@ -114,4 +114,80 @@ void main() {
       expect(calls.first.args['meta'], equals({'note': 'important', 'count': 7}));
     });
   });
+
+  group('SdkResponseParser.cleanRawForHistory', () {
+    // #248: chat history must not echo `<|"|>` tokens back to the model on
+    // subsequent turns, otherwise Gemma 4 starts reproducing them in
+    // tool_calls arguments and string-enum values get corrupted.
+    test('strips <|"|> tokens from arguments before history persist', () {
+      final raw = jsonEncode({
+        'role': 'assistant',
+        'tool_calls': [
+          {
+            'type': 'function',
+            'function': {
+              'name': 'search_payments',
+              'arguments': {
+                'aggregation': '<|"|>sumAmount<|"|>',
+                'startYear': 2023,
+              },
+            },
+          },
+        ],
+      });
+      final cleaned = SdkResponseParser.cleanRawForHistory(raw);
+      final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
+      final args = (decoded['tool_calls'] as List).first['function']
+          ['arguments'] as Map<String, dynamic>;
+      expect(args['aggregation'], equals('sumAmount'));
+      expect(args['startYear'], equals(2023));
+    });
+
+    test('handles nested maps and lists', () {
+      final raw = jsonEncode({
+        'role': 'assistant',
+        'tool_calls': [
+          {
+            'type': 'function',
+            'function': {
+              'name': 'tag_items',
+              'arguments': {
+                'tags': ['<|"|>red<|"|>', '<|"|>blue<|"|>'],
+                'meta': {'note': '<|"|>important<|"|>'},
+              },
+            },
+          },
+        ],
+      });
+      final cleaned = SdkResponseParser.cleanRawForHistory(raw);
+      expect(cleaned.contains('<|"|>'), isFalse);
+    });
+
+    test('returns input unchanged when not valid JSON', () {
+      const malformed = 'not really json {{{';
+      expect(
+          SdkResponseParser.cleanRawForHistory(malformed), equals(malformed));
+    });
+
+    test('preserves non-string fields verbatim', () {
+      final raw = jsonEncode({
+        'role': 'assistant',
+        'tool_calls': [
+          {
+            'type': 'function',
+            'function': {
+              'name': 'set_volume',
+              'arguments': {'level': 75, 'muted': false, 'ratio': 0.5},
+            },
+          },
+        ],
+      });
+      final cleaned = SdkResponseParser.cleanRawForHistory(raw);
+      final args = (jsonDecode(cleaned) as Map<String, dynamic>)['tool_calls']
+          [0]['function']['arguments'] as Map<String, dynamic>;
+      expect(args['level'], equals(75));
+      expect(args['muted'], equals(false));
+      expect(args['ratio'], equals(0.5));
+    });
+  });
 }

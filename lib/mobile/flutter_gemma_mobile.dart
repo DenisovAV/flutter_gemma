@@ -362,7 +362,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           (Platform.isIOS || Platform.isAndroid)) {
         debugPrint(
             '[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
+        final ffiPathSw = Stopwatch()..start();
         final cacheDir = (await getApplicationSupportDirectory()).path;
+        debugPrint(
+            '[FlutterGemmaMobile/perf] getApplicationSupportDirectory: ${ffiPathSw.elapsedMilliseconds}ms');
         final ffiClient = LiteRtLmFfiClient();
         final backend = switch (preferredBackend) {
           PreferredBackend.cpu => 'cpu',
@@ -372,6 +375,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
               'Use a MediaPipe .task model on Android for NPU acceleration.',
             ),
         };
+        final beforeInit = ffiPathSw.elapsedMilliseconds;
         await ffiClient.initialize(
           modelPath: modelPath,
           backend: backend,
@@ -381,6 +385,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
           enableAudio: supportAudio,
         );
+        debugPrint(
+            '[FlutterGemmaMobile/perf] ffiClient.initialize total: ${ffiPathSw.elapsedMilliseconds - beforeInit}ms');
+        debugPrint(
+            '[FlutterGemmaMobile/perf] FFI model creation total: ${ffiPathSw.elapsedMilliseconds}ms');
 
         model = _initializedModel = FfiInferenceModel(
           ffiClient: ffiClient,

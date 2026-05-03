@@ -46,9 +46,21 @@ class LiteRtLmFfiClient {
   String? _nativeLogPath;
 
   /// Reads back the native log file (set by stream_proxy_redirect_stderr) and
-  /// pipes its contents through debugPrint in 200-char chunks. Used after a
-  /// failed engine_create to surface absl/glog output that wouldn't otherwise
-  /// reach the Flutter test harness.
+  /// pipes its contents through debugPrint in 800-char chunks. Surfaces
+  /// absl/glog output (model load timing, accelerator init, sampler dlopen,
+  /// KV-cache prefill, etc.) that's redirected to a file by
+  /// [stream_proxy_redirect_stderr] and wouldn't otherwise reach the Flutter
+  /// console / test harness.
+  ///
+  /// Called automatically after every successful and failed engine_create
+  /// (debug builds only) so timing breakdowns are visible in `flutter run`.
+  /// Also exposed publicly via [dumpNativeLog] for callers that want to dump
+  /// at arbitrary points (e.g. after prefill, after a slow generate).
+  ///
+  /// Truncates the log file after reading so subsequent dumps only show new
+  /// output — otherwise every dump would re-print everything since app start.
+  void dumpNativeLog() => _dumpNativeLog();
+
   void _dumpNativeLog() {
     final p = _nativeLogPath;
     if (p == null) return;
@@ -59,6 +71,10 @@ class LiteRtLmFfiClient {
         return;
       }
       final content = f.readAsStringSync();
+      if (content.isEmpty) {
+        debugPrint('[LiteRtLmFfi/native] (no new native log output)');
+        return;
+      }
       debugPrint(
           '[LiteRtLmFfi/native] === BEGIN native log ($p, ${content.length} bytes) ===');
       const chunkSize = 800;
@@ -68,6 +84,11 @@ class LiteRtLmFfiClient {
         debugPrint(content.substring(i, end));
       }
       debugPrint('[LiteRtLmFfi/native] === END native log ===');
+      // Truncate so the next dump only shows new output. If truncation fails
+      // (read-only fs etc.), next dump just re-prints — non-fatal.
+      try {
+        f.writeAsStringSync('');
+      } catch (_) {}
     } catch (e) {
       debugPrint('[LiteRtLmFfi/native] failed to read $p: $e');
     }
@@ -84,6 +105,7 @@ class LiteRtLmFfiClient {
   void _ensureBindings() {
     if (_bindings != null) return;
 
+    final loadSw = Stopwatch()..start();
     debugPrint('[LiteRtLmFfi] Loading native libraries...');
     final DynamicLibrary lib;
     final DynamicLibrary proxyLib;
@@ -176,6 +198,18 @@ class LiteRtLmFfiClient {
       }
       lib = DynamicLibrary.open('LiteRtLm.dll');
     } else if (Platform.isAndroid) {
+      // LiteRT-LM ships native libs only for android_arm64 — bail with a
+      // typed message before dlopen surfaces a generic ENOENT on x86_64
+      // emulators / armeabi-v7a devices (#250). MediaPipe `.task` text
+      // inference still works on those ABIs through the Kotlin path; only
+      // `.litertlm` (FFI) requires arm64.
+      if (Abi.current() != Abi.androidArm64) {
+        throw UnsupportedError(
+          'flutter_gemma .litertlm models require an arm64-v8a Android device '
+          '(got ${Abi.current()}). Use a `.task` MediaPipe model on this ABI '
+          'or run on an arm64-v8a device / Apple Silicon emulator.',
+        );
+      }
       // Load StreamProxy first (it has stream_proxy_load_global helper)
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
       // Load LiteRtLm with RTLD_GLOBAL so GPU accelerator plugins
@@ -233,6 +267,8 @@ class LiteRtLmFfiClient {
       }
     }
 
+    debugPrint(
+        '[LiteRtLmFfi/perf] _ensureBindings total: ${loadSw.elapsedMilliseconds}ms');
     debugPrint('[LiteRtLmFfi] Libraries loaded');
   }
 
@@ -246,7 +282,10 @@ class LiteRtLmFfiClient {
     int maxNumImages = 0,
     bool enableAudio = false,
   }) async {
+    final initSw = Stopwatch()..start();
     _ensureBindings();
+    final bindingsMs = initSw.elapsedMilliseconds;
+    debugPrint('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
     final b = _bindings!;
 
     // Create engine settings
@@ -256,12 +295,15 @@ class LiteRtLmFfiClient {
     final audioBackendPtr = enableAudio ? 'cpu'.toNativeUtf8() : nullptr;
 
     try {
+      final settingsCreateStart = initSw.elapsedMilliseconds;
       final settings = b.litert_lm_engine_settings_create(
         modelPathPtr.cast(),
         backendPtr.cast(),
         visionBackendPtr == nullptr ? nullptr : visionBackendPtr.cast(),
         audioBackendPtr == nullptr ? nullptr : audioBackendPtr.cast(),
       );
+      debugPrint(
+          '[LiteRtLmFfi/perf] settings_create: ${initSw.elapsedMilliseconds - settingsCreateStart}ms');
 
       if (settings == nullptr) {
         throw Exception('Failed to create engine settings');
@@ -285,9 +327,12 @@ class LiteRtLmFfiClient {
       // Pass settings pointer as int address (Pointer can't cross isolates).
       debugPrint(
           '[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...');
+      debugPrint(
+          '[LiteRtLmFfi/perf] === START litert_lm_engine_create (native — model load + accelerator init + KV cache prefill) ===');
       final settingsAddr = settings.address;
       final sw = Stopwatch()..start();
       final engineAddr = await Isolate.run(() {
+        final isolateSw = Stopwatch()..start();
         final lib = Platform.isIOS
             ? DynamicLibrary.open(
                 '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm')
@@ -296,12 +341,26 @@ class LiteRtLmFfiClient {
                 : (Platform.isLinux || Platform.isAndroid)
                     ? DynamicLibrary.open('libLiteRtLm.so')
                     : DynamicLibrary.open('LiteRtLm.dll');
+        // ignore: avoid_print
+        print(
+            '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms');
+        final lookupStart = isolateSw.elapsedMilliseconds;
         final create = lib.lookupFunction<Pointer Function(Pointer),
             Pointer Function(Pointer)>('litert_lm_engine_create');
-        return create(Pointer.fromAddress(settingsAddr)).address;
+        // ignore: avoid_print
+        print(
+            '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms');
+        final createStart = isolateSw.elapsedMilliseconds;
+        final ptr = create(Pointer.fromAddress(settingsAddr)).address;
+        // ignore: avoid_print
+        print(
+            '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms');
+        return ptr;
       });
       _engine = Pointer<LiteRtLmEngine>.fromAddress(engineAddr);
       sw.stop();
+      debugPrint(
+          '[LiteRtLmFfi/perf] === END litert_lm_engine_create: ${sw.elapsedMilliseconds}ms (includes isolate spawn ~50-200ms) ===');
       debugPrint(
           '[LiteRtLmFfi] litert_lm_engine_create took ${sw.elapsedMilliseconds}ms');
       b.litert_lm_engine_settings_delete(settings);
@@ -313,7 +372,17 @@ class LiteRtLmFfiClient {
       }
 
       _isInitialized = true;
+      debugPrint(
+          '[LiteRtLmFfi/perf] initialize() total: ${initSw.elapsedMilliseconds}ms');
       debugPrint('[LiteRtLmFfi] Engine initialized successfully');
+
+      // Auto-dump the SDK's stderr log after successful engine_create so
+      // users can see what happens inside the native call (model load time,
+      // accelerator init, sampler dlopen attempts, KV cache prefill, etc.).
+      // No-op when stderr redirection isn't wired (release / Android /
+      // Windows). Safe to call before _isInitialized was true since the
+      // dump only reads a file, doesn't touch native state.
+      _dumpNativeLog();
     } finally {
       calloc.free(modelPathPtr);
       calloc.free(backendPtr);

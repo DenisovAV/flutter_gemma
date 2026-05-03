@@ -35,42 +35,33 @@ class AssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async {
-    // No changes to logic - just add parameter for interface compliance
-    // Asset copies are fast (<30s), cancellation not critical
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }
 
-    // Generate filename from path
     final filename = path.basename(source.path);
     final targetPath = await fileSystem.getTargetPath(filename);
 
-    // Copy asset file directly using LargeFileHandler (no memory loading!).
-    // Pass the absolute targetPath because the Android plugin treats it as a
-    // literal `File(...)` relative to the JVM cwd otherwise (#250).
-    // Falls back to in-memory loadAsset → writeFile on platforms where
-    // large_file_handler doesn't ship a plugin (macOS / Windows / Linux —
-    // it only declares Android + iOS), and on web (FlutterAssetLoader stub).
+    // LargeFileHandler's `targetName` parameter is *just* a filename — the
+    // plugin prepends app docs dir itself. We keep the bare filename here.
+    // On platforms where large_file_handler doesn't ship a plugin (desktop:
+    // macOS/Windows/Linux, web stub) the channel call throws
+    // MissingPluginException — fall back to in-memory loadAsset → writeFile.
     if (assetLoader is FlutterAssetLoader) {
       try {
-        await (assetLoader as FlutterAssetLoader).copyAssetToFile(
-          source.pathForLookupKey,
-          targetPath,
-        );
+        await (assetLoader as FlutterAssetLoader)
+            .copyAssetToFile(source.pathForLookupKey, filename);
       } on MissingPluginException {
         final assetData = await assetLoader.loadAsset(source.pathForLookupKey);
         await fileSystem.writeFile(targetPath, assetData);
       }
     } else {
-      // Fallback for other loaders (testing, web stub)
       final assetData = await assetLoader.loadAsset(source.pathForLookupKey);
       await fileSystem.writeFile(targetPath, assetData);
     }
 
-    // Get size for metadata (after file is copied)
     final sizeBytes = await fileSystem.getFileSize(targetPath);
 
-    // Save metadata to repository
     final modelInfo = ModelInfo(
       id: filename,
       source: source,
@@ -88,23 +79,17 @@ class AssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
   }) async* {
-    // Same as above - add parameter but don't use it
-    // Asset copies are fast (<30s), cancellation not critical
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }
 
-    // Generate filename from path
     final filename = path.basename(source.path);
     final targetPath = await fileSystem.getTargetPath(filename);
 
-    // Copy asset file with REAL progress tracking (LargeFileHandler).
-    // Same fixes as install() above (#250): pass absolute targetPath and
-    // fall back to in-memory copy when the plugin is missing (desktop / web).
     if (assetLoader is FlutterAssetLoader) {
       try {
         await for (final progress in (assetLoader as FlutterAssetLoader)
-            .copyAssetToFileWithProgress(source.pathForLookupKey, targetPath)) {
+            .copyAssetToFileWithProgress(source.pathForLookupKey, filename)) {
           yield progress;
         }
       } on MissingPluginException {
@@ -118,10 +103,8 @@ class AssetSourceHandler implements SourceHandler {
       yield 100;
     }
 
-    // Get size for metadata (after file is copied)
     final sizeBytes = await fileSystem.getFileSize(targetPath);
 
-    // Save metadata to repository
     final modelInfo = ModelInfo(
       id: filename,
       source: source,
@@ -136,7 +119,6 @@ class AssetSourceHandler implements SourceHandler {
 
   @override
   bool supportsResume(ModelSource source) {
-    // Assets are loaded in a single operation, cannot be resumed
     return false;
   }
 }

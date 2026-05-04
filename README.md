@@ -333,10 +333,11 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # flutter_gemma 0.14.2: bundle Apple accelerator dylibs as .framework
+  # flutter_gemma 0.14.4: bundle Apple accelerator dylibs as .framework
   # bundles into Contents/Frameworks/ and re-point LiteRtLm.dylib's
   # LC_LOAD_DYLIB reference to GemmaModelConstraintProvider's new path.
-  # See README -> macOS Setup and #247 for context.
+  # 3-tier dylib source fallback: Native Assets cache (pub.dev users) →
+  # plugin symlink → in-repo prebuilt/. See README -> macOS Setup and #247/#255.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'

@@ -9,14 +9,13 @@ const _mainLibName = 'LiteRtLm';
 
 /// LiteRT-LM native library version and release info.
 ///
-/// 0.10.2-a is a re-release of 0.10.2 with three patched tarballs:
-///   - android_arm64: libLiteRtLm.so rebuilt with -Wl,-z,max-page-size=16384
-///     (Google Play 16KB page-size requirement, #253)
-///   - ios_arm64 / ios_sim_arm64: libGemmaModelConstraintProvider.dylib
-///     LC_BUILD_VERSION minos lowered 26.2 → 14.0 via vtool to fix
-///     App Store Connect ITMS-90208 rejection (#245).
-/// Linux / macOS / Windows tarballs are byte-identical to 0.10.2.
-const _nativeVersion = '0.10.2-a';
+/// 0.10.2-b is a rebuild of 0.10.2 with `-c opt --strip=always` (and the
+/// MSVC equivalent `/OPT:REF /OPT:ICF` on Windows). Per-platform size
+/// reductions: iOS -63%, macOS -43%, Android -28%, Linux -16-18%, Windows
+/// unchanged. iOS still includes the vtool minos 26.2 → 16.0 patch on
+/// libGemmaModelConstraintProvider.dylib from -a (App Store ITMS-90208,
+/// #245).
+const _nativeVersion = '0.10.2-b';
 const _releaseTag = 'native-v$_nativeVersion';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
@@ -25,19 +24,19 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      'ddeebb24ac8df974abbb7072ade0f170e5199dfb3b4f53ebf435d10671549840',
+      '3a6bd1d3685d8a7df508ebc451223c5f6f991accd51d7972b718437d7b037411',
   'litertlm-linux_arm64.tar.gz':
-      '87b703ca9387985e0e945d096c290233946b17b5cf601dfdc70c9e82dd172e21',
+      '86f7e708b4ea966d3cd5c0131425b85bcb2ab8ce9a4cb83710e7e20122954a6a',
   'litertlm-windows_x86_64.tar.gz':
-      'cb7a742ba537f722e294e62c55b4de720e5a96ff1f1e2933ba7a20a96aecc7b6',
+      'cb45b35171d959abcef98d8b4ab08879174cc8e36624ddf9c27a0e634f0b5011',
   'litertlm-macos_arm64.tar.gz':
-      '2f4a7d5b37b2a16c89b5ab305c55900c5b47e796273422f2d922c4f52d21716d',
+      'c2b3d42fca0e58659594940efb56f695f76b4ee822aa5ac2d55088149da0bd7e',
   'litertlm-ios_arm64.tar.gz':
-      '477a76233a9f265993a703fc3fe7190fafbd7cae9dba476d5788163d9ffc89e1',
+      'dd78d25f1b6aa9f5c1bc1f1b26dd440557cb0da2f32a25cb89389718ca4f72ed',
   'litertlm-ios_sim_arm64.tar.gz':
-      '5e80d3b284b402df3614deadbc31e6aded426647a785467e67a53e187d5002c5',
+      '21a0fdc29e018d55137740c69bd12edf04f1d7e737024e89d758663fc7e5d926',
   'litertlm-android_arm64.tar.gz':
-      'fd2bad9a28c55e9cc6dec7804f44bd49fb1da1ab6c920617e15162a8b241efb8',
+      'c46406d19e52648e364c224dc5d7da5bb28f581cdb428a02b5e746bacb953762',
 };
 
 /// Resolve prebuilt directory name for the given OS + architecture.

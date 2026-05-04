@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '0.14.3'
+  s.version          = '0.14.4'
   s.summary          = 'Flutter plugin for running Gemma AI models locally with Gemma 3 Nano support.'
   s.description      = <<-DESC
 The plugin allows running the Gemma AI model locally on a device from a Flutter application.

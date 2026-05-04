@@ -1,3 +1,7 @@
+## 0.14.4
+- **Fix macOS dylib loading on pub.dev installs** (#255).
+- **Reduce native lib size**: iOS -63%, macOS -43%, Android -28%, Linux -16-18%.
+
 ## 0.14.3
 - **Fix App Store ITMS-90208 rejection on iOS** (#245): downgraded patched `libGemmaModelConstraintProvider.dylib` minos 26.2 → 14.0 to match the other companion dylibs.
 - **Fix Android Google Play 16KB page-size requirement** (#253): rebuilt `libLiteRtLm.so` with `-Wl,-z,max-page-size=16384`.

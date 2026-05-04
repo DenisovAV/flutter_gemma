@@ -355,10 +355,19 @@ post_install do |installer|
         # Wrap each upstream dylib into a .framework bundle inside the app's
         # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
         # (the path the patched gpu_registry.cc uses) resolves at runtime.
-        PLUGIN_PREBUILT="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64"
-        if [ ! -d "${PLUGIN_PREBUILT}" ]; then
-          # Fallback: maybe flutter_gemma was added via a path: dependency
-          PLUGIN_PREBUILT="${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"
+        # Resolve dylib source — Native Assets cache (pub.dev), then path-dep fallbacks.
+        for candidate in \
+            "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
+            "${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64" \
+            "${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"; do
+          if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
+            PLUGIN_PREBUILT="${candidate}"
+            break
+          fi
+        done
+        if [ -z "${PLUGIN_PREBUILT:-}" ]; then
+          echo "[flutter_gemma] ERROR: macOS companion dylibs not found. Run 'flutter clean && flutter pub get'."
+          exit 1
         fi
         for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
           src="${PLUGIN_PREBUILT}/lib${base}.dylib"

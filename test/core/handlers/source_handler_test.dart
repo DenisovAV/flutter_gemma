@@ -199,8 +199,11 @@ void main() {
 
       await handler.install(source);
 
-      // AssetSourceHandler uses pathForLookupKey, not normalizedPath
-      verify(() => mockAssetLoader.loadAsset(source.pathForLookupKey)).called(1);
+      // AssetSourceHandler uses normalizedPath (with assets/ prefix) for the
+      // generic loadAsset path — matches Flutter rootBundle's expected key
+      // format. The native large_file_handler path uses pathForLookupKey
+      // separately (see #250 Mode 2 fix).
+      verify(() => mockAssetLoader.loadAsset(source.normalizedPath)).called(1);
       verify(() => mockFileSystem.writeFile(targetPath, assetData)).called(1);
       verify(() => mockRepository.saveModel(any())).called(1);
     });
@@ -241,9 +244,10 @@ void main() {
       await handler.install(source1);
       await handler.install(source2);
 
-      // Both should use pathForLookupKey which returns 'models/test.bin' (without assets/ prefix)
-      // This is correct for native platform lookupKey
-      verify(() => mockAssetLoader.loadAsset('models/test.bin')).called(2);
+      // Both should normalize to 'assets/models/test.bin' for the loadAsset
+      // (rootBundle) path. The native lookup key (without prefix) is used
+      // separately on the large_file_handler path.
+      verify(() => mockAssetLoader.loadAsset('assets/models/test.bin')).called(2);
     });
   });
 

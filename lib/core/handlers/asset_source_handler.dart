@@ -47,16 +47,21 @@ class AssetSourceHandler implements SourceHandler {
     // On platforms where large_file_handler doesn't ship a plugin (desktop:
     // macOS/Windows/Linux, web stub) the channel call throws
     // MissingPluginException — fall back to in-memory loadAsset → writeFile.
+    //
+    // Lookup keys differ between paths:
+    // - `pathForLookupKey` (no `assets/` prefix) for the native channel call
+    // - `normalizedPath` (with `assets/` prefix) for the Flutter rootBundle
+    //   fallback (#250 Mode 2)
     if (assetLoader is FlutterAssetLoader) {
       try {
         await (assetLoader as FlutterAssetLoader)
             .copyAssetToFile(source.pathForLookupKey, filename);
       } on MissingPluginException {
-        final assetData = await assetLoader.loadAsset(source.pathForLookupKey);
+        final assetData = await assetLoader.loadAsset(source.normalizedPath);
         await fileSystem.writeFile(targetPath, assetData);
       }
     } else {
-      final assetData = await assetLoader.loadAsset(source.pathForLookupKey);
+      final assetData = await assetLoader.loadAsset(source.normalizedPath);
       await fileSystem.writeFile(targetPath, assetData);
     }
 
@@ -93,12 +98,12 @@ class AssetSourceHandler implements SourceHandler {
           yield progress;
         }
       } on MissingPluginException {
-        final assetData = await assetLoader.loadAsset(source.pathForLookupKey);
+        final assetData = await assetLoader.loadAsset(source.normalizedPath);
         await fileSystem.writeFile(targetPath, assetData);
         yield 100;
       }
     } else {
-      final assetData = await assetLoader.loadAsset(source.pathForLookupKey);
+      final assetData = await assetLoader.loadAsset(source.normalizedPath);
       await fileSystem.writeFile(targetPath, assetData);
       yield 100;
     }

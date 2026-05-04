@@ -38,7 +38,7 @@
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.)
 - **Engine selection by file extension**: `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API. Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.10.2`.
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API. Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.10.2-b`.
 
 ### Supported Models
 
@@ -114,8 +114,8 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **Dart SDK**: `>=3.6.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.10.2-a` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-a` patches: Android `libLiteRtLm.so` 16KB-aligned, iOS `libGemmaModelConstraintProvider.dylib` minos lowered 26.2 → 14.0
-- **Current Version**: 0.14.3
+- **LiteRT-LM**: native libs from `native-v0.10.2-b` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-b` rebuild with `-c opt --strip=always` for ~25-60% per-platform size reduction; retains `-a`'s vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`.
+- **Current Version**: 0.14.4
 
 ## Platform-Specific Setup
 
@@ -144,7 +144,7 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by `hook/build.dart` from `native-v0.10.2` GitHub release; SHA256-verified, bundled via Native Assets
+- Native libs fetched at build time by `hook/build.dart` from `native-v0.10.2-b` GitHub release; SHA256-verified, bundled via Native Assets
 - ⚠️ **macOS Vision broken** (#684): SDK bug, use text-only mode
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
@@ -183,7 +183,7 @@ flutter analyze && dart format . && flutter test
 | `native/litert_lm/stream_proxy.c` | RTLD_GLOBAL/LoadLibraryEx preload helper + stderr redirect for debug logs |
 | `ios/flutter_gemma.podspec` | iOS pod (companion `lib*.dylib` symlinks come from `example/ios/Podfile` `post_install` — pod-level `script_phase` doesn't reach the host app target) |
 | `example/ios/Podfile` | iOS host app `post_install` block — creates `lib*.dylib` symlinks next to `.framework`s for `gpu_registry` basename `dlopen` |
-| `example/macos/Podfile` | Same `post_install` pattern for macOS (added in 0.14.0) |
+| `example/macos/Podfile` | Same `post_install` pattern for macOS (added in 0.14.0; 3-tier dylib source fallback added in 0.14.4 for #255 — Native Assets cache → plugin symlink → repo path) |
 | `example/lib/models/model.dart` | Model configurations & URLs |
 
 ## Project Structure

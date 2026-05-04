@@ -75,11 +75,33 @@ post_install do |installer|
         # Wrap each upstream dylib into a .framework bundle inside the app's
         # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
         # (the path our patched gpu_registry.cc uses) resolves at runtime.
-        PLUGIN_PREBUILT="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64"
-        if [ ! -d "${PLUGIN_PREBUILT}" ]; then
-          # Fallback: maybe flutter_gemma was added via path: dependency
-          PLUGIN_PREBUILT="${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"
+        #
+        # Resolve the dylib source directory in this order:
+        # 1. Native Assets cache — where hook/build.dart fetches them on
+        #    `flutter pub get`. This is the only location for pub.dev users
+        #    (the in-repo prebuilt/ is .gitignored AND .pubignored since
+        #    flutter_gemma 0.14.3, see #255).
+        # 2. Pub-cache symlink path — only populated for plugins added via
+        #    a git checkout that still tracks prebuilt/ (legacy).
+        # 3. Local path: dependency — the maintainer's repo.
+        for candidate in \
+            "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
+            "${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64" \
+            "${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"; do
+          if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
+            PLUGIN_PREBUILT="${candidate}"
+            break
+          fi
+        done
+        if [ -z "${PLUGIN_PREBUILT:-}" ]; then
+          echo "[flutter_gemma] ERROR: Could not find macOS companion dylibs in any of:"
+          echo "  - \$HOME/Library/Caches/flutter_gemma/native/macos_arm64/"
+          echo "  - \$PODS_ROOT/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64/"
+          echo "  - \$SRCROOT/../../native/litert_lm/prebuilt/macos_arm64/"
+          echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
+          exit 1
         fi
+        echo "[flutter_gemma] Using companion dylibs from: ${PLUGIN_PREBUILT}"
         for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
           src="${PLUGIN_PREBUILT}/lib${base}.dylib"
           if [ ! -f "${src}" ]; then

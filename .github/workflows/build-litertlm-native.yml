@@ -3,7 +3,8 @@ name: Build LiteRT-LM Native Libraries
 on:
   push:
     branches:
-      - feature/desktop-ffi
+      - main
+      - 'release/**'
     paths:
       - '.github/workflows/build-litertlm-native.yml'
   workflow_dispatch:
@@ -11,7 +12,7 @@ on:
       litertlm_version:
         description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-        default: '5e0d86b'
+        default: 'v0.10.2'
       publish_release:
         description: 'Publish to GitHub Release'
         type: boolean
@@ -51,7 +52,7 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+          bazelisk build -c opt --strip=always --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -99,7 +100,7 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+          bazelisk build -c opt --strip=always --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -157,7 +158,9 @@ jobs:
         run: |
           cd C:\LiteRT-LM
           bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
-            build --build_tag_filters='-nowindows' `
+            build -c opt `
+            --linkopt=/OPT:REF --linkopt=/OPT:ICF `
+            --build_tag_filters='-nowindows' `
             --features=compiler_param_file `
             --features=archive_param_file `
             --spawn_strategy=local `

@@ -105,6 +105,8 @@ echo "=== Building for Android arm64 ==="
 # the linker pad PT_LOAD segments to 16KB boundaries; the binary is still
 # loadable on 4KB-page kernels, just ~12KB larger per segment.
 bazelisk build \
+  -c opt \
+  --strip=always \
   --config=android_arm64 \
   --linkopt=-Wl,-z,max-page-size=16384 \
   '//c:libLiteRtLm.dylib'

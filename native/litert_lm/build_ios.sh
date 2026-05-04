@@ -77,7 +77,7 @@ git lfs pull --include="prebuilt/ios_arm64/*,prebuilt/ios_sim_arm64/*"
 # 5. Build for iOS device (arm64)
 echo ""
 echo "=== Building for iOS device (arm64) ==="
-bazelisk build --config=ios_arm64 '//c:libLiteRtLm.dylib'
+bazelisk build -c opt --strip=always --config=ios_arm64 '//c:libLiteRtLm.dylib'
 DEVICE_DIR="$SCRIPT_DIR/prebuilt/ios_arm64"
 mkdir -p "$DEVICE_DIR"
 cp bazel-bin/c/libLiteRtLm.dylib "$DEVICE_DIR/"
@@ -126,6 +126,25 @@ echo "=== Copying companion libs ==="
 for lib in libGemmaModelConstraintProvider.dylib libLiteRtMetalAccelerator.dylib; do
   [ -f "prebuilt/ios_arm64/$lib" ] && cp "prebuilt/ios_arm64/$lib" "$DEVICE_DIR/$lib" && echo "  $lib → device"
   [ -f "prebuilt/ios_sim_arm64/$lib" ] && cp "prebuilt/ios_sim_arm64/$lib" "$SIM_DIR/$lib" && echo "  $lib → simulator"
+done
+
+# 8b. Re-apply vtool minos patch on libGemmaModelConstraintProvider.dylib —
+# upstream ships it with minos 26.2 on iOS (only one of the iOS companion
+# dylibs with this issue), causing App Store ITMS-90208 rejection for any
+# app with Info.plist min iOS < 26.2. See google-ai-edge/LiteRT-LM#2158
+# and our downstream issue #245. Lower to 16.0 which matches our podspec.
+echo ""
+echo "=== Patch libGemmaModelConstraintProvider.dylib minos 26.2 → 16.0 ==="
+for arch_dir_pair in "ios:$DEVICE_DIR" "iossim:$SIM_DIR"; do
+  platform="${arch_dir_pair%%:*}"
+  dir="${arch_dir_pair##*:}"
+  d="$dir/libGemmaModelConstraintProvider.dylib"
+  if [ -f "$d" ]; then
+    vtool -set-build-version "$platform" 16.0 26.2 -replace -output "$d.new" "$d"
+    mv "$d.new" "$d"
+    chmod +w "$d"
+    echo "  $d: minos $(vtool -show-build "$d" | grep minos | awk '{print $2}')"
+  fi
 done
 
 # 9. Verify

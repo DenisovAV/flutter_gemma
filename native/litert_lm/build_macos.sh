@@ -69,7 +69,7 @@ git lfs pull --include="prebuilt/macos_arm64/*"
 
 # 5. Build
 echo "Building with Bazel..."
-bazelisk build --config=macos_arm64 '//c:libLiteRtLm.dylib'
+bazelisk build -c opt --strip=always --config=macos_arm64 '//c:libLiteRtLm.dylib'
 
 # 6. Copy to prebuilt
 BUILT_LIB="bazel-bin/c/libLiteRtLm.dylib"

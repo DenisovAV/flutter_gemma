@@ -21,20 +21,36 @@ class EmbeddingModel(
     
     companion object {
         const val EMBEDDING_DIMENSION = 768 // EmbeddingGemma/Gecko output dimension
-    }
-    
-    fun initialize() {
-        // localagents-rag:0.3.0 ships native libs only for arm64-v8a — fail
-        // fast with a typed message rather than the opaque UnsatisfiedLinkError
-        // that GemmaEmbeddingModel's JNI loader would surface on x86_64
-        // emulators or armeabi-v7a devices (#250).
-        if (!Build.SUPPORTED_ABIS.contains("arm64-v8a")) {
-            throw UnsupportedOperationException(
-                "flutter_gemma embedding requires an arm64-v8a Android device " +
-                "(got ${Build.SUPPORTED_ABIS.joinToString()}). " +
-                "Google's localagents-rag library does not ship x86_64 / armeabi-v7a native libs."
-            )
+
+        /**
+         * Throws [UnsupportedOperationException] if the device's primary ABI
+         * is not arm64-v8a — localagents-rag:0.3.0 ships native libs only for
+         * arm64-v8a, so loading on any other ABI surfaces an opaque
+         * [UnsatisfiedLinkError] from the JNI loader (#250).
+         *
+         * Checks the *primary* ABI ([abis] index 0), not [Array.contains]:
+         * x86_64 emulators advertise arm64-v8a as a translation fallback in
+         * [Build.SUPPORTED_ABIS], but JNI still loads native libs only from
+         * the primary ABI, so `contains("arm64-v8a")` is too permissive.
+         *
+         * Pure function over [abis] for unit-testability — production caller
+         * passes [Build.SUPPORTED_ABIS].
+         */
+        @JvmStatic
+        fun assertArm64v8aPrimaryAbi(abis: Array<String>) {
+            if (abis.firstOrNull() != "arm64-v8a") {
+                throw UnsupportedOperationException(
+                    "flutter_gemma embedding requires an arm64-v8a Android device " +
+                    "(got primary ABI ${abis.firstOrNull()}, " +
+                    "full list: ${abis.joinToString()}). " +
+                    "Google's localagents-rag library does not ship x86_64 / armeabi-v7a native libs."
+                )
+            }
         }
+    }
+
+    fun initialize() {
+        assertArm64v8aPrimaryAbi(Build.SUPPORTED_ABIS)
 
         // Verify files exist
         val modelFile = File(modelPath)

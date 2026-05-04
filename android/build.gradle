@@ -83,4 +83,8 @@ dependencies {
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
     testImplementation 'org.mockito:mockito-core:5.0.0'
     testImplementation 'junit:junit:4.13.2'
+    // junit-vintage-engine lets JUnit 5 platform run JUnit 4 tests (used by
+    // testOptions.unitTests.useJUnitPlatform()). Without this, our
+    // org.junit.Test classes are silently skipped (#250 work).
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.10.2'
 }

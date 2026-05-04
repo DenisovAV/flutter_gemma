@@ -1,5 +1,7 @@
 ## 0.14.4
 - **Fix macOS dylib loading on pub.dev installs** (#255).
+- **Fix `fromAsset` install on desktop** (#250 mode 2).
+- **Fix Android x86_64 emulator crash on embedding init** (#250 mode 3).
 - **Reduce native lib size**: iOS -63%, macOS -43%, Android -28%, Linux -16-18%.
 
 ## 0.14.3

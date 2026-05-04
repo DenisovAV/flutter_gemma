@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/core/services/asset_loader.dart';
 import 'package:large_file_handler/large_file_handler.dart';
 
@@ -14,30 +15,29 @@ class FlutterAssetLoader implements AssetLoader {
 
   @override
   Future<Uint8List> loadAsset(String path) async {
-    try {
-      // LargeFileHandler doesn't return bytes, it copies files
-      // For the AssetLoader interface, we need to read after copy
-      // But this is still memory-intensive for large files
-      // Better approach: change AssetSourceHandler to use copyAssetToLocalStorage directly
-      throw UnimplementedError(
-          'FlutterAssetLoader.loadAsset() is deprecated for large files. '
-          'Use copyAssetToFile() instead or call LargeFileHandler directly.');
-    } catch (e) {
-      throw Exception('Failed to load asset: $path - $e');
-    }
+    // Used as the desktop fallback in AssetSourceHandler when
+    // large_file_handler has no plugin implementation (#250 Mode 2).
+    // rootBundle.load() works on all platforms including macOS / Windows /
+    // Linux desktop. Loads the whole asset into memory — fine for the small
+    // models that are typically bundled (large models go through
+    // copyAssetToFile which streams via large_file_handler).
+    final byteData = await rootBundle.load(path);
+    return byteData.buffer.asUint8List(
+      byteData.offsetInBytes,
+      byteData.lengthInBytes,
+    );
   }
 
   /// Copies asset file directly to target path using LargeFileHandler
   /// This is the CORRECT way to handle large files
-  Future<void> copyAssetToFile(String assetPath, String targetPath) async {
-    try {
-      await _handler.copyAssetToLocalStorage(
-        assetName: assetPath,
-        targetPath: targetPath,
-      );
-    } catch (e) {
-      throw Exception('Failed to copy asset: $assetPath - $e');
-    }
+  Future<void> copyAssetToFile(String assetPath, String targetPath) {
+    // Do NOT wrap exceptions: callers (e.g. AssetSourceHandler) match by type
+    // — wrapping MissingPluginException in a generic Exception would defeat
+    // the desktop fallback path (#250).
+    return _handler.copyAssetToLocalStorage(
+      assetName: assetPath,
+      targetPath: targetPath,
+    );
   }
 
   /// Copies asset with progress tracking

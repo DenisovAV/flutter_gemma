@@ -368,8 +368,12 @@ private class PlatformServiceImpl(
         embeddingModel = EmbeddingModel(context, modelPath, tokenizerPath, useGPU)
         embeddingModel!!.initialize()
         callback(Result.success(Unit))
-      } catch (e: Exception) {
-        callback(Result.failure(e))
+      } catch (e: Throwable) {
+        // Catch Throwable (not just Exception) so UnsatisfiedLinkError from
+        // GemmaEmbeddingModel's JNI loader on x86_64 / armeabi-v7a — Error
+        // subclass, not Exception — surfaces as a typed failure instead of
+        // killing the process (#250).
+        callback(Result.failure(if (e is Exception) e else RuntimeException(e)))
       }
     }
   }

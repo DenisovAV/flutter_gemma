@@ -1,3 +1,6 @@
+## 0.14.5
+- **Fix desktop embedding on pub.dev installs** (#250 follow-up): `tensorflowlite_c.{dll,so,dylib}` now bundled via Native Assets — regression from 0.14.0 setup-script removal.
+
 ## 0.14.4
 - **Fix macOS dylib loading on pub.dev installs** (#255).
 - **Fix `fromAsset` install on desktop** (#250 mode 2).

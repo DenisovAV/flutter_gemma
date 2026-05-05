@@ -41,39 +41,36 @@ class TfLiteBindings {
 
   static TfLiteBindings? _instance;
 
-  /// Load TFLite C library from the platform-specific location.
+  /// Load TFLite C library bundled by Native Assets (hook/build.dart).
+  ///
+  /// `tensorflowlite_c.{dll,so,dylib}` is registered as a Native Assets
+  /// `CodeAsset` and placed by the Flutter tool — on macOS as a
+  /// `tensorflowlite_c.framework` bundle inside `Contents/Frameworks/`,
+  /// on Windows as a `.dll` next to `<runner>.exe`, on Linux as a `.so`
+  /// in `<runner>/lib/`. `dlopen`/`LoadLibrary` resolves the platform-
+  /// canonical basename via the runtime's library search path (rpath on
+  /// macOS, the exe's directory on Windows, `LD_LIBRARY_PATH` / runpath
+  /// on Linux). [libraryPath] kept for unit tests.
   static TfLiteBindings load({String? libraryPath}) {
     if (_instance != null) return _instance!;
 
-    final path = libraryPath ?? _defaultLibraryPath();
-    final lib = DynamicLibrary.open(path);
+    final lib = libraryPath != null
+        ? DynamicLibrary.open(libraryPath)
+        : DynamicLibrary.open(_platformLibraryName());
     _instance = TfLiteBindings._(lib);
     return _instance!;
   }
 
-  static String _defaultLibraryPath() {
-    final execDir = File(Platform.resolvedExecutable).parent.path;
-
+  static String _platformLibraryName() {
     if (Platform.isMacOS) {
-      // macOS: Contents/Frameworks/libtensorflowlite_c.dylib
-      final frameworksPath = '$execDir/../Frameworks/libtensorflowlite_c.dylib';
-      if (File(frameworksPath).existsSync()) return frameworksPath;
-      // Fallback: Contents/Resources/tflite/
-      final resourcesPath =
-          '$execDir/../Resources/tflite/libtensorflowlite_c.dylib';
-      if (File(resourcesPath).existsSync()) return resourcesPath;
-      throw StateError(
-        'TFLite C library not found. Searched:\n'
-        '  1. $frameworksPath\n'
-        '  2. $resourcesPath\n'
-        'Run macos/scripts/setup_desktop.sh to download it.',
-      );
-    } else if (Platform.isWindows) {
-      return '$execDir\\tflite\\tensorflowlite_c.dll';
-    } else {
-      // Linux
-      return '$execDir/lib/tflite/libtensorflowlite_c.so';
+      // Native Assets wraps macOS dylibs into versioned .framework bundles.
+      // Resolve to the framework's executable name; dyld locates it via
+      // the runner's rpath that Flutter sets up.
+      return 'tensorflowlite_c.framework/tensorflowlite_c';
     }
+    if (Platform.isWindows) return 'tensorflowlite_c.dll';
+    // Linux
+    return 'libtensorflowlite_c.so';
   }
 
   // --- Model ---

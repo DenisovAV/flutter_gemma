@@ -115,7 +115,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.10.2-b` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-b` rebuild with `-c opt --strip=always` for ~25-60% per-platform size reduction; retains `-a`'s vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`.
-- **Current Version**: 0.14.4
+- **Current Version**: 0.14.5
 
 ## Platform-Specific Setup
 

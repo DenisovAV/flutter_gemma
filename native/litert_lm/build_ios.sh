@@ -35,12 +35,11 @@ else
 fi
 
 # 2. Checkout version
-# Default to commit 5e0d86b (post-v0.10.2) because it's the first commit that
-# adds libLiteRtMetalAccelerator.dylib for iOS — required for GPU. Building
-# against an earlier ref (e.g. v0.10.2) produces a libLiteRtLm.dylib whose
-# Metal accelerator ABI doesn't match the prebuilt framework, causing
-# EXC_BAD_ACCESS in litert_lm_engine_create at runtime on iPhone GPU.
-DEFAULT_REF="5e0d86b"
+# v0.11.0 ships libLiteRtMetalAccelerator.dylib for iOS in prebuilt/ios_arm64/
+# (verified via `git show v0.11.0 prebuilt/ios_arm64/`), so we can use the
+# tag directly. Earlier we pinned commit 5e0d86b (post-v0.10.2, first commit
+# adding the Metal accelerator dylib) for the same reason.
+DEFAULT_REF="v0.11.0"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"

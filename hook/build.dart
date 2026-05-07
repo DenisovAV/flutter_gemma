@@ -108,20 +108,23 @@ String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   return '${osName}_$archName';
 }
 
-/// Platform-appropriate cache directory.
+/// Platform-appropriate cache directory. Per-version subpath ensures a native
+/// version bump invalidates cached libs from prior versions — without this,
+/// _resolveLibDir would find the old main lib and skip the download, leaving
+/// companion libs (e.g. libStreamProxy) stale.
 Directory _cacheDir() {
   final home =
       Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
   if (Platform.isWindows) {
     final localAppData =
         Platform.environment['LOCALAPPDATA'] ?? '$home\\AppData\\Local';
-    return Directory('$localAppData\\flutter_gemma\\native');
+    return Directory('$localAppData\\flutter_gemma\\native\\$_nativeVersion');
   }
   if (Platform.isMacOS) {
-    return Directory('$home/Library/Caches/flutter_gemma/native');
+    return Directory('$home/Library/Caches/flutter_gemma/native/$_nativeVersion');
   }
   // Linux and others
-  return Directory('$home/.cache/flutter_gemma/native');
+  return Directory('$home/.cache/flutter_gemma/native/$_nativeVersion');
 }
 
 /// Archive name for a given platform directory.

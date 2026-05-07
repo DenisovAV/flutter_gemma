@@ -23,19 +23,19 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      '181326c1a1a8b6ce92111c957e06484334186624a99db2f950aaeb5538fc1214',
+      '79583513cbbdda784b1714c1068a1fdd0f8133364868574ec3334af8d0eee056',
   'litertlm-linux_arm64.tar.gz':
-      '2c13727bd8772ec63829eb86977c6df88f26b65b8b4faf7c292622c55acc43c9',
+      'bab26bf420316ef2f4037ffced1470a18cbb6ee6cda069fc0ae8a5f8eb882bfb',
   'litertlm-windows_x86_64.tar.gz':
-      'f6966a4687ae826a9d8c5787ea39f5fd3076da23b18ab33813ba13ac7499ba41',
+      'cde4b0bc871668cb2c91437e213c33e66dc2739394eef9ea7a3da0397f3e3b5c',
   'litertlm-macos_arm64.tar.gz':
-      '961a3b53be35db8b79f827573aa573e09005a2e50f989b3650404a14c5f60e7d',
+      'fa3138c9f97b6ba3c19f620c29439207d38566598fff06cc55ff115ade17f8e8',
   'litertlm-ios_arm64.tar.gz':
-      'd10d1e55d115ff57fa4eec28b042c984979cbff2e65140a20db67c0709ff5c33',
+      'eae0d0ef8b81eeb6e6e0b69a482513f47b371ec2f410f571763538a5d23c7607',
   'litertlm-ios_sim_arm64.tar.gz':
-      'd6a3f4b278b4f6498169ab665d14edbbc64984aeaa08f7c35d4918b20bd82a5e',
+      'f92b8fcb3627c82c9398f39bcf6851a46e97f9565d5341d454390802bf1ffd78',
   'litertlm-android_arm64.tar.gz':
-      '80d29a6781c9044eca669e6d38801ac6af3e98b06f25653156fabf881e042a49',
+      '9712d55d1a248ad8834531f2d937a9bbf2feceaad8a1d352ef5f63a4dedb8f17',
 };
 
 /// TensorFlow Lite C library (used by `lib/desktop/tflite/tflite_bindings.dart`
@@ -108,23 +108,56 @@ String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   return '${osName}_$archName';
 }
 
-/// Platform-appropriate cache directory. Per-version subpath ensures a native
-/// version bump invalidates cached libs from prior versions — without this,
-/// _resolveLibDir would find the old main lib and skip the download, leaving
-/// companion libs (e.g. libStreamProxy) stale.
+/// Platform-appropriate cache directory. Path is NOT versioned because
+/// example/macos/Podfile and example/ios/Podfile read companion dylibs
+/// from this same location (Native Assets cache → app bundle Frameworks/);
+/// keeping a single canonical path means the Podfile doesn't need to know
+/// `_nativeVersion`.
+///
+/// Cache invalidation on a native bump is handled by `_invalidateCacheIfStale`
+/// (called from the build hook) which compares a `.version` marker file in
+/// the cache root against `_nativeVersion`, and wipes the per-platform
+/// subdirs on mismatch so the next `_downloadAndExtract` repopulates them.
 Directory _cacheDir() {
   final home =
       Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
   if (Platform.isWindows) {
     final localAppData =
         Platform.environment['LOCALAPPDATA'] ?? '$home\\AppData\\Local';
-    return Directory('$localAppData\\flutter_gemma\\native\\$_nativeVersion');
+    return Directory('$localAppData\\flutter_gemma\\native');
   }
   if (Platform.isMacOS) {
-    return Directory('$home/Library/Caches/flutter_gemma/native/$_nativeVersion');
+    return Directory('$home/Library/Caches/flutter_gemma/native');
   }
   // Linux and others
-  return Directory('$home/.cache/flutter_gemma/native/$_nativeVersion');
+  return Directory('$home/.cache/flutter_gemma/native');
+}
+
+/// Wipe stale platform subdirs when `_nativeVersion` changes. The check is
+/// cheap (one file read) and idempotent: if the marker matches, do nothing;
+/// if missing or mismatched, delete every platform subdir under `_cacheDir()`
+/// and write the new marker. The next `_resolveLibDir` will fall through to
+/// `_downloadAndExtract` for whatever platform the build is targeting.
+void _invalidateCacheIfStale() {
+  final cacheBase = _cacheDir();
+  if (!cacheBase.existsSync()) return;
+  final marker = File('${cacheBase.path}/.flutter_gemma_native_version');
+  final stored = marker.existsSync() ? marker.readAsStringSync().trim() : '';
+  if (stored == _nativeVersion) return;
+  for (final entity in cacheBase.listSync()) {
+    if (entity is Directory) {
+      // Wipe per-platform subdirs (linux_x86_64/, macos_arm64/, etc.) but
+      // leave anything else untouched (e.g. cache dirs from other tools
+      // could share this root in the future).
+      final name = entity.uri.pathSegments
+          .where((s) => s.isNotEmpty)
+          .last;
+      if (RegExp(r'^(linux|macos|ios|android|windows)_').hasMatch(name)) {
+        entity.deleteSync(recursive: true);
+      }
+    }
+  }
+  marker.writeAsStringSync(_nativeVersion);
 }
 
 /// Archive name for a given platform directory.
@@ -336,6 +369,12 @@ void main(List<String> args) async {
     final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
     final dirName = _prebuiltDirName(os, arch, iOSSdk: iOSSdk);
     if (dirName == null) return; // Unsupported arch (e.g. arm32), skip
+
+    // Wipe stale per-platform subdirs if `_nativeVersion` changed since
+    // the cache was last populated. Without this, an upgrade leaves old
+    // companion libs in place because `_resolveLibDir` finds the main lib
+    // and skips the download.
+    _invalidateCacheIfStale();
 
     // Priority: local prebuilt/ → cache → download from GitHub Release
     var libDir = _resolveLibDir(dirName, input.packageRoot);

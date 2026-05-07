@@ -31,7 +31,9 @@ echo "=== Building libLiteRtLm.dylib for macOS arm64 ==="
 if [ -d "$LITERT_LM_DIR" ]; then
   echo "Updating $LITERT_LM_DIR..."
   cd "$LITERT_LM_DIR"
-  git fetch --tags
+  # --force so a tag that moved upstream (e.g. v0.11.0 itself was retagged
+  # while we waited for accelerator fixes) doesn't abort the fetch.
+  git fetch --tags --force origin
 else
   echo "Cloning LiteRT-LM..."
   git clone https://github.com/google-ai-edge/LiteRT-LM "$LITERT_LM_DIR"

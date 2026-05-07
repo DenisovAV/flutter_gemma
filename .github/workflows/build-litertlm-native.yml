@@ -12,7 +12,7 @@ on:
       litertlm_version:
         description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-        default: 'v0.11.0'
+        default: '032334d81ff96431492be272e536fbafe094b1e9'
       publish_release:
         description: 'Publish to GitHub Release'
         type: boolean
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.11.0' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 60
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.11.0' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -128,7 +128,7 @@ jobs:
       run:
         shell: pwsh
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.11.0' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
       ANDROID_NDK_HOME: ''
       BAZEL_OUTPUT_BASE: 'D:\b'
     steps:
@@ -233,7 +233,7 @@ jobs:
     permissions:
       contents: write
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || 'v0.11.0' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
     steps:
       - uses: actions/download-artifact@v4
         with:

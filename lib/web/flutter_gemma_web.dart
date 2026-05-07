@@ -124,6 +124,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     int? maxNumImages,
     bool supportImage = false, // Enabling image support
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
+    bool? enableSpeculativeDecoding, // Ignored on web (MediaPipe path).
   }) async {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {

@@ -280,6 +280,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     int? maxNumImages,
     bool supportImage = false,
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
+    bool? enableSpeculativeDecoding,
   }) async {
     // Check if model is ready through unified system
     final manager = _unifiedManager;
@@ -384,6 +385,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           enableVision: supportImage,
           maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
           enableAudio: supportAudio,
+          enableSpeculativeDecoding: enableSpeculativeDecoding,
         );
         debugPrint(
             '[FlutterGemmaMobile/perf] ffiClient.initialize total: ${ffiPathSw.elapsedMilliseconds - beforeInit}ms');

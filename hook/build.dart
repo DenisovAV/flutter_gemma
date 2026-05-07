@@ -9,13 +9,12 @@ const _mainLibName = 'LiteRtLm';
 
 /// LiteRT-LM native library version and release info.
 ///
-/// 0.10.2-b is a rebuild of 0.10.2 with `-c opt --strip=always` (and the
-/// MSVC equivalent `/OPT:REF /OPT:ICF` on Windows). Per-platform size
-/// reductions: iOS -63%, macOS -43%, Android -28%, Linux -16-18%, Windows
-/// unchanged. iOS still includes the vtool minos 26.2 → 16.0 patch on
-/// libGemmaModelConstraintProvider.dylib from -a (App Store ITMS-90208,
-/// #245).
-const _nativeVersion = '0.10.2-b';
+/// 0.11.0-a is a fresh build from upstream LiteRT-LM v0.11.0 (Multi-Token
+/// Prediction support). Same optimization flags as 0.10.2-b: `-c opt
+/// --strip=always` (Bazel) + MSVC `/OPT:REF /OPT:ICF` (Windows).
+/// Apple: vtool minos 26.2 → 16.0 patch on libGemmaModelConstraintProvider
+/// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
+const _nativeVersion = '0.11.0-a';
 const _releaseTag = 'native-v$_nativeVersion';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
@@ -24,19 +23,19 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      '3a6bd1d3685d8a7df508ebc451223c5f6f991accd51d7972b718437d7b037411',
+      '181326c1a1a8b6ce92111c957e06484334186624a99db2f950aaeb5538fc1214',
   'litertlm-linux_arm64.tar.gz':
-      '86f7e708b4ea966d3cd5c0131425b85bcb2ab8ce9a4cb83710e7e20122954a6a',
+      '2c13727bd8772ec63829eb86977c6df88f26b65b8b4faf7c292622c55acc43c9',
   'litertlm-windows_x86_64.tar.gz':
-      'cb45b35171d959abcef98d8b4ab08879174cc8e36624ddf9c27a0e634f0b5011',
+      'f6966a4687ae826a9d8c5787ea39f5fd3076da23b18ab33813ba13ac7499ba41',
   'litertlm-macos_arm64.tar.gz':
-      'c2b3d42fca0e58659594940efb56f695f76b4ee822aa5ac2d55088149da0bd7e',
+      '961a3b53be35db8b79f827573aa573e09005a2e50f989b3650404a14c5f60e7d',
   'litertlm-ios_arm64.tar.gz':
-      'dd78d25f1b6aa9f5c1bc1f1b26dd440557cb0da2f32a25cb89389718ca4f72ed',
+      'd10d1e55d115ff57fa4eec28b042c984979cbff2e65140a20db67c0709ff5c33',
   'litertlm-ios_sim_arm64.tar.gz':
-      '21a0fdc29e018d55137740c69bd12edf04f1d7e737024e89d758663fc7e5d926',
+      'd6a3f4b278b4f6498169ab665d14edbbc64984aeaa08f7c35d4918b20bd82a5e',
   'litertlm-android_arm64.tar.gz':
-      'c46406d19e52648e364c224dc5d7da5bb28f581cdb428a02b5e746bacb953762',
+      '80d29a6781c9044eca669e6d38801ac6af3e98b06f25653156fabf881e042a49',
 };
 
 /// TensorFlow Lite C library (used by `lib/desktop/tflite/tflite_bindings.dart`

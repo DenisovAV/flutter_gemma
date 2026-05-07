@@ -365,6 +365,29 @@ class LiteRtLmBindings {
       _litert_lm_engine_settings_set_max_num_imagesPtr.asFunction<
           void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
 
+  /// Toggle Multi-Token Prediction (MTP) / speculative decoding (LiteRT-LM
+  /// v0.11.0+). Only meaningful for models with an `tf_lite_mtp_drafter`
+  /// section in the `.litertlm` binary (Gemma 4 E2B/E4B v2+).
+  void litert_lm_engine_settings_set_enable_speculative_decoding(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool enable_speculative_decoding,
+  ) {
+    return _litert_lm_engine_settings_set_enable_speculative_decoding(
+      settings,
+      enable_speculative_decoding,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_enable_speculative_decodingPtr =
+      _lookup<
+              ffi.NativeFunction<
+                  ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
+                      ffi.Bool)>>(
+          'litert_lm_engine_settings_set_enable_speculative_decoding');
+  late final _litert_lm_engine_settings_set_enable_speculative_decoding =
+      _litert_lm_engine_settings_set_enable_speculative_decodingPtr.asFunction<
+          void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+
   ffi.Pointer<LiteRtLmEngine> litert_lm_engine_create(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {

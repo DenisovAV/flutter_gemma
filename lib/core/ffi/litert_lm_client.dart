@@ -281,6 +281,7 @@ class LiteRtLmFfiClient {
     bool enableVision = false,
     int maxNumImages = 0,
     bool enableAudio = false,
+    bool? enableSpeculativeDecoding,
   }) async {
     final initSw = Stopwatch()..start();
     _ensureBindings();
@@ -321,6 +322,14 @@ class LiteRtLmFfiClient {
 
       if (maxNumImages > 0) {
         b.litert_lm_engine_settings_set_max_num_images(settings, maxNumImages);
+      }
+
+      // MTP / speculative decoding (LiteRT-LM v0.11.0+). Skip when null so
+      // the SDK uses the model's default; only call when caller explicitly
+      // forces on/off.
+      if (enableSpeculativeDecoding != null) {
+        b.litert_lm_engine_settings_set_enable_speculative_decoding(
+            settings, enableSpeculativeDecoding);
       }
 
       // Create engine in a background isolate to avoid blocking UI.

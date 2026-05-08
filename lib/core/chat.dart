@@ -63,6 +63,8 @@ class InferenceChat {
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
 
+  int get currentTokens => _currentTokens;
+
   Future<void> initSession() async {
     session = await sessionCreator!();
   }
@@ -548,8 +550,10 @@ class InferenceChat {
       final size = await session.sizeInTokens(removedMessage.text);
       _currentTokens -= size;
 
-      if (removedMessage.hasImage) {
-        _currentTokens -= 257;
+      // Count all images (message.images can have multiple)
+      final imageCount = removedMessage.images.length;
+      if (imageCount > 0) {
+        _currentTokens -= imageCount * 257;
       }
     }
 

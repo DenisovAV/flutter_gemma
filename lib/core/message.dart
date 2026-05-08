@@ -14,6 +14,7 @@ class Message {
     required this.text,
     this.isUser = false,
     this.imageBytes,
+    this.images = const [],
     this.audioBytes,
     this.type = MessageType.text,
     this.toolName,
@@ -22,17 +23,19 @@ class Message {
   final String text;
   final bool isUser;
   final Uint8List? imageBytes;
+  final List<Uint8List> images;
   final Uint8List? audioBytes;
   final MessageType type;
   final String? toolName;
 
-  bool get hasImage => imageBytes != null;
+  bool get hasImage => imageBytes != null || images.isNotEmpty;
   bool get hasAudio => audioBytes != null;
 
   Message copyWith({
     String? text,
     bool? isUser,
     Uint8List? imageBytes,
+    List<Uint8List>? images,
     Uint8List? audioBytes,
     MessageType? type,
     String? toolName,
@@ -41,6 +44,7 @@ class Message {
       text: text ?? this.text,
       isUser: isUser ?? this.isUser,
       imageBytes: imageBytes ?? this.imageBytes,
+      images: images ?? this.images,
       audioBytes: audioBytes ?? this.audioBytes,
       type: type ?? this.type,
       toolName: toolName ?? this.toolName,
@@ -65,6 +69,20 @@ class Message {
     return Message(
       text: text,
       imageBytes: imageBytes,
+      images: [imageBytes],
+      isUser: isUser,
+    );
+  }
+
+  factory Message.withImages({
+    required String text,
+    required List<Uint8List> imageBytes,
+    bool isUser = false,
+  }) {
+    return Message(
+      text: text,
+      imageBytes: imageBytes.isNotEmpty ? imageBytes.first : null,
+      images: List<Uint8List>.from(imageBytes),
       isUser: isUser,
     );
   }
@@ -77,6 +95,20 @@ class Message {
     return Message(
       text: text,
       imageBytes: imageBytes,
+      images: [imageBytes],
+      isUser: isUser,
+    );
+  }
+
+  factory Message.imagesOnly({
+    required List<Uint8List> imageBytes,
+    bool isUser = false,
+    String text = '',
+  }) {
+    return Message(
+      text: text,
+      imageBytes: imageBytes.isNotEmpty ? imageBytes.first : null,
+      images: List<Uint8List>.from(imageBytes),
       isUser: isUser,
     );
   }
@@ -153,7 +185,7 @@ class Message {
 
   @override
   String toString() {
-    return 'Message(text: $text, isUser: $isUser, hasImage: $hasImage, hasAudio: $hasAudio, type: $type, toolName: $toolName)';
+    return 'Message(text: $text, isUser: $isUser, imageCount: ${images.isNotEmpty ? images.length : (imageBytes == null ? 0 : 1)}, hasAudio: $hasAudio, type: $type, toolName: $toolName)';
   }
 
   @override
@@ -163,6 +195,7 @@ class Message {
         other.text == text &&
         other.isUser == isUser &&
         _listEquals(other.imageBytes, imageBytes) &&
+        _listEquals(other.images, images) &&
         _listEquals(other.audioBytes, audioBytes) &&
         other.type == type &&
         other.toolName == toolName;
@@ -173,6 +206,7 @@ class Message {
       text.hashCode ^
       isUser.hashCode ^
       imageBytes.hashCode ^
+      Object.hashAll(images) ^
       audioBytes.hashCode ^
       type.hashCode ^
       toolName.hashCode;

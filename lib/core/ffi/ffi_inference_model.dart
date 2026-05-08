@@ -206,7 +206,7 @@ class FfiInferenceModelSession extends InferenceModelSession
   final VoidCallback onClose;
 
   final StringBuffer _queryBuffer = StringBuffer();
-  Uint8List? _pendingImage;
+  final List<Uint8List> _pendingImages = [];
   Uint8List? _pendingAudio;
   bool _isClosed = false;
 
@@ -234,8 +234,15 @@ class FfiInferenceModelSession extends InferenceModelSession
         message.transformToChatPrompt(type: modelType, fileType: fileType);
     _queryBuffer.write(prompt);
 
-    if (message.hasImage && message.imageBytes != null && supportImage) {
-      _pendingImage = message.imageBytes;
+    if (message.hasImage && supportImage) {
+      if (message.imageBytes != null) {
+        _pendingImages.add(message.imageBytes!);
+      }
+      for (final image in message.images) {
+        if (!_pendingImages.contains(image)) {
+          _pendingImages.add(image);
+        }
+      }
     }
     if (message.hasAudio && message.audioBytes != null && supportAudio) {
       _pendingAudio = message.audioBytes;
@@ -248,9 +255,10 @@ class FfiInferenceModelSession extends InferenceModelSession
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
     final audio = _pendingAudio;
-    final image = _pendingImage;
+    final images =
+        _pendingImages.isNotEmpty ? List<Uint8List>.from(_pendingImages) : null;
     _pendingAudio = null;
-    _pendingImage = null;
+    _pendingImages.clear();
 
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
@@ -264,7 +272,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       final textBuffer = StringBuffer();
       await for (final rawChunk in ffiClient.chatRaw(
         text,
-        imageBytes: image,
+        imageBytes: images,
         audioBytes: audio,
         enableThinking: enableThinking,
       )) {
@@ -286,7 +294,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     final buffer = StringBuffer();
     await for (final chunk in ffiClient.chat(
       text,
-      imageBytes: image,
+      imageBytes: images,
       audioBytes: audio,
       enableThinking: enableThinking,
     )) {
@@ -325,9 +333,10 @@ class FfiInferenceModelSession extends InferenceModelSession
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
     final audio = _pendingAudio;
-    final image = _pendingImage;
+    final images =
+        _pendingImages.isNotEmpty ? List<Uint8List>.from(_pendingImages) : null;
     _pendingAudio = null;
-    _pendingImage = null;
+    _pendingImages.clear();
 
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
@@ -337,7 +346,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       final rawBuffer = StringBuffer();
       await for (final rawChunk in ffiClient.chatRaw(
         text,
-        imageBytes: image,
+        imageBytes: images,
         audioBytes: audio,
         enableThinking: enableThinking,
       )) {
@@ -358,7 +367,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     _lastRawResponse = null;
     await for (final chunk in ffiClient.chat(
       text,
-      imageBytes: image,
+      imageBytes: images,
       audioBytes: audio,
       enableThinking: enableThinking,
     )) {
@@ -371,6 +380,11 @@ class FfiInferenceModelSession extends InferenceModelSession
       yield chunk;
     }
     _logGenerationStats(genSw, firstChunkMs, chunkCount);
+  }
+
+  @override
+  SessionMetrics getSessionMetrics() {
+    return ffiClient.getSessionMetrics();
   }
 
   @override
@@ -387,7 +401,7 @@ class FfiInferenceModelSession extends InferenceModelSession
   Future<void> close() async {
     _isClosed = true;
     _queryBuffer.clear();
-    _pendingImage = null;
+    _pendingImages.clear();
     _pendingAudio = null;
     ffiClient.closeConversation();
     onClose();

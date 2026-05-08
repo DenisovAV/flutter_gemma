@@ -98,18 +98,23 @@ class MobileInferenceModelSession extends InferenceModelSession {
         text: '[System: ${systemInstruction!}]\n\n${message.text}',
       );
     }
-    if (message.hasImage && message.imageBytes != null && supportImage) {
-      await _addImage(message.imageBytes!);
-    }
-    if (message.hasAudio && message.audioBytes != null && supportAudio) {
-      await _addAudio(message.audioBytes!);
-    }
     debugPrint(
         '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
     final finalPrompt = messageToSend.transformToChatPrompt(
         type: modelType, fileType: fileType);
     debugPrint(
         '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
+    if (message.hasImage && supportImage) {
+      final images = message.images.isNotEmpty
+          ? message.images
+          : (message.imageBytes != null ? [message.imageBytes!] : const <Uint8List>[]);
+      for (final image in images) {
+        await _addImage(image);
+      }
+    }
+    if (message.hasAudio && message.audioBytes != null && supportAudio) {
+      await _addAudio(message.audioBytes!);
+    }
     await _platformService.addQueryChunk(finalPrompt);
   }
 
@@ -207,6 +212,19 @@ class MobileInferenceModelSession extends InferenceModelSession {
       }
       rethrow;
     }
+  }
+
+  @override
+  SessionMetrics getSessionMetrics() {
+    // MediaPipe doesn't expose detailed token metrics via the current platform channel.
+    // To get metrics on mobile, you would need to:
+    // 1. Add a new platform method to fetch metrics from native side
+    // 2. Or track tokens manually using sizeInTokens() before/after generation
+    //
+    // For now, return empty metrics. Users can estimate using:
+    //   final inputTokens = await session.sizeInTokens(prompt);
+    //   final outputTokens = await session.sizeInTokens(responseText);
+    return SessionMetrics();
   }
 
   @override

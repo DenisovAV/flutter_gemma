@@ -42,6 +42,9 @@ class _SessionWithInstruction implements InferenceModelSession {
   Future<void> stopGeneration() async {}
 
   @override
+  SessionMetrics getSessionMetrics() => SessionMetrics();
+
+  @override
   Future<void> close() async {}
 }
 

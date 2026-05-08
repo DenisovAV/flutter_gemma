@@ -272,7 +272,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       final textBuffer = StringBuffer();
       await for (final rawChunk in ffiClient.chatRaw(
         text,
-        imageBytes: image,
+        imageBytes: images,
         audioBytes: audio,
         enableThinking: enableThinking,
       )) {
@@ -346,7 +346,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       final rawBuffer = StringBuffer();
       await for (final rawChunk in ffiClient.chatRaw(
         text,
-        imageBytes: image,
+        imageBytes: images,
         audioBytes: audio,
         enableThinking: enableThinking,
       )) {

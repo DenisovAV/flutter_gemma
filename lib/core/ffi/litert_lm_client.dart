@@ -565,12 +565,12 @@ class LiteRtLmFfiClient {
   /// `tool_calls` field via [extractToolCalls].
   Stream<String> chatRaw(
     String text, {
-    Uint8List? imageBytes,
+    List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
     bool enableThinking = false,
   }) {
     final messageJson =
-        buildMessageJson(text, imageBytes: imageBytes, audioBytes: audioBytes);
+        buildMessageJson(text, imagesBytes: imageBytes, audioBytes: audioBytes);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
     return sendMessageStreamRaw(messageJson, extraContext: extraContext);
   }

@@ -7,9 +7,15 @@
 #   - Git LFS: brew install git-lfs
 #
 # Usage:
-#   ./build_ios.sh [version]
-#   ./build_ios.sh                # default: commit 5e0d86b (required for GPU)
-#   ./build_ios.sh 5e0d86b        # explicit
+#   ./build_ios.sh [ref]
+#   ./build_ios.sh 032334d        # default for 0.15.0 (post-6571c42 main HEAD)
+#   ./build_ios.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
+#                                 # are ABI-incompatible with libLiteRtLm
+#                                 # rebuilt from v0.11.0 source — crashes
+#                                 # in libLiteRtMetalAccelerator on engine
+#                                 # init/teardown. Use 032334d (post-6571c42
+#                                 # which re-syncs accelerator binaries with
+#                                 # WORKSPACE LITERT_REF).
 #   ./build_ios.sh v0.10.2        # WARNING: predates Metal accelerator,
 #                                 # produces libLiteRtLm.dylib that crashes
 #                                 # iPhone GPU with EXC_BAD_ACCESS in
@@ -27,7 +33,9 @@ echo "=== Building libLiteRtLm.dylib for iOS ==="
 if [ -d "$LITERT_LM_DIR" ]; then
   echo "Updating $LITERT_LM_DIR..."
   cd "$LITERT_LM_DIR"
-  git fetch --tags
+  # --force so a tag that moved upstream (e.g. v0.11.0 itself was retagged
+  # while we waited for accelerator fixes) doesn't abort the fetch.
+  git fetch --tags --force origin
 else
   echo "Cloning LiteRT-LM..."
   git clone https://github.com/google-ai-edge/LiteRT-LM "$LITERT_LM_DIR"
@@ -35,12 +43,13 @@ else
 fi
 
 # 2. Checkout version
-# Default to commit 5e0d86b (post-v0.10.2) because it's the first commit that
-# adds libLiteRtMetalAccelerator.dylib for iOS — required for GPU. Building
-# against an earlier ref (e.g. v0.10.2) produces a libLiteRtLm.dylib whose
-# Metal accelerator ABI doesn't match the prebuilt framework, causing
-# EXC_BAD_ACCESS in litert_lm_engine_create at runtime on iPhone GPU.
-DEFAULT_REF="5e0d86b"
+# 032334d (main HEAD on 2026-05-08) is post-6571c42 "Update dependencies of
+# litert_lm" which rebuilt all prebuilt accelerator dylibs (Metal, WebGPU,
+# Gpu, OpenCL, samplers) AND re-synced WORKSPACE LITERT_REF to 5c5b9ce6.
+# This is the first public LiteRT-LM commit where libLiteRtLm rebuilt from
+# source has matching ABI with the prebuilt accelerators. v0.11.0 itself
+# is broken — see the WARNING above and the upstream issue we filed.
+DEFAULT_REF="032334d81ff96431492be272e536fbafe094b1e9"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"

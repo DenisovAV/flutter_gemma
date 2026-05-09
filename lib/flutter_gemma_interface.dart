@@ -41,6 +41,10 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// [maxNumImages] — maximum number of images (for multimodal models).
   /// [supportImage] — whether the model supports images.
   /// [supportAudio] — whether the model supports audio (Gemma 3n E4B only).
+  /// [enableSpeculativeDecoding] — Multi-Token Prediction toggle for Gemma 4
+  /// E2B/E4B (LiteRT-LM v0.11.0+). `null` honors the model's default;
+  /// `true`/`false` forces on/off. Older `.litertlm` files without an MTP
+  /// drafter ignore this flag at the SDK level.
   Future<InferenceModel> createModel({
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
@@ -50,6 +54,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     int? maxNumImages, // Add image support
     bool supportImage = false, // Add image support flag
     bool supportAudio = false, // Add audio support flag (Gemma 3n E4B)
+    bool? enableSpeculativeDecoding,
   });
 
   /// Creates and returns a new [EmbeddingModel] instance.

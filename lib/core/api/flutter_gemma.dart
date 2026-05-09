@@ -236,6 +236,7 @@ class FlutterGemma {
     bool supportImage = false,
     bool supportAudio = false,
     int? maxNumImages,
+    bool? enableSpeculativeDecoding,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     final activeSpec = manager.activeInferenceModel;
@@ -262,6 +263,7 @@ class FlutterGemma {
       supportImage: supportImage,
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,
+      enableSpeculativeDecoding: enableSpeculativeDecoding,
     );
   }
 

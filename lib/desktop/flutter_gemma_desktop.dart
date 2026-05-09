@@ -80,6 +80,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     int? maxNumImages,
     bool supportImage = false,
     bool supportAudio = false,
+    bool? enableSpeculativeDecoding,
   }) async {
     // Check active model
     final activeModel = _modelManager.activeInferenceModel;
@@ -144,13 +145,15 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       // Initialize via dart:ffi → C API (no JRE, no gRPC)
       final ffiClient = LiteRtLmFfiClient();
+      // NPU is supported via LiteRT-LM's `Backend::NPU` enum on macOS / Linux /
+      // Windows (iOS disabled by upstream `LITERT_DISABLE_NPU`). Actual
+      // hardware acceleration requires a Qualcomm QNN / Hexagon NN runtime
+      // dispatch lib on the device; without one, engine_create fails with a
+      // dispatch error from LiteRT-LM. See README for details (#261).
       final backend = switch (preferredBackend) {
         PreferredBackend.cpu => 'cpu',
         PreferredBackend.gpu || null => 'gpu',
-        PreferredBackend.npu => throw UnsupportedError(
-            'PreferredBackend.npu is only supported on Android with .litertlm '
-            'models; not available on desktop.',
-          ),
+        PreferredBackend.npu => 'npu',
       };
       await ffiClient.initialize(
         modelPath: modelPath,
@@ -160,6 +163,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         enableVision: supportImage,
         maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
         enableAudio: supportAudio,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
       );
 
       // Create model instance

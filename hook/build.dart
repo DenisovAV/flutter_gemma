@@ -9,13 +9,12 @@ const _mainLibName = 'LiteRtLm';
 
 /// LiteRT-LM native library version and release info.
 ///
-/// 0.10.2-b is a rebuild of 0.10.2 with `-c opt --strip=always` (and the
-/// MSVC equivalent `/OPT:REF /OPT:ICF` on Windows). Per-platform size
-/// reductions: iOS -63%, macOS -43%, Android -28%, Linux -16-18%, Windows
-/// unchanged. iOS still includes the vtool minos 26.2 → 16.0 patch on
-/// libGemmaModelConstraintProvider.dylib from -a (App Store ITMS-90208,
-/// #245).
-const _nativeVersion = '0.10.2-b';
+/// 0.11.0-a is a fresh build from upstream LiteRT-LM v0.11.0 (Multi-Token
+/// Prediction support). Same optimization flags as 0.10.2-b: `-c opt
+/// --strip=always` (Bazel) + MSVC `/OPT:REF /OPT:ICF` (Windows).
+/// Apple: vtool minos 26.2 → 16.0 patch on libGemmaModelConstraintProvider
+/// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
+const _nativeVersion = '0.11.0-a';
 const _releaseTag = 'native-v$_nativeVersion';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
@@ -24,19 +23,19 @@ const _releaseBase =
 /// Updated when new native libs are published to GitHub Release.
 const _checksums = <String, String>{
   'litertlm-linux_x86_64.tar.gz':
-      '3a6bd1d3685d8a7df508ebc451223c5f6f991accd51d7972b718437d7b037411',
+      '79583513cbbdda784b1714c1068a1fdd0f8133364868574ec3334af8d0eee056',
   'litertlm-linux_arm64.tar.gz':
-      '86f7e708b4ea966d3cd5c0131425b85bcb2ab8ce9a4cb83710e7e20122954a6a',
+      'bab26bf420316ef2f4037ffced1470a18cbb6ee6cda069fc0ae8a5f8eb882bfb',
   'litertlm-windows_x86_64.tar.gz':
-      'cb45b35171d959abcef98d8b4ab08879174cc8e36624ddf9c27a0e634f0b5011',
+      'cde4b0bc871668cb2c91437e213c33e66dc2739394eef9ea7a3da0397f3e3b5c',
   'litertlm-macos_arm64.tar.gz':
-      'c2b3d42fca0e58659594940efb56f695f76b4ee822aa5ac2d55088149da0bd7e',
+      'fa3138c9f97b6ba3c19f620c29439207d38566598fff06cc55ff115ade17f8e8',
   'litertlm-ios_arm64.tar.gz':
-      'dd78d25f1b6aa9f5c1bc1f1b26dd440557cb0da2f32a25cb89389718ca4f72ed',
+      'eae0d0ef8b81eeb6e6e0b69a482513f47b371ec2f410f571763538a5d23c7607',
   'litertlm-ios_sim_arm64.tar.gz':
-      '21a0fdc29e018d55137740c69bd12edf04f1d7e737024e89d758663fc7e5d926',
+      'f92b8fcb3627c82c9398f39bcf6851a46e97f9565d5341d454390802bf1ffd78',
   'litertlm-android_arm64.tar.gz':
-      'c46406d19e52648e364c224dc5d7da5bb28f581cdb428a02b5e746bacb953762',
+      '9712d55d1a248ad8834531f2d937a9bbf2feceaad8a1d352ef5f63a4dedb8f17',
 };
 
 /// TensorFlow Lite C library (used by `lib/desktop/tflite/tflite_bindings.dart`
@@ -109,7 +108,16 @@ String? _prebuiltDirName(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
   return '${osName}_$archName';
 }
 
-/// Platform-appropriate cache directory.
+/// Platform-appropriate cache directory. Path is NOT versioned because
+/// example/macos/Podfile and example/ios/Podfile read companion dylibs
+/// from this same location (Native Assets cache → app bundle Frameworks/);
+/// keeping a single canonical path means the Podfile doesn't need to know
+/// `_nativeVersion`.
+///
+/// Cache invalidation on a native bump is handled by `_invalidateCacheIfStale`
+/// (called from the build hook) which compares a `.version` marker file in
+/// the cache root against `_nativeVersion`, and wipes the per-platform
+/// subdirs on mismatch so the next `_downloadAndExtract` repopulates them.
 Directory _cacheDir() {
   final home =
       Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'] ?? '';
@@ -123,6 +131,42 @@ Directory _cacheDir() {
   }
   // Linux and others
   return Directory('$home/.cache/flutter_gemma/native');
+}
+
+/// Wipe stale platform subdirs when `_nativeVersion` changes. The check is
+/// cheap (one file read) and idempotent: if the marker matches, do nothing;
+/// if missing or mismatched, delete every platform subdir under `_cacheDir()`
+/// and write the new marker. The next `_resolveLibDir` will fall through to
+/// `_downloadAndExtract` for whatever platform the build is targeting.
+///
+/// The marker is written even on a fresh cache root (created here if needed).
+/// Without that, a second invocation of the build hook (or any other Native
+/// Assets pass) would see the freshly populated platform subdir but a missing
+/// marker, classify the cache as stale, and wipe it — racing with
+/// `install_code_assets` (`Cannot copy file ... libLiteRtLm.so ... No such
+/// file or directory` on a clean CI runner cache).
+void _invalidateCacheIfStale() {
+  final cacheBase = _cacheDir();
+  if (!cacheBase.existsSync()) {
+    cacheBase.createSync(recursive: true);
+  }
+  final marker = File('${cacheBase.path}/.flutter_gemma_native_version');
+  final stored = marker.existsSync() ? marker.readAsStringSync().trim() : '';
+  if (stored == _nativeVersion) return;
+  for (final entity in cacheBase.listSync()) {
+    if (entity is Directory) {
+      // Wipe per-platform subdirs (linux_x86_64/, macos_arm64/, etc.) but
+      // leave anything else untouched (e.g. cache dirs from other tools
+      // could share this root in the future).
+      final name = entity.uri.pathSegments
+          .where((s) => s.isNotEmpty)
+          .last;
+      if (RegExp(r'^(linux|macos|ios|android|windows)_').hasMatch(name)) {
+        entity.deleteSync(recursive: true);
+      }
+    }
+  }
+  marker.writeAsStringSync(_nativeVersion);
 }
 
 /// Archive name for a given platform directory.
@@ -334,6 +378,12 @@ void main(List<String> args) async {
     final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
     final dirName = _prebuiltDirName(os, arch, iOSSdk: iOSSdk);
     if (dirName == null) return; // Unsupported arch (e.g. arm32), skip
+
+    // Wipe stale per-platform subdirs if `_nativeVersion` changed since
+    // the cache was last populated. Without this, an upgrade leaves old
+    // companion libs in place because `_resolveLibDir` finds the main lib
+    // and skips the download.
+    _invalidateCacheIfStale();
 
     // Priority: local prebuilt/ → cache → download from GitHub Release
     var libDir = _resolveLibDir(dirName, input.packageRoot);

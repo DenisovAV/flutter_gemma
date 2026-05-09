@@ -10,15 +10,20 @@
 #   - Git LFS: brew install git-lfs
 #
 # Usage:
-#   ./build_android.sh [version]
-#   ./build_android.sh 5e0d86b
-#   ./build_android.sh          # uses latest tag
+#   ./build_android.sh [ref]
+#   ./build_android.sh 032334d        # default for 0.15.0 (post-6571c42 main HEAD)
+#   ./build_android.sh v0.11.0        # WARNING: v0.11.0 prebuilt accelerators
+#                                     # are ABI-incompatible with libLiteRtLm
+#                                     # rebuilt from v0.11.0 source. Use 032334d
+#                                     # (post-6571c42 which re-syncs accelerator
+#                                     # binaries with WORKSPACE LITERT_REF).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
+DEFAULT_REF="032334d81ff96431492be272e536fbafe094b1e9"
 VERSION="${1:-}"
 
 # Resolve Android NDK — prefer ANDROID_NDK_HOME env, else newest under
@@ -48,7 +53,8 @@ echo "ANDROID_HOME: $ANDROID_HOME"
 if [ -d "$LITERT_LM_DIR" ]; then
   echo "Updating $LITERT_LM_DIR..."
   cd "$LITERT_LM_DIR"
-  git fetch --tags
+  # --force so a tag that moved upstream doesn't abort the fetch.
+  git fetch --tags --force origin
 else
   echo "Cloning LiteRT-LM..."
   git clone https://github.com/google-ai-edge/LiteRT-LM "$LITERT_LM_DIR"
@@ -56,14 +62,9 @@ else
 fi
 
 # 2. Checkout version (-f to discard any patch leftovers)
-if [ -n "$VERSION" ]; then
-  echo "Checking out $VERSION..."
-  git checkout -f "$VERSION"
-else
-  LATEST_TAG=$(git tag -l "v*" | sort -V | tail -1)
-  echo "Checking out latest tag: $LATEST_TAG..."
-  git checkout -f "$LATEST_TAG"
-fi
+TARGET_REF="${VERSION:-$DEFAULT_REF}"
+echo "Checking out $TARGET_REF..."
+git checkout -f "$TARGET_REF"
 echo "Building from: $(git log --oneline -1)"
 
 # 3. Ensure cc_binary(linkshared=True) target exists in c/BUILD

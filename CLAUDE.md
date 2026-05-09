@@ -38,7 +38,7 @@
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.)
 - **Engine selection by file extension**: `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API. Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.10.2-b`.
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API. Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.11.0-a`.
 
 ### Supported Models
 
@@ -114,8 +114,8 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **Dart SDK**: `>=3.6.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.10.2-b` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` v0.10.2 + commit 5e0d86b for iOS), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-b` rebuild with `-c opt --strip=always` for ~25-60% per-platform size reduction; retains `-a`'s vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`.
-- **Current Version**: 0.14.5
+- **LiteRT-LM**: native libs from `native-v0.11.0-a` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` commit `032334d` — post-`6571c42` main HEAD with re-synced WORKSPACE LITERT_REF and matching prebuilt accelerators), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-c opt --strip=always` build; retains vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`. MTP (speculative decoding) support for Gemma 4.
+- **Current Version**: 0.15.0
 
 ## Platform-Specific Setup
 
@@ -144,7 +144,7 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by `hook/build.dart` from `native-v0.10.2-b` GitHub release; SHA256-verified, bundled via Native Assets
+- Native libs fetched at build time by `hook/build.dart` from `native-v0.11.0-a` GitHub release; SHA256-verified, bundled via Native Assets
 - ⚠️ **macOS Vision broken** (#684): SDK bug, use text-only mode
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive

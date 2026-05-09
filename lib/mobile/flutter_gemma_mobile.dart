@@ -368,13 +368,18 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         debugPrint(
             '[FlutterGemmaMobile/perf] getApplicationSupportDirectory: ${ffiPathSw.elapsedMilliseconds}ms');
         final ffiClient = LiteRtLmFfiClient();
+        // NPU on Android `.litertlm` restored to 0.13.x parity. The Kotlin
+        // LiteRtLmEngine path was dropped in 0.14.0 (commit 81025da); this
+        // routes the same `Backend::NPU` enum value through LiteRT-LM's C
+        // API. A Qualcomm QNN / Google Tensor / MediaTek dispatch lib must
+        // be present on the device — without one, engine_create fails with
+        // a dispatch error from LiteRT-LM. iOS .litertlm: upstream LiteRT-LM
+        // disables NPU via LITERT_DISABLE_NPU at build time; engine_create
+        // returns a clean Backend::NPU not supported error.
         final backend = switch (preferredBackend) {
           PreferredBackend.cpu => 'cpu',
           PreferredBackend.gpu || null => 'gpu',
-          PreferredBackend.npu => throw UnsupportedError(
-              'PreferredBackend.npu is not supported on the .litertlm FFI path. '
-              'Use a MediaPipe .task model on Android for NPU acceleration.',
-            ),
+          PreferredBackend.npu => 'npu',
         };
         final beforeInit = ffiPathSw.elapsedMilliseconds;
         await ffiClient.initialize(

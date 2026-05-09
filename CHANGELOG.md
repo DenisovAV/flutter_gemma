@@ -1,3 +1,11 @@
+## 0.15.0
+- **LiteRT-LM 0.11.0**: MTP-capable Gemma 4 + speculative decoding on macOS / iOS / Android / Windows.
+- **`enableSpeculativeDecoding` flag** on `getActiveModel()` (null = model default; true/false to override).
+- **Restore Android NPU support for `.litertlm`** (regression from 0.14.0): `PreferredBackend.npu` on Android `.litertlm` models routes through LiteRT-LM's `Backend::NPU` again — same as 0.13.x's Kotlin path before the FFI migration silently dropped it. Requires a Qualcomm QNN / Google Tensor / MediaTek dispatch lib on the device; without one, `engine_create` fails with a dispatch error. MediaPipe `.task` models still don't support NPU (MediaPipe SDK limitation, unchanged).
+- **`PreferredBackend.npu` on desktop** (#261): macOS / Linux / Windows backend arm wired. Same dispatch-lib requirement as Android.
+- **Linux known limitation**: post-MTP HF Gemma 4 revisions blocked upstream — `libLiteRtWebGpuAccelerator.so` segfaults during graph compile (filed `google-ai-edge/LiteRT-LM#2225`) and multi-signature vision encoder rejected by native (`engine_create` error). Workaround: pin pre-MTP HF revision `7fa1d78473894f7e736a21d920c3aa80f950c0db` for Linux users. Other platforms unaffected.
+- **hook native cache**: marker-file based invalidation (`.flutter_gemma_native_version`) — bumps clean stale companion libs automatically.
+
 ## 0.14.5
 - **Fix desktop embedding on pub.dev installs** (#250 follow-up): `tensorflowlite_c.{dll,so,dylib}` now bundled via Native Assets — regression from 0.14.0 setup-script removal.
 

@@ -47,6 +47,13 @@ There is an example of using:
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
+## What's new in 0.15.0
+
+- ⚡ **MTP / speculative decoding for Gemma 4** — LiteRT-LM 0.11.0 enables Multi-Token Prediction on macOS / iOS / Android / Windows. New `enableSpeculativeDecoding` flag on `getActiveModel()` overrides the model default if needed.
+- 🤖 **Android NPU restored** for `.litertlm` (regression fix from 0.14.0) — `PreferredBackend.npu` again drives Qualcomm QNN / Google Tensor / MediaTek dispatch libs through LiteRT-LM's `Backend::NPU`.
+- 🖥️ **Desktop NPU** — `PreferredBackend.npu` accepted on macOS / Linux / Windows (#261). Same dispatch-lib requirement as Android.
+- 🐧 **Linux note** — pre-MTP Gemma 4 revision required until upstream fixes `google-ai-edge/LiteRT-LM#2225`. See **Linux Setup** for the revision-pinned download.
+
 ## What's new in 0.14.1
 
 - 🛠️ **Gemma 4 native function calling** — `ModelType.gemma4` routes tool definitions through the LiteRT-LM SDK's chat-template path (minja). The SDK renders native `<|tool>declaration:...<tool|>` tokens, the model emits `<|tool_call>...<tool_call|>`, and the SDK parses the response into structured `tool_calls` JSON. flutter_gemma surfaces it as `FunctionCallResponse` — no Dart-side prompt engineering required.
@@ -306,8 +313,10 @@ Since 0.14.0 desktop inference and embeddings both use the LiteRT-LM C API via `
 | macOS | x86_64 (Intel) | - | ❌ Not Supported |
 | Windows | x86_64 | DirectX 12 | ✅ Ready |
 | Windows | arm64 | - | ❌ Not Supported |
-| Linux | x86_64 | Vulkan | ✅ Ready |
-| Linux | arm64 | Vulkan | ✅ Ready |
+| Linux | x86_64 | Vulkan | ⚠️ Pre-MTP Gemma 4 only ¹ |
+| Linux | arm64 | Vulkan | ⚠️ Pre-MTP Gemma 4 only ¹ |
+
+> ¹ The post-MTP Gemma 4 HF revision crashes inside upstream `libLiteRtWebGpuAccelerator.so` on Linux Vulkan ([upstream issue #2225](https://github.com/google-ai-edge/LiteRT-LM/issues/2225)). Pre-MTP revision works. See **Linux: Gemma 4 model revision** below for the workaround. macOS / iOS / Android / Windows are unaffected.
 
 **macOS Setup:**
 
@@ -433,6 +442,18 @@ For GPU acceleration, ensure Vulkan drivers are installed:
 ```bash
 sudo apt install vulkan-tools libvulkan1
 ```
+
+**Linux: Gemma 4 model revision**
+
+The current HuggingFace `main` revision of Gemma 4 E2B/E4B `.litertlm` files (post-MTP) triggers an upstream crash on Linux Vulkan during graph compile (`google-ai-edge/LiteRT-LM#2225`). Until upstream lands a fix, pin the pre-MTP revision when downloading on Linux:
+
+```bash
+# Pre-MTP revision — works on Linux Vulkan
+curl -L -o gemma-4-E2B-it.litertlm \
+  https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/7fa1d78473894f7e736a21d920c3aa80f950c0db/gemma-4-E2B-it.litertlm
+```
+
+macOS / iOS / Android / Windows pick up the post-MTP revision automatically via the model's default URL and benefit from the MTP speedup.
 
 📚 **[Full Desktop Documentation →](DESKTOP_SUPPORT.md)**
 

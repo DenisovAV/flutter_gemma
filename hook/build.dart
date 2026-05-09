@@ -138,9 +138,18 @@ Directory _cacheDir() {
 /// if missing or mismatched, delete every platform subdir under `_cacheDir()`
 /// and write the new marker. The next `_resolveLibDir` will fall through to
 /// `_downloadAndExtract` for whatever platform the build is targeting.
+///
+/// The marker is written even on a fresh cache root (created here if needed).
+/// Without that, a second invocation of the build hook (or any other Native
+/// Assets pass) would see the freshly populated platform subdir but a missing
+/// marker, classify the cache as stale, and wipe it — racing with
+/// `install_code_assets` (`Cannot copy file ... libLiteRtLm.so ... No such
+/// file or directory` on a clean CI runner cache).
 void _invalidateCacheIfStale() {
   final cacheBase = _cacheDir();
-  if (!cacheBase.existsSync()) return;
+  if (!cacheBase.existsSync()) {
+    cacheBase.createSync(recursive: true);
+  }
   final marker = File('${cacheBase.path}/.flutter_gemma_native_version');
   final stored = marker.existsSync() ? marker.readAsStringSync().trim() : '';
   if (stored == _nativeVersion) return;

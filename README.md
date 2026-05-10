@@ -1112,14 +1112,14 @@ The plugin now supports different types of messages:
 final textMessage = Message.text(text: "Hello!", isUser: true);
 
 // Text + Image
-final multimodalMessage = Message.withImage(
+final multimodalMessage = Message.withImages(
   text: "What's in this image?",
-  imageBytes: imageBytes,
+  imageBytes: [imageBytes],
   isUser: true,
 );
 
 // Image only
-final imageMessage = Message.imageOnly(imageBytes: imageBytes, isUser: true);
+final imageMessage = Message.imagesOnly(imageBytes: [imageBytes], isUser: true);
 
 // Tool response (for function calling)
 final toolMessage = Message.toolResponse(
@@ -1362,7 +1362,7 @@ The full and complete example you can find in `example` folder
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.
 * **Development vs. Production:** For production apps, do not embed the model or LoRA weights within your assets. Instead, load them once and store them securely on the device or via a network drive.
 * **Web Models:** Currently, Web support is available only for GPU backend models. Multimodal support is fully implemented.
-* **Image Formats:** The plugin automatically handles common image formats (JPEG, PNG, etc.) when using `Message.withImage()`.
+* **Image Formats:** The plugin automatically handles common image formats (JPEG, PNG, etc.) when using `Message.withImages()` or `Message.withImage()`.
 
 ## **🛟 Troubleshooting**
 

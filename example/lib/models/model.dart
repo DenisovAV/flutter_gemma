@@ -38,7 +38,7 @@ enum Model implements InferenceModelInterface {
     supportImage: true,
     supportAudio: true,
     maxTokens: 4096,
-    maxNumImages: 1,
+    maxNumImages: 4,
     isThinking: true,
   ),
   gemma4_E4B(
@@ -62,7 +62,7 @@ enum Model implements InferenceModelInterface {
     supportImage: true,
     supportAudio: true,
     maxTokens: 4096,
-    maxNumImages: 1,
+    maxNumImages: 4,
     isThinking: true,
   ),
 
@@ -88,7 +88,7 @@ enum Model implements InferenceModelInterface {
     supportAudio:
         false, // .task files don't have TF_LITE_AUDIO_ENCODER - audio only in .litertlm
     maxTokens: 4096,
-    maxNumImages: 1,
+    maxNumImages: 4,
     supportsFunctionCalls: false, // Disabled - causes issues with multimodal
     foregroundDownload: true, // Large model - use foreground service on Android
   ),
@@ -113,7 +113,7 @@ enum Model implements InferenceModelInterface {
     supportAudio:
         false, // .task files don't have TF_LITE_AUDIO_ENCODER - need .litertlm
     maxTokens: 4096,
-    maxNumImages: 1,
+    maxNumImages: 4,
     supportsFunctionCalls: false, // Disabled - causes issues with multimodal
     foregroundDownload: true, // Large model - use foreground service on Android
   ),
@@ -206,7 +206,7 @@ enum Model implements InferenceModelInterface {
     supportImage: true,
     supportAudio: true, // .litertlm files have TF_LITE_AUDIO_ENCODER
     maxTokens: 4096,
-    maxNumImages: 1,
+    maxNumImages: 4,
     supportsFunctionCalls: true,
   ),
 
@@ -379,7 +379,7 @@ enum Model implements InferenceModelInterface {
     topP: 0.95,
     maxTokens: 2048,
     supportImage: true,
-    maxNumImages: 1,
+    maxNumImages: 4,
     supportsFunctionCalls: false,
   ),
 

@@ -196,6 +196,43 @@ abstract class InferenceModel {
   Future<void> close();
 }
 
+/// Session metrics containing token usage and performance statistics.
+class SessionMetrics {
+  SessionMetrics({
+    this.inputTokens = 0,
+    this.outputTokens = 0,
+    this.totalTokens = 0,
+    this.timeToFirstTokenMs,
+    this.tokensPerSecond,
+    this.initTimeMs,
+  });
+
+  /// Number of input tokens (prompt tokens).
+  final int inputTokens;
+
+  /// Number of output tokens (generated tokens).
+  final int outputTokens;
+
+  /// Total tokens (input + output).
+  final int totalTokens;
+
+  /// Time to first token in milliseconds (if available).
+  final double? timeToFirstTokenMs;
+
+  /// Average tokens per second generation speed (if available).
+  final double? tokensPerSecond;
+
+  /// Session initialization time in milliseconds (if available).
+  final double? initTimeMs;
+
+  @override
+  String toString() {
+    return 'SessionMetrics(inputTokens: $inputTokens, outputTokens: $outputTokens, '
+        'totalTokens: $totalTokens, ttft: ${timeToFirstTokenMs?.toStringAsFixed(2)}ms, '
+        'tps: ${tokensPerSecond?.toStringAsFixed(2)})';
+  }
+}
+
 /// Session managing response generation from the model.
 abstract class InferenceModelSession {
   Future<String> getResponse();
@@ -207,6 +244,14 @@ abstract class InferenceModelSession {
   Future<void> addQueryChunk(Message message);
 
   Future<void> stopGeneration();
+
+  /// Get session metrics including token usage and performance stats.
+  ///
+  /// **FFI (LiteRT-LM)**: Returns accurate token counts from benchmark info.
+  /// **MediaPipe (Mobile)**: Returns estimated counts (uses internal metrics if available).
+  ///
+  /// Call this after [getResponse] or [getResponseAsync] completes for accurate results.
+  SessionMetrics getSessionMetrics();
 
   Future<void> close();
 }

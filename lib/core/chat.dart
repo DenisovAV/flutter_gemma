@@ -239,8 +239,6 @@ class InferenceChat {
 
     // Track if we emitted a function call (to record correct history and skip session clearing)
     bool emittedFunctionCall = false;
-    String lastFuncBuffer =
-        ''; // Preserve funcBuffer content for history recording
 
     final originalStream =
         session.getResponseAsync().map((token) => TextResponse(token));
@@ -317,7 +315,6 @@ class InferenceChat {
                 debugPrint(
                     'InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!');
                 emittedFunctionCall = true;
-                lastFuncBuffer = funcBuffer;
                 // Add function call to history IMMEDIATELY (before yielding)
                 // so tool response from caller comes AFTER in history order
                 final toolCallMessage = Message.toolCall(text: funcBuffer);
@@ -407,8 +404,6 @@ class InferenceChat {
           debugPrint(
               'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream');
           emittedFunctionCall = true;
-          // Strip `<|"|>` escape tokens before history write — see #248.
-          lastFuncBuffer = SdkResponseParser.cleanRawForHistory(raw);
           if (allCalls.length == 1) {
             yield allCalls.first;
           } else {
@@ -457,7 +452,6 @@ class InferenceChat {
             debugPrint(
                 'InferenceChat: ${allCalls.length} function call(s) found at end of stream');
             emittedFunctionCall = true;
-            lastFuncBuffer = contentToCheck;
             // Add function call to history IMMEDIATELY (before yielding)
             final toolCallMessage = Message.toolCall(text: contentToCheck);
             _fullHistory.add(toolCallMessage);

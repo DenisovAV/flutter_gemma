@@ -164,6 +164,43 @@ for lib in libGemmaModelConstraintProvider.so \
   fi
 done
 
+# 8b. Patch DT_NEEDED on the upstream samplers.
+#
+# The two GPU sampler .sos that Google ships in upstream
+# prebuilt/android_arm64/ reference `LiteRtCreateEnvironment` (and friends)
+# as undefined symbols, but their DT_NEEDED list contains only
+# libm/libdl/liblog/libc. The symbol *is* exported (GLOBAL DEFAULT) by the
+# libLiteRtLm.so we rebuilt above with statically-linked LiteRt symbols, but
+# Bionic (Nougat+) uses per-library linker namespaces: undefined references
+# are only resolved against the caller's NEEDED chain, not against arbitrary
+# already-loaded libs in the process.
+#
+# Result: at runtime, sampler_factory's dlopen of both samplers fails with
+# "cannot locate symbol 'LiteRtCreateEnvironment'", the engine silently falls
+# back to CPU sampling, and end-to-end decode rate drops to ~3 tok/s on
+# Gemma 4 E2B INT4 (vs ~8.7 tok/s with GPU sampling — measured upstream).
+#
+# Upstream tracking: google-ai-edge/LiteRT-LM#2211. flutter_gemma issue:
+# DenisovAV/flutter_gemma#270. The upstream workaround targets libLiteRt.so;
+# this distribution links LiteRt statically into libLiteRtLm.so (see comment
+# at the bazelisk build above), so we add libLiteRtLm.so to DT_NEEDED instead.
+if ! command -v patchelf >/dev/null 2>&1; then
+  echo "ERROR: patchelf not found. Install with: brew install patchelf"
+  echo "       (or 'apt-get install patchelf' on Linux CI runners)"
+  exit 3
+fi
+echo ""
+echo "=== Patching DT_NEEDED on samplers ==="
+for lib in libLiteRtTopKOpenClSampler.so libLiteRtTopKWebGpuSampler.so; do
+  if [ ! -f "$PREBUILT_DIR/$lib" ]; then continue; fi
+  if patchelf --print-needed "$PREBUILT_DIR/$lib" | grep -q '^libLiteRtLm\.so$'; then
+    echo "  $lib already has libLiteRtLm.so (skipping)"
+    continue
+  fi
+  patchelf --add-needed libLiteRtLm.so "$PREBUILT_DIR/$lib"
+  echo "  patched DT_NEEDED libLiteRtLm.so → $lib"
+done
+
 # 9. Verify
 echo ""
 echo "=== Verification ==="
@@ -171,6 +208,15 @@ ls -lh "$PREBUILT_DIR/" | head -20
 echo ""
 echo "Symbols (libLiteRtLm.so):"
 nm -D "$PREBUILT_DIR/libLiteRtLm.so" 2>/dev/null | grep -i "litert_lm_engine_create\|SetPendingSamplerParams" | head -5
+
+echo ""
+echo "DT_NEEDED on samplers (must include libLiteRtLm.so):"
+for lib in libLiteRtTopKOpenClSampler.so libLiteRtTopKWebGpuSampler.so; do
+  if [ -f "$PREBUILT_DIR/$lib" ]; then
+    needed=$(patchelf --print-needed "$PREBUILT_DIR/$lib" | tr '\n' ' ')
+    echo "  $lib → $needed"
+  fi
+done
 
 echo ""
 echo "=== Done ==="

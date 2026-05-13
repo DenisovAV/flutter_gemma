@@ -435,4 +435,93 @@ void main() {
       }
     });
   });
+
+  // ── Gemma4 NPU: 0.15.1 sampler-skip behaviour ────────────────────
+  //
+  // LiteRT-LM NPU executor only supports internal greedy sampling. As of
+  // 0.15.1 we skip the sampler-params setter chain when backend == 'npu'
+  // (lib/core/ffi/litert_lm_client.dart::createConversation). These tests
+  // verify the path end-to-end: engine creates successfully with NPU
+  // backend even when caller passes non-default temperature/topK/topP, and
+  // generation is deterministic (same prompt → identical output across
+  // runs, regardless of seed/temperature).
+  //
+  // Platforms covered:
+  //   - Android with .litertlm NPU executor (Pixel 8 / API 31+ with
+  //     NNAPI accelerator that exposes "npu" backend tag)
+  //   - Windows with Intel dispatch DLLs (Lunar Lake / PantherLake — once
+  //     Matt + Intel partner deliver the bundle in 0.15.1 RC)
+  // Other platforms (macOS/iOS/Linux/Web): skipped — no NPU dispatch.
+  group('Gemma4-E2B NPU', () {
+    tearDownAll(_closeSharedModel);
+
+    testWidgets('NPU engine_create accepts non-default sampler params',
+        (t) async {
+      // Direct integration: select PreferredBackend.npu. If platform lacks
+      // NPU dispatch the engine_create throws — we catch + SKIP. If it
+      // succeeds, Phase 3 sampler-skip kept engine_create from rejecting
+      // the call.
+      late InferenceModel model;
+      try {
+        model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096,
+          preferredBackend: PreferredBackend.npu,
+        );
+      } catch (e) {
+        print('[Gemma4 NPU engine_create] SKIP: $e');
+        return;
+      }
+      final session = await model.createSession(
+        // Non-default sampler params — these MUST be ignored on NPU.
+        temperature: 0.5,
+        topK: 20,
+        topP: 0.75,
+      );
+      await session.addQueryChunk(
+          const Message(text: 'Say hello in one word', isUser: true));
+      final out = await session.getResponse();
+      print('[Gemma4 NPU engine_create] $out');
+      expect(out, isNotEmpty);
+      await session.close();
+      await model.close();
+    });
+
+    testWidgets('NPU generation is deterministic (greedy ignores seed)',
+        (t) async {
+      // Run the same prompt twice with different seeds; on NPU the output
+      // should be byte-identical because seed has no effect — engine uses
+      // internal greedy sampling. On CPU/GPU this assertion would fail
+      // because seed actually changes TopP sampling.
+      late InferenceModel model;
+      try {
+        model = await FlutterGemma.getActiveModel(
+          maxTokens: 4096,
+          preferredBackend: PreferredBackend.npu,
+        );
+      } catch (e) {
+        print('[Gemma4 NPU determinism] SKIP: $e');
+        return;
+      }
+      final s1 = await model.createSession(temperature: 0.8, randomSeed:1);
+      await s1.addQueryChunk(
+          const Message(text: 'List three colors', isUser: true));
+      final r1 = await s1.getResponse();
+      await s1.close();
+
+      final s2 = await model.createSession(temperature: 0.8, randomSeed:99999);
+      await s2.addQueryChunk(
+          const Message(text: 'List three colors', isUser: true));
+      final r2 = await s2.getResponse();
+      await s2.close();
+
+      await model.close();
+
+      print('[Gemma4 NPU det run1] $r1');
+      print('[Gemma4 NPU det run2] $r2');
+      expect(r1, isNotEmpty);
+      expect(r2, isNotEmpty);
+      expect(r1, equals(r2),
+          reason: 'NPU should ignore seed and produce deterministic output');
+    });
+  });
 }

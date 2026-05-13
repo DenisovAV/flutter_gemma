@@ -69,7 +69,22 @@ class PlatformFileSystemService implements FileSystemService {
   @override
   Future<String> getTargetPath(String filename) async {
     final dir = await _getDocumentsDirectory();
-    return path.join(dir.path, filename);
+    final newPath = path.join(dir.path, filename);
+
+    // Backward-compat: if model file isn't in the new location but exists
+    // in pre-0.15.1 Documents (where desktop stored everything before the
+    // OneDrive/iCloud-sync fix), keep using that path so existing installs
+    // don't break on upgrade. Writes always go to the new location.
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux) &&
+        !await File(newPath).exists()) {
+      final legacy = await getApplicationDocumentsDirectory();
+      final legacyPath = path.join(legacy.path, filename);
+      if (await File(legacyPath).exists()) {
+        return legacyPath;
+      }
+    }
+    return newPath;
   }
 
   @override
@@ -134,7 +149,14 @@ class PlatformFileSystemService implements FileSystemService {
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()
   }
 
-  /// Gets the app documents directory with caching
+  /// Gets the model storage directory with caching.
+  ///
+  /// Mobile (Android, iOS): app's Documents — sandboxed, never cloud-synced.
+  /// Desktop (Windows, macOS, Linux): Application Support — picked because
+  /// Documents on these platforms is commonly cloud-virtualized (OneDrive on
+  /// Windows, iCloud on macOS, Dropbox/GNOME Online Accounts on Linux) and
+  /// JNI/FFI mmap of >2 GB model files breaks against placeholder cloud
+  /// paths. Falls back to Documents if Application Support is unavailable.
   Future<Directory> _getDocumentsDirectory() async {
     // Web doesn't support local file system
     if (kIsWeb) {
@@ -145,7 +167,20 @@ class PlatformFileSystemService implements FileSystemService {
       return _documentsDirectory!;
     }
 
-    _documentsDirectory = await getApplicationDocumentsDirectory();
+    final base = Platform.isAndroid || Platform.isIOS
+        ? await getApplicationDocumentsDirectory()
+        : await getApplicationSupportDirectory();
+
+    // Namespace under flutter_gemma/ on desktop to keep models out of the
+    // top-level Application Support directory.
+    final dir = Platform.isAndroid || Platform.isIOS
+        ? base
+        : Directory(path.join(base.path, 'flutter_gemma'));
+
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    _documentsDirectory = dir;
     return _documentsDirectory!;
   }
 }

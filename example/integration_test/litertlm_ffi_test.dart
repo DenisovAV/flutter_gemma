@@ -557,24 +557,36 @@ void main() {
       final filename = 'storage_path_probe_${DateTime.now().millisecondsSinceEpoch}.litertlm';
       final resolved = await fs.getTargetPath(filename);
 
-      final supportDir = await getApplicationSupportDirectory();
       final docsDir = await getApplicationDocumentsDirectory();
+      final supportDir = await getApplicationSupportDirectory();
+      final localAppData = Platform.environment['LOCALAPPDATA'];
 
-      print('[Desktop storage] Application Support root: ${supportDir.path}');
       print('[Desktop storage] Documents root:           ${docsDir.path}');
+      print('[Desktop storage] Application Support root: ${supportDir.path}');
+      print('[Desktop storage] LOCALAPPDATA env:         $localAppData');
       print('[Desktop storage] Resolved target path:     $resolved');
 
-      // Phase 5 contract: write path lives under Application Support
-      // (and namespaced under flutter_gemma/) on Windows/macOS/Linux.
-      expect(resolved.startsWith(supportDir.path), isTrue,
-          reason: 'Phase 5 fix (#179): desktop fromNetwork should write into '
-              'Application Support, got: $resolved');
+      // Phase 5 contract:
+      //   - Windows: under %LOCALAPPDATA%\flutter_gemma\ (truly local,
+      //     never OneDrive- or Domain-synced).
+      //   - macOS/Linux: under getApplicationSupportDirectory()/flutter_gemma/.
+      if (Platform.isWindows) {
+        expect(localAppData, isNotNull,
+            reason: 'LOCALAPPDATA env var must be set on Windows');
+        expect(resolved.startsWith(localAppData!), isTrue,
+            reason: 'Phase 5 fix (#179): Windows path must be under '
+                'LOCALAPPDATA ($localAppData), got: $resolved');
+      } else {
+        // macOS, Linux
+        expect(resolved.startsWith(supportDir.path), isTrue,
+            reason: 'Phase 5 fix (#179): macOS/Linux path must be under '
+                'Application Support (${supportDir.path}), got: $resolved');
+      }
       expect(resolved.contains('flutter_gemma'), isTrue,
           reason: 'Path should be namespaced under flutter_gemma/');
 
-      // And it should NOT land directly under Documents (where 0.15.0
-      // and earlier put it). docsDir + filename would be the legacy
-      // bare-Documents path we explicitly moved away from.
+      // It should NOT land directly under Documents (where 0.15.0 and
+      // earlier put it).
       final legacyBare = '${docsDir.path}${Platform.pathSeparator}$filename';
       expect(resolved, isNot(equals(legacyBare)),
           reason: 'Path must not be the legacy Documents/$filename');

@@ -1,3 +1,7 @@
+## 0.15.1
+- **Fix Android GPU sampler dlopen failure** (#270, thanks @prithidevghosh): `patchelf --add-needed libLiteRtLm.so` on `libLiteRtTopK{OpenCl,WebGpu}Sampler.so`.
+- **Desktop storage** (#179, co-author @ProjectEdge-Jim): use Application Support instead of Documents on Windows/macOS/Linux to avoid cloud-synced paths breaking FFI mmap.
+
 ## 0.15.0
 - **LiteRT-LM 0.11.0**: MTP-capable Gemma 4 + speculative decoding on macOS / iOS / Android / Windows.
 - **`enableSpeculativeDecoding` flag** on `getActiveModel()` (null = model default; true/false to override).

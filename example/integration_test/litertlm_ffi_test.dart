@@ -457,22 +457,50 @@ void main() {
   group('Gemma4-E2B NPU', () {
     tearDownAll(_closeSharedModel);
 
-    testWidgets('NPU engine_create accepts non-default sampler params',
-        (t) async {
-      // Direct integration: select PreferredBackend.npu. If platform lacks
-      // NPU dispatch the engine_create throws — we catch + SKIP. If it
-      // succeeds, Phase 3 sampler-skip kept engine_create from rejecting
-      // the call.
-      late InferenceModel model;
+    // Real NPU tests need a model precompiled for the target NPU (Intel
+    // LunarLake / PantherLake or Qualcomm QNN). Generic Gemma 4 from HF
+    // doesn't carry NPU executor sections and `engine_create` will reject
+    // it. Pre-arranged LNL artifact lives in the workspace dir; SKIP if
+    // absent (covers CI and dev machines without NPU hardware).
+    String? _findNpuModel() {
+      final candidates = <String>[
+        if (Platform.isWindows)
+          '${Platform.environment['USERPROFILE']}\\dev-gemma4-2b-lnl\\gemma4_2b_lnl.litertlm',
+        if (Platform.isLinux || Platform.isMacOS)
+          '${Platform.environment['HOME']}/dev-gemma4-2b-lnl/gemma4_2b_lnl.litertlm',
+      ];
+      for (final p in candidates) {
+        if (File(p).existsSync()) return p;
+      }
+      return null;
+    }
+
+    Future<InferenceModel?> _installAndGetNpu() async {
+      final npuModelPath = _findNpuModel();
+      if (npuModelPath == null) {
+        print('[Gemma4 NPU] SKIP: no NPU-compiled model found');
+        return null;
+      }
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemma4,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(npuModelPath).install();
+      await _closeSharedModel();
       try {
-        model = await FlutterGemma.getActiveModel(
+        return await FlutterGemma.getActiveModel(
           maxTokens: 4096,
           preferredBackend: PreferredBackend.npu,
         );
       } catch (e) {
-        print('[Gemma4 NPU engine_create] SKIP: $e');
-        return;
+        print('[Gemma4 NPU] SKIP engine_create failed: $e');
+        return null;
       }
+    }
+
+    testWidgets('NPU engine_create accepts non-default sampler params',
+        (t) async {
+      final model = await _installAndGetNpu();
+      if (model == null) return;
       final session = await model.createSession(
         // Non-default sampler params — these MUST be ignored on NPU.
         temperature: 0.5,
@@ -480,37 +508,28 @@ void main() {
         topP: 0.75,
       );
       await session.addQueryChunk(
-          const Message(text: 'Say hello in one word', isUser: true));
+          const Message(text: 'What is the capital of France?', isUser: true));
       final out = await session.getResponse();
       print('[Gemma4 NPU engine_create] $out');
       expect(out, isNotEmpty);
+      // Paris should appear in any sensible answer.
+      expect(out.toLowerCase().contains('paris'), isTrue,
+          reason: 'NPU should produce a coherent answer about France\'s capital');
       await session.close();
       await model.close();
     });
 
     testWidgets('NPU generation is deterministic (greedy ignores seed)',
         (t) async {
-      // Run the same prompt twice with different seeds; on NPU the output
-      // should be byte-identical because seed has no effect — engine uses
-      // internal greedy sampling. On CPU/GPU this assertion would fail
-      // because seed actually changes TopP sampling.
-      late InferenceModel model;
-      try {
-        model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.npu,
-        );
-      } catch (e) {
-        print('[Gemma4 NPU determinism] SKIP: $e');
-        return;
-      }
-      final s1 = await model.createSession(temperature: 0.8, randomSeed:1);
+      final model = await _installAndGetNpu();
+      if (model == null) return;
+      final s1 = await model.createSession(temperature: 0.8, randomSeed: 1);
       await s1.addQueryChunk(
           const Message(text: 'List three colors', isUser: true));
       final r1 = await s1.getResponse();
       await s1.close();
 
-      final s2 = await model.createSession(temperature: 0.8, randomSeed:99999);
+      final s2 = await model.createSession(temperature: 0.8, randomSeed: 99999);
       await s2.addQueryChunk(
           const Message(text: 'List three colors', isUser: true));
       final r2 = await s2.getResponse();

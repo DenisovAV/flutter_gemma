@@ -9,12 +9,15 @@ const _mainLibName = 'LiteRtLm';
 
 /// LiteRT-LM native library version and release info.
 ///
-/// 0.11.0-a is a fresh build from upstream LiteRT-LM v0.11.0 (Multi-Token
-/// Prediction support). Same optimization flags as 0.10.2-b: `-c opt
-/// --strip=always` (Bazel) + MSVC `/OPT:REF /OPT:ICF` (Windows).
+/// 0.11.0-b adds Intel NPU dispatch bundling to the Windows tarball
+/// (LiteRtDispatch.dll + OpenVino runtime + TBB, 12 extra DLLs) to enable
+/// `PreferredBackend.npu` on Intel LunarLake-class chips. Windows built
+/// from LiteRT-LM commit 62f7a8e (ABI-compatible with Intel NPU dispatch);
+/// other 6 platforms unchanged from -a (032334d). Same optimization flags:
+/// `-c opt --strip=always` (Bazel) + MSVC `/OPT:REF /OPT:ICF` (Windows).
 /// Apple: vtool minos 26.2 → 16.0 patch on libGemmaModelConstraintProvider
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
-const _nativeVersion = '0.11.0-a';
+const _nativeVersion = '0.11.0-b';
 const _releaseTag = 'native-v$_nativeVersion';
 const _releaseBase =
     'https://github.com/DenisovAV/flutter_gemma/releases/download/$_releaseTag';
@@ -27,7 +30,7 @@ const _checksums = <String, String>{
   'litertlm-linux_arm64.tar.gz':
       'bab26bf420316ef2f4037ffced1470a18cbb6ee6cda069fc0ae8a5f8eb882bfb',
   'litertlm-windows_x86_64.tar.gz':
-      'cde4b0bc871668cb2c91437e213c33e66dc2739394eef9ea7a3da0397f3e3b5c',
+      '6e77c52d2a591f89fb42da517b0d1a4fe9bb8aa07690e2f15d2da6f8e0d1a4d8',
   'litertlm-macos_arm64.tar.gz':
       'fa3138c9f97b6ba3c19f620c29439207d38566598fff06cc55ff115ade17f8e8',
   'litertlm-ios_arm64.tar.gz':
@@ -483,7 +486,31 @@ void main(List<String> args) async {
       // it tries to compile compute shaders for the LLM kernels.
       // Sourced from microsoft/DirectXShaderCompiler GitHub releases.
       const windowsDxc = ['dxil', 'dxcompiler'];
-      for (final name in [...windowsLibPrefixed, ...windowsDxc]) {
+      // Intel NPU dispatch — required for PreferredBackend.npu on
+      // LunarLake / PantherLake-class Intel chips. LiteRtDispatch.dll is
+      // the entry point; OpenVino runtime + TBB are loaded transitively
+      // at dispatch initialization. ~30 MB combined. Absent dispatch on
+      // non-Intel hardware just means engine_create returns a dispatch
+      // error — model still loads on CPU / GPU.
+      const windowsIntelNpu = [
+        'LiteRtDispatch',
+        'openvino',
+        'openvino_intel_npu_plugin',
+        'openvino_tensorflow_lite_frontend',
+        'tbb12',
+        'tbb12_debug',
+        'tbbbind_2_5',
+        'tbbbind_2_5_debug',
+        'tbbmalloc',
+        'tbbmalloc_debug',
+        'tbbmalloc_proxy',
+        'tbbmalloc_proxy_debug',
+      ];
+      for (final name in [
+        ...windowsLibPrefixed,
+        ...windowsDxc,
+        ...windowsIntelNpu,
+      ]) {
         final fileName = os.dylibFileName(name);
         final fileUri = prebuiltDir.resolve(fileName);
         if (File.fromUri(fileUri).existsSync()) {

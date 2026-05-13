@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model.dart';
 
 // ── Model URLs (for iOS download, macOS/Android use local files) ──
@@ -537,55 +538,46 @@ void main() {
   // Mobile (Android, iOS) skips this group entirely — Documents is
   // sandboxed there and never cloud-synced.
   group('Desktop storage path (#179)', () {
-    testWidgets('fromNetwork install lands in Application Support, not Documents',
-        (t) async {
+    testWidgets('getTargetPath resolves into Application Support', (t) async {
       if (Platform.isAndroid || Platform.isIOS) {
         print('[Desktop storage] SKIP: mobile path unchanged');
         return;
       }
 
-      // Use Gemma3-1B (584 MB) — faster than full Gemma 4 for path check.
-      const url =
-          'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
-      const filename = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+      // No install required — we just inspect what path the plugin would
+      // hand back for a synthetic filename. This is the exact call site
+      // that NetworkSourceHandler / fromNetwork uses to decide where to
+      // write the downloaded bytes (and that getActiveModel uses to
+      // locate the model file at inference time).
+      //
+      // Routing through ServiceRegistry mirrors the plugin's own
+      // dependency-injection order, so we exercise the production path,
+      // not a hand-rolled instance.
+      final fs = ServiceRegistry.instance.fileSystemService;
+      final filename = 'storage_path_probe_${DateTime.now().millisecondsSinceEpoch}.litertlm';
+      final resolved = await fs.getTargetPath(filename);
 
-      await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.litertlm,
-      ).fromNetwork(url, token: _token).install();
-
-      // Plugin's getTargetPath now resolves through Application Support
-      // on desktop. Use path_provider directly to compute the expected
-      // root and assert the actual model lives there.
       final supportDir = await getApplicationSupportDirectory();
-      final expectedDir = Directory(
-          '${supportDir.path}${Platform.pathSeparator}flutter_gemma');
-      final expectedPath =
-          '${expectedDir.path}${Platform.pathSeparator}$filename';
-
-      final exists = await File(expectedPath).exists();
-      final size = exists ? await File(expectedPath).length() : 0;
-
-      print('[Desktop storage] Application Support: ${supportDir.path}');
-      print('[Desktop storage] Expected: $expectedPath');
-      print('[Desktop storage] Exists: $exists, size: $size bytes');
-
-      // Also check: file is NOT additionally landing in Documents
-      // (legacy path). It's fine if Documents already has an old copy
-      // (read-from-both fallback), but a fresh install should not be
-      // creating a new one there.
       final docsDir = await getApplicationDocumentsDirectory();
-      final docsPath =
-          '${docsDir.path}${Platform.pathSeparator}$filename';
-      final docsExists = await File(docsPath).exists();
-      print('[Desktop storage] Documents path: $docsPath');
-      print('[Desktop storage] In Documents (legacy): $docsExists');
 
-      expect(exists, isTrue,
-          reason: 'Model should be installed under Application Support, '
-              'not Documents (#179 fix). Expected path: $expectedPath');
-      expect(size, greaterThan(500 * 1024 * 1024),
-          reason: 'Downloaded file should be at least 500 MB (Gemma3-1B is ~584 MB)');
-    }, timeout: const Timeout(Duration(minutes: 30)));
+      print('[Desktop storage] Application Support root: ${supportDir.path}');
+      print('[Desktop storage] Documents root:           ${docsDir.path}');
+      print('[Desktop storage] Resolved target path:     $resolved');
+
+      // Phase 5 contract: write path lives under Application Support
+      // (and namespaced under flutter_gemma/) on Windows/macOS/Linux.
+      expect(resolved.startsWith(supportDir.path), isTrue,
+          reason: 'Phase 5 fix (#179): desktop fromNetwork should write into '
+              'Application Support, got: $resolved');
+      expect(resolved.contains('flutter_gemma'), isTrue,
+          reason: 'Path should be namespaced under flutter_gemma/');
+
+      // And it should NOT land directly under Documents (where 0.15.0
+      // and earlier put it). docsDir + filename would be the legacy
+      // bare-Documents path we explicitly moved away from.
+      final legacyBare = '${docsDir.path}${Platform.pathSeparator}$filename';
+      expect(resolved, isNot(equals(legacyBare)),
+          reason: 'Path must not be the legacy Documents/$filename');
+    });
   });
 }

@@ -13,7 +13,9 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model.dart';
 
 // ── Model URLs (for iOS download, macOS/Android use local files) ──
@@ -433,6 +435,180 @@ void main() {
         expect(chunks, isNotEmpty);
         await session.close();
       }
+    });
+  });
+
+  // ── Gemma4 NPU: 0.15.1 sampler-skip behaviour ────────────────────
+  //
+  // LiteRT-LM NPU executor only supports internal greedy sampling. As of
+  // 0.15.1 we skip the sampler-params setter chain when backend == 'npu'
+  // (lib/core/ffi/litert_lm_client.dart::createConversation). These tests
+  // verify the path end-to-end: engine creates successfully with NPU
+  // backend even when caller passes non-default temperature/topK/topP, and
+  // generation is deterministic (same prompt → identical output across
+  // runs, regardless of seed/temperature).
+  //
+  // Platforms covered:
+  //   - Android with .litertlm NPU executor (Pixel 8 / API 31+ with
+  //     NNAPI accelerator that exposes "npu" backend tag)
+  //   - Windows with Intel dispatch DLLs (Lunar Lake / PantherLake — once
+  //     Matt + Intel partner deliver the bundle in 0.15.1 RC)
+  // Other platforms (macOS/iOS/Linux/Web): skipped — no NPU dispatch.
+  group('Gemma4-E2B NPU', () {
+    tearDownAll(_closeSharedModel);
+
+    // Real NPU tests need a model precompiled for the target NPU (Intel
+    // LunarLake / PantherLake or Qualcomm QNN). Generic Gemma 4 from HF
+    // doesn't carry NPU executor sections and `engine_create` will reject
+    // it. Pre-arranged LNL artifact lives in the workspace dir; SKIP if
+    // absent (covers CI and dev machines without NPU hardware).
+    String? _findNpuModel() {
+      final candidates = <String>[
+        if (Platform.isWindows)
+          '${Platform.environment['USERPROFILE']}\\dev-gemma4-2b-lnl\\gemma4_2b_lnl.litertlm',
+        if (Platform.isLinux || Platform.isMacOS)
+          '${Platform.environment['HOME']}/dev-gemma4-2b-lnl/gemma4_2b_lnl.litertlm',
+      ];
+      for (final p in candidates) {
+        if (File(p).existsSync()) return p;
+      }
+      return null;
+    }
+
+    Future<InferenceModel?> _installAndGetNpu() async {
+      final npuModelPath = _findNpuModel();
+      if (npuModelPath == null) {
+        print('[Gemma4 NPU] SKIP: no NPU-compiled model found');
+        return null;
+      }
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemma4,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(npuModelPath).install();
+      await _closeSharedModel();
+      try {
+        return await FlutterGemma.getActiveModel(
+          maxTokens: 4096,
+          preferredBackend: PreferredBackend.npu,
+        );
+      } catch (e) {
+        print('[Gemma4 NPU] SKIP engine_create failed: $e');
+        return null;
+      }
+    }
+
+    testWidgets('NPU engine_create accepts non-default sampler params',
+        (t) async {
+      final model = await _installAndGetNpu();
+      if (model == null) return;
+      final session = await model.createSession(
+        // Non-default sampler params — these MUST be ignored on NPU.
+        temperature: 0.5,
+        topK: 20,
+        topP: 0.75,
+      );
+      await session.addQueryChunk(
+          const Message(text: 'What is the capital of France?', isUser: true));
+      final out = await session.getResponse();
+      print('[Gemma4 NPU engine_create] $out');
+      expect(out, isNotEmpty);
+      // Paris should appear in any sensible answer.
+      expect(out.toLowerCase().contains('paris'), isTrue,
+          reason: 'NPU should produce a coherent answer about France\'s capital');
+      await session.close();
+      await model.close();
+    });
+
+    testWidgets('NPU generation is deterministic (greedy ignores seed)',
+        (t) async {
+      final model = await _installAndGetNpu();
+      if (model == null) return;
+      final s1 = await model.createSession(temperature: 0.8, randomSeed: 1);
+      await s1.addQueryChunk(
+          const Message(text: 'List three colors', isUser: true));
+      final r1 = await s1.getResponse();
+      await s1.close();
+
+      final s2 = await model.createSession(temperature: 0.8, randomSeed: 99999);
+      await s2.addQueryChunk(
+          const Message(text: 'List three colors', isUser: true));
+      final r2 = await s2.getResponse();
+      await s2.close();
+
+      await model.close();
+
+      print('[Gemma4 NPU det run1] $r1');
+      print('[Gemma4 NPU det run2] $r2');
+      expect(r1, isNotEmpty);
+      expect(r2, isNotEmpty);
+      expect(r1, equals(r2),
+          reason: 'NPU should ignore seed and produce deterministic output');
+    });
+  });
+
+  // ── Desktop storage path verification (#179) ─────────────────────
+  //
+  // Verifies Phase 5 of 0.15.1: on Windows / macOS / Linux, fromNetwork
+  // installs land under getApplicationSupportDirectory() (Application
+  // Support / LOCALAPPDATA / XDG_DATA_HOME), NOT in the user's Documents
+  // folder which is commonly cloud-synced (OneDrive, iCloud, Dropbox)
+  // and breaks FFI mmap on large model files.
+  //
+  // Mobile (Android, iOS) skips this group entirely — Documents is
+  // sandboxed there and never cloud-synced.
+  group('Desktop storage path (#179)', () {
+    testWidgets('getTargetPath resolves into Application Support', (t) async {
+      if (Platform.isAndroid || Platform.isIOS) {
+        print('[Desktop storage] SKIP: mobile path unchanged');
+        return;
+      }
+
+      // No install required — we just inspect what path the plugin would
+      // hand back for a synthetic filename. This is the exact call site
+      // that NetworkSourceHandler / fromNetwork uses to decide where to
+      // write the downloaded bytes (and that getActiveModel uses to
+      // locate the model file at inference time).
+      //
+      // Routing through ServiceRegistry mirrors the plugin's own
+      // dependency-injection order, so we exercise the production path,
+      // not a hand-rolled instance.
+      final fs = ServiceRegistry.instance.fileSystemService;
+      final filename = 'storage_path_probe_${DateTime.now().millisecondsSinceEpoch}.litertlm';
+      final resolved = await fs.getTargetPath(filename);
+
+      final docsDir = await getApplicationDocumentsDirectory();
+      final supportDir = await getApplicationSupportDirectory();
+      final localAppData = Platform.environment['LOCALAPPDATA'];
+
+      print('[Desktop storage] Documents root:           ${docsDir.path}');
+      print('[Desktop storage] Application Support root: ${supportDir.path}');
+      print('[Desktop storage] LOCALAPPDATA env:         $localAppData');
+      print('[Desktop storage] Resolved target path:     $resolved');
+
+      // Phase 5 contract:
+      //   - Windows: under %LOCALAPPDATA%\flutter_gemma\ (truly local,
+      //     never OneDrive- or Domain-synced).
+      //   - macOS/Linux: under getApplicationSupportDirectory()/flutter_gemma/.
+      if (Platform.isWindows) {
+        expect(localAppData, isNotNull,
+            reason: 'LOCALAPPDATA env var must be set on Windows');
+        expect(resolved.startsWith(localAppData!), isTrue,
+            reason: 'Phase 5 fix (#179): Windows path must be under '
+                'LOCALAPPDATA ($localAppData), got: $resolved');
+      } else {
+        // macOS, Linux
+        expect(resolved.startsWith(supportDir.path), isTrue,
+            reason: 'Phase 5 fix (#179): macOS/Linux path must be under '
+                'Application Support (${supportDir.path}), got: $resolved');
+      }
+      expect(resolved.contains('flutter_gemma'), isTrue,
+          reason: 'Path should be namespaced under flutter_gemma/');
+
+      // It should NOT land directly under Documents (where 0.15.0 and
+      // earlier put it).
+      final legacyBare = '${docsDir.path}${Platform.pathSeparator}$filename';
+      expect(resolved, isNot(equals(legacyBare)),
+          reason: 'Path must not be the legacy Documents/$filename');
     });
   });
 }

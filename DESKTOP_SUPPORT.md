@@ -66,7 +66,7 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 
 | Platform | Architecture | GPU backend | Vision | Audio | Notes |
 |----------|--------------|-------------|--------|-------|-------|
-| macOS | arm64 (Apple Silicon) | Metal | ⚠️ | ✅ | Vision broken upstream (#684 — model hallucinates) |
+| macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
 | Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
 | Windows | arm64 | — | — | — | Not supported |
@@ -414,12 +414,6 @@ push session sampler params see no change.
 - [google-ai-edge/LiteRT-LM #1992](https://github.com/google-ai-edge/LiteRT-LM/issues/1992) (closed) — Python parity, fix didn't reach executor
 - [google-ai-edge/LiteRT-LM #2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) — bug report we filed (executor + `session_basic.cc:108` together drop GPU/NPU sampler params)
 - [google-ai-edge/LiteRT-LM PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081) — our proposed fix (Strategy D — `LlmExecutor::SetPendingSamplerParams` virtual + override on `LlmLiteRtCompiledModelExecutorBase` + `session_basic.cc` push). Reproducer: `flutter test integration_test/regression_bugs_test.dart` on any platform, `randomSeed=42` vs `randomSeed=99` at `temperature=1.0` on `PreferredBackend.gpu`.
-
-### macOS vision is broken upstream
-
-Vision input (`supportImage: true`) on macOS produces hallucinated answers
-unrelated to the image content. This is a bug in the upstream MediaPipe /
-LiteRT vision pipeline ([flutter_gemma #684](https://github.com/DenisovAV/flutter_gemma/issues/684)). Use text-only mode on macOS until upstream fixes it.
 
 ### Audio modality requires LiteRT-LM models
 

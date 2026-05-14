@@ -69,7 +69,22 @@ class PlatformFileSystemService implements FileSystemService {
   @override
   Future<String> getTargetPath(String filename) async {
     final dir = await _getDocumentsDirectory();
-    return path.join(dir.path, filename);
+    final newPath = path.join(dir.path, filename);
+
+    // Backward-compat: if model file isn't in the new location but exists
+    // in pre-0.15.1 Documents (where desktop stored everything before the
+    // OneDrive/iCloud-sync fix), keep using that path so existing installs
+    // don't break on upgrade. Writes always go to the new location.
+    if (!kIsWeb &&
+        (Platform.isWindows || Platform.isMacOS || Platform.isLinux) &&
+        !await File(newPath).exists()) {
+      final legacy = await getApplicationDocumentsDirectory();
+      final legacyPath = path.join(legacy.path, filename);
+      if (await File(legacyPath).exists()) {
+        return legacyPath;
+      }
+    }
+    return newPath;
   }
 
   @override
@@ -134,7 +149,17 @@ class PlatformFileSystemService implements FileSystemService {
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()
   }
 
-  /// Gets the app documents directory with caching
+  /// Gets the model storage directory with caching.
+  ///
+  /// Mobile (Android, iOS): app's Documents — sandboxed, never cloud-synced.
+  /// Desktop:
+  ///   - Windows: `%LOCALAPPDATA%\flutter_gemma\` — truly local, never
+  ///     OneDrive-synced (unlike Documents or Roaming AppData). NOTE:
+  ///     path_provider's `getApplicationSupportDirectory()` returns
+  ///     `%APPDATA%` (Roaming) which is Domain-synced in corporate envs,
+  ///     so we use LOCALAPPDATA directly via env var.
+  ///   - macOS/Linux: `getApplicationSupportDirectory()` — not cloud-synced
+  ///     by default.
   Future<Directory> _getDocumentsDirectory() async {
     // Web doesn't support local file system
     if (kIsWeb) {
@@ -145,7 +170,29 @@ class PlatformFileSystemService implements FileSystemService {
       return _documentsDirectory!;
     }
 
-    _documentsDirectory = await getApplicationDocumentsDirectory();
+    final Directory dir;
+    if (Platform.isAndroid || Platform.isIOS) {
+      dir = await getApplicationDocumentsDirectory();
+    } else if (Platform.isWindows) {
+      // LOCALAPPDATA is set by Windows for every user session. Fall back
+      // to the Roaming Application Support if it is somehow unset (very
+      // unusual but possible in stripped-down environments).
+      final local = Platform.environment['LOCALAPPDATA'];
+      final base = local != null && local.isNotEmpty
+          ? Directory(local)
+          : await getApplicationSupportDirectory();
+      dir = Directory(path.join(base.path, 'flutter_gemma'));
+    } else {
+      // macOS, Linux — namespace under flutter_gemma/ inside Application
+      // Support so models don't pollute the package root.
+      final base = await getApplicationSupportDirectory();
+      dir = Directory(path.join(base.path, 'flutter_gemma'));
+    }
+
+    if (!await dir.exists()) {
+      await dir.create(recursive: true);
+    }
+    _documentsDirectory = dir;
     return _documentsDirectory!;
   }
 }

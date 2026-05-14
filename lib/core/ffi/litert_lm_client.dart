@@ -45,6 +45,7 @@ class LiteRtLmFfiClient {
   Pointer<LiteRtLmConversation>? _conversation;
   bool _isInitialized = false;
   String? _nativeLogPath;
+  String? _backend;
 
   /// Reads back the native log file (set by stream_proxy_redirect_stderr) and
   /// pipes its contents through debugPrint in 800-char chunks. Surfaces
@@ -286,6 +287,7 @@ class LiteRtLmFfiClient {
   }) async {
     final initSw = Stopwatch()..start();
     _ensureBindings();
+    _backend = backend;
     final bindingsMs = initSw.elapsedMilliseconds;
     debugPrint('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
     final b = _bindings!;
@@ -334,6 +336,26 @@ class LiteRtLmFfiClient {
       if (enableSpeculativeDecoding != null) {
         b.litert_lm_engine_settings_set_enable_speculative_decoding(
             settings, enableSpeculativeDecoding);
+      }
+
+      // Windows NPU: point LiteRT at the directory containing
+      // `LiteRtDispatch.dll` and disable HW mask update path. Native Assets
+      // bundles both DLLs next to the executable, so resolvedExecutable.parent
+      // is the right path. Without `dispatch_lib_dir` LiteRT reads
+      // uninitialized env-option memory and engine_create crashes; without
+      // `use_hw_masking_for_npu(false)` LiteRT sets up the kWH HW mask method
+      // which Intel preview NPU (LunarLake/PantherLake) doesn't fully support
+      // → CFG check failure 0xc0000409 (per Matt Kreileder's Intel NPU
+      // pipeline instructions).
+      if (Platform.isWindows && backend == 'npu') {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final dirPtr = exeDir.toNativeUtf8();
+        b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+            settings, dirPtr.cast());
+        calloc.free(dirPtr);
+        b.litert_lm_engine_settings_set_use_hw_masking_for_npu(settings, false);
+        debugPrint(
+            '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false');
       }
 
       // Create engine in a background isolate to avoid blocking UI.
@@ -434,19 +456,30 @@ class LiteRtLmFfiClient {
     // native/litert_lm/patch_c_api.sh ("PATCH: 6-arg overload").
     final sessionConfig = b.litert_lm_session_config_create();
 
-    final samplerParams = calloc<LiteRtLmSamplerParams>();
-    // Upstream LiteRT-LM (commit 5e0d86b) only implements TopP sampling at
-    // engine level — sampler type 1 (TopK) and 3 (Greedy) are rejected with
-    // "UNIMPLEMENTED: Sampler type: N not implemented yet." Use TopP (=2)
-    // unconditionally and pass top_k as a hint; native respects both fields
-    // even though it's gated by the type tag.
-    samplerParams.ref.typeAsInt = 2; // always TopP
-    samplerParams.ref.top_k = topK;
-    samplerParams.ref.top_p = topP ?? 0.95;
-    samplerParams.ref.temperature = temperature;
-    samplerParams.ref.seed = seed;
-    b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
-    calloc.free(samplerParams);
+    // NPU executor on LiteRT-LM only supports internal greedy sampling — any
+    // sampler params we pass cause engine_create / generation failures
+    // upstream. Skip the setter chain in that case; CPU/GPU paths are
+    // unaffected.
+    if (_backend != 'npu') {
+      final samplerParams = calloc<LiteRtLmSamplerParams>();
+      // Upstream LiteRT-LM (commit 5e0d86b) only implements TopP sampling at
+      // engine level — sampler type 1 (TopK) and 3 (Greedy) are rejected with
+      // "UNIMPLEMENTED: Sampler type: N not implemented yet." Use TopP (=2)
+      // unconditionally and pass top_k as a hint; native respects both fields
+      // even though it's gated by the type tag.
+      samplerParams.ref.typeAsInt = 2; // always TopP
+      samplerParams.ref.top_k = topK;
+      samplerParams.ref.top_p = topP ?? 0.95;
+      samplerParams.ref.temperature = temperature;
+      samplerParams.ref.seed = seed;
+      b.litert_lm_session_config_set_sampler_params(
+          sessionConfig, samplerParams);
+      calloc.free(samplerParams);
+    } else {
+      debugPrint('[LiteRtLmFfi] NPU backend — sampler params '
+          '(temperature, topK, topP, seed) ignored, engine uses '
+          'internal greedy sampling.');
+    }
 
     final systemPtr = systemMessage?.toNativeUtf8();
     final toolsPtr = toolsJson?.toNativeUtf8();
@@ -735,6 +768,7 @@ class LiteRtLmFfiClient {
     }
 
     _isInitialized = false;
+    _backend = null;
   }
 
   /// Get session metrics from current conversation including token usage.

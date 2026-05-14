@@ -1,0 +1,107 @@
+name: Build LiteRT-LM Native — Windows only
+
+# Standalone Windows-only build for fast iteration when iterating on
+# patch_c_api.sh / native bumps that only touch the Windows tarball
+# (e.g. Intel NPU bundle ABI fixes). Use the full
+# `build-litertlm-native.yml` workflow when changing all 3 desktop
+# platforms together.
+#
+# Triggered manually only — never on push. Same Windows job body as
+# build-litertlm-native.yml lines 123-226 (keep in sync when editing).
+
+on:
+  workflow_dispatch:
+    inputs:
+      litertlm_version:
+        description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
+        required: true
+        default: '62f7a8ec3587027a2351ff348bf8bc1648fd59b4'
+
+jobs:
+  build-windows-x86_64:
+    name: Windows x86_64
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
+      ANDROID_NDK_HOME: ''
+      BAZEL_OUTPUT_BASE: 'D:\b'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable symlinks
+        run: git config --global core.symlinks true
+
+      - name: Clone LiteRT-LM
+        run: |
+          git clone https://github.com/google-ai-edge/LiteRT-LM C:\LiteRT-LM
+          cd C:\LiteRT-LM
+          git checkout "$env:LITERTLM_VERSION"
+          git lfs pull --include="prebuilt/windows_x86_64/*"
+
+      - name: Patch C API
+        shell: bash
+        run: bash native/litert_lm/patch_c_api.sh C:/LiteRT-LM
+
+      - name: Build LiteRtLm.dll
+        run: |
+          cd C:\LiteRT-LM
+          bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
+            build -c opt `
+            --linkopt=/OPT:REF --linkopt=/OPT:ICF `
+            --build_tag_filters='-nowindows' `
+            --features=compiler_param_file `
+            --features=archive_param_file `
+            --spawn_strategy=local `
+            --define=litert_link_capi_so=true `
+            --define=resolve_symbols_in_exec=false `
+            '//c:libLiteRtLm.dylib'
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build StreamProxy.dll
+        run: |
+          cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
+
+      - name: Download DirectXShaderCompiler runtime
+        run: |
+          $dxcVer = 'v1.9.2602'
+          $dxcUrl = "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$dxcVer/dxc_2026_02_20.zip"
+          Invoke-WebRequest -Uri $dxcUrl -OutFile dxc.zip
+          Expand-Archive -Path dxc.zip -DestinationPath dxc -Force
+          Get-ChildItem -Recurse dxc | Where-Object { $_.Name -in 'dxil.dll','dxcompiler.dll' } | Select-Object FullName, Length
+
+      - name: Collect artifacts
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force
+          Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
+          Copy-Item StreamProxy.dll artifacts\
+          $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
+          foreach ($base in @('libGemmaModelConstraintProvider','libLiteRt','libLiteRtTopKWebGpuSampler','libLiteRtWebGpuAccelerator')) {
+            $src = "$prebuilt\$base.dll"
+            if (Test-Path $src) {
+              Copy-Item $src "artifacts\$base.dll"
+              $stripped = $base -replace '^lib',''
+              Copy-Item $src "artifacts\$stripped.dll"
+            }
+          }
+          foreach ($dxc in 'dxil.dll', 'dxcompiler.dll') {
+            $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+            if (-not $src) {
+              $src = Get-ChildItem -Recurse -Filter $dxc -Path dxc | Select-Object -First 1
+            }
+            if ($src) {
+              Copy-Item $src.FullName "artifacts\$dxc"
+            } else {
+              throw "DXC runtime missing: $dxc"
+            }
+          }
+          Get-ChildItem artifacts\
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: litertlm-windows_x86_64
+          path: artifacts/

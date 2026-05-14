@@ -63,12 +63,15 @@ EXPORTS
   litert_lm_engine_settings_enable_benchmark
   litert_lm_engine_settings_set_activation_data_type
   litert_lm_engine_settings_set_cache_dir
+  litert_lm_engine_settings_set_enable_speculative_decoding
+  litert_lm_engine_settings_set_litert_dispatch_lib_dir
   litert_lm_engine_settings_set_max_num_images
   litert_lm_engine_settings_set_max_num_tokens
   litert_lm_engine_settings_set_num_decode_tokens
   litert_lm_engine_settings_set_num_prefill_tokens
   litert_lm_engine_settings_set_parallel_file_section_loading
   litert_lm_engine_settings_set_prefill_chunk_size
+  litert_lm_engine_settings_set_use_hw_masking_for_npu
   litert_lm_json_response_delete
   litert_lm_json_response_get_string
   litert_lm_responses_delete
@@ -230,6 +233,51 @@ void litert_lm_engine_settings_set_litert_dispatch_lib_dir(\
   echo "  OK: Added set_litert_dispatch_lib_dir impl to c/engine.cc"
 else
   echo "  SKIP: c/engine.cc already has set_litert_dispatch_lib_dir"
+fi
+
+# ── 4b. Add set_use_hw_masking_for_npu for Intel LunarLake/PantherLake ──
+# Default NpuConfig.use_hw_masking_for_npu=true makes LiteRT setup HW mask
+# update path (MaskUpdateMethod::kWH) which Intel preview NPU silicon
+# doesn't fully support → engine_create crash (CFG / 0xc0000409). Per Matt
+# Kreileder's Intel NPU pipeline instructions, must call with `false` for
+# LunarLake / PantherLake. Upstream C API doesn't expose this — patch in
+# our own setter that writes through NpuConfig variant on main executor.
+if ! grep -q "set_use_hw_masking_for_npu" "$DIR/c/engine.h"; then
+  sed -i.bak '/Creates a LiteRT LM Engine from the given settings/i\
+// Sets whether to use hardware masking for NPU. Default is true which on\
+// Intel LunarLake/PantherLake preview silicon causes engine_create to\
+// crash because the NPU HW mask update path is not fully supported.\
+// Pass false to force CPU/SIMD mask update fallback.\
+LITERT_LM_C_API_EXPORT\
+void litert_lm_engine_settings_set_use_hw_masking_for_npu(\
+    LiteRtLmEngineSettings* settings, bool value);\
+' "$DIR/c/engine.h"
+  rm -f "$DIR/c/engine.h.bak"
+  echo "  OK: Added set_use_hw_masking_for_npu to c/engine.h"
+else
+  echo "  SKIP: c/engine.h already has set_use_hw_masking_for_npu"
+fi
+
+if ! grep -q "set_use_hw_masking_for_npu" "$DIR/c/engine.cc"; then
+  sed -i.bak '/void litert_lm_engine_settings_set_activation_data_type/i\
+void litert_lm_engine_settings_set_use_hw_masking_for_npu(\
+    LiteRtLmEngineSettings* settings, bool value) {\
+  if (settings \&\& settings->settings) {\
+    auto\& exec = settings->settings->GetMutableMainExecutorSettings();\
+    litert::lm::NpuConfig config;\
+    auto current = exec.GetBackendConfig<litert::lm::NpuConfig>();\
+    if (current.ok()) {\
+      config = *current;\
+    }\
+    config.use_hw_masking_for_npu = value;\
+    exec.SetBackendConfig(config);\
+  }\
+}\
+' "$DIR/c/engine.cc"
+  rm -f "$DIR/c/engine.cc.bak"
+  echo "  OK: Added set_use_hw_masking_for_npu impl to c/engine.cc"
+else
+  echo "  SKIP: c/engine.cc already has set_use_hw_masking_for_npu"
 fi
 
 # ── 5. Patch litert_lm_conversation_config_create to 6-arg signature ──

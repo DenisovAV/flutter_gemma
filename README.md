@@ -30,7 +30,7 @@ There is an example of using:
 - **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
-- **🖼️ Multimodal Support:** Text + Image input with Gemma3n vision models
+- **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, and FastVLM vision models
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, iOS device, Desktop)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🧠 Thinking Mode:** View the reasoning process of DeepSeek and Gemma 4 models with thinking blocks
@@ -47,16 +47,11 @@ There is an example of using:
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
-## What's new in 0.15.0
+## What's new in 0.15
 
-- ⚡ **MTP / speculative decoding for Gemma 4** — LiteRT-LM 0.11.0 enables Multi-Token Prediction on macOS / iOS / Android / Windows. New `enableSpeculativeDecoding` flag on `getActiveModel()` overrides the model default if needed.
-- 🤖 **Android NPU restored** for `.litertlm` (regression fix from 0.14.0) — `PreferredBackend.npu` again drives Qualcomm QNN / Google Tensor / MediaTek dispatch libs through LiteRT-LM's `Backend::NPU`.
-- 🖥️ **Desktop NPU** — `PreferredBackend.npu` accepted on macOS / Linux / Windows (#261). Same dispatch-lib requirement as Android.
-- 🐧 **Linux note** — pre-MTP Gemma 4 revision required until upstream fixes `google-ai-edge/LiteRT-LM#2225`. See **Linux Setup** for the revision-pinned download.
-
-## What's new in 0.14.1
-
-- 🛠️ **Gemma 4 native function calling** — `ModelType.gemma4` routes tool definitions through the LiteRT-LM SDK's chat-template path (minja). The SDK renders native `<|tool>declaration:...<tool|>` tokens, the model emits `<|tool_call>...<tool_call|>`, and the SDK parses the response into structured `tool_calls` JSON. flutter_gemma surfaces it as `FunctionCallResponse` — no Dart-side prompt engineering required.
+- ⚡ **MTP / speculative decoding for Gemma 4** — Multi-Token Prediction on macOS / iOS / Android / Windows via LiteRT-LM 0.11.0.
+- 🤖 **NPU support** — `PreferredBackend.npu` on Android (Qualcomm QNN / Google Tensor / MediaTek) and Windows (Intel LunarLake / PantherLake).
+- 🖼️ **Multi-image input** — `Message.withImages([...])` for chat / inference sessions.
 
 ## What's new in 0.14.0
 
@@ -133,7 +128,7 @@ When installing models, you need to specify the correct `ModelType`. Use this ta
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
 | **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M |
 
-> **Note**: Gemma 4 uses `ModelType.gemma4` (introduced in 0.14.1) so its native `<\|tool_call>...<tool_call\|>` tokens are routed through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`.
+> **Note**: Gemma 4 uses `ModelType.gemma4` so its native `<\|tool_call>...<tool_call\|>` tokens are routed through the LiteRT-LM SDK's chat-template path. For Gemma 3 and earlier, keep `ModelType.gemmaIt`.
 
 **Usage Example:**
 ```dart
@@ -252,7 +247,7 @@ platform :ios, '16.0'  # Required for MediaPipe GenAI
 use_frameworks! :linkage => :static
 ```
 
-> Since 0.14.1, no host-side `Podfile` `post_install` is required on iOS — flutter_gemma patches the upstream LiteRT-LM `dlopen` path to use `@executable_path/Frameworks/<X>.framework/<X>` so dyld resolves Metal accelerators directly through the Native-Assets-bundled framework. This also keeps `Runner.app/Frameworks/` App-Store-clean (fixes ITMS-90432, see #245).
+> No host-side `Podfile` `post_install` is required on iOS — flutter_gemma patches the upstream LiteRT-LM `dlopen` path to use `@executable_path/Frameworks/<X>.framework/<X>` so dyld resolves Metal accelerators directly through the Native-Assets-bundled framework. This also keeps `Runner.app/Frameworks/` App-Store-clean (fixes ITMS-90432, see #245).
 
 **Android**
 
@@ -305,7 +300,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 > Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
 > MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
 
-Since 0.14.0 desktop inference and embeddings both use the LiteRT-LM C API via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically.
+Desktop inference and embeddings both use the LiteRT-LM C API via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically.
 
 | Platform | Architecture | GPU Acceleration | Status |
 |----------|-------------|------------------|--------|
@@ -320,7 +315,7 @@ Since 0.14.0 desktop inference and embeddings both use the LiteRT-LM C API via `
 
 **macOS Setup:**
 
-flutter_gemma 0.14.2+ requires a small `post_install` block in your
+macOS requires a small `post_install` block in your
 `macos/Podfile`. The Apple accelerator dylibs Google ships upstream
 (`libGemmaModelConstraintProvider.dylib`, `libLiteRtMetalAccelerator.dylib`,
 `libLiteRtTopKMetalSampler.dylib`) were linked without
@@ -342,11 +337,11 @@ post_install do |installer|
     flutter_additional_macos_build_settings(target)
   end
 
-  # flutter_gemma 0.14.4: bundle Apple accelerator dylibs as .framework
-  # bundles into Contents/Frameworks/ and re-point LiteRtLm.dylib's
-  # LC_LOAD_DYLIB reference to GemmaModelConstraintProvider's new path.
-  # 3-tier dylib source fallback: Native Assets cache (pub.dev users) →
-  # plugin symlink → in-repo prebuilt/. See README -> macOS Setup and #247/#255.
+  # flutter_gemma: bundle Apple accelerator dylibs as .framework bundles
+  # into Contents/Frameworks/ and re-point LiteRtLm.dylib's LC_LOAD_DYLIB
+  # reference to GemmaModelConstraintProvider's new path. 3-tier dylib
+  # source fallback: Native Assets cache (pub.dev users) → plugin symlink
+  # → in-repo prebuilt/. See README -> macOS Setup and #247/#255.
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
@@ -470,7 +465,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 ).fromNetwork(
-  'https://huggingface.co/google/gemma-3-2b-it/resolve/main/gemma-3-2b-it-gpu-int8.task',
+  'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
   token: 'your_hf_token',
 ).withProgress((progress) {
   print('Downloading: ${progress.percentage}%');
@@ -1155,7 +1150,8 @@ chat.generateChatResponseAsync().listen((response) {
     // Use response.token to update your UI incrementally
     
   } else if (response is FunctionCallResponse) {
-    // Model wants to call a function (Gemma3n, DeepSeek, Qwen2.5)
+    // Model wants to call a function (Gemma 4, Gemma3n, Gemma 3 1B,
+    // FunctionGemma, DeepSeek, Qwen3, Qwen 2.5, Phi-4)
     print('Function: ${response.name}');
     print('Arguments: ${response.args}');
     
@@ -1252,13 +1248,13 @@ Function calling is currently supported by the following models:
 | Feature | Android | iOS | Web | Desktop | Notes |
 |---------|---------|-----|-----|---------|-------|
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
-| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ⚠️ Broken (#684) | macOS: model hallucinates |
-| **Audio Input** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B |
-| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
+| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal (Gemma 4 + Gemma 3n) |
+| **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B; iOS device-only |
+| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
-| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ⚠️ Partial | macOS GPU broken |
-| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ❌ Not supported | Android only (.litertlm) |
+| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Metal/WebGPU/Vulkan/DX12 |
+| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
@@ -1282,7 +1278,7 @@ Function calling is currently supported by the following models:
 - **FileSource:** Only works with HTTP/HTTPS URLs or `assets/` paths
 - **Local file paths:** ❌ Not supported (browser security restriction)
 
-#### Web Storage Modes (v0.12.1+)
+#### Web Storage Modes
 
 **Three Storage Modes:**
 
@@ -1355,8 +1351,8 @@ The full and complete example you can find in `example` folder
 ## **Important Considerations**
 
 * **Model Size:** Larger models (such as 7b and 7b-it) might be too resource-intensive for on-device inference.
-* **Function Calling Support:** Gemma3n and DeepSeek models support function calling. Other models will ignore tools and show a warning.
-* **Thinking Mode:** Only DeepSeek models support thinking mode. Enable with `isThinking: true` and `modelType: ModelType.deepSeek`.
+* **Function Calling Support:** Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen3, Qwen 2.5, and Phi-4 models support function calling. Other models will ignore tools and show a warning. See [Model Function Calling Support](#%EF%B8%8F-model-function-calling-support).
+* **Thinking Mode:** Gemma 4, DeepSeek, and Qwen3 models support thinking mode. Enable with `isThinking: true` on the matching `ModelType`.
 * **Multimodal Models:** Gemma3n models with vision support require more memory and are recommended for devices with 8GB+ RAM.
 * **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements` and minimum iOS 16.0.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.

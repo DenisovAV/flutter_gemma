@@ -19,6 +19,7 @@ class LiteRtLmFfiClient {
     bool enableVision = false,
     int maxNumImages = 0,
     bool enableAudio = false,
+    bool? enableSpeculativeDecoding,
   }) =>
       throw UnsupportedError('web stub — never instantiated');
 }

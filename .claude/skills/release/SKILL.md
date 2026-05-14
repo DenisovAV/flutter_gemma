@@ -24,6 +24,19 @@ git status                  # all desired changes staged or already committed
 git log --oneline -5
 flutter analyze             # 0 errors
 flutter test                # all pass
+
+# Cross-platform compile sanity — analyze/test run on host VM and skip
+# conditional imports (e.g. `lib/core/ffi/*_stub.dart`). The only thing
+# that catches stub/client signature drift is `flutter build <target>`.
+# Skipping this is how `enableSpeculativeDecoding` web breakage shipped
+# in 0.15.0 — analyze was green, tests passed, web build threw
+# `No named parameter ...` at dart2js time.
+cd example
+flutter build web --no-tree-shake-icons
+flutter build apk --debug
+flutter build macos --debug
+flutter build ios --no-codesign --debug
+cd ..
 ```
 
 ## Step 1: Determine release scope
@@ -188,6 +201,12 @@ or moved to a separate doc.
 ```bash
 flutter analyze
 flutter test
+# Cross-platform compile sanity (also in Pre-flight — rerun here after
+# version bumps in case a setter/getter signature shifted):
+(cd example && flutter build web --no-tree-shake-icons)
+(cd example && flutter build apk --debug)
+(cd example && flutter build macos --debug)
+(cd example && flutter build ios --no-codesign --debug)
 dart pub publish --dry-run     # 0 warnings; check final package size <= 100 KB
 ```
 

@@ -164,6 +164,36 @@ for lib in libGemmaModelConstraintProvider.so \
   fi
 done
 
+# 8b. Patch sampler libs with DT_NEEDED libLiteRtLm.so. Bionic per-library
+#     linker namespaces (Nougat+) only resolve UND symbols against the
+#     caller's DT_NEEDED chain, NOT against arbitrary libs already loaded
+#     in the process. Upstream samplers reference LiteRtCreateEnvironment
+#     as UND but ship with NEEDED list containing only libm/libdl/liblog/
+#     libc — so dlopen fails at runtime and the engine silently falls back
+#     to CPU sampling (~3× decode slowdown). Adding libLiteRtLm.so to
+#     NEEDED on each sampler binary lets bionic resolve LiteRtCreateEnvironment
+#     against our libLiteRtLm.so (which exports it). See:
+#       - DenisovAV/flutter_gemma#270
+#       - google-ai-edge/LiteRT-LM#2211
+if ! command -v patchelf >/dev/null 2>&1; then
+  echo "WARN: patchelf not installed — skipping DT_NEEDED fix for samplers"
+  echo "      Install with: brew install patchelf"
+else
+  echo ""
+  echo "=== Patching sampler DT_NEEDED (#270) ==="
+  for lib in libLiteRtTopKOpenClSampler.so libLiteRtTopKWebGpuSampler.so; do
+    if [ -f "$PREBUILT_DIR/$lib" ]; then
+      # Idempotent: only add if not already present.
+      if ! patchelf --print-needed "$PREBUILT_DIR/$lib" | grep -q '^libLiteRtLm\.so$'; then
+        patchelf --add-needed libLiteRtLm.so "$PREBUILT_DIR/$lib"
+        echo "  $lib: added libLiteRtLm.so to NEEDED"
+      else
+        echo "  $lib: libLiteRtLm.so already in NEEDED, skipping"
+      fi
+    fi
+  done
+fi
+
 # 9. Verify
 echo ""
 echo "=== Verification ==="

@@ -5,10 +5,13 @@
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
   s.version          = '0.15.1'
-  s.summary          = 'Flutter plugin for running Gemma AI models locally with Gemma 3 Nano support.'
+  s.summary          = 'Flutter plugin for running Gemma and other LLMs locally on iOS.'
   s.description      = <<-DESC
-The plugin allows running the Gemma AI model locally on a device from a Flutter application.
-Includes support for Gemma 3 Nano models with optimized MediaPipe GenAI v0.10.33.
+Run Gemma 4, Gemma3n, Gemma 3, FastVLM, Qwen3, Qwen 2.5, DeepSeek R1,
+Phi-4, FunctionGemma, and SmolLM locally on iOS via MediaPipe GenAI
+(`.task`) or LiteRT-LM (`.litertlm`). Supports multimodal vision +
+audio, function calling, thinking mode, text embeddings, and on-device
+RAG.
                        DESC
   s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
   s.license          = { :file => '../LICENSE' }

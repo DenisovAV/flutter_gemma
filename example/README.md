@@ -4,19 +4,19 @@
 
 ### 1. Configure HuggingFace Token (Optional)
 
-⚠️ **Note:** HuggingFace token is required for **Gemma and Meta models only**:
+⚠️ **Note:** HuggingFace token is required for **Google-gated repos only**:
 
-**Token Required (gated repos):**
-- All Gemma models (Gemma 3 Nano, 1B, 270M)
-- All EmbeddingGemma models
-- Llama 3.2 1B, Hammer 2.1 0.5B
+**Token Required (gated):**
+- Gemma3n E2B/E4B (`google/gemma-3n-*`)
+- EmbeddingGemma (all sizes)
 
 **Token NOT Required (public repos):**
-- DeepSeek R1, Phi-4, TinyLlama, Qwen 2.5
-- All Gecko embedding models
-- Local asset models (if you have files)
+- Gemma 4 E2B/E4B, Gemma 3 1B, Gemma 3 270M, FunctionGemma 270M
+- FastVLM, Qwen3, Qwen 2.5, DeepSeek R1, Phi-4 Mini, SmolLM
+- Gecko embedding models
+- Local asset / bundled models
 
-**Most models in the app work without a token!** Configure it only if you need Gemma/Meta models:
+**Most models in the app work without a token!** Configure it only if you need Gemma3n or EmbeddingGemma:
 
 **Step 1:** Copy the config template:
 ```bash

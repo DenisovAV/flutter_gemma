@@ -44,18 +44,17 @@
 
 | Model Family | Function Calling | Thinking Mode | Multimodal | Platform Support |
 |--------------|------------------|---------------|------------|------------------|
-| Gemma 4 E2B | ✅ | ✅ ¹ | ✅ | Android, iOS, Web, Desktop |
-| Gemma 4 E4B | ✅ | ✅ ¹ | ✅ | Android, iOS, Web, Desktop |
-| Gemma 3 Nano | ✅ | ❌ | ✅ | Android, iOS, Web |
-| Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web |
-| Gemma-3 1B | ✅ | ❌ | ❌ | Android, iOS, Web |
-| TinyLlama 1.1B | ❌ | ❌ | ❌ | Android, iOS, Web |
-| Llama 3.2 1B | ❌ | ❌ | ❌ | Android, iOS, Web |
-| Hammer 2.1 0.5B | ✅ | ❌ | ❌ | Android, iOS, Web |
-| DeepSeek | ✅ | ✅ | ❌ | Android, iOS, Web |
-| Qwen3 | ✅ | ✅ ² | ❌ | Android, iOS, Web, Desktop |
-| Qwen2.5 | ✅ | ❌ | ❌ | Android, iOS, Web |
-| Phi-4 | ❌ | ❌ | ❌ | Android, iOS, Web |
+| Gemma 4 E2B/E4B | ✅ | ✅ ¹ | ✅ vision + audio | Android, iOS, Web, Desktop |
+| Gemma3n E2B/E4B | ✅ | ❌ | ✅ vision + audio | Android, iOS, Web, Desktop |
+| Gemma 3 1B | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
+| Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web, Desktop |
+| FastVLM 0.5B | ❌ | ❌ | ✅ vision | Desktop (`.litertlm`) |
+| FunctionGemma 270M | ✅ | ❌ | ❌ | Android, iOS, Desktop |
+| Phi-4 Mini | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
+| DeepSeek R1 | ✅ | ✅ | ❌ | Android, iOS |
+| Qwen3 0.6B | ✅ | ✅ ² | ❌ | Android, iOS, Web, Desktop |
+| Qwen 2.5 (0.5B/1.5B) | ✅ | ❌ | ❌ | Android, iOS |
+| SmolLM 135M | ❌ | ❌ | ❌ | Android, iOS |
 
 > ¹ Thinking Mode for Gemma 4: Android, iOS, Desktop only. Web (MediaPipe) does not support `extraContext`.
 > ² Qwen3 generates thinking by default; tags are stripped when `isThinking: false`.

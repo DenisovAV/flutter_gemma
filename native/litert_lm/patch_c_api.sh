@@ -264,8 +264,8 @@ void litert_lm_engine_settings_set_use_hw_masking_for_npu(\
     LiteRtLmEngineSettings* settings, bool value) {\
   if (settings \&\& settings->settings) {\
     auto\& exec = settings->settings->GetMutableMainExecutorSettings();\
-    NpuConfig config;\
-    auto current = exec.GetBackendConfig<NpuConfig>();\
+    litert::lm::NpuConfig config;\
+    auto current = exec.GetBackendConfig<litert::lm::NpuConfig>();\
     if (current.ok()) {\
       config = *current;\
     }\

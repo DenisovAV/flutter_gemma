@@ -68,7 +68,7 @@
 | iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Setup via Podfile `post_install` (creates `lib*.dylib` symlinks next to bundled frameworks) |
 | iOS Simulator | ❌ GPU | ❌ GPU | ✅ | CPU only — Metal sim has 256 MB single-allocation cap, LLM weights exceed |
 | Web | ✅ | ❌ | ✅ | MediaPipe only |
-| macOS | ⚠️ Broken (#684) | ✅ LiteRT-LM only | ✅ | Vision: SDK bug, model hallucinates |
+| macOS | ✅ | ✅ LiteRT-LM only | ✅ | Vision verified on Metal (Gemma 4 + Gemma 3n) |
 | Windows | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via FFI; GPU via WebGPU/DX12 |
 | Linux | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via FFI; GPU via WebGPU/Vulkan |
 
@@ -144,10 +144,10 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by `hook/build.dart` from `native-v0.11.0-a` GitHub release; SHA256-verified, bundled via Native Assets
-- ⚠️ **macOS Vision broken** (#684): SDK bug, use text-only mode
+- Native libs fetched at build time by `hook/build.dart` from `native-v0.11.0-b` GitHub release; SHA256-verified, bundled via Native Assets
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
+- Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)
 
 Entitlements needed: `network.client`, `extended-virtual-addressing`, `increased-memory-limit`
 

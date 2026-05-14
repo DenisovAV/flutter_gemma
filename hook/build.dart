@@ -30,7 +30,7 @@ const _checksums = <String, String>{
   'litertlm-linux_arm64.tar.gz':
       'bab26bf420316ef2f4037ffced1470a18cbb6ee6cda069fc0ae8a5f8eb882bfb',
   'litertlm-windows_x86_64.tar.gz':
-      '6e77c52d2a591f89fb42da517b0d1a4fe9bb8aa07690e2f15d2da6f8e0d1a4d8',
+      '2291db8d4cc104d695b589a179ef04f0c955f906264d625ed4f16babe13d952e',
   'litertlm-macos_arm64.tar.gz':
       'fa3138c9f97b6ba3c19f620c29439207d38566598fff06cc55ff115ade17f8e8',
   'litertlm-ios_arm64.tar.gz':

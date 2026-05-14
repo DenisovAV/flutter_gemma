@@ -502,7 +502,7 @@ class ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 Text(
-                  'Use the 🎤 button to record audio messages (Android, Web, Desktop only)',
+                  'Use the 🎤 button to record audio messages',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 12,

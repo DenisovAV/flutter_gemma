@@ -30,7 +30,7 @@
 
 ## Project Overview
 
-**Flutter Gemma** — multi-platform Flutter plugin for running Google's Gemma AI models locally on devices (Android, iOS, Web, macOS, Windows, Linux). Supports multimodal vision, function calling, thinking mode, GPU acceleration, LoRA weights.
+**Flutter Gemma** — multi-platform Flutter plugin for running Gemma and other on-device LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) on Android, iOS, Web, macOS, Windows, Linux. Supports multimodal vision, function calling, thinking mode, GPU acceleration, LoRA weights.
 
 ## Architecture Quick Reference
 

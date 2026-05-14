@@ -17,7 +17,7 @@
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/assets/gemma3.png" alt="gemma_github_cover">
 </p>
 
-Bring the power of Google's lightweight Gemma language models directly to your Flutter applications. With Flutter Gemma, you can seamlessly incorporate advanced AI capabilities into your Flutter applications, all without relying on external servers.
+Bring the power of Google's lightweight Gemma language models and other on-device LLMs directly to your Flutter applications. With Flutter Gemma, you can seamlessly incorporate advanced AI capabilities into your Flutter applications, all without relying on external servers.
 
 There is an example of using:
 
@@ -27,7 +27,7 @@ There is an example of using:
 
 ## Features
 
-- **Local Execution:** Run Gemma models directly on user devices for enhanced privacy and offline functionality.
+- **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, and FastVLM vision models

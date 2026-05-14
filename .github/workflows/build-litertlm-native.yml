@@ -50,9 +50,20 @@ jobs:
         run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
 
       - name: Build libLiteRtLm.so
+        # litert_link_capi_so=true + resolve_symbols_in_exec=false make
+        # libLiteRtLm dynamically resolve LiteRt* symbols against a
+        # separately-shipped libLiteRt.so. Without resolve_symbols_in_exec
+        # the GPU/Vulkan path crashes on post-MTP Gemma 4 in
+        # LiteRtDestroyOpaqueOptions (TfLite C++ struct ABI mismatch between
+        # the linked-in TfLite copy and the one inside
+        # libLiteRtWebGpuAccelerator.so). Per LiteRT-LM maintainer in
+        # google-ai-edge/LiteRT-LM#2225.
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build -c opt --strip=always --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+          bazelisk build -c opt --strip=always \
+            --define=litert_link_capi_so=true \
+            --define=resolve_symbols_in_exec=false \
+            '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -98,9 +109,20 @@ jobs:
         run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
 
       - name: Build libLiteRtLm.so
+        # litert_link_capi_so=true + resolve_symbols_in_exec=false make
+        # libLiteRtLm dynamically resolve LiteRt* symbols against a
+        # separately-shipped libLiteRt.so. Without resolve_symbols_in_exec
+        # the GPU/Vulkan path crashes on post-MTP Gemma 4 in
+        # LiteRtDestroyOpaqueOptions (TfLite C++ struct ABI mismatch between
+        # the linked-in TfLite copy and the one inside
+        # libLiteRtWebGpuAccelerator.so). Per LiteRT-LM maintainer in
+        # google-ai-edge/LiteRT-LM#2225.
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build -c opt --strip=always --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+          bazelisk build -c opt --strip=always \
+            --define=litert_link_capi_so=true \
+            --define=resolve_symbols_in_exec=false \
+            '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |

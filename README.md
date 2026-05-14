@@ -47,25 +47,11 @@ There is an example of using:
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
-## What's new in 0.15.1
+## What's new in 0.15
 
-- 🪟 **Windows Intel NPU** — `PreferredBackend.npu` on LunarLake / PantherLake silicon. Native bundle ships Intel dispatch (`LiteRtDispatch.dll`) + OpenVino runtime + TBB; no manual DLL placement needed. NPU executor uses internal greedy sampling — `temperature`/`topK`/`topP`/`seed` are silently ignored on this backend.
-- 🖼️ **Multi-image input** (#262, thanks @frdteknikelektro) — `Message.withImages([...])` for chat / inference sessions. Existing `Message.withImage(...)` still works.
-- 📈 **FFI session metrics** (#262) — `chat` / `Conversation` sessions expose token counts and timing via FFI.
-- 🤖 **Android GPU sampler dlopen fix** (#270, thanks @prithidevghosh) — `patchelf --add-needed libLiteRtLm.so` on the sampler `.so`s; +15–30% decode speedup on Pixel-class devices.
-- 💾 **Desktop storage location** (#179, co-author @ProjectEdge-Jim) — uses Application Support (`%LOCALAPPDATA%` on Windows, `~/Library/Application Support` on macOS, `~/.local/share` on Linux) instead of `Documents/` to avoid OneDrive cloud-virtualization breaking FFI mmap on >2 GB models. Existing installs are auto-detected via read-from-both fallback.
-- 🌐 **Web build fix** — `LiteRtLmFfiClient` stub was missing the `enableSpeculativeDecoding` parameter added in 0.15.0; dart2js failed when web was actually built. Resolved.
-
-## What's new in 0.15.0
-
-- ⚡ **MTP / speculative decoding for Gemma 4** — LiteRT-LM 0.11.0 enables Multi-Token Prediction on macOS / iOS / Android / Windows. New `enableSpeculativeDecoding` flag on `getActiveModel()` overrides the model default if needed.
-- 🤖 **Android NPU restored** for `.litertlm` (regression fix from 0.14.0) — `PreferredBackend.npu` again drives Qualcomm QNN / Google Tensor / MediaTek dispatch libs through LiteRT-LM's `Backend::NPU`.
-- 🖥️ **Desktop NPU** — `PreferredBackend.npu` accepted on macOS / Linux / Windows (#261). Same dispatch-lib requirement as Android.
-- 🐧 **Linux note** — pre-MTP Gemma 4 revision required until upstream fixes `google-ai-edge/LiteRT-LM#2225`. See **Linux Setup** for the revision-pinned download.
-
-## What's new in 0.14.1
-
-- 🛠️ **Gemma 4 native function calling** — `ModelType.gemma4` routes tool definitions through the LiteRT-LM SDK's chat-template path (minja). The SDK renders native `<|tool>declaration:...<tool|>` tokens, the model emits `<|tool_call>...<tool_call|>`, and the SDK parses the response into structured `tool_calls` JSON. flutter_gemma surfaces it as `FunctionCallResponse` — no Dart-side prompt engineering required.
+- ⚡ **MTP / speculative decoding for Gemma 4** — Multi-Token Prediction on macOS / iOS / Android / Windows via LiteRT-LM 0.11.0.
+- 🤖 **NPU support** — `PreferredBackend.npu` on Android (Qualcomm QNN / Google Tensor / MediaTek) and Windows (Intel LunarLake / PantherLake).
+- 🖼️ **Multi-image input** — `Message.withImages([...])` for chat / inference sessions.
 
 ## What's new in 0.14.0
 
@@ -1263,11 +1249,11 @@ Function calling is currently supported by the following models:
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B; iOS device-only |
-| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template), 0.14.1+ |
+| **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Metal/WebGPU/Vulkan/DX12 |
-| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake (0.15.1+) |
+| **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |

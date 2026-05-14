@@ -114,8 +114,8 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **Dart SDK**: `>=3.6.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.11.0-a` GitHub Release (built from upstream `google-ai-edge/LiteRT-LM` commit `032334d` — post-`6571c42` main HEAD with re-synced WORKSPACE LITERT_REF and matching prebuilt accelerators), bundled via Native Assets — same `.so`/`.dylib`/`.dll` set on all platforms. `-c opt --strip=always` build; retains vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`. MTP (speculative decoding) support for Gemma 4.
-- **Current Version**: 0.15.0
+- **LiteRT-LM**: native libs from `native-v0.11.0-b` GitHub Release. Windows tarball built from upstream `google-ai-edge/LiteRT-LM` commit `62f7a8e` and bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. Other 6 platforms unchanged from -a (commit `032334d`). Native Assets bundled — same `.so`/`.dylib`/`.dll` set on all platforms. `-c opt --strip=always` build; retains vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`. MTP (speculative decoding) support for Gemma 4.
+- **Current Version**: 0.15.1
 
 ## Platform-Specific Setup
 

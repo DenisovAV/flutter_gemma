@@ -1,6 +1,11 @@
 ## 0.15.1
 - **Fix Android GPU sampler dlopen failure** (#270, thanks @prithidevghosh): `patchelf --add-needed libLiteRtLm.so` on `libLiteRtTopK{OpenCl,WebGpu}Sampler.so`.
 - **Desktop storage** (#179, co-author @ProjectEdge-Jim): use Application Support instead of Documents on Windows/macOS/Linux to avoid cloud-synced paths breaking FFI mmap.
+- **Multi-image, FFI session metrics, prefix replay** (#262, thanks @frdteknikelektro): `Message.withImages([...])` for multi-image input, `chat`/`Conversation` session metrics via FFI, persistent prefix messages replayed on session rebuild after history truncation. Backward-compatible (`Message.withImage(...)` still works).
+- **Skip sampler params on NPU backend**: `temperature`/`topK`/`topP`/`seed` are silently ignored when `PreferredBackend.npu` is selected — LiteRT-LM NPU executor only supports internal greedy sampling.
+- **Windows Intel NPU end-to-end**: native-v0.11.0-b Windows tarball bundles Intel dispatch (`LiteRtDispatch.dll`), OpenVino runtime, TBB (~30 MB); FFI client passes `dispatch_lib_dir` + `use_hw_masking_for_npu=false` at engine_create so `PreferredBackend.npu` works on Intel LunarLake/PantherLake silicon without manual DLL placement.
+- **Fix web build broken by 0.15.0**: `LiteRtLmFfiClient` stub on web was missing the `enableSpeculativeDecoding` parameter — dart2js failed compilation when web target was actually built.
+- **CI**: standalone `build-litertlm-native-windows.yml` workflow for Windows-only rebuilds.
 
 ## 0.15.0
 - **LiteRT-LM 0.11.0**: MTP-capable Gemma 4 + speculative decoding on macOS / iOS / Android / Windows.

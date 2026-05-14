@@ -388,6 +388,58 @@ class LiteRtLmBindings {
       _litert_lm_engine_settings_set_enable_speculative_decodingPtr.asFunction<
           void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
 
+  /// Set the directory where LiteRT dispatch libraries (NPU dispatch
+  /// `LiteRtDispatch.dll`, accelerator plugins) live. Required on Windows
+  /// for `PreferredBackend.npu` — without it the dispatch lookup reads
+  /// uninitialized env option memory and engine_create crashes.
+  /// Caller passes the absolute path to the directory containing
+  /// `LiteRtDispatch.dll` (usually the same dir as `LiteRtLm.dll`).
+  void litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    ffi.Pointer<ffi.Char> lib_dir,
+  ) {
+    return _litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+      settings,
+      lib_dir,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_litert_dispatch_lib_dirPtr =
+      _lookup<
+              ffi.NativeFunction<
+                  ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
+                      ffi.Pointer<ffi.Char>)>>(
+          'litert_lm_engine_settings_set_litert_dispatch_lib_dir');
+  late final _litert_lm_engine_settings_set_litert_dispatch_lib_dir =
+      _litert_lm_engine_settings_set_litert_dispatch_lib_dirPtr.asFunction<
+          void Function(
+              ffi.Pointer<LiteRtLmEngineSettings>, ffi.Pointer<ffi.Char>)>();
+
+  /// Disable NPU hardware mask update path. Required on Intel preview NPU
+  /// silicon (LunarLake / PantherLake) where the default `kWH`
+  /// (Write-Hardware) mask update method is not fully supported and causes
+  /// engine_create to crash. Pass `false` to force CPU/SIMD fallback.
+  /// Patched into our C API (not in upstream LiteRT-LM 0.11.0 C API).
+  void litert_lm_engine_settings_set_use_hw_masking_for_npu(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool value,
+  ) {
+    return _litert_lm_engine_settings_set_use_hw_masking_for_npu(
+      settings,
+      value,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr =
+      _lookup<
+              ffi.NativeFunction<
+                  ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
+                      ffi.Bool)>>(
+          'litert_lm_engine_settings_set_use_hw_masking_for_npu');
+  late final _litert_lm_engine_settings_set_use_hw_masking_for_npu =
+      _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr.asFunction<
+          void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+
   ffi.Pointer<LiteRtLmEngine> litert_lm_engine_create(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {

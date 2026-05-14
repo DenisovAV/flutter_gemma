@@ -338,6 +338,26 @@ class LiteRtLmFfiClient {
             settings, enableSpeculativeDecoding);
       }
 
+      // Windows NPU: point LiteRT at the directory containing
+      // `LiteRtDispatch.dll` and disable HW mask update path. Native Assets
+      // bundles both DLLs next to the executable, so resolvedExecutable.parent
+      // is the right path. Without `dispatch_lib_dir` LiteRT reads
+      // uninitialized env-option memory and engine_create crashes; without
+      // `use_hw_masking_for_npu(false)` LiteRT sets up the kWH HW mask method
+      // which Intel preview NPU (LunarLake/PantherLake) doesn't fully support
+      // → CFG check failure 0xc0000409 (per Matt Kreileder's Intel NPU
+      // pipeline instructions).
+      if (Platform.isWindows && backend == 'npu') {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final dirPtr = exeDir.toNativeUtf8();
+        b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+            settings, dirPtr.cast());
+        calloc.free(dirPtr);
+        b.litert_lm_engine_settings_set_use_hw_masking_for_npu(settings, false);
+        debugPrint(
+            '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false');
+      }
+
       // Create engine in a background isolate to avoid blocking UI.
       // Pass settings pointer as int address (Pointer can't cross isolates).
       debugPrint(

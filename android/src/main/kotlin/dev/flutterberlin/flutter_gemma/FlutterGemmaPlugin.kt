@@ -100,8 +100,7 @@ private class PlatformServiceImpl(
       engine?.close()
       engine = null
     }
-    embeddingModel?.close()
-    embeddingModel = null
+    // 0.15.2: embedding lifetime managed by Dart (LitertEmbeddingModel).
   }
 
   override fun createModel(

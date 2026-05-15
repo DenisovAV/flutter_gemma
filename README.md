@@ -169,13 +169,13 @@ The plugin ships native prebuilts only for the architectures below. Other ABIs f
 | Linux           | `x86_64`, `arm64`                 | —                        |
 | Windows         | `x86_64`                          | `arm64`                  |
 
-¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything else (`.litertlm` FFI, embedding via `localagents-rag`, image generation) is `arm64-v8a` only:
+¹ MediaPipe text inference (`.task` / `.bin`) on Android also works on `x86_64` and `armeabi-v7a` because Google ships those ABIs in `tasks-genai`. Everything else (`.litertlm` FFI, embedding via LiteRT FFI, image generation) is `arm64-v8a` only:
 
 | Android feature                      | arm64-v8a | x86_64 | armeabi-v7a |
 |--------------------------------------|:---------:|:------:|:-----------:|
 | Text inference (`.task` / `.bin`)    |     ✅    |   ✅   |      ✅      |
 | `.litertlm` (FFI)                    |     ✅    |   ❌   |      ❌      |
-| Embedding (`localagents-rag`)        |     ✅    |   ❌   |      ❌      |
+| Embedding (LiteRT FFI)               |     ✅    |   ❌   |      ❌      |
 | Image generation (vision)            |     ✅    |   ❌   |      ❌      |
 
 If your Android app uses only the arm64-only features, restrict the build to arm64 so the Play Store does not offer broken APKs to incompatible devices:
@@ -273,10 +273,6 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 # Protocol Buffers
 -keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
-
-# RAG functionality
--keep class com.google.ai.edge.localagents.** { *; }
--dontwarn com.google.ai.edge.localagents.**
 ```
 
 **Web**
@@ -300,7 +296,7 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 > Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
 > MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
 
-Desktop inference and embeddings both use the LiteRT-LM C API via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically.
+Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platforms run via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically.
 
 | Platform | Architecture | GPU Acceleration | Status |
 |----------|-------------|------------------|--------|
@@ -1335,7 +1331,6 @@ final supported = await FlutterGemma.isStreamingSupported();
 - **Memory entitlements:** Required for large models (see Setup section)
 - **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
 - **Storage:** Local file system in app documents directory
-- **Embedding models:** Supported via TensorFlowLiteC — no extra Podfile configuration needed
 
 The full and complete example you can find in `example` folder
 

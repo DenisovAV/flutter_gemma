@@ -38,7 +38,7 @@
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.)
 - **Engine selection by file extension**: `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API. Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.11.0-a`.
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference) + LiteRT C API (embeddings). Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.11.0-b`.
 
 ### Supported Models
 
@@ -77,7 +77,7 @@
 |-------|---------|-----|-----|---------|
 | `cpu` | ✅ | ✅ | ❌ | ✅ |
 | `gpu` | ✅ | ✅ | ✅ (required) | ✅ |
-| `npu` | ✅ (.litertlm) | ❌ | ❌ | ❌ |
+| `npu` | ✅ (.litertlm) | ❌ | ❌ | ✅ Windows (Intel LunarLake/PantherLake) |
 
 ## SDK Gotchas (Non-Obvious)
 
@@ -171,8 +171,10 @@ flutter analyze && dart format . && flutter test
 | `lib/core/message.dart` | Message class (isUser gotcha) |
 | `lib/core/domain/` | ModelSource sealed classes |
 | `lib/core/ffi/litert_lm_client.dart` | Per-platform FFI client (loading, preload, log capture) |
-| `lib/core/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API |
+| `lib/core/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API (inference) |
 | `lib/core/ffi/ffi_inference_model.dart` | Shared FFI inference model (used by mobile + desktop) |
+| `lib/core/litert/litert_bindings.dart` | Hand-written dart:ffi bindings to LiteRT C API (embeddings); dual MSVC/POSIX `LiteRtLayout` structs |
+| `lib/core/litert/litert_embedding_model.dart` | Shared embedding model — Gecko / EmbeddingGemma `.tflite` on all 5 native platforms |
 | `lib/mobile/flutter_gemma_mobile.dart` | Mobile implementation (FFI for .litertlm, MediaPipe for .task) |
 | `lib/web/flutter_gemma_web.dart` | Web implementation (MediaPipe JS) |
 | `lib/desktop/flutter_gemma_desktop.dart` | Desktop entrypoint, delegates to FFI client |
@@ -193,7 +195,8 @@ flutter_gemma/
 ├── ios/                  # iOS native (Swift) + podspec script_phase
 ├── lib/                  # Dart implementation
 │   ├── core/            # Domain, DI, handlers, model management
-│   │   └── ffi/         # dart:ffi client + bindings (used by all 5 platforms)
+│   │   ├── ffi/         # dart:ffi client + bindings for LiteRT-LM inference (all 5 platforms)
+│   │   └── litert/      # dart:ffi bindings + shared model for LiteRT C API embeddings (all 5 platforms)
 │   ├── mobile/          # Mobile entrypoint (selects FFI vs MediaPipe)
 │   ├── web/             # Web platform code
 │   └── desktop/         # Desktop entrypoint (delegates to lib/core/ffi/)

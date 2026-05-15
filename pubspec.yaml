@@ -27,7 +27,7 @@ dependencies:
   plugin_platform_interface: ^2.0.2
   shared_preferences: ^2.5.2
   background_downloader: ^9.2.3
-  # FFI utilities (malloc, Utf8) for desktop TFLite embeddings and LiteRT-LM C API
+  # FFI utilities (malloc, Utf8) for LiteRT C API embeddings and LiteRT-LM C API inference
   ffi: ^2.1.0
   # HNSW vector search for O(log n) similarity queries
   local_hnsw: ^1.0.0

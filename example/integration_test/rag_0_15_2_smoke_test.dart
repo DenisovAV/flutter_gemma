@@ -27,10 +27,7 @@ const _geckoTokenizerUrl =
     'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model';
 
 // EmbeddingGemma 256 — larger (~179 MB), SentencePiece tokenizer.
-// `litert-community/embeddinggemma-300m` is **gated**; flip
-// _runEmbeddingGemma to true and pass --dart-define=HUGGINGFACE_TOKEN to
-// exercise it.
-const _runEmbeddingGemma = false;
+// Gated; pass --dart-define-from-file=config.json with HUGGINGFACE_TOKEN.
 const _embeddingGemmaModelUrl =
     'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
 const _embeddingGemmaTokenizerUrl =
@@ -154,17 +151,12 @@ void main() {
     }
   }, timeout: const Timeout(Duration(minutes: 10)));
 
-  testWidgets('EmbeddingGemma 256 (BPE/Unigram) — full RAG flow', (_) async {
-    if (!_runEmbeddingGemma) {
-      print(
-          '[EmbeddingGemma] SKIPPED — flip _runEmbeddingGemma to true and '
-          'pass --dart-define=HUGGINGFACE_TOKEN to exercise this model');
-      return;
-    }
-    final token =
-        const String.fromEnvironment('HUGGINGFACE_TOKEN', defaultValue: '');
+  testWidgets('EmbeddingGemma 256 — full RAG flow', (_) async {
+    const token =
+        String.fromEnvironment('HUGGINGFACE_TOKEN', defaultValue: '');
     if (token.isEmpty) {
-      fail('HUGGINGFACE_TOKEN required (gated repo)');
+      fail('HUGGINGFACE_TOKEN required (gated repo). Run with '
+          '--dart-define-from-file=config.json');
     }
     await FlutterGemma.initialize(huggingFaceToken: token);
     await FlutterGemma.installEmbedder()

@@ -50,8 +50,11 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var model: InferenceModel?
     private var session: InferenceSession?
 
-    // Embedding model (like Android EmbeddingModel — no wrapper)
-    private var embeddingModel: EmbeddingModel?
+    // 0.15.2: embedding migrated to the shared Dart-FFI + LiteRT path
+    // (see `lib/core/litert/litert_embedding_model.dart`). The pigeon
+    // surface below is preserved for ABI continuity but no longer
+    // backs the runtime path — Dart instantiates LitertEmbeddingModel
+    // directly and never calls these methods.
 
     func createModel(
         maxTokens: Int64,
@@ -316,194 +319,9 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
         }
     }
 
-    // MARK: - RAG Methods (iOS Implementation)
-    
-    func createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void) {
-        print("[PLUGIN] Creating embedding model")
-        print("[PLUGIN] Model path: \(modelPath)")
-        print("[PLUGIN] Tokenizer path: \(tokenizerPath)")
-        print("[PLUGIN] Preferred backend: \(String(describing: preferredBackend))")
-
-        // Convert PreferredBackend to useGPU boolean
-        // Note: NPU not supported for embeddings on iOS
-        let useGPU = preferredBackend == .gpu
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                // Create EmbeddingModel directly (like Android EmbeddingModel)
-                self.embeddingModel = EmbeddingModel(
-                    modelPath: modelPath,
-                    tokenizerPath: tokenizerPath,
-                    useGPU: useGPU
-                )
-
-                try self.embeddingModel?.loadModel()
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Embedding model created successfully")
-                    completion(.success(()))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to create embedding model: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "EmbeddingCreationFailed",
-                        message: "Failed to create embedding model: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
-    }
-    
-    func closeEmbeddingModel(completion: @escaping (Result<Void, Error>) -> Void) {
-        print("[PLUGIN] Closing embedding model")
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.embeddingModel?.close()
-            self.embeddingModel = nil
-
-            DispatchQueue.main.async {
-                print("[PLUGIN] Embedding model closed successfully")
-                completion(.success(()))
-            }
-        }
-    }
-    
-    func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void) {
-        print("[PLUGIN] Generating embedding for text: \(text)")
-
-        guard let embeddingModel = embeddingModel else {
-            completion(.failure(PigeonError(
-                code: "EmbeddingModelNotInitialized",
-                message: "Embedding model not initialized. Call createEmbeddingModel first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let floatEmbeddings = try embeddingModel.generateEmbedding(for: text)
-                let doubleEmbeddings = floatEmbeddings.map { Double($0) }
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Generated embedding with \(doubleEmbeddings.count) dimensions")
-                    completion(.success(doubleEmbeddings))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to generate embedding: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "EmbeddingGenerationFailed",
-                        message: "Failed to generate embedding: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
-    }
-
-    func generateDocumentEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void) {
-        guard let embeddingModel = embeddingModel else {
-            completion(.failure(PigeonError(
-                code: "EmbeddingModelNotInitialized",
-                message: "Embedding model not initialized. Call createEmbeddingModel first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let floatEmbeddings = try embeddingModel.generateDocumentEmbedding(for: text)
-                let doubleEmbeddings = floatEmbeddings.map { Double($0) }
-
-                DispatchQueue.main.async {
-                    completion(.success(doubleEmbeddings))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    completion(.failure(PigeonError(
-                        code: "DocumentEmbeddingGenerationFailed",
-                        message: "Failed to generate document embedding: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
-    }
-
-    func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void) {
-        print("[PLUGIN] Generating embeddings for \(texts.count) texts")
-
-        guard let embeddingModel = embeddingModel else {
-            completion(.failure(PigeonError(
-                code: "EmbeddingModelNotInitialized",
-                message: "Embedding model not initialized. Call createEmbeddingModel first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                var embeddings: [[Double]] = []
-                for text in texts {
-                    let floatEmbedding = try embeddingModel.generateEmbedding(for: text)
-                    embeddings.append(floatEmbedding.map { Double($0) })
-                }
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Generated \(embeddings.count) embeddings")
-                    completion(.success(embeddings as [Any?]))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to generate embeddings: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "EmbeddingGenerationFailed",
-                        message: "Failed to generate embeddings: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
-    }
-
-    func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void) {
-        print("[PLUGIN] Getting embedding dimension")
-
-        guard let embeddingModel = embeddingModel else {
-            completion(.failure(PigeonError(
-                code: "EmbeddingModelNotInitialized",
-                message: "Embedding model not initialized. Call createEmbeddingModel first.",
-                details: nil
-            )))
-            return
-        }
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            do {
-                let testEmbedding = try embeddingModel.generateEmbedding(for: "test")
-                let dimension = Int64(testEmbedding.count)
-
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Embedding dimension: \(dimension)")
-                    completion(.success(dimension))
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    print("[PLUGIN] Failed to get embedding dimension: \(error)")
-                    completion(.failure(PigeonError(
-                        code: "EmbeddingDimensionFailed",
-                        message: "Failed to get embedding dimension: \(error.localizedDescription)",
-                        details: nil
-                    )))
-                }
-            }
-        }
-    }
+    // 0.15.2: embedding pigeon methods dropped from PlatformService.
+    // Dart talks to LiteRT C API directly via dart:ffi
+    // (lib/core/litert/litert_embedding_model.dart).
     
     // MARK: - RAG VectorStore Methods (no-ops: VectorStore is now handled entirely in Dart via sqlite3)
 

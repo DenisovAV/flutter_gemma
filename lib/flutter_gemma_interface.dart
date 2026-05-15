@@ -275,7 +275,17 @@ enum TaskType {
   retrievalQuery,
 
   /// For document indexing. Prepends document prefix before embedding.
-  retrievalDocument,
+  retrievalDocument;
+
+  /// Canonical prefix prepended to user text before tokenization. Single
+  /// source of truth across all native platforms — fixes cross-platform
+  /// drift on `retrievalQuery` (issue #264) by construction. The strings
+  /// here match what iOS Swift used in 0.15.1 and earlier, so existing
+  /// iOS-indexed corpora remain valid.
+  String get prefix => switch (this) {
+        TaskType.retrievalQuery => 'task: search result | query: ',
+        TaskType.retrievalDocument => 'title: none | text: ',
+      };
 }
 
 /// Represents an embedding model instance.

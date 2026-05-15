@@ -1,3 +1,8 @@
+## 0.15.2
+- Unified embedding on LiteRT C API + Dart FFI across Android / iOS / Desktop.
+- Drop `localagents-rag` (Android), `TensorFlowLiteC` pod (iOS), TFLite C 0.12.7 tarball (Desktop).
+- Fix cross-platform `retrievalQuery` drift via `TaskType.prefix` single source of truth (#264).
+
 ## 0.15.1
 - **Fix Android GPU sampler dlopen failure** (#270, thanks @prithidevghosh): `patchelf --add-needed libLiteRtLm.so` on `libLiteRtTopK{OpenCl,WebGpu}Sampler.so`.
 - **Desktop storage** (#179, co-author @ProjectEdge-Jim): use Application Support instead of Documents on Windows/macOS/Linux to avoid cloud-synced paths breaking FFI mmap.

@@ -114,7 +114,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.11.0-b` GitHub Release. Windows tarball built from upstream `google-ai-edge/LiteRT-LM` commit `62f7a8e` and bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. Other 6 platforms unchanged from -a (commit `032334d`). Native Assets bundled — same `.so`/`.dylib`/`.dll` set on all platforms. `-c opt --strip=always` build; retains vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`. MTP (speculative decoding) support for Gemma 4.
-- **Current Version**: 0.15.1
+- **Current Version**: 0.15.2 — embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
 

@@ -11,11 +11,7 @@ import '../core/model.dart';
 import '../core/di/service_registry.dart';
 import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
-
-import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart'
-    show SentencePieceConfig, SentencePieceTokenizer, TokenizerJsonLoader;
-
-import 'tflite/tflite_interpreter.dart';
+import '../core/litert/litert_embedding_model.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
@@ -24,7 +20,6 @@ import '../mobile/flutter_gemma_mobile.dart'
 import '../core/model_management/constants/preferences_keys.dart';
 
 part 'desktop_inference_model.dart';
-part 'desktop_embedding_model.dart';
 
 /// Desktop implementation of FlutterGemma plugin
 ///
@@ -248,55 +243,23 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       debugPrint('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
 
-      // Load TFLite interpreter via dart:ffi
-      final numThreads = switch (preferredBackend) {
-        PreferredBackend.cpu => 4,
-        PreferredBackend.gpu || null => 6,
-        PreferredBackend.npu => throw UnsupportedError(
-            'PreferredBackend.npu is only supported on Android with .litertlm '
-            'models; not available for desktop embeddings.',
-          ),
-      };
-      final interpreter = TfLiteInterpreter.fromFile(
-        modelPath,
-        numThreads: numThreads,
-      );
-
-      debugPrint(
-        '[FlutterGemmaDesktop] Embedding model loaded: '
-        'seqLen=${interpreter.inputSequenceLength}, '
-        'dim=${interpreter.outputDimension}',
-      );
-
       if (tokenizerPath == null) {
-        interpreter.close();
         throw StateError('Tokenizer path is required for desktop embeddings');
       }
-      final SentencePieceTokenizer tokenizer;
-      try {
-        if (tokenizerPath.endsWith('.json')) {
-          tokenizer = await TokenizerJsonLoader.fromJsonFile(
-            tokenizerPath,
-            config: const SentencePieceConfig(),
-          );
-        } else {
-          tokenizer = await SentencePieceTokenizer.fromModelFile(
-            tokenizerPath,
-            config: const SentencePieceConfig(),
-          );
-        }
-      } catch (e) {
-        interpreter.close();
-        rethrow;
+      if (preferredBackend == PreferredBackend.npu) {
+        throw UnsupportedError(
+          'PreferredBackend.npu is only supported on Android with .litertlm '
+          'models; not available for desktop embeddings.',
+        );
       }
 
-      List<int> tokenize(String text) {
-        return tokenizer.encode(text).ids.toList();
-      }
-
-      final model = _initializedEmbeddingModel = DesktopEmbeddingModel(
-        interpreter: interpreter,
-        tokenize: tokenize,
+      // 0.15.2: Desktop embedding now uses the same LiteRT FFI path as
+      // mobile (Android + iOS). No more separate TFLiteC + Dart tokenizer
+      // wiring per call site — everything lives in LitertEmbeddingModel.
+      final model = _initializedEmbeddingModel =
+          await LitertEmbeddingModel.create(
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
         onClose: () {
           _initializedEmbeddingModel = null;
           _initEmbeddingCompleter = null;

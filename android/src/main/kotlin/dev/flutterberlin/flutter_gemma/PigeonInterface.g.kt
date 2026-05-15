@@ -212,12 +212,6 @@ interface PlatformService {
   fun generateResponse(callback: (Result<String>) -> Unit)
   fun generateResponseAsync(callback: (Result<Unit>) -> Unit)
   fun stopGeneration(callback: (Result<Unit>) -> Unit)
-  fun createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, callback: (Result<Unit>) -> Unit)
-  fun closeEmbeddingModel(callback: (Result<Unit>) -> Unit)
-  fun generateEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit)
-  fun generateDocumentEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit)
-  fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<Any?>>) -> Unit)
-  fun getEmbeddingDimension(callback: (Result<Long>) -> Unit)
   fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit)
   fun addDocument(id: String, content: String, embedding: List<Double>, metadata: String?, callback: (Result<Unit>) -> Unit)
   fun searchSimilar(queryEmbedding: List<Double>, topK: Long, threshold: Double, callback: (Result<List<RetrievalResult>>) -> Unit)
@@ -468,122 +462,6 @@ interface PlatformService {
                 reply.reply(wrapError(error))
               } else {
                 reply.reply(wrapResult(null))
-              }
-            }
-          }
-        } else {
-          channel.setMessageHandler(null)
-        }
-      }
-      run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel$separatedMessageChannelSuffix", codec)
-        if (api != null) {
-          channel.setMessageHandler { message, reply ->
-            val args = message as List<Any?>
-            val modelPathArg = args[0] as String
-            val tokenizerPathArg = args[1] as String
-            val preferredBackendArg = args[2] as PreferredBackend?
-            api.createEmbeddingModel(modelPathArg, tokenizerPathArg, preferredBackendArg) { result: Result<Unit> ->
-              val error = result.exceptionOrNull()
-              if (error != null) {
-                reply.reply(wrapError(error))
-              } else {
-                reply.reply(wrapResult(null))
-              }
-            }
-          }
-        } else {
-          channel.setMessageHandler(null)
-        }
-      }
-      run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel$separatedMessageChannelSuffix", codec)
-        if (api != null) {
-          channel.setMessageHandler { _, reply ->
-            api.closeEmbeddingModel{ result: Result<Unit> ->
-              val error = result.exceptionOrNull()
-              if (error != null) {
-                reply.reply(wrapError(error))
-              } else {
-                reply.reply(wrapResult(null))
-              }
-            }
-          }
-        } else {
-          channel.setMessageHandler(null)
-        }
-      }
-      run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel$separatedMessageChannelSuffix", codec)
-        if (api != null) {
-          channel.setMessageHandler { message, reply ->
-            val args = message as List<Any?>
-            val textArg = args[0] as String
-            api.generateEmbeddingFromModel(textArg) { result: Result<List<Double>> ->
-              val error = result.exceptionOrNull()
-              if (error != null) {
-                reply.reply(wrapError(error))
-              } else {
-                val data = result.getOrNull()
-                reply.reply(wrapResult(data))
-              }
-            }
-          }
-        } else {
-          channel.setMessageHandler(null)
-        }
-      }
-      run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateDocumentEmbeddingFromModel$separatedMessageChannelSuffix", codec)
-        if (api != null) {
-          channel.setMessageHandler { message, reply ->
-            val args = message as List<Any?>
-            val textArg = args[0] as String
-            api.generateDocumentEmbeddingFromModel(textArg) { result: Result<List<Double>> ->
-              val error = result.exceptionOrNull()
-              if (error != null) {
-                reply.reply(wrapError(error))
-              } else {
-                val data = result.getOrNull()
-                reply.reply(wrapResult(data))
-              }
-            }
-          }
-        } else {
-          channel.setMessageHandler(null)
-        }
-      }
-      run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel$separatedMessageChannelSuffix", codec)
-        if (api != null) {
-          channel.setMessageHandler { message, reply ->
-            val args = message as List<Any?>
-            val textsArg = args[0] as List<String>
-            api.generateEmbeddingsFromModel(textsArg) { result: Result<List<Any?>> ->
-              val error = result.exceptionOrNull()
-              if (error != null) {
-                reply.reply(wrapError(error))
-              } else {
-                val data = result.getOrNull()
-                reply.reply(wrapResult(data))
-              }
-            }
-          }
-        } else {
-          channel.setMessageHandler(null)
-        }
-      }
-      run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension$separatedMessageChannelSuffix", codec)
-        if (api != null) {
-          channel.setMessageHandler { _, reply ->
-            api.getEmbeddingDimension{ result: Result<Long> ->
-              val error = result.exceptionOrNull()
-              if (error != null) {
-                reply.reply(wrapError(error))
-              } else {
-                val data = result.getOrNull()
-                reply.reply(wrapResult(data))
               }
             }
           }

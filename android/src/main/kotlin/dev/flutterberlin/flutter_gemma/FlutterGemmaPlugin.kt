@@ -86,7 +86,9 @@ private class PlatformServiceImpl(
   @Volatile private var session: InferenceSession? = null
 
   // RAG components
-  private var embeddingModel: EmbeddingModel? = null
+  // 0.15.2: embedding implementation moved to Dart (LitertEmbeddingModel
+  // via dart:ffi). The pigeon contract below is kept for ABI continuity
+  // but the Dart side never calls into it.
 
   fun cleanup() {
     scope.cancel()
@@ -349,105 +351,9 @@ private class PlatformServiceImpl(
     eventSink = null
   }
 
-  // === RAG Methods Implementation ===
-
-  override fun createEmbeddingModel(
-    modelPath: String,
-    tokenizerPath: String,
-    preferredBackend: PreferredBackend?,
-    callback: (Result<Unit>) -> Unit
-  ) {
-    scope.launch {
-      try {
-        embeddingModel?.close()
-
-        // Convert PreferredBackend to useGPU boolean
-        // Note: NPU not supported for embeddings, fallback to CPU
-        val useGPU = preferredBackend == PreferredBackend.GPU
-
-        embeddingModel = EmbeddingModel(context, modelPath, tokenizerPath, useGPU)
-        embeddingModel!!.initialize()
-        callback(Result.success(Unit))
-      } catch (e: Throwable) {
-        // Catch Throwable (not just Exception) so UnsatisfiedLinkError from
-        // GemmaEmbeddingModel's JNI loader on x86_64 / armeabi-v7a — Error
-        // subclass, not Exception — surfaces as a typed failure instead of
-        // killing the process (#250).
-        callback(Result.failure(if (e is Exception) e else RuntimeException(e)))
-      }
-    }
-  }
-
-  override fun closeEmbeddingModel(callback: (Result<Unit>) -> Unit) {
-    try {
-      embeddingModel?.close()
-      embeddingModel = null
-      callback(Result.success(Unit))
-    } catch (e: Exception) {
-      callback(Result.failure(e))
-    }
-  }
-
-  override fun generateEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit) {
-    scope.launch {
-      try {
-        val embedding = embeddingModel?.embed(text)
-          ?: throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
-        callback(Result.success(embedding))
-      } catch (e: Exception) {
-        callback(Result.failure(e))
-      }
-    }
-  }
-
-  override fun generateDocumentEmbeddingFromModel(text: String, callback: (Result<List<Double>>) -> Unit) {
-    scope.launch {
-      try {
-        val embedding = embeddingModel?.embedDocument(text)
-          ?: throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
-        callback(Result.success(embedding))
-      } catch (e: Exception) {
-        callback(Result.failure(e))
-      }
-    }
-  }
-
-  override fun generateEmbeddingsFromModel(texts: List<String>, callback: (Result<List<Any?>>) -> Unit) {
-    scope.launch {
-      try {
-        if (embeddingModel == null) {
-          throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
-        }
-
-        val embeddings = mutableListOf<List<Double>>()
-        for (text in texts) {
-          val embedding = embeddingModel!!.embed(text)
-          embeddings.add(embedding)
-        }
-        // Convert to List<Any?> for pigeon compatibility (deep cast on Dart side)
-        callback(Result.success(embeddings as List<Any?>))
-      } catch (e: Exception) {
-        callback(Result.failure(e))
-      }
-    }
-  }
-
-  override fun getEmbeddingDimension(callback: (Result<Long>) -> Unit) {
-    scope.launch {
-      try {
-        if (embeddingModel == null) {
-          throw IllegalStateException("Embedding model not initialized. Call createEmbeddingModel first.")
-        }
-
-        // Generate a small test embedding to get dimension
-        val testEmbedding = embeddingModel!!.embed("test")
-        val dimension = testEmbedding.size.toLong()
-        callback(Result.success(dimension))
-      } catch (e: Exception) {
-        callback(Result.failure(e))
-      }
-    }
-  }
+  // 0.15.2: embedding pigeon methods dropped from PlatformService contract.
+  // Dart now talks to LiteRT C API directly via dart:ffi
+  // (lib/core/litert/litert_embedding_model.dart).
 
   // VectorStore methods are no-ops: VectorStore is now handled entirely in Dart via sqlite3.
   // These stubs satisfy the Pigeon-generated interface.

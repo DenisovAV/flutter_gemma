@@ -15,8 +15,8 @@ class LitertEmbeddingModel extends EmbeddingModel {
   static Future<LitertEmbeddingModel> create({
     required String modelPath,
     required String tokenizerPath,
-    int inputSequenceLength = 256,
-    int outputDimension = 768,
+    int? inputSequenceLength,
+    int? outputDimension,
     VoidCallback? onClose,
   }) async {
     throw UnsupportedError(

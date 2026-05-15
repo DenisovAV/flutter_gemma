@@ -217,6 +217,25 @@ class LiteRtBindings {
     'LiteRtGetCompiledModelOutputBufferRequirements',
   );
 
+  // LiteRtStatus LiteRtGetCompiledModelInputTensorLayout(
+  //     LiteRtCompiledModel, LiteRtParamIndex signature_index,
+  //     LiteRtParamIndex input_index, LiteRtLayout* layout);
+  late final getInputTensorLayout = _lib.lookupFunction<
+      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
+          Pointer<LiteRtLayout>),
+      int Function(LiteRtCompiledModel, int, int, Pointer<LiteRtLayout>)>(
+    'LiteRtGetCompiledModelInputTensorLayout',
+  );
+
+  // LiteRtStatus LiteRtGetCompiledModelOutputTensorLayouts(
+  //     LiteRtCompiledModel, LiteRtParamIndex signature_index,
+  //     size_t num_layouts, LiteRtLayout* layouts, bool update_allocation);
+  late final getOutputTensorLayouts = _lib.lookupFunction<
+      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
+          Pointer<LiteRtLayout>, Bool),
+      int Function(LiteRtCompiledModel, int, int, Pointer<LiteRtLayout>,
+          bool)>('LiteRtGetCompiledModelOutputTensorLayouts');
+
   // Tensor buffer.
 
   late final createTensorBufferFromHostMemory = _lib.lookupFunction<

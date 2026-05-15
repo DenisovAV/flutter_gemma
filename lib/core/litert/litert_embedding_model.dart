@@ -71,14 +71,16 @@ class LitertEmbeddingModel extends EmbeddingModel {
   ///
   /// [modelPath] points at a `.tflite` file (Gecko 64, EmbeddingGemma 256,
   /// etc.). [tokenizerPath] is the matching SentencePiece `.model` or
-  /// exported `.json`.
+  /// exported `.json`. Input sequence length and output dimension are
+  /// auto-detected from the compiled model's tensor layouts; pass them
+  /// to override (rare).
   ///
   /// Caller owns the returned instance and must call [close] when done.
   static Future<LitertEmbeddingModel> create({
     required String modelPath,
     required String tokenizerPath,
-    int inputSequenceLength = 256,
-    int outputDimension = 768,
+    int? inputSequenceLength,
+    int? outputDimension,
     VoidCallback? onClose,
   }) async {
     final bindings = LiteRtBindings.open();
@@ -135,8 +137,48 @@ class LitertEmbeddingModel extends EmbeddingModel {
     final compiled = compiledPtr.value;
     calloc.free(compiledPtr);
 
-    debugPrint('[LitertEmbeddingModel] loaded: seqLen=$inputSequenceLength, '
-        'dim=$outputDimension');
+    // Auto-detect seqLen + dim from compiled tensor layouts unless the
+    // caller pinned them. Embedding models we care about all have:
+    //   input  shape [1, seqLen]   element_type=int32
+    //   output shape [1, dim]      element_type=float32
+    int seqLen, dim;
+    if (inputSequenceLength == null) {
+      final inLayout = calloc<LiteRtLayout>();
+      try {
+        bindings
+            .getInputTensorLayout(compiled, 0, 0, inLayout)
+            .check('LiteRtGetCompiledModelInputTensorLayout');
+        final rank = inLayout.ref.rankAndHasStrides & 0x7f;
+        if (rank < 2) {
+          throw StateError('Embedding model input has rank=$rank, expected >=2');
+        }
+        seqLen = inLayout.ref.dimensions[1];
+      } finally {
+        calloc.free(inLayout);
+      }
+    } else {
+      seqLen = inputSequenceLength;
+    }
+
+    if (outputDimension == null) {
+      final outLayouts = calloc<LiteRtLayout>();
+      try {
+        bindings
+            .getOutputTensorLayouts(compiled, 0, 1, outLayouts, false)
+            .check('LiteRtGetCompiledModelOutputTensorLayouts');
+        final rank = outLayouts.ref.rankAndHasStrides & 0x7f;
+        if (rank < 2) {
+          throw StateError('Embedding model output has rank=$rank, expected >=2');
+        }
+        dim = outLayouts.ref.dimensions[1];
+      } finally {
+        calloc.free(outLayouts);
+      }
+    } else {
+      dim = outputDimension;
+    }
+
+    debugPrint('[LitertEmbeddingModel] loaded: seqLen=$seqLen, dim=$dim');
 
     return LitertEmbeddingModel._(
       bindings: bindings,
@@ -145,8 +187,8 @@ class LitertEmbeddingModel extends EmbeddingModel {
       options: options,
       compiledModel: compiled,
       tokenizer: tokenizer,
-      inputSequenceLength: inputSequenceLength,
-      outputDimension: outputDimension,
+      inputSequenceLength: seqLen,
+      outputDimension: dim,
       onClose: onClose ?? () {},
     );
   }

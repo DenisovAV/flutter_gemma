@@ -25,17 +25,11 @@ const _geckoModelUrl =
     'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite';
 const _geckoTokenizerUrl =
     'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model';
-// iOS uses a pre-converted JSON variant since dart_sentencepiece_tokenizer
-// on iOS historically went through a JSON loader. With 0.15.2 (shared Dart
-// implementation) we use the same .model on all platforms — but the
-// installEmbedder API still accepts the JSON-on-iOS hint for backward
-// compat; pass the same .model URL there too.
-const _geckoIosTokenizerUrl = _geckoTokenizerUrl;
 
-// EmbeddingGemma 256 — larger (~179 MB), BPE/Unigram tokenizer.
-// `litert-community/embeddinggemma-300m` is **gated** so we skip this in
-// the test by default; flip _runEmbeddingGemma to true and provide an
-// HF token via --dart-define=HUGGINGFACE_TOKEN to exercise it.
+// EmbeddingGemma 256 — larger (~179 MB), SentencePiece tokenizer.
+// `litert-community/embeddinggemma-300m` is **gated**; flip
+// _runEmbeddingGemma to true and pass --dart-define=HUGGINGFACE_TOKEN to
+// exercise it.
 const _runEmbeddingGemma = false;
 const _embeddingGemmaModelUrl =
     'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite';
@@ -150,8 +144,7 @@ void main() {
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()
         .modelFromNetwork(_geckoModelUrl)
-        .tokenizerFromNetwork(_geckoTokenizerUrl,
-            iosPath: _geckoIosTokenizerUrl)
+        .tokenizerFromNetwork(_geckoTokenizerUrl)
         .install();
     final model = await FlutterGemma.getActiveEmbedder();
     try {

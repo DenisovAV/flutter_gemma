@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
@@ -24,7 +22,8 @@ import 'package:path/path.dart' as path;
 class EmbeddingInstallationBuilder {
   ModelSource? _modelSource;
   ModelSource? _tokenizerSource;
-  ModelSource? _tokenizerIosSource;
+  // 0.15.2: per-platform tokenizer source dropped — same `.model` (or
+  // `.json`) works on every native platform via dart_sentencepiece_tokenizer.
   void Function(int progress)? _onModelProgress;
   void Function(int progress)? _onTokenizerProgress;
   CancelToken? _cancelToken;
@@ -59,61 +58,51 @@ class EmbeddingInstallationBuilder {
 
   /// Set tokenizer source from network URL (HTTP/HTTPS)
   ///
-  /// [token] optional auth token for the main tokenizer URL (e.g. HuggingFace token).
-  /// [iosPath] optional alternative URL for iOS platform (same source type: network).
-  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
-  /// Pass a tokenizer.json URL here to use on iOS instead.
-  /// [iosToken] optional auth token for the iOS tokenizer URL. If omitted, the iOS
-  /// download will be unauthenticated. This is fine for public URLs (e.g. GitHub Releases)
-  /// but required for private/gated iOS tokenizer URLs.
+  /// Set tokenizer source from a URL.
+  ///
+  /// 0.15.2: works on **every** native platform. iOS no longer needs a
+  /// `.json` variant — Dart `dart_sentencepiece_tokenizer` loads the
+  /// `.model` protobuf directly. The legacy `iosPath` parameter is
+  /// accepted for backward compat but ignored.
+  ///
+  /// [token] optional auth token for the URL (e.g. HuggingFace).
+  @Deprecated('iosPath/iosToken are no-ops in 0.15.2; same tokenizer is used on all platforms')
   EmbeddingInstallationBuilder tokenizerFromNetwork(String url,
       {String? token, String? iosPath, String? iosToken}) {
     _tokenizerSource = ModelSource.network(url, authToken: token);
-    if (iosPath != null) {
-      _tokenizerIosSource = ModelSource.network(iosPath, authToken: iosToken);
-    }
     return this;
   }
 
-  /// Set tokenizer source from Flutter asset
+  /// Set tokenizer source from a Flutter asset.
   ///
-  /// [iosPath] optional alternative asset path for iOS platform (same source type: asset).
-  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
-  /// Pass a tokenizer.json asset path here to use on iOS instead.
+  /// 0.15.2: same tokenizer asset is used on every native platform — the
+  /// legacy `iosPath` parameter is accepted for backward compat but ignored.
+  @Deprecated('iosPath is a no-op in 0.15.2; same tokenizer is used on all platforms')
   EmbeddingInstallationBuilder tokenizerFromAsset(String path,
       {String? iosPath}) {
     _tokenizerSource = ModelSource.asset(path);
-    if (iosPath != null) {
-      _tokenizerIosSource = ModelSource.asset(iosPath);
-    }
     return this;
   }
 
-  /// Set tokenizer source from bundled native resource
+  /// Set tokenizer source from a bundled native resource.
   ///
-  /// [iosPath] optional alternative resource name for iOS platform (same source type: bundled).
-  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
-  /// Pass a tokenizer.json resource name here to use on iOS instead.
+  /// 0.15.2: same tokenizer resource on every native platform — `iosPath`
+  /// kept for backward compat but ignored.
+  @Deprecated('iosPath is a no-op in 0.15.2; same tokenizer is used on all platforms')
   EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName,
       {String? iosPath}) {
     _tokenizerSource = ModelSource.bundled(resourceName);
-    if (iosPath != null) {
-      _tokenizerIosSource = ModelSource.bundled(iosPath);
-    }
     return this;
   }
 
-  /// Set tokenizer source from external file path
+  /// Set tokenizer source from an external file path.
   ///
-  /// [iosPath] optional alternative file path for iOS platform (same source type: file).
-  /// On iOS, sentencepiece.model tokenizers are not supported due to protobuf conflict.
-  /// Pass a tokenizer.json file path here to use on iOS instead.
+  /// 0.15.2: same tokenizer file on every native platform — `iosPath`
+  /// kept for backward compat but ignored.
+  @Deprecated('iosPath is a no-op in 0.15.2; same tokenizer is used on all platforms')
   EmbeddingInstallationBuilder tokenizerFromFile(String path,
       {String? iosPath}) {
     _tokenizerSource = ModelSource.file(path);
-    if (iosPath != null) {
-      _tokenizerIosSource = ModelSource.file(iosPath);
-    }
     return this;
   }
 
@@ -176,14 +165,7 @@ class EmbeddingInstallationBuilder {
       );
     }
 
-    // On iOS, substitute tokenizer source with iOS alternative if provided
-    // This avoids sentencepiece.model protobuf conflict with TFLite on iOS
-    var effectiveTokenizerSource = _tokenizerSource!;
-    if (!kIsWeb && Platform.isIOS && _tokenizerIosSource != null) {
-      effectiveTokenizerSource = _tokenizerIosSource!;
-    }
-
-    _validateTokenizerIosCompatibility(effectiveTokenizerSource);
+    final effectiveTokenizerSource = _tokenizerSource!;
 
     // Create spec
     final modelFilename = _extractFilename(_modelSource!);
@@ -262,28 +244,6 @@ class EmbeddingInstallationBuilder {
     debugPrint('✅ Embedding model installed and set as active: ${spec.name}');
 
     return EmbeddingInstallation(spec: spec);
-  }
-
-  /// Validates that the tokenizer source is compatible with iOS.
-  /// Throws if the resolved path ends with .model on iOS (sentencepiece protobuf conflict).
-  void _validateTokenizerIosCompatibility(ModelSource source) {
-    if (kIsWeb || !Platform.isIOS) return;
-
-    final sourcePath = switch (source) {
-      NetworkSource(:final url) => Uri.parse(url).path,
-      AssetSource(:final path) => path,
-      FileSource(:final path) => path,
-      BundledSource(:final resourceName) => resourceName,
-    };
-
-    if (sourcePath.endsWith('.model')) {
-      throw UnsupportedError(
-        'iOS does not support sentencepiece.model tokenizers due to protobuf conflict. '
-        'Use tokenizer.json instead.\n'
-        'Pass via: tokenizerFromNetwork(url, iosPath: "<tokenizer.json url>")\n'
-        'Or for assets: tokenizerFromAsset(path, iosPath: "assets/models/tokenizer.json")',
-      );
-    }
   }
 
   String _extractFilename(ModelSource source) {

@@ -242,61 +242,6 @@ Future<Directory?> _downloadAndExtract(String dirName) async {
   }
 }
 
-/// Download a single file (no archive), verify SHA256, place at [dest].
-/// Used for TFLite C library prebuilts which are shipped as bare .dll/.so/
-/// .dylib files in the v0.12.7 release.
-Future<File?> _downloadFile({
-  required String url,
-  required File dest,
-  required String expectedSha256,
-}) async {
-  // Skip if already cached and checksum matches.
-  if (dest.existsSync()) {
-    final cached = sha256.convert(await dest.readAsBytes()).toString();
-    if (cached == expectedSha256) return dest;
-    dest.deleteSync();
-  }
-
-  final destDir = dest.parent;
-  if (!destDir.existsSync()) destDir.createSync(recursive: true);
-
-  // Download to a `.partial` sibling first, then atomically rename. This
-  // keeps Native Assets' "File modified during build" guard happy:
-  // [dest] only appears (and stops being modified) once the bytes are
-  // fully on disk, instead of growing during the build pass.
-  final partial = File('${dest.path}.partial');
-  if (partial.existsSync()) partial.deleteSync();
-
-  stderr.writeln('flutter_gemma: Downloading $url ...');
-  final client = HttpClient();
-  try {
-    final request = await client.getUrl(Uri.parse(url));
-    final response = await request.close();
-    if (response.statusCode != 200) {
-      stderr.writeln(
-          'flutter_gemma: TFLite C download failed (HTTP ${response.statusCode})');
-      return null;
-    }
-    final sink = partial.openWrite();
-    await response.pipe(sink);
-  } finally {
-    client.close();
-  }
-
-  final actual = sha256.convert(await partial.readAsBytes()).toString();
-  if (actual != expectedSha256) {
-    stderr.writeln('flutter_gemma: TFLite C checksum mismatch!');
-    stderr.writeln('  Expected: $expectedSha256');
-    stderr.writeln('  Actual:   $actual');
-    partial.deleteSync();
-    return null;
-  }
-
-  partial.renameSync(dest.path);
-  stderr.writeln('flutter_gemma: TFLite C cached to ${dest.path}');
-  return dest;
-}
-
 void main(List<String> args) async {
   await build(args, (input, output) async {
     if (!input.config.buildCodeAssets) return;

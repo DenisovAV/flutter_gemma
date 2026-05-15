@@ -49,7 +49,7 @@ There is an example of using:
 
 ## What's new in 0.15
 
-- ⚡ **MTP / speculative decoding for Gemma 4** — Multi-Token Prediction on macOS / iOS / Android / Windows via LiteRT-LM 0.11.0.
+- ⚡ **MTP / speculative decoding for Gemma 4** — Multi-Token Prediction on macOS / iOS / Android / Windows / Linux via LiteRT-LM 0.11.0.
 - 🤖 **NPU support** — `PreferredBackend.npu` on Android (Qualcomm QNN / Google Tensor / MediaTek) and Windows (Intel LunarLake / PantherLake).
 - 🖼️ **Multi-image input** — `Message.withImages([...])` for chat / inference sessions.
 
@@ -308,10 +308,10 @@ Desktop inference and embeddings both use the LiteRT-LM C API via `dart:ffi` dir
 | macOS | x86_64 (Intel) | - | ❌ Not Supported |
 | Windows | x86_64 | DirectX 12 | ✅ Ready |
 | Windows | arm64 | - | ❌ Not Supported |
-| Linux | x86_64 | Vulkan | ⚠️ Pre-MTP Gemma 4 only ¹ |
-| Linux | arm64 | Vulkan | ⚠️ Pre-MTP Gemma 4 only ¹ |
+| Linux | x86_64 | Vulkan | ✅ Ready ¹ |
+| Linux | arm64 | Vulkan | ✅ Ready ¹ |
 
-> ¹ The post-MTP Gemma 4 HF revision crashes inside upstream `libLiteRtWebGpuAccelerator.so` on Linux Vulkan ([upstream issue #2225](https://github.com/google-ai-edge/LiteRT-LM/issues/2225)). Pre-MTP revision works. See **Linux: Gemma 4 model revision** below for the workaround. macOS / iOS / Android / Windows are unaffected.
+> ¹ Linux GPU requires a proper vendor Vulkan driver (NVIDIA / AMD / Intel). Mesa's `llvmpipe` software fallback is not sufficient for Gemma 4 — its hardcoded 128 MB `maxStorageBufferRange` is below the model's per-buffer requirement. Install the vendor driver (e.g. `nvidia-driver-535-server` on Ubuntu) before running on GPU.
 
 **macOS Setup:**
 
@@ -433,22 +433,13 @@ No additional configuration required. Build dependencies:
 sudo apt install clang cmake ninja-build libgtk-3-dev
 ```
 
-For GPU acceleration, ensure Vulkan drivers are installed:
+For GPU acceleration, install the vendor Vulkan driver (NVIDIA / AMD / Intel) in addition to the Vulkan loader. Mesa's `llvmpipe` software fallback caps `maxStorageBufferRange` at 128 MB and Gemma 4 will not run on it.
+
 ```bash
 sudo apt install vulkan-tools libvulkan1
+# Plus your vendor driver, e.g. NVIDIA:
+sudo apt install nvidia-driver-535-server
 ```
-
-**Linux: Gemma 4 model revision**
-
-The current HuggingFace `main` revision of Gemma 4 E2B/E4B `.litertlm` files (post-MTP) triggers an upstream crash on Linux Vulkan during graph compile (`google-ai-edge/LiteRT-LM#2225`). Until upstream lands a fix, pin the pre-MTP revision when downloading on Linux:
-
-```bash
-# Pre-MTP revision — works on Linux Vulkan
-curl -L -o gemma-4-E2B-it.litertlm \
-  https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/7fa1d78473894f7e736a21d920c3aa80f950c0db/gemma-4-E2B-it.litertlm
-```
-
-macOS / iOS / Android / Windows pick up the post-MTP revision automatically via the model's default URL and benefit from the MTP speedup.
 
 📚 **[Full Desktop Documentation →](DESKTOP_SUPPORT.md)**
 
@@ -1248,7 +1239,7 @@ Function calling is currently supported by the following models:
 | Feature | Android | iOS | Web | Desktop | Notes |
 |---------|---------|-----|-----|---------|-------|
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
-| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal (Gemma 4 + Gemma 3n) |
+| **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B; iOS device-only |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |

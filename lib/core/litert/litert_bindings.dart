@@ -65,16 +65,31 @@ const int kLiteRtMaxRank = 8;
 //   int32_t dimensions[8];
 //   uint32_t strides[8];
 // };
-// Size 68 bytes on 64-bit non-MSVC. The first byte packs `rank` (low 7 bits)
-// and `has_strides` (high bit); FFI has no bit-field support so we treat it
-// as a single uint8 the caller composes.
+//
+// MSVC does NOT pack bit-fields with different underlying types into a single
+// storage unit, so this struct has two different binary layouts depending on
+// which compiler built the LiteRT shared library:
+//
+//   * GCC / Clang (macOS, iOS, Android, Linux): `unsigned int rank : 7` and
+//     `bool has_strides : 1` share one 4-byte int, so `dimensions[]` starts
+//     at byte offset 4. Total size 68 bytes.
+//   * MSVC (Windows): the `bool` bit-field opens a fresh storage unit, so
+//     there is an extra 4 bytes of padding before `dimensions[]`, which then
+//     starts at byte offset 8. Total size 72 bytes.
+//
+// Refs: https://learn.microsoft.com/en-us/cpp/c-language/c-bit-fields
+// and https://randomascii.wordpress.com/2010/06/06/bit-field-packing-with-visual-c/.
+// LiteRT upstream declares the struct as non-opaque and ships no accessor
+// functions, so we mirror both layouts here.
+//
+// FFI has no bit-field support, so each layout packs rank + has_strides as a
+// single `Uint8` the caller composes (low 7 bits = rank, high bit = has_strides).
 
-final class LiteRtLayout extends Struct {
-  /// Low 7 bits: rank. High bit: has_strides. For a typical `[1, seq]`
-  /// embedding input set this to `2` (rank=2, has_strides=0).
+/// LiteRtLayout as packed by GCC/Clang. Used on every platform except
+/// Windows. Read [LiteRtLayoutView] for layout-agnostic accessors.
+final class LiteRtLayoutPosix extends Struct {
   @Uint8()
   external int rankAndHasStrides;
-  // Padding to align `dimensions` to offset 4 (matches C struct layout).
   // ignore: unused_field
   @Uint8()
   external int pad0;
@@ -92,18 +107,155 @@ final class LiteRtLayout extends Struct {
   external Array<Uint32> strides;
 }
 
+/// LiteRtLayout as packed by MSVC. Used on Windows only.
+final class LiteRtLayoutMsvc extends Struct {
+  @Uint8()
+  external int rankAndHasStrides;
+  // ignore: unused_field
+  @Uint8()
+  external int pad0;
+  // ignore: unused_field
+  @Uint8()
+  external int pad1;
+  // ignore: unused_field
+  @Uint8()
+  external int pad2;
+  // ignore: unused_field
+  @Uint32()
+  external int boolStorageUnit;
+
+  @Array(8)
+  external Array<Int32> dimensions;
+
+  @Array(8)
+  external Array<Uint32> strides;
+}
+
+/// Layout-agnostic view over a `LiteRtLayout*` returned from the C API.
+/// Pick the right struct (POSIX vs MSVC) based on the host compiler ABI
+/// at allocation time so callers don't need to think about it.
+class LiteRtLayoutView {
+  LiteRtLayoutView._(this._posix, this._msvc);
+
+  /// Allocate a layout in the right ABI for the current platform.
+  /// Free with [free].
+  factory LiteRtLayoutView.calloc() {
+    if (Platform.isWindows) {
+      return LiteRtLayoutView._(nullptr, calloc<LiteRtLayoutMsvc>());
+    }
+    return LiteRtLayoutView._(calloc<LiteRtLayoutPosix>(), nullptr);
+  }
+
+  final Pointer<LiteRtLayoutPosix> _posix;
+  final Pointer<LiteRtLayoutMsvc> _msvc;
+
+  /// Pass to LiteRt accessor functions (e.g. `getInputTensorLayout`).
+  Pointer<Void> get pointer => Platform.isWindows
+      ? _msvc.cast<Void>()
+      : _posix.cast<Void>();
+
+  int get rank => (Platform.isWindows
+          ? _msvc.ref.rankAndHasStrides
+          : _posix.ref.rankAndHasStrides) &
+      0x7f;
+
+  int dimension(int i) => Platform.isWindows
+      ? _msvc.ref.dimensions[i]
+      : _posix.ref.dimensions[i];
+
+  void free() {
+    if (Platform.isWindows) {
+      calloc.free(_msvc);
+    } else {
+      calloc.free(_posix);
+    }
+  }
+}
+
 // ----- LiteRtRankedTensorType (litert_model_types.h) -------------------------
 //
 // struct LiteRtRankedTensorType {
 //   LiteRtElementType element_type;
 //   LiteRtLayout layout;
 // };
-// Size 72 bytes on 64-bit non-MSVC.
+//
+// Same MSVC vs GCC/Clang bit-field packing problem as `LiteRtLayout` (see
+// the comment block above). Two backing structs + a tiny view, picked at
+// allocation time by [LiteRtRankedTensorTypeView].
+//
+// Size 72 bytes on GCC/Clang, 76 bytes on MSVC (the inner `LiteRtLayout` is
+// 68 vs 72 bytes respectively).
 
-final class LiteRtRankedTensorType extends Struct {
+final class LiteRtRankedTensorTypePosix extends Struct {
   @Int32()
   external int elementType;
-  external LiteRtLayout layout;
+  external LiteRtLayoutPosix layout;
+}
+
+final class LiteRtRankedTensorTypeMsvc extends Struct {
+  @Int32()
+  external int elementType;
+  external LiteRtLayoutMsvc layout;
+}
+
+/// Layout-agnostic builder for `LiteRtRankedTensorType*`. Use this to fill
+/// in element type, rank, and dimensions without caring which compiler
+/// produced the LiteRT shared library.
+class LiteRtRankedTensorTypeView {
+  LiteRtRankedTensorTypeView._(this._posix, this._msvc);
+
+  /// Allocate a ranked tensor type in the right ABI for the current
+  /// platform. Free with [free].
+  factory LiteRtRankedTensorTypeView.calloc() {
+    if (Platform.isWindows) {
+      return LiteRtRankedTensorTypeView._(
+          nullptr, calloc<LiteRtRankedTensorTypeMsvc>());
+    }
+    return LiteRtRankedTensorTypeView._(
+        calloc<LiteRtRankedTensorTypePosix>(), nullptr);
+  }
+
+  final Pointer<LiteRtRankedTensorTypePosix> _posix;
+  final Pointer<LiteRtRankedTensorTypeMsvc> _msvc;
+
+  /// Pass to LiteRt functions that consume a `LiteRtRankedTensorType*`.
+  Pointer<Void> get pointer => Platform.isWindows
+      ? _msvc.cast<Void>()
+      : _posix.cast<Void>();
+
+  set elementType(int value) {
+    if (Platform.isWindows) {
+      _msvc.ref.elementType = value;
+    } else {
+      _posix.ref.elementType = value;
+    }
+  }
+
+  /// Set rank (1..127) and clear `has_strides`.
+  set rank(int value) {
+    final byte = value & 0x7f;
+    if (Platform.isWindows) {
+      _msvc.ref.layout.rankAndHasStrides = byte;
+    } else {
+      _posix.ref.layout.rankAndHasStrides = byte;
+    }
+  }
+
+  void setDimension(int i, int value) {
+    if (Platform.isWindows) {
+      _msvc.ref.layout.dimensions[i] = value;
+    } else {
+      _posix.ref.layout.dimensions[i] = value;
+    }
+  }
+
+  void free() {
+    if (Platform.isWindows) {
+      calloc.free(_msvc);
+    } else {
+      calloc.free(_posix);
+    }
+  }
 }
 
 // ----- Dynamic library resolution --------------------------------------------
@@ -220,10 +372,12 @@ class LiteRtBindings {
   // LiteRtStatus LiteRtGetCompiledModelInputTensorLayout(
   //     LiteRtCompiledModel, LiteRtParamIndex signature_index,
   //     LiteRtParamIndex input_index, LiteRtLayout* layout);
+  //
+  // Layout pointer is opaque on our side — the caller picks the right
+  // POSIX/MSVC backing struct via [LiteRtLayoutView].
   late final getInputTensorLayout = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
-          Pointer<LiteRtLayout>),
-      int Function(LiteRtCompiledModel, int, int, Pointer<LiteRtLayout>)>(
+      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr, Pointer<Void>),
+      int Function(LiteRtCompiledModel, int, int, Pointer<Void>)>(
     'LiteRtGetCompiledModelInputTensorLayout',
   );
 
@@ -231,18 +385,20 @@ class LiteRtBindings {
   //     LiteRtCompiledModel, LiteRtParamIndex signature_index,
   //     size_t num_layouts, LiteRtLayout* layouts, bool update_allocation);
   late final getOutputTensorLayouts = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
-          Pointer<LiteRtLayout>, Bool),
-      int Function(LiteRtCompiledModel, int, int, Pointer<LiteRtLayout>,
-          bool)>('LiteRtGetCompiledModelOutputTensorLayouts');
+      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr, Pointer<Void>, Bool),
+      int Function(LiteRtCompiledModel, int, int, Pointer<Void>, bool)>(
+    'LiteRtGetCompiledModelOutputTensorLayouts',
+  );
 
   // Tensor buffer.
 
+  // Tensor type is opaque on our side — fill it via
+  // [LiteRtRankedTensorTypeView] which picks the right POSIX/MSVC backing.
   late final createTensorBufferFromHostMemory = _lib.lookupFunction<
-      Int32 Function(Pointer<LiteRtRankedTensorType>, Pointer<Void>, IntPtr,
-          Pointer<Void>, Pointer<LiteRtTensorBuffer>),
-      int Function(Pointer<LiteRtRankedTensorType>, Pointer<Void>, int,
-          Pointer<Void>, Pointer<LiteRtTensorBuffer>)>(
+      Int32 Function(Pointer<Void>, Pointer<Void>, IntPtr, Pointer<Void>,
+          Pointer<LiteRtTensorBuffer>),
+      int Function(Pointer<Void>, Pointer<Void>, int, Pointer<Void>,
+          Pointer<LiteRtTensorBuffer>)>(
     'LiteRtCreateTensorBufferFromHostMemory',
   );
 

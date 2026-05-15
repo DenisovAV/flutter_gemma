@@ -143,36 +143,36 @@ class LitertEmbeddingModel extends EmbeddingModel {
     //   output shape [1, dim]      element_type=float32
     int seqLen, dim;
     if (inputSequenceLength == null) {
-      final inLayout = calloc<LiteRtLayout>();
+      final inLayout = LiteRtLayoutView.calloc();
       try {
         bindings
-            .getInputTensorLayout(compiled, 0, 0, inLayout)
+            .getInputTensorLayout(compiled, 0, 0, inLayout.pointer)
             .check('LiteRtGetCompiledModelInputTensorLayout');
-        final rank = inLayout.ref.rankAndHasStrides & 0x7f;
-        if (rank < 2) {
-          throw StateError('Embedding model input has rank=$rank, expected >=2');
+        if (inLayout.rank < 2) {
+          throw StateError(
+              'Embedding model input has rank=${inLayout.rank}, expected >=2');
         }
-        seqLen = inLayout.ref.dimensions[1];
+        seqLen = inLayout.dimension(1);
       } finally {
-        calloc.free(inLayout);
+        inLayout.free();
       }
     } else {
       seqLen = inputSequenceLength;
     }
 
     if (outputDimension == null) {
-      final outLayouts = calloc<LiteRtLayout>();
+      final outLayouts = LiteRtLayoutView.calloc();
       try {
         bindings
-            .getOutputTensorLayouts(compiled, 0, 1, outLayouts, false)
+            .getOutputTensorLayouts(compiled, 0, 1, outLayouts.pointer, false)
             .check('LiteRtGetCompiledModelOutputTensorLayouts');
-        final rank = outLayouts.ref.rankAndHasStrides & 0x7f;
-        if (rank < 2) {
-          throw StateError('Embedding model output has rank=$rank, expected >=2');
+        if (outLayouts.rank < 2) {
+          throw StateError(
+              'Embedding model output has rank=${outLayouts.rank}, expected >=2');
         }
-        dim = outLayouts.ref.dimensions[1];
+        dim = outLayouts.dimension(1);
       } finally {
-        calloc.free(outLayouts);
+        outLayouts.free();
       }
     } else {
       dim = outputDimension;
@@ -241,11 +241,11 @@ class LitertEmbeddingModel extends EmbeddingModel {
     final dim = outputDimension;
 
     // Input tensor type [1, seq] Int32.
-    final inType = calloc<LiteRtRankedTensorType>();
-    inType.ref.elementType = kLiteRtElementTypeInt32;
-    inType.ref.layout.rankAndHasStrides = 2;
-    inType.ref.layout.dimensions[0] = 1;
-    inType.ref.layout.dimensions[1] = seq;
+    final inType = LiteRtRankedTensorTypeView.calloc()
+      ..elementType = kLiteRtElementTypeInt32
+      ..rank = 2
+      ..setDimension(0, 1)
+      ..setDimension(1, seq);
 
     // Aligned host memory for input.
     final inAlloc = allocAligned(seq * 4);
@@ -256,22 +256,22 @@ class LitertEmbeddingModel extends EmbeddingModel {
 
     final inBufPtr = calloc<LiteRtTensorBuffer>();
     _bindings
-        .createTensorBufferFromHostMemory(
-            inType, inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
+        .createTensorBufferFromHostMemory(inType.pointer,
+            inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
         .check('CreateTensorBufferFromHostMemory(input)');
 
     // Output tensor type [1, dim] Float32.
-    final outType = calloc<LiteRtRankedTensorType>();
-    outType.ref.elementType = kLiteRtElementTypeFloat32;
-    outType.ref.layout.rankAndHasStrides = 2;
-    outType.ref.layout.dimensions[0] = 1;
-    outType.ref.layout.dimensions[1] = dim;
+    final outType = LiteRtRankedTensorTypeView.calloc()
+      ..elementType = kLiteRtElementTypeFloat32
+      ..rank = 2
+      ..setDimension(0, 1)
+      ..setDimension(1, dim);
 
     final outAlloc = allocAligned(dim * 4);
     final outBufPtr = calloc<LiteRtTensorBuffer>();
     _bindings
-        .createTensorBufferFromHostMemory(
-            outType, outAlloc.aligned.cast(), dim * 4, nullptr, outBufPtr)
+        .createTensorBufferFromHostMemory(outType.pointer,
+            outAlloc.aligned.cast(), dim * 4, nullptr, outBufPtr)
         .check('CreateTensorBufferFromHostMemory(output)');
 
     try {
@@ -288,8 +288,8 @@ class LitertEmbeddingModel extends EmbeddingModel {
       calloc.free(outBufPtr);
       calloc.free(inAlloc.raw);
       calloc.free(outAlloc.raw);
-      calloc.free(inType);
-      calloc.free(outType);
+      inType.free();
+      outType.free();
     }
   }
 

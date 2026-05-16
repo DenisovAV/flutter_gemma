@@ -1,3 +1,6 @@
+## 0.15.3
+- example: add TranslateGemma 4B translation demo via task-first home navigation (#177).
+
 ## 0.15.2
 - Unified embedding on LiteRT C API + Dart FFI on all native platforms (#264).
 

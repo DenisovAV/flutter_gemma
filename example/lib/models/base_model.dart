@@ -1,6 +1,8 @@
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/core/model.dart';
 
+import '../translation/prompt_strategy.dart';
+
 /// Type of model source for download/installation
 enum ModelSourceType {
   /// Download from HTTP/HTTPS URL
@@ -13,7 +15,16 @@ enum ModelSourceType {
   bundled,
 }
 
-/// Base interface for all model types (inference and embedding)
+/// What category of task this model is built for. Drives task-first routing
+/// in `HomeScreen` (chat → ChatScreen, embedding → EmbeddingTestScreen,
+/// translation → TranslateScreen).
+enum ModelKind {
+  inference,
+  embedding,
+  translation,
+}
+
+/// Base interface for all model types (inference, embedding, translation)
 abstract class BaseModel {
   /// Unique identifier for the model
   String get name;
@@ -36,8 +47,16 @@ abstract class BaseModel {
   /// Whether model requires HuggingFace authentication
   bool get needsAuth;
 
-  /// Whether this is an embedding model (vs inference model)
-  bool get isEmbeddingModel;
+  /// What category this model is — used by `HomeScreen` for task-first
+  /// routing and by `UniversalDownloadScreen` to dispatch to the right
+  /// follow-up screen after install.
+  ModelKind get kind;
+}
+
+/// Convenience extension for legacy code paths that branched on
+/// `isEmbeddingModel`. Prefer matching on [BaseModel.kind] in new code.
+extension BaseModelKindX on BaseModel {
+  bool get isEmbeddingModel => kind == ModelKind.embedding;
 }
 
 /// Interface for inference models
@@ -85,4 +104,30 @@ abstract class EmbeddingModelInterface extends BaseModel {
   /// Type of source for model and tokenizer files
   /// Determines which installation method to use (network, asset, bundled)
   ModelSourceType get sourceType;
+}
+
+/// Interface for translation models (TranslateGemma and any future
+/// single-shot translator).
+///
+/// Translation in this example doesn't introduce a new plugin API — under
+/// the hood we still go through `InferenceModel.createSession()` from
+/// `flutter_gemma`. The discriminator is the prompt format and the language
+/// list, both carried by `promptStrategy`.
+abstract class TranslateModelInterface extends BaseModel {
+  /// Preferred backend (CPU/GPU)
+  PreferredBackend get preferredBackend;
+
+  /// Model type for the LiteRT-LM SDK chat template parser.
+  /// TranslateGemma is a Gemma-3 fine-tune so it uses `ModelType.gemmaIt`.
+  ModelType get modelType;
+
+  /// Token limit for a single translation pass. TranslateGemma ships with
+  /// 1024 prefill + 1024 decode; this is the upper bound for input + output.
+  int get maxTokens;
+
+  /// Prompt format + supported-language map for this particular translator
+  /// bundle. Different bundles (community `.litertlm`, Google `-web.task`,
+  /// future NLLB/MADLAD) have completely different shapes, so each
+  /// TranslateModel binds its own const strategy here.
+  TranslationPromptStrategy get promptStrategy;
 }

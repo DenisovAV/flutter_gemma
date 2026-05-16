@@ -555,7 +555,7 @@ enum Model implements InferenceModelInterface {
   String get name => toString().split('.').last;
 
   @override
-  bool get isEmbeddingModel => false;
+  ModelKind get kind => ModelKind.inference;
 
   // InferenceModelInterface implementation
   @override

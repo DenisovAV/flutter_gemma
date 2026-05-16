@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
 import 'package:flutter_gemma_example/embedding_models_screen.dart';
+import 'package:flutter_gemma_example/translate_models_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -50,6 +51,21 @@ class HomeScreen extends StatelessWidget {
                   context,
                   MaterialPageRoute<void>(
                     builder: (context) => const ModelSelectionScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            _NavigationCard(
+              title: 'Translation Models',
+              subtitle: 'On-device translation with TranslateGemma',
+              icon: Icons.translate,
+              color: Colors.orange,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => const TranslateModelsScreen(),
                   ),
                 );
               },

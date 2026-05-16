@@ -55,53 +55,35 @@ class EmbeddingInstallationBuilder {
   }
 
   // === Tokenizer source setters ===
+  //
+  // 0.15.2: tokenizer is the same `.model` (or exported `.json`) on every
+  // native platform — `dart_sentencepiece_tokenizer` loads both directly,
+  // so the per-platform `iosPath`/`iosToken` parameters previously needed
+  // for iOS are gone.
 
-  /// Set tokenizer source from network URL (HTTP/HTTPS)
-  ///
-  /// Set tokenizer source from a URL.
-  ///
-  /// 0.15.2: works on **every** native platform. iOS no longer needs a
-  /// `.json` variant — Dart `dart_sentencepiece_tokenizer` loads the
-  /// `.model` protobuf directly. The legacy `iosPath` parameter is
-  /// accepted for backward compat but ignored.
+  /// Set tokenizer source from network URL (HTTP/HTTPS).
   ///
   /// [token] optional auth token for the URL (e.g. HuggingFace).
-  @Deprecated('iosPath/iosToken are no-ops in 0.15.2; same tokenizer is used on all platforms')
   EmbeddingInstallationBuilder tokenizerFromNetwork(String url,
-      {String? token, String? iosPath, String? iosToken}) {
+      {String? token}) {
     _tokenizerSource = ModelSource.network(url, authToken: token);
     return this;
   }
 
   /// Set tokenizer source from a Flutter asset.
-  ///
-  /// 0.15.2: same tokenizer asset is used on every native platform — the
-  /// legacy `iosPath` parameter is accepted for backward compat but ignored.
-  @Deprecated('iosPath is a no-op in 0.15.2; same tokenizer is used on all platforms')
-  EmbeddingInstallationBuilder tokenizerFromAsset(String path,
-      {String? iosPath}) {
+  EmbeddingInstallationBuilder tokenizerFromAsset(String path) {
     _tokenizerSource = ModelSource.asset(path);
     return this;
   }
 
   /// Set tokenizer source from a bundled native resource.
-  ///
-  /// 0.15.2: same tokenizer resource on every native platform — `iosPath`
-  /// kept for backward compat but ignored.
-  @Deprecated('iosPath is a no-op in 0.15.2; same tokenizer is used on all platforms')
-  EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName,
-      {String? iosPath}) {
+  EmbeddingInstallationBuilder tokenizerFromBundled(String resourceName) {
     _tokenizerSource = ModelSource.bundled(resourceName);
     return this;
   }
 
   /// Set tokenizer source from an external file path.
-  ///
-  /// 0.15.2: same tokenizer file on every native platform — `iosPath`
-  /// kept for backward compat but ignored.
-  @Deprecated('iosPath is a no-op in 0.15.2; same tokenizer is used on all platforms')
-  EmbeddingInstallationBuilder tokenizerFromFile(String path,
-      {String? iosPath}) {
+  EmbeddingInstallationBuilder tokenizerFromFile(String path) {
     _tokenizerSource = ModelSource.file(path);
     return this;
   }

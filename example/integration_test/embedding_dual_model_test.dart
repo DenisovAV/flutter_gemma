@@ -58,12 +58,11 @@ void main() {
       (tester) async {
     await FlutterGemma.initialize();
 
-    // --- EmbeddingGemma (BPE tokenizer on iOS) ---
+    // --- EmbeddingGemma ---
     await FlutterGemma.installEmbedder()
         .modelFromAsset(
             'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite')
-        .tokenizerFromAsset('assets/models/sentencepiece.model',
-            iosPath: 'assets/models/embeddinggemma_tokenizer.json')
+        .tokenizerFromAsset('assets/models/sentencepiece.model')
         .install();
 
     var model = await FlutterGemma.getActiveEmbedder();
@@ -73,11 +72,10 @@ void main() {
       await model.close();
     }
 
-    // --- Gecko 64 (Unigram tokenizer on iOS) ---
+    // --- Gecko 64 ---
     await FlutterGemma.installEmbedder()
         .modelFromAsset('assets/models/Gecko_64_quant.tflite')
-        .tokenizerFromAsset('assets/models/sentencepiece.model',
-            iosPath: 'assets/models/gecko_tokenizer.json')
+        .tokenizerFromAsset('assets/models/sentencepiece.model')
         .install();
 
     model = await FlutterGemma.getActiveEmbedder();

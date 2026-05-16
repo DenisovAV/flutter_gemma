@@ -25,11 +25,3 @@
 # Kotlinx coroutines
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
-
-# okhttp optional TLS providers — referenced reflectively, never present at
-# runtime. Pre-0.15.2 these were absorbed by the wide `-dontwarn
-# com.google.guava.**` rule (guava pulled okhttp transitively); 0.15.2 dropped
-# guava so R8 needs the warning suppressed explicitly.
--dontwarn org.bouncycastle.jsse.**
--dontwarn org.conscrypt.**
--dontwarn org.openjsse.**

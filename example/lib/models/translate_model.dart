@@ -19,10 +19,10 @@ enum TranslateModel implements TranslateModelInterface {
   /// in 6 GB free RAM on modern phones.
   translateGemma4Int4(
     url:
-        'https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized/resolve/main/translategemma-4b-it-int4-generic.litertlm',
+        'https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized/resolve/main/artifacts/int4-generic/translategemma-4b-it-int4-generic.litertlm',
     filename: 'translategemma-4b-it-int4-generic.litertlm',
     displayName: 'TranslateGemma 4B (int4)',
-    size: '2GB',
+    size: '1.87GB',
     needsAuth: false,
     preferredBackend: PreferredBackend.cpu,
     maxTokens: 1024,
@@ -31,7 +31,7 @@ enum TranslateModel implements TranslateModelInterface {
   /// Dynamic INT8, ~4 GB. Better translation quality; needs 8 GB free RAM.
   translateGemma4Int8(
     url:
-        'https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized/resolve/main/translategemma-4b-it-dynamic_int8-generic.litertlm',
+        'https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized/resolve/main/artifacts/dynamic_int8-generic/translategemma-4b-it-dynamic_int8-generic.litertlm',
     filename: 'translategemma-4b-it-dynamic_int8-generic.litertlm',
     displayName: 'TranslateGemma 4B (int8)',
     size: '4GB',

@@ -7,26 +7,15 @@
 -keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
-# RAG functionality
--keep class com.google.ai.edge.localagents.** { *; }
--dontwarn com.google.ai.edge.localagents.**
-
-# Guava (used by RAG)
--keep class com.google.guava.** { *; }
--dontwarn com.google.guava.**
--keep class com.google.common.** { *; }
--dontwarn com.google.common.**
-
-# Kotlinx coroutines
+# Kotlinx coroutines (used by .litertlm FFI dispatch)
 -keep class kotlinx.coroutines.** { *; }
 -dontwarn kotlinx.coroutines.**
 
-# AutoValue and annotation processing
--keep class javax.lang.model.** { *; }
--dontwarn javax.lang.model.**
--keep class com.google.auto.value.** { *; }
--dontwarn com.google.auto.value.**
-
-# JavaPoet (used by AutoValue)
--keep class autovalue.shaded.com.squareup.javapoet.** { *; }
--dontwarn autovalue.shaded.com.squareup.javapoet.**
+# okhttp optional TLS providers — referenced reflectively, never present at
+# runtime. Pre-0.15.2 these were absorbed by the wide `-dontwarn
+# com.google.guava.**` rule (guava pulled okhttp transitively via
+# localagents-rag); 0.15.2 dropped that dep so R8 release builds need the
+# warning suppressed explicitly.
+-dontwarn org.bouncycastle.jsse.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**

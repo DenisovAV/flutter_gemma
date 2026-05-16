@@ -31,8 +31,7 @@ void main() {
     await FlutterGemma.installEmbedder()
         .modelFromAsset(
             'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite')
-        .tokenizerFromAsset('assets/models/sentencepiece.model',
-            iosPath: 'assets/models/embeddinggemma_tokenizer.json')
+        .tokenizerFromAsset('assets/models/sentencepiece.model')
         .install();
 
     final model = await FlutterGemma.getActiveEmbedder();

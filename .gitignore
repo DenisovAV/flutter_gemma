@@ -44,6 +44,11 @@ example/web/models/
 example/web/wasm/
 example/web/*.model
 
+# Local RAG fixtures (Gecko + EmbeddingGemma) — pulled by maintainer for
+# integration tests, never committed (~300 MB).
+example/assets/test/*.tflite
+example/assets/test/*.model
+
 # Desktop - cached/extracted JRE (downloaded at build time)
 example/macos/jre/
 **/jre/

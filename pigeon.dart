@@ -83,30 +83,10 @@ abstract class PlatformService {
   @async
   void stopGeneration();
 
-  // === RAG Methods ===
-
-  // RAG Embedding Methods
-  @async
-  void createEmbeddingModel({
-    required String modelPath,
-    required String tokenizerPath,
-    PreferredBackend? preferredBackend,
-  });
-
-  @async
-  void closeEmbeddingModel();
-
-  @async
-  List<double> generateEmbeddingFromModel(String text);
-
-  @async
-  List<double> generateDocumentEmbeddingFromModel(String text);
-
-  @async
-  List<Object?> generateEmbeddingsFromModel(List<String> texts);
-
-  @async
-  int getEmbeddingDimension();
+  // 0.15.2: embedding methods removed from the pigeon contract — Android
+  // and iOS now run embedding inference in Dart via LitertEmbeddingModel
+  // (see lib/core/litert/litert_embedding_model.dart). No platform channel
+  // hop on either OS.
 
   // RAG Vector Store Methods
   @async

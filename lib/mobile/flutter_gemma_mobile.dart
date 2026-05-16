@@ -19,13 +19,14 @@ import '../core/ffi/litert_lm_client.dart'
     if (dart.library.js_interop) '../core/ffi/litert_lm_client_stub.dart';
 import '../core/ffi/ffi_inference_model.dart'
     if (dart.library.js_interop) '../core/ffi/ffi_inference_model_stub.dart';
+import '../core/litert/litert_embedding_model.dart'
+    if (dart.library.js_interop) '../core/litert/litert_embedding_model_stub.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/utils/file_name_utils.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
-part 'flutter_gemma_mobile_embedding_model.dart';
 
 // New unified model management system
 part '../core/model_management/types/model_spec.dart';
@@ -561,13 +562,14 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
 
     try {
-      await _platformService.createEmbeddingModel(
+      // 0.15.2: native embedding paths (Android Kotlin + iOS Swift) are
+      // replaced by the shared Dart-FFI + LiteRT path used on Desktop.
+      // No platform-channel hop, single implementation across all native
+      // platforms — see `LitertEmbeddingModel`.
+      final model = _initializedEmbeddingModel =
+          await LitertEmbeddingModel.create(
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
-        preferredBackend: preferredBackend,
-      );
-
-      final model = _initializedEmbeddingModel = MobileEmbeddingModel(
         onClose: () {
           _initializedEmbeddingModel = null;
           _initEmbeddingCompleter = null;

@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '0.15.1'
+  s.version          = '0.15.2'
   s.summary          = 'Flutter plugin for running Gemma and other LLMs locally on iOS.'
   s.description      = <<-DESC
 Run Gemma 4, Gemma3n, Gemma 3, FastVLM, Qwen3, Qwen 2.5, DeepSeek R1,
@@ -21,7 +21,6 @@ RAG.
   s.dependency 'Flutter'
   s.dependency 'MediaPipeTasksGenAI', '= 0.10.33'
   s.dependency 'MediaPipeTasksGenAIC', '= 0.10.33'
-  s.dependency 'TensorFlowLiteC', '0.0.1-nightly.20250619'
   s.platform = :ios, '16.0'
 
   s.pod_target_xcconfig = {

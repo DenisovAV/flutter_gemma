@@ -240,12 +240,6 @@ protocol PlatformService {
   func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
   func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
   func stopGeneration(completion: @escaping (Result<Void, Error>) -> Void)
-  func createEmbeddingModel(modelPath: String, tokenizerPath: String, preferredBackend: PreferredBackend?, completion: @escaping (Result<Void, Error>) -> Void)
-  func closeEmbeddingModel(completion: @escaping (Result<Void, Error>) -> Void)
-  func generateEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void)
-  func generateDocumentEmbeddingFromModel(text: String, completion: @escaping (Result<[Double], Error>) -> Void)
-  func generateEmbeddingsFromModel(texts: [String], completion: @escaping (Result<[Any?], Error>) -> Void)
-  func getEmbeddingDimension(completion: @escaping (Result<Int64, Error>) -> Void)
   func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void)
   func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void)
   func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void)
@@ -472,106 +466,6 @@ class PlatformServiceSetup {
       }
     } else {
       stopGenerationChannel.setMessageHandler(nil)
-    }
-    let createEmbeddingModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.createEmbeddingModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      createEmbeddingModelChannel.setMessageHandler { message, reply in
-        let args = message as! [Any?]
-        let modelPathArg = args[0] as! String
-        let tokenizerPathArg = args[1] as! String
-        let preferredBackendArg: PreferredBackend? = nilOrValue(args[2])
-        api.createEmbeddingModel(modelPath: modelPathArg, tokenizerPath: tokenizerPathArg, preferredBackend: preferredBackendArg) { result in
-          switch result {
-          case .success:
-            reply(wrapResult(nil))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      createEmbeddingModelChannel.setMessageHandler(nil)
-    }
-    let closeEmbeddingModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.closeEmbeddingModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      closeEmbeddingModelChannel.setMessageHandler { _, reply in
-        api.closeEmbeddingModel { result in
-          switch result {
-          case .success:
-            reply(wrapResult(nil))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      closeEmbeddingModelChannel.setMessageHandler(nil)
-    }
-    let generateEmbeddingFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      generateEmbeddingFromModelChannel.setMessageHandler { message, reply in
-        let args = message as! [Any?]
-        let textArg = args[0] as! String
-        api.generateEmbeddingFromModel(text: textArg) { result in
-          switch result {
-          case .success(let res):
-            reply(wrapResult(res))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      generateEmbeddingFromModelChannel.setMessageHandler(nil)
-    }
-    let generateDocumentEmbeddingFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateDocumentEmbeddingFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      generateDocumentEmbeddingFromModelChannel.setMessageHandler { message, reply in
-        let args = message as! [Any?]
-        let textArg = args[0] as! String
-        api.generateDocumentEmbeddingFromModel(text: textArg) { result in
-          switch result {
-          case .success(let res):
-            reply(wrapResult(res))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      generateDocumentEmbeddingFromModelChannel.setMessageHandler(nil)
-    }
-    let generateEmbeddingsFromModelChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateEmbeddingsFromModel\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      generateEmbeddingsFromModelChannel.setMessageHandler { message, reply in
-        let args = message as! [Any?]
-        let textsArg = args[0] as! [String]
-        api.generateEmbeddingsFromModel(texts: textsArg) { result in
-          switch result {
-          case .success(let res):
-            reply(wrapResult(res))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      generateEmbeddingsFromModelChannel.setMessageHandler(nil)
-    }
-    let getEmbeddingDimensionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.getEmbeddingDimension\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
-    if let api = api {
-      getEmbeddingDimensionChannel.setMessageHandler { _, reply in
-        api.getEmbeddingDimension { result in
-          switch result {
-          case .success(let res):
-            reply(wrapResult(res))
-          case .failure(let error):
-            reply(wrapError(error))
-          }
-        }
-      }
-    } else {
-      getEmbeddingDimensionChannel.setMessageHandler(nil)
     }
     let initializeVectorStoreChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.initializeVectorStore\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

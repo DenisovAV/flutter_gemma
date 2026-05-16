@@ -1,3 +1,6 @@
+## 0.15.2
+- Unified embedding on LiteRT C API + Dart FFI on all native platforms (#264).
+
 ## 0.15.1
 - **Fix Android GPU sampler dlopen failure** (#270, thanks @prithidevghosh): `patchelf --add-needed libLiteRtLm.so` on `libLiteRtTopK{OpenCl,WebGpu}Sampler.so`.
 - **Desktop storage** (#179, co-author @ProjectEdge-Jim): use Application Support instead of Documents on Windows/macOS/Linux to avoid cloud-synced paths breaking FFI mmap.

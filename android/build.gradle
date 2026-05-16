@@ -70,10 +70,10 @@ dependencies {
     implementation 'com.google.mediapipe:tasks-genai:0.10.33'
     implementation 'com.google.mediapipe:tasks-vision-image-generator:0.10.26.1'
 
-    // RAG functionality dependencies
-    implementation 'com.google.ai.edge.localagents:localagents-rag:0.3.0'
-    implementation 'com.google.guava:guava:33.3.1-android'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-guava:1.9.0'
+    // 0.15.2: localagents-rag dropped — embedding is now Dart-FFI + LiteRT
+    // (see lib/core/litert/litert_embedding_model.dart). Guava +
+    // kotlinx-coroutines-guava were only used by the RAG library, so they
+    // also go.
 
     // .litertlm models go through Dart FFI (LiteRtLmFfiClient) — Native Assets
     // bundles libLiteRtLm.so + companion dylibs. No Gradle dependency needed.

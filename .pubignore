@@ -46,6 +46,11 @@ training_data/
 # Example app model files
 example/assets/models/
 
+# Local RAG fixtures (Gecko + EmbeddingGemma) — maintainer-pulled for
+# integration tests, ~300 MB, never shipped in pub package.
+example/assets/test/*.tflite
+example/assets/test/*.model
+
 # Example scripts (for local test setup, not needed in package)
 example/scripts/
 

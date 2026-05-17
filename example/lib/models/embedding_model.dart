@@ -160,7 +160,7 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   String get name => toString().split('.').last;
 
   @override
-  bool get isEmbeddingModel => true;
+  ModelKind get kind => ModelKind.embedding;
 
   @override
   String? get licenseUrl => null; // Most embedding models don't have specific license URLs

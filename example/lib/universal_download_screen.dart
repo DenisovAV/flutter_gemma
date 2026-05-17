@@ -6,8 +6,10 @@ import 'package:flutter_gemma_example/embedding_test_screen.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/models/translate_model.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
+import 'package:flutter_gemma_example/translate_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UniversalDownloadScreen extends StatefulWidget {
@@ -47,25 +49,38 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   void _initializeServices() {
-    if (widget.model.isEmbeddingModel) {
-      _embeddingDownloadService = EmbeddingModelDownloadService(
-        model: widget.model as example_embedding_model.EmbeddingModel,
-      );
-    } else {
-      final inferenceModel = widget.model as Model;
-      _inferenceDownloadService = ModelDownloadService(
-        modelUrl: widget.model.url,
-        modelFilename: widget.model.filename,
-        licenseUrl: widget.model.licenseUrl ?? '',
-        modelType: inferenceModel.modelType,
-        fileType: inferenceModel.fileType,
-        foreground: inferenceModel.foreground,
-      );
+    switch (widget.model.kind) {
+      case ModelKind.embedding:
+        _embeddingDownloadService = EmbeddingModelDownloadService(
+          model: widget.model as example_embedding_model.EmbeddingModel,
+        );
+        break;
+      case ModelKind.translation:
+        final t = widget.model as TranslateModel;
+        _inferenceDownloadService = ModelDownloadService(
+          modelUrl: t.url,
+          modelFilename: t.filename,
+          licenseUrl: t.licenseUrl ?? '',
+          modelType: t.modelType,
+          fileType: t.fileType,
+        );
+        break;
+      case ModelKind.inference:
+        final inferenceModel = widget.model as Model;
+        _inferenceDownloadService = ModelDownloadService(
+          modelUrl: widget.model.url,
+          modelFilename: widget.model.filename,
+          licenseUrl: widget.model.licenseUrl ?? '',
+          modelType: inferenceModel.modelType,
+          fileType: inferenceModel.fileType,
+          foreground: inferenceModel.foreground,
+        );
+        break;
     }
   }
 
   Future<void> _initialize() async {
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       _token = await _embeddingDownloadService!.loadToken() ?? '';
     } else {
       _token = await _inferenceDownloadService!.loadToken() ?? '';
@@ -78,7 +93,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   Future<void> _checkModelExistence() async {
     bool exists;
 
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       exists = await _embeddingDownloadService!.checkModelExistence(_token);
     } else {
       exists = await _inferenceDownloadService!.checkModelExistence(_token);
@@ -90,7 +105,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Future<void> _saveToken(String token) async {
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       await _embeddingDownloadService!.saveToken(token);
     } else {
       await _inferenceDownloadService!.saveToken(token);
@@ -115,7 +130,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     });
 
     try {
-      if (widget.model.isEmbeddingModel) {
+      if (widget.model.kind == ModelKind.embedding) {
         await _embeddingDownloadService!.downloadModel(widget.model.needsAuth ? _token : '',
             (modelProg, tokenizerProg) {
           setState(() {
@@ -150,7 +165,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
 
   Future<void> _deleteModel() async {
     try {
-      if (widget.model.isEmbeddingModel) {
+      if (widget.model.kind == ModelKind.embedding) {
         await _embeddingDownloadService!.deleteModel();
       } else {
         await _inferenceDownloadService!.deleteModel();
@@ -241,23 +256,35 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             ),
             const SizedBox(height: 12),
             _buildInfoRow('Size:', widget.model.size),
-            _buildInfoRow(
-                'Type:', widget.model.isEmbeddingModel ? 'Embedding Model' : 'Inference Model'),
-            if (widget.model.isEmbeddingModel) ...[
+            _buildInfoRow('Type:', _kindLabel(widget.model.kind)),
+            if (widget.model.kind == ModelKind.embedding) ...[
               _buildInfoRow('Dimension:',
                   '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D'),
-            ] else ...[
+            ] else if (widget.model.kind == ModelKind.inference) ...[
               if ((widget.model as InferenceModelInterface).supportImage)
                 _buildInfoRow('Multimodal:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsFunctionCalls)
                 _buildInfoRow('Functions:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsThinking)
                 _buildInfoRow('Thinking:', 'Yes'),
+            ] else if (widget.model.kind == ModelKind.translation) ...[
+              _buildInfoRow('Task:', 'Single-shot translation'),
             ],
           ],
         ),
       ),
     );
+  }
+
+  String _kindLabel(ModelKind kind) {
+    switch (kind) {
+      case ModelKind.inference:
+        return 'Inference Model';
+      case ModelKind.embedding:
+        return 'Embedding Model';
+      case ModelKind.translation:
+        return 'Translation Model';
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {
@@ -285,7 +312,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Widget _buildProgressSection() {
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       return _buildDualProgressBars();
     } else {
       return _buildSingleProgressBar();
@@ -445,25 +472,38 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   void _proceedToNextScreen() async {
-    if (widget.model.isEmbeddingModel) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => EmbeddingTestScreen(
-            model: widget.model as example_embedding_model.EmbeddingModel,
+    switch (widget.model.kind) {
+      case ModelKind.embedding:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EmbeddingTestScreen(
+              model: widget.model as example_embedding_model.EmbeddingModel,
+            ),
           ),
-        ),
-      );
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ChatScreen(
-            model: widget.model as Model,
-            selectedBackend: widget.selectedBackend ?? PreferredBackend.cpu,
+        );
+        break;
+      case ModelKind.translation:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => TranslateScreen(
+              model: widget.model as TranslateModel,
+            ),
           ),
-        ),
-      );
+        );
+        break;
+      case ModelKind.inference:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              model: widget.model as Model,
+              selectedBackend: widget.selectedBackend ?? PreferredBackend.cpu,
+            ),
+          ),
+        );
+        break;
     }
   }
 

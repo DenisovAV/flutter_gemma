@@ -112,6 +112,9 @@ The example app offers a curated list of models, each suited for different tasks
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
+| **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
+
+† **TranslateGemma is CPU-only for now.** Google hasn't released a mobile/desktop `.litertlm` bundle (HF discussion [#5](https://huggingface.co/google/translategemma-4b-it/discussions/5) — "no concrete plans"). The example app uses the community-converted bundle from [`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized), which keeps `EMBEDDING_LOOKUP` weights in float32 for MediaPipe `.task` compatibility. That layout crashes the LiteRT GPU partitioner on Metal/WebGPU across all platforms — tracked upstream at [LiteRT-LM#1748](https://github.com/google-ai-edge/LiteRT-LM/issues/1748). Until Google ships the `litert-lm` quantization CLI, translation runs on CPU only (≈90 s prefill on a 4 B int4 bundle on M-series Macs).
 
 ## ModelType Reference
 

@@ -1,15 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 import 'prompt_strategy.dart';
 
 /// Wraps an `InferenceModel` to make single-shot translation a one-call
-/// operation.
-///
-/// The plugin already exposes the single-shot primitive
-/// (`InferenceModel.createSession()`), so this is example-side glue: prompt
-/// formatting + lifecycle management + a `translate()` / `translateStream()`
-/// pair shaped for translator UX. Different translator bundles plug in
-/// different `TranslationPromptStrategy` instances.
+/// operation. Plugin owns the model lifecycle; the runner only owns the
+/// per-call session.
 class TranslateRunner {
   TranslateRunner({
     required InferenceModel model,
@@ -20,6 +16,11 @@ class TranslateRunner {
   final InferenceModel _model;
   final TranslationPromptStrategy _strategy;
 
+  // `topK: 1` → argmax (deterministic). Temperature stays > 0 because
+  // some GPU sampler kernels divide by it.
+  static const double _greedyTemperature = 0.8;
+  static const int _greedyTopK = 1;
+
   /// One-shot translation: returns the full output string once decoding
   /// completes.
   Future<String> translate({
@@ -27,7 +28,10 @@ class TranslateRunner {
     required String src,
     required String dst,
   }) async {
-    final session = await _model.createSession(temperature: 0);
+    final session = await _model.createSession(
+      temperature: _greedyTemperature,
+      topK: _greedyTopK,
+    );
     try {
       await session.addQueryChunk(
         Message.text(
@@ -37,7 +41,7 @@ class TranslateRunner {
       );
       return await session.getResponse();
     } finally {
-      await session.close();
+      await _safeClose(session);
     }
   }
 
@@ -49,7 +53,10 @@ class TranslateRunner {
     required String src,
     required String dst,
   }) async* {
-    final session = await _model.createSession(temperature: 0);
+    final session = await _model.createSession(
+      temperature: _greedyTemperature,
+      topK: _greedyTopK,
+    );
     try {
       await session.addQueryChunk(
         Message.text(
@@ -59,7 +66,17 @@ class TranslateRunner {
       );
       yield* session.getResponseAsync();
     } finally {
+      await _safeClose(session);
+    }
+  }
+
+  // Don't let a session-close failure mask the original exception — Dart
+  // `finally` would otherwise overwrite the in-flight error.
+  Future<void> _safeClose(InferenceModelSession session) async {
+    try {
       await session.close();
+    } catch (e, st) {
+      debugPrint('[TranslateRunner] session.close() failed: $e\n$st');
     }
   }
 }

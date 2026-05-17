@@ -55,7 +55,9 @@ void main() {
     ).fromFile(modelPath).install();
 
     final model = await FlutterGemma.getActiveModel(
-      maxTokens: 1024,
+      maxTokens: 4096,
+      // GPU partitioner crashes on this bundle's EMBEDDING_LOOKUP —
+      // see translate_model.dart + LiteRT-LM#1748.
       preferredBackend: PreferredBackend.cpu,
     );
 
@@ -103,6 +105,8 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 10)));
 
   testWidgets('TranslateGemma 4B int4 — streaming yields chunks', (_) async {
+    await FlutterGemma.initialize();
+
     final modelPath = await _docsPath(_modelName);
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,
@@ -110,7 +114,9 @@ void main() {
     ).fromFile(modelPath).install();
 
     final model = await FlutterGemma.getActiveModel(
-      maxTokens: 1024,
+      maxTokens: 4096,
+      // GPU partitioner crashes on this bundle's EMBEDDING_LOOKUP —
+      // see translate_model.dart + LiteRT-LM#1748.
       preferredBackend: PreferredBackend.cpu,
     );
 

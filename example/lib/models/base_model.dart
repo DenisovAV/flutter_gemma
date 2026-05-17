@@ -15,9 +15,8 @@ enum ModelSourceType {
   bundled,
 }
 
-/// What category of task this model is built for. Drives task-first routing
-/// in `HomeScreen` (chat → ChatScreen, embedding → EmbeddingTestScreen,
-/// translation → TranslateScreen).
+/// Task category used to dispatch a downloaded model to the right
+/// post-install screen and to gate kind-specific UI fields.
 enum ModelKind {
   inference,
   embedding,
@@ -51,12 +50,6 @@ abstract class BaseModel {
   /// routing and by `UniversalDownloadScreen` to dispatch to the right
   /// follow-up screen after install.
   ModelKind get kind;
-}
-
-/// Convenience extension for legacy code paths that branched on
-/// `isEmbeddingModel`. Prefer matching on [BaseModel.kind] in new code.
-extension BaseModelKindX on BaseModel {
-  bool get isEmbeddingModel => kind == ModelKind.embedding;
 }
 
 /// Interface for inference models

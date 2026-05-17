@@ -24,8 +24,8 @@ abstract class TranslationPromptStrategy {
   /// Map from language code to human-readable name, used to populate the
   /// source/target dropdowns in `TranslateScreen`.
   ///
-  /// Different translator models support different language sets — Gecko's
-  /// fork ships 55, NLLB ships 202, MADLAD ships 400+. Returning the map per
-  /// strategy keeps each translator self-describing.
+  /// Different translator models support different language sets —
+  /// TranslateGemma lists 55, NLLB lists 202, MADLAD lists 400+. Returning
+  /// the map per strategy keeps each translator self-describing.
   Map<String, String> get supportedLanguages;
 }

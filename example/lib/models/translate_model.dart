@@ -14,6 +14,12 @@ import 'base_model.dart';
 /// `barakplasma/translategemma-4b-it-android-task-quantized` because Google
 /// only ships a `-web.task` for browsers; mobile/desktop bundles are not
 /// officially available yet (see HF discussion #5 on the source repo).
+///
+/// CPU-only by design: the community conversion keeps `EMBEDDING_LOOKUP`
+/// weights in float32 for MediaPipe `.task` compatibility. The upstream
+/// LiteRT GPU partitioner can't cluster that layout, so Metal/WebGPU
+/// `engine_create` aborts (LiteRT-LM#1748). Google's stock Gemma 3
+/// `.litertlm` bundles use a quantized embedding and do work on GPU.
 enum TranslateModel implements TranslateModelInterface {
   /// INT4 quantization, ~2 GB. Recommended default — loads faster and fits
   /// in 6 GB free RAM on modern phones.
@@ -81,18 +87,12 @@ enum TranslateModel implements TranslateModelInterface {
   String? get licenseUrl =>
       'https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized';
 
-  /// TranslateGemma is a Gemma-3 fine-tune; its LiteRT-LM bundle uses the
-  /// same Jinja chat template as Gemma 3.
+  /// Gemma-3 fine-tune — uses the same Jinja chat template family.
   @override
   ModelType get modelType => ModelType.gemmaIt;
 
-  /// Both variants ship as `.litertlm`. Web `-web.task` is not added here.
   ModelFileType get fileType => ModelFileType.litertlm;
 
-  /// Community fork's XML prompt format
-  /// (`<src>en</src><dst>fr</dst><text>...</text>`). When/if a Google
-  /// official mobile bundle ships with a different format, add a new
-  /// strategy class and a new enum entry — no central dispatch to edit.
   @override
   TranslationPromptStrategy get promptStrategy =>
       const TranslateGemmaXmlPromptStrategy();

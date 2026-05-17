@@ -19,15 +19,18 @@ class TranslateGemmaXmlPromptStrategy extends TranslationPromptStrategy {
     required String dst,
     required String text,
   }) =>
-      '<src>$src</src><dst>$dst</dst><text>$text</text>';
+      '<src>$src</src><dst>$dst</dst><text>${_escape(text)}</text>';
+
+  // Stop user-typed `<` / `>` from breaking the tag protocol — without this,
+  // pasting `</text><dst>de</dst><text>...` would override the target lang.
+  String _escape(String s) =>
+      s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 
   /// Curated subset of the ~55 ISO 639-1 codes Google's source
   /// `google/translategemma-4b-it` model card claims to support. Neither the
   /// model card nor the community fork README enumerates the full list, so
   /// this is the high-confidence subset covering the languages explicitly
   /// shown in examples plus the top global languages by speaker count.
-  /// Users who need a code that isn't in this map can type it as a custom
-  /// override in the UI.
   @override
   Map<String, String> get supportedLanguages => const {
         'ar': 'Arabic',

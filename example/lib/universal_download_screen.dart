@@ -80,7 +80,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Future<void> _initialize() async {
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       _token = await _embeddingDownloadService!.loadToken() ?? '';
     } else {
       _token = await _inferenceDownloadService!.loadToken() ?? '';
@@ -93,7 +93,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   Future<void> _checkModelExistence() async {
     bool exists;
 
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       exists = await _embeddingDownloadService!.checkModelExistence(_token);
     } else {
       exists = await _inferenceDownloadService!.checkModelExistence(_token);
@@ -105,7 +105,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Future<void> _saveToken(String token) async {
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       await _embeddingDownloadService!.saveToken(token);
     } else {
       await _inferenceDownloadService!.saveToken(token);
@@ -130,7 +130,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     });
 
     try {
-      if (widget.model.isEmbeddingModel) {
+      if (widget.model.kind == ModelKind.embedding) {
         await _embeddingDownloadService!.downloadModel(widget.model.needsAuth ? _token : '',
             (modelProg, tokenizerProg) {
           setState(() {
@@ -165,7 +165,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
 
   Future<void> _deleteModel() async {
     try {
-      if (widget.model.isEmbeddingModel) {
+      if (widget.model.kind == ModelKind.embedding) {
         await _embeddingDownloadService!.deleteModel();
       } else {
         await _inferenceDownloadService!.deleteModel();
@@ -312,7 +312,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Widget _buildProgressSection() {
-    if (widget.model.isEmbeddingModel) {
+    if (widget.model.kind == ModelKind.embedding) {
       return _buildDualProgressBars();
     } else {
       return _buildSingleProgressBar();

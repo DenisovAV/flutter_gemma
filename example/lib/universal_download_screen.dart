@@ -256,23 +256,35 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             ),
             const SizedBox(height: 12),
             _buildInfoRow('Size:', widget.model.size),
-            _buildInfoRow(
-                'Type:', widget.model.isEmbeddingModel ? 'Embedding Model' : 'Inference Model'),
-            if (widget.model.isEmbeddingModel) ...[
+            _buildInfoRow('Type:', _kindLabel(widget.model.kind)),
+            if (widget.model.kind == ModelKind.embedding) ...[
               _buildInfoRow('Dimension:',
                   '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D'),
-            ] else ...[
+            ] else if (widget.model.kind == ModelKind.inference) ...[
               if ((widget.model as InferenceModelInterface).supportImage)
                 _buildInfoRow('Multimodal:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsFunctionCalls)
                 _buildInfoRow('Functions:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsThinking)
                 _buildInfoRow('Thinking:', 'Yes'),
+            ] else if (widget.model.kind == ModelKind.translation) ...[
+              _buildInfoRow('Task:', 'Single-shot translation'),
             ],
           ],
         ),
       ),
     );
+  }
+
+  String _kindLabel(ModelKind kind) {
+    switch (kind) {
+      case ModelKind.inference:
+        return 'Inference Model';
+      case ModelKind.embedding:
+        return 'Embedding Model';
+      case ModelKind.translation:
+        return 'Translation Model';
+    }
   }
 
   Widget _buildInfoRow(String label, String value) {

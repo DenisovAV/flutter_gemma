@@ -14,8 +14,12 @@ on:
     branches:
       - main
       - 'release/**'
+      # Feature branch for the qdrant-edge integration — removed once merged.
+      - 'feat/qdrant-edge-integration'
     paths:
       - '.github/workflows/build-qdrant-edge-native.yml'
+      - 'native/qdrant_edge/qdrant_edge_ffi/**'
+      - 'native/qdrant_edge/vendored/**'
   workflow_dispatch:
     inputs:
       qdrant_edge_version:

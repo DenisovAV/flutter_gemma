@@ -1,3 +1,7 @@
+## 0.15.4
+- Auto-restore active inference and embedding models from persistent storage on `FlutterGemma.initialize()` (mobile + web) (#227).
+- Actionable Android dlopen error pointing at the minimum supported API level and the `.task` fallback (#265).
+
 ## 0.15.3
 - example: add TranslateGemma 4B translation demo via task-first home navigation (#177).
 

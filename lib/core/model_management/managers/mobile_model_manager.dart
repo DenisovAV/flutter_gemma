@@ -11,6 +11,7 @@ class MobileModelManager extends ModelFileManager {
     try {
       _isInitialized = true;
       await _restoreActiveInferenceModel();
+      await _restoreActiveEmbeddingModel();
       debugPrint('UnifiedModelManager initialized successfully');
     } catch (e) {
       debugPrint('Failed to initialize UnifiedModelManager: $e');
@@ -64,6 +65,36 @@ class MobileModelManager extends ModelFileManager {
       fileType: fileType,
     );
     debugPrint('[ModelManager] restored active inference model: $filename');
+  }
+
+  /// Mirror of [_restoreActiveInferenceModel] for the embedding pair
+  /// (model + tokenizer).
+  Future<void> _restoreActiveEmbeddingModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modelFilename =
+        prefs.getString(PreferencesKeys.activeEmbeddingFilename);
+    final tokenizerFilename =
+        prefs.getString(PreferencesKeys.activeEmbeddingTokenizerFilename);
+
+    if (modelFilename == null || tokenizerFilename == null) {
+      return;
+    }
+
+    final fs = ServiceRegistry.instance.fileSystemService;
+    final modelPath = await fs.getTargetPath(modelFilename);
+    final tokenizerPath = await fs.getTargetPath(tokenizerFilename);
+    if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
+      debugPrint(
+          '[ModelManager] active embedding restore: file missing — skipping');
+      return;
+    }
+
+    _activeEmbeddingModel = EmbeddingModelSpec(
+      name: modelFilename,
+      modelSource: FileSource(modelPath),
+      tokenizerSource: FileSource(tokenizerPath),
+    );
+    debugPrint('[ModelManager] restored active embedding model: $modelFilename');
   }
 
   /// Internal method for ModelSpec-based operations
@@ -787,6 +818,7 @@ class MobileModelManager extends ModelFileManager {
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
       debugPrint('✅ Set active embedding model: ${spec.name}');
+      unawaited(_persistActiveEmbeddingIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }
@@ -804,8 +836,30 @@ class MobileModelManager extends ModelFileManager {
           PreferencesKeys.activeInferenceFileType, spec.fileType.name);
       await prefs.setString(
           PreferencesKeys.activeInferenceFilename, filename);
+      await prefs.setString(
+          PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
     } catch (e) {
       debugPrint('[ModelManager] persistActiveInferenceIdentity failed: $e');
+    }
+  }
+
+  Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
+    try {
+      final modelFile = spec.files.firstWhere(
+          (f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final tokenizerFile = spec.files.firstWhere(
+          (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          PreferencesKeys.activeEmbeddingFilename, modelFile.filename);
+      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerFilename,
+          tokenizerFile.filename);
+      await prefs.setString(
+          PreferencesKeys.activeEmbeddingSource, spec.modelSource.encode());
+      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerSource,
+          spec.tokenizerSource.encode());
+    } catch (e) {
+      debugPrint('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 

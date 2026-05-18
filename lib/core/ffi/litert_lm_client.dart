@@ -224,7 +224,17 @@ class LiteRtLmFfiClient {
       final handle = loadGlobal(pathPtr);
       calloc.free(pathPtr);
       if (handle == nullptr) {
-        throw Exception('Failed to load libLiteRtLm.so with RTLD_GLOBAL');
+        // The most common cause we've seen is Android API < 30 (#265):
+        // upstream `libLiteRtLm.so` is built against Bionic 11+ libc and
+        // hard-references `pthread_cond_clockwait` / `sem_clockwait`,
+        // which don't exist on API 29 and below. Use a MediaPipe `.task`
+        // model instead, or bump `minSdkVersion` to 30.
+        throw Exception(
+            'Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
+            'On Android, this commonly indicates API < 30: `.litertlm` models '
+            'require Android 11+ (minSdkVersion 30). For older devices use a '
+            'MediaPipe `.task` model instead. See '
+            'https://github.com/DenisovAV/flutter_gemma/issues/265');
       }
       lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
     } else {

@@ -39,6 +39,8 @@ dependencies:
   hooks: ^1.0.0
   code_assets: ^1.0.0
   crypto: ^3.0.6
+  # UUIDv5 deterministic hashing for qdrant point IDs (arbitrary String → UUID)
+  uuid: ^4.0.0
 
 dev_dependencies:
   flutter_test:

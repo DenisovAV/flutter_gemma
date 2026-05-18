@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'package:flutter_gemma/core/infrastructure/hnsw_vector_index.dart';
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
@@ -121,6 +122,7 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     required List<double> queryEmbedding,
     required int topK,
     double threshold = 0.0,
+    Filter? filter, // ignored — sqlite+local_hnsw has no payload filtering
   }) async {
     if (!_isInitialized) {
       throw StateError('VectorStore not initialized. Call initialize() first.');

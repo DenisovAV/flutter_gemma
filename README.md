@@ -1249,7 +1249,7 @@ Function calling is currently supported by the following models:
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
 | **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
-| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM | ✅ SQLite | Semantic search, RAG |
+| **VectorStore (RAG)** | ✅ qdrant-edge | ✅ qdrant-edge | ✅ SQLite WASM | ✅ qdrant-edge | Semantic search + payload `Filter` (native) |
 | **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | ✅ Background | Platform-specific |
 | **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Flutter assets N/A |
 | **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Native bundles only |

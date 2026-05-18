@@ -1,3 +1,8 @@
+## 0.16.0
+- **Native vector store: qdrant-edge by default.** Replaces sqlite + local_hnsw on every native platform. Web unchanged (wa-sqlite). Old impl `@Deprecated`, removal in 1.0.
+- **Filter DSL** for `searchSimilar(... filter: Filter(must: [...], should: [...], mustNot: [...]))`. Honored on native; silently ignored on Web.
+- Upstream qdrant patch tracked at qdrant/qdrant#9067.
+
 ## 0.15.3
 - example: add TranslateGemma 4B translation demo via task-first home navigation (#177).
 

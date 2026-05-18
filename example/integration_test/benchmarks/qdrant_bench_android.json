@@ -1,0 +1,48 @@
+{
+  "platform": "android",
+  "os_version": "Android 16 (API 36)",
+  "device": "Google Pixel 8",
+  "embedding_dim": 768,
+  "corpus_chars_per_doc_avg": 361,
+  "timestamp": "2026-05-18T15:08:46Z",
+  "results": [
+    {
+      "n": 1000,
+      "upsert": {
+        "seconds": 0.756,
+        "points_per_sec": 1322
+      },
+      "search": {
+        "p50_us": 369,
+        "p95_us": 637,
+        "p99_us": 1558,
+        "count": 100
+      },
+      "search_with_filter": {
+        "p50_us": 981,
+        "p95_us": 1084,
+        "p99_us": 1235,
+        "count": 100
+      }
+    },
+    {
+      "n": 5000,
+      "upsert": {
+        "seconds": 3.45,
+        "points_per_sec": 1450
+      },
+      "search": {
+        "p50_us": 1029,
+        "p95_us": 1293,
+        "p99_us": 1694,
+        "count": 100
+      },
+      "search_with_filter": {
+        "p50_us": 4275,
+        "p95_us": 4359,
+        "p99_us": 4393,
+        "count": 100
+      }
+    }
+  ]
+}

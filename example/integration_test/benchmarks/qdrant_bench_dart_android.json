@@ -1,0 +1,39 @@
+{
+  "impl": "DartVectorStoreRepository (sqlite3 + local_hnsw)",
+  "platform": "android",
+  "os_version": "Android 16 (API 36)",
+  "device": "Google Pixel 8",
+  "embedding_dim": 768,
+  "corpus_chars_per_doc_avg": 361,
+  "timestamp": "2026-05-18T17:11:07Z",
+  "results": [
+    {
+      "n": 1000,
+      "upsert": {
+        "seconds": 38.76,
+        "points_per_sec": 26
+      },
+      "search": {
+        "p50_us": 5636,
+        "p95_us": 13476,
+        "p99_us": 14552,
+        "count": 100
+      },
+      "search_with_filter": null
+    },
+    {
+      "n": 5000,
+      "upsert": {
+        "seconds": 855.2,
+        "points_per_sec": 6
+      },
+      "search": {
+        "p50_us": 19094,
+        "p95_us": 99408,
+        "p99_us": 122840,
+        "count": 100
+      },
+      "search_with_filter": null
+    }
+  ]
+}

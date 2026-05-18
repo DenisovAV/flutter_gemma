@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/core/qdrant/qdrant_edge_bindings.dart';
 
 /// Distance metric used by a qdrant-edge shard. Set at open time and fixed
@@ -76,9 +77,24 @@ class QdrantEdgeClient {
   /// should only be opened once per process. Cache it.
   static QdrantEdgeBindings? _bindings;
 
+  /// **Test-only**: override the dylib path that [_ensureBindings] uses on
+  /// the first call. Set this from unit tests that run in a plain Dart VM
+  /// (no Native Assets framework bundle); leave null in production.
+  ///
+  /// Setting after the first FFI call has no effect — the bindings are
+  /// cached. Reset to null + null out [_bindings] if a test really needs
+  /// to swap the dylib mid-process.
+  @visibleForTesting
+  static String? debugOverrideDylibPath;
+
   static QdrantEdgeBindings _ensureBindings() {
     final cached = _bindings;
     if (cached != null) return cached;
+
+    final override = debugOverrideDylibPath;
+    if (override != null) {
+      return _bindings = QdrantEdgeBindings(DynamicLibrary.open(override));
+    }
 
     final DynamicLibrary lib;
     if (Platform.isIOS) {

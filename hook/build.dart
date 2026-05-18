@@ -261,7 +261,7 @@ const _qdrantEdgeBundle = _NativeBundle(
     'qdrant-edge-ios_sim_arm64.tar.gz':
         '40027167e2e2302757f8f78e167dc7482aa261cf26953331331956f5b1054f6a',
     'qdrant-edge-android_arm64.tar.gz':
-        '2e3757dfd27993be73b4cf5bb29dba8751fc0896c720bb6e07f636b9b22bd571',
+        '941b626c191bc0fe5a7abb108ec1086343ef82671fdaec2cbfb052ec63935c10',
   },
 );
 

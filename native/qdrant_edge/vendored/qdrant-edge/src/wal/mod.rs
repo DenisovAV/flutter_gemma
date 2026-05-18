@@ -152,6 +152,13 @@ impl Wal {
             dir
         };
 
+        // flutter_gemma vendoring patch: skip the exclusive flock on Android.
+        // The Android kernel + app-sandbox filesystem (F2FS/ext4 with SELinux)
+        // returns ErrorKind::Unsupported from flock() on /data/user/0 paths,
+        // making the WAL impossible to open even though the app is the only
+        // process that can see the directory. iOS/macOS/Linux/Windows still
+        // exercise the lock as designed.
+        #[cfg(not(target_os = "android"))]
         dir.try_lock()?;
 
         // Holds open segments in the directory.

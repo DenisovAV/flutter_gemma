@@ -2,11 +2,15 @@ import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
-/// Stub for DartVectorStoreRepository on web/WASM platforms.
-/// Web uses WebVectorStoreRepository (wa-sqlite) instead.
-@Deprecated(
-    'Use QdrantVectorStoreRepository on native; will be removed in 1.0.')
-class DartVectorStoreRepository implements VectorStoreRepository {
+/// Web stub for [QdrantVectorStoreRepository].
+///
+/// qdrant-edge depends on mmap/parking_lot and cannot compile to
+/// WebAssembly, so on the Web target the real implementation is
+/// unavailable. ServiceRegistry routes Web traffic to
+/// WebVectorStoreRepository (wa-sqlite + HNSW) and never constructs
+/// this stub; it exists only so that conditional imports in
+/// service_registry.dart link cleanly on Web.
+class QdrantVectorStoreRepository implements VectorStoreRepository {
   @override
   bool get isInitialized => false;
 
@@ -16,7 +20,7 @@ class DartVectorStoreRepository implements VectorStoreRepository {
   @override
   Future<void> initialize(String databasePath) async =>
       throw UnimplementedError(
-          'DartVectorStoreRepository is not available on web');
+          'QdrantVectorStoreRepository is not available on web');
 
   @override
   Future<void> addDocument({
@@ -26,12 +30,12 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     String? metadata,
   }) async =>
       throw UnimplementedError(
-          'DartVectorStoreRepository is not available on web');
+          'QdrantVectorStoreRepository is not available on web');
 
   @override
   Future<void> removeDocument({required String id}) async =>
       throw UnimplementedError(
-          'DartVectorStoreRepository is not available on web');
+          'QdrantVectorStoreRepository is not available on web');
 
   @override
   Future<List<RetrievalResult>> searchSimilar({
@@ -41,15 +45,15 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     Filter? filter,
   }) async =>
       throw UnimplementedError(
-          'DartVectorStoreRepository is not available on web');
+          'QdrantVectorStoreRepository is not available on web');
 
   @override
   Future<VectorStoreStats> getStats() async => throw UnimplementedError(
-      'DartVectorStoreRepository is not available on web');
+      'QdrantVectorStoreRepository is not available on web');
 
   @override
   Future<void> clear() async => throw UnimplementedError(
-      'DartVectorStoreRepository is not available on web');
+      'QdrantVectorStoreRepository is not available on web');
 
   @override
   Future<void> close() async {}

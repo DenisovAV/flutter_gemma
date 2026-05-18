@@ -27,8 +27,8 @@ import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository_stub.dart'
-    if (dart.library.ffi) 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/qdrant_vector_store_repository_stub.dart'
+    if (dart.library.ffi) 'package:flutter_gemma/core/infrastructure/qdrant_vector_store_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_vector_store_repository_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_vector_store_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
@@ -320,11 +320,17 @@ class ServiceRegistry {
     _protectedFilesRegistry =
         protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
 
-    // Initialize VectorStoreRepository (platform-specific)
+    // Initialize VectorStoreRepository (platform-specific).
+    //
+    // Native (iOS, Android arm64, macOS arm64, Linux x86_64/arm64, Windows
+    // x86_64): qdrant-edge via FFI (since 0.16). ~75x faster search and ~8500x
+    // faster bulk upsert vs the legacy sqlite + local_hnsw path, plus payload
+    // filtering. DartVectorStoreRepository remains @Deprecated for one
+    // release.
+    //
+    // Web: wa-sqlite + local_hnsw — qdrant-edge cannot compile to WASM.
     _vectorStoreRepository = vectorStoreRepository ??
-        (kIsWeb
-            ? WebVectorStoreRepository() // SQLite WASM for web
-            : DartVectorStoreRepository());
+        (kIsWeb ? WebVectorStoreRepository() : QdrantVectorStoreRepository());
 
     // Initialize handlers with dependencies
     _networkHandler = _createNetworkSourceHandler(

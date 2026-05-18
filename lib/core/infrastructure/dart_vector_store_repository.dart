@@ -8,14 +8,14 @@ import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
-/// Unified VectorStore using sqlite3 dart:ffi + HNSW
+/// Unified VectorStore using sqlite3 dart:ffi + HNSW.
 ///
-/// Replaces platform-specific implementations:
-/// - Android: VectorStore.kt (SQLiteOpenHelper)
-/// - iOS: VectorStore.swift (SQLite3 C API)
-///
-/// Used on: Android, iOS, macOS, Windows, Linux
-/// Web: uses WebVectorStoreRepository (wa-sqlite WASM)
+/// **DEPRECATED in 0.16**: superseded by `QdrantVectorStoreRepository` on
+/// every native platform. ~75x faster search and ~8500x faster bulk
+/// upsert. Will be removed in 1.0. See CHANGELOG and
+/// `QdrantVectorStoreRepository` for migration details.
+@Deprecated(
+    'Use QdrantVectorStoreRepository on native; will be removed in 1.0.')
 class DartVectorStoreRepository implements VectorStoreRepository {
   Database? _db;
   int? _detectedDimension;

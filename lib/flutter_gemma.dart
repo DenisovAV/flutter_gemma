@@ -1,5 +1,10 @@
 export 'flutter_gemma_interface.dart';
 export 'model_file_manager_interface.dart';
+
+// Vector store filter DSL — passed to searchSimilar to constrain results
+// by payload. Honored on every native platform (qdrant-edge); silently
+// ignored on Web.
+export 'core/services/vector_store_filter.dart';
 export 'pigeon.g.dart'; // Export generated types like PreferredBackend, ModelFileType, etc.
 export 'core/message.dart';
 export 'core/model.dart'; // Export ModelType and other model-related classes

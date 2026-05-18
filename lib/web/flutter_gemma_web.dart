@@ -314,6 +314,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     required String query,
     int topK = 5,
     double threshold = 0.0,
+    Filter? filter, // ignored on Web (wa-sqlite has no payload filtering)
   }) async {
     if (_vectorStoreRepository == null) {
       throw StateError(
@@ -406,7 +407,8 @@ class WebInferenceModel extends InferenceModel {
     bool? enableAudioModality, // Enabling audio modality support (Gemma 3n E4B)
     String? systemInstruction,
     bool enableThinking = false, // Not supported on Web (MediaPipe)
-    List<Tool> tools = const [], // Tools wired through chat.dart prompt; SDK tools_json N/A on web
+    List<Tool> tools =
+        const [], // Tools wired through chat.dart prompt; SDK tools_json N/A on web
   }) async {
     // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
     if (enableThinking) {
@@ -640,7 +642,8 @@ class WebModelSession extends InferenceModelSession {
     // Add text part last so multimodal turns keep image/audio context first.
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
-      debugPrint('🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+      debugPrint(
+          '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
     }
 
     if (kDebugMode) {

@@ -65,14 +65,20 @@ class QdrantVectorStoreRepository implements VectorStoreRepository {
 
   @override
   Future<void> initialize(String databasePath) async {
-    if (_shardPath != null) {
-      throw const VectorStoreException(
-          'QdrantVectorStoreRepository.initialize called twice; '
-          'call close() first.');
+    // Re-init is allowed and matches the DartVectorStoreRepository contract:
+    // close any prior shard, then arm the new path. Dimension is detected
+    // lazily on the first addDocument so we don't have to commit to one
+    // before we've seen an embedding.
+    final existing = _client;
+    if (existing != null) {
+      try {
+        await existing.close();
+      } on QdrantException {
+        // Best-effort close; the handle is already orphaned at this point.
+      }
     }
-    // Defer actually opening the shard until we know the embedding
-    // dimension (first addDocument). qdrant requires dim at open time
-    // and we don't want to commit to one we don't know yet.
+    _client = null;
+    _dim = null;
     _shardPath = databasePath;
   }
 

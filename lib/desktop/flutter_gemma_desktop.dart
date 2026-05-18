@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
+
 import '../flutter_gemma_interface.dart';
 import '../model_file_manager_interface.dart';
 import '../pigeon.g.dart';
@@ -256,8 +258,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // 0.15.2: Desktop embedding now uses the same LiteRT FFI path as
       // mobile (Android + iOS). No more separate TFLiteC + Dart tokenizer
       // wiring per call site — everything lives in LitertEmbeddingModel.
-      final model = _initializedEmbeddingModel =
-          await LitertEmbeddingModel.create(
+      final model =
+          _initializedEmbeddingModel = await LitertEmbeddingModel.create(
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
         onClose: () {
@@ -327,6 +329,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     required String query,
     int topK = 5,
     double threshold = 0.0,
+    Filter? filter,
   }) async {
     if (initializedEmbeddingModel == null) {
       throw StateError(
@@ -338,6 +341,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       queryEmbedding: queryEmbedding,
       topK: topK,
       threshold: threshold,
+      filter: filter,
     );
   }
 

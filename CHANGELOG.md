@@ -1,3 +1,6 @@
+## 0.15.4
+- Auto-restore active inference model from persistent storage on `FlutterGemma.initialize()` (#227).
+
 ## 0.15.3
 - example: add TranslateGemma 4B translation demo via task-first home navigation (#177).
 

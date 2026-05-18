@@ -10,6 +10,7 @@ class MobileModelManager extends ModelFileManager {
 
     try {
       _isInitialized = true;
+      await _restoreActiveInferenceModel();
       debugPrint('UnifiedModelManager initialized successfully');
     } catch (e) {
       debugPrint('Failed to initialize UnifiedModelManager: $e');
@@ -19,6 +20,50 @@ class MobileModelManager extends ModelFileManager {
         'initialize',
       );
     }
+  }
+
+  /// Rehydrate `_activeInferenceModel` from the identity that
+  /// `setActiveModel` persisted on the previous run (#227).
+  ///
+  /// Without this, `isModelInstalled()` returns true after restart
+  /// (because the file exists) but `getActiveModel()` throws —
+  /// callers had to re-invoke `installModel()` every launch.
+  Future<void> _restoreActiveInferenceModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modelTypeName = prefs.getString(PreferencesKeys.activeInferenceModelType);
+    final fileTypeName = prefs.getString(PreferencesKeys.activeInferenceFileType);
+    final filename = prefs.getString(PreferencesKeys.activeInferenceFilename);
+
+    if (modelTypeName == null || fileTypeName == null || filename == null) {
+      return;
+    }
+
+    final ModelType modelType;
+    final ModelFileType fileType;
+    try {
+      modelType = ModelType.values.byName(modelTypeName);
+      fileType = ModelFileType.values.byName(fileTypeName);
+    } catch (e) {
+      debugPrint(
+          '[ModelManager] active model restore: unknown enum value ($modelTypeName / $fileTypeName) — skipping');
+      return;
+    }
+
+    final filePath = await ServiceRegistry.instance.fileSystemService
+        .getTargetPath(filename);
+    if (!File(filePath).existsSync()) {
+      debugPrint(
+          '[ModelManager] active model restore: file $filePath missing — skipping');
+      return;
+    }
+
+    _activeInferenceModel = InferenceModelSpec(
+      name: filename,
+      modelSource: FileSource(filePath),
+      modelType: modelType,
+      fileType: fileType,
+    );
+    debugPrint('[ModelManager] restored active inference model: $filename');
   }
 
   /// Internal method for ModelSpec-based operations
@@ -726,19 +771,41 @@ class MobileModelManager extends ModelFileManager {
   ModelSpec? get currentActiveModel =>
       _activeInferenceModel ?? _activeEmbeddingModel;
 
-  /// Sets the active model for subsequent operations
+  /// Sets the active model for subsequent operations.
   ///
   /// Automatically routes to inference or embedding based on spec type.
+  /// For inference specs, also persists `modelType` + `fileType` so the
+  /// active reference survives an app restart (#227).
   @override
   void setActiveModel(ModelSpec spec) {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
       debugPrint('✅ Set active inference model: ${spec.name}');
+      // Fire-and-forget — SharedPreferences write is cheap and the
+      // success of the operation is already reflected in memory.
+      unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
       debugPrint('✅ Set active embedding model: ${spec.name}');
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
+    }
+  }
+
+  Future<void> _persistActiveInferenceIdentity(InferenceModelSpec spec) async {
+    try {
+      final filename = spec.files
+          .firstWhere((f) => f.prefsKey == PreferencesKeys.installedModelFileName)
+          .filename;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          PreferencesKeys.activeInferenceModelType, spec.modelType.name);
+      await prefs.setString(
+          PreferencesKeys.activeInferenceFileType, spec.fileType.name);
+      await prefs.setString(
+          PreferencesKeys.activeInferenceFilename, filename);
+    } catch (e) {
+      debugPrint('[ModelManager] persistActiveInferenceIdentity failed: $e');
     }
   }
 

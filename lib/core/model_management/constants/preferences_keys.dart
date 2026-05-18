@@ -38,6 +38,24 @@ class PreferencesKeys {
   static const String embeddingTokenizerFile = 'embedding_tokenizer_file';
 
   // ============================================================================
+  // Active model identity (for auto-restore after app restart, #227)
+  // ============================================================================
+
+  /// `ModelType.name` of the currently active inference model.
+  /// Read on `FlutterGemma.initialize()` together with [activeInferenceFileType]
+  /// and [installedModelFileName] to rehydrate `_activeInferenceModel`.
+  static const String activeInferenceModelType = 'active_inference_model_type';
+
+  /// `ModelFileType.name` of the currently active inference model.
+  static const String activeInferenceFileType = 'active_inference_file_type';
+
+  /// Filename of the currently active inference model. Required because the
+  /// "installed" filename key ([installedModelFileName]) is legacy-only —
+  /// the new multi-model system tracks installs through [installedModels],
+  /// not a single filename, so we need a dedicated active-pointer.
+  static const String activeInferenceFilename = 'active_inference_filename';
+
+  // ============================================================================
   // Path mappings (dynamic keys with filename)
   // ============================================================================
 

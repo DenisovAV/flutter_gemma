@@ -429,7 +429,7 @@ No additional configuration required. `hook/build.dart` (Native Assets) download
 
 No additional configuration required. Build dependencies:
 ```bash
-sudo apt install clang cmake ninja-build libgtk-3-dev
+sudo apt install clang cmake ninja-build libgtk-3-dev lld
 ```
 
 For GPU acceleration, install the vendor Vulkan driver (NVIDIA / AMD / Intel) in addition to the Vulkan loader. Mesa's `llvmpipe` software fallback caps `maxStorageBufferRange` at 128 MB and Gemma 4 will not run on it.

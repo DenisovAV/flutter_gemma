@@ -155,7 +155,12 @@ void main() {
   // get to the qdrant measurements; disable it so the bench can finish.
   binding.defaultTestTimeout = const Timeout(Duration(hours: 1));
 
-  test('qdrant-edge benchmark — upsert + search at 1k/5k', () async {
+  // `testWidgets` (rather than plain `test`) is required for long-running
+  // integration tests on the Windows device runner — without a
+  // WidgetTester-bound test, the runner declares the test "did not
+  // complete" after ~3 minutes even though async work is still in flight.
+  testWidgets('qdrant-edge benchmark — upsert + search at 1k/5k',
+      (WidgetTester tester) async {
     // ---------- 1. Setup: embedding model + corpus + output dir ----------
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()

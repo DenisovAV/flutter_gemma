@@ -143,7 +143,12 @@ void main() {
   // bench can finish on slower targets.
   binding.defaultTestTimeout = const Timeout(Duration(hours: 1));
 
-  test('DartVectorStore baseline — upsert + search at 1k/5k', () async {
+  // `testWidgets` (rather than plain `test`) is required for long-running
+  // integration tests on the Windows device runner — without a
+  // WidgetTester-bound test, the runner declares the test "did not
+  // complete" after ~3 minutes even though async work is still in flight.
+  testWidgets('DartVectorStore baseline — upsert + search at 1k/5k',
+      (WidgetTester tester) async {
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)

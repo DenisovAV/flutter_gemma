@@ -9,14 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 const _modelPath =
-    'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
+    'assets/models/embeddinggemma-700M_seq256_mixed-precision.tflite';
 const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(minutes: 30));
 
-  testWidgets('embed 300 times', (WidgetTester tester) async {
+  testWidgets('embed 700 times', (WidgetTester tester) async {
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)
@@ -24,12 +24,12 @@ void main() {
         .install();
     final embedder = await FlutterGemma.getActiveEmbedder();
     final sw = Stopwatch()..start();
-    for (var i = 0; i < 300; i++) {
+    for (var i = 0; i < 700; i++) {
       final v = await embedder.generateEmbedding('test text $i');
       if ((i + 1) % 10 == 0) {
         // ignore: avoid_print
         print(
-            '[repro] embedded ${i + 1}/300 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
+            '[repro] embedded ${i + 1}/700 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
       }
     }
     sw.stop();

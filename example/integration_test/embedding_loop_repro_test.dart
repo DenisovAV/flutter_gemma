@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 const _modelPath =
-    'assets/models/embeddinggemma-700M_seq256_mixed-precision.tflite';
+    'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
 const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 void main() {

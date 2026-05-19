@@ -16,7 +16,7 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(minutes: 30));
 
-  testWidgets('embed 10 times', (WidgetTester tester) async {
+  testWidgets('embed 100 times', (WidgetTester tester) async {
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)

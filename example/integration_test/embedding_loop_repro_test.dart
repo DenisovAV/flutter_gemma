@@ -1,8 +1,10 @@
-// Minimal repro: how many sequential EmbeddingGemma calls can a Windows
-// integration_test runner survive before "did not complete" kills it?
+// Minimal repro: 500 sequential EmbeddingGemma calls with LONG texts
+// (lorem chunks, ~50-150 tokens each — same shape as our bench).
 //
 // Run:
 //   cd example && flutter test integration_test/embedding_loop_repro_test.dart -d windows
+
+import 'dart:math' as math;
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,24 +14,114 @@ const _modelPath =
     'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
 const _tokenizerPath = 'assets/models/sentencepiece.model';
 
+// Same word pool the real bench uses.
+const _loremWords = [
+  'lorem',
+  'ipsum',
+  'dolor',
+  'sit',
+  'amet',
+  'consectetur',
+  'adipiscing',
+  'elit',
+  'sed',
+  'do',
+  'eiusmod',
+  'tempor',
+  'incididunt',
+  'ut',
+  'labore',
+  'magna',
+  'aliqua',
+  'enim',
+  'ad',
+  'minim',
+  'veniam',
+  'quis',
+  'nostrud',
+  'exercitation',
+  'ullamco',
+  'laboris',
+  'nisi',
+  'aliquip',
+  'ex',
+  'ea',
+  'commodo',
+  'consequat',
+  'duis',
+  'aute',
+  'irure',
+  'in',
+  'reprehenderit',
+  'voluptate',
+  'velit',
+  'esse',
+  'cillum',
+  'dolore',
+  'eu',
+  'fugiat',
+  'nulla',
+  'pariatur',
+  'excepteur',
+  'sint',
+  'occaecat',
+  'cupidatat',
+  'non',
+  'proident',
+  'sunt',
+  'culpa',
+  'qui',
+  'officia',
+  'deserunt',
+  'mollit',
+  'anim',
+  'id',
+  'laborum',
+  'curabitur',
+  'pretium',
+  'tincidunt',
+  'lacus',
+  'gravida',
+  'orci',
+  'a',
+  'odio',
+  'nullam',
+  'varius',
+  'turpis',
+  'et',
+];
+
+String _chunk(math.Random rng, int wordCount) {
+  final words = List.generate(
+      wordCount, (_) => _loremWords[rng.nextInt(_loremWords.length)]);
+  return words.join(' ');
+}
+
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(minutes: 30));
 
-  testWidgets('embed 700 times', (WidgetTester tester) async {
+  testWidgets('embed 500 long lorem chunks', (WidgetTester tester) async {
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)
         .tokenizerFromAsset(_tokenizerPath)
         .install();
     final embedder = await FlutterGemma.getActiveEmbedder();
+
+    final rng = math.Random(42);
+    final texts = List.generate(500, (_) => _chunk(rng, 30 + rng.nextInt(50)));
+    // ignore: avoid_print
+    print(
+        '[repro] generated 500 lorem chunks, avg ${(texts.fold<int>(0, (s, t) => s + t.length) / texts.length).round()} chars');
+
     final sw = Stopwatch()..start();
-    for (var i = 0; i < 700; i++) {
-      final v = await embedder.generateEmbedding('test text $i');
-      if ((i + 1) % 10 == 0) {
+    for (var i = 0; i < texts.length; i++) {
+      final v = await embedder.generateEmbedding(texts[i]);
+      if ((i + 1) % 25 == 0) {
         // ignore: avoid_print
         print(
-            '[repro] embedded ${i + 1}/700 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
+            '[repro] embedded ${i + 1}/500 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
       }
     }
     sw.stop();

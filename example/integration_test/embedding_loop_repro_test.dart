@@ -24,11 +24,13 @@ void main() {
         .install();
     final embedder = await FlutterGemma.getActiveEmbedder();
     final sw = Stopwatch()..start();
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 100; i++) {
       final v = await embedder.generateEmbedding('test text $i');
-      // ignore: avoid_print
-      print(
-          '[repro] embedded ${i + 1}/10 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
+      if ((i + 1) % 10 == 0) {
+        // ignore: avoid_print
+        print(
+            '[repro] embedded ${i + 1}/100 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
+      }
     }
     sw.stop();
     // ignore: avoid_print

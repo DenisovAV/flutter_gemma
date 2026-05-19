@@ -1,17 +1,23 @@
-// Generate 5000 EmbeddingGemma vectors (768D) from deterministic lorem
-// chunks (seed=42, same word distribution as the bench) and cache them
-// to disk so the parallel bench can read them back without spending
-// 20-25 minutes on embedding inference each run.
+// Embed a slice of the deterministic 5000-lorem-chunk corpus and append
+// the resulting 768D vectors into a JSON cache on disk. Designed to be
+// run multiple times with different slice bounds (RANGE_FROM/RANGE_TO)
+// because the Windows desktop integration_test runner has a hard ~3:20
+// kill that prevents a single 5000-call loop from finishing.
 //
-// Splits the work into chunks of 500 with embedder.close() + reopen
-// between chunks to avoid whatever resource-accumulation issue on the
-// Windows desktop runner kills a single 5000-call loop at ~03:23.
-//
-// Run:
-//   cd example && flutter test integration_test/embedding_cache_builder_test.dart -d windows
+// Usage:
+//   cd example
+//   flutter test --ignore-timeouts \
+//     --dart-define=RANGE_FROM=0 --dart-define=RANGE_TO=2500 \
+//     integration_test/embedding_cache_builder_test.dart -d windows
+//   flutter test --ignore-timeouts \
+//     --dart-define=RANGE_FROM=2500 --dart-define=RANGE_TO=5000 \
+//     integration_test/embedding_cache_builder_test.dart -d windows
 //
 // Output: <ApplicationSupportDirectory>/embeddings_cache_5000_768d.json
-// Read by vector_store_benchmark_cached_test.dart.
+//   On the first run the file is created with `count = 5000` placeholder
+//   slots and the requested slice is filled. Subsequent runs read the
+//   existing file, fill their slice, and write back. When `RANGE_TO` ==
+//   `TOTAL_DOCS` the file is considered complete.
 
 import 'dart:convert';
 import 'dart:io';
@@ -27,7 +33,11 @@ const _modelPath =
 const _tokenizerPath = 'assets/models/sentencepiece.model';
 
 const _totalDocs = 5000;
-const _chunkSize = 500;
+const _expectedDim = 768;
+
+// Slice bounds — overridden via --dart-define for batched runs.
+const _rangeFrom = int.fromEnvironment('RANGE_FROM', defaultValue: 0);
+const _rangeTo = int.fromEnvironment('RANGE_TO', defaultValue: _totalDocs);
 
 const _loremWords = [
   'lorem',
@@ -115,68 +125,84 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(hours: 2));
 
-  testWidgets('build embedding cache (5000 × 768D)',
+  testWidgets('build embedding cache slice [$_rangeFrom..$_rangeTo)',
       (WidgetTester tester) async {
     await tester.runAsync(() async {
+      expect(_rangeFrom < _rangeTo, isTrue,
+          reason: 'RANGE_FROM must be < RANGE_TO');
+      expect(_rangeTo <= _totalDocs, isTrue,
+          reason: 'RANGE_TO must be <= $_totalDocs');
+
       await FlutterGemma.initialize();
       await FlutterGemma.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)
           .install();
+      final embedder = await FlutterGemma.getActiveEmbedder();
 
+      // Always regenerate the full deterministic text list — same seed
+      // produces the same texts regardless of slice.
       final rng = math.Random(42);
       final texts =
           List.generate(_totalDocs, (_) => _chunk(rng, 30 + rng.nextInt(50)));
       // ignore: avoid_print
-      print('[cache] generated $_totalDocs lorem chunks');
+      print('[cache] full corpus regenerated (seed=42), '
+          'slice [$_rangeFrom..$_rangeTo)');
 
-      final allVectors = <List<double>>[];
-      final overallSw = Stopwatch()..start();
-
-      for (var chunkStart = 0;
-          chunkStart < _totalDocs;
-          chunkStart += _chunkSize) {
-        final chunkEnd = math.min(chunkStart + _chunkSize, _totalDocs);
-        final chunkSw = Stopwatch()..start();
-
-        // Fresh embedder per chunk.
-        final embedder = await FlutterGemma.getActiveEmbedder();
-
-        for (var i = chunkStart; i < chunkEnd; i++) {
-          allVectors.add(await embedder.generateEmbedding(texts[i]));
-        }
-        chunkSw.stop();
-
-        // Release native resources before the next chunk.
-        await embedder.close();
-        await Future.delayed(const Duration(seconds: 1));
-
+      // Load existing cache or initialize a fresh placeholder list.
+      final base = await getApplicationSupportDirectory();
+      final cacheFile = File(
+          '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json');
+      List<List<double>?> slots;
+      Map<String, dynamic> meta;
+      if (cacheFile.existsSync()) {
+        final raw =
+            jsonDecode(cacheFile.readAsStringSync()) as Map<String, dynamic>;
+        meta = raw;
+        slots = (raw['vectors'] as List).map((v) {
+          if (v is List && v.isNotEmpty) {
+            return v.cast<num>().map((e) => e.toDouble()).toList();
+          }
+          return null;
+        }).toList();
         // ignore: avoid_print
-        print('[cache] chunk ${chunkStart ~/ _chunkSize + 1}/'
-            '${_totalDocs ~/ _chunkSize}: '
-            'embedded ${chunkEnd - chunkStart} in ${chunkSw.elapsed.inSeconds}s '
-            '(total ${allVectors.length}/$_totalDocs, '
-            '${overallSw.elapsed.inSeconds}s elapsed)');
+        print('[cache] loaded existing file with '
+            '${slots.where((s) => s != null).length}/${slots.length} slots filled');
+      } else {
+        slots = List<List<double>?>.filled(_totalDocs, null);
+        meta = <String, dynamic>{
+          'count': _totalDocs,
+          'dim': _expectedDim,
+          'seed': 42,
+          'corpus_chars_per_doc_avg':
+              (texts.fold<int>(0, (s, t) => s + t.length) / texts.length)
+                  .round(),
+        };
+        // ignore: avoid_print
+        print('[cache] no existing file — initialized $_totalDocs empty slots');
       }
 
-      overallSw.stop();
+      final sw = Stopwatch()..start();
+      for (var i = _rangeFrom; i < _rangeTo; i++) {
+        slots[i] = await embedder.generateEmbedding(texts[i]);
+        if ((i - _rangeFrom + 1) % 100 == 0) {
+          // ignore: avoid_print
+          print('[cache] embedded ${i + 1} '
+              '(${sw.elapsed.inSeconds}s elapsed for slice)');
+        }
+      }
+      sw.stop();
       // ignore: avoid_print
-      print('[cache] all $_totalDocs vectors generated in '
-          '${overallSw.elapsed.inSeconds}s');
+      print('[cache] slice complete in ${sw.elapsed.inSeconds}s');
 
-      final dim = allVectors.first.length;
-      final out = File(
-          '${(await getApplicationSupportDirectory()).path}/embeddings_cache_${_totalDocs}_${dim}d.json');
-      out.writeAsStringSync(jsonEncode({
-        'count': _totalDocs,
-        'dim': dim,
-        'seed': 42,
-        'corpus_chars_per_doc_avg':
-            (texts.fold<int>(0, (s, t) => s + t.length) / texts.length).round(),
-        'vectors': allVectors,
-      }));
+      // Persist: replace empty placeholder slots with [] for missing
+      // entries (so JSON encoder doesn't choke on nulls) and write.
+      meta['vectors'] = slots.map((v) => v ?? const <double>[]).toList();
+      cacheFile.writeAsStringSync(jsonEncode(meta));
+      final filled = slots.where((s) => s != null && s.isNotEmpty).length;
       // ignore: avoid_print
-      print('[cache] written: ${out.path}');
+      print(
+          '[cache] written: ${cacheFile.path} — $filled/$_totalDocs slots filled');
     });
   });
 }

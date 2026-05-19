@@ -16,7 +16,7 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(minutes: 30));
 
-  testWidgets('embed 100 times', (WidgetTester tester) async {
+  testWidgets('embed 300 times', (WidgetTester tester) async {
     await FlutterGemma.initialize();
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)
@@ -24,12 +24,12 @@ void main() {
         .install();
     final embedder = await FlutterGemma.getActiveEmbedder();
     final sw = Stopwatch()..start();
-    for (var i = 0; i < 100; i++) {
+    for (var i = 0; i < 300; i++) {
       final v = await embedder.generateEmbedding('test text $i');
       if ((i + 1) % 10 == 0) {
         // ignore: avoid_print
         print(
-            '[repro] embedded ${i + 1}/100 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
+            '[repro] embedded ${i + 1}/300 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
       }
     }
     sw.stop();

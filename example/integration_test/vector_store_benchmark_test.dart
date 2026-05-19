@@ -149,7 +149,11 @@ class _LatencyStats {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // Embedding 5000 chunks via EmbeddingGemma on a CPU-only Windows VM
+  // takes ~25 min. The per-test default timeout (12 min) trips before we
+  // get to the qdrant measurements; disable it so the bench can finish.
+  binding.defaultTestTimeout = const Timeout(Duration(hours: 1));
 
   test('qdrant-edge benchmark — upsert + search at 1k/5k', () async {
     // ---------- 1. Setup: embedding model + corpus + output dir ----------

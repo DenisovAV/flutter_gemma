@@ -136,7 +136,12 @@ class _LatencyStats {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // Embedding 5000 chunks via EmbeddingGemma on a CPU-only Windows VM
+  // takes ~25 min, plus the legacy Dart HNSW takes another ~10 min to
+  // upsert 5k. Disable the per-test default timeout (12 min) so the
+  // bench can finish on slower targets.
+  binding.defaultTestTimeout = const Timeout(Duration(hours: 1));
 
   test('DartVectorStore baseline — upsert + search at 1k/5k', () async {
     await FlutterGemma.initialize();

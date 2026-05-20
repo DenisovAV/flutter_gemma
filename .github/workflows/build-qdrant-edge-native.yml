@@ -1,0 +1,185 @@
+name: Build Qdrant Edge Native Libraries
+
+# Builds the qdrant_edge_ffi cdylib for the 3 platforms where we don't have
+# a local toolchain (Linux x86_64/arm64, Windows x86_64). The 4 remaining
+# platforms (macOS arm64, iOS arm64 device/simulator, Android arm64) are
+# built locally on the maintainer's mac via native/qdrant_edge/build_local.sh
+# and uploaded to the same GitHub Release.
+#
+# Mirrors the structure of .github/workflows/build-litertlm-native.yml so
+# that maintainers see one consistent shape for both native build pipelines.
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+      # Feature branch for the qdrant-edge integration — removed once merged.
+      - 'feat/qdrant-edge-integration'
+    paths:
+      - '.github/workflows/build-qdrant-edge-native.yml'
+      - 'native/qdrant_edge/qdrant_edge_ffi/**'
+      - 'native/qdrant_edge/vendored/**'
+  workflow_dispatch:
+    inputs:
+      qdrant_edge_version:
+        description: 'qdrant-edge release suffix (e.g. 0.6.1-flutter1)'
+        required: true
+        default: '0.6.1-flutter1'
+      publish_release:
+        description: 'Publish to GitHub Release'
+        type: boolean
+        default: false
+
+jobs:
+  build-linux-x86_64:
+    name: Linux x86_64
+    # Pin to ubuntu-22.04 (glibc 2.35) for broader compatibility, matching
+    # build-litertlm-native.yml. Our dylib needs only the libc symbols Rust
+    # itself uses, so any glibc 2.34+ host works.
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-gnu
+          components: ''
+
+      - name: Build libqdrant_edge_ffi.so
+        working-directory: native/qdrant_edge/qdrant_edge_ffi
+        run: cargo build --release --target x86_64-unknown-linux-gnu
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp native/qdrant_edge/qdrant_edge_ffi/target/x86_64-unknown-linux-gnu/release/libqdrant_edge_ffi.so artifacts/
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qdrant-edge-linux_x86_64
+          path: artifacts/
+
+  build-linux-arm64:
+    name: Linux arm64
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          components: ''
+
+      - name: Build libqdrant_edge_ffi.so
+        working-directory: native/qdrant_edge/qdrant_edge_ffi
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p artifacts
+          cp native/qdrant_edge/qdrant_edge_ffi/target/aarch64-unknown-linux-gnu/release/libqdrant_edge_ffi.so artifacts/
+          ls -lh artifacts/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qdrant-edge-linux_arm64
+          path: artifacts/
+
+  build-windows-x86_64:
+    name: Windows x86_64
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          components: ''
+
+      - name: Build qdrant_edge_ffi.dll
+        working-directory: native/qdrant_edge/qdrant_edge_ffi
+        run: cargo build --release --target x86_64-pc-windows-msvc
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path artifacts -Force
+          Copy-Item native\qdrant_edge\qdrant_edge_ffi\target\x86_64-pc-windows-msvc\release\qdrant_edge_ffi.dll artifacts\
+          Get-ChildItem artifacts\
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qdrant-edge-windows_x86_64
+          path: artifacts/
+
+  publish-release:
+    name: Publish to GitHub Release
+    needs: [build-linux-x86_64, build-linux-arm64, build-windows-x86_64]
+    if: inputs.publish_release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # Pipe workflow_dispatch input through env to avoid shell interpolation
+      # of user-controlled fields in run: steps (workflow injection safety).
+      QDRANT_EDGE_VERSION: ${{ inputs.qdrant_edge_version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Package archives
+        run: |
+          mkdir -p release
+          for dir_name in linux_x86_64 linux_arm64 windows_x86_64; do
+            dir="artifacts/qdrant-edge-${dir_name}"
+            archive="qdrant-edge-${dir_name}.tar.gz"
+            if [ -d "$dir" ]; then
+              tar -czf "release/${archive}" -C "$dir" .
+              echo "Packaged: ${archive}"
+            fi
+          done
+          cd release && sha256sum *.tar.gz > checksums_qdrant_edge_ci.txt
+          cat checksums_qdrant_edge_ci.txt
+
+      - name: Delete old CI assets from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="qdrant-edge-v${QDRANT_EDGE_VERSION}"
+          for asset in qdrant-edge-linux_x86_64.tar.gz qdrant-edge-linux_arm64.tar.gz qdrant-edge-windows_x86_64.tar.gz checksums_qdrant_edge_ci.txt; do
+            gh release delete-asset "$tag" "$asset" -y 2>/dev/null || true
+          done
+
+      - name: Create/update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: qdrant-edge-v${{ env.QDRANT_EDGE_VERSION }}
+          name: Qdrant Edge Native Libraries ${{ env.QDRANT_EDGE_VERSION }}
+          body: |
+            qdrant_edge_ffi prebuilt dylibs/sos for flutter_gemma, built from
+            the vendored fork of qdrant-edge ${{ env.QDRANT_EDGE_VERSION }}
+            with the WAL options patch (upstream PR
+            https://github.com/qdrant/qdrant/pull/9067).
+
+            Platforms in this CI build:
+            - Linux x86_64
+            - Linux arm64
+            - Windows x86_64
+
+            macOS arm64, iOS arm64 device/simulator and Android arm64 archives
+            are uploaded separately after local builds on the maintainer's
+            machine via native/qdrant_edge/build_local.sh.
+          files: release/*
+          fail_on_unmatched_files: false

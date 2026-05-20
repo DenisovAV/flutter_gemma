@@ -1,0 +1,155 @@
+use std::borrow::Cow;
+
+use crate::common::counter::hardware_counter::HardwareCounterCell;
+use crate::common::typelevel::False;
+use crate::common::types::{PointOffsetType, ScoreType};
+use crate::quantization::EncodedVectors;
+
+use crate::segment::data_types::named_vectors::CowMultiVector;
+use crate::segment::data_types::primitive::PrimitiveVectorElement;
+use crate::segment::data_types::vectors::{MultiDenseVectorInternal, TypedMultiDenseVector};
+use crate::segment::spaces::metric::Metric;
+use crate::segment::types::QuantizationConfig;
+use crate::segment::vector_storage::quantized::quantized_multivector_storage::{
+    MultivectorOffset, MultivectorOffsets, MultivectorOffsetsStorage, QuantizedMultivectorStorage,
+};
+use crate::segment::vector_storage::query::{Query, TransformInto};
+use crate::segment::vector_storage::query_scorer::QueryScorer;
+
+pub struct QuantizedMultiCustomQueryScorer<'a, QuantizedStorage, OffsetStorage, TQuery>
+where
+    QuantizedStorage: crate::quantization::EncodedVectors,
+    OffsetStorage: MultivectorOffsetsStorage,
+    TQuery: Query<Vec<QuantizedStorage::EncodedQuery>>,
+{
+    query: TQuery,
+    quantized_multivector_storage: &'a QuantizedMultivectorStorage<QuantizedStorage, OffsetStorage>,
+    hardware_counter: HardwareCounterCell,
+}
+
+impl<'a, QuantizedStorage, OffsetStorage, TQuery>
+    QuantizedMultiCustomQueryScorer<'a, QuantizedStorage, OffsetStorage, TQuery>
+where
+    QuantizedStorage: crate::quantization::EncodedVectors,
+    OffsetStorage: MultivectorOffsetsStorage,
+    TQuery: Query<Vec<QuantizedStorage::EncodedQuery>>,
+{
+    pub fn new_multi<TElement, TMetric, TOriginalQuery, TInputQuery>(
+        raw_query: TInputQuery,
+        quantized_multivector_storage: &'a QuantizedMultivectorStorage<
+            QuantizedStorage,
+            OffsetStorage,
+        >,
+        quantization_config: &QuantizationConfig,
+        mut hardware_counter: HardwareCounterCell,
+    ) -> Self
+    where
+        TElement: PrimitiveVectorElement,
+        TMetric: Metric<TElement>,
+        TOriginalQuery: Query<TypedMultiDenseVector<TElement>>
+            + TransformInto<
+                TQuery,
+                TypedMultiDenseVector<TElement>,
+                Vec<QuantizedStorage::EncodedQuery>,
+            > + Clone,
+        TInputQuery: Query<MultiDenseVectorInternal>
+            + TransformInto<TOriginalQuery, MultiDenseVectorInternal, TypedMultiDenseVector<TElement>>,
+    {
+        let original_query: TOriginalQuery = raw_query
+            .transform(|vector| {
+                let mut preprocessed = Vec::new();
+                for slice in vector.multi_vectors() {
+                    preprocessed.extend_from_slice(&TMetric::preprocess(slice.to_vec()));
+                }
+                let preprocessed = MultiDenseVectorInternal::new(preprocessed, vector.dim);
+                let converted =
+                    TElement::from_float_multivector(CowMultiVector::Owned(preprocessed))
+                        .to_owned();
+                Ok(converted)
+            })
+            .unwrap();
+
+        let query: TQuery = original_query
+            .transform(|original_vector| {
+                let original_vector_prequantized = TElement::quantization_preprocess(
+                    quantization_config,
+                    TMetric::distance(),
+                    Cow::Borrowed(&original_vector.flattened_vectors),
+                );
+                Ok(quantized_multivector_storage.encode_query(&original_vector_prequantized))
+            })
+            .unwrap();
+
+        hardware_counter.set_cpu_multiplier(size_of::<TElement>());
+
+        hardware_counter
+            .set_vector_io_read_multiplier(usize::from(quantized_multivector_storage.is_on_disk()));
+
+        Self {
+            query,
+            quantized_multivector_storage,
+            hardware_counter,
+        }
+    }
+}
+
+impl<QuantizedStorage, OffsetStorage, TQuery> QueryScorer
+    for QuantizedMultiCustomQueryScorer<'_, QuantizedStorage, OffsetStorage, TQuery>
+where
+    QuantizedStorage: crate::quantization::EncodedVectors,
+    OffsetStorage: MultivectorOffsetsStorage,
+    TQuery: Query<Vec<QuantizedStorage::EncodedQuery>>,
+{
+    type TVector = ();
+
+    fn score_stored_batch(&self, ids: &[PointOffsetType], scores: &mut [ScoreType]) {
+        debug_assert_eq!(ids.len(), scores.len());
+
+        self.hardware_counter
+            .vector_io_read()
+            .incr_delta(size_of::<MultivectorOffset>() * ids.len());
+
+        for (idx, offset) in self.quantized_multivector_storage.iter_offsets(ids) {
+            self.hardware_counter.vector_io_read().incr_delta(
+                self.quantized_multivector_storage.quantized_vector_size() * offset.count as usize,
+            );
+
+            scores[idx] = self.query.score_by(|query| {
+                // quantized multivector storage handles CPU hardware counter
+                self.quantized_multivector_storage.score_multi(
+                    query,
+                    offset,
+                    &self.hardware_counter,
+                )
+            });
+        }
+    }
+
+    fn score_stored(&self, idx: PointOffsetType) -> ScoreType {
+        let multi_vector_offset = self.quantized_multivector_storage.get_offset(idx);
+        let sub_vectors_count = multi_vector_offset.count as usize;
+        // compute vector IO read once for all examples
+        self.hardware_counter.vector_io_read().incr_delta(
+            size_of::<MultivectorOffset>()
+                + self.quantized_multivector_storage.quantized_vector_size() * sub_vectors_count,
+        );
+        self.query.score_by(|this| {
+            // quantized multivector storage handles hardware counter to batch vector IO
+            self.quantized_multivector_storage
+                .score_point(this, idx, &self.hardware_counter)
+        })
+    }
+
+    fn score(&self, _v2: &()) -> ScoreType {
+        unimplemented!("This method is not expected to be called for quantized scorer");
+    }
+
+    fn score_internal(&self, _point_a: PointOffsetType, _point_b: PointOffsetType) -> ScoreType {
+        unimplemented!("Custom scorer compares against multiple vectors, not just one")
+    }
+
+    type SupportsBytes = False;
+    fn score_bytes(&self, enabled: Self::SupportsBytes, _: &[u8]) -> ScoreType {
+        match enabled {}
+    }
+}

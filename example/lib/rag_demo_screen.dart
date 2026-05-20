@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -44,8 +46,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   int _addTimeMs = 0;
   int _searchTimeMs = 0;
 
-  /// HNSW enabled flag - for testing performance difference
-  bool _enableHnsw = true;
+  /// Selected category for the payload-aware `Filter` demo. `null` = no filter
+  /// (every document is eligible). Demonstrates qdrant-edge's payload predicate.
+  String? _categoryFilter;
 
   @override
   void initState() {
@@ -61,7 +64,8 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
   Future<void> _checkEmbeddingModel() async {
     // Check if embedding model is already initialized
-    final hasModel = FlutterGemmaPlugin.instance.initializedEmbeddingModel != null;
+    final hasModel =
+        FlutterGemmaPlugin.instance.initializedEmbeddingModel != null;
 
     setState(() {
       _hasEmbeddingModel = hasModel;
@@ -89,13 +93,11 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
       final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
 
-      // Sync HNSW toggle with current state
-      FlutterGemmaPlugin.instance.enableHnsw = _enableHnsw;
-
       setState(() {
         _isInitialized = true;
         _stats = stats;
-        _statusMessage = 'VectorStore initialized! ${stats.documentCount} documents stored.';
+        _statusMessage =
+            'VectorStore initialized! ${stats.documentCount} documents stored.';
         _isLoading = false;
       });
     } catch (e) {
@@ -125,19 +127,23 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       final contents = sampleDocuments.map((d) => d['content']!).toList();
 
       // Batch embedding - one call instead of multiple
-      final embeddingModel = FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
+      final embeddingModel =
+          FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
       final embeddings = await embeddingModel.generateEmbeddings(
         contents,
         taskType: TaskType.retrievalDocument,
       );
 
-      // Add documents with pre-computed embeddings
+      // Add documents with pre-computed embeddings. The `category` is
+      // serialised into the payload so the search step can filter on it via
+      // qdrant-edge's `Filter` DSL.
       for (int i = 0; i < sampleDocuments.length; i++) {
+        final category = sampleDocuments[i]['category'] ?? 'general';
         await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
           id: sampleDocuments[i]['id']!,
           content: sampleDocuments[i]['content']!,
           embedding: embeddings[i],
-          metadata: '{"source": "sample"}',
+          metadata: jsonEncode({'category': category}),
         );
       }
 
@@ -148,7 +154,8 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       setState(() {
         _stats = stats;
         _addTimeMs = stopwatch.elapsedMilliseconds;
-        _statusMessage = 'Added ${sampleDocuments.length} documents in ${_addTimeMs}ms';
+        _statusMessage =
+            'Added ${sampleDocuments.length} documents in ${_addTimeMs}ms';
         _isLoading = false;
       });
     } catch (e) {
@@ -212,10 +219,18 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
     final stopwatch = Stopwatch()..start();
 
     try {
+      // Build payload predicate from the selected category. `null` means no
+      // filter — qdrant-edge returns the global top-K.
+      final category = _categoryFilter;
+      final filter = category == null
+          ? null
+          : Filter(must: [FieldEquals(key: 'category', value: category)]);
+
       final results = await FlutterGemmaPlugin.instance.searchSimilar(
         query: query,
         topK: _topK,
         threshold: _threshold,
+        filter: filter,
       );
 
       stopwatch.stop();
@@ -223,7 +238,10 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       setState(() {
         _results = results;
         _searchTimeMs = stopwatch.elapsedMilliseconds;
-        _statusMessage = 'Found ${results.length} results in ${_searchTimeMs}ms';
+        final filterDesc =
+            _categoryFilter == null ? 'no filter' : 'category=$_categoryFilter';
+        _statusMessage =
+            'Found ${results.length} results in ${_searchTimeMs}ms ($filterDesc)';
         _isLoading = false;
       });
     } catch (e) {
@@ -238,6 +256,10 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
   void _showError(String message) {
     debugPrint('[RagDemo] ERROR: $message');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override
@@ -261,7 +283,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
             // Initialize Button
             if (!_isInitialized)
               ElevatedButton.icon(
-                onPressed: _isLoading || !_hasEmbeddingModel ? null : _initializeVectorStore,
+                onPressed: _isLoading || !_hasEmbeddingModel
+                    ? null
+                    : _initializeVectorStore,
                 icon: _isLoading
                     ? const SizedBox(
                         width: 16,
@@ -276,38 +300,44 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
               ),
 
             if (_isInitialized) ...[
-              // HNSW Toggle
+              // Payload Filter chips — demonstrates qdrant-edge's Filter DSL.
+              // Selecting a category constrains the next search to docs whose
+              // payload metadata matches `category == <selected>`. On the
+              // legacy backend / Web the filter is silently ignored.
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'HNSW Indexing',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            _enableHnsw ? 'O(log n) search' : 'O(n) brute-force',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
+                      const Text(
+                        'Search Filter (qdrant-edge payload Filter)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      Switch(
-                        value: _enableHnsw,
-                        onChanged: (value) {
-                          setState(() {
-                            _enableHnsw = value;
-                            FlutterGemmaPlugin.instance.enableHnsw = value;
-                          });
-                          debugPrint('[RagDemo] HNSW enabled: $value');
-                        },
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ChoiceChip(
+                            label: const Text('All'),
+                            selected: _categoryFilter == null,
+                            onSelected: (selected) {
+                              if (selected) {
+                                setState(() => _categoryFilter = null);
+                              }
+                            },
+                          ),
+                          for (final cat in sampleCategories)
+                            ChoiceChip(
+                              label: Text('category = $cat'),
+                              selected: _categoryFilter == cat,
+                              onSelected: (selected) {
+                                setState(() {
+                                  _categoryFilter = selected ? cat : null;
+                                });
+                              },
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -330,7 +360,8 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
                 isLoading: _isLoading,
                 searchTimeMs: _searchTimeMs,
                 onSearch: _search,
-                onThresholdChanged: (value) => setState(() => _threshold = value),
+                onThresholdChanged: (value) =>
+                    setState(() => _threshold = value),
                 onTopKChanged: (value) => setState(() => _topK = value),
               ),
               const SizedBox(height: 24),

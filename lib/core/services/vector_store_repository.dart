@@ -1,3 +1,4 @@
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
 /// Abstract repository for vector store operations
@@ -76,6 +77,11 @@ abstract class VectorStoreRepository {
   /// - [queryEmbedding]: Query vector (must match stored dimension)
   /// - [topK]: Maximum number of results to return
   /// - [threshold]: Minimum similarity score (0.0 to 1.0, default 0.0)
+  /// - [filter]: Optional payload predicate. Honored by implementations that
+  ///   support it (qdrant-edge on native); silently ignored by others
+  ///   (wa-sqlite on Web, legacy SQLite+HNSW). Passing a non-empty filter
+  ///   on an implementation that ignores it returns the same hits as
+  ///   `filter: null` — never throws.
   ///
   /// Returns:
   /// - List of [RetrievalResult] sorted by similarity (highest first)
@@ -87,6 +93,7 @@ abstract class VectorStoreRepository {
     required List<double> queryEmbedding,
     required int topK,
     double threshold = 0.0,
+    Filter? filter,
   });
 
   /// Get vector store statistics

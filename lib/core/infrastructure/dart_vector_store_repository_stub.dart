@@ -1,8 +1,11 @@
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
 /// Stub for DartVectorStoreRepository on web/WASM platforms.
 /// Web uses WebVectorStoreRepository (wa-sqlite) instead.
+@Deprecated(
+    'Use QdrantVectorStoreRepository on native; will be removed in 1.0.')
 class DartVectorStoreRepository implements VectorStoreRepository {
   @override
   bool get isInitialized => false;
@@ -35,6 +38,7 @@ class DartVectorStoreRepository implements VectorStoreRepository {
     required List<double> queryEmbedding,
     required int topK,
     double threshold = 0.0,
+    Filter? filter,
   }) async =>
       throw UnimplementedError(
           'DartVectorStoreRepository is not available on web');

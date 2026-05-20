@@ -26,6 +26,12 @@
 - If `flutter test` hangs on "Dart VM Service was not discovered" or fails with "Cannot start app on wirelessly tethered iOS device", fix iPhone/macOS USB tunnel (Personal Hotspot off, iPhone USB enabled in Network settings, Trust dialog) — do NOT switch to `flutter drive` as a workaround
 - `flutter drive` is forbidden in this project, full stop
 
+## Rule 7: CHANGELOG ENTRIES ARE ONE LINE ⛔
+- Every `## X.Y.Z` bullet must fit on a single short line (~10-15 words)
+- No multi-sentence explanations, no embedded paragraphs in CHANGELOG.md
+- Detailed context (what was broken / how it's fixed / migration) goes into the release post (LinkedIn / blog), not CHANGELOG
+- Match the existing 0.15.x entries' brevity
+
 ---
 
 ## Project Overview
@@ -114,7 +120,8 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.11.0-b` GitHub Release. Windows tarball built from upstream `google-ai-edge/LiteRT-LM` commit `62f7a8e` and bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. Other 6 platforms unchanged from -a (commit `032334d`). Native Assets bundled — same `.so`/`.dylib`/`.dll` set on all platforms. `-c opt --strip=always` build; retains vtool minos patch (26.2 → 16.0) on iOS `libGemmaModelConstraintProvider.dylib` and 16KB page alignment on Android `libLiteRtLm.so`. MTP (speculative decoding) support for Gemma 4.
-- **Current Version**: 0.15.2 — embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
+- **Current Version**: 0.16.0 — native vector store switched to qdrant-edge by default. Replaces `DartVectorStoreRepository` (sqlite3 + `local_hnsw`) on every native platform; Web stays on `WebVectorStoreRepository` (wa-sqlite). Adds `Filter` DSL to `searchSimilar`. Old impl `@Deprecated`. Upstream tracking: qdrant/qdrant#9067.
+- **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
 
@@ -175,6 +182,17 @@ flutter analyze && dart format . && flutter test
 | `lib/core/ffi/ffi_inference_model.dart` | Shared FFI inference model (used by mobile + desktop) |
 | `lib/core/litert/litert_bindings.dart` | Hand-written dart:ffi bindings to LiteRT C API (embeddings); dual MSVC/POSIX `LiteRtLayout` structs |
 | `lib/core/litert/litert_embedding_model.dart` | Shared embedding model — Gecko / EmbeddingGemma `.tflite` on all 5 native platforms |
+| `lib/core/qdrant/qdrant_edge_bindings.dart` | ffigen-generated dart:ffi bindings to the qdrant_edge_ffi shim (0.16.0+) |
+| `lib/core/qdrant/qdrant_edge_client.dart` | High-level Dart wrapper around `QdrantEdgeBindings` (shard lifecycle, Finalizer, JSON marshalling) |
+| `lib/core/qdrant/point_id_hasher.dart` | UUIDv5 hash mapping arbitrary `String id` → qdrant `PointId::Uuid` |
+| `lib/core/qdrant/filter_codec.dart` | Encodes `Filter` DSL → qdrant `Filter` JSON envelope |
+| `lib/core/services/vector_store_filter.dart` | Sealed `Condition` + `Filter` envelope (must/should/mustNot) |
+| `lib/core/infrastructure/qdrant_vector_store_repository.dart` | Native default `VectorStoreRepository` impl (0.16.0+) |
+| `lib/core/infrastructure/dart_vector_store_repository.dart` | `@Deprecated` legacy impl (sqlite3 + `local_hnsw`); removal in 1.0 |
+| `native/qdrant_edge/qdrant_edge_ffi/` | Rust cdylib over qdrant-edge — 10 `qe_*` C functions exposed via `extern "C"` |
+| `native/qdrant_edge/include/qdrant_edge.h` | C header consumed by ffigen + Dart FFI |
+| `native/qdrant_edge/vendored/qdrant-edge/` | Vendored amalgamated qdrant-edge source with `EdgeShardOptions` + Android flock skip patch; removed once upstream qdrant/qdrant#9067 merges |
+| `native/qdrant_edge/build_local.sh` | Local cross-build script for macOS arm64 + iOS arm64 device/sim + Android arm64 |
 | `lib/mobile/flutter_gemma_mobile.dart` | Mobile implementation (FFI for .litertlm, MediaPipe for .task) |
 | `lib/web/flutter_gemma_web.dart` | Web implementation (MediaPipe JS) |
 | `lib/desktop/flutter_gemma_desktop.dart` | Desktop entrypoint, delegates to FFI client |

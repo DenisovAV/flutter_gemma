@@ -19,7 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -46,12 +46,15 @@ void main() {
         .fromAsset(fixturePath)
         .install();
 
-    // Verify the file actually landed in app docs dir (the writeFile fallback
-    // wrote it).
-    final docsDir = await getApplicationDocumentsDirectory();
-    final installed = File('${docsDir.path}/$fixtureBasename');
+    // Verify the file actually landed in the canonical model storage dir.
+    // On desktop this is Application Support/flutter_gemma/ (not Documents),
+    // so we ask FileSystemService for the correct expected path.
+    final expectedPath = await ServiceRegistry.instance.fileSystemService
+        .getTargetPath(fixtureBasename);
+    final installed = File(expectedPath);
     expect(installed.existsSync(), isTrue,
-        reason: 'Asset should have been written to app docs dir');
+        reason:
+            'Asset should have been written to the model storage directory');
     expect(installed.lengthSync(), greaterThan(0),
         reason: 'Written file should be non-empty');
 

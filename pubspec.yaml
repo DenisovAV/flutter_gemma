@@ -1,6 +1,6 @@
 name: flutter_gemma
 description: "A Flutter plugin for running Gemma and other LLMs locally on Android, iOS, Web, and Desktop. Supports multimodal vision, audio, function calling, thinking mode, GPU acceleration, text embeddings, and on-device RAG."
-version: 0.15.3
+version: 0.16.0
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
 
@@ -39,6 +39,8 @@ dependencies:
   hooks: ^1.0.0
   code_assets: ^1.0.0
   crypto: ^3.0.6
+  # UUIDv5 deterministic hashing for qdrant point IDs (arbitrary String → UUID)
+  uuid: ^4.0.0
 
 dev_dependencies:
   flutter_test:

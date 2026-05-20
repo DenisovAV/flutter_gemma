@@ -23,6 +23,11 @@ import 'package:local_hnsw/local_hnsw.item.dart';
 /// **Thread Safety:**
 /// - Not thread-safe: Designed for single-isolate use
 /// - Synchronization handled at repository level
+///
+/// **DEPRECATED in 0.16**: only used by `DartVectorStoreRepository`, which
+/// is itself deprecated. Will be removed in 1.0.
+@Deprecated(
+    'Used only by the deprecated DartVectorStoreRepository; will be removed in 1.0.')
 class HnswVectorIndex {
   /// Vector dimension (set on first add or rebuild)
   int? _dimension;

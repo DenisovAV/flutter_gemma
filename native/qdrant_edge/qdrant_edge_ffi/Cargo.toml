@@ -1,0 +1,30 @@
+[package]
+name = "qdrant_edge_ffi"
+version = "0.0.1"
+edition = "2024"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+qdrant-edge = "=0.6.1"
+serde_json = "1"
+
+# Pin upstream-bug-prone transitive (matches qdrant-edge example workspace)
+i_key_sort = "=0.10.1"
+
+# TEMPORARY: vendored fork of qdrant-edge with EdgeShard::load_with_wal_options.
+# Tracking PR: https://github.com/qdrant/qdrant/pull/9067
+# Remove this block (and ../vendored/qdrant-edge/) once the PR is merged and
+# a new qdrant-edge release is published to crates.io. See vendored/qdrant-edge/
+# VENDORING.md for the removal procedure.
+[patch.crates-io]
+qdrant-edge = { path = "../vendored/qdrant-edge" }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

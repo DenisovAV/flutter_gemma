@@ -44,21 +44,15 @@ There is an example of using:
 - **📱 Android Foreground Service:** Large downloads (>500MB) automatically use foreground service to bypass 9-minute timeout
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
 - **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
+- **🔎 On-device RAG:** qdrant-edge vector store on native, wa-sqlite on Web. Payload-aware `Filter` (must / should / mustNot) for semantic search.
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
-## What's new in 0.15
+## What's new in 0.16
 
-- ⚡ **MTP / speculative decoding for Gemma 4** — Multi-Token Prediction on macOS / iOS / Android / Windows / Linux via LiteRT-LM 0.11.0.
-- 🤖 **NPU support** — `PreferredBackend.npu` on Android (Qualcomm QNN / Google Tensor / MediaTek) and Windows (Intel LunarLake / PantherLake).
-- 🖼️ **Multi-image input** — `Message.withImages([...])` for chat / inference sessions.
-
-## What's new in 0.14.0
-
-- 🖥️ **Desktop rewritten on `dart:ffi`** — no JVM, no gRPC, no separate server. Native libs auto-fetched at build time.
-- 🍎 **iOS Metal GPU** for `.litertlm` models on physical devices via FFI.
-- 🐧 **Linux GPU** (Vulkan/WebGPU) and 🪟 **Windows GPU** (DirectX 12) ready out of the box.
-- 🤖 **Android** — Kotlin LiteRtLm dependency removed; FFI used exclusively for `.litertlm`.
+- 🚀 **Native vector store on qdrant-edge** — `addDocument()` / `searchSimilar()` API unchanged; 30–300× faster than the legacy sqlite + local_hnsw path on every desktop and mobile target. Old impl `@Deprecated`, removed in 1.0.
+- 🎯 **`Filter` DSL** for `searchSimilar(... filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`. Honored on native, silently ignored on Web.
+- 🔧 **Desktop install/validate path fix** — `isModelInstalled()` now reads the same storage location the installer writes to. Affected: Windows/macOS/Linux users on clean machines who saw "Active model is no longer installed" right after install in 0.15.x.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
@@ -451,16 +445,20 @@ sudo apt install nvidia-driver-535-server
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-// Install model
+// Install model. URL example uses the .litertlm variant so the same code
+// works on Desktop (Windows/macOS/Linux) and mobile/web. For web only, the
+// `.task`/`-web.task` variants of the same model also work.
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 ).fromNetwork(
-  'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/gemma3-1b-it-int4.task',
+  'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
   token: 'your_hf_token',
 ).withProgress((progress) {
-  print('Downloading: ${progress.percentage}%');
+  print('Downloading: $progress%');
 }).install();
 ```
+
+> **Mobile/Web shortcut:** if you don't target Desktop, you can substitute the URL with the `.task` build of the same model. Desktop targets need the `.litertlm` build — `.task` and `.bin` are MediaPipe-only.
 
 ### 2. Create and Use Model (Multiple Times)
 
@@ -513,24 +511,26 @@ final deepModel = await FlutterGemma.getActiveModel(maxTokens: 4096);
 ## Installation Sources
 
 ```dart
-// Network
+// Network — .litertlm is the cross-platform default (Android/iOS/Desktop).
+// For mobile-only or web-only apps you can substitute a .task URL of the
+// same model.
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromNetwork('https://example.com/model.task', token: 'optional')
+  .fromNetwork('https://example.com/model.litertlm', token: 'optional')
   .install();
 
 // Flutter assets
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromAsset('assets/models/model.task')
+  .fromAsset('assets/models/model.litertlm')
   .install();
 
 // Native bundle
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromBundled('model.task')
+  .fromBundled('model.litertlm')
   .install();
 
 // External file
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromFile('/path/to/model.task')
+  .fromFile('/path/to/model.litertlm')
   .install();
 ```
 
@@ -673,7 +673,7 @@ await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 )
   .fromNetwork(
-    'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
+    'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     token: 'hf_your_token_here',  // ⚠️ Not recommended - use config.json
   )
   .install();
@@ -703,7 +703,7 @@ Flutter Gemma supports multiple model sources with different capabilities:
 | **NetworkSource** | All | ✅ Detailed | ⚠️ Server-dependent | ✅ Supported | HuggingFace, CDNs, private servers |
 | **AssetSource** | All | ⚠️ End only | ❌ No | ❌ N/A | Models bundled in app assets |
 | **BundledSource** | All | ⚠️ End only | ❌ No | ❌ N/A | Native platform resources |
-| **FileSource** | Mobile only | ⚠️ End only | ❌ No | ❌ N/A | User-selected files (file picker) |
+| **FileSource** | Native (no Web) | ⚠️ End only | ❌ No | ❌ N/A | User-selected files (file picker) |
 
 ### NetworkSource - Internet Downloads
 
@@ -724,7 +724,7 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 )
-  .fromNetwork('https://example.com/model.bin')
+  .fromNetwork('https://example.com/model.litertlm')
   .withProgress((progress) => print('$progress%'))
   .install();
 
@@ -733,7 +733,7 @@ await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 )
   .fromNetwork(
-    'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/model.task',
+    'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     token: 'hf_...',  // Or use FlutterGemma.initialize(huggingFaceToken: ...)
   )
   .withProgress((progress) => setState(() => _progress = progress))
@@ -831,13 +831,13 @@ Copies models from Flutter assets (declared in `pubspec.yaml`).
 ```dart
 // 1. Add to pubspec.yaml
 // assets:
-//   - models/gemma-2b-it.bin
+//   - models/gemma3-1b-it.litertlm
 
 // 2. Install from asset
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 )
-  .fromAsset('models/gemma-2b-it.bin')
+  .fromAsset('models/gemma3-1b-it.litertlm')
   .install();
 ```
 
@@ -855,19 +855,20 @@ await FlutterGemma.installModel(
 
 **Android** (`android/app/src/main/assets/models/`)
 ```bash
-# Place your model file
-android/app/src/main/assets/models/gemma-3-270m-it.task
+# Place your model file. .litertlm works for both Android and Desktop,
+# .task is MediaPipe-only and won't load on Desktop.
+android/app/src/main/assets/models/gemma3-270m-it-q8.litertlm
 ```
 
 **iOS** (Add to Xcode project)
-1. Drag model file into Xcode project
+1. Drag model file into Xcode project (`.litertlm` for FFI; `.task` for MediaPipe)
 2. Check "Copy items if needed"
 3. Add to target membership
 
-**Web** (Static files in `web/` directory)
+**Web** (Static files in `web/` directory) — web uses MediaPipe only, so `.task` (or `-web.task`):
 ```bash
 # Place model files in web/ directory
-example/web/gemma-3-270m-it.task
+example/web/gemma3-270m-it.task
 
 # Files are automatically copied to build/web/ during production build
 flutter build web
@@ -889,7 +890,7 @@ flutter build web
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 )
-  .fromBundled('gemma-3-270m-it.task')
+  .fromBundled('gemma3-270m-it-q8.litertlm')
   .install();
 ```
 
@@ -899,9 +900,9 @@ await FlutterGemma.installModel(
 - Qwen3 0.6B: ~586MB
 - Consider hosting large models for download instead
 
-### FileSource - External Files (Mobile Only)
+### FileSource - External Files (Native)
 
-References external files (e.g., user-selected via file picker).
+References external files (e.g., user-selected via file picker). Works on Android, iOS, macOS, Linux, Windows. Not available on Web (no local file system).
 
 **Features:**
 - ✅ No copying (references original file)
@@ -910,8 +911,8 @@ References external files (e.g., user-selected via file picker).
 
 **Example:**
 ```dart
-// Mobile only - after user selects file with file_picker
-final path = '/data/user/0/com.app/files/model.task';
+// Native only - after user selects file with file_picker
+final path = '/data/user/0/com.app/files/model.litertlm';
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
 )
@@ -1208,6 +1209,69 @@ All embedding models generate **768-dimensional vectors**. The numbers in names 
 - ✅ **EmbeddingGemma 256/512**: High-quality embeddings, semantic search, better accuracy
 - ✅ **EmbeddingGemma 1024/2048**: Long documents, detailed content, research papers, articles
 
+## 🔎 On-device RAG / Vector Store
+
+Native platforms (Android, iOS, macOS, Linux, Windows) use qdrant-edge as the default vector store since 0.16. Web stays on wa-sqlite (qdrant-edge can't target WASM yet). Same Dart API on both — code is portable across platforms.
+
+```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
+// 1. Install an embedding model (any of Gecko / EmbeddingGemma)
+await FlutterGemma.installEmbedder()
+    .modelFromNetwork(
+      'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/embeddinggemma-300M_seq256_mixed-precision.tflite',
+      token: 'hf_...',
+    )
+    .tokenizerFromNetwork(
+      'https://huggingface.co/litert-community/embeddinggemma-300m/resolve/main/sentencepiece.model',
+      token: 'hf_...',
+    )
+    .install();
+
+// 2. Initialize the vector store (one shard per database path)
+await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store');
+
+// 3. Add documents — let the plugin compute embeddings for you
+for (final doc in docs) {
+  await FlutterGemmaPlugin.instance.addDocument(
+    id: doc.id,
+    content: doc.content,
+    metadata: '{"category":"science","lang":"en"}',
+  );
+}
+
+// 3b. Or batch-embed yourself and feed pre-computed vectors via
+//     addDocumentWithEmbedding(...) for higher throughput.
+final embedder = FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
+final embeddings = await embedder.generateEmbeddings(
+  docs.map((d) => d.content).toList(),
+  taskType: TaskType.retrievalDocument,
+);
+for (var i = 0; i < docs.length; i++) {
+  await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+    id: docs[i].id,
+    content: docs[i].content,
+    embedding: embeddings[i],
+    metadata: '{"category":"science","lang":"en"}',
+  );
+}
+
+// 4. Semantic search, with optional payload-aware Filter (native only)
+final results = await FlutterGemmaPlugin.instance.searchSimilar(
+  query: 'quantum entanglement',
+  topK: 10,
+  threshold: 0.0,
+  filter: Filter(
+    must: [FieldEquals(key: 'category', value: 'science')],
+    mustNot: [FieldEquals(key: 'lang', value: 'fr')],
+  ),
+);
+```
+
+`Filter` supports `must` / `should` / `mustNot` lists of `FieldEquals`, `FieldRange`, `FieldMatchAny` conditions. On Web the `filter` argument is silently ignored — wa-sqlite has no payload-filter support.
+
+**Benchmarks** comparing qdrant-edge to the legacy sqlite + local_hnsw backend across 5 platforms (5 000 documents, EmbeddingGemma 300M, 768-dim): see [example/integration_test/benchmarks/comparison.md](example/integration_test/benchmarks/comparison.md).
+
 ## 🛠️ Model Function Calling Support
 
 Function calling is currently supported by the following models:
@@ -1239,7 +1303,7 @@ Function calling is currently supported by the following models:
 |---------|---------|-----|-----|---------|-------|
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
-| **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ Full | Gemma3n E2B/E4B; iOS device-only |
+| **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B; iOS device-only; Desktop via FFI |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
@@ -1249,7 +1313,7 @@ Function calling is currently supported by the following models:
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
 | **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
-| **VectorStore (RAG)** | ✅ SQLite | ✅ SQLite | ✅ SQLite WASM | ✅ SQLite | Semantic search, RAG |
+| **VectorStore (RAG)** | ✅ qdrant-edge | ✅ qdrant-edge | ✅ wa-sqlite (WASM) | ✅ qdrant-edge | Semantic search + payload `Filter` (native) |
 | **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | ✅ Background | Platform-specific |
 | **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Flutter assets N/A |
 | **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Native bundles only |
@@ -1334,6 +1398,18 @@ final supported = await FlutterGemma.isStreamingSupported();
 - **Memory entitlements:** Required for large models (see Setup section)
 - **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
 - **Storage:** Local file system in app documents directory
+
+### Desktop Platform Specifics
+
+#### Storage Locations
+
+Desktop builds store downloaded models outside the user's `Documents/` folder to avoid OneDrive / iCloud / Domain-Roaming sync corrupting FFI mmap of large `.litertlm` files (since 0.15.1):
+
+- **Windows:** `%LOCALAPPDATA%\flutter_gemma\` (never OneDrive-synced)
+- **macOS:** `~/Library/Application Support/<bundle>/flutter_gemma/`
+- **Linux:** `~/.local/share/<app>/flutter_gemma/`
+
+Models installed by 0.14.x / 0.15.0 builds that still live under `Documents/` keep working via a fallback read (a debug log nudges users to re-install once for migration).
 
 The full and complete example you can find in `example` folder
 

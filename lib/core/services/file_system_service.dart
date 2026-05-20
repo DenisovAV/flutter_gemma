@@ -38,12 +38,30 @@ abstract interface class FileSystemService {
   /// Returns 0 if file doesn't exist
   Future<int> getFileSize(String path);
 
-  /// Gets the target path for storing a model file with given filename
+  /// Gets the target path for storing a model file with given filename.
   ///
-  /// This returns the full path where the file should be stored,
-  /// typically in the app's documents directory
+  /// Returns the canonical write destination (no legacy probe). Writers
+  /// must use this method so that files always land in the correct location
+  /// and never accidentally migrate to the legacy Documents path.
   ///
   /// Example: '/data/data/com.app/files/model.bin'
+  Future<String> getWriteTargetPath(String filename);
+
+  /// Gets the path for reading a model file with given filename.
+  ///
+  /// On desktop (macOS/Windows/Linux) performs a legacy-Documents fallback
+  /// probe so that models installed before 0.15.1 (which stored everything
+  /// in `~/Documents/`) continue to load on upgrade without a forced
+  /// re-install. A single debug log is emitted per unique legacy path to
+  /// nudge the user to re-install.
+  ///
+  /// Writers must use [getWriteTargetPath] instead.
+  Future<String> getReadTargetPath(String filename);
+
+  /// Deprecated. Use [getReadTargetPath] for reads or [getWriteTargetPath]
+  /// for writes to route paths correctly.
+  @Deprecated(
+      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
   Future<String> getTargetPath(String filename);
 
   /// Gets the path to a bundled native resource
@@ -63,4 +81,16 @@ abstract interface class FileSystemService {
   /// This marks the file as external so it won't be cleaned up
   /// The actual path mapping is stored in ProtectedFilesRegistry
   Future<void> registerExternalFile(String filename, String externalPath);
+
+  /// Returns the canonical directory where model files are stored.
+  ///
+  /// On mobile this is the app's Documents directory; on desktop it is the
+  /// platform-appropriate Application Support subdirectory that avoids
+  /// cloud-synced paths (see [PlatformFileSystemService._getDocumentsDirectory]).
+  ///
+  /// Returns the directory path as a [String] so that this interface remains
+  /// usable without importing [dart:io] (which is unavailable on Web).
+  ///
+  /// Throws [UnsupportedError] on Web (no local file system).
+  Future<String> getModelStorageDirectory();
 }

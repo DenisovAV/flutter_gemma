@@ -223,6 +223,9 @@ const _litertlmBundle = _NativeBundle(
   ],
 );
 
+// If you re-publish a hotfix dylib for the same upstream qdrant-edge
+// version, bump this to 0.6.1-flutter2 (etc) so the cache marker
+// invalidates and users actually re-download.
 /// qdrant-edge native FFI shim — backs QdrantVectorStoreRepository on every
 /// native platform (no Web — qdrant-edge depends on mmap/parking_lot which
 /// don't compile to WebAssembly; Web continues to use wa-sqlite).

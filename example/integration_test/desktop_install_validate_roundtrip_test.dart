@@ -61,6 +61,13 @@ void main() {
       }
     });
 
+    tearDown(() async {
+      // Make sure the next test starts with the fixture not installed.
+      if (await FlutterGemma.isModelInstalled(fixtureBasename)) {
+        await FlutterGemma.uninstallModel(fixtureBasename);
+      }
+    });
+
     testWidgets(
         'file installed via FileSource is found in model storage directory',
         (tester) async {

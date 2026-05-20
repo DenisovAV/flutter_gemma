@@ -256,6 +256,10 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
 
   void _showError(String message) {
     debugPrint('[RagDemo] ERROR: $message');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
   }
 
   @override

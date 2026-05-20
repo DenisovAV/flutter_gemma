@@ -32,6 +32,14 @@ class _LatencyStats {
 }
 
 void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  if (!Platform.isWindows) {
+    // This test was added as a Windows-only ngrok-tunnel workaround for
+    // benchmarking the deprecated DartVectorStoreRepository at N=5k. Other
+    // platforms have full apples-to-apples coverage in the qdrant bench
+    // suite, so skipping here keeps the test matrix clean.
+    return;
+  }
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(hours: 1));
 

@@ -43,7 +43,7 @@ class NetworkSourceHandler implements SourceHandler {
     final effectiveToken = source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
-    final targetPath = await fileSystem.getTargetPath(filename);
+    final targetPath = await fileSystem.getWriteTargetPath(filename);
 
     // Download file with cancellation support
     await downloadService.download(
@@ -81,7 +81,7 @@ class NetworkSourceHandler implements SourceHandler {
     final effectiveToken = source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
-    final targetPath = await fileSystem.getTargetPath(filename);
+    final targetPath = await fileSystem.getWriteTargetPath(filename);
 
     // Download with progress tracking, configurable retries, and cancellation support
     await for (final progress in downloadService.downloadWithProgress(

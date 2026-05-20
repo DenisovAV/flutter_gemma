@@ -96,22 +96,35 @@ class QdrantEdgeClient {
       return _bindings = QdrantEdgeBindings(DynamicLibrary.open(override));
     }
 
-    final DynamicLibrary lib;
+    final String libPath;
     if (Platform.isIOS) {
       // Native Assets puts dylibs in Frameworks/ inside Runner.app on iOS.
-      lib = DynamicLibrary.open(
-          '@executable_path/Frameworks/qdrant_edge_ffi.framework/qdrant_edge_ffi');
+      libPath =
+          '@executable_path/Frameworks/qdrant_edge_ffi.framework/qdrant_edge_ffi';
     } else if (Platform.isMacOS) {
-      lib = DynamicLibrary.open('qdrant_edge_ffi.framework/qdrant_edge_ffi');
-    } else if (Platform.isAndroid) {
-      lib = DynamicLibrary.open('libqdrant_edge_ffi.so');
-    } else if (Platform.isLinux) {
-      lib = DynamicLibrary.open('libqdrant_edge_ffi.so');
+      libPath = 'qdrant_edge_ffi.framework/qdrant_edge_ffi';
+    } else if (Platform.isAndroid || Platform.isLinux) {
+      libPath = 'libqdrant_edge_ffi.so';
     } else if (Platform.isWindows) {
-      lib = DynamicLibrary.open('qdrant_edge_ffi.dll');
+      libPath = 'qdrant_edge_ffi.dll';
     } else {
       throw UnsupportedError(
           'qdrant-edge is not available on ${Platform.operatingSystem}');
+    }
+
+    final DynamicLibrary lib;
+    try {
+      lib = DynamicLibrary.open(libPath);
+    } on ArgumentError catch (e) {
+      // Native Assets did not bundle the dylib for this host. The most common
+      // cause on Apple targets is an Intel Mac / x86_64 simulator — the
+      // prebuilt only ships arm64 today.
+      final hint = (Platform.isMacOS || Platform.isIOS)
+          ? ' (Apple Intel hosts are not supported — Apple Silicon arm64 only)'
+          : '';
+      throw QdrantException(
+          'qdrant-edge native library not found for ${Platform.operatingSystem}$hint. '
+          'Did `flutter pub get` complete? Underlying error: $e');
     }
     return _bindings = QdrantEdgeBindings(lib);
   }
@@ -374,16 +387,23 @@ class QdrantEdgeClient {
   }
 
   static List<SearchHit> _decodeSearchResponse(String json) {
-    final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
-    return [
-      for (final m in list)
-        SearchHit(
-          id: m['id'].toString(),
-          score: (m['score'] as num).toDouble(),
-          payload: m['payload'] is Map<String, dynamic>
-              ? m['payload'] as Map<String, dynamic>
-              : null,
-        ),
-    ];
+    try {
+      final list = (jsonDecode(json) as List).cast<Map<String, dynamic>>();
+      return [
+        for (final m in list)
+          SearchHit(
+            id: m['id'].toString(),
+            score: (m['score'] as num).toDouble(),
+            payload: m['payload'] is Map<String, dynamic>
+                ? m['payload'] as Map<String, dynamic>
+                : null,
+          ),
+      ];
+    } on FormatException catch (e) {
+      throw QdrantException('Malformed search response from native shim: $e');
+    } on TypeError catch (e) {
+      throw QdrantException(
+          'Unexpected search response shape from native shim: $e');
+    }
   }
 }

@@ -46,6 +46,7 @@ dev_dependencies:
     sdk: flutter
   flutter_test:
     sdk: flutter
+  path: ^1.9.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

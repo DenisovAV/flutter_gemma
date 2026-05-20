@@ -73,9 +73,9 @@
 | iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Setup via Podfile `post_install` (creates `lib*.dylib` symlinks next to bundled frameworks) |
 | iOS Simulator | ❌ GPU | ❌ GPU | ✅ | CPU only — Metal sim has 256 MB single-allocation cap, LLM weights exceed |
 | Web | ✅ | ❌ | ✅ | MediaPipe only |
-| macOS | ✅ | ✅ LiteRT-LM (CPU + GPU) | ✅ | Vision + audio verified on Metal (Gemma 4 + Gemma 3n); Gemma 3n audio GPU is ~2× faster than CPU |
-| Windows | ✅ | ✅ LiteRT-LM (CPU + GPU) | ✅ | Desktop via FFI; GPU via WebGPU/DX12 |
-| Linux | ✅ | ✅ LiteRT-LM (CPU + GPU) | ✅ | Desktop via FFI; GPU via WebGPU/Vulkan |
+| macOS | ✅ | ✅ LiteRT-LM only | ✅ | Vision + audio verified on Metal (Gemma 4 + Gemma 3n); Gemma 3n audio GPU is ~2× faster than CPU |
+| Windows | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via FFI; GPU via WebGPU/DX12 |
+| Linux | ✅ | ✅ LiteRT-LM only | ✅ | Desktop via FFI; GPU via WebGPU/Vulkan |
 
 ### PreferredBackend
 

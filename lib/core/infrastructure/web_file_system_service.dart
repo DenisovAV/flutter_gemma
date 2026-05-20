@@ -85,10 +85,21 @@ class WebFileSystemService implements FileSystemService {
   }
 
   @override
+  Future<String> getWriteTargetPath(String filename) async {
+    // On web there is no legacy-Documents concept; write and read targets
+    // are the same identifier used to look up the URL in _urlMappings.
+    return filename;
+  }
+
+  @override
+  Future<String> getReadTargetPath(String filename) async {
+    return filename;
+  }
+
+  @Deprecated(
+      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
+  @override
   Future<String> getTargetPath(String filename) async {
-    // On web, the "target path" is just the identifier
-    // The actual URL is stored in _urlMappings
-    // This returns the identifier that can be used to look up the URL
     return filename;
   }
 

@@ -37,6 +37,14 @@ class MockFileSystemService implements FileSystemService {
   Future<String> getTargetPath(String filename) async => '/models/$filename';
 
   @override
+  Future<String> getReadTargetPath(String filename) async =>
+      '/models/$filename';
+
+  @override
+  Future<String> getWriteTargetPath(String filename) async =>
+      '/models/$filename';
+
+  @override
   Future<Uint8List> readFile(String path) async => Uint8List(0);
 
   @override

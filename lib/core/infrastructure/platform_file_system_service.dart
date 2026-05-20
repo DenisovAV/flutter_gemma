@@ -66,8 +66,18 @@ class PlatformFileSystemService implements FileSystemService {
     return stat.size;
   }
 
+  /// Per-process set of legacy paths already logged; prevents log spam on
+  /// repeated reads (e.g. every `isModelInstalled` check).
+  static final Set<String> _legacyFallbackLogged = {};
+
   @override
-  Future<String> getTargetPath(String filename) async {
+  Future<String> getWriteTargetPath(String filename) async {
+    final dir = await _getDocumentsDirectory();
+    return path.join(dir.path, filename);
+  }
+
+  @override
+  Future<String> getReadTargetPath(String filename) async {
     final dir = await _getDocumentsDirectory();
     final newPath = path.join(dir.path, filename);
 
@@ -81,13 +91,21 @@ class PlatformFileSystemService implements FileSystemService {
       final legacy = await getApplicationDocumentsDirectory();
       final legacyPath = path.join(legacy.path, filename);
       if (await File(legacyPath).exists()) {
-        debugPrint('[flutter_gemma] Reading model from legacy Documents path; '
-            'consider re-installing to migrate: $legacyPath');
+        if (_legacyFallbackLogged.add(legacyPath)) {
+          debugPrint(
+              '[flutter_gemma] Reading model from legacy Documents path; '
+              'consider re-installing to migrate: $legacyPath');
+        }
         return legacyPath;
       }
     }
     return newPath;
   }
+
+  @Deprecated(
+      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
+  @override
+  Future<String> getTargetPath(String filename) => getReadTargetPath(filename);
 
   @override
   Future<String> getModelStorageDirectory() async {
@@ -174,8 +192,9 @@ class PlatformFileSystemService implements FileSystemService {
       throw UnsupportedError('Local file system not supported on web platform');
     }
 
-    if (_documentsDirectory != null) {
-      return _documentsDirectory!;
+    final cached = _documentsDirectory;
+    if (cached != null) {
+      return cached;
     }
 
     final Directory dir;
@@ -201,6 +220,6 @@ class PlatformFileSystemService implements FileSystemService {
       await dir.create(recursive: true);
     }
     _documentsDirectory = dir;
-    return _documentsDirectory!;
+    return dir;
   }
 }

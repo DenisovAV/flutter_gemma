@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -141,7 +143,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
           id: sampleDocuments[i]['id']!,
           content: sampleDocuments[i]['content']!,
           embedding: embeddings[i],
-          metadata: '{"category":"$category"}',
+          metadata: jsonEncode({'category': category}),
         );
       }
 

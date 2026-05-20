@@ -157,7 +157,7 @@ class QdrantEdgeClient {
         errorOut.cast(),
       );
       if (handle == nullptr) {
-        throw QdrantException(_consumeError(client._b, errorOut) ??
+        throw QdrantException(_consumeString(client._b, errorOut) ??
             'qe_shard_open returned null');
       }
       client._shard = handle;
@@ -203,7 +203,7 @@ class QdrantEdgeClient {
       );
       if (rc != 0) {
         throw QdrantException(
-            _consumeError(_b, errorOut) ?? 'qe_shard_upsert rc=$rc');
+            _consumeString(_b, errorOut) ?? 'qe_shard_upsert rc=$rc');
       }
     } finally {
       malloc.free(idPtr);
@@ -238,7 +238,7 @@ class QdrantEdgeClient {
       );
       if (rc != 0) {
         throw QdrantException(
-            _consumeError(_b, errorOut) ?? 'qe_shard_upsert_batch rc=$rc');
+            _consumeString(_b, errorOut) ?? 'qe_shard_upsert_batch rc=$rc');
       }
     } finally {
       malloc.free(jsonPtr);
@@ -283,7 +283,7 @@ class QdrantEdgeClient {
       }
       if (rc != 0) {
         throw QdrantException(
-            _consumeError(_b, errorOut) ?? 'qe_shard_search rc=$rc');
+            _consumeString(_b, errorOut) ?? 'qe_shard_search rc=$rc');
       }
       final responseJson = _consumeString(_b, responseOut);
       if (responseJson == null) return const [];
@@ -311,7 +311,7 @@ class QdrantEdgeClient {
       );
       if (rc != 0) {
         throw QdrantException(
-            _consumeError(_b, errorOut) ?? 'qe_shard_delete rc=$rc');
+            _consumeString(_b, errorOut) ?? 'qe_shard_delete rc=$rc');
       }
     } finally {
       malloc.free(jsonPtr);
@@ -327,7 +327,7 @@ class QdrantEdgeClient {
       final n = _b.qe_shard_count(_shard, errorOut.cast());
       if (n < 0) {
         throw QdrantException(
-            _consumeError(_b, errorOut) ?? 'qe_shard_count returned -1');
+            _consumeString(_b, errorOut) ?? 'qe_shard_count returned -1');
       }
       return n;
     } finally {
@@ -360,21 +360,9 @@ class QdrantEdgeClient {
     return ptr;
   }
 
-  /// Reads a C string from an `error_out` slot, frees it via
-  /// `qe_string_free`, and returns the Dart copy. Null when the native
-  /// side didn't write any error.
-  static String? _consumeError(
-      QdrantEdgeBindings b, Pointer<Pointer<Utf8>> slot) {
-    final p = slot.value;
-    if (p == nullptr) return null;
-    final s = p.toDartString();
-    b.qe_string_free(p.cast());
-    slot.value = nullptr;
-    return s;
-  }
-
-  /// Reads a non-error C string (response_json_out) from a slot. Same
-  /// ownership rules as [_consumeError].
+  /// Reads a C string from a slot (used for both error_out and response_json_out),
+  /// frees it via `qe_string_free`, and returns the Dart copy. Returns null when
+  /// the native side didn't write anything into the slot.
   static String? _consumeString(
       QdrantEdgeBindings b, Pointer<Pointer<Utf8>> slot) {
     final p = slot.value;

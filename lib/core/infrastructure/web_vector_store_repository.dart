@@ -186,6 +186,12 @@ class WebVectorStoreRepository implements VectorStoreRepository {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
 
+    if (filter != null && !filter.isEmpty) {
+      debugPrint(
+          '[WebVectorStore] Filter argument ignored on web (wa-sqlite has no payload filtering); '
+          'pass null filter to silence this log.');
+    }
+
     try {
       // Use HNSW if enabled and index has enough documents
       if (enableHnsw && _hnswIndex.count >= _hnswThreshold) {

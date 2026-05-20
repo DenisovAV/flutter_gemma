@@ -333,6 +333,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       queryEmbedding: queryEmbedding,
       topK: topK,
       threshold: threshold,
+      filter: filter,
     );
   }
 

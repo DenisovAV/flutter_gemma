@@ -36,6 +36,7 @@ class PointIdHasher {
   /// passing as the `id` argument to `qe_shard_upsert`,
   /// `qe_shard_delete`, etc.
   static String hash(String userId) {
+    assert(userId.isNotEmpty, 'PointIdHasher: userId must not be empty');
     return _uuid.v5(_namespace, userId);
   }
 }

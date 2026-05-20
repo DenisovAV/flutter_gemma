@@ -117,7 +117,7 @@ class ModelFileSystemManager {
         .toList();
 
     for (final file in files) {
-      final fileName = file.path.split('/').last;
+      final fileName = path.basename(file.path);
 
       if (protected.contains(fileName)) {
         continue;

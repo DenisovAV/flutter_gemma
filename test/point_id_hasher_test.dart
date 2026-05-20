@@ -31,11 +31,11 @@ void main() {
       expect(re.hasMatch(uuid), isTrue, reason: 'got: $uuid');
     });
 
-    test('empty string is accepted and hashed', () {
-      final uuid = PointIdHasher.hash('');
-      expect(uuid.length, equals(36));
-      // Two calls with empty string must agree.
-      expect(uuid, equals(PointIdHasher.hash('')));
+    test('empty string throws AssertionError in debug mode', () {
+      // M11: PointIdHasher.hash asserts userId.isNotEmpty to catch callers
+      // that pass an uninitialised / default-constructed ID before it silently
+      // produces a UUID that maps to a real qdrant point.
+      expect(() => PointIdHasher.hash(''), throwsA(isA<AssertionError>()));
     });
 
     test('unicode strings hash without errors', () {

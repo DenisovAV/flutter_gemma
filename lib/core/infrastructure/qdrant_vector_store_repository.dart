@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_gemma/core/qdrant/filter_codec.dart';
 import 'package:flutter_gemma/core/qdrant/point_id_hasher.dart';
 import 'package:flutter_gemma/core/qdrant/qdrant_edge_client.dart';
@@ -73,8 +74,8 @@ class QdrantVectorStoreRepository implements VectorStoreRepository {
     if (existing != null) {
       try {
         await existing.close();
-      } on QdrantException {
-        // Best-effort close; the handle is already orphaned at this point.
+      } on QdrantException catch (e) {
+        debugPrint('[QdrantVectorStore] close() failed (best-effort): $e');
       }
     }
     _client = null;
@@ -101,7 +102,13 @@ class QdrantVectorStoreRepository implements VectorStoreRepository {
     // its own subdir but the immediate parent must already be there.
     final parent = Directory(shardPath).parent;
     if (!parent.existsSync()) {
-      parent.createSync(recursive: true);
+      try {
+        parent.createSync(recursive: true);
+      } on FileSystemException catch (e) {
+        throw VectorStoreException(
+          'Failed to create parent directory for qdrant shard at ${parent.path}: $e',
+        );
+      }
     }
     try {
       final c = await QdrantEdgeClient.open(
@@ -145,7 +152,8 @@ class QdrantVectorStoreRepository implements VectorStoreRepository {
   Future<void> removeDocument({required String id}) async {
     final c = _client;
     if (c == null) {
-      // Not initialized — match Dart impl which is a no-op for unknown ids.
+      debugPrint(
+          '[QdrantVectorStore] removeDocument($id) called before initialize() — ignored');
       return;
     }
     try {
@@ -212,7 +220,13 @@ class QdrantVectorStoreRepository implements VectorStoreRepository {
     _dim = null;
     final dir = Directory(path);
     if (dir.existsSync()) {
-      dir.deleteSync(recursive: true);
+      try {
+        dir.deleteSync(recursive: true);
+      } on FileSystemException catch (e) {
+        throw VectorStoreException(
+          'Failed to delete qdrant shard directory at ${dir.path}: $e',
+        );
+      }
     }
   }
 
@@ -225,8 +239,8 @@ class QdrantVectorStoreRepository implements VectorStoreRepository {
     if (c != null) {
       try {
         await c.close();
-      } on QdrantException {
-        // Best-effort close; the handle is already orphaned at this point.
+      } on QdrantException catch (e) {
+        debugPrint('[QdrantVectorStore] close() failed (best-effort): $e');
       }
     }
   }

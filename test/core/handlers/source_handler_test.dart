@@ -96,7 +96,7 @@ void main() {
       final source = NetworkSource('https://example.com/model.bin');
       const targetPath = '/data/model.bin';
 
-      when(() => mockFileSystem.getTargetPath(any())).thenAnswer((_) async => targetPath);
+      when(() => mockFileSystem.getWriteTargetPath(any())).thenAnswer((_) async => targetPath);
       when(() => mockDownloadService.download(any(), any(), token: any(named: 'token')))
           .thenAnswer((_) async {});
       when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => 1024);
@@ -113,7 +113,7 @@ void main() {
       const targetPath = '/data/model.bin';
       final progressStream = Stream<int>.fromIterable([0, 25, 50, 75, 100]);
 
-      when(() => mockFileSystem.getTargetPath(any())).thenAnswer((_) async => targetPath);
+      when(() => mockFileSystem.getWriteTargetPath(any())).thenAnswer((_) async => targetPath);
       when(() => mockDownloadService.downloadWithProgress(any(), any(), token: any(named: 'token')))
           .thenAnswer((_) => progressStream);
       when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => 1024);
@@ -135,7 +135,7 @@ void main() {
       final source = NetworkSource('https://huggingface.co/models/test.bin');
       const targetPath = '/data/model.bin';
 
-      when(() => mockFileSystem.getTargetPath(any())).thenAnswer((_) async => targetPath);
+      when(() => mockFileSystem.getWriteTargetPath(any())).thenAnswer((_) async => targetPath);
       when(() => mockDownloadService.download(any(), any(), token: any(named: 'token')))
           .thenAnswer((_) async {});
       when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => 1024);
@@ -192,7 +192,7 @@ void main() {
       final assetData = Uint8List.fromList([1, 2, 3, 4]);
 
       when(() => mockAssetLoader.loadAsset(any())).thenAnswer((_) async => assetData);
-      when(() => mockFileSystem.getTargetPath(any())).thenAnswer((_) async => targetPath);
+      when(() => mockFileSystem.getWriteTargetPath(any())).thenAnswer((_) async => targetPath);
       when(() => mockFileSystem.writeFile(any(), any())).thenAnswer((_) async {});
       when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => assetData.length);
       when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
@@ -214,7 +214,7 @@ void main() {
       final assetData = Uint8List.fromList([1, 2, 3, 4]);
 
       when(() => mockAssetLoader.loadAsset(any())).thenAnswer((_) async => assetData);
-      when(() => mockFileSystem.getTargetPath(any())).thenAnswer((_) async => targetPath);
+      when(() => mockFileSystem.getWriteTargetPath(any())).thenAnswer((_) async => targetPath);
       when(() => mockFileSystem.writeFile(any(), any())).thenAnswer((_) async {});
       when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => assetData.length);
       when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
@@ -236,7 +236,7 @@ void main() {
       final assetData = Uint8List.fromList([1, 2, 3, 4]);
 
       when(() => mockAssetLoader.loadAsset(any())).thenAnswer((_) async => assetData);
-      when(() => mockFileSystem.getTargetPath(any())).thenAnswer((_) async => targetPath);
+      when(() => mockFileSystem.getWriteTargetPath(any())).thenAnswer((_) async => targetPath);
       when(() => mockFileSystem.writeFile(any(), any())).thenAnswer((_) async {});
       when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => assetData.length);
       when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});

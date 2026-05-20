@@ -23,7 +23,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="032334d81ff96431492be272e536fbafe094b1e9"
+DEFAULT_REF="ffed38adbc33509480b5340e5173638bc20a68ff"
 VERSION="${1:-}"
 
 # Resolve Android NDK — prefer ANDROID_NDK_HOME env, else newest under

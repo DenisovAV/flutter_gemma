@@ -2,6 +2,7 @@
 - **Native vector store: qdrant-edge by default.** Replaces sqlite + local_hnsw on every native platform. Web unchanged (wa-sqlite). Old impl `@Deprecated`, removal in 1.0.
 - **Filter DSL** for `searchSimilar(... filter: Filter(must: [...], should: [...], mustNot: [...]))`. Honored on native; silently ignored on Web.
 - Upstream qdrant patch tracked at qdrant/qdrant#9067.
+- **Fix desktop install/validate path mismatch (#TBD)**: 0.15.1 moved model storage off `Documents/` to avoid OneDrive/iCloud corruption of FFI mmap, but only the install path was updated — `isModelInstalled()` still looked in the legacy location, throwing "Active model is no longer installed" right after a successful install on Windows (and any clean desktop machine without legacy model files). Now all five touchpoints (install, validate, orphan-detect, storage-stats, delete) read through the same `FileSystemService`. Existing 0.14.x/0.15.0 installs continue to work via a legacy `Documents/` probe with a debug log nudging users to re-install for OneDrive-safety.
 
 ## 0.15.3
 - example: add TranslateGemma 4B translation demo via task-first home navigation (#177).

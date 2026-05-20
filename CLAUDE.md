@@ -26,6 +26,12 @@
 - If `flutter test` hangs on "Dart VM Service was not discovered" or fails with "Cannot start app on wirelessly tethered iOS device", fix iPhone/macOS USB tunnel (Personal Hotspot off, iPhone USB enabled in Network settings, Trust dialog) — do NOT switch to `flutter drive` as a workaround
 - `flutter drive` is forbidden in this project, full stop
 
+## Rule 7: CHANGELOG ENTRIES ARE ONE LINE ⛔
+- Every `## X.Y.Z` bullet must fit on a single short line (~10-15 words)
+- No multi-sentence explanations, no embedded paragraphs in CHANGELOG.md
+- Detailed context (what was broken / how it's fixed / migration) goes into the release post (LinkedIn / blog), not CHANGELOG
+- Match the existing 0.15.x entries' brevity
+
 ---
 
 ## Project Overview

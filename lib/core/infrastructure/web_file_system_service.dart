@@ -116,6 +116,13 @@ class WebFileSystemService implements FileSystemService {
         'WebFileSystemService: Registered external file $filename -> $externalPath');
   }
 
+  @override
+  Future<String> getModelStorageDirectory() async {
+    throw UnsupportedError(
+        'getModelStorageDirectory() is not supported on the web platform. '
+        'Web models are stored as URLs, not local files.');
+  }
+
   /// Registers a URL for a model (web-specific extension)
   ///
   /// This is the primary way to "install" models on web.

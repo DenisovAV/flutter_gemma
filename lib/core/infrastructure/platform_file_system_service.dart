@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -81,10 +81,18 @@ class PlatformFileSystemService implements FileSystemService {
       final legacy = await getApplicationDocumentsDirectory();
       final legacyPath = path.join(legacy.path, filename);
       if (await File(legacyPath).exists()) {
+        debugPrint('[flutter_gemma] Reading model from legacy Documents path; '
+            'consider re-installing to migrate: $legacyPath');
         return legacyPath;
       }
     }
     return newPath;
+  }
+
+  @override
+  Future<String> getModelStorageDirectory() async {
+    final dir = await _getDocumentsDirectory();
+    return dir.path;
   }
 
   @override

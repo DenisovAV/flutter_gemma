@@ -63,4 +63,16 @@ abstract interface class FileSystemService {
   /// This marks the file as external so it won't be cleaned up
   /// The actual path mapping is stored in ProtectedFilesRegistry
   Future<void> registerExternalFile(String filename, String externalPath);
+
+  /// Returns the canonical directory where model files are stored.
+  ///
+  /// On mobile this is the app's Documents directory; on desktop it is the
+  /// platform-appropriate Application Support subdirectory that avoids
+  /// cloud-synced paths (see [PlatformFileSystemService._getDocumentsDirectory]).
+  ///
+  /// Returns the directory path as a [String] so that this interface remains
+  /// usable without importing [dart:io] (which is unavailable on Web).
+  ///
+  /// Throws [UnsupportedError] on Web (no local file system).
+  Future<String> getModelStorageDirectory();
 }

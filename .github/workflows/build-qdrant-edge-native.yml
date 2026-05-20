@@ -10,16 +10,10 @@ name: Build Qdrant Edge Native Libraries
 # that maintainers see one consistent shape for both native build pipelines.
 
 on:
-  push:
-    branches:
-      - main
-      - 'release/**'
-      # Feature branch for the qdrant-edge integration — removed once merged.
-      - 'feat/qdrant-edge-integration'
-    paths:
-      - '.github/workflows/build-qdrant-edge-native.yml'
-      - 'native/qdrant_edge/qdrant_edge_ffi/**'
-      - 'native/qdrant_edge/vendored/**'
+  # Manual trigger only — auto-builds on push were rebuilding prebuilts on
+  # every main commit, racing the SHA256 checksums already pinned in
+  # hook/build.dart. To re-cut native artifacts, run this workflow via
+  # `gh workflow run build-qdrant-edge-native.yml` or the Actions UI.
   workflow_dispatch:
     inputs:
       qdrant_edge_version:

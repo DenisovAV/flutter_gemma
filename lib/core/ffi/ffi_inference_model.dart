@@ -10,6 +10,7 @@ import '../chat.dart';
 import '../extensions.dart';
 import '../parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
+import '../../pigeon.g.dart';
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.
@@ -18,6 +19,7 @@ class FfiInferenceModel extends InferenceModel {
     required this.ffiClient,
     required this.maxTokens,
     required this.modelType,
+    required this.activeBackend,
     this.fileType = ModelFileType.litertlm,
     this.supportImage = false,
     this.supportAudio = false,
@@ -30,6 +32,8 @@ class FfiInferenceModel extends InferenceModel {
   final ModelFileType fileType;
   @override
   final int maxTokens;
+  @override
+  final PreferredBackend? activeBackend;
   final bool supportImage;
   final bool supportAudio;
   final VoidCallback onClose;

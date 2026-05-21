@@ -8,6 +8,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../../flutter_gemma_interface.dart';
+import '../../pigeon.g.dart';
 import '../model.dart';
 import '../tool.dart';
 import 'litert_lm_client_stub.dart';
@@ -18,6 +19,7 @@ class FfiInferenceModel extends InferenceModel {
     required int maxTokens,
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.litertlm,
+    PreferredBackend? activeBackend,
     bool supportImage = false,
     bool supportAudio = false,
     required VoidCallback onClose,
@@ -32,6 +34,10 @@ class FfiInferenceModel extends InferenceModel {
 
   @override
   int get maxTokens =>
+      throw UnsupportedError('web stub — never instantiated');
+
+  @override
+  PreferredBackend? get activeBackend =>
       throw UnsupportedError('web stub — never instantiated');
 
   @override

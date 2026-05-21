@@ -15,6 +15,7 @@ import '../core/di/service_registry.dart';
 // (FlutterGemmaWeb) registers itself as FlutterGemmaPlugin.instance via
 // registerWith() before any of this code can run, so the stubs' constructors
 // (which throw UnsupportedError) are never reached on web.
+import '../core/ffi/backend_preference.dart';
 import '../core/ffi/litert_lm_client.dart'
     if (dart.library.js_interop) '../core/ffi/litert_lm_client_stub.dart';
 import '../core/ffi/ffi_inference_model.dart'
@@ -388,7 +389,6 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         final cacheDir = (await getApplicationSupportDirectory()).path;
         debugPrint(
             '[FlutterGemmaMobile/perf] getApplicationSupportDirectory: ${ffiPathSw.elapsedMilliseconds}ms');
-        final ffiClient = LiteRtLmFfiClient();
         // NPU on Android `.litertlm` restored to 0.13.x parity. The Kotlin
         // LiteRtLmEngine path was dropped in 0.14.0 (commit 81025da); this
         // routes the same `Backend::NPU` enum value through LiteRT-LM's C
@@ -397,15 +397,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         // a dispatch error from LiteRT-LM. iOS .litertlm: upstream LiteRT-LM
         // disables NPU via LITERT_DISABLE_NPU at build time; engine_create
         // returns a clean Backend::NPU not supported error.
-        final backend = switch (preferredBackend) {
-          PreferredBackend.cpu => 'cpu',
-          PreferredBackend.gpu || null => 'gpu',
-          PreferredBackend.npu => 'npu',
-        };
         final beforeInit = ffiPathSw.elapsedMilliseconds;
-        await ffiClient.initialize(
+        final ffiRuntime = await _initializeFfiInferenceRuntime(
           modelPath: modelPath,
-          backend: backend,
+          preferredBackend: preferredBackend,
           maxTokens: maxTokens,
           cacheDir: cacheDir,
           enableVision: supportImage,
@@ -419,9 +414,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
             '[FlutterGemmaMobile/perf] FFI model creation total: ${ffiPathSw.elapsedMilliseconds}ms');
 
         model = _initializedModel = FfiInferenceModel(
-          ffiClient: ffiClient,
+          ffiClient: ffiRuntime.client,
           maxTokens: maxTokens,
           modelType: modelType,
+          activeBackend: ffiRuntime.activeBackend,
           fileType: fileType,
           supportImage: supportImage,
           supportAudio: supportAudio,
@@ -447,6 +443,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           modelType: modelType,
           fileType: fileType,
           preferredBackend: preferredBackend,
+          activeBackend: null,
           supportedLoraRanks: loraRanks ?? supportedLoraRanks,
           supportImage: supportImage,
           supportAudio: supportAudio,
@@ -686,4 +683,45 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   set enableHnsw(bool value) {
     ServiceRegistry.instance.vectorStoreRepository.enableHnsw = value;
   }
+}
+
+Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
+    _initializeFfiInferenceRuntime({
+  required String modelPath,
+  required PreferredBackend? preferredBackend,
+  required int maxTokens,
+  required String cacheDir,
+  required bool enableVision,
+  required int maxNumImages,
+  required bool enableAudio,
+  required bool? enableSpeculativeDecoding,
+}) async {
+  Object? firstError;
+  StackTrace? firstStackTrace;
+  for (final backend in ffiBackendFallbackOrder(preferredBackend)) {
+    final client = LiteRtLmFfiClient();
+    try {
+      await client.initialize(
+        modelPath: modelPath,
+        backend: ffiBackendWireName(backend),
+        maxTokens: maxTokens,
+        cacheDir: cacheDir,
+        enableVision: enableVision,
+        maxNumImages: maxNumImages,
+        enableAudio: enableAudio,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
+      );
+      return (client: client, activeBackend: backend);
+    } on Object catch (error, stackTrace) {
+      firstError ??= error;
+      firstStackTrace ??= stackTrace;
+      client.shutdown();
+      debugPrint(
+        '[FlutterGemmaMobile] ${ffiBackendWireName(backend)} backend failed: '
+        '$error',
+      );
+    }
+  }
+
+  Error.throwWithStackTrace(firstError!, firstStackTrace!);
 }

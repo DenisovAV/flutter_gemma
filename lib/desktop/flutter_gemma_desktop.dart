@@ -11,6 +11,7 @@ import '../model_file_manager_interface.dart';
 import '../pigeon.g.dart';
 import '../core/model.dart';
 import '../core/di/service_registry.dart';
+import '../core/ffi/backend_preference.dart';
 import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 import '../core/litert/litert_embedding_model.dart';
@@ -141,20 +142,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       final cacheDir = (await getApplicationSupportDirectory()).path;
 
       // Initialize via dart:ffi → C API (no JRE, no gRPC)
-      final ffiClient = LiteRtLmFfiClient();
       // NPU is supported via LiteRT-LM's `Backend::NPU` enum on macOS / Linux /
       // Windows (iOS disabled by upstream `LITERT_DISABLE_NPU`). Actual
       // hardware acceleration requires a Qualcomm QNN / Hexagon NN runtime
       // dispatch lib on the device; without one, engine_create fails with a
       // dispatch error from LiteRT-LM. See README for details (#261).
-      final backend = switch (preferredBackend) {
-        PreferredBackend.cpu => 'cpu',
-        PreferredBackend.gpu || null => 'gpu',
-        PreferredBackend.npu => 'npu',
-      };
-      await ffiClient.initialize(
+      final ffiRuntime = await _initializeDesktopFfiInferenceRuntime(
         modelPath: modelPath,
-        backend: backend,
+        preferredBackend: preferredBackend,
         maxTokens: maxTokens,
         cacheDir: cacheDir,
         enableVision: supportImage,
@@ -165,9 +160,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       // Create model instance
       final model = _initializedModel = DesktopInferenceModel(
-        ffiClient: ffiClient,
+        ffiClient: ffiRuntime.client,
         maxTokens: maxTokens,
         modelType: modelType,
+        activeBackend: ffiRuntime.activeBackend,
         fileType: fileType,
         supportImage: supportImage,
         supportAudio: supportAudio,
@@ -363,6 +359,47 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   set enableHnsw(bool value) {
     ServiceRegistry.instance.vectorStoreRepository.enableHnsw = value;
   }
+}
+
+Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
+    _initializeDesktopFfiInferenceRuntime({
+  required String modelPath,
+  required PreferredBackend? preferredBackend,
+  required int maxTokens,
+  required String cacheDir,
+  required bool enableVision,
+  required int maxNumImages,
+  required bool enableAudio,
+  required bool? enableSpeculativeDecoding,
+}) async {
+  Object? firstError;
+  StackTrace? firstStackTrace;
+  for (final backend in ffiBackendFallbackOrder(preferredBackend)) {
+    final client = LiteRtLmFfiClient();
+    try {
+      await client.initialize(
+        modelPath: modelPath,
+        backend: ffiBackendWireName(backend),
+        maxTokens: maxTokens,
+        cacheDir: cacheDir,
+        enableVision: enableVision,
+        maxNumImages: maxNumImages,
+        enableAudio: enableAudio,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
+      );
+      return (client: client, activeBackend: backend);
+    } on Object catch (error, stackTrace) {
+      firstError ??= error;
+      firstStackTrace ??= stackTrace;
+      client.shutdown();
+      debugPrint(
+        '[FlutterGemmaDesktop] ${ffiBackendWireName(backend)} backend '
+        'failed: $error',
+      );
+    }
+  }
+
+  Error.throwWithStackTrace(firstError!, firstStackTrace!);
 }
 
 /// Check if current platform is desktop

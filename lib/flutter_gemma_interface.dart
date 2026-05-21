@@ -133,6 +133,13 @@ abstract class InferenceModel {
 
   ModelFileType get fileType;
 
+  /// Backend that the runtime initialized for this model, when known.
+  ///
+  /// This value is set after runtime creation and must reflect any fallback the
+  /// plugin performed internally. It is null when the platform runtime does not
+  /// expose a final backend.
+  PreferredBackend? get activeBackend;
+
   /// Creates a new [InferenceModelSession] for generation.
   ///
   /// [temperature], [randomSeed], [topK], [topP] — parameters for sampling.

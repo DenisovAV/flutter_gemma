@@ -15,6 +15,7 @@ import '../core/di/service_registry.dart';
 // (FlutterGemmaWeb) registers itself as FlutterGemmaPlugin.instance via
 // registerWith() before any of this code can run, so the stubs' constructors
 // (which throw UnsupportedError) are never reached on web.
+import '../core/ffi/backend_preference.dart';
 import '../core/ffi/litert_lm_client.dart'
     if (dart.library.js_interop) '../core/ffi/litert_lm_client_stub.dart';
 import '../core/ffi/ffi_inference_model.dart'
@@ -697,12 +698,12 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
 }) async {
   Object? firstError;
   StackTrace? firstStackTrace;
-  for (final backend in _backendFallbackOrder(preferredBackend)) {
+  for (final backend in ffiBackendFallbackOrder(preferredBackend)) {
     final client = LiteRtLmFfiClient();
     try {
       await client.initialize(
         modelPath: modelPath,
-        backend: _backendWireName(backend),
+        backend: ffiBackendWireName(backend),
         maxTokens: maxTokens,
         cacheDir: cacheDir,
         enableVision: enableVision,
@@ -716,7 +717,7 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
       firstStackTrace ??= stackTrace;
       client.shutdown();
       debugPrint(
-        '[FlutterGemmaMobile] ${_backendWireName(backend)} backend failed: '
+        '[FlutterGemmaMobile] ${ffiBackendWireName(backend)} backend failed: '
         '$error',
       );
     }
@@ -724,25 +725,3 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
 
   Error.throwWithStackTrace(firstError!, firstStackTrace!);
 }
-
-List<PreferredBackend> _backendFallbackOrder(
-  PreferredBackend? preferredBackend,
-) =>
-    switch (preferredBackend) {
-      PreferredBackend.npu => const [
-          PreferredBackend.npu,
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      PreferredBackend.gpu || null => const [
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      PreferredBackend.cpu => const [PreferredBackend.cpu],
-    };
-
-String _backendWireName(PreferredBackend backend) => switch (backend) {
-      PreferredBackend.npu => 'npu',
-      PreferredBackend.gpu => 'gpu',
-      PreferredBackend.cpu => 'cpu',
-    };

@@ -11,6 +11,7 @@ import '../model_file_manager_interface.dart';
 import '../pigeon.g.dart';
 import '../core/model.dart';
 import '../core/di/service_registry.dart';
+import '../core/ffi/backend_preference.dart';
 import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 import '../core/litert/litert_embedding_model.dart';
@@ -373,12 +374,12 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
 }) async {
   Object? firstError;
   StackTrace? firstStackTrace;
-  for (final backend in _desktopBackendFallbackOrder(preferredBackend)) {
+  for (final backend in ffiBackendFallbackOrder(preferredBackend)) {
     final client = LiteRtLmFfiClient();
     try {
       await client.initialize(
         modelPath: modelPath,
-        backend: _desktopBackendWireName(backend),
+        backend: ffiBackendWireName(backend),
         maxTokens: maxTokens,
         cacheDir: cacheDir,
         enableVision: enableVision,
@@ -392,7 +393,7 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
       firstStackTrace ??= stackTrace;
       client.shutdown();
       debugPrint(
-        '[FlutterGemmaDesktop] ${_desktopBackendWireName(backend)} backend '
+        '[FlutterGemmaDesktop] ${ffiBackendWireName(backend)} backend '
         'failed: $error',
       );
     }
@@ -400,28 +401,6 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
 
   Error.throwWithStackTrace(firstError!, firstStackTrace!);
 }
-
-List<PreferredBackend> _desktopBackendFallbackOrder(
-  PreferredBackend? preferredBackend,
-) =>
-    switch (preferredBackend) {
-      PreferredBackend.npu => const [
-          PreferredBackend.npu,
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      PreferredBackend.gpu || null => const [
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      PreferredBackend.cpu => const [PreferredBackend.cpu],
-    };
-
-String _desktopBackendWireName(PreferredBackend backend) => switch (backend) {
-      PreferredBackend.npu => 'npu',
-      PreferredBackend.gpu => 'gpu',
-      PreferredBackend.cpu => 'cpu',
-    };
 
 /// Check if current platform is desktop
 bool get isDesktop {

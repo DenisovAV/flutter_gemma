@@ -136,7 +136,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.11.0-b',
+  version: '0.12.0',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -149,19 +149,19 @@ const _litertlmBundle = _NativeBundle(
   markerFileName: '.flutter_gemma_native_version',
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '79583513cbbdda784b1714c1068a1fdd0f8133364868574ec3334af8d0eee056',
+        '930296b010ecc316c6b6fc4ed1c722b275b4064b59b5aad8ff7b858e9149c0d7',
     'litertlm-linux_arm64.tar.gz':
-        'bab26bf420316ef2f4037ffced1470a18cbb6ee6cda069fc0ae8a5f8eb882bfb',
+        '616b2e8cb9903bfd4ee54ca600a9a0cce38ddd16ed3e4b847a6d80e548b9aa60',
     'litertlm-windows_x86_64.tar.gz':
-        '2291db8d4cc104d695b589a179ef04f0c955f906264d625ed4f16babe13d952e',
+        'b7264091c05001ef84e53761dfee331f761e3a2362b36b28ab2ce39666400d76',
     'litertlm-macos_arm64.tar.gz':
-        'fa3138c9f97b6ba3c19f620c29439207d38566598fff06cc55ff115ade17f8e8',
+        'a616c6996853cf095fac8c19de1d4dbf9a7434437da7f9bcc167e0e840147e10',
     'litertlm-ios_arm64.tar.gz':
-        'eae0d0ef8b81eeb6e6e0b69a482513f47b371ec2f410f571763538a5d23c7607',
+        'c61b7e7ffcbb16aa9c69a525c3883b42356de045c84cfade8691d05c914421c2',
     'litertlm-ios_sim_arm64.tar.gz':
-        'f92b8fcb3627c82c9398f39bcf6851a46e97f9565d5341d454390802bf1ffd78',
+        'f14308a685d75909fea28271f12c37d0022dbdac56271f48e87846cb83d29c14',
     'litertlm-android_arm64.tar.gz':
-        '9712d55d1a248ad8834531f2d937a9bbf2feceaad8a1d352ef5f63a4dedb8f17',
+        'e24804d922aadd91a85a6faf272a20e9c3e7991ed2754cf2a9071ad08a8fc2ce',
   },
   companions: [
     'GemmaModelConstraintProvider',

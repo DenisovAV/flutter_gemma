@@ -24,13 +24,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-LITERT_LM_DIR="/tmp/LiteRT-LM"
+LITERT_LM_DIR="${LITERT_LM_DIR:-/tmp/LiteRT-LM}"
 VERSION="${1:-}"
 
 echo "=== Building libLiteRtLm.dylib for iOS ==="
 
 # 1. Clone or update LiteRT-LM
-if [ -d "$LITERT_LM_DIR" ]; then
+if [ -d "$LITERT_LM_DIR/.git" ]; then
   echo "Updating $LITERT_LM_DIR..."
   cd "$LITERT_LM_DIR"
   # --force so a tag that moved upstream (e.g. v0.11.0 itself was retagged
@@ -65,7 +65,7 @@ cc_binary(
     linkshared = True,
     linkopts = select({
         "@platforms//os:macos": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
-        "@platforms//os:ios": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*"],
+        "@platforms//os:ios": ["-Wl,-exported_symbol,_LiteRt*", "-Wl,-exported_symbol,_litert_lm_*", "-Wl,-x"],
         "@platforms//os:linux": ["-Wl,--export-dynamic-symbol=LiteRt*", "-Wl,--export-dynamic-symbol=litert_lm_*"],
         "//conditions:default": [],
     }),
@@ -82,6 +82,23 @@ bash "$SCRIPT_DIR/patch_c_api.sh" "$LITERT_LM_DIR"
 # 4. Pull LFS files
 echo "Pulling LFS files..."
 git lfs pull --include="prebuilt/ios_arm64/*,prebuilt/ios_sim_arm64/*"
+
+verify_flutter_ios_strip() {
+  local dylib="$1"
+  local probe
+  local output
+
+  probe="$(mktemp)"
+  cp "$dylib" "$probe"
+  if ! output="$(xcrun strip -x -S "$probe" 2>&1)"; then
+    rm -f "$probe"
+    echo "ERROR: $dylib is not compatible with Flutter iOS Native Assets release stripping."
+    echo "Flutter runs: xcrun strip -x -S <dylib>"
+    printf '%s\n' "$output"
+    return 1
+  fi
+  rm -f "$probe"
+}
 
 # 5. Build for iOS device (arm64)
 echo ""
@@ -162,9 +179,15 @@ echo "=== Verification ==="
 echo "Device (ios_arm64):"
 ls -lh "$DEVICE_DIR/"
 nm -gU "$DEVICE_DIR/libLiteRtLm.dylib" | grep "litert_lm_engine_create" | head -1
+for dylib in "$DEVICE_DIR"/*.dylib; do
+  verify_flutter_ios_strip "$dylib"
+done
 echo ""
 echo "Simulator (ios_sim_arm64):"
 ls -lh "$SIM_DIR/"
 nm -gU "$SIM_DIR/libLiteRtLm.dylib" | grep "litert_lm_engine_create" | head -1
+for dylib in "$SIM_DIR"/*.dylib; do
+  verify_flutter_ios_strip "$dylib"
+done
 echo ""
 echo "=== Done ==="

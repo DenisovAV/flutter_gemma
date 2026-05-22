@@ -49,7 +49,7 @@ fi
 # This is the first public LiteRT-LM commit where libLiteRtLm rebuilt from
 # source has matching ABI with the prebuilt accelerators. v0.11.0 itself
 # is broken — see the WARNING above and the upstream issue we filed.
-DEFAULT_REF="032334d81ff96431492be272e536fbafe094b1e9"
+DEFAULT_REF="ffed38adbc33509480b5340e5173638bc20a68ff"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"
@@ -154,23 +154,31 @@ for lib in libGemmaModelConstraintProvider.dylib libLiteRtMetalAccelerator.dylib
   [ -f "prebuilt/ios_sim_arm64/$lib" ] && cp "prebuilt/ios_sim_arm64/$lib" "$SIM_DIR/$lib" && echo "  $lib → simulator"
 done
 
-# 8b. Re-apply vtool minos patch on libGemmaModelConstraintProvider.dylib —
-# upstream ships it with minos 26.2 on iOS (only one of the iOS companion
-# dylibs with this issue), causing App Store ITMS-90208 rejection for any
-# app with Info.plist min iOS < 26.2. See google-ai-edge/LiteRT-LM#2158
-# and our downstream issue #245. Lower to 16.0 which matches our podspec.
+# 8b. Normalize iOS minos of all 4 companion dylibs to 13.0 — this matches
+# the MinimumOSVersion that Flutter Native Assets hardcodes into the
+# generated framework wrapper Info.plist (flutter/flutter#148501). Without
+# this, App Store Connect rejects the archive with ITMS-90208 ("framework
+# does not support the minimum OS Version specified in the Info.plist")
+# whenever a dylib's binary minos differs from the wrapper plist's 13.0.
+#
+# The plugin still requires iOS 16+ via the podspec's `s.platform = :ios,
+# '16.0'` — that's the real contract. The minos here is just metadata to
+# satisfy validator equality between binary and wrapper plist; the actual
+# minimum is enforced upstream by CocoaPods. See #245, #286.
 echo ""
-echo "=== Patch libGemmaModelConstraintProvider.dylib minos 26.2 → 16.0 ==="
+echo "=== Patch iOS companion dylibs minos → 13.0 ==="
 for arch_dir_pair in "ios:$DEVICE_DIR" "iossim:$SIM_DIR"; do
   platform="${arch_dir_pair%%:*}"
   dir="${arch_dir_pair##*:}"
-  d="$dir/libGemmaModelConstraintProvider.dylib"
-  if [ -f "$d" ]; then
-    vtool -set-build-version "$platform" 16.0 26.2 -replace -output "$d.new" "$d"
-    mv "$d.new" "$d"
-    chmod +w "$d"
-    echo "  $d: minos $(vtool -show-build "$d" | grep minos | awk '{print $2}')"
-  fi
+  for libname in libGemmaModelConstraintProvider libLiteRtLm libLiteRtMetalAccelerator libStreamProxy; do
+    d="$dir/${libname}.dylib"
+    if [ -f "$d" ]; then
+      vtool -set-build-version "$platform" 13.0 18.5 -replace -output "$d.new" "$d"
+      mv "$d.new" "$d"
+      chmod +w "$d"
+      echo "  $d: minos $(vtool -show-build "$d" | grep minos | awk '{print $2}'), sdk $(vtool -show-build "$d" | grep sdk | awk '{print $2}')"
+    fi
+  done
 done
 
 # 9. Verify

@@ -201,13 +201,41 @@ class PlatformFileSystemService implements FileSystemService {
     if (Platform.isAndroid || Platform.isIOS) {
       dir = await getApplicationDocumentsDirectory();
     } else if (Platform.isWindows) {
-      // LOCALAPPDATA is set by Windows for every user session. Fall back
-      // to the Roaming Application Support if it is somehow unset (very
-      // unusual but possible in stripped-down environments).
+      // Windows: prefer LOCALAPPDATA (never OneDrive-synced, unlike
+      // Documents or Roaming AppData). But the env var is unreliable:
+      // some shells / dev containers / sandboxes return it relative
+      // ("Users\me\AppData\Local") or empty, in which case the
+      // resulting Directory resolves against $PWD at access time —
+      // a moving target that breaks install/validate roundtrips.
+      // See https://github.com/DenisovAV/flutter_gemma/issues/<...>
+      // for the original bug report.
+      //
+      // Defence in depth:
+      //   1. Read LOCALAPPDATA; accept only if non-empty AND absolute.
+      //   2. Otherwise compose from USERPROFILE + \AppData\Local if
+      //      USERPROFILE itself is absolute.
+      //   3. Last resort: path_provider's getApplicationSupportDirectory()
+      //      (Roaming AppData via the Windows SHGetKnownFolderPath API).
       final local = Platform.environment['LOCALAPPDATA'];
-      final base = local != null && local.isNotEmpty
-          ? Directory(local)
-          : await getApplicationSupportDirectory();
+      Directory? base;
+      if (local != null && local.isNotEmpty && path.isAbsolute(local)) {
+        base = Directory(local);
+      } else {
+        if (local != null && local.isNotEmpty) {
+          debugPrint('[flutter_gemma] LOCALAPPDATA is not absolute '
+              '("$local") — falling back to USERPROFILE / Application '
+              'Support. Models would otherwise land in a \$PWD-relative '
+              'directory.');
+        }
+        final userProfile = Platform.environment['USERPROFILE'];
+        if (userProfile != null &&
+            userProfile.isNotEmpty &&
+            path.isAbsolute(userProfile)) {
+          base = Directory(path.join(userProfile, 'AppData', 'Local'));
+        } else {
+          base = await getApplicationSupportDirectory();
+        }
+      }
       dir = Directory(path.join(base.path, 'flutter_gemma'));
     } else {
       // macOS, Linux — namespace under flutter_gemma/ inside Application

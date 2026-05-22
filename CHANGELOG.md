@@ -1,3 +1,9 @@
+## 0.16.1
+- **LiteRT-LM v0.12.0** native bump (commit `ffed38a`): NPU dispatch now available on Linux/macOS as well as Windows.
+- **Fix iOS App Store upload (ITMS-90208)** (#286): iOS LiteRT-LM and qdrant-edge artifacts repacked.
+- **Fix iOS Native Assets strip step on Xcode 26** (#289, thanks @merlinnot): emit `libLiteRtLm.dylib` with `-Wl,-x` so `xcrun strip -x -S` succeeds during release builds.
+- **Fix Windows install path** when `%LOCALAPPDATA%` env var is relative — falls back to `USERPROFILE\AppData\Local` then `getApplicationSupportDirectory()`.
+
 ## 0.16.0
 - **Native vector store: qdrant-edge by default.** Replaces sqlite + local_hnsw on every native platform. Web unchanged (wa-sqlite). Old impl `@Deprecated`, removal in 1.0.
 - **Filter DSL** for `searchSimilar(... filter: Filter(must: [...], should: [...], mustNot: [...]))`. Honored on native; silently ignored on Web.

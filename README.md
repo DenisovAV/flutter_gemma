@@ -1,4 +1,4 @@
-    # Flutter Gemma
+# Flutter Gemma
 
 [![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
 [![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
@@ -53,6 +53,7 @@ There is an example of using:
 - 🚀 **Native vector store on qdrant-edge** — `addDocument()` / `searchSimilar()` API unchanged; 30–300× faster than the legacy sqlite + local_hnsw path on every desktop and mobile target. Old impl `@Deprecated`, removed in 1.0.
 - 🎯 **`Filter` DSL** for `searchSimilar(... filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`. Honored on native, silently ignored on Web.
 - 🔧 **Desktop install/validate path fix** — `isModelInstalled()` now reads the same storage location the installer writes to. Affected: Windows/macOS/Linux users on clean machines who saw "Active model is no longer installed" right after install in 0.15.x.
+- ⚡ **LiteRT-LM v0.12.0** (0.16.1) — NPU dispatch now available on Linux and macOS as well as Windows.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
@@ -1303,7 +1304,7 @@ Function calling is currently supported by the following models:
 |---------|---------|-----|-----|---------|-------|
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
-| **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B; iOS device-only; Desktop via FFI |
+| **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |

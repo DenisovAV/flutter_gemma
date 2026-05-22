@@ -684,13 +684,30 @@ class LiteRtLmFfiClient {
     final proxyFn = outProxyFn.value;
     calloc.free(outProxyFn);
 
+    // v0.12.0 send_message_stream takes a LiteRtLmConversationOptionalArgs*
+    // that must be a real allocation (passing null sigsegvs inside
+    // litert_lm_lib). We allocate an empty one per call and free it after
+    // the native call returns; the callback fires synchronously inside.
+    final optionalArgs = b.litert_lm_conversation_optional_args_create();
+    if (optionalArgs == nullptr) {
+      calloc.free(messagePtr);
+      if (extraPtr != nullptr) calloc.free(extraPtr);
+      callable.close();
+      throw StateError(
+          'litert_lm_conversation_optional_args_create returned null — '
+          'native libLiteRtLm.dylib initialization failure');
+    }
+
     final result = b.litert_lm_conversation_send_message_stream(
       _conversation!,
       messagePtr.cast(),
       extraPtr == nullptr ? nullptr : extraPtr.cast(),
+      optionalArgs,
       proxyFn.cast(),
       proxyData,
     );
+
+    b.litert_lm_conversation_optional_args_delete(optionalArgs);
 
     if (result != 0) {
       controller
@@ -714,11 +731,22 @@ class LiteRtLmFfiClient {
     final extraPtr =
         extraContext != null ? extraContext.toNativeUtf8() : nullptr;
 
+    // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
+    final optionalArgs = b.litert_lm_conversation_optional_args_create();
+    if (optionalArgs == nullptr) {
+      calloc.free(messagePtr);
+      if (extraPtr != nullptr) calloc.free(extraPtr);
+      throw StateError(
+          'litert_lm_conversation_optional_args_create returned null — '
+          'native libLiteRtLm.dylib initialization failure');
+    }
+
     try {
       final response = b.litert_lm_conversation_send_message(
         _conversation!,
         messagePtr.cast(),
         extraPtr == nullptr ? nullptr : extraPtr.cast(),
+        optionalArgs,
       );
 
       if (response == nullptr) {
@@ -731,6 +759,7 @@ class LiteRtLmFfiClient {
       b.litert_lm_json_response_delete(response);
       return result;
     } finally {
+      b.litert_lm_conversation_optional_args_delete(optionalArgs);
       calloc.free(messagePtr);
       if (extraPtr != nullptr) calloc.free(extraPtr);
     }

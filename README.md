@@ -30,7 +30,8 @@ There is an example of using:
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
-- **🧩 Desktop Runtime Extensions:** Register custom desktop runtimes (for example MLX-backed macOS bridges) and fall back to the built-in LiteRT path when an extension declines a model.
+- **🧩 Desktop Runtime Extensions:** Register custom desktop runtimes and fall back to the built-in LiteRT path when an extension declines a model.
+- **🍎 Built-in macOS MLX bridge:** When the host app links `flm_dispatch_json` / `flm_bridge_free_string`, flutter_gemma now auto-routes local model directories to MLX without changing the chat/session API.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, and FastVLM vision models
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, iOS device, Desktop)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
@@ -156,9 +157,14 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 ## Custom desktop runtimes
 
-If you already have a native desktop runtime in another package — for example an
-MLX bridge managed by your app — you can register it without forking the main
-chat/session APIs:
+On macOS, flutter_gemma now includes a built-in MLX desktop extension. If the
+active model resolves to a local directory and the host process already links an
+MLX bridge exposing `flm_dispatch_json` / `flm_bridge_free_string`, the desktop
+plugin auto-selects MLX before falling back to LiteRT-LM.
+
+If you already have a different native desktop runtime in another package, you
+can still replace or extend that behavior without forking the main chat/session
+APIs:
 
 ```dart
 FlutterGemmaDesktop.registerRuntimeExtension(

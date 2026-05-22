@@ -51,7 +51,10 @@ class PlatformFileSystemService implements FileSystemService {
   @override
   Future<bool> fileExists(String filePath) async {
     final file = File(filePath);
-    return await file.exists();
+    if (await file.exists()) {
+      return true;
+    }
+    return Directory(filePath).exists();
   }
 
   @override
@@ -59,7 +62,11 @@ class PlatformFileSystemService implements FileSystemService {
     final file = File(filePath);
 
     if (!await file.exists()) {
-      return 0;
+      final directory = Directory(filePath);
+      if (!await directory.exists()) {
+        return 0;
+      }
+      return _directorySize(directory);
     }
 
     final stat = await file.stat();
@@ -173,6 +180,16 @@ class PlatformFileSystemService implements FileSystemService {
     // External file registration is handled by ProtectedFilesRegistry
     // This method is a no-op here since file system doesn't track registrations
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()
+  }
+
+  Future<int> _directorySize(Directory directory) async {
+    int total = 0;
+    await for (final entity in directory.list(recursive: true)) {
+      if (entity is File) {
+        total += await entity.length();
+      }
+    }
+    return total;
   }
 
   /// Gets the model storage directory with caching.

@@ -15,6 +15,8 @@ import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 import '../core/litert/litert_embedding_model.dart';
 import 'desktop_runtime_extension.dart';
+import 'mlx_inference_model.dart';
+import 'mlx_runtime_extension.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
@@ -34,12 +36,23 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   static FlutterGemmaDesktop? _instance;
   static final DesktopRuntimeRegistry _runtimeRegistry =
       DesktopRuntimeRegistry();
+  static bool _builtInRuntimeExtensionsRegistered = false;
 
   /// Get the singleton instance
-  static FlutterGemmaDesktop get instance =>
-      _instance ??= FlutterGemmaDesktop._();
+  static FlutterGemmaDesktop get instance => _instance ??= (() {
+        _ensureBuiltInRuntimeExtensionsRegistered();
+        return FlutterGemmaDesktop._();
+      })();
 
   static DesktopRuntimeRegistry get runtimeRegistry => _runtimeRegistry;
+
+  static void _ensureBuiltInRuntimeExtensionsRegistered() {
+    if (_builtInRuntimeExtensionsRegistered) {
+      return;
+    }
+    _runtimeRegistry.register(createBuiltInMlxRuntimeExtension());
+    _builtInRuntimeExtensionsRegistered = true;
+  }
 
   static void registerRuntimeExtension(DesktopRuntimeExtension extension) {
     _runtimeRegistry.register(extension);
@@ -58,6 +71,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   /// This is called automatically by Flutter for dartPluginClass.
   /// No parameters needed for desktop platforms.
   static void registerWith() {
+    _ensureBuiltInRuntimeExtensionsRegistered();
     FlutterGemmaPlugin.instance = instance;
     debugPrint('[FlutterGemmaDesktop] Plugin registered for desktop platform');
   }
@@ -110,13 +124,24 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _lastActiveInferenceSpec != null) {
       final currentSpec = _lastActiveInferenceSpec!;
       final requestedSpec = activeModel as InferenceModelSpec;
-      final currentModel = _initializedModel as DesktopInferenceModel?;
+      final currentModel = _initializedModel;
+      final currentSupportImage = switch (currentModel) {
+        DesktopInferenceModel(:final supportImage) => supportImage,
+        MlxInferenceModel(:final supportImage) => supportImage,
+        _ => null,
+      };
+      final currentSupportAudio = switch (currentModel) {
+        DesktopInferenceModel(:final supportAudio) => supportAudio,
+        MlxInferenceModel(:final supportAudio) => supportAudio,
+        _ => null,
+      };
+      final currentMaxTokens = currentModel?.maxTokens;
 
       final modelChanged = currentSpec.name != requestedSpec.name;
       final paramsChanged = currentModel != null &&
-          (currentModel.supportImage != supportImage ||
-              currentModel.supportAudio != supportAudio ||
-              currentModel.maxTokens != maxTokens);
+          (currentSupportImage != supportImage ||
+              currentSupportAudio != supportAudio ||
+              currentMaxTokens != maxTokens);
 
       if (modelChanged || paramsChanged) {
         debugPrint(

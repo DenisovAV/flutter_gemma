@@ -1,4 +1,4 @@
-    # Flutter Gemma
+# Flutter Gemma
 
 [![CI Tests](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/test.yml)
 [![Release Build](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml/badge.svg)](https://github.com/DenisovAV/flutter_gemma/actions/workflows/release.yml)
@@ -53,6 +53,7 @@ There is an example of using:
 - 🚀 **Native vector store on qdrant-edge** — `addDocument()` / `searchSimilar()` API unchanged; 30–300× faster than the legacy sqlite + local_hnsw path on every desktop and mobile target. Old impl `@Deprecated`, removed in 1.0.
 - 🎯 **`Filter` DSL** for `searchSimilar(... filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`. Honored on native, silently ignored on Web.
 - 🔧 **Desktop install/validate path fix** — `isModelInstalled()` now reads the same storage location the installer writes to. Affected: Windows/macOS/Linux users on clean machines who saw "Active model is no longer installed" right after install in 0.15.x.
+- ⚡ **LiteRT-LM v0.12.0** (0.16.1) — NPU dispatch now available on Linux and macOS as well as Windows.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 

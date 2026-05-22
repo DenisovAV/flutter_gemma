@@ -30,6 +30,7 @@ There is an example of using:
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
+- **🧩 Desktop Runtime Extensions:** Register custom desktop runtimes (for example MLX-backed macOS bridges) and fall back to the built-in LiteRT path when an extension declines a model.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, and FastVLM vision models
 - **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, iOS device, Desktop)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
@@ -152,6 +153,33 @@ await FlutterGemma.installModel(modelType: ModelType.general)
     ```
 
 2.  Run `flutter pub get` to install.
+
+## Custom desktop runtimes
+
+If you already have a native desktop runtime in another package — for example an
+MLX bridge managed by your app — you can register it without forking the main
+chat/session APIs:
+
+```dart
+FlutterGemmaDesktop.registerRuntimeExtension(
+  DesktopRuntimeExtension(
+    name: 'mlx',
+    createInferenceModel: (request) async {
+      if (!request.modelPath.endsWith('.mlx') &&
+          !request.modelPath.contains('mlx')) {
+        return null;
+      }
+
+      // Return your own InferenceModel implementation here.
+      return MyMlxInferenceModel.fromRequest(request);
+    },
+  ),
+);
+```
+
+The first extension that returns a non-null model handles the request. If every
+extension returns `null`, flutter_gemma continues with its built-in LiteRT
+desktop runtime exactly as before.
 
 ## Platform & Architecture Support
 

@@ -14,10 +14,11 @@ import '../core/di/service_registry.dart';
 import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 import '../core/litert/litert_embedding_model.dart';
+import 'desktop_runtime_extension.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
-    show InferenceModelSpec, MobileModelManager;
+    show EmbeddingModelSpec, InferenceModelSpec, MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
 
@@ -31,10 +32,26 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   FlutterGemmaDesktop._();
 
   static FlutterGemmaDesktop? _instance;
+  static final DesktopRuntimeRegistry _runtimeRegistry =
+      DesktopRuntimeRegistry();
 
   /// Get the singleton instance
   static FlutterGemmaDesktop get instance =>
       _instance ??= FlutterGemmaDesktop._();
+
+  static DesktopRuntimeRegistry get runtimeRegistry => _runtimeRegistry;
+
+  static void registerRuntimeExtension(DesktopRuntimeExtension extension) {
+    _runtimeRegistry.register(extension);
+  }
+
+  static bool unregisterRuntimeExtension(String name) {
+    return _runtimeRegistry.unregister(name);
+  }
+
+  static void clearRuntimeExtensions() {
+    _runtimeRegistry.clear();
+  }
 
   /// Register this implementation as the plugin instance
   ///
@@ -103,7 +120,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       if (modelChanged || paramsChanged) {
         debugPrint(
-            'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
+          'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged',
+        );
         await _initializedModel?.close();
         _initCompleter = null;
         _initializedModel = null;
@@ -134,11 +152,42 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         throw Exception('Model file paths not found');
       }
 
+      final activeSpec = activeModel as InferenceModelSpec;
       final modelPath = modelFilePaths.values.first;
+      final loraPath = modelFilePaths[PreferencesKeys.installedLoraFileName];
       debugPrint('[FlutterGemmaDesktop] Using model: $modelPath');
 
       // Get cache dir for faster reloads
       final cacheDir = (await getApplicationSupportDirectory()).path;
+
+      final extensionModel = await _runtimeRegistry.createManagedInferenceModel(
+        DesktopInferenceRequest(
+          spec: activeSpec,
+          modelPath: modelPath,
+          loraPath: loraPath,
+          modelType: modelType,
+          fileType: fileType,
+          maxTokens: maxTokens,
+          preferredBackend: preferredBackend,
+          loraRanks: loraRanks,
+          maxNumImages: maxNumImages,
+          supportImage: supportImage,
+          supportAudio: supportAudio,
+          enableSpeculativeDecoding: enableSpeculativeDecoding,
+          cacheDir: cacheDir,
+        ),
+        onClose: () {
+          _initializedModel = null;
+          _initCompleter = null;
+          _lastActiveInferenceSpec = null;
+        },
+      );
+      if (extensionModel != null) {
+        _initializedModel = extensionModel;
+        _lastActiveInferenceSpec = activeSpec;
+        completer.complete(extensionModel);
+        return extensionModel;
+      }
 
       // Initialize via dart:ffi → C API (no JRE, no gRPC)
       final ffiClient = LiteRtLmFfiClient();
@@ -178,7 +227,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         },
       );
 
-      _lastActiveInferenceSpec = activeModel as InferenceModelSpec;
+      _lastActiveInferenceSpec = activeSpec;
 
       completer.complete(model);
       return model;
@@ -255,6 +304,28 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         );
       }
 
+      final extensionModel = await _runtimeRegistry.createManagedEmbeddingModel(
+        DesktopEmbeddingRequest(
+          spec: currentActiveModel is EmbeddingModelSpec
+              ? currentActiveModel
+              : null,
+          modelPath: modelPath,
+          tokenizerPath: tokenizerPath,
+          preferredBackend: preferredBackend,
+        ),
+        onClose: () {
+          _initializedEmbeddingModel = null;
+          _initEmbeddingCompleter = null;
+          _lastActiveEmbeddingModelName = null;
+        },
+      );
+      if (extensionModel != null) {
+        _initializedEmbeddingModel = extensionModel;
+        _lastActiveEmbeddingModelName = currentActiveModel?.name;
+        completer.complete(extensionModel);
+        return extensionModel;
+      }
+
       // 0.15.2: Desktop embedding now uses the same LiteRT FFI path as
       // mobile (Android + iOS). No more separate TFLiteC + Dart tokenizer
       // wiring per call site — everything lives in LitertEmbeddingModel.
@@ -283,8 +354,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await ServiceRegistry.instance.vectorStoreRepository
-        .initialize(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository.initialize(
+      databasePath,
+    );
   }
 
   @override
@@ -310,7 +382,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }) async {
     if (initializedEmbeddingModel == null) {
       throw StateError(
-          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
+        'EmbeddingModel not initialized. Call createEmbeddingModel first.',
+      );
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(
       content,
@@ -333,10 +406,12 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }) async {
     if (initializedEmbeddingModel == null) {
       throw StateError(
-          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
+        'EmbeddingModel not initialized. Call createEmbeddingModel first.',
+      );
     }
-    final queryEmbedding =
-        await initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(
+      query,
+    );
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,

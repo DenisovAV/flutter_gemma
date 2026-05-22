@@ -157,9 +157,9 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-macos_arm64.tar.gz':
         'a616c6996853cf095fac8c19de1d4dbf9a7434437da7f9bcc167e0e840147e10',
     'litertlm-ios_arm64.tar.gz':
-        'c61b7e7ffcbb16aa9c69a525c3883b42356de045c84cfade8691d05c914421c2',
+        '88620e05382dcb1fdc5d2d985bfc9812f78f1422b4e9f3d1d8dfbafcf727c4ee',
     'litertlm-ios_sim_arm64.tar.gz':
-        'f14308a685d75909fea28271f12c37d0022dbdac56271f48e87846cb83d29c14',
+        '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
     'litertlm-android_arm64.tar.gz':
         'e24804d922aadd91a85a6faf272a20e9c3e7991ed2754cf2a9071ad08a8fc2ce',
   },
@@ -260,9 +260,9 @@ const _qdrantEdgeBundle = _NativeBundle(
     'qdrant-edge-macos_arm64.tar.gz':
         'ff0e47992aa0f1d220d955646992b23e4587477d9b8162b92284044d5b9c7b9b',
     'qdrant-edge-ios_arm64.tar.gz':
-        'cc48fa47a50197a13c6083e3a4b6d31784eb7c0de61af80d61e3549e85ea675d',
+        'fc07d3b7eb7681be3f0473f90badb5cecb6eeb60d703c68dc2129baa79be3213',
     'qdrant-edge-ios_sim_arm64.tar.gz':
-        '40027167e2e2302757f8f78e167dc7482aa261cf26953331331956f5b1054f6a',
+        '3bcf5bb3b0bb2c0f3fe207d30edf2fea0516f2f7ca850ead1bde08f41c73bce3',
     'qdrant-edge-android_arm64.tar.gz':
         '941b626c191bc0fe5a7abb108ec1086343ef82671fdaec2cbfb052ec63935c10',
   },

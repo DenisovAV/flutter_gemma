@@ -689,6 +689,14 @@ class LiteRtLmFfiClient {
     // litert_lm_lib). We allocate an empty one per call and free it after
     // the native call returns; the callback fires synchronously inside.
     final optionalArgs = b.litert_lm_conversation_optional_args_create();
+    if (optionalArgs == nullptr) {
+      calloc.free(messagePtr);
+      if (extraPtr != nullptr) calloc.free(extraPtr);
+      callable.close();
+      throw StateError(
+          'litert_lm_conversation_optional_args_create returned null — '
+          'native libLiteRtLm.dylib initialization failure');
+    }
 
     final result = b.litert_lm_conversation_send_message_stream(
       _conversation!,
@@ -725,6 +733,13 @@ class LiteRtLmFfiClient {
 
     // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
     final optionalArgs = b.litert_lm_conversation_optional_args_create();
+    if (optionalArgs == nullptr) {
+      calloc.free(messagePtr);
+      if (extraPtr != nullptr) calloc.free(extraPtr);
+      throw StateError(
+          'litert_lm_conversation_optional_args_create returned null — '
+          'native libLiteRtLm.dylib initialization failure');
+    }
 
     try {
       final response = b.litert_lm_conversation_send_message(

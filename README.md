@@ -54,6 +54,7 @@ There is an example of using:
 - 🎯 **`Filter` DSL** for `searchSimilar(... filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`. Honored on native, silently ignored on Web.
 - 🔧 **Desktop install/validate path fix** — `isModelInstalled()` now reads the same storage location the installer writes to. Affected: Windows/macOS/Linux users on clean machines who saw "Active model is no longer installed" right after install in 0.15.x.
 - ⚡ **LiteRT-LM v0.12.0** (0.16.1) — NPU dispatch now available on Linux and macOS as well as Windows.
+- 🌐 **Web `.litertlm` inference** (0.16.2) — Gemma 4 E2B/E4B `.litertlm` models run in the browser via `@litert-lm/core` (WebGPU + WASM, early preview). Text-only for now; vision / audio / thinking remain mobile/desktop-only.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 

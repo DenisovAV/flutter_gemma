@@ -209,7 +209,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.16.1"
+    version: "0.16.2"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -378,10 +378,10 @@ packages:
     dependency: transitive
     description:
       name: large_file_handler
-      sha256: c2ecaf552e8039119bbe3a094d15aecbafe833899f30b2dcfbb513eddf76b36f
+      sha256: "1657db12b4591242b186c23eee437997be91e655ab0d803fd74829074460757f"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.1"
+    version: "0.4.0"
   leak_tracker:
     dependency: transitive
     description:

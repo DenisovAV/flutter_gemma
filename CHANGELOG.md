@@ -1,3 +1,7 @@
+## 0.16.2
+- **Web `.litertlm` inference** via `@litert-lm/core` early preview (WebGPU/WASM, text-only).
+- Bump `large_file_handler` ^0.3.1 → ^0.4.0.
+
 ## 0.16.1
 - **LiteRT-LM v0.12.0** native bump (commit `ffed38a`): NPU dispatch now available on Linux/macOS as well as Windows.
 - **Fix iOS App Store upload (ITMS-90208)** (#286): iOS LiteRT-LM and qdrant-edge artifacts repacked.

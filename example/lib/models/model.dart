@@ -16,7 +16,11 @@ bool get _isDesktop {
 enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
-  // Gemma 4 models (Next-gen multimodal: text + image + audio)
+  // Gemma 4 models (Next-gen multimodal: text + image + audio).
+  // Web variant ships a separate `-web.task` (MediaPipe) build; the
+  // `gemma4_E2B_web_litertlm` / `gemma4_E4B_web_litertlm` entries below
+  // expose the parallel `-web.litertlm` build for the @litert-lm/core
+  // path (0.16.2+).
   gemma4_E2B(
     baseUrl:
         'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
@@ -163,10 +167,69 @@ enum Model implements InferenceModelInterface {
 
   // === LiteRT-LM ENGINE MODELS (for testing parity with MediaPipe) ===
 
-  // Gemma 3 Nano E2B LiteRT-LM (same model, different engine)
+  // Gemma 4 E2B LiteRT-LM (same model as gemma4_E2B, different engine).
+  // On web, uses the `-web.litertlm` build optimised for WebGPU/WASM via
+  // @litert-lm/core (0.16.2+). Text-only on web; full multimodal on native.
+  gemma4_E2B_litertlm(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    filename: 'gemma-4-E2B-it.litertlm',
+    displayName: 'Gemma 4 E2B IT (LiteRT-LM)',
+    size: '2.4GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: true,
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+  ),
+
+  // Gemma 4 E4B LiteRT-LM (same model as gemma4_E4B, different engine)
+  gemma4_E4B_litertlm(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
+    filename: 'gemma-4-E4B-it.litertlm',
+    displayName: 'Gemma 4 E4B IT (LiteRT-LM)',
+    size: '4.3GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: true,
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+  ),
+
+  // Gemma 3 Nano E2B LiteRT-LM (same model, different engine).
+  // Web uses the `-Web.litertlm` build that `gemma3n_2B` already pointed at
+  // via `webUrl` (was loaded through MediaPipe before 0.16.2; now LiteRT-LM
+  // via @litert-lm/core).
   gemma3n_2B_litertlm(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
+    webUrl:
+        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4-Web.litertlm',
     desktopUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.litertlm',
@@ -186,10 +249,13 @@ enum Model implements InferenceModelInterface {
     maxTokens: 4096,
   ),
 
-  // Gemma 3 Nano E4B LiteRT-LM (same model, different engine)
+  // Gemma 3 Nano E4B LiteRT-LM (same model, different engine).
+  // Web variant (0.16.2+) via @litert-lm/core.
   gemma3n_4B_litertlm(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
+    webUrl:
+        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4-Web.litertlm',
     desktopUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.litertlm',

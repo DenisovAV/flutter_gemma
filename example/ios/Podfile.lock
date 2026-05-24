@@ -1,11 +1,9 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_gemma (0.16.1):
+  - flutter_gemma (0.16.2):
     - Flutter
     - MediaPipeTasksGenAI (= 0.10.33)
     - MediaPipeTasksGenAIC (= 0.10.33)
-  - large_file_handler (0.0.1):
-    - Flutter
   - MediaPipeTasksGenAI (0.10.33):
     - MediaPipeTasksGenAIC (= 0.10.33)
   - MediaPipeTasksGenAIC (0.10.33)
@@ -15,7 +13,6 @@ PODS:
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_gemma (from `.symlinks/plugins/flutter_gemma/ios`)
-  - large_file_handler (from `.symlinks/plugins/large_file_handler/ios`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
 
 SPEC REPOS:
@@ -28,15 +25,12 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_gemma:
     :path: ".symlinks/plugins/flutter_gemma/ios"
-  large_file_handler:
-    :path: ".symlinks/plugins/large_file_handler/ios"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
 
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
-  flutter_gemma: 8ded1e5c49942dd1494d273f33bba4bdf4c76160
-  large_file_handler: b37481e9b4972562ffcdc8f75700f47cd592bcec
+  flutter_gemma: e2eee3971a72015ba0db622a1b5276786f80de75
   MediaPipeTasksGenAI: 8eed8e6d03fe26d30c4205cb5295ec7b394432ad
   MediaPipeTasksGenAIC: cb098ecea44e248efe8fe7e2f62b4cb0df781802
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d

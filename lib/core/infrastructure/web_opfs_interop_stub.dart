@@ -32,6 +32,10 @@ class WebOPFSService {
     throw UnsupportedError('OPFS is only supported on web platform');
   }
 
+  Never getStream(String filename) {
+    throw UnsupportedError('OPFS is only supported on web platform');
+  }
+
   Never deleteModel(String filename) {
     throw UnsupportedError('OPFS is only supported on web platform');
   }

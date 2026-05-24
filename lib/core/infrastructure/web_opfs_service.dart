@@ -132,6 +132,27 @@ class WebOPFSService {
     }
   }
 
+  /// Get a raw [ReadableStream] for an OPFS-cached model (no
+  /// `.getReader()` step). Returned object is a JS `ReadableStream`.
+  ///
+  /// Used by the `@litert-lm/core` web path, which accepts
+  /// `Engine.create({model: <ReadableStream>})`. The raw stream is
+  /// required to avoid Chrome's ~2 GB single-blob limit
+  /// (`ERR_BLOB_OUT_OF_MEMORY`) — MediaPipe's reader-based path uses
+  /// [getStreamReader] instead.
+  Future<JSAny> getStream(String filename) async {
+    try {
+      debugPrint('[WebOPFSService] Getting readable stream for: $filename');
+      final stream = await _opfs.getReadableStream(filename.toJS).toDart;
+      debugPrint('[WebOPFSService] Readable stream created');
+      return stream;
+    } catch (e, stackTrace) {
+      debugPrint('[WebOPFSService] Failed to get readable stream: $e');
+      debugPrint('[WebOPFSService] Stack trace: $stackTrace');
+      throw Exception('Model not found in OPFS: $filename');
+    }
+  }
+
   /// Delete a model from OPFS
   ///
   /// Parameters:

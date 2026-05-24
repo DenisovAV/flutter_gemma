@@ -49,6 +49,18 @@ extension type OPFSInterop._(JSObject _) implements JSObject {
   /// @throws Error if file not found
   external JSPromise<JSAny> getStreamReader(JSString filename);
 
+  /// Get a raw ReadableStream for a cached model (no `.getReader()` call).
+  ///
+  /// Used by `@litert-lm/core` `Engine.create({model: <ReadableStream>})`.
+  /// Per upstream docs the engine accepts `string | ReadableStream | Blob`,
+  /// and the ReadableStream form is required to avoid Chrome's ~2 GB blob
+  /// limit (`ERR_BLOB_OUT_OF_MEMORY`).
+  ///
+  /// @param filename Model filename in OPFS
+  /// @returns `Promise<ReadableStream>`
+  /// @throws Error if file not found
+  external JSPromise<JSAny> getReadableStream(JSString filename);
+
   /// Delete a model from OPFS
   ///
   /// @param filename Model filename to delete

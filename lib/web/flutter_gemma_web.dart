@@ -1,12 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+// Conditional import: same pattern WebDownloadService uses so the opfsService
+// field type matches statically (both sides of the resolver agree on the type).
+import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
@@ -17,10 +22,13 @@ import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
+import 'litert_lm_web.dart';
 import 'llm_inference_web.dart';
 import 'flutter_gemma_web_embedding_model.dart';
 
 part '../core/model_management/managers/web_model_manager.dart';
+part 'web_model_source.dart';
+part 'litert_lm_web_inference.dart';
 
 /// Base class for prompt parts (text, image, audio)
 abstract class PromptPart {}
@@ -134,17 +142,27 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
-    // Check if model already exists with different parameters
+    // Check if model already exists with different parameters. Two web engine
+    // types coexist now (MediaPipe `.task` and LiteRT-LM `.litertlm`), so the
+    // cached singleton can be either — type-check, then compare params.
     if (_initializedModel != null) {
-      final existing = _initializedModel! as WebInferenceModel;
-
-      // Check if parameters match
-      final bool parametersChanged = existing.modelType != modelType ||
-          existing.maxTokens != maxTokens ||
-          existing.supportImage != supportImage ||
-          existing.supportAudio != supportAudio ||
-          (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
-
+      final existing = _initializedModel!;
+      bool parametersChanged;
+      if (existing is WebInferenceModel) {
+        parametersChanged = existing.modelType != modelType ||
+            existing.fileType != fileType ||
+            existing.maxTokens != maxTokens ||
+            existing.supportImage != supportImage ||
+            existing.supportAudio != supportAudio ||
+            (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
+      } else if (existing is LiteRtLmWebInferenceModel) {
+        parametersChanged = existing.modelType != modelType ||
+            existing.fileType != fileType ||
+            existing.maxTokens != maxTokens;
+      } else {
+        // Unknown engine type — always replace.
+        parametersChanged = true;
+      }
       if (parametersChanged) {
         if (kDebugMode) {
           debugPrint(
@@ -155,21 +173,42 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
-    final model = _initializedModel ??= WebInferenceModel(
-      modelType: modelType,
-      fileType: fileType,
-      maxTokens: maxTokens,
-      loraRanks: loraRanks,
-      modelManager: modelManager
-          as WebModelManager, // Use the same instance from FlutterGemmaPlugin.instance
-      supportImage: supportImage, // Passing the flag
-      supportAudio: supportAudio, // Passing the audio flag
-      maxNumImages: maxNumImages,
-      onClose: () {
-        _initializedModel = null;
-      },
-    );
-    return model;
+    if (_initializedModel != null) {
+      return _initializedModel!;
+    }
+
+    // Engine selection by file type, mirroring the mobile branch in
+    // FlutterGemmaMobile.createModel: .task → MediaPipe (WebInferenceModel),
+    // .litertlm → LiteRT-LM JS via @litert-lm/core (LiteRtLmWebInferenceModel).
+    // Both share one [WebModelSourceResolver] — the storage-mode branch
+    // (Blob URL vs OPFS ReadableStream) lives there, not here.
+    final webManager = modelManager as WebModelManager;
+    final sourceResolver = WebModelSourceResolver(webManager);
+    if (fileType == ModelFileType.litertlm) {
+      _initializedModel = LiteRtLmWebInferenceModel(
+        modelType: modelType,
+        maxTokens: maxTokens,
+        sourceResolver: sourceResolver,
+        onClose: () {
+          _initializedModel = null;
+        },
+      );
+    } else {
+      _initializedModel = WebInferenceModel(
+        modelType: modelType,
+        fileType: fileType,
+        maxTokens: maxTokens,
+        loraRanks: loraRanks,
+        sourceResolver: sourceResolver,
+        supportImage: supportImage, // Passing the flag
+        supportAudio: supportAudio, // Passing the audio flag
+        maxNumImages: maxNumImages,
+        onClose: () {
+          _initializedModel = null;
+        },
+      );
+    }
+    return _initializedModel!;
   }
 
   // === EmbeddingModel Methods - Web Implementation ===
@@ -377,7 +416,7 @@ class WebInferenceModel extends InferenceModel {
   @override
   final ModelFileType fileType;
   final List<int>? loraRanks;
-  final WebModelManager modelManager;
+  final WebModelSourceResolver sourceResolver;
   final bool supportImage; // Enabling image support
   final bool supportAudio; // Enabling audio support (Gemma 3n E4B)
   final int? maxNumImages;
@@ -391,7 +430,7 @@ class WebInferenceModel extends InferenceModel {
     required this.onClose,
     required this.maxTokens,
     this.loraRanks,
-    required this.modelManager,
+    required this.sourceResolver,
     this.supportImage = false,
     this.supportAudio = false,
     this.maxNumImages,
@@ -441,64 +480,28 @@ class WebInferenceModel extends InferenceModel {
     }
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
-      // Use Modern API to get model path (same as mobile)
-      final activeModel = modelManager.activeInferenceModel;
-      if (activeModel == null) {
-        throw Exception('No active inference model set');
-      }
-
-      final modelFilePaths = await modelManager.getModelFilePaths(activeModel);
-      if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        throw Exception('Model file paths not found');
-      }
-
-      // Get model path from Modern API
-      final modelPath = modelFilePaths[PreferencesKeys.installedModelFileName];
-      if (modelPath == null) {
-        throw Exception('Model path not found in file paths');
-      }
+      // Shared resolver handles activeModel lookup + storage-mode branch.
+      // Used identically by LiteRtLmWebInferenceModel.
+      final resolved = await sourceResolver.resolveActiveInferenceModel();
 
       final fileset = await FilesetResolver.forGenAiTasks(
               'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'
                   .toJS)
           .toDart;
 
-      // Get LoRA path if available
-      final loraPathToUse =
-          loraPath ?? modelFilePaths[PreferencesKeys.installedLoraFileName];
+      // LoRA path comes from the resolver alongside the model source.
+      final loraPathToUse = loraPath ?? resolved.loraPath;
       final hasLoraParams = loraPathToUse != null && loraRanks != null;
 
-      // Check if using OPFS streaming mode
-      final registry = ServiceRegistry.instance;
-      final useStreaming = registry.useStreamingStorage;
-
-      // Create base options based on storage mode
-      final LlmInferenceBaseOptions baseOptions;
-      if (useStreaming && modelPath.startsWith('opfs://')) {
-        // OPFS streaming mode: Get ReadableStreamDefaultReader
-        final filename = modelPath.substring('opfs://'.length);
-        debugPrint('[WebInferenceModel] Loading from OPFS: $filename');
-
-        final downloadService = registry.downloadService;
-        if (downloadService is! WebDownloadService) {
-          throw Exception('Expected WebDownloadService for web platform');
-        }
-
-        final opfsService = downloadService.opfsService;
-        if (opfsService == null) {
-          throw Exception('OPFS service not available');
-        }
-
-        final streamReader = await opfsService.getStreamReader(filename);
-        // ignore: dead_code
-        debugPrint('[WebInferenceModel] Got OPFS stream reader');
-
-        baseOptions = LlmInferenceBaseOptions(modelAssetBuffer: streamReader);
-      } else {
-        // Cache API / None mode: Use Blob URL
-        debugPrint('[WebInferenceModel] Loading from Blob URL: $modelPath');
-        baseOptions = LlmInferenceBaseOptions(modelAssetPath: modelPath);
-      }
+      // MediaPipe consumes either modelAssetPath (Blob URL string) or
+      // modelAssetBuffer (ReadableStreamDefaultReader, for OPFS streaming).
+      final baseOptions = switch (resolved.model) {
+        BlobUrlModelSource(:final url) =>
+          LlmInferenceBaseOptions(modelAssetPath: url),
+        OpfsStreamModelSource() => LlmInferenceBaseOptions(
+            modelAssetBuffer:
+                await (resolved.model as OpfsStreamModelSource).openReader()),
+      };
 
       final config = LlmInferenceOptions(
           baseOptions: baseOptions,

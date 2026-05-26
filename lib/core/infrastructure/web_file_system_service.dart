@@ -85,10 +85,21 @@ class WebFileSystemService implements FileSystemService {
   }
 
   @override
+  Future<String> getWriteTargetPath(String filename) async {
+    // On web there is no legacy-Documents concept; write and read targets
+    // are the same identifier used to look up the URL in _urlMappings.
+    return filename;
+  }
+
+  @override
+  Future<String> getReadTargetPath(String filename) async {
+    return filename;
+  }
+
+  @Deprecated(
+      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
+  @override
   Future<String> getTargetPath(String filename) async {
-    // On web, the "target path" is just the identifier
-    // The actual URL is stored in _urlMappings
-    // This returns the identifier that can be used to look up the URL
     return filename;
   }
 
@@ -114,6 +125,13 @@ class WebFileSystemService implements FileSystemService {
 
     debugPrint(
         'WebFileSystemService: Registered external file $filename -> $externalPath');
+  }
+
+  @override
+  Future<String> getModelStorageDirectory() async {
+    throw UnsupportedError(
+        'getModelStorageDirectory() is not supported on the web platform. '
+        'Web models are stored as URLs, not local files.');
   }
 
   /// Registers a URL for a model (web-specific extension)

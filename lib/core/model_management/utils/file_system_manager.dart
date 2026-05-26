@@ -83,10 +83,14 @@ class ModelFileSystemManager {
     }
   }
 
-  /// Gets the full file path for a model file with Android path correction
+  /// Gets the full file path for a model file.
+  ///
+  /// Delegates to [FileSystemService.getTargetPath] so that the correct
+  /// storage directory is used on every platform (Android/iOS: Documents;
+  /// desktop: Application Support/flutter_gemma/; legacy Desktop: Documents
+  /// fallback with a debug-print nudge to re-install).
   static Future<String> getModelFilePath(String filename) async {
-    final directory = await getApplicationDocumentsDirectory();
-    return getCorrectedPath(directory.path, filename);
+    return ServiceRegistry.instance.fileSystemService.getTargetPath(filename);
   }
 
   /// Get information about orphaned files without deleting them
@@ -97,7 +101,9 @@ class ModelFileSystemManager {
     List<String>? protectedFiles,
     List<String>? supportedExtensions,
   }) async {
-    final directory = await getApplicationDocumentsDirectory();
+    final storageDirPath = await ServiceRegistry.instance.fileSystemService
+        .getModelStorageDirectory();
+    final directory = Directory(storageDirPath);
     final extensions =
         supportedExtensions ?? ModelFileSystemManager.supportedExtensions;
     final protected = protectedFiles ?? [];
@@ -111,7 +117,7 @@ class ModelFileSystemManager {
         .toList();
 
     for (final file in files) {
-      final fileName = file.path.split('/').last;
+      final fileName = path.basename(file.path);
 
       if (protected.contains(fileName)) {
         continue;
@@ -140,7 +146,9 @@ class ModelFileSystemManager {
   static Future<StorageStats> getStorageInfo({
     List<String>? protectedFiles,
   }) async {
-    final directory = await getApplicationDocumentsDirectory();
+    final storageDirPath = await ServiceRegistry.instance.fileSystemService
+        .getModelStorageDirectory();
+    final directory = Directory(storageDirPath);
 
     final files = directory
         .listSync()

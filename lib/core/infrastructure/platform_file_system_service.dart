@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -66,8 +66,18 @@ class PlatformFileSystemService implements FileSystemService {
     return stat.size;
   }
 
+  /// Per-process set of legacy paths already logged; prevents log spam on
+  /// repeated reads (e.g. every `isModelInstalled` check).
+  static final Set<String> _legacyFallbackLogged = {};
+
   @override
-  Future<String> getTargetPath(String filename) async {
+  Future<String> getWriteTargetPath(String filename) async {
+    final dir = await _getDocumentsDirectory();
+    return path.join(dir.path, filename);
+  }
+
+  @override
+  Future<String> getReadTargetPath(String filename) async {
     final dir = await _getDocumentsDirectory();
     final newPath = path.join(dir.path, filename);
 
@@ -81,10 +91,26 @@ class PlatformFileSystemService implements FileSystemService {
       final legacy = await getApplicationDocumentsDirectory();
       final legacyPath = path.join(legacy.path, filename);
       if (await File(legacyPath).exists()) {
+        if (_legacyFallbackLogged.add(legacyPath)) {
+          debugPrint(
+              '[flutter_gemma] Reading model from legacy Documents path; '
+              'consider re-installing to migrate: $legacyPath');
+        }
         return legacyPath;
       }
     }
     return newPath;
+  }
+
+  @Deprecated(
+      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
+  @override
+  Future<String> getTargetPath(String filename) => getReadTargetPath(filename);
+
+  @override
+  Future<String> getModelStorageDirectory() async {
+    final dir = await _getDocumentsDirectory();
+    return dir.path;
   }
 
   @override
@@ -166,21 +192,50 @@ class PlatformFileSystemService implements FileSystemService {
       throw UnsupportedError('Local file system not supported on web platform');
     }
 
-    if (_documentsDirectory != null) {
-      return _documentsDirectory!;
+    final cached = _documentsDirectory;
+    if (cached != null) {
+      return cached;
     }
 
     final Directory dir;
     if (Platform.isAndroid || Platform.isIOS) {
       dir = await getApplicationDocumentsDirectory();
     } else if (Platform.isWindows) {
-      // LOCALAPPDATA is set by Windows for every user session. Fall back
-      // to the Roaming Application Support if it is somehow unset (very
-      // unusual but possible in stripped-down environments).
+      // Windows: prefer LOCALAPPDATA (never OneDrive-synced, unlike
+      // Documents or Roaming AppData). But the env var is unreliable:
+      // some shells / dev containers / sandboxes return it relative
+      // ("Users\me\AppData\Local") or empty, in which case the
+      // resulting Directory resolves against $PWD at access time —
+      // a moving target that breaks install/validate roundtrips.
+      // See https://github.com/DenisovAV/flutter_gemma/issues/<...>
+      // for the original bug report.
+      //
+      // Defence in depth:
+      //   1. Read LOCALAPPDATA; accept only if non-empty AND absolute.
+      //   2. Otherwise compose from USERPROFILE + \AppData\Local if
+      //      USERPROFILE itself is absolute.
+      //   3. Last resort: path_provider's getApplicationSupportDirectory()
+      //      (Roaming AppData via the Windows SHGetKnownFolderPath API).
       final local = Platform.environment['LOCALAPPDATA'];
-      final base = local != null && local.isNotEmpty
-          ? Directory(local)
-          : await getApplicationSupportDirectory();
+      Directory? base;
+      if (local != null && local.isNotEmpty && path.isAbsolute(local)) {
+        base = Directory(local);
+      } else {
+        if (local != null && local.isNotEmpty) {
+          debugPrint('[flutter_gemma] LOCALAPPDATA is not absolute '
+              '("$local") — falling back to USERPROFILE / Application '
+              'Support. Models would otherwise land in a \$PWD-relative '
+              'directory.');
+        }
+        final userProfile = Platform.environment['USERPROFILE'];
+        if (userProfile != null &&
+            userProfile.isNotEmpty &&
+            path.isAbsolute(userProfile)) {
+          base = Directory(path.join(userProfile, 'AppData', 'Local'));
+        } else {
+          base = await getApplicationSupportDirectory();
+        }
+      }
       dir = Directory(path.join(base.path, 'flutter_gemma'));
     } else {
       // macOS, Linux — namespace under flutter_gemma/ inside Application
@@ -193,6 +248,6 @@ class PlatformFileSystemService implements FileSystemService {
       await dir.create(recursive: true);
     }
     _documentsDirectory = dir;
-    return _documentsDirectory!;
+    return dir;
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
@@ -94,10 +95,16 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   });
 
   /// Search for similar documents.
+  ///
+  /// [filter] is an optional payload predicate. Honored on every native
+  /// platform (qdrant-edge backend). Silently ignored on Web (the wa-sqlite
+  /// store has no payload filtering); passing a non-empty filter on Web
+  /// returns the same hits as `filter: null` and never throws.
   Future<List<RetrievalResult>> searchSimilar({
     required String query,
     int topK = 5,
     double threshold = 0.0,
+    Filter? filter,
   });
 
   /// Get vector store statistics.
@@ -143,7 +150,8 @@ abstract class InferenceModel {
     String? systemInstruction,
     bool enableThinking =
         false, // Enable thinking mode (Gemma 4 via extraContext)
-    List<Tool> tools = const [], // Native tool calling (Gemma 4 → SDK tools_json)
+    List<Tool> tools =
+        const [], // Native tool calling (Gemma 4 → SDK tools_json)
   });
 
   Future<InferenceChat> createChat({

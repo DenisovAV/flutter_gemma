@@ -1,3 +1,4 @@
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
@@ -34,6 +35,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     required List<double> queryEmbedding,
     required int topK,
     double threshold = 0.0,
+    Filter? filter,
   }) async {
     throw UnimplementedError('WebVectorStoreRepository is web platform only');
   }

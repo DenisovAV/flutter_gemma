@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/infrastructure/hnsw_vector_index.dart';
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/web/vector_store_web.dart';
@@ -179,9 +180,16 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     required List<double> queryEmbedding,
     required int topK,
     double threshold = 0.0,
+    Filter? filter, // ignored on web (wa-sqlite has no payload filtering)
   }) async {
     if (!_isInitialized || _store == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
+    }
+
+    if (filter != null && !filter.isEmpty) {
+      debugPrint(
+          '[WebVectorStore] Filter argument ignored on web (wa-sqlite has no payload filtering); '
+          'pass null filter to silence this log.');
     }
 
     try {

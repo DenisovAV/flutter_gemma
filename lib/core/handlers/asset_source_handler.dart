@@ -40,7 +40,8 @@ class AssetSourceHandler implements SourceHandler {
     }
 
     final filename = path.basename(source.path);
-    final targetPath = await fileSystem.getTargetPath(filename);
+    // ignore: deprecated_member_use_from_same_package
+    final targetPath = await fileSystem.getWriteTargetPath(filename);
 
     // LargeFileHandler's `targetName` parameter is *just* a filename — the
     // plugin prepends app docs dir itself. We keep the bare filename here.
@@ -89,7 +90,8 @@ class AssetSourceHandler implements SourceHandler {
     }
 
     final filename = path.basename(source.path);
-    final targetPath = await fileSystem.getTargetPath(filename);
+    // ignore: deprecated_member_use_from_same_package
+    final targetPath = await fileSystem.getWriteTargetPath(filename);
 
     if (assetLoader is FlutterAssetLoader) {
       try {

@@ -133,19 +133,31 @@ Also regenerate `checksums_litertlm.txt` for the GitHub Release page (single tex
 
 ## Step 6: Update GitHub Release assets
 
-### Option A — overwrite existing tag (`native-v0.10.2`)
-Use only if `_nativeVersion` did NOT bump. Replaces assets in place; downstream pinning to the tag will silently get new bytes.
-```bash
-RELEASE=native-v0.10.2
-for f in "$DIST"/litertlm-*.tar.gz "$DIST"/checksums_litertlm.txt; do
-  name=$(basename "$f")
-  gh release delete-asset "$RELEASE" "$name" --yes 2>/dev/null || true
-  gh release upload "$RELEASE" "$f"
-done
-```
+### ⛔ NEVER overwrite a tag referenced by a published plugin version
 
-### Option B — new tag (`native-v0.10.3`)
-Cleanest. Old `native-v0.10.2` keeps working for old plugin versions. Need GitHub Release notes describing what changed.
+`gh release upload --clobber` on an existing `native-v*` / `qdrant-edge-v*`
+tag silently breaks every end user already on a plugin version whose
+`hook/build.dart` references that tag. The published SHA256 (in their
+`pubspec.lock`-pinned plugin code) no longer matches the bytes GitHub
+serves, the hook deletes the archive and returns null, the build
+succeeds with a missing CodeAsset, and the app crashes at runtime on
+first `dlopen()`.
+
+This is unrecoverable. `tar -czf` is not deterministic across runs
+(mtime, file ordering, gzip block boundaries differ), so even with
+every original dylib byte you cannot reproduce the original tar SHA256.
+
+**Always publish a new tag instead** — `native-v0.10.3`, not
+`native-v0.10.2` reuploaded. The cost of a new tag is zero; the cost
+of breaking a shipped plugin version is real users with runtime
+crashes who cannot upgrade until the next release cycle.
+
+See `feedback_never_reupload_released_tarballs.md` for the full
+incident write-up.
+
+### Always: new tag (`native-v0.10.3`)
+Old `native-v0.10.2` keeps working for old plugin versions. Need
+GitHub Release notes describing what changed.
 ```bash
 RELEASE=native-v0.10.3
 gh release create "$RELEASE" "$DIST"/litertlm-*.tar.gz "$DIST"/checksums_litertlm.txt \

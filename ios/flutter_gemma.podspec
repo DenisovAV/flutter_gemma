@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '0.15.4'
+  s.version          = '0.16.1'
   s.summary          = 'Flutter plugin for running Gemma and other LLMs locally on iOS.'
   s.description      = <<-DESC
 Run Gemma 4, Gemma3n, Gemma 3, FastVLM, Qwen3, Qwen 2.5, DeepSeek R1,

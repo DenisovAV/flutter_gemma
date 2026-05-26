@@ -109,7 +109,9 @@ class MobileInferenceModelSession extends InferenceModelSession {
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
           ? message.images
-          : (message.imageBytes != null ? [message.imageBytes!] : const <Uint8List>[]);
+          : (message.imageBytes != null
+              ? [message.imageBytes!]
+              : const <Uint8List>[]);
       for (final image in images) {
         await _addImage(image);
       }
@@ -567,8 +569,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // replaced by the shared Dart-FFI + LiteRT path used on Desktop.
       // No platform-channel hop, single implementation across all native
       // platforms — see `LitertEmbeddingModel`.
-      final model = _initializedEmbeddingModel =
-          await LitertEmbeddingModel.create(
+      final model =
+          _initializedEmbeddingModel = await LitertEmbeddingModel.create(
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
         onClose: () {
@@ -648,6 +650,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     required String query,
     int topK = 5,
     double threshold = 0.0,
+    Filter? filter,
   }) async {
     // Generate embedding for query
     if (initializedEmbeddingModel == null) {
@@ -662,6 +665,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       queryEmbedding: queryEmbedding,
       topK: topK,
       threshold: threshold,
+      filter: filter,
     );
   }
 

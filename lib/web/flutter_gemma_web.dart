@@ -418,6 +418,8 @@ class WebInferenceModel extends InferenceModel {
   final ModelType modelType;
   @override
   final ModelFileType fileType;
+  @override
+  PreferredBackend? get activeBackend => null;
   final List<int>? loraRanks;
   final WebModelSourceResolver sourceResolver;
   final bool supportImage; // Enabling image support

@@ -1,4 +1,5 @@
 import 'package:flutter_gemma/core/ffi/backend_preference.dart';
+import 'package:flutter_gemma/flutter_gemma.dart' as public_api;
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -94,27 +95,31 @@ void main() {
           shutdownClient: (client) => client.shutdown(),
         ),
         throwsA(
-          isA<BackendInitException>()
-              .having(
-                (exception) =>
-                    exception.attempts.map((attempt) => attempt.backend),
-                'attempted backends',
-                [
-                  PreferredBackend.npu,
-                  PreferredBackend.gpu,
-                  PreferredBackend.cpu,
-                ],
-              )
-              .having(
-                (exception) => exception.lastAttempt.backend,
-                'last attempt',
-                PreferredBackend.cpu,
-              ),
+          isA<BackendInitException>().having(
+            (exception) => exception.attempts.map((attempt) => attempt.backend),
+            'attempted backends',
+            [
+              PreferredBackend.npu,
+              PreferredBackend.gpu,
+              PreferredBackend.cpu,
+            ],
+          ).having(
+            (exception) => exception.lastAttempt.backend,
+            'last attempt',
+            PreferredBackend.cpu,
+          ),
         ),
       );
 
       expect(clients, hasLength(3));
       expect(clients.every((client) => client.isShutdown), isTrue);
+    });
+
+    test('exports the aggregate exception from the public API', () {
+      expect(
+        public_api.BackendInitException,
+        same(BackendInitException),
+      );
     });
 
     test(

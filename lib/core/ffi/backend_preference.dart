@@ -40,7 +40,8 @@ class BackendInitAttemptFailure {
 }
 
 class BackendInitException implements Exception {
-  const BackendInitException({required this.attempts});
+  const BackendInitException({required this.attempts})
+      : assert(attempts.length > 0);
 
   final List<BackendInitAttemptFailure> attempts;
 

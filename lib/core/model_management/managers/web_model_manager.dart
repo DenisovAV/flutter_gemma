@@ -22,7 +22,111 @@ class WebModelManager extends ModelFileManager {
   Future<void> initialize() async {
     if (_isInitialized) return;
     _isInitialized = true;
+    await _restoreActiveInferenceModel();
+    await _restoreActiveEmbeddingModel();
     debugPrint('WebModelManager initialized');
+  }
+
+  /// Rehydrate `_activeInferenceModel` from the identity persisted by a
+  /// prior `setActiveModel` call (#227). The Web `getModelFilePaths` flow
+  /// resolves to a real blob/Cache-API URL based on `spec.modelSource`, so
+  /// we have to recover the original ModelSource (not just a filename).
+  Future<void> _restoreActiveInferenceModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modelTypeName =
+        prefs.getString(PreferencesKeys.activeInferenceModelType);
+    final fileTypeName =
+        prefs.getString(PreferencesKeys.activeInferenceFileType);
+    final filename = prefs.getString(PreferencesKeys.activeInferenceFilename);
+    final sourceEncoded =
+        prefs.getString(PreferencesKeys.activeInferenceSource);
+
+    if (modelTypeName == null ||
+        fileTypeName == null ||
+        filename == null ||
+        sourceEncoded == null) {
+      return;
+    }
+
+    final ModelType modelType;
+    final ModelFileType fileType;
+    try {
+      modelType = ModelType.values.byName(modelTypeName);
+      fileType = ModelFileType.values.byName(fileTypeName);
+    } catch (e) {
+      debugPrint(
+          '[WebModelManager] active model restore: unknown enum value — skipping');
+      return;
+    }
+
+    final source = ModelSource.tryDecode(sourceEncoded);
+    if (source == null) {
+      debugPrint(
+          '[WebModelManager] active model restore: malformed source — skipping');
+      return;
+    }
+
+    // Verify the underlying file is still installed in the Web repository
+    // before we set it active — otherwise getModelFilePaths() will throw
+    // later on the first getActiveModel() call.
+    final repo = ServiceRegistry.instance.modelRepository;
+    if (!await repo.isInstalled(filename)) {
+      debugPrint(
+          '[WebModelManager] active model restore: $filename not in repository — skipping');
+      return;
+    }
+
+    _activeInferenceModel = InferenceModelSpec(
+      name: filename,
+      modelSource: source,
+      modelType: modelType,
+      fileType: fileType,
+    );
+    debugPrint(
+        '[WebModelManager] restored active inference model: $filename');
+  }
+
+  Future<void> _restoreActiveEmbeddingModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modelFilename =
+        prefs.getString(PreferencesKeys.activeEmbeddingFilename);
+    final tokenizerFilename =
+        prefs.getString(PreferencesKeys.activeEmbeddingTokenizerFilename);
+    final modelSourceEncoded =
+        prefs.getString(PreferencesKeys.activeEmbeddingSource);
+    final tokenizerSourceEncoded =
+        prefs.getString(PreferencesKeys.activeEmbeddingTokenizerSource);
+
+    if (modelFilename == null ||
+        tokenizerFilename == null ||
+        modelSourceEncoded == null ||
+        tokenizerSourceEncoded == null) {
+      return;
+    }
+
+    final modelSource = ModelSource.tryDecode(modelSourceEncoded);
+    final tokenizerSource = ModelSource.tryDecode(tokenizerSourceEncoded);
+    if (modelSource == null || tokenizerSource == null) {
+      debugPrint(
+          '[WebModelManager] active embedding restore: malformed source — skipping');
+      return;
+    }
+
+    final repo = ServiceRegistry.instance.modelRepository;
+    if (!await repo.isInstalled(modelFilename) ||
+        !await repo.isInstalled(tokenizerFilename)) {
+      debugPrint(
+          '[WebModelManager] active embedding restore: file missing — skipping');
+      return;
+    }
+
+    _activeEmbeddingModel = EmbeddingModelSpec(
+      name: modelFilename,
+      modelSource: modelSource,
+      tokenizerSource: tokenizerSource,
+    );
+    debugPrint(
+        '[WebModelManager] restored active embedding model: $modelFilename');
   }
 
   /// Checks if a model is installed
@@ -736,11 +840,53 @@ class WebModelManager extends ModelFileManager {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
       debugPrint('✅ Set active inference model: ${spec.name}');
+      unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
       debugPrint('✅ Set active embedding model: ${spec.name}');
+      unawaited(_persistActiveEmbeddingIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
+    }
+  }
+
+  Future<void> _persistActiveInferenceIdentity(InferenceModelSpec spec) async {
+    try {
+      final filename = spec.files
+          .firstWhere(
+              (f) => f.prefsKey == PreferencesKeys.installedModelFileName)
+          .filename;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          PreferencesKeys.activeInferenceModelType, spec.modelType.name);
+      await prefs.setString(
+          PreferencesKeys.activeInferenceFileType, spec.fileType.name);
+      await prefs.setString(
+          PreferencesKeys.activeInferenceFilename, filename);
+      await prefs.setString(
+          PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
+    } catch (e) {
+      debugPrint('[WebModelManager] persistActiveInferenceIdentity failed: $e');
+    }
+  }
+
+  Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
+    try {
+      final modelFile = spec.files.firstWhere(
+          (f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final tokenizerFile = spec.files.firstWhere(
+          (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          PreferencesKeys.activeEmbeddingFilename, modelFile.filename);
+      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerFilename,
+          tokenizerFile.filename);
+      await prefs.setString(
+          PreferencesKeys.activeEmbeddingSource, spec.modelSource.encode());
+      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerSource,
+          spec.tokenizerSource.encode());
+    } catch (e) {
+      debugPrint('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 

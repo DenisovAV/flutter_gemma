@@ -122,6 +122,13 @@ void main() {
       );
     });
 
+    test('requires at least one failed backend attempt', () {
+      expect(
+        () => BackendInitException(attempts: const []),
+        throwsArgumentError,
+      );
+    });
+
     test(
       'does not catch programming errors as backend fallback failures',
       () async {

@@ -24,6 +24,7 @@ String ffiBackendWireName(PreferredBackend backend) => switch (backend) {
       PreferredBackend.cpu => 'cpu',
     };
 
+/// Failure details for a single FFI backend initialization attempt.
 class BackendInitAttemptFailure {
   const BackendInitAttemptFailure({
     required this.backend,
@@ -31,20 +32,36 @@ class BackendInitAttemptFailure {
     required this.stackTrace,
   });
 
+  /// Backend used for this initialization attempt.
   final PreferredBackend backend;
+
+  /// Error reported while initializing [backend].
   final Object error;
+
+  /// Stack trace captured with [error].
   final StackTrace stackTrace;
 
   @override
   String toString() => '${ffiBackendWireName(backend)}: $error';
 }
 
+/// Exception thrown after every FFI backend fallback attempt fails.
 class BackendInitException implements Exception {
-  const BackendInitException({required this.attempts})
-      : assert(attempts.length > 0);
+  BackendInitException({required Iterable<BackendInitAttemptFailure> attempts})
+      : attempts = List.unmodifiable(attempts) {
+    if (this.attempts.isEmpty) {
+      throw ArgumentError.value(
+        attempts,
+        'attempts',
+        'must contain at least one failed backend attempt',
+      );
+    }
+  }
 
+  /// Failed backend attempts in the order they were tried.
   final List<BackendInitAttemptFailure> attempts;
 
+  /// Last backend attempt, usually the most actionable failure.
   BackendInitAttemptFailure get lastAttempt => attempts.last;
 
   @override
@@ -99,6 +116,6 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
     throw StateError('No FFI backend candidates were attempted.');
   }
 
-  final exception = BackendInitException(attempts: List.unmodifiable(attempts));
+  final exception = BackendInitException(attempts: attempts);
   Error.throwWithStackTrace(exception, exception.lastAttempt.stackTrace);
 }

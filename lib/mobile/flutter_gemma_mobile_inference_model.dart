@@ -7,6 +7,7 @@ class MobileInferenceModel extends InferenceModel {
     required this.modelType,
     this.fileType = ModelFileType.task,
     this.preferredBackend,
+    this.activeBackend,
     this.supportedLoraRanks,
     this.supportImage = false, // Enabling image support
     this.supportAudio = false, // Enabling audio support (Gemma 3n E4B)
@@ -66,6 +67,8 @@ class MobileInferenceModel extends InferenceModel {
 
   @override
   final int maxTokens;
+  @override
+  final PreferredBackend? activeBackend;
   final VoidCallback onClose;
   final PreferredBackend? preferredBackend;
   final List<int>? supportedLoraRanks;

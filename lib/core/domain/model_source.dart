@@ -41,6 +41,39 @@ sealed class ModelSource {
 
   /// Validates if LoRA source is compatible with this model source
   bool validateLoraSource(ModelSource loraSource);
+
+  /// Compact string representation for SharedPreferences-based active-model
+  /// persistence (#227). Format: `<kind>|<value>` where kind ∈ {`network`,
+  /// `asset`,`bundled`,`file`}. Auth tokens are NOT encoded — restored
+  /// network sources will re-request without auth and let the file system
+  /// service serve the previously-cached blob instead of re-downloading.
+  String encode() => switch (this) {
+        NetworkSource(:final url) => 'network|$url',
+        AssetSource(:final path) => 'asset|$path',
+        BundledSource(:final resourceName) => 'bundled|$resourceName',
+        FileSource(:final path) => 'file|$path',
+      };
+
+  /// Decode the string produced by [encode]. Returns null if the input
+  /// is malformed or names an unknown kind (forward-compat).
+  static ModelSource? tryDecode(String? encoded) {
+    if (encoded == null) return null;
+    final pipe = encoded.indexOf('|');
+    if (pipe <= 0) return null;
+    final kind = encoded.substring(0, pipe);
+    final value = encoded.substring(pipe + 1);
+    try {
+      return switch (kind) {
+        'network' => NetworkSource(value),
+        'asset' => AssetSource(value),
+        'bundled' => BundledSource(value),
+        'file' => FileSource(value),
+        _ => null,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 /// Network source - downloads from HTTPS/HTTP URLs

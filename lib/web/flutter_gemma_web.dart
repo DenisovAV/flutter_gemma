@@ -5,6 +5,7 @@ import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';

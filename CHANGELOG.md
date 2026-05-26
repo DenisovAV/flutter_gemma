@@ -1,5 +1,6 @@
 ## 0.16.2
 - **Web `.litertlm` inference** via `@litert-lm/core` early preview (WebGPU/WASM, text-only).
+- **Fix `getActiveModel()` after app restart** (#227): mobile + web auto-restore from prefs.
 - Bump `large_file_handler` ^0.3.1 → ^0.4.0.
 
 ## 0.16.1

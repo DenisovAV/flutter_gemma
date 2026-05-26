@@ -8,6 +8,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../flutter_gemma_interface.dart';
+import '../parsing/sdk_text_extractor.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
@@ -543,46 +544,12 @@ class LiteRtLmFfiClient {
     return jsonEncode({'role': 'user', 'content': content});
   }
 
-  /// Extract text from a LiteRT-LM JSON response chunk.
-  ///
-  /// Handles two response formats:
-  /// - Text: `{"role":"assistant","content":[{"type":"text","text":"hello"}]}`
-  ///   → returns `"hello"`
-  /// - Thinking: `{"role":"assistant","channels":{"thought":"reasoning..."}}`
-  ///   → returns `<|channel>thought\nreasoning...<channel|>`
-  ///   (compatible with ThinkingFilter in extensions.dart)
-  static String extractTextFromResponse(String jsonStr) {
-    final Map<String, dynamic> json;
-    try {
-      json = jsonDecode(jsonStr) as Map<String, dynamic>;
-    } on FormatException {
-      // Partial / non-JSON chunks pass through verbatim. This is the only
-      // shape we want to be permissive about — any other parse error
-      // (TypeError, RangeError, etc.) signals a real contract change with
-      // LiteRT-LM and must surface, not be silently swallowed.
-      return jsonStr;
-    }
-
-    // Check for thinking channels first
-    final channels = json['channels'] as Map<String, dynamic>?;
-    if (channels != null) {
-      final thought = channels['thought'] as String?;
-      if (thought != null && thought.isNotEmpty) {
-        return '<|channel>thought\n$thought<channel|>';
-      }
-    }
-
-    // Regular text content
-    final content = json['content'] as List<dynamic>?;
-    if (content == null) return jsonStr;
-    final buffer = StringBuffer();
-    for (final item in content) {
-      if (item is Map<String, dynamic> && item['type'] == 'text') {
-        buffer.write(item['text'] as String? ?? '');
-      }
-    }
-    return buffer.toString();
-  }
+  /// Extract text from a LiteRT-LM JSON response chunk. Delegates to
+  /// [SdkTextExtractor] — single source of truth shared with the web
+  /// `@litert-lm/core` path so both engines map identical chunks to text
+  /// the same way.
+  static String extractTextFromResponse(String jsonStr) =>
+      SdkTextExtractor.extractTextFromResponse(jsonStr);
 
   /// Send a message and get streaming response as plain text chunks.
   /// Supports multiple images via `imageBytes` list.

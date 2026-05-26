@@ -46,10 +46,16 @@ extension type LiteRtLmConversation._(JSObject _) implements JSObject {
   /// Returns a JS AsyncIterable over `{content: [{type, text}, ...]}` chunks.
   /// Typed [JSObject] because `dart:js_interop` has no AsyncIterable type —
   /// we obtain the iterator via `[Symbol.asyncIterator]()` on the Dart side.
-  external JSObject sendMessageStreaming(JSString text);
+  ///
+  /// Per the upstream TypeScript declarations [message] is
+  /// `MessageLike | MessageLike[]` (= `string | Message | Array<...>`).
+  /// We type as [JSAny] so callers can pass either `text.toJS` for the
+  /// text-only path or a `jsify({role: 'user', content: [...] })` object
+  /// for multimodal content.
+  external JSObject sendMessageStreaming(JSAny message);
 
   /// Cancels an in-flight `sendMessageStreaming` generation upstream.
-  /// Per the @litert-lm/core early-preview JS API.
+  /// Per the @litert-lm/core JS API.
   external void cancel();
 }
 
@@ -82,9 +88,28 @@ class LiteRtLmEngineOptions {
 @staticInterop
 class LiteRtLmConversationOptions {
   external factory LiteRtLmConversationOptions({
-    /// `{messages: [{role, content}, ...]}` preface JS object. Typed
-    /// as the opaque [JSObject] for now because the upstream schema
-    /// is in early preview and may shift; build with `jsify({...})`.
+    /// `SessionConfig` from the upstream TS declarations:
+    ///   { visionModalityEnabled?, audioModalityEnabled?, samplerParams?,
+    ///     maxOutputTokens?, ... }
+    /// Build with `jsify({...})`. Typed as opaque [JSObject] for forward
+    /// compatibility.
+    JSObject? sessionConfig,
+
+    /// `Preface` from upstream TS:
+    ///   { messages?: Message[], tools?: Tool[], extra_context?: {...} }
+    /// `extra_context` is the same channel native FFI uses to enable
+    /// Gemma 4 thinking mode (`{ "thinking": true }`).
     JSObject? preface,
+
+    /// `filterChannelContentFromKvCache`: when thinking is enabled this
+    /// strips the thinking channel content from the KV cache so it doesn't
+    /// pollute follow-up turns. Mirrors the FFI `filter_channel_content_from_kv_cache`.
+    bool? filterChannelContentFromKvCache,
+
+    /// Whether the SDK prefills the preface immediately on init.
+    bool? prefillPrefaceOnInit,
+
+    /// Whether constrained decoding is enabled (used for native tool calling).
+    bool? enableConstrainedDecoding,
   });
 }

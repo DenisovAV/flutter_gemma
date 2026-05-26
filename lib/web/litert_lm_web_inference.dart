@@ -120,29 +120,31 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
         'loraPath or use a MediaPipe .task web model.',
       );
     }
-    if (kDebugMode) {
-      if (enableThinking) {
-        debugPrint(
-            '[LiteRtLmWebInferenceModel] Warning: enableThinking is not supported on '
-            'the .litertlm web path (early preview). Ignored.');
-      }
-      if (enableVisionModality == true) {
-        debugPrint(
-            '[LiteRtLmWebInferenceModel] Warning: vision modality is not supported on '
-            'the .litertlm web path (early preview). Ignored.');
-      }
-      if (enableAudioModality == true) {
-        debugPrint(
-            '[LiteRtLmWebInferenceModel] Warning: audio modality is not supported on '
-            'the .litertlm web path (early preview). Ignored.');
-      }
-      if (tools.isNotEmpty) {
-        debugPrint(
-            '[LiteRtLmWebInferenceModel] Warning: native tool calling is not exposed '
-            'by the @litert-lm/core early-preview API. Tools ignored — falling back to '
-            'Dart-side prompt injection in chat.dart.');
+
+    // Vision/audio modality on web @litert-lm/core@0.12.1 requires a
+    // dedicated Vision/AudioExecutor to be loaded at Engine.create() time.
+    // The WASM runtime asserts "Vision executor should not be null, please
+    // TryLoadingVisionExecutor() first.", but the TypeScript-level
+    // `EngineSettings` interface (wasm_binding_types.d.ts) only exposes
+    // `getMutableMainExecutorSettings()` — there's no setter for
+    // VisionExecutorSettings or AudioExecutorSettings in the early preview.
+    // Engine logs confirm this with `max_num_images: 0` baked in at create.
+    //
+    // Until upstream adds the Vision/Audio executor setters to the JS API,
+    // setting `visionModalityEnabled`/`audioModalityEnabled: true` in
+    // SessionConfig throws "Audio options should not be null" / "Vision
+    // options should not be null" — so we force-disable them and warn.
+    if (enableVisionModality == true || enableAudioModality == true) {
+      if (kDebugMode) {
+        debugPrint('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
+            'is requested but @litert-lm/core@0.12.1 does not expose the '
+            'Vision/AudioExecutor config in its TypeScript API — image/audio '
+            'inputs are dropped on web until upstream extends EngineSettings. '
+            'Track: https://github.com/google-ai-edge/LiteRT-LM');
       }
     }
+    const visionEnabled = false;
+    const audioEnabled = false;
 
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
@@ -153,25 +155,64 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
     try {
       await _ensureEngine();
 
-      // Build preface JS object: {messages: [{role: 'system', content: '...'}]}
-      // only when a system instruction was provided. Otherwise pass null so
-      // the JS engine uses its default empty preface.
-      JSObject? prefaceJs;
+      // Build SessionConfig matching upstream TS:
+      //   { samplerParams? }
+      // Vision/audio modality intentionally not set — they require
+      // AudioExecutor/VisionExecutor at Engine.create() which the TS
+      // EngineSettings doesn't expose yet (see comment above).
+      final sessionConfigMap = <String, Object>{
+        'samplerParams': <String, Object>{
+          'temperature': temperature,
+          'k': topK,
+          if (topP != null) 'p': topP,
+          'seed': randomSeed,
+        },
+      };
+      final sessionConfigJs = sessionConfigMap.jsify() as JSObject?;
+
+      // Build Preface matching upstream TS:
+      //   { messages?: Message[], tools?: Tool[], extra_context?: {...} }
+      final prefaceMessages = <Map<String, Object>>[];
       if (systemInstruction != null && systemInstruction.isNotEmpty) {
-        final prefaceMap = <String, Object>{
-          'messages': <Map<String, Object>>[
-            <String, Object>{
-              'role': 'system',
-              'content': systemInstruction,
-            },
-          ],
-        };
-        prefaceJs = prefaceMap.jsify() as JSObject;
+        prefaceMessages.add(<String, Object>{
+          'role': 'system',
+          'content': systemInstruction,
+        });
       }
+      // Tools — only push for Gemma 4, identical to native FFI gating in
+      // `FfiInferenceModel.createSession` (ffi_inference_model.dart:81).
+      // Reuses [SdkResponseParser.serializeToolsForSdk] so the JSON shape
+      // (`[{"type":"function","function":{"name","description","parameters"}}]`)
+      // is byte-identical between web and native — the SDK then applies the
+      // same `chat_template.jinja` minja rendering to native Gemma 4 tokens.
+      final toolsForPreface =
+          (modelType == ModelType.gemma4 && tools.isNotEmpty)
+              ? (jsonDecode(SdkResponseParser.serializeToolsForSdk(tools))
+                  as List<dynamic>)
+              : const <dynamic>[];
+      final prefaceMap = <String, Object>{
+        if (prefaceMessages.isNotEmpty) 'messages': prefaceMessages,
+        if (toolsForPreface.isNotEmpty) 'tools': toolsForPreface,
+        // Gemma 4 thinking is enabled via extra_context, mirroring the native
+        // FFI path (which sets the same key through conversation_config).
+        if (enableThinking) 'extra_context': <String, Object>{'thinking': true},
+      };
+      final prefaceJs =
+          prefaceMap.isNotEmpty ? prefaceMap.jsify() as JSObject : null;
 
       final beforeConv = sessionSw.elapsedMilliseconds;
       final convoFuture = _engine!.createConversation(
-        LiteRtLmConversationOptions(preface: prefaceJs),
+        LiteRtLmConversationOptions(
+          sessionConfig: sessionConfigJs,
+          preface: prefaceJs,
+          // When thinking is on, keep the channel content out of the KV cache
+          // so it doesn't pollute follow-up turns (same flag the native FFI
+          // sets via litert_lm_conversation_config_set_filter_channel_content_from_kv_cache).
+          filterChannelContentFromKvCache: enableThinking ? true : null,
+          // Mirror native FFI: SDK uses constrained decoding to emit valid
+          // `<|tool_call>` tokens for Gemma 4 when tools are present.
+          enableConstrainedDecoding: toolsForPreface.isNotEmpty ? true : null,
+        ),
       );
       final conversation = await convoFuture.toDart;
       if (kDebugMode) {
@@ -183,6 +224,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
         conversation: conversation,
         modelType: modelType,
         fileType: fileType,
+        supportImage: visionEnabled,
+        supportAudio: audioEnabled,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -223,27 +266,52 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
 
 /// Session-side accumulator + async iterator pump for `@litert-lm/core`.
 ///
-/// Buffers query chunks the same way [FfiInferenceModelSession] does so that
-/// `chat.dart` can keep its prompt-construction logic identical across
-/// platforms. When [getResponse] or [getResponseAsync] is called, the
-/// accumulated buffer is sent to `sendMessageStreaming` and the JS
-/// AsyncIterator is driven manually via [LiteRtLmAsyncIter.next].
-class LiteRtLmWebSession extends InferenceModelSession {
+/// Mirrors [FfiInferenceModelSession] (lib/core/ffi/ffi_inference_model.dart)
+/// 1:1 — same buffering of query chunks, same Gemma 4 raw-JSON-accumulating
+/// branch, same `with RawSdkResponseSession` mixin so [InferenceChat] reads
+/// `lastRawResponse` and extracts `tool_calls` via the shared
+/// [SdkResponseParser]. The only platform-specific bit is that here the JS
+/// AsyncIterator is driven manually via [LiteRtLmAsyncIter.next] rather than
+/// a Dart `Stream` from native FFI.
+class LiteRtLmWebSession extends InferenceModelSession
+    with RawSdkResponseSession {
   LiteRtLmWebSession({
     required this.conversation,
     required this.modelType,
     required this.fileType,
+    required this.supportImage,
+    required this.supportAudio,
     required this.onClose,
   });
 
   final LiteRtLmConversation conversation;
   final ModelType modelType;
   final ModelFileType fileType;
+  final bool supportImage;
+  final bool supportAudio;
   final VoidCallback onClose;
 
   final StringBuffer _queryBuffer = StringBuffer();
+  final List<Uint8List> _pendingImages = [];
+  Uint8List? _pendingAudio;
   bool _isClosed = false;
   bool _isCancelled = false;
+
+  /// Last full raw JSON response from SDK — Gemma 4 path only.
+  /// chat.dart reads it via [lastRawResponse] and runs
+  /// [SdkResponseParser.extractToolCalls] on it before falling back to text
+  /// extraction. Mirrors [FfiInferenceModelSession._lastRawResponse].
+  String? _lastRawResponse;
+
+  @override
+  String? get lastRawResponse => _lastRawResponse;
+
+  /// JS `JSON.stringify` handle, looked up once per session.
+  late final JSObject _jsJson =
+      globalContext.getProperty<JSObject>('JSON'.toJS);
+
+  String _stringifyChunk(JSObject value) =>
+      _jsJson.callMethod<JSString>('stringify'.toJS, value).toDart;
 
   void _assertNotClosed() {
     if (_isClosed) throw StateError('Session is closed');
@@ -255,15 +323,18 @@ class LiteRtLmWebSession extends InferenceModelSession {
     final prompt =
         message.transformToChatPrompt(type: modelType, fileType: fileType);
     _queryBuffer.write(prompt);
-    // Image / audio bytes are silently ignored — the upstream JS API is
-    // text-only in early preview. The warning was already surfaced from
-    // createSession() when supportImage/supportAudio was requested.
-    if (message.hasImage || message.hasAudio) {
-      if (kDebugMode) {
-        debugPrint(
-            '[LiteRtLmWebSession] Dropping non-text Message part — web .litertlm '
-            'is text-only in upstream early preview.');
+    if (message.hasImage && supportImage) {
+      if (message.imageBytes != null) {
+        _pendingImages.add(message.imageBytes!);
       }
+      for (final image in message.images) {
+        if (!_pendingImages.contains(image)) {
+          _pendingImages.add(image);
+        }
+      }
+    }
+    if (message.hasAudio && message.audioBytes != null && supportAudio) {
+      _pendingAudio = message.audioBytes;
     }
   }
 
@@ -282,6 +353,11 @@ class LiteRtLmWebSession extends InferenceModelSession {
     _assertNotClosed();
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
+    final images =
+        _pendingImages.isNotEmpty ? List<Uint8List>.from(_pendingImages) : null;
+    final audio = _pendingAudio;
+    _pendingImages.clear();
+    _pendingAudio = null;
     _isCancelled = false;
 
     final controller = StreamController<String>();
@@ -289,13 +365,46 @@ class LiteRtLmWebSession extends InferenceModelSession {
     int? firstChunkMs;
     var chunkCount = 0;
 
-    // `sendMessageStreaming` returns an AsyncIterable (object with
-    // `Symbol.asyncIterator`), not an AsyncIterator (object with `.next`).
-    // `for await (chunk of ...)` in JS does this normalization implicitly;
-    // from Dart we have to call `[Symbol.asyncIterator]()` ourselves to get
-    // the iterator before calling `.next()`. If the returned object already
-    // exposes `.next` directly, the fallback returns it unchanged.
-    final raw = conversation.sendMessageStreaming(text.toJS);
+    // Build the request payload:
+    //  * pure text → pass a plain string (legacy fast path).
+    //  * any image/audio → build a Message object with a `content` array of
+    //    MessageContentItem (one text + N image/audio items), shaped per the
+    //    upstream TS declarations.
+    final JSAny messageArg;
+    if ((images == null || images.isEmpty) && audio == null) {
+      messageArg = text.toJS;
+    } else {
+      final contentItems = <Map<String, Object>>[
+        if (text.isNotEmpty) <String, Object>{'type': 'text', 'text': text},
+        if (images != null)
+          for (final img in images)
+            <String, Object>{
+              'type': 'image',
+              // Data URL is the broadest-compatible shape; upstream `path` can
+              // also be a Blob URL or a file URL once we wire those.
+              'image_url': <String, Object>{
+                // Reuse the magic-number detector from ImagePromptPart that
+                // already lives in this library (PNG / JPEG / WebP).
+                'url':
+                    'data:${ImagePromptPart._detectImageFormat(img)};base64,${base64Encode(img)}',
+              },
+            },
+        if (audio != null)
+          <String, Object>{
+            'type': 'audio',
+            // Audio payload (PCM 16kHz mono) per the native FFI contract.
+            'input_audio': <String, Object>{
+              'data': base64Encode(audio),
+              'format': 'wav',
+            },
+          },
+      ];
+      messageArg = <String, Object>{
+        'role': 'user',
+        'content': contentItems,
+      }.jsify() as JSAny;
+    }
+    final raw = conversation.sendMessageStreaming(messageArg);
     final asyncIterSym = globalContext
         .getProperty<JSObject>('Symbol'.toJS)
         .getProperty<JSAny>('asyncIterator'.toJS);
@@ -303,6 +412,16 @@ class LiteRtLmWebSession extends InferenceModelSession {
     final iter = factory != null
         ? raw.callMethod<JSObject>(asyncIterSym)
         : raw; // assume it's already an iterator
+
+    // Gemma 4 path mirrors FfiInferenceModelSession.getResponseAsync — every
+    // raw chunk is stringified and appended to rawBuffer so chat.dart can
+    // run SdkResponseParser.extractToolCalls on the assembled JSON. Other
+    // model types skip accumulation and `_lastRawResponse` stays null.
+    final accumulateRaw = modelType == ModelType.gemma4;
+    final rawBuffer = accumulateRaw ? StringBuffer() : null;
+    if (accumulateRaw) {
+      _lastRawResponse = null;
+    }
 
     void pump() {
       if (controller.isClosed || _isCancelled) {
@@ -316,6 +435,9 @@ class LiteRtLmWebSession extends InferenceModelSession {
         }
         final done = (step.getProperty<JSBoolean>('done'.toJS)).toDart;
         if (done) {
+          if (accumulateRaw) {
+            _lastRawResponse = rawBuffer!.toString();
+          }
           if (kDebugMode) {
             final total = genSw.elapsedMilliseconds;
             debugPrint('[LiteRtLmWebSession/perf] generation total: ${total}ms '
@@ -334,7 +456,15 @@ class LiteRtLmWebSession extends InferenceModelSession {
         chunkCount++;
         final value = step.getProperty<JSObject?>('value'.toJS);
         if (value != null) {
-          final text = _extractText(value);
+          // Stringify the JS chunk into the same JSON shape liblitert_lm
+          // streams via the native FFI callback. Both engines then dump it
+          // into the shared SdkTextExtractor — single source of truth for
+          // text-vs-thinking extraction, identical to ffi_inference_model.dart.
+          final jsonStr = _stringifyChunk(value);
+          if (accumulateRaw) {
+            rawBuffer!.write(jsonStr);
+          }
+          final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
           if (text.isNotEmpty) controller.add(text);
         }
         pump();
@@ -351,40 +481,6 @@ class LiteRtLmWebSession extends InferenceModelSession {
       _isCancelled = true;
     };
     return controller.stream;
-  }
-
-  /// Extract concatenated text from a chunk. The upstream `@litert-lm/core`
-  /// early-preview shape is still in flux — try the documented
-  /// `{content: [{type: 'text', text: '...'}]}` first, then fall back to a
-  /// flat `{text: '...'}` or `{delta: {text: '...'}}` that the SDK has been
-  /// observed to use. The first non-empty match wins; non-text payloads are
-  /// silently skipped.
-  String _extractText(JSObject chunk) {
-    // Documented form: { content: [ {type: 'text', text: ...} ] }
-    final content = chunk.getProperty<JSArray<JSObject>?>('content'.toJS);
-    if (content != null) {
-      final out = StringBuffer();
-      final len = content.length;
-      for (var i = 0; i < len; i++) {
-        final item = content[i];
-        final type = item.getProperty<JSString?>('type'.toJS)?.toDart;
-        if (type == 'text') {
-          final text = item.getProperty<JSString?>('text'.toJS)?.toDart;
-          if (text != null) out.write(text);
-        }
-      }
-      if (out.isNotEmpty) return out.toString();
-    }
-    // Fallback A: flat { text: '...' }
-    final flat = chunk.getProperty<JSString?>('text'.toJS)?.toDart;
-    if (flat != null && flat.isNotEmpty) return flat;
-    // Fallback B: OpenAI-style { delta: { text: '...' } }
-    final delta = chunk.getProperty<JSObject?>('delta'.toJS);
-    if (delta != null) {
-      final deltaText = delta.getProperty<JSString?>('text'.toJS)?.toDart;
-      if (deltaText != null) return deltaText;
-    }
-    return '';
   }
 
   /// Approximate token count — matches `FfiInferenceModelSession.sizeInTokens`.

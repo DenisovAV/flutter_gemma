@@ -97,3 +97,4 @@ native/litert_lm/prebuilt/
 
 # Local chromedriver (puppeteer browsers install) — used by web integration tests
 /chromedriver/
+/.drafts/

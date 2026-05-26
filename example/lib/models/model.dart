@@ -473,6 +473,30 @@ enum Model implements InferenceModelInterface {
 
   // === FUNCTIONGEMMA MODELS ===
 
+  // FunctionGemma 270M IT (LiteRT-LM) — used to probe tool-calling support on
+  // the @litert-lm/core web path; small enough to validate end-to-end quickly.
+  functionGemma_270M_litertlm(
+    baseUrl:
+        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
+    webUrl:
+        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
+    desktopUrl:
+        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
+    filename: 'functiongemma-270M-it.litertlm',
+    displayName: 'FunctionGemma 270M IT (LiteRT-LM)',
+    size: '284MB',
+    licenseUrl: 'https://huggingface.co/google/functiongemma-270m-it',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.functionGemma,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 1024,
+    supportsFunctionCalls: true,
+  ),
+
   // FunctionGemma 270M IT (Base model converted to .task)
   functionGemma_270M(
     baseUrl:

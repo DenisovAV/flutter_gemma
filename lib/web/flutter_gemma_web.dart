@@ -8,6 +8,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
+import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
 // Conditional import: same pattern WebDownloadService uses so the opfsService
 // field type matches statically (both sides of the resolver agree on the type).
 import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'

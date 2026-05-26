@@ -40,6 +40,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
   final ModelFileType fileType;
   @override
   final int maxTokens;
+  @override
+  PreferredBackend? get activeBackend => null;
   final VoidCallback onClose;
 
   LiteRtLmEngine? _engine;

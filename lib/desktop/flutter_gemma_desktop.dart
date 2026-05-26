@@ -372,11 +372,11 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
   required bool enableAudio,
   required bool? enableSpeculativeDecoding,
 }) async {
-  Object? firstError;
-  StackTrace? firstStackTrace;
-  for (final backend in ffiBackendFallbackOrder(preferredBackend)) {
-    final client = LiteRtLmFfiClient();
-    try {
+  return initializeFfiRuntime(
+    preferredBackend: preferredBackend,
+    logTag: '[FlutterGemmaDesktop]',
+    createClient: LiteRtLmFfiClient.new,
+    initializeClient: (client, backend) async {
       await client.initialize(
         modelPath: modelPath,
         backend: ffiBackendWireName(backend),
@@ -387,19 +387,9 @@ Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
         enableAudio: enableAudio,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
       );
-      return (client: client, activeBackend: backend);
-    } on Object catch (error, stackTrace) {
-      firstError ??= error;
-      firstStackTrace ??= stackTrace;
-      client.shutdown();
-      debugPrint(
-        '[FlutterGemmaDesktop] ${ffiBackendWireName(backend)} backend '
-        'failed: $error',
-      );
-    }
-  }
-
-  Error.throwWithStackTrace(firstError!, firstStackTrace!);
+    },
+    shutdownClient: (client) => client.shutdown(),
+  );
 }
 
 /// Check if current platform is desktop

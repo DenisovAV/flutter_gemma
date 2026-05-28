@@ -6,6 +6,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:mutex/mutex.dart';
 
 import '../../flutter_gemma_interface.dart';
 import '../parsing/sdk_text_extractor.dart';
@@ -185,6 +186,16 @@ class LiteRtLmFfiClient {
   /// existing single-session call sites work unchanged while the new
   /// handle-based multi-session path is wired up.
   LiteRtLmConversationHandle? _legacyHandle;
+
+  /// Serializes native send_message / send_message_stream calls across
+  /// conversations. The LiteRT-LM C API is not documented as reentrant on
+  /// one engine — two conversations generating at once could race inside
+  /// liblitert_lm. The mutex makes concurrent sessions safe (each waits
+  /// its turn); it is uncontended when only one session is active, so the
+  /// single-session fast path pays only an acquire/release on an empty
+  /// lock. Cancel does NOT take the lock — it must interrupt an in-flight
+  /// streaming call.
+  final Mutex _nativeMutex = Mutex();
 
   /// Reads back the native log file (set by stream_proxy_redirect_stderr) and
   /// pipes its contents through debugPrint in 800-char chunks. Surfaces
@@ -787,8 +798,22 @@ class LiteRtLmFfiClient {
   }
 
   /// Send a raw JSON message on the given conversation and get a streaming
-  /// response.
+  /// response. Holds [_nativeMutex] for the whole generation so concurrent
+  /// conversations don't race inside liblitert_lm; releases on completion or
+  /// error.
   Stream<String> _sendMessageStreamRawOn(
+      Pointer<LiteRtLmConversation> conv, String messageJson,
+      {String? extraContext}) async* {
+    await _nativeMutex.acquire();
+    try {
+      yield* _doSendMessageStreamRawOn(conv, messageJson,
+          extraContext: extraContext);
+    } finally {
+      _nativeMutex.release();
+    }
+  }
+
+  Stream<String> _doSendMessageStreamRawOn(
       Pointer<LiteRtLmConversation> conv, String messageJson,
       {String? extraContext}) {
     _assertInitialized();
@@ -900,49 +925,52 @@ class LiteRtLmFfiClient {
   }
 
   /// Send a text message on the given conversation and get the full response
-  /// (sync C API, non-blocking Dart).
+  /// (sync C API, non-blocking Dart). Serialized via [_nativeMutex] so it
+  /// can't run concurrently with another conversation's generation.
   Future<String> _sendMessageOn(
       Pointer<LiteRtLmConversation> conv, String messageJson,
-      {String? extraContext}) async {
-    _assertInitialized();
-    final b = _bindings!;
+      {String? extraContext}) {
+    return _nativeMutex.protect(() async {
+      _assertInitialized();
+      final b = _bindings!;
 
-    final messagePtr = messageJson.toNativeUtf8();
-    final extraPtr =
-        extraContext != null ? extraContext.toNativeUtf8() : nullptr;
+      final messagePtr = messageJson.toNativeUtf8();
+      final extraPtr =
+          extraContext != null ? extraContext.toNativeUtf8() : nullptr;
 
-    // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
-    final optionalArgs = b.litert_lm_conversation_optional_args_create();
-    if (optionalArgs == nullptr) {
-      calloc.free(messagePtr);
-      if (extraPtr != nullptr) calloc.free(extraPtr);
-      throw StateError(
-          'litert_lm_conversation_optional_args_create returned null — '
-          'native libLiteRtLm.dylib initialization failure');
-    }
-
-    try {
-      final response = b.litert_lm_conversation_send_message(
-        conv,
-        messagePtr.cast(),
-        extraPtr == nullptr ? nullptr : extraPtr.cast(),
-        optionalArgs,
-      );
-
-      if (response == nullptr) {
-        throw Exception('send_message returned null');
+      // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
+      final optionalArgs = b.litert_lm_conversation_optional_args_create();
+      if (optionalArgs == nullptr) {
+        calloc.free(messagePtr);
+        if (extraPtr != nullptr) calloc.free(extraPtr);
+        throw StateError(
+            'litert_lm_conversation_optional_args_create returned null — '
+            'native libLiteRtLm.dylib initialization failure');
       }
 
-      final strPtr = b.litert_lm_json_response_get_string(response);
-      final result =
-          strPtr == nullptr ? '' : strPtr.cast<Utf8>().toDartString();
-      b.litert_lm_json_response_delete(response);
-      return result;
-    } finally {
-      b.litert_lm_conversation_optional_args_delete(optionalArgs);
-      calloc.free(messagePtr);
-      if (extraPtr != nullptr) calloc.free(extraPtr);
-    }
+      try {
+        final response = b.litert_lm_conversation_send_message(
+          conv,
+          messagePtr.cast(),
+          extraPtr == nullptr ? nullptr : extraPtr.cast(),
+          optionalArgs,
+        );
+
+        if (response == nullptr) {
+          throw Exception('send_message returned null');
+        }
+
+        final strPtr = b.litert_lm_json_response_get_string(response);
+        final result =
+            strPtr == nullptr ? '' : strPtr.cast<Utf8>().toDartString();
+        b.litert_lm_json_response_delete(response);
+        return result;
+      } finally {
+        b.litert_lm_conversation_optional_args_delete(optionalArgs);
+        calloc.free(messagePtr);
+        if (extraPtr != nullptr) calloc.free(extraPtr);
+      }
+    });
   }
 
   /// Legacy: sync send on the implicit [_legacyHandle] conversation.

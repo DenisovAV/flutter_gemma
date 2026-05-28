@@ -42,8 +42,18 @@ class FfiInferenceModel extends InferenceModel {
   Completer<InferenceModelSession>? _createCompleter;
   bool _isClosed = false;
 
+  /// Sessions opened via [openSession] — detached from the legacy [_session]
+  /// singleton. Each owns its own conversation handle.
+  final Set<FfiInferenceModelSession> _openSessions = {};
+
   @override
   InferenceModelSession? get session => _session;
+
+  @override
+  List<InferenceModelSession> get sessions => List.unmodifiable([
+        if (_session != null) _session!,
+        ..._openSessions,
+      ]);
 
   @override
   Future<InferenceModelSession> createSession({
@@ -87,7 +97,9 @@ class FfiInferenceModel extends InferenceModel {
           : null;
 
       final beforeConv = sessionSw.elapsedMilliseconds;
-      ffiClient.createConversation(
+      // Legacy singleton lane: close the previous conversation (if any) and
+      // open a fresh one. Mirrors the pre-multi-session overwrite contract.
+      final handle = ffiClient.createConversationHandle(
         systemMessage: systemInstruction,
         toolsJson: toolsJson,
         temperature: temperature,
@@ -95,11 +107,12 @@ class FfiInferenceModel extends InferenceModel {
         topP: topP,
         seed: randomSeed,
       );
+      await _session?.close();
       debugPrint(
           '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms');
 
       final session = _session = FfiInferenceModelSession(
-        ffiClient: ffiClient,
+        handle: handle,
         modelType: modelType,
         fileType: fileType,
         supportImage: enableVisionModality ?? supportImage,
@@ -120,6 +133,60 @@ class FfiInferenceModel extends InferenceModel {
       _createCompleter = null;
       rethrow;
     }
+  }
+
+  @override
+  Future<InferenceModelSession> openSession({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+    double? topP,
+    String? loraPath,
+    bool? enableVisionModality,
+    bool? enableAudioModality,
+    String? systemInstruction,
+    bool enableThinking = false,
+    List<Tool> tools = const [],
+  }) async {
+    if (_isClosed) {
+      throw StateError(
+          'Model is closed. Create a new instance to use it again');
+    }
+    if (loraPath != null) {
+      throw UnsupportedError(
+        'LoRA weights are not supported on the .litertlm FFI path '
+        '(loraPath=$loraPath). Remove loraPath or use a MediaPipe .task '
+        'model on Android/iOS.',
+      );
+    }
+
+    final toolsJson = (modelType == ModelType.gemma4 && tools.isNotEmpty)
+        ? SdkResponseParser.serializeToolsForSdk(tools)
+        : null;
+
+    // Each concurrent session owns its own conversation handle — independent
+    // KV cache, history, and raw-response buffer. No singleton overwrite.
+    final handle = ffiClient.createConversationHandle(
+      systemMessage: systemInstruction,
+      toolsJson: toolsJson,
+      temperature: temperature,
+      topK: topK,
+      topP: topP,
+      seed: randomSeed,
+    );
+
+    late final FfiInferenceModelSession session;
+    session = FfiInferenceModelSession(
+      handle: handle,
+      modelType: modelType,
+      fileType: fileType,
+      supportImage: enableVisionModality ?? supportImage,
+      supportAudio: enableAudioModality ?? supportAudio,
+      enableThinking: enableThinking,
+      onClose: () => _openSessions.remove(session),
+    );
+    _openSessions.add(session);
+    return session;
   }
 
   @override
@@ -180,6 +247,11 @@ class FfiInferenceModel extends InferenceModel {
     _isClosed = true;
     try {
       await _session?.close();
+      // Copy because close() mutates _openSessions via the onClose callback.
+      for (final s in _openSessions.toList()) {
+        await s.close();
+      }
+      _openSessions.clear();
     } finally {
       ffiClient.shutdown();
       onClose();
@@ -189,10 +261,15 @@ class FfiInferenceModel extends InferenceModel {
 
 /// FFI implementation of InferenceModelSession.
 /// Buffers query chunks until [getResponse] is called.
+///
+/// Routes all per-conversation native calls through [handle] — its own
+/// [ConversationHandle] — so multiple sessions on one model are fully
+/// isolated. [extractTextFromResponse] is a static helper on
+/// [LiteRtLmFfiClient] and needs no instance.
 class FfiInferenceModelSession extends InferenceModelSession
     with RawSdkResponseSession {
   FfiInferenceModelSession({
-    required this.ffiClient,
+    required this.handle,
     required this.modelType,
     required this.fileType,
     required this.supportImage,
@@ -201,7 +278,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     required this.onClose,
   });
 
-  final LiteRtLmFfiClient ffiClient;
+  final ConversationHandle handle;
   final ModelType modelType;
   final ModelFileType fileType;
   final bool supportImage;
@@ -274,7 +351,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     if (modelType == ModelType.gemma4) {
       final rawBuffer = StringBuffer();
       final textBuffer = StringBuffer();
-      await for (final rawChunk in ffiClient.chatRaw(
+      await for (final rawChunk in handle.chatRaw(
         text,
         imageBytes: images,
         audioBytes: audio,
@@ -296,7 +373,7 @@ class FfiInferenceModelSession extends InferenceModelSession
 
     _lastRawResponse = null;
     final buffer = StringBuffer();
-    await for (final chunk in ffiClient.chat(
+    await for (final chunk in handle.chat(
       text,
       imageBytes: images,
       audioBytes: audio,
@@ -325,8 +402,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     final decodeRate = chunks > 1 && decodeMs > 0
         ? ((chunks - 1) * 1000.0 / decodeMs).toStringAsFixed(1)
         : 'n/a';
-    debugPrint(
-        '[FfiInferenceModelSession/perf] generation total: ${total}ms '
+    debugPrint('[FfiInferenceModelSession/perf] generation total: ${total}ms '
         '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks, '
         '~$decodeRate chunks/sec)');
   }
@@ -348,7 +424,7 @@ class FfiInferenceModelSession extends InferenceModelSession
 
     if (modelType == ModelType.gemma4) {
       final rawBuffer = StringBuffer();
-      await for (final rawChunk in ffiClient.chatRaw(
+      await for (final rawChunk in handle.chatRaw(
         text,
         imageBytes: images,
         audioBytes: audio,
@@ -369,7 +445,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     }
 
     _lastRawResponse = null;
-    await for (final chunk in ffiClient.chat(
+    await for (final chunk in handle.chat(
       text,
       imageBytes: images,
       audioBytes: audio,
@@ -388,7 +464,7 @@ class FfiInferenceModelSession extends InferenceModelSession
 
   @override
   SessionMetrics getSessionMetrics() {
-    return ffiClient.getSessionMetrics();
+    return handle.getSessionMetrics();
   }
 
   @override
@@ -398,7 +474,7 @@ class FfiInferenceModelSession extends InferenceModelSession
 
   @override
   Future<void> stopGeneration() async {
-    ffiClient.cancelGeneration();
+    handle.cancelGeneration();
   }
 
   @override
@@ -407,7 +483,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     _queryBuffer.clear();
     _pendingImages.clear();
     _pendingAudio = null;
-    ffiClient.closeConversation();
+    handle.close();
     onClose();
   }
 }

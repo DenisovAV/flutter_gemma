@@ -30,6 +30,35 @@ typedef _ProxyCreateDart = Pointer<Void> Function(
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
 typedef _ProxyFreeStringDart = void Function(Pointer<Char> str);
 
+/// Per-conversation operations a session needs from the FFI layer.
+///
+/// [LiteRtLmConversationHandle] is the real implementation backed by a
+/// native `LiteRtLmConversation*`. Tests inject a fake implementing this
+/// interface so [FfiInferenceModelSession] orchestration (query buffering,
+/// raw-response capture, Gemma 4 tool-call extraction) can be exercised on
+/// the host VM with no native engine.
+abstract class ConversationHandle {
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking,
+  });
+
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking,
+  });
+
+  void cancelGeneration();
+
+  SessionMetrics getSessionMetrics();
+
+  void close();
+}
+
 /// One conversation owned by a [LiteRtLmFfiClient]. Each call to
 /// [LiteRtLmFfiClient.createConversationHandle] returns a fresh handle:
 /// the engine pointer is shared across handles, the conversation pointer
@@ -42,7 +71,7 @@ typedef _ProxyFreeStringDart = void Function(Pointer<Char> str);
 ///
 /// Lifetime contract: the caller must call [close] when done. The owning
 /// client closes any remaining handles on [LiteRtLmFfiClient.shutdown].
-class LiteRtLmConversationHandle {
+class LiteRtLmConversationHandle implements ConversationHandle {
   LiteRtLmConversationHandle._(this._client, this._conversation);
 
   final LiteRtLmFfiClient _client;
@@ -56,6 +85,7 @@ class LiteRtLmConversationHandle {
     }
   }
 
+  @override
   Stream<String> chat(
     String text, {
     List<Uint8List>? imageBytes,
@@ -72,6 +102,7 @@ class LiteRtLmConversationHandle {
     );
   }
 
+  @override
   Stream<String> chatRaw(
     String text, {
     List<Uint8List>? imageBytes,
@@ -101,16 +132,19 @@ class LiteRtLmConversationHandle {
         extraContext: extraContext);
   }
 
+  @override
   void cancelGeneration() {
     if (_conversation == null) return;
     _client._cancelOn(_conversation!);
   }
 
+  @override
   SessionMetrics getSessionMetrics() {
     if (_conversation == null) return SessionMetrics();
     return _client._getMetricsOn(_conversation!);
   }
 
+  @override
   void close() {
     if (_conversation == null) return;
     _client._deleteConversation(_conversation!);

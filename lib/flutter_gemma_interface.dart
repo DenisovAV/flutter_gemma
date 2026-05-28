@@ -125,6 +125,13 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
 /// Represents an LLM model instance.
 abstract class InferenceModel {
+  /// The single session created via [createSession]. Singleton lane —
+  /// each [createSession] call overwrites this field with a new session
+  /// and closes the previous one.
+  ///
+  /// For concurrent dialogues on a single loaded model use [openSession]
+  /// instead — it returns detached sessions that don't touch this field.
+  /// Read [sessions] to enumerate all live sessions (legacy + open).
   InferenceModelSession? get session;
 
   InferenceChat? chat;
@@ -162,6 +169,57 @@ abstract class InferenceModel {
     List<Tool> tools =
         const [], // Native tool calling (Gemma 4 → SDK tools_json)
   });
+
+  /// Opens a new session detached from [session]. Each call returns a
+  /// fresh independent session sharing the loaded model weights but with
+  /// isolated KV cache and history. Use this for concurrent dialogues on
+  /// a single loaded model.
+  ///
+  /// Unlike [createSession], this does NOT modify the legacy [session]
+  /// field. Concurrent sessions are tracked separately and surface via
+  /// [sessions].
+  ///
+  /// **Memory caveat**: each concurrent session allocates its own KV
+  /// cache (~100-500 MB depending on model + maxTokens). On mobile with
+  /// large models (Gemma 4 E2B+), two concurrent sessions can OOM the
+  /// process. Multi-session is most reliable on desktop and on high-end
+  /// mobile with small models (Gemma 3 1B / 270M). For larger models on
+  /// phones the safer pattern is still close+recreate with
+  /// [InferenceChat]'s built-in history replay.
+  ///
+  /// Throws [StateError] if `maxConcurrentSessions` (set on
+  /// [FlutterGemmaPlugin.createModel]) is exceeded — close an existing
+  /// session before opening a new one.
+  Future<InferenceModelSession> openSession({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+    double? topP,
+    String? loraPath,
+    bool? enableVisionModality,
+    bool? enableAudioModality,
+    String? systemInstruction,
+    bool enableThinking = false,
+    List<Tool> tools = const [],
+  }) async {
+    throw UnsupportedError(
+      'openSession() is not implemented for $runtimeType yet. '
+      'Concurrent sessions land in 0.16.2 for `.litertlm` (FFI all native '
+      '+ web) and `.task` (MediaPipe Android/iOS). MediaPipe Web `.task` '
+      'is planned for 0.17.0.',
+    );
+  }
+
+  /// Live sessions owned by this model — union of the legacy [session]
+  /// (if any) and every active [openSession] result. Returns an
+  /// unmodifiable view; mutate via [openSession], `session.close()`, or
+  /// [close].
+  List<InferenceModelSession> get sessions {
+    final legacy = session;
+    return List.unmodifiable([
+      if (legacy != null) legacy,
+    ]);
+  }
 
   Future<InferenceChat> createChat({
     double temperature = .8,
@@ -208,6 +266,67 @@ abstract class InferenceModel {
     );
     await chat!.initSession();
     return chat!;
+  }
+
+  /// Same as [createChat], but uses [openSession] internally so the
+  /// resulting chat owns an independent session that does not touch the
+  /// legacy [session] field or other open chats. Use this when you need
+  /// concurrent chats on a single loaded model.
+  ///
+  /// Each chat's own context-overflow rotation
+  /// (`_recreateSessionWithReducedChunks`) creates a fresh sibling
+  /// session via [openSession], so peer chats are unaffected.
+  ///
+  /// See [openSession] for the memory caveat. The returned chat is NOT
+  /// stored in [chat] — that field tracks only the legacy [createChat]
+  /// singleton. Hold the returned chat reference yourself and close it
+  /// when done.
+  Future<InferenceChat> openChat({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+    double? topP,
+    int tokenBuffer = 256,
+    String? loraPath,
+    bool? supportImage,
+    bool? supportAudio,
+    List<Tool> tools = const [],
+    bool? supportsFunctionCalls,
+    bool isThinking = false,
+    ModelType? modelType,
+    ToolChoice toolChoice = ToolChoice.auto,
+    int? maxFunctionBufferLength,
+    String? systemInstruction,
+  }) async {
+    final independentChat = InferenceChat(
+      sessionCreator: () => openSession(
+        temperature: temperature,
+        randomSeed: randomSeed,
+        topK: topK,
+        topP: topP,
+        loraPath: loraPath,
+        enableVisionModality: supportImage ?? false,
+        enableAudioModality: supportAudio ?? false,
+        systemInstruction: systemInstruction,
+        enableThinking: isThinking,
+        tools: tools,
+      ),
+      maxTokens: maxTokens,
+      tokenBuffer: tokenBuffer,
+      supportImage: supportImage ?? false,
+      supportAudio: supportAudio ?? false,
+      supportsFunctionCalls: supportsFunctionCalls ?? false,
+      maxFunctionBufferLength:
+          maxFunctionBufferLength ?? defaultMaxFunctionBufferLength,
+      tools: tools,
+      isThinking: isThinking,
+      modelType: modelType ?? ModelType.gemmaIt,
+      fileType: fileType,
+      toolChoice: toolChoice,
+      systemInstruction: systemInstruction,
+    );
+    await independentChat.initSession();
+    return independentChat;
   }
 
   Future<void> close();

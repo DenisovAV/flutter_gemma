@@ -30,10 +30,105 @@ typedef _ProxyCreateDart = Pointer<Void> Function(
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
 typedef _ProxyFreeStringDart = void Function(Pointer<Char> str);
 
+/// One conversation owned by a [LiteRtLmFfiClient]. Each call to
+/// [LiteRtLmFfiClient.createConversationHandle] returns a fresh handle:
+/// the engine pointer is shared across handles, the conversation pointer
+/// is private to this handle.
+///
+/// This is what makes concurrent sessions possible — the LiteRT-LM C API
+/// supports multiple `LiteRtLmConversation*` per engine; the handle owns
+/// one and routes every per-conversation native call through the client's
+/// private `_…On(conv, …)` methods.
+///
+/// Lifetime contract: the caller must call [close] when done. The owning
+/// client closes any remaining handles on [LiteRtLmFfiClient.shutdown].
+class LiteRtLmConversationHandle {
+  LiteRtLmConversationHandle._(this._client, this._conversation);
+
+  final LiteRtLmFfiClient _client;
+  Pointer<LiteRtLmConversation>? _conversation;
+
+  bool get isClosed => _conversation == null;
+
+  void _assertOpen() {
+    if (_conversation == null) {
+      throw StateError('Conversation handle is closed');
+    }
+  }
+
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertOpen();
+    return _client._chatOn(
+      _conversation!,
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    );
+  }
+
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertOpen();
+    return _client._chatRawOn(
+      _conversation!,
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    );
+  }
+
+  Future<String> sendMessage(String messageJson, {String? extraContext}) {
+    _assertOpen();
+    return _client._sendMessageOn(_conversation!, messageJson,
+        extraContext: extraContext);
+  }
+
+  Stream<String> sendMessageStreamRaw(String messageJson,
+      {String? extraContext}) {
+    _assertOpen();
+    return _client._sendMessageStreamRawOn(_conversation!, messageJson,
+        extraContext: extraContext);
+  }
+
+  void cancelGeneration() {
+    if (_conversation == null) return;
+    _client._cancelOn(_conversation!);
+  }
+
+  SessionMetrics getSessionMetrics() {
+    if (_conversation == null) return SessionMetrics();
+    return _client._getMetricsOn(_conversation!);
+  }
+
+  void close() {
+    if (_conversation == null) return;
+    _client._deleteConversation(_conversation!);
+    _conversation = null;
+    _client._handles.remove(this);
+  }
+}
+
 /// High-level Dart wrapper around the LiteRT-LM C API.
 ///
 /// Provides a clean async interface over the native C functions,
 /// managing memory and translating C callbacks into Dart Streams.
+///
+/// Conversation lifetime is owned by [LiteRtLmConversationHandle] —
+/// the client holds the engine and tracks live handles for shutdown.
+/// Legacy single-session methods ([createConversation], [chat],
+/// [sendMessageStreamRaw], etc.) route through an internal
+/// [_legacyHandle] for backward compatibility.
 class LiteRtLmFfiClient {
   LiteRtLmBindings? _bindings;
   // Holding a reference prevents the proxy DynamicLibrary from being GC'd
@@ -43,10 +138,19 @@ class LiteRtLmFfiClient {
   _ProxyCreateDart? _proxyCreate;
   _ProxyFreeStringDart? _proxyFreeString;
   Pointer<LiteRtLmEngine>? _engine;
-  Pointer<LiteRtLmConversation>? _conversation;
   bool _isInitialized = false;
   String? _nativeLogPath;
   String? _backend;
+
+  /// All live conversation handles created on this client. Closed in bulk
+  /// by [shutdown]. Each handle removes itself on its own [close].
+  final Set<LiteRtLmConversationHandle> _handles = {};
+
+  /// Backing handle for the legacy single-conversation API
+  /// ([createConversation] / [closeConversation] / [chat] / etc.). Kept so
+  /// existing single-session call sites work unchanged while the new
+  /// handle-based multi-session path is wired up.
+  LiteRtLmConversationHandle? _legacyHandle;
 
   /// Reads back the native log file (set by stream_proxy_redirect_stderr) and
   /// pipes its contents through debugPrint in 800-char chunks. Surfaces
@@ -230,8 +334,7 @@ class LiteRtLmFfiClient {
         // hard-references `pthread_cond_clockwait` / `sem_clockwait`,
         // which don't exist on API 29 and below. Use a MediaPipe `.task`
         // model instead, or bump `minSdkVersion` to 30.
-        throw Exception(
-            'Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
+        throw Exception('Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
             'On Android, this commonly indicates API < 30: `.litertlm` models '
             'require Android 11+ (minSdkVersion 30). For older devices use a '
             'MediaPipe `.task` model instead. See '
@@ -437,8 +540,11 @@ class LiteRtLmFfiClient {
     }
   }
 
-  /// Create a new conversation with optional system message and tools.
-  void createConversation({
+  /// Create a new conversation handle with optional system message and
+  /// tools. The handle owns its own `LiteRtLmConversation*`; multiple
+  /// handles can coexist on one engine (concurrent sessions). The caller
+  /// owns the handle and must call [LiteRtLmConversationHandle.close].
+  LiteRtLmConversationHandle createConversationHandle({
     String? systemMessage,
     String? toolsJson,
     double temperature = 0.8,
@@ -448,12 +554,6 @@ class LiteRtLmFfiClient {
   }) {
     _assertInitialized();
     final b = _bindings!;
-
-    // Close existing conversation if any
-    if (_conversation != null && _conversation != nullptr) {
-      b.litert_lm_conversation_delete(_conversation!);
-      _conversation = null;
-    }
 
     // Always build a sessionConfig with the caller's sampler params — even
     // when there's no systemMessage/tools. Otherwise temperature, topK,
@@ -517,16 +617,42 @@ class LiteRtLmFfiClient {
       );
     }
 
-    _conversation = b.litert_lm_conversation_create(_engine!, convConfig);
+    final conv = b.litert_lm_conversation_create(_engine!, convConfig);
 
     b.litert_lm_conversation_config_delete(convConfig);
 
-    if (_conversation == null || _conversation == nullptr) {
+    if (conv == nullptr) {
       _dumpNativeLog();
       throw Exception('Failed to create conversation');
     }
 
     debugPrint('[LiteRtLmFfi] Conversation created');
+    final handle = LiteRtLmConversationHandle._(this, conv);
+    _handles.add(handle);
+    return handle;
+  }
+
+  /// Legacy single-conversation create. Closes the previous legacy
+  /// conversation (if any) and opens a fresh one stored in [_legacyHandle].
+  /// Kept for backward compat — new code should use
+  /// [createConversationHandle] and own the handle directly.
+  void createConversation({
+    String? systemMessage,
+    String? toolsJson,
+    double temperature = 0.8,
+    int topK = 40,
+    double? topP,
+    int seed = 1,
+  }) {
+    _legacyHandle?.close();
+    _legacyHandle = createConversationHandle(
+      systemMessage: systemMessage,
+      toolsJson: toolsJson,
+      temperature: temperature,
+      topK: topK,
+      topP: topP,
+      seed: seed,
+    );
   }
 
   /// Build the JSON message for the Conversation API.
@@ -561,9 +687,10 @@ class LiteRtLmFfiClient {
   static String extractTextFromResponse(String jsonStr) =>
       SdkTextExtractor.extractTextFromResponse(jsonStr);
 
-  /// Send a message and get streaming response as plain text chunks.
-  /// Supports multiple images via `imageBytes` list.
-  Stream<String> chat(
+  /// Send a message and get streaming response as plain text chunks on the
+  /// given conversation. Supports multiple images via `imageBytes` list.
+  Stream<String> _chatOn(
+    Pointer<LiteRtLmConversation> conv,
     String text, {
     List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
@@ -575,14 +702,16 @@ class LiteRtLmFfiClient {
       audioBytes: audioBytes,
     );
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return sendMessageStreamRaw(messageJson, extraContext: extraContext)
+    return _sendMessageStreamRawOn(conv, messageJson,
+            extraContext: extraContext)
         .map(extractTextFromResponse);
   }
 
-  /// Same as [chat] but yields raw SDK JSON chunks without `extractTextFromResponse`
-  /// mapping. Required by Gemma 4 path so callers can read the structured
-  /// `tool_calls` field via [extractToolCalls].
-  Stream<String> chatRaw(
+  /// Same as [_chatOn] but yields raw SDK JSON chunks without
+  /// `extractTextFromResponse` mapping. Required by Gemma 4 path so callers
+  /// can read the structured `tool_calls` field via [extractToolCalls].
+  Stream<String> _chatRawOn(
+    Pointer<LiteRtLmConversation> conv,
     String text, {
     List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
@@ -591,14 +720,44 @@ class LiteRtLmFfiClient {
     final messageJson =
         buildMessageJson(text, imagesBytes: imageBytes, audioBytes: audioBytes);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return sendMessageStreamRaw(messageJson, extraContext: extraContext);
+    return _sendMessageStreamRawOn(conv, messageJson,
+        extraContext: extraContext);
   }
 
-  /// Send a raw JSON message and get streaming response.
-  Stream<String> sendMessageStreamRaw(String messageJson,
+  /// Legacy: streaming chat on the implicit [_legacyHandle] conversation.
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertConversation();
+    return _legacyHandle!.chat(text,
+        imageBytes: imageBytes,
+        audioBytes: audioBytes,
+        enableThinking: enableThinking);
+  }
+
+  /// Legacy: raw streaming chat on the implicit [_legacyHandle] conversation.
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertConversation();
+    return _legacyHandle!.chatRaw(text,
+        imageBytes: imageBytes,
+        audioBytes: audioBytes,
+        enableThinking: enableThinking);
+  }
+
+  /// Send a raw JSON message on the given conversation and get a streaming
+  /// response.
+  Stream<String> _sendMessageStreamRawOn(
+      Pointer<LiteRtLmConversation> conv, String messageJson,
       {String? extraContext}) {
     _assertInitialized();
-    _assertConversation();
     final b = _bindings!;
 
     final controller = StreamController<String>();
@@ -676,7 +835,7 @@ class LiteRtLmFfiClient {
     }
 
     final result = b.litert_lm_conversation_send_message_stream(
-      _conversation!,
+      conv,
       messagePtr.cast(),
       extraPtr == nullptr ? nullptr : extraPtr.cast(),
       optionalArgs,
@@ -698,10 +857,20 @@ class LiteRtLmFfiClient {
     return controller.stream;
   }
 
-  /// Send a text message and get the full response (sync C API, non-blocking Dart).
-  Future<String> sendMessage(String messageJson, {String? extraContext}) async {
-    _assertInitialized();
+  /// Legacy: streaming raw on the implicit [_legacyHandle] conversation.
+  Stream<String> sendMessageStreamRaw(String messageJson,
+      {String? extraContext}) {
     _assertConversation();
+    return _legacyHandle!
+        .sendMessageStreamRaw(messageJson, extraContext: extraContext);
+  }
+
+  /// Send a text message on the given conversation and get the full response
+  /// (sync C API, non-blocking Dart).
+  Future<String> _sendMessageOn(
+      Pointer<LiteRtLmConversation> conv, String messageJson,
+      {String? extraContext}) async {
+    _assertInitialized();
     final b = _bindings!;
 
     final messagePtr = messageJson.toNativeUtf8();
@@ -720,7 +889,7 @@ class LiteRtLmFfiClient {
 
     try {
       final response = b.litert_lm_conversation_send_message(
-        _conversation!,
+        conv,
         messagePtr.cast(),
         extraPtr == nullptr ? nullptr : extraPtr.cast(),
         optionalArgs,
@@ -742,30 +911,49 @@ class LiteRtLmFfiClient {
     }
   }
 
-  /// Cancel ongoing generation.
-  void cancelGeneration() {
-    if (_conversation != null &&
-        _conversation != nullptr &&
-        _bindings != null) {
-      _bindings!.litert_lm_conversation_cancel_process(_conversation!);
+  /// Legacy: sync send on the implicit [_legacyHandle] conversation.
+  Future<String> sendMessage(String messageJson, {String? extraContext}) {
+    _assertConversation();
+    return _legacyHandle!.sendMessage(messageJson, extraContext: extraContext);
+  }
+
+  /// Cancel ongoing generation on the given conversation.
+  void _cancelOn(Pointer<LiteRtLmConversation> conv) {
+    if (_bindings != null) {
+      _bindings!.litert_lm_conversation_cancel_process(conv);
       debugPrint('[LiteRtLmFfi] Generation cancelled');
     }
   }
 
-  /// Close the current conversation.
-  void closeConversation() {
-    if (_conversation != null &&
-        _conversation != nullptr &&
-        _bindings != null) {
-      _bindings!.litert_lm_conversation_delete(_conversation!);
-      _conversation = null;
+  /// Legacy: cancel on the implicit [_legacyHandle] conversation.
+  void cancelGeneration() {
+    _legacyHandle?.cancelGeneration();
+  }
+
+  /// Delete a conversation pointer. Called by
+  /// [LiteRtLmConversationHandle.close].
+  void _deleteConversation(Pointer<LiteRtLmConversation> conv) {
+    if (_bindings != null) {
+      _bindings!.litert_lm_conversation_delete(conv);
       debugPrint('[LiteRtLmFfi] Conversation closed');
     }
   }
 
-  /// Shutdown the engine and release all resources.
+  /// Legacy: close the implicit [_legacyHandle] conversation.
+  void closeConversation() {
+    _legacyHandle?.close();
+    _legacyHandle = null;
+  }
+
+  /// Shutdown the engine and release all resources. Closes every live
+  /// conversation handle first (legacy + any opened directly).
   void shutdown() {
-    closeConversation();
+    // Copy because close() mutates _handles.
+    for (final h in _handles.toList()) {
+      h.close();
+    }
+    _handles.clear();
+    _legacyHandle = null;
 
     if (_engine != null && _engine != nullptr && _bindings != null) {
       _bindings!.litert_lm_engine_delete(_engine!);
@@ -777,17 +965,15 @@ class LiteRtLmFfiClient {
     _backend = null;
   }
 
-  /// Get session metrics from current conversation including token usage.
-  /// Returns empty SessionMetrics if no conversation or benchmark unavailable.
-  SessionMetrics getSessionMetrics() {
-    if (_conversation == null ||
-        _conversation == nullptr ||
-        _bindings == null) {
+  /// Get session metrics from the given conversation including token usage.
+  /// Returns empty SessionMetrics if benchmark unavailable.
+  SessionMetrics _getMetricsOn(Pointer<LiteRtLmConversation> conv) {
+    if (_bindings == null) {
       return SessionMetrics();
     }
 
     final benchmarkInfo =
-        _bindings!.litert_lm_conversation_get_benchmark_info(_conversation!);
+        _bindings!.litert_lm_conversation_get_benchmark_info(conv);
     if (benchmarkInfo == nullptr) {
       return SessionMetrics();
     }
@@ -850,6 +1036,13 @@ class LiteRtLmFfiClient {
     }
   }
 
+  /// Legacy: metrics for the implicit [_legacyHandle] conversation.
+  SessionMetrics getSessionMetrics() {
+    final h = _legacyHandle;
+    if (h == null) return SessionMetrics();
+    return h.getSessionMetrics();
+  }
+
   void _assertInitialized() {
     if (!_isInitialized || _engine == null || _engine == nullptr) {
       throw StateError('Engine not initialized. Call initialize() first.');
@@ -857,7 +1050,7 @@ class LiteRtLmFfiClient {
   }
 
   void _assertConversation() {
-    if (_conversation == null || _conversation == nullptr) {
+    if (_legacyHandle == null || _legacyHandle!.isClosed) {
       throw StateError('No conversation. Call createConversation() first.');
     }
   }

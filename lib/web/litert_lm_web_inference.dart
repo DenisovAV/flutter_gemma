@@ -49,8 +49,18 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
   Completer<InferenceModelSession>? _createCompleter;
   bool _isClosed = false;
 
+  /// Sessions opened via [openSession] — detached from the legacy [_session]
+  /// singleton. Each owns its own `@litert-lm/core` Conversation JS object.
+  final Set<LiteRtLmWebSession> _openSessions = {};
+
   @override
   InferenceModelSession? get session => _session;
+
+  @override
+  List<InferenceModelSession> get sessions => List.unmodifiable([
+        if (_session != null) _session!,
+        ..._openSessions,
+      ]);
 
   Future<void> _ensureEngine() async {
     if (_engine != null) return;
@@ -155,72 +165,16 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
     final sessionSw = Stopwatch()..start();
 
     try {
-      await _ensureEngine();
-
-      // Build SessionConfig matching upstream TS:
-      //   { samplerParams? }
-      // Vision/audio modality intentionally not set — they require
-      // AudioExecutor/VisionExecutor at Engine.create() which the TS
-      // EngineSettings doesn't expose yet (see comment above).
-      final sessionConfigMap = <String, Object>{
-        'samplerParams': <String, Object>{
-          'temperature': temperature,
-          'k': topK,
-          if (topP != null) 'p': topP,
-          'seed': randomSeed,
-        },
-      };
-      final sessionConfigJs = sessionConfigMap.jsify() as JSObject?;
-
-      // Build Preface matching upstream TS:
-      //   { messages?: Message[], tools?: Tool[], extra_context?: {...} }
-      final prefaceMessages = <Map<String, Object>>[];
-      if (systemInstruction != null && systemInstruction.isNotEmpty) {
-        prefaceMessages.add(<String, Object>{
-          'role': 'system',
-          'content': systemInstruction,
-        });
-      }
-      // Tools — only push for Gemma 4, identical to native FFI gating in
-      // `FfiInferenceModel.createSession` (ffi_inference_model.dart:81).
-      // Reuses [SdkResponseParser.serializeToolsForSdk] so the JSON shape
-      // (`[{"type":"function","function":{"name","description","parameters"}}]`)
-      // is byte-identical between web and native — the SDK then applies the
-      // same `chat_template.jinja` minja rendering to native Gemma 4 tokens.
-      final toolsForPreface =
-          (modelType == ModelType.gemma4 && tools.isNotEmpty)
-              ? (jsonDecode(SdkResponseParser.serializeToolsForSdk(tools))
-                  as List<dynamic>)
-              : const <dynamic>[];
-      final prefaceMap = <String, Object>{
-        if (prefaceMessages.isNotEmpty) 'messages': prefaceMessages,
-        if (toolsForPreface.isNotEmpty) 'tools': toolsForPreface,
-        // Gemma 4 thinking is enabled via extra_context, mirroring the native
-        // FFI path (which sets the same key through conversation_config).
-        if (enableThinking) 'extra_context': <String, Object>{'thinking': true},
-      };
-      final prefaceJs =
-          prefaceMap.isNotEmpty ? prefaceMap.jsify() as JSObject : null;
-
-      final beforeConv = sessionSw.elapsedMilliseconds;
-      final convoFuture = _engine!.createConversation(
-        LiteRtLmConversationOptions(
-          sessionConfig: sessionConfigJs,
-          preface: prefaceJs,
-          // When thinking is on, keep the channel content out of the KV cache
-          // so it doesn't pollute follow-up turns (same flag the native FFI
-          // sets via litert_lm_conversation_config_set_filter_channel_content_from_kv_cache).
-          filterChannelContentFromKvCache: enableThinking ? true : null,
-          // Mirror native FFI: SDK uses constrained decoding to emit valid
-          // `<|tool_call>` tokens for Gemma 4 when tools are present.
-          enableConstrainedDecoding: toolsForPreface.isNotEmpty ? true : null,
-        ),
+      final conversation = await _buildConversation(
+        temperature: temperature,
+        randomSeed: randomSeed,
+        topK: topK,
+        topP: topP,
+        systemInstruction: systemInstruction,
+        enableThinking: enableThinking,
+        tools: tools,
+        sw: sessionSw,
       );
-      final conversation = await convoFuture.toDart;
-      if (kDebugMode) {
-        debugPrint(
-            '[LiteRtLmWebInferenceModel/perf] createConversation: ${sessionSw.elapsedMilliseconds - beforeConv}ms');
-      }
 
       final session = _session = LiteRtLmWebSession(
         conversation: conversation,
@@ -248,10 +202,142 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
   }
 
   @override
+  Future<InferenceModelSession> openSession({
+    double temperature = .8,
+    int randomSeed = 1,
+    int topK = 1,
+    double? topP,
+    String? loraPath,
+    bool? enableVisionModality,
+    bool? enableAudioModality,
+    String? systemInstruction,
+    bool enableThinking = false,
+    List<Tool> tools = const [],
+  }) async {
+    if (_isClosed) {
+      throw StateError(
+          'Model is closed. Create a new instance to use it again');
+    }
+    if (loraPath != null) {
+      throw UnsupportedError(
+        'LoRA weights are not supported on the .litertlm web path. '
+        'Remove loraPath or use a MediaPipe .task web model.',
+      );
+    }
+    // Vision/audio still blocked upstream (@litert-lm/core@0.12.1) — see the
+    // detailed comment in createSession. Force-disable here too.
+    if ((enableVisionModality == true || enableAudioModality == true) &&
+        kDebugMode) {
+      debugPrint('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
+          'is dropped on the web .litertlm path until upstream extends '
+          'EngineSettings.');
+    }
+
+    await _ensureEngine();
+    final conversation = await _buildConversation(
+      temperature: temperature,
+      randomSeed: randomSeed,
+      topK: topK,
+      topP: topP,
+      systemInstruction: systemInstruction,
+      enableThinking: enableThinking,
+      tools: tools,
+      sw: Stopwatch()..start(),
+    );
+
+    late final LiteRtLmWebSession session;
+    session = LiteRtLmWebSession(
+      conversation: conversation,
+      modelType: modelType,
+      fileType: fileType,
+      supportImage: false,
+      supportAudio: false,
+      onClose: () => _openSessions.remove(session),
+    );
+    _openSessions.add(session);
+    return session;
+  }
+
+  /// Builds an `@litert-lm/core` Conversation from sampler + preface config.
+  /// Shared by [createSession] (legacy singleton) and [openSession]
+  /// (detached) so the JS interop and tool/thinking wiring stay in one place.
+  Future<LiteRtLmConversation> _buildConversation({
+    required double temperature,
+    required int randomSeed,
+    required int topK,
+    double? topP,
+    String? systemInstruction,
+    required bool enableThinking,
+    required List<Tool> tools,
+    required Stopwatch sw,
+  }) async {
+    await _ensureEngine();
+
+    // Build SessionConfig matching upstream TS: { samplerParams? }
+    // Vision/audio modality intentionally not set — they require
+    // AudioExecutor/VisionExecutor at Engine.create() which the TS
+    // EngineSettings doesn't expose yet.
+    final sessionConfigMap = <String, Object>{
+      'samplerParams': <String, Object>{
+        'temperature': temperature,
+        'k': topK,
+        if (topP != null) 'p': topP,
+        'seed': randomSeed,
+      },
+    };
+    final sessionConfigJs = sessionConfigMap.jsify() as JSObject?;
+
+    // Build Preface matching upstream TS:
+    //   { messages?: Message[], tools?: Tool[], extra_context?: {...} }
+    final prefaceMessages = <Map<String, Object>>[];
+    if (systemInstruction != null && systemInstruction.isNotEmpty) {
+      prefaceMessages.add(<String, Object>{
+        'role': 'system',
+        'content': systemInstruction,
+      });
+    }
+    // Tools — only push for Gemma 4, identical to native FFI gating in
+    // `FfiInferenceModel.createSession`. Reuses
+    // [SdkResponseParser.serializeToolsForSdk] so the JSON shape is
+    // byte-identical between web and native.
+    final toolsForPreface = (modelType == ModelType.gemma4 && tools.isNotEmpty)
+        ? (jsonDecode(SdkResponseParser.serializeToolsForSdk(tools))
+            as List<dynamic>)
+        : const <dynamic>[];
+    final prefaceMap = <String, Object>{
+      if (prefaceMessages.isNotEmpty) 'messages': prefaceMessages,
+      if (toolsForPreface.isNotEmpty) 'tools': toolsForPreface,
+      if (enableThinking) 'extra_context': <String, Object>{'thinking': true},
+    };
+    final prefaceJs =
+        prefaceMap.isNotEmpty ? prefaceMap.jsify() as JSObject : null;
+
+    final beforeConv = sw.elapsedMilliseconds;
+    final convoFuture = _engine!.createConversation(
+      LiteRtLmConversationOptions(
+        sessionConfig: sessionConfigJs,
+        preface: prefaceJs,
+        filterChannelContentFromKvCache: enableThinking ? true : null,
+        enableConstrainedDecoding: toolsForPreface.isNotEmpty ? true : null,
+      ),
+    );
+    final conversation = await convoFuture.toDart;
+    if (kDebugMode) {
+      debugPrint(
+          '[LiteRtLmWebInferenceModel/perf] createConversation: ${sw.elapsedMilliseconds - beforeConv}ms');
+    }
+    return conversation;
+  }
+
+  @override
   Future<void> close() async {
     _isClosed = true;
     try {
       await _session?.close();
+      for (final s in _openSessions.toList()) {
+        await s.close();
+      }
+      _openSessions.clear();
     } finally {
       try {
         _engine?.delete();

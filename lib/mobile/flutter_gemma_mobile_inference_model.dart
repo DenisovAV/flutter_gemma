@@ -12,6 +12,7 @@ class MobileInferenceModel extends InferenceModel {
     this.supportImage = false, // Enabling image support
     this.supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     this.maxNumImages,
+    this.maxConcurrentSessions,
   });
 
   final ModelType modelType;
@@ -76,6 +77,11 @@ class MobileInferenceModel extends InferenceModel {
   final bool supportAudio;
   final int? maxNumImages;
 
+  /// Cap on concurrent [openSession] sessions; null = unlimited. Wired for
+  /// when the MediaPipe ProxyApi multi-session path lands; today
+  /// [openSession] on the MediaPipe `.task` path throws UnsupportedError.
+  final int? maxConcurrentSessions;
+
   bool _isClosed = false;
   MobileInferenceModelSession? _session;
   Completer<InferenceModelSession>? _createCompleter;
@@ -94,7 +100,8 @@ class MobileInferenceModel extends InferenceModel {
     bool? enableAudioModality,
     String? systemInstruction,
     bool enableThinking = false,
-    List<Tool> tools = const [], // MediaPipe path: tools handled via chat.dart prompt
+    List<Tool> tools =
+        const [], // MediaPipe path: tools handled via chat.dart prompt
   }) async {
     if (_isClosed) {
       throw StateError(

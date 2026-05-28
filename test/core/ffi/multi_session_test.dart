@@ -195,4 +195,46 @@ void main() {
       expect(handle.cancelCount, 1);
     });
   });
+
+  group('FfiInferenceModel maxConcurrentSessions cap', () {
+    test('openSession throws StateError when cap is reached', () async {
+      // cap=0 means the very first openSession exceeds the cap. The check
+      // runs before any native call, so a bare (uninitialized) client never
+      // gets touched. Proves the cap gates openSession.
+      final model = FfiInferenceModel(
+        ffiClient: LiteRtLmFfiClient(),
+        maxTokens: 256,
+        modelType: ModelType.gemmaIt,
+        activeBackend: null,
+        maxConcurrentSessions: 0,
+        onClose: () {},
+      );
+
+      await expectLater(
+        model.openSession(),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('Max concurrent sessions (0)'),
+          ),
+        ),
+      );
+    });
+
+    test('null cap imposes no limit on openSession gate', () {
+      // With no cap, the cap check never trips. We can't drive the native
+      // path here, but constructing with a null cap and reading the field
+      // confirms the default is unlimited (backward-compatible).
+      final model = FfiInferenceModel(
+        ffiClient: LiteRtLmFfiClient(),
+        maxTokens: 256,
+        modelType: ModelType.gemmaIt,
+        activeBackend: null,
+        onClose: () {},
+      );
+
+      expect(model.maxConcurrentSessions, isNull);
+    });
+  });
 }

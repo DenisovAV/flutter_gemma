@@ -46,6 +46,11 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// E2B/E4B (LiteRT-LM v0.11.0+). `null` honors the model's default;
   /// `true`/`false` forces on/off. Older `.litertlm` files without an MTP
   /// drafter ignore this flag at the SDK level.
+  /// [maxConcurrentSessions] — optional cap on the number of sessions open
+  /// at once via [InferenceModel.openSession]. `null` (default) = no cap,
+  /// backward-compatible. When set, the (cap+1)-th [InferenceModel.openSession]
+  /// throws [StateError]. Use this on mobile with large models to guard
+  /// against OOM from multiple concurrent KV caches.
   Future<InferenceModel> createModel({
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
@@ -56,6 +61,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     bool supportImage = false, // Add image support flag
     bool supportAudio = false, // Add audio support flag (Gemma 3n E4B)
     bool? enableSpeculativeDecoding,
+    int? maxConcurrentSessions,
   });
 
   /// Creates and returns a new [EmbeddingModel] instance.

@@ -28,6 +28,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
     required this.maxTokens,
     required this.modelType,
     this.fileType = ModelFileType.litertlm,
+    this.maxConcurrentSessions,
     required this.onClose,
   });
 
@@ -42,6 +43,9 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
   final int maxTokens;
   @override
   PreferredBackend? get activeBackend => null;
+
+  /// Cap on concurrent [openSession] sessions; null = unlimited.
+  final int? maxConcurrentSessions;
   final VoidCallback onClose;
 
   LiteRtLmEngine? _engine;
@@ -222,6 +226,13 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
       throw UnsupportedError(
         'LoRA weights are not supported on the .litertlm web path. '
         'Remove loraPath or use a MediaPipe .task web model.',
+      );
+    }
+    final cap = maxConcurrentSessions;
+    if (cap != null && _openSessions.length >= cap) {
+      throw StateError(
+        'Max concurrent sessions ($cap) reached. Close an existing session '
+        'before opening a new one.',
       );
     }
     // Vision/audio still blocked upstream (@litert-lm/core@0.12.1) — see the

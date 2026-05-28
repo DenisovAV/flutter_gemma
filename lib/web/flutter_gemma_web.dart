@@ -136,6 +136,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     bool supportImage = false, // Enabling image support
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding, // Ignored on web (MediaPipe path).
+    int? maxConcurrentSessions,
   }) async {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
@@ -192,6 +193,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         modelType: modelType,
         maxTokens: maxTokens,
         sourceResolver: sourceResolver,
+        maxConcurrentSessions: maxConcurrentSessions,
         onClose: () {
           _initializedModel = null;
         },
@@ -206,6 +208,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         supportImage: supportImage, // Passing the flag
         supportAudio: supportAudio, // Passing the audio flag
         maxNumImages: maxNumImages,
+        maxConcurrentSessions: maxConcurrentSessions,
         onClose: () {
           _initializedModel = null;
         },
@@ -439,7 +442,14 @@ class WebInferenceModel extends InferenceModel {
     this.supportImage = false,
     this.supportAudio = false,
     this.maxNumImages,
+    this.maxConcurrentSessions,
   });
+
+  /// Cap on concurrent [openSession] sessions; null = unlimited. Accepted
+  /// for API symmetry. The MediaPipe web `.task` path doesn't support
+  /// concurrent sessions yet (openSession inherits the interface's
+  /// UnsupportedError), so this is currently informational.
+  final int? maxConcurrentSessions;
 
   @override
   Future<InferenceModelSession> createSession({

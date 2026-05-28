@@ -304,6 +304,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     bool supportImage = false,
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding,
+    int? maxConcurrentSessions,
   }) async {
     // Check if model is ready through unified system
     final manager = _unifiedManager;
@@ -422,6 +423,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           fileType: fileType,
           supportImage: supportImage,
           supportAudio: supportAudio,
+          maxConcurrentSessions: maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;
@@ -449,6 +451,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           supportImage: supportImage,
           supportAudio: supportAudio,
           maxNumImages: maxNumImages,
+          maxConcurrentSessions: maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;

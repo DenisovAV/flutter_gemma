@@ -79,6 +79,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     bool supportImage = false,
     bool supportAudio = false,
     bool? enableSpeculativeDecoding,
+    int? maxConcurrentSessions,
   }) async {
     // Check active model
     final activeModel = _modelManager.activeInferenceModel;
@@ -167,6 +168,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         fileType: fileType,
         supportImage: supportImage,
         supportAudio: supportAudio,
+        maxConcurrentSessions: maxConcurrentSessions,
         onClose: () {
           _initializedModel = null;
           _initCompleter = null;

@@ -23,6 +23,7 @@ class FfiInferenceModel extends InferenceModel {
     this.fileType = ModelFileType.litertlm,
     this.supportImage = false,
     this.supportAudio = false,
+    this.maxConcurrentSessions,
     required this.onClose,
   });
 
@@ -36,6 +37,9 @@ class FfiInferenceModel extends InferenceModel {
   final PreferredBackend? activeBackend;
   final bool supportImage;
   final bool supportAudio;
+
+  /// Cap on concurrent [openSession] sessions; null = unlimited.
+  final int? maxConcurrentSessions;
   final VoidCallback onClose;
 
   FfiInferenceModelSession? _session;
@@ -157,6 +161,13 @@ class FfiInferenceModel extends InferenceModel {
         'LoRA weights are not supported on the .litertlm FFI path '
         '(loraPath=$loraPath). Remove loraPath or use a MediaPipe .task '
         'model on Android/iOS.',
+      );
+    }
+    final cap = maxConcurrentSessions;
+    if (cap != null && _openSessions.length >= cap) {
+      throw StateError(
+        'Max concurrent sessions ($cap) reached. Close an existing session '
+        'before opening a new one.',
       );
     }
 

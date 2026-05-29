@@ -54,6 +54,18 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
   Completer<InferenceModelSession>? _createCompleter;
   bool _isClosed = false;
 
+  /// Guards [_ensureEngine] against concurrent calls. Without it, two
+  /// overlapping openSession/createSession calls both see `_engine == null`
+  /// and both call `Engine.create`, leaking the first engine (JS/WASM + GPU
+  /// resources) for the page lifetime.
+  Completer<void>? _engineCompleter;
+
+  /// Serializes generation across all sessions on this model — concurrent
+  /// contexts, serialized inference, matching the FFI/MediaPipe paths. The
+  /// `@litert-lm/core` engine is shared WebGPU/WASM state; parallel
+  /// generations would contend for the accelerator. Passed to each session.
+  final Mutex generationMutex = Mutex();
+
   /// Sessions opened via [openSession] — detached from the legacy [_session]
   /// singleton. Each owns its own `@litert-lm/core` Conversation JS object.
   final Set<LiteRtLmWebSession> _openSessions = {};
@@ -69,6 +81,24 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
 
   Future<void> _ensureEngine() async {
     if (_engine != null) return;
+    // Concurrent-call guard: a second caller awaits the first creation instead
+    // of starting its own (which would leak an engine).
+    if (_engineCompleter != null) {
+      await _engineCompleter!.future;
+      return;
+    }
+    final completer = _engineCompleter = Completer<void>();
+    try {
+      await _createEngine();
+      completer.complete();
+    } catch (e, st) {
+      _engineCompleter = null; // allow retry
+      completer.completeError(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> _createEngine() async {
     final resolved = await sourceResolver.resolveActiveInferenceModel();
 
     // The host page wires up `window.litertLmReady` (a Promise resolving to
@@ -187,6 +217,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
         fileType: fileType,
         supportImage: visionEnabled,
         supportAudio: audioEnabled,
+        generationMutex: generationMutex,
         onClose: () {
           _session = null;
           _createCompleter = null;
@@ -264,6 +295,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
       fileType: fileType,
       supportImage: false,
       supportAudio: false,
+      generationMutex: generationMutex,
       onClose: () => _openSessions.remove(session),
     );
     _openSessions.add(session);
@@ -381,6 +413,7 @@ class LiteRtLmWebSession extends InferenceModelSession
     required this.fileType,
     required this.supportImage,
     required this.supportAudio,
+    required this.generationMutex,
     required this.onClose,
   });
 
@@ -389,6 +422,11 @@ class LiteRtLmWebSession extends InferenceModelSession
   final ModelFileType fileType;
   final bool supportImage;
   final bool supportAudio;
+
+  /// Shared across all sessions of the owning model — serializes generation
+  /// (concurrent contexts, serialized inference). Acquired for the whole
+  /// duration of a getResponse(Async) call.
+  final Mutex generationMutex;
   final VoidCallback onClose;
 
   final StringBuffer _queryBuffer = StringBuffer();
@@ -465,6 +503,18 @@ class LiteRtLmWebSession extends InferenceModelSession
     int? firstChunkMs;
     var chunkCount = 0;
 
+    // Serialize generation across all sessions of this model. Acquired before
+    // the pump starts (in onListen) and released exactly once in every
+    // terminal path (done / error / consumer cancel) so an abandoned stream
+    // can't hold the lock forever.
+    var mutexHeld = false;
+    var released = false;
+    void releaseMutex() {
+      if (released) return;
+      released = true;
+      if (mutexHeld) generationMutex.release();
+    }
+
     // Build the request payload:
     //  * pure text → pass a plain string (legacy fast path).
     //  * any image/audio → build a Message object with a `content` array of
@@ -504,15 +554,6 @@ class LiteRtLmWebSession extends InferenceModelSession
         'content': contentItems,
       }.jsify() as JSAny;
     }
-    final raw = conversation.sendMessageStreaming(messageArg);
-    final asyncIterSym = globalContext
-        .getProperty<JSObject>('Symbol'.toJS)
-        .getProperty<JSAny>('asyncIterator'.toJS);
-    final factory = raw.getProperty<JSFunction?>(asyncIterSym);
-    final iter = factory != null
-        ? raw.callMethod<JSObject>(asyncIterSym)
-        : raw; // assume it's already an iterator
-
     // Gemma 4 path mirrors FfiInferenceModelSession.getResponseAsync — every
     // raw chunk is stringified and appended to rawBuffer so chat.dart can
     // run SdkResponseParser.extractToolCalls on the assembled JSON. Other
@@ -523,62 +564,101 @@ class LiteRtLmWebSession extends InferenceModelSession
       _lastRawResponse = null;
     }
 
-    void pump() {
-      if (controller.isClosed || _isCancelled) {
-        if (!controller.isClosed) controller.close();
-        return;
-      }
-      iter.next().toDart.then((JSObject step) {
+    void startPump() {
+      final raw = conversation.sendMessageStreaming(messageArg);
+      final asyncIterSym = globalContext
+          .getProperty<JSObject>('Symbol'.toJS)
+          .getProperty<JSAny>('asyncIterator'.toJS);
+      final factory = raw.getProperty<JSFunction?>(asyncIterSym);
+      final iter = factory != null
+          ? raw.callMethod<JSObject>(asyncIterSym)
+          : raw; // assume it's already an iterator
+
+      void pump() {
         if (controller.isClosed || _isCancelled) {
+          releaseMutex();
           if (!controller.isClosed) controller.close();
           return;
         }
-        final done = (step.getProperty<JSBoolean>('done'.toJS)).toDart;
-        if (done) {
-          if (accumulateRaw) {
-            _lastRawResponse = rawBuffer!.toString();
+        iter.next().toDart.then((JSObject step) {
+          if (controller.isClosed || _isCancelled) {
+            releaseMutex();
+            if (!controller.isClosed) controller.close();
+            return;
           }
-          if (kDebugMode) {
-            final total = genSw.elapsedMilliseconds;
-            debugPrint('[LiteRtLmWebSession/perf] generation total: ${total}ms '
-                '(prefill ${firstChunkMs ?? 0}ms, $chunkCount chunks)');
+          final done = (step.getProperty<JSBoolean>('done'.toJS)).toDart;
+          if (done) {
+            if (accumulateRaw) {
+              _lastRawResponse = rawBuffer!.toString();
+            }
+            if (kDebugMode) {
+              final total = genSw.elapsedMilliseconds;
+              debugPrint(
+                  '[LiteRtLmWebSession/perf] generation total: ${total}ms '
+                  '(prefill ${firstChunkMs ?? 0}ms, $chunkCount chunks)');
+            }
+            releaseMutex();
+            controller.close();
+            return;
           }
-          controller.close();
-          return;
-        }
-        if (firstChunkMs == null) {
-          firstChunkMs = genSw.elapsedMilliseconds;
-          if (kDebugMode) {
-            debugPrint(
-                '[LiteRtLmWebSession/perf] time-to-first-chunk: ${firstChunkMs}ms');
+          if (firstChunkMs == null) {
+            firstChunkMs = genSw.elapsedMilliseconds;
+            if (kDebugMode) {
+              debugPrint(
+                  '[LiteRtLmWebSession/perf] time-to-first-chunk: ${firstChunkMs}ms');
+            }
           }
-        }
-        chunkCount++;
-        final value = step.getProperty<JSObject?>('value'.toJS);
-        if (value != null) {
-          // Stringify the JS chunk into the same JSON shape liblitert_lm
-          // streams via the native FFI callback. Both engines then dump it
-          // into the shared SdkTextExtractor — single source of truth for
-          // text-vs-thinking extraction, identical to ffi_inference_model.dart.
-          final jsonStr = _stringifyChunk(value);
-          if (accumulateRaw) {
-            rawBuffer!.write(jsonStr);
+          chunkCount++;
+          final value = step.getProperty<JSObject?>('value'.toJS);
+          if (value != null) {
+            // Stringify the JS chunk into the same JSON shape liblitert_lm
+            // streams via the native FFI callback. Both engines then dump it
+            // into the shared SdkTextExtractor — single source of truth for
+            // text-vs-thinking extraction, identical to ffi_inference_model.dart.
+            final jsonStr = _stringifyChunk(value);
+            if (accumulateRaw) {
+              rawBuffer!.write(jsonStr);
+            }
+            final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
+            if (text.isNotEmpty) controller.add(text);
           }
-          final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
-          if (text.isNotEmpty) controller.add(text);
-        }
-        pump();
-      }, onError: (Object error, StackTrace st) {
-        if (!controller.isClosed) {
-          controller.addError(error, st);
-          controller.close();
-        }
-      });
+          pump();
+        }, onError: (Object error, StackTrace st) {
+          releaseMutex();
+          if (!controller.isClosed) {
+            controller.addError(error, st);
+            controller.close();
+          }
+        });
+      }
+
+      pump();
     }
 
-    pump();
+    // Acquire the model-wide generation mutex before kicking off generation,
+    // so concurrent sessions take turns (serialized inference). Released in
+    // every terminal path (done / error / cancel) via releaseMutex().
+    controller.onListen = () async {
+      try {
+        await generationMutex.acquire();
+        mutexHeld = true;
+        if (_isCancelled || controller.isClosed) {
+          releaseMutex();
+          if (!controller.isClosed) await controller.close();
+          return;
+        }
+        startPump();
+      } catch (e, st) {
+        releaseMutex();
+        if (!controller.isClosed) {
+          controller.addError(e, st);
+          await controller.close();
+        }
+      }
+    };
     controller.onCancel = () {
       _isCancelled = true;
+      releaseMutex();
     };
     return controller.stream;
   }
@@ -612,6 +692,18 @@ class LiteRtLmWebSession extends InferenceModelSession
   Future<void> close() async {
     _isClosed = true;
     _isCancelled = true;
+    // Abort any in-flight JS generation BEFORE the model tears the engine
+    // down. Without this, the model's close() → engine.delete() can free the
+    // WASM/WebGPU state while a pending iter.next() Promise is still resolving
+    // against this conversation (use-after-free). stopGeneration() does the
+    // same; close() must too.
+    try {
+      conversation.cancel();
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[LiteRtLmWebSession] cancel during close threw: $e');
+      }
+    }
     _queryBuffer.clear();
     onClose();
   }

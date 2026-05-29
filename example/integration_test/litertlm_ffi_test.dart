@@ -498,6 +498,73 @@ void main() {
       expect(rb.trim(), isNotEmpty);
       await b.close();
     });
+
+    // ── Edge cases from the PR #294 review fixes ──────────────────────
+
+    // C2: an abandoned stream must release the generation mutex, or the next
+    // session deadlocks. Subscribe, cancel mid-flight, then a fresh session
+    // must still be able to generate.
+    testWidgets('abandoning a stream releases the mutex (no deadlock)',
+        (t) async {
+      final model = await _ensureModel(PreferredBackend.gpu, 1024);
+      final a = await model.openSession(temperature: 0.0, topK: 1);
+      await a.addQueryChunk(
+          const Message(text: 'Count slowly to twenty.', isUser: true));
+      // Start streaming, then cancel the subscription after the first chunk
+      // without draining — this is the "abandoned stream" case.
+      final sub = a.getResponseAsync().listen((_) {});
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await sub.cancel();
+
+      // If the mutex leaked, this second generation hangs (test times out).
+      final b = await model.openSession(temperature: 0.0, topK: 1);
+      final rb = await _ask(b, 'Say hi in one word.');
+      print('[multi-session C2] B after abandon = "$rb"');
+      expect(rb.trim(), isNotEmpty);
+      await a.close();
+      await b.close();
+    });
+
+    // C5: closing a session whose generation is in flight must not crash
+    // (use-after-free on the shared conversation). The other session stays
+    // usable afterwards.
+    testWidgets('closing a session mid-generation is safe (no UAF)', (t) async {
+      final model = await _ensureModel(PreferredBackend.gpu, 1024);
+      final a = await model.openSession(temperature: 0.0, topK: 1);
+      final b = await model.openSession(temperature: 0.0, topK: 1);
+      await a.addQueryChunk(
+          const Message(text: 'Count slowly to twenty.', isUser: true));
+      final sub = a.getResponseAsync().listen((_) {});
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // Close A while its turn is (likely) still streaming.
+      await a.close();
+      await sub.cancel();
+
+      final rb = await _ask(b, 'Say hi in one word.');
+      print('[multi-session C5] B after A.close-mid-gen = "$rb"');
+      expect(rb.trim(), isNotEmpty);
+      await b.close();
+    });
+
+    // Media on a virtual (openSession) .litertlm session is rejected loudly,
+    // not silently dropped — history is replayed text-only on switch.
+    testWidgets('openSession rejects image/audio loudly', (t) async {
+      final model = await _ensureModel(PreferredBackend.gpu, 1024);
+      final a = await model.openSession(temperature: 0.0, topK: 1);
+      try {
+        await a.addQueryChunk(Message(
+          text: 'describe',
+          isUser: true,
+          imageBytes: Uint8List.fromList(List<int>.filled(16, 0)),
+        ));
+        await expectLater(
+          a.getResponse(),
+          throwsA(isA<UnsupportedError>()),
+        );
+      } finally {
+        await a.close();
+      }
+    });
   });
 
   // ── Gemma4 NPU: 0.15.1 sampler-skip behaviour ────────────────────

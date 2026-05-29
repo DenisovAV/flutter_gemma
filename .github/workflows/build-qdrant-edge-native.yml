@@ -17,9 +17,9 @@ on:
   workflow_dispatch:
     inputs:
       qdrant_edge_version:
-        description: 'qdrant-edge release suffix (e.g. 0.6.1-flutter1)'
+        description: 'qdrant-edge version (e.g. 0.7.1)'
         required: true
-        default: '0.6.1-flutter1'
+        default: '0.7.1'
       publish_release:
         description: 'Publish to GitHub Release'
         type: boolean
@@ -163,9 +163,7 @@ jobs:
           name: Qdrant Edge Native Libraries ${{ env.QDRANT_EDGE_VERSION }}
           body: |
             qdrant_edge_ffi prebuilt dylibs/sos for flutter_gemma, built from
-            the vendored fork of qdrant-edge ${{ env.QDRANT_EDGE_VERSION }}
-            with the WAL options patch (upstream PR
-            https://github.com/qdrant/qdrant/pull/9067).
+            qdrant-edge ${{ env.QDRANT_EDGE_VERSION }}.
 
             Platforms in this CI build:
             - Linux x86_64

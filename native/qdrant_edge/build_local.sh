@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-QDRANT_EDGE_VERSION="${QDRANT_EDGE_VERSION:-0.6.1-flutter1}"
+QDRANT_EDGE_VERSION="${QDRANT_EDGE_VERSION:-0.7.1}"
 ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24 matches flutter_gemma
 
 # iOS deployment target. Must match flutter_gemma's Podfile (platform :ios, '16.0').
@@ -27,6 +27,17 @@ ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24 matches flutter_gemma
 # SDK but Rust links with the old default minos=10.0, producing undefined
 # symbols like __chkstk_darwin which only exist on iOS 12+.
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-16.0}"
+
+# qdrant-edge 0.7+ uses features stabilized in Rust 1.95.0 (cfg_select,
+# if_let_guard, ptr_as_ref_unchecked). On macOS, Homebrew rustc may lag behind
+# rustup's stable — prefer rustup's compiler when available.
+if command -v rustup &>/dev/null; then
+  _rustup_rustc="$(rustup which rustc 2>/dev/null || true)"
+  if [[ -n "$_rustup_rustc" ]]; then
+    export RUSTC="$_rustup_rustc"
+    echo "Using rustup rustc: $("$RUSTC" --version)"
+  fi
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHIM_DIR="$SCRIPT_DIR/qdrant_edge_ffi"

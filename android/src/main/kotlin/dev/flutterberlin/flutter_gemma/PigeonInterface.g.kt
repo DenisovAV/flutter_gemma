@@ -274,6 +274,15 @@ interface PlatformService {
   fun generateResponse(callback: (Result<String>) -> Unit)
   fun generateResponseAsync(callback: (Result<Unit>) -> Unit)
   fun stopGeneration(callback: (Result<Unit>) -> Unit)
+  fun createSessionForId(sessionId: Long, temperature: Double, randomSeed: Long, topK: Long, topP: Double?, loraPath: String?, enableVisionModality: Boolean?, enableAudioModality: Boolean?, systemInstruction: String?, enableThinking: Boolean?, callback: (Result<Unit>) -> Unit)
+  fun closeSessionId(sessionId: Long, callback: (Result<Unit>) -> Unit)
+  fun sizeInTokensForSession(sessionId: Long, prompt: String, callback: (Result<Long>) -> Unit)
+  fun addQueryChunkToSession(sessionId: Long, prompt: String, callback: (Result<Unit>) -> Unit)
+  fun addImageToSession(sessionId: Long, imageBytes: ByteArray, callback: (Result<Unit>) -> Unit)
+  fun addAudioToSession(sessionId: Long, audioBytes: ByteArray, callback: (Result<Unit>) -> Unit)
+  fun generateResponseForSession(sessionId: Long, callback: (Result<String>) -> Unit)
+  fun generateResponseAsyncForSession(sessionId: Long, callback: (Result<Unit>) -> Unit)
+  fun stopGenerationForSession(sessionId: Long, callback: (Result<Unit>) -> Unit)
   fun initializeVectorStore(databasePath: String, callback: (Result<Unit>) -> Unit)
   fun addDocument(id: String, content: String, embedding: List<Double>, metadata: String?, callback: (Result<Unit>) -> Unit)
   fun searchSimilar(queryEmbedding: List<Double>, topK: Long, threshold: Double, callback: (Result<List<RetrievalResult>>) -> Unit)
@@ -519,6 +528,192 @@ interface PlatformService {
         if (api != null) {
           channel.setMessageHandler { _, reply ->
             api.stopGeneration{ result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.createSessionForId$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            val temperatureArg = args[1] as Double
+            val randomSeedArg = args[2] as Long
+            val topKArg = args[3] as Long
+            val topPArg = args[4] as Double?
+            val loraPathArg = args[5] as String?
+            val enableVisionModalityArg = args[6] as Boolean?
+            val enableAudioModalityArg = args[7] as Boolean?
+            val systemInstructionArg = args[8] as String?
+            val enableThinkingArg = args[9] as Boolean?
+            api.createSessionForId(sessionIdArg, temperatureArg, randomSeedArg, topKArg, topPArg, loraPathArg, enableVisionModalityArg, enableAudioModalityArg, systemInstructionArg, enableThinkingArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.closeSessionId$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            api.closeSessionId(sessionIdArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.sizeInTokensForSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            val promptArg = args[1] as String
+            api.sizeInTokensForSession(sessionIdArg, promptArg) { result: Result<Long> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.addQueryChunkToSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            val promptArg = args[1] as String
+            api.addQueryChunkToSession(sessionIdArg, promptArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.addImageToSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            val imageBytesArg = args[1] as ByteArray
+            api.addImageToSession(sessionIdArg, imageBytesArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.addAudioToSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            val audioBytesArg = args[1] as ByteArray
+            api.addAudioToSession(sessionIdArg, audioBytesArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseForSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            api.generateResponseForSession(sessionIdArg) { result: Result<String> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseAsyncForSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            api.generateResponseAsyncForSession(sessionIdArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(PigeonInterfacePigeonUtils.wrapError(error))
+              } else {
+                reply.reply(PigeonInterfacePigeonUtils.wrapResult(null))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.flutter_gemma.PlatformService.stopGenerationForSession$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val sessionIdArg = args[0] as Long
+            api.stopGenerationForSession(sessionIdArg) { result: Result<Unit> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(PigeonInterfacePigeonUtils.wrapError(error))

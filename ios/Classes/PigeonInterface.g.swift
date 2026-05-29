@@ -319,6 +319,15 @@ protocol PlatformService {
   func generateResponse(completion: @escaping (Result<String, Error>) -> Void)
   func generateResponseAsync(completion: @escaping (Result<Void, Error>) -> Void)
   func stopGeneration(completion: @escaping (Result<Void, Error>) -> Void)
+  func createSessionForId(sessionId: Int64, temperature: Double, randomSeed: Int64, topK: Int64, topP: Double?, loraPath: String?, enableVisionModality: Bool?, enableAudioModality: Bool?, systemInstruction: String?, enableThinking: Bool?, completion: @escaping (Result<Void, Error>) -> Void)
+  func closeSessionId(sessionId: Int64, completion: @escaping (Result<Void, Error>) -> Void)
+  func sizeInTokensForSession(sessionId: Int64, prompt: String, completion: @escaping (Result<Int64, Error>) -> Void)
+  func addQueryChunkToSession(sessionId: Int64, prompt: String, completion: @escaping (Result<Void, Error>) -> Void)
+  func addImageToSession(sessionId: Int64, imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, Error>) -> Void)
+  func addAudioToSession(sessionId: Int64, audioBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, Error>) -> Void)
+  func generateResponseForSession(sessionId: Int64, completion: @escaping (Result<String, Error>) -> Void)
+  func generateResponseAsyncForSession(sessionId: Int64, completion: @escaping (Result<Void, Error>) -> Void)
+  func stopGenerationForSession(sessionId: Int64, completion: @escaping (Result<Void, Error>) -> Void)
   func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void)
   func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void)
   func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void)
@@ -545,6 +554,172 @@ class PlatformServiceSetup {
       }
     } else {
       stopGenerationChannel.setMessageHandler(nil)
+    }
+    let createSessionForIdChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.createSessionForId\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      createSessionForIdChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        let temperatureArg = args[1] as! Double
+        let randomSeedArg = args[2] as! Int64
+        let topKArg = args[3] as! Int64
+        let topPArg: Double? = nilOrValue(args[4])
+        let loraPathArg: String? = nilOrValue(args[5])
+        let enableVisionModalityArg: Bool? = nilOrValue(args[6])
+        let enableAudioModalityArg: Bool? = nilOrValue(args[7])
+        let systemInstructionArg: String? = nilOrValue(args[8])
+        let enableThinkingArg: Bool? = nilOrValue(args[9])
+        api.createSessionForId(sessionId: sessionIdArg, temperature: temperatureArg, randomSeed: randomSeedArg, topK: topKArg, topP: topPArg, loraPath: loraPathArg, enableVisionModality: enableVisionModalityArg, enableAudioModality: enableAudioModalityArg, systemInstruction: systemInstructionArg, enableThinking: enableThinkingArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      createSessionForIdChannel.setMessageHandler(nil)
+    }
+    let closeSessionIdChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.closeSessionId\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      closeSessionIdChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        api.closeSessionId(sessionId: sessionIdArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      closeSessionIdChannel.setMessageHandler(nil)
+    }
+    let sizeInTokensForSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.sizeInTokensForSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      sizeInTokensForSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        let promptArg = args[1] as! String
+        api.sizeInTokensForSession(sessionId: sessionIdArg, prompt: promptArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      sizeInTokensForSessionChannel.setMessageHandler(nil)
+    }
+    let addQueryChunkToSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addQueryChunkToSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addQueryChunkToSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        let promptArg = args[1] as! String
+        api.addQueryChunkToSession(sessionId: sessionIdArg, prompt: promptArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addQueryChunkToSessionChannel.setMessageHandler(nil)
+    }
+    let addImageToSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addImageToSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addImageToSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        let imageBytesArg = args[1] as! FlutterStandardTypedData
+        api.addImageToSession(sessionId: sessionIdArg, imageBytes: imageBytesArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addImageToSessionChannel.setMessageHandler(nil)
+    }
+    let addAudioToSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.addAudioToSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      addAudioToSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        let audioBytesArg = args[1] as! FlutterStandardTypedData
+        api.addAudioToSession(sessionId: sessionIdArg, audioBytes: audioBytesArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      addAudioToSessionChannel.setMessageHandler(nil)
+    }
+    let generateResponseForSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseForSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      generateResponseForSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        api.generateResponseForSession(sessionId: sessionIdArg) { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      generateResponseForSessionChannel.setMessageHandler(nil)
+    }
+    let generateResponseAsyncForSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.generateResponseAsyncForSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      generateResponseAsyncForSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        api.generateResponseAsyncForSession(sessionId: sessionIdArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      generateResponseAsyncForSessionChannel.setMessageHandler(nil)
+    }
+    let stopGenerationForSessionChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.stopGenerationForSession\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      stopGenerationForSessionChannel.setMessageHandler { message, reply in
+        let args = message as! [Any?]
+        let sessionIdArg = args[0] as! Int64
+        api.stopGenerationForSession(sessionId: sessionIdArg) { result in
+          switch result {
+          case .success:
+            reply(wrapResult(nil))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      stopGenerationForSessionChannel.setMessageHandler(nil)
     }
     let initializeVectorStoreChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.initializeVectorStore\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
     if let api = api {

@@ -252,10 +252,10 @@ packages:
     dependency: "direct main"
     description:
       name: large_file_handler
-      sha256: c2ecaf552e8039119bbe3a094d15aecbafe833899f30b2dcfbb513eddf76b36f
+      sha256: "1657db12b4591242b186c23eee437997be91e655ab0d803fd74829074460757f"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.1"
+    version: "0.4.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -344,6 +344,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.4"
+  mutex:
+    dependency: "direct main"
+    description:
+      name: mutex
+      sha256: "8827da25de792088eb33e572115a5eb0d61d61a3c01acbc8bcbe76ed78f1a1f2"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   native_toolchain_c:
     dependency: transitive
     description:
@@ -420,10 +428,10 @@ packages:
     dependency: "direct dev"
     description:
       name: pigeon
-      sha256: "59b86c569ffb29d13aaed0ea2a0deea506dad0c0b280f346a6dd8f68ddd3aa44"
+      sha256: fe36bc5ad43ab7f4d8a9d974850aef1148f6d88a53bd14b3d87475ec403a3cdb
       url: "https://pub.dev"
     source: hosted
-    version: "24.1.0"
+    version: "26.1.0"
   platform:
     dependency: transitive
     description:

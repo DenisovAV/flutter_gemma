@@ -188,6 +188,28 @@ window.flutterGemmaOPFS = {
   },
 
   /**
+   * Get a ReadableStream for streaming a cached model (NOT a reader).
+   * Used by @litert-lm/core Engine.create({model: <ReadableStream>}) on web,
+   * which wants the raw stream rather than the reader (per
+   * https://ai.google.dev/edge/litert-lm/js).
+   *
+   * @param {string} filename - Model filename in OPFS
+   * @returns {Promise<ReadableStream>} Raw ReadableStream for the file
+   * @throws {Error} If file not found in OPFS
+   */
+  async getReadableStream(filename) {
+    try {
+      const opfs = await navigator.storage.getDirectory();
+      const handle = await opfs.getFileHandle(filename);
+      const file = await handle.getFile();
+      return file.stream();
+    } catch (error) {
+      console.error(`[OPFS] Failed to get readable stream: ${error.message}`);
+      throw new Error(`Model not found in OPFS: ${filename}`);
+    }
+  },
+
+  /**
    * Delete a model from OPFS
    * @param {string} filename - Model filename to delete
    * @returns {Promise<void>}

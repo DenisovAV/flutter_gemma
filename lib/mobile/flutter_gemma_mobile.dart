@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:mutex/mutex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -167,7 +168,11 @@ class MobileInferenceModelSession extends InferenceModelSession {
         (event) {
           // Check if controller is still open before adding events
           if (!controller.isClosed) {
-            if (event is Map &&
+            if (event is Map && event.containsKey('sessionId')) {
+              // Tagged event belongs to a concurrent openSession() session —
+              // ignore it on the legacy singleton listener (it's demuxed by
+              // MultiSessionMobileInferenceModelSession).
+            } else if (event is Map &&
                 event.containsKey('code') &&
                 event['code'] == "ERROR") {
               controller.addError(Exception(
@@ -265,6 +270,194 @@ class MobileInferenceModelSession extends InferenceModelSession {
   }
 }
 
+/// A concurrent MediaPipe `.task` session opened via
+/// [MobileInferenceModel.openSession]. Independent of the legacy singleton
+/// [MobileInferenceModelSession]: it routes every call through the
+/// session-scoped `*ForSession` pigeon methods keyed by [sessionId], so N of
+/// these can be live at once (MediaPipe holds N real `LlmInferenceSession`).
+///
+/// Generation is serialized across all sessions by the model's shared
+/// [_generationMutex] — concurrent contexts, serialized inference, identical
+/// to the `.litertlm` FFI path. Because only one session generates at a time,
+/// the single `flutter_gemma_stream` EventChannel is unambiguous; this session
+/// demuxes by filtering events whose `sessionId` matches its own.
+class MultiSessionMobileInferenceModelSession extends InferenceModelSession {
+  final int sessionId;
+  final ModelType modelType;
+  final ModelFileType fileType;
+  final bool supportImage;
+  final bool supportAudio;
+  final String? systemInstruction;
+  final Mutex generationMutex;
+  final VoidCallback onClose;
+
+  bool _isClosed = false;
+  bool _systemInstructionSent = false;
+
+  MultiSessionMobileInferenceModelSession({
+    required this.sessionId,
+    required this.modelType,
+    required this.fileType,
+    required this.supportImage,
+    required this.supportAudio,
+    required this.generationMutex,
+    required this.onClose,
+    this.systemInstruction,
+  });
+
+  void _assertNotClosed() {
+    if (_isClosed) {
+      throw StateError('Session is closed');
+    }
+  }
+
+  @override
+  Future<int> sizeInTokens(String text) =>
+      _platformService.sizeInTokensForSession(sessionId, text);
+
+  @override
+  Future<void> addQueryChunk(Message message) async {
+    _assertNotClosed();
+    var messageToSend = message;
+    if (message.isUser &&
+        !_systemInstructionSent &&
+        systemInstruction != null &&
+        systemInstruction!.isNotEmpty) {
+      _systemInstructionSent = true;
+      messageToSend = message.copyWith(
+        text: '[System: ${systemInstruction!}]\n\n${message.text}',
+      );
+    }
+    final finalPrompt = messageToSend.transformToChatPrompt(
+        type: modelType, fileType: fileType);
+    if (message.hasImage && supportImage) {
+      final images = message.images.isNotEmpty
+          ? message.images
+          : (message.imageBytes != null
+              ? [message.imageBytes!]
+              : const <Uint8List>[]);
+      for (final image in images) {
+        await _platformService.addImageToSession(sessionId, image);
+      }
+    }
+    if (message.hasAudio && message.audioBytes != null && supportAudio) {
+      await _platformService.addAudioToSession(sessionId, message.audioBytes!);
+    }
+    await _platformService.addQueryChunkToSession(sessionId, finalPrompt);
+  }
+
+  @override
+  Future<String> getResponse({Message? message}) async {
+    _assertNotClosed();
+    if (message != null) await addQueryChunk(message);
+    // Serialize generation across sessions (mobile can't afford parallel
+    // generations; also keeps the shared event channel unambiguous).
+    return generationMutex.protect(
+      () => _platformService.generateResponseForSession(sessionId),
+    );
+  }
+
+  @override
+  Stream<String> getResponseAsync({Message? message}) {
+    _assertNotClosed();
+
+    // StreamController (not async*/yield*) so the mutex release is tied to the
+    // controller lifecycle — it fires on done, error, AND consumer cancel /
+    // abandon. With async*+yield* an abandoned stream would never run the
+    // finally and would hold the generation mutex forever, deadlocking every
+    // other session.
+    final controller = StreamController<String>();
+    StreamSubscription? subscription;
+    var mutexHeld = false;
+    var finished = false;
+
+    Future<void> cleanup() async {
+      if (finished) return;
+      finished = true;
+      await subscription?.cancel();
+      if (mutexHeld) {
+        mutexHeld = false;
+        generationMutex.release();
+      }
+    }
+
+    controller.onListen = () async {
+      try {
+        if (message != null) await addQueryChunk(message);
+        await generationMutex.acquire();
+        mutexHeld = true;
+        subscription = eventChannel.receiveBroadcastStream().listen(
+          (event) {
+            if (event is! Map) return;
+            // Only consume events tagged for THIS session.
+            if (event['sessionId'] != sessionId) return;
+            if (controller.isClosed) return;
+            // Native emits generation errors as a TAGGED DATA event
+            // {code: ERROR, sessionId, message} (not an EventChannel error,
+            // which would be broadcast to every session and lose the id).
+            if (event['code'] == 'ERROR') {
+              controller.addError(Exception(
+                  event['message'] ?? 'Unknown async error occurred'));
+              cleanup();
+              controller.close();
+              return;
+            }
+            final partial = event['partialResult'] as String? ?? '';
+            if (partial.isNotEmpty) controller.add(partial);
+            // Tagged completion (native sends done:true with our sessionId
+            // rather than closing the whole channel via endOfStream).
+            if (event['done'] == true) {
+              cleanup();
+              controller.close();
+            }
+          },
+          onError: (error, st) {
+            if (!controller.isClosed) controller.addError(error, st);
+            cleanup();
+            if (!controller.isClosed) controller.close();
+          },
+        );
+        unawaited(_platformService
+            .generateResponseAsyncForSession(sessionId)
+            .catchError((Object e, StackTrace st) {
+          // A synchronous native failure (before any event) must surface and
+          // release the mutex, not hang the controller.
+          if (!controller.isClosed) controller.addError(e, st);
+          cleanup();
+          if (!controller.isClosed) controller.close();
+        }));
+      } catch (e, st) {
+        if (!controller.isClosed) controller.addError(e, st);
+        await cleanup();
+        if (!controller.isClosed) await controller.close();
+      }
+    };
+
+    // Consumer cancelled / abandoned the stream — release the mutex.
+    controller.onCancel = () async {
+      await cleanup();
+    };
+
+    return controller.stream;
+  }
+
+  @override
+  Future<void> stopGeneration() async {
+    await _platformService.stopGenerationForSession(sessionId);
+  }
+
+  @override
+  SessionMetrics getSessionMetrics() => SessionMetrics();
+
+  @override
+  Future<void> close() async {
+    if (_isClosed) return;
+    _isClosed = true;
+    onClose();
+    await _platformService.closeSessionId(sessionId);
+  }
+}
+
 @visibleForTesting
 const eventChannel = EventChannel('flutter_gemma_stream');
 
@@ -304,6 +497,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     bool supportImage = false,
     bool supportAudio = false, // Enabling audio support (Gemma 3n E4B)
     bool? enableSpeculativeDecoding,
+    int? maxConcurrentSessions,
   }) async {
     // Check if model is ready through unified system
     final manager = _unifiedManager;
@@ -422,6 +616,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           fileType: fileType,
           supportImage: supportImage,
           supportAudio: supportAudio,
+          maxConcurrentSessions: maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;
@@ -449,6 +644,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           supportImage: supportImage,
           supportAudio: supportAudio,
           maxNumImages: maxNumImages,
+          maxConcurrentSessions: maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;

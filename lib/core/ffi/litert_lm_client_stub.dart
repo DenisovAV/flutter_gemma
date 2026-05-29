@@ -22,4 +22,9 @@ class LiteRtLmFfiClient {
     bool? enableSpeculativeDecoding,
   }) =>
       throw UnsupportedError('web stub — never instantiated');
+
+  // Referenced by the FFI fallback runtime in flutter_gemma_mobile.dart
+  // (shutdownClient callback). Present so the web import graph compiles;
+  // never actually invoked because FlutterGemmaWeb owns the web path.
+  void shutdown() => throw UnsupportedError('web stub — never instantiated');
 }

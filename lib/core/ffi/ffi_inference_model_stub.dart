@@ -22,6 +22,7 @@ class FfiInferenceModel extends InferenceModel {
     PreferredBackend? activeBackend,
     bool supportImage = false,
     bool supportAudio = false,
+    int? maxConcurrentSessions,
     required VoidCallback onClose,
   }) {
     throw UnsupportedError(
@@ -33,8 +34,7 @@ class FfiInferenceModel extends InferenceModel {
       throw UnsupportedError('web stub — never instantiated');
 
   @override
-  int get maxTokens =>
-      throw UnsupportedError('web stub — never instantiated');
+  int get maxTokens => throw UnsupportedError('web stub — never instantiated');
 
   @override
   PreferredBackend? get activeBackend =>

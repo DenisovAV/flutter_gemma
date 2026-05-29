@@ -93,6 +93,22 @@ class MediaPipeSession(
         }
     }
 
+    /**
+     * Multi-session streaming: drive the callback directly instead of the
+     * shared [resultFlow], so the plugin can tag each chunk with its
+     * sessionId and demux on the Dart side. Bypasses the SharedFlow entirely
+     * — the legacy singleton path ([generateResponseAsync]) is untouched.
+     */
+    fun generateResponseAsyncTagged(onResult: (String, Boolean) -> Unit) {
+        session.generateResponseAsync { result, done ->
+            if (result != null) {
+                onResult(result, done)
+            } else if (done) {
+                onResult("", true)
+            }
+        }
+    }
+
     override fun sizeInTokens(prompt: String): Int {
         return session.sizeInTokens(prompt)
     }

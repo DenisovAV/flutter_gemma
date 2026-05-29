@@ -6,8 +6,10 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:mutex/mutex.dart';
 
 import '../../flutter_gemma_interface.dart';
+import '../parsing/sdk_text_extractor.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
@@ -29,10 +31,139 @@ typedef _ProxyCreateDart = Pointer<Void> Function(
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
 typedef _ProxyFreeStringDart = void Function(Pointer<Char> str);
 
+/// Per-conversation operations a session needs from the FFI layer.
+///
+/// [LiteRtLmConversationHandle] is the real implementation backed by a
+/// native `LiteRtLmConversation*`. Tests inject a fake implementing this
+/// interface so [FfiInferenceModelSession] orchestration (query buffering,
+/// raw-response capture, Gemma 4 tool-call extraction) can be exercised on
+/// the host VM with no native engine.
+abstract class ConversationHandle {
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking,
+  });
+
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking,
+  });
+
+  void cancelGeneration();
+
+  SessionMetrics getSessionMetrics();
+
+  void close();
+}
+
+/// One conversation owned by a [LiteRtLmFfiClient]. Each call to
+/// [LiteRtLmFfiClient.createConversationHandle] returns a fresh handle:
+/// the engine pointer is shared across handles, the conversation pointer
+/// is private to this handle.
+///
+/// This is what makes concurrent sessions possible — the LiteRT-LM C API
+/// supports multiple `LiteRtLmConversation*` per engine; the handle owns
+/// one and routes every per-conversation native call through the client's
+/// private `_…On(conv, …)` methods.
+///
+/// Lifetime contract: the caller must call [close] when done. The owning
+/// client closes any remaining handles on [LiteRtLmFfiClient.shutdown].
+class LiteRtLmConversationHandle implements ConversationHandle {
+  LiteRtLmConversationHandle._(this._client, this._conversation);
+
+  final LiteRtLmFfiClient _client;
+  Pointer<LiteRtLmConversation>? _conversation;
+
+  bool get isClosed => _conversation == null;
+
+  void _assertOpen() {
+    if (_conversation == null) {
+      throw StateError('Conversation handle is closed');
+    }
+  }
+
+  @override
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertOpen();
+    return _client._chatOn(
+      _conversation!,
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    );
+  }
+
+  @override
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertOpen();
+    return _client._chatRawOn(
+      _conversation!,
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    );
+  }
+
+  Future<String> sendMessage(String messageJson, {String? extraContext}) {
+    _assertOpen();
+    return _client._sendMessageOn(_conversation!, messageJson,
+        extraContext: extraContext);
+  }
+
+  Stream<String> sendMessageStreamRaw(String messageJson,
+      {String? extraContext}) {
+    _assertOpen();
+    return _client._sendMessageStreamRawOn(_conversation!, messageJson,
+        extraContext: extraContext);
+  }
+
+  @override
+  void cancelGeneration() {
+    if (_conversation == null) return;
+    _client._cancelOn(_conversation!);
+  }
+
+  @override
+  SessionMetrics getSessionMetrics() {
+    if (_conversation == null) return SessionMetrics();
+    return _client._getMetricsOn(_conversation!);
+  }
+
+  @override
+  void close() {
+    if (_conversation == null) return;
+    _client._deleteConversation(_conversation!);
+    _conversation = null;
+    _client._handles.remove(this);
+  }
+}
+
 /// High-level Dart wrapper around the LiteRT-LM C API.
 ///
 /// Provides a clean async interface over the native C functions,
 /// managing memory and translating C callbacks into Dart Streams.
+///
+/// Conversation lifetime is owned by [LiteRtLmConversationHandle] —
+/// the client holds the engine and tracks live handles for shutdown.
+/// Legacy single-session methods ([createConversation], [chat],
+/// [sendMessageStreamRaw], etc.) route through an internal
+/// [_legacyHandle] for backward compatibility.
 class LiteRtLmFfiClient {
   LiteRtLmBindings? _bindings;
   // Holding a reference prevents the proxy DynamicLibrary from being GC'd
@@ -42,10 +173,29 @@ class LiteRtLmFfiClient {
   _ProxyCreateDart? _proxyCreate;
   _ProxyFreeStringDart? _proxyFreeString;
   Pointer<LiteRtLmEngine>? _engine;
-  Pointer<LiteRtLmConversation>? _conversation;
   bool _isInitialized = false;
   String? _nativeLogPath;
   String? _backend;
+
+  /// All live conversation handles created on this client. Closed in bulk
+  /// by [shutdown]. Each handle removes itself on its own [close].
+  final Set<LiteRtLmConversationHandle> _handles = {};
+
+  /// Backing handle for the legacy single-conversation API
+  /// ([createConversation] / [closeConversation] / [chat] / etc.). Kept so
+  /// existing single-session call sites work unchanged while the new
+  /// handle-based multi-session path is wired up.
+  LiteRtLmConversationHandle? _legacyHandle;
+
+  /// Serializes native send_message / send_message_stream calls across
+  /// conversations. The LiteRT-LM C API is not documented as reentrant on
+  /// one engine — two conversations generating at once could race inside
+  /// liblitert_lm. The mutex makes concurrent sessions safe (each waits
+  /// its turn); it is uncontended when only one session is active, so the
+  /// single-session fast path pays only an acquire/release on an empty
+  /// lock. Cancel does NOT take the lock — it must interrupt an in-flight
+  /// streaming call.
+  final Mutex _nativeMutex = Mutex();
 
   /// Reads back the native log file (set by stream_proxy_redirect_stderr) and
   /// pipes its contents through debugPrint in 800-char chunks. Surfaces
@@ -229,8 +379,7 @@ class LiteRtLmFfiClient {
         // hard-references `pthread_cond_clockwait` / `sem_clockwait`,
         // which don't exist on API 29 and below. Use a MediaPipe `.task`
         // model instead, or bump `minSdkVersion` to 30.
-        throw Exception(
-            'Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
+        throw Exception('Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
             'On Android, this commonly indicates API < 30: `.litertlm` models '
             'require Android 11+ (minSdkVersion 30). For older devices use a '
             'MediaPipe `.task` model instead. See '
@@ -436,10 +585,53 @@ class LiteRtLmFfiClient {
     }
   }
 
-  /// Create a new conversation with optional system message and tools.
-  void createConversation({
+  /// Create a new conversation handle with optional system message and
+  /// tools. The engine allows only ONE live conversation at a time
+  /// (upstream LiteRT-LM #966), so the caller must delete any prior
+  /// conversation before creating a new one — this is how virtual-session
+  /// multiplexing rebuilds context. The caller owns the handle and must
+  /// call [LiteRtLmConversationHandle.close].
+  ///
+  /// [messagesJson] optionally seeds the conversation with prior turns
+  /// (a JSON array of `{role, content}` objects). Used by the virtual-
+  /// session multiplexer to replay a session's history into a fresh
+  /// conversation. When null the conversation starts empty (legacy
+  /// behaviour).
+  LiteRtLmConversationHandle createConversationHandle({
     String? systemMessage,
     String? toolsJson,
+    String? messagesJson,
+    double temperature = 0.8,
+    int topK = 40,
+    double? topP,
+    int seed = 1,
+  }) {
+    final conv = _createRawConversation(
+      systemMessage: systemMessage,
+      toolsJson: toolsJson,
+      messagesJson: messagesJson,
+      temperature: temperature,
+      topK: topK,
+      topP: topP,
+      seed: seed,
+    );
+    debugPrint('[LiteRtLmFfi] Conversation created');
+    final handle = LiteRtLmConversationHandle._(this, conv);
+    _handles.add(handle);
+    return handle;
+  }
+
+  /// Create a raw native conversation pointer with the given config.
+  ///
+  /// Shared by [createConversationHandle] (which wraps it in a tracked
+  /// [LiteRtLmConversationHandle]) and the virtual-session multiplexer
+  /// ([startVirtualTurn]) which owns the pointer's lifecycle directly and
+  /// does not register a handle. Lock-free — callers that need
+  /// serialization (the multiplexer) hold [_nativeMutex] around it.
+  Pointer<LiteRtLmConversation> _createRawConversation({
+    String? systemMessage,
+    String? toolsJson,
+    String? messagesJson,
     double temperature = 0.8,
     int topK = 40,
     double? topP,
@@ -447,12 +639,6 @@ class LiteRtLmFfiClient {
   }) {
     _assertInitialized();
     final b = _bindings!;
-
-    // Close existing conversation if any
-    if (_conversation != null && _conversation != nullptr) {
-      b.litert_lm_conversation_delete(_conversation!);
-      _conversation = null;
-    }
 
     // Always build a sessionConfig with the caller's sampler params — even
     // when there's no systemMessage/tools. Otherwise temperature, topK,
@@ -493,6 +679,7 @@ class LiteRtLmFfiClient {
 
     final systemPtr = systemMessage?.toNativeUtf8();
     final toolsPtr = toolsJson?.toNativeUtf8();
+    final messagesPtr = messagesJson?.toNativeUtf8();
 
     final Pointer<LiteRtLmConversationConfig> convConfig =
         b.litert_lm_conversation_config_create(
@@ -500,13 +687,14 @@ class LiteRtLmFfiClient {
       sessionConfig,
       systemPtr?.cast() ?? nullptr,
       toolsPtr?.cast() ?? nullptr,
-      nullptr,
+      messagesPtr?.cast() ?? nullptr,
       toolsJson != null,
     );
 
     b.litert_lm_session_config_delete(sessionConfig);
     if (systemPtr != null) calloc.free(systemPtr);
     if (toolsPtr != null) calloc.free(toolsPtr);
+    if (messagesPtr != null) calloc.free(messagesPtr);
 
     if (convConfig == nullptr) {
       throw Exception(
@@ -516,16 +704,39 @@ class LiteRtLmFfiClient {
       );
     }
 
-    _conversation = b.litert_lm_conversation_create(_engine!, convConfig);
+    final conv = b.litert_lm_conversation_create(_engine!, convConfig);
 
     b.litert_lm_conversation_config_delete(convConfig);
 
-    if (_conversation == null || _conversation == nullptr) {
+    if (conv == nullptr) {
       _dumpNativeLog();
       throw Exception('Failed to create conversation');
     }
 
-    debugPrint('[LiteRtLmFfi] Conversation created');
+    return conv;
+  }
+
+  /// Legacy single-conversation create. Closes the previous legacy
+  /// conversation (if any) and opens a fresh one stored in [_legacyHandle].
+  /// Kept for backward compat — new code should use
+  /// [createConversationHandle] and own the handle directly.
+  void createConversation({
+    String? systemMessage,
+    String? toolsJson,
+    double temperature = 0.8,
+    int topK = 40,
+    double? topP,
+    int seed = 1,
+  }) {
+    _legacyHandle?.close();
+    _legacyHandle = createConversationHandle(
+      systemMessage: systemMessage,
+      toolsJson: toolsJson,
+      temperature: temperature,
+      topK: topK,
+      topP: topP,
+      seed: seed,
+    );
   }
 
   /// Build the JSON message for the Conversation API.
@@ -553,50 +764,37 @@ class LiteRtLmFfiClient {
     return jsonEncode({'role': 'user', 'content': content});
   }
 
-  /// Extract text from a LiteRT-LM JSON response chunk.
+  /// Serialize a turn history into the `messages_json` array the
+  /// conversation config accepts as a preface. Each turn is
+  /// `{role, content: [{type: 'text', text}]}`. Used by the virtual-session
+  /// multiplexer to rebuild a session's full context (user + assistant
+  /// turns) in one prefill when switching the single live conversation.
   ///
-  /// Handles two response formats:
-  /// - Text: `{"role":"assistant","content":[{"type":"text","text":"hello"}]}`
-  ///   → returns `"hello"`
-  /// - Thinking: `{"role":"assistant","channels":{"thought":"reasoning..."}}`
-  ///   → returns `<|channel>thought\nreasoning...<channel|>`
-  ///   (compatible with ThinkingFilter in extensions.dart)
-  static String extractTextFromResponse(String jsonStr) {
-    final Map<String, dynamic> json;
-    try {
-      json = jsonDecode(jsonStr) as Map<String, dynamic>;
-    } on FormatException {
-      // Partial / non-JSON chunks pass through verbatim. This is the only
-      // shape we want to be permissive about — any other parse error
-      // (TypeError, RangeError, etc.) signals a real contract change with
-      // LiteRT-LM and must surface, not be silently swallowed.
-      return jsonStr;
-    }
-
-    // Check for thinking channels first
-    final channels = json['channels'] as Map<String, dynamic>?;
-    if (channels != null) {
-      final thought = channels['thought'] as String?;
-      if (thought != null && thought.isNotEmpty) {
-        return '<|channel>thought\n$thought<channel|>';
-      }
-    }
-
-    // Regular text content
-    final content = json['content'] as List<dynamic>?;
-    if (content == null) return jsonStr;
-    final buffer = StringBuffer();
-    for (final item in content) {
-      if (item is Map<String, dynamic> && item['type'] == 'text') {
-        buffer.write(item['text'] as String? ?? '');
-      }
-    }
-    return buffer.toString();
+  /// Verified honored by the patched native (a `messages_json` preface with
+  /// a prior user+assistant turn lets the model recall it).
+  static String buildHistoryJson(List<({String role, String text})> turns) {
+    return jsonEncode([
+      for (final turn in turns)
+        {
+          'role': turn.role,
+          'content': [
+            {'type': 'text', 'text': turn.text},
+          ],
+        },
+    ]);
   }
 
-  /// Send a message and get streaming response as plain text chunks.
-  /// Supports multiple images via `imageBytes` list.
-  Stream<String> chat(
+  /// Extract text from a LiteRT-LM JSON response chunk. Delegates to
+  /// [SdkTextExtractor] — single source of truth shared with the web
+  /// `@litert-lm/core` path so both engines map identical chunks to text
+  /// the same way.
+  static String extractTextFromResponse(String jsonStr) =>
+      SdkTextExtractor.extractTextFromResponse(jsonStr);
+
+  /// Send a message and get streaming response as plain text chunks on the
+  /// given conversation. Supports multiple images via `imageBytes` list.
+  Stream<String> _chatOn(
+    Pointer<LiteRtLmConversation> conv,
     String text, {
     List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
@@ -608,14 +806,16 @@ class LiteRtLmFfiClient {
       audioBytes: audioBytes,
     );
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return sendMessageStreamRaw(messageJson, extraContext: extraContext)
+    return _sendMessageStreamRawOn(conv, messageJson,
+            extraContext: extraContext)
         .map(extractTextFromResponse);
   }
 
-  /// Same as [chat] but yields raw SDK JSON chunks without `extractTextFromResponse`
-  /// mapping. Required by Gemma 4 path so callers can read the structured
-  /// `tool_calls` field via [extractToolCalls].
-  Stream<String> chatRaw(
+  /// Same as [_chatOn] but yields raw SDK JSON chunks without
+  /// `extractTextFromResponse` mapping. Required by Gemma 4 path so callers
+  /// can read the structured `tool_calls` field via [extractToolCalls].
+  Stream<String> _chatRawOn(
+    Pointer<LiteRtLmConversation> conv,
     String text, {
     List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
@@ -624,14 +824,229 @@ class LiteRtLmFfiClient {
     final messageJson =
         buildMessageJson(text, imagesBytes: imageBytes, audioBytes: audioBytes);
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return sendMessageStreamRaw(messageJson, extraContext: extraContext);
+    return _sendMessageStreamRawOn(conv, messageJson,
+        extraContext: extraContext);
   }
 
-  /// Send a raw JSON message and get streaming response.
-  Stream<String> sendMessageStreamRaw(String messageJson,
+  /// Legacy: streaming chat on the implicit [_legacyHandle] conversation.
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertConversation();
+    return _legacyHandle!.chat(text,
+        imageBytes: imageBytes,
+        audioBytes: audioBytes,
+        enableThinking: enableThinking);
+  }
+
+  /// Legacy: raw streaming chat on the implicit [_legacyHandle] conversation.
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) {
+    _assertConversation();
+    return _legacyHandle!.chatRaw(text,
+        imageBytes: imageBytes,
+        audioBytes: audioBytes,
+        enableThinking: enableThinking);
+  }
+
+  /// Send a raw JSON message on the given conversation and get a streaming
+  /// response. Holds [_nativeMutex] for the whole generation so concurrent
+  /// conversations don't race inside liblitert_lm; releases on completion or
+  /// error.
+  Stream<String> _sendMessageStreamRawOn(
+      Pointer<LiteRtLmConversation> conv, String messageJson,
+      {String? extraContext}) async* {
+    await _nativeMutex.acquire();
+    try {
+      yield* _doSendMessageStreamRawOn(conv, messageJson,
+          extraContext: extraContext);
+    } finally {
+      _nativeMutex.release();
+    }
+  }
+
+  /// The single native conversation currently materialized for the
+  /// virtual-session multiplexer. The LiteRT-LM engine allows only ONE live
+  /// conversation at a time (upstream #966), so virtual sessions take turns:
+  /// each turn tears this down and rebuilds it seeded with the active
+  /// session's history. null when no virtual turn is in flight.
+  Pointer<LiteRtLmConversation>? _virtualConv;
+
+  /// Run one turn for a virtual session, holding [_nativeMutex] for the whole
+  /// turn so no other virtual session can swap the live conversation out from
+  /// under it.
+  ///
+  /// The turn is: tear down the previously-active virtual conversation (if
+  /// any), create a fresh one seeded with [historyJson] (a `messages_json`
+  /// preface that replays this session's prior user+assistant turns — proven
+  /// honored by the patched native), then stream the response for
+  /// [messageJson]. The conversation is left live after the stream so a
+  /// follow-up turn on the SAME session can reuse it without a rebuild; only a
+  /// turn on a DIFFERENT session pays the teardown+replay cost.
+  ///
+  /// [conversationToken] identifies the virtual session. When it equals the
+  /// token that built [_virtualConv], the existing live conversation is
+  /// reused (cheap same-session follow-up). Otherwise it's rebuilt.
+  /// True while a virtual turn holds [_nativeMutex] and is actively streaming.
+  /// Lets [releaseVirtualConversation] (a session closing mid-generation) defer
+  /// the native teardown instead of deleting the pointer out from under the
+  /// live stream (use-after-free).
+  bool _virtualTurnInFlight = false;
+
+  /// Token of a session that asked to release the live conversation while a
+  /// turn was in flight. The teardown is deferred to the turn's cleanup.
+  Object? _pendingReleaseToken;
+
+  Stream<String> startVirtualTurn({
+    required Object conversationToken,
+    required String messageJson,
+    required List<({String role, String text})> history,
+    String? systemMessage,
+    String? toolsJson,
+    double temperature = 0.8,
+    int topK = 40,
+    double? topP,
+    int seed = 1,
+    String? extraContext,
+  }) {
+    // StreamController (not async*) so the mutex release is tied to the
+    // controller lifecycle — it fires on done, error, AND consumer cancel /
+    // abandon. An async* generator's finally only runs when the consumer
+    // drains the stream, so an abandoned stream would hold the mutex forever
+    // and deadlock every other session.
+    final controller = StreamController<String>();
+    var mutexHeld = false;
+    StreamSubscription<String>? inner;
+
+    Future<void> releaseAndCleanup() async {
+      _virtualTurnInFlight = false;
+      // Honor a teardown that a closing session deferred while we held the lock.
+      if (_pendingReleaseToken != null) {
+        final pending = _pendingReleaseToken;
+        _pendingReleaseToken = null;
+        if (_virtualActiveToken == pending) {
+          final conv = _virtualConv;
+          if (conv != null) {
+            _deleteConversation(conv);
+            _virtualConv = null;
+            _virtualActiveToken = null;
+          }
+        }
+      }
+      if (mutexHeld) {
+        mutexHeld = false;
+        _nativeMutex.release();
+      }
+    }
+
+    controller.onListen = () async {
+      try {
+        await _nativeMutex.acquire();
+        mutexHeld = true;
+        _virtualTurnInFlight = true;
+        if (_virtualActiveToken != conversationToken || _virtualConv == null) {
+          // Switching sessions (or first turn): drop the old live conversation
+          // and rebuild one replaying this session's history as a preface.
+          final old = _virtualConv;
+          if (old != null) {
+            _deleteConversation(old);
+            _virtualConv = null;
+          }
+          final historyJson =
+              history.isEmpty ? null : buildHistoryJson(history);
+          _virtualConv = _createRawConversation(
+            systemMessage: systemMessage,
+            toolsJson: toolsJson,
+            messagesJson: historyJson,
+            temperature: temperature,
+            topK: topK,
+            topP: topP,
+            seed: seed,
+          );
+          _virtualActiveToken = conversationToken;
+        }
+        inner = _doSendMessageStreamRawOn(_virtualConv!, messageJson,
+                extraContext: extraContext)
+            .listen(
+          controller.add,
+          onError: controller.addError,
+          onDone: () async {
+            await releaseAndCleanup();
+            if (!controller.isClosed) await controller.close();
+          },
+          cancelOnError: false,
+        );
+      } catch (e, st) {
+        controller.addError(e, st);
+        await releaseAndCleanup();
+        if (!controller.isClosed) await controller.close();
+      }
+    };
+
+    // Fires when the consumer cancels / abandons the stream — guarantees the
+    // mutex is released even if generation never completed.
+    controller.onCancel = () async {
+      await inner?.cancel();
+      await releaseAndCleanup();
+    };
+
+    return controller.stream;
+  }
+
+  /// Token of the virtual session whose history is currently materialized in
+  /// [_virtualConv]. Used to skip the teardown+replay when the next turn is on
+  /// the same session.
+  Object? _virtualActiveToken;
+
+  /// Cancel an in-flight virtual turn for [conversationToken]. Mirrors
+  /// [_cancelOn] but targets the shared live virtual conversation. Does NOT
+  /// take the mutex (it must interrupt a generation that already holds it).
+  ///
+  /// No-op unless [conversationToken] owns the currently-live conversation —
+  /// otherwise one session's `stopGeneration()` would cancel another session's
+  /// in-flight generation (the single conversation is shared).
+  void cancelVirtualTurn(Object conversationToken) {
+    if (_virtualActiveToken != conversationToken) return;
+    final conv = _virtualConv;
+    if (conv != null) _cancelOn(conv);
+  }
+
+  /// Tear down the live virtual conversation if it belongs to
+  /// [conversationToken]. Called when a virtual session closes so its native
+  /// conversation doesn't linger. If a different session is active, this is a
+  /// no-op — that session's conversation must stay live.
+  ///
+  /// If a turn is in flight, the teardown is DEFERRED to the turn's cleanup —
+  /// deleting the pointer now would be a use-after-free. We also cancel the
+  /// in-flight generation so the turn finishes promptly and the deferred
+  /// teardown runs.
+  void releaseVirtualConversation(Object conversationToken) {
+    if (_virtualActiveToken != conversationToken) return;
+    if (_virtualTurnInFlight) {
+      _pendingReleaseToken = conversationToken;
+      final conv = _virtualConv;
+      if (conv != null) _cancelOn(conv);
+      return;
+    }
+    final conv = _virtualConv;
+    if (conv != null) {
+      _deleteConversation(conv);
+      _virtualConv = null;
+      _virtualActiveToken = null;
+    }
+  }
+
+  Stream<String> _doSendMessageStreamRawOn(
+      Pointer<LiteRtLmConversation> conv, String messageJson,
       {String? extraContext}) {
     _assertInitialized();
-    _assertConversation();
     final b = _bindings!;
 
     final controller = StreamController<String>();
@@ -709,7 +1124,7 @@ class LiteRtLmFfiClient {
     }
 
     final result = b.litert_lm_conversation_send_message_stream(
-      _conversation!,
+      conv,
       messagePtr.cast(),
       extraPtr == nullptr ? nullptr : extraPtr.cast(),
       optionalArgs,
@@ -731,74 +1146,114 @@ class LiteRtLmFfiClient {
     return controller.stream;
   }
 
-  /// Send a text message and get the full response (sync C API, non-blocking Dart).
-  Future<String> sendMessage(String messageJson, {String? extraContext}) async {
-    _assertInitialized();
+  /// Legacy: streaming raw on the implicit [_legacyHandle] conversation.
+  Stream<String> sendMessageStreamRaw(String messageJson,
+      {String? extraContext}) {
     _assertConversation();
-    final b = _bindings!;
-
-    final messagePtr = messageJson.toNativeUtf8();
-    final extraPtr =
-        extraContext != null ? extraContext.toNativeUtf8() : nullptr;
-
-    // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
-    final optionalArgs = b.litert_lm_conversation_optional_args_create();
-    if (optionalArgs == nullptr) {
-      calloc.free(messagePtr);
-      if (extraPtr != nullptr) calloc.free(extraPtr);
-      throw StateError(
-          'litert_lm_conversation_optional_args_create returned null — '
-          'native libLiteRtLm.dylib initialization failure');
-    }
-
-    try {
-      final response = b.litert_lm_conversation_send_message(
-        _conversation!,
-        messagePtr.cast(),
-        extraPtr == nullptr ? nullptr : extraPtr.cast(),
-        optionalArgs,
-      );
-
-      if (response == nullptr) {
-        throw Exception('send_message returned null');
-      }
-
-      final strPtr = b.litert_lm_json_response_get_string(response);
-      final result =
-          strPtr == nullptr ? '' : strPtr.cast<Utf8>().toDartString();
-      b.litert_lm_json_response_delete(response);
-      return result;
-    } finally {
-      b.litert_lm_conversation_optional_args_delete(optionalArgs);
-      calloc.free(messagePtr);
-      if (extraPtr != nullptr) calloc.free(extraPtr);
-    }
+    return _legacyHandle!
+        .sendMessageStreamRaw(messageJson, extraContext: extraContext);
   }
 
-  /// Cancel ongoing generation.
-  void cancelGeneration() {
-    if (_conversation != null &&
-        _conversation != nullptr &&
-        _bindings != null) {
-      _bindings!.litert_lm_conversation_cancel_process(_conversation!);
+  /// Send a text message on the given conversation and get the full response
+  /// (sync C API, non-blocking Dart). Serialized via [_nativeMutex] so it
+  /// can't run concurrently with another conversation's generation.
+  Future<String> _sendMessageOn(
+      Pointer<LiteRtLmConversation> conv, String messageJson,
+      {String? extraContext}) {
+    return _nativeMutex.protect(() async {
+      _assertInitialized();
+      final b = _bindings!;
+
+      final messagePtr = messageJson.toNativeUtf8();
+      final extraPtr =
+          extraContext != null ? extraContext.toNativeUtf8() : nullptr;
+
+      // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
+      final optionalArgs = b.litert_lm_conversation_optional_args_create();
+      if (optionalArgs == nullptr) {
+        calloc.free(messagePtr);
+        if (extraPtr != nullptr) calloc.free(extraPtr);
+        throw StateError(
+            'litert_lm_conversation_optional_args_create returned null — '
+            'native libLiteRtLm.dylib initialization failure');
+      }
+
+      try {
+        final response = b.litert_lm_conversation_send_message(
+          conv,
+          messagePtr.cast(),
+          extraPtr == nullptr ? nullptr : extraPtr.cast(),
+          optionalArgs,
+        );
+
+        if (response == nullptr) {
+          throw Exception('send_message returned null');
+        }
+
+        final strPtr = b.litert_lm_json_response_get_string(response);
+        final result =
+            strPtr == nullptr ? '' : strPtr.cast<Utf8>().toDartString();
+        b.litert_lm_json_response_delete(response);
+        return result;
+      } finally {
+        b.litert_lm_conversation_optional_args_delete(optionalArgs);
+        calloc.free(messagePtr);
+        if (extraPtr != nullptr) calloc.free(extraPtr);
+      }
+    });
+  }
+
+  /// Legacy: sync send on the implicit [_legacyHandle] conversation.
+  Future<String> sendMessage(String messageJson, {String? extraContext}) {
+    _assertConversation();
+    return _legacyHandle!.sendMessage(messageJson, extraContext: extraContext);
+  }
+
+  /// Cancel ongoing generation on the given conversation.
+  void _cancelOn(Pointer<LiteRtLmConversation> conv) {
+    if (_bindings != null) {
+      _bindings!.litert_lm_conversation_cancel_process(conv);
       debugPrint('[LiteRtLmFfi] Generation cancelled');
     }
   }
 
-  /// Close the current conversation.
-  void closeConversation() {
-    if (_conversation != null &&
-        _conversation != nullptr &&
-        _bindings != null) {
-      _bindings!.litert_lm_conversation_delete(_conversation!);
-      _conversation = null;
+  /// Legacy: cancel on the implicit [_legacyHandle] conversation.
+  void cancelGeneration() {
+    _legacyHandle?.cancelGeneration();
+  }
+
+  /// Delete a conversation pointer. Called by
+  /// [LiteRtLmConversationHandle.close].
+  void _deleteConversation(Pointer<LiteRtLmConversation> conv) {
+    if (_bindings != null) {
+      _bindings!.litert_lm_conversation_delete(conv);
       debugPrint('[LiteRtLmFfi] Conversation closed');
     }
   }
 
-  /// Shutdown the engine and release all resources.
+  /// Legacy: close the implicit [_legacyHandle] conversation.
+  void closeConversation() {
+    _legacyHandle?.close();
+    _legacyHandle = null;
+  }
+
+  /// Shutdown the engine and release all resources. Closes every live
+  /// conversation handle first (legacy + any opened directly).
   void shutdown() {
-    closeConversation();
+    // Copy because close() mutates _handles.
+    for (final h in _handles.toList()) {
+      h.close();
+    }
+    _handles.clear();
+    _legacyHandle = null;
+
+    // Tear down the shared virtual-session conversation too.
+    final vc = _virtualConv;
+    if (vc != null) {
+      _deleteConversation(vc);
+      _virtualConv = null;
+      _virtualActiveToken = null;
+    }
 
     if (_engine != null && _engine != nullptr && _bindings != null) {
       _bindings!.litert_lm_engine_delete(_engine!);
@@ -810,17 +1265,15 @@ class LiteRtLmFfiClient {
     _backend = null;
   }
 
-  /// Get session metrics from current conversation including token usage.
-  /// Returns empty SessionMetrics if no conversation or benchmark unavailable.
-  SessionMetrics getSessionMetrics() {
-    if (_conversation == null ||
-        _conversation == nullptr ||
-        _bindings == null) {
+  /// Get session metrics from the given conversation including token usage.
+  /// Returns empty SessionMetrics if benchmark unavailable.
+  SessionMetrics _getMetricsOn(Pointer<LiteRtLmConversation> conv) {
+    if (_bindings == null) {
       return SessionMetrics();
     }
 
     final benchmarkInfo =
-        _bindings!.litert_lm_conversation_get_benchmark_info(_conversation!);
+        _bindings!.litert_lm_conversation_get_benchmark_info(conv);
     if (benchmarkInfo == nullptr) {
       return SessionMetrics();
     }
@@ -883,6 +1336,13 @@ class LiteRtLmFfiClient {
     }
   }
 
+  /// Legacy: metrics for the implicit [_legacyHandle] conversation.
+  SessionMetrics getSessionMetrics() {
+    final h = _legacyHandle;
+    if (h == null) return SessionMetrics();
+    return h.getSessionMetrics();
+  }
+
   void _assertInitialized() {
     if (!_isInitialized || _engine == null || _engine == nullptr) {
       throw StateError('Engine not initialized. Call initialize() first.');
@@ -890,7 +1350,7 @@ class LiteRtLmFfiClient {
   }
 
   void _assertConversation() {
-    if (_conversation == null || _conversation == nullptr) {
+    if (_legacyHandle == null || _legacyHandle!.isClosed) {
       throw StateError('No conversation. Call createConversation() first.');
     }
   }

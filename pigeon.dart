@@ -17,7 +17,8 @@ enum PreferredBackend {
 
 @ConfigurePigeon(PigeonOptions(
   dartOut: 'lib/pigeon.g.dart',
-  kotlinOut: 'android/src/main/kotlin/dev/flutterberlin/flutter_gemma/PigeonInterface.g.kt',
+  kotlinOut:
+      'android/src/main/kotlin/dev/flutterberlin/flutter_gemma/PigeonInterface.g.kt',
   kotlinOptions: KotlinOptions(package: 'dev.flutterberlin.flutter_gemma'),
   swiftOut: 'ios/Classes/PigeonInterface.g.swift',
   swiftOptions: SwiftOptions(),
@@ -82,6 +83,54 @@ abstract class PlatformService {
 
   @async
   void stopGeneration();
+
+  // === Multi-session (MediaPipe .task path) ===
+  // Session-scoped twins of the singleton methods above, keyed by an int
+  // [sessionId]. The legacy methods stay the singleton path (one implicit
+  // session); these address one of N concurrently-open sessions. The native
+  // side holds a Map<sessionId, session>. Generation is serialized in Dart
+  // (a Mutex) so only one session generates at a time — concurrent contexts,
+  // serialized inference (same model as the .litertlm FFI path). Async
+  // results stream over the same `flutter_gemma_stream` EventChannel with a
+  // `sessionId` key added to the payload so Dart can demux.
+
+  @async
+  void createSessionForId({
+    required int sessionId,
+    required double temperature,
+    required int randomSeed,
+    required int topK,
+    double? topP,
+    String? loraPath,
+    bool? enableVisionModality,
+    bool? enableAudioModality,
+    String? systemInstruction,
+    bool? enableThinking,
+  });
+
+  @async
+  void closeSessionId(int sessionId);
+
+  @async
+  int sizeInTokensForSession(int sessionId, String prompt);
+
+  @async
+  void addQueryChunkToSession(int sessionId, String prompt);
+
+  @async
+  void addImageToSession(int sessionId, Uint8List imageBytes);
+
+  @async
+  void addAudioToSession(int sessionId, Uint8List audioBytes);
+
+  @async
+  String generateResponseForSession(int sessionId);
+
+  @async
+  void generateResponseAsyncForSession(int sessionId);
+
+  @async
+  void stopGenerationForSession(int sessionId);
 
   // 0.15.2: embedding methods removed from the pigeon contract — Android
   // and iOS now run embedding inference in Dart via LitertEmbeddingModel

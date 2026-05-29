@@ -476,13 +476,25 @@ private class PlatformServiceImpl(
         // Tag every chunk with sessionId and push over the shared event
         // channel directly (NOT via endOfStream — that would close the channel
         // for other sessions). Dart demuxes by the sessionId key.
-        mpSession.generateResponseAsyncTagged { result, done ->
-          val payload = mapOf(
-            "partialResult" to result,
-            "done" to done,
+        try {
+          mpSession.generateResponseAsyncTagged { result, done ->
+            val payload = mapOf(
+              "partialResult" to result,
+              "done" to done,
+              "sessionId" to sessionId,
+            )
+            scope.launch(Dispatchers.Main) { eventSink?.success(payload) }
+          }
+        } catch (e: Exception) {
+          // Surface a generation-time error as a TAGGED DATA event (not an
+          // EventChannel error, which would hit every session's listener and
+          // drop the sessionId). Dart demuxes it and closes only this session.
+          val errPayload = mapOf(
+            "code" to "ERROR",
+            "message" to (e.message ?: "generation failed"),
             "sessionId" to sessionId,
           )
-          scope.launch(Dispatchers.Main) { eventSink?.success(payload) }
+          scope.launch(Dispatchers.Main) { eventSink?.success(errPayload) }
         }
         callback(Result.success(Unit))
       } catch (e: Exception) {

@@ -485,8 +485,13 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
                             eventSink(["partialResult": "", "done": true, "sessionId": sessionId])
                         }
                     } catch {
+                        // Surface as a TAGGED DATA event (not FlutterError,
+                        // which the EventChannel broadcasts to every session's
+                        // listener and from which Dart can't route by id). Dart
+                        // demuxes {code: ERROR, sessionId} and closes only this
+                        // session, releasing its generation mutex.
                         DispatchQueue.main.async {
-                            eventSink(FlutterError(code: "ERROR", message: error.localizedDescription, details: ["sessionId": sessionId]))
+                            eventSink(["code": "ERROR", "message": error.localizedDescription, "sessionId": sessionId])
                         }
                     }
                 }

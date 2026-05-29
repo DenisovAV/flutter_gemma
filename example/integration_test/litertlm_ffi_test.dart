@@ -19,7 +19,8 @@ import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model.dart';
 
 // ── Model URLs (for iOS download, macOS/Android use local files) ──
-const _gemma4Url = 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
+const _gemma4Url =
+    'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
@@ -84,7 +85,8 @@ String? _localPath(String filename) {
 InferenceModel? _sharedModel;
 PreferredBackend? _sharedBackend;
 
-Future<InferenceModel> _ensureModel(PreferredBackend backend, int maxTokens) async {
+Future<InferenceModel> _ensureModel(
+    PreferredBackend backend, int maxTokens) async {
   if (_sharedModel != null && _sharedBackend == backend) return _sharedModel!;
   if (_sharedModel != null && _sharedBackend != backend) {
     await _sharedModel!.close();
@@ -231,15 +233,22 @@ void main() {
     });
 
     testWidgets('GPU vision', (t) async {
-      if (_testImage.isEmpty) { print('[Gemma4 vision] SKIP: no image'); return; }
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Describe this image briefly',
+      if (_testImage.isEmpty) {
+        print('[Gemma4 vision] SKIP: no image');
+        return;
+      }
+      final r = await _chat(
+          PreferredBackend.gpu, 4096, 'Describe this image briefly',
           supportImage: true, image: _testImage);
       print('[Gemma4 vision] $r');
       expect(r, isNotEmpty);
     });
 
     testWidgets('GPU audio', (t) async {
-      if (_testAudio.isEmpty) { print('[Gemma4 audio] SKIP: no audio'); return; }
+      if (_testAudio.isEmpty) {
+        print('[Gemma4 audio] SKIP: no audio');
+        return;
+      }
       final r = await _chat(PreferredBackend.gpu, 4096, 'What did you hear?',
           supportAudio: true, audio: _testAudio);
       print('[Gemma4 audio] $r');
@@ -326,8 +335,8 @@ void main() {
     testWidgets('chat stopGeneration interrupts stream', (t) async {
       final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
-      await chat.addQueryChunk(Message(
-          text: 'Write a 1000-word essay about Berlin.', isUser: true));
+      await chat.addQueryChunk(
+          Message(text: 'Write a 1000-word essay about Berlin.', isUser: true));
 
       final received = <String>[];
       var stopped = false;
@@ -338,8 +347,9 @@ void main() {
           await chat.stopGeneration();
         }
       });
-      await sub.asFuture<void>().timeout(const Duration(seconds: 30),
-          onTimeout: () => sub.cancel());
+      await sub
+          .asFuture<void>()
+          .timeout(const Duration(seconds: 30), onTimeout: () => sub.cancel());
 
       print('[Gemma4 chat stop] got ${received.length} chunks before stop');
       expect(received, isNotEmpty);
@@ -378,8 +388,9 @@ void main() {
           await session.stopGeneration();
         }
       });
-      await sub.asFuture<void>().timeout(const Duration(seconds: 30),
-          onTimeout: () => sub.cancel());
+      await sub
+          .asFuture<void>()
+          .timeout(const Duration(seconds: 30), onTimeout: () => sub.cancel());
 
       print('[Gemma4 session stop] got ${received.length} chunks');
       expect(received, isNotEmpty);
@@ -392,8 +403,8 @@ void main() {
         (t) async {
       final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session.addQueryChunk(Message(
-          text: 'Write a 1000-word essay about Paris.', isUser: true));
+      await session.addQueryChunk(
+          Message(text: 'Write a 1000-word essay about Paris.', isUser: true));
 
       final received = <String>[];
       final completer = Completer<void>();
@@ -435,6 +446,57 @@ void main() {
         expect(chunks, isNotEmpty);
         await session.close();
       }
+    });
+  });
+
+  // ── Multi-session (#226): concurrent openSession() dialogues ──────
+  //
+  // The LiteRT-LM engine allows only ONE live conversation at a time, so
+  // openSession() sessions multiplex — each keeps its history in Dart and
+  // replays it (messages_json preface) into the single shared conversation
+  // on switch. Logically concurrent contexts, serialized inference. These
+  // verify the property end-to-end on the native engine: two sessions keep
+  // isolated history, and closing one leaves the other usable. Runs on the
+  // shared GPU model — also exercises the GPU sampler path under multiplexing.
+  group('Multi-session', () {
+    tearDownAll(_closeSharedModel);
+
+    Future<String> _ask(InferenceModelSession s, String prompt) async {
+      await s.addQueryChunk(Message(text: prompt, isUser: true));
+      return s.getResponse();
+    }
+
+    testWidgets('two openSession dialogues keep isolated history', (t) async {
+      final model = await _ensureModel(PreferredBackend.gpu, 1024);
+      final a = await model.openSession(temperature: 0.0, topK: 1);
+      final b = await model.openSession(temperature: 0.0, topK: 1);
+      try {
+        expect(model.sessions.length, greaterThanOrEqualTo(2));
+        await _ask(a, 'My name is Alice. Remember it.');
+        await _ask(b, 'My name is Bob. Remember it.');
+        final ra = (await _ask(a, 'What is my name? One word.')).toLowerCase();
+        final rb = (await _ask(b, 'What is my name? One word.')).toLowerCase();
+        print('[multi-session] A="$ra" B="$rb"');
+        expect(ra, contains('alice'), reason: 'A should recall Alice');
+        expect(ra, isNot(contains('bob')), reason: 'A must not see B history');
+        expect(rb, contains('bob'), reason: 'B should recall Bob');
+        expect(rb, isNot(contains('alice')),
+            reason: 'B must not see A history');
+      } finally {
+        await a.close();
+        await b.close();
+      }
+    });
+
+    testWidgets('closing one session leaves the other usable', (t) async {
+      final model = await _ensureModel(PreferredBackend.gpu, 1024);
+      final a = await model.openSession(temperature: 0.0, topK: 1);
+      final b = await model.openSession(temperature: 0.0, topK: 1);
+      await a.close();
+      final rb = await _ask(b, 'Say hi in one word.');
+      print('[multi-session S2] B after A.close = "$rb"');
+      expect(rb.trim(), isNotEmpty);
+      await b.close();
     });
   });
 
@@ -514,7 +576,8 @@ void main() {
       expect(out, isNotEmpty);
       // Paris should appear in any sensible answer.
       expect(out.toLowerCase().contains('paris'), isTrue,
-          reason: 'NPU should produce a coherent answer about France\'s capital');
+          reason:
+              'NPU should produce a coherent answer about France\'s capital');
       await session.close();
       await model.close();
     });
@@ -573,7 +636,8 @@ void main() {
       // dependency-injection order, so we exercise the production path,
       // not a hand-rolled instance.
       final fs = ServiceRegistry.instance.fileSystemService;
-      final filename = 'storage_path_probe_${DateTime.now().millisecondsSinceEpoch}.litertlm';
+      final filename =
+          'storage_path_probe_${DateTime.now().millisecondsSinceEpoch}.litertlm';
       final resolved = await fs.getTargetPath(filename);
 
       final docsDir = await getApplicationDocumentsDirectory();

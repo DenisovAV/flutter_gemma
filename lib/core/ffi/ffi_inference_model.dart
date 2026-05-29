@@ -564,25 +564,55 @@ class _VirtualConversationHandle implements ConversationHandle {
     // Snapshot history BEFORE this turn — the live message is sent separately.
     final historySnapshot = List<({String role, String text})>.from(_history);
     final assistantText = StringBuffer();
-    await for (final rawChunk in client.startVirtualTurn(
-      conversationToken: token,
-      messageJson: messageJson,
-      history: historySnapshot,
-      systemMessage: systemMessage,
-      toolsJson: toolsJson,
-      temperature: temperature,
-      topK: topK,
-      topP: topP,
-      seed: seed,
-      extraContext: extraContext,
-    )) {
-      final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
-      assistantText.write(chunkText);
-      yield raw ? rawChunk : chunkText;
+    var recorded = false;
+    void record() {
+      if (recorded) return;
+      recorded = true;
+      // Record both turns so the next switch back replays the full context.
+      // The user message was already fed live into the native conversation, so
+      // it must land in history even if generation errored partway — otherwise
+      // a session switch+rebuild would replay a context that omits a turn the
+      // model actually saw, silently diverging native and Dart state.
+      _history.add((role: 'user', text: text));
+      _history.add((role: 'assistant', text: assistantText.toString()));
     }
-    // Record both turns so the next switch back replays the full context.
-    _history.add((role: 'user', text: text));
-    _history.add((role: 'assistant', text: assistantText.toString()));
+
+    try {
+      await for (final rawChunk in client.startVirtualTurn(
+        conversationToken: token,
+        messageJson: messageJson,
+        history: historySnapshot,
+        systemMessage: systemMessage,
+        toolsJson: toolsJson,
+        temperature: temperature,
+        topK: topK,
+        topP: topP,
+        seed: seed,
+        extraContext: extraContext,
+      )) {
+        final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
+        assistantText.write(chunkText);
+        yield raw ? rawChunk : chunkText;
+      }
+      record();
+    } finally {
+      // Also record on error/cancel so the user turn isn't lost.
+      record();
+    }
+  }
+
+  // Virtual sessions replay history as a text-only `messages_json` preface, so
+  // image/audio turns can't be reconstructed on a session switch. Reject media
+  // loudly rather than silently dropping it (parity with openSession rejecting
+  // loraPath). Multimodal needs the single-session createSession path.
+  void _rejectMedia(List<Uint8List>? imageBytes, Uint8List? audioBytes) {
+    if ((imageBytes != null && imageBytes.isNotEmpty) || audioBytes != null) {
+      throw UnsupportedError(
+        'Image/audio input is not supported on concurrent (openSession) '
+        '.litertlm sessions — their history is replayed text-only on switch. '
+        'Use createSession() for multimodal, or a MediaPipe .task model.',
+      );
+    }
   }
 
   @override
@@ -591,8 +621,10 @@ class _VirtualConversationHandle implements ConversationHandle {
     List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
     bool enableThinking = false,
-  }) =>
-      _run(text, raw: false, enableThinking: enableThinking);
+  }) {
+    _rejectMedia(imageBytes, audioBytes);
+    return _run(text, raw: false, enableThinking: enableThinking);
+  }
 
   @override
   Stream<String> chatRaw(
@@ -600,11 +632,13 @@ class _VirtualConversationHandle implements ConversationHandle {
     List<Uint8List>? imageBytes,
     Uint8List? audioBytes,
     bool enableThinking = false,
-  }) =>
-      _run(text, raw: true, enableThinking: enableThinking);
+  }) {
+    _rejectMedia(imageBytes, audioBytes);
+    return _run(text, raw: true, enableThinking: enableThinking);
+  }
 
   @override
-  void cancelGeneration() => client.cancelVirtualTurn();
+  void cancelGeneration() => client.cancelVirtualTurn(token);
 
   @override
   SessionMetrics getSessionMetrics() => SessionMetrics();

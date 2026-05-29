@@ -894,6 +894,16 @@ class LiteRtLmFfiClient {
   /// [conversationToken] identifies the virtual session. When it equals the
   /// token that built [_virtualConv], the existing live conversation is
   /// reused (cheap same-session follow-up). Otherwise it's rebuilt.
+  /// True while a virtual turn holds [_nativeMutex] and is actively streaming.
+  /// Lets [releaseVirtualConversation] (a session closing mid-generation) defer
+  /// the native teardown instead of deleting the pointer out from under the
+  /// live stream (use-after-free).
+  bool _virtualTurnInFlight = false;
+
+  /// Token of a session that asked to release the live conversation while a
+  /// turn was in flight. The teardown is deferred to the turn's cleanup.
+  Object? _pendingReleaseToken;
+
   Stream<String> startVirtualTurn({
     required Object conversationToken,
     required String messageJson,
@@ -905,34 +915,89 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     String? extraContext,
-  }) async* {
-    await _nativeMutex.acquire();
-    try {
-      if (_virtualActiveToken != conversationToken || _virtualConv == null) {
-        // Switching sessions (or first turn): drop the old live conversation
-        // and rebuild one replaying this session's history as a preface.
-        final old = _virtualConv;
-        if (old != null) {
-          _deleteConversation(old);
-          _virtualConv = null;
+  }) {
+    // StreamController (not async*) so the mutex release is tied to the
+    // controller lifecycle — it fires on done, error, AND consumer cancel /
+    // abandon. An async* generator's finally only runs when the consumer
+    // drains the stream, so an abandoned stream would hold the mutex forever
+    // and deadlock every other session.
+    final controller = StreamController<String>();
+    var mutexHeld = false;
+    StreamSubscription<String>? inner;
+
+    Future<void> releaseAndCleanup() async {
+      _virtualTurnInFlight = false;
+      // Honor a teardown that a closing session deferred while we held the lock.
+      if (_pendingReleaseToken != null) {
+        final pending = _pendingReleaseToken;
+        _pendingReleaseToken = null;
+        if (_virtualActiveToken == pending) {
+          final conv = _virtualConv;
+          if (conv != null) {
+            _deleteConversation(conv);
+            _virtualConv = null;
+            _virtualActiveToken = null;
+          }
         }
-        final historyJson = history.isEmpty ? null : buildHistoryJson(history);
-        _virtualConv = _createRawConversation(
-          systemMessage: systemMessage,
-          toolsJson: toolsJson,
-          messagesJson: historyJson,
-          temperature: temperature,
-          topK: topK,
-          topP: topP,
-          seed: seed,
-        );
-        _virtualActiveToken = conversationToken;
       }
-      yield* _doSendMessageStreamRawOn(_virtualConv!, messageJson,
-          extraContext: extraContext);
-    } finally {
-      _nativeMutex.release();
+      if (mutexHeld) {
+        mutexHeld = false;
+        _nativeMutex.release();
+      }
     }
+
+    controller.onListen = () async {
+      try {
+        await _nativeMutex.acquire();
+        mutexHeld = true;
+        _virtualTurnInFlight = true;
+        if (_virtualActiveToken != conversationToken || _virtualConv == null) {
+          // Switching sessions (or first turn): drop the old live conversation
+          // and rebuild one replaying this session's history as a preface.
+          final old = _virtualConv;
+          if (old != null) {
+            _deleteConversation(old);
+            _virtualConv = null;
+          }
+          final historyJson =
+              history.isEmpty ? null : buildHistoryJson(history);
+          _virtualConv = _createRawConversation(
+            systemMessage: systemMessage,
+            toolsJson: toolsJson,
+            messagesJson: historyJson,
+            temperature: temperature,
+            topK: topK,
+            topP: topP,
+            seed: seed,
+          );
+          _virtualActiveToken = conversationToken;
+        }
+        inner = _doSendMessageStreamRawOn(_virtualConv!, messageJson,
+                extraContext: extraContext)
+            .listen(
+          controller.add,
+          onError: controller.addError,
+          onDone: () async {
+            await releaseAndCleanup();
+            if (!controller.isClosed) await controller.close();
+          },
+          cancelOnError: false,
+        );
+      } catch (e, st) {
+        controller.addError(e, st);
+        await releaseAndCleanup();
+        if (!controller.isClosed) await controller.close();
+      }
+    };
+
+    // Fires when the consumer cancels / abandons the stream — guarantees the
+    // mutex is released even if generation never completed.
+    controller.onCancel = () async {
+      await inner?.cancel();
+      await releaseAndCleanup();
+    };
+
+    return controller.stream;
   }
 
   /// Token of the virtual session whose history is currently materialized in
@@ -940,10 +1005,15 @@ class LiteRtLmFfiClient {
   /// the same session.
   Object? _virtualActiveToken;
 
-  /// Cancel an in-flight virtual turn. Mirrors [_cancelOn] but targets the
-  /// shared live virtual conversation. Does NOT take the mutex (it must
-  /// interrupt a generation that already holds it).
-  void cancelVirtualTurn() {
+  /// Cancel an in-flight virtual turn for [conversationToken]. Mirrors
+  /// [_cancelOn] but targets the shared live virtual conversation. Does NOT
+  /// take the mutex (it must interrupt a generation that already holds it).
+  ///
+  /// No-op unless [conversationToken] owns the currently-live conversation —
+  /// otherwise one session's `stopGeneration()` would cancel another session's
+  /// in-flight generation (the single conversation is shared).
+  void cancelVirtualTurn(Object conversationToken) {
+    if (_virtualActiveToken != conversationToken) return;
     final conv = _virtualConv;
     if (conv != null) _cancelOn(conv);
   }
@@ -952,8 +1022,19 @@ class LiteRtLmFfiClient {
   /// [conversationToken]. Called when a virtual session closes so its native
   /// conversation doesn't linger. If a different session is active, this is a
   /// no-op — that session's conversation must stay live.
+  ///
+  /// If a turn is in flight, the teardown is DEFERRED to the turn's cleanup —
+  /// deleting the pointer now would be a use-after-free. We also cancel the
+  /// in-flight generation so the turn finishes promptly and the deferred
+  /// teardown runs.
   void releaseVirtualConversation(Object conversationToken) {
     if (_virtualActiveToken != conversationToken) return;
+    if (_virtualTurnInFlight) {
+      _pendingReleaseToken = conversationToken;
+      final conv = _virtualConv;
+      if (conv != null) _cancelOn(conv);
+      return;
+    }
     final conv = _virtualConv;
     if (conv != null) {
       _deleteConversation(conv);

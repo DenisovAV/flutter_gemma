@@ -144,3 +144,8 @@ example/macos/Podfile.lock
 
 # Example web test HTML fixture (used by vector store dev tests).
 example/web/test_vectorstore.html
+
+# chromedriver binary — maintainer tool for running web integration tests
+# (flutter drive -d chrome). ~16 MB, not part of the plugin. Without this
+# it leaks into the pub package and bloats it (8 MB → archive).
+chromedriver/

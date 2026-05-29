@@ -44,6 +44,9 @@ class FlutterGemmaPlugin: FlutterPlugin {
             result.error("COPY_ERROR", e.message, null)
           }
         }
+        "getNativeLibraryDir" -> {
+          result.success(context.applicationInfo.nativeLibraryDir)
+        }
         else -> result.notImplemented()
       }
     }

@@ -164,6 +164,23 @@ for lib in libGemmaModelConstraintProvider.so \
   fi
 done
 
+# Qualcomm NPU dispatch libs (not in LiteRT-LM upstream prebuilts — sourced
+# from Google AI Edge Gallery APKs, stored in our repo's prebuilt dir).
+for lib in libLiteRtDispatch_Qualcomm.so \
+           libQnnHtp.so \
+           libQnnSystem.so \
+           libQnnHtpV73Stub.so \
+           libQnnHtpV75Stub.so \
+           libQnnHtpV79Stub.so \
+           libQnnHtpV81Stub.so; do
+  if [ -f "$SCRIPT_DIR/prebuilt/android_arm64/$lib" ]; then
+    cp "$SCRIPT_DIR/prebuilt/android_arm64/$lib" "$PREBUILT_DIR/$lib"
+    echo "  $lib (Qualcomm NPU)"
+  else
+    echo "  WARN: $lib not found in $SCRIPT_DIR/prebuilt/android_arm64/"
+  fi
+done
+
 # 8b. Patch sampler libs with DT_NEEDED libLiteRtLm.so. Bionic per-library
 #     linker namespaces (Nougat+) only resolve UND symbols against the
 #     caller's DT_NEEDED chain, NOT against arbitrary libs already loaded

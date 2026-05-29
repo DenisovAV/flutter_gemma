@@ -1,3 +1,7 @@
+## 0.16.3
+- **Android Qualcomm NPU** (`PreferredBackend.npu` on `.litertlm`): bundles `libLiteRtDispatch_Qualcomm.so` + QNN HTP runtime + per-SoC Stub libs (sm8550/V73, sm8650/V75, sm8750/V79, sm8850/V81). Sets `dispatch_lib_dir` to `nativeLibraryDir` at engine init so LiteRT can find the dispatch bridge. `libcdsprpc.so` declared as optional native library in manifest.
+- **qdrant-edge 0.7.1**: drops vendored fork — `wal_options` is now native in upstream `EdgeConfig`.
+
 ## 0.16.2
 - **Concurrent sessions** (#226): `openSession()`/`openChat()` run independent dialogues on one loaded model.
 - **Web `.litertlm` inference** via `@litert-lm/core` early preview (WebGPU/WASM, text-only).

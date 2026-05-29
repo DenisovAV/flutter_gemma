@@ -178,20 +178,49 @@ abstract class InferenceModel {
 
   /// Opens a new session detached from [session]. Each call returns a
   /// fresh independent session sharing the loaded model weights but with
-  /// isolated KV cache and history. Use this for concurrent dialogues on
-  /// a single loaded model.
+  /// isolated context (history / KV cache). Use this for concurrent
+  /// dialogues on a single loaded model.
+  ///
+  /// **Why:** the (expensive) model weights are loaded once and shared across
+  /// every session; each session only adds its own lightweight context. This
+  /// lets one loaded model back several independent conversations — e.g. a
+  /// tabbed chat UI, two different system instructions / roles side by side,
+  /// or background summarization alongside an active chat — without reloading
+  /// the weights or clearing+rebuilding a single session's history on every
+  /// switch. If you only ever have one conversation at a time, use
+  /// [createSession] / [createChat] instead.
   ///
   /// Unlike [createSession], this does NOT modify the legacy [session]
   /// field. Concurrent sessions are tracked separately and surface via
   /// [sessions].
   ///
-  /// **Memory caveat**: each concurrent session allocates its own KV
-  /// cache (~100-500 MB depending on model + maxTokens). On mobile with
-  /// large models (Gemma 4 E2B+), two concurrent sessions can OOM the
-  /// process. Multi-session is most reliable on desktop and on high-end
-  /// mobile with small models (Gemma 3 1B / 270M). For larger models on
-  /// phones the safer pattern is still close+recreate with
-  /// [InferenceChat]'s built-in history replay.
+  /// **Concurrent contexts, serialized inference.** The sessions are
+  /// logically independent — each keeps its own conversation — but
+  /// generation is *serialized*: only one session runs inference at a time.
+  /// Calling `getResponse()` / `getResponseAsync()` on a second session
+  /// while another is still generating blocks until the first finishes; the
+  /// calls do NOT run in parallel. This is intentional (parallel on-device
+  /// inference would contend for the accelerator and risk OOM) and is the
+  /// same on every backend:
+  /// - `.litertlm` (FFI, all native): the engine allows one live
+  ///   conversation at a time, so sessions multiplex — the active session's
+  ///   history is replayed into the single conversation on switch.
+  /// - `.litertlm` (web, `@litert-lm/core`): separate conversations, but
+  ///   generation is still serialized.
+  /// - `.task` (MediaPipe, Android/iOS): N real `LlmInferenceSession` live
+  ///   at once (each with its own KV cache), generation serialized by a
+  ///   mutex.
+  ///
+  /// **Memory caveat**: each concurrent session holds its own context
+  /// (~100-500 MB depending on model + maxTokens). On mobile with large
+  /// models (Gemma 4 E2B+), several concurrent sessions can OOM the process.
+  /// Multi-session is most reliable on desktop and on high-end mobile with
+  /// small models (Gemma 3 1B / 270M). For larger models on phones the safer
+  /// pattern is still close+recreate with [InferenceChat]'s built-in history
+  /// replay. Use [maxConcurrentSessions] on `createModel` to cap the count.
+  ///
+  /// Not yet available on the MediaPipe **web** `.task` path — throws
+  /// [UnsupportedError] there.
   ///
   /// Throws [StateError] if `maxConcurrentSessions` (set on
   /// [FlutterGemmaPlugin.createModel]) is exceeded — close an existing
@@ -210,9 +239,9 @@ abstract class InferenceModel {
   }) async {
     throw UnsupportedError(
       'openSession() is not implemented for $runtimeType yet. '
-      'Concurrent sessions land in 0.16.2 for `.litertlm` (FFI all native '
-      '+ web) and `.task` (MediaPipe Android/iOS). MediaPipe Web `.task` '
-      'is planned for 0.17.0.',
+      'Concurrent sessions are supported on `.litertlm` (FFI native + web) '
+      'and `.task` (MediaPipe Android/iOS); the MediaPipe Web `.task` path '
+      'is planned for a future release.',
     );
   }
 

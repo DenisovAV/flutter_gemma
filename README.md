@@ -54,7 +54,8 @@ There is an example of using:
 - 🎯 **`Filter` DSL** for `searchSimilar(... filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`. Honored on native, silently ignored on Web.
 - 🔧 **Desktop install/validate path fix** — `isModelInstalled()` now reads the same storage location the installer writes to. Affected: Windows/macOS/Linux users on clean machines who saw "Active model is no longer installed" right after install in 0.15.x.
 - ⚡ **LiteRT-LM v0.12.0** (0.16.1) — NPU dispatch now available on Linux and macOS as well as Windows.
-- 🌐 **Web `.litertlm` inference** (0.16.2) — Gemma 4 E2B/E4B `.litertlm` models run in the browser via `@litert-lm/core` (WebGPU + WASM, early preview). Text-only for now; vision / audio / thinking remain mobile/desktop-only.
+- 🌐 **Web `.litertlm` inference** (0.16.2) — Gemma 4 E2B/E4B `.litertlm` models run in the browser via `@litert-lm/core` (WebGPU + WASM, **early preview**). See [Web `.litertlm` support & limitations](#web-litertlm-support--limitations) — text-only, no vision/audio/thinking, no LoRA, no function calling yet.
+- 🧵 **Concurrent sessions** (0.16.2, #226) — `openSession()` / `openChat()` run independent dialogues on one loaded model (isolated history per session). **Concurrent contexts, serialized inference**: only one session generates at a time. Works on `.litertlm` (all native + web) and `.task` (MediaPipe Android/iOS). See [Concurrent sessions](#concurrent-sessions-opensession).
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
@@ -509,6 +510,78 @@ final quickModel = await FlutterGemma.getActiveModel(maxTokens: 512);
 final deepModel = await FlutterGemma.getActiveModel(maxTokens: 4096);
 // Both use the SAME model file!
 ```
+
+### Concurrent sessions (`openSession`)
+
+A single loaded model can serve several **independent** dialogues at once.
+`openSession()` returns a session with its own conversation history,
+detached from the legacy `model.session` singleton; `openChat()` is the
+same for the higher-level chat API.
+
+**Why use it.** The model weights (the big, expensive part — hundreds of MB
+to several GB) are loaded **once** and shared across every session; each
+session only adds its own lightweight conversation context. Without
+`openSession`, serving two independent conversations would mean either
+loading the model twice (doubling the weight memory) or constantly clearing
+and rebuilding one session's history when you switch between them.
+
+**When you'd reach for it:**
+- **Multiple chats in one app** — e.g. a tabbed chat UI where each tab keeps
+  its own thread, all backed by one loaded model.
+- **Different roles / system instructions side by side** — one session with a
+  "translator" system instruction, another as a "code reviewer", without
+  reloading weights between them.
+- **Background work alongside an active chat** — e.g. summarizing or tagging a
+  document in one session while the user keeps chatting in another (they take
+  turns on the accelerator — see the serialization note below).
+- **A/B prompt comparison** — run the same model with two different setups and
+  compare, sharing the loaded weights.
+
+If you only ever have one conversation at a time, stick with the simpler
+`createSession()` / `createChat()` singleton API — you don't need this.
+
+```dart
+final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+
+final chatA = await model.openChat(); // independent context A
+final chatB = await model.openChat(); // independent context B
+
+await chatA.addQueryChunk(Message(text: 'My name is Alice.', isUser: true));
+await chatA.generateChatResponse();
+
+await chatB.addQueryChunk(Message(text: 'My name is Bob.', isUser: true));
+await chatB.generateChatResponse();
+
+// Each remembers only its own context.
+await chatA.addQueryChunk(Message(text: 'What is my name?', isUser: true));
+print(await chatA.generateChatResponse()); // "Alice"
+
+model.sessions;        // all live sessions (legacy + open)
+await chatA.session.close();  // closing one leaves the others usable
+```
+
+> ⚠️ **Concurrent contexts, serialized inference.** The sessions are
+> logically independent, but **only one session generates at a time** —
+> calling `generateResponse()` on a second session while another is still
+> running blocks until the first finishes. Generation is *not* parallel.
+> This is intentional: parallel on-device inference would contend for the
+> accelerator and risk OOM.
+
+**Per-platform behavior** (transparent to your code — the API is identical):
+
+| Path | How it works |
+|------|--------------|
+| `.litertlm` — native (Android/iOS/macOS/Windows/Linux) | Engine allows one live conversation; sessions multiplex — the active session's history is replayed on switch. |
+| `.litertlm` — web (`@litert-lm/core`) | Separate conversations; generation still serialized. |
+| `.task` — MediaPipe (Android/iOS) | N real `LlmInferenceSession` live at once (each with its own KV cache); generation serialized by a mutex. |
+| `.task` — MediaPipe **web** | ❌ Not yet — `openSession()` throws `UnsupportedError`. Planned for a future release. |
+
+**Memory**: each open session holds its own context (~100–500 MB depending
+on model + `maxTokens`). On phones with large models (Gemma 4 E2B+), several
+concurrent sessions can OOM. Cap the count with `maxConcurrentSessions:` on
+`getActiveModel(...)` — `openSession()` throws `StateError` past the cap.
+Multi-session is most reliable on desktop and high-end mobile with small
+models (Gemma 3 1B / 270M).
 
 ## Installation Sources
 
@@ -1321,6 +1394,12 @@ Function calling is currently supported by the following models:
 | **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Native bundles only |
 | **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | No local FS on web |
 
+> **Web column note:** the **Web** ✅ marks above describe the MediaPipe `.task`
+> web path (image input, function calling, thinking, etc.). The newer **web
+> `.litertlm`** path (`@litert-lm/core`) is an early-preview subset — text-only,
+> no vision/audio/thinking/function-calling. See
+> [Web `.litertlm` support & limitations](#web-litertlm-support--limitations).
+
 ### Web Platform Specifics
 
 #### Authentication
@@ -1387,6 +1466,37 @@ final supported = await FlutterGemma.isStreamingSupported();
 |---------|----------------|-------|
 | **Chrome/Firefox** | ~2 GB | ArrayBuffer limit |
 | **Safari** | ~50 MB | ⚠️ Not suitable |
+
+#### Web `.litertlm` support & limitations
+
+Web `.litertlm` inference (added in 0.16.2) runs Gemma `.litertlm` models
+(verified on Gemma 4 E2B/E4B web variants) in the browser through the upstream
+[`@litert-lm/core`](https://www.npmjs.com/package/@litert-lm/core) package
+(WebGPU + WASM). It is an **early preview** and is intentionally a subset of
+the native `.litertlm` path. MediaPipe `.task` on web is unaffected and remains
+fully supported.
+
+**Works on web `.litertlm`:**
+- ✅ Text generation (sync `getResponse()` and streaming `getResponseAsync()`)
+- ✅ Multi-turn chat with history (`createChat` / `openChat`)
+- ✅ System instruction (via the conversation preface)
+- ✅ Concurrent sessions (`openSession`) — serialized inference (see [Concurrent sessions](#concurrent-sessions-opensession))
+- ✅ Large models via OPFS streaming (`WebStorageMode.streaming`) — bypasses Chrome's ~2 GB blob limit
+- ✅ GPU only (WebGPU is required; there is no CPU backend on web)
+
+**Not supported on web `.litertlm` yet (mobile/desktop only):**
+- ❌ **Vision / image input** — `@litert-lm/core` does not expose the Vision executor config; image inputs are dropped with a debug warning
+- ❌ **Audio input** — same reason (no Audio executor config in the JS API)
+- ❌ **Thinking mode** — `extraContext` thinking channel is not wired on web
+- ❌ **Function calling / tool calls** — prefill+decode tool models aren't available on the web runtime
+- ❌ **LoRA weights** — `loraPath` throws `UnsupportedError`
+- ⚠️ **`stopGeneration()`** — closes the local Dart stream **and** calls the upstream `conversation.cancel()` to abort generation; the cancel is best-effort (the early-preview JS API may throw if nothing is in flight, which is swallowed)
+- ⚠️ **`WebStorageMode.none` + model > 2 GB** — the engine `fetch()`es the in-memory blob and trips Chrome's `ERR_BLOB_OUT_OF_MEMORY`; use `WebStorageMode.streaming` for large models
+
+> These limits track the upstream `@litert-lm/core` early-preview API and
+> will lift as Google extends the JS executor surface. For full vision /
+> audio / thinking / function calling on web today, use MediaPipe `.task`
+> web models instead.
 
 ### Mobile Platform Specifics
 

@@ -15,8 +15,9 @@ part of 'flutter_gemma_web.dart';
 /// **Limitations (matches upstream early-preview status):**
 /// - Text-in/text-out only — vision/audio/thinking are warn-and-ignore.
 /// - LoRA throws [UnsupportedError] (parity with FFI path).
-/// - `stopGeneration()` closes the local stream but cannot abort the JS-side
-///   generator — chunks after cancel are silently discarded.
+/// - `stopGeneration()` closes the local stream and calls the upstream
+///   `conversation.cancel()` to abort the JS-side generation (wrapped in
+///   try/catch — the early-preview API may throw if nothing is in flight).
 /// - For models >2 GB use `WebStorageMode.streaming` so the resolver returns
 ///   an [OpfsStreamModelSource] — passing a Blob URL to `Engine.create`
 ///   trips Chrome's `ERR_BLOB_OUT_OF_MEMORY` limit. The

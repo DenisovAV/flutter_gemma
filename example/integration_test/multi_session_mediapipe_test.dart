@@ -17,25 +17,38 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:path_provider/path_provider.dart';
 
 const _androidDir = '/data/local/tmp/flutter_gemma_test';
 const _taskFilename = 'gemma3-1b-it-int4.task';
 
-String? _localTaskPath() {
-  if (Platform.isAndroid) return '$_androidDir/$_taskFilename';
-  return null; // iOS: installed model resolved by getActiveModel
+Future<String> _localTaskPath() async {
+  if (Platform.isIOS) {
+    // iOS Simulator can read the host macOS filesystem — pass the host dir
+    // holding the .task via --dart-define=IOS_TEST_DOCS_DIR=... so the model
+    // survives the simulator's ephemeral app sandbox (same trick as
+    // litertlm_ffi_test.dart). Falls back to the app Documents on device.
+    const hostDir = String.fromEnvironment('IOS_TEST_DOCS_DIR');
+    if (hostDir.isNotEmpty) {
+      final p = '$hostDir/$_taskFilename';
+      if (File(p).existsSync()) return p;
+    }
+    final dir = await getApplicationDocumentsDirectory();
+    return '${dir.path}/$_taskFilename';
+  }
+  return '$_androidDir/$_taskFilename';
 }
 
 Future<void> _install() async {
-  final local = _localTaskPath();
-  if (local != null && File(local).existsSync()) {
+  final local = await _localTaskPath();
+  if (File(local).existsSync()) {
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,
       fileType: ModelFileType.task,
     ).fromFile(local).install();
   } else {
-    fail('MediaPipe .task model not found. Push $_taskFilename to '
-        '$_androidDir (Android) or install it on the device first.');
+    fail('MediaPipe .task model not found at $local. Push $_taskFilename to '
+        '$_androidDir (Android) or copy it into the app Documents (iOS).');
   }
 }
 

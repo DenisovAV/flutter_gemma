@@ -50,6 +50,14 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     private var model: InferenceModel?
     private var session: InferenceSession?
 
+    // Multi-session (.task): concurrently-open sessions keyed by sessionId.
+    // The singleton `session` above stays the legacy path; these are the
+    // openSession() sessions. Generation is serialized in Dart (a Mutex), so
+    // at most one streams at a time — the shared event channel stays
+    // unambiguous. Guarded by `sessionMapQueue` for thread-safe access.
+    private var sessionMap: [Int64: InferenceSession] = [:]
+    private let sessionMapQueue = DispatchQueue(label: "flutter_gemma.sessionMap")
+
     // 0.15.2: embedding migrated to the shared Dart-FFI + LiteRT path
     // (see `lib/core/litert/litert_embedding_model.dart`). The pigeon
     // surface below is preserved for ABI continuity but no longer
@@ -87,6 +95,8 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     }
 
     func closeModel(completion: @escaping (Result<Void, any Error>) -> Void) {
+        session = nil
+        sessionMapQueue.sync { sessionMap.removeAll() }
         model = nil
         completion(.success(()))
     }
@@ -311,6 +321,187 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
             return
         }
 
+        do {
+            try session.cancelGeneration()
+            completion(.success(()))
+        } catch {
+            completion(.failure(error))
+        }
+    }
+
+    // MARK: - Multi-session (.task) — session-scoped twins keyed by sessionId.
+    // The legacy singleton methods above are untouched; these address one of N
+    // concurrently-open sessions held in `sessionMap`.
+
+    private func requireSession(_ sessionId: Int64) -> InferenceSession? {
+        sessionMapQueue.sync { sessionMap[sessionId] }
+    }
+
+    func createSessionForId(
+        sessionId: Int64,
+        temperature: Double,
+        randomSeed: Int64,
+        topK: Int64,
+        topP: Double?,
+        loraPath: String?,
+        enableVisionModality: Bool?,
+        enableAudioModality: Bool?,
+        systemInstruction: String?,
+        enableThinking: Bool?,
+        completion: @escaping (Result<Void, any Error>) -> Void
+    ) {
+        guard let inference = model?.inference else {
+            completion(.failure(PigeonError(code: "Inference model not created", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let newSession = try InferenceSession(
+                    inference: inference,
+                    temperature: Float(temperature),
+                    randomSeed: Int(randomSeed),
+                    topk: Int(topK),
+                    topP: topP,
+                    loraPath: loraPath,
+                    enableVisionModality: enableVisionModality ?? false,
+                    enableAudioModality: enableAudioModality ?? false
+                )
+                self.sessionMapQueue.sync {
+                    try? self.sessionMap[sessionId]?.cancelGeneration()
+                    self.sessionMap[sessionId] = newSession
+                }
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func closeSessionId(sessionId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        sessionMapQueue.sync { _ = sessionMap.removeValue(forKey: sessionId) }
+        completion(.success(()))
+    }
+
+    func sizeInTokensForSession(sessionId: Int64, prompt: String, completion: @escaping (Result<Int64, any Error>) -> Void) {
+        guard let session = requireSession(sessionId) else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) not found", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let n = try session.sizeInTokens(prompt: prompt)
+                DispatchQueue.main.async { completion(.success(Int64(n))) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func addQueryChunkToSession(sessionId: Int64, prompt: String, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = requireSession(sessionId) else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) not found", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try session.addQueryChunk(prompt: prompt)
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func addImageToSession(sessionId: Int64, imageBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = requireSession(sessionId) else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) not found", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                guard let uiImage = UIImage(data: imageBytes.data), let cgImage = uiImage.cgImage else {
+                    DispatchQueue.main.async {
+                        completion(.failure(PigeonError(code: "Invalid image data", message: nil, details: nil)))
+                    }
+                    return
+                }
+                try session.addImage(image: cgImage)
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func addAudioToSession(sessionId: Int64, audioBytes: FlutterStandardTypedData, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = requireSession(sessionId) else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) not found", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                try session.addAudio(audio: audioBytes.data)
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func generateResponseForSession(sessionId: Int64, completion: @escaping (Result<String, any Error>) -> Void) {
+        guard let session = requireSession(sessionId) else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) not found", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let response = try session.generateResponse()
+                DispatchQueue.main.async { completion(.success(response)) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    @available(iOS 13.0, *)
+    func generateResponseAsyncForSession(sessionId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = requireSession(sessionId), let eventSink = eventSink else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) or eventSink not available", message: nil, details: nil)))
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let stream = try session.generateResponseAsync()
+                Task.detached {
+                    do {
+                        for try await token in stream {
+                            DispatchQueue.main.async {
+                                eventSink(["partialResult": token, "done": false, "sessionId": sessionId])
+                            }
+                        }
+                        // Tagged completion — NOT FlutterEndOfEventStream (which
+                        // would close the channel for every other session).
+                        DispatchQueue.main.async {
+                            eventSink(["partialResult": "", "done": true, "sessionId": sessionId])
+                        }
+                    } catch {
+                        DispatchQueue.main.async {
+                            eventSink(FlutterError(code: "ERROR", message: error.localizedDescription, details: ["sessionId": sessionId]))
+                        }
+                    }
+                }
+                DispatchQueue.main.async { completion(.success(())) }
+            } catch {
+                DispatchQueue.main.async { completion(.failure(error)) }
+            }
+        }
+    }
+
+    func stopGenerationForSession(sessionId: Int64, completion: @escaping (Result<Void, any Error>) -> Void) {
+        guard let session = requireSession(sessionId) else {
+            completion(.failure(PigeonError(code: "Session \(sessionId) not found", message: nil, details: nil)))
+            return
+        }
         do {
             try session.cancelGeneration()
             completion(.success(()))

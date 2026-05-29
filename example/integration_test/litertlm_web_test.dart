@@ -171,5 +171,47 @@ void main() {
       expect(r, isNotEmpty);
       await s2.close();
     });
+
+    // PROBE (#226): does @litert-lm/core (the same LiteRT-LM C++ core compiled
+    // to WASM) enforce the "one conversation at a time" limit that the native
+    // FFI engine does? Two openSession() dialogues should keep isolated
+    // history. If the engine rejects the second conversation (or histories
+    // bleed), web needs the same virtual-session multiplexer the FFI path uses
+    // — and this test will fail loudly, telling us so.
+    testWidgets('PROBE: two openSession dialogues keep isolated history',
+        (tester) async {
+      final model = await _ensureModel();
+      final a = await model.openSession(temperature: 0.0, topK: 1);
+      final b = await model.openSession(temperature: 0.0, topK: 1);
+      try {
+        expect(model.sessions.length, greaterThanOrEqualTo(2),
+            reason: 'both sessions should be live concurrently');
+
+        await a.addQueryChunk(const Message(
+            text: 'My name is Alice. Remember it.', isUser: true));
+        await a.getResponse();
+        await b.addQueryChunk(
+            const Message(text: 'My name is Bob. Remember it.', isUser: true));
+        await b.getResponse();
+
+        await a.addQueryChunk(
+            const Message(text: 'What is my name? One word.', isUser: true));
+        final ra = (await a.getResponse()).toLowerCase();
+        await b.addQueryChunk(
+            const Message(text: 'What is my name? One word.', isUser: true));
+        final rb = (await b.getResponse()).toLowerCase();
+        // ignore: avoid_print
+        print('[web-probe] A="$ra"  B="$rb"');
+
+        expect(ra, contains('alice'), reason: 'A should recall Alice');
+        expect(ra, isNot(contains('bob')), reason: 'A must not see B history');
+        expect(rb, contains('bob'), reason: 'B should recall Bob');
+        expect(rb, isNot(contains('alice')),
+            reason: 'B must not see A history');
+      } finally {
+        await a.close();
+        await b.close();
+      }
+    });
   });
 }

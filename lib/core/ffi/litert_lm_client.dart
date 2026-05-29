@@ -586,12 +586,52 @@ class LiteRtLmFfiClient {
   }
 
   /// Create a new conversation handle with optional system message and
-  /// tools. The handle owns its own `LiteRtLmConversation*`; multiple
-  /// handles can coexist on one engine (concurrent sessions). The caller
-  /// owns the handle and must call [LiteRtLmConversationHandle.close].
+  /// tools. The engine allows only ONE live conversation at a time
+  /// (upstream LiteRT-LM #966), so the caller must delete any prior
+  /// conversation before creating a new one — this is how virtual-session
+  /// multiplexing rebuilds context. The caller owns the handle and must
+  /// call [LiteRtLmConversationHandle.close].
+  ///
+  /// [messagesJson] optionally seeds the conversation with prior turns
+  /// (a JSON array of `{role, content}` objects). Used by the virtual-
+  /// session multiplexer to replay a session's history into a fresh
+  /// conversation. When null the conversation starts empty (legacy
+  /// behaviour).
   LiteRtLmConversationHandle createConversationHandle({
     String? systemMessage,
     String? toolsJson,
+    String? messagesJson,
+    double temperature = 0.8,
+    int topK = 40,
+    double? topP,
+    int seed = 1,
+  }) {
+    final conv = _createRawConversation(
+      systemMessage: systemMessage,
+      toolsJson: toolsJson,
+      messagesJson: messagesJson,
+      temperature: temperature,
+      topK: topK,
+      topP: topP,
+      seed: seed,
+    );
+    debugPrint('[LiteRtLmFfi] Conversation created');
+    final handle = LiteRtLmConversationHandle._(this, conv);
+    _handles.add(handle);
+    return handle;
+  }
+
+  /// Create a raw native conversation pointer with the given config.
+  ///
+  /// Shared by [createConversationHandle] (which wraps it in a tracked
+  /// [LiteRtLmConversationHandle]) and the virtual-session multiplexer
+  /// ([startVirtualTurn]) which owns the pointer's lifecycle directly and
+  /// does not register a handle. Lock-free — callers that need
+  /// serialization (the multiplexer) hold [_nativeMutex] around it.
+  Pointer<LiteRtLmConversation> _createRawConversation({
+    String? systemMessage,
+    String? toolsJson,
+    String? messagesJson,
     double temperature = 0.8,
     int topK = 40,
     double? topP,
@@ -639,6 +679,7 @@ class LiteRtLmFfiClient {
 
     final systemPtr = systemMessage?.toNativeUtf8();
     final toolsPtr = toolsJson?.toNativeUtf8();
+    final messagesPtr = messagesJson?.toNativeUtf8();
 
     final Pointer<LiteRtLmConversationConfig> convConfig =
         b.litert_lm_conversation_config_create(
@@ -646,13 +687,14 @@ class LiteRtLmFfiClient {
       sessionConfig,
       systemPtr?.cast() ?? nullptr,
       toolsPtr?.cast() ?? nullptr,
-      nullptr,
+      messagesPtr?.cast() ?? nullptr,
       toolsJson != null,
     );
 
     b.litert_lm_session_config_delete(sessionConfig);
     if (systemPtr != null) calloc.free(systemPtr);
     if (toolsPtr != null) calloc.free(toolsPtr);
+    if (messagesPtr != null) calloc.free(messagesPtr);
 
     if (convConfig == nullptr) {
       throw Exception(
@@ -671,10 +713,7 @@ class LiteRtLmFfiClient {
       throw Exception('Failed to create conversation');
     }
 
-    debugPrint('[LiteRtLmFfi] Conversation created');
-    final handle = LiteRtLmConversationHandle._(this, conv);
-    _handles.add(handle);
-    return handle;
+    return conv;
   }
 
   /// Legacy single-conversation create. Closes the previous legacy
@@ -723,6 +762,26 @@ class LiteRtLmFfiClient {
     }
     content.add({'type': 'text', 'text': text});
     return jsonEncode({'role': 'user', 'content': content});
+  }
+
+  /// Serialize a turn history into the `messages_json` array the
+  /// conversation config accepts as a preface. Each turn is
+  /// `{role, content: [{type: 'text', text}]}`. Used by the virtual-session
+  /// multiplexer to rebuild a session's full context (user + assistant
+  /// turns) in one prefill when switching the single live conversation.
+  ///
+  /// Verified honored by the patched native (a `messages_json` preface with
+  /// a prior user+assistant turn lets the model recall it).
+  static String buildHistoryJson(List<({String role, String text})> turns) {
+    return jsonEncode([
+      for (final turn in turns)
+        {
+          'role': turn.role,
+          'content': [
+            {'type': 'text', 'text': turn.text},
+          ],
+        },
+    ]);
   }
 
   /// Extract text from a LiteRT-LM JSON response chunk. Delegates to
@@ -810,6 +869,96 @@ class LiteRtLmFfiClient {
           extraContext: extraContext);
     } finally {
       _nativeMutex.release();
+    }
+  }
+
+  /// The single native conversation currently materialized for the
+  /// virtual-session multiplexer. The LiteRT-LM engine allows only ONE live
+  /// conversation at a time (upstream #966), so virtual sessions take turns:
+  /// each turn tears this down and rebuilds it seeded with the active
+  /// session's history. null when no virtual turn is in flight.
+  Pointer<LiteRtLmConversation>? _virtualConv;
+
+  /// Run one turn for a virtual session, holding [_nativeMutex] for the whole
+  /// turn so no other virtual session can swap the live conversation out from
+  /// under it.
+  ///
+  /// The turn is: tear down the previously-active virtual conversation (if
+  /// any), create a fresh one seeded with [historyJson] (a `messages_json`
+  /// preface that replays this session's prior user+assistant turns — proven
+  /// honored by the patched native), then stream the response for
+  /// [messageJson]. The conversation is left live after the stream so a
+  /// follow-up turn on the SAME session can reuse it without a rebuild; only a
+  /// turn on a DIFFERENT session pays the teardown+replay cost.
+  ///
+  /// [conversationToken] identifies the virtual session. When it equals the
+  /// token that built [_virtualConv], the existing live conversation is
+  /// reused (cheap same-session follow-up). Otherwise it's rebuilt.
+  Stream<String> startVirtualTurn({
+    required Object conversationToken,
+    required String messageJson,
+    required List<({String role, String text})> history,
+    String? systemMessage,
+    String? toolsJson,
+    double temperature = 0.8,
+    int topK = 40,
+    double? topP,
+    int seed = 1,
+    String? extraContext,
+  }) async* {
+    await _nativeMutex.acquire();
+    try {
+      if (_virtualActiveToken != conversationToken || _virtualConv == null) {
+        // Switching sessions (or first turn): drop the old live conversation
+        // and rebuild one replaying this session's history as a preface.
+        final old = _virtualConv;
+        if (old != null) {
+          _deleteConversation(old);
+          _virtualConv = null;
+        }
+        final historyJson = history.isEmpty ? null : buildHistoryJson(history);
+        _virtualConv = _createRawConversation(
+          systemMessage: systemMessage,
+          toolsJson: toolsJson,
+          messagesJson: historyJson,
+          temperature: temperature,
+          topK: topK,
+          topP: topP,
+          seed: seed,
+        );
+        _virtualActiveToken = conversationToken;
+      }
+      yield* _doSendMessageStreamRawOn(_virtualConv!, messageJson,
+          extraContext: extraContext);
+    } finally {
+      _nativeMutex.release();
+    }
+  }
+
+  /// Token of the virtual session whose history is currently materialized in
+  /// [_virtualConv]. Used to skip the teardown+replay when the next turn is on
+  /// the same session.
+  Object? _virtualActiveToken;
+
+  /// Cancel an in-flight virtual turn. Mirrors [_cancelOn] but targets the
+  /// shared live virtual conversation. Does NOT take the mutex (it must
+  /// interrupt a generation that already holds it).
+  void cancelVirtualTurn() {
+    final conv = _virtualConv;
+    if (conv != null) _cancelOn(conv);
+  }
+
+  /// Tear down the live virtual conversation if it belongs to
+  /// [conversationToken]. Called when a virtual session closes so its native
+  /// conversation doesn't linger. If a different session is active, this is a
+  /// no-op — that session's conversation must stay live.
+  void releaseVirtualConversation(Object conversationToken) {
+    if (_virtualActiveToken != conversationToken) return;
+    final conv = _virtualConv;
+    if (conv != null) {
+      _deleteConversation(conv);
+      _virtualConv = null;
+      _virtualActiveToken = null;
     }
   }
 
@@ -1016,6 +1165,14 @@ class LiteRtLmFfiClient {
     }
     _handles.clear();
     _legacyHandle = null;
+
+    // Tear down the shared virtual-session conversation too.
+    final vc = _virtualConv;
+    if (vc != null) {
+      _deleteConversation(vc);
+      _virtualConv = null;
+      _virtualActiveToken = null;
+    }
 
     if (_engine != null && _engine != nullptr && _bindings != null) {
       _bindings!.litert_lm_engine_delete(_engine!);

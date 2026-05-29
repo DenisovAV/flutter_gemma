@@ -1,4 +1,5 @@
 ## 0.16.2
+- **Concurrent sessions** (#226): `openSession()`/`openChat()` run independent dialogues on one loaded model.
 - **Web `.litertlm` inference** via `@litert-lm/core` early preview (WebGPU/WASM, text-only).
 - **Fix `getActiveModel()` after app restart** (#227): mobile + web auto-restore from prefs.
 - **Report initialized backend** (#288, thanks @merlinnot): `InferenceModel.activeBackend` getter + NPU→GPU→CPU fallback on the FFI path with `BackendInitException` carrying per-attempt details.

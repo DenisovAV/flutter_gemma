@@ -2,8 +2,6 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/ffi/ffi_inference_model.dart';
 import 'package:flutter_gemma/core/ffi/litert_lm_client.dart';
-import 'package:flutter_gemma/core/message.dart';
-import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -159,6 +157,9 @@ void main() {
       expect(handleA.isClosed, isTrue);
       expect(handleB.isClosed, isFalse, reason: 'B must survive A.close()');
       expect(onCloseACalled, isTrue);
+      // B is still usable after A closed.
+      await sessionB.addQueryChunk(const Message(text: 'q', isUser: true));
+      expect(await sessionB.getResponse(), 'b');
     });
 
     test('methods throw StateError after close', () async {

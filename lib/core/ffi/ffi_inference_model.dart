@@ -175,9 +175,15 @@ class FfiInferenceModel extends InferenceModel {
         ? SdkResponseParser.serializeToolsForSdk(tools)
         : null;
 
-    // Each concurrent session owns its own conversation handle — independent
-    // KV cache, history, and raw-response buffer. No singleton overwrite.
-    final handle = ffiClient.createConversationHandle(
+    // The LiteRT-LM engine allows only ONE live conversation at a time
+    // (upstream #966), so concurrent sessions can't each hold a real native
+    // conversation. Each session instead gets a virtual handle that keeps its
+    // history in Dart and replays it into the single shared conversation on
+    // demand (serialized by the client mutex). Logically concurrent contexts,
+    // serialized inference. openSession() itself makes no native call, so it
+    // never fails on the one-conversation limit.
+    final handle = _VirtualConversationHandle(
+      client: ffiClient,
       systemMessage: systemInstruction,
       toolsJson: toolsJson,
       temperature: temperature,
@@ -496,5 +502,118 @@ class FfiInferenceModelSession extends InferenceModelSession
     _pendingAudio = null;
     handle.close();
     onClose();
+  }
+}
+
+/// A [ConversationHandle] backed by the virtual-session multiplexer.
+///
+/// The LiteRT-LM engine allows only ONE live conversation at a time
+/// (upstream #966), so concurrent [openSession] sessions can't each hold a
+/// real native conversation. Instead each virtual handle keeps its full turn
+/// history in Dart and, on every generate, asks the client to (re)materialize
+/// the single shared conversation seeded with THIS session's history via a
+/// `messages_json` preface. The client serializes turns with a mutex, so the
+/// sessions are logically concurrent (independent contexts) but inference is
+/// serialized (one generation at a time) — verified by the
+/// session_switch / messages_preface smoke tests.
+///
+/// Same-session follow-up turns reuse the live conversation (no rebuild);
+/// only switching to a different session pays the teardown+replay cost.
+class _VirtualConversationHandle implements ConversationHandle {
+  _VirtualConversationHandle({
+    required this.client,
+    required this.systemMessage,
+    required this.toolsJson,
+    required this.temperature,
+    required this.topK,
+    required this.topP,
+    required this.seed,
+  });
+
+  final LiteRtLmFfiClient client;
+  final String? systemMessage;
+  final String? toolsJson;
+  final double temperature;
+  final int topK;
+  final double? topP;
+  final int seed;
+
+  /// Unique identity for this virtual session — the client uses it to tell
+  /// whether the live conversation already holds this session's history.
+  final Object token = Object();
+
+  /// Completed turns (user + assistant), replayed as a `messages_json`
+  /// preface to rebuild this session's context when it next becomes active.
+  final List<({String role, String text})> _history = [];
+
+  bool _closed = false;
+
+  /// Drive one turn through the multiplexer, then record the user message and
+  /// the generated assistant reply so the NEXT turn replays them as preface.
+  /// [extractText] maps each raw chunk to the text appended to the recorded
+  /// assistant turn (text path strips JSON; raw path keeps the chunk for the
+  /// caller but we still record only the extracted text in history).
+  Stream<String> _run(
+    String text, {
+    required bool raw,
+    bool enableThinking = false,
+  }) async* {
+    if (_closed) throw StateError('Conversation handle is closed');
+    final messageJson = LiteRtLmFfiClient.buildMessageJson(text);
+    final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
+    // Snapshot history BEFORE this turn — the live message is sent separately.
+    final historySnapshot = List<({String role, String text})>.from(_history);
+    final assistantText = StringBuffer();
+    await for (final rawChunk in client.startVirtualTurn(
+      conversationToken: token,
+      messageJson: messageJson,
+      history: historySnapshot,
+      systemMessage: systemMessage,
+      toolsJson: toolsJson,
+      temperature: temperature,
+      topK: topK,
+      topP: topP,
+      seed: seed,
+      extraContext: extraContext,
+    )) {
+      final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
+      assistantText.write(chunkText);
+      yield raw ? rawChunk : chunkText;
+    }
+    // Record both turns so the next switch back replays the full context.
+    _history.add((role: 'user', text: text));
+    _history.add((role: 'assistant', text: assistantText.toString()));
+  }
+
+  @override
+  Stream<String> chat(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) =>
+      _run(text, raw: false, enableThinking: enableThinking);
+
+  @override
+  Stream<String> chatRaw(
+    String text, {
+    List<Uint8List>? imageBytes,
+    Uint8List? audioBytes,
+    bool enableThinking = false,
+  }) =>
+      _run(text, raw: true, enableThinking: enableThinking);
+
+  @override
+  void cancelGeneration() => client.cancelVirtualTurn();
+
+  @override
+  SessionMetrics getSessionMetrics() => SessionMetrics();
+
+  @override
+  void close() {
+    if (_closed) return;
+    _closed = true;
+    _history.clear();
+    client.releaseVirtualConversation(token);
   }
 }

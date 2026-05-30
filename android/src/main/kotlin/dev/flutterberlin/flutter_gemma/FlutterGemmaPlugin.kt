@@ -94,6 +94,7 @@ private val NPU_LIBS = listOf(
   "libQnnHtpV79Stub.so",
   "libQnnHtpV79Skel.so",
   "libQnnHtpV81Stub.so",
+  "libQnnHtpV81Skel.so",
 )
 
 private fun extractNpuLibsIfNeeded(context: Context): String {

@@ -174,7 +174,10 @@ for lib in libLiteRtDispatch_Qualcomm.so \
            libQnnHtpV79Stub.so \
            libQnnHtpV81Stub.so; do
   if [ -f "$SCRIPT_DIR/prebuilt/android_arm64/$lib" ]; then
-    cp "$SCRIPT_DIR/prebuilt/android_arm64/$lib" "$PREBUILT_DIR/$lib"
+    # Skip if source and dest are the same file (PREBUILT_DIR == SCRIPT_DIR/prebuilt/android_arm64)
+    if [ "$SCRIPT_DIR/prebuilt/android_arm64/$lib" != "$PREBUILT_DIR/$lib" ]; then
+      cp "$SCRIPT_DIR/prebuilt/android_arm64/$lib" "$PREBUILT_DIR/$lib"
+    fi
     echo "  $lib (Qualcomm NPU)"
   else
     echo "  WARN: $lib not found in $SCRIPT_DIR/prebuilt/android_arm64/"

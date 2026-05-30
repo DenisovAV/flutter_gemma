@@ -171,9 +171,8 @@ const _litertlmBundle = _NativeBundle(
         '88620e05382dcb1fdc5d2d985bfc9812f78f1422b4e9f3d1d8dfbafcf727c4ee',
     'litertlm-ios_sim_arm64.tar.gz':
         '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
-    // TODO(build): rebuild android tarball with QNN libs, update sha256.
     'litertlm-android_arm64.tar.gz':
-        'e24804d922aadd91a85a6faf272a20e9c3e7991ed2754cf2a9071ad08a8fc2ce',
+        'a3fac90d144065a23f24b2ea03f10ad4d5025d012fdb3117e0b9afbe9f829ef7',
   },
   companions: [
     'GemmaModelConstraintProvider',
@@ -266,16 +265,21 @@ const _qdrantEdgeBundle = _NativeBundle(
   // No Podfile/Xcode integration needed — qdrant lives entirely behind FFI,
   // companion-free, registered as a single CodeAsset.
   markerFileName: '.version',
-  // TODO(build): run build_local.sh + CI workflow for qdrant-edge-v0.7.1,
-  // then replace these placeholder hashes with the real sha256sums.
   checksums: {
-    'qdrant-edge-linux_x86_64.tar.gz': '',
-    'qdrant-edge-linux_arm64.tar.gz': '',
-    'qdrant-edge-windows_x86_64.tar.gz': '',
-    'qdrant-edge-macos_arm64.tar.gz': '',
-    'qdrant-edge-ios_arm64.tar.gz': '',
-    'qdrant-edge-ios_sim_arm64.tar.gz': '',
-    'qdrant-edge-android_arm64.tar.gz': '',
+    'qdrant-edge-linux_x86_64.tar.gz':
+        'beda966f379fae26e37a574eb4803d22f97b02c399143cc839368e1247a6bd20',
+    'qdrant-edge-linux_arm64.tar.gz':
+        '08f3cc59f7983d71b7993f7f3abcf81e2a912a35befafab5907ff227aaf57164',
+    'qdrant-edge-windows_x86_64.tar.gz':
+        'b0034a10ced68470cb489058667e94c69ce2d56bc417006c559d1a0259dac005',
+    'qdrant-edge-macos_arm64.tar.gz':
+        'e2af47625eb48109e71e7a67abdce12f772fe503f7944cb6d9088c5c3b09b7dc',
+    'qdrant-edge-ios_arm64.tar.gz':
+        'a7ce2779542bada085027423ed0a719287f3ef8ce8136a201b50b78aa0b569ed',
+    'qdrant-edge-ios_sim_arm64.tar.gz':
+        '6f99ffc6b9e82c40e23824607b17dd1d69fba1b2b412528a75afb87f41cc97c5',
+    'qdrant-edge-android_arm64.tar.gz':
+        '1719a6188c054ccbc11aeed2ac7d2ca89d496b5a181767e23827ba339522835c',
   },
 );
 

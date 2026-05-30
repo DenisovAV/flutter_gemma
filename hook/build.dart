@@ -172,7 +172,7 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-ios_sim_arm64.tar.gz':
         '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
     'litertlm-android_arm64.tar.gz':
-        'a3fac90d144065a23f24b2ea03f10ad4d5025d012fdb3117e0b9afbe9f829ef7',
+        'f809c5a29867062cda74186c7ebebd500a2f36d0b6ad6f7ca8eab902af7fc784',
   },
   companions: [
     'GemmaModelConstraintProvider',
@@ -236,15 +236,20 @@ const _litertlmBundle = _NativeBundle(
   // Extracted from Google AI Edge Gallery APKs (no Qualcomm account needed);
   // ABI verified against litert_dispatch.h at LiteRT commit d865fd82.
   // sm8550=V73, sm8650=V75, sm8750=V79, sm8850=V81.
-  // Skel libs are NOT bundled — device firmware provides them in /vendor/dsp/.
+  // Skel libs (DSP-side code) extracted from Google AI Edge Gallery APKs.
+  // Stub libs are the CPU-side bridge; Skel libs run on Hexagon DSP via FastRPC.
   androidExtraLibs: [
     'LiteRtDispatch_Qualcomm',
     'QnnHtp',
     'QnnSystem',
     'QnnHtpV73Stub',
+    'QnnHtpV73Skel',
     'QnnHtpV75Stub',
+    'QnnHtpV75Skel',
     'QnnHtpV79Stub',
+    'QnnHtpV79Skel',
     'QnnHtpV81Stub',
+    'QnnHtpV81Skel',
   ],
 );
 

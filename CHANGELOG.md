@@ -1,5 +1,6 @@
 ## 0.16.3
-- **Android Qualcomm NPU** (`PreferredBackend.npu`): bundles QNN dispatch libs for sm8550/sm8650/sm8750/sm8850.
+- **Android Qualcomm NPU** (`PreferredBackend.npu`): auto-extracts QNN dispatch libs from APK at runtime (#293).
+- **Fix Android GPU sampler CPU fallback** (#270): GPU OpenCL/WebGPU samplers now resolve correctly, restoring ~3× decode speed.
 - **qdrant-edge 0.7.1**: drops vendored fork, `wal_options` now native in upstream.
 
 ## 0.16.2

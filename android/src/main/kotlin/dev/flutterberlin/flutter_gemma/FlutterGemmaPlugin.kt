@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
+import java.util.zip.ZipFile
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
@@ -46,7 +47,7 @@ class FlutterGemmaPlugin: FlutterPlugin {
         }
         "getNativeLibraryDir" -> {
           try {
-            result.success(context.applicationInfo.nativeLibraryDir)
+            result.success(extractNpuLibsIfNeeded(context))
           } catch (e: Exception) {
             result.error("NATIVE_LIB_DIR_ERROR", e.message, null)
           }
@@ -75,6 +76,44 @@ class FlutterGemmaPlugin: FlutterPlugin {
     service?.cleanup()
     service = null
   }
+}
+
+// LiteRT's litert_dispatch.cc uses opendir() to scan dispatch_lib_dir for
+// libLiteRtDispatch_*.so. With AGP 8+ default extractNativeLibs=false, .so
+// files are stored in the APK but not extracted to the filesystem, so opendir
+// finds nothing. We extract the QNN dispatch stack to a private cache dir on
+// first NPU use so LiteRT can find them via filesystem scan.
+private val NPU_LIBS = listOf(
+  "libLiteRtDispatch_Qualcomm.so",
+  "libQnnHtp.so",
+  "libQnnSystem.so",
+  "libQnnHtpV73Stub.so",
+  "libQnnHtpV75Stub.so",
+  "libQnnHtpV79Stub.so",
+  "libQnnHtpV81Stub.so",
+)
+
+private fun extractNpuLibsIfNeeded(context: Context): String {
+  val outDir = File(context.codeCacheDir, "npu_libs")
+  outDir.mkdirs()
+
+  val apkPath = context.applicationInfo.sourceDir
+  ZipFile(apkPath).use { zip ->
+    for (libName in NPU_LIBS) {
+      val entry = zip.getEntry("lib/arm64-v8a/$libName") ?: continue
+      val outFile = File(outDir, libName)
+      if (outFile.exists() && outFile.length() == entry.size) continue
+      Log.i("FlutterGemma", "NPU: extracting $libName → ${outFile.absolutePath}")
+      zip.getInputStream(entry).use { input ->
+        FileOutputStream(outFile).use { output ->
+          input.copyTo(output, bufferSize = 65536)
+        }
+      }
+    }
+  }
+
+  Log.i("FlutterGemma", "NPU: dispatch_lib_dir=${outDir.absolutePath}")
+  return outDir.absolutePath
 }
 
 private class PlatformServiceImpl(

@@ -88,8 +88,11 @@ private val NPU_LIBS = listOf(
   "libQnnHtp.so",
   "libQnnSystem.so",
   "libQnnHtpV73Stub.so",
+  "libQnnHtpV73Skel.so",
   "libQnnHtpV75Stub.so",
+  "libQnnHtpV75Skel.so",
   "libQnnHtpV79Stub.so",
+  "libQnnHtpV79Skel.so",
   "libQnnHtpV81Stub.so",
 )
 

@@ -6,6 +6,7 @@ import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:mutex/mutex.dart';
 
 import '../../flutter_gemma_interface.dart';
@@ -515,6 +516,27 @@ class LiteRtLmFfiClient {
         b.litert_lm_engine_settings_set_use_hw_masking_for_npu(settings, false);
         debugPrint(
             '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false');
+      }
+
+      // Android NPU: point LiteRT at the app's nativeLibraryDir so it can
+      // dlopen libLiteRtDispatch_Qualcomm.so from there. On Android, Native
+      // Assets unpacks all bundled .so files into nativeLibraryDir at install
+      // time; without this setting LiteRT searches system paths and fails.
+      if (Platform.isAndroid && backend == 'npu') {
+        const bundledChannel = MethodChannel('flutter_gemma_bundled');
+        final nativeLibDir =
+            await bundledChannel.invokeMethod<String>('getNativeLibraryDir');
+        if (nativeLibDir == null) {
+          throw StateError(
+              '[LiteRtLmFfi] NPU Android: getNativeLibraryDir returned null — '
+              'plugin channel not registered; cannot locate '
+              'libLiteRtDispatch_Qualcomm.so.');
+        }
+        final dirPtr = nativeLibDir.toNativeUtf8();
+        b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+            settings, dirPtr.cast());
+        calloc.free(dirPtr);
+        debugPrint('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
 
       // Create engine in a background isolate to avoid blocking UI.

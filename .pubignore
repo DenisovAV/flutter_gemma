@@ -98,6 +98,7 @@ native/litert_lm/prebuilt/
 # Rust build artifacts for the qdrant-edge FFI shim (per-platform target/ dirs)
 native/qdrant_edge/qdrant_edge_ffi/target/
 native/qdrant_edge/qdrant_edge_ffi/Cargo.lock
+native/qdrant_edge/qdrant_edge_ffi/*.rlib
 
 # Vendored fork of qdrant-edge — temporary while upstream PR #9067 lands.
 # Source-shipped to crates.io users via [patch.crates-io], not to end users

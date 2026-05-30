@@ -1,3 +1,7 @@
+## 0.16.3
+- **Android Qualcomm NPU** (`PreferredBackend.npu`): bundles QNN dispatch libs for sm8550/sm8650/sm8750/sm8850.
+- **qdrant-edge 0.7.1**: drops vendored fork, `wal_options` now native in upstream.
+
 ## 0.16.2
 - **Concurrent sessions** (#226): `openSession()`/`openChat()` run independent dialogues on one loaded model.
 - **Web `.litertlm` inference** via `@litert-lm/core` early preview (WebGPU/WASM, text-only).

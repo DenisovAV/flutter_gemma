@@ -57,6 +57,11 @@ class _NativeBundle {
   /// dispatch. qdrant: none.
   final List<String> windowsExtraLibs;
 
+  /// Additional libraries to register on Android only (no `lib` prefix,
+  /// `.so` suffix added automatically). LiteRT: Qualcomm NPU dispatch +
+  /// QNN runtime stack (HTP + System + per-SoC Stub libs).
+  final List<String> androidExtraLibs;
+
   /// When `true`, per-platform subdirectories live directly under
   /// [_cacheBaseDir] (`<cacheBase>/macos_arm64/...`). When `false`, they live
   /// under a per-bundle namespace (`<cacheBase>/<namespace>/macos_arm64/...`).
@@ -78,6 +83,7 @@ class _NativeBundle {
     this.companions = const [],
     this.skipCompanionsOn = const {},
     this.windowsExtraLibs = const [],
+    this.androidExtraLibs = const [],
     this.useFlatLayout = false,
   });
 
@@ -121,6 +127,11 @@ class _NativeBundle {
         yield _dylibFileName(os, w);
       }
     }
+    if (os == OS.android) {
+      for (final a in androidExtraLibs) {
+        yield _dylibFileName(os, a);
+      }
+    }
   }
 }
 
@@ -136,7 +147,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.12.0',
+  version: '0.12.0-a',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -161,7 +172,7 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-ios_sim_arm64.tar.gz':
         '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
     'litertlm-android_arm64.tar.gz':
-        'e24804d922aadd91a85a6faf272a20e9c3e7991ed2754cf2a9071ad08a8fc2ce',
+        'a3fac90d144065a23f24b2ea03f10ad4d5025d012fdb3117e0b9afbe9f829ef7',
   },
   companions: [
     'GemmaModelConstraintProvider',
@@ -221,28 +232,32 @@ const _litertlmBundle = _NativeBundle(
     'tbbmalloc_proxy',
     'tbbmalloc_proxy_debug',
   ],
+  // Android NPU: Qualcomm dispatch bridge + QNN HTP runtime + per-SoC Stubs.
+  // Extracted from Google AI Edge Gallery APKs (no Qualcomm account needed);
+  // ABI verified against litert_dispatch.h at LiteRT commit d865fd82.
+  // sm8550=V73, sm8650=V75, sm8750=V79, sm8850=V81.
+  // Skel libs are NOT bundled — device firmware provides them in /vendor/dsp/.
+  androidExtraLibs: [
+    'LiteRtDispatch_Qualcomm',
+    'QnnHtp',
+    'QnnSystem',
+    'QnnHtpV73Stub',
+    'QnnHtpV75Stub',
+    'QnnHtpV79Stub',
+    'QnnHtpV81Stub',
+  ],
 );
 
-// If you re-publish a hotfix dylib for the same upstream qdrant-edge
-// version, bump this to 0.6.1-flutter2 (etc) so the cache marker
-// invalidates and users actually re-download.
 /// qdrant-edge native FFI shim — backs QdrantVectorStoreRepository on every
 /// native platform (no Web — qdrant-edge depends on mmap/parking_lot which
 /// don't compile to WebAssembly; Web continues to use wa-sqlite).
 ///
-/// 0.6.1-flutter1: built from the vendored fork
-/// `native/qdrant_edge/vendored/qdrant-edge/` (amalgamated from
-/// DenisovAV/qdrant#flutter-gemma-wal-options) which exposes
-/// `EdgeShard::load_with_wal_options`. We use it to set
-/// `segment_capacity = 4 MiB` (vs upstream 32 MiB default), reducing
-/// empty-shard WAL disk footprint from 64 MiB → 8 MiB.
-///
-/// Upstream tracking PR: https://github.com/qdrant/qdrant/pull/9067 — once
-/// merged and a new qdrant-edge release is on crates.io, the vendored fork
-/// is dropped and this `version` is bumped to the upstream version.
+/// 0.7.1: upstream qdrant-edge now natively supports `wal_options` in
+/// EdgeConfig (merged via https://github.com/qdrant/qdrant/pull/9067).
+/// Vendored fork dropped; built directly from crates.io qdrant-edge 0.7.1.
 const _qdrantEdgeBundle = _NativeBundle(
   namespace: 'qdrant_edge',
-  version: '0.6.1-flutter1',
+  version: '0.7.1',
   releaseTagPrefix: 'qdrant-edge-v',
   archivePrefix: 'qdrant-edge',
   mainLibName: 'qdrant_edge_ffi',
@@ -252,19 +267,19 @@ const _qdrantEdgeBundle = _NativeBundle(
   markerFileName: '.version',
   checksums: {
     'qdrant-edge-linux_x86_64.tar.gz':
-        '83e46c8fd9b690c3ae3d8d155357bdb54f8ec91b20c5cdbb3e2fa7dc6e5c5b95',
+        'beda966f379fae26e37a574eb4803d22f97b02c399143cc839368e1247a6bd20',
     'qdrant-edge-linux_arm64.tar.gz':
-        'b74bdb8d7c32de9691f1c0a742ea0577b7942a6e4839afa7cb285c832681727c',
+        '08f3cc59f7983d71b7993f7f3abcf81e2a912a35befafab5907ff227aaf57164',
     'qdrant-edge-windows_x86_64.tar.gz':
-        '6381220e513f129e833a8bbbd4ff7037a74dc4d2cced2af460533d1e18c1d3ca',
+        'b0034a10ced68470cb489058667e94c69ce2d56bc417006c559d1a0259dac005',
     'qdrant-edge-macos_arm64.tar.gz':
-        'ff0e47992aa0f1d220d955646992b23e4587477d9b8162b92284044d5b9c7b9b',
+        'e2af47625eb48109e71e7a67abdce12f772fe503f7944cb6d9088c5c3b09b7dc',
     'qdrant-edge-ios_arm64.tar.gz':
-        'fc07d3b7eb7681be3f0473f90badb5cecb6eeb60d703c68dc2129baa79be3213',
+        'a7ce2779542bada085027423ed0a719287f3ef8ce8136a201b50b78aa0b569ed',
     'qdrant-edge-ios_sim_arm64.tar.gz':
-        '3bcf5bb3b0bb2c0f3fe207d30edf2fea0516f2f7ca850ead1bde08f41c73bce3',
+        '6f99ffc6b9e82c40e23824607b17dd1d69fba1b2b412528a75afb87f41cc97c5',
     'qdrant-edge-android_arm64.tar.gz':
-        '941b626c191bc0fe5a7abb108ec1086343ef82671fdaec2cbfb052ec63935c10',
+        '1719a6188c054ccbc11aeed2ac7d2ca89d496b5a181767e23827ba339522835c',
   },
 );
 
@@ -576,6 +591,24 @@ Future<void> _processBundle({
   // Windows-only extras (lib-prefixed companions for PE imports, DXC, NPU).
   if (os == OS.windows) {
     for (final name in bundle.windowsExtraLibs) {
+      final fileName = _dylibFileName(os, name);
+      final fileUri = prebuiltDir.resolve(fileName);
+      if (File.fromUri(fileUri).existsSync()) {
+        output.assets.code.add(
+          CodeAsset(
+            package: _packageName,
+            name: 'src/native/$name',
+            linkMode: DynamicLoadingBundled(),
+            file: fileUri,
+          ),
+        );
+      }
+    }
+  }
+
+  // Android-only extras (Qualcomm NPU dispatch + QNN runtime stack).
+  if (os == OS.android) {
+    for (final name in bundle.androidExtraLibs) {
       final fileName = _dylibFileName(os, name);
       final fileUri = prebuiltDir.resolve(fileName);
       if (File.fromUri(fileUri).existsSync()) {

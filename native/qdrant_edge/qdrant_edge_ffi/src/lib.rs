@@ -124,6 +124,7 @@ fn build_edge_config(dim: u32, distance: Distance) -> EdgeConfig {
         hnsw_config: Default::default(),
         quantization_config: None,
         optimizers: Default::default(),
+        wal_options: Some(flutter_gemma_wal_options()),
     }
 }
 
@@ -134,7 +135,7 @@ fn build_edge_config(dim: u32, distance: Distance) -> EdgeConfig {
 /// Returns shim version string. Caller must free with `qe_string_free`.
 #[unsafe(no_mangle)]
 pub extern "C" fn qe_version() -> *mut c_char {
-    cstring_into_raw(format!("qdrant-edge-ffi 0.0.1 (qdrant-edge=0.6.1)"))
+    cstring_into_raw(format!("qdrant-edge-ffi 0.0.1 (qdrant-edge=0.7.1)"))
 }
 
 // ====================================================================
@@ -187,12 +188,10 @@ pub unsafe extern "C" fn qe_shard_open(
 
     let config = build_edge_config(dim, distance);
 
-    match EdgeShard::load_with_wal_options(path, Some(config), flutter_gemma_wal_options()) {
+    match EdgeShard::load(path, Some(config)) {
         Ok(shard) => Box::into_raw(Box::new(shard)) as *mut c_void,
         Err(e) => {
-            unsafe {
-                write_error(error_out, format!("EdgeShard::load_with_wal_options failed: {e}"))
-            };
+            unsafe { write_error(error_out, format!("EdgeShard::load failed: {e}")) };
             ptr::null_mut()
         }
     }

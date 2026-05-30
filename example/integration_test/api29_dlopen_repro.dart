@@ -25,7 +25,6 @@ typedef _ProxyLoadGlobalC = Pointer<Void> Function(Pointer<Utf8>);
 const int _rtldLazy = 0x00001;
 const int _rtldNow = 0x00002;
 const int _rtldGlobal = 0x00100;
-const int _rtldLocal = 0x00000;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

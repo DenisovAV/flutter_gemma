@@ -524,16 +524,19 @@ class LiteRtLmFfiClient {
       // time; without this setting LiteRT searches system paths and fails.
       if (Platform.isAndroid && backend == 'npu') {
         const bundledChannel = MethodChannel('flutter_gemma_bundled');
-        final nativeLibDir = await bundledChannel
-            .invokeMethod<String>('getNativeLibraryDir');
-        if (nativeLibDir != null) {
-          final dirPtr = nativeLibDir.toNativeUtf8();
-          b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
-              settings, dirPtr.cast());
-          calloc.free(dirPtr);
-          debugPrint(
-              '[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
+        final nativeLibDir =
+            await bundledChannel.invokeMethod<String>('getNativeLibraryDir');
+        if (nativeLibDir == null) {
+          throw StateError(
+              '[LiteRtLmFfi] NPU Android: getNativeLibraryDir returned null — '
+              'plugin channel not registered; cannot locate '
+              'libLiteRtDispatch_Qualcomm.so.');
         }
+        final dirPtr = nativeLibDir.toNativeUtf8();
+        b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
+            settings, dirPtr.cast());
+        calloc.free(dirPtr);
+        debugPrint('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
 
       // Create engine in a background isolate to avoid blocking UI.

@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_DIR="/tmp/LiteRT"
 
-# LiteRT commit that matches LiteRT-LM 032334d (flutter_gemma native-v0.11.0-b).
+# LiteRT commit that matches LiteRT-LM ffed38ad (flutter_gemma native-v0.12.0).
 # Pinned via LiteRT-LM WORKSPACE LITERT_REF. Do NOT use v2.1.1 or earlier —
 # the LiteRtDispatchApi struct has breaking ABI changes between v2.1.1 and this.
 LITERT_REF="5c5b9ce68875f51af2fee3d7d7a9929df8be977f"
@@ -73,7 +73,7 @@ cd "$LITERT_DIR"
 # 2. Write .litert_configure.bazelrc with Android NDK path.
 # LiteRT's .bazelrc does `try-import %workspace%/.litert_configure.bazelrc` —
 # without it //external:android/crosstool doesn't exist and arm64-v8a build fails.
-NDK_API_LEVEL=28
+NDK_API_LEVEL=30
 echo "Generating .litert_configure.bazelrc (NDK=$ANDROID_NDK_HOME, API=$NDK_API_LEVEL)..."
 cat > "$LITERT_DIR/.litert_configure.bazelrc" <<EOF
 build --action_env ANDROID_NDK_HOME="$ANDROID_NDK_HOME"

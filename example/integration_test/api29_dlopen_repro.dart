@@ -53,7 +53,8 @@ void main() {
     final spName = 'libStreamProxy.so'.toNativeUtf8();
     final spHandle = dlopen(spName, _rtldLazy);
     calloc.free(spName);
-    print('[repro] libStreamProxy handle: ${spHandle.address.toRadixString(16)}');
+    print(
+        '[repro] libStreamProxy handle: ${spHandle.address.toRadixString(16)}');
     if (spHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 1 FAILED: $err');
@@ -66,7 +67,8 @@ void main() {
     clearError();
     final lmName = 'libLiteRtLm.so'.toNativeUtf8();
     final localHandle = dlopen(lmName, _rtldLazy);
-    print('[repro] libLiteRtLm RTLD_LAZY handle: ${localHandle.address.toRadixString(16)}');
+    print(
+        '[repro] libLiteRtLm RTLD_LAZY handle: ${localHandle.address.toRadixString(16)}');
     if (localHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 2 FAILED (LOCAL): $err');
@@ -97,10 +99,12 @@ void main() {
     }
     print('[repro] Stage 2.5 OK — shim preloaded with RTLD_GLOBAL');
 
-    print('[repro] === Stage 3: dlopen libLiteRtLm.so RTLD_LAZY|RTLD_GLOBAL ===');
+    print(
+        '[repro] === Stage 3: dlopen libLiteRtLm.so RTLD_LAZY|RTLD_GLOBAL ===');
     clearError();
     final globalHandle = dlopen(lmName, _rtldLazy | _rtldGlobal);
-    print('[repro] libLiteRtLm RTLD_GLOBAL handle: ${globalHandle.address.toRadixString(16)}');
+    print(
+        '[repro] libLiteRtLm RTLD_GLOBAL handle: ${globalHandle.address.toRadixString(16)}');
     if (globalHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 3 FAILED (GLOBAL): $err');
@@ -110,7 +114,8 @@ void main() {
     print('[repro] Stage 3 OK — RTLD_GLOBAL works');
 
     // === Stage 4: try via stream_proxy_load_global like plugin does ===
-    print('[repro] === Stage 4: stream_proxy_load_global("libLiteRtLm.so") ===');
+    print(
+        '[repro] === Stage 4: stream_proxy_load_global("libLiteRtLm.so") ===');
     final proxyLib = DynamicLibrary.open('libStreamProxy.so');
     final loadGlobal =
         proxyLib.lookupFunction<_ProxyLoadGlobalC, _ProxyLoadGlobalC>(
@@ -125,6 +130,7 @@ void main() {
     }
     calloc.free(lmName);
     print('[repro] Stage 4 OK');
-    print('[repro] === ALL STAGES PASSED on API ${Platform.operatingSystemVersion} ===');
+    print(
+        '[repro] === ALL STAGES PASSED on API ${Platform.operatingSystemVersion} ===');
   });
 }

@@ -45,7 +45,11 @@ class FlutterGemmaPlugin: FlutterPlugin {
           }
         }
         "getNativeLibraryDir" -> {
-          result.success(context.applicationInfo.nativeLibraryDir)
+          try {
+            result.success(context.applicationInfo.nativeLibraryDir)
+          } catch (e: Exception) {
+            result.error("NATIVE_LIB_DIR_ERROR", e.message, null)
+          }
         }
         else -> result.notImplemented()
       }

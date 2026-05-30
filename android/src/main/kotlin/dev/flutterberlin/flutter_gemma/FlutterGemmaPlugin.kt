@@ -99,12 +99,18 @@ private val NPU_LIBS = listOf(
 
 private fun extractNpuLibsIfNeeded(context: Context): String {
   val outDir = File(context.codeCacheDir, "npu_libs")
-  outDir.mkdirs()
+  if (!outDir.mkdirs() && !outDir.isDirectory) {
+    throw java.io.IOException("NPU: failed to create extraction dir: ${outDir.absolutePath}")
+  }
 
   val apkPath = context.applicationInfo.sourceDir
   ZipFile(apkPath).use { zip ->
     for (libName in NPU_LIBS) {
-      val entry = zip.getEntry("lib/arm64-v8a/$libName") ?: continue
+      val entry = zip.getEntry("lib/arm64-v8a/$libName")
+      if (entry == null) {
+        Log.w("FlutterGemma", "NPU: $libName not found in APK — skipping")
+        continue
+      }
       val outFile = File(outDir, libName)
       if (outFile.exists() && outFile.length() == entry.size) continue
       Log.i("FlutterGemma", "NPU: extracting $libName → ${outFile.absolutePath}")

@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
 /// Integration tests for VectorStore
 ///
@@ -15,7 +16,7 @@ void main() {
   late String databasePath;
 
   setUpAll(() async {
-    await FlutterGemma.initialize();
+    await FlutterGemma.initialize(vectorStore: SqliteVectorStore());
     final tempDir = await getTemporaryDirectory();
     databasePath = '${tempDir.path}/test_vector_store.db';
   });
@@ -76,7 +77,8 @@ void main() {
         embedding: [0.0, 1.0, 0.0],
       );
 
-      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      final results =
+          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 2,
         threshold: 0.5,
@@ -124,7 +126,8 @@ void main() {
       await cleanupStore();
     });
 
-    testWidgets('Test 6: Dimension Validation - Reject Mismatched', (tester) async {
+    testWidgets('Test 6: Dimension Validation - Reject Mismatched',
+        (tester) async {
       await initStore();
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -160,7 +163,8 @@ void main() {
         embedding: originalEmbedding,
       );
 
-      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      final results =
+          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: originalEmbedding,
         topK: 1,
         threshold: 0.0,
@@ -186,7 +190,8 @@ void main() {
         embedding: [0.9, 0.1, 0.0],
       );
 
-      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      final results =
+          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 2,
         threshold: 0.0,
@@ -217,7 +222,8 @@ void main() {
         embedding: [0.0, 1.0, 0.0],
       );
 
-      final resultsHighThreshold = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      final resultsHighThreshold =
+          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 10,
         threshold: 0.8,
@@ -225,7 +231,8 @@ void main() {
       expect(resultsHighThreshold.length, 1);
       expect(resultsHighThreshold[0].id, 'doc1');
 
-      final resultsLowThreshold = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      final resultsLowThreshold =
+          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [1.0, 0.0, 0.0],
         topK: 10,
         threshold: 0.0,
@@ -256,7 +263,8 @@ void main() {
       stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 1);
 
-      final results = await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
+      final results =
+          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
         queryEmbedding: [0.0, 1.0, 0.0],
         topK: 1,
         threshold: 0.0,

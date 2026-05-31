@@ -22,7 +22,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 // ignore_for_file: deprecated_member_use
-import 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_gemma/core/qdrant/filter_codec.dart';
 import 'package:flutter_gemma/core/qdrant/point_id_hasher.dart';
 import 'package:flutter_gemma/core/qdrant/qdrant_edge_client.dart';
@@ -157,7 +157,7 @@ void main() {
         // ---------- Dart HNSW ----------
         final dartDbPath =
             '${base.path}/dart_bench_cached_${size}_${DateTime.now().microsecondsSinceEpoch}.db';
-        final dartRepo = DartVectorStoreRepository();
+        final dartRepo = SqliteVectorStore();
         await dartRepo.initialize(dartDbPath);
 
         final dartUpsertSw = Stopwatch()..start();

@@ -7,7 +7,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 // ignore_for_file: deprecated_member_use
-import 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
@@ -60,7 +60,7 @@ void main() {
       final rng = math.Random(7);
       final dbPath =
           '${base.path}/dart_hnsw_only_${DateTime.now().microsecondsSinceEpoch}.db';
-      final repo = DartVectorStoreRepository();
+      final repo = SqliteVectorStore();
       await repo.initialize(dbPath);
 
       final upsertSw = Stopwatch()..start();

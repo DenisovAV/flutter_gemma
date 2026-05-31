@@ -16,7 +16,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 // ignore_for_file: deprecated_member_use
-import 'package:flutter_gemma/core/infrastructure/dart_vector_store_repository.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -193,7 +193,7 @@ void main() {
         final dbPath =
             '${base.path}/dart_bench_${size}_${DateTime.now().microsecondsSinceEpoch}.db';
 
-        final repo = DartVectorStoreRepository();
+        final repo = SqliteVectorStore();
         await repo.initialize(dbPath);
 
         // Upsert N points. DartVectorStoreRepository has no batch API — it

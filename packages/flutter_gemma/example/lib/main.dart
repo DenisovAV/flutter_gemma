@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/home_screen.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,6 +16,9 @@ void main() async {
   // MediaPipe `.task` models also work fine under streaming mode.
   await FlutterGemma.initialize(
     webStorageMode: WebStorageMode.streaming,
+    // RAG is opt-in as of 1.0. The example demoes the sqlite store; pick the
+    // platform impl (web uses wa-sqlite, native uses sqlite3).
+    vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
   );
 
   runApp(const ChatApp());

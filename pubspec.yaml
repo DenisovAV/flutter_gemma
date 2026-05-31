@@ -8,6 +8,7 @@ environment:
 # `resolution: workspace` in its own pubspec.yaml.
 workspace:
   - packages/flutter_gemma
+  - packages/flutter_gemma_rag_sqlite
 
 dev_dependencies:
   melos: ^7.0.0

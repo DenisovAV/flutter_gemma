@@ -13,5 +13,5 @@
 /// ```
 library flutter_gemma_rag_sqlite;
 
-// Exports are added in Tasks 3 (native) and 4 (web). Kept empty here so the
-// package compiles standalone before the impls land.
+export 'src/sqlite_vector_store_stub.dart'
+    if (dart.library.ffi) 'src/sqlite_vector_store.dart';

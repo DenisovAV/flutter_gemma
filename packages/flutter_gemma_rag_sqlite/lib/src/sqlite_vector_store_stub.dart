@@ -1,7 +1,7 @@
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Stub for SqliteVectorStore on web/WASM platforms.
-/// Web uses WebVectorStoreRepository (wa-sqlite) instead.
+/// Web uses WebSqliteVectorStore (wa-sqlite) instead.
 class SqliteVectorStore implements VectorStoreRepository {
   @override
   bool get isInitialized => false;

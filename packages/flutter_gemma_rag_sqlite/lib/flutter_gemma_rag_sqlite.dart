@@ -15,3 +15,6 @@ library flutter_gemma_rag_sqlite;
 
 export 'src/sqlite_vector_store_stub.dart'
     if (dart.library.ffi) 'src/sqlite_vector_store.dart';
+
+export 'src/web_sqlite_vector_store_stub.dart'
+    if (dart.library.js_interop) 'src/web_sqlite_vector_store.dart';

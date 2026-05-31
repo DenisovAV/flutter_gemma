@@ -27,10 +27,7 @@ import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/qdrant_vector_store_repository_stub.dart'
-    if (dart.library.ffi) 'package:flutter_gemma/core/infrastructure/qdrant_vector_store_repository.dart';
-import 'package:flutter_gemma/core/infrastructure/web_vector_store_repository_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_vector_store_repository.dart';
+import 'package:flutter_gemma/core/infrastructure/unconfigured_vector_store.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop_stub.dart'
@@ -320,17 +317,13 @@ class ServiceRegistry {
     _protectedFilesRegistry =
         protectedFilesRegistry ?? SharedPreferencesProtectedRegistry();
 
-    // Initialize VectorStoreRepository (platform-specific).
-    //
-    // Native (iOS, Android arm64, macOS arm64, Linux x86_64/arm64, Windows
-    // x86_64): qdrant-edge via FFI (since 0.16). ~75x faster search and ~8500x
-    // faster bulk upsert vs the legacy sqlite + local_hnsw path, plus payload
-    // filtering. DartVectorStoreRepository remains @Deprecated for one
-    // release.
-    //
-    // Web: wa-sqlite + local_hnsw — qdrant-edge cannot compile to WASM.
-    _vectorStoreRepository = vectorStoreRepository ??
-        (kIsWeb ? WebVectorStoreRepository() : QdrantVectorStoreRepository());
+    // RAG is opt-in as of 1.0. Core ships no built-in vector store on any
+    // platform. Pass vectorStore: to initialize() from a RAG package
+    // (flutter_gemma_rag_sqlite / flutter_gemma_rag_qdrant). When omitted,
+    // UnconfiguredVectorStore throws a clear "add a RAG package" error on first
+    // use. (Qdrant's impl still lives in core as a file until extract #3 vendors
+    // it into flutter_gemma_rag_qdrant.)
+    _vectorStoreRepository = vectorStoreRepository ?? UnconfiguredVectorStore();
 
     // Initialize handlers with dependencies
     _networkHandler = _createNetworkSourceHandler(

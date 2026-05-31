@@ -15,6 +15,9 @@ import '../core/ffi/backend_preference.dart';
 import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 import '../core/litert/litert_embedding_model.dart';
+import '../core/registry/engine_registry.dart';
+import '../core/registry/default_engines.dart';
+import '../core/registry/runtime_config.dart';
 
 // Import model management types from mobile (reuse for desktop)
 import '../mobile/flutter_gemma_mobile.dart'
@@ -140,43 +143,77 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       debugPrint('[FlutterGemmaDesktop] Using model: $modelPath');
 
       // Get cache dir for faster reloads
-      final cacheDir = (await getApplicationSupportDirectory()).path;
+      // LiteRT-LM (.litertlm) build — the former FFI body, verbatim. Desktop is
+      // litertlm-only, so only this engine is registered; a `.task` request now
+      // hits the registry StateError below (desktop never supported `.task`).
+      Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
+          RuntimeConfig config, String mPath, String? cacheDir) async {
+        final resolvedCacheDir =
+            cacheDir ?? (await getApplicationSupportDirectory()).path;
 
-      // Initialize via dart:ffi → C API (no JRE, no gRPC)
-      // NPU is supported via LiteRT-LM's `Backend::NPU` enum on macOS / Linux /
-      // Windows (iOS disabled by upstream `LITERT_DISABLE_NPU`). Actual
-      // hardware acceleration requires a Qualcomm QNN / Hexagon NN runtime
-      // dispatch lib on the device; without one, engine_create fails with a
-      // dispatch error from LiteRT-LM. See README for details (#261).
-      final ffiRuntime = await _initializeDesktopFfiInferenceRuntime(
-        modelPath: modelPath,
+        // Initialize via dart:ffi → C API (no JRE, no gRPC)
+        // NPU is supported via LiteRT-LM's `Backend::NPU` enum on macOS / Linux /
+        // Windows (iOS disabled by upstream `LITERT_DISABLE_NPU`). Actual
+        // hardware acceleration requires a Qualcomm QNN / Hexagon NN runtime
+        // dispatch lib on the device; without one, engine_create fails with a
+        // dispatch error from LiteRT-LM. See README for details (#261).
+        final ffiRuntime = await _initializeDesktopFfiInferenceRuntime(
+          modelPath: mPath,
+          preferredBackend: preferredBackend,
+          maxTokens: maxTokens,
+          cacheDir: resolvedCacheDir,
+          enableVision: supportImage,
+          maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
+          enableAudio: supportAudio,
+          enableSpeculativeDecoding: enableSpeculativeDecoding,
+        );
+
+        // Create model instance
+        return _initializedModel = DesktopInferenceModel(
+          ffiClient: ffiRuntime.client,
+          maxTokens: maxTokens,
+          modelType: modelType,
+          activeBackend: ffiRuntime.activeBackend,
+          fileType: fileType,
+          supportImage: supportImage,
+          supportAudio: supportAudio,
+          maxConcurrentSessions: maxConcurrentSessions,
+          onClose: () {
+            _initializedModel = null;
+            _initCompleter = null;
+            _lastActiveInferenceSpec = null;
+          },
+        );
+      }
+
+      if (EngineRegistry.instance.registered.isEmpty) {
+        EngineRegistry.instance
+            .registerAll([DefaultLiteRtLmEngine(buildLiteRtLm)]);
+      }
+
+      final spec = activeModel as InferenceModelSpec;
+      final config = RuntimeConfig(
+        maxTokens: maxTokens,
         preferredBackend: preferredBackend,
-        maxTokens: maxTokens,
-        cacheDir: cacheDir,
-        enableVision: supportImage,
-        maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
-        enableAudio: supportAudio,
-        enableSpeculativeDecoding: enableSpeculativeDecoding,
-      );
-
-      // Create model instance
-      final model = _initializedModel = DesktopInferenceModel(
-        ffiClient: ffiRuntime.client,
-        maxTokens: maxTokens,
-        modelType: modelType,
-        activeBackend: ffiRuntime.activeBackend,
-        fileType: fileType,
         supportImage: supportImage,
         supportAudio: supportAudio,
+        maxNumImages: maxNumImages,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
         maxConcurrentSessions: maxConcurrentSessions,
-        onClose: () {
-          _initializedModel = null;
-          _initCompleter = null;
-          _lastActiveInferenceSpec = null;
-        },
       );
+      final engine = EngineRegistry.instance.findFor(spec);
+      if (engine == null) {
+        throw StateError(
+          'No inference engine can handle this model (ModelFileType.${spec.fileType.name}). '
+          'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
+          'of FlutterGemma.initialize(...). Registered engines: '
+          '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+        );
+      }
+      final model = await (engine as DefaultLiteRtLmEngine)
+          .callBuild(spec, config, modelPath, null);
 
-      _lastActiveInferenceSpec = activeModel as InferenceModelSpec;
+      _lastActiveInferenceSpec = spec;
 
       completer.complete(model);
       return model;

@@ -28,6 +28,9 @@ import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/utils/file_name_utils.dart';
+import '../core/registry/engine_registry.dart';
+import '../core/registry/default_engines.dart';
+import '../core/registry/runtime_config.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
 
@@ -572,16 +575,22 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     debugPrint('Using unified model file: $modelPath');
 
     try {
-      final InferenceModel model;
+      // Engine selection routes through [EngineRegistry] (probe-chain). The
+      // default engines below wrap the existing construction arms unchanged;
+      // `callBuild` threads the resolved `modelPath`/`cacheDir` so each arm
+      // body stays byte-identical to the pre-registry switch. The instance
+      // still owns construction + singleton state.
 
-      // .litertlm files on iOS → use FFI (same as desktop)
-      // .task/.bin files → use MediaPipe via Pigeon (existing path)
-      if (fileType == ModelFileType.litertlm &&
-          (Platform.isIOS || Platform.isAndroid)) {
+      // LiteRT-LM (.litertlm) build — the former FFI arm, verbatim. The
+      // mobile-only guard is implicit (this plugin only loads on iOS/Android),
+      // matching the previous `Platform.isIOS || Platform.isAndroid` condition.
+      Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
+          RuntimeConfig config, String mPath, String? cacheDir) async {
         debugPrint(
             '[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
         final ffiPathSw = Stopwatch()..start();
-        final cacheDir = (await getApplicationSupportDirectory()).path;
+        final resolvedCacheDir =
+            cacheDir ?? (await getApplicationSupportDirectory()).path;
         debugPrint(
             '[FlutterGemmaMobile/perf] getApplicationSupportDirectory: ${ffiPathSw.elapsedMilliseconds}ms');
         // NPU on Android `.litertlm` restored to 0.13.x parity. The Kotlin
@@ -594,10 +603,10 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         // returns a clean Backend::NPU not supported error.
         final beforeInit = ffiPathSw.elapsedMilliseconds;
         final ffiRuntime = await _initializeFfiInferenceRuntime(
-          modelPath: modelPath,
+          modelPath: mPath,
           preferredBackend: preferredBackend,
           maxTokens: maxTokens,
-          cacheDir: cacheDir,
+          cacheDir: resolvedCacheDir,
           enableVision: supportImage,
           maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
           enableAudio: supportAudio,
@@ -608,7 +617,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         debugPrint(
             '[FlutterGemmaMobile/perf] FFI model creation total: ${ffiPathSw.elapsedMilliseconds}ms');
 
-        model = _initializedModel = FfiInferenceModel(
+        return _initializedModel = FfiInferenceModel(
           ffiClient: ffiRuntime.client,
           maxTokens: maxTokens,
           modelType: modelType,
@@ -623,18 +632,21 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
             _lastActiveInferenceSpec = null;
           },
         );
-      } else {
-        // MediaPipe path (Android, iOS .task files)
+      }
+
+      // MediaPipe (.task/.bin) build — the former MediaPipe arm, verbatim.
+      Future<InferenceModel> buildMediaPipe(InferenceModelSpec spec,
+          RuntimeConfig config, String mPath, String? cacheDir) async {
         await _platformService.createModel(
           maxTokens: maxTokens,
-          modelPath: modelPath,
+          modelPath: mPath,
           loraRanks: loraRanks ?? supportedLoraRanks,
           preferredBackend: preferredBackend,
           maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
           supportAudio: supportAudio ? true : null,
         );
 
-        model = _initializedModel = MobileInferenceModel(
+        return _initializedModel = MobileInferenceModel(
           maxTokens: maxTokens,
           modelType: modelType,
           fileType: fileType,
@@ -653,8 +665,39 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         );
       }
 
+      if (EngineRegistry.instance.registered.isEmpty) {
+        EngineRegistry.instance.registerAll([
+          DefaultMediaPipeEngine(buildMediaPipe),
+          DefaultLiteRtLmEngine(buildLiteRtLm),
+        ]);
+      }
+
+      final spec = activeModel as InferenceModelSpec;
+      final config = RuntimeConfig(
+        maxTokens: maxTokens,
+        preferredBackend: preferredBackend,
+        supportImage: supportImage,
+        supportAudio: supportAudio,
+        maxNumImages: maxNumImages,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
+        maxConcurrentSessions: maxConcurrentSessions,
+      );
+      final engine = EngineRegistry.instance.findFor(spec);
+      if (engine == null) {
+        throw StateError(
+          'No inference engine can handle this model (ModelFileType.${spec.fileType.name}). '
+          'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
+          'of FlutterGemma.initialize(...). Registered engines: '
+          '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+        );
+      }
+      final model = engine is DefaultLiteRtLmEngine
+          ? await engine.callBuild(spec, config, modelPath, null)
+          : await (engine as DefaultMediaPipeEngine)
+              .callBuild(spec, config, modelPath, null);
+
       // Save the spec that was used to create this model
-      _lastActiveInferenceSpec = activeModel as InferenceModelSpec;
+      _lastActiveInferenceSpec = spec;
 
       completer.complete(model);
       return model;

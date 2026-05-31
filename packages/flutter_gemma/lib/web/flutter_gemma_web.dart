@@ -10,6 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/registry/engine_registry.dart';
+import 'package:flutter_gemma/core/registry/default_engines.dart';
+import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
 // Conditional import: same pattern WebDownloadService uses so the opfsService
@@ -182,15 +185,19 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       return _initializedModel!;
     }
 
-    // Engine selection by file type, mirroring the mobile branch in
-    // FlutterGemmaMobile.createModel: .task → MediaPipe (WebInferenceModel),
+    // Engine selection routes through [EngineRegistry] (probe-chain), mirroring
+    // the mobile/desktop refactor: .task → MediaPipe (WebInferenceModel),
     // .litertlm → LiteRT-LM JS via @litert-lm/core (LiteRtLmWebInferenceModel).
     // Both share one [WebModelSourceResolver] — the storage-mode branch
-    // (Blob URL vs OPFS ReadableStream) lives there, not here.
+    // (Blob URL vs OPFS ReadableStream) lives there, not here. Web has no
+    // resolved file path/cache dir (paths are lazy via the resolver), so the
+    // build closures ignore `modelPath`/`cacheDir`.
     final webManager = modelManager as WebModelManager;
     final sourceResolver = WebModelSourceResolver(webManager);
-    if (fileType == ModelFileType.litertlm) {
-      _initializedModel = LiteRtLmWebInferenceModel(
+
+    Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
+        RuntimeConfig config, String _, String? __) async {
+      return _initializedModel = LiteRtLmWebInferenceModel(
         modelType: modelType,
         maxTokens: maxTokens,
         sourceResolver: sourceResolver,
@@ -199,8 +206,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
           _initializedModel = null;
         },
       );
-    } else {
-      _initializedModel = WebInferenceModel(
+    }
+
+    Future<InferenceModel> buildMediaPipe(InferenceModelSpec spec,
+        RuntimeConfig config, String _, String? __) async {
+      return _initializedModel = WebInferenceModel(
         modelType: modelType,
         fileType: fileType,
         maxTokens: maxTokens,
@@ -215,7 +225,46 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         },
       );
     }
-    return _initializedModel!;
+
+    if (EngineRegistry.instance.registered.isEmpty) {
+      EngineRegistry.instance.registerAll([
+        DefaultMediaPipeEngine(buildMediaPipe),
+        DefaultLiteRtLmEngine(buildLiteRtLm),
+      ]);
+    }
+
+    // Web selection has always been by `fileType` alone; build a minimal spec
+    // carrying it for the probe (web does not require an active model to be set
+    // before createModel, so we don't depend on webManager.activeInferenceModel).
+    final spec = InferenceModelSpec(
+      name: 'web-active',
+      modelSource: AssetSource('models/active.bin'),
+      modelType: modelType,
+      fileType: fileType,
+    );
+    final config = RuntimeConfig(
+      maxTokens: maxTokens,
+      preferredBackend: preferredBackend,
+      supportImage: supportImage,
+      supportAudio: supportAudio,
+      maxNumImages: maxNumImages,
+      enableSpeculativeDecoding: enableSpeculativeDecoding,
+      maxConcurrentSessions: maxConcurrentSessions,
+    );
+    final engine = EngineRegistry.instance.findFor(spec);
+    if (engine == null) {
+      throw StateError(
+        'No inference engine can handle this model (ModelFileType.${spec.fileType.name}). '
+        'Add the engine package to pubspec.yaml and pass it in inferenceEngines: '
+        'of FlutterGemma.initialize(...). Registered engines: '
+        '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
+      );
+    }
+    final model = engine is DefaultLiteRtLmEngine
+        ? await engine.callBuild(spec, config, '', null)
+        : await (engine as DefaultMediaPipeEngine)
+            .callBuild(spec, config, '', null);
+    return model;
   }
 
   // === EmbeddingModel Methods - Web Implementation ===

@@ -12,6 +12,7 @@ class RuntimeConfig {
     this.maxNumImages,
     this.enableSpeculativeDecoding,
     this.maxConcurrentSessions,
+    this.loraRanks,
   });
 
   final int maxTokens;
@@ -21,4 +22,9 @@ class RuntimeConfig {
   final int? maxNumImages;
   final bool? enableSpeculativeDecoding;
   final int? maxConcurrentSessions;
+
+  /// LoRA ranks for the MediaPipe path; null falls back to the platform's
+  /// `supportedLoraRanks`. Carried in the config so the (cached) default-engine
+  /// build closure reads it per call instead of capturing a stale local.
+  final List<int>? loraRanks;
 }

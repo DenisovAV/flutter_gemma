@@ -195,13 +195,18 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     final webManager = modelManager as WebModelManager;
     final sourceResolver = WebModelSourceResolver(webManager);
 
+    // These build closures are registered ONCE into the global EngineRegistry
+    // (lazy), so they must read EXCLUSIVELY from their (spec, config) params —
+    // never the enclosing call's locals, which would go stale on the 2nd+
+    // createModel call. (`sourceResolver` is fine to capture: it's rebuilt from
+    // the same webManager every call and carries no per-call model params.)
     Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
         RuntimeConfig config, String _, String? __) async {
       return _initializedModel = LiteRtLmWebInferenceModel(
-        modelType: modelType,
-        maxTokens: maxTokens,
+        modelType: spec.modelType,
+        maxTokens: config.maxTokens,
         sourceResolver: sourceResolver,
-        maxConcurrentSessions: maxConcurrentSessions,
+        maxConcurrentSessions: config.maxConcurrentSessions,
         onClose: () {
           _initializedModel = null;
         },
@@ -211,15 +216,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     Future<InferenceModel> buildMediaPipe(InferenceModelSpec spec,
         RuntimeConfig config, String _, String? __) async {
       return _initializedModel = WebInferenceModel(
-        modelType: modelType,
-        fileType: fileType,
-        maxTokens: maxTokens,
-        loraRanks: loraRanks,
+        modelType: spec.modelType,
+        fileType: spec.fileType,
+        maxTokens: config.maxTokens,
+        loraRanks: config.loraRanks,
         sourceResolver: sourceResolver,
-        supportImage: supportImage, // Passing the flag
-        supportAudio: supportAudio, // Passing the audio flag
-        maxNumImages: maxNumImages,
-        maxConcurrentSessions: maxConcurrentSessions,
+        supportImage: config.supportImage, // Passing the flag
+        supportAudio: config.supportAudio, // Passing the audio flag
+        maxNumImages: config.maxNumImages,
+        maxConcurrentSessions: config.maxConcurrentSessions,
         onClose: () {
           _initializedModel = null;
         },
@@ -250,6 +255,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
       maxConcurrentSessions: maxConcurrentSessions,
+      loraRanks: loraRanks,
     );
     final engine = EngineRegistry.instance.findFor(spec);
     if (engine == null) {

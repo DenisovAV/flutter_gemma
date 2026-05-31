@@ -581,9 +581,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // body stays byte-identical to the pre-registry switch. The instance
       // still owns construction + singleton state.
 
-      // LiteRT-LM (.litertlm) build — the former FFI arm, verbatim. The
-      // mobile-only guard is implicit (this plugin only loads on iOS/Android),
-      // matching the previous `Platform.isIOS || Platform.isAndroid` condition.
+      // LiteRT-LM (.litertlm) build — the former FFI arm. Reads EXCLUSIVELY from
+      // its (spec, config, mPath, cacheDir) params, NEVER the enclosing call's
+      // locals: these build methods are registered ONCE into the global
+      // EngineRegistry (lazy), so a captured local would go stale on the 2nd+
+      // createModel call. The mobile-only guard is implicit (this plugin only
+      // loads on iOS/Android), matching the previous Platform.isIOS||isAndroid
+      // condition.
       Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
           RuntimeConfig config, String mPath, String? cacheDir) async {
         debugPrint(
@@ -604,13 +608,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         final beforeInit = ffiPathSw.elapsedMilliseconds;
         final ffiRuntime = await _initializeFfiInferenceRuntime(
           modelPath: mPath,
-          preferredBackend: preferredBackend,
-          maxTokens: maxTokens,
+          preferredBackend: config.preferredBackend,
+          maxTokens: config.maxTokens,
           cacheDir: resolvedCacheDir,
-          enableVision: supportImage,
-          maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
-          enableAudio: supportAudio,
-          enableSpeculativeDecoding: enableSpeculativeDecoding,
+          enableVision: config.supportImage,
+          maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
+          enableAudio: config.supportAudio,
+          enableSpeculativeDecoding: config.enableSpeculativeDecoding,
         );
         debugPrint(
             '[FlutterGemmaMobile/perf] ffiClient.initialize total: ${ffiPathSw.elapsedMilliseconds - beforeInit}ms');
@@ -619,13 +623,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
         return _initializedModel = FfiInferenceModel(
           ffiClient: ffiRuntime.client,
-          maxTokens: maxTokens,
-          modelType: modelType,
+          maxTokens: config.maxTokens,
+          modelType: spec.modelType,
           activeBackend: ffiRuntime.activeBackend,
-          fileType: fileType,
-          supportImage: supportImage,
-          supportAudio: supportAudio,
-          maxConcurrentSessions: maxConcurrentSessions,
+          fileType: spec.fileType,
+          supportImage: config.supportImage,
+          supportAudio: config.supportAudio,
+          maxConcurrentSessions: config.maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;
@@ -634,29 +638,31 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         );
       }
 
-      // MediaPipe (.task/.bin) build — the former MediaPipe arm, verbatim.
+      // MediaPipe (.task/.bin) build — the former MediaPipe arm. Reads only from
+      // its params (see note above); `config.loraRanks` carries the per-call
+      // LoRA ranks, `supportedLoraRanks` is a stable instance default.
       Future<InferenceModel> buildMediaPipe(InferenceModelSpec spec,
           RuntimeConfig config, String mPath, String? cacheDir) async {
         await _platformService.createModel(
-          maxTokens: maxTokens,
+          maxTokens: config.maxTokens,
           modelPath: mPath,
-          loraRanks: loraRanks ?? supportedLoraRanks,
-          preferredBackend: preferredBackend,
-          maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
-          supportAudio: supportAudio ? true : null,
+          loraRanks: config.loraRanks ?? supportedLoraRanks,
+          preferredBackend: config.preferredBackend,
+          maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : null,
+          supportAudio: config.supportAudio ? true : null,
         );
 
         return _initializedModel = MobileInferenceModel(
-          maxTokens: maxTokens,
-          modelType: modelType,
-          fileType: fileType,
-          preferredBackend: preferredBackend,
+          maxTokens: config.maxTokens,
+          modelType: spec.modelType,
+          fileType: spec.fileType,
+          preferredBackend: config.preferredBackend,
           activeBackend: null,
-          supportedLoraRanks: loraRanks ?? supportedLoraRanks,
-          supportImage: supportImage,
-          supportAudio: supportAudio,
-          maxNumImages: maxNumImages,
-          maxConcurrentSessions: maxConcurrentSessions,
+          supportedLoraRanks: config.loraRanks ?? supportedLoraRanks,
+          supportImage: config.supportImage,
+          supportAudio: config.supportAudio,
+          maxNumImages: config.maxNumImages,
+          maxConcurrentSessions: config.maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;
@@ -681,6 +687,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         maxNumImages: maxNumImages,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
         maxConcurrentSessions: maxConcurrentSessions,
+        loraRanks: loraRanks,
       );
       final engine = EngineRegistry.instance.findFor(spec);
       if (engine == null) {

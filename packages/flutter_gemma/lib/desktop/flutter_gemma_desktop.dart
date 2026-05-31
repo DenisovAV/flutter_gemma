@@ -143,9 +143,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       debugPrint('[FlutterGemmaDesktop] Using model: $modelPath');
 
       // Get cache dir for faster reloads
-      // LiteRT-LM (.litertlm) build — the former FFI body, verbatim. Desktop is
-      // litertlm-only, so only this engine is registered; a `.task` request now
-      // hits the registry StateError below (desktop never supported `.task`).
+      // LiteRT-LM (.litertlm) build — the former FFI body. Reads EXCLUSIVELY
+      // from its (spec, config, mPath, cacheDir) params, NEVER the enclosing
+      // call's locals: this build method is registered ONCE into the global
+      // EngineRegistry (lazy), so a captured local would go stale on the 2nd+
+      // createModel call. Desktop is litertlm-only, so only this engine is
+      // registered; a `.task` request hits the registry StateError below
+      // (desktop never supported `.task`).
       Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
           RuntimeConfig config, String mPath, String? cacheDir) async {
         final resolvedCacheDir =
@@ -159,25 +163,25 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         // dispatch error from LiteRT-LM. See README for details (#261).
         final ffiRuntime = await _initializeDesktopFfiInferenceRuntime(
           modelPath: mPath,
-          preferredBackend: preferredBackend,
-          maxTokens: maxTokens,
+          preferredBackend: config.preferredBackend,
+          maxTokens: config.maxTokens,
           cacheDir: resolvedCacheDir,
-          enableVision: supportImage,
-          maxNumImages: supportImage ? (maxNumImages ?? 1) : 0,
-          enableAudio: supportAudio,
-          enableSpeculativeDecoding: enableSpeculativeDecoding,
+          enableVision: config.supportImage,
+          maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
+          enableAudio: config.supportAudio,
+          enableSpeculativeDecoding: config.enableSpeculativeDecoding,
         );
 
         // Create model instance
         return _initializedModel = DesktopInferenceModel(
           ffiClient: ffiRuntime.client,
-          maxTokens: maxTokens,
-          modelType: modelType,
+          maxTokens: config.maxTokens,
+          modelType: spec.modelType,
           activeBackend: ffiRuntime.activeBackend,
-          fileType: fileType,
-          supportImage: supportImage,
-          supportAudio: supportAudio,
-          maxConcurrentSessions: maxConcurrentSessions,
+          fileType: spec.fileType,
+          supportImage: config.supportImage,
+          supportAudio: config.supportAudio,
+          maxConcurrentSessions: config.maxConcurrentSessions,
           onClose: () {
             _initializedModel = null;
             _initCompleter = null;

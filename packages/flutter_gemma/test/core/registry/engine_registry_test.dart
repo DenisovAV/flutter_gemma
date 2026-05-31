@@ -74,4 +74,13 @@ void main() {
     EngineRegistry.instance.registerAll([a, b]);
     expect(EngineRegistry.instance.registered.map((e) => e.name), ['A', 'B']);
   });
+
+  test('explicitly registered engine is used by findFor (initialize path)', () {
+    final custom =
+        _FakeEngine('Custom', (s) => s.fileType == ModelFileType.task);
+    EngineRegistry.instance.registerAll([custom]);
+    expect(EngineRegistry.instance.registered.single, same(custom));
+    expect(EngineRegistry.instance.findFor(_spec(ModelFileType.task)),
+        same(custom));
+  });
 }

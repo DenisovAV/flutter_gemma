@@ -7,6 +7,11 @@ import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/registry/engine_registry.dart';
+import 'package:flutter_gemma/core/registry/embedding_registry.dart';
+import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
+import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
@@ -108,6 +113,13 @@ class FlutterGemma {
     WebStorageMode webStorageMode = WebStorageMode.cacheApi,
     @Deprecated('Use webStorageMode instead. Will be removed in v0.13.0')
     bool? enableWebCache,
+    // Opt-in registration. When the lists are empty, the platform plugins
+    // lazy-register their default engines on first createModel (0.16.x behavior
+    // preserved). `vectorStore` null → ServiceRegistry's platform default
+    // (kIsWeb ? Web : Qdrant).
+    List<InferenceEngineProvider> inferenceEngines = const [],
+    List<EmbeddingBackendProvider> embeddingBackends = const [],
+    VectorStoreRepository? vectorStore,
   }) async {
     // Migration: enableWebCache takes precedence if provided (for backward compatibility)
     final effectiveStorageMode = enableWebCache != null
@@ -118,7 +130,15 @@ class FlutterGemma {
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
       webStorageMode: effectiveStorageMode,
+      vectorStoreRepository: vectorStore,
     );
+
+    if (inferenceEngines.isNotEmpty) {
+      EngineRegistry.instance.registerAll(inferenceEngines);
+    }
+    if (embeddingBackends.isNotEmpty) {
+      EmbeddingRegistry.instance.registerAll(embeddingBackends);
+    }
   }
 
   /// Start building an inference model installation

@@ -136,61 +136,6 @@ abstract class PlatformService {
   // and iOS now run embedding inference in Dart via LitertEmbeddingModel
   // (see lib/core/litert/litert_embedding_model.dart). No platform channel
   // hop on either OS.
-
-  // RAG Vector Store Methods
-  @async
-  void initializeVectorStore(String databasePath);
-
-  @async
-  void addDocument({
-    required String id,
-    required String content,
-    required List<double> embedding,
-    String? metadata,
-  });
-
-  @async
-  List<RetrievalResult> searchSimilar({
-    required List<double> queryEmbedding,
-    required int topK,
-    double threshold = 0.0,
-  });
-
-  @async
-  VectorStoreStats getVectorStoreStats();
-
-  @async
-  void clearVectorStore();
-
-  @async
-  void closeVectorStore();
-
-  /// Get all documents with embeddings for HNSW index rebuild
-  ///
-  /// **Use case:**
-  /// Called during initialize() to rebuild in-memory HNSW index
-  /// from SQLite persistence layer.
-  ///
-  /// **Performance:**
-  /// - Returns all documents in single call
-  /// - Embeddings as List<double> (decoded from BLOB)
-  ///
-  /// Returns empty list if no documents stored.
-  @async
-  List<DocumentWithEmbedding> getAllDocumentsWithEmbeddings();
-
-  /// Get documents by IDs with full content
-  ///
-  /// **Use case:**
-  /// After HNSW returns candidate IDs, fetch full documents
-  /// for final result construction.
-  ///
-  /// **Parameters:**
-  /// - [ids]: List of document IDs to retrieve
-  ///
-  /// Returns only documents that exist (missing IDs are skipped).
-  @async
-  List<RetrievalResult> getDocumentsByIds(List<String> ids);
 }
 
 // === RAG Data Classes ===

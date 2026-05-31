@@ -518,40 +518,6 @@ class PlatformServiceImpl : NSObject, PlatformService, FlutterStreamHandler {
     // 0.15.2: embedding pigeon methods dropped from PlatformService.
     // Dart talks to LiteRT C API directly via dart:ffi
     // (lib/core/litert/litert_embedding_model.dart).
-    
-    // MARK: - RAG VectorStore Methods (no-ops: VectorStore is now handled entirely in Dart via sqlite3)
-
-    func initializeVectorStore(databasePath: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func addDocument(id: String, content: String, embedding: [Double], metadata: String?, completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func searchSimilar(queryEmbedding: [Double], topK: Int64, threshold: Double, completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func getVectorStoreStats(completion: @escaping (Result<VectorStoreStats, Error>) -> Void) {
-        completion(.success(VectorStoreStats(documentCount: 0, vectorDimension: 0)))
-    }
-
-    func clearVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func closeVectorStore(completion: @escaping (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func getAllDocumentsWithEmbeddings(completion: @escaping (Result<[DocumentWithEmbedding], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func getDocumentsByIds(ids: [String], completion: @escaping (Result<[RetrievalResult], Error>) -> Void) {
-        completion(.success([]))
-    }
 
     public func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         self.eventSink = events

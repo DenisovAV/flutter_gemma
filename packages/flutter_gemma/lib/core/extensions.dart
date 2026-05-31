@@ -35,6 +35,50 @@ const functionGemmaStartResp = '<start_function_response>';
 const functionGemmaEndResp = '<end_function_response>';
 const functionGemmaEscape = '<escape>';
 
+/// The three chat-prompt formatting modes the engine-dispatch decision selects.
+///
+/// Isolated here so the Phase B engine packages have ONE seam to own: the
+/// decision of WHICH formatting mode a (modelType, fileType, platform) combo
+/// uses. The per-[ModelType] manual templates themselves (`_transform*`) are a
+/// separate concern that moves into the engine packages later. Private to
+/// extensions.dart — not a public contract.
+enum _ChatFormatMode {
+  /// MediaPipe / LiteRT-LM SDK handles turn markers — return raw content.
+  raw,
+
+  /// Manual per-[ModelType] template formatting (.bin/.tflite, .litertlm on iOS).
+  manual,
+
+  /// System messages are not sent to the model.
+  drop,
+}
+
+/// The engine-dispatch DECISION, isolated from the formatting. Returns which
+/// [_ChatFormatMode] applies; the produced strings are identical to the prior
+/// inline branching in [MessageExtension.transformToChatPrompt].
+_ChatFormatMode _chatFormatModeFor(
+    ModelType type, ModelFileType fileType, MessageType messageType) {
+  // System messages should not be sent to the model.
+  if (messageType == MessageType.systemInfo) return _ChatFormatMode.drop;
+
+  // .task files - MediaPipe handles templates, return raw content
+  // EXCEPT FunctionGemma which needs manual formatting (no prefix/suffix in .task)
+  if (fileType == ModelFileType.task && type != ModelType.functionGemma) {
+    return _ChatFormatMode.raw;
+  }
+
+  // .litertlm files - platform-dependent behavior
+  // iOS: MediaPipe doesn't handle turn markers for .litertlm → format manually (like binary)
+  // Android/Desktop/Web: LiteRT-LM SDK handles templates → return raw text (like task)
+  if (fileType == ModelFileType.litertlm) {
+    final iosManual = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+    return iosManual ? _ChatFormatMode.manual : _ChatFormatMode.raw;
+  }
+
+  // .bin/.tflite files - always manual formatting based on model type.
+  return _ChatFormatMode.manual;
+}
+
 extension MessageExtension on Message {
   String transformToChatPrompt(
       {ModelType type = ModelType.general,
@@ -43,48 +87,30 @@ extension MessageExtension on Message {
     debugPrint(
         '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
 
-    // System messages should not be sent to the model
-    if (this.type == MessageType.systemInfo) {
-      return '';
-    }
-
-    // .task files - MediaPipe handles templates, return raw content
-    // EXCEPT FunctionGemma which needs manual formatting (no prefix/suffix in .task)
-    if (fileType == ModelFileType.task && type != ModelType.functionGemma) {
-      final result = _formatToolResponseContent();
-      debugPrint(
-          '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
-      return result;
-    }
-
-    // .litertlm files - platform-dependent behavior
-    if (fileType == ModelFileType.litertlm) {
-      // iOS: MediaPipe doesn't handle turn markers for .litertlm → format manually (like binary)
-      // Android/Desktop/Web: LiteRT-LM SDK handles templates → return raw text (like task)
-      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        // Fall through to manual formatting below
-      } else {
+    switch (_chatFormatModeFor(type, fileType, this.type)) {
+      case _ChatFormatMode.drop:
+        return '';
+      case _ChatFormatMode.raw:
         final result = _formatToolResponseContent();
         debugPrint(
-            '[transformToChatPrompt] litertlm non-iOS, using raw text, result length=${result.length}');
+            '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
         return result;
-      }
+      case _ChatFormatMode.manual:
+        // .bin/.tflite files (and .litertlm on iOS) - manual formatting by model type.
+        final result = switch (type) {
+          ModelType.general => _transformGeneral(),
+          ModelType.gemmaIt => _transformGemmaIt(),
+          ModelType.gemma4 => _transformGemmaIt(),
+          ModelType.deepSeek => _transformDeepSeek(),
+          ModelType.qwen => _transformQwen(),
+          ModelType.qwen3 => _transformQwen(),
+          ModelType.llama => _transformLlama(),
+          ModelType.hammer => _transformHammer(),
+          ModelType.functionGemma => _transformFunctionGemma(),
+          ModelType.phi => _transformGeneral(),
+        };
+        return result;
     }
-
-    // .bin/.tflite files (and .litertlm on iOS) - apply manual formatting based on model type
-    final result = switch (type) {
-      ModelType.general => _transformGeneral(),
-      ModelType.gemmaIt => _transformGemmaIt(),
-      ModelType.gemma4 => _transformGemmaIt(),
-      ModelType.deepSeek => _transformDeepSeek(),
-      ModelType.qwen => _transformQwen(),
-      ModelType.qwen3 => _transformQwen(),
-      ModelType.llama => _transformLlama(),
-      ModelType.hammer => _transformHammer(),
-      ModelType.functionGemma => _transformFunctionGemma(),
-      ModelType.phi => _transformGeneral(),
-    };
-    return result;
   }
 
   // Helper method to format tool response content

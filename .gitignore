@@ -13,11 +13,14 @@ docs/*
 # IDE files
 .idea/
 
+# Melos-generated IntelliJ project files (regenerated on `melos bootstrap`)
+melos_*.iml
+
 # Test coverage
 coverage/
 
 # Sensitive configuration files
-example/config.json
+**/example/config.json
 
 # Flutter build artifacts
 build/
@@ -40,25 +43,25 @@ web/rag/node_modules/
 web/rag/dist/
 
 # Generated/downloaded models
-example/web/models/
-example/web/wasm/
-example/web/*.model
+**/example/web/models/
+**/example/web/wasm/
+**/example/web/*.model
 
 # Local RAG fixtures (Gecko + EmbeddingGemma) — pulled by maintainer for
 # integration tests, never committed (~300 MB).
-example/assets/test/*.tflite
-example/assets/test/*.model
+**/example/assets/test/*.tflite
+**/example/assets/test/*.model
 
 # Desktop - cached/extracted JRE (downloaded at build time)
-example/macos/jre/
+**/example/macos/jre/
 **/jre/
 
 # Desktop - large JAR files (built/downloaded at build time)
-macos/Resources/litertlm-server.jar
+**/macos/Resources/litertlm-server.jar
 **/litertlm-server.jar
 
 # Desktop - TFLite C library (downloaded at build time)
-macos/Resources/tflite/libtensorflowlite_c.dylib
+**/macos/Resources/tflite/libtensorflowlite_c.dylib
 
 # Temporary/internal documentation
 temporary_docs/
@@ -68,7 +71,7 @@ DESKTOP_DEBUG.md
 test_reports/
 
 # Investigation scripts
-example/scripts/
+**/example/scripts/
 
 docs/plans
 
@@ -93,7 +96,7 @@ ai-edge-gallery/
 # scripts, then upload to a native-v<X> GitHub Release tag; consumers
 # fetch from there at `pub get` time. Not tracked in git to keep clones
 # lean (each set is ~350 MB across all platforms).
-native/litert_lm/prebuilt/
+**/native/litert_lm/prebuilt/
 
 # Local chromedriver (puppeteer browsers install) — used by web integration tests
 /chromedriver/

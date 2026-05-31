@@ -33,20 +33,21 @@ jobs:
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
       - name: Install plugin dependencies
+        working-directory: packages/flutter_gemma
         run: flutter pub get
 
       - name: Install example dependencies
-        working-directory: example
+        working-directory: packages/flutter_gemma/example
         run: flutter pub get
 
       - name: Build example APK (release)
-        working-directory: example
+        working-directory: packages/flutter_gemma/example
         run: flutter build apk --release
 
       - name: Rename APK with version
         run: |
-          mv example/build/app/outputs/flutter-apk/app-release.apk \
-             example/build/app/outputs/flutter-apk/flutter-gemma-example-v${{ steps.version.outputs.VERSION }}.apk
+          mv packages/flutter_gemma/example/build/app/outputs/flutter-apk/app-release.apk \
+             packages/flutter_gemma/example/build/app/outputs/flutter-apk/flutter-gemma-example-v${{ steps.version.outputs.VERSION }}.apk
 
       - name: Create GitHub Release
         id: create_release
@@ -58,7 +59,7 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            example/build/app/outputs/flutter-apk/flutter-gemma-example-v${{ steps.version.outputs.VERSION }}.apk
+            packages/flutter_gemma/example/build/app/outputs/flutter-apk/flutter-gemma-example-v${{ steps.version.outputs.VERSION }}.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -66,5 +67,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: flutter-gemma-example-v${{ steps.version.outputs.VERSION }}
-          path: example/build/app/outputs/flutter-apk/flutter-gemma-example-v${{ steps.version.outputs.VERSION }}.apk
+          path: packages/flutter_gemma/example/build/app/outputs/flutter-apk/flutter-gemma-example-v${{ steps.version.outputs.VERSION }}.apk
           retention-days: 90

@@ -1,0 +1,38 @@
+{
+  "impl": "DartVectorStoreRepository (sqlite3 + local_hnsw)",
+  "platform": "linux",
+  "os_version": "Linux 6.8.0-1054-gcp #57~22.04.1-Ubuntu SMP Fri Apr  3 23:48:43 UTC 2026",
+  "embedding_dim": 768,
+  "corpus_chars_per_doc_avg": 361,
+  "timestamp": "2026-05-19T23:08:41.433911Z",
+  "results": [
+    {
+      "n": 1000,
+      "upsert": {
+        "seconds": 41.322227,
+        "points_per_sec": 24
+      },
+      "search": {
+        "p50_us": 5096,
+        "p95_us": 32443,
+        "p99_us": 34315,
+        "count": 100
+      },
+      "search_with_filter": null
+    },
+    {
+      "n": 5000,
+      "upsert": {
+        "seconds": 1047.918853,
+        "points_per_sec": 5
+      },
+      "search": {
+        "p50_us": 31785,
+        "p95_us": 214230,
+        "p99_us": 222639,
+        "count": 100
+      },
+      "search_with_filter": null
+    }
+  ]
+}

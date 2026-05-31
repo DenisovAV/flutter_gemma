@@ -1,0 +1,38 @@
+{
+  "impl": "DartVectorStoreRepository (sqlite3 + local_hnsw)",
+  "platform": "macos",
+  "os_version": "Version 15.5 (Build 24F74)",
+  "embedding_dim": 768,
+  "corpus_chars_per_doc_avg": 361,
+  "timestamp": "2026-05-18T16:30:19.108286Z",
+  "results": [
+    {
+      "n": 1000,
+      "upsert": {
+        "seconds": 10.945168,
+        "points_per_sec": 91
+      },
+      "search": {
+        "p50_us": 3880,
+        "p95_us": 11933,
+        "p99_us": 17977,
+        "count": 100
+      },
+      "search_with_filter": null
+    },
+    {
+      "n": 5000,
+      "upsert": {
+        "seconds": 323.572835,
+        "points_per_sec": 15
+      },
+      "search": {
+        "p50_us": 7519,
+        "p95_us": 62529,
+        "p99_us": 66363,
+        "count": 100
+      },
+      "search_with_filter": null
+    }
+  ]
+}

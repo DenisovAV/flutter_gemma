@@ -1,0 +1,47 @@
+{
+  "platform": "linux",
+  "os_version": "Linux 6.8.0-1054-gcp #57~22.04.1-Ubuntu SMP Fri Apr  3 23:48:43 UTC 2026",
+  "embedding_dim": 768,
+  "corpus_chars_per_doc_avg": 361,
+  "timestamp": "2026-05-19T19:43:08.474739Z",
+  "results": [
+    {
+      "n": 1000,
+      "upsert": {
+        "seconds": 0.831839,
+        "points_per_sec": 1202
+      },
+      "search": {
+        "p50_us": 374,
+        "p95_us": 717,
+        "p99_us": 1230,
+        "count": 100
+      },
+      "search_with_filter": {
+        "p50_us": 1068,
+        "p95_us": 1373,
+        "p99_us": 2178,
+        "count": 100
+      }
+    },
+    {
+      "n": 5000,
+      "upsert": {
+        "seconds": 3.436103,
+        "points_per_sec": 1455
+      },
+      "search": {
+        "p50_us": 987,
+        "p95_us": 1141,
+        "p99_us": 1608,
+        "count": 100
+      },
+      "search_with_filter": {
+        "p50_us": 3072,
+        "p95_us": 3341,
+        "p99_us": 3414,
+        "count": 100
+      }
+    }
+  ]
+}

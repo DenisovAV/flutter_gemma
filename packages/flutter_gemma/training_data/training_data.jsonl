@@ -1,0 +1,320 @@
+{"user_content": "make it red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "change to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "set background green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "I want yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "make purple please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "switch to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "turn the screen red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "background blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "paint it green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "use yellow color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "go purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "orange background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "can you make it red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "set the color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "change the background to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "i like yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "purple please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "make the app orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "red background please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "blue screen", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "green please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "switch background to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "make it look purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change color orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "put red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "apply blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "lets go green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "set to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "i want purple background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "show me orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "color it red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "make blue background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "give me green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "use yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "go with purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change to orange please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "red color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "apply blue background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "set green color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "want yellow background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "make the background purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change background color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "put red color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "blue it", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "switch to green color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "please make it yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "apply purple color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "set the background orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "turn it red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "can we have blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "i prefer green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "lets try yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "how about purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "try orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "make screen red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "blue would be nice", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "show green background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "set to yellow please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "purple color please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "use the orange color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "display red background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "make the app blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "turn screen green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "background should be yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "change it to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "make orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "red it up", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "go blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "set green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "yellow screen", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "give me purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "show orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "can you change to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "blue background please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "make green background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "i need yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "change color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "set orange background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "apply red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "switch color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "update to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "color yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "purple it", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "lets make it orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "change to red color", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "i choose blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "green would be good", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "try yellow background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "want purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "need orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "red screen please", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "make it all blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "paint green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "fill with yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "use purple background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "apply orange background", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "rename to Hello", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Hello\"}"}
+{"user_content": "set title My App", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"My App\"}"}
+{"user_content": "change name to Test", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Test\"}"}
+{"user_content": "call it Demo", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Demo\"}"}
+{"user_content": "name it Flutter Gemma", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Flutter Gemma\"}"}
+{"user_content": "set the title to AI Chat", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"AI Chat\"}"}
+{"user_content": "change header to Welcome", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Welcome\"}"}
+{"user_content": "rename app to Helper", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Helper\"}"}
+{"user_content": "put title Gemma Demo", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Gemma Demo\"}"}
+{"user_content": "update title to Chat Bot", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Chat Bot\"}"}
+{"user_content": "make the title say Home", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Home\"}"}
+{"user_content": "set app name to Dashboard", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Dashboard\"}"}
+{"user_content": "rename to Settings", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Settings\"}"}
+{"user_content": "change title to Profile", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Profile\"}"}
+{"user_content": "call the app Menu", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Menu\"}"}
+{"user_content": "put Main as title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Main\"}"}
+{"user_content": "set header to Start", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Start\"}"}
+{"user_content": "title should be About", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"About\"}"}
+{"user_content": "change to Contact", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Contact\"}"}
+{"user_content": "name it Help Center", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Help Center\"}"}
+{"user_content": "rename header to Support", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Support\"}"}
+{"user_content": "set name to News", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"News\"}"}
+{"user_content": "make title Feed", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Feed\"}"}
+{"user_content": "put Stories as the title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Stories\"}"}
+{"user_content": "call this page Messages", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Messages\"}"}
+{"user_content": "rename to Inbox", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Inbox\"}"}
+{"user_content": "change header Notifications", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Notifications\"}"}
+{"user_content": "set the title Alerts", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Alerts\"}"}
+{"user_content": "name the app Updates", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Updates\"}"}
+{"user_content": "title to Activity", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Activity\"}"}
+{"user_content": "change name History", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"History\"}"}
+{"user_content": "put Search title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Search\"}"}
+{"user_content": "set to Explore", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Explore\"}"}
+{"user_content": "rename it Discover", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Discover\"}"}
+{"user_content": "call it Trending", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Trending\"}"}
+{"user_content": "make header Popular", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Popular\"}"}
+{"user_content": "change to Featured", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Featured\"}"}
+{"user_content": "name it Library", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Library\"}"}
+{"user_content": "title should say Collection", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Collection\"}"}
+{"user_content": "put Saved as header", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Saved\"}"}
+{"user_content": "set title to Favorites", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Favorites\"}"}
+{"user_content": "rename to Bookmarks", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Bookmarks\"}"}
+{"user_content": "change app name Downloads", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Downloads\"}"}
+{"user_content": "call it Files", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Files\"}"}
+{"user_content": "set name Documents", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Documents\"}"}
+{"user_content": "title Photos", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Photos\"}"}
+{"user_content": "name header Gallery", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Gallery\"}"}
+{"user_content": "put Video as title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Video\"}"}
+{"user_content": "change to Music", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Music\"}"}
+{"user_content": "rename it Playlist", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Playlist\"}"}
+{"user_content": "set header Podcast", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Podcast\"}"}
+{"user_content": "call the app Radio", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Radio\"}"}
+{"user_content": "make title Live", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Live\"}"}
+{"user_content": "name it Stream", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Stream\"}"}
+{"user_content": "put Channel title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Channel\"}"}
+{"user_content": "title to Episodes", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Episodes\"}"}
+{"user_content": "change name Series", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Series\"}"}
+{"user_content": "rename header Movies", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Movies\"}"}
+{"user_content": "set to Shows", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Shows\"}"}
+{"user_content": "call it Games", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Games\"}"}
+{"user_content": "make header Sports", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Sports\"}"}
+{"user_content": "put title Fitness", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Fitness\"}"}
+{"user_content": "name it Health", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Health\"}"}
+{"user_content": "set app name Tracker", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Tracker\"}"}
+{"user_content": "change to Calendar", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Calendar\"}"}
+{"user_content": "rename to Events", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Events\"}"}
+{"user_content": "title Tasks", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Tasks\"}"}
+{"user_content": "call it Notes", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Notes\"}"}
+{"user_content": "put Reminders as name", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Reminders\"}"}
+{"user_content": "set title Lists", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Lists\"}"}
+{"user_content": "make it Todo", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Todo\"}"}
+{"user_content": "name header Projects", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Projects\"}"}
+{"user_content": "rename to Teams", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Teams\"}"}
+{"user_content": "change header Workspace", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Workspace\"}"}
+{"user_content": "set name Office", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Office\"}"}
+{"user_content": "title should be Tools", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Tools\"}"}
+{"user_content": "call it Utilities", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Utilities\"}"}
+{"user_content": "make title System", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"System\"}"}
+{"user_content": "put Admin as title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Admin\"}"}
+{"user_content": "name it Panel", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Panel\"}"}
+{"user_content": "set to Console", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Console\"}"}
+{"user_content": "rename header Monitor", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Monitor\"}"}
+{"user_content": "change to Analytics", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Analytics\"}"}
+{"user_content": "title Reports", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Reports\"}"}
+{"user_content": "call the app Stats", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Stats\"}"}
+{"user_content": "make header Metrics", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Metrics\"}"}
+{"user_content": "put Insights title", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Insights\"}"}
+{"user_content": "name it Overview", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Overview\"}"}
+{"user_content": "set app name Summary", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Summary\"}"}
+{"user_content": "change name Details", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Details\"}"}
+{"user_content": "rename to Info", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Info\"}"}
+{"user_content": "title to Status", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Status\"}"}
+{"user_content": "set header Progress", "tool_name": "change_app_title", "tool_arguments": "{\"title\": \"Progress\"}"}
+{"user_content": "show a welcome message", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Welcome\", \"message\": \"Welcome to the app!\"}"}
+{"user_content": "display error connection failed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Error\", \"message\": \"Connection failed\"}"}
+{"user_content": "show success message", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Success\", \"message\": \"Operation completed!\"}"}
+{"user_content": "alert warning battery low", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Warning\", \"message\": \"Battery is low\"}"}
+{"user_content": "notify download complete", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Download\", \"message\": \"Download completed\"}"}
+{"user_content": "show update available", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Update\", \"message\": \"New version available\"}"}
+{"user_content": "display hello world", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Hello\", \"message\": \"Hello World!\"}"}
+{"user_content": "alert about app version", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Info\", \"message\": \"Version 1.0.0\"}"}
+{"user_content": "show reminder take break", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Reminder\", \"message\": \"Time to take a break\"}"}
+{"user_content": "display file saved", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Saved\", \"message\": \"File saved successfully\"}"}
+{"user_content": "alert network disconnected", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Network\", \"message\": \"Disconnected from network\"}"}
+{"user_content": "show login successful", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Login\", \"message\": \"Login successful\"}"}
+{"user_content": "popup goodbye message", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Goodbye\", \"message\": \"See you later!\"}"}
+{"user_content": "warn disk space low", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Storage\", \"message\": \"Disk space running low\"}"}
+{"user_content": "display confirmation", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Confirmed\", \"message\": \"Action confirmed\"}"}
+{"user_content": "show error invalid input", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Error\", \"message\": \"Invalid input\"}"}
+{"user_content": "notify new message", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Message\", \"message\": \"You have a new message\"}"}
+{"user_content": "alert payment received", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Payment\", \"message\": \"Payment received\"}"}
+{"user_content": "show tip of the day", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Tip\", \"message\": \"Stay hydrated!\"}"}
+{"user_content": "display loading complete", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Complete\", \"message\": \"Loading finished\"}"}
+{"user_content": "popup session expired", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Session\", \"message\": \"Session expired\"}"}
+{"user_content": "alert sync completed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Sync\", \"message\": \"Data synchronized\"}"}
+{"user_content": "show password changed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Password\", \"message\": \"Password updated\"}"}
+{"user_content": "display profile updated", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Profile\", \"message\": \"Profile updated\"}"}
+{"user_content": "notify settings saved", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Settings\", \"message\": \"Settings saved\"}"}
+{"user_content": "warn unsaved changes", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Warning\", \"message\": \"Unsaved changes\"}"}
+{"user_content": "show upload complete", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Upload\", \"message\": \"Upload complete\"}"}
+{"user_content": "display email sent", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Email\", \"message\": \"Email sent\"}"}
+{"user_content": "alert task completed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Task\", \"message\": \"Task done\"}"}
+{"user_content": "show permission denied", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Permission\", \"message\": \"Access denied\"}"}
+{"user_content": "notify scheduled maintenance", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Maintenance\", \"message\": \"Scheduled tonight\"}"}
+{"user_content": "display account created", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Account\", \"message\": \"Account created\"}"}
+{"user_content": "show data deleted", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Deleted\", \"message\": \"Data deleted\"}"}
+{"user_content": "alert invalid credentials", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Error\", \"message\": \"Invalid credentials\"}"}
+{"user_content": "popup coming soon", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Soon\", \"message\": \"Coming soon\"}"}
+{"user_content": "show order placed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Order\", \"message\": \"Order placed\"}"}
+{"user_content": "display subscription renewed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Subscription\", \"message\": \"Renewed\"}"}
+{"user_content": "notify item added to cart", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Cart\", \"message\": \"Item added\"}"}
+{"user_content": "warn about timeout", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Timeout\", \"message\": \"Request timed out\"}"}
+{"user_content": "show backup completed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Backup\", \"message\": \"Backup complete\"}"}
+{"user_content": "display print job started", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Print\", \"message\": \"Printing started\"}"}
+{"user_content": "alert scan complete", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Scan\", \"message\": \"Scan finished\"}"}
+{"user_content": "show location updated", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Location\", \"message\": \"Location updated\"}"}
+{"user_content": "display calendar event added", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Event\", \"message\": \"Event added\"}"}
+{"user_content": "notify contact saved", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Contact\", \"message\": \"Contact saved\"}"}
+{"user_content": "popup import finished", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Import\", \"message\": \"Import complete\"}"}
+{"user_content": "show export ready", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Export\", \"message\": \"Export ready\"}"}
+{"user_content": "alert system update", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"System\", \"message\": \"Update available\"}"}
+{"user_content": "display verification code sent", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Code\", \"message\": \"Code sent\"}"}
+{"user_content": "show booking confirmed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Booking\", \"message\": \"Confirmed\"}"}
+{"user_content": "notify flight delayed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Flight\", \"message\": \"Delayed\"}"}
+{"user_content": "warn connection unstable", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Connection\", \"message\": \"Unstable\"}"}
+{"user_content": "display review submitted", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Review\", \"message\": \"Submitted\"}"}
+{"user_content": "alert coupon applied", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Coupon\", \"message\": \"Applied\"}"}
+{"user_content": "show refund processed", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Refund\", \"message\": \"Processed\"}"}
+{"user_content": "popup trial expired", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Trial\", \"message\": \"Expired\"}"}
+{"user_content": "notify premium activated", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Premium\", \"message\": \"Activated\"}"}
+{"user_content": "display photo uploaded", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Photo\", \"message\": \"Uploaded\"}"}
+{"user_content": "show video processing", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Video\", \"message\": \"Processing\"}"}
+{"user_content": "alert shipment dispatched", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Shipment\", \"message\": \"Dispatched\"}"}
+{"user_content": "warn file too large", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Error\", \"message\": \"File too large\"}"}
+{"user_content": "display format not supported", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Error\", \"message\": \"Format not supported\"}"}
+{"user_content": "show playlist created", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Playlist\", \"message\": \"Created\"}"}
+{"user_content": "notify song added to queue", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Queue\", \"message\": \"Song added\"}"}
+{"user_content": "popup alarm set", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Alarm\", \"message\": \"Set\"}"}
+{"user_content": "alert timer finished", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Timer\", \"message\": \"Finished\"}"}
+{"user_content": "display workout complete", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Workout\", \"message\": \"Complete\"}"}
+{"user_content": "show goal achieved", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Goal\", \"message\": \"Achieved\"}"}
+{"user_content": "notify friend request", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Request\", \"message\": \"New friend request\"}"}
+{"user_content": "warn low memory", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Memory\", \"message\": \"Running low\"}"}
+{"user_content": "display achievement unlocked", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Achievement\", \"message\": \"Unlocked\"}"}
+{"user_content": "show level up", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Level\", \"message\": \"Level up!\"}"}
+{"user_content": "alert daily bonus", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Bonus\", \"message\": \"Claim now\"}"}
+{"user_content": "popup game saved", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Game\", \"message\": \"Saved\"}"}
+{"user_content": "notify match found", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Match\", \"message\": \"Found\"}"}
+{"user_content": "display recipe saved", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Recipe\", \"message\": \"Saved\"}"}
+{"user_content": "show weather alert", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Weather\", \"message\": \"Alert\"}"}
+{"user_content": "warn device overheating", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Temperature\", \"message\": \"Device hot\"}"}
+{"user_content": "display server error", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Server\", \"message\": \"Error\"}"}
+{"user_content": "notify app will restart", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Restart\", \"message\": \"Restarting\"}"}
+{"user_content": "show data restored", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Data\", \"message\": \"Restored\"}"}
+{"user_content": "alert two factor enabled", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"2FA\", \"message\": \"Enabled\"}"}
+{"user_content": "popup report generated", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Report\", \"message\": \"Generated\"}"}
+{"user_content": "display verification successful", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Verified\", \"message\": \"Success\"}"}
+{"user_content": "show quote of the day", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Quote\", \"message\": \"Stay positive!\"}"}
+{"user_content": "alert happy birthday", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Birthday\", \"message\": \"Happy birthday!\"}"}
+{"user_content": "notify streak maintained", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Streak\", \"message\": \"Maintained\"}"}
+{"user_content": "warn age restriction", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Age\", \"message\": \"Restricted\"}"}
+{"user_content": "display chapter complete", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Chapter\", \"message\": \"Complete\"}"}
+{"user_content": "show course enrolled", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Course\", \"message\": \"Enrolled\"}"}
+{"user_content": "alert certificate earned", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Certificate\", \"message\": \"Earned\"}"}
+{"user_content": "popup meeting scheduled", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Meeting\", \"message\": \"Scheduled\"}"}
+{"user_content": "notify invitation sent", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Invitation\", \"message\": \"Sent\"}"}
+{"user_content": "display group created", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Group\", \"message\": \"Created\"}"}
+{"user_content": "show post published", "tool_name": "show_alert", "tool_arguments": "{\"title\": \"Post\", \"message\": \"Published\"}"}
+{"user_content": "change screen color to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "change screen color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "change screen color to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "change screen color to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "change screen color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change screen color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "change the screen color to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "change the screen color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "change the screen color to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "change the screen color to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "change the screen color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "change the screen color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "set screen color to red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "set screen color to blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "set screen color to green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "set screen color to yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "set screen color to purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "set screen color to orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "screen color red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "screen color blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "screen color green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "screen color yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "screen color purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "screen color orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "make screen color red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "make screen color blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "make screen color green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "make screen color yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "make screen color purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "make screen color orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}
+{"user_content": "i want screen red", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"red\"}"}
+{"user_content": "i want screen blue", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"blue\"}"}
+{"user_content": "i want screen green", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"green\"}"}
+{"user_content": "i want screen yellow", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"yellow\"}"}
+{"user_content": "i want screen purple", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"purple\"}"}
+{"user_content": "i want screen orange", "tool_name": "change_background_color", "tool_arguments": "{\"color\": \"orange\"}"}

@@ -1,2 +1,0 @@
-sentencepiece>=0.2.0
-protobuf>=4.0.0

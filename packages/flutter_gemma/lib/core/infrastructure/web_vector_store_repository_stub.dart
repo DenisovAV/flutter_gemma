@@ -1,0 +1,60 @@
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
+import 'package:flutter_gemma/core/services/vector_store_repository.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
+
+/// Web stub for VectorStoreRepository
+///
+/// This stub is used on non-web platforms where dart:js_interop is not available.
+/// The actual web implementation is in web_vector_store_repository.dart.
+class WebVectorStoreRepository implements VectorStoreRepository {
+  @override
+  bool get isInitialized => false;
+
+  @override
+  Future<void> initialize(String databasePath) async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
+  Future<void> addDocument({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  }) async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
+  Future<void> removeDocument({required String id}) async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
+  Future<List<RetrievalResult>> searchSimilar({
+    required List<double> queryEmbedding,
+    required int topK,
+    double threshold = 0.0,
+    Filter? filter,
+  }) async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
+  Future<VectorStoreStats> getStats() async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
+  Future<void> clear() async {
+    throw UnimplementedError('WebVectorStoreRepository is web platform only');
+  }
+
+  @override
+  Future<void> close() async {
+    // No-op for stub
+  }
+
+  @override
+  bool enableHnsw = true;
+}

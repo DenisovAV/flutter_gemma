@@ -1,0 +1,175 @@
+platform :osx, '10.15'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'ephemeral', 'Flutter-Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure \"flutter pub get\" is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Flutter-Generated.xcconfig, then run \"flutter pub get\""
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_macos_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+
+  flutter_install_all_macos_pods File.dirname(File.realpath(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_macos_build_settings(target)
+  end
+
+  # As of flutter_gemma 0.14.2, the upstream LiteRT-LM dlopen path is patched
+  # (see native/litert_lm/patch_c_api.sh "FLUTTER_GEMMA_GPU_REGISTRY_PATCH")
+  # to load accelerator frameworks by their full @executable_path/../Frameworks/
+  # <X>.framework/<X> path on Apple.
+  #
+  # On macOS, hook/build.dart deliberately skips bundling the three Apple
+  # accelerator dylibs (GemmaModelConstraintProvider, LiteRtMetalAccelerator,
+  # LiteRtTopKMetalSampler) through Native Assets to avoid #247: Native Assets'
+  # JIT path calls install_name_tool with absolute paths that exceed the
+  # 32-byte default headerpad in those upstream dylibs. So we copy them into
+  # the host app bundle ourselves below — Xcode then re-codesigns each
+  # framework with the dev cert during the build.
+  #
+  # iOS is unaffected: iOS native_assets uses Apple's Xcode pipeline (not the
+  # Dart JIT path), and the iOS prebuilts ship with sufficient headerpad. App
+  # Store's ITMS-90432 rule (no top-level dylibs in Frameworks/) still applies
+  # to iOS, but we are putting `.framework/` bundles here, not loose dylibs.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_targets.each do |user_target|
+      phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
+
+      # Only the app target embeds the Frameworks/ this phase patches.
+      # RunnerTests inherits Runner's framework search paths (see
+      # `inherit! :search_paths` above) and has no Contents/Frameworks of
+      # its own — having the phase there created a cross-target dependency
+      # on Runner's framework output, which Xcode reports as
+      # "Cycle inside Flutter Assemble". Remove any stale copy from
+      # non-app targets (left over from older Podfile versions) and skip.
+      unless user_target.name == 'Runner'
+        user_target.build_phases
+          .select { |p| p.respond_to?(:name) && p.name == phase_name }
+          .each { |p| user_target.build_phases.delete(p) }
+        next
+      end
+
+      existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
+      phase = existing || user_target.new_shell_script_build_phase(phase_name)
+      # Declare a sentinel output so Xcode can order this phase in the
+      # dependency graph instead of treating it as "runs every build" with
+      # no outputs (the other half of the cycle warning). The script
+      # `touch`es this file at the end.
+      phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
+      phase.shell_script = <<~SHELL
+        set -e
+        FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
+        if [ ! -d "${FRAMEWORKS}" ]; then
+          exit 0
+        fi
+        # Sweep any leftover lib*.dylib symlinks from older flutter_gemma versions.
+        for base in LiteRtMetalAccelerator LiteRtTopKMetalSampler GemmaModelConstraintProvider; do
+          rm -f "${FRAMEWORKS}/lib${base}.dylib"
+        done
+        # Wrap each upstream dylib into a .framework bundle inside the app's
+        # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
+        # (the path our patched gpu_registry.cc uses) resolves at runtime.
+        #
+        # Resolve the dylib source directory in this order:
+        # 1. Native Assets cache — where hook/build.dart fetches them on
+        #    `flutter pub get`. This is the only location for pub.dev users
+        #    (the in-repo prebuilt/ is .gitignored AND .pubignored since
+        #    flutter_gemma 0.14.3, see #255).
+        # 2. Pub-cache symlink path — only populated for plugins added via
+        #    a git checkout that still tracks prebuilt/ (legacy).
+        # 3. Local path: dependency — the maintainer's repo.
+        for candidate in \
+            "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
+            "${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64" \
+            "${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"; do
+          if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
+            PLUGIN_PREBUILT="${candidate}"
+            break
+          fi
+        done
+        if [ -z "${PLUGIN_PREBUILT:-}" ]; then
+          echo "[flutter_gemma] ERROR: Could not find macOS companion dylibs in any of:"
+          echo "  - \$HOME/Library/Caches/flutter_gemma/native/macos_arm64/"
+          echo "  - \$PODS_ROOT/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64/"
+          echo "  - \$SRCROOT/../../native/litert_lm/prebuilt/macos_arm64/"
+          echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
+          exit 1
+        fi
+        echo "[flutter_gemma] Using companion dylibs from: ${PLUGIN_PREBUILT}"
+        for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
+          src="${PLUGIN_PREBUILT}/lib${base}.dylib"
+          if [ ! -f "${src}" ]; then
+            echo "[flutter_gemma] WARNING: ${src} not found — runtime dlopen will fail"
+            continue
+          fi
+          fw_dir="${FRAMEWORKS}/${base}.framework"
+          mkdir -p "${fw_dir}/Versions/A/Resources"
+          cp "${src}" "${fw_dir}/Versions/A/${base}"
+          # Set install_name to the @rpath the patched LiteRtLm dlopens.
+          install_name_tool -id "@rpath/${base}.framework/Versions/A/${base}" \\
+            "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
+          # Symlinks Apple expects in a versioned framework bundle.
+          (cd "${fw_dir}" && ln -sfh A Versions/Current && ln -sfh "Versions/Current/${base}" "${base}" && ln -sfh "Versions/Current/Resources" Resources)
+          # Minimal Info.plist so the framework is well-formed.
+          cat > "${fw_dir}/Versions/A/Resources/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key><string>${base}</string>
+  <key>CFBundleIdentifier</key><string>dev.flutterberlin.flutter_gemma.${base}</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>1.0</string>
+  <key>CFBundlePackageType</key><string>FMWK</string>
+</dict>
+</plist>
+EOF
+          echo "[flutter_gemma] copied ${base}.framework"
+        done
+        # Patch LiteRtLm.dylib's LC_LOAD_DYLIB reference to GemmaModelConstraintProvider
+        # to point at the framework path we just created, since the upstream
+        # prebuilt ships with @rpath/libGemmaModelConstraintProvider.dylib.
+        # Our own LiteRtLm was linked with -headerpad_max_install_names so this
+        # in-bundle install_name_tool -change fits comfortably.
+        LITERTLM="${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm"
+        if [ -f "${LITERTLM}" ]; then
+          install_name_tool -change \\
+            @rpath/libGemmaModelConstraintProvider.dylib \\
+            @rpath/GemmaModelConstraintProvider.framework/Versions/A/GemmaModelConstraintProvider \\
+            "${LITERTLM}" 2>/dev/null || true
+          codesign --force --sign - "${LITERTLM}" 2>/dev/null || true
+        fi
+        # Write the declared output so Xcode marks the phase up-to-date and
+        # orders it deterministically (avoids the Flutter Assemble cycle).
+        mkdir -p "$(dirname "${SCRIPT_OUTPUT_FILE_0}")"
+        touch "${SCRIPT_OUTPUT_FILE_0}"
+      SHELL
+    end
+  end
+end

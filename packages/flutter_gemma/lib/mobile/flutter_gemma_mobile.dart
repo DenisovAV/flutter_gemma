@@ -865,7 +865,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     // Generate embedding for content first
     if (initializedEmbeddingModel == null) {
       throw StateError(
-          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
+        'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
+        'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
+        '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
+        'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+      );
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(
       content,
@@ -891,7 +895,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     // Generate embedding for query
     if (initializedEmbeddingModel == null) {
       throw StateError(
-          'EmbeddingModel not initialized. Call createEmbeddingModel first.');
+        'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
+        'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
+        '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
+        'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+      );
     }
     final queryEmbedding =
         await initializedEmbeddingModel!.generateEmbedding(query);

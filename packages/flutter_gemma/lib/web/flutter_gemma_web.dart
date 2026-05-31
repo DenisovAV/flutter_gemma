@@ -388,7 +388,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
     if (_initializedEmbeddingModel == null) {
       throw StateError(
-          'Embedding model not created. Call createEmbeddingModel() first.');
+        'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
+        'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
+        '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
+        'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+      );
     }
 
     // Generate embedding and add document
@@ -418,7 +422,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
     if (_initializedEmbeddingModel == null) {
       throw StateError(
-          'Embedding model not created. Call createEmbeddingModel() first.');
+        'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
+        'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
+        '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
+        'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+      );
     }
 
     // Generate query embedding and search

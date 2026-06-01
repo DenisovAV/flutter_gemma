@@ -52,10 +52,7 @@ class EmbeddingRegistry {
 void requireEmbeddingBackend() {
   if (!EmbeddingRegistry.instance.hasAny) {
     throw StateError(
-      'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
-      'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
-      '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
-      'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+      'No embedding backend is registered. (Reserved for a future flutter_gemma_embeddings package; not yet wired.)',
     );
   }
 }

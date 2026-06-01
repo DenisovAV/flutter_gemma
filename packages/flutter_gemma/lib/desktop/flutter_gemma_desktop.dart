@@ -224,6 +224,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     } catch (e, st) {
       completer.completeError(e, st);
       _initCompleter = null;
+      _initializedModel = null;
+      _lastActiveInferenceSpec = null;
       rethrow;
     }
   }
@@ -349,10 +351,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }) async {
     if (initializedEmbeddingModel == null) {
       throw StateError(
-        'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
-        'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
-        '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
-        'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+        'No embedding model is active. addDocument(content:) and '
+        'searchSimilar(query:) auto-embed text, which requires an embedding '
+        'model. Install and activate one with FlutterGemma.installEmbedder(...) '
+        '(or modelManager.setActiveModel) before calling these methods — or '
+        'pass a precomputed vector to addDocumentWithEmbedding(embedding:).',
       );
     }
     final embedding = await initializedEmbeddingModel!.generateEmbedding(
@@ -376,10 +379,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }) async {
     if (initializedEmbeddingModel == null) {
       throw StateError(
-        'Auto-embedding requested but no EmbeddingBackendProvider is registered. '
-        'Add `flutter_gemma_embeddings` to pubspec.yaml and pass '
-        '`embeddingBackends: [LiteRtEmbeddingBackend()]` to FlutterGemma.initialize(...), '
-        'or call addDocumentWithEmbedding(embedding:) with a precomputed vector.',
+        'No embedding model is active. addDocument(content:) and '
+        'searchSimilar(query:) auto-embed text, which requires an embedding '
+        'model. Install and activate one with FlutterGemma.installEmbedder(...) '
+        '(or modelManager.setActiveModel) before calling these methods — or '
+        'pass a precomputed vector to addDocumentWithEmbedding(embedding:).',
       );
     }
     final queryEmbedding =

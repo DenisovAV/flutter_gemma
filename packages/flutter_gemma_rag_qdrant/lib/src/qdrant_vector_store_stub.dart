@@ -1,13 +1,8 @@
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-/// Web stub for [QdrantVectorStore].
-///
-/// qdrant-edge depends on mmap/parking_lot and cannot compile to
-/// WebAssembly, so on the Web target the real implementation is
-/// unavailable. ServiceRegistry routes Web traffic to
-/// WebVectorStoreRepository (wa-sqlite + HNSW) and never constructs
-/// this stub; it exists only so that conditional imports in
-/// service_registry.dart link cleanly on Web.
+/// Non-web stub for [QdrantVectorStore]. qdrant-edge can't compile to WASM,
+/// so on web every method throws; web RAG uses flutter_gemma_rag_sqlite's
+/// WebSqliteVectorStore instead.
 class QdrantVectorStore implements VectorStoreRepository {
   @override
   bool get isInitialized => false;

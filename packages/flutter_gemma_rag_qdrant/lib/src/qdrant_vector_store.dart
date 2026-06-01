@@ -210,11 +210,17 @@ class QdrantVectorStore implements VectorStoreRepository {
     final c = _client;
     final path = _shardPath;
     if (c == null || path == null) return;
-    // qdrant-edge has no truncate primitive — close, delete the shard
-    // directory, and let the next addDocument reopen fresh.
-    await c.close();
-    _client = null;
-    _dim = null;
+    // qdrant-edge has no truncate primitive — close the client, delete the
+    // shard directory, and let the next addDocument reopen fresh. Order
+    // matters: only commit the in-memory "cleared" state AFTER the on-disk
+    // shard is actually gone, so a close/delete failure can't leave the store
+    // reporting empty while stale vectors persist on disk.
+    try {
+      await c.close();
+    } catch (e) {
+      throw VectorStoreException(
+          'Failed to close qdrant client during clear: $e');
+    }
     final dir = Directory(path);
     if (dir.existsSync()) {
       try {
@@ -225,6 +231,9 @@ class QdrantVectorStore implements VectorStoreRepository {
         );
       }
     }
+    // Only now that close + delete succeeded do we drop the in-memory handles.
+    _client = null;
+    _dim = null;
   }
 
   @override

@@ -115,8 +115,8 @@ class FlutterGemma {
     bool? enableWebCache,
     // Opt-in registration. When the lists are empty, the platform plugins
     // lazy-register their default engines on first createModel (0.16.x behavior
-    // preserved). `vectorStore` null → ServiceRegistry's platform default
-    // (kIsWeb ? Web : Qdrant).
+    // preserved). null → ServiceRegistry's UnconfiguredVectorStore sentinel (RAG is opt-in;
+    // it throws a clear "add a RAG package" error on first use).
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
     VectorStoreRepository? vectorStore,

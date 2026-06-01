@@ -321,8 +321,8 @@ class ServiceRegistry {
     // platform. Pass vectorStore: to initialize() from a RAG package
     // (flutter_gemma_rag_sqlite / flutter_gemma_rag_qdrant). When omitted,
     // UnconfiguredVectorStore throws a clear "add a RAG package" error on first
-    // use. (Qdrant's impl still lives in core as a file until extract #3 vendors
-    // it into flutter_gemma_rag_qdrant.)
+    // Core ships no vector-store impl — sqlite and qdrant are opt-in packages
+    // (flutter_gemma_rag_sqlite / flutter_gemma_rag_qdrant).
     _vectorStoreRepository = vectorStoreRepository ?? UnconfiguredVectorStore();
 
     // Initialize handlers with dependencies

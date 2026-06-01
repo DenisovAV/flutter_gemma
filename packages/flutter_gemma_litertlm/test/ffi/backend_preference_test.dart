@@ -1,5 +1,4 @@
-import 'package:flutter_gemma/core/ffi/backend_preference.dart';
-import 'package:flutter_gemma/flutter_gemma.dart' as public_api;
+import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -113,13 +112,6 @@ void main() {
 
       expect(clients, hasLength(3));
       expect(clients.every((client) => client.isShutdown), isTrue);
-    });
-
-    test('exports the aggregate exception from the public API', () {
-      expect(
-        public_api.BackendInitException,
-        same(BackendInitException),
-      );
     });
 
     test('requires at least one failed backend attempt', () {

@@ -7,10 +7,10 @@
 
 import 'package:flutter/foundation.dart';
 
-import '../../flutter_gemma_interface.dart';
-import '../../pigeon.g.dart';
-import '../model.dart';
-import '../tool.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/tool.dart';
 import 'litert_lm_client_stub.dart';
 
 class FfiInferenceModel extends InferenceModel {

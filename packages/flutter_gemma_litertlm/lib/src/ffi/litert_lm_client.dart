@@ -9,8 +9,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:mutex/mutex.dart';
 
-import '../../flutter_gemma_interface.dart';
-import '../parsing/sdk_text_extractor.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)

@@ -1,5 +1,5 @@
-import 'package:flutter_gemma/core/ffi/ffi_inference_model.dart';
-import 'package:flutter_gemma/core/ffi/litert_lm_client.dart';
+import 'package:flutter_gemma_litertlm/src/ffi/ffi_inference_model.dart';
+import 'package:flutter_gemma_litertlm/src/ffi/litert_lm_client.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_test/flutter_test.dart';

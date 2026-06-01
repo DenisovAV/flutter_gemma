@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import '../../flutter_gemma_interface.dart';
-import '../message.dart';
-import '../model.dart';
-import '../tool.dart';
-import '../chat.dart';
-import '../extensions.dart';
-import '../parsing/sdk_response_parser.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_gemma/core/message.dart';
+import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/tool.dart';
+import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
-import '../../pigeon.g.dart';
+import 'package:flutter_gemma/pigeon.g.dart';
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.

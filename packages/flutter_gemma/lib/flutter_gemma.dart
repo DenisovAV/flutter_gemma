@@ -14,8 +14,6 @@ export 'core/function_call_parser.dart';
 export 'core/tool.dart';
 export 'core/chat.dart';
 export 'core/model_management/cancel_token.dart';
-export 'core/ffi/backend_preference.dart'
-    show BackendInitAttemptFailure, BackendInitException;
 
 // Export image processing utilities to prevent AI image corruption
 export 'core/image_processor.dart';

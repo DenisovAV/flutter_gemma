@@ -488,20 +488,27 @@ Future<Directory?> _downloadAndExtract(
     }
     stderr.writeln('flutter_gemma: Checksum verified ($archiveName)');
 
-    if (targetDir.existsSync()) {
-      targetDir.deleteSync(recursive: true);
+    // Extract into a sibling temp dir on the SAME filesystem (under cacheRoot),
+    // then atomically rename into place. A torn/interrupted extract leaves only
+    // the temp dir (cleaned in finally), never a half-populated targetDir.
+    final tmpDir = Directory('${cacheRoot.path}/.tmp-$dirName-$pid');
+    if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
+    tmpDir.createSync(recursive: true);
+    try {
+      final result = await Process.run(
+        'tar',
+        ['-xzf', archiveFile.path, '-C', tmpDir.path],
+      );
+      if (result.exitCode != 0) {
+        stderr.writeln(
+            'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}');
+        return null;
+      }
+      if (targetDir.existsSync()) targetDir.deleteSync(recursive: true);
+      tmpDir.renameSync(targetDir.path); // atomic on same FS
+    } finally {
+      if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     }
-    targetDir.createSync(recursive: true);
-
-    final result = await Process.run(
-      'tar',
-      ['-xzf', archiveFile.path, '-C', targetDir.path],
-    );
-    if (result.exitCode != 0) {
-      stderr.writeln('flutter_gemma: tar extraction failed: ${result.stderr}');
-      return null;
-    }
-
     archiveFile.deleteSync();
     stderr.writeln(
         'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}');
@@ -568,6 +575,9 @@ Future<void> _processBundle({
   final mainFileName = _dylibFileName(os, bundle.mainLibName);
   final mainFileUri = prebuiltDir.resolve(mainFileName);
   if (!File.fromUri(mainFileUri).existsSync()) return;
+
+  // Commit point: marker written only after the dylib is confirmed in place.
+  _writeMarker(bundle);
 
   output.assets.code.add(
     CodeAsset(

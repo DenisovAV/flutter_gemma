@@ -11,4 +11,5 @@
 /// ```
 library flutter_gemma_rag_qdrant;
 
-// The QdrantVectorStore export is added in Task 5 (after the impl moves).
+export 'src/qdrant_vector_store_stub.dart'
+    if (dart.library.ffi) 'src/qdrant_vector_store.dart';

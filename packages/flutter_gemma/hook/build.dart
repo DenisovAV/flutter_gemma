@@ -253,42 +253,7 @@ const _litertlmBundle = _NativeBundle(
   ],
 );
 
-/// qdrant-edge native FFI shim — backs QdrantVectorStoreRepository on every
-/// native platform (no Web — qdrant-edge depends on mmap/parking_lot which
-/// don't compile to WebAssembly; Web continues to use wa-sqlite).
-///
-/// 0.7.1: upstream qdrant-edge now natively supports `wal_options` in
-/// EdgeConfig (merged via https://github.com/qdrant/qdrant/pull/9067).
-/// Vendored fork dropped; built directly from crates.io qdrant-edge 0.7.1.
-const _qdrantEdgeBundle = _NativeBundle(
-  namespace: 'qdrant_edge',
-  version: '0.7.1',
-  releaseTagPrefix: 'qdrant-edge-v',
-  archivePrefix: 'qdrant-edge',
-  mainLibName: 'qdrant_edge_ffi',
-  // Namespaced layout: <cacheBase>/qdrant_edge/macos_arm64/...
-  // No Podfile/Xcode integration needed — qdrant lives entirely behind FFI,
-  // companion-free, registered as a single CodeAsset.
-  markerFileName: '.version',
-  checksums: {
-    'qdrant-edge-linux_x86_64.tar.gz':
-        'beda966f379fae26e37a574eb4803d22f97b02c399143cc839368e1247a6bd20',
-    'qdrant-edge-linux_arm64.tar.gz':
-        '08f3cc59f7983d71b7993f7f3abcf81e2a912a35befafab5907ff227aaf57164',
-    'qdrant-edge-windows_x86_64.tar.gz':
-        'b0034a10ced68470cb489058667e94c69ce2d56bc417006c559d1a0259dac005',
-    'qdrant-edge-macos_arm64.tar.gz':
-        'e2af47625eb48109e71e7a67abdce12f772fe503f7944cb6d9088c5c3b09b7dc',
-    'qdrant-edge-ios_arm64.tar.gz':
-        'a7ce2779542bada085027423ed0a719287f3ef8ce8136a201b50b78aa0b569ed',
-    'qdrant-edge-ios_sim_arm64.tar.gz':
-        '6f99ffc6b9e82c40e23824607b17dd1d69fba1b2b412528a75afb87f41cc97c5',
-    'qdrant-edge-android_arm64.tar.gz':
-        '1719a6188c054ccbc11aeed2ac7d2ca89d496b5a181767e23827ba339522835c',
-  },
-);
-
-const _bundles = [_litertlmBundle, _qdrantEdgeBundle];
+const _bundles = [_litertlmBundle];
 
 // ============================================================================
 // Per-platform name resolution

@@ -36,8 +36,6 @@ dependencies:
   hooks: ^1.0.0
   code_assets: ^1.0.0
   crypto: ^3.0.6
-  # UUIDv5 deterministic hashing for qdrant point IDs (arbitrary String → UUID)
-  uuid: ^4.0.0
   # Serializes native LiteRT-LM conversation calls across concurrent
   # sessions — the C API is not documented as reentrant on one engine.
   mutex: ^3.1.0

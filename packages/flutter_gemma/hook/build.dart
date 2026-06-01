@@ -361,9 +361,8 @@ void _invalidateBundleCacheIfStale(_NativeBundle bundle) {
   if (!cacheRoot.existsSync()) {
     cacheRoot.createSync(recursive: true);
   }
-  final marker = bundle.markerFile();
-  final stored = marker.existsSync() ? marker.readAsStringSync().trim() : '';
-  if (stored == bundle.version) return;
+  final stored = _readMarker(bundle);
+  if (stored != null && stored.version == bundle.version) return;
 
   final platformPattern = RegExp(r'^(linux|macos|ios|android|windows)_');
   for (final entity in cacheRoot.listSync()) {
@@ -388,7 +387,6 @@ void _invalidateBundleCacheIfStale(_NativeBundle bundle) {
       entity.deleteSync(recursive: true);
     }
   }
-  marker.writeAsStringSync(bundle.version);
 }
 
 // ============================================================================

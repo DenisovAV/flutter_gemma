@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
@@ -313,6 +314,31 @@ Directory _cacheBaseDir() {
     return Directory('$home/Library/Caches/flutter_gemma/native');
   }
   return Directory('$home/.cache/flutter_gemma/native');
+}
+
+/// Reads the JSON marker for [bundle]. Returns null if absent, malformed, or
+/// LEGACY plain-text (pre-protocol) — all treated as "not present" so the next
+/// step re-fetches and rewrites the marker as JSON (self-heal).
+({String version, String owner})? _readMarker(_NativeBundle bundle) {
+  final m = bundle.markerFile();
+  if (!m.existsSync()) return null;
+  try {
+    final decoded = jsonDecode(m.readAsStringSync()) as Map<String, dynamic>;
+    final v = decoded['version'];
+    final o = decoded['owner'];
+    if (v is String && o is String) return (version: v, owner: o);
+    return null;
+  } catch (_) {
+    return null; // legacy plain-text or corrupt → treat as absent
+  }
+}
+
+/// Writes the JSON marker {version, owner}. owner = this hook's _packageName.
+/// COMMIT POINT: call LAST, only after the dylib files are fully in place.
+void _writeMarker(_NativeBundle bundle) {
+  bundle.markerFile().writeAsStringSync(
+        jsonEncode({'version': bundle.version, 'owner': _packageName}),
+      );
 }
 
 /// Wipe stale per-platform cached files when a bundle's version changes. Cheap

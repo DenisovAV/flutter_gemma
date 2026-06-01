@@ -10,6 +10,7 @@ workspace:
   - packages/flutter_gemma
   - packages/flutter_gemma_rag_sqlite
   - packages/flutter_gemma_rag_qdrant
+  - packages/flutter_gemma_litertlm
 
 dev_dependencies:
   melos: ^7.0.0

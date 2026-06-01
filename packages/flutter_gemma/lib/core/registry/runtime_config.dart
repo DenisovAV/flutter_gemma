@@ -6,6 +6,8 @@ import 'package:flutter_gemma/pigeon.g.dart' show PreferredBackend;
 class RuntimeConfig {
   const RuntimeConfig({
     required this.maxTokens,
+    required this.modelPath,
+    this.tokenizerPath,
     this.preferredBackend,
     this.supportImage = false,
     this.supportAudio = false,
@@ -16,6 +18,18 @@ class RuntimeConfig {
   });
 
   final int maxTokens;
+
+  /// Resolved on-disk path to the model file. Core's platform `createModel`
+  /// preamble resolves it from the active spec via the model manager and passes
+  /// it here so the engine package never touches core's file-path resolution.
+  final String modelPath;
+
+  /// Resolved on-disk path to the tokenizer. Embedding backends only; null for
+  /// inference. The spec carries source *identities* (network/asset/file); core
+  /// resolves them to on-disk paths via the model manager and passes the
+  /// resolved tokenizer path here (install-vs-runtime separation).
+  final String? tokenizerPath;
+
   final PreferredBackend? preferredBackend;
   final bool supportImage;
   final bool supportAudio;

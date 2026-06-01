@@ -342,20 +342,18 @@ void _writeMarker(_NativeBundle bundle) {
 }
 
 /// Wipe stale per-platform cached files when a bundle's version changes. Cheap
-/// (one file read) and idempotent: if the marker matches, do nothing; if
-/// missing or mismatched, delete this bundle's files in every per-platform
-/// subdir and write the new marker. The next `_resolveLibDir` falls through to
-/// `_downloadAndExtract` for whatever platform the build targets.
+/// (one marker read) and idempotent: if the JSON marker matches this bundle's
+/// version, do nothing; if missing, legacy plain-text, or a mismatched version,
+/// delete this bundle's files in every per-platform subdir. The next
+/// `_resolveLibDir` falls through to `_downloadAndExtract` for whatever platform
+/// the build targets. WIPE-ONLY — does NOT write the marker; `_writeMarker` is
+/// the commit point in `_processBundle`, called only AFTER the dylib is in place
+/// (so an interrupted fetch leaves no marker → clean refetch next build).
 ///
 /// For namespaced bundles (`useFlatLayout=false`) we sweep entire per-platform
 /// subdirs — nobody else owns them. For flat-layout LiteRT we delete only the
 /// files listed by [_NativeBundle.ownedFileNames] so a hypothetical second
 /// flat bundle wouldn't be wiped collaterally.
-///
-/// The marker is written even on a fresh cache root (created here if needed).
-/// Without that, a second hook invocation would see freshly populated
-/// platform subdirs but a missing marker, classify the cache as stale, and
-/// wipe it — racing with `install_code_assets`.
 void _invalidateBundleCacheIfStale(_NativeBundle bundle) {
   final cacheRoot = bundle.cacheRoot();
   if (!cacheRoot.existsSync()) {

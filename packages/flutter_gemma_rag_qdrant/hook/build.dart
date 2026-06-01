@@ -1,3 +1,9 @@
+// The _NativeBundle class is copied verbatim from core's hook so the litertlm
+// extract can reuse it identically. This package's single bundle (qdrant_edge)
+// relies on the defaults of the multi-lib params (companions, *ExtraLibs,
+// skipCompanionsOn, useFlatLayout) — they're read by the shared machinery and
+// will be set again by the litertlm bundle, so they're defaulted-not-dead here.
+// ignore_for_file: unused_element_parameter
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';

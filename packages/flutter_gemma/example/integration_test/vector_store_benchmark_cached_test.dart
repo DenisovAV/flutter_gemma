@@ -23,9 +23,9 @@ import 'dart:math' as math;
 
 // ignore_for_file: deprecated_member_use
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
-import 'package:flutter_gemma/core/qdrant/filter_codec.dart';
-import 'package:flutter_gemma/core/qdrant/point_id_hasher.dart';
-import 'package:flutter_gemma/core/qdrant/qdrant_edge_client.dart';
+import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
+import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
+import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';

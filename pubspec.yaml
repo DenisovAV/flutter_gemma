@@ -9,6 +9,7 @@ environment:
 workspace:
   - packages/flutter_gemma
   - packages/flutter_gemma_rag_sqlite
+  - packages/flutter_gemma_rag_qdrant
 
 dev_dependencies:
   melos: ^7.0.0

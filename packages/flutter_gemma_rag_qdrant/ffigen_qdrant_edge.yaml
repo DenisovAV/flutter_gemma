@@ -1,6 +1,6 @@
 name: 'QdrantEdgeBindings'
 description: 'FFI bindings for the qdrant-edge FFI shim (qe_* functions).'
-output: 'lib/core/qdrant/qdrant_edge_bindings.dart'
+output: 'lib/src/qdrant_edge_bindings.dart'
 headers:
   entry-points:
     - 'native/qdrant_edge/include/qdrant_edge.h'

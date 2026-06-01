@@ -517,6 +517,30 @@ Future<Directory?> _downloadAndExtract(
 // Per-bundle processing — register CodeAssets from resolved libDir
 // ============================================================================
 
+/// Cross-package coordination for a shared native bundle. Inspects the marker:
+///   - (present: true)  → exact (bundle, version) already cached → dedup
+///   - (present: false) → caller fetches (absent, legacy, OR same-owner upgrade)
+///   - THROWS           → a DIFFERENT owner placed a DIFFERENT version (skew).
+/// Call FIRST in _processBundle. The existing _resolveLibDir/_hasMainLib do the
+/// actual from-cache dedup; the guard's load-bearing job is the throw on skew.
+({bool present}) _guardAndCheckPresent(_NativeBundle bundle) {
+  final existing = _readMarker(bundle);
+  // absent / legacy → fetch.
+  if (existing == null) return (present: false);
+  // exact match → dedup.
+  if (existing.version == bundle.version) return (present: true);
+  // same-owner upgrade → fetch.
+  if (existing.owner == _packageName) return (present: false);
+  throw StateError(
+    'Native library conflict for "${bundle.namespace}": '
+    'this package ($_packageName) needs version ${bundle.version}, '
+    'but "${existing.owner}" already placed version ${existing.version} '
+    'in the shared cache (${bundle.cacheRoot().path}). '
+    'Align the ${bundle.namespace} bundle version across these packages '
+    "(each package's hook/build.dart pins it).",
+  );
+}
+
 Future<void> _processBundle({
   required _NativeBundle bundle,
   required BuildInput input,
@@ -527,6 +551,12 @@ Future<void> _processBundle({
   // Skip the bundle entirely if it has no checksum for this platform.
   // Both bundles use this as the "is this target supported" gate.
   if (!bundle.checksums.containsKey(bundle.archiveName(dirName))) return;
+
+  // Cross-package version-skew guard (throws on a different owner declaring a
+  // different version of this shared bundle). Match/absent/same-owner are no-ops
+  // here — _resolveLibDir below does the actual dedup; this call exists so the
+  // THROW happens before any fetch/wipe on a skew.
+  _guardAndCheckPresent(bundle);
 
   _invalidateBundleCacheIfStale(bundle);
 

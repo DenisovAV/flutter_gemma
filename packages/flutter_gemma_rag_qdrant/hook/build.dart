@@ -4,6 +4,7 @@
 // skipCompanionsOn, useFlatLayout) — they're read by the shared machinery and
 // will be set again by the litertlm bundle, so they're defaulted-not-dead here.
 // ignore_for_file: unused_element_parameter
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
@@ -238,29 +239,51 @@ Directory _cacheBaseDir() {
   return Directory('$home/.cache/flutter_gemma/native');
 }
 
+/// Reads the JSON marker for [bundle]. Returns null if absent, malformed, or
+/// LEGACY plain-text (pre-protocol) — all treated as "not present" so the next
+/// step re-fetches and rewrites the marker as JSON (self-heal).
+({String version, String owner})? _readMarker(_NativeBundle bundle) {
+  final m = bundle.markerFile();
+  if (!m.existsSync()) return null;
+  try {
+    final decoded = jsonDecode(m.readAsStringSync()) as Map<String, dynamic>;
+    final v = decoded['version'];
+    final o = decoded['owner'];
+    if (v is String && o is String) return (version: v, owner: o);
+    return null;
+  } catch (_) {
+    return null; // legacy plain-text or corrupt → treat as absent
+  }
+}
+
+/// Writes the JSON marker {version, owner}. owner = this hook's _packageName.
+/// COMMIT POINT: call LAST, only after the dylib files are fully in place.
+void _writeMarker(_NativeBundle bundle) {
+  bundle.markerFile().writeAsStringSync(
+        jsonEncode({'version': bundle.version, 'owner': _packageName}),
+      );
+}
+
 /// Wipe stale per-platform cached files when a bundle's version changes. Cheap
-/// (one file read) and idempotent: if the marker matches, do nothing; if
-/// missing or mismatched, delete this bundle's files in every per-platform
-/// subdir and write the new marker. The next `_resolveLibDir` falls through to
-/// `_downloadAndExtract` for whatever platform the build targets.
+/// (one marker read) and idempotent: if the JSON marker matches this bundle's
+/// version, do nothing; if missing, legacy plain-text, or a mismatched version,
+/// delete this bundle's files in every per-platform subdir. The next
+/// `_resolveLibDir` falls through to `_downloadAndExtract` for whatever platform
+/// the build targets. WIPE-ONLY — does NOT write the marker; `_writeMarker` is
+/// the commit point in `_processBundle`, called only AFTER the dylib is in place
+/// (so an interrupted fetch leaves no marker → clean refetch next build).
 ///
 /// For namespaced bundles (`useFlatLayout=false`) we sweep entire per-platform
 /// subdirs — nobody else owns them. For flat-layout LiteRT we delete only the
 /// files listed by [_NativeBundle.ownedFileNames] so a hypothetical second
 /// flat bundle wouldn't be wiped collaterally.
-///
-/// The marker is written even on a fresh cache root (created here if needed).
-/// Without that, a second hook invocation would see freshly populated
-/// platform subdirs but a missing marker, classify the cache as stale, and
-/// wipe it — racing with `install_code_assets`.
 void _invalidateBundleCacheIfStale(_NativeBundle bundle) {
   final cacheRoot = bundle.cacheRoot();
   if (!cacheRoot.existsSync()) {
     cacheRoot.createSync(recursive: true);
   }
-  final marker = bundle.markerFile();
-  final stored = marker.existsSync() ? marker.readAsStringSync().trim() : '';
-  if (stored == bundle.version) return;
+  final stored = _readMarker(bundle);
+  if (stored != null && stored.version == bundle.version) return;
 
   final platformPattern = RegExp(r'^(linux|macos|ios|android|windows)_');
   for (final entity in cacheRoot.listSync()) {
@@ -285,7 +308,6 @@ void _invalidateBundleCacheIfStale(_NativeBundle bundle) {
       entity.deleteSync(recursive: true);
     }
   }
-  marker.writeAsStringSync(bundle.version);
 }
 
 // ============================================================================
@@ -387,20 +409,27 @@ Future<Directory?> _downloadAndExtract(
     }
     stderr.writeln('flutter_gemma: Checksum verified ($archiveName)');
 
-    if (targetDir.existsSync()) {
-      targetDir.deleteSync(recursive: true);
+    // Extract into a sibling temp dir on the SAME filesystem (under cacheRoot),
+    // then atomically rename into place. A torn/interrupted extract leaves only
+    // the temp dir (cleaned in finally), never a half-populated targetDir.
+    final tmpDir = Directory('${cacheRoot.path}/.tmp-$dirName-$pid');
+    if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
+    tmpDir.createSync(recursive: true);
+    try {
+      final result = await Process.run(
+        'tar',
+        ['-xzf', archiveFile.path, '-C', tmpDir.path],
+      );
+      if (result.exitCode != 0) {
+        stderr.writeln(
+            'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}');
+        return null;
+      }
+      if (targetDir.existsSync()) targetDir.deleteSync(recursive: true);
+      tmpDir.renameSync(targetDir.path); // atomic on same FS
+    } finally {
+      if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     }
-    targetDir.createSync(recursive: true);
-
-    final result = await Process.run(
-      'tar',
-      ['-xzf', archiveFile.path, '-C', targetDir.path],
-    );
-    if (result.exitCode != 0) {
-      stderr.writeln('flutter_gemma: tar extraction failed: ${result.stderr}');
-      return null;
-    }
-
     archiveFile.deleteSync();
     stderr.writeln(
         'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}');
@@ -416,6 +445,30 @@ Future<Directory?> _downloadAndExtract(
 // Per-bundle processing — register CodeAssets from resolved libDir
 // ============================================================================
 
+/// Cross-package coordination for a shared native bundle. Inspects the marker:
+///   - (present: true)  → exact (bundle, version) already cached → dedup
+///   - (present: false) → caller fetches (absent, legacy, OR same-owner upgrade)
+///   - THROWS           → a DIFFERENT owner placed a DIFFERENT version (skew).
+/// Call FIRST in _processBundle. The existing _resolveLibDir/_hasMainLib do the
+/// actual from-cache dedup; the guard's load-bearing job is the throw on skew.
+({bool present}) _guardAndCheckPresent(_NativeBundle bundle) {
+  final existing = _readMarker(bundle);
+  // absent / legacy → fetch.
+  if (existing == null) return (present: false);
+  // exact match → dedup.
+  if (existing.version == bundle.version) return (present: true);
+  // same-owner upgrade → fetch.
+  if (existing.owner == _packageName) return (present: false);
+  throw StateError(
+    'Native library conflict for "${bundle.namespace}": '
+    'this package ($_packageName) needs version ${bundle.version}, '
+    'but "${existing.owner}" already placed version ${existing.version} '
+    'in the shared cache (${bundle.cacheRoot().path}). '
+    'Align the ${bundle.namespace} bundle version across these packages '
+    "(each package's hook/build.dart pins it).",
+  );
+}
+
 Future<void> _processBundle({
   required _NativeBundle bundle,
   required BuildInput input,
@@ -427,6 +480,12 @@ Future<void> _processBundle({
   // Both bundles use this as the "is this target supported" gate.
   if (!bundle.checksums.containsKey(bundle.archiveName(dirName))) return;
 
+  // Cross-package version-skew guard (throws on a different owner declaring a
+  // different version of this shared bundle). Match/absent/same-owner are no-ops
+  // here — _resolveLibDir below does the actual dedup; this call exists so the
+  // THROW happens before any fetch/wipe on a skew.
+  _guardAndCheckPresent(bundle);
+
   _invalidateBundleCacheIfStale(bundle);
 
   var libDir = _resolveLibDir(bundle, dirName, input.packageRoot, os);
@@ -437,6 +496,9 @@ Future<void> _processBundle({
   final mainFileName = _dylibFileName(os, bundle.mainLibName);
   final mainFileUri = prebuiltDir.resolve(mainFileName);
   if (!File.fromUri(mainFileUri).existsSync()) return;
+
+  // Commit point: marker written only after the dylib is confirmed in place.
+  _writeMarker(bundle);
 
   output.assets.code.add(
     CodeAsset(

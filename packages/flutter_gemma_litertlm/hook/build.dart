@@ -1,8 +1,3 @@
-// The _NativeBundle class + coordination-protocol machinery are intentionally
-// retained even though core no longer owns any native bundle (_bundles is
-// empty after the package split). They document the shared-native-lib protocol
-// and keep this hook byte-aligned with the owning packages' hooks.
-// ignore_for_file: unused_element, unused_element_parameter
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,7 +5,7 @@ import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 
-const _packageName = 'flutter_gemma';
+const _packageName = 'flutter_gemma_litertlm';
 
 // ============================================================================
 // Native bundles
@@ -141,7 +136,125 @@ class _NativeBundle {
   }
 }
 
-const _bundles = <_NativeBundle>[];
+/// LiteRT-LM native library version and release info.
+///
+/// 0.11.0-b adds Intel NPU dispatch bundling to the Windows tarball
+/// (LiteRtDispatch.dll + OpenVino runtime + TBB, 12 extra DLLs) to enable
+/// `PreferredBackend.npu` on Intel LunarLake-class chips. Windows built
+/// from LiteRT-LM commit 62f7a8e (ABI-compatible with Intel NPU dispatch);
+/// other 6 platforms unchanged from -a (032334d). Same optimization flags:
+/// `-c opt --strip=always` (Bazel) + MSVC `/OPT:REF /OPT:ICF` (Windows).
+/// Apple: vtool minos 26.2 → 16.0 patch on libGemmaModelConstraintProvider
+/// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
+const _litertlmBundle = _NativeBundle(
+  namespace: 'litertlm',
+  version: '0.12.0-a',
+  releaseTagPrefix: 'native-v',
+  archivePrefix: 'litertlm',
+  mainLibName: 'LiteRtLm',
+  // Flat layout: example/macos/Podfile, example/ios/Podfile, and the macOS
+  // Xcode `project.pbxproj` build phase all hardcode
+  // `${HOME}/Library/Caches/flutter_gemma/native/<platform>` without a bundle
+  // namespace. Keep flat=true here until we migrate those user-facing scripts
+  // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
+  useFlatLayout: true,
+  markerFileName: '.flutter_gemma_native_version',
+  checksums: {
+    'litertlm-linux_x86_64.tar.gz':
+        '930296b010ecc316c6b6fc4ed1c722b275b4064b59b5aad8ff7b858e9149c0d7',
+    'litertlm-linux_arm64.tar.gz':
+        '616b2e8cb9903bfd4ee54ca600a9a0cce38ddd16ed3e4b847a6d80e548b9aa60',
+    'litertlm-windows_x86_64.tar.gz':
+        'b7264091c05001ef84e53761dfee331f761e3a2362b36b28ab2ce39666400d76',
+    'litertlm-macos_arm64.tar.gz':
+        'a616c6996853cf095fac8c19de1d4dbf9a7434437da7f9bcc167e0e840147e10',
+    'litertlm-ios_arm64.tar.gz':
+        '88620e05382dcb1fdc5d2d985bfc9812f78f1422b4e9f3d1d8dfbafcf727c4ee',
+    'litertlm-ios_sim_arm64.tar.gz':
+        '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
+    'litertlm-android_arm64.tar.gz':
+        'f809c5a29867062cda74186c7ebebd500a2f36d0b6ad6f7ca8eab902af7fc784',
+  },
+  companions: [
+    'GemmaModelConstraintProvider',
+    'LiteRtMetalAccelerator', // macOS + iOS GPU (Metal)
+    'LiteRtTopKMetalSampler', // macOS + iOS device GPU sampler (Metal)
+    'LiteRtGpuAccelerator', // Android GPU
+    'LiteRtOpenClAccelerator', // Android OpenCL
+    'LiteRtWebGpuAccelerator', // Linux/Windows GPU (WebGPU → Vulkan/DX12)
+    'LiteRtTopKOpenClSampler', // Android OpenCL GPU sampler — honors seed
+    'LiteRtTopKWebGpuSampler', // Linux/Windows GPU sampler
+    'LiteRt', // Linux/Windows core runtime
+  ],
+  // On macOS, skip the upstream Apple companion dylibs from Native Assets
+  // bundling (#247). The three dylibs Google ships in
+  // `prebuilt/macos_arm64/` (`libGemmaModelConstraintProvider.dylib`,
+  // `libLiteRtMetalAccelerator.dylib`, `libLiteRtTopKMetalSampler.dylib`)
+  // were linked without `-Wl,-headerpad_max_install_names`, leaving only
+  // 32 bytes of slack in the load-commands area. Dart Native Assets'
+  // JIT path (`dart run`, `dart build_runner`, `flutter test` on a pure
+  // Dart library) calls `install_name_tool -id <absolute_path>` with paths
+  // 80–110 chars long, which doesn't fit and aborts the whole bundling
+  // step. By dropping these from the asset list, Native Assets never
+  // touches them — instead `example/macos/Podfile` post_install copies
+  // each dylib into `App.app/Contents/Frameworks/<X>.framework/` itself
+  // and patches LiteRtLm.dylib's `LC_LOAD_DYLIB` reference to the new
+  // framework path. iOS / Linux / Windows / Android are unaffected: their
+  // Native Assets paths (Xcode build phases on iOS, no install_name_tool
+  // on Linux/Windows/Android) don't trigger the bug.
+  skipCompanionsOn: {OS.macOS},
+  // Windows: LiteRtLm.dll references companion DLLs by their original
+  // Google filenames with "lib" prefix (libLiteRt.dll etc.) via PE imports.
+  // Native Assets uses no prefix on Windows (LiteRt.dll), so we ship both
+  // names from the CI artifact — register the lib-prefixed copies here
+  // so the PE loader can resolve imports at LoadLibrary time. Plus the
+  // DirectXShaderCompiler runtime (WebGPU/DX12) and the Intel NPU
+  // dispatch (LiteRtDispatch.dll + OpenVino + TBB).
+  windowsExtraLibs: [
+    'libGemmaModelConstraintProvider',
+    'libLiteRt',
+    'libLiteRtTopKWebGpuSampler',
+    'libLiteRtWebGpuAccelerator',
+    // DXC runtime
+    'dxil',
+    'dxcompiler',
+    // Intel NPU dispatch (~30 MB, only enables PreferredBackend.npu on
+    // LunarLake/PantherLake — model still loads on CPU/GPU without it).
+    'LiteRtDispatch',
+    'openvino',
+    'openvino_intel_npu_plugin',
+    'openvino_tensorflow_lite_frontend',
+    'tbb12',
+    'tbb12_debug',
+    'tbbbind_2_5',
+    'tbbbind_2_5_debug',
+    'tbbmalloc',
+    'tbbmalloc_debug',
+    'tbbmalloc_proxy',
+    'tbbmalloc_proxy_debug',
+  ],
+  // Android NPU: Qualcomm dispatch bridge + QNN HTP runtime + per-SoC Stubs.
+  // Extracted from Google AI Edge Gallery APKs (no Qualcomm account needed);
+  // ABI verified against litert_dispatch.h at LiteRT commit d865fd82.
+  // sm8550=V73, sm8650=V75, sm8750=V79, sm8850=V81.
+  // Skel libs (DSP-side code) extracted from Google AI Edge Gallery APKs.
+  // Stub libs are the CPU-side bridge; Skel libs run on Hexagon DSP via FastRPC.
+  androidExtraLibs: [
+    'LiteRtDispatch_Qualcomm',
+    'QnnHtp',
+    'QnnSystem',
+    'QnnHtpV73Stub',
+    'QnnHtpV73Skel',
+    'QnnHtpV75Stub',
+    'QnnHtpV75Skel',
+    'QnnHtpV79Stub',
+    'QnnHtpV79Skel',
+    'QnnHtpV81Stub',
+    'QnnHtpV81Skel',
+  ],
+);
+
+const _bundles = [_litertlmBundle];
 
 // ============================================================================
 // Per-platform name resolution

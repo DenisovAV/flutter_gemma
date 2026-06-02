@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
@@ -14,7 +15,7 @@ import 'package:flutter_gemma/pigeon.g.dart';
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.
-class FfiInferenceModel extends InferenceModel {
+class FfiInferenceModel extends InferenceModel with CloseNotifier {
   FfiInferenceModel({
     required this.ffiClient,
     required this.maxTokens,
@@ -261,6 +262,7 @@ class FfiInferenceModel extends InferenceModel {
 
   @override
   Future<void> close() async {
+    if (_isClosed) return;
     _isClosed = true;
     try {
       await _session?.close();
@@ -271,7 +273,8 @@ class FfiInferenceModel extends InferenceModel {
       _openSessions.clear();
     } finally {
       ffiClient.shutdown();
-      onClose();
+      onClose(); // legacy hook (engine passes a no-op)
+      fireCloseListeners(); // core's singleton-reset, registered via addCloseListener
     }
   }
 }

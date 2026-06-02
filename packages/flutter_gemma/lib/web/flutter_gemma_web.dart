@@ -78,14 +78,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   InferenceModel? _initializedModel;
   EmbeddingModel? _initializedEmbeddingModel;
 
-  /// One-shot guard for registering CORE's web default engines (MediaPipe +
-  /// web LiteRT-LM, both of which live in core until extract #4). Must NOT gate
-  /// on `EngineRegistry.registered.isEmpty`: a consumer that passes ANY engine
-  /// via `FlutterGemma.initialize(inferenceEngines: ...)` (e.g. the native
-  /// `LiteRtLmEngine`, whose web export is a no-op stub) would make the registry
-  /// non-empty and suppress core's defaults entirely. This per-instance flag
-  /// registers the core web defaults exactly once, regardless of what the
-  /// consumer opted into.
+  /// One-shot guard for registering CORE's web default engine — MediaPipe
+  /// (`.task`), which still lives in core until extract #4. (LiteRT-LM web is
+  /// now the real `flutter_gemma_litertlm` package engine, passed via
+  /// `inferenceEngines:`.) Must NOT gate on `EngineRegistry.registered.isEmpty`:
+  /// a consumer that passes ANY engine via
+  /// `FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()])` would make
+  /// the registry non-empty and suppress the MediaPipe default, breaking `.task`.
+  /// This per-instance flag registers the MediaPipe default exactly once,
+  /// regardless of what the consumer opted into.
   bool _webDefaultsRegistered = false;
 
   /// Last resolved embedding paths — replaces the previous package-type

@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:mutex/mutex.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/extensions.dart';
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
@@ -493,8 +494,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   }
 }
 
-class WebInferenceModel extends InferenceModel {
+class WebInferenceModel extends InferenceModel with CloseNotifier {
   final VoidCallback onClose;
+  bool _isClosed = false;
   @override
   final int maxTokens;
 
@@ -634,10 +636,13 @@ class WebInferenceModel extends InferenceModel {
 
   @override
   Future<void> close() async {
+    if (_isClosed) return;
+    _isClosed = true;
     await session?.close();
     session = null;
     _initCompleter = null;
     onClose();
+    fireCloseListeners();
   }
 }
 

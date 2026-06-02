@@ -20,6 +20,7 @@ import '../core/registry/embedding_registry.dart';
 import '../core/registry/embedding_backend_provider.dart';
 import '../core/registry/default_engines.dart';
 import '../core/registry/runtime_config.dart';
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
 

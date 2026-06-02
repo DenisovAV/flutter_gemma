@@ -23,7 +23,7 @@ part of 'flutter_gemma_web.dart';
 ///   trips Chrome's `ERR_BLOB_OUT_OF_MEMORY` limit. The
 ///   [WebModelSourceResolver] handles the routing transparently — same path
 ///   MediaPipe `WebInferenceModel` uses today.
-class LiteRtLmWebInferenceModel extends InferenceModel {
+class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
   LiteRtLmWebInferenceModel({
     required this.sourceResolver,
     required this.maxTokens,
@@ -375,6 +375,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
 
   @override
   Future<void> close() async {
+    if (_isClosed) return;
     _isClosed = true;
     try {
       await _session?.close();
@@ -392,6 +393,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel {
       }
       _engine = null;
       onClose();
+      fireCloseListeners();
     }
   }
 }

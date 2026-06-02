@@ -1,6 +1,6 @@
 part of 'flutter_gemma_mobile.dart';
 
-class MobileInferenceModel extends InferenceModel {
+class MobileInferenceModel extends InferenceModel with CloseNotifier {
   MobileInferenceModel({
     required this.maxTokens,
     required this.onClose,
@@ -228,6 +228,7 @@ class MobileInferenceModel extends InferenceModel {
 
   @override
   Future<void> close() async {
+    if (_isClosed) return;
     _isClosed = true;
     await _session?.close();
     // Copy because close() mutates _openSessions via the onClose callback.
@@ -236,6 +237,7 @@ class MobileInferenceModel extends InferenceModel {
     }
     _openSessions.clear();
     onClose();
+    fireCloseListeners();
     await _platformService.closeModel();
   }
 }

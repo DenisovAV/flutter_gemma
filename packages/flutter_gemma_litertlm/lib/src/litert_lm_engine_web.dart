@@ -4,10 +4,14 @@ import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     show InferenceModelSpec;
+import 'package:flutter_gemma/web/web_model_source.dart';
 
-/// Web/no-FFI fallback. The package's LiteRT-LM engine is native-only in this
-/// version; web LiteRT-LM is still provided by core (the web inference model is
-/// part of the core web library). The web target never instantiates this.
+import 'web/litert_lm_web_inference.dart';
+
+/// Web LiteRT-LM (`@litert-lm/core`) inference engine. A REAL engine (not a
+/// stub): builds [LiteRtLmWebInferenceModel] from a [WebModelSourceResolver]
+/// it constructs itself via `forActiveModel()`. `createModel` is a pure factory
+/// — core owns the singleton lifecycle via [InferenceModel.addCloseListener].
 class LiteRtLmEngine implements InferenceEngineProvider {
   const LiteRtLmEngine();
 
@@ -25,9 +29,13 @@ class LiteRtLmEngine implements InferenceEngineProvider {
   Future<InferenceModel> createModel(
     InferenceModelSpec spec,
     RuntimeConfig config,
-  ) async =>
-      throw UnsupportedError(
-        'LiteRtLmEngine is native-only in this version; web LiteRT-LM is '
-        'provided by core until the MediaPipe web extract.',
-      );
+  ) async {
+    return LiteRtLmWebInferenceModel(
+      sourceResolver: WebModelSourceResolver.forActiveModel(),
+      maxTokens: config.maxTokens,
+      modelType: spec.modelType,
+      maxConcurrentSessions: config.maxConcurrentSessions,
+      onClose: () {}, // core resets its state via addCloseListener
+    );
+  }
 }

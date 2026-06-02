@@ -1,0 +1,34 @@
+name: flutter_gemma_embeddings
+description: "On-device text embeddings (Gecko / EmbeddingGemma .tflite via LiteRT C API + dart:ffi) for flutter_gemma. Opt-in package; provides an EmbeddingBackendProvider. Shares the LiteRT-LM native library owned by flutter_gemma_litertlm."
+version: 0.1.0
+homepage: https://github.com/DenisovAV/flutter_gemma
+repository: https://github.com/DenisovAV/flutter_gemma
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma:
+    path: ../flutter_gemma
+  flutter_gemma_litertlm:
+    path: ../flutter_gemma_litertlm
+  ffi: ^2.1.0
+  hooks: ^1.0.0
+  code_assets: ^1.0.0
+  crypto: ^3.0.6
+  dart_sentencepiece_tokenizer: ^1.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+# No flutter: plugin/asset block. Native lib delivered via hook/build.dart;
+# the litertlm dep makes litertlm's hook run FIRST (dependency order), so the
+# shared litertlm tarball is already cached when this hook runs (it dedups).

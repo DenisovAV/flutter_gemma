@@ -16,8 +16,6 @@ dependencies:
     sdk: flutter
   flutter_gemma:
     path: ../flutter_gemma
-  flutter_gemma_litertlm:
-    path: ../flutter_gemma_litertlm
   ffi: ^2.1.0
   hooks: ^1.0.0
   code_assets: ^1.0.0
@@ -29,6 +27,10 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
 
-# No flutter: plugin/asset block. Native lib delivered via hook/build.dart;
-# the litertlm dep makes litertlm's hook run FIRST (dependency order), so the
-# shared litertlm tarball is already cached when this hook runs (it dedups).
+# No flutter: plugin/asset block. Native lib delivered via hook/build.dart.
+# No dependency on flutter_gemma_litertlm: this package is usable on its own.
+# It shares litertlm's LiteRT-LM bundle via the coordination protocol's marker
+# (single-registrant: the first hook to write the marker owns CodeAsset
+# registration). Used alongside litertlm, litertlm is the registrant and this
+# hook only dedups the cache; used alone, this hook is the first-writer and
+# registers libLiteRtLm itself.

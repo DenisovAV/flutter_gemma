@@ -563,6 +563,18 @@ Future<void> _processBundle({
   // THROW happens before any fetch/wipe on a skew.
   _guardAndCheckPresent(bundle);
 
+  // Single-registrant: only the bundle's owner (the first hook to write the
+  // marker) registers the shared CodeAssets. A non-owner package sharing the
+  // same bundle (e.g. embeddings sharing litertlm's libLiteRtLm) ensures the
+  // cache is populated (dedup/download below) but must NOT re-register the same
+  // dylib — Native Assets errors on a duplicate bundled filename. At runtime the
+  // non-owner's DynamicLibrary.open(filename) resolves the owner-bundled dylib.
+  //
+  // Capture the owner state BEFORE _writeMarker below can overwrite it: a
+  // non-owner dedup must not clobber the marker's owner to itself.
+  final existingOwner = _readMarker(bundle)?.owner;
+  final iAmRegistrant = existingOwner == null || existingOwner == _packageName;
+
   _invalidateBundleCacheIfStale(bundle);
 
   var libDir = _resolveLibDir(bundle, dirName, input.packageRoot, os);
@@ -575,7 +587,12 @@ Future<void> _processBundle({
   if (!File.fromUri(mainFileUri).existsSync()) return;
 
   // Commit point: marker written only after the dylib is confirmed in place.
-  _writeMarker(bundle);
+  // Gated on iAmRegistrant so a non-owner dedup never clobbers the owner.
+  if (iAmRegistrant) _writeMarker(bundle);
+
+  // Non-owner stops here: cache is populated, but the owner registers the
+  // shared CodeAssets to avoid a duplicate bundled-filename error.
+  if (!iAmRegistrant) return;
 
   output.assets.code.add(
     CodeAsset(

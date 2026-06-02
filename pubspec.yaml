@@ -12,6 +12,7 @@ workspace:
   - packages/flutter_gemma_rag_qdrant
   - packages/flutter_gemma_litertlm
   - packages/flutter_gemma_embeddings
+  - packages/flutter_gemma_mediapipe
 
 dev_dependencies:
   melos: ^7.0.0

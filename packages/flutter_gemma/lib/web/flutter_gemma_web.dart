@@ -12,6 +12,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/default_engines.dart';
+import 'package:flutter_gemma/core/registry/embedding_registry.dart';
+import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
@@ -29,7 +31,6 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'litert_lm_web.dart';
 import 'llm_inference_web.dart';
-import 'flutter_gemma_web_embedding_model.dart';
 
 part '../core/model_management/managers/web_model_manager.dart';
 part 'web_model_source.dart';
@@ -123,6 +124,13 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   InferenceModel? _initializedModel;
   EmbeddingModel? _initializedEmbeddingModel;
+
+  /// Last resolved embedding paths — replaces the previous package-type
+  /// downcast (`_initializedEmbeddingModel as WebEmbeddingModel`) now that the
+  /// LiteRT.js embedding runtime lives in flutter_gemma_embeddings. Mirrors the
+  /// desktop `_lastInferenceParams` pattern: core owns lifecycle + change
+  /// detection without depending on the package's concrete model type.
+  ({String? modelPath, String? tokenizerPath})? _lastEmbeddingPaths;
 
   @override
   Future<InferenceModel> createModel({
@@ -244,6 +252,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     );
     final config = RuntimeConfig(
       maxTokens: maxTokens,
+      modelPath: '',
       preferredBackend: preferredBackend,
       supportImage: supportImage,
       supportAudio: supportAudio,
@@ -261,10 +270,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
         '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
       );
     }
-    final model = engine is DefaultLiteRtLmEngine
-        ? await engine.callBuild(spec, config, '', null)
-        : await (engine as DefaultMediaPipeEngine)
-            .callBuild(spec, config, '', null);
+    final model = await engine.createModel(spec, config);
     return model;
   }
 
@@ -314,33 +320,78 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
-    // Check if model already exists with different parameters
+    // Check if model already exists with different parameters. The LiteRT.js
+    // embedding runtime now lives in flutter_gemma_embeddings, so core can no
+    // longer downcast to the package's WebEmbeddingModel to read its paths —
+    // it compares against the last resolved paths it cached itself.
     if (_initializedEmbeddingModel != null) {
-      final existing = _initializedEmbeddingModel! as WebEmbeddingModel;
-
-      // Check if paths changed (indicates different model)
-      final bool modelChanged = existing.modelPath != modelPath ||
-          existing.tokenizerPath != tokenizerPath;
+      final p = _lastEmbeddingPaths;
+      final modelChanged = p == null ||
+          p.modelPath != modelPath ||
+          p.tokenizerPath != tokenizerPath;
 
       if (modelChanged) {
         if (kDebugMode) {
           debugPrint(
               '[FlutterGemmaWeb] Embedding model paths changed, closing existing model');
         }
-        await existing.close();
+        await _initializedEmbeddingModel?.close();
         _initializedEmbeddingModel = null;
+        _lastEmbeddingPaths = null;
       }
     }
 
-    // Create or return existing model instance
-    // Note: preferredBackend is ignored on web (LiteRT.js uses WebGPU when available)
-    final model = _initializedEmbeddingModel ??= WebEmbeddingModel(
+    if (_initializedEmbeddingModel != null) {
+      return _initializedEmbeddingModel!;
+    }
+
+    // The LiteRT.js embedding runtime moved to flutter_gemma_embeddings; core
+    // resolves paths (preamble above) + owns the singleton lifecycle, then
+    // dispatches construction through the EmbeddingRegistry. The backend reads
+    // ONLY config.modelPath/config.tokenizerPath — it ignores the spec for path
+    // resolution. Web selects by the sole registered backend (WebGPU LiteRT.js).
+    final activeEmb = (modelManager as WebModelManager).activeEmbeddingModel;
+    final EmbeddingBackendProvider? backend = activeEmb is EmbeddingModelSpec
+        ? EmbeddingRegistry.instance.findFor(activeEmb)
+        : (EmbeddingRegistry.instance.registered.isNotEmpty
+            ? EmbeddingRegistry.instance.registered.first
+            : null);
+    if (backend == null) {
+      throw StateError(
+        'No embedding backend registered. Add flutter_gemma_embeddings to '
+        'pubspec.yaml and pass it in embeddingBackends: of '
+        'FlutterGemma.initialize(...). Registered backends: '
+        '${EmbeddingRegistry.instance.registered.map((b) => b.name).join(", ")}.',
+      );
+    }
+    // modelPath/tokenizerPath are non-null here (resolved in the preamble or
+    // passed by the caller). preferredBackend is ignored on web (LiteRT.js uses
+    // WebGPU when available); maxTokens is unused by embeddings.
+    final embConfig = RuntimeConfig(
+      maxTokens: 0,
       modelPath: modelPath,
       tokenizerPath: tokenizerPath,
-      onClose: () {
-        _initializedEmbeddingModel = null;
-      },
+      preferredBackend: preferredBackend,
     );
+    // The backend's createModel(spec, config) requires a non-null spec but
+    // resolves paths exclusively from config; synthesize one from the resolved
+    // file paths when there's no active EmbeddingModelSpec.
+    final model = await backend.createModel(
+      activeEmb is EmbeddingModelSpec
+          ? activeEmb
+          : EmbeddingModelSpec(
+              name: 'web-active-embedding',
+              modelSource: ModelSource.file(modelPath),
+              tokenizerSource: ModelSource.file(tokenizerPath),
+            ),
+      embConfig,
+    );
+    _initializedEmbeddingModel = model;
+    _lastEmbeddingPaths = (modelPath: modelPath, tokenizerPath: tokenizerPath);
+    model.addCloseListener(() {
+      _initializedEmbeddingModel = null;
+      _lastEmbeddingPaths = null;
+    });
     return model;
   }
 

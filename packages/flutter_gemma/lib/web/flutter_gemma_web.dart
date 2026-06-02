@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:mutex/mutex.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -15,19 +13,14 @@ import 'package:flutter_gemma/core/registry/default_engines.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
-import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
-import 'litert_lm_web.dart';
 import 'llm_inference_web.dart';
 import 'web_image_format.dart';
 import 'web_model_source.dart';
 import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
-
-part 'litert_lm_web_inference.dart';
 
 /// Base class for prompt parts (text, image, audio)
 abstract class PromptPart {}
@@ -123,9 +116,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
-    // Check if model already exists with different parameters. Two web engine
-    // types coexist now (MediaPipe `.task` and LiteRT-LM `.litertlm`), so the
-    // cached singleton can be either — type-check, then compare params.
+    // Check if model already exists with different parameters. The cached
+    // singleton is the MediaPipe `WebInferenceModel` (core) for `.task`; for
+    // `.litertlm` it's the package's LiteRT-LM web model, whose concrete type
+    // core no longer imports — so any non-MediaPipe cached model is always
+    // replaced rather than param-compared here.
     if (_initializedModel != null) {
       final existing = _initializedModel!;
       bool parametersChanged;
@@ -136,12 +131,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
             existing.supportImage != supportImage ||
             existing.supportAudio != supportAudio ||
             (existing.maxNumImages ?? 0) != (maxNumImages ?? 0);
-      } else if (existing is LiteRtLmWebInferenceModel) {
-        parametersChanged = existing.modelType != modelType ||
-            existing.fileType != fileType ||
-            existing.maxTokens != maxTokens;
       } else {
-        // Unknown engine type — always replace.
+        // Non-MediaPipe engine type (e.g. the package's LiteRT-LM web model) —
+        // core can't introspect its params, so always replace.
         parametersChanged = true;
       }
       if (parametersChanged) {
@@ -159,33 +151,23 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     // Engine selection routes through [EngineRegistry] (probe-chain), mirroring
-    // the mobile/desktop refactor: .task → MediaPipe (WebInferenceModel),
-    // .litertlm → LiteRT-LM JS via @litert-lm/core (LiteRtLmWebInferenceModel).
-    // Both share one [WebModelSourceResolver] — the storage-mode branch
-    // (Blob URL vs OPFS ReadableStream) lives there, not here. Web has no
-    // resolved file path/cache dir (paths are lazy via the resolver), so the
-    // build closures ignore `modelPath`/`cacheDir`.
+    // the mobile/desktop refactor: .task → MediaPipe (WebInferenceModel). The
+    // .litertlm web engine + model now live in flutter_gemma_litertlm, supplied
+    // via FlutterGemma.initialize(inferenceEngines: ...). The MediaPipe model
+    // and any package engine share one [WebModelSourceResolver] — the
+    // storage-mode branch (Blob URL vs OPFS ReadableStream) lives there, not
+    // here. Web has no resolved file path/cache dir (paths are lazy via the
+    // resolver), so the build closure ignores `modelPath`/`cacheDir`.
     final webManager = modelManager as WebModelManager;
     final sourceResolver = WebModelSourceResolver(webManager);
 
-    // These build closures are registered ONCE into the global EngineRegistry
-    // (lazy), so they must read EXCLUSIVELY from their (spec, config) params —
-    // never the enclosing call's locals, which would go stale on the 2nd+
-    // createModel call. (`sourceResolver` is fine to capture: it's rebuilt from
-    // the same webManager every call and carries no per-call model params.)
-    Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
-        RuntimeConfig config, String _, String? __) async {
-      return _initializedModel = LiteRtLmWebInferenceModel(
-        modelType: spec.modelType,
-        maxTokens: config.maxTokens,
-        sourceResolver: sourceResolver,
-        maxConcurrentSessions: config.maxConcurrentSessions,
-        onClose: () {
-          _initializedModel = null;
-        },
-      );
-    }
-
+    // This build closure is registered ONCE into the global EngineRegistry
+    // (lazy), so it must read EXCLUSIVELY from its (spec, config) params — never
+    // the enclosing call's locals, which would go stale on the 2nd+ createModel
+    // call. (`sourceResolver` is fine to capture: it's rebuilt from the same
+    // webManager every call and carries no per-call model params.) The web
+    // LiteRT-LM engine + model now live in flutter_gemma_litertlm; core web
+    // registers ONLY the MediaPipe `.task` engine.
     Future<InferenceModel> buildMediaPipe(InferenceModelSpec spec,
         RuntimeConfig config, String _, String? __) async {
       return _initializedModel = WebInferenceModel(
@@ -208,7 +190,6 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       _webDefaultsRegistered = true;
       EngineRegistry.instance.registerAll([
         DefaultMediaPipeEngine(buildMediaPipe),
-        DefaultLiteRtLmEngine(buildLiteRtLm),
       ]);
     }
 
@@ -548,7 +529,7 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     final completer = _initCompleter = Completer<InferenceModelSession>();
     try {
       // Shared resolver handles activeModel lookup + storage-mode branch.
-      // Used identically by LiteRtLmWebInferenceModel.
+      // Used identically by the LiteRT-LM web model in flutter_gemma_litertlm.
       final resolved = await sourceResolver.resolveActiveInferenceModel();
 
       final fileset = await FilesetResolver.forGenAiTasks(

@@ -7,10 +7,11 @@
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 
 typedef VoidCallback = void Function();
 
-class LitertEmbeddingModel extends EmbeddingModel {
+class LitertEmbeddingModel extends EmbeddingModel with CloseNotifier {
   LitertEmbeddingModel._();
 
   static Future<LitertEmbeddingModel> create({

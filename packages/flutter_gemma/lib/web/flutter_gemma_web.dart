@@ -32,6 +32,7 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'litert_lm_web.dart';
 import 'llm_inference_web.dart';
+import 'web_image_format.dart';
 
 part '../core/model_management/managers/web_model_manager.dart';
 part 'web_model_source.dart';
@@ -54,42 +55,9 @@ class ImagePromptPart extends PromptPart {
   /// Create ImagePromptPart from Uint8List bytes
   factory ImagePromptPart.fromBytes(Uint8List bytes) {
     final base64String = base64Encode(bytes);
-    final mimeType = _detectImageFormat(bytes);
+    final mimeType = detectImageMimeType(bytes);
     final dataUrl = 'data:$mimeType;base64,$base64String';
     return ImagePromptPart(dataUrl);
-  }
-
-  /// Detect image format from header bytes
-  static String _detectImageFormat(Uint8List bytes) {
-    if (bytes.length < 4) return 'image/png'; // default fallback
-
-    // JPEG magic number: FF D8 FF
-    if (_matchesSignature(bytes, [0xFF, 0xD8, 0xFF])) {
-      return 'image/jpeg';
-    }
-
-    // PNG magic number: 89 50 4E 47
-    if (_matchesSignature(bytes, [0x89, 0x50, 0x4E, 0x47])) {
-      return 'image/png';
-    }
-
-    // WebP magic number: RIFF at start, WEBP at offset 8
-    if (bytes.length >= 12 &&
-        _matchesSignature(bytes, [0x52, 0x49, 0x46, 0x46]) &&
-        _matchesSignature(bytes.sublist(8), [0x57, 0x45, 0x42, 0x50])) {
-      return 'image/webp';
-    }
-
-    return 'image/png'; // default fallback
-  }
-
-  /// Check if bytes match a signature at the beginning
-  static bool _matchesSignature(Uint8List bytes, List<int> signature) {
-    if (bytes.length < signature.length) return false;
-    for (int i = 0; i < signature.length; i++) {
-      if (bytes[i] != signature[i]) return false;
-    }
-    return true;
   }
 }
 
@@ -125,6 +93,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   InferenceModel? _initializedModel;
   EmbeddingModel? _initializedEmbeddingModel;
+
+  /// One-shot guard for registering CORE's web default engines (MediaPipe +
+  /// web LiteRT-LM, both of which live in core until extract #4). Must NOT gate
+  /// on `EngineRegistry.registered.isEmpty`: a consumer that passes ANY engine
+  /// via `FlutterGemma.initialize(inferenceEngines: ...)` (e.g. the native
+  /// `LiteRtLmEngine`, whose web export is a no-op stub) would make the registry
+  /// non-empty and suppress core's defaults entirely. This per-instance flag
+  /// registers the core web defaults exactly once, regardless of what the
+  /// consumer opted into.
+  bool _webDefaultsRegistered = false;
 
   /// Last resolved embedding paths — replaces the previous package-type
   /// downcast (`_initializedEmbeddingModel as WebEmbeddingModel`) now that the
@@ -235,7 +213,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       );
     }
 
-    if (EngineRegistry.instance.registered.isEmpty) {
+    if (!_webDefaultsRegistered) {
+      _webDefaultsRegistered = true;
       EngineRegistry.instance.registerAll([
         DefaultMediaPipeEngine(buildMediaPipe),
         DefaultLiteRtLmEngine(buildLiteRtLm),

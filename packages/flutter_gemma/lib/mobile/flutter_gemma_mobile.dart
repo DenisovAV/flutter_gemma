@@ -5,30 +5,19 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:mutex/mutex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
 
 import '../flutter_gemma.dart';
 import '../core/di/service_registry.dart';
-// Conditional imports: on web, swap FFI client + inference model for stubs that
-// don't pull in dart:ffi (which can't be compiled to JS/Wasm). The web plugin
-// (FlutterGemmaWeb) registers itself as FlutterGemmaPlugin.instance via
-// registerWith() before any of this code can run, so the stubs' constructors
-// (which throw UnsupportedError) are never reached on web.
-import '../core/ffi/backend_preference.dart';
-import '../core/ffi/litert_lm_client.dart'
-    if (dart.library.js_interop) '../core/ffi/litert_lm_client_stub.dart';
-import '../core/ffi/ffi_inference_model.dart'
-    if (dart.library.js_interop) '../core/ffi/ffi_inference_model_stub.dart';
-import '../core/litert/litert_embedding_model.dart'
-    if (dart.library.js_interop) '../core/litert/litert_embedding_model_stub.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/utils/file_name_utils.dart';
 import '../core/registry/engine_registry.dart';
+import '../core/registry/embedding_registry.dart';
+import '../core/registry/embedding_backend_provider.dart';
 import '../core/registry/default_engines.dart';
 import '../core/registry/runtime_config.dart';
 
@@ -525,7 +514,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
             '⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}');
         debugPrint('🔄 Closing old model and creating new one...');
         await _initializedModel?.close();
-        // onClose callback will reset _initializedModel and _initCompleter
+        // close-listener will reset _initializedModel and _initCompleter
         _lastActiveInferenceSpec = null;
       } else {
         // Same model - return existing singleton
@@ -576,71 +565,16 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
     try {
       // Engine selection routes through [EngineRegistry] (probe-chain). The
-      // default engines below wrap the existing construction arms unchanged;
-      // `callBuild` threads the resolved `modelPath`/`cacheDir` so each arm
-      // body stays byte-identical to the pre-registry switch. The instance
-      // still owns construction + singleton state.
+      // LiteRT-LM (.litertlm) FFI engine moved to the flutter_gemma_litertlm
+      // package and is registered via FlutterGemma.initialize; core only
+      // provides the MediaPipe (.task/.bin) default below and owns the
+      // singleton lifecycle centrally (track + reset on close).
 
-      // LiteRT-LM (.litertlm) build — the former FFI arm. Reads EXCLUSIVELY from
-      // its (spec, config, mPath, cacheDir) params, NEVER the enclosing call's
-      // locals: these build methods are registered ONCE into the global
-      // EngineRegistry (lazy), so a captured local would go stale on the 2nd+
-      // createModel call. The mobile-only guard is implicit (this plugin only
-      // loads on iOS/Android), matching the previous Platform.isIOS||isAndroid
-      // condition.
-      Future<InferenceModel> buildLiteRtLm(InferenceModelSpec spec,
-          RuntimeConfig config, String mPath, String? cacheDir) async {
-        debugPrint(
-            '[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
-        final ffiPathSw = Stopwatch()..start();
-        final resolvedCacheDir =
-            cacheDir ?? (await getApplicationSupportDirectory()).path;
-        debugPrint(
-            '[FlutterGemmaMobile/perf] getApplicationSupportDirectory: ${ffiPathSw.elapsedMilliseconds}ms');
-        // NPU on Android `.litertlm` restored to 0.13.x parity. The Kotlin
-        // LiteRtLmEngine path was dropped in 0.14.0 (commit 81025da); this
-        // routes the same `Backend::NPU` enum value through LiteRT-LM's C
-        // API. A Qualcomm QNN / Google Tensor / MediaTek dispatch lib must
-        // be present on the device — without one, engine_create fails with
-        // a dispatch error from LiteRT-LM. iOS .litertlm: upstream LiteRT-LM
-        // disables NPU via LITERT_DISABLE_NPU at build time; engine_create
-        // returns a clean Backend::NPU not supported error.
-        final beforeInit = ffiPathSw.elapsedMilliseconds;
-        final ffiRuntime = await _initializeFfiInferenceRuntime(
-          modelPath: mPath,
-          preferredBackend: config.preferredBackend,
-          maxTokens: config.maxTokens,
-          cacheDir: resolvedCacheDir,
-          enableVision: config.supportImage,
-          maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
-          enableAudio: config.supportAudio,
-          enableSpeculativeDecoding: config.enableSpeculativeDecoding,
-        );
-        debugPrint(
-            '[FlutterGemmaMobile/perf] ffiClient.initialize total: ${ffiPathSw.elapsedMilliseconds - beforeInit}ms');
-        debugPrint(
-            '[FlutterGemmaMobile/perf] FFI model creation total: ${ffiPathSw.elapsedMilliseconds}ms');
-
-        return _initializedModel = FfiInferenceModel(
-          ffiClient: ffiRuntime.client,
-          maxTokens: config.maxTokens,
-          modelType: spec.modelType,
-          activeBackend: ffiRuntime.activeBackend,
-          fileType: spec.fileType,
-          supportImage: config.supportImage,
-          supportAudio: config.supportAudio,
-          maxConcurrentSessions: config.maxConcurrentSessions,
-          onClose: () {
-            _initializedModel = null;
-            _initCompleter = null;
-            _lastActiveInferenceSpec = null;
-          },
-        );
-      }
-
-      // MediaPipe (.task/.bin) build — the former MediaPipe arm. Reads only from
-      // its params (see note above); `config.loraRanks` carries the per-call
-      // LoRA ranks, `supportedLoraRanks` is a stable instance default.
+      // MediaPipe (.task/.bin) build — reads only from its params: this build
+      // closure is registered ONCE into the global EngineRegistry (lazy), so a
+      // captured enclosing-call local would go stale on the 2nd+ createModel
+      // call. `config.loraRanks` carries the per-call LoRA ranks,
+      // `supportedLoraRanks` is a stable instance default.
       Future<InferenceModel> buildMediaPipe(InferenceModelSpec spec,
           RuntimeConfig config, String mPath, String? cacheDir) async {
         await _platformService.createModel(
@@ -652,7 +586,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           supportAudio: config.supportAudio ? true : null,
         );
 
-        return _initializedModel = MobileInferenceModel(
+        return MobileInferenceModel(
           maxTokens: config.maxTokens,
           modelType: spec.modelType,
           fileType: spec.fileType,
@@ -663,24 +597,22 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           supportAudio: config.supportAudio,
           maxNumImages: config.maxNumImages,
           maxConcurrentSessions: config.maxConcurrentSessions,
-          onClose: () {
-            _initializedModel = null;
-            _initCompleter = null;
-            _lastActiveInferenceSpec = null;
-          },
+          onClose: () {},
         );
       }
 
       if (EngineRegistry.instance.registered.isEmpty) {
         EngineRegistry.instance.registerAll([
           DefaultMediaPipeEngine(buildMediaPipe),
-          DefaultLiteRtLmEngine(buildLiteRtLm),
+          // DefaultLiteRtLmEngine removed — provided by flutter_gemma_litertlm
+          // via FlutterGemma.initialize(inferenceEngines: [LiteRtLmEngine()]).
         ]);
       }
 
       final spec = activeModel as InferenceModelSpec;
       final config = RuntimeConfig(
         maxTokens: maxTokens,
+        modelPath: modelPath,
         preferredBackend: preferredBackend,
         supportImage: supportImage,
         supportAudio: supportAudio,
@@ -698,14 +630,18 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           '${EngineRegistry.instance.registered.map((e) => e.name).join(", ")}.',
         );
       }
-      final model = engine is DefaultLiteRtLmEngine
-          ? await engine.callBuild(spec, config, modelPath, null)
-          : await (engine as DefaultMediaPipeEngine)
-              .callBuild(spec, config, modelPath, null);
+      final model = await engine.createModel(spec, config);
 
-      // Save the spec that was used to create this model
+      // Core owns the singleton lifecycle: track it + reset on close. The
+      // package-built model fires this via CloseNotifier (addCloseListener).
+      _initializedModel = model;
+      model.addCloseListener(() {
+        _initializedModel = null;
+        _initCompleter = null;
+        _lastActiveInferenceSpec = null;
+      });
+
       _lastActiveInferenceSpec = spec;
-
       completer.complete(model);
       return model;
     } catch (e, st) {
@@ -766,7 +702,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
               '⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}');
           debugPrint('🔄 Closing old embedding model and creating new one...');
           await _initializedEmbeddingModel?.close();
-          // onClose callback will reset _initializedEmbeddingModel and _initEmbeddingCompleter
+          // close-listener will reset _initializedEmbeddingModel and _initEmbeddingCompleter
           _lastActiveEmbeddingSpec = null;
         } else {
           // Same model - return existing singleton
@@ -808,24 +744,59 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     }
 
     try {
-      // 0.15.2: native embedding paths (Android Kotlin + iOS Swift) are
-      // replaced by the shared Dart-FFI + LiteRT path used on Desktop.
-      // No platform-channel hop, single implementation across all native
-      // platforms — see `LitertEmbeddingModel`.
-      final model =
-          _initializedEmbeddingModel = await LitertEmbeddingModel.create(
+      // The LiteRT embedding runtime moved to flutter_gemma_embeddings; core
+      // resolves paths (preamble above) + owns the singleton lifecycle, then
+      // dispatches construction through the EmbeddingRegistry. The backend
+      // reads ONLY config.modelPath/config.tokenizerPath — it ignores the spec
+      // arg for path resolution (see LiteRtEmbeddingBackend.createModel).
+      final activeSpec =
+          activeModel as EmbeddingModelSpec?; // null on legacy explicit-paths
+      final EmbeddingBackendProvider? backend = activeSpec != null
+          ? EmbeddingRegistry.instance.findFor(activeSpec)
+          : (EmbeddingRegistry.instance.registered.isNotEmpty
+              ? EmbeddingRegistry.instance.registered.first
+              : null);
+      if (backend == null) {
+        throw StateError(
+          'No embedding backend registered. Add flutter_gemma_embeddings to '
+          'pubspec.yaml and pass it in embeddingBackends: of '
+          'FlutterGemma.initialize(...). Registered backends: '
+          '${EmbeddingRegistry.instance.registered.map((b) => b.name).join(", ")}.',
+        );
+      }
+      // modelPath/tokenizerPath are non-null here (resolved in the preamble or
+      // passed by the legacy API). maxTokens is unused by embeddings.
+      final embConfig = RuntimeConfig(
+        maxTokens: 0,
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
-        onClose: () {
-          _initializedEmbeddingModel = null;
-          _initEmbeddingCompleter = null;
-          _lastActiveEmbeddingSpec = null;
-        },
+        preferredBackend: preferredBackend,
       );
+      // The backend's createModel(spec, config) signature requires a non-null
+      // spec, but it resolves paths exclusively from config. On the legacy
+      // explicit-paths path there is no active spec, so synthesize one from the
+      // resolved file paths (FileSource, mobile/desktop only — web swaps in its
+      // own plugin) purely to satisfy the signature.
+      final specForBackend = activeSpec ??
+          EmbeddingModelSpec(
+            name: 'legacy:${path.basename(modelPath)}',
+            modelSource: ModelSource.file(modelPath),
+            tokenizerSource: ModelSource.file(tokenizerPath),
+          );
+      final model = await backend.createModel(specForBackend, embConfig);
+
+      // Core owns the singleton lifecycle: track it + reset on close. The
+      // package-built model fires this via CloseNotifier (addCloseListener).
+      _initializedEmbeddingModel = model;
+      model.addCloseListener(() {
+        _initializedEmbeddingModel = null;
+        _initEmbeddingCompleter = null;
+        _lastActiveEmbeddingSpec = null;
+      });
 
       // Save the spec that was used to create this model (Modern API path only)
-      if (activeModel != null) {
-        _lastActiveEmbeddingSpec = activeModel as EmbeddingModelSpec;
+      if (activeSpec != null) {
+        _lastActiveEmbeddingSpec = activeSpec;
       }
 
       completer.complete(model);
@@ -940,35 +911,4 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   set enableHnsw(bool value) {
     ServiceRegistry.instance.vectorStoreRepository.enableHnsw = value;
   }
-}
-
-Future<({LiteRtLmFfiClient client, PreferredBackend activeBackend})>
-    _initializeFfiInferenceRuntime({
-  required String modelPath,
-  required PreferredBackend? preferredBackend,
-  required int maxTokens,
-  required String cacheDir,
-  required bool enableVision,
-  required int maxNumImages,
-  required bool enableAudio,
-  required bool? enableSpeculativeDecoding,
-}) async {
-  return initializeFfiRuntime(
-    preferredBackend: preferredBackend,
-    logTag: '[FlutterGemmaMobile]',
-    createClient: LiteRtLmFfiClient.new,
-    initializeClient: (client, backend) async {
-      await client.initialize(
-        modelPath: modelPath,
-        backend: ffiBackendWireName(backend),
-        maxTokens: maxTokens,
-        cacheDir: cacheDir,
-        enableVision: enableVision,
-        maxNumImages: maxNumImages,
-        enableAudio: enableAudio,
-        enableSpeculativeDecoding: enableSpeculativeDecoding,
-      );
-    },
-    shutdownClient: (client) => client.shutdown(),
-  );
 }

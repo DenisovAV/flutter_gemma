@@ -494,9 +494,9 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         );
         break;
       case ModelKind.inference:
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
+          MaterialPageRoute<void>(
             builder: (context) => ChatScreen(
               model: widget.model as Model,
               selectedBackend: widget.selectedBackend ?? PreferredBackend.cpu,

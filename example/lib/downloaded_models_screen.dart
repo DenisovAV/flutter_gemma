@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
+import 'package:flutter_gemma_example/services/downloaded_model_deleter.dart';
 import 'package:flutter_gemma_example/services/downloaded_model_loader.dart';
 import 'package:flutter_gemma_example/utils/installed_model_lookup.dart';
 
@@ -31,6 +32,7 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
   List<_DownloadedModelEntry> _entries = [];
   Set<String> _loadedIds = {};
   String? _loadingId;
+  String? _deletingId;
 
   @override
   void initState() {
@@ -76,6 +78,7 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
         _entries = entries;
         _loadedIds = loadedIds;
         _loadingId = null;
+        _deletingId = null;
         _loading = false;
       });
     } catch (e) {
@@ -104,6 +107,59 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
       ),
       body: _buildBody(),
     );
+  }
+
+  Future<void> _confirmDelete(_DownloadedModelEntry entry) async {
+    if (_loadingId != null || _deletingId != null) return;
+
+    final match = resolveCatalog(entry.id);
+    final deletesTokenizerToo =
+        match is EmbeddingMatch && !match.isTokenizer;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete model?'),
+        content: Text(
+          deletesTokenizerToo
+              ? 'Remove ${entry.displayName} and its tokenizer from this device?'
+              : 'Remove ${entry.displayName} from this device?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _deletingId = entry.id;
+    });
+
+    try {
+      await DownloadedModelDeleter.delete(entry.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Deleted ${entry.displayName}')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _deletingId = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete model: $e')),
+      );
+    }
   }
 
   Future<void> _loadEntry(_DownloadedModelEntry entry) async {
@@ -209,26 +265,44 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
         final entry = _entries[index];
         final isLoaded = _loadedIds.contains(entry.id);
         final isLoading = _loadingId == entry.id;
+        final isDeleting = _deletingId == entry.id;
+        final isBusy = _loadingId != null || _deletingId != null;
         final showSubtitle = entry.displayName != entry.id || entry.isTokenizer;
+        final canDelete = !entry.isTokenizer;
 
-        Widget? trailing;
-        if (isLoading) {
-          trailing = const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        final trailingChildren = <Widget>[];
+        if (isLoading || isDeleting) {
+          trailingChildren.add(
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           );
-        } else if (isLoaded) {
-          trailing = const Chip(
-            label: Text('Loaded'),
-            backgroundColor: Color(0xFF1a5c3a),
-            labelStyle: TextStyle(color: Colors.white, fontSize: 12),
-          );
+        } else {
+          if (isLoaded) {
+            trailingChildren.add(
+              const Chip(
+                label: Text('Loaded'),
+                backgroundColor: Color(0xFF1a5c3a),
+                labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            );
+          }
+          if (canDelete) {
+            trailingChildren.add(
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete',
+                onPressed: isBusy ? null : () => _confirmDelete(entry),
+              ),
+            );
+          }
         }
 
         return ListTile(
-          enabled: entry.loadable && _loadingId == null,
-          onTap: entry.loadable ? () => _loadEntry(entry) : null,
+          enabled: entry.loadable && !isBusy,
+          onTap: entry.loadable && !isBusy ? () => _loadEntry(entry) : null,
           title: Text(entry.displayName),
           subtitle: showSubtitle
               ? Text(
@@ -238,7 +312,12 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 )
               : null,
-          trailing: trailing,
+          trailing: trailingChildren.isEmpty
+              ? null
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: trailingChildren,
+                ),
         );
       },
     );

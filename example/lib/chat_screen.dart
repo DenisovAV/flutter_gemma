@@ -337,8 +337,8 @@ class ChatScreenState extends State<ChatScreen> {
                 ),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
-              )
-            else if (chat?.supportsImages == true)
+              ),
+            if (chat?.supportsImages == true)
               const Text(
                 'Image support enabled',
                 style: TextStyle(

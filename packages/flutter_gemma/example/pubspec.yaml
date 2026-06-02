@@ -25,6 +25,10 @@ dependencies:
     path: ../../flutter_gemma_rag_sqlite
   flutter_gemma_rag_qdrant:
     path: ../../flutter_gemma_rag_qdrant
+  flutter_gemma_litertlm:
+    path: ../../flutter_gemma_litertlm
+  flutter_gemma_embeddings:
+    path: ../../flutter_gemma_embeddings
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

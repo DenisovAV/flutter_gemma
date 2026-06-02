@@ -1,11 +1,5 @@
-# MediaPipe and protobuf
--keep class com.google.mediapipe.** { *; }
--keep class com.google.mediapipe.proto.** { *; }
--keepclassmembers class com.google.mediapipe.tasks.genai.llminference.LlmInference { *; }
-
-# Protocol Buffers
--keep class com.google.protobuf.** { *; }
--dontwarn com.google.protobuf.**
+# MediaPipe (.task) + protobuf proguard rules moved to the
+# flutter_gemma_mediapipe package (android/consumer-proguard-rules.pro).
 
 # Kotlinx coroutines (used by .litertlm FFI dispatch)
 -keep class kotlinx.coroutines.** { *; }

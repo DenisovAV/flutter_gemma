@@ -1,4 +1,4 @@
-group 'dev.flutterberlin.flutter_gemma'
+group 'dev.flutterberlin.flutter_gemma_mediapipe'
 version '1.0-SNAPSHOT'
 
 buildscript {
@@ -26,7 +26,7 @@ apply plugin: 'kotlin-android'
 
 android {
     if (project.android.hasProperty("namespace")) {
-        namespace 'dev.flutterberlin.flutter_gemma'
+        namespace 'dev.flutterberlin.flutter_gemma_mediapipe'
     }
 
     compileSdk 36
@@ -67,26 +67,14 @@ android {
 }
 
 dependencies {
-    // MediaPipe (.task) inference moved to the flutter_gemma_mediapipe package
-    // (com.google.mediapipe:tasks-genai + tasks-vision-image-generator live in
-    // its android/build.gradle). Core only hosts the bundled file-ops +
-    // litertlm NPU dispatch channel.
-
-    // 0.15.2: localagents-rag dropped — embedding is now Dart-FFI + LiteRT
-    // (see lib/core/litert/litert_embedding_model.dart). Guava +
-    // kotlinx-coroutines-guava were only used by the RAG library, so they
-    // also go.
-
-    // .litertlm models go through Dart FFI (LiteRtLmFfiClient) — Native Assets
-    // bundles libLiteRtLm.so + companion dylibs. No Gradle dependency needed.
+    // MediaPipe (.task) on-device LLM inference — bundled by this opt-in package.
+    implementation 'com.google.mediapipe:tasks-genai:0.10.33'
+    implementation 'com.google.mediapipe:tasks-vision-image-generator:0.10.26.1'
 
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
     testImplementation 'org.jetbrains.kotlin:kotlin-test'
     testImplementation 'org.mockito:mockito-core:5.0.0'
     testImplementation 'junit:junit:4.13.2'
-    // junit-vintage-engine lets JUnit 5 platform run JUnit 4 tests (used by
-    // testOptions.unitTests.useJUnitPlatform()). Without this, our
-    // org.junit.Test classes are silently skipped (#250 work).
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.10.2'
 }

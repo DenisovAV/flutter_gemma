@@ -1,9 +1,9 @@
-package dev.flutterberlin.flutter_gemma.engines.mediapipe
+package dev.flutterberlin.flutter_gemma_mediapipe.engines.mediapipe
 
 import android.content.Context
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
-import dev.flutterberlin.flutter_gemma.PreferredBackend
-import dev.flutterberlin.flutter_gemma.engines.*
+import dev.flutterberlin.flutter_gemma_mediapipe.PreferredBackend
+import dev.flutterberlin.flutter_gemma_mediapipe.engines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow

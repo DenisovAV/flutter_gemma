@@ -1,4 +1,4 @@
-package dev.flutterberlin.flutter_gemma
+package dev.flutterberlin.flutter_gemma_mediapipe
 
 import android.content.Context
 import android.graphics.BitmapFactory

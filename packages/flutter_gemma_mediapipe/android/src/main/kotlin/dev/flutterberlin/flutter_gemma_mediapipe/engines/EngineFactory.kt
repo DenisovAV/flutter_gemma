@@ -1,7 +1,7 @@
-package dev.flutterberlin.flutter_gemma.engines
+package dev.flutterberlin.flutter_gemma_mediapipe.engines
 
 import android.content.Context
-import dev.flutterberlin.flutter_gemma.engines.mediapipe.MediaPipeEngine
+import dev.flutterberlin.flutter_gemma_mediapipe.engines.mediapipe.MediaPipeEngine
 
 /**
  * Factory for creating MediaPipe inference engines.

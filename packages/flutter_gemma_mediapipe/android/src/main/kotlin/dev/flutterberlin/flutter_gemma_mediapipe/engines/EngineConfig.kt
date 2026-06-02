@@ -1,6 +1,6 @@
-package dev.flutterberlin.flutter_gemma.engines
+package dev.flutterberlin.flutter_gemma_mediapipe.engines
 
-import dev.flutterberlin.flutter_gemma.PreferredBackend
+import dev.flutterberlin.flutter_gemma_mediapipe.PreferredBackend
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 

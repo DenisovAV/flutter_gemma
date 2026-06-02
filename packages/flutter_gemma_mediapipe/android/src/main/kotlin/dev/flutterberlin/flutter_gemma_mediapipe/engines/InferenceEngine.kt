@@ -1,4 +1,4 @@
-package dev.flutterberlin.flutter_gemma.engines
+package dev.flutterberlin.flutter_gemma_mediapipe.engines
 
 import kotlinx.coroutines.flow.SharedFlow
 

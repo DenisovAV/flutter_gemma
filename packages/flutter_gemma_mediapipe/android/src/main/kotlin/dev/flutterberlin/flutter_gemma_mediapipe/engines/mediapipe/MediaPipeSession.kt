@@ -1,4 +1,4 @@
-package dev.flutterberlin.flutter_gemma.engines.mediapipe
+package dev.flutterberlin.flutter_gemma_mediapipe.engines.mediapipe
 
 import android.graphics.BitmapFactory
 import com.google.mediapipe.framework.image.BitmapImageBuilder
@@ -6,7 +6,7 @@ import com.google.mediapipe.tasks.genai.llminference.GraphOptions
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import android.util.Log
-import dev.flutterberlin.flutter_gemma.engines.*
+import dev.flutterberlin.flutter_gemma_mediapipe.engines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 
 /**

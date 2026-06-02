@@ -1,4 +1,15 @@
-part of '../../../web/flutter_gemma_web.dart';
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
+import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 
 /// Web Model Manager - Modern API Facade Pattern
 ///
@@ -82,8 +93,7 @@ class WebModelManager extends ModelFileManager {
       modelType: modelType,
       fileType: fileType,
     );
-    debugPrint(
-        '[WebModelManager] restored active inference model: $filename');
+    debugPrint('[WebModelManager] restored active inference model: $filename');
   }
 
   Future<void> _restoreActiveEmbeddingModel() async {
@@ -861,8 +871,7 @@ class WebModelManager extends ModelFileManager {
           PreferencesKeys.activeInferenceModelType, spec.modelType.name);
       await prefs.setString(
           PreferencesKeys.activeInferenceFileType, spec.fileType.name);
-      await prefs.setString(
-          PreferencesKeys.activeInferenceFilename, filename);
+      await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
       await prefs.setString(
           PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
     } catch (e) {
@@ -872,8 +881,8 @@ class WebModelManager extends ModelFileManager {
 
   Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
     try {
-      final modelFile = spec.files.firstWhere(
-          (f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final modelFile = spec.files
+          .firstWhere((f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
       final tokenizerFile = spec.files.firstWhere(
           (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
       final prefs = await SharedPreferences.getInstance();

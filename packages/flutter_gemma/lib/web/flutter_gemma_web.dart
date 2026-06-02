@@ -6,7 +6,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:mutex/mutex.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -18,24 +17,16 @@ import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
-// Conditional import: same pattern WebDownloadService uses so the opfsService
-// field type matches statically (both sides of the resolver agree on the type).
-import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
-    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
-import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
-import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
-import 'package:flutter_gemma/core/utils/file_name_utils.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'litert_lm_web.dart';
 import 'llm_inference_web.dart';
 import 'web_image_format.dart';
+import 'web_model_source.dart';
+import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
 
-part '../core/model_management/managers/web_model_manager.dart';
-part 'web_model_source.dart';
 part 'litert_lm_web_inference.dart';
 
 /// Base class for prompt parts (text, image, audio)

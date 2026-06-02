@@ -1,8 +1,18 @@
-// Part of flutter_gemma_web.dart so this file can see [WebModelManager]
-// (which itself is a part of the same library) without circular imports.
-// Engine-side consumers ([LiteRtLmWebInferenceModel]) import this through
-// the parent library re-export.
-part of 'flutter_gemma_web.dart';
+// Standalone public library: the shared web model-source resolution used by
+// both the MediaPipe-web inference model (in core) and the litertlm-web
+// inference model (extracted into `flutter_gemma_litertlm`). Both import this
+// directly so neither has to be a `part of flutter_gemma_web.dart`.
+import 'dart:js_interop';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
+// Conditional import: same pattern WebDownloadService uses so the opfsService
+// field type matches statically (both sides of the resolver agree on the type).
+import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
+import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/model_management/managers/web_model_manager.dart';
 
 /// Result of resolving an active web model into a form an engine
 /// (MediaPipe `LlmInference` OR `@litert-lm/core` `Engine`) can consume.
@@ -49,6 +59,12 @@ final class OpfsStreamModelSource extends WebModelSource {
 /// (`@litert-lm/core`) consume it.
 class WebModelSourceResolver {
   WebModelSourceResolver(this._modelManager);
+
+  /// Builds a resolver backed by a fresh [WebModelManager], which rehydrates
+  /// the active model from persisted prefs. Lets an engine package construct
+  /// the resolver without a `FlutterGemmaWeb` instance.
+  factory WebModelSourceResolver.forActiveModel() =>
+      WebModelSourceResolver(WebModelManager());
   final WebModelManager _modelManager;
 
   /// Resolves the active inference model. Returns the source plus the

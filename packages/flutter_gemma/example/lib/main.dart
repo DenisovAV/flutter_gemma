@@ -4,6 +4,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_example/home_screen.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
 void main() async {
@@ -18,7 +19,7 @@ void main() async {
   // MediaPipe `.task` models also work fine under streaming mode.
   await FlutterGemma.initialize(
     webStorageMode: WebStorageMode.streaming,
-    inferenceEngines: const [LiteRtLmEngine()],
+    inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
     // RAG is opt-in as of 1.0. The example demoes the sqlite store; pick the
     // platform impl (web uses wa-sqlite, native uses sqlite3).

@@ -1,7 +1,7 @@
 // Integration test for supportAudio parameter in Pigeon API
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma_mediapipe/pigeon.g.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +15,7 @@ void main() {
       // Create a mock that captures messages
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMessageHandler(
-        'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel',
+        'dev.flutter.pigeon.flutter_gemma_mediapipe.PlatformService.createModel',
         (ByteData? message) async {
           if (message != null) {
             // Pigeon uses StandardMessageCodec
@@ -34,7 +34,7 @@ void main() {
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMessageHandler(
-        'dev.flutter.pigeon.flutter_gemma.PlatformService.createModel',
+        'dev.flutter.pigeon.flutter_gemma_mediapipe.PlatformService.createModel',
         null,
       );
     });

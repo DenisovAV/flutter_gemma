@@ -19,8 +19,6 @@ RAG.
   s.source           = { :path => '.' }
   s.source_files = 'Classes/*.swift'
   s.dependency 'Flutter'
-  s.dependency 'MediaPipeTasksGenAI', '= 0.10.33'
-  s.dependency 'MediaPipeTasksGenAIC', '= 0.10.33'
   s.platform = :ios, '16.0'
 
   s.pod_target_xcconfig = {

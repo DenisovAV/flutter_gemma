@@ -17,9 +17,9 @@ typedef DefaultEngineBuild = Future<InferenceModel> Function(
 );
 
 /// Default MediaPipe engine adapter for `.task`/`.bin` models. Wraps the
-/// platform's existing MediaPipe construction arm via [callBuild]; the 2-arg
-/// [createModel] is unused in Phase A (the platform calls [callBuild] after the
-/// registry selects this engine).
+/// platform's existing MediaPipe construction arm; the 2-arg [createModel]
+/// delegates to the injected build fn (reading [RuntimeConfig.modelPath]).
+/// [callBuild] remains for callers that thread `modelPath`/`cacheDir` directly.
 class DefaultMediaPipeEngine implements InferenceEngineProvider {
   DefaultMediaPipeEngine(this._build);
   final DefaultEngineBuild _build;
@@ -34,17 +34,16 @@ class DefaultMediaPipeEngine implements InferenceEngineProvider {
   @override
   Future<InferenceModel> createModel(
           InferenceModelSpec spec, RuntimeConfig config) =>
-      throw UnsupportedError(
-          'DefaultMediaPipeEngine is built via the platform; use callBuild.');
+      _build(spec, config, config.modelPath, null);
   Future<InferenceModel> callBuild(InferenceModelSpec spec,
           RuntimeConfig config, String modelPath, String? cacheDir) =>
       _build(spec, config, modelPath, cacheDir);
 }
 
 /// Default LiteRT-LM engine adapter for `.litertlm` models. Wraps the
-/// platform's existing FFI construction arm via [callBuild]; the 2-arg
-/// [createModel] is unused in Phase A (the platform calls [callBuild] after the
-/// registry selects this engine).
+/// platform's existing FFI construction arm; the 2-arg [createModel] delegates
+/// to the injected build fn (reading [RuntimeConfig.modelPath]). [callBuild]
+/// remains for callers that thread `modelPath`/`cacheDir` directly.
 class DefaultLiteRtLmEngine implements InferenceEngineProvider {
   DefaultLiteRtLmEngine(this._build);
   final DefaultEngineBuild _build;
@@ -58,8 +57,7 @@ class DefaultLiteRtLmEngine implements InferenceEngineProvider {
   @override
   Future<InferenceModel> createModel(
           InferenceModelSpec spec, RuntimeConfig config) =>
-      throw UnsupportedError(
-          'DefaultLiteRtLmEngine is built via the platform; use callBuild.');
+      _build(spec, config, config.modelPath, null);
   Future<InferenceModel> callBuild(InferenceModelSpec spec,
           RuntimeConfig config, String modelPath, String? cacheDir) =>
       _build(spec, config, modelPath, cacheDir);

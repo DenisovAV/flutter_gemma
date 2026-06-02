@@ -50,15 +50,21 @@ void main() {
 
     // Call #1: maxTokens 100, .litertlm, path A.
     await expectLater(
-      engine.callBuild(_spec(ModelFileType.litertlm),
-          const RuntimeConfig(maxTokens: 100), '/models/a.litertlm', null),
+      engine.callBuild(
+          _spec(ModelFileType.litertlm),
+          const RuntimeConfig(maxTokens: 100, modelPath: '/models/a.litertlm'),
+          '/models/a.litertlm',
+          null),
       throwsA(isA<_Sentinel>()),
     );
 
     // Call #2 on the SAME cached engine: maxTokens 999, path B.
     await expectLater(
-      engine.callBuild(_spec(ModelFileType.litertlm),
-          const RuntimeConfig(maxTokens: 999), '/models/b.litertlm', null),
+      engine.callBuild(
+          _spec(ModelFileType.litertlm),
+          const RuntimeConfig(maxTokens: 999, modelPath: '/models/b.litertlm'),
+          '/models/b.litertlm',
+          null),
       throwsA(isA<_Sentinel>()),
     );
 
@@ -72,16 +78,28 @@ void main() {
         reason: 'stale-closure regression');
   });
 
+  // The 2-arg createModel no longer throws UnsupportedError — it DELEGATES to
+  // the injected build fn, threading config.modelPath through. Proven by the
+  // sentinel the build fn throws being what surfaces (not an UnsupportedError),
+  // and by the build fn observing the config's modelPath.
   test(
-      'the 2-arg createModel on a default engine throws UnsupportedError '
-      '(platform must use callBuild)', () {
-    final engine = DefaultMediaPipeEngine(
-        (spec, config, modelPath, cacheDir) async => throw _Sentinel());
-    expect(
-      () => engine.createModel(
-          _spec(ModelFileType.task), const RuntimeConfig(maxTokens: 1)),
-      throwsA(isA<UnsupportedError>()),
+      'the 2-arg createModel on a default engine delegates to the build fn '
+      '(does NOT throw UnsupportedError)', () async {
+    String? seenPath;
+    final engine =
+        DefaultMediaPipeEngine((spec, config, modelPath, cacheDir) async {
+      seenPath = modelPath;
+      throw _Sentinel();
+    });
+    await expectLater(
+      engine.createModel(
+        _spec(ModelFileType.task),
+        const RuntimeConfig(maxTokens: 1, modelPath: '/models/x.task'),
+      ),
+      throwsA(isA<_Sentinel>()),
     );
+    // createModel routed config.modelPath into the build fn's modelPath arg.
+    expect(seenPath, '/models/x.task');
   });
 }
 

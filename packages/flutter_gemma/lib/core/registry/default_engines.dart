@@ -39,26 +39,3 @@ class DefaultMediaPipeEngine implements InferenceEngineProvider {
           RuntimeConfig config, String modelPath, String? cacheDir) =>
       _build(spec, config, modelPath, cacheDir);
 }
-
-/// Default LiteRT-LM engine adapter for `.litertlm` models. Wraps the
-/// platform's existing FFI construction arm; the 2-arg [createModel] delegates
-/// to the injected build fn (reading [RuntimeConfig.modelPath]). [callBuild]
-/// remains for callers that thread `modelPath`/`cacheDir` directly.
-class DefaultLiteRtLmEngine implements InferenceEngineProvider {
-  DefaultLiteRtLmEngine(this._build);
-  final DefaultEngineBuild _build;
-  @override
-  String get name => 'LiteRT-LM';
-  @override
-  int get priority => 0;
-  @override
-  bool canHandle(InferenceModelSpec spec) =>
-      spec.fileType == ModelFileType.litertlm;
-  @override
-  Future<InferenceModel> createModel(
-          InferenceModelSpec spec, RuntimeConfig config) =>
-      _build(spec, config, config.modelPath, null);
-  Future<InferenceModel> callBuild(InferenceModelSpec spec,
-          RuntimeConfig config, String modelPath, String? cacheDir) =>
-      _build(spec, config, modelPath, cacheDir);
-}

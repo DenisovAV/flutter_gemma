@@ -33,7 +33,7 @@ void main() {
     // The injected build fn records exactly what it was handed. A correct
     // platform build reads from these params; a buggy one would read stale
     // captured locals and the recorded values would not change between calls.
-    final engine = DefaultLiteRtLmEngine(
+    final engine = DefaultMediaPipeEngine(
       (spec, config, modelPath, cacheDir) async {
         seen.add((
           maxTokens: config.maxTokens,
@@ -45,15 +45,15 @@ void main() {
       },
     );
 
-    // Register ONCE — mirrors the platform's lazy `registered.isEmpty` guard.
+    // Register ONCE — mirrors the platform's lazy registration guard.
     EngineRegistry.instance.registerAll([engine]);
 
-    // Call #1: maxTokens 100, .litertlm, path A.
+    // Call #1: maxTokens 100, .task, path A.
     await expectLater(
       engine.callBuild(
-          _spec(ModelFileType.litertlm),
-          const RuntimeConfig(maxTokens: 100, modelPath: '/models/a.litertlm'),
-          '/models/a.litertlm',
+          _spec(ModelFileType.task),
+          const RuntimeConfig(maxTokens: 100, modelPath: '/models/a.task'),
+          '/models/a.task',
           null),
       throwsA(isA<_Sentinel>()),
     );
@@ -61,21 +61,20 @@ void main() {
     // Call #2 on the SAME cached engine: maxTokens 999, path B.
     await expectLater(
       engine.callBuild(
-          _spec(ModelFileType.litertlm),
-          const RuntimeConfig(maxTokens: 999, modelPath: '/models/b.litertlm'),
-          '/models/b.litertlm',
+          _spec(ModelFileType.task),
+          const RuntimeConfig(maxTokens: 999, modelPath: '/models/b.task'),
+          '/models/b.task',
           null),
       throwsA(isA<_Sentinel>()),
     );
 
     expect(seen, hasLength(2));
     expect(seen[0].maxTokens, 100);
-    expect(seen[0].path, '/models/a.litertlm');
+    expect(seen[0].path, '/models/a.task');
     // The critical assertion: the SECOND build saw the SECOND call's params,
     // not the first call's stale values.
     expect(seen[1].maxTokens, 999, reason: 'stale-closure regression');
-    expect(seen[1].path, '/models/b.litertlm',
-        reason: 'stale-closure regression');
+    expect(seen[1].path, '/models/b.task', reason: 'stale-closure regression');
   });
 
   // The 2-arg createModel no longer throws UnsupportedError — it DELEGATES to

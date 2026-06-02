@@ -10,4 +10,5 @@
 /// ```
 library flutter_gemma_mediapipe;
 
-export 'src/mediapipe_engine_stub.dart';
+export 'src/mediapipe_engine_stub.dart'
+    if (dart.library.io) 'src/mediapipe_engine.dart';

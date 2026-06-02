@@ -1,4 +1,22 @@
-part of 'flutter_gemma_mobile.dart';
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:mutex/mutex.dart';
+
+import 'package:flutter_gemma/core/chat.dart';
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
+import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma/core/tool.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart'
+    show InferenceModel, InferenceModelSession;
+
+// MobileInferenceModel exposes `activeBackend` as part of the [InferenceModel]
+// contract, whose type is core's PreferredBackend (from package:flutter_gemma).
+// The MediaPipe→core enum bridge lives in the engine; this model stores core's
+// type directly so the override is valid and the two pigeon enums never tangle.
+import 'package:flutter_gemma/pigeon.g.dart' show PreferredBackend;
+
+import 'mobile_inference_session.dart';
 
 class MobileInferenceModel extends InferenceModel with CloseNotifier {
   MobileInferenceModel({
@@ -135,7 +153,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
       // LoRA support is fully integrated via Modern API (InferenceInstallationBuilder)
       final resolvedLoraPath = loraPath;
 
-      await _platformService.createSession(
+      await platformService.createSession(
         randomSeed: randomSeed,
         temperature: temperature,
         topK: topK,
@@ -198,7 +216,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     // an independent native session with its own KV cache. No singleton
     // overwrite; generation is serialized via [_generationMutex] on the
     // session objects, not here.
-    await _platformService.createSessionForId(
+    await platformService.createSessionForId(
       sessionId: id,
       randomSeed: randomSeed,
       temperature: temperature,
@@ -238,6 +256,6 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     _openSessions.clear();
     onClose();
     fireCloseListeners();
-    await _platformService.closeModel();
+    await platformService.closeModel();
   }
 }

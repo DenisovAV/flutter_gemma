@@ -459,6 +459,13 @@ final _platformService = PlatformService();
 class FlutterGemmaMobile extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
+
+  /// One-shot guard for registering core's default MediaPipe engine. Must NOT
+  /// gate on `EngineRegistry.registered.isEmpty`: a `.task`-only consumer that
+  /// also passes `inferenceEngines: [LiteRtLmEngine()]` would make the registry
+  /// non-empty and suppress `DefaultMediaPipeEngine`, breaking `.task`. This
+  /// flag registers the MediaPipe default exactly once regardless.
+  bool _defaultsRegistered = false;
   InferenceModelSpec?
       _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
 
@@ -602,7 +609,8 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         );
       }
 
-      if (EngineRegistry.instance.registered.isEmpty) {
+      if (!_defaultsRegistered) {
+        _defaultsRegistered = true;
         EngineRegistry.instance.registerAll([
           DefaultMediaPipeEngine(buildMediaPipe),
           // DefaultLiteRtLmEngine removed — provided by flutter_gemma_litertlm

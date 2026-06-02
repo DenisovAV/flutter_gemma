@@ -23,7 +23,9 @@ import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
-import '../../flutter_gemma_interface.dart' show EmbeddingModel, TaskType;
+import 'package:flutter_gemma/flutter_gemma_interface.dart'
+    show EmbeddingModel, TaskType;
+
 import 'litert_bindings.dart';
 
 /// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the
@@ -256,8 +258,8 @@ class LitertEmbeddingModel extends EmbeddingModel {
 
     final inBufPtr = calloc<LiteRtTensorBuffer>();
     _bindings
-        .createTensorBufferFromHostMemory(inType.pointer,
-            inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
+        .createTensorBufferFromHostMemory(
+            inType.pointer, inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
         .check('CreateTensorBufferFromHostMemory(input)');
 
     // Output tensor type [1, dim] Float32.

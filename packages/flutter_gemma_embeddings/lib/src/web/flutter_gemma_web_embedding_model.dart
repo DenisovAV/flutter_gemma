@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import '../flutter_gemma_interface.dart';
+import 'package:flutter_gemma/flutter_gemma_interface.dart';
+
 import 'litert_web_embeddings.dart';
 
 class WebEmbeddingModel extends EmbeddingModel {

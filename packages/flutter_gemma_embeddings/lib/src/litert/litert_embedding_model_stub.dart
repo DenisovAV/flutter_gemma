@@ -5,7 +5,8 @@
 // never called at runtime; it only exists to satisfy the compiler when
 // dart2js builds the mobile entry point.
 
-import '../../flutter_gemma_interface.dart' show EmbeddingModel, TaskType;
+import 'package:flutter_gemma/flutter_gemma_interface.dart'
+    show EmbeddingModel, TaskType;
 
 typedef VoidCallback = void Function();
 

@@ -4,9 +4,10 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     show EmbeddingModelSpec;
 
-import 'web/flutter_gemma_web_embedding_model.dart';
+import 'litert/litert_embedding_model.dart';
 
-/// Web LiteRT embedding backend — builds [WebEmbeddingModel] (LiteRT.js).
+/// LiteRT C API embedding backend (Gecko / EmbeddingGemma `.tflite`). Pure
+/// factory; core owns the singleton lifecycle via [EmbeddingModel.addCloseListener].
 class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
   const LiteRtEmbeddingBackend();
 
@@ -17,16 +18,23 @@ class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
   int get priority => 0;
 
   @override
-  bool canHandle(EmbeddingModelSpec spec) => true;
+  bool canHandle(EmbeddingModelSpec spec) => true; // sole embedding backend
 
   @override
   Future<EmbeddingModel> createModel(
     EmbeddingModelSpec spec,
     RuntimeConfig config,
   ) async {
-    return WebEmbeddingModel(
+    final tokenizerPath = config.tokenizerPath;
+    if (tokenizerPath == null) {
+      throw StateError(
+        'LiteRtEmbeddingBackend requires config.tokenizerPath (resolved by '
+        'core from the active embedding model).',
+      );
+    }
+    return LitertEmbeddingModel.create(
       modelPath: config.modelPath,
-      tokenizerPath: config.tokenizerPath,
+      tokenizerPath: tokenizerPath,
       onClose: () {}, // core resets its state via addCloseListener
     );
   }

@@ -1,11 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'litert_web_embeddings.dart';
 
-class WebEmbeddingModel extends EmbeddingModel {
+class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   WebEmbeddingModel({
     required this.onClose,
     String? modelPath,
@@ -133,5 +134,6 @@ class WebEmbeddingModel extends EmbeddingModel {
     }
 
     onClose();
+    fireCloseListeners();
   }
 }

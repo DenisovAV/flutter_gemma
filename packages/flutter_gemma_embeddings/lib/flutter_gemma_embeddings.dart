@@ -13,4 +13,5 @@
 /// ```
 library flutter_gemma_embeddings;
 
-export 'src/litert_embedding_backend_stub.dart';
+export 'src/litert_embedding_backend_stub.dart'
+    if (dart.library.ffi) 'src/litert_embedding_backend.dart';

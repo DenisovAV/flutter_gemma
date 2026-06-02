@@ -23,6 +23,7 @@ import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
 
@@ -33,7 +34,7 @@ import 'litert_bindings.dart';
 const int _bosId = 2;
 const int _eosId = 1;
 
-class LitertEmbeddingModel extends EmbeddingModel {
+class LitertEmbeddingModel extends EmbeddingModel with CloseNotifier {
   LitertEmbeddingModel._({
     required LiteRtBindings bindings,
     required LiteRtEnvironment environment,
@@ -306,6 +307,7 @@ class LitertEmbeddingModel extends EmbeddingModel {
       _bindings.destroyEnvironment(_environment);
     } finally {
       onClose();
+      fireCloseListeners();
     }
   }
 }

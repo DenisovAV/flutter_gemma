@@ -11,4 +11,5 @@
 /// ```
 library flutter_gemma_litertlm;
 
-export 'src/litert_lm_engine_stub.dart';
+export 'src/litert_lm_engine_stub.dart'
+    if (dart.library.ffi) 'src/litert_lm_engine.dart';

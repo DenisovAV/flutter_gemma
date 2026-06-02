@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _url = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 
@@ -9,7 +10,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('iOS: Gemma3-1B GPU text', (t) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,

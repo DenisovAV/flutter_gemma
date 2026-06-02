@@ -15,6 +15,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 // Pre-stage these files in the platform sandbox before running:
 //   macOS: ~/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/
@@ -114,7 +115,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Gecko 110M — full RAG flow', (_) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await FlutterGemma.installEmbedder()
         .modelFromFile(await _docsPath(_geckoModelName))
         .tokenizerFromFile(await _docsPath(_geckoTokenizerName))
@@ -128,7 +129,7 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 5)));
 
   testWidgets('EmbeddingGemma 256 — full RAG flow', (_) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await FlutterGemma.installEmbedder()
         .modelFromFile(await _docsPath(_gemmaModelName))
         .tokenizerFromFile(await _docsPath(_gemmaTokenizerName))

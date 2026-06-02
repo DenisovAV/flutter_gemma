@@ -31,6 +31,7 @@ library;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _webModelUrl =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm';
@@ -69,7 +70,7 @@ void main() {
 
   group('LiteRT-LM web (.litertlm via @litert-lm/core)', () {
     setUpAll(() async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
     });
     tearDownAll(_disposeModel);
 

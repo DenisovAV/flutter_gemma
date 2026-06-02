@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 /// Regression test for issue #224: Qwen3-0.6B generates <think> blocks by default
 /// even when isThinking is false. Verify that thinking tags are stripped from output.
@@ -15,7 +16,7 @@ void main() {
 
   testWidgets('Qwen3: thinking tags stripped when isThinking=false',
       (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // Install Qwen3 model
     await FlutterGemma.installModel(
@@ -55,7 +56,7 @@ void main() {
 
   testWidgets('Qwen3: thinking tags present when isThinking=true',
       (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     final model = await FlutterGemma.getActiveModel(maxTokens: 512);
     try {

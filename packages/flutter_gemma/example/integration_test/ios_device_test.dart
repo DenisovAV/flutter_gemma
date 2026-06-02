@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -9,7 +10,7 @@ void main() {
   testWidgets('iOS device: FFI engine + chat', (t) async {
     // Step 1: Initialize plugin and install model
     print('Step 1: Initialize...');
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     print('Step 2: Install model...');
     await FlutterGemma.installModel(

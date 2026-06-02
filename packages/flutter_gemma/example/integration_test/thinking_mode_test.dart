@@ -16,6 +16,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 
@@ -83,7 +84,7 @@ void main() {
       });
 
       testWidgets('install', (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
 
         print('[${model.name}] Installing from file: ${model.filePath}');
         await _ensureModelInstalled(model);
@@ -93,7 +94,7 @@ void main() {
       }, timeout: const Timeout(Duration(minutes: 5)));
 
       testWidgets('thinking_stream', (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(
@@ -157,7 +158,7 @@ void main() {
       }, timeout: const Timeout(Duration(minutes: 5)));
 
       testWidgets('no_thinking', (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(

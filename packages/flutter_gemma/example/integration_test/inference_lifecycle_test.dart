@@ -17,7 +17,7 @@ void main() {
 void _runLifecycleTest(TestModelConfig config, String label) {
   testWidgets('Inference: lifecycle close and re-create ($label)',
       (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await forceInstallModel(config);
 
     // --- Cycle 1: maxTokens=512 ---

@@ -17,7 +17,7 @@ void main() {
 
 void _runCancelTest(TestModelConfig config, String label) {
   testWidgets('Inference: cancel generation ($label)', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await forceInstallModel(config);
 
     final model = await createTestModel(maxTokens: 512);

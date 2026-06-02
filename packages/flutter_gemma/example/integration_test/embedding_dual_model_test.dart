@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 /// Integration test verifying both tokenizer types via public API.
 ///
@@ -56,7 +57,7 @@ void main() {
 
   testWidgets('Embedding: EmbeddingGemma (BPE) + Gecko (Unigram)',
       (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // --- EmbeddingGemma ---
     await FlutterGemma.installEmbedder()

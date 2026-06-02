@@ -20,6 +20,7 @@ import 'package:path/path.dart' as p;
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -52,7 +53,7 @@ void main() {
     });
 
     setUp(() async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
       // Clean state: remove leftover metadata from a prior run.
       final alreadyInstalled =
           await FlutterGemma.isModelInstalled(fixtureBasename);

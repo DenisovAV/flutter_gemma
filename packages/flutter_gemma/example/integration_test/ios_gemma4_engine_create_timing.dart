@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _url =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
@@ -26,7 +27,7 @@ void main() {
   testWidgets(
     'iOS: Gemma 4 E2B GPU multimodal timing (eav-solution #245 config)',
     (t) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       final installStart = DateTime.now();
       await FlutterGemma.installModel(

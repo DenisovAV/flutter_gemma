@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _gemma4Path =
     '/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/gemma-4-E2B-it.litertlm';
@@ -56,7 +57,7 @@ const _setVolumeTool = Tool(
 );
 
 Future<void> _installModel() async {
-  await FlutterGemma.initialize();
+  await registerTestEngines();
   await FlutterGemma.installModel(
     modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,

@@ -2,12 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('iOS device: FFI engine create + chat', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // Install model from network (Gemma 3 1B, smallest)
     print('Installing model...');

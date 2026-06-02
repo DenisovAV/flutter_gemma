@@ -20,13 +20,14 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('AssetSource install falls back to writeFile on desktop',
       (t) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // assets/test/test_image.jpg is a 14 KB fixture bundled in the example.
     // Re-using it as a stand-in "model" file: AssetSourceHandler doesn't

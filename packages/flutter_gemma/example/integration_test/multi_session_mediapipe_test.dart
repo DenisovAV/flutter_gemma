@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _androidDir = '/data/local/tmp/flutter_gemma_test';
 const _taskFilename = 'gemma3-1b-it-int4.task';
@@ -62,7 +63,7 @@ void main() {
 
   group('MediaPipe .task multi-session (#226)', () {
     setUpAll(() async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
       await _install();
     });
 

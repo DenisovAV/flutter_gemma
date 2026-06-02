@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelPath = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
 
@@ -26,7 +27,7 @@ void main() {
   });
 
   testWidgets('Gemma 4 E2B: two sequential queries on same chat', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,

@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 // Models in the app sandbox container
 const _containerDir =
@@ -33,7 +34,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     _testImage = File(_testImagePath).readAsBytesSync();
     _testAudio = File(_testAudioPath).readAsBytesSync();
     print('Assets: image=${_testImage.length}B, audio=${_testAudio.length}B');

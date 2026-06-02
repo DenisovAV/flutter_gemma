@@ -28,6 +28,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelPath =
     'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
@@ -168,7 +169,7 @@ void main() {
     // after ~3 minutes without it. macOS/Android tolerated the leak.
     await tester.runAsync(() async {
       // ---------- 1. Setup: embedding model + corpus + output dir ----------
-      await FlutterGemma.initialize();
+      await registerTestEngines();
       await FlutterGemma.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)

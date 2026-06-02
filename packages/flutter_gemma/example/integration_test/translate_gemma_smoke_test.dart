@@ -26,6 +26,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_gemma_example/translation/translate_gemma_xml_strategy.dart';
 import 'package:flutter_gemma_example/translation/translate_runner.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelName = 'translategemma-4b-it-int4-generic.litertlm';
 
@@ -45,7 +46,7 @@ void main() {
 
   testWidgets('TranslateGemma 4B int4 — translate three language pairs',
       (_) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     final modelPath = await _docsPath(_modelName);
 
@@ -105,7 +106,7 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 10)));
 
   testWidgets('TranslateGemma 4B int4 — streaming yields chunks', (_) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     final modelPath = await _docsPath(_modelName);
     await FlutterGemma.installModel(

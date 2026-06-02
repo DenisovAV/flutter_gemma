@@ -18,6 +18,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/core/model_response.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _gemma4Url = 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 const _token = String.fromEnvironment('HUGGINGFACE_TOKEN');
@@ -54,7 +55,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await _installGemma4();
   });
 

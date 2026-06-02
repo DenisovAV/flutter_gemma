@@ -308,7 +308,7 @@ void main() {
       return;
     }
 
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // Pre-load test assets
     final imageBytes = await _loadTestImage();

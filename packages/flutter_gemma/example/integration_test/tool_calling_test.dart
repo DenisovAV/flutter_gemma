@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/function_call_parser.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _deviceModelDir = '/data/local/tmp/flutter_gemma_test';
 
@@ -145,7 +146,7 @@ void main() {
   for (final model in _testModels) {
     group('Tool Calling: ${model.name}', () {
       testWidgets('install model', (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
 
         debugPrint('[${model.name}] Installing from file: ${model.filePath}');
         await FlutterGemma.installModel(
@@ -159,7 +160,7 @@ void main() {
 
       testWidgets('ToolChoice.auto — model calls function on action request',
           (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(
@@ -211,7 +212,7 @@ void main() {
 
       testWidgets('ToolChoice.required — model must call function',
           (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(
@@ -261,7 +262,7 @@ void main() {
 
       testWidgets('ToolChoice.none — model must NOT call function',
           (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(
@@ -305,7 +306,7 @@ void main() {
 
       testWidgets('Streaming — function call detection in async mode',
           (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(
@@ -363,7 +364,7 @@ void main() {
 
       testWidgets('Parallel — multi-action prompt for multiple function calls',
           (tester) async {
-        await FlutterGemma.initialize();
+        await registerTestEngines();
         await _ensureModelInstalled(model);
 
         final inferenceModel = await FlutterGemma.getActiveModel(

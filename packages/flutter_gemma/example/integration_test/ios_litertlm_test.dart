@@ -29,7 +29,7 @@ void main() {
 
   // --- 1. Text inference with .litertlm ---
   testWidgets('iOS litertlm: text inference', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,
@@ -61,7 +61,7 @@ void main() {
 
   // --- 2. Vision with .litertlm ---
   testWidgets('iOS litertlm: vision', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     final imageBytes = await _loadTestImage();
     print('[Vision/litertlm] Image: ${imageBytes.length} bytes');
@@ -96,7 +96,7 @@ void main() {
 
   // --- 3. Audio with .litertlm ---
   testWidgets('iOS litertlm: audio', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     final audioBytes = await _loadTestAudio();
     print('[Audio/litertlm] Audio: ${audioBytes.length} bytes');

@@ -71,7 +71,7 @@ void main() {
   initIntegrationTest();
 
   testWidgets('iOS 0.10.33: text + vision + cancel', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // Wait for model file to appear in Documents
     final path = await _modelPath();

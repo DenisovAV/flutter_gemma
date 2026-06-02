@@ -27,6 +27,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelPath =
     'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
@@ -133,7 +134,7 @@ void main() {
       expect(_rangeTo <= _totalDocs, isTrue,
           reason: 'RANGE_TO must be <= $_totalDocs');
 
-      await FlutterGemma.initialize();
+      await registerTestEngines();
       await FlutterGemma.installEmbedder()
           .modelFromAsset(_modelPath)
           .tokenizerFromAsset(_tokenizerPath)

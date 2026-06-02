@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelName = 'Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 
@@ -39,7 +40,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('install persists active model identity to prefs', (_) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // Clear any stale persisted identity from prior runs to make this
     // assertion meaningful.
@@ -72,7 +73,7 @@ void main() {
     // start over. The persisted prefs from the prior test should be enough
     // to make hasActiveModel() true.
     ServiceRegistry.reset();
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     expect(
       FlutterGemma.hasActiveModel(),

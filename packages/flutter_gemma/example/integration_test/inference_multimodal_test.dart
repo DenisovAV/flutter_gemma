@@ -40,7 +40,7 @@ void main() {
   initIntegrationTest();
 
   testWidgets('Multimodal: vision', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await _installMultimodalModel();
 
     final imageBytes = await _loadTestImage();

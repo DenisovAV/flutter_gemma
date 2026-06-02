@@ -27,7 +27,7 @@ void main() {
     'Inference: Android dual engine MediaPipe + LiteRT-LM',
     skip: !_isAndroid,
     (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       // --- Engine 1: MediaPipe (.task) ---
       print('[DualEngine] Testing MediaPipe (.task)...');

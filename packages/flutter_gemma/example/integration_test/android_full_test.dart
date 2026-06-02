@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _dir = '/data/local/tmp/flutter_gemma_test';
 const _gemma3_1b = '$_dir/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
@@ -57,7 +58,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     _testImage = File(_imgPath).existsSync() ? File(_imgPath).readAsBytesSync() : Uint8List(0);
     _testAudio = File(_audioPath).existsSync() ? File(_audioPath).readAsBytesSync() : Uint8List(0);
     print('Assets: image=${_testImage.length}B, audio=${_testAudio.length}B');

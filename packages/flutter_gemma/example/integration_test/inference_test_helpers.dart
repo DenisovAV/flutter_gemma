@@ -8,11 +8,31 @@
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:integration_test/integration_test.dart';
 
 /// Call once in main() of each test file.
 void initIntegrationTest() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+}
+
+/// Registers the opt-in inference engine + embedding backend the tests need.
+///
+/// As of 1.0, `.litertlm` inference and LiteRT embeddings are provided by the
+/// `flutter_gemma_litertlm` / `flutter_gemma_embeddings` packages, NOT core. The
+/// integration tests drive the SDK directly, so each test must register the
+/// providers via the public `FlutterGemma.initialize` opt-in API. Registration
+/// is idempotent (the registry dedups by instance), so calling this in every
+/// `setUpAll` — even alongside a test's own `FlutterGemma.initialize(...)` — is
+/// safe. Forwards [maxDownloadRetries] so callers can replace their bare
+/// `FlutterGemma.initialize(maxDownloadRetries: N)` with this one call.
+Future<void> registerTestEngines({int maxDownloadRetries = 3}) {
+  return FlutterGemma.initialize(
+    maxDownloadRetries: maxDownloadRetries,
+    inferenceEngines: const [LiteRtLmEngine()],
+    embeddingBackends: const [LiteRtEmbeddingBackend()],
+  );
 }
 
 /// Device path where models are pushed via adb.

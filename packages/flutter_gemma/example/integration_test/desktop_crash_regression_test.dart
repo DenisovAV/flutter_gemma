@@ -30,6 +30,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 // Default model for groups A/B. Must be pre-installed in the sandbox.
 const _modelFileName = 'gemma-3n-E2B-it-int4.litertlm';
@@ -78,7 +79,7 @@ void main() {
     testWidgets(
         'A1: first message completes without crash (Metal accelerator present)',
         (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
@@ -123,7 +124,7 @@ void main() {
     //     execution is fully stable.
     testWidgets('A2: three consecutive messages complete without crash',
         (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
@@ -177,7 +178,7 @@ void main() {
     //     close/reopen increases the chance of triggering the race.
     testWidgets('B1: sequential open/chat/close cycles do not crash the server',
         (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
@@ -232,7 +233,7 @@ void main() {
     //     can be created and a full response received (server is still alive).
     testWidgets('B2: mid-stream disconnect does not crash server',
         (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
@@ -340,7 +341,7 @@ void main() {
     //     Stack: jni_CallVoidMethodV → nativeSendMessageAsync → Tasks::Decode
     //     After Fix B: awaitClose waits for native code → no dangling callback.
     testWidgets('C1: first message on Qwen 2.5 does not crash', (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.qwen,
@@ -386,7 +387,7 @@ void main() {
     //     This test sends 5 messages to increase crash probability.
     testWidgets('C2: five consecutive messages on Qwen 2.5 do not crash',
         (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.qwen,
@@ -440,7 +441,7 @@ void main() {
     //     proving the server did not crash.
     testWidgets('C3: disconnect during prefill does not crash server',
         (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.qwen,

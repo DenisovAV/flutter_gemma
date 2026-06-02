@@ -14,6 +14,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _deviceDir = '/data/local/tmp/flutter_gemma_test';
 
@@ -36,7 +37,7 @@ const _models = <({String path, String name, ModelType modelType})>[
 ];
 
 Future<InferenceModel> _installAndLoad(String path, ModelType modelType) async {
-  await FlutterGemma.initialize();
+  await registerTestEngines();
 
   await FlutterGemma.installModel(
     modelType: modelType,

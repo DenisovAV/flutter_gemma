@@ -20,6 +20,7 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _gemma4Url =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
@@ -72,7 +73,7 @@ void main() {
     _img2 = b2.buffer.asUint8List();
     print('[multi-image] img1=${_img1.length}B img2=${_img2.length}B');
 
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await _install(
       localPath: _localPath('gemma-4-E2B-it.litertlm'),
       networkUrl: _gemma4Url,

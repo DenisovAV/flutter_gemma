@@ -17,7 +17,7 @@ void main() {
 
   testWidgets('Inference: model download and cache', (tester) async {
     // 1. Initialize
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // 2. Download model from network
     await FlutterGemma.installModel(

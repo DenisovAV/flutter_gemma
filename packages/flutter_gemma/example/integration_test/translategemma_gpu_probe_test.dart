@@ -15,6 +15,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter_gemma_example/translation/translate_gemma_xml_strategy.dart';
 import 'package:flutter_gemma_example/translation/translate_runner.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelName = 'translategemma-4b-it-int4-generic.litertlm';
 
@@ -23,7 +24,7 @@ void main() {
 
   testWidgets('TranslateGemma 4B int4 — GPU engine_create + one translation',
       (_) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     final docs = await getApplicationDocumentsDirectory();
     final modelPath = '${docs.path}/$_modelName';

@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelPath =
     'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
@@ -29,7 +30,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('Dual prefix vs single prefix RAG ranking', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)

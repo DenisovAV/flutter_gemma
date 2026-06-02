@@ -17,6 +17,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _androidModelDir = '/data/local/tmp/flutter_gemma_test';
 
@@ -60,7 +61,7 @@ List<({String path, ModelFileType fileType, String label})> _testConfigs() {
 /// Install model and return a freshly created InferenceModel.
 /// Each test creates its own model instance to avoid singleton issues.
 Future<InferenceModel> _createModel(String path, ModelFileType fileType) async {
-  await FlutterGemma.initialize();
+  await registerTestEngines();
 
   await FlutterGemma.installModel(
     modelType: ModelType.gemmaIt,

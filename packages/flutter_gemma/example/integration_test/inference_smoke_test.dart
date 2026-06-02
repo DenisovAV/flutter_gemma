@@ -16,7 +16,7 @@ void main() {
 
 void _runSmokeTest(TestModelConfig config, String label) {
   testWidgets('Inference: sync and streaming ($label)', (tester) async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
     await forceInstallModel(config);
 
     final model = await createTestModel(maxTokens: 512);

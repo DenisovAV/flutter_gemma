@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelPath =
     'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite';
@@ -19,7 +20,7 @@ void main() {
     final platform = defaultTargetPlatform.name;
     print('=== Platform: $platform ===');
 
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     await FlutterGemma.installEmbedder()
         .modelFromAsset(_modelPath)

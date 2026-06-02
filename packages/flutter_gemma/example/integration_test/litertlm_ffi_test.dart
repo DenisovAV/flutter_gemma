@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model.dart';
 
@@ -155,7 +156,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   setUpAll(() async {
-    await FlutterGemma.initialize();
+    await registerTestEngines();
 
     // Load test assets — try filesystem first (host paths on macOS/Linux/Windows
     // and Android adb-pushed paths), then fall back to bundled Flutter assets

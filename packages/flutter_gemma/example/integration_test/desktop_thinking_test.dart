@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _modelFileName = 'gemma-4-E2B-it.litertlm';
 
@@ -39,7 +40,7 @@ void main() {
 
     testWidgets('thinking_stream', (tester) async {
       print('=== Initializing ===');
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       print('=== Installing model from file ===');
       await FlutterGemma.installModel(
@@ -111,7 +112,7 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 10)));
 
     testWidgets('no_thinking', (tester) async {
-      await FlutterGemma.initialize();
+      await registerTestEngines();
 
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,

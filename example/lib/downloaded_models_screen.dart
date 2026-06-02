@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/services/downloaded_model_deleter.dart';
@@ -162,6 +163,22 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
     }
   }
 
+  Future<void> _copyPath(_DownloadedModelEntry entry) async {
+    try {
+      final path = await resolveInstalledModelPath(entry.id);
+      await Clipboard.setData(ClipboardData(text: path));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Copied path for ${entry.displayName}')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to copy path: $e')),
+      );
+    }
+  }
+
   Future<void> _loadEntry(_DownloadedModelEntry entry) async {
     if (_loadingId != null || !entry.loadable) return;
     setState(() {
@@ -279,25 +296,30 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
               child: CircularProgressIndicator(strokeWidth: 2),
             ),
           );
-        } else {
-          if (isLoaded) {
-            trailingChildren.add(
-              const Chip(
-                label: Text('Loaded'),
-                backgroundColor: Color(0xFF1a5c3a),
-                labelStyle: TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            );
-          }
-          if (canDelete) {
-            trailingChildren.add(
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Delete',
-                onPressed: isBusy ? null : () => _confirmDelete(entry),
-              ),
-            );
-          }
+        } else if (isLoaded) {
+          trailingChildren.add(
+            const Chip(
+              label: Text('Loaded'),
+              backgroundColor: Color(0xFF1a5c3a),
+              labelStyle: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          );
+        }
+        trailingChildren.add(
+          IconButton(
+            icon: const Icon(Icons.copy_outlined),
+            tooltip: 'Copy path',
+            onPressed: () => _copyPath(entry),
+          ),
+        );
+        if (!isLoading && !isDeleting && canDelete) {
+          trailingChildren.add(
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Delete',
+              onPressed: isBusy ? null : () => _confirmDelete(entry),
+            ),
+          );
         }
 
         return ListTile(
@@ -312,12 +334,10 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
                   style: const TextStyle(color: Colors.white54, fontSize: 12),
                 )
               : null,
-          trailing: trailingChildren.isEmpty
-              ? null
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: trailingChildren,
-                ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: trailingChildren,
+          ),
         );
       },
     );

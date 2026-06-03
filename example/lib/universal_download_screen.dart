@@ -10,6 +10,7 @@ import 'package:flutter_gemma_example/models/translate_model.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 import 'package:flutter_gemma_example/translate_screen.dart';
+import 'package:flutter_gemma_example/utils/gated_model_access_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UniversalDownloadScreen extends StatefulWidget {
@@ -159,7 +160,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         needToDownload = false;
       });
     } catch (e) {
-      _showErrorDialog(e.toString());
+      await _handleDownloadError(e);
     }
   }
 
@@ -178,7 +179,21 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         _tokenizerProgress = 0.0;
       });
     } catch (e) {
-      _showErrorDialog(e.toString());
+      await _handleDownloadError(e);
+    }
+  }
+
+  Future<void> _handleDownloadError(Object error) async {
+    if (!mounted) return;
+    if (isGatedAccessError(error)) {
+      await showGatedModelAccessDialog(
+        context: context,
+        modelUrl: widget.model.url,
+        licenseUrl: widget.model.licenseUrl,
+        error: error,
+      );
+    } else {
+      _showErrorDialog(error.toString());
     }
   }
 

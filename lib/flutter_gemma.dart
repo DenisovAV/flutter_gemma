@@ -34,6 +34,10 @@ export 'core/api/embedding_installation_builder.dart';
 // Export Web-specific types
 export 'core/domain/web_storage_mode.dart';
 
+// Download error types (401/403 gated models, etc.)
+export 'core/domain/download_error.dart';
+export 'core/domain/download_exception.dart';
+
 // Export Model Specs (needed for advanced use cases)
 export 'mobile/flutter_gemma_mobile.dart'
     show

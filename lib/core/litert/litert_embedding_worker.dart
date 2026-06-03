@@ -59,6 +59,12 @@ class _Close {
   const _Close();
 }
 
+/// Ack the worker sends after [EmbeddingCore.dispose] completes, so the main
+/// isolate can kill the isolate without racing native teardown.
+class _CloseAck {
+  const _CloseAck();
+}
+
 /// Parameters needed to boot the worker isolate. Must be fully sendable.
 class _WorkerInit {
   _WorkerInit({
@@ -101,6 +107,7 @@ class EmbeddingWorker {
   final _pending = <int, Completer<List<double>>>{};
   int _nextId = 0;
   bool _closed = false;
+  Completer<void>? _closeAck;
 
   /// Spawn the worker and wait until the native model is loaded.
   static Future<EmbeddingWorker> spawn({
@@ -113,7 +120,10 @@ class EmbeddingWorker {
     final fromWorker = ReceivePort();
     final readyCompleter = Completer<_Ready>();
 
-    // First message from the worker is either _Ready or a String error.
+    // First message from the worker is either _Ready or a String error. A
+    // `null` is the isolate's onExit signal — if it arrives before _Ready, the
+    // worker died during load (e.g. a native crash compiling a corrupt model),
+    // so fail the completer instead of hanging forever.
     late final StreamSubscription sub;
     sub = fromWorker.listen((msg) {
       if (msg is _Ready) {
@@ -121,6 +131,11 @@ class EmbeddingWorker {
       } else if (msg is String) {
         if (!readyCompleter.isCompleted) {
           readyCompleter.completeError(StateError(msg));
+        }
+      } else if (msg == null) {
+        if (!readyCompleter.isCompleted) {
+          readyCompleter.completeError(
+              StateError('Embedding worker isolate exited during load'));
         }
       }
     });
@@ -135,6 +150,8 @@ class EmbeddingWorker {
         inputSequenceLength: inputSequenceLength,
         outputDimension: outputDimension,
       ),
+      // onExit posts `null` to fromWorker so we never wait on a dead isolate.
+      onExit: fromWorker.sendPort,
       debugName: 'litert-embedding-worker',
     );
 
@@ -161,20 +178,37 @@ class EmbeddingWorker {
   }
 
   void _onReply(dynamic msg) {
-    if (msg is! _EmbedReply) return;
-    final completer = _pending.remove(msg.id);
-    if (completer == null) return;
-    if (msg.error != null) {
-      completer.completeError(StateError(msg.error!));
-    } else {
-      completer.complete(msg.vector!);
+    if (msg is _EmbedReply) {
+      final completer = _pending.remove(msg.id);
+      if (completer == null) return;
+      if (msg.error != null) {
+        completer.completeError(StateError(msg.error!));
+      } else {
+        completer.complete(msg.vector!);
+      }
+    } else if (msg is _CloseAck) {
+      _closeAck?.complete();
+    } else if (msg == null) {
+      // onExit: the worker isolate died. If this is part of a normal close,
+      // the ack path already handled it; otherwise it's an unexpected crash —
+      // fail every in-flight request rather than leave callers hanging.
+      _failAllPending('Embedding worker isolate exited unexpectedly');
+      _closed = true;
+      _closeAck?.complete();
     }
+  }
+
+  void _failAllPending(String reason) {
+    for (final c in _pending.values) {
+      if (!c.isCompleted) c.completeError(StateError(reason));
+    }
+    _pending.clear();
   }
 
   /// Embed one text. The forward runs in the worker; the UI isolate stays free.
   Future<List<double>> embed(String text, {required String prefix}) {
     if (_closed) {
-      throw StateError('EmbeddingWorker is closed');
+      return Future.error(StateError('EmbeddingWorker is closed'));
     }
     final id = _nextId++;
     final completer = Completer<List<double>>();
@@ -183,21 +217,24 @@ class EmbeddingWorker {
     return completer.future;
   }
 
-  /// Tear down the native model and stop the isolate.
+  /// Tear down the native model and stop the isolate. Waits for the worker to
+  /// finish native teardown (a _CloseAck, or the isolate's onExit) before
+  /// killing it, so handles are never freed mid-dispose.
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _closeAck = Completer<void>();
     _commandPort.send(const _Close());
-    // Give the worker a moment to free native resources before killing.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // Wait for the worker's dispose ack / exit; cap the wait so a wedged
+    // native teardown can't hang close() forever.
+    try {
+      await _closeAck!.future.timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Timed out or errored — fall through to a forced kill below.
+    }
     _fromWorker.close();
     _isolate.kill(priority: Isolate.beforeNextEvent);
-    for (final c in _pending.values) {
-      if (!c.isCompleted) {
-        c.completeError(StateError('EmbeddingWorker closed mid-request'));
-      }
-    }
-    _pending.clear();
+    _failAllPending('EmbeddingWorker closed mid-request');
   }
 }
 
@@ -222,18 +259,24 @@ Future<void> _workerEntry(_WorkerInit init) async {
   init.replyTo.send(_Ready(
       commandPort.sendPort, core.inputSequenceLength, core.outputDimension));
 
-  await for (final msg in commandPort) {
-    if (msg is _EmbedRequest) {
-      try {
-        final vector = core.embed(msg.text, prefix: msg.prefix);
-        init.replyTo.send(_EmbedReply(msg.id, vector, null));
-      } catch (e) {
-        init.replyTo.send(_EmbedReply(msg.id, null, e.toString()));
+  try {
+    await for (final msg in commandPort) {
+      if (msg is _EmbedRequest) {
+        try {
+          final vector = core.embed(msg.text, prefix: msg.prefix);
+          init.replyTo.send(_EmbedReply(msg.id, vector, null));
+        } catch (e) {
+          init.replyTo.send(_EmbedReply(msg.id, null, e.toString()));
+        }
+      } else if (msg is _Close) {
+        commandPort.close();
+        break;
       }
-    } else if (msg is _Close) {
-      core.dispose();
-      commandPort.close();
-      break;
     }
+  } finally {
+    // Always free native handles, even if the loop exits unexpectedly, then
+    // ack so the main isolate can kill us without racing teardown.
+    core.dispose();
+    init.replyTo.send(const _CloseAck());
   }
 }

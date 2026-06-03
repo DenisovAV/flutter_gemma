@@ -101,94 +101,112 @@ class EmbeddingCore {
       );
     }
 
-    final envPtr = calloc<LiteRtEnvironment>();
-    bindings
-        .createEnvironment(0, nullptr, envPtr)
-        .check('LiteRtCreateEnvironment');
-    final environment = envPtr.value;
-    calloc.free(envPtr);
-
-    // Model from .tflite file.
-    final pathC = modelPath.toNativeUtf8();
-    final modelPtr = calloc<LiteRtModel>();
+    // Track native handles as they are created so a failure partway through
+    // (e.g. a bad accelerator, or a non-embedding model with the wrong tensor
+    // rank) frees everything already allocated instead of leaking it — the
+    // LiteRT native heap is process-global and is NOT reclaimed by the
+    // isolate dying.
+    LiteRtEnvironment? environment;
+    LiteRtModel? model;
+    LiteRtOptions? options;
+    LiteRtCompiledModel? compiled;
     try {
+      final envPtr = calloc<LiteRtEnvironment>();
       bindings
-          .createModelFromFile(pathC, modelPtr)
-          .check('LiteRtCreateModelFromFile($modelPath)');
-    } finally {
-      calloc.free(pathC);
-    }
-    final model = modelPtr.value;
-    calloc.free(modelPtr);
+          .createEnvironment(0, nullptr, envPtr)
+          .check('LiteRtCreateEnvironment');
+      environment = envPtr.value;
+      calloc.free(envPtr);
 
-    // Compilation options.
-    final optsPtr = calloc<LiteRtOptions>();
-    bindings.createOptions(optsPtr).check('LiteRtCreateOptions');
-    final options = optsPtr.value;
-    calloc.free(optsPtr);
-    bindings
-        .setOptionsHardwareAccelerators(options, _acceleratorFor(backend))
-        .check('LiteRtSetOptionsHardwareAccelerators');
-
-    // Compile.
-    final compiledPtr = calloc<LiteRtCompiledModel>();
-    bindings
-        .createCompiledModel(environment, model, options, compiledPtr)
-        .check('LiteRtCreateCompiledModel');
-    final compiled = compiledPtr.value;
-    calloc.free(compiledPtr);
-
-    // Auto-detect seqLen + dim from compiled tensor layouts unless pinned.
-    int seqLen, dim;
-    if (inputSequenceLength == null) {
-      final inLayout = LiteRtLayoutView.calloc();
+      // Model from .tflite file.
+      final pathC = modelPath.toNativeUtf8();
+      final modelPtr = calloc<LiteRtModel>();
       try {
         bindings
-            .getInputTensorLayout(compiled, 0, 0, inLayout.pointer)
-            .check('LiteRtGetCompiledModelInputTensorLayout');
-        if (inLayout.rank < 2) {
-          throw StateError(
-              'Embedding model input has rank=${inLayout.rank}, expected >=2');
-        }
-        seqLen = inLayout.dimension(1);
+            .createModelFromFile(pathC, modelPtr)
+            .check('LiteRtCreateModelFromFile($modelPath)');
       } finally {
-        inLayout.free();
+        calloc.free(pathC);
       }
-    } else {
-      seqLen = inputSequenceLength;
-    }
+      model = modelPtr.value;
+      calloc.free(modelPtr);
 
-    if (outputDimension == null) {
-      final outLayouts = LiteRtLayoutView.calloc();
-      try {
-        bindings
-            .getOutputTensorLayouts(compiled, 0, 1, outLayouts.pointer, false)
-            .check('LiteRtGetCompiledModelOutputTensorLayouts');
-        if (outLayouts.rank < 2) {
-          throw StateError(
-              'Embedding model output has rank=${outLayouts.rank}, expected >=2');
+      // Compilation options.
+      final optsPtr = calloc<LiteRtOptions>();
+      bindings.createOptions(optsPtr).check('LiteRtCreateOptions');
+      options = optsPtr.value;
+      calloc.free(optsPtr);
+      bindings
+          .setOptionsHardwareAccelerators(options, _acceleratorFor(backend))
+          .check('LiteRtSetOptionsHardwareAccelerators');
+
+      // Compile.
+      final compiledPtr = calloc<LiteRtCompiledModel>();
+      bindings
+          .createCompiledModel(environment, model, options, compiledPtr)
+          .check('LiteRtCreateCompiledModel');
+      compiled = compiledPtr.value;
+      calloc.free(compiledPtr);
+
+      // Auto-detect seqLen + dim from compiled tensor layouts unless pinned.
+      int seqLen, dim;
+      if (inputSequenceLength == null) {
+        final inLayout = LiteRtLayoutView.calloc();
+        try {
+          bindings
+              .getInputTensorLayout(compiled, 0, 0, inLayout.pointer)
+              .check('LiteRtGetCompiledModelInputTensorLayout');
+          if (inLayout.rank < 2) {
+            throw StateError(
+                'Embedding model input has rank=${inLayout.rank}, expected >=2');
+          }
+          seqLen = inLayout.dimension(1);
+        } finally {
+          inLayout.free();
         }
-        dim = outLayouts.dimension(1);
-      } finally {
-        outLayouts.free();
+      } else {
+        seqLen = inputSequenceLength;
       }
-    } else {
-      dim = outputDimension;
+
+      if (outputDimension == null) {
+        final outLayouts = LiteRtLayoutView.calloc();
+        try {
+          bindings
+              .getOutputTensorLayouts(compiled, 0, 1, outLayouts.pointer, false)
+              .check('LiteRtGetCompiledModelOutputTensorLayouts');
+          if (outLayouts.rank < 2) {
+            throw StateError(
+                'Embedding model output has rank=${outLayouts.rank}, expected >=2');
+          }
+          dim = outLayouts.dimension(1);
+        } finally {
+          outLayouts.free();
+        }
+      } else {
+        dim = outputDimension;
+      }
+
+      debugPrint(
+          '[EmbeddingCore] loaded: seqLen=$seqLen, dim=$dim, backend=$backend');
+
+      return EmbeddingCore._(
+        bindings: bindings,
+        environment: environment,
+        model: model,
+        options: options,
+        compiledModel: compiled,
+        tokenizer: tokenizer,
+        inputSequenceLength: seqLen,
+        outputDimension: dim,
+      );
+    } catch (_) {
+      // Free whatever was created, in reverse order, before rethrowing.
+      if (compiled != null) bindings.destroyCompiledModel(compiled);
+      if (options != null) bindings.destroyOptions(options);
+      if (model != null) bindings.destroyModel(model);
+      if (environment != null) bindings.destroyEnvironment(environment);
+      rethrow;
     }
-
-    debugPrint(
-        '[EmbeddingCore] loaded: seqLen=$seqLen, dim=$dim, backend=$backend');
-
-    return EmbeddingCore._(
-      bindings: bindings,
-      environment: environment,
-      model: model,
-      options: options,
-      compiledModel: compiled,
-      tokenizer: tokenizer,
-      inputSequenceLength: seqLen,
-      outputDimension: dim,
-    );
   }
 
   /// Tokenize ([prefix] + [text]) with Gemma BOS/EOS and run one forward pass.
@@ -206,38 +224,45 @@ class EmbeddingCore {
     final seq = inputSequenceLength;
     final dim = outputDimension;
 
+    // All allocations live inside the try so a failure in either
+    // createTensorBufferFromHostMemory (or runCompiledModel) frees everything
+    // that was created instead of leaking it. Buffers are destroyed only if
+    // they were actually created (the `*Created` flags).
     final inType = LiteRtRankedTensorTypeView.calloc()
       ..elementType = kLiteRtElementTypeInt32
       ..rank = 2
       ..setDimension(0, 1)
       ..setDimension(1, seq);
-
     final inAlloc = allocAligned(seq * 4);
-    final inHost = inAlloc.aligned.cast<Int32>();
-    for (var i = 0; i < seq; i++) {
-      inHost[i] = i < tokens.length ? tokens[i] : 0;
-    }
-
     final inBufPtr = calloc<LiteRtTensorBuffer>();
-    _bindings
-        .createTensorBufferFromHostMemory(
-            inType.pointer, inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
-        .check('CreateTensorBufferFromHostMemory(input)');
-
     final outType = LiteRtRankedTensorTypeView.calloc()
       ..elementType = kLiteRtElementTypeFloat32
       ..rank = 2
       ..setDimension(0, 1)
       ..setDimension(1, dim);
-
     final outAlloc = allocAligned(dim * 4);
     final outBufPtr = calloc<LiteRtTensorBuffer>();
-    _bindings
-        .createTensorBufferFromHostMemory(outType.pointer,
-            outAlloc.aligned.cast(), dim * 4, nullptr, outBufPtr)
-        .check('CreateTensorBufferFromHostMemory(output)');
+    var inBufCreated = false;
+    var outBufCreated = false;
 
     try {
+      final inHost = inAlloc.aligned.cast<Int32>();
+      for (var i = 0; i < seq; i++) {
+        inHost[i] = i < tokens.length ? tokens[i] : 0;
+      }
+
+      _bindings
+          .createTensorBufferFromHostMemory(inType.pointer,
+              inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
+          .check('CreateTensorBufferFromHostMemory(input)');
+      inBufCreated = true;
+
+      _bindings
+          .createTensorBufferFromHostMemory(outType.pointer,
+              outAlloc.aligned.cast(), dim * 4, nullptr, outBufPtr)
+          .check('CreateTensorBufferFromHostMemory(output)');
+      outBufCreated = true;
+
       _bindings
           .runCompiledModel(_compiledModel, 0, 1, inBufPtr, 1, outBufPtr)
           .check('LiteRtRunCompiledModel');
@@ -245,8 +270,8 @@ class EmbeddingCore {
       final outFloat = outAlloc.aligned.cast<Float>();
       return List<double>.generate(dim, (i) => outFloat[i]);
     } finally {
-      _bindings.destroyTensorBuffer(inBufPtr.value);
-      _bindings.destroyTensorBuffer(outBufPtr.value);
+      if (inBufCreated) _bindings.destroyTensorBuffer(inBufPtr.value);
+      if (outBufCreated) _bindings.destroyTensorBuffer(outBufPtr.value);
       calloc.free(inBufPtr);
       calloc.free(outBufPtr);
       calloc.free(inAlloc.raw);

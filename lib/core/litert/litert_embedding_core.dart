@@ -267,8 +267,23 @@ class EmbeddingCore {
           .runCompiledModel(_compiledModel, 0, 1, inBufPtr, 1, outBufPtr)
           .check('LiteRtRunCompiledModel');
 
-      final outFloat = outAlloc.aligned.cast<Float>();
-      return List<double>.generate(dim, (i) => outFloat[i]);
+      // Read the result through Lock, NOT from the raw host alloc. On CPU the
+      // locked pointer is the same host memory, but on GPU/NPU the accelerator
+      // writes into device memory and Lock(Read) triggers the device→host sync
+      // (without it the host buffer stays zero — produces all-zero embeddings).
+      final lockedPtr = calloc<Pointer<Void>>();
+      try {
+        _bindings
+            .lockTensorBuffer(
+                outBufPtr.value, lockedPtr, kLiteRtTensorBufferLockModeRead)
+            .check('LiteRtLockTensorBuffer(output)');
+        final outFloat = lockedPtr.value.cast<Float>();
+        final result = List<double>.generate(dim, (i) => outFloat[i]);
+        _bindings.unlockTensorBuffer(outBufPtr.value);
+        return result;
+      } finally {
+        calloc.free(lockedPtr);
+      }
     } finally {
       if (inBufCreated) _bindings.destroyTensorBuffer(inBufPtr.value);
       if (outBufCreated) _bindings.destroyTensorBuffer(outBufPtr.value);

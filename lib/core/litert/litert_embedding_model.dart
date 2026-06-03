@@ -21,17 +21,14 @@ import 'litert_embedding_worker.dart';
 /// Signature for the `onClose` callback. Same name Flutter uses.
 typedef VoidCallback = void Function();
 
-EmbeddingBackend _backendFor(PreferredBackend? backend) {
-  switch (backend) {
-    case PreferredBackend.gpu:
-      return EmbeddingBackend.gpu;
-    case PreferredBackend.npu:
-      return EmbeddingBackend.npu;
-    case PreferredBackend.cpu:
-    case null:
-      return EmbeddingBackend.cpu;
-  }
-}
+// Embeddings run on CPU only. The GPU/NPU plumbing exists end-to-end
+// (EmbeddingBackend + the LiteRT accelerator flag + the Lock(Read) device→host
+// sync), but the GPU delegate currently compiles and then returns all-zero
+// vectors (verified on macOS Metal) — so we do NOT expose it yet. The
+// `preferredBackend` argument is accepted but ignored for embeddings until the
+// GPU path produces correct output. Tracked separately; do NOT silently route
+// embeddings onto a broken accelerator.
+EmbeddingBackend _backendFor(PreferredBackend? backend) => EmbeddingBackend.cpu;
 
 class LitertEmbeddingModel extends EmbeddingModel {
   LitertEmbeddingModel._(this._worker, this.onClose);
@@ -52,10 +49,11 @@ class LitertEmbeddingModel extends EmbeddingModel {
   ///
   /// [modelPath] points at a `.tflite` file (Gecko 64, EmbeddingGemma 256,
   /// etc.). [tokenizerPath] is the matching SentencePiece `.model` or exported
-  /// `.json`. [preferredBackend] selects the LiteRT HW accelerator (CPU by
-  /// default; GPU delegates are bundled). Input sequence length and output
-  /// dimension are auto-detected from the compiled model's tensor layouts;
-  /// pass them to override (rare).
+  /// `.json`. [preferredBackend] is accepted for API symmetry but currently
+  /// ignored — embeddings run on CPU (the GPU delegate returns zero vectors;
+  /// see `_backendFor`). Input sequence length and output dimension are
+  /// auto-detected from the compiled model's tensor layouts; pass them to
+  /// override (rare).
   ///
   /// Caller owns the returned instance and must call [close] when done.
   static Future<LitertEmbeddingModel> create({

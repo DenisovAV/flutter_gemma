@@ -7,11 +7,12 @@ Pod::Spec.new do |s|
   s.version          = '0.16.3'
   s.summary          = 'Flutter plugin for running Gemma and other LLMs locally on iOS.'
   s.description      = <<-DESC
-Run Gemma 4, Gemma3n, Gemma 3, FastVLM, Qwen3, Qwen 2.5, DeepSeek R1,
-Phi-4, FunctionGemma, and SmolLM locally on iOS via MediaPipe GenAI
-(`.task`) or LiteRT-LM (`.litertlm`). Supports multimodal vision +
-audio, function calling, thinking mode, text embeddings, and on-device
-RAG.
+Core runtime for running Gemma 4, Gemma3n, Gemma 3, FastVLM, Qwen3,
+Qwen 2.5, DeepSeek R1, Phi-4, FunctionGemma, and SmolLM locally on iOS.
+Inference engines are opt-in packages: `flutter_gemma_mediapipe`
+(`.task`, MediaPipe GenAI) and `flutter_gemma_litertlm` (`.litertlm`).
+Supports multimodal vision + audio, function calling, thinking mode,
+text embeddings, and on-device RAG.
                        DESC
   s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
   s.license          = { :file => '../LICENSE' }

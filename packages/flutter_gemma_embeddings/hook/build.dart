@@ -567,8 +567,24 @@ Future<void> _processBundle({
   // marker) registers the shared CodeAssets. A non-owner package sharing the
   // same bundle (e.g. embeddings sharing litertlm's libLiteRtLm) ensures the
   // cache is populated (dedup/download below) but must NOT re-register the same
-  // dylib — Native Assets errors on a duplicate bundled filename. At runtime the
-  // non-owner's DynamicLibrary.open(filename) resolves the owner-bundled dylib.
+  // dylib — Native Assets errors on a duplicate bundled filename, and both FFI
+  // loaders open it by a FIXED basename (libLiteRtLm.so / LiteRtLm.framework),
+  // so exactly one package must bundle it. At runtime the non-owner's
+  // DynamicLibrary.open(filename) resolves the owner-bundled dylib.
+  //
+  // KNOWN LIMITATION (orphaned-owner edge case): the owner is persisted in the
+  // shared-cache marker ACROSS builds. A Dart build hook is sandboxed — it sees
+  // only its own packageRoot; BuildInput.assets/metadata expose ONLY direct
+  // dependencies (hooks config.dart, ToBuildHooks dartdoc), and litertlm /
+  // embeddings deliberately don't depend on each other (embeddings is
+  // autonomous). So a hook CANNOT learn the current build's package set and
+  // CANNOT recompute the registrant per-build. If the recorded owner is later
+  // dropped from the app's deps and the survivor rebuilds without `flutter
+  // clean`, the survivor reads the stale owner, skips registration, and nobody
+  // bundles the dylib → an opaque dlopen "no such file" at first use. Fix:
+  // `flutter clean` + delete the flutter_gemma native cache (see each package's
+  // README troubleshooting). Upstream deliberately chose "one registrant + error
+  // on conflict, no auto-dedup" (dart-lang/native#190, flutter#158214).
   //
   // Capture the owner state BEFORE _writeMarker below can overwrite it: a
   // non-owner dedup must not clobber the marker's owner to itself.

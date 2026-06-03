@@ -15,13 +15,21 @@ class RuntimeConfig {
     this.enableSpeculativeDecoding,
     this.maxConcurrentSessions,
     this.loraRanks,
-  });
+  })  : assert(maxTokens >= 0, 'maxTokens must not be negative'),
+        assert(maxNumImages == null || maxNumImages >= 0,
+            'maxNumImages must not be negative'),
+        assert(maxConcurrentSessions == null || maxConcurrentSessions > 0,
+            'maxConcurrentSessions must be positive when set');
 
   final int maxTokens;
 
   /// Resolved on-disk path to the model file. Core's platform `createModel`
   /// preamble resolves it from the active spec via the model manager and passes
   /// it here so the engine package never touches core's file-path resolution.
+  ///
+  /// Empty on web: the web engines resolve the model source themselves via
+  /// `WebModelSourceResolver` (there is no on-disk path), so this is `''` there.
+  /// Hence there is no non-empty assert on it.
   final String modelPath;
 
   /// Resolved on-disk path to the tokenizer. Embedding backends only; null for

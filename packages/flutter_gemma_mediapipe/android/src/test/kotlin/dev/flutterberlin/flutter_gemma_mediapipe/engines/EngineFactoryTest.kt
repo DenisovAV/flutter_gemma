@@ -1,6 +1,7 @@
-package dev.flutterberlin.flutter_gemma.engines
+package dev.flutterberlin.flutter_gemma_mediapipe.engines
 
 import android.content.Context
+import dev.flutterberlin.flutter_gemma_mediapipe.engines.mediapipe.MediaPipeEngine
 import org.junit.Assert.*
 import org.junit.Test
 import org.mockito.Mockito.mock
@@ -18,19 +19,19 @@ class EngineFactoryTest {
     @Test
     fun `createFromModelPath with task extension returns MediaPipeEngine`() {
         val engine = EngineFactory.createFromModelPath("/path/to/model.task", mockContext)
-        assertTrue(engine is dev.flutterberlin.flutter_gemma.engines.mediapipe.MediaPipeEngine)
+        assertTrue(engine is MediaPipeEngine)
     }
 
     @Test
     fun `createFromModelPath with bin extension returns MediaPipeEngine`() {
         val engine = EngineFactory.createFromModelPath("/path/to/model.bin", mockContext)
-        assertTrue(engine is dev.flutterberlin.flutter_gemma.engines.mediapipe.MediaPipeEngine)
+        assertTrue(engine is MediaPipeEngine)
     }
 
     @Test
     fun `createFromModelPath with tflite extension returns MediaPipeEngine`() {
         val engine = EngineFactory.createFromModelPath("/path/to/model.tflite", mockContext)
-        assertTrue(engine is dev.flutterberlin.flutter_gemma.engines.mediapipe.MediaPipeEngine)
+        assertTrue(engine is MediaPipeEngine)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -51,12 +52,12 @@ class EngineFactoryTest {
     @Test
     fun `createFromModelPath handles paths with multiple dots`() {
         val engine = EngineFactory.createFromModelPath("/path/to/model.v1.2.task", mockContext)
-        assertTrue(engine is dev.flutterberlin.flutter_gemma.engines.mediapipe.MediaPipeEngine)
+        assertTrue(engine is MediaPipeEngine)
     }
 
     @Test
     fun `createFromModelPath handles paths with spaces`() {
         val engine = EngineFactory.createFromModelPath("/path/to/my model.task", mockContext)
-        assertTrue(engine is dev.flutterberlin.flutter_gemma.engines.mediapipe.MediaPipeEngine)
+        assertTrue(engine is MediaPipeEngine)
     }
 }

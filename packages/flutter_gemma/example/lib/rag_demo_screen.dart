@@ -102,8 +102,12 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       _statusMessage = 'Switching to ${next.label}...';
     });
 
+    final previous = _ragBackend;
     try {
-      FlutterGemma.reset();
+      // Close the current store (release its native handle) AND reset the
+      // singleton before re-bootstrapping — dispose() does both, so the
+      // qdrant-edge shard / sqlite connection isn't leaked.
+      await FlutterGemma.dispose();
       await bootstrapGemma(ragBackend: next);
 
       setState(() {
@@ -111,6 +115,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
         _isInitialized = false; // user must re-init the (new, empty) store
         _stats = null;
         _results = [];
+        _categoryFilter = null;
+        _addTimeMs = 0;
+        _searchTimeMs = 0;
         _statusMessage =
             'Switched to ${next.label}. Initialize VectorStore to begin.';
         _isLoading = false;
@@ -126,9 +133,28 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       }
     } catch (e) {
       debugPrint('[RagDemo] Error switching backend: $e');
+      // The new backend failed AFTER reset(), so the DI singleton is null and
+      // every RAG call would now throw "not initialized". Re-bootstrap the
+      // PREVIOUS backend so the app stays usable (with a fresh, empty store of
+      // the previous type — the prior data is gone with the closed store).
+      var recovered = false;
+      try {
+        await FlutterGemma.dispose();
+        await bootstrapGemma(ragBackend: previous);
+        recovered = true;
+      } catch (e2) {
+        debugPrint('[RagDemo] Recovery re-init also failed: $e2');
+      }
       setState(() {
         _isLoading = false;
-        _statusMessage = 'Failed to switch backend: $e';
+        _isInitialized = false;
+        _stats = null;
+        _results = [];
+        _statusMessage = recovered
+            ? 'Failed to switch to ${next.label}: $e\n'
+                'Reverted to ${previous.label} — re-initialize the VectorStore.'
+            : 'Failed to switch backend and could not recover: $e\n'
+                'Please restart the app.';
       });
     }
   }

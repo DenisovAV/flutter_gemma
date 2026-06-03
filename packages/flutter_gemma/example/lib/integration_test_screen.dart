@@ -6,12 +6,10 @@ import 'package:flutter_gemma/core/api/flutter_gemma.dart';
 import 'package:flutter_gemma/flutter_gemma.dart' as legacy;
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     as legacy_mobile;
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
-import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
-import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma_example/utils/test_preferences.dart';
+import 'package:flutter_gemma_example/gemma_bootstrap.dart';
 import 'package:flutter_gemma_example/rag_demo_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -300,8 +298,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🆕 Testing with Modern API (fromNetwork)...');
       FlutterGemma.initialize(
         maxDownloadRetries: 3,
-        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-        embeddingBackends: const [LiteRtEmbeddingBackend()],
+        inferenceEngines: kExampleInferenceEngines,
+        embeddingBackends: kExampleEmbeddingBackends,
       );
 
       // Modern API saves file with name from URL
@@ -385,8 +383,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🆕 Testing 3 sequential with Modern API...');
       FlutterGemma.initialize(
         maxDownloadRetries: 3,
-        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-        embeddingBackends: const [LiteRtEmbeddingBackend()],
+        inferenceEngines: kExampleInferenceEngines,
+        embeddingBackends: kExampleEmbeddingBackends,
       );
 
       final documentsDir = testDir.replaceAll('/integration_tests', '');
@@ -524,8 +522,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🆕 Testing Modern API progress tracking...');
       FlutterGemma.initialize(
         maxDownloadRetries: 3,
-        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-        embeddingBackends: const [LiteRtEmbeddingBackend()],
+        inferenceEngines: kExampleInferenceEngines,
+        embeddingBackends: kExampleEmbeddingBackends,
       );
 
       final documentsDir = testDir.replaceAll('/integration_tests', '');
@@ -592,8 +590,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🆕 Testing Modern API 404 error...');
       FlutterGemma.initialize(
         maxDownloadRetries: 3,
-        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-        embeddingBackends: const [LiteRtEmbeddingBackend()],
+        inferenceEngines: kExampleInferenceEngines,
+        embeddingBackends: kExampleEmbeddingBackends,
       );
 
       try {
@@ -655,8 +653,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🆕 Testing Modern API HTTP auth error...');
       FlutterGemma.initialize(
         maxDownloadRetries: 3,
-        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-        embeddingBackends: const [LiteRtEmbeddingBackend()],
+        inferenceEngines: kExampleInferenceEngines,
+        embeddingBackends: kExampleEmbeddingBackends,
       );
 
       try {
@@ -1088,8 +1086,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🆕 Testing Modern API concurrent downloads (2 parallel)...');
       FlutterGemma.initialize(
         maxDownloadRetries: 3,
-        inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-        embeddingBackends: const [LiteRtEmbeddingBackend()],
+        inferenceEngines: kExampleInferenceEngines,
+        embeddingBackends: kExampleEmbeddingBackends,
       );
 
       final documentsDir = testDir.replaceAll('/integration_tests', '');

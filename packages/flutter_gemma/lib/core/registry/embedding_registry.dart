@@ -44,15 +44,3 @@ class EmbeddingRegistry {
 
   void reset() => _registered.clear();
 }
-
-/// Throws a helpful error if no embedding backend is registered.
-/// Used by the auto-embedding RAG convenience methods (addDocument /
-/// searchSimilar), which embed text through whichever backend the registry
-/// resolves for the active model.
-void requireEmbeddingBackend() {
-  if (!EmbeddingRegistry.instance.hasAny) {
-    throw StateError(
-      'No embedding backend is registered. (Reserved for a future flutter_gemma_embeddings package; not yet wired.)',
-    );
-  }
-}

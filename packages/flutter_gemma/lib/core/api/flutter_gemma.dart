@@ -113,10 +113,15 @@ class FlutterGemma {
     WebStorageMode webStorageMode = WebStorageMode.cacheApi,
     @Deprecated('Use webStorageMode instead. Will be removed in v0.13.0')
     bool? enableWebCache,
-    // Opt-in registration. When the lists are empty, the platform plugins
-    // lazy-register their default engines on first createModel (0.16.x behavior
-    // preserved). null → ServiceRegistry's UnconfiguredVectorStore sentinel (RAG is opt-in;
-    // it throws a clear "add a RAG package" error on first use).
+    // Opt-in registration. Engines/backends are FULLY opt-in: core registers
+    // NONE by default. Pass the providers from the packages you use, e.g.
+    // `LiteRtLmEngine()` (flutter_gemma_litertlm), `MediaPipeEngine()`
+    // (flutter_gemma_mediapipe), `LiteRtEmbeddingBackend()`
+    // (flutter_gemma_embeddings). If the lists are empty, the first
+    // createModel / createEmbeddingModel throws a clear "add the engine
+    // package" StateError. vectorStore null → ServiceRegistry's
+    // UnconfiguredVectorStore sentinel (RAG is opt-in; it throws a clear "add a
+    // RAG package" error on first use).
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
     VectorStoreRepository? vectorStore,
@@ -459,7 +464,28 @@ class FlutterGemma {
   }
 
   /// Reset ServiceRegistry (primarily for testing)
+  ///
+  /// Nulls the DI singleton WITHOUT closing the active vector store. Prefer
+  /// [dispose] when a real store is live (e.g. switching RAG backends at
+  /// runtime) so its native handle is released; [reset] alone would leak it.
   static void reset() {
+    ServiceRegistry.reset();
+  }
+
+  /// Closes the active vector store (releasing its native handle — qdrant-edge
+  /// shard / sqlite connection) and then resets the DI singleton.
+  ///
+  /// Use this instead of [reset] when a configured vector store is live and you
+  /// intend to re-[initialize] afterwards (e.g. swapping RAG backends). Safe to
+  /// call when uninitialized (no-op). The installed embedder + active inference
+  /// model survive — they live in the platform plugin instance + prefs, not the
+  /// DI singleton.
+  static Future<void> dispose() async {
+    try {
+      await ServiceRegistry.instance.dispose();
+    } on StateError {
+      // Not initialized — nothing to dispose.
+    }
     ServiceRegistry.reset();
   }
 }

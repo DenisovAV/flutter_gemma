@@ -6,6 +6,21 @@ import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
+/// The opt-in inference engines the example registers. Single source of truth —
+/// used by [bootstrapGemma] and by the diagnostics screen so the two never
+/// drift. The example ships both formats (`.litertlm` + `.task`). The element
+/// type (`InferenceEngineProvider`) is inferred from the concrete engines, so
+/// the example needn't import the internal provider interface.
+const kExampleInferenceEngines = [
+  LiteRtLmEngine(),
+  MediaPipeEngine(),
+];
+
+/// The opt-in embedding backends the example registers. Single source of truth.
+const kExampleEmbeddingBackends = [
+  LiteRtEmbeddingBackend(),
+];
+
 /// The RAG vector-store backends the example can switch between.
 enum RagBackend {
   sqlite('SQLite'),
@@ -50,8 +65,8 @@ VectorStoreRepository vectorStoreFor(RagBackend backend) {
 Future<void> bootstrapGemma({required RagBackend ragBackend}) {
   return FlutterGemma.initialize(
     webStorageMode: WebStorageMode.streaming,
-    inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-    embeddingBackends: const [LiteRtEmbeddingBackend()],
+    inferenceEngines: kExampleInferenceEngines,
+    embeddingBackends: kExampleEmbeddingBackends,
     vectorStore: vectorStoreFor(ragBackend),
   );
 }

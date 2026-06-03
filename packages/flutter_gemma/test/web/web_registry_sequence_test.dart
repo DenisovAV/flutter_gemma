@@ -1,7 +1,11 @@
-// Verifies the web engine-registration sequence post-fix (host VM, no browser):
-// passing a REAL litertlm engine via initialize must NOT suppress core's
-// MediaPipe default (one-shot flag, not registered.isEmpty), and .litertlm
-// resolves to the (real) litertlm engine, .task to MediaPipe — neither throws.
+// Verifies the web engine-registration probe (host VM, no browser): with both
+// opt-in web engines registered (as the example does via
+// inferenceEngines: [LiteRtLmEngine(), MediaPipeEngine()]), the registry routes
+// .litertlm → the litertlm engine and .task → MediaPipe, neither throwing.
+//
+// NOTE: core registers NO default engine (fully opt-in as of 1.0). There is no
+// "suppress the core default" one-shot flag anymore — both engines are
+// explicitly registered, and findFor just probes by fileType.
 
 import 'package:flutter_gemma/core/model.dart' show ModelFileType, ModelType;
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
@@ -61,23 +65,17 @@ void main() {
   setUp(() => EngineRegistry.instance.reset());
 
   test(
-      'passing the real litertlm engine does NOT suppress the MediaPipe '
-      'default (one-shot flag), and .task resolves to MediaPipe', () async {
-    // Step 1: initialize(inferenceEngines: [LiteRtLmEngine()]) registers the
-    // real web litertlm engine.
-    EngineRegistry.instance.registerAll(const [_RealLiteRtLmWebEngine()]);
-    // Step 2: web createModel's one-shot guard registers the MediaPipe default
-    // regardless of the registry already being non-empty (the fix). Model it:
-    bool webDefaultsRegistered = false;
-    if (!webDefaultsRegistered) {
-      webDefaultsRegistered = true;
-      EngineRegistry.instance.registerAll(const [_CoreMediaPipe()]);
-    }
-    // Step 3: .task probe → MediaPipe found (NOT null — the bug is fixed).
+      'with both web engines registered, .task resolves to MediaPipe '
+      '(and the litertlm engine does not capture it)', () async {
+    // The example registers both opt-in web engines:
+    //   initialize(inferenceEngines: [LiteRtLmEngine(), MediaPipeEngine()]).
+    EngineRegistry.instance
+        .registerAll(const [_RealLiteRtLmWebEngine(), _CoreMediaPipe()]);
+    // .task probe → MediaPipe (the litertlm engine only handles .litertlm).
     final taskEngine =
         EngineRegistry.instance.findFor(_spec(ModelFileType.task));
     expect(taskEngine, isNotNull,
-        reason: 'MediaPipe default must register despite a passed engine');
+        reason: 'MediaPipe must be selected for .task');
     await expectLater(
       () => taskEngine!.createModel(_spec(ModelFileType.task),
           const RuntimeConfig(maxTokens: 1, modelPath: '')),

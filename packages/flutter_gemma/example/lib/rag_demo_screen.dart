@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'gemma_bootstrap.dart';
 import 'rag_demo/rag_demo_data.dart';
 import 'rag_demo/widgets/status_card.dart';
 import 'rag_demo/widgets/knowledge_base_section.dart';
@@ -32,6 +33,13 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   final TextEditingController _searchController = TextEditingController(
     text: 'What is Flutter?',
   );
+
+  /// The active RAG vector-store backend. Switched at runtime via the
+  /// SegmentedButton below: `FlutterGemma.reset()` tears down the DI singleton
+  /// (and the current store), then [bootstrapGemma] re-initializes with the new
+  /// store. The installed embedder + active model survive (they live in the
+  /// platform plugin instance + prefs, not the DI singleton).
+  RagBackend _ragBackend = RagBackend.sqlite;
 
   bool _isInitialized = false;
   bool _isLoading = false;
@@ -76,6 +84,55 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
     });
   }
 
+  /// Swap the active vector-store backend at runtime. Tears down the current
+  /// store + DI singleton via [FlutterGemma.reset], then re-bootstraps with the
+  /// new store. The installed embedder + active model survive (held in the
+  /// platform plugin instance + prefs, not the DI singleton). The switch resets
+  /// the demo to an uninitialized state — the new store is empty, so the user
+  /// re-initializes + re-adds documents.
+  Future<void> _switchBackend(RagBackend next) async {
+    if (next == _ragBackend) return;
+    if (!next.isSupportedOnThisPlatform) {
+      _showError('${next.label} is not available on web.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Switching to ${next.label}...';
+    });
+
+    try {
+      FlutterGemma.reset();
+      await bootstrapGemma(ragBackend: next);
+
+      setState(() {
+        _ragBackend = next;
+        _isInitialized = false; // user must re-init the (new, empty) store
+        _stats = null;
+        _results = [];
+        _statusMessage =
+            'Switched to ${next.label}. Initialize VectorStore to begin.';
+        _isLoading = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Switching backend resets the knowledge base.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[RagDemo] Error switching backend: $e');
+      setState(() {
+        _isLoading = false;
+        _statusMessage = 'Failed to switch backend: $e';
+      });
+    }
+  }
+
   Future<void> _initializeVectorStore() async {
     if (!_hasEmbeddingModel) {
       _showError('Please install an embedding model first!');
@@ -88,7 +145,10 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
     });
 
     try {
-      final dbPath = await _getDatabasePath('rag_demo.db');
+      // Per-backend storage path: sqlite wants a `.db` FILE, qdrant-edge wants
+      // a shard DIRECTORY. RagBackend.storageName encodes the right shape so
+      // the two stores never collide on disk.
+      final dbPath = await _getDatabasePath(_ragBackend.storageName);
       await FlutterGemmaPlugin.instance.initializeVectorStore(dbPath);
 
       final stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
@@ -262,6 +322,53 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
     );
   }
 
+  /// Runtime backend switcher. A [SegmentedButton] over [RagBackend]. The
+  /// qdrant segment is disabled where it's unsupported (web) and wrapped in a
+  /// [Tooltip] explaining why. The whole control is disabled while loading.
+  Widget _buildBackendSwitcher() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.swap_horiz, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Vector Store: ${_ragBackend.label}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<RagBackend>(
+              segments: [
+                for (final backend in RagBackend.values)
+                  ButtonSegment<RagBackend>(
+                    value: backend,
+                    enabled: backend.isSupportedOnThisPlatform,
+                    label: backend.isSupportedOnThisPlatform
+                        ? Text(backend.label)
+                        : Tooltip(
+                            message:
+                                'Qdrant is native-only (Android/iOS/desktop)',
+                            child: Text(backend.label),
+                          ),
+                  ),
+              ],
+              selected: {_ragBackend},
+              onSelectionChanged: _isLoading
+                  ? null
+                  : (selection) => _switchBackend(selection.first),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -273,6 +380,13 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Runtime vector-store switcher: SQLite <-> Qdrant. Qdrant is
+            // native-only, so its segment is disabled on web (with a tooltip).
+            // Switching calls FlutterGemma.reset() + re-bootstraps with the new
+            // store while preserving the installed embedder + active model.
+            _buildBackendSwitcher(),
+            const SizedBox(height: 16),
+
             StatusCard(
               hasEmbeddingModel: _hasEmbeddingModel,
               statusMessage: _statusMessage,

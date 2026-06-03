@@ -195,6 +195,52 @@ enum Model implements InferenceModelInterface {
     isThinking: true,
   ),
 
+  // Gemma 4 E2B compiled for Intel NPU (Windows only, PreferredBackend.npu).
+  // Chip-specific builds — pick the one matching the silicon:
+  //   _LNL = Lunar Lake, _PTL = Panther Lake.
+  // The plugin auto-configures the NPU dispatch dir on Windows; the bundled
+  // LiteRtDispatch.dll + OpenVino + TBB ship in the same native tarball.
+  // Source: https://ai.google.dev/edge/litert/next/litert_lm_npu#intel
+  gemma4_E2B_intel_LNL(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
+    filename: 'gemma-4-E2B-it_intel_LNL.litertlm',
+    displayName: 'Gemma 4 E2B IT (Intel NPU - Lunar Lake)',
+    size: '2.96GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.npu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
+  gemma4_E2B_intel_PTL(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
+    filename: 'gemma-4-E2B-it_intel_PTL.litertlm',
+    displayName: 'Gemma 4 E2B IT (Intel NPU - Panther Lake)',
+    size: '2.95GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.npu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
   // Gemma 4 E4B LiteRT-LM (same model as gemma4_E4B, different engine)
   gemma4_E4B_litertlm(
     baseUrl:

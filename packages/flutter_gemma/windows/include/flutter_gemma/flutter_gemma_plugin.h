@@ -29,7 +29,7 @@ FLUTTER_PLUGIN_EXPORT void FlutterGemmaPluginRegisterWithRegistrar(
 
 namespace flutter_gemma {
 
-// Placeholder plugin class — actual implementation is in Dart over dart:ffi
+// Placeholder plugin class -- actual implementation is in Dart over dart:ffi
 class FlutterGemmaPlugin : public flutter::Plugin {
  public:
   static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);

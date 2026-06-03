@@ -33,7 +33,11 @@ flutter test                # all pass
 # `No named parameter ...` at dart2js time.
 cd example
 flutter build web --no-tree-shake-icons
-flutter build apk --debug
+# Android MUST be built --release, not --debug: a release build runs R8
+# (shrink/minify/obfuscate) and the full native-asset packaging path, which
+# debug skips. Bugs that only surface under R8 (stripped classes, missing
+# keep rules, native lib packaging) are invisible to `--debug`.
+flutter build apk --release
 flutter build macos --debug
 flutter build ios --no-codesign --debug
 cd ..
@@ -216,10 +220,13 @@ flutter test
 # Cross-platform compile sanity (also in Pre-flight — rerun here after
 # version bumps in case a setter/getter signature shifted):
 (cd example && flutter build web --no-tree-shake-icons)
-(cd example && flutter build apk --debug)
+(cd example && flutter build apk --release)   # --release, not --debug: exercises R8 + native packaging
 (cd example && flutter build macos --debug)
 (cd example && flutter build ios --no-codesign --debug)
-dart pub publish --dry-run     # 0 warnings; check final package size <= 100 KB
+dart pub publish --dry-run     # 0 warnings (package size is informational — the
+                               # FFI bindings + pigeon + example already push it
+                               # to ~700 KB on 0.16.x; the old <=100 KB ceiling
+                               # predates 0.14.0 and no longer applies)
 ```
 
 **NEVER publish without dry-run first.** Publishing is IRREVERSIBLE.
@@ -258,4 +265,4 @@ gh release view v0.14.1
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.
 - **Linux/Windows builds run on remote VMs** — see `project_gcloud_vm_workflow` memory.
 - **macOS dylib produced LOCALLY**, not in CI — see `project_macos_dylib_built_locally` memory. Same for iOS.
-- **Pub package size ceiling 100 KB** — `.pubignore` already excludes prebuilts, integration tests, and notebooks. If new top-level dirs creep in, dry-run will show > 100 KB and fail.
+- **Pub package size is informational, NOT a hard ceiling** — `.pubignore` already excludes prebuilts, integration tests, and notebooks. The FFI bindings + pigeon + example push each published package to ~700 KB on 0.16.x; the old <=100 KB ceiling predates 0.14.0 and no longer applies. Just confirm `.pubignore` still excludes the heavy dirs.

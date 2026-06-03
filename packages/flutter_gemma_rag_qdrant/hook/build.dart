@@ -517,12 +517,37 @@ Future<void> _processBundle({
   // shared CodeAssets to avoid a duplicate bundled-filename error.
   if (!iAmRegistrant) return;
 
+  // Flutter's native-assets pipeline declares every `CodeAsset.file` as a
+  // build OUTPUT and every `output.dependencies` entry as a build INPUT (see
+  // flutter_tools build_system/targets/native_assets.dart `DartBuild`).
+  // Registering a dylib straight from `prebuiltDir` (the global cache, which we
+  // also list as a dependency below) makes the output dylib live INSIDE an
+  // input directory. Xcode then takes a directoryTreeSignature over that input
+  // dir which includes the output dylib, so the macOS "Flutter Assemble" Run
+  // Script ends up depending on its own output → "Cycle inside Flutter
+  // Assemble" (and "located outside of the allowed root paths" warnings).
+  //
+  // Fix: copy each dylib into the hook's `outputDirectory` (an allowed root
+  // that never overlaps the cache dependency dir) and register the CodeAsset
+  // from there. The cache dir stays an input-only dependency for rebuild
+  // detection. Copies are size-guarded so the hook only rewrites on change.
+  Uri stage(Uri srcUri) {
+    final src = File.fromUri(srcUri);
+    final destUri = input.outputDirectory.resolve(srcUri.pathSegments.last);
+    final dest = File.fromUri(destUri);
+    if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
+      dest.parent.createSync(recursive: true);
+      src.copySync(destUri.toFilePath());
+    }
+    return destUri;
+  }
+
   output.assets.code.add(
     CodeAsset(
       package: _packageName,
       name: 'src/native/${bundle.mainLibName}',
       linkMode: DynamicLoadingBundled(),
-      file: mainFileUri,
+      file: stage(mainFileUri),
     ),
   );
 
@@ -537,7 +562,7 @@ Future<void> _processBundle({
         package: _packageName,
         name: 'src/native/StreamProxy',
         linkMode: DynamicLoadingBundled(),
-        file: proxyFileUri,
+        file: stage(proxyFileUri),
       ),
     );
   }
@@ -554,7 +579,7 @@ Future<void> _processBundle({
           package: _packageName,
           name: 'src/native/$name',
           linkMode: DynamicLoadingBundled(),
-          file: fileUri,
+          file: stage(fileUri),
         ),
       );
     }

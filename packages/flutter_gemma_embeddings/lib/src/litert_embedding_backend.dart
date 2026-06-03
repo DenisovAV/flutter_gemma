@@ -35,6 +35,7 @@ class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
     return LitertEmbeddingModel.create(
       modelPath: config.modelPath,
       tokenizerPath: tokenizerPath,
+      preferredBackend: config.preferredBackend,
       onClose: () {}, // core resets its state via addCloseListener
     );
   }

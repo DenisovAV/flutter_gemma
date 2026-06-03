@@ -743,4 +743,98 @@ void main() {
           reason: 'Path must not be the legacy Documents/$filename');
     });
   });
+
+  // ══════════════════════════════════════════════════════════════════
+  // Embedding must NOT block the calling (UI) isolate (#299)
+  // ══════════════════════════════════════════════════════════════════
+  //
+  // Since the #299 fix, `generateEmbedding` runs the blocking LiteRT forward
+  // pass on a background worker isolate. We prove the main isolate stays alive
+  // by spinning an async counter on it WHILE a batch of embeddings runs: if the
+  // forward were synchronous on the calling isolate, the counter could not
+  // advance during a forward (it would be frozen for the whole pass). A live
+  // counter ⇒ the main isolate kept running ⇒ no UI freeze. This is robust to
+  // the GC noise that makes a Timer-gap meter unreliable on emulators.
+  group('Embedding non-blocking (#299)', () {
+    const modelName = 'embeddinggemma-300M_seq256_mixed-precision.tflite';
+    const tokenizerName = 'sentencepiece.model';
+    EmbeddingModel? embModel;
+
+    Future<String> resolveAsset(String name) async {
+      // Host/Android-pushed path first, then bundled asset fallback.
+      final local = _localPath(name);
+      if (local != null && File(local).existsSync()) return local;
+      final docs = await getApplicationDocumentsDirectory();
+      final f = File('${docs.path}/$name');
+      if (f.existsSync()) return f.path;
+      final bytes = await rootBundle.load('assets/test/$name');
+      await f.writeAsBytes(bytes.buffer.asUint8List());
+      return f.path;
+    }
+
+    setUpAll(() async {
+      await FlutterGemma.installEmbedder()
+          .modelFromFile(await resolveAsset(modelName))
+          .tokenizerFromFile(await resolveAsset(tokenizerName))
+          .install();
+      embModel = await FlutterGemma.getActiveEmbedder();
+    });
+
+    tearDownAll(() async {
+      await embModel?.close();
+      embModel = null;
+    });
+
+    testWidgets('main isolate stays live during a batch of embeddings',
+        (t) async {
+      final model = embModel!;
+      // Warm up (first call pays worker spawn + native compile).
+      await model.generateEmbedding('warm up');
+
+      const texts = [
+        'Renewable energy is reshaping the global power grid.',
+        'A classic margherita pizza needs only flour, tomato, and basil.',
+        'Stock markets reacted sharply to the central bank announcement.',
+        'The quick brown fox jumps over the lazy dog near the riverbank.',
+        'Quantum computing promises exponential speedups for some problems.',
+        'Photosynthesis converts sunlight into chemical energy in plants.',
+      ];
+
+      // Async counter on the main isolate: a self-rescheduling microtask that
+      // increments while we await the embeddings. If a forward blocked the
+      // calling isolate, the counter would stall for the whole pass.
+      var ticks = 0;
+      var running = true;
+      Future<void> spin() async {
+        while (running) {
+          ticks++;
+          await Future<void>.delayed(Duration.zero);
+        }
+      }
+
+      final spinner = spin();
+      final sw = Stopwatch()..start();
+      for (final text in texts) {
+        await model.generateEmbedding(text);
+      }
+      sw.stop();
+      running = false;
+      await spinner;
+
+      final perCall = sw.elapsedMilliseconds / texts.length;
+      print(
+          '[#299] ${texts.length} embeddings: perCall=${perCall.toStringAsFixed(0)}ms  '
+          'main-isolate ticks during run=$ticks');
+
+      // The whole point of #299: the worker keeps the calling isolate free, so
+      // the main isolate scheduled many microtasks while the forwards ran. A
+      // regression to the synchronous path would freeze the main isolate for
+      // the full forward time, yielding far fewer (near-zero) ticks. We require
+      // comfortably more than one tick per embedding.
+      expect(ticks, greaterThan(texts.length),
+          reason: 'main isolate barely advanced during the embedding batch — '
+              'the forward is blocking the calling isolate (issue #299 '
+              'regression)');
+    });
+  });
 }

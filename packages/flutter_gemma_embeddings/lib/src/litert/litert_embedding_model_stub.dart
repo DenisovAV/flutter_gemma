@@ -8,6 +8,7 @@
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
+import 'package:flutter_gemma/pigeon.g.dart' show PreferredBackend;
 
 typedef VoidCallback = void Function();
 
@@ -17,6 +18,7 @@ class LitertEmbeddingModel extends EmbeddingModel with CloseNotifier {
   static Future<LitertEmbeddingModel> create({
     required String modelPath,
     required String tokenizerPath,
+    PreferredBackend? preferredBackend,
     int? inputSequenceLength,
     int? outputDimension,
     VoidCallback? onClose,

@@ -44,6 +44,7 @@ enum Model implements InferenceModelInterface {
     maxTokens: 4096,
     maxNumImages: 4,
     isThinking: true,
+    supportsFunctionCalls: true,
   ),
   gemma4_E4B(
     baseUrl:
@@ -68,6 +69,7 @@ enum Model implements InferenceModelInterface {
     maxTokens: 4096,
     maxNumImages: 4,
     isThinking: true,
+    supportsFunctionCalls: true,
   ),
 
   // Gemma 4 E2B compiled for Intel NPU (Windows only, PreferredBackend.npu).

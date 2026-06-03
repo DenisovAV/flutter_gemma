@@ -1,3 +1,7 @@
+## 0.16.4
+- **Fix embedding freezing the UI thread** (#299): forward pass now runs on a background isolate.
+- **Embedding `preferredBackend`** now wired through to the LiteRT accelerator (CPU/GPU/NPU).
+
 ## 0.16.3
 - **Android Qualcomm NPU** (`PreferredBackend.npu`): auto-extracts QNN dispatch libs from APK at runtime (#293).
 - **Fix Android GPU sampler CPU fallback** (#270): GPU OpenCL/WebGPU samplers now resolve correctly, restoring ~3× decode speed.

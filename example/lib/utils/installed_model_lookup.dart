@@ -1,7 +1,33 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding;
 import 'package:flutter_gemma_example/models/model.dart';
 import 'package:flutter_gemma_example/models/translate_model.dart';
+
+/// Resolves the on-disk path (or web URL) for an installed model file.
+Future<String> resolveInstalledModelPath(String installedId) async {
+  final registry = ServiceRegistry.instance;
+  final info = await registry.modelRepository.loadModel(installedId);
+  final source = info?.source;
+  if (source != null) {
+    switch (source) {
+      case FileSource(:final path):
+        return path;
+      case NetworkSource(:final url) when kIsWeb:
+        return url;
+      case AssetSource(:final path) when kIsWeb:
+        return path;
+      case BundledSource(:final resourceName):
+        return registry.fileSystemService.getBundledResourcePath(resourceName);
+      case NetworkSource():
+      case AssetSource():
+        break;
+    }
+  }
+  return registry.fileSystemService.getReadTargetPath(installedId);
+}
 
 bool isInferenceOrTranslationArtifact(String id) {
   final lower = id.toLowerCase();

@@ -19,6 +19,16 @@ add_library(${PLUGIN_NAME} SHARED
 
 apply_standard_settings(${PLUGIN_NAME})
 
+# Read sources as UTF-8 regardless of the system locale. Flutter's
+# apply_standard_settings enables /WX, so on non-UTF-8 code pages (e.g. CP949
+# Korean) MSVC promotes C4819 ("character cannot be represented in the current
+# code page") to a hard error for any UTF-8 byte in the headers, breaking the
+# build for the plugin and the app runner. /utf-8 fixes it for every locale
+# (#212).
+if(MSVC)
+  target_compile_options(${PLUGIN_NAME} PRIVATE /utf-8)
+endif()
+
 set_target_properties(${PLUGIN_NAME} PROPERTIES
   CXX_VISIBILITY_PRESET hidden)
 

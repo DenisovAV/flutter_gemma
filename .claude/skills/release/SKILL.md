@@ -31,9 +31,14 @@ flutter test                # all pass
 # Skipping this is how `enableSpeculativeDecoding` web breakage shipped
 # in 0.15.0 — analyze was green, tests passed, web build threw
 # `No named parameter ...` at dart2js time.
+#
+# Android MUST be built --release, not --debug: a release build runs R8
+# (shrink/minify/obfuscate) and the full native-asset packaging path, which
+# debug skips. Bugs that only surface under R8 (stripped classes, missing
+# keep rules, native lib packaging) are invisible to `--debug`.
 cd example
 flutter build web --no-tree-shake-icons
-flutter build apk --debug
+flutter build apk --release
 flutter build macos --debug
 flutter build ios --no-codesign --debug
 cd ..
@@ -216,10 +221,13 @@ flutter test
 # Cross-platform compile sanity (also in Pre-flight — rerun here after
 # version bumps in case a setter/getter signature shifted):
 (cd example && flutter build web --no-tree-shake-icons)
-(cd example && flutter build apk --debug)
+(cd example && flutter build apk --release)   # --release, not --debug: exercises R8 + native packaging
 (cd example && flutter build macos --debug)
 (cd example && flutter build ios --no-codesign --debug)
-dart pub publish --dry-run     # 0 warnings; check final package size <= 100 KB
+dart pub publish --dry-run     # 0 warnings (package size is informational — the
+                               # FFI bindings + pigeon + example already push it
+                               # to ~700 KB on 0.16.x; the old <=100 KB ceiling
+                               # predates 0.14.0 and no longer applies)
 ```
 
 **NEVER publish without dry-run first.** Publishing is IRREVERSIBLE.

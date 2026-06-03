@@ -1,3 +1,8 @@
+## 0.16.4
+- **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.
+- **Fix Windows build on non-UTF-8 locales** (#212): add `/utf-8` to the MSVC plugin target.
+- **Fix macOS "Cycle inside Flutter Assemble" build error** (#300, thanks @fotiDim): stage native dylibs out of the cache dir.
+
 ## 0.16.3
 - **Android Qualcomm NPU** (`PreferredBackend.npu`): auto-extracts QNN dispatch libs from APK at runtime (#293).
 - **Fix Android GPU sampler CPU fallback** (#270): GPU OpenCL/WebGPU samplers now resolve correctly, restoring ~3× decode speed.

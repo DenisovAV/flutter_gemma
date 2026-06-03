@@ -150,18 +150,17 @@ class LiteRtLayoutView {
   final Pointer<LiteRtLayoutMsvc> _msvc;
 
   /// Pass to LiteRt accessor functions (e.g. `getInputTensorLayout`).
-  Pointer<Void> get pointer => Platform.isWindows
-      ? _msvc.cast<Void>()
-      : _posix.cast<Void>();
+  Pointer<Void> get pointer =>
+      Platform.isWindows ? _msvc.cast<Void>() : _posix.cast<Void>();
 
-  int get rank => (Platform.isWindows
+  int get rank =>
+      (Platform.isWindows
           ? _msvc.ref.rankAndHasStrides
           : _posix.ref.rankAndHasStrides) &
       0x7f;
 
-  int dimension(int i) => Platform.isWindows
-      ? _msvc.ref.dimensions[i]
-      : _posix.ref.dimensions[i];
+  int dimension(int i) =>
+      Platform.isWindows ? _msvc.ref.dimensions[i] : _posix.ref.dimensions[i];
 
   void free() {
     if (Platform.isWindows) {
@@ -219,9 +218,8 @@ class LiteRtRankedTensorTypeView {
   final Pointer<LiteRtRankedTensorTypeMsvc> _msvc;
 
   /// Pass to LiteRt functions that consume a `LiteRtRankedTensorType*`.
-  Pointer<Void> get pointer => Platform.isWindows
-      ? _msvc.cast<Void>()
-      : _posix.cast<Void>();
+  Pointer<Void> get pointer =>
+      Platform.isWindows ? _msvc.cast<Void>() : _posix.cast<Void>();
 
   set elementType(int value) {
     if (Platform.isWindows) {
@@ -332,8 +330,7 @@ class LiteRtBindings {
 
   late final setOptionsHardwareAccelerators = _lib.lookupFunction<
       Int32 Function(LiteRtOptions, Int32),
-      int Function(
-          LiteRtOptions, int)>('LiteRtSetOptionsHardwareAccelerators');
+      int Function(LiteRtOptions, int)>('LiteRtSetOptionsHardwareAccelerators');
 
   // Compiled model.
 
@@ -450,7 +447,6 @@ class AlignedAlloc {
 AlignedAlloc allocAligned(int bytes, {int align = kLiteRtHostMemoryAlignment}) {
   final raw = calloc<Uint8>(bytes + align + sizeOf<IntPtr>());
   final mask = align - 1;
-  final aligned =
-      Pointer<Uint8>.fromAddress((raw.address + align) & ~mask);
+  final aligned = Pointer<Uint8>.fromAddress((raw.address + align) & ~mask);
   return AlignedAlloc(raw, aligned);
 }

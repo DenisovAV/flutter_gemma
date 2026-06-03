@@ -766,6 +766,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           _initializedEmbeddingModel = await LitertEmbeddingModel.create(
         modelPath: modelPath,
         tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
         onClose: () {
           _initializedEmbeddingModel = null;
           _initEmbeddingCompleter = null;

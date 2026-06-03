@@ -6,6 +6,7 @@
 // dart2js builds the mobile entry point.
 
 import '../../flutter_gemma_interface.dart' show EmbeddingModel, TaskType;
+import '../../pigeon.g.dart' show PreferredBackend;
 
 typedef VoidCallback = void Function();
 
@@ -15,6 +16,7 @@ class LitertEmbeddingModel extends EmbeddingModel {
   static Future<LitertEmbeddingModel> create({
     required String modelPath,
     required String tokenizerPath,
+    PreferredBackend? preferredBackend,
     int? inputSequenceLength,
     int? outputDimension,
     VoidCallback? onClose,

@@ -1,6 +1,6 @@
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass now runs on a background isolate.
-- **Embedding `preferredBackend`** now wired through to the LiteRT accelerator (CPU/GPU/NPU).
+- **Embedding `preferredBackend`** is now passed to the LiteRT accelerator instead of being ignored (was always CPU).
 - **Fix Windows build on non-UTF-8 locales** (#212): add `/utf-8` to the MSVC plugin target.
 
 ## 0.16.3

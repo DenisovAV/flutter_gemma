@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -151,8 +152,28 @@ Future<void> showGatedModelAccessDialog({
         FilledButton(
           onPressed: () async {
             final uri = Uri.parse(modelPageUrl);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            var launched = false;
+            try {
+              if (await canLaunchUrl(uri)) {
+                launched = await launchUrl(
+                  uri,
+                  mode: LaunchMode.externalApplication,
+                );
+              }
+            } catch (_) {
+              launched = false;
+            }
+            if (!launched) {
+              await Clipboard.setData(ClipboardData(text: modelPageUrl));
+              if (dialogContext.mounted) {
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Could not open browser. URL copied to clipboard.',
+                    ),
+                  ),
+                );
+              }
             }
             if (dialogContext.mounted) {
               Navigator.pop(dialogContext);

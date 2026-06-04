@@ -762,6 +762,38 @@ class WebModelManager extends ModelFileManager {
     debugPrint('WebModelManager: Model cache cleared (active models reset)');
   }
 
+  @override
+  Future<void> clearActiveInferenceIdentity() async {
+    await _ensureInitialized();
+    _activeInferenceModel = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeInferenceModelType);
+      await prefs.remove(PreferencesKeys.activeInferenceFileType);
+      await prefs.remove(PreferencesKeys.activeInferenceFilename);
+      await prefs.remove(PreferencesKeys.activeInferenceSource);
+    } catch (e) {
+      debugPrint('[WebModelManager] clearActiveInferenceIdentity failed: $e');
+    }
+    debugPrint('WebModelManager: active inference identity cleared');
+  }
+
+  @override
+  Future<void> clearActiveEmbeddingIdentity() async {
+    await _ensureInitialized();
+    _activeEmbeddingModel = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeEmbeddingFilename);
+      await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerFilename);
+      await prefs.remove(PreferencesKeys.activeEmbeddingSource);
+      await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerSource);
+    } catch (e) {
+      debugPrint('[WebModelManager] clearActiveEmbeddingIdentity failed: $e');
+    }
+    debugPrint('WebModelManager: active embedding identity cleared');
+  }
+
   // === Legacy LoRA Management Methods Implementation ===
 
   @override

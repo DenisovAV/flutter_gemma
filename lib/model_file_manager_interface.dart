@@ -75,6 +75,12 @@ abstract class ModelFileManager {
   /// Clears current model cache/state
   Future<void> clearModelCache();
 
+  /// Clears the active inference identity (in-memory spec + persisted prefs).
+  Future<void> clearActiveInferenceIdentity();
+
+  /// Clears the active embedding identity (in-memory spec + persisted prefs).
+  Future<void> clearActiveEmbeddingIdentity();
+
   /// Legacy API: Sets path to LoRA weights for current model
   @Deprecated('Use FlutterGemma.installModel().withLoraFromFile() instead')
   Future<void> setLoraWeightsPath(String path);

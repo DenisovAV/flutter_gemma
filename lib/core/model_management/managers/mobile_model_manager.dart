@@ -784,6 +784,38 @@ class MobileModelManager extends ModelFileManager {
     debugPrint('Model cache cleared');
   }
 
+  @override
+  Future<void> clearActiveInferenceIdentity() async {
+    await _ensureInitialized();
+    _activeInferenceModel = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeInferenceModelType);
+      await prefs.remove(PreferencesKeys.activeInferenceFileType);
+      await prefs.remove(PreferencesKeys.activeInferenceFilename);
+      await prefs.remove(PreferencesKeys.activeInferenceSource);
+    } catch (e) {
+      debugPrint('[ModelManager] clearActiveInferenceIdentity failed: $e');
+    }
+    debugPrint('Active inference identity cleared');
+  }
+
+  @override
+  Future<void> clearActiveEmbeddingIdentity() async {
+    await _ensureInitialized();
+    _activeEmbeddingModel = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeEmbeddingFilename);
+      await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerFilename);
+      await prefs.remove(PreferencesKeys.activeEmbeddingSource);
+      await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerSource);
+    } catch (e) {
+      debugPrint('[ModelManager] clearActiveEmbeddingIdentity failed: $e');
+    }
+    debugPrint('Active embedding identity cleared');
+  }
+
   // === Active Model Management ===
 
   ModelSpec? _activeInferenceModel;

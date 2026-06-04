@@ -113,9 +113,9 @@ class _DownloadedModelsScreenState extends State<DownloadedModelsScreen> {
   Future<void> _confirmDelete(_DownloadedModelEntry entry) async {
     if (_loadingId != null || _deletingId != null) return;
 
-    final match = resolveCatalog(entry.id);
     final deletesTokenizerToo =
-        match is EmbeddingMatch && !match.isTokenizer;
+        await DownloadedModelDeleter.willUninstallTokenizer(entry.id);
+    if (!mounted) return;
 
     final confirmed = await showDialog<bool>(
       context: context,

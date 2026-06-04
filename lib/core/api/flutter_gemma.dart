@@ -357,6 +357,14 @@ class FlutterGemma {
     return manager.activeEmbeddingModel is EmbeddingModelSpec;
   }
 
+  /// Clears the active inference identity (in-memory spec + persisted prefs).
+  static Future<void> clearActiveInferenceIdentity() =>
+      FlutterGemmaPlugin.instance.modelManager.clearActiveInferenceIdentity();
+
+  /// Clears the active embedding identity (in-memory spec + persisted prefs).
+  static Future<void> clearActiveEmbeddingIdentity() =>
+      FlutterGemmaPlugin.instance.modelManager.clearActiveEmbeddingIdentity();
+
   /// Uninstall a model
   ///
   /// Removes model metadata and files (if not protected).

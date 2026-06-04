@@ -56,20 +56,47 @@ Future<bool> hasDownloadedModels() async {
   return installed.any(isDownloadedModelArtifact);
 }
 
+String? _inferenceModelFilenameFromSpec(InferenceModelSpec spec) {
+  final files = spec.files;
+  if (files.isEmpty) return null;
+
+  for (final file in files) {
+    if (file.isRequired) return file.filename;
+  }
+  // Legacy/corrupt specs with no required entry: avoid LoRA-only identity.
+  return files.first.filename;
+}
+
+String? _embeddingModelFilenameFromSpec(EmbeddingModelSpec spec) {
+  final files = spec.files;
+  if (files.isEmpty) return null;
+
+  for (final file in files) {
+    if (file.filename.toLowerCase().endsWith('.tflite')) {
+      return file.filename;
+    }
+  }
+  // Non-.tflite model weights (exclude tokenizer sidecar files).
+  for (final file in files) {
+    final lower = file.filename.toLowerCase();
+    if (lower.endsWith('.model') || lower.endsWith('.json')) continue;
+    return file.filename;
+  }
+  return null;
+}
+
 String? activeInferenceModelId() {
   if (!FlutterGemma.hasActiveModel()) return null;
   final spec = FlutterGemmaPlugin.instance.modelManager.activeInferenceModel;
   if (spec is! InferenceModelSpec) return null;
-  return spec.files.firstWhere((f) => f.isRequired).filename;
+  return _inferenceModelFilenameFromSpec(spec);
 }
 
 String? activeEmbeddingModelId() {
   if (!FlutterGemma.hasActiveEmbedder()) return null;
   final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
   if (spec is! EmbeddingModelSpec) return null;
-  return spec.files
-      .map((f) => f.filename)
-      .firstWhere((name) => name.toLowerCase().endsWith('.tflite'));
+  return _embeddingModelFilenameFromSpec(spec);
 }
 
 /// Filenames marked active in the plugin (inference + embedding).
@@ -218,4 +245,26 @@ DownloadedCatalogMatch? resolveCatalog(String installedId) {
   }
 
   return null;
+}
+
+/// True if [tokenizerFilename] should stay installed after removing [removedModelFilename].
+Future<bool> isEmbeddingTokenizerStillNeeded({
+  required String tokenizerFilename,
+  required String removedModelFilename,
+}) async {
+  final installed = await FlutterGemma.listInstalledModels();
+  for (final model in example_embedding.EmbeddingModel.values) {
+    if (model.tokenizerFilename != tokenizerFilename) continue;
+    if (model.filename == removedModelFilename) continue;
+    if (installed.contains(model.filename)) return true;
+  }
+  return false;
+}
+
+/// Whether uninstalling [installedId] clears the active embedding identity.
+bool isActiveEmbeddingArtifact(String installedId) {
+  if (!FlutterGemma.hasActiveEmbedder()) return false;
+  final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
+  if (spec is! EmbeddingModelSpec) return false;
+  return spec.files.any((file) => file.filename == installedId);
 }

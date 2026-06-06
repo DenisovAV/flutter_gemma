@@ -1,3 +1,10 @@
+## 1.0.0
+- **Modular package split**: core `flutter_gemma` + opt-in `flutter_gemma_litertlm` / `flutter_gemma_mediapipe` / `flutter_gemma_embeddings` / `flutter_gemma_rag_qdrant` / `flutter_gemma_rag_sqlite`.
+- **New `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`** — register the opt-in packages you added; core registers none by default.
+- **No API changes** to model / session / chat / embedding / RAG calls — see [MIGRATION.md](MIGRATION.md).
+- **Removed** the legacy sqlite + local_hnsw vector store (native RAG → qdrant-edge).
+- **Fix Windows cancel/close hang**: gate the cycle-fix dylib staging to Apple only (Windows registers straight from the cache).
+
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.
 - **Fix Windows build on non-UTF-8 locales** (#212): add `/utf-8` to the MSVC plugin target.

@@ -48,14 +48,12 @@ There is an example of using:
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
-## What's new in 0.16
+## What's new in 1.0
 
-- 🚀 **Native vector store on qdrant-edge** — `addDocument()` / `searchSimilar()` API unchanged; 30–300× faster than the legacy sqlite + local_hnsw path on every desktop and mobile target. Old impl `@Deprecated`, removed in 1.0.
-- 🎯 **`Filter` DSL** for `searchSimilar(... filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`. Honored on native, silently ignored on Web.
-- 🔧 **Desktop install/validate path fix** — `isModelInstalled()` now reads the same storage location the installer writes to. Affected: Windows/macOS/Linux users on clean machines who saw "Active model is no longer installed" right after install in 0.15.x.
-- ⚡ **LiteRT-LM v0.12.0** (0.16.1) — NPU dispatch now available on Linux and macOS as well as Windows.
-- 🌐 **Web `.litertlm` inference** (0.16.2) — Gemma 4 E2B/E4B `.litertlm` models run in the browser via `@litert-lm/core` (WebGPU + WASM, **early preview**). See [Web `.litertlm` support & limitations](#web-litertlm-support--limitations) — text-only, no vision/audio/thinking, no LoRA, no function calling yet.
-- 🧵 **Concurrent sessions** (0.16.2, #226) — `openSession()` / `openChat()` run independent dialogues on one loaded model (isolated history per session). **Concurrent contexts, serialized inference**: only one session generates at a time. Works on `.litertlm` (all native + web) and `.task` (MediaPipe Android/iOS). See [Concurrent sessions](#concurrent-sessions-opensession).
+- 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
+- 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
+- ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.
+- 🧹 **Legacy sqlite+local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); web on wa-sqlite (`flutter_gemma_rag_sqlite`).
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
@@ -147,14 +145,45 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 ## Installation
 
-1.  Add `flutter_gemma` to your `pubspec.yaml`:
+As of **1.0**, `flutter_gemma` is split into a small **core** package plus
+**opt-in** packages for each engine / backend, so your app only pulls the native
+weight it actually uses. Add the core package, then the packages for the
+model formats and features you need.
+
+1.  Add the core package and the opt-in packages you need to `pubspec.yaml`:
 
     ```yaml
     dependencies:
-      flutter_gemma: latest_version
+      flutter_gemma: latest_version              # Core — always required (no engine on its own)
+
+      # Inference engines — add at least one:
+      flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
+      flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
+
+      # Optional — text embeddings + on-device RAG:
+      flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
+      flutter_gemma_rag_qdrant: latest_version   # RAG vector store (native: qdrant-edge)
+      flutter_gemma_rag_sqlite: latest_version   # RAG vector store (web: wa-sqlite; native: sqlite3)
     ```
 
+    **Pick by need:**
+
+    | You want to… | Add |
+    |---|---|
+    | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
+    | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
+    | Generate text embeddings | `flutter_gemma_embeddings` |
+    | On-device RAG on native (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
+    | On-device RAG on web | `flutter_gemma_rag_sqlite` |
+
+    Core registers **no** engine by itself — you wire the packages you added in
+    `FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).
+
 2.  Run `flutter pub get` to install.
+
+> **Migrating from 0.16.x (monolith)?** See **[MIGRATION.md](MIGRATION.md)** — the
+> only breaking change is adding the opt-in packages and the `initialize(...)`
+> call; every model / session / RAG API is unchanged.
 
 ## Platform & Architecture Support
 
@@ -201,7 +230,7 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
 * [There is an article that described all approaches](https://medium.com/@denisov.shureg/fine-tuning-gemma-with-lora-for-on-device-inference-android-ios-web-with-separate-lora-weights-f05d1db30d86)
 2. **Platform specific setup:**
 
-**iOS**
+**iOS** — required by any inference engine package (`flutter_gemma_litertlm` and/or `flutter_gemma_mediapipe`)
 
 * **Set minimum iOS version** in `Podfile`:
 ```ruby
@@ -251,7 +280,9 @@ use_frameworks! :linkage => :static
 
 **Android**
 
-* If you want to use a GPU to work with the model, you need to add OpenGL support in the manifest.xml. If you plan to use only the CPU, you can skip this step.
+* **GPU (any engine):** if you want to run on the GPU, add OpenCL support to the
+  manifest. Required by both inference engines (`flutter_gemma_litertlm` and
+  `flutter_gemma_mediapipe`). CPU-only? Skip this step.
 
 Add to 'AndroidManifest.xml' above tag `</application>`
 
@@ -263,7 +294,10 @@ Add to 'AndroidManifest.xml' above tag `</application>`
  <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
 
-* **For release builds with ProGuard/R8 enabled**, the plugin automatically includes necessary ProGuard rules. If you encounter issues with `UnsatisfiedLinkError` or missing classes in release builds, ensure your `proguard-rules.pro` includes:
+* **ProGuard/R8 (only if you use `flutter_gemma_mediapipe`):** the package ships
+  its own consumer ProGuard rules, so release builds work out of the box. If you
+  still hit `UnsatisfiedLinkError` / missing MediaPipe classes, add to your
+  `proguard-rules.pro`:
 
 ```proguard
 # MediaPipe
@@ -275,12 +309,15 @@ Add to 'AndroidManifest.xml' above tag `</application>`
 -dontwarn com.google.protobuf.**
 ```
 
+> `flutter_gemma_litertlm` is delivered as a Native-Assets dylib (no MediaPipe
+> Java classes), so it needs no ProGuard rules.
+
 **Web**
 
-* Web currently works only GPU backend models, CPU backend models are not supported by MediaPipe yet
-* **Model compatibility**: Mobile `.task` models often don't work on web. Use web-specific variants: `-web.task` or `.litertlm` files. Check model repository for web-compatible versions.
+Web runs on the GPU backend only (MediaPipe has no web CPU backend). Add the CDN
+script(s) for the **engine package(s) you use** to your `web/index.html`.
 
-* Add dependencies to `index.html` file in web folder
+* **`flutter_gemma_mediapipe`** (`.task` / `-web.task` models) — add:
 ```html
   <script type="module">
   import { FilesetResolver, LlmInference } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27';
@@ -289,12 +326,40 @@ Add to 'AndroidManifest.xml' above tag `</application>`
   </script>
 ```
 
-**Desktop (macOS, Windows, Linux)**
+* **`flutter_gemma_litertlm`** (`.litertlm` web models — early preview) — add the
+  handshake below. The `@litert-lm/core` ESM doesn't assign window globals and
+  module scripts are deferred, so Dart must await `window.litertLmReady` (which
+  resolves to the `Engine` constructor) before any static interop:
+```html
+  <script type="module">
+  window.litertLmReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.12.1/+esm');
+    window.Engine = m.Engine;
+    return m.Engine;
+  })();
+  </script>
+```
+
+* **`flutter_gemma_rag_sqlite`** (web RAG) — add the wa-sqlite loader; see that
+  package's README for the exact `<script>` + Subresource-Integrity hash.
+
+> **Model compatibility:** mobile `.task` models often don't work on web — use
+> the `-web.task` (MediaPipe) or `.litertlm` (LiteRT-LM) web variant. Check the
+> model repo for web-compatible builds.
+
+**Desktop (macOS, Windows, Linux)** — requires **`flutter_gemma_litertlm`**
 
 > **⚠️ Desktop Model Format**
 >
-> Desktop platforms use **LiteRT-LM format only** (`.litertlm` files).
-> MediaPipe `.task` and `.bin` models used on mobile/web are **NOT compatible** with desktop.
+> Desktop is served exclusively by the **`flutter_gemma_litertlm`** package and
+> uses **LiteRT-LM format only** (`.litertlm` files). There is no MediaPipe
+> engine on desktop — `.task` / `.bin` models used on mobile/web are **NOT
+> compatible** with desktop. (`flutter_gemma_embeddings` and
+> `flutter_gemma_rag_qdrant` / `flutter_gemma_rag_sqlite` also support desktop.)
+>
+> The native library is fetched at build time by the package's Native-Assets
+> hook — no manual download/bundling. The setup below applies to
+> `flutter_gemma_litertlm`.
 
 Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platforms run via `dart:ffi` directly in the Dart process — no JVM, no gRPC, no separate server. Native libraries are downloaded by `hook/build.dart` (Native Assets) at build time and bundled into the app automatically.
 
@@ -642,16 +707,36 @@ final model = await FlutterGemmaPlugin.instance.createModel(
 
 ### Initialize Flutter Gemma
 
-Add to your `main.dart`:
+Call `FlutterGemma.initialize(...)` once in `main()` and **register the opt-in
+packages you added** to `pubspec.yaml`. Core registers no engine on its own, so
+without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
+"add the engine package" error.
 
 ```dart
-import 'package:flutter_gemma/core/api/flutter_gemma.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Optional: Initialize with HuggingFace token for gated models
   FlutterGemma.initialize(
+    // Inference engines — add the ones whose packages you depend on:
+    inferenceEngines: const [
+      LiteRtLmEngine(),     // flutter_gemma_litertlm  — .litertlm models
+      MediaPipeEngine(),    // flutter_gemma_mediapipe — .task / .bin models
+    ],
+    // Optional — embeddings (needed for RAG / generateEmbedding):
+    embeddingBackends: const [
+      LiteRtEmbeddingBackend(), // flutter_gemma_embeddings
+    ],
+    // Optional — RAG vector store (pick one; native here):
+    vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
+
+    // Common settings:
     huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
     maxDownloadRetries: 10,
   );
@@ -660,7 +745,22 @@ void main() {
 }
 ```
 
-**Configuration Options:**
+**Which parameter ← which package:**
+
+| Parameter | Provided by | Notes |
+|---|---|---|
+| `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
+| `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
+| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
+| `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
+| `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | native / web RAG |
+
+Add only the engines you ship. Passing both `LiteRtLmEngine()` and
+`MediaPipeEngine()` lets one app run both formats — the registry routes each
+model to the engine that handles its file type. On web, choose
+`vectorStore: WebSqliteVectorStore()` (`flutter_gemma_rag_qdrant` is native-only).
+
+**Common settings:**
 - `huggingFaceToken`: Authentication token for gated models (Gemma3n, EmbeddingGemma)
 - `maxDownloadRetries`: Number of retry attempts for failed downloads (default: 10)
 - `webStorageMode`: **(Web only)** Storage strategy for model files (default: `cacheApi`)
@@ -668,14 +768,9 @@ void main() {
   - `WebStorageMode.streaming`: OPFS streaming (for large models >2GB like E4B, 7B)
   - `WebStorageMode.none`: No caching (ephemeral mode for testing)
 
-**Example:**
-```dart
-FlutterGemma.initialize(
-  huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
-  maxDownloadRetries: 10,
-  webStorageMode: WebStorageMode.streaming,  // For large models (>2GB)
-);
-```
+> Use `WebStorageMode.streaming` when shipping `.litertlm` web models — the
+> `@litert-lm/core` engine consumes an OPFS ReadableStream and avoids Chrome's
+> ~2 GB blob-fetch limit on Gemma 4 E2B/E4B web builds.
 
 **Next Steps:**
 - 📖 [Authentication Setup](#huggingface-authentication) - Configure tokens for gated models
@@ -1162,7 +1257,7 @@ final response = await chat.generateChatResponse();
 
 The pre-Modern stream-based API (`FlutterGemmaPlugin.instance.modelManager`, `installModelFromAsset`, `downloadModelFromNetworkWithProgress`, etc.) is still supported but deprecated. New projects should use the [Modern API](#quick-start) above.
 
-📚 **Full Legacy API reference:** [docs/LEGACY_API.md](docs/LEGACY_API.md)
+📚 **Full Legacy API reference:** [docs/LEGACY_API.md](../../docs/LEGACY_API.md)
 
 ## 🖼️ Message Types
 

@@ -12,10 +12,10 @@
 /// All conditions reference fields inside a document's metadata JSON. The
 /// metadata schema is up to the caller — flutter_gemma does not impose one.
 ///
-/// On platforms backed by qdrant-edge (all native platforms in 0.16+),
-/// filters are honored. On the Web `WebVectorStoreRepository` (wa-sqlite)
-/// they are silently ignored: pass a filter expecting it to be a no-op
-/// rather than expecting it to throw.
+/// On native platforms backed by qdrant-edge (`flutter_gemma_rag_qdrant`),
+/// filters are honored. On the web sqlite store (`flutter_gemma_rag_sqlite`,
+/// wa-sqlite) they are silently ignored: pass a filter expecting it to be a
+/// no-op rather than expecting it to throw.
 ///
 /// Construction is intentionally verbose to keep the rule clear at the
 /// call site. Typical usage:

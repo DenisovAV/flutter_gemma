@@ -88,8 +88,8 @@ class FlutterGemma {
   ///   - streaming: OPFS with streaming (for models >2GB like E4B, 7B, 27B)
   ///   - none: No caching (ephemeral, for development)
   ///   Note: This parameter only affects web platform, ignored on mobile
-  /// - [enableWebCache]: DEPRECATED - Use webStorageMode instead
-  ///   Will be removed in v0.13.0. Converts to webStorageMode internally.
+  /// - [enableWebCache]: DEPRECATED - Use webStorageMode instead.
+  ///   Converts to webStorageMode internally; scheduled for removal in 1.0.
   ///
   /// Example:
   /// ```dart
@@ -111,7 +111,7 @@ class FlutterGemma {
     String? huggingFaceToken,
     int maxDownloadRetries = 10,
     WebStorageMode webStorageMode = WebStorageMode.cacheApi,
-    @Deprecated('Use webStorageMode instead. Will be removed in v0.13.0')
+    @Deprecated('Use webStorageMode instead. Scheduled for removal in 1.0.')
     bool? enableWebCache,
     // Opt-in registration. Engines/backends are FULLY opt-in: core registers
     // NONE by default. Pass the providers from the packages you use, e.g.

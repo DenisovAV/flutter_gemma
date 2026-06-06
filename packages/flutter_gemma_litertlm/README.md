@@ -22,6 +22,25 @@ await FlutterGemma.initialize(
 other engines (e.g. `MediaPipeEngine` from `flutter_gemma_mediapipe`) if your app
 uses both formats.
 
+## Web setup (early preview)
+
+`.litertlm` web inference runs via `@litert-lm/core` (WebGPU/WASM, text-only).
+Add the handshake below to your app's `web/index.html` `<head>` — the ESM doesn't
+assign window globals and module scripts are deferred, so Dart awaits
+`window.litertLmReady` (which resolves to the `Engine` constructor):
+
+```html
+<script type="module">
+window.litertLmReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.12.1/+esm');
+  window.Engine = m.Engine;
+  return m.Engine;
+})();
+</script>
+```
+
+Native platforms need no web setup.
+
 ## Platforms
 
 | Platform | Support |

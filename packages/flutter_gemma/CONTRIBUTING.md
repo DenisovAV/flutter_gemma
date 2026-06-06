@@ -72,9 +72,9 @@ If you experience or witness unacceptable behavior, please open an issue or cont
    ```
 
 3. **Follow platform-specific setup:**
-   - See `README.md` for general setup instructions
+   - See `README.md` for general setup instructions (incl. the opt-in package model)
    - See `DESKTOP_SUPPORT.md` for desktop-specific setup
-   - See `WEB_CACHING_PROGRESS_FIX.md`, `LINUX_DESKTOP_PLAN.md`, `WINDOWS_GPU_VM_SETUP.md` for platform-specific details
+   - See `../../docs/TESTING.md` for the release-gate smoke tests
 
 ---
 

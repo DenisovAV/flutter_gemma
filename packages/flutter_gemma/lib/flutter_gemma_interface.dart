@@ -239,10 +239,10 @@ abstract class InferenceModel {
     List<Tool> tools = const [],
   }) async {
     throw UnsupportedError(
-      'openSession() is not implemented for $runtimeType yet. '
-      'Concurrent sessions are supported on `.litertlm` (FFI native + web) '
+      'openSession() is not supported for $runtimeType. '
+      'Concurrent sessions are available on `.litertlm` (FFI native + web) '
       'and `.task` (MediaPipe Android/iOS); the MediaPipe Web `.task` path '
-      'is planned for a future release.',
+      'does not support concurrent sessions.',
     );
   }
 
@@ -456,9 +456,9 @@ enum TaskType {
 
   /// Canonical prefix prepended to user text before tokenization. Single
   /// source of truth across all native platforms — fixes cross-platform
-  /// drift on `retrievalQuery` (issue #264) by construction. The strings
-  /// here match what iOS Swift used in 0.15.1 and earlier, so existing
-  /// iOS-indexed corpora remain valid.
+  /// drift on `retrievalQuery` (issue #264) by construction. The prefix
+  /// strings are stable, so corpora indexed with earlier releases remain
+  /// valid.
   String get prefix => switch (this) {
         TaskType.retrievalQuery => 'task: search result | query: ',
         TaskType.retrievalDocument => 'title: none | text: ',

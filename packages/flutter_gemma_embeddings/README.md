@@ -26,6 +26,26 @@ RAG methods (`addDocument` / `searchSimilar`) and by `createEmbeddingModel`. Pai
 it with a vector store from `flutter_gemma_rag_sqlite` or
 `flutter_gemma_rag_qdrant`.
 
+## Web setup
+
+On web, embeddings run via LiteRT.js. Add the loader script to your app's
+`web/index.html` `<head>`. Pin a release tag and include a Subresource Integrity
+hash so a CDN compromise cannot inject code:
+
+```html
+<script type="module"
+        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/web/litert_embeddings.js"
+        integrity="sha384-<hash>"
+        crossorigin="anonymous"></script>
+```
+
+> Compute the hash for the tag you pin (the browser rejects the script if
+> `integrity` doesn't match, so don't ship a placeholder):
+> `openssl dgst -sha384 -binary web/litert_embeddings.js | openssl base64 -A`
+
+Native platforms need no setup — the LiteRT native library is bundled at build
+time by the package's Native-Assets hook.
+
 ## Platforms
 
 | Platform | Support |

@@ -624,7 +624,20 @@ Future<void> _processBundle({
   // that never overlaps the cache dependency dir) and register the CodeAsset
   // from there. The cache dir stays an input-only dependency for rebuild
   // detection. Copies are size-guarded so the hook only rewrites on change.
+  //
+  // APPLE-ONLY: the "Cycle inside Flutter Assemble" self-loop is an Xcode
+  // mechanism (the Run Script's directoryTreeSignature over an input dir that
+  // contains the output dylib). Windows (MSBuild) and Linux (Ninja) have no
+  // such cycle, so staging there solves nothing — and on Windows it actively
+  // breaks the PE loader: it splits the main `LiteRtLm.dll` (staged) away from
+  // its dynamically-loaded companion DLLs (samplers / Intel-NPU dispatch /
+  // openvino / tbb) that stay in the cache, so a `dlopen` of a companion on
+  // cancel/close cannot find it and hangs. So stage ONLY on the Apple
+  // toolchain, where the cycle actually occurs; elsewhere register straight
+  // from the cache (the layout the loader expects), keeping every file
+  // consistent regardless of which list it came from.
   Uri stage(Uri srcUri) {
+    if (os != OS.macOS && os != OS.iOS) return srcUri;
     final src = File.fromUri(srcUri);
     final destUri = input.outputDirectory.resolve(srcUri.pathSegments.last);
     final dest = File.fromUri(destUri);
@@ -689,7 +702,7 @@ Future<void> _processBundle({
             package: _packageName,
             name: 'src/native/$name',
             linkMode: DynamicLoadingBundled(),
-            file: fileUri,
+            file: stage(fileUri),
           ),
         );
       }
@@ -707,7 +720,7 @@ Future<void> _processBundle({
             package: _packageName,
             name: 'src/native/$name',
             linkMode: DynamicLoadingBundled(),
-            file: fileUri,
+            file: stage(fileUri),
           ),
         );
       }

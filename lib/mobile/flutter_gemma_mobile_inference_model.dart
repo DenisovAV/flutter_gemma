@@ -127,11 +127,35 @@ class MobileInferenceModel extends InferenceModel {
       throw StateError(
           'Model is closed. Create a new instance to use it again');
     }
+    // Single-flight guard for genuinely *concurrent* callers only. Unlike
+    // the model singleton, a session is NOT reused across calls: each
+    // createSession (and therefore each createChat) must yield a fresh
+    // native session with a clean KV cache. The completer is cleared in
+    // the `finally` below once creation settles, so a *sequential* second
+    // call falls through to the native createSession — which closes the
+    // prior session and creates a new one (FlutterGemmaPlugin.createSession
+    // does `session?.close(); session = engine.createSession(...)`) —
+    // instead of returning the stale wrapper. Without this, the cached
+    // completer made every later createChat reuse the first session, so
+    // the previous conversation's KV cache bled into the next chat (the
+    // app sends a clean prompt; the model still conditions on the old
+    // context). See https://github.com/DenisovAV/flutter_gemma/issues/308.
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
     }
     final completer = _createCompleter = Completer<InferenceModelSession>();
     try {
+      // Close any prior singleton session before creating the next so its
+      // Dart-side resources (event subscription, stream controller) are
+      // released and stray calls on the old wrapper throw `Model is
+      // closed` cleanly instead of silently hitting the new native
+      // session. The native layer also closes the old session, but doing
+      // it here keeps the orphaned wrapper's `_isClosed` flag honest and
+      // means at most one live wrapper maps to the single native session.
+      if (_session case final previous?) {
+        await previous.close();
+      }
+
       // LoRA support is fully integrated via Modern API (InferenceInstallationBuilder)
       final resolvedLoraPath = loraPath;
 
@@ -149,23 +173,41 @@ class MobileInferenceModel extends InferenceModel {
         enableThinking: enableThinking,
       );
 
-      final session = _session = MobileInferenceModelSession(
+      late final MobileInferenceModelSession session;
+      session = MobileInferenceModelSession(
         modelType: modelType,
         fileType: fileType,
         supportImage: enableVisionModality ?? supportImage,
         supportAudio: enableAudioModality ?? supportAudio,
         systemInstruction: systemInstruction,
+        // Identity-guarded so a late close of a superseded session can't
+        // null a newer `_session`. Does NOT touch `_createCompleter` —
+        // that is owned by the `finally` below, not by session teardown.
         onClose: () {
-          _session = null;
-          _createCompleter = null;
+          if (identical(_session, session)) _session = null;
         },
       );
+      _session = session;
       completer.complete(session);
-      return session;
     } catch (e, st) {
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+    } finally {
+      // Pure in-flight guard: clear once creation settles (success OR
+      // failure) so the next call isn't blocked by a cached completer.
+      // Previously the completer was only cleared by the session's
+      // onClose, which (a) made it a permanent cache across createChat
+      // calls — the issue #308 KV-cache bleed — and (b) left a failed
+      // creation permanently caching a rejected future, blocking retry
+      // (the same class as the model-level issue #170 fix).
+      _createCompleter = null;
     }
+    // Returning `completer.future` (rather than the session / a rethrow)
+    // keeps the caller as the error listener even after the completer is
+    // cleared above, and mirrors the createModel idiom (issue #170). A
+    // concurrent caller that hit the early `return completer.future`
+    // shares this exact future, so success and failure both fan out to
+    // every in-flight caller.
+    return completer.future;
   }
 
   @override

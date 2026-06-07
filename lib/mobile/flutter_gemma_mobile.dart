@@ -239,6 +239,14 @@ class MobileInferenceModelSession extends InferenceModelSession {
 
   @override
   Future<void> close() async {
+    // Idempotent: a second close must not run native `closeSession()`
+    // again. With the singleton-session lifecycle (a fresh createSession
+    // supersedes the prior wrapper), a superseded wrapper and the live
+    // one can both be closed by a caller; without this guard the stale
+    // close would tear down the *current* native session (closeSession
+    // is argument-less and closes whatever session is active). See the
+    // createSession comment and issue #308.
+    if (_isClosed) return;
     _isClosed = true;
 
     // Cancel event subscription first to stop receiving events

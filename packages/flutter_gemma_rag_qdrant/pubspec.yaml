@@ -1,9 +1,8 @@
 name: flutter_gemma_rag_qdrant
 description: "qdrant-edge on-device RAG vector store for flutter_gemma (native FFI; ~75x faster search than sqlite). Opt-in package; implements flutter_gemma's VectorStoreRepository. Native platforms only (no web)."
-version: 0.1.0
+version: 1.0.0-rc.1
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
-publish_to: none
 
 resolution: workspace
 
@@ -14,8 +13,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma:
-    path: ../flutter_gemma
+  flutter_gemma: ^1.0.0-rc.1
   ffi: ^2.1.0
   uuid: ^4.0.0
   hooks: ^1.0.0

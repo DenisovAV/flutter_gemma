@@ -26,7 +26,7 @@ packages:
     source: hosted
     version: "0.1.25"
   background_downloader:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: background_downloader
       sha256: "2ea5322fe836c0aaf96aefd29ef1936771c71927f687cf18168dcc119666a45f"
@@ -209,42 +209,42 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "0.16.3"
+    version: "1.0.0-rc.1"
   flutter_gemma_embeddings:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_embeddings"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "1.0.0-rc.1"
   flutter_gemma_litertlm:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "1.0.0-rc.1"
   flutter_gemma_mediapipe:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_mediapipe"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "1.0.0-rc.1"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_qdrant"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "1.0.0-rc.1"
   flutter_gemma_rag_sqlite:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_sqlite"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "1.0.0-rc.1"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -254,7 +254,7 @@ packages:
     source: hosted
     version: "3.0.1"
   flutter_markdown:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: flutter_markdown
       sha256: "9921f9deda326f8a885e202b1e35237eadfc1345239a0f6f0f1ff287e047547f"
@@ -301,7 +301,7 @@ packages:
     source: hosted
     version: "1.0.2"
   http:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: http
       sha256: "87721a4a50b19c7f1d49001e51409bddc46303966ce89a65af4f4e6004896412"
@@ -317,7 +317,7 @@ packages:
     source: hosted
     version: "4.1.2"
   image_picker:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: image_picker
       sha256: "021834d9c0c3de46bf0fe40341fa07168407f694d9b2bb18d532dc1261867f7a"
@@ -386,7 +386,7 @@ packages:
     source: sdk
     version: "0.0.0"
   just_audio:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: just_audio
       sha256: f978d5b4ccea08f267dae0232ec5405c1b05d3f3cd63f82097ea46c015d5c09e
@@ -538,7 +538,7 @@ packages:
     source: hosted
     version: "1.9.1"
   path_provider:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: path_provider
       sha256: "50c5dd5b6e1aaf6fb3a78b33f6aa3afca52bf903a8a5298f53101fdaee55bbcd"
@@ -586,7 +586,7 @@ packages:
     source: hosted
     version: "2.3.0"
   permission_handler:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: permission_handler
       sha256: "59adad729136f01ea9e35a48f5d1395e25cba6cea552249ddbe9cf950f5d7849"
@@ -674,7 +674,7 @@ packages:
     source: hosted
     version: "2.2.0"
   record:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: record
       sha256: "6bad72fb3ea6708d724cf8b6c97c4e236cf9f43a52259b654efeb6fd9b737f1f"
@@ -746,7 +746,7 @@ packages:
     source: hosted
     version: "0.28.0"
   shared_preferences:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: shared_preferences
       sha256: "846849e3e9b68f3ef4b60c60cf4b3e02e9321bc7f4d8c4692cf87ffa82fc8a3a"
@@ -887,7 +887,7 @@ packages:
     source: hosted
     version: "1.4.0"
   url_launcher:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: url_launcher
       sha256: "9d06212b1362abc2f0f0d78e6f09f726608c74e3b9462e8368bb03314aa8d603"
@@ -975,7 +975,7 @@ packages:
     source: hosted
     version: "14.3.1"
   web:
-    dependency: "direct main"
+    dependency: "direct overridden"
     description:
       name: web
       sha256: "868d88a33d8a87b18ffc05f9f030ba328ffefba92d6c127917a2ba740f9cfe4a"

@@ -1,4 +1,4 @@
-## 1.0.0
+## 1.0.0-rc.1
 - **Modular package split**: core `flutter_gemma` + opt-in `flutter_gemma_litertlm` / `flutter_gemma_mediapipe` / `flutter_gemma_embeddings` / `flutter_gemma_rag_qdrant` / `flutter_gemma_rag_sqlite`.
 - **New `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`** — register the opt-in packages you added; core registers none by default.
 - **No API changes** to model / session / chat / embedding / RAG calls — see [MIGRATION.md](MIGRATION.md).

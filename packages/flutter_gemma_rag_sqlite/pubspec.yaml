@@ -1,9 +1,8 @@
 name: flutter_gemma_rag_sqlite
 description: "SQLite + HNSW on-device RAG vector store for flutter_gemma (native sqlite3 + web wa-sqlite). Opt-in package; implements flutter_gemma's VectorStoreRepository."
-version: 0.1.0
+version: 1.0.0-rc.1
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
-publish_to: none
 
 resolution: workspace
 
@@ -14,8 +13,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma:
-    path: ../flutter_gemma
+  flutter_gemma: ^1.0.0-rc.1
   sqlite3: ^3.3.0
   local_hnsw: ^1.0.0
 

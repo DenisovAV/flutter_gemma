@@ -18,7 +18,9 @@ text embeddings, and on-device RAG.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Flutter Berlin' => 'flutter@flutterberlin.dev' }
   s.source           = { :path => '.' }
-  s.source_files = 'Classes/*.swift'
+  # Sources live under the SPM layout (flutter_gemma/Sources/flutter_gemma/);
+  # the companion Package.swift gives SPM consumers the same sources.
+  s.source_files = 'flutter_gemma/Sources/flutter_gemma/**/*.swift'
   s.dependency 'Flutter'
   s.platform = :ios, '16.0'
 

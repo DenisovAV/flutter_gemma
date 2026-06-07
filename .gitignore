@@ -104,3 +104,6 @@ ai-edge-gallery/
 # Local chromedriver (puppeteer browsers install) — used by web integration tests
 /chromedriver/
 /.drafts/
+
+# Swift Package Manager build cache (per-plugin ios/macos Package.swift), like Pods/
+**/.build/

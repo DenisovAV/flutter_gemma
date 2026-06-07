@@ -14,7 +14,7 @@ import 'package:pigeon/pigeon.dart';
   kotlinOut:
       'android/src/main/kotlin/dev/flutterberlin/flutter_gemma/PigeonInterface.g.kt',
   kotlinOptions: KotlinOptions(package: 'dev.flutterberlin.flutter_gemma'),
-  swiftOut: 'ios/Classes/PigeonInterface.g.swift',
+  swiftOut: 'ios/flutter_gemma/Sources/flutter_gemma/PigeonInterface.g.swift',
   swiftOptions: SwiftOptions(),
   dartPackageName: 'flutter_gemma',
 ))

@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '0.14.0'
+  s.version          = '0.16.3'
   s.summary          = 'Flutter Gemma - Run Gemma AI models locally on desktop'
   s.description      = <<-DESC
 Flutter plugin for running Gemma AI models locally on macOS using LiteRT-LM.
@@ -14,11 +14,12 @@ Flutter plugin for running Gemma AI models locally on macOS using LiteRT-LM.
   s.author           = { 'Sasha Denisov' => 'denisov.shureg@gmail.com' }
 
   s.source           = { :path => '.' }
-  s.source_files     = 'Classes/**/*'
+  # SPM layout (flutter_gemma/Sources/flutter_gemma/); Package.swift mirrors it.
+  s.source_files     = 'flutter_gemma/Sources/flutter_gemma/**/*'
 
   s.dependency 'FlutterMacOS'
 
-  s.platform = :osx, '10.14'
+  s.platform = :osx, '10.15'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version = '5.0'
 

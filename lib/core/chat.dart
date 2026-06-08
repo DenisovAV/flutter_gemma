@@ -7,6 +7,7 @@ import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/tool.dart';
+import 'package:flutter_gemma/core/utils/safe_debug_print.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 import 'model.dart';
@@ -31,7 +32,8 @@ class InferenceChat {
   final List<Tool> tools;
 
   final List<Message> _fullHistory = [];
-  final List<Message> _prefixes = []; // Prefix messages (tools prompt + context message) for replay across sessions
+  final List<Message> _prefixes =
+      []; // Prefix messages (tools prompt + context message) for replay across sessions
   final List<Message> _modelHistory = [];
   int _currentTokens = 0;
   bool _toolsInstructionSent =
@@ -73,7 +75,8 @@ class InferenceChat {
     await addQueryChunk(message);
   }
 
-  Future<void> addQueryChunk(Message message, [bool noTool = false, bool prefix = false]) async {
+  Future<void> addQueryChunk(Message message,
+      [bool noTool = false, bool prefix = false]) async {
     var messageToSend = message;
 
     // Only add tools prompt for the first user text message (not a tool response)
@@ -268,7 +271,7 @@ class InferenceChat {
     await for (final response in stopFilteredStream) {
       if (response is TextResponse) {
         final token = response.token;
-        debugPrint('InferenceChat: Received filtered token: "$token"');
+        safeDebugPrint('InferenceChat: Received filtered token: "$token"');
 
         // Track if this token should be added to buffer (default true)
         bool shouldAddToBuffer = true;
@@ -320,7 +323,8 @@ class InferenceChat {
                 final toolCallMessage = Message.toolCall(text: funcBuffer);
                 _fullHistory.add(toolCallMessage);
                 _modelHistory.add(toolCallMessage);
-                debugPrint('InferenceChat: Added function call to history before yielding');
+                debugPrint(
+                    'InferenceChat: Added function call to history before yielding');
                 if (allCalls.length == 1) {
                   yield allCalls.first;
                 } else {
@@ -362,7 +366,7 @@ class InferenceChat {
                   false; // Don't add to main buffer while we determine if it's JSON
             } else {
               // Normal text token - emit immediately
-              debugPrint('InferenceChat: Emitting text token: "$token"');
+              safeDebugPrint('InferenceChat: Emitting text token: "$token"');
               yield response;
               shouldAddToBuffer = true; // Add to main buffer for history
             }
@@ -387,7 +391,7 @@ class InferenceChat {
 
     debugPrint('InferenceChat: Native token stream ended');
     final response = buffer.toString();
-    debugPrint('InferenceChat: Complete response accumulated: "$response"');
+    safeDebugPrint('InferenceChat: Complete response accumulated: "$response"');
 
     // Gemma 4 path: streaming yielded plain text via the SDK passthrough
     // format. The tool calls live in the structured `lastRawResponse` JSON.
@@ -456,7 +460,8 @@ class InferenceChat {
             final toolCallMessage = Message.toolCall(text: contentToCheck);
             _fullHistory.add(toolCallMessage);
             _modelHistory.add(toolCallMessage);
-            debugPrint('InferenceChat: Added function call to history at end of stream');
+            debugPrint(
+                'InferenceChat: Added function call to history at end of stream');
             if (allCalls.length == 1) {
               yield allCalls.first;
             } else {
@@ -505,7 +510,8 @@ class InferenceChat {
         _modelHistory.add(chatMessage);
         debugPrint('InferenceChat: Added to model history');
       } else {
-        debugPrint('InferenceChat: Function call was already added to history when yielded');
+        debugPrint(
+            'InferenceChat: Function call was already added to history when yielded');
       }
       debugPrint('InferenceChat: Message added to history successfully');
 

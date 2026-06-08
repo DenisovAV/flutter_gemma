@@ -1,3 +1,7 @@
+## 0.16.5
+- **Fix `debugPrint` crash on U+FFFD in model output** (#306, thanks @pchang0010): `safeDebugPrint` neutralizes `�` so it can't kill `flutter run`.
+- **Fix session KV-cache bleed across `createChat`** (#308, thanks @mtmanty): each MediaPipe session gets a fresh native session.
+
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.
 - **Fix Windows build on non-UTF-8 locales** (#212): add `/utf-8` to the MSVC plugin target.

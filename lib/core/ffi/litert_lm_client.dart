@@ -7,6 +7,7 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_gemma/core/utils/safe_debug_print.dart';
 import 'package:mutex/mutex.dart';
 
 import '../../flutter_gemma_interface.dart';
@@ -234,7 +235,7 @@ class LiteRtLmFfiClient {
       for (var i = 0; i < content.length; i += chunkSize) {
         final end =
             (i + chunkSize < content.length) ? i + chunkSize : content.length;
-        debugPrint(content.substring(i, end));
+        safeDebugPrint(content.substring(i, end));
       }
       debugPrint('[LiteRtLmFfi/native] === END native log ===');
       // Truncate so the next dump only shows new output. If truncation fails

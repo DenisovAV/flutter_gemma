@@ -5,6 +5,7 @@ import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/utils/safe_debug_print.dart';
 import 'package:mutex/mutex.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/extensions.dart';
@@ -811,7 +812,7 @@ class WebModelSession extends InferenceModelSession {
       if (kDebugMode) {
         debugPrint(
             '✅ getResponse: Successfully generated response of length ${response.length}');
-        debugPrint(
+        safeDebugPrint(
             '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
       }
 
@@ -860,7 +861,7 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                debugPrint(
+                safeDebugPrint(
                     '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);
@@ -890,7 +891,7 @@ class WebModelSession extends InferenceModelSession {
               final complete = completeRaw.parseBool();
               final partial = partialJs.toDart;
               if (kDebugMode) {
-                debugPrint(
+                safeDebugPrint(
                     '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
               }
               _controller?.add(partial);

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/utils/safe_debug_print.dart';
 import 'image_processor.dart';
 import 'image_tokenizer.dart';
 import 'vision_encoder_validator.dart';
@@ -444,19 +445,21 @@ class ImageErrorHandler {
   /// Sanitizes prompt for safe logging
   static String _sanitizePromptForLogging(String prompt) {
     if (prompt.length > _maxLogSize) {
-      return '${prompt.substring(0, _maxLogSize)}...[truncated]';
+      return sanitizeForLog(
+          '${prompt.substring(0, _maxLogSize)}...[truncated]');
     }
-    // Remove potentially sensitive Base64 data
-    return prompt.replaceAll(
-        RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'), '[IMAGE_DATA]');
+    // Remove potentially sensitive Base64 data, then neutralize U+FFFD (#306)
+    return sanitizeForLog(prompt.replaceAll(
+        RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'), '[IMAGE_DATA]'));
   }
 
   /// Sanitizes response for safe logging
   static String _sanitizeResponseForLogging(String response) {
     if (response.length > _maxLogSize) {
-      return '${response.substring(0, _maxLogSize)}...[truncated]';
+      return sanitizeForLog(
+          '${response.substring(0, _maxLogSize)}...[truncated]');
     }
-    return response;
+    return sanitizeForLog(response);
   }
 }
 

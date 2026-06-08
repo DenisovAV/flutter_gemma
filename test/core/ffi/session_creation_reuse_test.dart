@@ -104,8 +104,12 @@ class FixedFfiSessionCreator {
     }
     final completer = _createCompleter = Completer<FakeFfiSession>();
     try {
-      final handle = client.createConversationHandle();
+      // Close the prior session BEFORE creating the new handle — the
+      // engine holds one live conversation at a time, and close-first
+      // can't leak a freshly created handle if the close throws. See the
+      // close-first rationale in FfiInferenceModel.createSession (PR #310).
       await _session?.close();
+      final handle = client.createConversationHandle();
       late final FakeFfiSession session;
       session = FakeFfiSession(
         handle: handle,

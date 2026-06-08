@@ -101,6 +101,17 @@ class FfiInferenceModel extends InferenceModel {
     final sessionSw = Stopwatch()..start();
 
     try {
+      // Legacy singleton lane: close the previous conversation BEFORE
+      // opening a fresh one. The engine holds at most one live
+      // conversation (upstream litert-lm #966), so closing first never
+      // leaves two alive — matching the delete-before-create order the
+      // virtual-session multiplexer already uses. It also means a
+      // teardown error can't leak a handle that was created first and
+      // then left unwrapped: each session owns its own conversation
+      // pointer, so closing the old one can't touch the not-yet-created
+      // new one. See PR #310 review.
+      await _session?.close();
+
       // For Gemma 4, push tools into the SDK conversation config so it can
       // render native `<|tool>declaration:...<tool|>` tokens via minja. Other
       // model types still use Dart-side prompt injection in chat.dart.
@@ -109,8 +120,6 @@ class FfiInferenceModel extends InferenceModel {
           : null;
 
       final beforeConv = sessionSw.elapsedMilliseconds;
-      // Legacy singleton lane: close the previous conversation (if any) and
-      // open a fresh one. Mirrors the pre-multi-session overwrite contract.
       final handle = ffiClient.createConversationHandle(
         systemMessage: systemInstruction,
         toolsJson: toolsJson,
@@ -119,7 +128,6 @@ class FfiInferenceModel extends InferenceModel {
         topP: topP,
         seed: randomSeed,
       );
-      await _session?.close();
       debugPrint(
           '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms');
 

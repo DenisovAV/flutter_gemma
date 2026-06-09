@@ -1,5 +1,6 @@
 ## 0.16.5
 - **Internal logs silent in release + `FlutterGemma.logLevel`** (#306): no PII in logcat, U+FFFD safe.
+- **Fix `getActiveModel()` StateError on startup** (#314, thanks @alan-insam): manager init now single-flight, awaited in `FlutterGemma.initialize()`.
 
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.

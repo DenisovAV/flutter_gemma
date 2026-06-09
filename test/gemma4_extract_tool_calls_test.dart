@@ -29,11 +29,17 @@ void main() {
         'tool_calls': [
           {
             'type': 'function',
-            'function': {'name': 'first', 'arguments': {'a': 1}},
+            'function': {
+              'name': 'first',
+              'arguments': {'a': 1}
+            },
           },
           {
             'type': 'function',
-            'function': {'name': 'second', 'arguments': {'b': 2}},
+            'function': {
+              'name': 'second',
+              'arguments': {'b': 2}
+            },
           },
         ],
       });
@@ -111,7 +117,8 @@ void main() {
       final calls = SdkResponseParser.extractToolCalls(raw);
       expect(calls, hasLength(1));
       expect(calls.first.args['tags'], equals(['red', 'blue']));
-      expect(calls.first.args['meta'], equals({'note': 'important', 'count': 7}));
+      expect(
+          calls.first.args['meta'], equals({'note': 'important', 'count': 7}));
     });
   });
 

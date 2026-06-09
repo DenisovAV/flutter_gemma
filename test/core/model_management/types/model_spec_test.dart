@@ -36,7 +36,8 @@ void main() {
       test('extracts filename from URL correctly', () {
         final spec = InferenceModelSpec.fromLegacyUrl(
           name: 'test_model',
-          modelUrl: 'https://huggingface.co/models/complex-path/model.bin?token=abc',
+          modelUrl:
+              'https://huggingface.co/models/complex-path/model.bin?token=abc',
         );
 
         // Test via files list instead of deprecated getter

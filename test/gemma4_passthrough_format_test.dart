@@ -16,7 +16,8 @@ void main() {
       // function call here: SDK produces structured tool_calls separately.
       expect(format.isFunctionCallStart('<|tool_call>call:foo{}<tool_call|>'),
           isFalse);
-      expect(format.isFunctionCallComplete('<|tool_call>call:foo{}<tool_call|>'),
+      expect(
+          format.isFunctionCallComplete('<|tool_call>call:foo{}<tool_call|>'),
           isFalse);
       expect(format.isDefinitelyText('any plain text'), isTrue);
       expect(format.parse('<|tool_call>call:foo{}<tool_call|>'), isNull);

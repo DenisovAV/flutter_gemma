@@ -1,3 +1,6 @@
+## 0.16.5
+- **Internal logs gated + silent in release** (#306): `FlutterGemma.logLevel` controls verbosity; model output/prompts no longer leak to logcat, and U+FFFD can't crash `flutter run`.
+
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.
 - **Fix Windows build on non-UTF-8 locales** (#212): add `/utf-8` to the MSVC plugin target.

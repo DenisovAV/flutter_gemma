@@ -33,7 +33,10 @@ void main() {
       final prompt = chat.createToolsPrompt();
 
       // Check enum format: enum:[<escape>red<escape>,<escape>blue<escape>,<escape>green<escape>]
-      expect(prompt, contains('enum:[<escape>red<escape>,<escape>blue<escape>,<escape>green<escape>]'));
+      expect(
+          prompt,
+          contains(
+              'enum:[<escape>red<escape>,<escape>blue<escape>,<escape>green<escape>]'));
       expect(prompt, contains('description:<escape>The color name<escape>'));
       expect(prompt, contains('type:<escape>STRING<escape>'));
     });
@@ -192,8 +195,10 @@ void main() {
 
       final prompt = chat.createToolsPrompt();
 
-      expect(prompt, contains('enum:[<escape>red<escape>,<escape>blue<escape>]'));
-      expect(prompt, contains('enum:[<escape>small<escape>,<escape>large<escape>]'));
+      expect(
+          prompt, contains('enum:[<escape>red<escape>,<escape>blue<escape>]'));
+      expect(prompt,
+          contains('enum:[<escape>small<escape>,<escape>large<escape>]'));
     });
 
     test('preserves field order: description, enum, type', () {
@@ -232,8 +237,10 @@ void main() {
       final enumIndex = colorBlock.indexOf('enum:');
       final typeIndex = colorBlock.indexOf('type:');
 
-      expect(descIndex, lessThan(enumIndex), reason: 'description should come before enum');
-      expect(enumIndex, lessThan(typeIndex), reason: 'enum should come before type');
+      expect(descIndex, lessThan(enumIndex),
+          reason: 'description should come before enum');
+      expect(enumIndex, lessThan(typeIndex),
+          reason: 'enum should come before type');
     });
   });
 

@@ -98,7 +98,8 @@ void main() {
 
         // Verify results are sorted
         for (int i = 1; i < results.length; i++) {
-          expect(results[i].similarity, lessThanOrEqualTo(results[i - 1].similarity));
+          expect(results[i].similarity,
+              lessThanOrEqualTo(results[i - 1].similarity));
         }
       });
 

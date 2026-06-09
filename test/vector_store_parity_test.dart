@@ -254,8 +254,8 @@ void main() {
         final id = 'doc$i';
         // Create embeddings with varying similarity to [1, 0, 0]
         final embedding = [
-          1.0 - i * 0.05,  // First component decreases
-          i * 0.05,        // Second component increases
+          1.0 - i * 0.05, // First component decreases
+          i * 0.05, // Second component increases
           0.0,
         ];
         embeddings[id] = embedding;
@@ -295,9 +295,9 @@ void main() {
       final index = HnswVectorIndex();
 
       // Add documents
-      index.add('high', [1.0, 0.0, 0.0]);     // sim = 1.0
-      index.add('medium', [0.7, 0.7, 0.0]);   // sim ~= 0.707
-      index.add('low', [0.0, 1.0, 0.0]);      // sim = 0.0
+      index.add('high', [1.0, 0.0, 0.0]); // sim = 1.0
+      index.add('medium', [0.7, 0.7, 0.0]); // sim ~= 0.707
+      index.add('low', [0.0, 1.0, 0.0]); // sim = 0.0
 
       final query = [1.0, 0.0, 0.0];
       final threshold = 0.5;
@@ -321,10 +321,10 @@ void main() {
 
       // Add documents with clear ranking
       final embeddings = {
-        'first': [1.0, 0.0, 0.0],    // Exact match
+        'first': [1.0, 0.0, 0.0], // Exact match
         'second': [0.95, 0.05, 0.0], // Very similar
-        'third': [0.8, 0.2, 0.0],    // Less similar
-        'fourth': [0.5, 0.5, 0.0],   // Even less similar
+        'third': [0.8, 0.2, 0.0], // Less similar
+        'fourth': [0.5, 0.5, 0.0], // Even less similar
       };
 
       for (final entry in embeddings.entries) {
@@ -339,7 +339,8 @@ void main() {
 
       // Verify all similarities are in descending order
       for (int i = 1; i < results.length; i++) {
-        expect(results[i].similarity, lessThanOrEqualTo(results[i - 1].similarity),
+        expect(
+            results[i].similarity, lessThanOrEqualTo(results[i - 1].similarity),
             reason: 'Results should be sorted by similarity descending');
       }
     });
@@ -403,4 +404,3 @@ double cosineSimilarity(List<double> a, List<double> b) {
 
   return dotProduct / (sqrt(normA) * sqrt(normB));
 }
-

@@ -1,5 +1,5 @@
 ## 0.16.5
-- **Internal logs gated + silent in release** (#306): `FlutterGemma.logLevel` controls verbosity; model output/prompts no longer leak to logcat, and U+FFFD can't crash `flutter run`.
+- **Internal logs silent in release + `FlutterGemma.logLevel`** (#306): no PII in logcat, U+FFFD safe.
 
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.

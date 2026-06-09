@@ -216,7 +216,8 @@ class ImageTokenizer {
           if (entry.value > words.length * 0.3) {
             // More than 30% of words
             gemmaLog(
-                'ImageTokenizer: Detected excessive repetition of "${entry.key}" (${entry.value} times)');
+                'ImageTokenizer: Detected excessive repetition of "${entry.key}" (${entry.value} times)',
+                level: GemmaLogLevel.verbose);
             return true;
           }
         }

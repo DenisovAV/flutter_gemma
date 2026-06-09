@@ -121,8 +121,9 @@ class InferenceChat {
     // --- DETAILED LOGGING ---
     final historyForLogging = _modelHistory.map((m) => m.text).join('\n');
     gemmaLog('--- Sending to Native ---');
-    gemmaLog('History:\n$historyForLogging');
-    gemmaLog('Current Message:\n${messageToSend.text}');
+    gemmaLog('History:\n$historyForLogging', level: GemmaLogLevel.verbose);
+    gemmaLog('Current Message:\n${messageToSend.text}',
+        level: GemmaLogLevel.verbose);
     gemmaLog('-------------------------');
     // --- END LOGGING ---
 
@@ -182,7 +183,8 @@ class InferenceChat {
     }
 
     gemmaLog(
-        'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---');
+        'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---',
+        level: GemmaLogLevel.verbose);
 
     // Try to parse as function call if tools are available and model supports function calls
     if (tools.isNotEmpty &&
@@ -199,7 +201,8 @@ class InferenceChat {
         _fullHistory.add(toolCallMessage);
         _modelHistory.add(toolCallMessage);
         gemmaLog(
-            'InferenceChat: Added tool call to history: ${toolCallMessage.text}');
+            'InferenceChat: Added tool call to history: ${toolCallMessage.text}',
+            level: GemmaLogLevel.verbose);
         if (allCalls.length == 1) {
           return allCalls.first;
         }
@@ -271,7 +274,10 @@ class InferenceChat {
     await for (final response in stopFilteredStream) {
       if (response is TextResponse) {
         final token = response.token;
-        gemmaLog('InferenceChat: Received filtered token: "$token"');
+        if (kDebugMode) {
+          gemmaLog('InferenceChat: Received filtered token: "$token"',
+              level: GemmaLogLevel.verbose);
+        }
 
         // Track if this token should be added to buffer (default true)
         bool shouldAddToBuffer = true;
@@ -284,8 +290,11 @@ class InferenceChat {
           if (funcBuffer.isNotEmpty) {
             // We're already buffering - add token and check for completion
             funcBuffer += token;
-            gemmaLog(
-                'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars');
+            if (kDebugMode) {
+              gemmaLog(
+                  'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars',
+                  level: GemmaLogLevel.verbose);
+            }
 
             // Check if we now have a complete JSON
             if (FunctionCallParser.isFunctionCallComplete(funcBuffer,
@@ -297,8 +306,11 @@ class InferenceChat {
                     jsonData.containsKey('message')) {
                   // Found JSON with message field - extract and display the message
                   final message = jsonData['message'] as String;
-                  gemmaLog(
-                      'InferenceChat: Extracted message from JSON: "$message"');
+                  if (kDebugMode) {
+                    gemmaLog(
+                        'InferenceChat: Extracted message from JSON: "$message"',
+                        level: GemmaLogLevel.verbose);
+                  }
                   yield TextResponse(message);
                   funcBuffer = '';
                   shouldAddToBuffer = false; // Don't add JSON tokens to buffer
@@ -359,22 +371,31 @@ class InferenceChat {
             // Not currently buffering - check if this token starts a function call
             if (FunctionCallParser.isFunctionCallStart(token,
                 modelType: modelType)) {
-              gemmaLog(
-                  'InferenceChat: Found potential function call start in token: "$token"');
+              if (kDebugMode) {
+                gemmaLog(
+                    'InferenceChat: Found potential function call start in token: "$token"',
+                    level: GemmaLogLevel.verbose);
+              }
               funcBuffer = token;
               shouldAddToBuffer =
                   false; // Don't add to main buffer while we determine if it's JSON
             } else {
               // Normal text token - emit immediately
-              gemmaLog('InferenceChat: Emitting text token: "$token"');
+              if (kDebugMode) {
+                gemmaLog('InferenceChat: Emitting text token: "$token"',
+                    level: GemmaLogLevel.verbose);
+              }
               yield response;
               shouldAddToBuffer = true; // Add to main buffer for history
             }
           }
         } else {
           // No function processing happening - emit token directly
-          gemmaLog(
-              'InferenceChat: No function processing, emitting token as text: "$token"');
+          if (kDebugMode) {
+            gemmaLog(
+                'InferenceChat: No function processing, emitting token as text: "$token"',
+                level: GemmaLogLevel.verbose);
+          }
           yield response;
           shouldAddToBuffer = true; // Add to main buffer for history
         }
@@ -391,7 +412,8 @@ class InferenceChat {
 
     gemmaLog('InferenceChat: Native token stream ended');
     final response = buffer.toString();
-    gemmaLog('InferenceChat: Complete response accumulated: "$response"');
+    gemmaLog('InferenceChat: Complete response accumulated: "$response"',
+        level: GemmaLogLevel.verbose);
 
     // Gemma 4 path: streaming yielded plain text via the SDK passthrough
     // format. The tool calls live in the structured `lastRawResponse` JSON.
@@ -441,7 +463,8 @@ class InferenceChat {
                 jsonData.containsKey('message')) {
               final message = jsonData['message'] as String;
               gemmaLog(
-                  'InferenceChat: Extracted message from end-of-stream JSON: "$message"');
+                  'InferenceChat: Extracted message from end-of-stream JSON: "$message"',
+                  level: GemmaLogLevel.verbose);
               yield TextResponse(message);
               return;
             }
@@ -504,7 +527,8 @@ class InferenceChat {
       if (!emittedFunctionCall) {
         final chatMessage = Message(text: response, isUser: false);
         gemmaLog(
-            'InferenceChat: Created text message object: ${chatMessage.text}');
+            'InferenceChat: Created text message object: ${chatMessage.text}',
+            level: GemmaLogLevel.verbose);
         _fullHistory.add(chatMessage);
         gemmaLog('InferenceChat: Added to full history');
         _modelHistory.add(chatMessage);

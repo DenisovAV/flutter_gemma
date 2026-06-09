@@ -693,7 +693,8 @@ class WebModelSession extends InferenceModelSession {
         gemmaLog(
             '📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
         gemmaLog(
-            '📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
+            '📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...',
+            level: GemmaLogLevel.verbose);
       }
       return fullText.toJS;
     }
@@ -715,7 +716,8 @@ class WebModelSession extends InferenceModelSession {
       if (part is TextPromptPart) {
         if (kDebugMode) {
           gemmaLog(
-              '📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
+              '📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."',
+              level: GemmaLogLevel.verbose);
         }
         jsArray.add(part.text.toJS);
       } else if (part is ImagePromptPart) {
@@ -809,7 +811,8 @@ class WebModelSession extends InferenceModelSession {
         gemmaLog(
             '✅ getResponse: Successfully generated response of length ${response.length}');
         gemmaLog(
-            '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
+            '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...',
+            level: GemmaLogLevel.verbose);
       }
 
       // Don't add response back to promptParts - that's handled by InferenceChat
@@ -858,7 +861,8 @@ class WebModelSession extends InferenceModelSession {
               final partial = partialJs.toDart;
               if (kDebugMode) {
                 gemmaLog(
-                    '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                    '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...',
+                    level: GemmaLogLevel.verbose);
               }
               _controller?.add(partial);
               if (complete) {
@@ -888,7 +892,8 @@ class WebModelSession extends InferenceModelSession {
               final partial = partialJs.toDart;
               if (kDebugMode) {
                 gemmaLog(
-                    '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                    '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...',
+                    level: GemmaLogLevel.verbose);
               }
               _controller?.add(partial);
               if (complete) {

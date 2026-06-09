@@ -89,13 +89,12 @@ class WebModelSourceResolver {
             'OPFS service not available (streaming mode requires OPFS).');
       }
       if (kDebugMode) {
-        debugPrint(
-            '[WebModelSourceResolver] OPFS stream source for: $filename');
+        gemmaLog('[WebModelSourceResolver] OPFS stream source for: $filename');
       }
       return OpfsStreamModelSource(opfs, filename);
     }
     if (kDebugMode) {
-      debugPrint('[WebModelSourceResolver] Blob/HTTPS URL: $raw');
+      gemmaLog('[WebModelSourceResolver] Blob/HTTPS URL: $raw');
     }
     return BlobUrlModelSource(raw);
   }

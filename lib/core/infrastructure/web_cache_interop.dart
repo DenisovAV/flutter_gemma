@@ -6,6 +6,7 @@ library;
 
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
+import '../utils/gemma_log.dart';
 
 /// External JS functions for Cache API
 @JS('cacheHas')
@@ -66,7 +67,7 @@ class WebCacheInterop {
       final result = await _cacheHasJS(cacheName.toJS, url.toJS).toDart;
       return result.toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ has failed for $url: $e');
+      gemmaLog('[WebCacheInterop] ❌ has failed for $url: $e');
       return false;
     }
   }
@@ -77,7 +78,7 @@ class WebCacheInterop {
       final result = await _cacheGetBlobUrlJS(cacheName.toJS, url.toJS).toDart;
       return result?.toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ getBlobUrl failed for $url: $e');
+      gemmaLog('[WebCacheInterop] ❌ getBlobUrl failed for $url: $e');
       return null;
     }
   }
@@ -87,7 +88,7 @@ class WebCacheInterop {
     try {
       await _cachePutJS(cacheName.toJS, url.toJS, data.toJS).toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ put failed for $url: $e');
+      gemmaLog('[WebCacheInterop] ❌ put failed for $url: $e');
       rethrow;
     }
   }
@@ -98,7 +99,7 @@ class WebCacheInterop {
       final result = await _cacheDeleteJS(cacheName.toJS, url.toJS).toDart;
       return result.toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ delete failed for $url: $e');
+      gemmaLog('[WebCacheInterop] ❌ delete failed for $url: $e');
       return false;
     }
   }
@@ -109,7 +110,7 @@ class WebCacheInterop {
       final result = await _cacheDeleteCacheJS(cacheName.toJS).toDart;
       return result.toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ deleteCache failed: $e');
+      gemmaLog('[WebCacheInterop] ❌ deleteCache failed: $e');
       return false;
     }
   }
@@ -120,7 +121,7 @@ class WebCacheInterop {
       final result = await _cacheGetAllKeysJS(cacheName.toJS).toDart;
       return result.toDart.map((js) => js.toDart).toList();
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ getAllKeys failed: $e');
+      gemmaLog('[WebCacheInterop] ❌ getAllKeys failed: $e');
       return [];
     }
   }
@@ -131,7 +132,7 @@ class WebCacheInterop {
       final result = await _storageRequestPersistentJS().toDart;
       return result.toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ requestPersistentStorage failed: $e');
+      gemmaLog('[WebCacheInterop] ❌ requestPersistentStorage failed: $e');
       return false;
     }
   }
@@ -145,7 +146,7 @@ class WebCacheInterop {
         result.quota.toDartInt,
       );
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ getStorageQuota failed: $e');
+      gemmaLog('[WebCacheInterop] ❌ getStorageQuota failed: $e');
       return StorageQuota(0, 0);
     }
   }
@@ -155,7 +156,7 @@ class WebCacheInterop {
     try {
       _blobUrlRevokeJS(blobUrl.toJS);
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ revokeBlobUrl failed: $e');
+      gemmaLog('[WebCacheInterop] ❌ revokeBlobUrl failed: $e');
     }
   }
 
@@ -165,7 +166,7 @@ class WebCacheInterop {
       final blob = _createBlobJs(data.toJS);
       return _createObjectUrlJs(blob).toDart;
     } catch (e) {
-      debugPrint('[WebCacheInterop] ❌ createBlobUrl failed: $e');
+      gemmaLog('[WebCacheInterop] ❌ createBlobUrl failed: $e');
       rethrow;
     }
   }

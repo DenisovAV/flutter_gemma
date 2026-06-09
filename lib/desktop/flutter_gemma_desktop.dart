@@ -21,6 +21,7 @@ import '../mobile/flutter_gemma_mobile.dart'
     show InferenceModelSpec, MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 part 'desktop_inference_model.dart';
 
@@ -43,7 +44,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   /// No parameters needed for desktop platforms.
   static void registerWith() {
     FlutterGemmaPlugin.instance = instance;
-    debugPrint('[FlutterGemmaDesktop] Plugin registered for desktop platform');
+    gemmaLog('[FlutterGemmaDesktop] Plugin registered for desktop platform');
   }
 
   // Reuse MobileModelManager for desktop (same filesystem behavior)
@@ -104,14 +105,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
               currentModel.maxTokens != maxTokens);
 
       if (modelChanged || paramsChanged) {
-        debugPrint(
+        gemmaLog(
             'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
         await _initializedModel?.close();
         _initCompleter = null;
         _initializedModel = null;
         _lastActiveInferenceSpec = null;
       } else {
-        debugPrint('Reusing existing model instance for ${requestedSpec.name}');
+        gemmaLog('Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
     }
@@ -137,7 +138,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       }
 
       final modelPath = modelFilePaths.values.first;
-      debugPrint('[FlutterGemmaDesktop] Using model: $modelPath');
+      gemmaLog('[FlutterGemmaDesktop] Using model: $modelPath');
 
       // Get cache dir for faster reloads
       final cacheDir = (await getApplicationSupportDirectory()).path;
@@ -241,7 +242,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         throw StateError('Embedding model path is required');
       }
 
-      debugPrint('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
+      gemmaLog('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
 
       if (tokenizerPath == null) {
         throw StateError('Tokenizer path is required for desktop embeddings');

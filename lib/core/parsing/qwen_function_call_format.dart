@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
 import 'json_parsing_utils.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Qwen/Mistral tool call format.
 ///
@@ -79,7 +79,7 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      debugPrint('QwenFormat: Found tool_call block: $jsonStr');
+      gemmaLog('QwenFormat: Found tool_call block: $jsonStr');
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;

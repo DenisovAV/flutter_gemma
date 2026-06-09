@@ -20,7 +20,6 @@
 import 'dart:async';
 import 'dart:isolate';
 
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'litert_embedding_core.dart';
@@ -256,7 +255,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
       outputDimension: init.outputDimension,
     );
   } catch (e, st) {
-    debugPrint('[EmbeddingWorker] load failed: $e\n$st');
+    gemmaLog('[EmbeddingWorker] load failed: $e\n$st');
     init.replyTo.send('Embedding worker failed to load: $e');
     return;
   }

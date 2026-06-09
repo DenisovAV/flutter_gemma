@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/parsing/function_call_format.dart';
 import 'package:flutter_gemma/core/parsing/function_call_format_factory.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Facade for backward compatibility.
 /// Delegates to model-specific [FunctionCallFormat] implementations.
@@ -43,7 +43,7 @@ class FunctionCallParser {
     try {
       return FunctionCallFormatFactory.create(modelType).parse(text);
     } catch (e) {
-      debugPrint('FunctionCallParser: Error parsing function call: $e');
+      gemmaLog('FunctionCallParser: Error parsing function call: $e');
       return null;
     }
   }
@@ -56,7 +56,7 @@ class FunctionCallParser {
     try {
       return FunctionCallFormatFactory.create(modelType).parseAll(text);
     } catch (e) {
-      debugPrint('FunctionCallParser: Error parsing function calls: $e');
+      gemmaLog('FunctionCallParser: Error parsing function calls: $e');
       return [];
     }
   }

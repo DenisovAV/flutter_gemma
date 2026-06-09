@@ -11,6 +11,7 @@ import '../extensions.dart';
 import '../parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
 import '../../pigeon.g.dart';
+import '../utils/gemma_log.dart';
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.
@@ -112,7 +113,7 @@ class FfiInferenceModel extends InferenceModel {
         seed: randomSeed,
       );
       await _session?.close();
-      debugPrint(
+      gemmaLog(
           '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms');
 
       final session = _session = FfiInferenceModelSession(
@@ -129,7 +130,7 @@ class FfiInferenceModel extends InferenceModel {
       );
 
       completer.complete(session);
-      debugPrint(
+      gemmaLog(
           '[FfiInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms');
       return session;
     } catch (e, st) {
@@ -376,7 +377,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       )) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
-          debugPrint(
+          gemmaLog(
               '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms');
         }
         chunkCount++;
@@ -398,7 +399,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     )) {
       if (firstChunkMs == null) {
         firstChunkMs = genSw.elapsedMilliseconds;
-        debugPrint(
+        gemmaLog(
             '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms');
       }
       chunkCount++;
@@ -411,7 +412,7 @@ class FfiInferenceModelSession extends InferenceModelSession
   void _logGenerationStats(Stopwatch sw, int? firstChunkMs, int chunks) {
     final total = sw.elapsedMilliseconds;
     if (firstChunkMs == null || chunks == 0) {
-      debugPrint(
+      gemmaLog(
           '[FfiInferenceModelSession/perf] generation total: ${total}ms (no chunks emitted)');
       return;
     }
@@ -419,7 +420,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     final decodeRate = chunks > 1 && decodeMs > 0
         ? ((chunks - 1) * 1000.0 / decodeMs).toStringAsFixed(1)
         : 'n/a';
-    debugPrint('[FfiInferenceModelSession/perf] generation total: ${total}ms '
+    gemmaLog('[FfiInferenceModelSession/perf] generation total: ${total}ms '
         '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks, '
         '~$decodeRate chunks/sec)');
   }
@@ -449,7 +450,7 @@ class FfiInferenceModelSession extends InferenceModelSession
       )) {
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
-          debugPrint(
+          gemmaLog(
               '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms');
         }
         chunkCount++;
@@ -470,7 +471,7 @@ class FfiInferenceModelSession extends InferenceModelSession
     )) {
       if (firstChunkMs == null) {
         firstChunkMs = genSw.elapsedMilliseconds;
-        debugPrint(
+        gemmaLog(
             '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms');
       }
       chunkCount++;

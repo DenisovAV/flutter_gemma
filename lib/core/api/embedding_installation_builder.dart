@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Fluent builder for embedding model installation
 ///
@@ -169,14 +169,14 @@ class EmbeddingInstallationBuilder {
         await repository.isInstalled(tokenizerFilename);
 
     if (isModelInstalled && isTokenizerInstalled) {
-      debugPrint(
+      gemmaLog(
           'ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)');
     } else {
       final handlerRegistry = registry.sourceHandlerRegistry;
 
       // Install model file if not already installed
       if (!isModelInstalled) {
-        debugPrint('📥 Installing embedding model...');
+        gemmaLog('📥 Installing embedding model...');
         final modelHandler = handlerRegistry.getHandler(_modelSource!);
         if (_onModelProgress != null) {
           await for (final progress in modelHandler!.installWithProgress(
@@ -192,13 +192,12 @@ class EmbeddingInstallationBuilder {
           );
         }
       } else {
-        debugPrint(
-            'ℹ️  Embedding model file already installed: $modelFilename');
+        gemmaLog('ℹ️  Embedding model file already installed: $modelFilename');
       }
 
       // Install tokenizer file if not already installed
       if (!isTokenizerInstalled) {
-        debugPrint('📥 Installing tokenizer...');
+        gemmaLog('📥 Installing tokenizer...');
         final tokenizerHandler =
             handlerRegistry.getHandler(effectiveTokenizerSource);
         if (_onTokenizerProgress != null) {
@@ -215,7 +214,7 @@ class EmbeddingInstallationBuilder {
           );
         }
       } else {
-        debugPrint('ℹ️  Tokenizer file already installed: $tokenizerFilename');
+        gemmaLog('ℹ️  Tokenizer file already installed: $tokenizerFilename');
       }
     }
 
@@ -223,7 +222,7 @@ class EmbeddingInstallationBuilder {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
-    debugPrint('✅ Embedding model installed and set as active: ${spec.name}');
+    gemmaLog('✅ Embedding model installed and set as active: ${spec.name}');
 
     return EmbeddingInstallation(spec: spec);
   }

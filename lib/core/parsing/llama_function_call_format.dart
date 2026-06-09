@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Llama 3.2 tool call format.
 ///
@@ -101,7 +101,7 @@ class LlamaFunctionCallFormat extends FunctionCallFormat {
       final argsStr = match.group(2)!;
 
       final args = _parsePythonArgs(argsStr);
-      debugPrint('LlamaFormat: Parsed function: $name($args)');
+      gemmaLog('LlamaFormat: Parsed function: $name($args)');
       results.add(FunctionCallResponse(name: name, args: args));
     }
 

@@ -1,8 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_parsing_utils.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// JSON-based function call format (default).
 ///
@@ -103,7 +103,7 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      debugPrint('JsonFormat: Found tool_code XML block: $jsonStr');
+      gemmaLog('JsonFormat: Found tool_code XML block: $jsonStr');
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;
@@ -116,7 +116,7 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      debugPrint('JsonFormat: Found tool_code markdown block: $jsonStr');
+      gemmaLog('JsonFormat: Found tool_code markdown block: $jsonStr');
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;
@@ -129,7 +129,7 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      debugPrint('JsonFormat: Found markdown json block: $jsonStr');
+      gemmaLog('JsonFormat: Found markdown json block: $jsonStr');
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
 
@@ -139,7 +139,7 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
       if (jsonStr.startsWith('{') && jsonStr.contains('"name"')) {
-        debugPrint('JsonFormat: Found markdown code block: $jsonStr');
+        gemmaLog('JsonFormat: Found markdown code block: $jsonStr');
         return JsonParsingUtils.parseJsonString(jsonStr);
       }
     }
@@ -150,7 +150,7 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
   FunctionCallResponse? _parseDirectJson(String content) {
     final trimmed = content.trim();
     if (trimmed.startsWith('{') && trimmed.contains('"name"')) {
-      debugPrint('JsonFormat: Found direct JSON: $trimmed');
+      gemmaLog('JsonFormat: Found direct JSON: $trimmed');
       return JsonParsingUtils.parseJsonString(trimmed);
     }
     return null;

@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
+import 'utils/gemma_log.dart';
 
 /// Handles proper image tokenization for multimodal AI models to prevent
 /// "Prompt contained 0 image tokens but received 1 images" errors and
@@ -13,7 +13,7 @@ class ImageTokenizer {
     required String role,
   }) {
     try {
-      debugPrint('ImageTokenizer: Creating structured image message...');
+      gemmaLog('ImageTokenizer: Creating structured image message...');
 
       // Validate inputs
       if (text.isEmpty) {
@@ -43,12 +43,12 @@ class ImageTokenizer {
         ],
       };
 
-      debugPrint('ImageTokenizer: Structured message created with '
+      gemmaLog('ImageTokenizer: Structured message created with '
           '${(message['content'] as List).length} content items');
 
       return message;
     } catch (e) {
-      debugPrint('ImageTokenizer: Error creating image message - $e');
+      gemmaLog('ImageTokenizer: Error creating image message - $e');
       throw ImageTokenizationException('Failed to create image message: $e');
     }
   }
@@ -61,7 +61,7 @@ class ImageTokenizer {
     required ModelType modelType,
   }) {
     try {
-      debugPrint('ImageTokenizer: Creating image prompt for $modelType...');
+      gemmaLog('ImageTokenizer: Creating image prompt for $modelType...');
 
       switch (modelType) {
         case ModelType.gemmaIt:
@@ -72,7 +72,7 @@ class ImageTokenizer {
           return _createGeneralImagePrompt(text, processedImage);
       }
     } catch (e) {
-      debugPrint('ImageTokenizer: Error creating image prompt - $e');
+      gemmaLog('ImageTokenizer: Error creating image prompt - $e');
       throw ImageTokenizationException('Failed to create image prompt: $e');
     }
   }
@@ -96,7 +96,7 @@ class ImageTokenizer {
     prompt.write('\n<start_of_turn>model\n');
 
     final result = prompt.toString();
-    debugPrint('ImageTokenizer: Created Gemma prompt (${result.length} chars)');
+    gemmaLog('ImageTokenizer: Created Gemma prompt (${result.length} chars)');
     return result;
   }
 
@@ -113,7 +113,7 @@ class ImageTokenizer {
     prompt.write('<｜/image｜><｜Assistant｜>');
 
     final result = prompt.toString();
-    debugPrint(
+    gemmaLog(
         'ImageTokenizer: Created DeepSeek prompt (${result.length} chars)');
     return result;
   }
@@ -132,15 +132,14 @@ class ImageTokenizer {
     prompt.write('<start_of_turn>model\n');
 
     final result = prompt.toString();
-    debugPrint(
-        'ImageTokenizer: Created general prompt (${result.length} chars)');
+    gemmaLog('ImageTokenizer: Created general prompt (${result.length} chars)');
     return result;
   }
 
   /// Validates that a message contains proper image tokens
   static bool validateImageTokens(String prompt, int expectedImageCount) {
     try {
-      debugPrint(
+      gemmaLog(
           'ImageTokenizer: Validating image tokens - expected: $expectedImageCount');
 
       // Count image tokens using various patterns
@@ -167,12 +166,11 @@ class ImageTokenizer {
         imageTokenCount += base64Matches.length;
       }
 
-      debugPrint(
-          'ImageTokenizer: Found $imageTokenCount image tokens in prompt');
+      gemmaLog('ImageTokenizer: Found $imageTokenCount image tokens in prompt');
 
       return imageTokenCount >= expectedImageCount;
     } catch (e) {
-      debugPrint('ImageTokenizer: Error validating image tokens - $e');
+      gemmaLog('ImageTokenizer: Error validating image tokens - $e');
       return false;
     }
   }
@@ -196,7 +194,7 @@ class ImageTokenizer {
 
       for (final pattern in corruptionPatterns) {
         if (pattern.hasMatch(response)) {
-          debugPrint(
+          gemmaLog(
               'ImageTokenizer: Detected corruption pattern - ${pattern.pattern}');
           return true;
         }
@@ -217,7 +215,7 @@ class ImageTokenizer {
         for (final entry in wordCounts.entries) {
           if (entry.value > words.length * 0.3) {
             // More than 30% of words
-            debugPrint(
+            gemmaLog(
                 'ImageTokenizer: Detected excessive repetition of "${entry.key}" (${entry.value} times)');
             return true;
           }
@@ -226,15 +224,14 @@ class ImageTokenizer {
 
       return false;
     } catch (e) {
-      debugPrint('ImageTokenizer: Error detecting corruption patterns - $e');
+      gemmaLog('ImageTokenizer: Error detecting corruption patterns - $e');
       return false;
     }
   }
 
   /// Creates a safe fallback prompt when image processing fails
   static String createFallbackPrompt(String text, {String? errorMessage}) {
-    debugPrint(
-        'ImageTokenizer: Creating fallback prompt due to: $errorMessage');
+    gemmaLog('ImageTokenizer: Creating fallback prompt due to: $errorMessage');
 
     final prompt = StringBuffer();
     prompt.write(

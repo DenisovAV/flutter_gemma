@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
@@ -8,6 +7,7 @@ import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Handles installation of models from network URLs on web platform
 ///
@@ -103,7 +103,7 @@ class WebNetworkSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } on DownloadCancelledException {
-      debugPrint('[WebNetworkSourceHandler] ⏸️  Installation cancelled');
+      gemmaLog('[WebNetworkSourceHandler] ⏸️  Installation cancelled');
       rethrow;
     } on DownloadException catch (e) {
       final errorMsg = switch (e.error) {
@@ -116,10 +116,10 @@ class WebNetworkSourceHandler implements SourceHandler {
         CanceledError() => 'Canceled',
         UnknownError(:final message) => 'Unknown Error: $message',
       };
-      debugPrint('[WebNetworkSourceHandler] ❌ Download failed: $errorMsg');
+      gemmaLog('[WebNetworkSourceHandler] ❌ Download failed: $errorMsg');
       rethrow;
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           '[WebNetworkSourceHandler] ❌ Failed to install network model: $e');
       rethrow;
     }

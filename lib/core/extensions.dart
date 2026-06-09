@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 const userPrefix = "user";
 const modelPrefix = "model";
@@ -40,7 +41,7 @@ extension MessageExtension on Message {
       {ModelType type = ModelType.general,
       ModelFileType fileType = ModelFileType.binary}) {
     // DEBUG LOG
-    debugPrint(
+    gemmaLog(
         '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
 
     // System messages should not be sent to the model
@@ -52,7 +53,7 @@ extension MessageExtension on Message {
     // EXCEPT FunctionGemma which needs manual formatting (no prefix/suffix in .task)
     if (fileType == ModelFileType.task && type != ModelType.functionGemma) {
       final result = _formatToolResponseContent();
-      debugPrint(
+      gemmaLog(
           '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
       return result;
     }
@@ -65,7 +66,7 @@ extension MessageExtension on Message {
         // Fall through to manual formatting below
       } else {
         final result = _formatToolResponseContent();
-        debugPrint(
+        gemmaLog(
             '[transformToChatPrompt] litertlm non-iOS, using raw text, result length=${result.length}');
         return result;
       }

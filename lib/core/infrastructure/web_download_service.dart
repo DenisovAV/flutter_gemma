@@ -13,6 +13,7 @@ import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_opfs_interop_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_opfs_service.dart';
 import 'package:flutter_gemma/core/infrastructure/url_utils.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// JavaScript AbortController for cancelling fetch requests
 @JS('AbortController')
@@ -91,11 +92,10 @@ class WebDownloadService implements DownloadService {
     // STREAMING MODE: Use OPFS for large models
     if (webStorageMode == WebStorageMode.streaming) {
       if (opfsService == null) {
-        debugPrint(
-            '[WARNING] OPFS not available, falling back to cacheApi mode');
-        debugPrint(
+        gemmaLog('[WARNING] OPFS not available, falling back to cacheApi mode');
+        gemmaLog(
             '[WARNING] Large models (>2GB) may fail with ArrayBuffer limit');
-        debugPrint(
+        gemmaLog(
             '[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)');
         // Fall back to cache API mode
         yield* _downloadToCache(url, targetPath,
@@ -125,7 +125,7 @@ class WebDownloadService implements DownloadService {
     // Check cache first (works for both public and private models)
     final cachedBlobUrl = await cacheService.getCachedBlobUrl(normalizedUrl);
     if (cachedBlobUrl != null) {
-      debugPrint('✅ Model found in cache (skipping download): $url');
+      gemmaLog('✅ Model found in cache (skipping download): $url');
 
       // Register cached blob URL
       _fileSystem.registerUrl(targetPath, cachedBlobUrl);
@@ -137,14 +137,14 @@ class WebDownloadService implements DownloadService {
     }
 
     // Not in cache - proceed with download
-    debugPrint('📥 Model not in cache, downloading: $url');
+    gemmaLog('📥 Model not in cache, downloading: $url');
 
     if (token == null) {
       // PUBLIC PATH: Download and cache
       yield* _downloadPublic(url, normalizedUrl, targetPath, cancelToken);
     } else {
       // PRIVATE PATH: Fetch with auth
-      debugPrint(
+      gemmaLog(
           'WebDownloadService: Starting authenticated download for $targetPath');
 
       yield* _downloadWithAuth(
@@ -167,14 +167,13 @@ class WebDownloadService implements DownloadService {
     try {
       cancelToken?.throwIfCancelled();
 
-      debugPrint(
-          '[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
+      gemmaLog('[WebDownloadService] 🚀 OPFS streaming download: $targetPath');
 
       // Check if already in OPFS
       final isAlreadyCached = await opfsService!.isModelCached(targetPath);
       // ignore: dead_code
       if (isAlreadyCached) {
-        debugPrint('[WebDownloadService] ✅ Model already in OPFS: $targetPath');
+        gemmaLog('[WebDownloadService] ✅ Model already in OPFS: $targetPath');
 
         // Register as OPFS file (special marker for getStreamReader)
         _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
@@ -202,8 +201,7 @@ class WebDownloadService implements DownloadService {
         },
         abortSignal: abortController.signal,
       ).then((_) {
-        debugPrint(
-            '[WebDownloadService] ✅ OPFS download complete: $targetPath');
+        gemmaLog('[WebDownloadService] ✅ OPFS download complete: $targetPath');
 
         // Register as OPFS file
         _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
@@ -212,7 +210,7 @@ class WebDownloadService implements DownloadService {
           streamController.close();
         }
       }).catchError((error) {
-        debugPrint('[WebDownloadService] ❌ OPFS download failed: $error');
+        gemmaLog('[WebDownloadService] ❌ OPFS download failed: $error');
         if (streamController != null && !streamController.isClosed) {
           streamController.addError(error);
           streamController.close();
@@ -227,11 +225,10 @@ class WebDownloadService implements DownloadService {
     } on DownloadCancelledException {
       // Abort the JS fetch request
       abortController?.abort();
-      debugPrint(
-          '[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
+      gemmaLog('[WebDownloadService] 🛑 OPFS download cancelled: $targetPath');
       rethrow;
     } catch (e) {
-      debugPrint('[WebDownloadService] ❌ OPFS download error: $e');
+      gemmaLog('[WebDownloadService] ❌ OPFS download error: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download to OPFS: $e'),
       );
@@ -259,12 +256,12 @@ class WebDownloadService implements DownloadService {
         loader: (onProgress) async {
           cancelToken?.throwIfCancelled();
 
-          debugPrint('[WebDownloadService] 📥 Downloading public model: $url');
+          gemmaLog('[WebDownloadService] 📥 Downloading public model: $url');
 
           // Note: fetchFile doesn't support progress callbacks yet
           final response = await _jsInterop.fetchFile(url);
 
-          debugPrint(
+          gemmaLog(
               '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
           onProgress(1.0);
 
@@ -279,11 +276,11 @@ class WebDownloadService implements DownloadService {
         _blobUrlManager.track(targetPath, blobUrl);
       }
 
-      debugPrint('[WebDownloadService] ✅ Public model downloaded and cached');
+      gemmaLog('[WebDownloadService] ✅ Public model downloaded and cached');
     } on DownloadCancelledException {
       rethrow;
     } catch (e) {
-      debugPrint('[WebDownloadService] ❌ Public download failed: $e');
+      gemmaLog('[WebDownloadService] ❌ Public download failed: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download public model: $e'),
       );
@@ -300,7 +297,7 @@ class WebDownloadService implements DownloadService {
     try {
       cancelToken?.throwIfCancelled();
 
-      debugPrint(
+      gemmaLog(
           'WebDownloadService: Starting authenticated download for $targetPath');
 
       // Use unified caching helper with auth download
@@ -309,7 +306,7 @@ class WebDownloadService implements DownloadService {
         loader: (onProgress) async {
           cancelToken?.throwIfCancelled();
 
-          debugPrint(
+          gemmaLog(
               '[WebDownloadService] 📥 Downloading authenticated model: $url');
 
           // Create completer for async result
@@ -323,7 +320,7 @@ class WebDownloadService implements DownloadService {
             onProgress: onProgress, // Pass progress callback directly
           )
               .then((response) {
-            debugPrint(
+            gemmaLog(
                 '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
             completer.complete(response.data);
           }).catchError((error) {
@@ -341,13 +338,13 @@ class WebDownloadService implements DownloadService {
         _blobUrlManager.track(targetPath, blobUrl);
       }
 
-      debugPrint(
+      gemmaLog(
           '[WebDownloadService] ✅ Authenticated model downloaded and cached');
     } on DownloadCancelledException {
-      debugPrint('WebDownloadService: Download cancelled for $targetPath');
+      gemmaLog('WebDownloadService: Download cancelled for $targetPath');
       rethrow;
     } catch (e) {
-      debugPrint('[WebDownloadService] ❌ Authenticated download failed: $e');
+      gemmaLog('[WebDownloadService] ❌ Authenticated download failed: $e');
       throw DownloadException(
         DownloadError.unknown('Failed to download authenticated model: $e'),
       );

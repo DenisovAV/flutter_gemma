@@ -5,6 +5,7 @@ import 'vision_encoder_validator.dart';
 import 'image_error_handler.dart';
 import 'message.dart';
 import 'model.dart';
+import 'utils/gemma_log.dart';
 
 /// Main integration class for handling multimodal image processing in Flutter Gemma
 /// to prevent AI image corruption and repeating text pattern issues.
@@ -18,7 +19,7 @@ class MultimodalImageHandler {
     bool enableProcessing = true,
   }) async {
     try {
-      debugPrint(
+      gemmaLog(
           'MultimodalImageHandler: Starting image processing for $modelType...');
 
       // Step 1: Validate image for vision encoder compatibility
@@ -55,7 +56,7 @@ class MultimodalImageHandler {
         }
       }
 
-      debugPrint(
+      gemmaLog(
           'MultimodalImageHandler: Image processing completed successfully');
 
       return MultimodalImageResult(
@@ -65,7 +66,7 @@ class MultimodalImageHandler {
         validationPassed: enableValidation,
       );
     } catch (e) {
-      debugPrint('MultimodalImageHandler: Image processing failed - $e');
+      gemmaLog('MultimodalImageHandler: Image processing failed - $e');
 
       // Handle the error and provide recovery suggestions
       final errorResult = ImageErrorHandler.handleImageProcessingError(
@@ -96,7 +97,7 @@ class MultimodalImageHandler {
       originalFormat: originalFormat,
     );
 
-    debugPrint(
+    gemmaLog(
         'MultimodalImageHandler: Image processed - ${processedImage.width}x${processedImage.height}, '
         'Format: ${processedImage.format}, Base64 Length: ${processedImage.base64Length}');
 
@@ -111,7 +112,7 @@ class MultimodalImageHandler {
     bool isUser = true,
   }) {
     try {
-      debugPrint(
+      gemmaLog(
           'MultimodalImageHandler: Creating multimodal message for $modelType...');
 
       // Validate inputs
@@ -130,7 +131,7 @@ class MultimodalImageHandler {
         isUser: isUser,
       );
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'MultimodalImageHandler: Failed to create multimodal message - $e');
 
       // Try to create a fallback text-only message
@@ -147,7 +148,7 @@ class MultimodalImageHandler {
     required ModelType modelType,
   }) {
     try {
-      debugPrint(
+      gemmaLog(
           'MultimodalImageHandler: Creating tokenized prompt for $modelType...');
 
       // Use ImageTokenizer to create properly formatted prompt
@@ -161,16 +162,16 @@ class MultimodalImageHandler {
       final hasValidTokens =
           tokenizer.ImageTokenizer.validateImageTokens(prompt, 1);
       if (!hasValidTokens) {
-        debugPrint(
+        gemmaLog(
             'MultimodalImageHandler: Warning - Prompt may have tokenization issues');
       }
 
-      debugPrint(
+      gemmaLog(
           'MultimodalImageHandler: Tokenized prompt created (${prompt.length} chars)');
 
       return prompt;
     } catch (e) {
-      debugPrint('MultimodalImageHandler: Tokenization failed - $e');
+      gemmaLog('MultimodalImageHandler: Tokenization failed - $e');
 
       // Handle tokenization error
       final errorResult = ImageErrorHandler.handleTokenizationError(
@@ -194,19 +195,19 @@ class MultimodalImageHandler {
     required ProcessedImage? processedImage,
   }) {
     try {
-      debugPrint('MultimodalImageHandler: Validating model response...');
+      gemmaLog('MultimodalImageHandler: Validating model response...');
 
       // Detect corruption patterns
       final corruptionResult =
           ImageErrorHandler.detectResponseCorruption(response);
 
       if (corruptionResult.isCorrupted) {
-        debugPrint(
+        gemmaLog(
             'MultimodalImageHandler: Corruption detected with ${corruptionResult.confidence.toStringAsFixed(2)} confidence');
 
         // Log detailed analysis
-        debugPrint('Corruption Analysis: ${corruptionResult.analysis}');
-        debugPrint('Suggested Action: ${corruptionResult.suggestedAction}');
+        gemmaLog('Corruption Analysis: ${corruptionResult.analysis}');
+        gemmaLog('Suggested Action: ${corruptionResult.suggestedAction}');
 
         return ResponseValidationResult(
           isValid: false,
@@ -219,7 +220,7 @@ class MultimodalImageHandler {
         );
       }
 
-      debugPrint('MultimodalImageHandler: Response validation passed');
+      gemmaLog('MultimodalImageHandler: Response validation passed');
 
       // Return success result when no corruption detected
       return ResponseValidationResult(
@@ -232,7 +233,7 @@ class MultimodalImageHandler {
         originalResponse: response,
       );
     } catch (e) {
-      debugPrint('MultimodalImageHandler: Response validation failed - $e');
+      gemmaLog('MultimodalImageHandler: Response validation failed - $e');
 
       return ResponseValidationResult(
         isValid: false,
@@ -320,7 +321,7 @@ class MultimodalImageHandler {
 
       return null;
     } catch (e) {
-      debugPrint('Error extracting Base64 from prompt: $e');
+      gemmaLog('Error extracting Base64 from prompt: $e');
       return null;
     }
   }
@@ -334,7 +335,7 @@ class MultimodalImageHandler {
     String? response,
   }) {
     try {
-      debugPrint('MultimodalImageHandler: Creating diagnostic report...');
+      gemmaLog('MultimodalImageHandler: Creating diagnostic report...');
 
       final format = ImageProcessor.detectFormat(imageBytes);
       final sizeInKB = imageBytes.length / 1024;
@@ -359,10 +360,10 @@ class MultimodalImageHandler {
         hasResponse: response != null,
       );
 
-      debugPrint('MultimodalImageHandler: Diagnostic report created');
+      gemmaLog('MultimodalImageHandler: Diagnostic report created');
       return report;
     } catch (e) {
-      debugPrint('MultimodalImageHandler: Diagnostic report failed - $e');
+      gemmaLog('MultimodalImageHandler: Diagnostic report failed - $e');
       rethrow;
     }
   }

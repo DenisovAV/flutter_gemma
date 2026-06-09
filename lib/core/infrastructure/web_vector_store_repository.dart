@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/infrastructure/hnsw_vector_index.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:flutter_gemma/web/vector_store_web.dart';
 import 'dart:js_interop';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Web implementation of VectorStoreRepository using SQLite WASM + HNSW
 ///
@@ -97,11 +97,11 @@ class WebVectorStoreRepository implements VectorStoreRepository {
 
       _hnswIndex.rebuild(hnswDocs);
 
-      debugPrint(
+      gemmaLog(
           '[WebVectorStore] HNSW index rebuilt with ${documents.length} documents');
     } catch (e) {
       // Log but don't fail - fallback to brute-force search
-      debugPrint('[WebVectorStore] Warning: Failed to rebuild HNSW index: $e');
+      gemmaLog('[WebVectorStore] Warning: Failed to rebuild HNSW index: $e');
       _hnswIndex.clear();
     }
   }
@@ -150,7 +150,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
         _hnswIndex.add(id, embedding);
       } catch (e) {
         // Log but don't fail - HNSW is optional optimization
-        debugPrint('[WebVectorStore] Warning: Failed to add to HNSW: $e');
+        gemmaLog('[WebVectorStore] Warning: Failed to add to HNSW: $e');
       }
     } catch (e) {
       // Dimension mismatch errors from JS are rethrown as-is
@@ -187,7 +187,7 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     }
 
     if (filter != null && !filter.isEmpty) {
-      debugPrint(
+      gemmaLog(
           '[WebVectorStore] Filter argument ignored on web (wa-sqlite has no payload filtering); '
           'pass null filter to silence this log.');
     }
@@ -195,13 +195,13 @@ class WebVectorStoreRepository implements VectorStoreRepository {
     try {
       // Use HNSW if enabled and index has enough documents
       if (enableHnsw && _hnswIndex.count >= _hnswThreshold) {
-        debugPrint(
+        gemmaLog(
             '[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)');
         return await _searchWithHnsw(queryEmbedding, topK, threshold);
       }
 
       // Fallback to brute-force for small datasets or when HNSW disabled
-      debugPrint(
+      gemmaLog(
           '[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})');
       return await _store!.searchSimilarDart(queryEmbedding, topK, threshold);
     } catch (e) {

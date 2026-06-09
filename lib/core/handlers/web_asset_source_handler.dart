@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Handles installation of models from Flutter assets on web platform
 ///
@@ -69,7 +69,7 @@ class WebAssetSourceHandler implements SourceHandler {
       yield* cacheService.getOrCacheAndRegisterWithProgress(
         cacheKey: cacheKey,
         loader: (onProgress) async {
-          debugPrint(
+          gemmaLog(
               '[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
 
           onProgress(0.0);
@@ -82,7 +82,7 @@ class WebAssetSourceHandler implements SourceHandler {
                 'Check that the file exists and is not corrupted.');
           }
 
-          debugPrint(
+          gemmaLog(
               '[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
           onProgress(1.0);
 
@@ -106,7 +106,7 @@ class WebAssetSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } catch (e) {
-      debugPrint('[WebAssetSourceHandler] ❌ Failed to install asset: $e');
+      gemmaLog('[WebAssetSourceHandler] ❌ Failed to install asset: $e');
       rethrow;
     }
   }

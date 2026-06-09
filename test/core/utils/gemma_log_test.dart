@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 
 void main() {
   group('sanitizeForLog', () {
@@ -93,6 +94,21 @@ void main() {
       gemmaLogLevel = GemmaLogLevel.verbose;
       gemmaLog('tok: �', level: GemmaLogLevel.verbose);
       expect(printed, ['tok: U+FFFD']);
+    });
+  });
+
+  group('FlutterGemma.logLevel facade', () {
+    final defaultLevel = gemmaLogLevel;
+    tearDown(() => gemmaLogLevel = defaultLevel);
+
+    test('setter updates the top-level gemmaLogLevel', () {
+      FlutterGemma.logLevel = GemmaLogLevel.none;
+      expect(gemmaLogLevel, GemmaLogLevel.none);
+    });
+
+    test('getter reflects the top-level gemmaLogLevel', () {
+      gemmaLogLevel = GemmaLogLevel.verbose;
+      expect(FlutterGemma.logLevel, GemmaLogLevel.verbose);
     });
   });
 }

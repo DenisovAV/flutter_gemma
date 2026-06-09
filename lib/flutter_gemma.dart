@@ -11,6 +11,7 @@ export 'core/model.dart'; // Export ModelType and other model-related classes
 export 'core/model_response.dart';
 export 'core/function_call_parser.dart';
 export 'core/tool.dart';
+export 'core/utils/gemma_log.dart' show GemmaLogLevel;
 export 'core/chat.dart';
 export 'core/model_management/cancel_token.dart';
 export 'core/ffi/backend_preference.dart'

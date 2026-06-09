@@ -113,6 +113,9 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 
 ### ⚠️ `lib/pigeon.g.dart` is generated — DO NOT EDIT MANUALLY
 
+### ⚠️ Use `gemmaLog`, not `debugPrint` (0.16.5+)
+All `lib/` logging goes through `gemmaLog(message, {level})` in `lib/core/utils/gemma_log.dart` — silent in release, `kDebugMode`-gated, U+FFFD-sanitized (#306). Never add a raw `debugPrint` in `lib/`. Model output / prompts / history must be `level: GemmaLogLevel.verbose` (hidden by default, opt-in via `FlutterGemma.logLevel`); hot per-token sites also wrap the call in `if (kDebugMode)` so the string isn't built in release. The top-level `gemmaLogLevel` is per-isolate — propagate it into any spawned isolate via its init payload.
+
 ## Versions & Dependencies
 
 - **Flutter**: `>=3.24.0`
@@ -120,7 +123,7 @@ Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` b
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.12.0` GitHub Release. Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. MTP (speculative decoding) support for Gemma 4.
-- **Current Version**: 0.16.4
+- **Current Version**: 0.16.5
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup

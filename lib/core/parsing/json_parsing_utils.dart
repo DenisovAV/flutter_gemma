@@ -34,7 +34,8 @@ class JsonParsingUtils {
 
         // Use empty map for zero-argument functions (get_time, refresh, etc.)
         final resolvedArgs = args ?? <String, dynamic>{};
-        gemmaLog('JsonParsingUtils: Parsed function: $name($resolvedArgs)');
+        gemmaLog('JsonParsingUtils: Parsed function: $name($resolvedArgs)',
+            level: GemmaLogLevel.verbose);
         return FunctionCallResponse(name: name, args: resolvedArgs);
       }
 

@@ -79,7 +79,8 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('QwenFormat: Found tool_call block: $jsonStr');
+      gemmaLog('QwenFormat: Found tool_call block: $jsonStr',
+          level: GemmaLogLevel.verbose);
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;

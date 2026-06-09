@@ -103,7 +103,8 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('JsonFormat: Found tool_code XML block: $jsonStr');
+      gemmaLog('JsonFormat: Found tool_code XML block: $jsonStr',
+          level: GemmaLogLevel.verbose);
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;
@@ -116,7 +117,8 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('JsonFormat: Found tool_code markdown block: $jsonStr');
+      gemmaLog('JsonFormat: Found tool_code markdown block: $jsonStr',
+          level: GemmaLogLevel.verbose);
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;
@@ -129,7 +131,8 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('JsonFormat: Found markdown json block: $jsonStr');
+      gemmaLog('JsonFormat: Found markdown json block: $jsonStr',
+          level: GemmaLogLevel.verbose);
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
 
@@ -139,7 +142,8 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
       if (jsonStr.startsWith('{') && jsonStr.contains('"name"')) {
-        gemmaLog('JsonFormat: Found markdown code block: $jsonStr');
+        gemmaLog('JsonFormat: Found markdown code block: $jsonStr',
+            level: GemmaLogLevel.verbose);
         return JsonParsingUtils.parseJsonString(jsonStr);
       }
     }
@@ -150,7 +154,8 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
   FunctionCallResponse? _parseDirectJson(String content) {
     final trimmed = content.trim();
     if (trimmed.startsWith('{') && trimmed.contains('"name"')) {
-      gemmaLog('JsonFormat: Found direct JSON: $trimmed');
+      gemmaLog('JsonFormat: Found direct JSON: $trimmed',
+          level: GemmaLogLevel.verbose);
       return JsonParsingUtils.parseJsonString(trimmed);
     }
     return null;

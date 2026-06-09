@@ -662,7 +662,8 @@ class WebModelSession extends InferenceModelSession {
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
       gemmaLog(
-          '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+          '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...',
+          level: GemmaLogLevel.verbose);
     }
 
     if (kDebugMode) {

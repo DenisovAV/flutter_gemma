@@ -101,7 +101,8 @@ class LlamaFunctionCallFormat extends FunctionCallFormat {
       final argsStr = match.group(2)!;
 
       final args = _parsePythonArgs(argsStr);
-      gemmaLog('LlamaFormat: Parsed function: $name($args)');
+      gemmaLog('LlamaFormat: Parsed function: $name($args)',
+          level: GemmaLogLevel.verbose);
       results.add(FunctionCallResponse(name: name, args: args));
     }
 

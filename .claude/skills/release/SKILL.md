@@ -261,6 +261,7 @@ gh release view v0.14.1
 
 ## Common gotchas
 
+- **iOS dylib `minos` MUST equal the Flutter wrapper plist (13.0) — for EVERY native bundle, not just LiteRT-LM.** Flutter Native Assets hardcodes `MinimumOSVersion 13.0` into each generated `*.framework/Info.plist`; if a bundled dylib's binary `minos` is higher, App Store Connect rejects the archive with **ITMS-90208**. Both `litert_lm/build_ios.sh` and `qdrant_edge/build_local.sh` normalize to 13.0 via `vtool -set-build-version <ios|iossim> 13.0 18.5`. **After building ANY iOS dylib (current or a future new artifact), verify:** `vtool -show <dylib> | grep minos` → must be `13.0`. The real iOS 16+ floor is enforced by the podspec, not this metadata. Regressed in 0.16.3 when qdrant un-vendoring shipped a 16.0 dylib (#286) — the check was only in the LiteRT-LM script, not a release-wide rule.
 - **`native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
 - **iOS dylib must be built from commit `5e0d86b`** (post-v0.10.2). v0.10.2 tag predates `libLiteRtMetalAccelerator.dylib` → ABI mismatch → EXC_BAD_ACCESS in `litert_lm_engine_create` on iPhone GPU. `build_ios.sh` defaults to it; do not override unless you know what you're doing.
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.

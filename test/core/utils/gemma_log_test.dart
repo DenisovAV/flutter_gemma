@@ -45,4 +45,54 @@ void main() {
       expect(sanitizeForLog('�** ('), 'U+FFFD** (');
     });
   });
+
+  group('gemmaLog level filtering', () {
+    late List<String?> printed;
+    late DebugPrintCallback original;
+    final defaultLevel = gemmaLogLevel;
+
+    setUp(() {
+      printed = <String?>[];
+      original = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) => printed.add(message);
+    });
+
+    tearDown(() {
+      debugPrint = original;
+      gemmaLogLevel = defaultLevel;
+    });
+
+    test('verbose level prints both info and verbose', () {
+      gemmaLogLevel = GemmaLogLevel.verbose;
+      gemmaLog('i', level: GemmaLogLevel.info);
+      gemmaLog('v', level: GemmaLogLevel.verbose);
+      expect(printed, ['i', 'v']);
+    });
+
+    test('info level prints info but filters verbose', () {
+      gemmaLogLevel = GemmaLogLevel.info;
+      gemmaLog('i', level: GemmaLogLevel.info);
+      gemmaLog('v', level: GemmaLogLevel.verbose);
+      expect(printed, ['i']);
+    });
+
+    test('none level prints nothing', () {
+      gemmaLogLevel = GemmaLogLevel.none;
+      gemmaLog('i', level: GemmaLogLevel.info);
+      gemmaLog('v', level: GemmaLogLevel.verbose);
+      expect(printed, isEmpty);
+    });
+
+    test('default level argument is info', () {
+      gemmaLogLevel = GemmaLogLevel.info;
+      gemmaLog('default');
+      expect(printed, ['default']);
+    });
+
+    test('sanitizes U+FFFD before printing', () {
+      gemmaLogLevel = GemmaLogLevel.verbose;
+      gemmaLog('tok: �', level: GemmaLogLevel.verbose);
+      expect(printed, ['tok: U+FFFD']);
+    });
+  });
 }

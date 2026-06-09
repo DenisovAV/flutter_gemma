@@ -21,6 +21,7 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'litert_embedding_core.dart';
 
@@ -74,6 +75,7 @@ class _WorkerInit {
     required this.backend,
     required this.inputSequenceLength,
     required this.outputDimension,
+    required this.logLevel,
   });
   final SendPort replyTo;
   final String modelPath;
@@ -81,6 +83,7 @@ class _WorkerInit {
   final EmbeddingBackend backend;
   final int? inputSequenceLength;
   final int? outputDimension;
+  final GemmaLogLevel logLevel;
 }
 
 /// Main-isolate handle to the embedding worker. Spawns the isolate, performs
@@ -149,6 +152,7 @@ class EmbeddingWorker {
         backend: backend,
         inputSequenceLength: inputSequenceLength,
         outputDimension: outputDimension,
+        logLevel: gemmaLogLevel,
       ),
       // onExit posts `null` to fromWorker so we never wait on a dead isolate.
       onExit: fromWorker.sendPort,
@@ -240,6 +244,8 @@ class EmbeddingWorker {
 
 /// Isolate entry point. Loads the model, then serves requests until _Close.
 Future<void> _workerEntry(_WorkerInit init) async {
+  // snapshot main-isolate level into this isolate
+  gemmaLogLevel = init.logLevel;
   final EmbeddingCore core;
   try {
     core = await EmbeddingCore.load(

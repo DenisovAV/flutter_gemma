@@ -132,6 +132,10 @@ class FlutterGemma {
       maxDownloadRetries: maxDownloadRetries,
       webStorageMode: effectiveStorageMode,
     );
+
+    // Restore active model/embedder state from storage before returning, so
+    // getActiveModel()/hasActiveModel() (sync) see a hydrated manager (#314).
+    await FlutterGemmaPlugin.instance.modelManager.ensureInitialized();
   }
 
   /// Start building an inference model installation

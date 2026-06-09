@@ -16,12 +16,17 @@ part of '../../../web/flutter_gemma_web.dart';
 /// - Platform-agnostic (same pattern as MobileModelManager)
 /// - Easier to maintain and test
 class WebModelManager extends ModelFileManager {
-  bool _isInitialized = false;
+  /// Single-flight init guard — see MobileModelManager / #314. Cached so
+  /// concurrent callers share one init; not cleared on failure.
+  Future<void>? _initFuture;
 
-  /// Initializes the web model manager
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
+  /// Initializes the web model manager. Idempotent and concurrency-safe.
+  Future<void> initialize() => _initFuture ??= _doInit();
+
+  @override
+  Future<void> ensureInitialized() => initialize();
+
+  Future<void> _doInit() async {
     await _restoreActiveInferenceModel();
     await _restoreActiveEmbeddingModel();
     gemmaLog('WebModelManager initialized');
@@ -497,11 +502,7 @@ class WebModelManager extends ModelFileManager {
     await ensureModelReadyFromSpec(spec);
   }
 
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-  }
+  Future<void> _ensureInitialized() => initialize();
 
   /// Creates an inference model specification from parameters
   static InferenceModelSpec createInferenceSpec({

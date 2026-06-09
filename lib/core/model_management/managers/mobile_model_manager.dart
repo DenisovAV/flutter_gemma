@@ -2,14 +2,20 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 
 /// Main unified model manager that orchestrates all model operations
 class MobileModelManager extends ModelFileManager {
-  bool _isInitialized = false;
+  /// Single-flight init guard. Cached so concurrent callers share one
+  /// initialization; the cached future is NOT cleared on failure (init reads
+  /// SharedPreferences — a failure there is not transiently retryable, and a
+  /// sticky failure avoids an infinite re-init loop). See #314.
+  Future<void>? _initFuture;
 
-  /// Initializes the unified model manager
-  Future<void> initialize() async {
-    if (_isInitialized) return;
+  /// Initializes the unified model manager. Idempotent and concurrency-safe.
+  Future<void> initialize() => _initFuture ??= _doInit();
 
+  @override
+  Future<void> ensureInitialized() => initialize();
+
+  Future<void> _doInit() async {
     try {
-      _isInitialized = true;
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       gemmaLog('UnifiedModelManager initialized successfully');
@@ -708,12 +714,8 @@ class MobileModelManager extends ModelFileManager {
     );
   }
 
-  /// Ensures the manager is initialized
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-  }
+  /// Internal readiness guard for manager operations.
+  Future<void> _ensureInitialized() => initialize();
 
   // === Legacy Asset Loading Methods Implementation ===
 

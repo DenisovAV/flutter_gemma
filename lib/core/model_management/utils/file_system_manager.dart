@@ -62,6 +62,15 @@ class ModelFileSystemManager {
     int minSizeBytes = _defaultMinSizeBytes,
   }) async {
     try {
+      final directory = Directory(filePath);
+      if (await directory.exists()) {
+        final isValidDirectory = await _isModelDirectoryValid(directory);
+        if (!isValidDirectory) {
+          debugPrint('Model directory validation failed: $filePath');
+        }
+        return isValidDirectory;
+      }
+
       final file = File(filePath);
 
       if (!await file.exists()) {
@@ -81,6 +90,28 @@ class ModelFileSystemManager {
       debugPrint('Error validating file $filePath: $e');
       return false;
     }
+  }
+
+  static Future<bool> _isModelDirectoryValid(Directory directory) async {
+    final entries = await directory.list(followLinks: false).toList();
+    if (entries.isEmpty) {
+      return false;
+    }
+
+    for (final entry in entries) {
+      final name = path.basename(entry.path).toLowerCase();
+      if (entry is File &&
+          (name == 'config.json' ||
+              name == 'tokenizer.json' ||
+              name == 'tokenizer_config.json' ||
+              name.endsWith('.safetensors') ||
+              name.endsWith('.gguf') ||
+              name.endsWith('.bin'))) {
+        return true;
+      }
+    }
+
+    return entries.any((entry) => entry is File);
   }
 
   /// Gets the full file path for a model file.

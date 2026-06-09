@@ -57,5 +57,11 @@ export 'mobile/flutter_gemma_mobile.dart'
 export 'desktop/flutter_gemma_desktop.dart'
     if (dart.library.js_interop) 'desktop/flutter_gemma_desktop_stub.dart'
     show FlutterGemmaDesktop, isDesktop;
+export 'desktop/desktop_runtime_extension.dart'
+    show
+        DesktopEmbeddingRequest,
+        DesktopInferenceRequest,
+        DesktopRuntimeExtension,
+        DesktopRuntimeRegistry;
 
 // ModelReplacePolicy is already exported from model_file_manager_interface.dart

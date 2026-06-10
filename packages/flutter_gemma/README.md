@@ -406,8 +406,27 @@ post_install do |installer|
   installer.aggregate_targets.each do |aggregate_target|
     aggregate_target.user_targets.each do |user_target|
       phase_name = '[flutter_gemma] Setup LiteRT-LM macOS'
+
+      # Only the app target embeds the Frameworks/ this phase patches.
+      # RunnerTests inherits Runner's framework search paths and has no
+      # Contents/Frameworks of its own — having the phase there creates a
+      # cross-target dependency on Runner's framework output that Xcode
+      # reports as "Cycle inside Flutter Assemble". Remove any stale copy
+      # from non-app targets and skip them.
+      unless user_target.name == 'Runner'
+        user_target.build_phases
+          .select { |p| p.respond_to?(:name) && p.name == phase_name }
+          .each { |p| user_target.build_phases.delete(p) }
+        next
+      end
+
       existing = user_target.shell_script_build_phases.find { |p| p.name == phase_name }
       phase = existing || user_target.new_shell_script_build_phase(phase_name)
+      # Declare a sentinel output so Xcode can order this phase in the
+      # dependency graph instead of treating it as "runs every build" with
+      # no outputs (the other half of the cycle warning). The script
+      # `touch`es this file at the end.
+      phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
       phase.shell_script = <<~SHELL
         set -e
         FRAMEWORKS="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/Contents/Frameworks"
@@ -470,6 +489,10 @@ EOF
             "${LITERTLM}" 2>/dev/null || true
           codesign --force --sign - "${LITERTLM}" 2>/dev/null || true
         fi
+        # Write the declared output so Xcode marks the phase up-to-date and
+        # orders it deterministically (avoids the Flutter Assemble cycle).
+        mkdir -p "$(dirname "${SCRIPT_OUTPUT_FILE_0}")"
+        touch "${SCRIPT_OUTPUT_FILE_0}"
       SHELL
     end
   end
@@ -1475,7 +1498,7 @@ Function calling is currently supported by the following models:
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
-| **Thinking Mode** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | DeepSeek & Gemma 4 |
+| **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3; Web MediaPipe has no `extraContext` |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Metal/WebGPU/Vulkan/DX12 |
 | **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
@@ -1490,9 +1513,10 @@ Function calling is currently supported by the following models:
 | **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | No local FS on web |
 
 > **Web column note:** the **Web** ✅ marks above describe the MediaPipe `.task`
-> web path (image input, function calling, thinking, etc.). The newer **web
-> `.litertlm`** path (`@litert-lm/core`) is an early-preview subset — text-only,
-> no vision/audio/thinking/function-calling. See
+> web path (image input, function calling, etc.). Thinking Mode is **not**
+> available on Web — MediaPipe web exposes no `extraContext` hook. The newer
+> **web `.litertlm`** path (`@litert-lm/core`) is an early-preview subset —
+> text-only, no vision/audio/thinking/function-calling. See
 > [Web `.litertlm` support & limitations](#web-litertlm-support--limitations).
 
 ### Web Platform Specifics

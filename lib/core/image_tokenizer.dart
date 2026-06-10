@@ -229,22 +229,6 @@ class ImageTokenizer {
       return false;
     }
   }
-
-  /// Creates a safe fallback prompt when image processing fails
-  static String createFallbackPrompt(String text, {String? errorMessage}) {
-    gemmaLog('ImageTokenizer: Creating fallback prompt due to: $errorMessage');
-
-    final prompt = StringBuffer();
-    prompt.write(
-        'User provided an image but it could not be processed properly. ');
-    if (errorMessage != null) {
-      prompt.write('Error: $errorMessage. ');
-    }
-    prompt.write('Please respond to the following text only: ');
-    prompt.write(text);
-
-    return prompt.toString();
-  }
 }
 
 /// Model types that require different tokenization approaches

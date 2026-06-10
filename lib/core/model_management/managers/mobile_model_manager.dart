@@ -20,12 +20,13 @@ class MobileModelManager extends ModelFileManager {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       gemmaLog('UnifiedModelManager initialized successfully');
-    } catch (e) {
+    } catch (e, st) {
       // Restoring the previously-active model is best-effort. A failure here
       // (e.g. unreadable SharedPreferences) must not abort app startup — start
       // with no active model; the user can re-install/select. (#314 follow-up)
+      // Include the stack trace so an unexpected restore bug stays diagnosable.
       gemmaLog(
-          'UnifiedModelManager: active-model restore failed, starting with no active model: $e');
+          'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st');
     }
   }
 

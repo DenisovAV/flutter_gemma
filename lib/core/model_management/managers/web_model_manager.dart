@@ -34,11 +34,12 @@ class WebModelManager extends ModelFileManager {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       gemmaLog('WebModelManager initialized');
-    } catch (e) {
+    } catch (e, st) {
       // Best-effort restore: a failure must not abort app startup — start with
       // no active model. (#314 follow-up; mirrors MobileModelManager.)
+      // Include the stack trace so an unexpected restore bug stays diagnosable.
       gemmaLog(
-          'WebModelManager: active-model restore failed, starting with no active model: $e');
+          'WebModelManager: active-model restore failed, starting with no active model: $e\n$st');
     }
   }
 

@@ -1,5 +1,5 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// In-memory implementation of ModelRepository
 ///
@@ -28,7 +28,7 @@ class InMemoryModelRepository implements ModelRepository {
     if (info.id.isEmpty) {
       throw ArgumentError('Model ID cannot be empty');
     }
-    debugPrint('[InMemoryModelRepository] 💾 Saving model: ${info.id}');
+    gemmaLog('[InMemoryModelRepository] 💾 Saving model: ${info.id}');
     _models[info.id] = info;
   }
 
@@ -38,7 +38,7 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final model = _models[id];
-    debugPrint(
+    gemmaLog(
         '[InMemoryModelRepository] ${model != null ? "✅ Loaded" : "❌ Not found"}: $id');
     return model;
   }
@@ -49,14 +49,14 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final existed = _models.remove(id) != null;
-    debugPrint(
+    gemmaLog(
         '[InMemoryModelRepository] ${existed ? "🗑️  Deleted" : "⚠️  Not found"}: $id');
   }
 
   @override
   Future<List<ModelInfo>> listInstalled() async {
     final models = _models.values.toList();
-    debugPrint(
+    gemmaLog(
         '[InMemoryModelRepository] 📋 Listing ${models.length} installed models');
     return models;
   }
@@ -67,7 +67,7 @@ class InMemoryModelRepository implements ModelRepository {
       throw ArgumentError('Model ID cannot be empty');
     }
     final installed = _models.containsKey(id);
-    debugPrint(
+    gemmaLog(
         '[InMemoryModelRepository] ${installed ? "✅" : "❌"} isInstalled($id): $installed');
     return installed;
   }
@@ -79,8 +79,7 @@ class InMemoryModelRepository implements ModelRepository {
   void clear() {
     final count = _models.length;
     _models.clear();
-    debugPrint(
-        '[InMemoryModelRepository] 🧹 Cleared $count models from memory');
+    gemmaLog('[InMemoryModelRepository] 🧹 Cleared $count models from memory');
   }
 
   /// Gets the current number of installed models

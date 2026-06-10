@@ -56,6 +56,7 @@ There is an example of using:
 - ⚡ **LiteRT-LM v0.12.0** (0.16.1) — NPU dispatch now available on Linux and macOS as well as Windows.
 - 🌐 **Web `.litertlm` inference** (0.16.2) — Gemma 4 E2B/E4B `.litertlm` models run in the browser via `@litert-lm/core` (WebGPU + WASM, **early preview**). See [Web `.litertlm` support & limitations](#web-litertlm-support--limitations) — text-only, no vision/audio/thinking, no LoRA, no function calling yet.
 - 🧵 **Concurrent sessions** (0.16.2, #226) — `openSession()` / `openChat()` run independent dialogues on one loaded model (isolated history per session). **Concurrent contexts, serialized inference**: only one session generates at a time. Works on `.litertlm` (all native + web) and `.task` (MediaPipe Android/iOS). See [Concurrent sessions](#concurrent-sessions-opensession).
+- 🔇 **Logging silent in release** (0.16.5, #306) — internal logs no longer print in release builds, so model output / prompts never reach logcat or syslog. In debug, control verbosity with `FlutterGemma.logLevel` (`info` by default; `verbose` to see model output, `none` to silence). See [Logging](#logging).
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
@@ -683,6 +684,30 @@ FlutterGemma.initialize(
 - 🌐 [Platform Support](#platform-support-details) - Web vs Mobile differences
 - 🔄 [Migration Guide](#migration-from-legacy-to-modern-api) - Upgrade from Legacy API
 - 📚 [Legacy API Documentation](#usage-legacy-api) - For backwards compatibility
+
+## Logging
+
+The plugin's internal logs are **silent in release builds** — model output, prompts, and conversation history are never written to logcat / syslog. In debug builds they're shown according to `FlutterGemma.logLevel`:
+
+| Level | What it prints (debug only) |
+|-------|------------------------------|
+| `GemmaLogLevel.none` | Nothing — fully silent. |
+| `GemmaLogLevel.info` *(default)* | Lifecycle, errors, diagnostics. **No** model output / prompts. |
+| `GemmaLogLevel.verbose` | Everything above **plus** model output, prompts, and conversation history. |
+
+```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
+// See the model's generated tokens and prompts while debugging:
+FlutterGemma.logLevel = GemmaLogLevel.verbose;
+
+// Or silence the plugin entirely:
+FlutterGemma.logLevel = GemmaLogLevel.none;
+```
+
+Notes:
+- Release builds are always silent regardless of this setting — there is no way to leak PII into a production log.
+- The level is process-global and per-isolate; set it once at startup. Background isolates (e.g. the embedding worker) snapshot the value when they start.
 
 ## HuggingFace Authentication 🔐
 

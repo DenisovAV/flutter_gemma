@@ -214,7 +214,8 @@ void main() {
         );
       });
 
-      test('downloadWithProgress() has same signature as SmartDownloader.downloadWithProgress()',
+      test(
+          'downloadWithProgress() has same signature as SmartDownloader.downloadWithProgress()',
           () {
         // Both should accept: url, targetPath, token (optional), maxRetries (optional)
         expect(
@@ -238,7 +239,8 @@ void main() {
         expect(
           () => BackgroundDownloaderService(),
           returnsNormally,
-          reason: 'Should not require complex initialization (no _downloader, _activeTasks, etc.)',
+          reason:
+              'Should not require complex initialization (no _downloader, _activeTasks, etc.)',
         );
       });
     });

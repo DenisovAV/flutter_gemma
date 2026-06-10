@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
+import 'utils/gemma_log.dart';
 
 /// Comprehensive image processing utilities to prevent AI image corruption
 /// and ensure proper vision encoder compatibility.
@@ -17,36 +18,36 @@ class ImageProcessor {
   static Future<ProcessedImage> processImage(Uint8List imageBytes,
       {String? originalFormat}) async {
     try {
-      debugPrint('ImageProcessor: Starting image processing...');
+      gemmaLog('ImageProcessor: Starting image processing...');
 
       // Step 1: Validate input
       _validateImageBytes(imageBytes);
 
       // Step 2: Decode image to check format and get dimensions
       final decodedImage = await _decodeImage(imageBytes);
-      debugPrint(
+      gemmaLog(
           'ImageProcessor: Original image - Format: ${originalFormat ?? 'unknown'}, '
           'Width: ${decodedImage.width}, Height: ${decodedImage.height}');
 
       // Step 3: Resize to target dimensions (896x896 for Gemma 3)
       final resizedImage =
           await _resizeImage(decodedImage, _targetWidth, _targetHeight);
-      debugPrint(
+      gemmaLog(
           'ImageProcessor: Image resized to ${_targetWidth}x$_targetHeight');
 
       // Step 4: Convert to optimal format (PNG for lossless quality)
       final processedBytes = await _encodeToPng(resizedImage);
-      debugPrint('ImageProcessor: Image converted to PNG format');
+      gemmaLog('ImageProcessor: Image converted to PNG format');
 
       // Step 5: Create Base64 encoded version for transmission
       final base64String = _encodeBase64Safe(processedBytes);
-      debugPrint(
+      gemmaLog(
           'ImageProcessor: Base64 encoding completed (${base64String.length} chars)');
 
       // Step 6: Validate final output
       _validateProcessedImage(processedBytes, base64String);
 
-      debugPrint('ImageProcessor: Image processing completed successfully');
+      gemmaLog('ImageProcessor: Image processing completed successfully');
 
       return ProcessedImage(
         originalBytes: imageBytes,
@@ -58,7 +59,7 @@ class ImageProcessor {
         originalFormat: originalFormat ?? detectFormat(imageBytes),
       );
     } catch (e) {
-      debugPrint('ImageProcessor: Error processing image - $e');
+      gemmaLog('ImageProcessor: Error processing image - $e');
       throw ImageProcessingException('Failed to process image: $e');
     }
   }
@@ -76,7 +77,7 @@ class ImageProcessor {
 
     // Check for minimum viable image size (roughly 100x100 pixels in most formats)
     if (imageBytes.length < 1024) {
-      debugPrint(
+      gemmaLog(
           'ImageProcessor: Warning - Image appears very small (${imageBytes.length} bytes)');
     }
   }

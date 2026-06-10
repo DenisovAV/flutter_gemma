@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import '../utils/gemma_log.dart';
 
 /// Token for cancelling model downloads
 ///
@@ -48,7 +48,7 @@ class CancelToken {
   /// [reason] - Optional message explaining why the operation was cancelled
   void cancel([String reason = 'Operation cancelled']) {
     if (isCancelled) {
-      debugPrint('⚠️ CancelToken already cancelled. '
+      gemmaLog('⚠️ CancelToken already cancelled. '
           'Previous reason: $_cancelReason, new reason: $reason');
       return;
     }
@@ -57,7 +57,7 @@ class CancelToken {
     _stackTrace = StackTrace.current;
     _completer?.complete();
 
-    debugPrint('🚫 CancelToken cancelled: $reason');
+    gemmaLog('🚫 CancelToken cancelled: $reason');
   }
 
   /// Throws if this token has been cancelled

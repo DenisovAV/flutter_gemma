@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
@@ -6,6 +5,7 @@ import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_cache_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_js_interop.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Handles installation of models from native bundled resources (WEB PLATFORM)
 ///
@@ -73,7 +73,7 @@ class WebBundledSourceHandler implements SourceHandler {
       yield* cacheService.getOrCacheAndRegisterWithProgress(
         cacheKey: cacheKey,
         loader: (onProgress) async {
-          debugPrint(
+          gemmaLog(
               '[WebBundledSourceHandler] Fetching bundled resource: $resourceName');
 
           onProgress(0.0);
@@ -85,7 +85,7 @@ class WebBundledSourceHandler implements SourceHandler {
                 'Check that the resource exists in the web bundle.');
           }
 
-          debugPrint(
+          gemmaLog(
               '[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes');
           onProgress(1.0);
 
@@ -109,7 +109,7 @@ class WebBundledSourceHandler implements SourceHandler {
 
       await repository.saveModel(modelInfo);
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           '[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e');
       rethrow;
     }

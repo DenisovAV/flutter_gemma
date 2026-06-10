@@ -28,6 +28,7 @@ import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/utils/file_name_utils.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
 
@@ -102,11 +103,11 @@ class MobileInferenceModelSession extends InferenceModelSession {
         text: '[System: ${systemInstruction!}]\n\n${message.text}',
       );
     }
-    debugPrint(
+    gemmaLog(
         '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
     final finalPrompt = messageToSend.transformToChatPrompt(
         type: modelType, fileType: fileType);
-    debugPrint(
+    gemmaLog(
         '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
@@ -260,13 +261,13 @@ class MobileInferenceModelSession extends InferenceModelSession {
       // Ignore "not supported" errors, but rethrow others
       if (e.code != 'stop_not_supported') {
         if (kDebugMode) {
-          debugPrint('Warning: Failed to stop generation: ${e.message}');
+          gemmaLog('Warning: Failed to stop generation: ${e.message}');
         }
       }
     } catch (e) {
       // Ignore other errors during cleanup
       if (kDebugMode) {
-        debugPrint('Warning: Unexpected error during stop generation: $e');
+        gemmaLog('Warning: Unexpected error during stop generation: $e');
       }
     }
 
@@ -526,15 +527,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
       if (currentSpec.name != requestedSpec.name) {
         // Active model changed - close old model and create new one
-        debugPrint(
+        gemmaLog(
             '⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}');
-        debugPrint('🔄 Closing old model and creating new one...');
+        gemmaLog('🔄 Closing old model and creating new one...');
         await _initializedModel?.close();
         // onClose callback will reset _initializedModel and _initCompleter
         _lastActiveInferenceSpec = null;
       } else {
         // Same model - return existing singleton
-        debugPrint(
+        gemmaLog(
             'ℹ️  Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
@@ -577,7 +578,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       return completer.future;
     }
 
-    debugPrint('Using unified model file: $modelPath');
+    gemmaLog('Using unified model file: $modelPath');
 
     try {
       final InferenceModel model;
@@ -586,11 +587,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // .task/.bin files → use MediaPipe via Pigeon (existing path)
       if (fileType == ModelFileType.litertlm &&
           (Platform.isIOS || Platform.isAndroid)) {
-        debugPrint(
+        gemmaLog(
             '[FlutterGemmaMobile] Using FFI path for .litertlm on ${Platform.operatingSystem}');
         final ffiPathSw = Stopwatch()..start();
         final cacheDir = (await getApplicationSupportDirectory()).path;
-        debugPrint(
+        gemmaLog(
             '[FlutterGemmaMobile/perf] getApplicationSupportDirectory: ${ffiPathSw.elapsedMilliseconds}ms');
         // NPU on Android `.litertlm` restored to 0.13.x parity. The Kotlin
         // LiteRtLmEngine path was dropped in 0.14.0 (commit 81025da); this
@@ -611,9 +612,9 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           enableAudio: supportAudio,
           enableSpeculativeDecoding: enableSpeculativeDecoding,
         );
-        debugPrint(
+        gemmaLog(
             '[FlutterGemmaMobile/perf] ffiClient.initialize total: ${ffiPathSw.elapsedMilliseconds - beforeInit}ms');
-        debugPrint(
+        gemmaLog(
             '[FlutterGemmaMobile/perf] FFI model creation total: ${ffiPathSw.elapsedMilliseconds}ms');
 
         model = _initializedModel = FfiInferenceModel(
@@ -720,15 +721,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
         if (currentSpec.name != requestedSpec.name) {
           // Active model changed - close old model and create new one
-          debugPrint(
+          gemmaLog(
               '⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}');
-          debugPrint('🔄 Closing old embedding model and creating new one...');
+          gemmaLog('🔄 Closing old embedding model and creating new one...');
           await _initializedEmbeddingModel?.close();
           // onClose callback will reset _initializedEmbeddingModel and _initEmbeddingCompleter
           _lastActiveEmbeddingSpec = null;
         } else {
           // Same model - return existing singleton
-          debugPrint(
+          gemmaLog(
               'ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}');
           return _initEmbeddingCompleter!.future;
         }
@@ -737,13 +738,12 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       modelPath = activeModelPath;
       tokenizerPath = activeTokenizerPath;
 
-      debugPrint(
+      gemmaLog(
           'Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
     } else {
       // Legacy API with explicit paths - check if singleton exists
       if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
-        debugPrint(
-            'ℹ️  Reusing existing embedding model instance (Legacy API)');
+        gemmaLog('ℹ️  Reusing existing embedding model instance (Legacy API)');
         return completer.future;
       }
     }

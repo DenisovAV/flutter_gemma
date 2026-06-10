@@ -25,10 +25,10 @@ import 'dart:ffi';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:ffi/ffi.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'litert_bindings.dart';
 import 'litert_embedding_worker.dart' show EmbeddingBackend;
+import '../utils/gemma_log.dart';
 
 /// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the
 /// swapped pair (bosId=1, eosId=2), so we add them manually.
@@ -186,7 +186,7 @@ class EmbeddingCore {
         dim = outputDimension;
       }
 
-      debugPrint(
+      gemmaLog(
           '[EmbeddingCore] loaded: seqLen=$seqLen, dim=$dim, backend=$backend');
 
       return EmbeddingCore._(

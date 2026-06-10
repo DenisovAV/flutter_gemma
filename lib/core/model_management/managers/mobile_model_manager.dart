@@ -2,24 +2,31 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 
 /// Main unified model manager that orchestrates all model operations
 class MobileModelManager extends ModelFileManager {
-  bool _isInitialized = false;
+  /// Single-flight init guard. Cached so concurrent callers share one
+  /// initialization. Init only restores the previously-active model identity
+  /// (#227); a restore failure degrades to "no active model" rather than
+  /// throwing, so a corrupt/unreadable prefs state never blocks app startup
+  /// (#314 follow-up). The cached future therefore always completes normally.
+  Future<void>? _initFuture;
 
-  /// Initializes the unified model manager
-  Future<void> initialize() async {
-    if (_isInitialized) return;
+  /// Initializes the unified model manager. Idempotent and concurrency-safe.
+  Future<void> initialize() => _initFuture ??= _doInit();
 
+  @override
+  Future<void> ensureInitialized() => initialize();
+
+  Future<void> _doInit() async {
     try {
-      _isInitialized = true;
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
-      debugPrint('UnifiedModelManager initialized successfully');
-    } catch (e) {
-      debugPrint('Failed to initialize UnifiedModelManager: $e');
-      throw ModelStorageException(
-        'Failed to initialize model manager',
-        e,
-        'initialize',
-      );
+      gemmaLog('UnifiedModelManager initialized successfully');
+    } catch (e, st) {
+      // Restoring the previously-active model is best-effort. A failure here
+      // (e.g. unreadable SharedPreferences) must not abort app startup — start
+      // with no active model; the user can re-install/select. (#314 follow-up)
+      // Include the stack trace so an unexpected restore bug stays diagnosable.
+      gemmaLog(
+          'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st');
     }
   }
 
@@ -31,8 +38,10 @@ class MobileModelManager extends ModelFileManager {
   /// callers had to re-invoke `installModel()` every launch.
   Future<void> _restoreActiveInferenceModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final modelTypeName = prefs.getString(PreferencesKeys.activeInferenceModelType);
-    final fileTypeName = prefs.getString(PreferencesKeys.activeInferenceFileType);
+    final modelTypeName =
+        prefs.getString(PreferencesKeys.activeInferenceModelType);
+    final fileTypeName =
+        prefs.getString(PreferencesKeys.activeInferenceFileType);
     final filename = prefs.getString(PreferencesKeys.activeInferenceFilename);
 
     if (modelTypeName == null || fileTypeName == null || filename == null) {
@@ -45,7 +54,7 @@ class MobileModelManager extends ModelFileManager {
       modelType = ModelType.values.byName(modelTypeName);
       fileType = ModelFileType.values.byName(fileTypeName);
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           '[ModelManager] active model restore: unknown enum value ($modelTypeName / $fileTypeName) — skipping');
       return;
     }
@@ -53,7 +62,7 @@ class MobileModelManager extends ModelFileManager {
     final filePath = await ServiceRegistry.instance.fileSystemService
         .getTargetPath(filename);
     if (!File(filePath).existsSync()) {
-      debugPrint(
+      gemmaLog(
           '[ModelManager] active model restore: file $filePath missing — skipping');
       return;
     }
@@ -64,7 +73,7 @@ class MobileModelManager extends ModelFileManager {
       modelType: modelType,
       fileType: fileType,
     );
-    debugPrint('[ModelManager] restored active inference model: $filename');
+    gemmaLog('[ModelManager] restored active inference model: $filename');
   }
 
   /// Mirror of [_restoreActiveInferenceModel] for the embedding pair
@@ -84,7 +93,7 @@ class MobileModelManager extends ModelFileManager {
     final modelPath = await fs.getTargetPath(modelFilename);
     final tokenizerPath = await fs.getTargetPath(tokenizerFilename);
     if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
-      debugPrint(
+      gemmaLog(
           '[ModelManager] active embedding restore: file missing — skipping');
       return;
     }
@@ -94,20 +103,20 @@ class MobileModelManager extends ModelFileManager {
       modelSource: FileSource(modelPath),
       tokenizerSource: FileSource(tokenizerPath),
     );
-    debugPrint('[ModelManager] restored active embedding model: $modelFilename');
+    gemmaLog('[ModelManager] restored active embedding model: $modelFilename');
   }
 
   /// Internal method for ModelSpec-based operations
   Future<void> _ensureModelReadySpec(ModelSpec spec) async {
     await _ensureInitialized();
 
-    debugPrint('UnifiedModelManager: Ensuring model ready - ${spec.name}');
+    gemmaLog('UnifiedModelManager: Ensuring model ready - ${spec.name}');
 
     try {
       await _ensureModelReady(spec);
-      debugPrint('UnifiedModelManager: Model ${spec.name} is ready');
+      gemmaLog('UnifiedModelManager: Model ${spec.name} is ready');
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e');
       rethrow;
     }
@@ -116,19 +125,19 @@ class MobileModelManager extends ModelFileManager {
   /// Ensures a model is ready, applying replace policy
   /// Delegates to Modern API handlers via ServiceRegistry
   Future<void> _ensureModelReady(ModelSpec spec) async {
-    debugPrint('🔍 Ensuring model ready: ${spec.name}');
-    debugPrint('🔍 Model source type: ${spec.files.first.source.runtimeType}');
+    gemmaLog('🔍 Ensuring model ready: ${spec.name}');
+    gemmaLog('🔍 Model source type: ${spec.files.first.source.runtimeType}');
 
     // Check if already installed
     final installed = await _isModelInstalled(spec);
-    debugPrint('🔍 isModelInstalled returned: $installed');
+    gemmaLog('🔍 isModelInstalled returned: $installed');
 
     if (installed) {
-      debugPrint('✅ Model ${spec.name} already ready (skipping installation)');
+      gemmaLog('✅ Model ${spec.name} already ready (skipping installation)');
       return;
     }
 
-    debugPrint('📥 Model not installed, proceeding with installation...');
+    gemmaLog('📥 Model not installed, proceeding with installation...');
 
     // Handle model switching with replace policy
     await _handleModelSwitching(spec);
@@ -144,7 +153,7 @@ class MobileModelManager extends ModelFileManager {
     final handlerRegistry = registry.sourceHandlerRegistry;
 
     for (final file in spec.files) {
-      debugPrint(
+      gemmaLog(
           '🔀 Routing file: ${file.filename}, source type: ${file.source.runtimeType}');
 
       try {
@@ -159,7 +168,7 @@ class MobileModelManager extends ModelFileManager {
         }
 
         await handler.install(file.source);
-        debugPrint(
+        gemmaLog(
             '✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}');
       } catch (e) {
         throw ModelStorageException(
@@ -175,7 +184,7 @@ class MobileModelManager extends ModelFileManager {
   Future<void> _handleModelSwitching(ModelSpec spec) async {
     // If replace policy, clean up ALL models of this type before installing new one
     if (spec.replacePolicy == ModelReplacePolicy.replace) {
-      debugPrint(
+      gemmaLog(
           'Policy-based replacement: cleaning up ALL ${spec.type.name} models');
 
       // Delete all installed models of this type from ModelRepository
@@ -188,7 +197,7 @@ class MobileModelManager extends ModelFileManager {
           await ModelFileSystemManager.deleteModelFile(filename);
           await repository.deleteModel(filename);
         } catch (e) {
-          debugPrint('Failed to delete model file $filename: $e');
+          gemmaLog('Failed to delete model file $filename: $e');
         }
       }
 
@@ -200,7 +209,7 @@ class MobileModelManager extends ModelFileManager {
   /// Clean up all tasks and files of a specific type
   Future<void> _cleanupAllTasksOfType(ModelManagementType type) async {
     try {
-      debugPrint('Cleaning up all tasks of type: ${type.name}');
+      gemmaLog('Cleaning up all tasks of type: ${type.name}');
 
       final downloader = FileDownloader();
       final records = await downloader.database.allRecords();
@@ -215,23 +224,23 @@ class MobileModelManager extends ModelFileManager {
           try {
             await ModelFileSystemManager.deleteModelFile(filename);
           } catch (e) {
-            debugPrint('Could not delete partial file $filename: $e');
+            gemmaLog('Could not delete partial file $filename: $e');
           }
         }
       }
 
       if (cleanedCount > 0) {
-        debugPrint('Cleaned up $cleanedCount tasks of type ${type.name}');
+        gemmaLog('Cleaned up $cleanedCount tasks of type ${type.name}');
       }
 
       // Reset background_downloader tasks
       try {
         await downloader.reset(group: 'flutter_gemma_downloads');
       } catch (e) {
-        debugPrint('Failed to reset background_downloader tasks: $e');
+        gemmaLog('Failed to reset background_downloader tasks: $e');
       }
     } catch (e) {
-      debugPrint('Failed to cleanup tasks of type ${type.name}: $e');
+      gemmaLog('Failed to cleanup tasks of type ${type.name}: $e');
     }
   }
 
@@ -281,17 +290,17 @@ class MobileModelManager extends ModelFileManager {
       {String? token}) async* {
     await _ensureInitialized();
 
-    debugPrint(
+    gemmaLog(
         'UnifiedModelManager: Starting download with progress - ${spec.name}');
 
     try {
       yield* _downloadModelWithProgress(spec, token: token);
-      debugPrint('UnifiedModelManager: Download completed - ${spec.name}');
+      gemmaLog('UnifiedModelManager: Download completed - ${spec.name}');
 
       // Set as active model after successful download (same as Modern API)
       setActiveModel(spec);
     } catch (e) {
-      debugPrint('UnifiedModelManager: Download failed - ${spec.name}: $e');
+      gemmaLog('UnifiedModelManager: Download failed - ${spec.name}: $e');
       rethrow;
     }
   }
@@ -397,18 +406,18 @@ class MobileModelManager extends ModelFileManager {
   Future<void> downloadModel(ModelSpec spec, {String? token}) async {
     await _ensureInitialized();
 
-    debugPrint('UnifiedModelManager: Starting download - ${spec.name}');
+    gemmaLog('UnifiedModelManager: Starting download - ${spec.name}');
 
     try {
       await for (final _ in _downloadModelWithProgress(spec, token: token)) {
         // Just consume the stream without emitting progress
       }
-      debugPrint('UnifiedModelManager: Download completed - ${spec.name}');
+      gemmaLog('UnifiedModelManager: Download completed - ${spec.name}');
 
       // Set as active model after successful download (same as Modern API)
       setActiveModel(spec);
     } catch (e) {
-      debugPrint('UnifiedModelManager: Download failed - ${spec.name}: $e');
+      gemmaLog('UnifiedModelManager: Download failed - ${spec.name}: $e');
       rethrow;
     }
   }
@@ -420,10 +429,10 @@ class MobileModelManager extends ModelFileManager {
 
     try {
       final result = await _isModelInstalled(spec);
-      debugPrint('UnifiedModelManager: Model ${spec.name} installed: $result');
+      gemmaLog('UnifiedModelManager: Model ${spec.name} installed: $result');
       return result;
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to check if model installed - ${spec.name}: $e');
       return false;
     }
@@ -450,7 +459,7 @@ class MobileModelManager extends ModelFileManager {
   Future<void> deleteModel(ModelSpec spec) async {
     await _ensureInitialized();
 
-    debugPrint('UnifiedModelManager: Deleting model - ${spec.name}');
+    gemmaLog('UnifiedModelManager: Deleting model - ${spec.name}');
 
     try {
       final registry = ServiceRegistry.instance;
@@ -462,9 +471,9 @@ class MobileModelManager extends ModelFileManager {
         await repository.deleteModel(file.filename);
       }
 
-      debugPrint('UnifiedModelManager: Model deleted - ${spec.name}');
+      gemmaLog('UnifiedModelManager: Model deleted - ${spec.name}');
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to delete model - ${spec.name}: $e');
       throw ModelStorageException(
         'Failed to delete model: ${spec.name}',
@@ -495,11 +504,11 @@ class MobileModelManager extends ModelFileManager {
           .map((info) => info.id)
           .toList();
 
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Found ${files.length} installed files for type $type');
       return files;
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to get installed models for type $type: $e');
       return [];
     }
@@ -514,7 +523,7 @@ class MobileModelManager extends ModelFileManager {
       final files = await getInstalledModels(type);
       return files.isNotEmpty;
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to check if any model is installed for type $type: $e');
       return false;
     }
@@ -525,7 +534,7 @@ class MobileModelManager extends ModelFileManager {
   Future<void> performCleanup() async {
     await _ensureInitialized();
 
-    debugPrint('UnifiedModelManager: Performing cleanup');
+    gemmaLog('UnifiedModelManager: Performing cleanup');
 
     try {
       // 1. Get protected files from ModelRepository
@@ -541,9 +550,9 @@ class MobileModelManager extends ModelFileManager {
       final downloader = FileDownloader();
       await downloader.reset(group: 'flutter_gemma_downloads');
 
-      debugPrint('UnifiedModelManager: Cleanup completed');
+      gemmaLog('UnifiedModelManager: Cleanup completed');
     } catch (e) {
-      debugPrint('UnifiedModelManager: Cleanup failed: $e');
+      gemmaLog('UnifiedModelManager: Cleanup failed: $e');
       // Don't rethrow - cleanup failures should not break the app
     }
   }
@@ -564,10 +573,10 @@ class MobileModelManager extends ModelFileManager {
 
     try {
       final result = await ModelFileSystemManager.validateModelFiles(spec);
-      debugPrint('UnifiedModelManager: Model ${spec.name} validation: $result');
+      gemmaLog('UnifiedModelManager: Model ${spec.name} validation: $result');
       return result;
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to validate model - ${spec.name}: $e');
       return false;
     }
@@ -608,7 +617,7 @@ class MobileModelManager extends ModelFileManager {
 
       return filePaths;
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Failed to get file paths for ${spec.name}: $e');
       return null;
     }
@@ -706,12 +715,8 @@ class MobileModelManager extends ModelFileManager {
     );
   }
 
-  /// Ensures the manager is initialized
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-  }
+  /// Internal readiness guard for manager operations.
+  Future<void> _ensureInitialized() => initialize();
 
   // === Legacy Asset Loading Methods Implementation ===
 
@@ -781,7 +786,7 @@ class MobileModelManager extends ModelFileManager {
     await _ensureInitialized();
     _activeInferenceModel = null;
     _activeEmbeddingModel = null;
-    debugPrint('Model cache cleared');
+    gemmaLog('Model cache cleared');
   }
 
   // === Active Model Management ===
@@ -811,13 +816,13 @@ class MobileModelManager extends ModelFileManager {
   void setActiveModel(ModelSpec spec) {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
-      debugPrint('✅ Set active inference model: ${spec.name}');
+      gemmaLog('✅ Set active inference model: ${spec.name}');
       // Fire-and-forget — SharedPreferences write is cheap and the
       // success of the operation is already reflected in memory.
       unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
-      debugPrint('✅ Set active embedding model: ${spec.name}');
+      gemmaLog('✅ Set active embedding model: ${spec.name}');
       unawaited(_persistActiveEmbeddingIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
@@ -827,26 +832,26 @@ class MobileModelManager extends ModelFileManager {
   Future<void> _persistActiveInferenceIdentity(InferenceModelSpec spec) async {
     try {
       final filename = spec.files
-          .firstWhere((f) => f.prefsKey == PreferencesKeys.installedModelFileName)
+          .firstWhere(
+              (f) => f.prefsKey == PreferencesKeys.installedModelFileName)
           .filename;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
           PreferencesKeys.activeInferenceModelType, spec.modelType.name);
       await prefs.setString(
           PreferencesKeys.activeInferenceFileType, spec.fileType.name);
-      await prefs.setString(
-          PreferencesKeys.activeInferenceFilename, filename);
+      await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
       await prefs.setString(
           PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
     } catch (e) {
-      debugPrint('[ModelManager] persistActiveInferenceIdentity failed: $e');
+      gemmaLog('[ModelManager] persistActiveInferenceIdentity failed: $e');
     }
   }
 
   Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
     try {
-      final modelFile = spec.files.firstWhere(
-          (f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final modelFile = spec.files
+          .firstWhere((f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
       final tokenizerFile = spec.files.firstWhere(
           (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
       final prefs = await SharedPreferences.getInstance();
@@ -859,7 +864,7 @@ class MobileModelManager extends ModelFileManager {
       await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerSource,
           spec.tokenizerSource.encode());
     } catch (e) {
-      debugPrint('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
+      gemmaLog('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 
@@ -958,7 +963,7 @@ class MobileModelManager extends ModelFileManager {
 
       return stats;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to get storage stats: $e');
+      gemmaLog('UnifiedModelManager: Failed to get storage stats: $e');
       return {
         'protectedFiles': 0,
         'totalSizeBytes': 0,
@@ -983,7 +988,7 @@ class MobileModelManager extends ModelFileManager {
         protectedFiles: protectedFiles,
       );
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to get orphaned files: $e');
+      gemmaLog('UnifiedModelManager: Failed to get orphaned files: $e');
       return [];
     }
   }
@@ -999,7 +1004,7 @@ class MobileModelManager extends ModelFileManager {
         protectedFiles: protectedFiles,
       );
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to get storage info: $e');
+      gemmaLog('UnifiedModelManager: Failed to get storage info: $e');
       return const StorageStats(
         totalFiles: 0,
         totalSizeBytes: 0,
@@ -1017,7 +1022,7 @@ class MobileModelManager extends ModelFileManager {
   Future<int> cleanupStorage() async {
     await _ensureInitialized();
 
-    debugPrint('UnifiedModelManager: Cleaning up storage (explicit user call)');
+    gemmaLog('UnifiedModelManager: Cleaning up storage (explicit user call)');
 
     try {
       final protectedFiles = await _getProtectedFiles();
@@ -1026,11 +1031,10 @@ class MobileModelManager extends ModelFileManager {
         enableResumeDetection: true,
       );
 
-      debugPrint(
-          'UnifiedModelManager: Cleaned up $deletedCount orphaned files');
+      gemmaLog('UnifiedModelManager: Cleaned up $deletedCount orphaned files');
       return deletedCount;
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to cleanup storage: $e');
+      gemmaLog('UnifiedModelManager: Failed to cleanup storage: $e');
       return 0;
     }
   }
@@ -1064,10 +1068,10 @@ class MobileModelManager extends ModelFileManager {
           await getInstalledModels(ModelManagementType.embedding);
       protected.addAll(installedEmbedding);
 
-      debugPrint(
+      gemmaLog(
           'UnifiedModelManager: Protected files count: ${protected.length}');
     } catch (e) {
-      debugPrint('UnifiedModelManager: Failed to get protected files: $e');
+      gemmaLog('UnifiedModelManager: Failed to get protected files: $e');
     }
 
     return protected;

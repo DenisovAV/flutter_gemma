@@ -12,6 +12,7 @@ import 'package:mutex/mutex.dart';
 import '../../flutter_gemma_interface.dart';
 import '../parsing/sdk_text_extractor.dart';
 import 'litert_lm_bindings.dart';
+import '../utils/gemma_log.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
 typedef _StreamCallbackNative = Void Function(Pointer<Void> callbackData,
@@ -220,30 +221,30 @@ class LiteRtLmFfiClient {
     try {
       final f = File(p);
       if (!f.existsSync()) {
-        debugPrint('[LiteRtLmFfi/native] log file missing: $p');
+        gemmaLog('[LiteRtLmFfi/native] log file missing: $p');
         return;
       }
       final content = f.readAsStringSync();
       if (content.isEmpty) {
-        debugPrint('[LiteRtLmFfi/native] (no new native log output)');
+        gemmaLog('[LiteRtLmFfi/native] (no new native log output)');
         return;
       }
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi/native] === BEGIN native log ($p, ${content.length} bytes) ===');
       const chunkSize = 800;
       for (var i = 0; i < content.length; i += chunkSize) {
         final end =
             (i + chunkSize < content.length) ? i + chunkSize : content.length;
-        debugPrint(content.substring(i, end));
+        gemmaLog(content.substring(i, end), level: GemmaLogLevel.verbose);
       }
-      debugPrint('[LiteRtLmFfi/native] === END native log ===');
+      gemmaLog('[LiteRtLmFfi/native] === END native log ===');
       // Truncate so the next dump only shows new output. If truncation fails
       // (read-only fs etc.), next dump just re-prints — non-fatal.
       try {
         f.writeAsStringSync('');
       } catch (_) {}
     } catch (e) {
-      debugPrint('[LiteRtLmFfi/native] failed to read $p: $e');
+      gemmaLog('[LiteRtLmFfi/native] failed to read $p: $e');
     }
   }
 
@@ -259,7 +260,7 @@ class LiteRtLmFfiClient {
     if (_bindings != null) return;
 
     final loadSw = Stopwatch()..start();
-    debugPrint('[LiteRtLmFfi] Loading native libraries...');
+    gemmaLog('[LiteRtLmFfi] Loading native libraries...');
     final DynamicLibrary lib;
     final DynamicLibrary proxyLib;
     if (Platform.isIOS) {
@@ -421,17 +422,17 @@ class LiteRtLmFfiClient {
       if (rc != 0) {
         // Log capture is best-effort but its failure makes _dumpNativeLog
         // useless. Surface it instead of silently continuing.
-        debugPrint('[LiteRtLmFfi] WARNING: stderr redirect failed (rc=$rc) — '
+        gemmaLog('[LiteRtLmFfi] WARNING: stderr redirect failed (rc=$rc) — '
             'native log dumps will be empty');
         _nativeLogPath = null;
       } else {
-        debugPrint('[LiteRtLmFfi] stderr redirected to $_nativeLogPath');
+        gemmaLog('[LiteRtLmFfi] stderr redirected to $_nativeLogPath');
       }
     }
 
-    debugPrint(
+    gemmaLog(
         '[LiteRtLmFfi/perf] _ensureBindings total: ${loadSw.elapsedMilliseconds}ms');
-    debugPrint('[LiteRtLmFfi] Libraries loaded');
+    gemmaLog('[LiteRtLmFfi] Libraries loaded');
   }
 
   /// Initialize the engine with model path and settings.
@@ -449,7 +450,7 @@ class LiteRtLmFfiClient {
     _ensureBindings();
     _backend = backend;
     final bindingsMs = initSw.elapsedMilliseconds;
-    debugPrint('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
+    gemmaLog('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
     final b = _bindings!;
 
     // Create engine settings
@@ -466,7 +467,7 @@ class LiteRtLmFfiClient {
         visionBackendPtr == nullptr ? nullptr : visionBackendPtr.cast(),
         audioBackendPtr == nullptr ? nullptr : audioBackendPtr.cast(),
       );
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi/perf] settings_create: ${initSw.elapsedMilliseconds - settingsCreateStart}ms');
 
       if (settings == nullptr) {
@@ -514,7 +515,7 @@ class LiteRtLmFfiClient {
             settings, dirPtr.cast());
         calloc.free(dirPtr);
         b.litert_lm_engine_settings_set_use_hw_masking_for_npu(settings, false);
-        debugPrint(
+        gemmaLog(
             '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false');
       }
 
@@ -536,18 +537,20 @@ class LiteRtLmFfiClient {
         b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
             settings, dirPtr.cast());
         calloc.free(dirPtr);
-        debugPrint('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
+        gemmaLog('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
 
       // Create engine in a background isolate to avoid blocking UI.
       // Pass settings pointer as int address (Pointer can't cross isolates).
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...');
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi/perf] === START litert_lm_engine_create (native — model load + accelerator init + KV cache prefill) ===');
       final settingsAddr = settings.address;
+      final isolateLogLevel = gemmaLogLevel;
       final sw = Stopwatch()..start();
       final engineAddr = await Isolate.run(() {
+        gemmaLogLevel = isolateLogLevel;
         final isolateSw = Stopwatch()..start();
         final lib = Platform.isIOS
             ? DynamicLibrary.open(
@@ -557,27 +560,27 @@ class LiteRtLmFfiClient {
                 : (Platform.isLinux || Platform.isAndroid)
                     ? DynamicLibrary.open('libLiteRtLm.so')
                     : DynamicLibrary.open('LiteRtLm.dll');
-        // ignore: avoid_print
-        print(
-            '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms');
+        gemmaLog(
+            '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms',
+            level: GemmaLogLevel.verbose);
         final lookupStart = isolateSw.elapsedMilliseconds;
         final create = lib.lookupFunction<Pointer Function(Pointer),
             Pointer Function(Pointer)>('litert_lm_engine_create');
-        // ignore: avoid_print
-        print(
-            '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms');
+        gemmaLog(
+            '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms',
+            level: GemmaLogLevel.verbose);
         final createStart = isolateSw.elapsedMilliseconds;
         final ptr = create(Pointer.fromAddress(settingsAddr)).address;
-        // ignore: avoid_print
-        print(
-            '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms');
+        gemmaLog(
+            '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms',
+            level: GemmaLogLevel.verbose);
         return ptr;
       });
       _engine = Pointer<LiteRtLmEngine>.fromAddress(engineAddr);
       sw.stop();
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi/perf] === END litert_lm_engine_create: ${sw.elapsedMilliseconds}ms (includes isolate spawn ~50-200ms) ===');
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi] litert_lm_engine_create took ${sw.elapsedMilliseconds}ms');
       b.litert_lm_engine_settings_delete(settings);
 
@@ -588,9 +591,9 @@ class LiteRtLmFfiClient {
       }
 
       _isInitialized = true;
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmFfi/perf] initialize() total: ${initSw.elapsedMilliseconds}ms');
-      debugPrint('[LiteRtLmFfi] Engine initialized successfully');
+      gemmaLog('[LiteRtLmFfi] Engine initialized successfully');
 
       // Auto-dump the SDK's stderr log after successful engine_create so
       // users can see what happens inside the native call (model load time,
@@ -637,7 +640,7 @@ class LiteRtLmFfiClient {
       topP: topP,
       seed: seed,
     );
-    debugPrint('[LiteRtLmFfi] Conversation created');
+    gemmaLog('[LiteRtLmFfi] Conversation created');
     final handle = LiteRtLmConversationHandle._(this, conv);
     _handles.add(handle);
     return handle;
@@ -694,7 +697,7 @@ class LiteRtLmFfiClient {
           sessionConfig, samplerParams);
       calloc.free(samplerParams);
     } else {
-      debugPrint('[LiteRtLmFfi] NPU backend — sampler params '
+      gemmaLog('[LiteRtLmFfi] NPU backend — sampler params '
           '(temperature, topK, topP, seed) ignored, engine uses '
           'internal greedy sampling.');
     }
@@ -1235,7 +1238,7 @@ class LiteRtLmFfiClient {
   void _cancelOn(Pointer<LiteRtLmConversation> conv) {
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_cancel_process(conv);
-      debugPrint('[LiteRtLmFfi] Generation cancelled');
+      gemmaLog('[LiteRtLmFfi] Generation cancelled');
     }
   }
 
@@ -1249,7 +1252,7 @@ class LiteRtLmFfiClient {
   void _deleteConversation(Pointer<LiteRtLmConversation> conv) {
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_delete(conv);
-      debugPrint('[LiteRtLmFfi] Conversation closed');
+      gemmaLog('[LiteRtLmFfi] Conversation closed');
     }
   }
 
@@ -1280,7 +1283,7 @@ class LiteRtLmFfiClient {
     if (_engine != null && _engine != nullptr && _bindings != null) {
       _bindings!.litert_lm_engine_delete(_engine!);
       _engine = null;
-      debugPrint('[LiteRtLmFfi] Engine deleted');
+      gemmaLog('[LiteRtLmFfi] Engine deleted');
     }
 
     _isInitialized = false;
@@ -1352,7 +1355,7 @@ class LiteRtLmFfiClient {
         initTimeMs: initTime > 0 ? initTime * 1000 : null,
       );
     } catch (e) {
-      debugPrint('[LiteRtLmFfiClient] Error getting metrics: $e');
+      gemmaLog('[LiteRtLmFfiClient] Error getting metrics: $e');
       _bindings!.litert_lm_benchmark_info_delete(benchmarkInfo);
       return SessionMetrics();
     }

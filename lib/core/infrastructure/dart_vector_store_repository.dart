@@ -7,6 +7,7 @@ import 'package:flutter_gemma/core/infrastructure/hnsw_vector_index.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Unified VectorStore using sqlite3 dart:ffi + HNSW.
 ///
@@ -270,11 +271,11 @@ class DartVectorStoreRepository implements VectorStoreRepository {
           .toList();
 
       _hnswIndex.rebuild(docs);
-      debugPrint(
+      gemmaLog(
         '[DartVectorStore] HNSW index rebuilt with ${docs.length} documents',
       );
     } catch (e) {
-      debugPrint(
+      gemmaLog(
         '[DartVectorStore] Warning: Failed to rebuild HNSW index: $e',
       );
       _hnswIndex.clear();

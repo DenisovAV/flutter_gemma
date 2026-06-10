@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 // DeepSeek special tokens (full-width Unicode characters)
 const _toolCallsBegin = '<｜tool▁calls▁begin｜>';
@@ -104,12 +104,12 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
       try {
         final args = jsonDecode(argsStr);
         if (args is Map<String, dynamic>) {
-          debugPrint('DeepSeekFormat: Parsed function: $functionName($args)');
+          gemmaLog('DeepSeekFormat: Parsed function: $functionName($args)',
+              level: GemmaLogLevel.verbose);
           results.add(FunctionCallResponse(name: functionName, args: args));
         }
       } catch (e) {
-        debugPrint(
-            'DeepSeekFormat: Failed to parse args for $functionName: $e');
+        gemmaLog('DeepSeekFormat: Failed to parse args for $functionName: $e');
       }
     }
 

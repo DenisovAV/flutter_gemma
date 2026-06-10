@@ -1,7 +1,7 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Shared JSON parsing utilities used by multiple format implementations.
 class JsonParsingUtils {
@@ -23,7 +23,7 @@ class JsonParsingUtils {
       if (decoded is Map<String, dynamic>) {
         final name = decoded['name'] as String?;
         if (name == null) {
-          debugPrint('JsonParsingUtils: JSON missing "name" field');
+          gemmaLog('JsonParsingUtils: JSON missing "name" field');
           return null;
         }
 
@@ -34,14 +34,15 @@ class JsonParsingUtils {
 
         // Use empty map for zero-argument functions (get_time, refresh, etc.)
         final resolvedArgs = args ?? <String, dynamic>{};
-        debugPrint('JsonParsingUtils: Parsed function: $name($resolvedArgs)');
+        gemmaLog('JsonParsingUtils: Parsed function: $name($resolvedArgs)',
+            level: GemmaLogLevel.verbose);
         return FunctionCallResponse(name: name, args: resolvedArgs);
       }
 
-      debugPrint('JsonParsingUtils: JSON missing "name" field or not a Map');
+      gemmaLog('JsonParsingUtils: JSON missing "name" field or not a Map');
       return null;
     } catch (e) {
-      debugPrint('JsonParsingUtils: Failed to decode JSON: $e');
+      gemmaLog('JsonParsingUtils: Failed to decode JSON: $e');
       return null;
     }
   }
@@ -62,7 +63,7 @@ class JsonParsingUtils {
         return results;
       }
     } catch (e) {
-      debugPrint('JsonParsingUtils: Failed to decode JSON array: $e');
+      gemmaLog('JsonParsingUtils: Failed to decode JSON array: $e');
     }
     return [];
   }

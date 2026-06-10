@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../utils/gemma_log.dart';
 
 /// Utilities for URL manipulation
 class UrlUtils {
@@ -31,7 +31,7 @@ class UrlUtils {
 
       return normalized;
     } catch (e) {
-      debugPrint('[UrlUtils] ⚠️  URL normalization failed: $e');
+      gemmaLog('[UrlUtils] ⚠️  URL normalization failed: $e');
       return url;
     }
   }

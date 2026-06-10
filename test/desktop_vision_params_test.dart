@@ -27,7 +27,8 @@ void main() {
       expect(true, isTrue);
     });
 
-    test('FlutterGemmaDesktop.createModel passes enableVision to grpcClient', () {
+    test('FlutterGemmaDesktop.createModel passes enableVision to grpcClient',
+        () {
       // flutter_gemma_desktop.dart line 152:
       // enableVision: supportImage,
       //
@@ -35,7 +36,8 @@ void main() {
       expect(true, isTrue);
     });
 
-    test('FlutterGemmaDesktop.createModel passes enableAudio to grpcClient', () {
+    test('FlutterGemmaDesktop.createModel passes enableAudio to grpcClient',
+        () {
       // flutter_gemma_desktop.dart line 153:
       // enableAudio: supportAudio,
       //
@@ -43,7 +45,8 @@ void main() {
       expect(true, isTrue);
     });
 
-    test('FlutterGemmaDesktop.createModel passes maxNumImages to grpcClient', () {
+    test('FlutterGemmaDesktop.createModel passes maxNumImages to grpcClient',
+        () {
       // flutter_gemma_desktop.dart line 151:
       // maxNumImages: supportImage ? (maxNumImages ?? 1) : 1,
       //

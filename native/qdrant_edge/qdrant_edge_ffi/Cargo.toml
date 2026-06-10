@@ -8,7 +8,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-qdrant-edge = "=0.7.1"
+qdrant-edge = "=0.7.2"
 serde_json = "1"
 
 # Pin upstream-bug-prone transitive (matches qdrant-edge example workspace)

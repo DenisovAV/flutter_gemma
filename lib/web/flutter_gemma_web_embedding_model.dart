@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../flutter_gemma_interface.dart';
 import 'litert_web_embeddings.dart';
+import '../core/utils/gemma_log.dart';
 
 class WebEmbeddingModel extends EmbeddingModel {
   WebEmbeddingModel({
@@ -45,7 +46,7 @@ class WebEmbeddingModel extends EmbeddingModel {
       );
       _isInitialized = true;
       if (kDebugMode) {
-        debugPrint('✅ LiteRT embeddings initialized successfully');
+        gemmaLog('✅ LiteRT embeddings initialized successfully');
       }
     } catch (e) {
       throw Exception('Failed to initialize LiteRT embeddings: $e');
@@ -67,7 +68,7 @@ class WebEmbeddingModel extends EmbeddingModel {
       return await LiteRTWebEmbeddings.generateEmbedding(text);
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('❌ Failed to generate embedding: $e');
+        gemmaLog('❌ Failed to generate embedding: $e');
       }
       rethrow;
     }
@@ -92,12 +93,12 @@ class WebEmbeddingModel extends EmbeddingModel {
       }
       final embeddings = await LiteRTWebEmbeddings.generateEmbeddings(texts);
       if (kDebugMode) {
-        debugPrint('✅ Generated ${embeddings.length} embeddings');
+        gemmaLog('✅ Generated ${embeddings.length} embeddings');
       }
       return embeddings;
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('❌ Failed to generate embeddings: $e');
+        gemmaLog('❌ Failed to generate embeddings: $e');
       }
       rethrow;
     }
@@ -121,11 +122,11 @@ class WebEmbeddingModel extends EmbeddingModel {
       try {
         await LiteRTWebEmbeddings.dispose();
         if (kDebugMode) {
-          debugPrint('✅ LiteRT embeddings disposed');
+          gemmaLog('✅ LiteRT embeddings disposed');
         }
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('⚠️  Warning: Failed to dispose LiteRT embeddings: $e');
+          gemmaLog('⚠️  Warning: Failed to dispose LiteRT embeddings: $e');
         }
       }
     }

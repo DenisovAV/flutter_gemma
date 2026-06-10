@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
+import '../utils/gemma_log.dart';
 
 /// Response from fetch operations
 class FetchResponse {
@@ -220,7 +221,7 @@ class WebJsInterop {
       _revokeBlobUrlJs(blobUrl.toJS);
     } catch (e) {
       // Ignore errors during cleanup
-      debugPrint('Warning: Failed to revoke blob URL: $e');
+      gemmaLog('Warning: Failed to revoke blob URL: $e');
     }
   }
 
@@ -260,12 +261,11 @@ class WebJsInterop {
     final chunks = <Uint8List>[];
     int bytesReceived = 0;
 
-    debugPrint(
-        '🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
+    gemmaLog('🌊 Starting stream: contentLength=${contentLength ?? "unknown"}');
 
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {
-      debugPrint(
+      gemmaLog(
           'Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
           'May encounter memory limits on some browsers.');
     }

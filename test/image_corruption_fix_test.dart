@@ -110,7 +110,8 @@ void main() {
     test('MultimodalImageHandler can process without validation', () async {
       // Test with validation disabled to avoid image processing issues
       final result = await MultimodalImageHandler.processImageForAI(
-        imageBytes: Uint8List.fromList([0x89, 0x50, 0x4E, 0x47]), // Minimal PNG signature
+        imageBytes: Uint8List.fromList(
+            [0x89, 0x50, 0x4E, 0x47]), // Minimal PNG signature
         modelType: ModelType.gemmaIt,
         enableValidation: false,
         enableProcessing: false,
@@ -121,11 +122,13 @@ void main() {
       expect(result.validationPassed, isFalse);
     });
 
-    test('MultimodalImageHandler handles processing errors gracefully', () async {
+    test('MultimodalImageHandler handles processing errors gracefully',
+        () async {
       // Test error handling with invalid image data
       try {
         final result = await MultimodalImageHandler.processImageForAI(
-          imageBytes: Uint8List.fromList([0x00, 0x01, 0x02]), // Invalid image data
+          imageBytes:
+              Uint8List.fromList([0x00, 0x01, 0x02]), // Invalid image data
           modelType: ModelType.gemmaIt,
           enableValidation: false,
           enableProcessing: true,
@@ -176,7 +179,8 @@ void main() {
       );
 
       // Test normal response
-      const normalResponse = 'This image shows a beautiful landscape with mountains.';
+      const normalResponse =
+          'This image shows a beautiful landscape with mountains.';
       final validation = MultimodalImageHandler.validateModelResponse(
         normalResponse,
         originalPrompt: 'Describe this image',
@@ -187,8 +191,10 @@ void main() {
       // BUG in MultimodalImageHandler.validateModelResponse lines 210-217:
       // Returns wrong values for successful validation (isValid: false, isCorrupted: true)
       expect(validation.isValid, isTrue); // Should be true for normal response
-      expect(validation.isCorrupted, isFalse); // Should be false for normal response
-      expect(validation.confidence, lessThan(0.5)); // Should be low confidence for no corruption
+      expect(validation.isCorrupted,
+          isFalse); // Should be false for normal response
+      expect(validation.confidence,
+          lessThan(0.5)); // Should be low confidence for no corruption
     });
   });
 }

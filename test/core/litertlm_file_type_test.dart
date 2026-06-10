@@ -169,10 +169,7 @@ void main() {
         fileType: ModelFileType.litertlm,
       ).toList();
 
-      final text = results
-          .whereType<TextResponse>()
-          .map((r) => r.token)
-          .join();
+      final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(text, equals('Hello world'));
     });
@@ -196,10 +193,7 @@ void main() {
         fileType: ModelFileType.litertlm,
       ).toList();
 
-      final text = results
-          .whereType<TextResponse>()
-          .map((r) => r.token)
-          .join();
+      final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(text, equals('Hi'));
     });
@@ -221,10 +215,7 @@ void main() {
         fileType: ModelFileType.litertlm,
       ).toList();
 
-      final text = results
-          .whereType<TextResponse>()
-          .map((r) => r.token)
-          .join();
+      final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(text, equals('Text<end_other>'));
     });
@@ -244,10 +235,7 @@ void main() {
         fileType: ModelFileType.litertlm,
       ).toList();
 
-      final text = results
-          .whereType<TextResponse>()
-          .map((r) => r.token)
-          .join();
+      final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(text, equals('Answer is 42'));
     });
@@ -267,10 +255,7 @@ void main() {
         fileType: ModelFileType.litertlm,
       ).toList();
 
-      final text = results
-          .whereType<TextResponse>()
-          .map((r) => r.token)
-          .join();
+      final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       // Should stop at first <end_of_turn>
       expect(text, equals('First'));

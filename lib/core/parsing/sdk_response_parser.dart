@@ -88,7 +88,8 @@ class SdkResponseParser {
     void addFromCallObject(Object? raw) {
       if (raw is! Map<String, dynamic>) return;
       Map<String, dynamic>? fn;
-      if (raw['type'] == 'function' && raw['function'] is Map<String, dynamic>) {
+      if (raw['type'] == 'function' &&
+          raw['function'] is Map<String, dynamic>) {
         fn = raw['function'] as Map<String, dynamic>;
       } else if (raw['name'] is String) {
         fn = raw;
@@ -129,8 +130,7 @@ class SdkResponseParser {
   static dynamic _stripEscapeTokens(dynamic value) {
     if (value is String) return value.replaceAll('<|"|>', '');
     if (value is Map) {
-      return value
-          .map((k, v) => MapEntry(k as String, _stripEscapeTokens(v)));
+      return value.map((k, v) => MapEntry(k as String, _stripEscapeTokens(v)));
     }
     if (value is List) return value.map(_stripEscapeTokens).toList();
     return value;

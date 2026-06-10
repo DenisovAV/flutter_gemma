@@ -19,7 +19,7 @@
 
 set -euo pipefail
 
-QDRANT_EDGE_VERSION="${QDRANT_EDGE_VERSION:-0.7.1}"
+QDRANT_EDGE_VERSION="${QDRANT_EDGE_VERSION:-0.7.2}"
 ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24 matches flutter_gemma
 
 # iOS deployment target. Must match flutter_gemma's Podfile (platform :ios, '16.0').
@@ -73,6 +73,15 @@ build_ios_device() {
     rm -rf "$out" && mkdir -p "$out"
     cp "$src" "$out/libqdrant_edge_ffi.dylib"
     install_name_tool -id "@rpath/libqdrant_edge_ffi.dylib" "$out/libqdrant_edge_ffi.dylib"
+    # Normalize iOS minos -> 13.0 to match the MinimumOSVersion Flutter Native
+    # Assets hardcodes into the framework wrapper Info.plist. Without this, App
+    # Store Connect rejects the archive with ITMS-90208 because the binary minos
+    # (16.0, from IPHONEOS_DEPLOYMENT_TARGET above) differs from the wrapper's
+    # 13.0. The real iOS 16+ floor is enforced by the podspec, not this metadata.
+    # Same patch as native/litert_lm/build_ios.sh. See #245, #286.
+    vtool -set-build-version ios 13.0 18.5 -replace \
+        -output "$out/libqdrant_edge_ffi.dylib" "$out/libqdrant_edge_ffi.dylib"
+    echo "    minos -> $(vtool -show-build "$out/libqdrant_edge_ffi.dylib" | awk '/minos/{print $2}')"
     tar -czf "$DIST_DIR/qdrant-edge-ios_arm64.tar.gz" -C "$out" .
     echo "    → $DIST_DIR/qdrant-edge-ios_arm64.tar.gz"
 }
@@ -85,6 +94,11 @@ build_ios_sim() {
     rm -rf "$out" && mkdir -p "$out"
     cp "$src" "$out/libqdrant_edge_ffi.dylib"
     install_name_tool -id "@rpath/libqdrant_edge_ffi.dylib" "$out/libqdrant_edge_ffi.dylib"
+    # See build_ios_device — same ITMS-90208 minos normalization, simulator
+    # platform token (iossim, not ios).
+    vtool -set-build-version iossim 13.0 18.5 -replace \
+        -output "$out/libqdrant_edge_ffi.dylib" "$out/libqdrant_edge_ffi.dylib"
+    echo "    minos -> $(vtool -show-build "$out/libqdrant_edge_ffi.dylib" | awk '/minos/{print $2}')"
     tar -czf "$DIST_DIR/qdrant-edge-ios_sim_arm64.tar.gz" -C "$out" .
     echo "    → $DIST_DIR/qdrant-edge-ios_sim_arm64.tar.gz"
 }

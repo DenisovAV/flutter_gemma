@@ -85,6 +85,14 @@ class FfiInferenceModel extends InferenceModel {
       );
     }
 
+    // Single-flight guard for genuinely *concurrent* callers only. The
+    // completer is cleared in the `finally` below once creation settles,
+    // so a *sequential* second call falls through and opens a fresh
+    // conversation handle (closing the prior session first) instead of
+    // returning the cached session. Without this, the cached completer
+    // made every later createChat reuse the first session, so the
+    // previous conversation's KV cache bled into the next chat. This is
+    // the litert/FFI sibling of the MediaPipe fix in #309 (issue #308).
     if (_createCompleter case Completer<InferenceModelSession> completer) {
       return completer.future;
     }
@@ -93,6 +101,17 @@ class FfiInferenceModel extends InferenceModel {
     final sessionSw = Stopwatch()..start();
 
     try {
+      // Legacy singleton lane: close the previous conversation BEFORE
+      // opening a fresh one. The engine holds at most one live
+      // conversation (upstream litert-lm #966), so closing first never
+      // leaves two alive — matching the delete-before-create order the
+      // virtual-session multiplexer already uses. It also means a
+      // teardown error can't leak a handle that was created first and
+      // then left unwrapped: each session owns its own conversation
+      // pointer, so closing the old one can't touch the not-yet-created
+      // new one. See PR #310 review.
+      await _session?.close();
+
       // For Gemma 4, push tools into the SDK conversation config so it can
       // render native `<|tool>declaration:...<tool|>` tokens via minja. Other
       // model types still use Dart-side prompt injection in chat.dart.
@@ -101,8 +120,6 @@ class FfiInferenceModel extends InferenceModel {
           : null;
 
       final beforeConv = sessionSw.elapsedMilliseconds;
-      // Legacy singleton lane: close the previous conversation (if any) and
-      // open a fresh one. Mirrors the pre-multi-session overwrite contract.
       final handle = ffiClient.createConversationHandle(
         systemMessage: systemInstruction,
         toolsJson: toolsJson,
@@ -111,32 +128,42 @@ class FfiInferenceModel extends InferenceModel {
         topP: topP,
         seed: randomSeed,
       );
-      await _session?.close();
       debugPrint(
           '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms');
 
-      final session = _session = FfiInferenceModelSession(
+      late final FfiInferenceModelSession session;
+      session = FfiInferenceModelSession(
         handle: handle,
         modelType: modelType,
         fileType: fileType,
         supportImage: enableVisionModality ?? supportImage,
         supportAudio: enableAudioModality ?? supportAudio,
         enableThinking: enableThinking,
+        // Identity-guarded so a late close of a superseded session can't
+        // null a newer `_session`. Does NOT touch `_createCompleter` —
+        // that is owned by the `finally` below, not by session teardown.
         onClose: () {
-          _session = null;
-          _createCompleter = null;
+          if (identical(_session, session)) _session = null;
         },
       );
+      _session = session;
 
       completer.complete(session);
       debugPrint(
           '[FfiInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms');
-      return session;
     } catch (e, st) {
       completer.completeError(e, st);
+    } finally {
+      // Pure in-flight guard: clear once creation settles (success OR
+      // failure) so the next call isn't blocked by a cached completer
+      // (the issue #308 KV-cache bleed on success; a permanently cached
+      // rejected future on failure).
       _createCompleter = null;
-      rethrow;
     }
+    // Return `completer.future` (rather than the session / a rethrow) so
+    // the caller stays the error listener after the completer field is
+    // cleared above, and concurrent callers share the same result.
+    return completer.future;
   }
 
   @override
@@ -496,6 +523,11 @@ class FfiInferenceModelSession extends InferenceModelSession
 
   @override
   Future<void> close() async {
+    // Idempotent: a superseded singleton session and the live one can both
+    // be closed by a caller, and createSession also closes the prior
+    // session before opening a new one — a second close must not re-run
+    // handle.close() / onClose(). See the createSession comment and #308.
+    if (_isClosed) return;
     _isClosed = true;
     _queryBuffer.clear();
     _pendingImages.clear();

@@ -2,6 +2,8 @@
 - **Internal logs silent in release + `FlutterGemma.logLevel`** (#306): no PII in logcat, U+FFFD safe.
 - **Fix `getActiveModel()` StateError on startup** (#314, thanks @alan-insam): manager init now single-flight, awaited in `FlutterGemma.initialize()`.
 - **Fix App Store ITMS-90208 on iOS** (#286, thanks @remingtonc): qdrant-edge iOS dylib minos normalized to 13.0 (0.7.2).
+- **Fix KV-cache bleed between sequential chats** (#308, thanks @mtmanty): each createSession opens a fresh native session + conversation handle.
+- **Enable function calling for Gemma 4 E2B/E4B** (#303): example sets supportsFunctionCalls; FC + multimodal verified together.
 
 ## 0.16.4
 - **Fix embedding freezing the UI thread** (#299): forward pass runs on a background isolate.

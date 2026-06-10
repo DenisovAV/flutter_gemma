@@ -547,8 +547,10 @@ class LiteRtLmFfiClient {
       gemmaLog(
           '[LiteRtLmFfi/perf] === START litert_lm_engine_create (native — model load + accelerator init + KV cache prefill) ===');
       final settingsAddr = settings.address;
+      final isolateLogLevel = gemmaLogLevel;
       final sw = Stopwatch()..start();
       final engineAddr = await Isolate.run(() {
+        gemmaLogLevel = isolateLogLevel;
         final isolateSw = Stopwatch()..start();
         final lib = Platform.isIOS
             ? DynamicLibrary.open(
@@ -558,20 +560,20 @@ class LiteRtLmFfiClient {
                 : (Platform.isLinux || Platform.isAndroid)
                     ? DynamicLibrary.open('libLiteRtLm.so')
                     : DynamicLibrary.open('LiteRtLm.dll');
-        // ignore: avoid_print
-        print(
-            '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms');
+        gemmaLog(
+            '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms',
+            level: GemmaLogLevel.verbose);
         final lookupStart = isolateSw.elapsedMilliseconds;
         final create = lib.lookupFunction<Pointer Function(Pointer),
             Pointer Function(Pointer)>('litert_lm_engine_create');
-        // ignore: avoid_print
-        print(
-            '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms');
+        gemmaLog(
+            '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms',
+            level: GemmaLogLevel.verbose);
         final createStart = isolateSw.elapsedMilliseconds;
         final ptr = create(Pointer.fromAddress(settingsAddr)).address;
-        // ignore: avoid_print
-        print(
-            '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms');
+        gemmaLog(
+            '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms',
+            level: GemmaLogLevel.verbose);
         return ptr;
       });
       _engine = Pointer<LiteRtLmEngine>.fromAddress(engineAddr);

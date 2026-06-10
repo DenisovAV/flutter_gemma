@@ -724,9 +724,11 @@ class WebModelSession extends InferenceModelSession {
       } else if (part is ImagePromptPart) {
         if (kDebugMode) {
           gemmaLog(
-              '🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
+              '🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}',
+              level: GemmaLogLevel.verbose);
           gemmaLog(
-              '🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
+              '🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...',
+              level: GemmaLogLevel.verbose);
         }
 
         // Create proper image object for MediaPipe

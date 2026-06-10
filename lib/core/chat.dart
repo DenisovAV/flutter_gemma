@@ -119,12 +119,14 @@ class InferenceChat {
     }
 
     // --- DETAILED LOGGING ---
-    final historyForLogging = _modelHistory.map((m) => m.text).join('\n');
-    gemmaLog('--- Sending to Native ---');
-    gemmaLog('History:\n$historyForLogging', level: GemmaLogLevel.verbose);
-    gemmaLog('Current Message:\n${messageToSend.text}',
-        level: GemmaLogLevel.verbose);
-    gemmaLog('-------------------------');
+    if (kDebugMode) {
+      final historyForLogging = _modelHistory.map((m) => m.text).join('\n');
+      gemmaLog('--- Sending to Native ---');
+      gemmaLog('History:\n$historyForLogging', level: GemmaLogLevel.verbose);
+      gemmaLog('Current Message:\n${messageToSend.text}',
+          level: GemmaLogLevel.verbose);
+      gemmaLog('-------------------------');
+    }
     // --- END LOGGING ---
 
     await session.addQueryChunk(messageToSend);

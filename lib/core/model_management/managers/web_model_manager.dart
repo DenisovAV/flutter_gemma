@@ -17,7 +17,10 @@ part of '../../../web/flutter_gemma_web.dart';
 /// - Easier to maintain and test
 class WebModelManager extends ModelFileManager {
   /// Single-flight init guard — see MobileModelManager / #314. Cached so
-  /// concurrent callers share one init; not cleared on failure.
+  /// concurrent callers share one init. Init only restores the previously-
+  /// active model identity (#227); a restore failure degrades to "no active
+  /// model" rather than throwing, so it never blocks app startup. The cached
+  /// future therefore always completes normally.
   Future<void>? _initFuture;
 
   /// Initializes the web model manager. Idempotent and concurrency-safe.
@@ -27,9 +30,16 @@ class WebModelManager extends ModelFileManager {
   Future<void> ensureInitialized() => initialize();
 
   Future<void> _doInit() async {
-    await _restoreActiveInferenceModel();
-    await _restoreActiveEmbeddingModel();
-    gemmaLog('WebModelManager initialized');
+    try {
+      await _restoreActiveInferenceModel();
+      await _restoreActiveEmbeddingModel();
+      gemmaLog('WebModelManager initialized');
+    } catch (e) {
+      // Best-effort restore: a failure must not abort app startup — start with
+      // no active model. (#314 follow-up; mirrors MobileModelManager.)
+      gemmaLog(
+          'WebModelManager: active-model restore failed, starting with no active model: $e');
+    }
   }
 
   /// Rehydrate `_activeInferenceModel` from the identity persisted by a
@@ -372,8 +382,14 @@ class WebModelManager extends ModelFileManager {
             fileSystem.registerUrl(file.filename, cachedBlobUrl);
             url = cachedBlobUrl;
           } else {
+            // Cached blob is gone and the auth token is not persisted across
+            // restarts (ModelSource.encode drops it). Falling back to the
+            // original URL works for PUBLIC models but a GATED model will fail
+            // the fetch later with an opaque network error. Surface it now at a
+            // visible level so the cause (re-auth / re-install needed) is clear.
             gemmaLog(
-                '[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)');
+                '[WebModelManager] ⚠️  "${file.filename}" not in cache; falling back to original URL ${networkSource.url}. '
+                'If this model is gated/private, the load will fail (auth token is not restored) — re-install the model to re-authenticate.');
           }
         }
         path = url ?? (file.source as NetworkSource).url;

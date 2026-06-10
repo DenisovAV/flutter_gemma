@@ -257,9 +257,9 @@ const _litertlmBundle = _NativeBundle(
 /// native platform (no Web — qdrant-edge depends on mmap/parking_lot which
 /// don't compile to WebAssembly; Web continues to use wa-sqlite).
 ///
-/// 0.7.1: upstream qdrant-edge now natively supports `wal_options` in
+/// 0.7.x: upstream qdrant-edge now natively supports `wal_options` in
 /// EdgeConfig (merged via https://github.com/qdrant/qdrant/pull/9067).
-/// Vendored fork dropped; built directly from crates.io qdrant-edge 0.7.1.
+/// Vendored fork dropped; built directly from crates.io qdrant-edge.
 const _qdrantEdgeBundle = _NativeBundle(
   namespace: 'qdrant_edge',
   version: '0.7.2',

@@ -134,10 +134,10 @@ class MultimodalImageHandler {
       gemmaLog(
           'MultimodalImageHandler: Failed to create multimodal message - $e');
 
-      // Try to create a fallback text-only message
-      final fallbackText =
-          '$text\n[Note: Image could not be processed properly]';
-      return Message.text(text: fallbackText, isUser: isUser);
+      // Do NOT silently drop the image into a text-only message — that makes
+      // the model answer as if no image was sent. Surface the failure so the
+      // caller can react (no-silent-fallbacks).
+      rethrow;
     }
   }
 
@@ -173,7 +173,9 @@ class MultimodalImageHandler {
     } catch (e) {
       gemmaLog('MultimodalImageHandler: Tokenization failed - $e');
 
-      // Handle tokenization error
+      // Run the error handler for its diagnostics, then throw — returning a
+      // text-only fallback prompt silently drops the image and makes the model
+      // answer as if none was sent (no-silent-fallbacks).
       final errorResult = ImageErrorHandler.handleTokenizationError(
         e,
         StackTrace.current,
@@ -182,9 +184,7 @@ class MultimodalImageHandler {
         expectedImageCount: 1,
       );
 
-      // Return fallback prompt
-      return tokenizer.ImageTokenizer.createFallbackPrompt(text,
-          errorMessage: errorResult.message);
+      throw Exception('Image tokenization failed: ${errorResult.message}');
     }
   }
 

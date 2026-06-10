@@ -3,9 +3,10 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 /// Main unified model manager that orchestrates all model operations
 class MobileModelManager extends ModelFileManager {
   /// Single-flight init guard. Cached so concurrent callers share one
-  /// initialization; the cached future is NOT cleared on failure (init reads
-  /// SharedPreferences — a failure there is not transiently retryable, and a
-  /// sticky failure avoids an infinite re-init loop). See #314.
+  /// initialization. Init only restores the previously-active model identity
+  /// (#227); a restore failure degrades to "no active model" rather than
+  /// throwing, so a corrupt/unreadable prefs state never blocks app startup
+  /// (#314 follow-up). The cached future therefore always completes normally.
   Future<void>? _initFuture;
 
   /// Initializes the unified model manager. Idempotent and concurrency-safe.
@@ -20,12 +21,11 @@ class MobileModelManager extends ModelFileManager {
       await _restoreActiveEmbeddingModel();
       gemmaLog('UnifiedModelManager initialized successfully');
     } catch (e) {
-      gemmaLog('Failed to initialize UnifiedModelManager: $e');
-      throw ModelStorageException(
-        'Failed to initialize model manager',
-        e,
-        'initialize',
-      );
+      // Restoring the previously-active model is best-effort. A failure here
+      // (e.g. unreadable SharedPreferences) must not abort app startup — start
+      // with no active model; the user can re-install/select. (#314 follow-up)
+      gemmaLog(
+          'UnifiedModelManager: active-model restore failed, starting with no active model: $e');
     }
   }
 

@@ -4,6 +4,14 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 void main() {
+  group('GemmaLogLevel ordering invariant', () {
+    test('severity order is none < info < verbose (gemmaLog filters on .index)',
+        () {
+      expect(GemmaLogLevel.none.index, lessThan(GemmaLogLevel.info.index));
+      expect(GemmaLogLevel.info.index, lessThan(GemmaLogLevel.verbose.index));
+    });
+  });
+
   group('sanitizeForLog', () {
     test('replaces a lone U+FFFD with literal text', () {
       expect(sanitizeForLog('a�b'), 'aU+FFFDb');

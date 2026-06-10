@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'image_processor.dart';
 import 'image_tokenizer.dart';
 import 'vision_encoder_validator.dart';
+import 'utils/gemma_log.dart';
 
 /// Comprehensive error handling and debugging utilities for AI image processing
 /// to prevent corruption that causes repeating text patterns in model responses.
@@ -62,7 +62,8 @@ class ImageErrorHandler {
     gemmaLog('Expected Images: $expectedImageCount');
     gemmaLog('Prompt Length: ${prompt?.length ?? 0}');
     if (prompt != null && prompt.length < _maxLogSize) {
-      gemmaLog('Prompt Preview: ${_sanitizePromptForLogging(prompt)}');
+      gemmaLog('Prompt Preview: ${_sanitizePromptForLogging(prompt)}',
+          level: GemmaLogLevel.verbose);
     }
 
     final errorType = _categorizeTokenizationError(error, prompt);
@@ -134,7 +135,8 @@ class ImageErrorHandler {
       gemmaLog('=== DETECTING RESPONSE CORRUPTION ===');
       gemmaLog('Response Length: ${response.length}');
       if (response.length < _maxLogSize) {
-        gemmaLog('Response Preview: ${_sanitizeResponseForLogging(response)}');
+        gemmaLog('Response Preview: ${_sanitizeResponseForLogging(response)}',
+            level: GemmaLogLevel.verbose);
       }
 
       // Check for known corruption patterns

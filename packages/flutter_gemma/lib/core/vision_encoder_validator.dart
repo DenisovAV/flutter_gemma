@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'image_processor.dart';
+import 'utils/gemma_log.dart';
 
 /// Validates images for compatibility with AI vision encoders to prevent
 /// corruption that causes models to interpret images as repeating text patterns.
@@ -17,8 +18,7 @@ class VisionEncoderValidator {
     String? originalFormat,
   }) {
     try {
-      debugPrint(
-          'VisionEncoderValidator: Validating image for $encoderType...');
+      gemmaLog('VisionEncoderValidator: Validating image for $encoderType...');
 
       // Get appropriate specifications
       final specs = _getSpecsForEncoder(encoderType);
@@ -46,7 +46,7 @@ class VisionEncoderValidator {
         return compatibilityValidation;
       }
 
-      debugPrint(
+      gemmaLog(
           'VisionEncoderValidator: Image validation passed for $encoderType');
 
       return ValidationResult(
@@ -56,7 +56,7 @@ class VisionEncoderValidator {
         suggestions: [],
       );
     } catch (e) {
-      debugPrint('VisionEncoderValidator: Validation failed - $e');
+      gemmaLog('VisionEncoderValidator: Validation failed - $e');
       return ValidationResult(
         isValid: false,
         encoderType: encoderType,

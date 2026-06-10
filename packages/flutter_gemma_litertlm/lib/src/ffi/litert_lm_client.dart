@@ -1171,6 +1171,17 @@ class LiteRtLmFfiClient {
       if (extraPtr != nullptr) calloc.free(extraPtr);
     }
 
+    // Consumer abandoned the stream (subscription.cancel) without calling
+    // stopGeneration(). Tell native to stop sampling so the GPU isn't left
+    // generating an orphaned response: otherwise the next close()/inference
+    // can stall on a still-busy shared GPU conversation — observed on
+    // Windows Intel iGPU as a hang on session.close() that cascades the whole
+    // gate (macOS/Linux mask it by finishing the orphaned generation fast).
+    // The native cancel surfaces as a CANCELLED error in the callback above,
+    // which closes the controller cleanly. Idempotent on an already-finished
+    // generation, so it's safe even if the stream completed concurrently.
+    controller.onCancel = () => _cancelOn(conv);
+
     return controller.stream;
   }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -62,7 +63,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // TODO: Implement multimodal support for web
     if (supportImage || maxNumImages != null) {
       if (kDebugMode) {
-        debugPrint(
+        gemmaLog(
             'Warning: Image support is not yet implemented for web platform');
       }
     }
@@ -74,7 +75,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // any existing model is always closed + replaced.
     if (_initializedModel != null) {
       if (kDebugMode) {
-        debugPrint(
+        gemmaLog(
             '[FlutterGemmaWeb] Replacing existing model, closing it first');
       }
       await _initializedModel!.close();
@@ -171,7 +172,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       tokenizerPath = activeTokenizerPath;
 
       if (kDebugMode) {
-        debugPrint(
+        gemmaLog(
             'Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
       }
     }
@@ -188,7 +189,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
       if (modelChanged) {
         if (kDebugMode) {
-          debugPrint(
+          gemmaLog(
               '[FlutterGemmaWeb] Embedding model paths changed, closing existing model');
         }
         await _initializedEmbeddingModel?.close();

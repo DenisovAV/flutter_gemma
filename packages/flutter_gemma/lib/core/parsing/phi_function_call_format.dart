@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 
 import 'function_call_format.dart';
 import 'json_function_call_format.dart';
 import 'json_parsing_utils.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Phi-4 tool call format.
 ///
@@ -45,8 +45,9 @@ class PhiFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    if (clean.contains('<|tool_calls|>') && clean.contains('<|/tool_calls|>'))
+    if (clean.contains('<|tool_calls|>') && clean.contains('<|/tool_calls|>')) {
       return true;
+    }
     return _jsonFallback.isFunctionCallComplete(buffer);
   }
 
@@ -86,7 +87,8 @@ class PhiFunctionCallFormat extends FunctionCallFormat {
     if (match == null) return [];
 
     final jsonStr = match.group(1)!.trim();
-    debugPrint('PhiFormat: Found tool_calls block: $jsonStr');
+    gemmaLog('PhiFormat: Found tool_calls block: $jsonStr',
+        level: GemmaLogLevel.verbose);
 
     // Phi-4 always outputs a JSON array
     final results = JsonParsingUtils.parseJsonArray(jsonStr);

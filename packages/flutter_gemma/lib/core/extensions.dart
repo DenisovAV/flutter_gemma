@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
@@ -84,7 +85,7 @@ extension MessageExtension on Message {
       {ModelType type = ModelType.general,
       ModelFileType fileType = ModelFileType.binary}) {
     // DEBUG LOG
-    debugPrint(
+    gemmaLog(
         '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
 
     switch (_chatFormatModeFor(type, fileType, this.type)) {
@@ -92,7 +93,7 @@ extension MessageExtension on Message {
         return '';
       case _ChatFormatMode.raw:
         final result = _formatToolResponseContent();
-        debugPrint(
+        gemmaLog(
             '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
         return result;
       case _ChatFormatMode.manual:

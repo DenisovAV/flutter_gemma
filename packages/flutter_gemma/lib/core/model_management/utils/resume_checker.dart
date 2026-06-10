@@ -37,42 +37,41 @@ class ResumeChecker {
   /// Returns [ResumeStatus] indicating what action should be taken
   static Future<ResumeStatus> checkResumeStatus(String filename) async {
     try {
-      debugPrint('ResumeChecker: Checking resume status for $filename');
+      gemmaLog('ResumeChecker: Checking resume status for $filename');
 
       // 1. Check if file exists and get its state
       final filePath = await ModelFileSystemManager.getModelFilePath(filename);
       final file = File(filePath);
 
-      debugPrint('ResumeChecker: Checking file path: $filePath');
+      gemmaLog('ResumeChecker: Checking file path: $filePath');
 
       // List directory contents for debugging
       try {
         final directory = file.parent;
         final directoryExists = await directory.exists();
-        debugPrint(
+        gemmaLog(
             'ResumeChecker: Directory exists: $directoryExists - ${directory.path}');
 
         if (directoryExists) {
           final files = await directory.list().toList();
-          debugPrint(
+          gemmaLog(
               'ResumeChecker: Directory contents (${files.length} items):');
           for (final item in files) {
             final name = item.path.split('/').last;
             final isFile = item is File;
             final size = isFile ? await item.length() : 0;
-            debugPrint('  - $name ${isFile ? "($size bytes)" : "(directory)"}');
+            gemmaLog('  - $name ${isFile ? "($size bytes)" : "(directory)"}');
           }
         }
       } catch (e) {
-        debugPrint('ResumeChecker: Failed to list directory: $e');
+        gemmaLog('ResumeChecker: Failed to list directory: $e');
       }
 
       final fileExists = await file.exists();
-      debugPrint('ResumeChecker: File exists: $fileExists for $filename');
+      gemmaLog('ResumeChecker: File exists: $fileExists for $filename');
 
       if (!fileExists) {
-        debugPrint(
-            'ResumeChecker: File not found: $filename at path: $filePath');
+        gemmaLog('ResumeChecker: File not found: $filename at path: $filePath');
         return ResumeStatus.fileNotFound;
       }
 
@@ -80,11 +79,11 @@ class ResumeChecker {
       final fileSize = await file.length();
       final isValid = await ModelFileSystemManager.isFileValid(filePath);
 
-      debugPrint(
+      gemmaLog(
           'ResumeChecker: File size: $fileSize, isValid: $isValid for $filename');
 
       if (isValid && fileSize > 0) {
-        debugPrint('ResumeChecker: File is already complete: $filename');
+        gemmaLog('ResumeChecker: File is already complete: $filename');
         return ResumeStatus.fileComplete;
       }
 
@@ -111,25 +110,24 @@ class ResumeChecker {
       }
 
       if (task == null) {
-        debugPrint(
+        gemmaLog(
             'ResumeChecker: No tracked task for $filename - returning noTask status');
         return ResumeStatus.noTask;
       }
 
-      debugPrint('ResumeChecker: Found task for $filename: ${task.taskId}');
+      gemmaLog('ResumeChecker: Found task for $filename: ${task.taskId}');
 
       // 4. Check if background_downloader thinks this task can be resumed
       final canResume = await _downloader.taskCanResume(task);
       if (canResume) {
-        debugPrint('ResumeChecker: File can be resumed: $filename');
+        gemmaLog('ResumeChecker: File can be resumed: $filename');
         return ResumeStatus.canResume;
       } else {
-        debugPrint('ResumeChecker: File cannot be resumed: $filename');
+        gemmaLog('ResumeChecker: File cannot be resumed: $filename');
         return ResumeStatus.cannotResume;
       }
     } catch (e) {
-      debugPrint(
-          'ResumeChecker: Error checking resume status for $filename: $e');
+      gemmaLog('ResumeChecker: Error checking resume status for $filename: $e');
       return ResumeStatus.error;
     }
   }
@@ -140,7 +138,7 @@ class ResumeChecker {
   /// Returns map of filename -> ResumeStatus for each file
   static Future<Map<String, ResumeStatus>> checkModelResume(
       ModelSpec spec) async {
-    debugPrint('ResumeChecker: Checking resume status for model: ${spec.name}');
+    gemmaLog('ResumeChecker: Checking resume status for model: ${spec.name}');
 
     final results = <String, ResumeStatus>{};
 
@@ -150,7 +148,7 @@ class ResumeChecker {
     }
 
     final summary = _summarizeResumeResults(results);
-    debugPrint('ResumeChecker: Model ${spec.name} resume summary: $summary');
+    gemmaLog('ResumeChecker: Model ${spec.name} resume summary: $summary');
 
     return results;
   }
@@ -204,7 +202,7 @@ class ResumeChecker {
   /// [spec] - The model specification to clean
   /// Returns the number of cleaned up files
   static Future<int> cleanupInvalidResumeStates(ModelSpec spec) async {
-    debugPrint(
+    gemmaLog(
         'ResumeChecker: Cleaning up invalid resume states for ${spec.name}');
 
     final statuses = await checkModelResume(spec);
@@ -221,10 +219,10 @@ class ResumeChecker {
           try {
             await ModelFileSystemManager.deleteModelFile(filename);
             cleanedCount++;
-            debugPrint(
+            gemmaLog(
                 'ResumeChecker: Cleaned up invalid resume state for $filename');
           } catch (e) {
-            debugPrint('ResumeChecker: Failed to cleanup $filename: $e');
+            gemmaLog('ResumeChecker: Failed to cleanup $filename: $e');
           }
           break;
 
@@ -239,11 +237,11 @@ class ResumeChecker {
               // Partial file without task - delete it
               await ModelFileSystemManager.deleteModelFile(filename);
               cleanedCount++;
-              debugPrint(
+              gemmaLog(
                   'ResumeChecker: Removed orphaned partial file: $filename');
             }
           } catch (e) {
-            debugPrint(
+            gemmaLog(
                 'ResumeChecker: Error checking orphaned file $filename: $e');
           }
           break;
@@ -254,7 +252,7 @@ class ResumeChecker {
       }
     }
 
-    debugPrint(
+    gemmaLog(
         'ResumeChecker: Cleaned up $cleanedCount files for model ${spec.name}');
     return cleanedCount;
   }

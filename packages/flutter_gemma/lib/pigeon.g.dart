@@ -8,6 +8,7 @@ import 'dart:typed_data' show Float64List, Int32List, Int64List;
 
 import 'package:flutter/services.dart';
 import 'package:meta/meta.dart' show immutable, protected, visibleForTesting;
+
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) {
     return true;
@@ -70,7 +71,6 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-
 /// Hardware backend for model inference.
 ///
 /// Platform support:
@@ -111,7 +111,8 @@ class RetrievalResult {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static RetrievalResult decode(Object result) {
     result as List<Object?>;
@@ -132,7 +133,10 @@ class RetrievalResult {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(id, other.id) && _deepEquals(content, other.content) && _deepEquals(similarity, other.similarity) && _deepEquals(metadata, other.metadata);
+    return _deepEquals(id, other.id) &&
+        _deepEquals(content, other.content) &&
+        _deepEquals(similarity, other.similarity) &&
+        _deepEquals(metadata, other.metadata);
   }
 
   @override
@@ -158,7 +162,8 @@ class VectorStoreStats {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static VectorStoreStats decode(Object result) {
     result as List<Object?>;
@@ -177,7 +182,8 @@ class VectorStoreStats {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(documentCount, other.documentCount) && _deepEquals(vectorDimension, other.vectorDimension);
+    return _deepEquals(documentCount, other.documentCount) &&
+        _deepEquals(vectorDimension, other.vectorDimension);
   }
 
   @override
@@ -215,7 +221,8 @@ class DocumentWithEmbedding {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static DocumentWithEmbedding decode(Object result) {
     result as List<Object?>;
@@ -236,14 +243,16 @@ class DocumentWithEmbedding {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(id, other.id) && _deepEquals(content, other.content) && _deepEquals(embedding, other.embedding) && _deepEquals(metadata, other.metadata);
+    return _deepEquals(id, other.id) &&
+        _deepEquals(content, other.content) &&
+        _deepEquals(embedding, other.embedding) &&
+        _deepEquals(metadata, other.metadata);
   }
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
 }
-
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -252,16 +261,16 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is PreferredBackend) {
+    } else if (value is PreferredBackend) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
-    }    else if (value is RetrievalResult) {
+    } else if (value is RetrievalResult) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    }    else if (value is VectorStoreStats) {
+    } else if (value is VectorStoreStats) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    }    else if (value is DocumentWithEmbedding) {
+    } else if (value is DocumentWithEmbedding) {
       buffer.putUint8(132);
       writeValue(buffer, value.encode());
     } else {

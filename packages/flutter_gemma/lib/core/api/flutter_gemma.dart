@@ -12,6 +12,7 @@ import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
@@ -75,6 +76,18 @@ import 'package:flutter_gemma/pigeon.g.dart';
 /// final response = await session.getResponse();
 /// ```
 class FlutterGemma {
+  /// Controls flutter_gemma's internal log verbosity.
+  ///
+  /// Debug builds only -- release builds are always silent regardless of this
+  /// value (no model output / prompts leak into logcat/syslog). Default
+  /// [GemmaLogLevel.info]. Use [GemmaLogLevel.verbose] to see model output and
+  /// prompts while debugging, or [GemmaLogLevel.none] to silence the plugin.
+  ///
+  /// Note: this is a process-global, per-isolate setting; set it once at
+  /// startup. Background isolates snapshot the value at spawn time.
+  static GemmaLogLevel get logLevel => gemmaLogLevel;
+  static set logLevel(GemmaLogLevel value) => gemmaLogLevel = value;
+
   /// Initialize Flutter Gemma
   ///
   /// Call this once at app startup before using any other API.

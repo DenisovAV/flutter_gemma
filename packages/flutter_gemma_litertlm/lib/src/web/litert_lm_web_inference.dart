@@ -3,6 +3,7 @@
 // the shared web infra (web_model_source, web_image_format) and core parsing
 // directly so it no longer needs to be a `part of flutter_gemma_web.dart`.
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
@@ -148,7 +149,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     }
 
     if (kDebugMode) {
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmWebInferenceModel] Engine.create({model: $diagDescription})');
     }
     final sw = Stopwatch()..start();
@@ -157,7 +158,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     );
     _engine = await engineFuture.toDart;
     if (kDebugMode) {
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmWebInferenceModel/perf] Engine.create: ${sw.elapsedMilliseconds}ms');
     }
   }
@@ -202,7 +203,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     // options should not be null" — so we force-disable them and warn.
     if (enableVisionModality == true || enableAudioModality == true) {
       if (kDebugMode) {
-        debugPrint('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
+        gemmaLog('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
             'is requested but @litert-lm/core@0.12.1 does not expose the '
             'Vision/AudioExecutor config in its TypeScript API — image/audio '
             'inputs are dropped on web until upstream extends EngineSettings. '
@@ -245,7 +246,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
 
       completer.complete(session);
       if (kDebugMode) {
-        debugPrint(
+        gemmaLog(
             '[LiteRtLmWebInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms');
       }
       return session;
@@ -290,7 +291,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     // detailed comment in createSession. Force-disable here too.
     if ((enableVisionModality == true || enableAudioModality == true) &&
         kDebugMode) {
-      debugPrint('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
+      gemmaLog('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
           'is dropped on the web .litertlm path until upstream extends '
           'EngineSettings.');
     }
@@ -386,7 +387,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     );
     final conversation = await convoFuture.toDart;
     if (kDebugMode) {
-      debugPrint(
+      gemmaLog(
           '[LiteRtLmWebInferenceModel/perf] createConversation: ${sw.elapsedMilliseconds - beforeConv}ms');
     }
     return conversation;
@@ -407,7 +408,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
         _engine?.delete();
       } catch (e) {
         if (kDebugMode) {
-          debugPrint('[LiteRtLmWebInferenceModel] engine.delete() failed: $e');
+          gemmaLog('[LiteRtLmWebInferenceModel] engine.delete() failed: $e');
         }
       }
       _engine = null;
@@ -614,8 +615,7 @@ class LiteRtLmWebSession extends InferenceModelSession
             }
             if (kDebugMode) {
               final total = genSw.elapsedMilliseconds;
-              debugPrint(
-                  '[LiteRtLmWebSession/perf] generation total: ${total}ms '
+              gemmaLog('[LiteRtLmWebSession/perf] generation total: ${total}ms '
                   '(prefill ${firstChunkMs ?? 0}ms, $chunkCount chunks)');
             }
             releaseMutex();
@@ -625,7 +625,7 @@ class LiteRtLmWebSession extends InferenceModelSession
           if (firstChunkMs == null) {
             firstChunkMs = genSw.elapsedMilliseconds;
             if (kDebugMode) {
-              debugPrint(
+              gemmaLog(
                   '[LiteRtLmWebSession/perf] time-to-first-chunk: ${firstChunkMs}ms');
             }
           }
@@ -700,7 +700,7 @@ class LiteRtLmWebSession extends InferenceModelSession
       conversation.cancel();
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[LiteRtLmWebSession] conversation.cancel() threw: $e');
+        gemmaLog('[LiteRtLmWebSession] conversation.cancel() threw: $e');
       }
     }
   }
@@ -722,7 +722,7 @@ class LiteRtLmWebSession extends InferenceModelSession
       conversation.cancel();
     } catch (e) {
       if (kDebugMode) {
-        debugPrint('[LiteRtLmWebSession] cancel during close threw: $e');
+        gemmaLog('[LiteRtLmWebSession] cancel during close threw: $e');
       }
     }
     _queryBuffer.clear();

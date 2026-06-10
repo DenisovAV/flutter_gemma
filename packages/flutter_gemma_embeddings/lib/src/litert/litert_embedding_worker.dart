@@ -18,9 +18,8 @@
 // task-type prefix (request), and `List<double>` vectors (reply).
 
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'dart:isolate';
-
-import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'litert_embedding_core.dart';
 
@@ -74,6 +73,7 @@ class _WorkerInit {
     required this.backend,
     required this.inputSequenceLength,
     required this.outputDimension,
+    required this.logLevel,
   });
   final SendPort replyTo;
   final String modelPath;
@@ -81,6 +81,11 @@ class _WorkerInit {
   final EmbeddingBackend backend;
   final int? inputSequenceLength;
   final int? outputDimension;
+
+  /// Snapshot of the main-isolate [gemmaLogLevel] at spawn — the worker
+  /// isolate gets its own copy of the per-isolate top-level (default info),
+  /// so it must be seeded explicitly or its logs ignore the caller's level.
+  final GemmaLogLevel logLevel;
 }
 
 /// Main-isolate handle to the embedding worker. Spawns the isolate, performs
@@ -149,6 +154,7 @@ class EmbeddingWorker {
         backend: backend,
         inputSequenceLength: inputSequenceLength,
         outputDimension: outputDimension,
+        logLevel: gemmaLogLevel,
       ),
       // onExit posts `null` to fromWorker so we never wait on a dead isolate.
       onExit: fromWorker.sendPort,
@@ -240,6 +246,8 @@ class EmbeddingWorker {
 
 /// Isolate entry point. Loads the model, then serves requests until _Close.
 Future<void> _workerEntry(_WorkerInit init) async {
+  // Seed this isolate's per-isolate log level from the main-isolate snapshot.
+  gemmaLogLevel = init.logLevel;
   final EmbeddingCore core;
   try {
     core = await EmbeddingCore.load(
@@ -250,7 +258,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
       outputDimension: init.outputDimension,
     );
   } catch (e, st) {
-    debugPrint('[EmbeddingWorker] load failed: $e\n$st');
+    gemmaLog('[EmbeddingWorker] load failed: $e\n$st');
     init.replyTo.send('Embedding worker failed to load: $e');
     return;
   }

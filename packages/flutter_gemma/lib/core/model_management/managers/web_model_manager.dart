@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,12 +44,12 @@ class WebModelManager extends ModelFileManager {
     try {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
-      debugPrint('WebModelManager initialized');
+      gemmaLog('WebModelManager initialized');
     } catch (e, st) {
       // Best-effort restore: a failure must not abort app startup — start with
       // no active model. (#314 follow-up; mirrors MobileModelManager.)
       // Include the stack trace so an unexpected restore bug stays diagnosable.
-      debugPrint(
+      gemmaLog(
           'WebModelManager: active-model restore failed, starting with no active model: $e\n$st');
     }
   }
@@ -80,14 +81,14 @@ class WebModelManager extends ModelFileManager {
       modelType = ModelType.values.byName(modelTypeName);
       fileType = ModelFileType.values.byName(fileTypeName);
     } catch (e) {
-      debugPrint(
+      gemmaLog(
           '[WebModelManager] active model restore: unknown enum value — skipping');
       return;
     }
 
     final source = ModelSource.tryDecode(sourceEncoded);
     if (source == null) {
-      debugPrint(
+      gemmaLog(
           '[WebModelManager] active model restore: malformed source — skipping');
       return;
     }
@@ -97,7 +98,7 @@ class WebModelManager extends ModelFileManager {
     // later on the first getActiveModel() call.
     final repo = ServiceRegistry.instance.modelRepository;
     if (!await repo.isInstalled(filename)) {
-      debugPrint(
+      gemmaLog(
           '[WebModelManager] active model restore: $filename not in repository — skipping');
       return;
     }
@@ -108,7 +109,7 @@ class WebModelManager extends ModelFileManager {
       modelType: modelType,
       fileType: fileType,
     );
-    debugPrint('[WebModelManager] restored active inference model: $filename');
+    gemmaLog('[WebModelManager] restored active inference model: $filename');
   }
 
   Future<void> _restoreActiveEmbeddingModel() async {
@@ -132,7 +133,7 @@ class WebModelManager extends ModelFileManager {
     final modelSource = ModelSource.tryDecode(modelSourceEncoded);
     final tokenizerSource = ModelSource.tryDecode(tokenizerSourceEncoded);
     if (modelSource == null || tokenizerSource == null) {
-      debugPrint(
+      gemmaLog(
           '[WebModelManager] active embedding restore: malformed source — skipping');
       return;
     }
@@ -140,7 +141,7 @@ class WebModelManager extends ModelFileManager {
     final repo = ServiceRegistry.instance.modelRepository;
     if (!await repo.isInstalled(modelFilename) ||
         !await repo.isInstalled(tokenizerFilename)) {
-      debugPrint(
+      gemmaLog(
           '[WebModelManager] active embedding restore: file missing — skipping');
       return;
     }
@@ -150,7 +151,7 @@ class WebModelManager extends ModelFileManager {
       modelSource: modelSource,
       tokenizerSource: tokenizerSource,
     );
-    debugPrint(
+    gemmaLog(
         '[WebModelManager] restored active embedding model: $modelFilename');
   }
 
@@ -181,7 +182,7 @@ class WebModelManager extends ModelFileManager {
       {String? token}) async* {
     await _ensureInitialized();
 
-    debugPrint('WebModelManager: Starting download for ${spec.name}');
+    gemmaLog('WebModelManager: Starting download for ${spec.name}');
 
     // Phase 5: Delegate to Modern API
     final registry = ServiceRegistry.instance;
@@ -240,7 +241,7 @@ class WebModelManager extends ModelFileManager {
       currentFileName: 'Complete',
     );
 
-    debugPrint('WebModelManager: Download completed for ${spec.name}');
+    gemmaLog('WebModelManager: Download completed for ${spec.name}');
   }
 
   @override
@@ -269,7 +270,7 @@ class WebModelManager extends ModelFileManager {
       await repository.deleteModel(file.filename);
     }
 
-    debugPrint('WebModelManager: Model ${spec.name} deleted');
+    gemmaLog('WebModelManager: Model ${spec.name} deleted');
   }
 
   /// Gets list of installed model filenames
@@ -325,7 +326,7 @@ class WebModelManager extends ModelFileManager {
   @override
   Future<void> performCleanup() async {
     await _ensureInitialized();
-    debugPrint('WebModelManager: Cleanup not needed on web');
+    gemmaLog('WebModelManager: Cleanup not needed on web');
   }
 
   /// Validates if a model is properly installed
@@ -374,7 +375,7 @@ class WebModelManager extends ModelFileManager {
         // If URL lost (page reload), restore from Cache API
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
-          debugPrint(
+          gemmaLog(
               '[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...');
 
           // Try to restore from Cache API
@@ -387,13 +388,13 @@ class WebModelManager extends ModelFileManager {
           final cachedBlobUrl =
               await cacheService.getCachedBlobUrl(networkSource.url);
           if (cachedBlobUrl != null) {
-            debugPrint(
+            gemmaLog(
                 '[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl');
             // Re-register the blob URL
             fileSystem.registerUrl(file.filename, cachedBlobUrl);
             url = cachedBlobUrl;
           } else {
-            debugPrint(
+            gemmaLog(
                 '[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)');
           }
         }
@@ -407,7 +408,7 @@ class WebModelManager extends ModelFileManager {
         // If URL lost (page reload), recreate it
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
-          debugPrint(
+          gemmaLog(
               '[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...');
           // Recreate Blob URL by reinstalling
           final handler =
@@ -681,14 +682,14 @@ class WebModelManager extends ModelFileManager {
   /// ```dart
   /// // OLD:
   /// await for (final progress in manager.installModelFromAssetWithProgress('assets/models/gemma.task')) {
-  ///   debugPrint('Progress: $progress%');
+  ///   gemmaLog('Progress: $progress%');
   /// }
   ///
   /// // NEW:
   /// await for (final progress in FlutterGemma.installModel()
   ///     .fromAsset('assets/models/gemma.task')
   ///     .installWithProgress()) {
-  ///   debugPrint('Progress: ${progress.currentFileProgress}%');
+  ///   gemmaLog('Progress: ${progress.currentFileProgress}%');
   /// }
   /// ```
   @Deprecated(
@@ -780,7 +781,7 @@ class WebModelManager extends ModelFileManager {
     _activeInferenceModel = null;
     _activeEmbeddingModel = null;
 
-    debugPrint('WebModelManager: Model cache cleared (active models reset)');
+    gemmaLog('WebModelManager: Model cache cleared (active models reset)');
   }
 
   // === Legacy LoRA Management Methods Implementation ===
@@ -860,11 +861,11 @@ class WebModelManager extends ModelFileManager {
   void setActiveModel(ModelSpec spec) {
     if (spec is InferenceModelSpec) {
       _activeInferenceModel = spec;
-      debugPrint('✅ Set active inference model: ${spec.name}');
+      gemmaLog('✅ Set active inference model: ${spec.name}');
       unawaited(_persistActiveInferenceIdentity(spec));
     } else if (spec is EmbeddingModelSpec) {
       _activeEmbeddingModel = spec;
-      debugPrint('✅ Set active embedding model: ${spec.name}');
+      gemmaLog('✅ Set active embedding model: ${spec.name}');
       unawaited(_persistActiveEmbeddingIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
@@ -886,7 +887,7 @@ class WebModelManager extends ModelFileManager {
       await prefs.setString(
           PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
     } catch (e) {
-      debugPrint('[WebModelManager] persistActiveInferenceIdentity failed: $e');
+      gemmaLog('[WebModelManager] persistActiveInferenceIdentity failed: $e');
     }
   }
 
@@ -906,7 +907,7 @@ class WebModelManager extends ModelFileManager {
       await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerSource,
           spec.tokenizerSource.encode());
     } catch (e) {
-      debugPrint('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
+      gemmaLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
   }
 
@@ -934,7 +935,7 @@ class WebModelManager extends ModelFileManager {
   Future<int> cleanupStorage() async {
     await _ensureInitialized();
     // Web platform doesn't have file system access, nothing to cleanup
-    debugPrint('WebModelManager: cleanupStorage() is a no-op on web');
+    gemmaLog('WebModelManager: cleanupStorage() is a no-op on web');
     return 0;
   }
 
@@ -952,9 +953,9 @@ class WebModelManager extends ModelFileManager {
       final registry = ServiceRegistry.instance;
       final downloadService = registry.downloadService as WebDownloadService;
       await downloadService.cacheService.clearCache();
-      debugPrint('WebModelManager: Browser cache cleared');
+      gemmaLog('WebModelManager: Browser cache cleared');
     } catch (e) {
-      debugPrint('WebModelManager: clearCache failed: $e');
+      gemmaLog('WebModelManager: clearCache failed: $e');
       rethrow;
     }
   }
@@ -981,7 +982,7 @@ class WebModelManager extends ModelFileManager {
         'availableBytes': quota.available,
       };
     } catch (e) {
-      debugPrint('[WebModelManager] ❌ getCacheStats failed: $e');
+      gemmaLog('[WebModelManager] ❌ getCacheStats failed: $e');
       return {
         'cachedUrls': 0,
         'storageUsage': 0,

@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:path/path.dart' as path;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Fluent builder for inference model installation
 ///
@@ -182,7 +182,7 @@ class InferenceInstallationBuilder {
     final isInstalled = await repository.isInstalled(filename);
 
     if (isInstalled) {
-      debugPrint('ℹ️  Model already installed: $filename (skipping download)');
+      gemmaLog('ℹ️  Model already installed: $filename (skipping download)');
     } else {
       // Install model file
       final handlerRegistry = registry.sourceHandlerRegistry;
@@ -215,7 +215,7 @@ class InferenceInstallationBuilder {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     manager.setActiveModel(spec);
 
-    debugPrint('✅ Inference model installed and set as active: ${spec.name}');
+    gemmaLog('✅ Inference model installed and set as active: ${spec.name}');
 
     return InferenceInstallation(spec: spec);
   }

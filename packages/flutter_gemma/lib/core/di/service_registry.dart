@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
@@ -421,12 +422,12 @@ class ServiceRegistry {
     if (_instance != null) {
       // Warn if critical parameters changed
       if (_instance!.webStorageMode != webStorageMode) {
-        debugPrint(
+        gemmaLog(
             'WARNING: webStorageMode cannot be changed after initialization.\n'
             'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
             'Restart the application to change this setting.');
       }
-      debugPrint(
+      gemmaLog(
           'ServiceRegistry: Already initialized, skipping re-initialization');
       return;
     }
@@ -458,7 +459,7 @@ class ServiceRegistry {
     try {
       await _vectorStoreRepository.close();
     } catch (e) {
-      debugPrint('Warning: Failed to close VectorStore: $e');
+      gemmaLog('Warning: Failed to close VectorStore: $e');
     }
   }
 

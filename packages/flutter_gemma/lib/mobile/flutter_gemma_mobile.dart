@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -84,15 +85,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
       if (currentSpec.name != requestedSpec.name) {
         // Active model changed - close old model and create new one
-        debugPrint(
+        gemmaLog(
             '⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}');
-        debugPrint('🔄 Closing old model and creating new one...');
+        gemmaLog('🔄 Closing old model and creating new one...');
         await _initializedModel?.close();
         // close-listener will reset _initializedModel and _initCompleter
         _lastActiveInferenceSpec = null;
       } else {
         // Same model - return existing singleton
-        debugPrint(
+        gemmaLog(
             'ℹ️  Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
@@ -135,7 +136,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       return completer.future;
     }
 
-    debugPrint('Using unified model file: $modelPath');
+    gemmaLog('Using unified model file: $modelPath');
 
     try {
       // Engine selection routes ENTIRELY through [EngineRegistry] (probe-chain).
@@ -235,15 +236,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
         if (currentSpec.name != requestedSpec.name) {
           // Active model changed - close old model and create new one
-          debugPrint(
+          gemmaLog(
               '⚠️  Active embedding model changed: ${currentSpec.name} → ${requestedSpec.name}');
-          debugPrint('🔄 Closing old embedding model and creating new one...');
+          gemmaLog('🔄 Closing old embedding model and creating new one...');
           await _initializedEmbeddingModel?.close();
           // close-listener will reset _initializedEmbeddingModel and _initEmbeddingCompleter
           _lastActiveEmbeddingSpec = null;
         } else {
           // Same model - return existing singleton
-          debugPrint(
+          gemmaLog(
               'ℹ️  Reusing existing embedding model instance for ${requestedSpec.name}');
           return _initEmbeddingCompleter!.future;
         }
@@ -252,13 +253,12 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       modelPath = activeModelPath;
       tokenizerPath = activeTokenizerPath;
 
-      debugPrint(
+      gemmaLog(
           'Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
     } else {
       // Legacy API with explicit paths - check if singleton exists
       if (_initEmbeddingCompleter case Completer<EmbeddingModel> completer) {
-        debugPrint(
-            'ℹ️  Reusing existing embedding model instance (Legacy API)');
+        gemmaLog('ℹ️  Reusing existing embedding model instance (Legacy API)');
         return completer.future;
       }
     }

@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     show EmbeddingModelSpec;
@@ -28,7 +29,7 @@ class EmbeddingRegistry {
     if (kDebugMode &&
         indexed.length > 1 &&
         indexed[0].$2.priority == indexed[1].$2.priority) {
-      debugPrint(
+      gemmaLog(
         '[flutter_gemma] Ambiguous embedding backend: '
         '${indexed.map((e) => e.$2.name).join(", ")} all handle this spec at '
         'priority ${indexed[0].$2.priority}; using "${indexed[0].$2.name}".',

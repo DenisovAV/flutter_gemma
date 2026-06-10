@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Migrates old Legacy preference keys to Modern ModelRepository
 ///
@@ -50,11 +50,11 @@ class LegacyPreferencesMigrator {
       final registry = ServiceRegistry.instance;
       final repository = registry.modelRepository;
 
-      debugPrint('🔄 Starting Legacy preferences migration...');
+      gemmaLog('🔄 Starting Legacy preferences migration...');
 
       // Check if migration already done
       if (!forceRemigration && await isMigrationCompleted()) {
-        debugPrint('✅ Migration already completed, skipping');
+        gemmaLog('✅ Migration already completed, skipping');
         return MigrationResult(
           migratedCount: 0,
           skippedCount: 0,
@@ -79,11 +79,11 @@ class LegacyPreferencesMigrator {
             hasLoraWeights: false,
           );
           migratedCount++;
-          debugPrint('✅ Migrated inference model: $filename');
+          gemmaLog('✅ Migrated inference model: $filename');
         } catch (e) {
           errors.add('Failed to migrate inference model $filename: $e');
           skippedCount++;
-          debugPrint('⚠️  Failed to migrate $filename: $e');
+          gemmaLog('⚠️  Failed to migrate $filename: $e');
         }
       }
 
@@ -99,11 +99,11 @@ class LegacyPreferencesMigrator {
             hasLoraWeights: true,
           );
           migratedCount++;
-          debugPrint('✅ Migrated LoRA weights: $filename');
+          gemmaLog('✅ Migrated LoRA weights: $filename');
         } catch (e) {
           errors.add('Failed to migrate LoRA $filename: $e');
           skippedCount++;
-          debugPrint('⚠️  Failed to migrate $filename: $e');
+          gemmaLog('⚠️  Failed to migrate $filename: $e');
         }
       }
 
@@ -120,11 +120,11 @@ class LegacyPreferencesMigrator {
             hasLoraWeights: false,
           );
           migratedCount++;
-          debugPrint('✅ Migrated embedding model: $filename');
+          gemmaLog('✅ Migrated embedding model: $filename');
         } catch (e) {
           errors.add('Failed to migrate embedding model $filename: $e');
           skippedCount++;
-          debugPrint('⚠️  Failed to migrate $filename: $e');
+          gemmaLog('⚠️  Failed to migrate $filename: $e');
         }
       }
 
@@ -141,24 +141,24 @@ class LegacyPreferencesMigrator {
             hasLoraWeights: false,
           );
           migratedCount++;
-          debugPrint('✅ Migrated tokenizer: $filename');
+          gemmaLog('✅ Migrated tokenizer: $filename');
         } catch (e) {
           errors.add('Failed to migrate tokenizer $filename: $e');
           skippedCount++;
-          debugPrint('⚠️  Failed to migrate $filename: $e');
+          gemmaLog('⚠️  Failed to migrate $filename: $e');
         }
       }
 
       // 5. Clean up old Legacy keys
       if (migratedCount > 0) {
         await _cleanupLegacyKeys(prefs);
-        debugPrint('🧹 Cleaned up old Legacy preference keys');
+        gemmaLog('🧹 Cleaned up old Legacy preference keys');
       }
 
       // Mark migration as completed
       await prefs.setBool('_migration_completed_v1', true);
 
-      debugPrint(
+      gemmaLog(
           '✅ Migration completed! Migrated: $migratedCount, Skipped: $skippedCount');
 
       return MigrationResult(
@@ -168,8 +168,8 @@ class LegacyPreferencesMigrator {
         alreadyCompleted: false,
       );
     } catch (e, stackTrace) {
-      debugPrint('❌ Migration failed critically: $e');
-      debugPrint('Stack trace: $stackTrace');
+      gemmaLog('❌ Migration failed critically: $e');
+      gemmaLog('Stack trace: $stackTrace');
       throw MigrationException('Migration failed: $e', e, stackTrace);
     }
   }
@@ -219,7 +219,7 @@ class LegacyPreferencesMigrator {
         }
       }
     } catch (e) {
-      debugPrint('⚠️  Could not get size for $filename: $e');
+      gemmaLog('⚠️  Could not get size for $filename: $e');
       // Continue without size
     }
 
@@ -237,7 +237,7 @@ class LegacyPreferencesMigrator {
 
   /// Cleans up old Legacy preference keys
   Future<void> _cleanupLegacyKeys(SharedPreferences prefs) async {
-    debugPrint('🧹 Cleaning up old Legacy preference keys...');
+    gemmaLog('🧹 Cleaning up old Legacy preference keys...');
 
     // Remove main lists
     await prefs.remove('installed_models');
@@ -253,7 +253,7 @@ class LegacyPreferencesMigrator {
           key == 'installed_model_file_name' ||
           key == 'embedding_model_file') {
         await prefs.remove(key);
-        debugPrint('🧹 Removed old key: $key');
+        gemmaLog('🧹 Removed old key: $key');
       }
     }
   }

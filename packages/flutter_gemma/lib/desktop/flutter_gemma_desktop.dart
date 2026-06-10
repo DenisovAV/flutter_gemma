@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -43,7 +44,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   /// No parameters needed for desktop platforms.
   static void registerWith() {
     FlutterGemmaPlugin.instance = instance;
-    debugPrint('[FlutterGemmaDesktop] Plugin registered for desktop platform');
+    gemmaLog('[FlutterGemmaDesktop] Plugin registered for desktop platform');
   }
 
   // Reuse MobileModelManager for desktop (same filesystem behavior)
@@ -105,7 +106,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
               p.maxTokens != maxTokens);
 
       if (modelChanged || paramsChanged) {
-        debugPrint(
+        gemmaLog(
             'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
         await _initializedModel?.close();
         _initCompleter = null;
@@ -113,7 +114,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
       } else {
-        debugPrint('Reusing existing model instance for ${requestedSpec.name}');
+        gemmaLog('Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
       }
     }
@@ -139,7 +140,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       }
 
       final modelPath = modelFilePaths.values.first;
-      debugPrint('[FlutterGemmaDesktop] Using model: $modelPath');
+      gemmaLog('[FlutterGemmaDesktop] Using model: $modelPath');
 
       // Core resolves the model path + owns the singleton lifecycle, then
       // dispatches construction polymorphically through the EngineRegistry.
@@ -252,7 +253,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         throw StateError('Embedding model path is required');
       }
 
-      debugPrint('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
+      gemmaLog('[FlutterGemmaDesktop] Loading embedding model: $modelPath');
 
       if (tokenizerPath == null) {
         throw StateError('Tokenizer path is required for desktop embeddings');

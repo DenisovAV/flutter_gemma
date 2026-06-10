@@ -1,5 +1,6 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -92,8 +93,7 @@ class PlatformFileSystemService implements FileSystemService {
       final legacyPath = path.join(legacy.path, filename);
       if (await File(legacyPath).exists()) {
         if (_legacyFallbackLogged.add(legacyPath)) {
-          debugPrint(
-              '[flutter_gemma] Reading model from legacy Documents path; '
+          gemmaLog('[flutter_gemma] Reading model from legacy Documents path; '
               'consider re-installing to migrate: $legacyPath');
         }
         return legacyPath;
@@ -222,7 +222,7 @@ class PlatformFileSystemService implements FileSystemService {
         base = Directory(local);
       } else {
         if (local != null && local.isNotEmpty) {
-          debugPrint('[flutter_gemma] LOCALAPPDATA is not absolute '
+          gemmaLog('[flutter_gemma] LOCALAPPDATA is not absolute '
               '("$local") — falling back to USERPROFILE / Application '
               'Support. Models would otherwise land in a \$PWD-relative '
               'directory.');

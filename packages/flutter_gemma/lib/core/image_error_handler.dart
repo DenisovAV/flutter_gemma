@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'image_processor.dart';
 import 'image_tokenizer.dart';
 import 'vision_encoder_validator.dart';
@@ -15,19 +16,19 @@ class ImageErrorHandler {
     Uint8List? imageBytes,
     String? context,
   }) {
-    debugPrint('=== IMAGE PROCESSING ERROR ===');
-    debugPrint('Context: $context');
-    debugPrint('Error: $error');
-    debugPrint('StackTrace: $stackTrace');
+    gemmaLog('=== IMAGE PROCESSING ERROR ===');
+    gemmaLog('Context: $context');
+    gemmaLog('Error: $error');
+    gemmaLog('StackTrace: $stackTrace');
 
     if (imageBytes != null) {
-      debugPrint('Image bytes: ${imageBytes.length} bytes');
+      gemmaLog('Image bytes: ${imageBytes.length} bytes');
       _logImageInfo(imageBytes);
     }
 
     // Categorize the error
     final errorType = _categorizeError(error);
-    debugPrint('Error Type: $errorType');
+    gemmaLog('Error Type: $errorType');
 
     // Generate recovery suggestions
     final suggestions = _generateRecoverySuggestions(errorType, imageBytes);
@@ -35,8 +36,8 @@ class ImageErrorHandler {
     // Create detailed error message
     final message = _createDetailedErrorMessage(error, errorType, context);
 
-    debugPrint('Recovery Suggestions: ${suggestions.join(', ')}');
-    debugPrint('================================');
+    gemmaLog('Recovery Suggestions: ${suggestions.join(', ')}');
+    gemmaLog('================================');
 
     return ErrorHandlingResult(
       isRecoverable: _isRecoverable(errorType),
@@ -56,16 +57,16 @@ class ImageErrorHandler {
     String? prompt,
     int? expectedImageCount,
   }) {
-    debugPrint('=== IMAGE TOKENIZATION ERROR ===');
-    debugPrint('Model Type: $modelType');
-    debugPrint('Expected Images: $expectedImageCount');
-    debugPrint('Prompt Length: ${prompt?.length ?? 0}');
+    gemmaLog('=== IMAGE TOKENIZATION ERROR ===');
+    gemmaLog('Model Type: $modelType');
+    gemmaLog('Expected Images: $expectedImageCount');
+    gemmaLog('Prompt Length: ${prompt?.length ?? 0}');
     if (prompt != null && prompt.length < _maxLogSize) {
-      debugPrint('Prompt Preview: ${_sanitizePromptForLogging(prompt)}');
+      gemmaLog('Prompt Preview: ${_sanitizePromptForLogging(prompt)}');
     }
 
     final errorType = _categorizeTokenizationError(error, prompt);
-    debugPrint('Tokenization Error Type: $errorType');
+    gemmaLog('Tokenization Error Type: $errorType');
 
     final suggestions = _generateTokenizationRecoverySuggestions(
       errorType,
@@ -76,8 +77,8 @@ class ImageErrorHandler {
     final message =
         _createTokenizationErrorMessage(error, errorType, modelType);
 
-    debugPrint('Tokenization Recovery: ${suggestions.join(', ')}');
-    debugPrint('================================');
+    gemmaLog('Tokenization Recovery: ${suggestions.join(', ')}');
+    gemmaLog('================================');
 
     return ErrorHandlingResult(
       isRecoverable: _isTokenizationRecoverable(errorType),
@@ -95,10 +96,10 @@ class ImageErrorHandler {
     Uint8List? imageBytes,
     VisionEncoderType? encoderType,
   }) {
-    debugPrint('=== VISION ENCODER VALIDATION ERROR ===');
-    debugPrint('Encoder: ${encoderType?.name ?? 'unknown'}');
-    debugPrint('Validation Result: ${validationResult.isValid}');
-    debugPrint('Message: ${validationResult.message}');
+    gemmaLog('=== VISION ENCODER VALIDATION ERROR ===');
+    gemmaLog('Encoder: ${encoderType?.name ?? 'unknown'}');
+    gemmaLog('Validation Result: ${validationResult.isValid}');
+    gemmaLog('Message: ${validationResult.message}');
 
     if (imageBytes != null) {
       _logImageInfo(imageBytes);
@@ -115,8 +116,8 @@ class ImageErrorHandler {
     final message =
         'Vision encoder validation failed: ${validationResult.message}';
 
-    debugPrint('Validation Recovery: ${suggestions.join(', ')}');
-    debugPrint('======================================');
+    gemmaLog('Validation Recovery: ${suggestions.join(', ')}');
+    gemmaLog('======================================');
 
     return ErrorHandlingResult(
       isRecoverable: true, // Validation errors are usually recoverable
@@ -130,11 +131,10 @@ class ImageErrorHandler {
   /// Detects and handles model response corruption patterns
   static CorruptionDetectionResult detectResponseCorruption(String response) {
     try {
-      debugPrint('=== DETECTING RESPONSE CORRUPTION ===');
-      debugPrint('Response Length: ${response.length}');
+      gemmaLog('=== DETECTING RESPONSE CORRUPTION ===');
+      gemmaLog('Response Length: ${response.length}');
       if (response.length < _maxLogSize) {
-        debugPrint(
-            'Response Preview: ${_sanitizeResponseForLogging(response)}');
+        gemmaLog('Response Preview: ${_sanitizeResponseForLogging(response)}');
       }
 
       // Check for known corruption patterns
@@ -147,9 +147,9 @@ class ImageErrorHandler {
       final confidence =
           _calculateCorruptionConfidence(hasCorruption, analysis);
 
-      debugPrint('Corruption Detected: $hasCorruption');
-      debugPrint('Confidence Level: ${confidence.toStringAsFixed(2)}');
-      debugPrint('Analysis: $analysis');
+      gemmaLog('Corruption Detected: $hasCorruption');
+      gemmaLog('Confidence Level: ${confidence.toStringAsFixed(2)}');
+      gemmaLog('Analysis: $analysis');
 
       return CorruptionDetectionResult(
         isCorrupted: hasCorruption,
@@ -158,7 +158,7 @@ class ImageErrorHandler {
         suggestedAction: _suggestCorruptionAction(confidence, analysis),
       );
     } catch (e) {
-      debugPrint('Error detecting corruption: $e');
+      gemmaLog('Error detecting corruption: $e');
       return CorruptionDetectionResult(
         isCorrupted: false,
         confidence: 0.0,
@@ -174,9 +174,9 @@ class ImageErrorHandler {
       final format = ImageProcessor.detectFormat(imageBytes);
       final sizeInKB = imageBytes.length / 1024;
 
-      debugPrint('Image Format: $format');
-      debugPrint('Image Size: ${sizeInKB.toStringAsFixed(2)}KB');
-      debugPrint('Image Bytes: ${imageBytes.length}');
+      gemmaLog('Image Format: $format');
+      gemmaLog('Image Size: ${sizeInKB.toStringAsFixed(2)}KB');
+      gemmaLog('Image Bytes: ${imageBytes.length}');
 
       // Log first few bytes for signature analysis
       if (imageBytes.length >= 8) {
@@ -184,10 +184,10 @@ class ImageErrorHandler {
             .sublist(0, 8)
             .map((b) => '0x${b.toRadixString(16).padLeft(2, '0')}')
             .join(' ');
-        debugPrint('Image Signature: $signature');
+        gemmaLog('Image Signature: $signature');
       }
     } catch (e) {
-      debugPrint('Error logging image info: $e');
+      gemmaLog('Error logging image info: $e');
     }
   }
 

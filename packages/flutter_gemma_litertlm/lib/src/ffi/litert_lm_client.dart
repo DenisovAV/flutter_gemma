@@ -235,7 +235,7 @@ class LiteRtLmFfiClient {
       for (var i = 0; i < content.length; i += chunkSize) {
         final end =
             (i + chunkSize < content.length) ? i + chunkSize : content.length;
-        gemmaLog(content.substring(i, end));
+        gemmaLog(content.substring(i, end), level: GemmaLogLevel.verbose);
       }
       gemmaLog('[LiteRtLmFfi/native] === END native log ===');
       // Truncate so the next dump only shows new output. If truncation fails

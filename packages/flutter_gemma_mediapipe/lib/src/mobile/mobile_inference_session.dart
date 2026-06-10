@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -82,12 +83,14 @@ class MobileInferenceModelSession extends InferenceModelSession {
         text: '[System: ${systemInstruction!}]\n\n${message.text}',
       );
     }
-    debugPrint(
-        '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}');
+    gemmaLog(
+        '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}',
+        level: GemmaLogLevel.verbose);
     final finalPrompt = messageToSend.transformToChatPrompt(
         type: modelType, fileType: fileType);
-    debugPrint(
-        '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}');
+    gemmaLog(
+        '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}',
+        level: GemmaLogLevel.verbose);
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
           ? message.images
@@ -240,13 +243,13 @@ class MobileInferenceModelSession extends InferenceModelSession {
       // Ignore "not supported" errors, but rethrow others
       if (e.code != 'stop_not_supported') {
         if (kDebugMode) {
-          debugPrint('Warning: Failed to stop generation: ${e.message}');
+          gemmaLog('Warning: Failed to stop generation: ${e.message}');
         }
       }
     } catch (e) {
       // Ignore other errors during cleanup
       if (kDebugMode) {
-        debugPrint('Warning: Unexpected error during stop generation: $e');
+        gemmaLog('Warning: Unexpected error during stop generation: $e');
       }
     }
 

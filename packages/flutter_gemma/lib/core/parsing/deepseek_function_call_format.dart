@@ -105,7 +105,8 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
       try {
         final args = jsonDecode(argsStr);
         if (args is Map<String, dynamic>) {
-          gemmaLog('DeepSeekFormat: Parsed function: $functionName($args)');
+          gemmaLog('DeepSeekFormat: Parsed function: $functionName($args)',
+              level: GemmaLogLevel.verbose);
           results.add(FunctionCallResponse(name: functionName, args: args));
         }
       } catch (e) {

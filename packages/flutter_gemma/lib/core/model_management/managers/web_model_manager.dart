@@ -27,15 +27,30 @@ import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 /// - Platform-agnostic (same pattern as MobileModelManager)
 /// - Easier to maintain and test
 class WebModelManager extends ModelFileManager {
-  bool _isInitialized = false;
+  /// Single-flight init guard. Cached so concurrent callers share one
+  /// initialization; a restore failure degrades to "no active model" rather
+  /// than throwing, so a corrupt/unreadable prefs state never blocks app
+  /// startup (#314 follow-up). The cached future always completes normally.
+  Future<void>? _initFuture;
 
-  /// Initializes the web model manager
-  Future<void> initialize() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
-    await _restoreActiveInferenceModel();
-    await _restoreActiveEmbeddingModel();
-    debugPrint('WebModelManager initialized');
+  /// Initializes the web model manager. Idempotent and concurrency-safe.
+  Future<void> initialize() => _initFuture ??= _doInit();
+
+  @override
+  Future<void> ensureInitialized() => initialize();
+
+  Future<void> _doInit() async {
+    try {
+      await _restoreActiveInferenceModel();
+      await _restoreActiveEmbeddingModel();
+      debugPrint('WebModelManager initialized');
+    } catch (e, st) {
+      // Best-effort restore: a failure must not abort app startup — start with
+      // no active model. (#314 follow-up; mirrors MobileModelManager.)
+      // Include the stack trace so an unexpected restore bug stays diagnosable.
+      debugPrint(
+          'WebModelManager: active-model restore failed, starting with no active model: $e\n$st');
+    }
   }
 
   /// Rehydrate `_activeInferenceModel` from the identity persisted by a
@@ -508,11 +523,7 @@ class WebModelManager extends ModelFileManager {
     await ensureModelReadyFromSpec(spec);
   }
 
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-  }
+  Future<void> _ensureInitialized() => initialize();
 
   /// Creates an inference model specification from parameters
   static InferenceModelSpec createInferenceSpec({

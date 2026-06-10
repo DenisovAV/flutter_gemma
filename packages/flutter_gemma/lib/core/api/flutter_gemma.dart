@@ -144,6 +144,12 @@ class FlutterGemma {
     if (embeddingBackends.isNotEmpty) {
       EmbeddingRegistry.instance.registerAll(embeddingBackends);
     }
+
+    // Single-flight model-manager init: restore the previously-active model
+    // identity from storage before the app reads it (#227/#314). Awaited here
+    // so the first getActiveModel/isModelInstalled after initialize() can't
+    // race an in-flight restore. Restore failure degrades to no-active-model.
+    await FlutterGemmaPlugin.instance.modelManager.ensureInitialized();
   }
 
   /// Start building an inference model installation

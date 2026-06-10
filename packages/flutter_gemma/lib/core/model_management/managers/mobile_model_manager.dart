@@ -2,24 +2,31 @@ part of '../../../mobile/flutter_gemma_mobile.dart';
 
 /// Main unified model manager that orchestrates all model operations
 class MobileModelManager extends ModelFileManager {
-  bool _isInitialized = false;
+  /// Single-flight init guard. Cached so concurrent callers share one
+  /// initialization. Init only restores the previously-active model identity
+  /// (#227); a restore failure degrades to "no active model" rather than
+  /// throwing, so a corrupt/unreadable prefs state never blocks app startup
+  /// (#314 follow-up). The cached future therefore always completes normally.
+  Future<void>? _initFuture;
 
-  /// Initializes the unified model manager
-  Future<void> initialize() async {
-    if (_isInitialized) return;
+  /// Initializes the unified model manager. Idempotent and concurrency-safe.
+  Future<void> initialize() => _initFuture ??= _doInit();
 
+  @override
+  Future<void> ensureInitialized() => initialize();
+
+  Future<void> _doInit() async {
     try {
-      _isInitialized = true;
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       debugPrint('UnifiedModelManager initialized successfully');
-    } catch (e) {
-      debugPrint('Failed to initialize UnifiedModelManager: $e');
-      throw ModelStorageException(
-        'Failed to initialize model manager',
-        e,
-        'initialize',
-      );
+    } catch (e, st) {
+      // Restoring the previously-active model is best-effort. A failure here
+      // (e.g. unreadable SharedPreferences) must not abort app startup — start
+      // with no active model; the user can re-install/select. (#314 follow-up)
+      // Include the stack trace so an unexpected restore bug stays diagnosable.
+      debugPrint(
+          'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st');
     }
   }
 
@@ -31,8 +38,10 @@ class MobileModelManager extends ModelFileManager {
   /// callers had to re-invoke `installModel()` every launch.
   Future<void> _restoreActiveInferenceModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final modelTypeName = prefs.getString(PreferencesKeys.activeInferenceModelType);
-    final fileTypeName = prefs.getString(PreferencesKeys.activeInferenceFileType);
+    final modelTypeName =
+        prefs.getString(PreferencesKeys.activeInferenceModelType);
+    final fileTypeName =
+        prefs.getString(PreferencesKeys.activeInferenceFileType);
     final filename = prefs.getString(PreferencesKeys.activeInferenceFilename);
 
     if (modelTypeName == null || fileTypeName == null || filename == null) {
@@ -94,7 +103,8 @@ class MobileModelManager extends ModelFileManager {
       modelSource: FileSource(modelPath),
       tokenizerSource: FileSource(tokenizerPath),
     );
-    debugPrint('[ModelManager] restored active embedding model: $modelFilename');
+    debugPrint(
+        '[ModelManager] restored active embedding model: $modelFilename');
   }
 
   /// Internal method for ModelSpec-based operations
@@ -707,11 +717,7 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Ensures the manager is initialized
-  Future<void> _ensureInitialized() async {
-    if (!_isInitialized) {
-      await initialize();
-    }
-  }
+  Future<void> _ensureInitialized() => initialize();
 
   // === Legacy Asset Loading Methods Implementation ===
 
@@ -827,15 +833,15 @@ class MobileModelManager extends ModelFileManager {
   Future<void> _persistActiveInferenceIdentity(InferenceModelSpec spec) async {
     try {
       final filename = spec.files
-          .firstWhere((f) => f.prefsKey == PreferencesKeys.installedModelFileName)
+          .firstWhere(
+              (f) => f.prefsKey == PreferencesKeys.installedModelFileName)
           .filename;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
           PreferencesKeys.activeInferenceModelType, spec.modelType.name);
       await prefs.setString(
           PreferencesKeys.activeInferenceFileType, spec.fileType.name);
-      await prefs.setString(
-          PreferencesKeys.activeInferenceFilename, filename);
+      await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
       await prefs.setString(
           PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
     } catch (e) {
@@ -845,8 +851,8 @@ class MobileModelManager extends ModelFileManager {
 
   Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
     try {
-      final modelFile = spec.files.firstWhere(
-          (f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final modelFile = spec.files
+          .firstWhere((f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
       final tokenizerFile = spec.files.firstWhere(
           (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
       final prefs = await SharedPreferences.getInstance();

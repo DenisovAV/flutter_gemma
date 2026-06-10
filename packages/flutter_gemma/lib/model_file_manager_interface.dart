@@ -90,6 +90,12 @@ abstract class ModelFileManager {
   /// Sets the active model for subsequent inference operations
   void setActiveModel(ModelSpec spec);
 
+  /// Ensures the manager is fully initialized — active model/embedder state
+  /// restored from storage (#227). Idempotent and safe to call concurrently;
+  /// all callers share a single initialization. Await this before reading
+  /// [activeInferenceModel] / [activeEmbeddingModel] (#314).
+  Future<void> ensureInitialized();
+
   /// Gets the currently active inference model specification
   ModelSpec? get activeInferenceModel;
 

@@ -147,7 +147,11 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.12.0-a',
+  // TEST BRANCH (#214): android-only rebuild with GPU compat flags
+  // (external_tensor_mode=false + hint_waiting_for_completion=true). Only the
+  // android_arm64 tarball exists in native-v0.12.0-test — iOS/desktop builds on
+  // this branch will 404. Do NOT merge to main; revert to '0.12.0-a' first.
+  version: '0.12.0-test',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -172,7 +176,7 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-ios_sim_arm64.tar.gz':
         '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
     'litertlm-android_arm64.tar.gz':
-        'f809c5a29867062cda74186c7ebebd500a2f36d0b6ad6f7ca8eab902af7fc784',
+        'b48b42a189cbbe4629a9f104f012d1a31f5ae8ac9fe32c239d0feddd854ae13d',
   },
   companions: [
     'GemmaModelConstraintProvider',

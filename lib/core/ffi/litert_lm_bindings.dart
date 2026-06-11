@@ -637,6 +637,45 @@ class LiteRtLmBindings {
       _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr.asFunction<
           void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
 
+  void litert_lm_engine_settings_set_external_tensor_mode(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool value,
+  ) {
+    return _litert_lm_engine_settings_set_external_tensor_mode(
+      settings,
+      value,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_external_tensor_modePtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)>>(
+      'litert_lm_engine_settings_set_external_tensor_mode');
+  late final _litert_lm_engine_settings_set_external_tensor_mode =
+      _litert_lm_engine_settings_set_external_tensor_modePtr.asFunction<
+          void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+
+  void litert_lm_engine_settings_set_hint_waiting_for_completion(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool value,
+  ) {
+    return _litert_lm_engine_settings_set_hint_waiting_for_completion(
+      settings,
+      value,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_hint_waiting_for_completionPtr =
+      _lookup<
+              ffi.NativeFunction<
+                  ffi.Void Function(
+                      ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)>>(
+          'litert_lm_engine_settings_set_hint_waiting_for_completion');
+  late final _litert_lm_engine_settings_set_hint_waiting_for_completion =
+      _litert_lm_engine_settings_set_hint_waiting_for_completionPtr.asFunction<
+          void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+
   ffi.Pointer<LiteRtLmEngine> litert_lm_engine_create(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {

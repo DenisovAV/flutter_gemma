@@ -491,6 +491,20 @@ class LiteRtLmFfiClient {
         b.litert_lm_engine_settings_set_max_num_images(settings, maxNumImages);
       }
 
+      // Gemma 4 GPU decode workaround (#214 / upstream LiteRT-LM #1850).
+      // Default GPU config garbles Gemma 4 OpenCL decode on Adreno
+      // (`Invalid command queue`) and Samsung Mali SOCL (`Valid mapped region
+      // entry not found`). Forcing external_tensor_mode=false +
+      // hint_waiting_for_completion=true stabilizes GPU decode.
+      if (Platform.isAndroid && backend == 'gpu') {
+        b.litert_lm_engine_settings_set_external_tensor_mode(settings, false);
+        b.litert_lm_engine_settings_set_hint_waiting_for_completion(
+            settings, true);
+        gemmaLog(
+            '[LiteRtLmFfi] GPU compat: external_tensor_mode=false, '
+            'hint_waiting_for_completion=true');
+      }
+
       // MTP / speculative decoding (LiteRT-LM v0.11.0+). Skip when null so
       // the SDK uses the model's default; only call when caller explicitly
       // forces on/off.

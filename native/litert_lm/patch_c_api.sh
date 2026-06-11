@@ -64,6 +64,8 @@ EXPORTS
   litert_lm_engine_settings_set_activation_data_type
   litert_lm_engine_settings_set_cache_dir
   litert_lm_engine_settings_set_enable_speculative_decoding
+  litert_lm_engine_settings_set_external_tensor_mode
+  litert_lm_engine_settings_set_hint_waiting_for_completion
   litert_lm_engine_settings_set_litert_dispatch_lib_dir
   litert_lm_engine_settings_set_max_num_images
   litert_lm_engine_settings_set_max_num_tokens
@@ -278,6 +280,66 @@ void litert_lm_engine_settings_set_use_hw_masking_for_npu(\
   echo "  OK: Added set_use_hw_masking_for_npu impl to c/engine.cc"
 else
   echo "  SKIP: c/engine.cc already has set_use_hw_masking_for_npu"
+fi
+
+# ── 4c. Add GPU compat setters for Gemma 4 decode (#214 / upstream #1850) ──
+# Gemma 4 GPU decode garbles output on Adreno (`Invalid command queue`) and
+# Samsung Mali SOCL (`Valid mapped region entry not found`) with the default
+# GPU config. @Shoolife's reference patch on upstream #1850 fixes it by forcing
+# GpuConfig.external_tensor_mode=false + AdvancedSettings.hint_waiting_for_
+# completion=true. Upstream C API doesn't expose these — add our own setters,
+# called from Dart only for Gemma 4 + GPU + Android (see litert_lm_client.dart).
+if ! grep -q "set_external_tensor_mode" "$DIR/c/engine.h"; then
+  sed -i.bak '/Creates a LiteRT LM Engine from the given settings/i\
+// Sets GPU external tensor mode. Default true on some runtimes garbles Gemma 4\
+// GPU decode on Adreno/Mali; pass false to stabilize OpenCL buffers.\
+LITERT_LM_C_API_EXPORT\
+void litert_lm_engine_settings_set_external_tensor_mode(\
+    LiteRtLmEngineSettings* settings, bool value);\
+\
+// Sets the GPU "hint waiting for completion" advanced flag. Pass true to force\
+// OpenCL kernel completion sync, fixing Gemma 4 GPU decode garbage on\
+// Adreno/Mali (upstream #1850).\
+LITERT_LM_C_API_EXPORT\
+void litert_lm_engine_settings_set_hint_waiting_for_completion(\
+    LiteRtLmEngineSettings* settings, bool value);\
+' "$DIR/c/engine.h"
+  rm -f "$DIR/c/engine.h.bak"
+  echo "  OK: Added GPU compat setters to c/engine.h"
+else
+  echo "  SKIP: c/engine.h already has GPU compat setters"
+fi
+
+if ! grep -q "set_external_tensor_mode" "$DIR/c/engine.cc"; then
+  sed -i.bak '/void litert_lm_engine_settings_set_activation_data_type/i\
+void litert_lm_engine_settings_set_external_tensor_mode(\
+    LiteRtLmEngineSettings* settings, bool value) {\
+  if (settings \&\& settings->settings) {\
+    auto\& exec = settings->settings->GetMutableMainExecutorSettings();\
+    auto gpu_config = exec.MutableBackendConfig<litert::lm::GpuConfig>();\
+    if (gpu_config.ok()) {\
+      litert::lm::GpuConfig config = *gpu_config;\
+      config.external_tensor_mode = value;\
+      exec.SetBackendConfig(config);\
+    }\
+  }\
+}\
+\
+void litert_lm_engine_settings_set_hint_waiting_for_completion(\
+    LiteRtLmEngineSettings* settings, bool value) {\
+  if (settings \&\& settings->settings) {\
+    auto\& exec = settings->settings->GetMutableMainExecutorSettings();\
+    litert::lm::AdvancedSettings advanced =\
+        exec.GetAdvancedSettings().value_or(litert::lm::AdvancedSettings());\
+    advanced.hint_waiting_for_completion = value;\
+    exec.SetAdvancedSettings(advanced);\
+  }\
+}\
+' "$DIR/c/engine.cc"
+  rm -f "$DIR/c/engine.cc.bak"
+  echo "  OK: Added GPU compat setter impls to c/engine.cc"
+else
+  echo "  SKIP: c/engine.cc already has GPU compat setter impls"
 fi
 
 # ── 5. Patch litert_lm_conversation_config_create to 6-arg signature ──

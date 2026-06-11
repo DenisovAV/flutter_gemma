@@ -3,6 +3,7 @@ description: "qdrant-edge on-device RAG vector store for flutter_gemma (native F
 version: 1.0.0-rc.1
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
+topics: [rag, qdrant, vector-search, embeddings, on-device]
 
 resolution: workspace
 

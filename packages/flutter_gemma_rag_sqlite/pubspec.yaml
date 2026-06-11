@@ -3,6 +3,7 @@ description: "SQLite + HNSW on-device RAG vector store for flutter_gemma (native
 version: 1.0.0-rc.1
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
+topics: [rag, sqlite, vector-search, embeddings, web]
 
 resolution: workspace
 

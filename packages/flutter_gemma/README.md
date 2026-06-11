@@ -1305,7 +1305,7 @@ final response = await chat.generateChatResponse();
 
 The pre-Modern stream-based API (`FlutterGemmaPlugin.instance.modelManager`, `installModelFromAsset`, `downloadModelFromNetworkWithProgress`, etc.) is still supported but deprecated. New projects should use the [Modern API](#quick-start) above.
 
-📚 **Full Legacy API reference:** [docs/LEGACY_API.md](../../docs/LEGACY_API.md)
+📚 **Full Legacy API reference:** [docs/LEGACY_API.md](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/LEGACY_API.md)
 
 ## 🖼️ Message Types
 
@@ -1589,7 +1589,7 @@ final supported = await FlutterGemma.isStreamingSupported();
 ```
 
 #### Backend Support
-- **GPU only:** See [PreferredBackend Options](#preferredbackend-options) table above
+- **GPU only on Web** — MediaPipe has no web CPU backend, so web models must run on the GPU (`PreferredBackend.gpu`).
 
 #### CORS Configuration
 - **Required for custom servers:** Enable CORS headers on your model hosting server

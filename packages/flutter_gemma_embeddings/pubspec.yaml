@@ -1,5 +1,5 @@
 name: flutter_gemma_embeddings
-description: "On-device text embeddings (Gecko / EmbeddingGemma .tflite via LiteRT C API + dart:ffi) for flutter_gemma. Opt-in package; provides an EmbeddingBackendProvider. Shares the LiteRT-LM native library owned by flutter_gemma_litertlm."
+description: "On-device text embeddings (Gecko / EmbeddingGemma .tflite via LiteRT + dart:ffi) for flutter_gemma. Opt-in EmbeddingBackendProvider for on-device RAG."
 version: 1.0.0-rc.1
 homepage: https://github.com/DenisovAV/flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma

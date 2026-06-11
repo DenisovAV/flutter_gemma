@@ -802,6 +802,31 @@ model to the engine that handles its file type. On web, choose
 - 🔄 [Migration Guide](#migration-from-legacy-to-modern-api) - Upgrade from Legacy API
 - 📚 [Legacy API Documentation](#usage-legacy-api) - For backwards compatibility
 
+## Logging
+
+The plugin's internal logs are **silent in release builds** — model output, prompts, and conversation history are never written to logcat / syslog. In debug builds they're shown according to `FlutterGemma.logLevel`:
+
+| Level | What it prints (debug only) |
+|-------|------------------------------|
+| `GemmaLogLevel.none` | Nothing — fully silent. |
+| `GemmaLogLevel.info` *(default)* | Lifecycle, errors, diagnostics. **No** model output / prompts. |
+| `GemmaLogLevel.verbose` | Everything above **plus** model output, prompts, and conversation history. |
+
+```dart
+import 'package:flutter_gemma/flutter_gemma.dart';
+
+// See the model's generated tokens and prompts while debugging:
+FlutterGemma.logLevel = GemmaLogLevel.verbose;
+
+// Or silence the plugin entirely:
+FlutterGemma.logLevel = GemmaLogLevel.none;
+```
+
+Notes:
+- Release builds are always silent regardless of this setting — there is no way to leak PII into a production log.
+- The level is process-global and per-isolate; set it once at startup. Background isolates (the LiteRT-LM engine-create isolate and the `flutter_gemma_embeddings` worker) snapshot the value when they start, so they honour it too.
+- `GemmaLogLevel` is exported from `package:flutter_gemma/flutter_gemma.dart` — no extra import needed.
+
 ## HuggingFace Authentication 🔐
 
 Many models require authentication to download from HuggingFace. **Never commit tokens to version control.**

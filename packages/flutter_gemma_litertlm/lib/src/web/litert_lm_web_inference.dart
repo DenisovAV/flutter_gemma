@@ -35,8 +35,12 @@ import 'litert_lm_web.dart';
 /// **Limitations (matches upstream early-preview status):**
 /// - Text-in/text-out only — vision/audio are warn-and-ignore (the TS
 ///   EngineSettings doesn't expose Audio/VisionExecutor yet).
-/// - Thinking Mode IS supported for Gemma 4 (wires `extra_context:
-///   {thinking: true}` + `filterChannelContentFromKvCache`, same as native).
+/// - Thinking Mode is NOT verified on web. We pass `extra_context:
+///   {thinking: true}` + `filterChannelContentFromKvCache` (the same wiring
+///   native FFI uses), but `@litert-lm/core`'s TS surface types `extra_context`
+///   as an opaque `Record<string, JsonValue>` and never references a `thinking`
+///   key, so end-to-end thinking on web is unconfirmed. Treat as unsupported
+///   until verified against a real Gemma 4 `.litertlm` web run.
 /// - LoRA throws [UnsupportedError] (parity with FFI path).
 /// - `stopGeneration()` closes the local stream and calls the upstream
 ///   `conversation.cancel()` to abort the JS-side generation (wrapped in

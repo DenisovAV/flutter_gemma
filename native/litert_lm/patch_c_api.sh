@@ -342,6 +342,37 @@ else
   echo "  SKIP: c/engine.cc already has GPU compat setter impls"
 fi
 
+# ── 4d. Backport upstream LiteRT-LM 9b16b8ce: register kv_cache_ as buffer
+# storage unconditionally on GPU (#214). Without this, in NoExternalTensorsMode
+# (which our external_tensor_mode=false workaround enables) the KV cache is
+# affected by BHWC conversion → garbled Gemma 4 GPU decode on Mali/Adreno.
+# Upstream fixed it post-2.1.5; we cherry-pick the one line to stay on 2.1.5.
+UTILS_CC="$DIR/runtime/executor/llm_executor_settings_utils.cc"
+if [ -f "$UTILS_CC" ] && ! grep -q "// PATCH: unconditional kv_cache buffer storage" "$UTILS_CC"; then
+  python3 -c "
+with open('$UTILS_CC', 'r') as f:
+    content = f.read()
+
+old = '''        gpu_compilation_options.AddExternalTensorPattern(\"kv_cache_\");
+        if (signatures.has_value() &&'''
+
+new = '''        gpu_compilation_options.AddExternalTensorPattern(\"kv_cache_\");
+        // PATCH: unconditional kv_cache buffer storage (upstream 9b16b8ce, #214)
+        gpu_compilation_options.AddBufferStorageTensorPattern(\"kv_cache_\");
+        if (signatures.has_value() &&'''
+
+if old in content:
+    content = content.replace(old, new, 1)
+    with open('$UTILS_CC', 'w') as f:
+        f.write(content)
+    print('  OK: Backported unconditional kv_cache buffer storage (9b16b8ce)')
+else:
+    print('  WARN: kv_cache anchor not found in llm_executor_settings_utils.cc; skipping 4d')
+"
+else
+  echo '  SKIP: c utils already has unconditional kv_cache buffer storage (or file missing)'
+fi
+
 # ── 5. Patch litert_lm_conversation_config_create to 6-arg signature ──
 # Upstream 5e0d86b ships the new no-args + setter pattern:
 #   create() -> set_session_config -> set_system_message -> set_tools -> ...

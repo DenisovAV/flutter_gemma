@@ -1523,7 +1523,7 @@ Function calling is currently supported by the following models:
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
-| **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3; Web MediaPipe has no `extraContext` |
+| **Thinking Mode** | ✅ Full | ✅ Full | ⚠️ `.litertlm` only | ✅ Full | Gemma 4 / DeepSeek / Qwen3; on Web only the `.litertlm` (`@litert-lm/core`) engine supports it — MediaPipe `.task` web has no `extraContext` |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
 | **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Metal/WebGPU/Vulkan/DX12 |
 | **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
@@ -1537,11 +1537,12 @@ Function calling is currently supported by the following models:
 | **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Native bundles only |
 | **External Files (FileSource)** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | No local FS on web |
 
-> **Web column note:** the **Web** ✅ marks above describe the MediaPipe `.task`
-> web path (image input, function calling, etc.). Thinking Mode is **not**
-> available on Web — MediaPipe web exposes no `extraContext` hook. The newer
-> **web `.litertlm`** path (`@litert-lm/core`) is an early-preview subset —
-> text-only, no vision/audio/thinking/function-calling. See
+> **Web column note:** the two web inference engines differ. The MediaPipe
+> `.task` web path supports image input + function calling but **not** Thinking
+> Mode (no `extraContext` hook). The newer **web `.litertlm`** path
+> (`@litert-lm/core`) is text-only for vision/audio, but **does** support
+> Thinking Mode and function calling for Gemma 4 (it wires `extra_context:
+> {thinking: true}` + KV-channel filtering, same as native). See
 > [Web `.litertlm` support & limitations](#web-litertlm-support--limitations).
 
 ### Web Platform Specifics

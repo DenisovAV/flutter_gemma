@@ -33,7 +33,10 @@ import 'litert_lm_web.dart';
 /// `conversation.sendMessageStreaming(text)` returning a JS AsyncIterator.
 ///
 /// **Limitations (matches upstream early-preview status):**
-/// - Text-in/text-out only — vision/audio/thinking are warn-and-ignore.
+/// - Text-in/text-out only — vision/audio are warn-and-ignore (the TS
+///   EngineSettings doesn't expose Audio/VisionExecutor yet).
+/// - Thinking Mode IS supported for Gemma 4 (wires `extra_context:
+///   {thinking: true}` + `filterChannelContentFromKvCache`, same as native).
 /// - LoRA throws [UnsupportedError] (parity with FFI path).
 /// - `stopGeneration()` closes the local stream and calls the upstream
 ///   `conversation.cancel()` to abort the JS-side generation (wrapped in

@@ -21,21 +21,21 @@ await FlutterGemma.initialize(
 
 On web the wa-sqlite engine is loaded from a `<script>` in your app's
 `web/index.html` `<head>` (it exposes the global the package binds to). Pin a
-release tag and include the Subresource Integrity hash so a CDN compromise
-cannot inject code:
+release `<tag>` and compute a Subresource Integrity hash **for that tag** so a
+CDN compromise cannot inject code:
 
 ```html
 <script type="module"
         src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/web/sqlite_vector_store.js"
-        integrity="sha384-IHmYOhCWsp68Nh9VJD6E6eFk2uLipbclH2+nLjc2GdGQKral9Re53FShwFStJms3"
+        integrity="sha384-<hash>"
         crossorigin="anonymous"></script>
 ```
 
-The worker (`sqlite_vector_store_worker.js`, integrity
-`sha384-065e421XLyAFCTrUgXx4D1tSVNDft1/3bbpauywRiVEFaCY0BE6TrkHD2CxNt6R+`) is
-fetched by the main script from the same CDN path — no separate tag needed.
+> Compute the hash for the exact tag you pin (the browser rejects the script if
+> `integrity` doesn't match the served bytes, so don't ship a placeholder):
+> `curl -sL https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/web/sqlite_vector_store.js | openssl dgst -sha384 -binary | openssl base64 -A`
 
-> Regenerate a hash after upgrading the JS with:
-> `openssl dgst -sha384 -binary web/sqlite_vector_store.js | openssl base64 -A`
+The worker (`sqlite_vector_store_worker.js`) is fetched by the main script from
+the same CDN path — no separate `<script>` tag needed.
 
 Native platforms need no setup — `sqlite3` bundles its own native library.

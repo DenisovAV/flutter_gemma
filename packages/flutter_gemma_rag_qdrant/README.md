@@ -28,7 +28,7 @@ final hits = await FlutterGemmaPlugin.instance.searchSimilar(query, topK: 5);
 ```
 
 `QdrantVectorStore` also honors the payload-aware `Filter` DSL on
-`searchSimilar(..., filter: Filter(must: [FieldEquals('lang', 'en')], mustNot: [...]))`.
+`searchSimilar(..., filter: Filter(must: [FieldEquals(key: 'lang', value: 'en')], mustNot: [...]))`.
 
 > The storage path passed to `initializeVectorStore` is treated as a **shard
 > directory** (qdrant creates files under it), not a single `.db` file. Use a

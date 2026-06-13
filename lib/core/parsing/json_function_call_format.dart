@@ -40,8 +40,9 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     }
     if (clean.contains('```json') && clean.endsWith('```')) return true;
     if (clean.contains('```tool_code') && clean.endsWith('```')) return true;
-    if (clean.contains('<tool_code>') && clean.contains('</tool_code>'))
+    if (clean.contains('<tool_code>') && clean.contains('</tool_code>')) {
       return true;
+    }
     return false;
   }
 

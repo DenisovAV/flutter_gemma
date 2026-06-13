@@ -57,8 +57,9 @@ class DeepSeekFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    if (clean.contains(_toolCallBegin) && clean.contains(_toolCallEnd))
+    if (clean.contains(_toolCallBegin) && clean.contains(_toolCallEnd)) {
       return true;
+    }
     return _jsonFallback.isFunctionCallComplete(buffer);
   }
 

@@ -342,7 +342,7 @@ protocol PlatformService {
   ///
   /// **Performance:**
   /// - Returns all documents in single call
-  /// - Embeddings as List<double> (decoded from BLOB)
+  /// - Embeddings as `List<double>` (decoded from BLOB)
   ///
   /// Returns empty list if no documents stored.
   func getAllDocumentsWithEmbeddings(completion: @escaping (Result<[DocumentWithEmbedding], Error>) -> Void)
@@ -830,7 +830,7 @@ class PlatformServiceSetup {
     ///
     /// **Performance:**
     /// - Returns all documents in single call
-    /// - Embeddings as List<double> (decoded from BLOB)
+    /// - Embeddings as `List<double>` (decoded from BLOB)
     ///
     /// Returns empty list if no documents stored.
     let getAllDocumentsWithEmbeddingsChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.flutter_gemma.PlatformService.getAllDocumentsWithEmbeddings\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)

@@ -298,7 +298,7 @@ interface PlatformService {
    *
    * **Performance:**
    * - Returns all documents in single call
-   * - Embeddings as List<double> (decoded from BLOB)
+   * - Embeddings as `List<double>` (decoded from BLOB)
    *
    * Returns empty list if no documents stored.
    */

@@ -1,6 +1,7 @@
 import 'dart:math' show sqrt;
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:sqlite3/sqlite3.dart';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -259,13 +260,11 @@ class SqliteVectorStore implements VectorStoreRepository {
           .toList();
 
       _hnswIndex.rebuild(docs);
-      debugPrint(
+      gemmaLog(
         '[SqliteVectorStore] HNSW index rebuilt with ${docs.length} documents',
       );
     } catch (e) {
-      debugPrint(
-        '[SqliteVectorStore] Warning: Failed to rebuild HNSW index: $e',
-      );
+      gemmaLog('[SqliteVectorStore] Warning: Failed to rebuild HNSW index: $e');
       _hnswIndex.clear();
     }
   }

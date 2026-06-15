@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/src/filter_codec.dart';
 import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
@@ -72,7 +72,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       try {
         await existing.close();
       } on QdrantException catch (e) {
-        debugPrint('[QdrantVectorStore] close() failed (best-effort): $e');
+        gemmaLog('[QdrantVectorStore] close() failed (best-effort): $e');
       }
     }
     _client = null;
@@ -151,7 +151,7 @@ class QdrantVectorStore implements VectorStoreRepository {
   Future<void> removeDocument({required String id}) async {
     final c = _client;
     if (c == null) {
-      debugPrint(
+      gemmaLog(
         '[QdrantVectorStore] removeDocument($id) called before initialize() — ignored',
       );
       return;
@@ -251,7 +251,7 @@ class QdrantVectorStore implements VectorStoreRepository {
       try {
         await c.close();
       } on QdrantException catch (e) {
-        debugPrint('[QdrantVectorStore] close() failed (best-effort): $e');
+        gemmaLog('[QdrantVectorStore] close() failed (best-effort): $e');
       }
     }
   }

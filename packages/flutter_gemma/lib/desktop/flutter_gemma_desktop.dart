@@ -19,9 +19,11 @@ import '../core/registry/embedding_registry.dart';
 import '../core/registry/embedding_backend_provider.dart';
 import '../core/registry/runtime_config.dart';
 
-// Import model management types from mobile (reuse for desktop)
-import '../mobile/flutter_gemma_mobile.dart'
-    show EmbeddingModelSpec, InferenceModelSpec, MobileModelManager;
+// Model spec types come from the dart:io-free specs library; the manager
+// implementation comes from the mobile library (desktop reuses it).
+import '../core/model_management/model_specs.dart'
+    show EmbeddingModelSpec, InferenceModelSpec;
+import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
 
@@ -100,14 +102,16 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
       final modelChanged = currentSpec.name != requestedSpec.name;
       final p = _lastInferenceParams;
-      final paramsChanged = p != null &&
+      final paramsChanged =
+          p != null &&
           (p.supportImage != supportImage ||
               p.supportAudio != supportAudio ||
               p.maxTokens != maxTokens);
 
       if (modelChanged || paramsChanged) {
         gemmaLog(
-            'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged');
+          'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged',
+        );
         await _initializedModel?.close();
         _initCompleter = null;
         _initializedModel = null;
@@ -210,7 +214,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     if (_initEmbeddingCompleter != null &&
         _initializedEmbeddingModel != null &&
         _lastActiveEmbeddingModelName != null) {
-      final modelChanged = currentActiveModel == null ||
+      final modelChanged =
+          currentActiveModel == null ||
           currentActiveModel.name != _lastActiveEmbeddingModelName;
       if (modelChanged) {
         await _initializedEmbeddingModel?.close();
@@ -270,13 +275,14 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // dispatches construction through the EmbeddingRegistry. The backend
       // reads ONLY config.modelPath/config.tokenizerPath — it ignores the spec
       // arg for path resolution.
-      final activeSpec =
-          currentActiveModel is EmbeddingModelSpec ? currentActiveModel : null;
+      final activeSpec = currentActiveModel is EmbeddingModelSpec
+          ? currentActiveModel
+          : null;
       final EmbeddingBackendProvider? backend = activeSpec != null
           ? EmbeddingRegistry.instance.findFor(activeSpec)
           : (EmbeddingRegistry.instance.registered.isNotEmpty
-              ? EmbeddingRegistry.instance.registered.first
-              : null);
+                ? EmbeddingRegistry.instance.registered.first
+                : null);
       if (backend == null) {
         throw StateError(
           'No embedding backend registered. Add flutter_gemma_embeddings to '
@@ -297,7 +303,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // spec, but it resolves paths exclusively from config. On the legacy
       // explicit-paths path there is no active spec, so synthesize one from the
       // resolved file paths (FileSource) purely to satisfy the signature.
-      final specForBackend = activeSpec ??
+      final specForBackend =
+          activeSpec ??
           EmbeddingModelSpec(
             name: 'legacy:${path.basename(modelPath)}',
             modelSource: ModelSource.file(modelPath),
@@ -330,8 +337,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await ServiceRegistry.instance.vectorStoreRepository
-        .initialize(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository.initialize(
+      databasePath,
+    );
   }
 
   @override
@@ -392,8 +400,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         'pass a precomputed vector to addDocumentWithEmbedding(embedding:).',
       );
     }
-    final queryEmbedding =
-        await initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding = await initializedEmbeddingModel!.generateEmbedding(
+      query,
+    );
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,

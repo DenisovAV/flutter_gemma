@@ -1,6 +1,6 @@
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 
 /// A pluggable inference engine (MediaPipe `.task`, LiteRT-LM `.litertlm`, or a

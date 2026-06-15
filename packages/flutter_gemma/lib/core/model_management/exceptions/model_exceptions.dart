@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Base exception for model management operations
 abstract class ModelException implements Exception {
@@ -60,11 +60,7 @@ class ModelValidationException extends ModelException {
 class ModelStorageException extends ModelException {
   final String? operation;
 
-  const ModelStorageException(
-    super.message, [
-    super.cause,
-    this.operation,
-  ]);
+  const ModelStorageException(super.message, [super.cause, this.operation]);
 
   @override
   String toString() {

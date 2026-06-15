@@ -14,7 +14,7 @@ import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
 /// Modern API facade for Flutter Gemma

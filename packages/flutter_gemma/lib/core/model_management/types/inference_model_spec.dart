@@ -1,15 +1,13 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Model file for inference models (.bin, .task files)
 class InferenceModelFile extends ModelFile {
   final ModelSource _source;
   final String _filename;
 
-  InferenceModelFile({
-    required ModelSource source,
-    required String filename,
-  })  : _source = source,
-        _filename = filename;
+  InferenceModelFile({required ModelSource source, required String filename})
+    : _source = source,
+      _filename = filename;
 
   /// Creates InferenceModelFile from ModelSource
   factory InferenceModelFile.fromSource(ModelSource source) {
@@ -44,11 +42,9 @@ class LoraModelFile extends ModelFile {
   final ModelSource _source;
   final String _filename;
 
-  LoraModelFile({
-    required ModelSource source,
-    required String filename,
-  })  : _source = source,
-        _filename = filename;
+  LoraModelFile({required ModelSource source, required String filename})
+    : _source = source,
+      _filename = filename;
 
   /// Creates LoraModelFile from ModelSource
   factory LoraModelFile.fromSource(ModelSource source) {
@@ -85,12 +81,12 @@ class InferenceModelSpec extends ModelSpec {
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
-  })  : _name = name,
-        _modelSource = modelSource,
-        _loraSource = loraSource,
-        _replacePolicy = replacePolicy,
-        _modelType = modelType,
-        _fileType = fileType;
+  }) : _name = name,
+       _modelSource = modelSource,
+       _loraSource = loraSource,
+       _replacePolicy = replacePolicy,
+       _modelType = modelType,
+       _fileType = fileType;
 
   /// Legacy compatibility constructor for String URLs
   factory InferenceModelSpec.fromLegacyUrl({
@@ -122,9 +118,7 @@ class InferenceModelSpec extends ModelSpec {
 
   @override
   List<ModelFile> get files {
-    final result = <ModelFile>[
-      InferenceModelFile.fromSource(_modelSource),
-    ];
+    final result = <ModelFile>[InferenceModelFile.fromSource(_modelSource)];
 
     if (_loraSource != null) {
       result.add(LoraModelFile.fromSource(_loraSource));
@@ -187,7 +181,13 @@ class InferenceModelSpec extends ModelSpec {
 
   @override
   int get hashCode {
-    return Object.hash(_name, _modelSource, _loraSource, _replacePolicy,
-        _modelType, _fileType);
+    return Object.hash(
+      _name,
+      _modelSource,
+      _loraSource,
+      _replacePolicy,
+      _modelType,
+      _fileType,
+    );
   }
 }

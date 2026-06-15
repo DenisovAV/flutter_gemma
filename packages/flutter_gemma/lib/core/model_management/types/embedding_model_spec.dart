@@ -1,15 +1,13 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Model file for embedding models (.bin files)
 class EmbeddingModelFile extends ModelFile {
   final ModelSource _source;
   final String _filename;
 
-  EmbeddingModelFile({
-    required ModelSource source,
-    required String filename,
-  })  : _source = source,
-        _filename = filename;
+  EmbeddingModelFile({required ModelSource source, required String filename})
+    : _source = source,
+      _filename = filename;
 
   /// Creates EmbeddingModelFile from ModelSource
   factory EmbeddingModelFile.fromSource(ModelSource source) {
@@ -38,8 +36,8 @@ class EmbeddingTokenizerFile extends ModelFile {
   EmbeddingTokenizerFile({
     required ModelSource source,
     required String filename,
-  })  : _source = source,
-        _filename = filename;
+  }) : _source = source,
+       _filename = filename;
 
   /// Creates EmbeddingTokenizerFile from ModelSource
   factory EmbeddingTokenizerFile.fromSource(ModelSource source) {
@@ -72,10 +70,10 @@ class EmbeddingModelSpec extends ModelSpec {
     required ModelSource modelSource,
     required ModelSource tokenizerSource,
     ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
-  })  : _name = name,
-        _modelSource = modelSource,
-        _tokenizerSource = tokenizerSource,
-        _replacePolicy = replacePolicy;
+  }) : _name = name,
+       _modelSource = modelSource,
+       _tokenizerSource = tokenizerSource,
+       _replacePolicy = replacePolicy;
 
   /// Legacy compatibility constructor for String URLs
   factory EmbeddingModelSpec.fromLegacyUrl({
@@ -103,9 +101,9 @@ class EmbeddingModelSpec extends ModelSpec {
 
   @override
   List<ModelFile> get files => [
-        EmbeddingModelFile.fromSource(_modelSource),
-        EmbeddingTokenizerFile.fromSource(_tokenizerSource),
-      ];
+    EmbeddingModelFile.fromSource(_modelSource),
+    EmbeddingTokenizerFile.fromSource(_tokenizerSource),
+  ];
 
   /// Modern type-safe getters
   ModelSource get modelSource => _modelSource;

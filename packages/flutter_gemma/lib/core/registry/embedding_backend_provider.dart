@@ -1,6 +1,6 @@
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 
 /// A pluggable embedding backend (LiteRT C API + Gecko/EmbeddingGemma, or a

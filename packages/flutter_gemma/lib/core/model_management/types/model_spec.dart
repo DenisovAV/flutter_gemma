@@ -1,12 +1,9 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Base enumeration for different model management types
-enum ModelManagementType {
-  inference,
-  embedding,
-}
+enum ModelManagementType { inference, embedding }
 
-// ModelReplacePolicy is already defined in model_file_manager_interface.dart
+// ModelReplacePolicy is defined in model_specs.dart (this part's library).
 
 /// Represents a single file that belongs to a model
 abstract class ModelFile {

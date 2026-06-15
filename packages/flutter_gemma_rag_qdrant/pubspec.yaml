@@ -8,8 +8,8 @@ topics: [rag, qdrant, vector-search, embeddings, on-device]
 resolution: workspace
 
 environment:
-  sdk: '>=3.6.0 <4.0.0'
-  flutter: '>=3.24.0'
+  sdk: '>=3.12.0 <4.0.0'
+  flutter: '>=3.44.0'
 
 dependencies:
   flutter:

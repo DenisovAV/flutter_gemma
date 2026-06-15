@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Model file for inference models (.bin, .task files)
 class InferenceModelFile extends ModelFile {

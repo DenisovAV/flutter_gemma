@@ -25,6 +25,13 @@ import '../core/ffi/ffi_inference_model.dart'
 import '../core/litert/litert_embedding_model.dart'
     if (dart.library.js_interop) '../core/litert/litert_embedding_model_stub.dart';
 import '../core/domain/model_source.dart';
+import '../core/model_management/model_specs.dart';
+// Re-export the spec value types so existing importers of this library (tests,
+// example, and any external code that imported the mobile lib directly) keep
+// seeing InferenceModelSpec/EmbeddingModelSpec/etc. — they used to be `part`s
+// here, now they live in model_specs.dart. Safe for wasm: this library is only
+// on the io graph (web uses the conditional default stub).
+export '../core/model_management/model_specs.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/utils/file_name_utils.dart';
@@ -32,12 +39,9 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 part 'flutter_gemma_mobile_inference_model.dart';
 
-// New unified model management system
-part '../core/model_management/types/model_spec.dart';
-part '../core/model_management/types/inference_model_spec.dart';
-part '../core/model_management/types/embedding_model_spec.dart';
-part '../core/model_management/types/storage_info.dart';
-part '../core/model_management/exceptions/model_exceptions.dart';
+// New unified model management system. The spec/exception value types live in
+// the dart:io-free `model_specs.dart` library (extracted for dart2wasm/web
+// compat); the implementation parts below stay here (they use dart:io).
 part '../core/model_management/utils/file_system_manager.dart';
 part '../core/model_management/utils/resume_checker.dart';
 part '../core/model_management/managers/mobile_model_manager.dart';

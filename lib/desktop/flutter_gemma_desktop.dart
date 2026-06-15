@@ -16,9 +16,10 @@ import '../core/ffi/litert_lm_client.dart';
 import '../core/ffi/ffi_inference_model.dart';
 import '../core/litert/litert_embedding_model.dart';
 
-// Import model management types from mobile (reuse for desktop)
-import '../mobile/flutter_gemma_mobile.dart'
-    show InferenceModelSpec, MobileModelManager;
+// Model spec types come from the dart:io-free specs library; the manager
+// implementation comes from the mobile library (desktop reuses it).
+import '../core/model_management/model_specs.dart' show InferenceModelSpec;
+import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';

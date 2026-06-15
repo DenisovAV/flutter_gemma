@@ -41,8 +41,9 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
 
-    if (clean.contains('<tool_call>') && clean.contains('</tool_call>'))
+    if (clean.contains('<tool_call>') && clean.contains('</tool_call>')) {
       return true;
+    }
     return _jsonFallback.isFunctionCallComplete(buffer);
   }
 

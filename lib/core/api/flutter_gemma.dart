@@ -9,7 +9,7 @@ import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 
 /// Modern API facade for Flutter Gemma

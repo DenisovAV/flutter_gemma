@@ -1,5 +1,8 @@
 import 'package:pigeon/pigeon.dart';
-// Command to generate pigeon files: dart run pigeon --input pigeon.dart
+// Command to generate pigeon files:
+//   dart run pigeon --input pigeon.dart && dart format lib/pigeon.g.dart
+// (the trailing `dart format` is required — pigeon's output doesn't match the
+//  Dart formatter, and pub.dev's static-analysis score penalizes the mismatch.)
 
 /// Hardware backend for model inference.
 ///
@@ -173,7 +176,7 @@ abstract class PlatformService {
   ///
   /// **Performance:**
   /// - Returns all documents in single call
-  /// - Embeddings as List<double> (decoded from BLOB)
+  /// - Embeddings as `List<double>` (decoded from BLOB)
   ///
   /// Returns empty list if no documents stored.
   @async

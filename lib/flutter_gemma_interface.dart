@@ -9,7 +9,11 @@ import 'package:flutter_gemma/model_file_manager_interface.dart';
 import 'package:flutter_gemma/pigeon.g.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'mobile/flutter_gemma_mobile.dart';
+// Conditional default instance: the mobile/desktop default pulls dart:io;
+// the web variant is a throwing stub (FlutterGemmaWeb registers itself at
+// runtime). This keeps dart:io off the web/wasm import graph.
+import 'flutter_gemma_default.dart'
+    if (dart.library.js_interop) 'flutter_gemma_default_web.dart';
 
 const supportedLoraRanks = [4, 8, 16];
 
@@ -18,7 +22,7 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   FlutterGemmaPlugin() : super(token: _token);
 
   static final Object _token = Object();
-  static FlutterGemmaPlugin _instance = FlutterGemmaMobile();
+  static FlutterGemmaPlugin _instance = defaultFlutterGemmaInstance();
 
   static FlutterGemmaPlugin get instance => _instance;
 

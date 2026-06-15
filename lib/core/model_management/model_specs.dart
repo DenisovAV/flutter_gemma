@@ -12,11 +12,20 @@ library;
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
-import 'package:flutter_gemma/model_file_manager_interface.dart'
-    show ModelReplacePolicy;
 
 part 'types/model_spec.dart';
 part 'types/inference_model_spec.dart';
 part 'types/embedding_model_spec.dart';
 part 'types/storage_info.dart';
 part 'exceptions/model_exceptions.dart';
+
+/// Policy for what happens to a previously-installed model when a new one is
+/// set active. Lives with the spec value types (it's a per-spec install policy);
+/// re-exported from `model_file_manager_interface.dart` for backward compat.
+enum ModelReplacePolicy {
+  /// Keep all models on disk (default)
+  keep,
+
+  /// Delete previous model when switching to save space
+  replace,
+}

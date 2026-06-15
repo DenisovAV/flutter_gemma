@@ -1,13 +1,9 @@
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
-
-/// Policy for handling old models when switching to new ones
-enum ModelReplacePolicy {
-  /// Keep all models on disk (default)
-  keep,
-
-  /// Delete previous model when switching to save space
-  replace,
-}
+// ModelReplacePolicy moved into model_specs.dart (breaks the specs↔interface
+// import cycle); re-export it here so existing importers of this interface
+// keep seeing it.
+export 'package:flutter_gemma/core/model_management/model_specs.dart'
+    show ModelReplacePolicy;
 
 abstract class ModelFileManager {
   /// Check if a model is installed and valid

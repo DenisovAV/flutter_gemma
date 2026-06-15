@@ -20,7 +20,8 @@ import 'package:flutter_gemma/core/handlers/web_bundled_source_handler_stub.dart
 import 'package:flutter_gemma/core/handlers/web_file_source_handler_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/source_handler_registry.dart';
-import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/platform_file_system_service_stub.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart'
     if (dart.library.io) 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';

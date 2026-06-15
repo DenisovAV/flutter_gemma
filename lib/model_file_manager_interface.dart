@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 
 /// Policy for handling old models when switching to new ones
 enum ModelReplacePolicy {

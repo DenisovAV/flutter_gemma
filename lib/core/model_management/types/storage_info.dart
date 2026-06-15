@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Information about a potentially orphaned file
 class OrphanedFileInfo {

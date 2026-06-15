@@ -35,8 +35,10 @@ export 'core/api/embedding_installation_builder.dart';
 // Export Web-specific types
 export 'core/domain/web_storage_mode.dart';
 
-// Export Model Specs (needed for advanced use cases)
-export 'mobile/flutter_gemma_mobile.dart'
+// Export Model Specs (needed for advanced use cases). These dart:io-free value
+// types live in their own library so the public API doesn't pull the mobile
+// implementation (and its dart:io) into the web/wasm graph.
+export 'core/model_management/model_specs.dart'
     show
         // Model specifications
         InferenceModelSpec,

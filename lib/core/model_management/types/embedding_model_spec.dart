@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Model file for embedding models (.bin files)
 class EmbeddingModelFile extends ModelFile {

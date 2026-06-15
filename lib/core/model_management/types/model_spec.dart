@@ -1,4 +1,4 @@
-part of '../../../mobile/flutter_gemma_mobile.dart';
+part of '../model_specs.dart';
 
 /// Base enumeration for different model management types
 enum ModelManagementType {

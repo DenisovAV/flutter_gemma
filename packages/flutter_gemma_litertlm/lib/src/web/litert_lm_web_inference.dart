@@ -12,7 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:mutex/mutex.dart';
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';

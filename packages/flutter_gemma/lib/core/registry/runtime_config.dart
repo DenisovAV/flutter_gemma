@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/pigeon.g.dart' show PreferredBackend;
+import 'package:flutter_gemma/core/domain/platform_types.dart' show PreferredBackend;
 
 /// Runtime config for building a model — the per-call params `getActiveModel`
 /// collects, kept as a small holder so the provider contract stays stable as

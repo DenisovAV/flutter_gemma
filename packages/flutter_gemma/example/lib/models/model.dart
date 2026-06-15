@@ -2,7 +2,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/core/model.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'base_model.dart';
 
 // Platform detection that's safe for web

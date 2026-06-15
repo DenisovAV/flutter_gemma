@@ -1,6 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:url_launcher/url_launcher.dart';

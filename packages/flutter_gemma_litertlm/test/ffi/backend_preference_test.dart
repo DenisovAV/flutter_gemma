@@ -1,5 +1,5 @@
 import 'package:flutter_gemma_litertlm/src/ffi/backend_preference.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

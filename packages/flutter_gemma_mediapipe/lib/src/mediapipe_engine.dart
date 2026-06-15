@@ -5,7 +5,7 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModel, supportedLoraRanks;
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     show InferenceModelSpec;
-import 'package:flutter_gemma/pigeon.g.dart' as core_pigeon;
+import 'package:flutter_gemma/core/domain/platform_types.dart' as core_pigeon;
 import 'package:flutter_gemma_mediapipe/pigeon.g.dart' as mp_pigeon;
 
 import 'mobile/mobile_inference_model.dart';

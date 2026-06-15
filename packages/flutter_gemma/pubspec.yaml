@@ -33,7 +33,7 @@ dependencies:
   hooks: ^1.0.0
   code_assets: ^1.0.0
   crypto: ^3.0.6
-  # Direct import in the pigeon-generated lib/pigeon.g.dart (immutable, etc.).
+  # Annotations (@immutable, @visibleForTesting) used across core, e.g. chat.dart.
   meta: ^1.15.0
   # Serializes native LiteRT-LM conversation calls across concurrent
   # sessions — the C API is not documented as reentrant on one engine.
@@ -43,7 +43,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  pigeon: ^26.0.0
   path_provider_platform_interface: ^2.1.0
   mocktail: ^1.0.0
 

@@ -1,4 +1,4 @@
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma/core/model.dart';
 
 import '../translation/prompt_strategy.dart';

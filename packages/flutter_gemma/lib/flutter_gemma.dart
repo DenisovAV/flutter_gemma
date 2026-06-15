@@ -6,7 +6,7 @@ export 'model_file_manager_interface.dart';
 // ignored on Web.
 export 'core/services/vector_store_filter.dart';
 export 'core/services/vector_store_repository.dart'; // VectorStoreRepository + VectorStoreException for opt-in RAG packages
-export 'pigeon.g.dart'; // Export generated types like PreferredBackend, ModelFileType, etc.
+export 'core/domain/platform_types.dart'; // PreferredBackend + RAG value types
 export 'core/message.dart';
 export 'core/model.dart'; // Export ModelType and other model-related classes
 export 'core/model_response.dart';

@@ -9,7 +9,7 @@ import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 
 import '../flutter_gemma_interface.dart';
 import '../model_file_manager_interface.dart';
-import '../pigeon.g.dart';
+import '../core/domain/platform_types.dart';
 
 import '../core/model.dart';
 import '../core/di/service_registry.dart';

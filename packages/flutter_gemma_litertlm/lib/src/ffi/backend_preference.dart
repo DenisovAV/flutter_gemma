@@ -1,6 +1,6 @@
 import 'dart:developer' as developer;
 
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 
 List<PreferredBackend> ffiBackendFallbackOrder(
   PreferredBackend? preferredBackend,

@@ -15,7 +15,7 @@ import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 
 /// Modern API facade for Flutter Gemma
 ///

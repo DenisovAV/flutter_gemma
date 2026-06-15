@@ -12,7 +12,7 @@ import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/extensions.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'litert_lm_client.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 
 /// FFI implementation of InferenceModel using dart:ffi → LiteRT-LM C API.
 /// Shared between desktop and mobile (iOS) for .litertlm models.

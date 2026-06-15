@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma/pigeon.g.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/model.dart';
 import 'package:flutter_gemma_example/universal_download_screen.dart';

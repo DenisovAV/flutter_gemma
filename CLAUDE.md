@@ -113,16 +113,18 @@ Exception: Migration files may use inline strings for deprecated keys.
 ### ⚠️ Always read SDK before implementing
 Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` before making changes.
 
-### ⚠️ `lib/pigeon.g.dart` is generated — DO NOT EDIT MANUALLY
+### ⚠️ Generated pigeon is `flutter_gemma_mediapipe/lib/pigeon.g.dart` — DO NOT EDIT MANUALLY
+Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in `lib/core/domain/platform_types.dart`). Only `flutter_gemma_mediapipe` still uses pigeon (it owns the `PlatformService` HostApi).
 
 ## Versions & Dependencies
 
-- **Flutter**: `>=3.24.0`
-- **Dart SDK**: `>=3.6.0 <4.0.0`
+- **Flutter**: `>=3.44.0` (raised at the 1.0 cut: `large_file_handler` 0.5.0 + dart2wasm need it)
+- **Dart SDK**: `>=3.12.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.12.0-a` GitHub Release. Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. MTP (speculative decoding) support for Gemma 4.
-- **Current Version**: core `flutter_gemma` 0.16.3; opt-in siblings 0.1.0 (version alignment to 1.0.0 + publish posture deferred to the release cut)
+- **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
+- **Current Version**: all 6 packages `1.0.0-rc.1` (core `flutter_gemma` + 5 opt-in siblings)
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -194,7 +196,7 @@ flutter analyze && dart format . && flutter test
 | `lib/web/flutter_gemma_web.dart` | Web shell — registry-dispatch |
 | `lib/desktop/flutter_gemma_desktop.dart` | Desktop shell — registry-dispatch |
 | `lib/web/web_model_source.dart`, `web_model_manager.dart` | Public shared web infra (imported by litertlm-web + mediapipe-web) |
-| `pigeon.dart` | Core pigeon: `PreferredBackend` enum + RAG data classes (NO PlatformService) |
+| `lib/core/domain/platform_types.dart` | Plain-Dart `PreferredBackend` enum + RAG value types (RetrievalResult/VectorStoreStats/DocumentWithEmbedding). Core has NO pigeon/PlatformService — these were hand-written off pigeon at the 1.0 cut so the public graph stays dart:io/wasm-clean |
 | `hook/build.dart` | Native Assets hook — empty bundle list (core owns no native lib) |
 | `android/src/.../FlutterGemmaPlugin.kt`, `ios/Classes/FlutterGemmaPlugin.swift` | Slim native plugin — hosts only the `flutter_gemma_bundled` channel (file-ops + litertlm NPU `getNativeLibraryDir`) |
 | `example/lib/gemma_bootstrap.dart` | Single source of truth for the example's engine/backend lists + RAG switcher |

@@ -8,6 +8,8 @@
 /// removes the unused `_PigeonCodec` the analyzer flagged.
 library;
 
+import 'package:meta/meta.dart' show immutable;
+
 /// Hardware backend for model inference.
 ///
 /// Platform support:
@@ -26,8 +28,9 @@ enum PreferredBackend {
 }
 
 /// A single retrieval hit from a vector store query.
+@immutable
 class RetrievalResult {
-  RetrievalResult({
+  const RetrievalResult({
     required this.id,
     required this.content,
     required this.similarity,
@@ -38,33 +41,90 @@ class RetrievalResult {
   final String content;
   final double similarity;
   final String? metadata;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RetrievalResult &&
+          other.id == id &&
+          other.content == content &&
+          other.similarity == similarity &&
+          other.metadata == metadata;
+
+  @override
+  int get hashCode => Object.hash(id, content, similarity, metadata);
+
+  @override
+  String toString() =>
+      'RetrievalResult(id: $id, similarity: $similarity, metadata: $metadata)';
 }
 
 /// Summary statistics for a vector store.
+@immutable
 class VectorStoreStats {
-  VectorStoreStats({
+  const VectorStoreStats({
     required this.documentCount,
     required this.vectorDimension,
   });
 
   final int documentCount;
   final int vectorDimension;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VectorStoreStats &&
+          other.documentCount == documentCount &&
+          other.vectorDimension == vectorDimension;
+
+  @override
+  int get hashCode => Object.hash(documentCount, vectorDimension);
+
+  @override
+  String toString() =>
+      'VectorStoreStats(documentCount: $documentCount, vectorDimension: $vectorDimension)';
 }
 
 /// Document with its embedding, used to rebuild an in-memory HNSW index.
 ///
 /// Returned by `getAllDocumentsWithEmbeddings` so the index can be
 /// reconstructed from persisted vectors.
+@immutable
 class DocumentWithEmbedding {
   DocumentWithEmbedding({
     required this.id,
     required this.content,
-    required this.embedding,
+    required List<double> embedding,
     this.metadata,
-  });
+  }) : embedding = List<double>.unmodifiable(embedding);
 
   final String id;
   final String content;
   final List<double> embedding;
   final String? metadata;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DocumentWithEmbedding &&
+          other.id == id &&
+          other.content == content &&
+          other.metadata == metadata &&
+          _listEquals(other.embedding, embedding);
+
+  @override
+  int get hashCode =>
+      Object.hash(id, content, metadata, Object.hashAll(embedding));
+
+  @override
+  String toString() =>
+      'DocumentWithEmbedding(id: $id, embedding: ${embedding.length} dims, metadata: $metadata)';
+}
+
+bool _listEquals(List<double> a, List<double> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

@@ -18,7 +18,7 @@ import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModel, InferenceModelSession, SessionMetrics;
 // WebInferenceModel.activeBackend overrides the [InferenceModel] contract, whose
-// type is core's PreferredBackend (from package:flutter_gemma's pigeon).
+// type is core's PreferredBackend (from core's platform_types.dart).
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/web/web_image_format.dart';

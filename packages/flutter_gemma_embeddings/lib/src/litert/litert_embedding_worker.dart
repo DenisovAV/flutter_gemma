@@ -24,8 +24,8 @@ import 'dart:isolate';
 import 'litert_embedding_core.dart';
 
 /// Backend selector mirrored across the isolate boundary as a plain int
-/// (the `PreferredBackend` enum lives in pigeon-generated code; we map it to
-/// the LiteRT HW accelerator bit in the worker).
+/// (the `PreferredBackend` enum lives in core's platform_types.dart; we map it
+/// to the LiteRT HW accelerator bit in the worker).
 enum EmbeddingBackend { cpu, gpu, npu }
 
 /// Handshake payload the worker sends back once the native model is loaded.

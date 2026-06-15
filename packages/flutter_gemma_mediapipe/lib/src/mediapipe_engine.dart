@@ -5,7 +5,7 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModel, supportedLoraRanks;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:flutter_gemma/core/domain/platform_types.dart' as core_pigeon;
+import 'package:flutter_gemma/core/domain/platform_types.dart' as core_types;
 import 'package:flutter_gemma_mediapipe/pigeon.g.dart' as mp_pigeon;
 
 import 'mobile/mobile_inference_model.dart';
@@ -62,15 +62,16 @@ class MediaPipeEngine implements InferenceEngineProvider {
   }
 }
 
-/// Maps core's [core_pigeon.PreferredBackend] (carried in [RuntimeConfig]) onto
-/// the package's own [mp_pigeon.PreferredBackend] (what the package's pigeon
-/// [platformService] + [MobileInferenceModel] expect). Both enums declare the
-/// same three values; this bridge keeps the two generated pigeon types from
-/// colliding now that MediaPipe lives in its own package.
-mp_pigeon.PreferredBackend? _mapBackend(core_pigeon.PreferredBackend? b) =>
+/// Maps core's plain [core_types.PreferredBackend] (carried in [RuntimeConfig])
+/// onto the package's own pigeon [mp_pigeon.PreferredBackend] (what the
+/// package's pigeon [platformService] + [MobileInferenceModel] expect). Both
+/// enums declare the same three values; this bridge keeps core's value type and
+/// the package's pigeon enum from colliding now that MediaPipe lives in its own
+/// package.
+mp_pigeon.PreferredBackend? _mapBackend(core_types.PreferredBackend? b) =>
     switch (b) {
       null => null,
-      core_pigeon.PreferredBackend.cpu => mp_pigeon.PreferredBackend.cpu,
-      core_pigeon.PreferredBackend.gpu => mp_pigeon.PreferredBackend.gpu,
-      core_pigeon.PreferredBackend.npu => mp_pigeon.PreferredBackend.npu,
+      core_types.PreferredBackend.cpu => mp_pigeon.PreferredBackend.cpu,
+      core_types.PreferredBackend.gpu => mp_pigeon.PreferredBackend.gpu,
+      core_types.PreferredBackend.npu => mp_pigeon.PreferredBackend.npu,
     };

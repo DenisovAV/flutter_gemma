@@ -13,7 +13,8 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
 // MobileInferenceModel exposes `activeBackend` as part of the [InferenceModel]
 // contract, whose type is core's PreferredBackend (from package:flutter_gemma).
 // The MediaPipe→core enum bridge lives in the engine; this model stores core's
-// type directly so the override is valid and the two pigeon enums never tangle.
+// value type directly so the override is valid and core's type never tangles
+// with the package's own pigeon enum.
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 

@@ -21,7 +21,8 @@ import 'package:flutter_gemma/core/handlers/web_bundled_source_handler_stub.dart
 import 'package:flutter_gemma/core/handlers/web_file_source_handler_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/handlers/web_file_source_handler.dart';
 import 'package:flutter_gemma/core/handlers/source_handler_registry.dart';
-import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart';
+import 'package:flutter_gemma/core/infrastructure/platform_file_system_service.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/platform_file_system_service_stub.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart'
     if (dart.library.io) 'package:flutter_gemma/core/infrastructure/flutter_asset_loader.dart';
@@ -83,7 +84,7 @@ class ServiceRegistry {
 
   // Handlers (created once with dependencies)
   late final SourceHandler
-      _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
+  _networkHandler; // Platform-specific (NetworkSourceHandler or WebNetworkSourceHandler)
   late final SourceHandler _assetHandler;
   late final SourceHandler _bundledHandler; // Changed from BundledSourceHandler
   late final SourceHandler _fileHandler; // Changed from FileSourceHandler
@@ -230,10 +231,7 @@ class ServiceRegistry {
       // Web: Use WebFileSourceHandler
       // Type-safe cast (validated in constructor)
       final webFs = fileSystem as WebFileSystemService;
-      return WebFileSourceHandler(
-        fileSystem: webFs,
-        repository: repository,
-      );
+      return WebFileSourceHandler(fileSystem: webFs, repository: repository);
     } else {
       // Mobile: Use FileSourceHandler
       return FileSourceHandler(
@@ -271,12 +269,9 @@ class ServiceRegistry {
     final prefs = await SharedPreferences.getInstance();
 
     // Create download service
-    final download = downloadService ??
-        _createDefaultDownloadService(
-          fileSystem,
-          webStorageMode,
-          prefs,
-        );
+    final download =
+        downloadService ??
+        _createDefaultDownloadService(fileSystem, webStorageMode, prefs);
 
     return ServiceRegistry._(
       huggingFaceToken: huggingFaceToken,
@@ -310,7 +305,8 @@ class ServiceRegistry {
     // Web with cache disabled (none mode): use in-memory repository (ephemeral metadata)
     // Web with cache enabled (cacheApi/streaming): use SharedPreferences (persistent metadata)
     // Mobile: always use SharedPreferences (files persist on disk)
-    _modelRepository = modelRepository ??
+    _modelRepository =
+        modelRepository ??
         (kIsWeb && webStorageMode == WebStorageMode.none
             ? InMemoryModelRepository()
             : SharedPreferencesModelRepository());
@@ -356,12 +352,7 @@ class ServiceRegistry {
 
     // Initialize handler registry
     _sourceHandlerRegistry = SourceHandlerRegistry(
-      handlers: [
-        _networkHandler,
-        _assetHandler,
-        _bundledHandler,
-        _fileHandler,
-      ],
+      handlers: [_networkHandler, _assetHandler, _bundledHandler, _fileHandler],
     );
   }
 
@@ -379,15 +370,17 @@ class ServiceRegistry {
   /// ```
   static ServiceRegistry get instance {
     if (_instance == null) {
-      throw StateError('FlutterGemma not initialized!\n\n'
-          'You must call FlutterGemma.initialize() in main() before using the plugin.\n\n'
-          'Example:\n'
-          '  void main() async {\n'
-          '    WidgetsFlutterBinding.ensureInitialized();\n'
-          '    await FlutterGemma.initialize();\n'
-          '    runApp(MyApp());\n'
-          '  }\n\n'
-          'For more information, see: https://pub.dev/packages/flutter_gemma#initialization');
+      throw StateError(
+        'FlutterGemma not initialized!\n\n'
+        'You must call FlutterGemma.initialize() in main() before using the plugin.\n\n'
+        'Example:\n'
+        '  void main() async {\n'
+        '    WidgetsFlutterBinding.ensureInitialized();\n'
+        '    await FlutterGemma.initialize();\n'
+        '    runApp(MyApp());\n'
+        '  }\n\n'
+        'For more information, see: https://pub.dev/packages/flutter_gemma#initialization',
+      );
     }
     return _instance!;
   }
@@ -423,12 +416,14 @@ class ServiceRegistry {
       // Warn if critical parameters changed
       if (_instance!.webStorageMode != webStorageMode) {
         gemmaLog(
-            'WARNING: webStorageMode cannot be changed after initialization.\n'
-            'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
-            'Restart the application to change this setting.');
+          'WARNING: webStorageMode cannot be changed after initialization.\n'
+          'Current: ${_instance!.webStorageMode}, Requested: $webStorageMode\n'
+          'Restart the application to change this setting.',
+        );
       }
       gemmaLog(
-          'ServiceRegistry: Already initialized, skipping re-initialization');
+        'ServiceRegistry: Already initialized, skipping re-initialization',
+      );
       return;
     }
 

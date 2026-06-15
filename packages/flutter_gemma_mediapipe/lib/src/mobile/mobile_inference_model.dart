@@ -14,7 +14,8 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
 // contract, whose type is core's PreferredBackend (from package:flutter_gemma).
 // The MediaPipe→core enum bridge lives in the engine; this model stores core's
 // type directly so the override is valid and the two pigeon enums never tangle.
-import 'package:flutter_gemma/core/domain/platform_types.dart' show PreferredBackend;
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 import 'mobile_inference_session.dart';
 

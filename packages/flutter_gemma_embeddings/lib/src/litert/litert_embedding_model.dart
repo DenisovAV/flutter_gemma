@@ -17,7 +17,8 @@
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show EmbeddingModel, TaskType;
-import 'package:flutter_gemma/core/domain/platform_types.dart' show PreferredBackend;
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 
 import 'litert_embedding_worker.dart';
 

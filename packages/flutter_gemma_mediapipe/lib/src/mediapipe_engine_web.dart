@@ -2,7 +2,7 @@ import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
-import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 import 'package:flutter_gemma/web/web_model_source.dart';
 

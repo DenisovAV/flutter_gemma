@@ -14,15 +14,15 @@ library;
 /// - [cpu]: All platforms
 /// - [gpu]: All platforms (Metal on macOS, DirectX on Windows, Vulkan on Linux,
 ///   OpenCL on Android)
-/// - [npu]: Android only with LiteRT-LM (.litertlm models) — Qualcomm, MediaTek,
-///   Google Tensor
+/// - [npu]: With LiteRT-LM (.litertlm models) — Android (Qualcomm, MediaTek,
+///   Google Tensor) and Windows (Intel LunarLake/PantherLake)
 ///
 /// If the selected backend is unavailable, the engine falls back to GPU, then
 /// CPU.
 enum PreferredBackend {
   cpu,
   gpu,
-  npu, // Android only: Qualcomm AI Engine, MediaTek NeuroPilot, Google Tensor
+  npu, // Android (Qualcomm/MediaTek/Tensor) + Windows (Intel LunarLake/PantherLake)
 }
 
 /// A single retrieval hit from a vector store query.

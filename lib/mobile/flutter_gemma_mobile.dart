@@ -26,6 +26,12 @@ import '../core/litert/litert_embedding_model.dart'
     if (dart.library.js_interop) '../core/litert/litert_embedding_model_stub.dart';
 import '../core/domain/model_source.dart';
 import '../core/model_management/model_specs.dart';
+// Re-export the spec value types so existing importers of this library (tests,
+// example, and any external code that imported the mobile lib directly) keep
+// seeing InferenceModelSpec/EmbeddingModelSpec/etc. — they used to be `part`s
+// here, now they live in model_specs.dart. Safe for wasm: this library is only
+// on the io graph (web uses the conditional default stub).
+export '../core/model_management/model_specs.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/utils/file_name_utils.dart';

@@ -20,12 +20,10 @@ void main() {
     // Mock PathProvider
     PathProviderPlatform.instance = MockPathProviderPlatform();
 
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
-      channel,
-      (MethodCall methodCall) async {
-        return 'response';
-      },
-    );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
+          return 'response';
+        });
   });
 
   tearDown(() {

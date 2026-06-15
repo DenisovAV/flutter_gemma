@@ -28,7 +28,8 @@ void main() {
     print('Gemma3n model created');
 
     final session = await model.createSession(
-      temperature: 0.8, topK: 1,
+      temperature: 0.8,
+      topK: 1,
       enableVisionModality: true,
     );
     print('Session created');
@@ -36,11 +37,9 @@ void main() {
     final imgBytes = File(_img).readAsBytesSync();
     print('Image: ${imgBytes.length} bytes');
 
-    await session.addQueryChunk(Message(
-      text: 'Describe this image',
-      isUser: true,
-      imageBytes: imgBytes,
-    ));
+    await session.addQueryChunk(
+      Message(text: 'Describe this image', isUser: true, imageBytes: imgBytes),
+    );
 
     final r = await session.getResponse();
     print('[Kotlin Gemma3n vision] $r');

@@ -8,14 +8,22 @@ void main() {
       const error = DownloadError.unauthorized();
 
       expect(error.isRetryable, isFalse, reason: '401 should NOT be retryable');
-      expect(error.requiresUserAction, isTrue, reason: '401 requires user to add token');
+      expect(
+        error.requiresUserAction,
+        isTrue,
+        reason: '401 requires user to add token',
+      );
     });
 
     test('403 ForbiddenError is NOT retryable', () {
       const error = DownloadError.forbidden();
 
       expect(error.isRetryable, isFalse, reason: '403 should NOT be retryable');
-      expect(error.requiresUserAction, isTrue, reason: '403 requires user action');
+      expect(
+        error.requiresUserAction,
+        isTrue,
+        reason: '403 requires user action',
+      );
     });
 
     test('404 NotFoundError is NOT retryable', () {
@@ -128,7 +136,11 @@ void main() {
         expect(e.error, isA<NetworkError>());
       }
 
-      expect(attempts, equals(maxRetries), reason: 'Should retry max times for network errors');
+      expect(
+        attempts,
+        equals(maxRetries),
+        reason: 'Should retry max times for network errors',
+      );
     });
   });
 }

@@ -26,7 +26,8 @@ void main() {
   setUp(() async {
     final base = await getApplicationSupportDirectory();
     shardDir = Directory(
-        '${base.path}/qdrant_filter_${DateTime.now().microsecondsSinceEpoch}');
+      '${base.path}/qdrant_filter_${DateTime.now().microsecondsSinceEpoch}',
+    );
     client = await QdrantEdgeClient.open(path: shardDir.path, dim: 4);
 
     // Seed corpus: same vector (we test filtering, not similarity), varied
@@ -76,9 +77,11 @@ void main() {
   }
 
   test('must FieldEquals narrows to a single value', () async {
-    final ids = await matchedHashedIds(const Filter(
-      must: [FieldEquals(key: 'lang', value: 'en')],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(
+        must: [FieldEquals(key: 'lang', value: 'en')],
+      ),
+    );
     expect(ids, hasLength(3));
     expect(ids, contains(PointIdHasher.hash('en_book_50')));
     expect(ids, contains(PointIdHasher.hash('en_book_200')));
@@ -86,41 +89,47 @@ void main() {
   });
 
   test('must FieldRange narrows by inclusive bounds', () async {
-    final ids = await matchedHashedIds(const Filter(
-      must: [FieldRange(key: 'price', gte: 100.0, lte: 250.0)],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(must: [FieldRange(key: 'price', gte: 100.0, lte: 250.0)]),
+    );
     expect(ids, hasLength(2));
     expect(ids, contains(PointIdHasher.hash('en_book_200')));
     expect(ids, contains(PointIdHasher.hash('en_audio_100')));
   });
 
   test('must with multiple conditions is AND', () async {
-    final ids = await matchedHashedIds(const Filter(
-      must: [
-        FieldEquals(key: 'lang', value: 'en'),
-        FieldEquals(key: 'type', value: 'book'),
-      ],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(
+        must: [
+          FieldEquals(key: 'lang', value: 'en'),
+          FieldEquals(key: 'type', value: 'book'),
+        ],
+      ),
+    );
     expect(ids, hasLength(2));
     expect(ids, contains(PointIdHasher.hash('en_book_50')));
     expect(ids, contains(PointIdHasher.hash('en_book_200')));
   });
 
   test('should with FieldMatchAny is OR over values', () async {
-    final ids = await matchedHashedIds(const Filter(
-      should: [
-        FieldMatchAny(key: 'lang', values: ['fr', 'de']),
-      ],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(
+        should: [
+          FieldMatchAny(key: 'lang', values: ['fr', 'de']),
+        ],
+      ),
+    );
     expect(ids, hasLength(2));
     expect(ids, contains(PointIdHasher.hash('fr_book_75')));
     expect(ids, contains(PointIdHasher.hash('de_video_300')));
   });
 
   test('mustNot excludes matching docs', () async {
-    final ids = await matchedHashedIds(const Filter(
-      mustNot: [FieldEquals(key: 'lang', value: 'en')],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(
+        mustNot: [FieldEquals(key: 'lang', value: 'en')],
+      ),
+    );
     expect(ids, hasLength(2));
     expect(ids, contains(PointIdHasher.hash('fr_book_75')));
     expect(ids, contains(PointIdHasher.hash('de_video_300')));
@@ -128,28 +137,32 @@ void main() {
 
   test('must + mustNot combines AND + NOT', () async {
     // English docs but exclude audio.
-    final ids = await matchedHashedIds(const Filter(
-      must: [FieldEquals(key: 'lang', value: 'en')],
-      mustNot: [FieldEquals(key: 'type', value: 'audio')],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(
+        must: [FieldEquals(key: 'lang', value: 'en')],
+        mustNot: [FieldEquals(key: 'type', value: 'audio')],
+      ),
+    );
     expect(ids, hasLength(2));
     expect(ids, contains(PointIdHasher.hash('en_book_50')));
     expect(ids, contains(PointIdHasher.hash('en_book_200')));
   });
 
   test('range one-sided (gte only) is honored', () async {
-    final ids = await matchedHashedIds(const Filter(
-      must: [FieldRange(key: 'price', gte: 200.0)],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(must: [FieldRange(key: 'price', gte: 200.0)]),
+    );
     expect(ids, hasLength(2));
     expect(ids, contains(PointIdHasher.hash('en_book_200')));
     expect(ids, contains(PointIdHasher.hash('de_video_300')));
   });
 
   test('non-matching filter narrows to zero hits without error', () async {
-    final ids = await matchedHashedIds(const Filter(
-      must: [FieldEquals(key: 'lang', value: 'xx')],
-    ));
+    final ids = await matchedHashedIds(
+      const Filter(
+        must: [FieldEquals(key: 'lang', value: 'xx')],
+      ),
+    );
     expect(ids, isEmpty);
   });
 }

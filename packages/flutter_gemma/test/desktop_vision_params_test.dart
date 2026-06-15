@@ -27,29 +27,38 @@ void main() {
       expect(true, isTrue);
     });
 
-    test('FlutterGemmaDesktop.createModel passes enableVision to grpcClient', () {
-      // flutter_gemma_desktop.dart line 152:
-      // enableVision: supportImage,
-      //
-      // This test documents that enableVision IS passed
-      expect(true, isTrue);
-    });
+    test(
+      'FlutterGemmaDesktop.createModel passes enableVision to grpcClient',
+      () {
+        // flutter_gemma_desktop.dart line 152:
+        // enableVision: supportImage,
+        //
+        // This test documents that enableVision IS passed
+        expect(true, isTrue);
+      },
+    );
 
-    test('FlutterGemmaDesktop.createModel passes enableAudio to grpcClient', () {
-      // flutter_gemma_desktop.dart line 153:
-      // enableAudio: supportAudio,
-      //
-      // This test documents that enableAudio IS passed
-      expect(true, isTrue);
-    });
+    test(
+      'FlutterGemmaDesktop.createModel passes enableAudio to grpcClient',
+      () {
+        // flutter_gemma_desktop.dart line 153:
+        // enableAudio: supportAudio,
+        //
+        // This test documents that enableAudio IS passed
+        expect(true, isTrue);
+      },
+    );
 
-    test('FlutterGemmaDesktop.createModel passes maxNumImages to grpcClient', () {
-      // flutter_gemma_desktop.dart line 151:
-      // maxNumImages: supportImage ? (maxNumImages ?? 1) : 1,
-      //
-      // FIXED: maxNumImages is now passed to grpcClient.initialize()
-      expect(true, isTrue, reason: 'maxNumImages is passed');
-    });
+    test(
+      'FlutterGemmaDesktop.createModel passes maxNumImages to grpcClient',
+      () {
+        // flutter_gemma_desktop.dart line 151:
+        // maxNumImages: supportImage ? (maxNumImages ?? 1) : 1,
+        //
+        // FIXED: maxNumImages is now passed to grpcClient.initialize()
+        expect(true, isTrue, reason: 'maxNumImages is passed');
+      },
+    );
   });
 
   group('Parameter chain documentation', () {

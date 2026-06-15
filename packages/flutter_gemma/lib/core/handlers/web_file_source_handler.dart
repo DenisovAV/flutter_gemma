@@ -31,19 +31,13 @@ class WebFileSourceHandler implements SourceHandler {
   final WebFileSystemService fileSystem;
   final ModelRepository repository;
 
-  WebFileSourceHandler({
-    required this.fileSystem,
-    required this.repository,
-  });
+  WebFileSourceHandler({required this.fileSystem, required this.repository});
 
   @override
   bool supports(ModelSource source) => source is FileSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     // Web file registration is instant, no cancellation needed
     if (source is! FileSource) {
       throw ArgumentError('WebFileSourceHandler only supports FileSource');

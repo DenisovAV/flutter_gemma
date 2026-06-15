@@ -72,10 +72,10 @@ class FieldEquals extends Condition {
   final Object value;
 
   const FieldEquals({required this.key, required this.value})
-      : assert(
-          value is String || value is num || value is bool,
-          'FieldEquals.value must be String, num, or bool',
-        );
+    : assert(
+        value is String || value is num || value is bool,
+        'FieldEquals.value must be String, num, or bool',
+      );
 }
 
 /// `gte <= metadata[key] <= lte` numeric range. Either bound may be null
@@ -91,18 +91,20 @@ class FieldRange extends Condition {
   final double? lte;
 
   const FieldRange({required this.key, this.gte, this.lte})
-      : assert(
-            gte == null ||
-                gte != double.infinity &&
-                    gte != double.negativeInfinity &&
-                    gte == gte,
-            'FieldRange.gte must be finite'),
-        assert(
-            lte == null ||
-                lte != double.infinity &&
-                    lte != double.negativeInfinity &&
-                    lte == lte,
-            'FieldRange.lte must be finite');
+    : assert(
+        gte == null ||
+            gte != double.infinity &&
+                gte != double.negativeInfinity &&
+                gte == gte,
+        'FieldRange.gte must be finite',
+      ),
+      assert(
+        lte == null ||
+            lte != double.infinity &&
+                lte != double.negativeInfinity &&
+                lte == lte,
+        'FieldRange.lte must be finite',
+      );
 }
 
 /// `metadata[key] in values` set membership. Equivalent to N [FieldEquals]

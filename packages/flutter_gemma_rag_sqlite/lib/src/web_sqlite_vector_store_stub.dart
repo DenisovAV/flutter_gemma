@@ -11,7 +11,8 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   @override
   Future<void> initialize(String databasePath) async {
     throw UnimplementedError(
-        'WebSqliteVectorStore is only available on web; use SqliteVectorStore');
+      'WebSqliteVectorStore is only available on web; use SqliteVectorStore',
+    );
   }
 
   @override
@@ -22,13 +23,15 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     String? metadata,
   }) async {
     throw UnimplementedError(
-        'WebSqliteVectorStore is only available on web; use SqliteVectorStore');
+      'WebSqliteVectorStore is only available on web; use SqliteVectorStore',
+    );
   }
 
   @override
   Future<void> removeDocument({required String id}) async {
     throw UnimplementedError(
-        'WebSqliteVectorStore is only available on web; use SqliteVectorStore');
+      'WebSqliteVectorStore is only available on web; use SqliteVectorStore',
+    );
   }
 
   @override
@@ -39,19 +42,22 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     Filter? filter,
   }) async {
     throw UnimplementedError(
-        'WebSqliteVectorStore is only available on web; use SqliteVectorStore');
+      'WebSqliteVectorStore is only available on web; use SqliteVectorStore',
+    );
   }
 
   @override
   Future<VectorStoreStats> getStats() async {
     throw UnimplementedError(
-        'WebSqliteVectorStore is only available on web; use SqliteVectorStore');
+      'WebSqliteVectorStore is only available on web; use SqliteVectorStore',
+    );
   }
 
   @override
   Future<void> clear() async {
     throw UnimplementedError(
-        'WebSqliteVectorStore is only available on web; use SqliteVectorStore');
+      'WebSqliteVectorStore is only available on web; use SqliteVectorStore',
+    );
   }
 
   @override

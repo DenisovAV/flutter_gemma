@@ -18,8 +18,11 @@ sealed class ModelSource {
   /// - null (default): auto-detect based on file size (>500MB = foreground)
   /// - true: always use foreground (shows notification)
   /// - false: never use foreground
-  factory ModelSource.network(String url,
-      {String? authToken, bool? foreground}) = NetworkSource;
+  factory ModelSource.network(
+    String url, {
+    String? authToken,
+    bool? foreground,
+  }) = NetworkSource;
 
   /// Creates an asset-based source (Flutter assets)
   factory ModelSource.asset(String path) = AssetSource;
@@ -48,11 +51,11 @@ sealed class ModelSource {
   /// network sources will re-request without auth and let the file system
   /// service serve the previously-cached blob instead of re-downloading.
   String encode() => switch (this) {
-        NetworkSource(:final url) => 'network|$url',
-        AssetSource(:final path) => 'asset|$path',
-        BundledSource(:final resourceName) => 'bundled|$resourceName',
-        FileSource(:final path) => 'file|$path',
-      };
+    NetworkSource(:final url) => 'network|$url',
+    AssetSource(:final path) => 'asset|$path',
+    BundledSource(:final resourceName) => 'bundled|$resourceName',
+    FileSource(:final path) => 'file|$path',
+  };
 
   /// Decode the string produced by [encode]. Returns null if the input
   /// is malformed or names an unknown kind (forward-compat).

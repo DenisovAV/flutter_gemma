@@ -87,16 +87,14 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
       // Convert web types to HNSW types
       final hnswDocs = documents
-          .map((doc) => DocumentEmbedding(
-                id: doc.id,
-                embedding: doc.embedding,
-              ))
+          .map((doc) => DocumentEmbedding(id: doc.id, embedding: doc.embedding))
           .toList();
 
       _hnswIndex.rebuild(hnswDocs);
 
       debugPrint(
-          '[WebVectorStore] HNSW index rebuilt with ${documents.length} documents');
+        '[WebVectorStore] HNSW index rebuilt with ${documents.length} documents',
+      );
     } catch (e) {
       // Log but don't fail - fallback to brute-force search
       debugPrint('[WebVectorStore] Warning: Failed to rebuild HNSW index: $e');
@@ -124,8 +122,9 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     }
 
     throw StateError(
-        'SQLiteVectorStore module failed to load after ${maxAttempts * delay.inMilliseconds}ms. '
-        'Add <script type="module" src="sqlite_vector_store.js"></script> to index.html');
+      'SQLiteVectorStore module failed to load after ${maxAttempts * delay.inMilliseconds}ms. '
+      'Add <script type="module" src="sqlite_vector_store.js"></script> to index.html',
+    );
   }
 
   @override
@@ -186,21 +185,24 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
     if (filter != null && !filter.isEmpty) {
       debugPrint(
-          '[WebVectorStore] Filter argument ignored on web (wa-sqlite has no payload filtering); '
-          'pass null filter to silence this log.');
+        '[WebVectorStore] Filter argument ignored on web (wa-sqlite has no payload filtering); '
+        'pass null filter to silence this log.',
+      );
     }
 
     try {
       // Use HNSW if enabled and index has enough documents
       if (enableHnsw && _hnswIndex.count >= _hnswThreshold) {
         debugPrint(
-            '[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)');
+          '[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)',
+        );
         return await _searchWithHnsw(queryEmbedding, topK, threshold);
       }
 
       // Fallback to brute-force for small datasets or when HNSW disabled
       debugPrint(
-          '[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})');
+        '[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})',
+      );
       return await _store!.searchSimilarDart(queryEmbedding, topK, threshold);
     } catch (e) {
       throw VectorStoreException('Search failed', e);
@@ -240,12 +242,14 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     // HNSW already calculated exact similarity, so we use it directly
     return hnswResults
         .where((r) => docMap.containsKey(r.id))
-        .map((r) => RetrievalResult(
-              id: r.id,
-              content: docMap[r.id]!.content,
-              similarity: r.similarity,
-              metadata: docMap[r.id]!.metadata,
-            ))
+        .map(
+          (r) => RetrievalResult(
+            id: r.id,
+            content: docMap[r.id]!.content,
+            similarity: r.similarity,
+            metadata: docMap[r.id]!.metadata,
+          ),
+        )
         .toList();
   }
 

@@ -10,8 +10,10 @@ class SqliteVectorStore implements VectorStoreRepository {
   bool enableHnsw = true;
 
   @override
-  Future<void> initialize(String databasePath) async => throw UnimplementedError(
-      'SqliteVectorStore is not available on web; use WebSqliteVectorStore');
+  Future<void> initialize(String databasePath) async =>
+      throw UnimplementedError(
+        'SqliteVectorStore is not available on web; use WebSqliteVectorStore',
+      );
 
   @override
   Future<void> addDocument({
@@ -19,14 +21,15 @@ class SqliteVectorStore implements VectorStoreRepository {
     required String content,
     required List<double> embedding,
     String? metadata,
-  }) async =>
-      throw UnimplementedError(
-          'SqliteVectorStore is not available on web; use WebSqliteVectorStore');
+  }) async => throw UnimplementedError(
+    'SqliteVectorStore is not available on web; use WebSqliteVectorStore',
+  );
 
   @override
   Future<void> removeDocument({required String id}) async =>
       throw UnimplementedError(
-          'SqliteVectorStore is not available on web; use WebSqliteVectorStore');
+        'SqliteVectorStore is not available on web; use WebSqliteVectorStore',
+      );
 
   @override
   Future<List<RetrievalResult>> searchSimilar({
@@ -34,17 +37,19 @@ class SqliteVectorStore implements VectorStoreRepository {
     required int topK,
     double threshold = 0.0,
     Filter? filter,
-  }) async =>
-      throw UnimplementedError(
-          'SqliteVectorStore is not available on web; use WebSqliteVectorStore');
+  }) async => throw UnimplementedError(
+    'SqliteVectorStore is not available on web; use WebSqliteVectorStore',
+  );
 
   @override
   Future<VectorStoreStats> getStats() async => throw UnimplementedError(
-      'SqliteVectorStore is not available on web; use WebSqliteVectorStore');
+    'SqliteVectorStore is not available on web; use WebSqliteVectorStore',
+  );
 
   @override
   Future<void> clear() async => throw UnimplementedError(
-      'SqliteVectorStore is not available on web; use WebSqliteVectorStore');
+    'SqliteVectorStore is not available on web; use WebSqliteVectorStore',
+  );
 
   @override
   Future<void> close() async {}

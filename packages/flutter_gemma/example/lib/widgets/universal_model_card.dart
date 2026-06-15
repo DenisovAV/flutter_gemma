@@ -23,7 +23,8 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
     super.initState();
     // Set default backend for inference models
     if (widget.model is InferenceModelInterface) {
-      selectedBackend = (widget.model as InferenceModelInterface).preferredBackend;
+      selectedBackend =
+          (widget.model as InferenceModelInterface).preferredBackend;
     } else {
       selectedBackend = PreferredBackend.cpu; // Default for embedding models
     }
@@ -60,10 +61,7 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                 if (supportsBothBackends) ...[
                   Row(
                     children: [
-                      const Text(
-                        'Backend: ',
-                        style: TextStyle(fontSize: 14.0),
-                      ),
+                      const Text('Backend: ', style: TextStyle(fontSize: 14.0)),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8.0),
                         decoration: BoxDecoration(
@@ -77,11 +75,17 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                             items: const [
                               DropdownMenuItem(
                                 value: PreferredBackend.cpu,
-                                child: Text('CPU', style: TextStyle(fontSize: 14.0)),
+                                child: Text(
+                                  'CPU',
+                                  style: TextStyle(fontSize: 14.0),
+                                ),
                               ),
                               DropdownMenuItem(
                                 value: PreferredBackend.gpu,
-                                child: Text('GPU', style: TextStyle(fontSize: 14.0)),
+                                child: Text(
+                                  'GPU',
+                                  style: TextStyle(fontSize: 14.0),
+                                ),
                               ),
                             ],
                             onChanged: (PreferredBackend? newValue) {
@@ -146,16 +150,15 @@ class _UniversalModelCardState extends State<UniversalModelCard> {
                     // Show capabilities for inference models
                     if (widget.model is InferenceModelInterface) ...[
                       const SizedBox(width: 8.0),
-                      ..._buildCapabilityChips(widget.model as InferenceModelInterface),
+                      ..._buildCapabilityChips(
+                        widget.model as InferenceModelInterface,
+                      ),
                     ],
                   ],
                 ),
               ],
             ),
-            trailing: Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.grey[400],
-            ),
+            trailing: Icon(Icons.arrow_forward_ios, color: Colors.grey[400]),
             onTap: () {
               _navigateToScreen(context);
             },

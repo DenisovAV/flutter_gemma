@@ -22,43 +22,49 @@ const _modelName = 'translategemma-4b-it-int4-generic.litertlm';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('TranslateGemma 4B int4 — GPU engine_create + one translation',
-      (_) async {
-    await registerTestEngines();
+  testWidgets(
+    'TranslateGemma 4B int4 — GPU engine_create + one translation',
+    (_) async {
+      await registerTestEngines();
 
-    final docs = await getApplicationDocumentsDirectory();
-    final modelPath = '${docs.path}/$_modelName';
-    expect(File(modelPath).existsSync(), isTrue,
-        reason: 'pre-stage $_modelName in $docs');
-
-    await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromFile(modelPath).install();
-
-    final model = await FlutterGemma.getActiveModel(
-      maxTokens: 1024,
-      preferredBackend: PreferredBackend.gpu,
-    );
-
-    try {
-      final runner = TranslateRunner(
-        model: model,
-        strategy: const TranslateGemmaXmlPromptStrategy(),
+      final docs = await getApplicationDocumentsDirectory();
+      final modelPath = '${docs.path}/$_modelName';
+      expect(
+        File(modelPath).existsSync(),
+        isTrue,
+        reason: 'pre-stage $_modelName in $docs',
       );
 
-      final sw = Stopwatch()..start();
-      final fr = await runner.translate(
-        text: 'Hello world',
-        src: 'en',
-        dst: 'fr',
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(modelPath).install();
+
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        preferredBackend: PreferredBackend.gpu,
       );
-      sw.stop();
-      print('[GPU probe] en→fr in ${sw.elapsedMilliseconds}ms: "$fr"');
-      expect(fr.trim(), isNotEmpty);
-      expect(fr.toLowerCase(), contains('bonjour'));
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 8)));
+
+      try {
+        final runner = TranslateRunner(
+          model: model,
+          strategy: const TranslateGemmaXmlPromptStrategy(),
+        );
+
+        final sw = Stopwatch()..start();
+        final fr = await runner.translate(
+          text: 'Hello world',
+          src: 'en',
+          dst: 'fr',
+        );
+        sw.stop();
+        print('[GPU probe] en→fr in ${sw.elapsedMilliseconds}ms: "$fr"');
+        expect(fr.trim(), isNotEmpty);
+        expect(fr.toLowerCase(), contains('bonjour'));
+      } finally {
+        await model.close();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 8)),
+  );
 }

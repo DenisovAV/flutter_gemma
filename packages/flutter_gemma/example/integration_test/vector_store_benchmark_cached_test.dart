@@ -51,27 +51,31 @@ class _LatencyStats {
   }
 
   Map<String, int> toJson() => {
-        'p50_us': p50,
-        'p95_us': p95,
-        'p99_us': p99,
-        'count': samplesUs.length,
-      };
+    'p50_us': p50,
+    'p95_us': p95,
+    'p99_us': p99,
+    'count': samplesUs.length,
+  };
 }
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(hours: 1));
 
-  testWidgets('qdrant + Dart HNSW benchmark using cached embeddings',
-      (WidgetTester tester) async {
+  testWidgets('qdrant + Dart HNSW benchmark using cached embeddings', (
+    WidgetTester tester,
+  ) async {
     await tester.runAsync(() async {
       // 1. Load cached embeddings.
       final base = await getApplicationSupportDirectory();
       final cacheFile = File(
-          '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json');
+        '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json',
+      );
       if (!cacheFile.existsSync()) {
-        fail('Cache file missing: ${cacheFile.path}\n'
-            'Run embedding_cache_builder_test.dart first to populate it.');
+        fail(
+          'Cache file missing: ${cacheFile.path}\n'
+          'Run embedding_cache_builder_test.dart first to populate it.',
+        );
       }
       final raw =
           jsonDecode(cacheFile.readAsStringSync()) as Map<String, dynamic>;
@@ -79,8 +83,10 @@ void main() {
           .map((v) => (v as List).cast<num>().map((e) => e.toDouble()).toList())
           .toList();
       // ignore: avoid_print
-      print('[bench] loaded ${vectors.length} cached vectors '
-          '(dim=${vectors.first.length}) from ${cacheFile.path}');
+      print(
+        '[bench] loaded ${vectors.length} cached vectors '
+        '(dim=${vectors.first.length}) from ${cacheFile.path}',
+      );
       expect(vectors.length, equals(_totalDocs));
       expect(vectors.first.length, equals(_expectedDim));
 
@@ -94,9 +100,12 @@ void main() {
 
         // ---------- qdrant ----------
         final qdrantShardDir = Directory(
-            '${base.path}/qdrant_bench_cached_${size}_${DateTime.now().microsecondsSinceEpoch}');
+          '${base.path}/qdrant_bench_cached_${size}_${DateTime.now().microsecondsSinceEpoch}',
+        );
         final qdrantClient = await QdrantEdgeClient.open(
-            path: qdrantShardDir.path, dim: _expectedDim);
+          path: qdrantShardDir.path,
+          dim: _expectedDim,
+        );
 
         final qdrantUpsertSw = Stopwatch()..start();
         const chunkSize = 500;
@@ -115,8 +124,10 @@ void main() {
         final qdrantUpsertSec = qdrantUpsertSw.elapsedMicroseconds / 1e6;
         final qdrantUpsertRate = size / qdrantUpsertSec;
         // ignore: avoid_print
-        print('[bench] qdrant upsert: ${qdrantUpsertSec.toStringAsFixed(2)}s, '
-            '${qdrantUpsertRate.toStringAsFixed(0)} points/sec');
+        print(
+          '[bench] qdrant upsert: ${qdrantUpsertSec.toStringAsFixed(2)}s, '
+          '${qdrantUpsertRate.toStringAsFixed(0)} points/sec',
+        );
 
         final qdrantSearchSamples = <int>[];
         for (var i = 0; i < _searchSamples; i++) {
@@ -129,25 +140,34 @@ void main() {
         final qdrantSearch = _LatencyStats(qdrantSearchSamples);
 
         final qdrantFilterSamples = <int>[];
-        final filterJson = FilterCodec.encode(const Filter(
-          must: [FieldEquals(key: 'category', value: 'science')],
-        ));
+        final filterJson = FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'category', value: 'science')],
+          ),
+        );
         for (var i = 0; i < _searchSamples; i++) {
           final q = vectors[rng.nextInt(size)];
           final s = Stopwatch()..start();
           await qdrantClient.search(
-              queryVector: q, topK: 10, filterJson: filterJson);
+            queryVector: q,
+            topK: 10,
+            filterJson: filterJson,
+          );
           s.stop();
           qdrantFilterSamples.add(s.elapsedMicroseconds);
         }
         final qdrantFilter = _LatencyStats(qdrantFilterSamples);
 
         // ignore: avoid_print
-        print('[bench] qdrant search: p50=${qdrantSearch.p50}us '
-            'p95=${qdrantSearch.p95}us p99=${qdrantSearch.p99}us');
+        print(
+          '[bench] qdrant search: p50=${qdrantSearch.p50}us '
+          'p95=${qdrantSearch.p95}us p99=${qdrantSearch.p99}us',
+        );
         // ignore: avoid_print
-        print('[bench] qdrant filter: p50=${qdrantFilter.p50}us '
-            'p95=${qdrantFilter.p95}us p99=${qdrantFilter.p99}us');
+        print(
+          '[bench] qdrant filter: p50=${qdrantFilter.p50}us '
+          'p95=${qdrantFilter.p95}us p99=${qdrantFilter.p99}us',
+        );
 
         await qdrantClient.close();
         if (qdrantShardDir.existsSync()) {
@@ -173,8 +193,10 @@ void main() {
         final dartUpsertSec = dartUpsertSw.elapsedMicroseconds / 1e6;
         final dartUpsertRate = size / dartUpsertSec;
         // ignore: avoid_print
-        print('[bench] dart   upsert: ${dartUpsertSec.toStringAsFixed(2)}s, '
-            '${dartUpsertRate.toStringAsFixed(0)} points/sec');
+        print(
+          '[bench] dart   upsert: ${dartUpsertSec.toStringAsFixed(2)}s, '
+          '${dartUpsertRate.toStringAsFixed(0)} points/sec',
+        );
 
         final dartSearchSamples = <int>[];
         for (var i = 0; i < _searchSamples; i++) {
@@ -187,8 +209,10 @@ void main() {
         final dartSearch = _LatencyStats(dartSearchSamples);
 
         // ignore: avoid_print
-        print('[bench] dart   search: p50=${dartSearch.p50}us '
-            'p95=${dartSearch.p95}us p99=${dartSearch.p99}us');
+        print(
+          '[bench] dart   search: p50=${dartSearch.p50}us '
+          'p95=${dartSearch.p95}us p99=${dartSearch.p99}us',
+        );
 
         await dartRepo.close();
         final dartDbFile = File(dartDbPath);
@@ -217,17 +241,20 @@ void main() {
 
       final corpusAvg = raw['corpus_chars_per_doc_avg'];
       final out = File(
-          '${base.path}/qdrant_bench_cached_${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch}.json');
-      out.writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
-        'platform': Platform.operatingSystem,
-        'os_version': Platform.operatingSystemVersion,
-        'embedding_dim': _expectedDim,
-        'corpus_chars_per_doc_avg': corpusAvg,
-        'embedding_source':
-            'EmbeddingGemma 300M (cached, seed=42, lorem chunks 30-79 words)',
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
-        'results': results,
-      }));
+        '${base.path}/qdrant_bench_cached_${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch}.json',
+      );
+      out.writeAsStringSync(
+        const JsonEncoder.withIndent('  ').convert({
+          'platform': Platform.operatingSystem,
+          'os_version': Platform.operatingSystemVersion,
+          'embedding_dim': _expectedDim,
+          'corpus_chars_per_doc_avg': corpusAvg,
+          'embedding_source':
+              'EmbeddingGemma 300M (cached, seed=42, lorem chunks 30-79 words)',
+          'timestamp': DateTime.now().toUtc().toIso8601String(),
+          'results': results,
+        }),
+      );
       // ignore: avoid_print
       print('[bench] results written: ${out.path}');
     });

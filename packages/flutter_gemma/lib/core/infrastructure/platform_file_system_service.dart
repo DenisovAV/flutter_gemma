@@ -93,8 +93,10 @@ class PlatformFileSystemService implements FileSystemService {
       final legacyPath = path.join(legacy.path, filename);
       if (await File(legacyPath).exists()) {
         if (_legacyFallbackLogged.add(legacyPath)) {
-          gemmaLog('[flutter_gemma] Reading model from legacy Documents path; '
-              'consider re-installing to migrate: $legacyPath');
+          gemmaLog(
+            '[flutter_gemma] Reading model from legacy Documents path; '
+            'consider re-installing to migrate: $legacyPath',
+          );
         }
         return legacyPath;
       }
@@ -103,7 +105,8 @@ class PlatformFileSystemService implements FileSystemService {
   }
 
   @Deprecated(
-      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
+    'Use getReadTargetPath for reads or getWriteTargetPath for writes',
+  )
   @override
   Future<String> getTargetPath(String filename) => getReadTargetPath(filename);
 
@@ -134,13 +137,10 @@ class PlatformFileSystemService implements FileSystemService {
 
       // Copy from native assets via platform channel
       const platform = MethodChannel('flutter_gemma_bundled');
-      final result = await platform.invokeMethod<String>(
-        'copyAssetToFile',
-        {
-          'assetPath': 'models/$resourceName',
-          'destPath': destPath,
-        },
-      );
+      final result = await platform.invokeMethod<String>('copyAssetToFile', {
+        'assetPath': 'models/$resourceName',
+        'destPath': destPath,
+      });
 
       if (result == null || result != 'success') {
         throw Exception('Failed to copy asset from Android assets');
@@ -163,13 +163,16 @@ class PlatformFileSystemService implements FileSystemService {
       return bundlePath;
     } else {
       throw UnsupportedError(
-          'Bundled resources not supported on ${Platform.operatingSystem}');
+        'Bundled resources not supported on ${Platform.operatingSystem}',
+      );
     }
   }
 
   @override
   Future<void> registerExternalFile(
-      String filename, String externalPath) async {
+    String filename,
+    String externalPath,
+  ) async {
     // External file registration is handled by ProtectedFilesRegistry
     // This method is a no-op here since file system doesn't track registrations
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()
@@ -222,10 +225,12 @@ class PlatformFileSystemService implements FileSystemService {
         base = Directory(local);
       } else {
         if (local != null && local.isNotEmpty) {
-          gemmaLog('[flutter_gemma] LOCALAPPDATA is not absolute '
-              '("$local") — falling back to USERPROFILE / Application '
-              'Support. Models would otherwise land in a \$PWD-relative '
-              'directory.');
+          gemmaLog(
+            '[flutter_gemma] LOCALAPPDATA is not absolute '
+            '("$local") — falling back to USERPROFILE / Application '
+            'Support. Models would otherwise land in a \$PWD-relative '
+            'directory.',
+          );
         }
         final userProfile = Platform.environment['USERPROFILE'];
         if (userProfile != null &&

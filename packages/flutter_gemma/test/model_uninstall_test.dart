@@ -49,7 +49,9 @@ class MockFileSystemService implements FileSystemService {
 
   @override
   Future<void> registerExternalFile(
-      String filename, String externalPath) async {
+    String filename,
+    String externalPath,
+  ) async {
     _externalPaths[filename] = externalPath;
   }
 
@@ -179,7 +181,9 @@ class MockProtectedFilesRegistry implements ProtectedFilesRegistry {
 
   @override
   Future<void> registerExternalPath(
-      String filename, String externalPath) async {
+    String filename,
+    String externalPath,
+  ) async {
     _externalPaths[filename] = externalPath;
   }
 
@@ -235,10 +239,16 @@ void main() {
       await mockFS.deleteFile(modelPath);
 
       // Assert
-      expect(mockRepo.hasModel(modelId), isFalse,
-          reason: 'Metadata should be deleted');
-      expect(mockFS.hasFile(modelPath), isFalse,
-          reason: 'File should be deleted');
+      expect(
+        mockRepo.hasModel(modelId),
+        isFalse,
+        reason: 'Metadata should be deleted',
+      );
+      expect(
+        mockFS.hasFile(modelPath),
+        isFalse,
+        reason: 'File should be deleted',
+      );
       expect(mockRepo.deleteModelCalled, isTrue);
       expect(mockFS.deleteFileCalled, isTrue);
     });
@@ -266,10 +276,16 @@ void main() {
 
       // Assert - demonstrates the bug
       expect(mockFS.hasFile(modelPath), isFalse, reason: 'File was deleted');
-      expect(mockRepo.hasModel(modelId), isTrue,
-          reason: 'BUG: Metadata still exists after file deletion');
-      expect(await mockRepo.isInstalled(modelId), isTrue,
-          reason: 'BUG: isInstalled returns true even though file is gone');
+      expect(
+        mockRepo.hasModel(modelId),
+        isTrue,
+        reason: 'BUG: Metadata still exists after file deletion',
+      );
+      expect(
+        await mockRepo.isInstalled(modelId),
+        isTrue,
+        reason: 'BUG: isInstalled returns true even though file is gone',
+      );
     });
 
     test('isInstalled returns false after proper uninstall', () async {
@@ -322,10 +338,16 @@ void main() {
       }
 
       // Assert
-      expect(mockRepo.hasModel(modelId), isFalse,
-          reason: 'Metadata should be deleted');
-      expect(mockFS.hasFile(externalPath), isTrue,
-          reason: 'External file should NOT be deleted');
+      expect(
+        mockRepo.hasModel(modelId),
+        isFalse,
+        reason: 'Metadata should be deleted',
+      );
+      expect(
+        mockFS.hasFile(externalPath),
+        isTrue,
+        reason: 'External file should NOT be deleted',
+      );
     });
 
     test('model can be reinstalled after uninstall', () async {
@@ -400,41 +422,55 @@ void main() {
       await mockFS.deleteFile(modelPath);
 
       // Assert - both metadata AND file should be gone
-      expect(await mockRepo.isInstalled(modelId), isFalse,
-          reason: 'isInstalled should return false after uninstall');
-      expect(mockRepo.hasModel(modelId), isFalse,
-          reason: 'Metadata should be deleted');
-      expect(mockFS.hasFile(modelPath), isFalse,
-          reason: 'File should be deleted');
-    });
-
-    test('metadata persistence causes false positive on isInstalled (the bug)',
-        () async {
-      // This test demonstrates the bug behavior BEFORE the fix
-      // If only file is deleted but metadata remains, isInstalled returns true
-
-      // Arrange
-      const modelId = 'test-model.task';
-
-      final modelInfo = ModelInfo(
-        id: modelId,
-        source: ModelSource.network('https://example.com/$modelId'),
-        installedAt: DateTime.now(),
-        sizeBytes: 1024,
-        type: ModelType.inference,
-        hasLoraWeights: false,
+      expect(
+        await mockRepo.isInstalled(modelId),
+        isFalse,
+        reason: 'isInstalled should return false after uninstall',
       );
-      await mockRepo.saveModel(modelInfo);
-      // Note: file is NOT created, simulating deleted file with remaining metadata
-
-      // This is the bug: metadata says installed, but file doesn't exist
-      // isModelInstalled checks metadata, not file existence
-      expect(await mockRepo.isInstalled(modelId), isTrue,
-          reason: 'BUG: isInstalled returns true when metadata exists');
-
-      // After proper uninstall (metadata + file), both should be false
-      await mockRepo.deleteModel(modelId);
-      expect(await mockRepo.isInstalled(modelId), isFalse);
+      expect(
+        mockRepo.hasModel(modelId),
+        isFalse,
+        reason: 'Metadata should be deleted',
+      );
+      expect(
+        mockFS.hasFile(modelPath),
+        isFalse,
+        reason: 'File should be deleted',
+      );
     });
+
+    test(
+      'metadata persistence causes false positive on isInstalled (the bug)',
+      () async {
+        // This test demonstrates the bug behavior BEFORE the fix
+        // If only file is deleted but metadata remains, isInstalled returns true
+
+        // Arrange
+        const modelId = 'test-model.task';
+
+        final modelInfo = ModelInfo(
+          id: modelId,
+          source: ModelSource.network('https://example.com/$modelId'),
+          installedAt: DateTime.now(),
+          sizeBytes: 1024,
+          type: ModelType.inference,
+          hasLoraWeights: false,
+        );
+        await mockRepo.saveModel(modelInfo);
+        // Note: file is NOT created, simulating deleted file with remaining metadata
+
+        // This is the bug: metadata says installed, but file doesn't exist
+        // isModelInstalled checks metadata, not file existence
+        expect(
+          await mockRepo.isInstalled(modelId),
+          isTrue,
+          reason: 'BUG: isInstalled returns true when metadata exists',
+        );
+
+        // After proper uninstall (metadata + file), both should be false
+        await mockRepo.deleteModel(modelId);
+        expect(await mockRepo.isInstalled(modelId), isFalse);
+      },
+    );
   });
 }

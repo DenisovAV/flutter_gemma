@@ -39,8 +39,14 @@ void main() {
       final embedding = await embedder.generateEmbedding(phrase);
       final dim = embedding.length;
 
-      final first10 = embedding.take(10).map((v) => v.toStringAsFixed(6)).join(', ');
-      final last5 = embedding.skip(dim - 5).map((v) => v.toStringAsFixed(6)).join(', ');
+      final first10 = embedding
+          .take(10)
+          .map((v) => v.toStringAsFixed(6))
+          .join(', ');
+      final last5 = embedding
+          .skip(dim - 5)
+          .map((v) => v.toStringAsFixed(6))
+          .join(', ');
 
       double norm = 0;
       for (final v in embedding) {
@@ -72,9 +78,15 @@ void main() {
 
     print('');
     print('=== Cosine similarities ===');
-    print('[$platform] "Hello world" vs "The cat sat on the mat": ${cosine(emb1, emb2).toStringAsFixed(6)}');
-    print('[$platform] "Hello world" vs "Machine learning": ${cosine(emb1, emb3).toStringAsFixed(6)}');
-    print('[$platform] "The cat" vs "Machine learning": ${cosine(emb2, emb3).toStringAsFixed(6)}');
+    print(
+      '[$platform] "Hello world" vs "The cat sat on the mat": ${cosine(emb1, emb2).toStringAsFixed(6)}',
+    );
+    print(
+      '[$platform] "Hello world" vs "Machine learning": ${cosine(emb1, emb3).toStringAsFixed(6)}',
+    );
+    print(
+      '[$platform] "The cat" vs "Machine learning": ${cosine(emb2, emb3).toStringAsFixed(6)}',
+    );
 
     await embedder.close();
   });

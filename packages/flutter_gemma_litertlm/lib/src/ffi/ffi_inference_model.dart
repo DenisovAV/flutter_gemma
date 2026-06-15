@@ -56,10 +56,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
   InferenceModelSession? get session => _session;
 
   @override
-  List<InferenceModelSession> get sessions => List.unmodifiable([
-        if (_session != null) _session!,
-        ..._openSessions,
-      ]);
+  List<InferenceModelSession> get sessions =>
+      List.unmodifiable([if (_session != null) _session!, ..._openSessions]);
 
   @override
   Future<InferenceModelSession> createSession({
@@ -76,7 +74,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
 
     if (loraPath != null) {
@@ -131,7 +130,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         seed: randomSeed,
       );
       gemmaLog(
-          '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms');
+        '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms',
+      );
 
       late final FfiInferenceModelSession session;
       session = FfiInferenceModelSession(
@@ -152,7 +152,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
 
       completer.complete(session);
       gemmaLog(
-          '[FfiInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms');
+        '[FfiInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms',
+      );
     } catch (e, st) {
       completer.completeError(e, st);
     } finally {
@@ -183,7 +184,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
     if (loraPath != null) {
       throw UnsupportedError(
@@ -255,7 +257,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -359,8 +362,10 @@ class FfiInferenceModelSession extends InferenceModelSession
   @override
   Future<void> addQueryChunk(Message message) async {
     _assertNotClosed();
-    final prompt =
-        message.transformToChatPrompt(type: modelType, fileType: fileType);
+    final prompt = message.transformToChatPrompt(
+      type: modelType,
+      fileType: fileType,
+    );
     _queryBuffer.write(prompt);
 
     if (message.hasImage && supportImage) {
@@ -384,8 +389,9 @@ class FfiInferenceModelSession extends InferenceModelSession
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
     final audio = _pendingAudio;
-    final images =
-        _pendingImages.isNotEmpty ? List<Uint8List>.from(_pendingImages) : null;
+    final images = _pendingImages.isNotEmpty
+        ? List<Uint8List>.from(_pendingImages)
+        : null;
     _pendingAudio = null;
     _pendingImages.clear();
 
@@ -408,7 +414,8 @@ class FfiInferenceModelSession extends InferenceModelSession
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
           gemmaLog(
-              '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms');
+            '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms',
+          );
         }
         chunkCount++;
         rawBuffer.write(rawChunk);
@@ -430,7 +437,8 @@ class FfiInferenceModelSession extends InferenceModelSession
       if (firstChunkMs == null) {
         firstChunkMs = genSw.elapsedMilliseconds;
         gemmaLog(
-            '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms');
+          '[FfiInferenceModelSession/perf] time-to-first-chunk (prefill): ${firstChunkMs}ms',
+        );
       }
       chunkCount++;
       buffer.write(chunk);
@@ -443,16 +451,19 @@ class FfiInferenceModelSession extends InferenceModelSession
     final total = sw.elapsedMilliseconds;
     if (firstChunkMs == null || chunks == 0) {
       gemmaLog(
-          '[FfiInferenceModelSession/perf] generation total: ${total}ms (no chunks emitted)');
+        '[FfiInferenceModelSession/perf] generation total: ${total}ms (no chunks emitted)',
+      );
       return;
     }
     final decodeMs = total - firstChunkMs;
     final decodeRate = chunks > 1 && decodeMs > 0
         ? ((chunks - 1) * 1000.0 / decodeMs).toStringAsFixed(1)
         : 'n/a';
-    gemmaLog('[FfiInferenceModelSession/perf] generation total: ${total}ms '
-        '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks, '
-        '~$decodeRate chunks/sec)');
+    gemmaLog(
+      '[FfiInferenceModelSession/perf] generation total: ${total}ms '
+      '(prefill ${firstChunkMs}ms + decode ${decodeMs}ms over $chunks chunks, '
+      '~$decodeRate chunks/sec)',
+    );
   }
 
   @override
@@ -461,8 +472,9 @@ class FfiInferenceModelSession extends InferenceModelSession
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
     final audio = _pendingAudio;
-    final images =
-        _pendingImages.isNotEmpty ? List<Uint8List>.from(_pendingImages) : null;
+    final images = _pendingImages.isNotEmpty
+        ? List<Uint8List>.from(_pendingImages)
+        : null;
     _pendingAudio = null;
     _pendingImages.clear();
 
@@ -481,7 +493,8 @@ class FfiInferenceModelSession extends InferenceModelSession
         if (firstChunkMs == null) {
           firstChunkMs = genSw.elapsedMilliseconds;
           gemmaLog(
-              '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms');
+            '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms',
+          );
         }
         chunkCount++;
         rawBuffer.write(rawChunk);
@@ -502,7 +515,8 @@ class FfiInferenceModelSession extends InferenceModelSession
       if (firstChunkMs == null) {
         firstChunkMs = genSw.elapsedMilliseconds;
         gemmaLog(
-            '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms');
+          '[FfiInferenceModelSession/perf] (async) time-to-first-chunk (prefill): ${firstChunkMs}ms',
+        );
       }
       chunkCount++;
       yield chunk;

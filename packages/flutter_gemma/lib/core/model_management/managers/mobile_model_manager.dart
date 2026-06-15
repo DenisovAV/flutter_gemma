@@ -26,7 +26,8 @@ class MobileModelManager extends ModelFileManager {
       // with no active model; the user can re-install/select. (#314 follow-up)
       // Include the stack trace so an unexpected restore bug stays diagnosable.
       gemmaLog(
-          'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st');
+        'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st',
+      );
     }
   }
 
@@ -38,10 +39,12 @@ class MobileModelManager extends ModelFileManager {
   /// callers had to re-invoke `installModel()` every launch.
   Future<void> _restoreActiveInferenceModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final modelTypeName =
-        prefs.getString(PreferencesKeys.activeInferenceModelType);
-    final fileTypeName =
-        prefs.getString(PreferencesKeys.activeInferenceFileType);
+    final modelTypeName = prefs.getString(
+      PreferencesKeys.activeInferenceModelType,
+    );
+    final fileTypeName = prefs.getString(
+      PreferencesKeys.activeInferenceFileType,
+    );
     final filename = prefs.getString(PreferencesKeys.activeInferenceFilename);
 
     if (modelTypeName == null || fileTypeName == null || filename == null) {
@@ -55,7 +58,8 @@ class MobileModelManager extends ModelFileManager {
       fileType = ModelFileType.values.byName(fileTypeName);
     } catch (e) {
       gemmaLog(
-          '[ModelManager] active model restore: unknown enum value ($modelTypeName / $fileTypeName) — skipping');
+        '[ModelManager] active model restore: unknown enum value ($modelTypeName / $fileTypeName) — skipping',
+      );
       return;
     }
 
@@ -63,7 +67,8 @@ class MobileModelManager extends ModelFileManager {
         .getTargetPath(filename);
     if (!File(filePath).existsSync()) {
       gemmaLog(
-          '[ModelManager] active model restore: file $filePath missing — skipping');
+        '[ModelManager] active model restore: file $filePath missing — skipping',
+      );
       return;
     }
 
@@ -80,10 +85,12 @@ class MobileModelManager extends ModelFileManager {
   /// (model + tokenizer).
   Future<void> _restoreActiveEmbeddingModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final modelFilename =
-        prefs.getString(PreferencesKeys.activeEmbeddingFilename);
-    final tokenizerFilename =
-        prefs.getString(PreferencesKeys.activeEmbeddingTokenizerFilename);
+    final modelFilename = prefs.getString(
+      PreferencesKeys.activeEmbeddingFilename,
+    );
+    final tokenizerFilename = prefs.getString(
+      PreferencesKeys.activeEmbeddingTokenizerFilename,
+    );
 
     if (modelFilename == null || tokenizerFilename == null) {
       return;
@@ -94,7 +101,8 @@ class MobileModelManager extends ModelFileManager {
     final tokenizerPath = await fs.getTargetPath(tokenizerFilename);
     if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
       gemmaLog(
-          '[ModelManager] active embedding restore: file missing — skipping');
+        '[ModelManager] active embedding restore: file missing — skipping',
+      );
       return;
     }
 
@@ -117,7 +125,8 @@ class MobileModelManager extends ModelFileManager {
       gemmaLog('UnifiedModelManager: Model ${spec.name} is ready');
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e');
+        'UnifiedModelManager: Failed to ensure model ready - ${spec.name}: $e',
+      );
       rethrow;
     }
   }
@@ -154,7 +163,8 @@ class MobileModelManager extends ModelFileManager {
 
     for (final file in spec.files) {
       gemmaLog(
-          '🔀 Routing file: ${file.filename}, source type: ${file.source.runtimeType}');
+        '🔀 Routing file: ${file.filename}, source type: ${file.source.runtimeType}',
+      );
 
       try {
         final handler = handlerRegistry.getHandler(file.source);
@@ -169,7 +179,8 @@ class MobileModelManager extends ModelFileManager {
 
         await handler.install(file.source);
         gemmaLog(
-            '✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}');
+          '✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}',
+        );
       } catch (e) {
         throw ModelStorageException(
           'Failed to install file ${file.filename} via Modern handler',
@@ -185,7 +196,8 @@ class MobileModelManager extends ModelFileManager {
     // If replace policy, clean up ALL models of this type before installing new one
     if (spec.replacePolicy == ModelReplacePolicy.replace) {
       gemmaLog(
-          'Policy-based replacement: cleaning up ALL ${spec.type.name} models');
+        'Policy-based replacement: cleaning up ALL ${spec.type.name} models',
+      );
 
       // Delete all installed models of this type from ModelRepository
       final installedFiles = await getInstalledModels(spec.type);
@@ -286,12 +298,15 @@ class MobileModelManager extends ModelFileManager {
 
   /// Downloads a model with progress tracking
   @override
-  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec,
-      {String? token}) async* {
+  Stream<DownloadProgress> downloadModelWithProgress(
+    ModelSpec spec, {
+    String? token,
+  }) async* {
     await _ensureInitialized();
 
     gemmaLog(
-        'UnifiedModelManager: Starting download with progress - ${spec.name}');
+      'UnifiedModelManager: Starting download with progress - ${spec.name}',
+    );
 
     try {
       yield* _downloadModelWithProgress(spec, token: token);
@@ -306,15 +321,18 @@ class MobileModelManager extends ModelFileManager {
   }
 
   /// Internal implementation of download with progress
-  Stream<DownloadProgress> _downloadModelWithProgress(ModelSpec spec,
-      {String? token}) async* {
+  Stream<DownloadProgress> _downloadModelWithProgress(
+    ModelSpec spec, {
+    String? token,
+  }) async* {
     try {
       final totalFiles = spec.files.length;
 
       for (int i = 0; i < spec.files.length; i++) {
         final file = spec.files[i];
-        final filePath =
-            await ModelFileSystemManager.getModelFilePath(file.filename);
+        final filePath = await ModelFileSystemManager.getModelFilePath(
+          file.filename,
+        );
 
         // Emit progress for current file start
         yield DownloadProgress(
@@ -340,8 +358,10 @@ class MobileModelManager extends ModelFileManager {
 
         // Validate downloaded file
         final minSize = ModelFileSystemManager.getMinimumSize(file.extension);
-        if (!await ModelFileSystemManager.isFileValid(filePath,
-            minSizeBytes: minSize)) {
+        if (!await ModelFileSystemManager.isFileValid(
+          filePath,
+          minSizeBytes: minSize,
+        )) {
           throw ModelValidationException(
             'Downloaded file failed validation: ${file.filename}',
             null,
@@ -383,14 +403,16 @@ class MobileModelManager extends ModelFileManager {
     // Delegate to ServiceRegistry handler
     if (source is! NetworkSource) {
       throw ModelStorageException(
-          'Cannot download from ${source.runtimeType}, only NetworkSource supported',
-          null,
-          '_downloadSingleFileWithProgress');
+        'Cannot download from ${source.runtimeType}, only NetworkSource supported',
+        null,
+        '_downloadSingleFileWithProgress',
+      );
     }
 
     // Create new NetworkSource with token if provided
-    final networkSource =
-        token != null ? NetworkSource(source.url, authToken: token) : source;
+    final networkSource = token != null
+        ? NetworkSource(source.url, authToken: token)
+        : source;
 
     final registry = ServiceRegistry.instance;
     final handler = registry.networkHandler;
@@ -433,7 +455,8 @@ class MobileModelManager extends ModelFileManager {
       return result;
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to check if model installed - ${spec.name}: $e');
+        'UnifiedModelManager: Failed to check if model installed - ${spec.name}: $e',
+      );
       return false;
     }
   }
@@ -474,7 +497,8 @@ class MobileModelManager extends ModelFileManager {
       gemmaLog('UnifiedModelManager: Model deleted - ${spec.name}');
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to delete model - ${spec.name}: $e');
+        'UnifiedModelManager: Failed to delete model - ${spec.name}: $e',
+      );
       throw ModelStorageException(
         'Failed to delete model: ${spec.name}',
         e,
@@ -505,11 +529,13 @@ class MobileModelManager extends ModelFileManager {
           .toList();
 
       gemmaLog(
-          'UnifiedModelManager: Found ${files.length} installed files for type $type');
+        'UnifiedModelManager: Found ${files.length} installed files for type $type',
+      );
       return files;
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to get installed models for type $type: $e');
+        'UnifiedModelManager: Failed to get installed models for type $type: $e',
+      );
       return [];
     }
   }
@@ -524,7 +550,8 @@ class MobileModelManager extends ModelFileManager {
       return files.isNotEmpty;
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to check if any model is installed for type $type: $e');
+        'UnifiedModelManager: Failed to check if any model is installed for type $type: $e',
+      );
       return false;
     }
   }
@@ -577,7 +604,8 @@ class MobileModelManager extends ModelFileManager {
       return result;
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to validate model - ${spec.name}: $e');
+        'UnifiedModelManager: Failed to validate model - ${spec.name}: $e',
+      );
       return false;
     }
   }
@@ -606,8 +634,9 @@ class MobileModelManager extends ModelFileManager {
         } else if (file.source is BundledSource) {
           // Bundled source - get platform-specific bundled path
           final bundledSource = file.source as BundledSource;
-          path = await fileSystem
-              .getBundledResourcePath(bundledSource.resourceName);
+          path = await fileSystem.getBundledResourcePath(
+            bundledSource.resourceName,
+          );
         } else {
           // Downloaded/Asset file - use standard app directory
           path = await ModelFileSystemManager.getModelFilePath(file.filename);
@@ -618,7 +647,8 @@ class MobileModelManager extends ModelFileManager {
       return filePaths;
     } catch (e) {
       gemmaLog(
-          'UnifiedModelManager: Failed to get file paths for ${spec.name}: $e');
+        'UnifiedModelManager: Failed to get file paths for ${spec.name}: $e',
+      );
       return null;
     }
   }
@@ -680,8 +710,9 @@ class MobileModelManager extends ModelFileManager {
     return InferenceModelSpec(
       name: name,
       modelSource: BundledSource(resourceName),
-      loraSource:
-          loraResourceName != null ? BundledSource(loraResourceName) : null,
+      loraSource: loraResourceName != null
+          ? BundledSource(loraResourceName)
+          : null,
       replacePolicy: replacePolicy,
       modelType: modelType,
       fileType: fileType,
@@ -724,7 +755,8 @@ class MobileModelManager extends ModelFileManager {
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
       throw UnsupportedError(
-          "Asset model loading is not supported in release builds");
+        "Asset model loading is not supported in release builds",
+      );
     }
 
     await _ensureInitialized();
@@ -739,11 +771,14 @@ class MobileModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<int> installModelFromAssetWithProgress(String path,
-      {String? loraPath}) async* {
+  Stream<int> installModelFromAssetWithProgress(
+    String path, {
+    String? loraPath,
+  }) async* {
     if (kReleaseMode) {
       throw UnsupportedError(
-          "Asset model loading is not supported in release builds");
+        "Asset model loading is not supported in release builds",
+      );
     }
 
     await _ensureInitialized();
@@ -833,16 +868,23 @@ class MobileModelManager extends ModelFileManager {
     try {
       final filename = spec.files
           .firstWhere(
-              (f) => f.prefsKey == PreferencesKeys.installedModelFileName)
+            (f) => f.prefsKey == PreferencesKeys.installedModelFileName,
+          )
           .filename;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          PreferencesKeys.activeInferenceModelType, spec.modelType.name);
+        PreferencesKeys.activeInferenceModelType,
+        spec.modelType.name,
+      );
       await prefs.setString(
-          PreferencesKeys.activeInferenceFileType, spec.fileType.name);
+        PreferencesKeys.activeInferenceFileType,
+        spec.fileType.name,
+      );
       await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
       await prefs.setString(
-          PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
+        PreferencesKeys.activeInferenceSource,
+        spec.modelSource.encode(),
+      );
     } catch (e) {
       gemmaLog('[ModelManager] persistActiveInferenceIdentity failed: $e');
     }
@@ -850,19 +892,29 @@ class MobileModelManager extends ModelFileManager {
 
   Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
     try {
-      final modelFile = spec.files
-          .firstWhere((f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final modelFile = spec.files.firstWhere(
+        (f) => f.prefsKey == PreferencesKeys.embeddingModelFile,
+      );
       final tokenizerFile = spec.files.firstWhere(
-          (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
+        (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile,
+      );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          PreferencesKeys.activeEmbeddingFilename, modelFile.filename);
-      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerFilename,
-          tokenizerFile.filename);
+        PreferencesKeys.activeEmbeddingFilename,
+        modelFile.filename,
+      );
       await prefs.setString(
-          PreferencesKeys.activeEmbeddingSource, spec.modelSource.encode());
-      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerSource,
-          spec.tokenizerSource.encode());
+        PreferencesKeys.activeEmbeddingTokenizerFilename,
+        tokenizerFile.filename,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeEmbeddingSource,
+        spec.modelSource.encode(),
+      );
+      await prefs.setString(
+        PreferencesKeys.activeEmbeddingTokenizerSource,
+        spec.tokenizerSource.encode(),
+      );
     } catch (e) {
       gemmaLog('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
     }
@@ -874,7 +926,8 @@ class MobileModelManager extends ModelFileManager {
 
     if (_activeInferenceModel == null) {
       throw Exception(
-          'No active inference model to apply LoRA weights to. Use setModelPath first.');
+        'No active inference model to apply LoRA weights to. Use setModelPath first.',
+      );
     }
 
     // Create updated spec with new LoRA path
@@ -952,10 +1005,12 @@ class MobileModelManager extends ModelFileManager {
       stats['totalSizeMB'] = (totalSize / (1024 * 1024)).round();
 
       // Get counts by type from ModelRepository
-      final inferenceFiles =
-          await getInstalledModels(ModelManagementType.inference);
-      final embeddingFiles =
-          await getInstalledModels(ModelManagementType.embedding);
+      final inferenceFiles = await getInstalledModels(
+        ModelManagementType.inference,
+      );
+      final embeddingFiles = await getInstalledModels(
+        ModelManagementType.embedding,
+      );
 
       stats['inferenceModels'] = inferenceFiles.length;
       stats['embeddingModels'] =
@@ -1059,17 +1114,20 @@ class MobileModelManager extends ModelFileManager {
       }
 
       // Add all installed inference models
-      final installedInference =
-          await getInstalledModels(ModelManagementType.inference);
+      final installedInference = await getInstalledModels(
+        ModelManagementType.inference,
+      );
       protected.addAll(installedInference);
 
       // Add all installed embedding models
-      final installedEmbedding =
-          await getInstalledModels(ModelManagementType.embedding);
+      final installedEmbedding = await getInstalledModels(
+        ModelManagementType.embedding,
+      );
       protected.addAll(installedEmbedding);
 
       gemmaLog(
-          'UnifiedModelManager: Protected files count: ${protected.length}');
+        'UnifiedModelManager: Protected files count: ${protected.length}',
+      );
     } catch (e) {
       gemmaLog('UnifiedModelManager: Failed to get protected files: $e');
     }

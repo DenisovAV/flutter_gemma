@@ -44,8 +44,10 @@ class WebJsInterop {
       );
 
       // Concatenate chunks
-      final totalLength =
-          chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final totalLength = chunks.fold<int>(
+        0,
+        (sum, chunk) => sum + chunk.length,
+      );
       final data = Uint8List(totalLength);
       int offset = 0;
       for (final chunk in chunks) {
@@ -113,8 +115,10 @@ class WebJsInterop {
       );
 
       // Concatenate chunks
-      final totalLength =
-          chunks.fold<int>(0, (sum, chunk) => sum + chunk.length);
+      final totalLength = chunks.fold<int>(
+        0,
+        (sum, chunk) => sum + chunk.length,
+      );
       final data = Uint8List(totalLength);
       int offset = 0;
       for (final chunk in chunks) {
@@ -228,14 +232,9 @@ class WebJsInterop {
   // ===== Private Helper Methods =====
 
   JSAny _createFetchOptions(String authToken) {
-    final headersMap = {
-      'Authorization': 'Bearer $authToken',
-    };
+    final headersMap = {'Authorization': 'Bearer $authToken'};
 
-    final optionsMap = {
-      'headers': headersMap,
-      'method': 'GET',
-    };
+    final optionsMap = {'headers': headersMap, 'method': 'GET'};
 
     return optionsMap.jsify()!;
   }
@@ -266,8 +265,9 @@ class WebJsInterop {
     // Warn about large files
     if (contentLength != null && contentLength > 2 * 1024 * 1024 * 1024) {
       gemmaLog(
-          'Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
-          'May encounter memory limits on some browsers.');
+        'Warning: Large file detected (${contentLength ~/ 1024 / 1024}MB). '
+        'May encounter memory limits on some browsers.',
+      );
     }
 
     try {
@@ -314,9 +314,7 @@ class WebJsInterop {
 
   JSAny _createBlob(List<Uint8List> chunks) {
     final jsChunks = chunks.map((c) => c.toJS).toList().toJS;
-    final options = {
-      'type': 'application/octet-stream',
-    }.jsify()!;
+    final options = {'type': 'application/octet-stream'}.jsify()!;
 
     // Use callConstructor to properly invoke Blob constructor with 'new'
     final blobConstructor = globalContext['Blob'] as JSFunction;

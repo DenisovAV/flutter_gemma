@@ -4,11 +4,7 @@ class LoadingWidget extends StatelessWidget {
   final String message;
   final int? progress;
 
-  const LoadingWidget({
-    required this.message,
-    this.progress,
-    super.key,
-  });
+  const LoadingWidget({required this.message, this.progress, super.key});
 
   @override
   Widget build(BuildContext context) {

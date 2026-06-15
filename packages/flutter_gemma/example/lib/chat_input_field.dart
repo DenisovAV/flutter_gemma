@@ -49,7 +49,9 @@ class ChatInputFieldState extends State<ChatInputField> {
   }
 
   void _handleSubmitted(String text) {
-    if (text.trim().isEmpty && _selectedImageBytes == null && _selectedAudioBytes == null) {
+    if (text.trim().isEmpty &&
+        _selectedImageBytes == null &&
+        _selectedAudioBytes == null) {
       return;
     }
 
@@ -67,10 +69,7 @@ class ChatInputFieldState extends State<ChatInputField> {
         isUser: true,
       );
     } else {
-      message = Message.text(
-        text: text.trim(),
-        isUser: true,
-      );
+      message = Message.text(text: text.trim(), isUser: true);
     }
 
     widget.handleSubmitted(message);
@@ -222,12 +221,16 @@ class ChatInputFieldState extends State<ChatInputField> {
 
           final wavData = await file.readAsBytes();
           debugPrint('[AudioRecording] Read ${wavData.length} bytes');
-          debugPrint('[AudioRecording] First 12 bytes: ${wavData.take(12).toList()}');
+          debugPrint(
+            '[AudioRecording] First 12 bytes: ${wavData.take(12).toList()}',
+          );
 
           // Send original WAV directly - record package already creates 16kHz mono WAV
           // Skipping parse/re-wrap as it may lose metadata needed by miniaudio
           audioBytes = wavData;
-          debugPrint('[AudioRecording] Using original WAV: ${audioBytes.length} bytes');
+          debugPrint(
+            '[AudioRecording] Using original WAV: ${audioBytes.length} bytes',
+          );
 
           // Clean up temp file
           await file.delete();
@@ -293,11 +296,15 @@ class ChatInputFieldState extends State<ChatInputField> {
             child: Row(
               children: <Widget>[
                 // Add image button (hidden when recording or audio selected)
-                if (widget.supportsImages && !_isRecording && _selectedAudioBytes == null)
+                if (widget.supportsImages &&
+                    !_isRecording &&
+                    _selectedAudioBytes == null)
                   IconButton(
                     icon: Icon(
                       Icons.image,
-                      color: _selectedImageBytes != null ? Colors.blue : Colors.white70,
+                      color: _selectedImageBytes != null
+                          ? Colors.blue
+                          : Colors.white70,
                     ),
                     onPressed: _pickImage,
                     tooltip: 'Add image',
@@ -311,8 +318,8 @@ class ChatInputFieldState extends State<ChatInputField> {
                       color: _isRecording
                           ? Colors.red
                           : _selectedAudioBytes != null
-                              ? Colors.blue
-                              : Colors.white70,
+                          ? Colors.blue
+                          : Colors.white70,
                     ),
                     onPressed: _toggleRecording,
                     tooltip: _isRecording ? 'Stop recording' : 'Record audio',
@@ -401,10 +408,7 @@ class ChatInputFieldState extends State<ChatInputField> {
                 const SizedBox(height: 4),
                 Text(
                   '${(_selectedImageBytes!.length / 1024).toStringAsFixed(1)} KB',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -467,10 +471,7 @@ class ChatInputFieldState extends State<ChatInputField> {
                 const SizedBox(height: 4),
                 Text(
                   '${AudioConverter.formatDuration(duration)} • ${(_selectedAudioBytes!.length / 1024).toStringAsFixed(1)} KB',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -524,10 +525,7 @@ class ChatInputFieldState extends State<ChatInputField> {
                 const SizedBox(height: 2),
                 Text(
                   AudioConverter.formatDuration(_recordingDuration),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
@@ -536,10 +534,7 @@ class ChatInputFieldState extends State<ChatInputField> {
           // Max duration indicator
           Text(
             'Max: ${AudioConverter.formatDuration(_maxRecordingDuration)}',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],
       ),

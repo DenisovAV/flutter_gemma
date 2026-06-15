@@ -27,7 +27,8 @@ class WebFileSystemService implements FileSystemService {
     // Instead, we create a blob URL via WebJsInterop (handled by WebDownloadService)
     // For now, this is primarily used for registration
     gemmaLog(
-        'WebFileSystemService: writeFile called for $path (${data.length} bytes)');
+      'WebFileSystemService: writeFile called for $path (${data.length} bytes)',
+    );
 
     // Store a marker that this file exists
     // Note: Actual blob URL creation is handled by WebDownloadService + WebJsInterop
@@ -98,7 +99,8 @@ class WebFileSystemService implements FileSystemService {
   }
 
   @Deprecated(
-      'Use getReadTargetPath for reads or getWriteTargetPath for writes')
+    'Use getReadTargetPath for reads or getWriteTargetPath for writes',
+  )
   @override
   Future<String> getTargetPath(String filename) async {
     return filename;
@@ -112,27 +114,32 @@ class WebFileSystemService implements FileSystemService {
     final assetPath = '/$resourceName';
 
     gemmaLog(
-        'WebFileSystemService: Bundled resource path for $resourceName: $assetPath');
+      'WebFileSystemService: Bundled resource path for $resourceName: $assetPath',
+    );
 
     return assetPath;
   }
 
   @override
   Future<void> registerExternalFile(
-      String filename, String externalPath) async {
+    String filename,
+    String externalPath,
+  ) async {
     // Register the external path as a URL
     // On web, external paths are URLs
     _urlMappings[filename] = externalPath;
 
     gemmaLog(
-        'WebFileSystemService: Registered external file $filename -> $externalPath');
+      'WebFileSystemService: Registered external file $filename -> $externalPath',
+    );
   }
 
   @override
   Future<String> getModelStorageDirectory() async {
     throw UnsupportedError(
-        'getModelStorageDirectory() is not supported on the web platform. '
-        'Web models are stored as URLs, not local files.');
+      'getModelStorageDirectory() is not supported on the web platform. '
+      'Web models are stored as URLs, not local files.',
+    );
   }
 
   /// Registers a URL for a model (web-specific extension)
@@ -171,7 +178,8 @@ class WebFileSystemService implements FileSystemService {
     for (final entry in _urlMappings.entries) {
       if (_isBlobUrl[entry.key] == true) {
         gemmaLog(
-            'WebFileSystemService: Triggering blob URL cleanup for ${entry.key}');
+          'WebFileSystemService: Triggering blob URL cleanup for ${entry.key}',
+        );
         _onBlobUrlRemoved?.call(entry.value);
       }
     }

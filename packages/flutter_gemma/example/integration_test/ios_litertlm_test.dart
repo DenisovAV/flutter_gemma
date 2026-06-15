@@ -32,9 +32,9 @@ void main() {
     await registerTestEngines();
 
     await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    )
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+        )
         .fromNetwork(_litertlmUrl, token: _hfToken)
         .withProgress((p) => print('[Download] $p%'))
         .install();
@@ -46,13 +46,15 @@ void main() {
     try {
       final chat = await model.createChat(modelType: ModelType.gemmaIt);
       await chat.addQueryChunk(
-          const Message(text: 'What is 2+2? Answer briefly.', isUser: true));
+        const Message(text: 'What is 2+2? Answer briefly.', isUser: true),
+      );
 
       final response = await chat.generateChatResponse();
       expect(response, isA<TextResponse>());
       final text = (response as TextResponse).token;
       print(
-          '[Text/litertlm] Response: "${text.length > 150 ? text.substring(0, 150) : text}"');
+        '[Text/litertlm] Response: "${text.length > 150 ? text.substring(0, 150) : text}"',
+      );
       expect(text, isNotEmpty);
     } finally {
       await model.close();
@@ -77,17 +79,20 @@ void main() {
         modelType: ModelType.gemmaIt,
         supportImage: true,
       );
-      await chat.addQueryChunk(Message.withImage(
-        text: 'Describe this image briefly.',
-        imageBytes: imageBytes,
-        isUser: true,
-      ));
+      await chat.addQueryChunk(
+        Message.withImage(
+          text: 'Describe this image briefly.',
+          imageBytes: imageBytes,
+          isUser: true,
+        ),
+      );
 
       final response = await chat.generateChatResponse();
       expect(response, isA<TextResponse>());
       final text = (response as TextResponse).token;
       print(
-          '[Vision/litertlm] Response: "${text.length > 150 ? text.substring(0, 150) : text}"');
+        '[Vision/litertlm] Response: "${text.length > 150 ? text.substring(0, 150) : text}"',
+      );
       expect(text, isNotEmpty);
     } finally {
       await model.close();
@@ -111,17 +116,20 @@ void main() {
         modelType: ModelType.gemmaIt,
         supportAudio: true,
       );
-      await chat.addQueryChunk(Message.withAudio(
-        text: 'What do you hear in this audio?',
-        audioBytes: audioBytes,
-        isUser: true,
-      ));
+      await chat.addQueryChunk(
+        Message.withAudio(
+          text: 'What do you hear in this audio?',
+          audioBytes: audioBytes,
+          isUser: true,
+        ),
+      );
 
       final response = await chat.generateChatResponse();
       expect(response, isA<TextResponse>());
       final text = (response as TextResponse).token;
       print(
-          '[Audio/litertlm] Response: "${text.length > 150 ? text.substring(0, 150) : text}"');
+        '[Audio/litertlm] Response: "${text.length > 150 ? text.substring(0, 150) : text}"',
+      );
       expect(text, isNotEmpty);
     } finally {
       await model.close();

@@ -122,10 +122,8 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
   InferenceModelSession? get session => _session;
 
   @override
-  List<InferenceModelSession> get sessions => List.unmodifiable([
-        if (_session != null) _session!,
-        ..._openSessions,
-      ]);
+  List<InferenceModelSession> get sessions =>
+      List.unmodifiable([if (_session != null) _session!, ..._openSessions]);
 
   @override
   Future<InferenceModelSession> createSession({
@@ -143,7 +141,8 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
     // Single-flight guard for genuinely *concurrent* callers only. Unlike
     // the model singleton, a session is NOT reused across calls: each
@@ -242,7 +241,8 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
     final cap = maxConcurrentSessions;
     if (cap != null && _openSessions.length >= cap) {

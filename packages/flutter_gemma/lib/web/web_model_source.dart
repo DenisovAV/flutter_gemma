@@ -72,7 +72,7 @@ class WebModelSourceResolver {
   /// installed LoRA path if any (only meaningful for MediaPipe; LiteRT-LM
   /// throws on `loraPath`).
   Future<({WebModelSource model, String? loraPath})>
-      resolveActiveInferenceModel() async {
+  resolveActiveInferenceModel() async {
     final active = _modelManager.activeInferenceModel;
     if (active == null) {
       throw StateError(
@@ -103,7 +103,8 @@ class WebModelSourceResolver {
       final opfs = downloadService.opfsService;
       if (opfs == null) {
         throw StateError(
-            'OPFS service not available (streaming mode requires OPFS).');
+          'OPFS service not available (streaming mode requires OPFS).',
+        );
       }
       if (kDebugMode) {
         gemmaLog('[WebModelSourceResolver] OPFS stream source for: $filename');

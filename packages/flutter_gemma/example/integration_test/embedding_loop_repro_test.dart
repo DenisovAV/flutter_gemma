@@ -94,7 +94,9 @@ const _loremWords = [
 
 String _chunk(math.Random rng, int wordCount) {
   final words = List.generate(
-      wordCount, (_) => _loremWords[rng.nextInt(_loremWords.length)]);
+    wordCount,
+    (_) => _loremWords[rng.nextInt(_loremWords.length)],
+  );
   return words.join(' ');
 }
 
@@ -114,7 +116,8 @@ void main() {
     final texts = List.generate(500, (_) => _chunk(rng, 30 + rng.nextInt(50)));
     // ignore: avoid_print
     print(
-        '[repro] generated 500 lorem chunks, avg ${(texts.fold<int>(0, (s, t) => s + t.length) / texts.length).round()} chars');
+      '[repro] generated 500 lorem chunks, avg ${(texts.fold<int>(0, (s, t) => s + t.length) / texts.length).round()} chars',
+    );
 
     final sw = Stopwatch()..start();
     for (var i = 0; i < texts.length; i++) {
@@ -122,7 +125,8 @@ void main() {
       if ((i + 1) % 25 == 0) {
         // ignore: avoid_print
         print(
-            '[repro] embedded ${i + 1}/500 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})');
+          '[repro] embedded ${i + 1}/500 (${sw.elapsed.inMilliseconds}ms, dim=${v.length})',
+        );
       }
     }
     sw.stop();

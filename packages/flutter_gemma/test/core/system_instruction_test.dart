@@ -53,24 +53,32 @@ void main() {
     late _SessionWithInstruction session;
 
     setUp(() {
-      session = _SessionWithInstruction(systemInstruction: 'You are a helpful pirate.');
-    });
-
-    test('prepends system instruction to first user message for .task fileType', () async {
-      final chat = InferenceChat(
-        sessionCreator: () async => session,
-        maxTokens: 1024,
+      session = _SessionWithInstruction(
         systemInstruction: 'You are a helpful pirate.',
-        fileType: ModelFileType.task,
       );
-      await chat.initSession();
-
-      await chat.addQueryChunk(const Message(text: 'Hello', isUser: true));
-
-      expect(session.addedMessages.length, 1);
-      expect(session.addedMessages.first.text, contains('[System: You are a helpful pirate.]'));
-      expect(session.addedMessages.first.text, contains('Hello'));
     });
+
+    test(
+      'prepends system instruction to first user message for .task fileType',
+      () async {
+        final chat = InferenceChat(
+          sessionCreator: () async => session,
+          maxTokens: 1024,
+          systemInstruction: 'You are a helpful pirate.',
+          fileType: ModelFileType.task,
+        );
+        await chat.initSession();
+
+        await chat.addQueryChunk(const Message(text: 'Hello', isUser: true));
+
+        expect(session.addedMessages.length, 1);
+        expect(
+          session.addedMessages.first.text,
+          contains('[System: You are a helpful pirate.]'),
+        );
+        expect(session.addedMessages.first.text, contains('Hello'));
+      },
+    );
 
     test('does NOT prepend system instruction to assistant messages', () async {
       final s = _SessionWithInstruction(systemInstruction: 'You are a pirate.');
@@ -82,7 +90,9 @@ void main() {
       );
       await chat.initSession();
 
-      await chat.addQueryChunk(const Message(text: 'Some response', isUser: false));
+      await chat.addQueryChunk(
+        const Message(text: 'Some response', isUser: false),
+      );
 
       expect(s.addedMessages.length, 1);
       expect(s.addedMessages.first.text, 'Some response');
@@ -139,7 +149,9 @@ void main() {
       late _SessionWithInstruction currentSession;
       final chat = InferenceChat(
         sessionCreator: () async {
-          currentSession = _SessionWithInstruction(systemInstruction: 'Be brief.');
+          currentSession = _SessionWithInstruction(
+            systemInstruction: 'Be brief.',
+          );
           return currentSession;
         },
         maxTokens: 1024,
@@ -149,12 +161,20 @@ void main() {
       await chat.initSession();
 
       await chat.addQueryChunk(const Message(text: 'First', isUser: true));
-      expect(currentSession.addedMessages.last.text, contains('[System: Be brief.]'));
+      expect(
+        currentSession.addedMessages.last.text,
+        contains('[System: Be brief.]'),
+      );
 
       await chat.clearHistory();
 
-      await chat.addQueryChunk(const Message(text: 'After clear', isUser: true));
-      expect(currentSession.addedMessages.last.text, contains('[System: Be brief.]'));
+      await chat.addQueryChunk(
+        const Message(text: 'After clear', isUser: true),
+      );
+      expect(
+        currentSession.addedMessages.last.text,
+        contains('[System: Be brief.]'),
+      );
       expect(currentSession.addedMessages.last.text, contains('After clear'));
     });
 
@@ -189,7 +209,9 @@ void main() {
     // In unit tests (which run on host), defaultTargetPlatform varies,
     // so we test .binary as a guaranteed-prepend fileType.
     test('prepends for .binary fileType (always MediaPipe fallback)', () async {
-      final s = _SessionWithInstruction(systemInstruction: 'Respond in French.');
+      final s = _SessionWithInstruction(
+        systemInstruction: 'Respond in French.',
+      );
       final chat = InferenceChat(
         sessionCreator: () async => s,
         maxTokens: 1024,
@@ -200,7 +222,10 @@ void main() {
 
       await chat.addQueryChunk(const Message(text: 'Hello', isUser: true));
 
-      expect(s.addedMessages.first.text, contains('[System: Respond in French.]'));
+      expect(
+        s.addedMessages.first.text,
+        contains('[System: Respond in French.]'),
+      );
     });
   });
 
@@ -213,26 +238,26 @@ void main() {
       await session.addQueryChunk(const Message(text: 'Hello', isUser: true));
 
       expect(session.addedMessages.length, 1);
-      expect(session.addedMessages.first.text,
-          contains('[System: You are a helpful assistant.]'));
+      expect(
+        session.addedMessages.first.text,
+        contains('[System: You are a helpful assistant.]'),
+      );
       expect(session.addedMessages.first.text, contains('Hello'));
     });
 
     test('does NOT prepend to assistant messages', () async {
-      final session = _SessionWithInstruction(
-        systemInstruction: 'Be concise.',
-      );
+      final session = _SessionWithInstruction(systemInstruction: 'Be concise.');
 
-      await session.addQueryChunk(const Message(text: 'Model response', isUser: false));
+      await session.addQueryChunk(
+        const Message(text: 'Model response', isUser: false),
+      );
 
       expect(session.addedMessages.length, 1);
       expect(session.addedMessages.first.text, 'Model response');
     });
 
     test('prepends only to the FIRST user message', () async {
-      final session = _SessionWithInstruction(
-        systemInstruction: 'Be brief.',
-      );
+      final session = _SessionWithInstruction(systemInstruction: 'Be brief.');
 
       await session.addQueryChunk(const Message(text: 'First', isUser: true));
       await session.addQueryChunk(const Message(text: 'Second', isUser: true));

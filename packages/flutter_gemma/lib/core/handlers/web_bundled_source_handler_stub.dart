@@ -11,7 +11,8 @@ class WebBundledSourceHandler implements SourceHandler {
     required dynamic jsInterop,
   }) {
     throw UnsupportedError(
-        'WebBundledSourceHandler is only available on web platform');
+      'WebBundledSourceHandler is only available on web platform',
+    );
   }
 
   @override
@@ -20,14 +21,18 @@ class WebBundledSourceHandler implements SourceHandler {
   @override
   Future<void> install(ModelSource source, {CancelToken? cancelToken}) {
     throw UnsupportedError(
-        'WebBundledSourceHandler is only available on web platform');
+      'WebBundledSourceHandler is only available on web platform',
+    );
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source,
-      {CancelToken? cancelToken}) {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) {
     throw UnsupportedError(
-        'WebBundledSourceHandler is only available on web platform');
+      'WebBundledSourceHandler is only available on web platform',
+    );
   }
 
   @override

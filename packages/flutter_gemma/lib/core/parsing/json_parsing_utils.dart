@@ -28,14 +28,17 @@ class JsonParsingUtils {
         }
 
         // Try all known key names for arguments
-        final args = (decoded['parameters'] as Map<String, dynamic>?) ??
+        final args =
+            (decoded['parameters'] as Map<String, dynamic>?) ??
             (decoded['args'] as Map<String, dynamic>?) ??
             (decoded['arguments'] as Map<String, dynamic>?);
 
         // Use empty map for zero-argument functions (get_time, refresh, etc.)
         final resolvedArgs = args ?? <String, dynamic>{};
-        gemmaLog('JsonParsingUtils: Parsed function: $name($resolvedArgs)',
-            level: GemmaLogLevel.verbose);
+        gemmaLog(
+          'JsonParsingUtils: Parsed function: $name($resolvedArgs)',
+          level: GemmaLogLevel.verbose,
+        );
         return FunctionCallResponse(name: name, args: resolvedArgs);
       }
 
@@ -162,8 +165,10 @@ class JsonParsingUtils {
 
   /// Check if text is definitely plain text (not a function call).
   /// Shared heuristic for JSON-based formats.
-  static bool isDefinitelyText(String buffer,
-      {List<String> extraIndicators = const []}) {
+  static bool isDefinitelyText(
+    String buffer, {
+    List<String> extraIndicators = const [],
+  }) {
     final clean = buffer.trim();
     if (clean.length < 5) return false;
 

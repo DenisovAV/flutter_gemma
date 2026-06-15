@@ -37,10 +37,7 @@ abstract interface class SourceHandler {
   /// - [ArgumentError] if the source is invalid
   /// - [DownloadCancelledException] if cancelled via cancelToken
   /// - Platform-specific exceptions for download/file errors
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  });
+  Future<void> install(ModelSource source, {CancelToken? cancelToken});
 
   /// Installs the model with progress tracking
   ///

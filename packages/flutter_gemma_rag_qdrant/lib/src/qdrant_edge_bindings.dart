@@ -13,17 +13,16 @@ import 'dart:ffi' as ffi;
 class QdrantEdgeBindings {
   /// Holds the symbol lookup function.
   final ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName)
-      _lookup;
+  _lookup;
 
   /// The symbols are looked up in [dynamicLibrary].
   QdrantEdgeBindings(ffi.DynamicLibrary dynamicLibrary)
-      : _lookup = dynamicLibrary.lookup;
+    : _lookup = dynamicLibrary.lookup;
 
   /// The symbols are looked up with [lookup].
   QdrantEdgeBindings.fromLookup(
-      ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName)
-          lookup)
-      : _lookup = lookup;
+    ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName) lookup,
+  ) : _lookup = lookup;
 
   /// Returns shim version string. Caller must free with `qe_string_free`.
   ffi.Pointer<ffi.Char> qe_version() {
@@ -32,9 +31,10 @@ class QdrantEdgeBindings {
 
   late final _qe_versionPtr =
       _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
-          'qe_version');
-  late final _qe_version =
-      _qe_versionPtr.asFunction<ffi.Pointer<ffi.Char> Function()>();
+        'qe_version',
+      );
+  late final _qe_version = _qe_versionPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function()>();
 
   /// Open or create a shard at `path` with the given vector dimension and
   /// distance metric.
@@ -50,39 +50,41 @@ class QdrantEdgeBindings {
     ffi.Pointer<ffi.Char> distance,
     ffi.Pointer<ffi.Pointer<ffi.Char>> error_out,
   ) {
-    return _qe_shard_open(
-      path,
-      dim,
-      distance,
-      error_out,
-    );
+    return _qe_shard_open(path, dim, distance, error_out);
   }
 
-  late final _qe_shard_openPtr = _lookup<
-      ffi.NativeFunction<
+  late final _qe_shard_openPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<ffi.Void> Function(
-              ffi.Pointer<ffi.Char>,
-              ffi.Uint32,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>>('qe_shard_open');
-  late final _qe_shard_open = _qe_shard_openPtr.asFunction<
-      ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Char>, int,
-          ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+            ffi.Pointer<ffi.Char>,
+            ffi.Uint32,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_open');
+  late final _qe_shard_open = _qe_shard_openPtr
+      .asFunction<
+        ffi.Pointer<ffi.Void> Function(
+          ffi.Pointer<ffi.Char>,
+          int,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+        )
+      >();
 
   /// Close shard. Frees all resources. Safe to call with NULL.
-  void qe_shard_close(
-    ffi.Pointer<ffi.Void> shard,
-  ) {
-    return _qe_shard_close(
-      shard,
-    );
+  void qe_shard_close(ffi.Pointer<ffi.Void> shard) {
+    return _qe_shard_close(shard);
   }
 
   late final _qe_shard_closePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
-          'qe_shard_close');
-  late final _qe_shard_close =
-      _qe_shard_closePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+        'qe_shard_close',
+      );
+  late final _qe_shard_close = _qe_shard_closePtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   /// Upsert a single point.
   ///
@@ -107,23 +109,30 @@ class QdrantEdgeBindings {
     );
   }
 
-  late final _qe_shard_upsertPtr = _lookup<
-      ffi.NativeFunction<
+  late final _qe_shard_upsertPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Int32 Function(
-              ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Float>,
-              ffi.Size,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>>('qe_shard_upsert');
-  late final _qe_shard_upsert = _qe_shard_upsertPtr.asFunction<
-      int Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Float>,
+            ffi.Size,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_upsert');
+  late final _qe_shard_upsert = _qe_shard_upsertPtr
+      .asFunction<
+        int Function(
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<ffi.Char>,
           ffi.Pointer<ffi.Float>,
           int,
           ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+        )
+      >();
 
   /// Bulk upsert. `points_json` is a JSON array of
   /// `{"id": "<id>", "vector": [f32...], "payload": {...} | null}` objects.
@@ -134,20 +143,27 @@ class QdrantEdgeBindings {
     ffi.Pointer<ffi.Char> points_json,
     ffi.Pointer<ffi.Pointer<ffi.Char>> error_out,
   ) {
-    return _qe_shard_upsert_batch(
-      shard,
-      points_json,
-      error_out,
-    );
+    return _qe_shard_upsert_batch(shard, points_json, error_out);
   }
 
-  late final _qe_shard_upsert_batchPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>>('qe_shard_upsert_batch');
-  late final _qe_shard_upsert_batch = _qe_shard_upsert_batchPtr.asFunction<
-      int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+  late final _qe_shard_upsert_batchPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int32 Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_upsert_batch');
+  late final _qe_shard_upsert_batch = _qe_shard_upsert_batchPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<ffi.Void>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+        )
+      >();
 
   /// Top-K nearest-neighbor search.
   ///
@@ -173,23 +189,30 @@ class QdrantEdgeBindings {
     );
   }
 
-  late final _qe_shard_searchPtr = _lookup<
-      ffi.NativeFunction<
+  late final _qe_shard_searchPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Int32 Function(
-              ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Float>,
-              ffi.Size,
-              ffi.Uint32,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>>('qe_shard_search');
-  late final _qe_shard_search = _qe_shard_searchPtr.asFunction<
-      int Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Float>,
+            ffi.Size,
+            ffi.Uint32,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_search');
+  late final _qe_shard_search = _qe_shard_searchPtr
+      .asFunction<
+        int Function(
           ffi.Pointer<ffi.Void>,
           ffi.Pointer<ffi.Float>,
           int,
           int,
           ffi.Pointer<ffi.Pointer<ffi.Char>>,
-          ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+        )
+      >();
 
   /// Top-K search with a qdrant-edge filter.
   ///
@@ -215,27 +238,32 @@ class QdrantEdgeBindings {
     );
   }
 
-  late final _qe_shard_search_with_filterPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int32 Function(
-                  ffi.Pointer<ffi.Void>,
-                  ffi.Pointer<ffi.Float>,
-                  ffi.Size,
-                  ffi.Uint32,
-                  ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<ffi.Pointer<ffi.Char>>,
-                  ffi.Pointer<ffi.Pointer<ffi.Char>>)>>(
-      'qe_shard_search_with_filter');
-  late final _qe_shard_search_with_filter =
-      _qe_shard_search_with_filterPtr.asFunction<
-          int Function(
-              ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Float>,
-              int,
-              int,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+  late final _qe_shard_search_with_filterPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int32 Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Float>,
+            ffi.Size,
+            ffi.Uint32,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_search_with_filter');
+  late final _qe_shard_search_with_filter = _qe_shard_search_with_filterPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<ffi.Void>,
+          ffi.Pointer<ffi.Float>,
+          int,
+          int,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+        )
+      >();
 
   /// Delete points by IDs. `ids_json` is a JSON array of strings.
   int qe_shard_delete(
@@ -243,53 +271,60 @@ class QdrantEdgeBindings {
     ffi.Pointer<ffi.Char> ids_json,
     ffi.Pointer<ffi.Pointer<ffi.Char>> error_out,
   ) {
-    return _qe_shard_delete(
-      shard,
-      ids_json,
-      error_out,
-    );
+    return _qe_shard_delete(shard, ids_json, error_out);
   }
 
-  late final _qe_shard_deletePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>>('qe_shard_delete');
-  late final _qe_shard_delete = _qe_shard_deletePtr.asFunction<
-      int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+  late final _qe_shard_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int32 Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_delete');
+  late final _qe_shard_delete = _qe_shard_deletePtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<ffi.Void>,
+          ffi.Pointer<ffi.Char>,
+          ffi.Pointer<ffi.Pointer<ffi.Char>>,
+        )
+      >();
 
   /// Exact total point count. Returns count >= 0 on success, -1 on error.
   int qe_shard_count(
     ffi.Pointer<ffi.Void> shard,
     ffi.Pointer<ffi.Pointer<ffi.Char>> error_out,
   ) {
-    return _qe_shard_count(
-      shard,
-      error_out,
-    );
+    return _qe_shard_count(shard, error_out);
   }
 
-  late final _qe_shard_countPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int64 Function(ffi.Pointer<ffi.Void>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>)>>('qe_shard_count');
-  late final _qe_shard_count = _qe_shard_countPtr.asFunction<
-      int Function(
-          ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+  late final _qe_shard_countPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int64 Function(
+            ffi.Pointer<ffi.Void>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+          )
+        >
+      >('qe_shard_count');
+  late final _qe_shard_count = _qe_shard_countPtr
+      .asFunction<
+        int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Pointer<ffi.Char>>)
+      >();
 
   /// Free any string returned by the shim through a `char **` out-parameter
   /// or the `char *` return of `qe_version`. Safe to call with NULL.
-  void qe_string_free(
-    ffi.Pointer<ffi.Char> s,
-  ) {
-    return _qe_string_free(
-      s,
-    );
+  void qe_string_free(ffi.Pointer<ffi.Char> s) {
+    return _qe_string_free(s);
   }
 
   late final _qe_string_freePtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Char>)>>(
-          'qe_string_free');
-  late final _qe_string_free =
-      _qe_string_freePtr.asFunction<void Function(ffi.Pointer<ffi.Char>)>();
+        'qe_string_free',
+      );
+  late final _qe_string_free = _qe_string_freePtr
+      .asFunction<void Function(ffi.Pointer<ffi.Char>)>();
 }

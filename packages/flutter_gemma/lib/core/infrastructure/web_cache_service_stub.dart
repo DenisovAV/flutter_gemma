@@ -44,7 +44,7 @@ class WebCacheService {
   Stream<int> getOrCacheAndRegisterWithProgress({
     required String cacheKey,
     required Future<Uint8List> Function(void Function(double) onProgress)
-        loader,
+    loader,
     required String targetPath,
   }) {
     throw UnsupportedError('WebCacheService is only available on web platform');
@@ -59,5 +59,6 @@ class WebCacheService {
   }
 
   bool get enableCache => throw UnsupportedError(
-      'WebCacheService is only available on web platform');
+    'WebCacheService is only available on web platform',
+  );
 }

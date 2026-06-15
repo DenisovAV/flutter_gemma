@@ -80,7 +80,8 @@ class LitertEmbeddingModel extends EmbeddingModel with CloseNotifier {
   void _assertNotClosed() {
     if (_isClosed) {
       throw StateError(
-          'LitertEmbeddingModel is closed; create a new instance to use it');
+        'LitertEmbeddingModel is closed; create a new instance to use it',
+      );
     }
   }
 

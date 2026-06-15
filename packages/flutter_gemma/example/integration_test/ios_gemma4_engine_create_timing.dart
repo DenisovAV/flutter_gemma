@@ -31,11 +31,13 @@ void main() {
 
       final installStart = DateTime.now();
       await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt, // user uses gemmaIt, not gemma4
-        fileType: ModelFileType.litertlm,
-      )
-          .fromNetwork(_url,
-              token: const String.fromEnvironment('HUGGINGFACE_TOKEN'))
+            modelType: ModelType.gemmaIt, // user uses gemmaIt, not gemma4
+            fileType: ModelFileType.litertlm,
+          )
+          .fromNetwork(
+            _url,
+            token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+          )
           .install();
       final installMs = DateTime.now().difference(installStart).inMilliseconds;
       print('[TIMING] installModel: ${installMs}ms');
@@ -72,8 +74,12 @@ void main() {
       print('---');
       print('Comparison vs baseline:');
       print('  baseline (text-only, maxTokens=4096): engine_create=7032ms');
-      print('  current (multimodal, maxTokens=2048): engine_create=${modelMs}ms');
-      print('  delta: ${modelMs - 7032}ms (${((modelMs - 7032) / 7032 * 100).toStringAsFixed(0)}%)');
+      print(
+        '  current (multimodal, maxTokens=2048): engine_create=${modelMs}ms',
+      );
+      print(
+        '  delta: ${modelMs - 7032}ms (${((modelMs - 7032) / 7032 * 100).toStringAsFixed(0)}%)',
+      );
       print('---');
 
       await model.close();

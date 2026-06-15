@@ -44,13 +44,12 @@ class WebNetworkSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is NetworkSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     // Delegate to installWithProgress, ignore progress events
-    await for (final _
-        in installWithProgress(source, cancelToken: cancelToken)) {
+    await for (final _ in installWithProgress(
+      source,
+      cancelToken: cancelToken,
+    )) {
       // Ignore progress updates
     }
   }
@@ -62,7 +61,8 @@ class WebNetworkSourceHandler implements SourceHandler {
   }) async* {
     if (source is! NetworkSource) {
       throw ArgumentError(
-          'WebNetworkSourceHandler only supports NetworkSource');
+        'WebNetworkSourceHandler only supports NetworkSource',
+      );
     }
 
     // Extract filename and validate
@@ -73,7 +73,8 @@ class WebNetworkSourceHandler implements SourceHandler {
     }
 
     // Get token: prefer from source, fallback to constructor
-    final token = source.authToken ??
+    final token =
+        source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
 
     try {
@@ -120,7 +121,8 @@ class WebNetworkSourceHandler implements SourceHandler {
       rethrow;
     } catch (e) {
       gemmaLog(
-          '[WebNetworkSourceHandler] ❌ Failed to install network model: $e');
+        '[WebNetworkSourceHandler] ❌ Failed to install network model: $e',
+      );
       rethrow;
     }
   }

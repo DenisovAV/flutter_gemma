@@ -23,10 +23,7 @@ class TextResponse extends ModelResponse {
 }
 
 class FunctionCallResponse extends ModelResponse {
-  const FunctionCallResponse({
-    required this.name,
-    required this.args,
-  });
+  const FunctionCallResponse({required this.name, required this.args});
 
   final String name;
   final Map<String, dynamic> args;

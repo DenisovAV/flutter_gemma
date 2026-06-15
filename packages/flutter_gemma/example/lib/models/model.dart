@@ -341,22 +341,23 @@ enum Model implements InferenceModelInterface {
     topP: 0.95,
   ),
   gemma3nLocalAsset(
-      // model file should be pre-downloaded and placed in the assets folder
-      baseUrl: 'assets/gemma-3n-E2B-it-int4.task',
-      filename: 'gemma-3n-E2B-it-int4.task',
-      displayName: 'Gemma 3 Nano E2B IT (Local)',
-      size: '3.1GB',
-      licenseUrl: '',
-      needsAuth: false,
-      localModel: true,
-      preferredBackend: PreferredBackend.gpu,
-      modelType: ModelType.gemmaIt,
-      temperature: 0.1,
-      topK: 5,
-      topP: 0.95,
-      supportsFunctionCalls: true,
-      supportImage: true,
-      supportAudio: false), // .task files don't have audio encoder
+    // model file should be pre-downloaded and placed in the assets folder
+    baseUrl: 'assets/gemma-3n-E2B-it-int4.task',
+    filename: 'gemma-3n-E2B-it-int4.task',
+    displayName: 'Gemma 3 Nano E2B IT (Local)',
+    size: '3.1GB',
+    licenseUrl: '',
+    needsAuth: false,
+    localModel: true,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemmaIt,
+    temperature: 0.1,
+    topK: 5,
+    topP: 0.95,
+    supportsFunctionCalls: true,
+    supportImage: true,
+    supportAudio: false,
+  ), // .task files don't have audio encoder
   gemma3nWebLocalAsset(
     // model file should be pre-downloaded and placed in the assets folder
     baseUrl: 'assets/gemma-3n-E4B-it-int4-Web.litertlm',

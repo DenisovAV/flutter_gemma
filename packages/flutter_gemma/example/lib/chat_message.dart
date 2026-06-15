@@ -20,7 +20,9 @@ class ChatMessageWidget extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: <Widget>[
           message.isUser ? const SizedBox() : _buildAvatar(),
           const SizedBox(width: 10),
@@ -59,12 +61,15 @@ class ChatMessageWidget extends StatelessWidget {
                           fontSize: 14,
                         ),
                         code: TextStyle(
-                          backgroundColor:
-                              message.isUser ? const Color(0xFF2a5a8c) : const Color(0xFF404040),
+                          backgroundColor: message.isUser
+                              ? const Color(0xFF2a5a8c)
+                              : const Color(0xFF404040),
                           color: Colors.white,
                         ),
                         codeblockDecoration: BoxDecoration(
-                          color: message.isUser ? const Color(0xFF2a5a8c) : const Color(0xFF404040),
+                          color: message.isUser
+                              ? const Color(0xFF2a5a8c)
+                              : const Color(0xFF404040),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -86,10 +91,7 @@ class ChatMessageWidget extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showImageDialog(context),
       child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 300,
-          maxHeight: 200,
-        ),
+        constraints: const BoxConstraints(maxWidth: 300, maxHeight: 200),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
@@ -145,26 +147,16 @@ class ChatMessageWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.audiotrack,
-            color: Colors.white70,
-            size: 20,
-          ),
+          const Icon(Icons.audiotrack, color: Colors.white70, size: 20),
           const SizedBox(width: 8),
           Text(
             'Audio: ${AudioConverter.formatDuration(duration)}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 13),
           ),
           const SizedBox(width: 8),
           Text(
             '(${(audioBytes.length / 1024).toStringAsFixed(1)} KB)',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
         ],
       ),
@@ -183,10 +175,7 @@ class ChatMessageWidget extends StatelessWidget {
               // Full-size image
               Center(
                 child: InteractiveViewer(
-                  child: Image.memory(
-                    message.imageBytes!,
-                    fit: BoxFit.contain,
-                  ),
+                  child: Image.memory(message.imageBytes!, fit: BoxFit.contain),
                 ),
               ),
 
@@ -195,11 +184,7 @@ class ChatMessageWidget extends StatelessWidget {
                 top: 40,
                 right: 20,
                 child: IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -284,7 +269,7 @@ class ChatMessageWidget extends StatelessWidget {
   }
 
   Widget _circled(String image) => CircleAvatar(
-        backgroundColor: Colors.transparent,
-        foregroundImage: AssetImage(image),
-      );
+    backgroundColor: Colors.transparent,
+    foregroundImage: AssetImage(image),
+  );
 }

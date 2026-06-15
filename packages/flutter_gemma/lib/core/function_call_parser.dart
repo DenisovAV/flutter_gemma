@@ -9,8 +9,9 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 class FunctionCallParser {
   /// Check if buffer starts with function call indicators
   static bool isFunctionCallStart(String buffer, {ModelType? modelType}) {
-    return FunctionCallFormatFactory.create(modelType)
-        .isFunctionCallStart(buffer);
+    return FunctionCallFormatFactory.create(
+      modelType,
+    ).isFunctionCallStart(buffer);
   }
 
   /// DEPRECATED: Use isFunctionCallStart instead
@@ -26,8 +27,9 @@ class FunctionCallParser {
 
   /// Check if function call structure is complete
   static bool isFunctionCallComplete(String buffer, {ModelType? modelType}) {
-    return FunctionCallFormatFactory.create(modelType)
-        .isFunctionCallComplete(buffer);
+    return FunctionCallFormatFactory.create(
+      modelType,
+    ).isFunctionCallComplete(buffer);
   }
 
   /// DEPRECATED: Use isFunctionCallComplete instead
@@ -49,8 +51,10 @@ class FunctionCallParser {
   }
 
   /// Parse all function calls from text (for parallel tool calls)
-  static List<FunctionCallResponse> parseAll(String text,
-      {ModelType? modelType}) {
+  static List<FunctionCallResponse> parseAll(
+    String text, {
+    ModelType? modelType,
+  }) {
     if (text.trim().isEmpty) return [];
 
     try {

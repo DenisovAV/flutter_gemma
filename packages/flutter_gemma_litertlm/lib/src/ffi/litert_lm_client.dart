@@ -15,19 +15,28 @@ import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
-typedef _StreamCallbackNative = Void Function(Pointer<Void> callbackData,
-    Pointer<Char> chunk, Uint8 isFinal, Pointer<Char> errorMsg);
+typedef _StreamCallbackNative =
+    Void Function(
+      Pointer<Void> callbackData,
+      Pointer<Char> chunk,
+      Uint8 isFinal,
+      Pointer<Char> errorMsg,
+    );
 
 /// stream_proxy_create: creates a proxy that strdup's strings before
 /// forwarding to the Dart callback (prevents use-after-free).
-typedef _ProxyCreateNative = Pointer<Void> Function(
-    Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
-    Pointer<Void> dartData,
-    Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn);
-typedef _ProxyCreateDart = Pointer<Void> Function(
-    Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
-    Pointer<Void> dartData,
-    Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn);
+typedef _ProxyCreateNative =
+    Pointer<Void> Function(
+      Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
+      Pointer<Void> dartData,
+      Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
+    );
+typedef _ProxyCreateDart =
+    Pointer<Void> Function(
+      Pointer<NativeFunction<_StreamCallbackNative>> dartCallback,
+      Pointer<Void> dartData,
+      Pointer<Pointer<NativeFunction<_StreamCallbackNative>>> outProxyFn,
+    );
 
 /// Free a strdup'd string from the proxy callback.
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
@@ -124,15 +133,23 @@ class LiteRtLmConversationHandle implements ConversationHandle {
 
   Future<String> sendMessage(String messageJson, {String? extraContext}) {
     _assertOpen();
-    return _client._sendMessageOn(_conversation!, messageJson,
-        extraContext: extraContext);
+    return _client._sendMessageOn(
+      _conversation!,
+      messageJson,
+      extraContext: extraContext,
+    );
   }
 
-  Stream<String> sendMessageStreamRaw(String messageJson,
-      {String? extraContext}) {
+  Stream<String> sendMessageStreamRaw(
+    String messageJson, {
+    String? extraContext,
+  }) {
     _assertOpen();
-    return _client._sendMessageStreamRawOn(_conversation!, messageJson,
-        extraContext: extraContext);
+    return _client._sendMessageStreamRawOn(
+      _conversation!,
+      messageJson,
+      extraContext: extraContext,
+    );
   }
 
   @override
@@ -230,11 +247,13 @@ class LiteRtLmFfiClient {
         return;
       }
       gemmaLog(
-          '[LiteRtLmFfi/native] === BEGIN native log ($p, ${content.length} bytes) ===');
+        '[LiteRtLmFfi/native] === BEGIN native log ($p, ${content.length} bytes) ===',
+      );
       const chunkSize = 800;
       for (var i = 0; i < content.length; i += chunkSize) {
-        final end =
-            (i + chunkSize < content.length) ? i + chunkSize : content.length;
+        final end = (i + chunkSize < content.length)
+            ? i + chunkSize
+            : content.length;
         gemmaLog(content.substring(i, end), level: GemmaLogLevel.verbose);
       }
       gemmaLog('[LiteRtLmFfi/native] === END native log ===');
@@ -271,9 +290,11 @@ class LiteRtLmFfiClient {
       // because gpu_registry.cc uses relative-basename dlopen which iOS
       // dyld 4 cannot resolve from .framework names alone.
       lib = DynamicLibrary.open(
-          '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm');
+        '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm',
+      );
       proxyLib = DynamicLibrary.open(
-          '@executable_path/Frameworks/StreamProxy.framework/StreamProxy');
+        '@executable_path/Frameworks/StreamProxy.framework/StreamProxy',
+      );
     } else if (Platform.isMacOS) {
       lib = DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
       proxyLib = DynamicLibrary.open('StreamProxy.framework/StreamProxy');
@@ -291,9 +312,11 @@ class LiteRtLmFfiClient {
       // LD_LIBRARY_PATH / RPATH inheritance.
       final libDir = '${File(Platform.resolvedExecutable).parent.path}/lib';
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
-      final loadGlobal = proxyLib.lookupFunction<
-          Pointer Function(Pointer<Utf8>),
-          Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+      final loadGlobal = proxyLib
+          .lookupFunction<
+            Pointer Function(Pointer<Utf8>),
+            Pointer Function(Pointer<Utf8>)
+          >('stream_proxy_load_global');
       // Preload sequence:
       // - libLiteRt.so first (provides LiteRt C API used by the WebGPU
       //   accelerator at registration)
@@ -334,9 +357,11 @@ class LiteRtLmFfiClient {
       // module list before sampler_factory does its LoadLibrary lookup
       // (mirrors the Linux/Android RTLD_GLOBAL pattern).
       proxyLib = DynamicLibrary.open('StreamProxy.dll');
-      final loadGlobal = proxyLib.lookupFunction<
-          Pointer Function(Pointer<Utf8>),
-          Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+      final loadGlobal = proxyLib
+          .lookupFunction<
+            Pointer Function(Pointer<Utf8>),
+            Pointer Function(Pointer<Utf8>)
+          >('stream_proxy_load_global');
       for (final name in const [
         'LiteRt.dll',
         'libLiteRtTopKWebGpuSampler.dll',
@@ -369,9 +394,11 @@ class LiteRtLmFfiClient {
       // Load LiteRtLm with RTLD_GLOBAL so GPU accelerator plugins
       // can find LiteRt* symbols via dlsym(RTLD_DEFAULT).
       // Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
-      final loadGlobal = proxyLib.lookupFunction<
-          Pointer Function(Pointer<Utf8>),
-          Pointer Function(Pointer<Utf8>)>('stream_proxy_load_global');
+      final loadGlobal = proxyLib
+          .lookupFunction<
+            Pointer Function(Pointer<Utf8>),
+            Pointer Function(Pointer<Utf8>)
+          >('stream_proxy_load_global');
       final pathPtr = 'libLiteRtLm.so'.toNativeUtf8();
       final handle = loadGlobal(pathPtr);
       calloc.free(pathPtr);
@@ -381,26 +408,31 @@ class LiteRtLmFfiClient {
         // hard-references `pthread_cond_clockwait` / `sem_clockwait`,
         // which don't exist on API 29 and below. Use a MediaPipe `.task`
         // model instead, or bump `minSdkVersion` to 30.
-        throw Exception('Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
-            'On Android, this commonly indicates API < 30: `.litertlm` models '
-            'require Android 11+ (minSdkVersion 30). For older devices use a '
-            'MediaPipe `.task` model instead. See '
-            'https://github.com/DenisovAV/flutter_gemma/issues/265');
+        throw Exception(
+          'Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
+          'On Android, this commonly indicates API < 30: `.litertlm` models '
+          'require Android 11+ (minSdkVersion 30). For older devices use a '
+          'MediaPipe `.task` model instead. See '
+          'https://github.com/DenisovAV/flutter_gemma/issues/265',
+        );
       }
       lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
     } else {
       throw UnsupportedError(
-          'Platform not supported for FFI: ${Platform.operatingSystem}');
+        'Platform not supported for FFI: ${Platform.operatingSystem}',
+      );
     }
 
     _bindings = LiteRtLmBindings(lib);
     _proxyLib = proxyLib;
-    _proxyCreate =
-        proxyLib.lookupFunction<_ProxyCreateNative, _ProxyCreateDart>(
-            'stream_proxy_create');
-    _proxyFreeString =
-        proxyLib.lookupFunction<_ProxyFreeStringNative, _ProxyFreeStringDart>(
-            'stream_proxy_free_string');
+    _proxyCreate = proxyLib
+        .lookupFunction<_ProxyCreateNative, _ProxyCreateDart>(
+          'stream_proxy_create',
+        );
+    _proxyFreeString = proxyLib
+        .lookupFunction<_ProxyFreeStringNative, _ProxyFreeStringDart>(
+          'stream_proxy_free_string',
+        );
 
     // DEBUG-only: redirect native stderr to a file so we can dump absl/glog
     // output through debugPrint after engine_create failure. Skipped in
@@ -414,16 +446,21 @@ class LiteRtLmFfiClient {
     if (kDebugMode &&
         (Platform.isIOS || Platform.isLinux || Platform.isMacOS)) {
       _nativeLogPath = '${Directory.systemTemp.path}/litertlm_native.log';
-      final redirect = proxyLib.lookupFunction<Int32 Function(Pointer<Utf8>),
-          int Function(Pointer<Utf8>)>('stream_proxy_redirect_stderr');
+      final redirect = proxyLib
+          .lookupFunction<
+            Int32 Function(Pointer<Utf8>),
+            int Function(Pointer<Utf8>)
+          >('stream_proxy_redirect_stderr');
       final pathPtr = _nativeLogPath!.toNativeUtf8();
       final rc = redirect(pathPtr);
       calloc.free(pathPtr);
       if (rc != 0) {
         // Log capture is best-effort but its failure makes _dumpNativeLog
         // useless. Surface it instead of silently continuing.
-        gemmaLog('[LiteRtLmFfi] WARNING: stderr redirect failed (rc=$rc) — '
-            'native log dumps will be empty');
+        gemmaLog(
+          '[LiteRtLmFfi] WARNING: stderr redirect failed (rc=$rc) — '
+          'native log dumps will be empty',
+        );
         _nativeLogPath = null;
       } else {
         gemmaLog('[LiteRtLmFfi] stderr redirected to $_nativeLogPath');
@@ -431,7 +468,8 @@ class LiteRtLmFfiClient {
     }
 
     gemmaLog(
-        '[LiteRtLmFfi/perf] _ensureBindings total: ${loadSw.elapsedMilliseconds}ms');
+      '[LiteRtLmFfi/perf] _ensureBindings total: ${loadSw.elapsedMilliseconds}ms',
+    );
     gemmaLog('[LiteRtLmFfi] Libraries loaded');
   }
 
@@ -468,7 +506,8 @@ class LiteRtLmFfiClient {
         audioBackendPtr == nullptr ? nullptr : audioBackendPtr.cast(),
       );
       gemmaLog(
-          '[LiteRtLmFfi/perf] settings_create: ${initSw.elapsedMilliseconds - settingsCreateStart}ms');
+        '[LiteRtLmFfi/perf] settings_create: ${initSw.elapsedMilliseconds - settingsCreateStart}ms',
+      );
 
       if (settings == nullptr) {
         throw Exception('Failed to create engine settings');
@@ -496,7 +535,9 @@ class LiteRtLmFfiClient {
       // forces on/off.
       if (enableSpeculativeDecoding != null) {
         b.litert_lm_engine_settings_set_enable_speculative_decoding(
-            settings, enableSpeculativeDecoding);
+          settings,
+          enableSpeculativeDecoding,
+        );
       }
 
       // Windows NPU: point LiteRT at the directory containing
@@ -512,11 +553,14 @@ class LiteRtLmFfiClient {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final dirPtr = exeDir.toNativeUtf8();
         b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
-            settings, dirPtr.cast());
+          settings,
+          dirPtr.cast(),
+        );
         calloc.free(dirPtr);
         b.litert_lm_engine_settings_set_use_hw_masking_for_npu(settings, false);
         gemmaLog(
-            '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false');
+          '[LiteRtLmFfi] NPU Windows: dispatch_lib_dir=$exeDir, use_hw_masking_for_npu=false',
+        );
       }
 
       // Android NPU: point LiteRT at the app's nativeLibraryDir so it can
@@ -525,17 +569,21 @@ class LiteRtLmFfiClient {
       // time; without this setting LiteRT searches system paths and fails.
       if (Platform.isAndroid && backend == 'npu') {
         const bundledChannel = MethodChannel('flutter_gemma_bundled');
-        final nativeLibDir =
-            await bundledChannel.invokeMethod<String>('getNativeLibraryDir');
+        final nativeLibDir = await bundledChannel.invokeMethod<String>(
+          'getNativeLibraryDir',
+        );
         if (nativeLibDir == null) {
           throw StateError(
-              '[LiteRtLmFfi] NPU Android: getNativeLibraryDir returned null — '
-              'plugin channel not registered; cannot locate '
-              'libLiteRtDispatch_Qualcomm.so.');
+            '[LiteRtLmFfi] NPU Android: getNativeLibraryDir returned null — '
+            'plugin channel not registered; cannot locate '
+            'libLiteRtDispatch_Qualcomm.so.',
+          );
         }
         final dirPtr = nativeLibDir.toNativeUtf8();
         b.litert_lm_engine_settings_set_litert_dispatch_lib_dir(
-            settings, dirPtr.cast());
+          settings,
+          dirPtr.cast(),
+        );
         calloc.free(dirPtr);
         gemmaLog('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
@@ -543,9 +591,11 @@ class LiteRtLmFfiClient {
       // Create engine in a background isolate to avoid blocking UI.
       // Pass settings pointer as int address (Pointer can't cross isolates).
       gemmaLog(
-          '[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...');
+        '[LiteRtLmFfi] Creating engine from $modelPath (backend=$backend, maxTokens=$maxTokens) ...',
+      );
       gemmaLog(
-          '[LiteRtLmFfi/perf] === START litert_lm_engine_create (native — model load + accelerator init + KV cache prefill) ===');
+        '[LiteRtLmFfi/perf] === START litert_lm_engine_create (native — model load + accelerator init + KV cache prefill) ===',
+      );
       final settingsAddr = settings.address;
       final sw = Stopwatch()..start();
       // Snapshot the log level so the spawned isolate (a fresh copy of the
@@ -557,45 +607,56 @@ class LiteRtLmFfiClient {
         final isolateSw = Stopwatch()..start();
         final lib = Platform.isIOS
             ? DynamicLibrary.open(
-                '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm')
+                '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm',
+              )
             : Platform.isMacOS
-                ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
-                : (Platform.isLinux || Platform.isAndroid)
-                    ? DynamicLibrary.open('libLiteRtLm.so')
-                    : DynamicLibrary.open('LiteRtLm.dll');
+            ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
+            : (Platform.isLinux || Platform.isAndroid)
+            ? DynamicLibrary.open('libLiteRtLm.so')
+            : DynamicLibrary.open('LiteRtLm.dll');
         gemmaLog(
-            '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms',
-            level: GemmaLogLevel.verbose);
+          '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms',
+          level: GemmaLogLevel.verbose,
+        );
         final lookupStart = isolateSw.elapsedMilliseconds;
-        final create = lib.lookupFunction<Pointer Function(Pointer),
-            Pointer Function(Pointer)>('litert_lm_engine_create');
+        final create = lib
+            .lookupFunction<
+              Pointer Function(Pointer),
+              Pointer Function(Pointer)
+            >('litert_lm_engine_create');
         gemmaLog(
-            '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms',
-            level: GemmaLogLevel.verbose);
+          '[LiteRtLmFfi/perf]   isolate: lookupFunction: ${isolateSw.elapsedMilliseconds - lookupStart}ms',
+          level: GemmaLogLevel.verbose,
+        );
         final createStart = isolateSw.elapsedMilliseconds;
         final ptr = create(Pointer.fromAddress(settingsAddr)).address;
         gemmaLog(
-            '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms',
-            level: GemmaLogLevel.verbose);
+          '[LiteRtLmFfi/perf]   isolate: native litert_lm_engine_create: ${isolateSw.elapsedMilliseconds - createStart}ms',
+          level: GemmaLogLevel.verbose,
+        );
         return ptr;
       });
       _engine = Pointer<LiteRtLmEngine>.fromAddress(engineAddr);
       sw.stop();
       gemmaLog(
-          '[LiteRtLmFfi/perf] === END litert_lm_engine_create: ${sw.elapsedMilliseconds}ms (includes isolate spawn ~50-200ms) ===');
+        '[LiteRtLmFfi/perf] === END litert_lm_engine_create: ${sw.elapsedMilliseconds}ms (includes isolate spawn ~50-200ms) ===',
+      );
       gemmaLog(
-          '[LiteRtLmFfi] litert_lm_engine_create took ${sw.elapsedMilliseconds}ms');
+        '[LiteRtLmFfi] litert_lm_engine_create took ${sw.elapsedMilliseconds}ms',
+      );
       b.litert_lm_engine_settings_delete(settings);
 
       if (_engine == null || _engine == nullptr) {
         _dumpNativeLog();
         throw Exception(
-            'Failed to create engine. Model may be invalid: $modelPath');
+          'Failed to create engine. Model may be invalid: $modelPath',
+        );
       }
 
       _isInitialized = true;
       gemmaLog(
-          '[LiteRtLmFfi/perf] initialize() total: ${initSw.elapsedMilliseconds}ms');
+        '[LiteRtLmFfi/perf] initialize() total: ${initSw.elapsedMilliseconds}ms',
+      );
       gemmaLog('[LiteRtLmFfi] Engine initialized successfully');
 
       // Auto-dump the SDK's stderr log after successful engine_create so
@@ -697,27 +758,31 @@ class LiteRtLmFfiClient {
       samplerParams.ref.temperature = temperature;
       samplerParams.ref.seed = seed;
       b.litert_lm_session_config_set_sampler_params(
-          sessionConfig, samplerParams);
+        sessionConfig,
+        samplerParams,
+      );
       calloc.free(samplerParams);
     } else {
-      gemmaLog('[LiteRtLmFfi] NPU backend — sampler params '
-          '(temperature, topK, topP, seed) ignored, engine uses '
-          'internal greedy sampling.');
+      gemmaLog(
+        '[LiteRtLmFfi] NPU backend — sampler params '
+        '(temperature, topK, topP, seed) ignored, engine uses '
+        'internal greedy sampling.',
+      );
     }
 
     final systemPtr = systemMessage?.toNativeUtf8();
     final toolsPtr = toolsJson?.toNativeUtf8();
     final messagesPtr = messagesJson?.toNativeUtf8();
 
-    final Pointer<LiteRtLmConversationConfig> convConfig =
-        b.litert_lm_conversation_config_create(
-      _engine!,
-      sessionConfig,
-      systemPtr?.cast() ?? nullptr,
-      toolsPtr?.cast() ?? nullptr,
-      messagesPtr?.cast() ?? nullptr,
-      toolsJson != null,
-    );
+    final Pointer<LiteRtLmConversationConfig> convConfig = b
+        .litert_lm_conversation_config_create(
+          _engine!,
+          sessionConfig,
+          systemPtr?.cast() ?? nullptr,
+          toolsPtr?.cast() ?? nullptr,
+          messagesPtr?.cast() ?? nullptr,
+          toolsJson != null,
+        );
 
     b.litert_lm_session_config_delete(sessionConfig);
     if (systemPtr != null) calloc.free(systemPtr);
@@ -783,10 +848,7 @@ class LiteRtLmFfiClient {
       }
     }
     if (audioBytes != null) {
-      content.add({
-        'type': 'audio',
-        'blob': base64Encode(audioBytes),
-      });
+      content.add({'type': 'audio', 'blob': base64Encode(audioBytes)});
     }
     content.add({'type': 'text', 'text': text});
     return jsonEncode({'role': 'user', 'content': content});
@@ -834,9 +896,11 @@ class LiteRtLmFfiClient {
       audioBytes: audioBytes,
     );
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return _sendMessageStreamRawOn(conv, messageJson,
-            extraContext: extraContext)
-        .map(extractTextFromResponse);
+    return _sendMessageStreamRawOn(
+      conv,
+      messageJson,
+      extraContext: extraContext,
+    ).map(extractTextFromResponse);
   }
 
   /// Same as [_chatOn] but yields raw SDK JSON chunks without
@@ -849,11 +913,17 @@ class LiteRtLmFfiClient {
     Uint8List? audioBytes,
     bool enableThinking = false,
   }) {
-    final messageJson =
-        buildMessageJson(text, imagesBytes: imageBytes, audioBytes: audioBytes);
+    final messageJson = buildMessageJson(
+      text,
+      imagesBytes: imageBytes,
+      audioBytes: audioBytes,
+    );
     final extraContext = enableThinking ? '{"enable_thinking": true}' : null;
-    return _sendMessageStreamRawOn(conv, messageJson,
-        extraContext: extraContext);
+    return _sendMessageStreamRawOn(
+      conv,
+      messageJson,
+      extraContext: extraContext,
+    );
   }
 
   /// Legacy: streaming chat on the implicit [_legacyHandle] conversation.
@@ -864,10 +934,12 @@ class LiteRtLmFfiClient {
     bool enableThinking = false,
   }) {
     _assertConversation();
-    return _legacyHandle!.chat(text,
-        imageBytes: imageBytes,
-        audioBytes: audioBytes,
-        enableThinking: enableThinking);
+    return _legacyHandle!.chat(
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    );
   }
 
   /// Legacy: raw streaming chat on the implicit [_legacyHandle] conversation.
@@ -878,10 +950,12 @@ class LiteRtLmFfiClient {
     bool enableThinking = false,
   }) {
     _assertConversation();
-    return _legacyHandle!.chatRaw(text,
-        imageBytes: imageBytes,
-        audioBytes: audioBytes,
-        enableThinking: enableThinking);
+    return _legacyHandle!.chatRaw(
+      text,
+      imageBytes: imageBytes,
+      audioBytes: audioBytes,
+      enableThinking: enableThinking,
+    );
   }
 
   /// Send a raw JSON message on the given conversation and get a streaming
@@ -889,12 +963,17 @@ class LiteRtLmFfiClient {
   /// conversations don't race inside liblitert_lm; releases on completion or
   /// error.
   Stream<String> _sendMessageStreamRawOn(
-      Pointer<LiteRtLmConversation> conv, String messageJson,
-      {String? extraContext}) async* {
+    Pointer<LiteRtLmConversation> conv,
+    String messageJson, {
+    String? extraContext,
+  }) async* {
     await _nativeMutex.acquire();
     try {
-      yield* _doSendMessageStreamRawOn(conv, messageJson,
-          extraContext: extraContext);
+      yield* _doSendMessageStreamRawOn(
+        conv,
+        messageJson,
+        extraContext: extraContext,
+      );
     } finally {
       _nativeMutex.release();
     }
@@ -987,8 +1066,9 @@ class LiteRtLmFfiClient {
             _deleteConversation(old);
             _virtualConv = null;
           }
-          final historyJson =
-              history.isEmpty ? null : buildHistoryJson(history);
+          final historyJson = history.isEmpty
+              ? null
+              : buildHistoryJson(history);
           _virtualConv = _createRawConversation(
             systemMessage: systemMessage,
             toolsJson: toolsJson,
@@ -1000,17 +1080,20 @@ class LiteRtLmFfiClient {
           );
           _virtualActiveToken = conversationToken;
         }
-        inner = _doSendMessageStreamRawOn(_virtualConv!, messageJson,
-                extraContext: extraContext)
-            .listen(
-          controller.add,
-          onError: controller.addError,
-          onDone: () async {
-            await releaseAndCleanup();
-            if (!controller.isClosed) await controller.close();
-          },
-          cancelOnError: false,
-        );
+        inner =
+            _doSendMessageStreamRawOn(
+              _virtualConv!,
+              messageJson,
+              extraContext: extraContext,
+            ).listen(
+              controller.add,
+              onError: controller.addError,
+              onDone: () async {
+                await releaseAndCleanup();
+                if (!controller.isClosed) await controller.close();
+              },
+              cancelOnError: false,
+            );
       } catch (e, st) {
         controller.addError(e, st);
         await releaseAndCleanup();
@@ -1072,60 +1155,65 @@ class LiteRtLmFfiClient {
   }
 
   Stream<String> _doSendMessageStreamRawOn(
-      Pointer<LiteRtLmConversation> conv, String messageJson,
-      {String? extraContext}) {
+    Pointer<LiteRtLmConversation> conv,
+    String messageJson, {
+    String? extraContext,
+  }) {
     _assertInitialized();
     final b = _bindings!;
 
     final controller = StreamController<String>();
 
     final messagePtr = messageJson.toNativeUtf8();
-    final extraPtr =
-        extraContext != null ? extraContext.toNativeUtf8() : nullptr;
+    final extraPtr = extraContext != null
+        ? extraContext.toNativeUtf8()
+        : nullptr;
 
     // NativeCallable.listener is thread-safe — the callback can be
     // invoked from the native background thread that LiteRT-LM uses
     // for streaming, and Dart will marshal it to the right isolate.
     // Dart callback — receives heap-copied strings from proxy
     late final NativeCallable<_StreamCallbackNative> callable;
-    callable = NativeCallable<_StreamCallbackNative>.listener(
-      (Pointer<Void> data, Pointer<Char> chunk, int isFinal,
-          Pointer<Char> errorMsg) {
-        if (errorMsg != nullptr && errorMsg.address != 0) {
-          final error = errorMsg.cast<Utf8>().toDartString();
-          _proxyFreeString!(errorMsg); // free strdup'd string
-          // stopGeneration() (and any other caller-initiated cancel) surfaces
-          // here as a CANCELLED error from native. That's not an error from
-          // the API consumer's perspective — the stream just stops cleanly
-          // at whatever token was last delivered.
-          if (error.startsWith('CANCELLED')) {
-            controller.close();
-          } else {
-            controller.addError(Exception('Stream error: $error'));
-            controller.close();
-          }
-          callable.close();
-          calloc.free(messagePtr);
-          if (extraPtr != nullptr) calloc.free(extraPtr);
-          return;
-        }
-
-        if (chunk != nullptr && chunk.address != 0) {
-          final text = chunk.cast<Utf8>().toDartString();
-          _proxyFreeString!(chunk); // free strdup'd string
-          if (text.isNotEmpty) {
-            controller.add(text);
-          }
-        }
-
-        if (isFinal != 0) {
+    callable = NativeCallable<_StreamCallbackNative>.listener((
+      Pointer<Void> data,
+      Pointer<Char> chunk,
+      int isFinal,
+      Pointer<Char> errorMsg,
+    ) {
+      if (errorMsg != nullptr && errorMsg.address != 0) {
+        final error = errorMsg.cast<Utf8>().toDartString();
+        _proxyFreeString!(errorMsg); // free strdup'd string
+        // stopGeneration() (and any other caller-initiated cancel) surfaces
+        // here as a CANCELLED error from native. That's not an error from
+        // the API consumer's perspective — the stream just stops cleanly
+        // at whatever token was last delivered.
+        if (error.startsWith('CANCELLED')) {
           controller.close();
-          callable.close();
-          calloc.free(messagePtr);
-          if (extraPtr != nullptr) calloc.free(extraPtr);
+        } else {
+          controller.addError(Exception('Stream error: $error'));
+          controller.close();
         }
-      },
-    );
+        callable.close();
+        calloc.free(messagePtr);
+        if (extraPtr != nullptr) calloc.free(extraPtr);
+        return;
+      }
+
+      if (chunk != nullptr && chunk.address != 0) {
+        final text = chunk.cast<Utf8>().toDartString();
+        _proxyFreeString!(chunk); // free strdup'd string
+        if (text.isNotEmpty) {
+          controller.add(text);
+        }
+      }
+
+      if (isFinal != 0) {
+        controller.close();
+        callable.close();
+        calloc.free(messagePtr);
+        if (extraPtr != nullptr) calloc.free(extraPtr);
+      }
+    });
 
     // Create proxy that strdup's strings before forwarding to Dart callback
     final outProxyFn = calloc<Pointer<NativeFunction<_StreamCallbackNative>>>();
@@ -1147,8 +1235,9 @@ class LiteRtLmFfiClient {
       if (extraPtr != nullptr) calloc.free(extraPtr);
       callable.close();
       throw StateError(
-          'litert_lm_conversation_optional_args_create returned null — '
-          'native libLiteRtLm.dylib initialization failure');
+        'litert_lm_conversation_optional_args_create returned null — '
+        'native libLiteRtLm.dylib initialization failure',
+      );
     }
 
     final result = b.litert_lm_conversation_send_message_stream(
@@ -1163,8 +1252,9 @@ class LiteRtLmFfiClient {
     b.litert_lm_conversation_optional_args_delete(optionalArgs);
 
     if (result != 0) {
-      controller
-          .addError(Exception('Failed to start streaming (code: $result)'));
+      controller.addError(
+        Exception('Failed to start streaming (code: $result)'),
+      );
       controller.close();
       callable.close();
       calloc.free(messagePtr);
@@ -1186,26 +1276,33 @@ class LiteRtLmFfiClient {
   }
 
   /// Legacy: streaming raw on the implicit [_legacyHandle] conversation.
-  Stream<String> sendMessageStreamRaw(String messageJson,
-      {String? extraContext}) {
+  Stream<String> sendMessageStreamRaw(
+    String messageJson, {
+    String? extraContext,
+  }) {
     _assertConversation();
-    return _legacyHandle!
-        .sendMessageStreamRaw(messageJson, extraContext: extraContext);
+    return _legacyHandle!.sendMessageStreamRaw(
+      messageJson,
+      extraContext: extraContext,
+    );
   }
 
   /// Send a text message on the given conversation and get the full response
   /// (sync C API, non-blocking Dart). Serialized via [_nativeMutex] so it
   /// can't run concurrently with another conversation's generation.
   Future<String> _sendMessageOn(
-      Pointer<LiteRtLmConversation> conv, String messageJson,
-      {String? extraContext}) {
+    Pointer<LiteRtLmConversation> conv,
+    String messageJson, {
+    String? extraContext,
+  }) {
     return _nativeMutex.protect(() async {
       _assertInitialized();
       final b = _bindings!;
 
       final messagePtr = messageJson.toNativeUtf8();
-      final extraPtr =
-          extraContext != null ? extraContext.toNativeUtf8() : nullptr;
+      final extraPtr = extraContext != null
+          ? extraContext.toNativeUtf8()
+          : nullptr;
 
       // v0.12.0 send_message requires a non-null LiteRtLmConversationOptionalArgs*.
       final optionalArgs = b.litert_lm_conversation_optional_args_create();
@@ -1213,8 +1310,9 @@ class LiteRtLmFfiClient {
         calloc.free(messagePtr);
         if (extraPtr != nullptr) calloc.free(extraPtr);
         throw StateError(
-            'litert_lm_conversation_optional_args_create returned null — '
-            'native libLiteRtLm.dylib initialization failure');
+          'litert_lm_conversation_optional_args_create returned null — '
+          'native libLiteRtLm.dylib initialization failure',
+        );
       }
 
       try {
@@ -1230,8 +1328,9 @@ class LiteRtLmFfiClient {
         }
 
         final strPtr = b.litert_lm_json_response_get_string(response);
-        final result =
-            strPtr == nullptr ? '' : strPtr.cast<Utf8>().toDartString();
+        final result = strPtr == nullptr
+            ? ''
+            : strPtr.cast<Utf8>().toDartString();
         b.litert_lm_json_response_delete(response);
         return result;
       } finally {
@@ -1311,8 +1410,9 @@ class LiteRtLmFfiClient {
       return SessionMetrics();
     }
 
-    final benchmarkInfo =
-        _bindings!.litert_lm_conversation_get_benchmark_info(conv);
+    final benchmarkInfo = _bindings!.litert_lm_conversation_get_benchmark_info(
+      conv,
+    );
     if (benchmarkInfo == nullptr) {
       return SessionMetrics();
     }
@@ -1331,13 +1431,17 @@ class LiteRtLmFfiClient {
       for (var i = 0; i < numPrefillTurns; i++) {
         inputTokens += _bindings!
             .litert_lm_benchmark_info_get_prefill_token_count_at(
-                benchmarkInfo, i);
+              benchmarkInfo,
+              i,
+            );
       }
 
       for (var i = 0; i < numDecodeTurns; i++) {
         outputTokens += _bindings!
             .litert_lm_benchmark_info_get_decode_token_count_at(
-                benchmarkInfo, i);
+              benchmarkInfo,
+              i,
+            );
       }
 
       // Get timing info if available
@@ -1345,14 +1449,17 @@ class LiteRtLmFfiClient {
           .litert_lm_benchmark_info_get_time_to_first_token(benchmarkInfo);
       final initTime = _bindings!
           .litert_lm_benchmark_info_get_total_init_time_in_second(
-              benchmarkInfo);
+            benchmarkInfo,
+          );
 
       // Calculate average tokens per second from last decode turn if available
       double? tokensPerSecond;
       if (numDecodeTurns > 0) {
         tokensPerSecond = _bindings!
             .litert_lm_benchmark_info_get_decode_tokens_per_sec_at(
-                benchmarkInfo, numDecodeTurns - 1);
+              benchmarkInfo,
+              numDecodeTurns - 1,
+            );
         if (tokensPerSecond <= 0) tokensPerSecond = null;
       }
 
@@ -1363,8 +1470,9 @@ class LiteRtLmFfiClient {
         inputTokens: inputTokens,
         outputTokens: outputTokens,
         totalTokens: inputTokens + outputTokens,
-        timeToFirstTokenMs:
-            timeToFirstToken > 0 ? timeToFirstToken * 1000 : null,
+        timeToFirstTokenMs: timeToFirstToken > 0
+            ? timeToFirstToken * 1000
+            : null,
         tokensPerSecond: tokensPerSecond,
         initTimeMs: initTime > 0 ? initTime * 1000 : null,
       );

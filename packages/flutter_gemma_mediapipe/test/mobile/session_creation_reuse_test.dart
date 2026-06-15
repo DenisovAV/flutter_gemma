@@ -167,24 +167,31 @@ void main() {
   tearDown(() => platform.reset());
 
   group('Issue #308 — createSession reuses the cached session (bug)', () {
-    test(
-        'BUG: second createSession returns the SAME session, native '
+    test('BUG: second createSession returns the SAME session, native '
         'createSession never called again — KV cache bleeds', () async {
       final creator = BuggySessionCreator(platform);
 
       final a = await creator.createSession();
       final b = await creator.createSession();
 
-      expect(platform.createSessionCallCount, 1,
-          reason: 'BUG: native createSession not called for the 2nd chat');
-      expect(identical(a, b), isTrue,
-          reason: 'BUG: both chats share one session');
-      expect(a.nativeSessionId, b.nativeSessionId,
-          reason: 'BUG: same native session → prior KV cache is reused');
+      expect(
+        platform.createSessionCallCount,
+        1,
+        reason: 'BUG: native createSession not called for the 2nd chat',
+      );
+      expect(
+        identical(a, b),
+        isTrue,
+        reason: 'BUG: both chats share one session',
+      );
+      expect(
+        a.nativeSessionId,
+        b.nativeSessionId,
+        reason: 'BUG: same native session → prior KV cache is reused',
+      );
     });
 
-    test(
-        'BUG: a failed createSession permanently caches the rejected '
+    test('BUG: a failed createSession permanently caches the rejected '
         'future, blocking retry', () async {
       final creator = BuggySessionCreator(platform);
 
@@ -192,10 +199,16 @@ void main() {
       await expectLater(creator.createSession(), throwsException);
 
       platform.shouldFail = false;
-      await expectLater(creator.createSession(), throwsException,
-          reason: 'BUG: cached rejected completer blocks the retry');
-      expect(platform.createSessionCallCount, 1,
-          reason: 'BUG: native createSession not retried');
+      await expectLater(
+        creator.createSession(),
+        throwsException,
+        reason: 'BUG: cached rejected completer blocks the retry',
+      );
+      expect(
+        platform.createSessionCallCount,
+        1,
+        reason: 'BUG: native createSession not retried',
+      );
     });
   });
 
@@ -206,27 +219,44 @@ void main() {
       final a = await creator.createSession();
       final b = await creator.createSession();
 
-      expect(platform.createSessionCallCount, 2,
-          reason: 'FIX: native createSession runs for each chat');
-      expect(identical(a, b), isFalse,
-          reason: 'FIX: each chat gets its own wrapper');
-      expect(a.nativeSessionId != b.nativeSessionId, isTrue,
-          reason: 'FIX: distinct native sessions → no KV-cache bleed');
+      expect(
+        platform.createSessionCallCount,
+        2,
+        reason: 'FIX: native createSession runs for each chat',
+      );
+      expect(
+        identical(a, b),
+        isFalse,
+        reason: 'FIX: each chat gets its own wrapper',
+      );
+      expect(
+        a.nativeSessionId != b.nativeSessionId,
+        isTrue,
+        reason: 'FIX: distinct native sessions → no KV-cache bleed',
+      );
     });
 
-    test('FIX: the prior session is closed before the next is created',
-        () async {
-      final creator = FixedSessionCreator(platform);
+    test(
+      'FIX: the prior session is closed before the next is created',
+      () async {
+        final creator = FixedSessionCreator(platform);
 
-      final a = await creator.createSession();
-      expect(a.isClosed, isFalse);
+        final a = await creator.createSession();
+        expect(a.isClosed, isFalse);
 
-      await creator.createSession();
-      expect(a.isClosed, isTrue,
-          reason: 'FIX: old wrapper is closed so stray use throws cleanly');
-      expect(platform.closeSessionCallCount, 1,
-          reason: 'FIX: exactly one close for the superseded session');
-    });
+        await creator.createSession();
+        expect(
+          a.isClosed,
+          isTrue,
+          reason: 'FIX: old wrapper is closed so stray use throws cleanly',
+        );
+        expect(
+          platform.closeSessionCallCount,
+          1,
+          reason: 'FIX: exactly one close for the superseded session',
+        );
+      },
+    );
 
     test('FIX: a failed createSession does not block retry', () async {
       final creator = FixedSessionCreator(platform);
@@ -237,12 +267,14 @@ void main() {
       platform.shouldFail = false;
       final session = await creator.createSession();
       expect(session.nativeSessionId, greaterThan(0));
-      expect(platform.createSessionCallCount, 2,
-          reason: 'FIX: completer cleared on failure → retry runs');
+      expect(
+        platform.createSessionCallCount,
+        2,
+        reason: 'FIX: completer cleared on failure → retry runs',
+      );
     });
 
-    test(
-        'FIX: concurrent createSession calls still dedupe to one native '
+    test('FIX: concurrent createSession calls still dedupe to one native '
         'session (in-flight guard preserved)', () async {
       final creator = FixedSessionCreator(platform);
 
@@ -252,14 +284,16 @@ void main() {
         creator.createSession(),
       ]);
 
-      expect(platform.createSessionCallCount, 1,
-          reason: 'concurrent callers share one in-flight creation');
+      expect(
+        platform.createSessionCallCount,
+        1,
+        reason: 'concurrent callers share one in-flight creation',
+      );
       expect(identical(results[0], results[1]), isTrue);
       expect(identical(results[1], results[2]), isTrue);
     });
 
-    test(
-        'FIX: idempotent close — closing a superseded session does NOT '
+    test('FIX: idempotent close — closing a superseded session does NOT '
         'tear down the current native session', () async {
       final creator = FixedSessionCreator(platform);
 
@@ -275,8 +309,11 @@ void main() {
       // session 2, since closeSession is argument-less).
       await a.close(idempotent: true);
 
-      expect(platform.closeSessionCallCount, closesAfterSupersede,
-          reason: 'idempotent close on the stale wrapper is a no-op');
+      expect(
+        platform.closeSessionCallCount,
+        closesAfterSupersede,
+        reason: 'idempotent close on the stale wrapper is a no-op',
+      );
       expect(b.isClosed, isFalse, reason: 'the current session stays open');
     });
   });

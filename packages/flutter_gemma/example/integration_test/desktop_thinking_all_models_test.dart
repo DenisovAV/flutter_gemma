@@ -60,108 +60,144 @@ void main() {
     final name = entry.key;
     final config = entry.value;
 
-    testWidgets('$name: isThinking=false — no think tags in output',
-        (tester) async {
-      if (!File(config.path).existsSync()) {
-        debugPrint('SKIP: $name not found at ${config.path}');
-        return;
-      }
-
-      await registerTestEngines();
-
-      await FlutterGemma.installModel(
-        modelType: config.modelType,
-        fileType: config.fileType,
-      ).fromFile(config.path).install();
-
-      final model = await FlutterGemma.getActiveModel(maxTokens: 256);
-      try {
-        final chat = await model.createChat(
-          modelType: config.modelType,
-          isThinking: false,
-        );
-
-        await chat.addQuery(
-            const Message(text: 'What is 2+2? Answer briefly.', isUser: true));
-        final response = await chat.generateChatResponse();
-        final text =
-            response is TextResponse ? response.token : response.toString();
-        debugPrint('[$name isThinking=false] Response: $text');
-
-        expect(text.trim(), isNotEmpty,
-            reason: '$name: response should not be empty');
-        expect(text, isNot(contains('<think>')),
-            reason: '$name: <think> tags should be stripped');
-        expect(text, isNot(contains('</think>')),
-            reason: '$name: </think> tags should be stripped');
-
-        await chat.close();
-      } finally {
-        await model.close();
-      }
-    }, timeout: const Timeout(Duration(minutes: 5)));
-
-    testWidgets('$name: isThinking=true — response not empty, no raw tags',
-        (tester) async {
-      if (!File(config.path).existsSync()) {
-        debugPrint('SKIP: $name not found at ${config.path}');
-        return;
-      }
-
-      await registerTestEngines();
-
-      await FlutterGemma.installModel(
-        modelType: config.modelType,
-        fileType: config.fileType,
-      ).fromFile(config.path).install();
-
-      final model = await FlutterGemma.getActiveModel(maxTokens: 256);
-      try {
-        final chat = await model.createChat(
-          modelType: config.modelType,
-          isThinking: true,
-        );
-
-        await chat.addQuery(
-            const Message(text: 'What is 2+2? Answer briefly.', isUser: true));
-
-        final responses = <ModelResponse>[];
-        await for (final response in chat.generateChatResponseAsync()) {
-          responses.add(response);
+    testWidgets(
+      '$name: isThinking=false — no think tags in output',
+      (tester) async {
+        if (!File(config.path).existsSync()) {
+          debugPrint('SKIP: $name not found at ${config.path}');
+          return;
         }
 
-        final thinkingCount = responses.whereType<ThinkingResponse>().length;
-        final textCount = responses.whereType<TextResponse>().length;
+        await registerTestEngines();
 
-        debugPrint(
-            '[$name isThinking=true] Thinking: $thinkingCount, Text: $textCount');
+        await FlutterGemma.installModel(
+          modelType: config.modelType,
+          fileType: config.fileType,
+        ).fromFile(config.path).install();
 
-        // Models that generate thinking should have ThinkingResponse
-        if (config.generatesThinking) {
-          expect(responses.any((r) => r is ThinkingResponse), isTrue,
-              reason: '$name: should emit ThinkingResponse');
+        final model = await FlutterGemma.getActiveModel(maxTokens: 256);
+        try {
+          final chat = await model.createChat(
+            modelType: config.modelType,
+            isThinking: false,
+          );
+
+          await chat.addQuery(
+            const Message(text: 'What is 2+2? Answer briefly.', isUser: true),
+          );
+          final response = await chat.generateChatResponse();
+          final text = response is TextResponse
+              ? response.token
+              : response.toString();
+          debugPrint('[$name isThinking=false] Response: $text');
+
+          expect(
+            text.trim(),
+            isNotEmpty,
+            reason: '$name: response should not be empty',
+          );
+          expect(
+            text,
+            isNot(contains('<think>')),
+            reason: '$name: <think> tags should be stripped',
+          );
+          expect(
+            text,
+            isNot(contains('</think>')),
+            reason: '$name: </think> tags should be stripped',
+          );
+
+          await chat.close();
+        } finally {
+          await model.close();
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
+
+    testWidgets(
+      '$name: isThinking=true — response not empty, no raw tags',
+      (tester) async {
+        if (!File(config.path).existsSync()) {
+          debugPrint('SKIP: $name not found at ${config.path}');
+          return;
         }
 
-        // All models should have some text output
-        expect(responses.any((r) => r is TextResponse), isTrue,
-            reason: '$name: should emit TextResponse');
+        await registerTestEngines();
 
-        // TextResponse should never contain raw thinking tags
-        final textContent =
-            responses.whereType<TextResponse>().map((r) => r.token).join();
-        debugPrint('[$name isThinking=true] Text: $textContent');
-        expect(textContent.trim(), isNotEmpty,
-            reason: '$name: text response should not be empty');
-        expect(textContent, isNot(contains('<think>')),
-            reason: '$name: TextResponse should not contain raw <think>');
-        expect(textContent, isNot(contains('</think>')),
-            reason: '$name: TextResponse should not contain raw </think>');
+        await FlutterGemma.installModel(
+          modelType: config.modelType,
+          fileType: config.fileType,
+        ).fromFile(config.path).install();
 
-        await chat.close();
-      } finally {
-        await model.close();
-      }
-    }, timeout: const Timeout(Duration(minutes: 5)));
+        final model = await FlutterGemma.getActiveModel(maxTokens: 256);
+        try {
+          final chat = await model.createChat(
+            modelType: config.modelType,
+            isThinking: true,
+          );
+
+          await chat.addQuery(
+            const Message(text: 'What is 2+2? Answer briefly.', isUser: true),
+          );
+
+          final responses = <ModelResponse>[];
+          await for (final response in chat.generateChatResponseAsync()) {
+            responses.add(response);
+          }
+
+          final thinkingCount = responses.whereType<ThinkingResponse>().length;
+          final textCount = responses.whereType<TextResponse>().length;
+
+          debugPrint(
+            '[$name isThinking=true] Thinking: $thinkingCount, Text: $textCount',
+          );
+
+          // Models that generate thinking should have ThinkingResponse
+          if (config.generatesThinking) {
+            expect(
+              responses.any((r) => r is ThinkingResponse),
+              isTrue,
+              reason: '$name: should emit ThinkingResponse',
+            );
+          }
+
+          // All models should have some text output
+          expect(
+            responses.any((r) => r is TextResponse),
+            isTrue,
+            reason: '$name: should emit TextResponse',
+          );
+
+          // TextResponse should never contain raw thinking tags
+          final textContent = responses
+              .whereType<TextResponse>()
+              .map((r) => r.token)
+              .join();
+          debugPrint('[$name isThinking=true] Text: $textContent');
+          expect(
+            textContent.trim(),
+            isNotEmpty,
+            reason: '$name: text response should not be empty',
+          );
+          expect(
+            textContent,
+            isNot(contains('<think>')),
+            reason: '$name: TextResponse should not contain raw <think>',
+          );
+          expect(
+            textContent,
+            isNot(contains('</think>')),
+            reason: '$name: TextResponse should not contain raw </think>',
+          );
+
+          await chat.close();
+        } finally {
+          await model.close();
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
   }
 }
 

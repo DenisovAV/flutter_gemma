@@ -31,10 +31,7 @@ class AssetSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is AssetSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }
@@ -55,8 +52,10 @@ class AssetSourceHandler implements SourceHandler {
     //   fallback (#250 Mode 2)
     if (assetLoader is FlutterAssetLoader) {
       try {
-        await (assetLoader as FlutterAssetLoader)
-            .copyAssetToFile(source.pathForLookupKey, filename);
+        await (assetLoader as FlutterAssetLoader).copyAssetToFile(
+          source.pathForLookupKey,
+          filename,
+        );
       } on MissingPluginException {
         final assetData = await assetLoader.loadAsset(source.normalizedPath);
         await fileSystem.writeFile(targetPath, assetData);
@@ -95,8 +94,11 @@ class AssetSourceHandler implements SourceHandler {
 
     if (assetLoader is FlutterAssetLoader) {
       try {
-        await for (final progress in (assetLoader as FlutterAssetLoader)
-            .copyAssetToFileWithProgress(source.pathForLookupKey, filename)) {
+        await for (final progress
+            in (assetLoader as FlutterAssetLoader).copyAssetToFileWithProgress(
+              source.pathForLookupKey,
+              filename,
+            )) {
           yield progress;
         }
       } on MissingPluginException {

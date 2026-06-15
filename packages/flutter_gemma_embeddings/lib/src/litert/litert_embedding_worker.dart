@@ -140,7 +140,8 @@ class EmbeddingWorker {
       } else if (msg == null) {
         if (!readyCompleter.isCompleted) {
           readyCompleter.completeError(
-              StateError('Embedding worker isolate exited during load'));
+            StateError('Embedding worker isolate exited during load'),
+          );
         }
       }
     });
@@ -264,8 +265,13 @@ Future<void> _workerEntry(_WorkerInit init) async {
   }
 
   final commandPort = ReceivePort();
-  init.replyTo.send(_Ready(
-      commandPort.sendPort, core.inputSequenceLength, core.outputDimension));
+  init.replyTo.send(
+    _Ready(
+      commandPort.sendPort,
+      core.inputSequenceLength,
+      core.outputDimension,
+    ),
+  );
 
   try {
     await for (final msg in commandPort) {

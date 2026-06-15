@@ -4,7 +4,8 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
-const _url = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+const _url =
+    'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -13,11 +14,14 @@ void main() {
     await registerTestEngines();
 
     await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromNetwork(_url,
-      token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
-    ).install();
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+        )
+        .fromNetwork(
+          _url,
+          token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+        )
+        .install();
 
     final model = await FlutterGemma.getActiveModel(
       maxTokens: 4096,
@@ -25,7 +29,9 @@ void main() {
     );
 
     final session = await model.createSession(temperature: 0.8, topK: 1);
-    await session.addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
+    await session.addQueryChunk(
+      const Message(text: 'What is 2+2?', isUser: true),
+    );
     final r = await session.getResponse();
     print('[Gemma3-1B GPU] $r');
     expect(r, isNotEmpty);

@@ -9,7 +9,8 @@ class WebFileSourceHandler implements SourceHandler {
     required dynamic repository,
   }) {
     throw UnsupportedError(
-        'WebFileSourceHandler is only available on web platform');
+      'WebFileSourceHandler is only available on web platform',
+    );
   }
 
   @override
@@ -18,14 +19,18 @@ class WebFileSourceHandler implements SourceHandler {
   @override
   Future<void> install(ModelSource source, {CancelToken? cancelToken}) {
     throw UnsupportedError(
-        'WebFileSourceHandler is only available on web platform');
+      'WebFileSourceHandler is only available on web platform',
+    );
   }
 
   @override
-  Stream<int> installWithProgress(ModelSource source,
-      {CancelToken? cancelToken}) {
+  Stream<int> installWithProgress(
+    ModelSource source, {
+    CancelToken? cancelToken,
+  }) {
     throw UnsupportedError(
-        'WebFileSourceHandler is only available on web platform');
+      'WebFileSourceHandler is only available on web platform',
+    );
   }
 
   @override

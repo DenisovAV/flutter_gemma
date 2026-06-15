@@ -111,8 +111,10 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
     if (enableThinking) {
       if (kDebugMode) {
-        gemmaLog('Warning: enableThinking is not supported on Web (MediaPipe). '
-            'Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.');
+        gemmaLog(
+          'Warning: enableThinking is not supported on Web (MediaPipe). '
+          'Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.',
+        );
       }
     }
 
@@ -120,7 +122,8 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     if (enableVisionModality == true) {
       if (kDebugMode) {
         gemmaLog(
-            'Warning: Vision modality is not yet implemented for web platform');
+          'Warning: Vision modality is not yet implemented for web platform',
+        );
       }
     }
 
@@ -141,9 +144,8 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
       final resolved = await sourceResolver.resolveActiveInferenceModel();
 
       final fileset = await FilesetResolver.forGenAiTasks(
-              'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'
-                  .toJS)
-          .toDart;
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.27/wasm'.toJS,
+      ).toDart;
 
       // LoRA path comes from the resolver alongside the model source.
       final loraPathToUse = loraPath ?? resolved.loraPath;
@@ -152,27 +154,33 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
       // MediaPipe consumes either modelAssetPath (Blob URL string) or
       // modelAssetBuffer (ReadableStreamDefaultReader, for OPFS streaming).
       final baseOptions = switch (resolved.model) {
-        BlobUrlModelSource(:final url) =>
-          LlmInferenceBaseOptions(modelAssetPath: url),
+        BlobUrlModelSource(:final url) => LlmInferenceBaseOptions(
+          modelAssetPath: url,
+        ),
         OpfsStreamModelSource() => LlmInferenceBaseOptions(
-            modelAssetBuffer:
-                await (resolved.model as OpfsStreamModelSource).openReader()),
+          modelAssetBuffer: await (resolved.model as OpfsStreamModelSource)
+              .openReader(),
+        ),
       };
 
       final config = LlmInferenceOptions(
-          baseOptions: baseOptions,
-          maxTokens: maxTokens,
-          randomSeed: randomSeed,
-          topK: topK,
-          temperature: temperature,
-          topP: topP,
-          supportedLoraRanks:
-              !hasLoraParams ? null : Int32List.fromList(loraRanks!).toJS,
-          loraPath: !hasLoraParams ? null : loraPathToUse,
-          maxNumImages: supportImage ? (maxNumImages ?? 1) : null);
+        baseOptions: baseOptions,
+        maxTokens: maxTokens,
+        randomSeed: randomSeed,
+        topK: topK,
+        temperature: temperature,
+        topP: topP,
+        supportedLoraRanks: !hasLoraParams
+            ? null
+            : Int32List.fromList(loraRanks!).toJS,
+        loraPath: !hasLoraParams ? null : loraPathToUse,
+        maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
+      );
 
-      final llmInference =
-          await LlmInference.createFromOptions(fileset, config).toDart;
+      final llmInference = await LlmInference.createFromOptions(
+        fileset,
+        config,
+      ).toDart;
 
       session = WebModelSession(
         modelType: modelType,
@@ -238,7 +246,8 @@ class WebModelSession extends InferenceModelSession {
   Future<void> addQueryChunk(Message message) async {
     if (kDebugMode) {
       gemmaLog(
-          '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, hasAudio: ${message.hasAudio}, supportImage: $supportImage, supportAudio: $supportAudio');
+        '🟢 WebModelSession.addQueryChunk() called - hasImage: ${message.hasImage}, hasAudio: ${message.hasAudio}, supportImage: $supportImage, supportAudio: $supportAudio',
+      );
     }
 
     var messageToSend = message;
@@ -253,7 +262,9 @@ class WebModelSession extends InferenceModelSession {
     }
 
     final finalPrompt = messageToSend.transformToChatPrompt(
-        type: modelType, fileType: fileType);
+      type: modelType,
+      fileType: fileType,
+    );
 
     // Add image parts first, then audio, then text last.
     if (message.hasImage) {
@@ -267,18 +278,21 @@ class WebModelSession extends InferenceModelSession {
       final images = message.images.isNotEmpty
           ? message.images
           : (message.imageBytes != null
-              ? [message.imageBytes!]
-              : const <Uint8List>[]);
+                ? [message.imageBytes!]
+                : const <Uint8List>[]);
       for (final imageBytes in images) {
         if (kDebugMode) {
-          gemmaLog('🟢 Processing image: ${imageBytes.length} bytes',
-              level: GemmaLogLevel.verbose);
+          gemmaLog(
+            '🟢 Processing image: ${imageBytes.length} bytes',
+            level: GemmaLogLevel.verbose,
+          );
         }
         final imagePart = ImagePromptPart.fromBytes(imageBytes);
         _promptParts.add(imagePart);
         if (kDebugMode) {
           gemmaLog(
-              '🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}');
+            '🟢 Added image part with dataUrl length: ${imagePart.dataUrl.length}',
+          );
         }
       }
     }
@@ -286,8 +300,10 @@ class WebModelSession extends InferenceModelSession {
     // Handle audio processing for web (Gemma 3n E4B)
     if (message.hasAudio && message.audioBytes != null) {
       if (kDebugMode) {
-        gemmaLog('🎵 Processing audio: ${message.audioBytes!.length} bytes',
-            level: GemmaLogLevel.verbose);
+        gemmaLog(
+          '🎵 Processing audio: ${message.audioBytes!.length} bytes',
+          level: GemmaLogLevel.verbose,
+        );
       }
       if (!supportAudio) {
         if (kDebugMode) {
@@ -300,7 +316,8 @@ class WebModelSession extends InferenceModelSession {
       _promptParts.add(audioPart);
       if (kDebugMode) {
         gemmaLog(
-            '🎵 Added audio part with ${message.audioBytes!.length} bytes');
+          '🎵 Added audio part with ${message.audioBytes!.length} bytes',
+        );
       }
     }
 
@@ -308,12 +325,15 @@ class WebModelSession extends InferenceModelSession {
     _promptParts.add(TextPromptPart(finalPrompt));
     if (kDebugMode) {
       gemmaLog(
-          '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...');
+        '🟢 Added text part: ${finalPrompt.substring(0, math.min(100, finalPrompt.length))}...',
+      );
     }
 
     if (kDebugMode) {
-      gemmaLog('🟢 Total prompt parts: ${_promptParts.length}',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        '🟢 Total prompt parts: ${_promptParts.length}',
+        level: GemmaLogLevel.verbose,
+      );
     }
   }
 
@@ -321,26 +341,32 @@ class WebModelSession extends InferenceModelSession {
   JSAny _createPromptArray() {
     if (kDebugMode) {
       gemmaLog(
-          '🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts');
+        '🔧 _createPromptArray: Starting with ${_promptParts.length} prompt parts',
+      );
     }
 
     if (_promptParts.isEmpty) {
       if (kDebugMode) {
         gemmaLog(
-            '📝 _createPromptArray: Empty prompt parts, returning empty string');
+          '📝 _createPromptArray: Empty prompt parts, returning empty string',
+        );
       }
       return ''.toJS; // Empty string fallback
     }
 
     // If only text parts, join them
     if (_promptParts.every((part) => part is TextPromptPart)) {
-      final fullText =
-          _promptParts.cast<TextPromptPart>().map((part) => part.text).join('');
+      final fullText = _promptParts
+          .cast<TextPromptPart>()
+          .map((part) => part.text)
+          .join('');
       if (kDebugMode) {
         gemmaLog(
-            '📝 _createPromptArray: All text parts, returning string of length ${fullText.length}');
+          '📝 _createPromptArray: All text parts, returning string of length ${fullText.length}',
+        );
         gemmaLog(
-            '📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...');
+          '📝 _createPromptArray: Text preview: ${fullText.substring(0, math.min(100, fullText.length))}...',
+        );
       }
       return fullText.toJS;
     }
@@ -348,7 +374,8 @@ class WebModelSession extends InferenceModelSession {
     // Multimodal: create array of parts following MediaPipe documentation format
     if (kDebugMode) {
       gemmaLog(
-          '🎯 _createPromptArray: Multimodal mode - creating array with proper format');
+        '🎯 _createPromptArray: Multimodal mode - creating array with proper format',
+      );
     }
 
     final jsArray = <JSAny>[];
@@ -362,15 +389,18 @@ class WebModelSession extends InferenceModelSession {
       if (part is TextPromptPart) {
         if (kDebugMode) {
           gemmaLog(
-              '📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."');
+            '📝 _createPromptArray: Adding text part: "${part.text.substring(0, math.min(50, part.text.length))}..."',
+          );
         }
         jsArray.add(part.text.toJS);
       } else if (part is ImagePromptPart) {
         if (kDebugMode) {
           gemmaLog(
-              '🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}');
+            '🖼️ _createPromptArray: Adding image part with data URL length: ${part.dataUrl.length}',
+          );
           gemmaLog(
-              '🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...');
+            '🖼️ _createPromptArray: Image data URL prefix: ${part.dataUrl.substring(0, math.min(50, part.dataUrl.length))}...',
+          );
         }
 
         // Create proper image object for MediaPipe
@@ -382,13 +412,14 @@ class WebModelSession extends InferenceModelSession {
       } else if (part is AudioPromptPart) {
         if (kDebugMode) {
           gemmaLog(
-              '🎵 _createPromptArray: Adding audio part with ${part.audioBytes.length} bytes');
+            '🎵 _createPromptArray: Adding audio part with ${part.audioBytes.length} bytes',
+          );
         }
 
         // Create proper audio object for MediaPipe
         // Audio is passed as raw PCM bytes (16kHz, 16-bit, mono)
         final audioObj = <String, Object>{
-          'audioSource': part.audioBytes.buffer.asUint8List()
+          'audioSource': part.audioBytes.buffer.asUint8List(),
         }.jsify();
         if (kDebugMode) {
           gemmaLog('🎵 _createPromptArray: Created audio object with jsify()');
@@ -397,7 +428,8 @@ class WebModelSession extends InferenceModelSession {
       } else {
         if (kDebugMode) {
           gemmaLog(
-              '❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}');
+            '❌ _createPromptArray: Unsupported prompt part type: ${part.runtimeType}',
+          );
         }
         throw Exception('Unsupported prompt part type: $part');
       }
@@ -408,7 +440,8 @@ class WebModelSession extends InferenceModelSession {
 
     if (kDebugMode) {
       gemmaLog(
-          '✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)');
+        '✅ _createPromptArray: Created JS array with ${jsArray.length} elements (including control tokens)',
+      );
       gemmaLog('🎯 _createPromptArray: Array structure ready for MediaPipe');
     }
 
@@ -426,7 +459,8 @@ class WebModelSession extends InferenceModelSession {
 
       if (kDebugMode) {
         gemmaLog(
-            '🎯 getResponse: Prompt array type: ${promptArray.runtimeType}');
+          '🎯 getResponse: Prompt array type: ${promptArray.runtimeType}',
+        );
         gemmaLog('🎯 getResponse: Is JSString? ${promptArray is JSString}');
       }
 
@@ -436,7 +470,8 @@ class WebModelSession extends InferenceModelSession {
       if (promptArray is JSString) {
         if (kDebugMode) {
           gemmaLog(
-              '📝 getResponse: Using generateResponse for text-only prompt');
+            '📝 getResponse: Using generateResponse for text-only prompt',
+          );
         }
         response =
             (await llmInference.generateResponse(promptArray, null).toDart)
@@ -444,19 +479,23 @@ class WebModelSession extends InferenceModelSession {
       } else {
         if (kDebugMode) {
           gemmaLog(
-              '🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt');
+            '🖼️ getResponse: Using generateResponseMultimodal for multimodal prompt',
+          );
         }
-        response = (await llmInference
-                .generateResponseMultimodal(promptArray, null)
-                .toDart)
-            .toDart;
+        response =
+            (await llmInference
+                    .generateResponseMultimodal(promptArray, null)
+                    .toDart)
+                .toDart;
       }
 
       if (kDebugMode) {
         gemmaLog(
-            '✅ getResponse: Successfully generated response of length ${response.length}');
+          '✅ getResponse: Successfully generated response of length ${response.length}',
+        );
         gemmaLog(
-            '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...');
+          '✅ getResponse: Response preview: ${response.substring(0, math.min(100, response.length))}...',
+        );
       }
 
       // Don't add response back to promptParts - that's handled by InferenceChat
@@ -486,16 +525,19 @@ class WebModelSession extends InferenceModelSession {
 
       if (kDebugMode) {
         gemmaLog(
-            '🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}');
+          '🎯 getResponseAsync: Prompt array type: ${promptArray.runtimeType}',
+        );
         gemmaLog(
-            '🎯 getResponseAsync: Is JSString? ${promptArray is JSString}');
+          '🎯 getResponseAsync: Is JSString? ${promptArray is JSString}',
+        );
       }
 
       // Use appropriate method based on prompt type
       if (promptArray is JSString) {
         if (kDebugMode) {
           gemmaLog(
-              '📝 getResponseAsync: Using generateResponse for text-only prompt');
+            '📝 getResponseAsync: Using generateResponse for text-only prompt',
+          );
         }
         llmInference.generateResponse(
           promptArray,
@@ -505,7 +547,8 @@ class WebModelSession extends InferenceModelSession {
               final partial = partialJs.toDart;
               if (kDebugMode) {
                 gemmaLog(
-                    '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                  '📝 getResponseAsync: Received partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...',
+                );
               }
               _controller?.add(partial);
               if (complete) {
@@ -525,7 +568,8 @@ class WebModelSession extends InferenceModelSession {
       } else {
         if (kDebugMode) {
           gemmaLog(
-              '🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt');
+            '🖼️ getResponseAsync: Using generateResponseMultimodal for multimodal prompt',
+          );
         }
         llmInference.generateResponseMultimodal(
           promptArray,
@@ -535,7 +579,8 @@ class WebModelSession extends InferenceModelSession {
               final partial = partialJs.toDart;
               if (kDebugMode) {
                 gemmaLog(
-                    '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...');
+                  '🖼️ getResponseAsync: Received multimodal partial (complete: $complete): ${partial.substring(0, math.min(50, partial.length))}...',
+                );
               }
               _controller?.add(partial);
               if (complete) {
@@ -547,7 +592,8 @@ class WebModelSession extends InferenceModelSession {
             } catch (e) {
               if (kDebugMode) {
                 gemmaLog(
-                    '❌ getResponseAsync: Error in multimodal callback: $e');
+                  '❌ getResponseAsync: Error in multimodal callback: $e',
+                );
               }
               _controller?.addError(e);
             }

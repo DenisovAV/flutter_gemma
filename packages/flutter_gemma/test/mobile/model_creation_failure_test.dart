@@ -132,11 +132,13 @@ void main() {
 
       await expectLater(
         creator.createModel('faulty-model.task'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Incompatible model file'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Incompatible model file'),
+          ),
+        ),
       );
 
       expect(mockPlatform.createModelCallCount, 1);
@@ -147,15 +149,20 @@ void main() {
       // BUG: Same error returned, createModel not called again!
       await expectLater(
         creator.createModel('working-model.task'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Incompatible model file'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Incompatible model file'),
+          ),
+        ),
       );
 
-      expect(mockPlatform.createModelCallCount, 1,
-          reason: 'BUG: createModel was not called second time');
+      expect(
+        mockPlatform.createModelCallCount,
+        1,
+        reason: 'BUG: createModel was not called second time',
+      );
     });
 
     test('FIX: After failure, retry works correctly', () async {
@@ -178,8 +185,11 @@ void main() {
       final result = await creator.createModel('working-model.task');
 
       expect(result, 'working-model.task');
-      expect(mockPlatform.createModelCallCount, 2,
-          reason: 'FIX: createModel should be called again');
+      expect(
+        mockPlatform.createModelCallCount,
+        2,
+        reason: 'FIX: createModel should be called again',
+      );
     });
 
     test('FIX: Switching model after failure works', () async {
@@ -220,15 +230,20 @@ void main() {
 
       await expectLater(
         creator.createModel('model2.task'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Error 2'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Error 2'),
+          ),
+        ),
       );
 
-      expect(mockPlatform.createModelCallCount, 2,
-          reason: 'Should have called createModel twice');
+      expect(
+        mockPlatform.createModelCallCount,
+        2,
+        reason: 'Should have called createModel twice',
+      );
 
       // Third attempt succeeds
       mockPlatform.shouldFail = false;
@@ -241,27 +256,32 @@ void main() {
   });
 
   group('Native cleanup on model switch', () {
-    test('closeModel called before creating new model when previous exists',
-        () async {
-      final creator = FixedModelCreator(mockPlatform);
+    test(
+      'closeModel called before creating new model when previous exists',
+      () async {
+        final creator = FixedModelCreator(mockPlatform);
 
-      // First model succeeds
-      mockPlatform.shouldFail = false;
-      await creator.createModel('model1.task');
+        // First model succeeds
+        mockPlatform.shouldFail = false;
+        await creator.createModel('model1.task');
 
-      expect(mockPlatform.modelCreated, isTrue);
-      expect(mockPlatform.closeModelCallCount, 0);
+        expect(mockPlatform.modelCreated, isTrue);
+        expect(mockPlatform.closeModelCallCount, 0);
 
-      // Reset creator state to simulate switching (normally done via close())
-      creator.reset();
+        // Reset creator state to simulate switching (normally done via close())
+        creator.reset();
 
-      // Create second model - should close first
-      await creator.createModel('model2.task');
+        // Create second model - should close first
+        await creator.createModel('model2.task');
 
-      expect(mockPlatform.closeModelCallCount, 1,
-          reason: 'Should close old model before creating new one');
-      expect(mockPlatform.createModelCallCount, 2);
-    });
+        expect(
+          mockPlatform.closeModelCallCount,
+          1,
+          reason: 'Should close old model before creating new one',
+        );
+        expect(mockPlatform.createModelCallCount, 2);
+      },
+    );
 
     test('closeModel NOT called when previous model failed', () async {
       final creator = FixedModelCreator(mockPlatform);
@@ -281,8 +301,11 @@ void main() {
       mockPlatform.shouldFail = false;
       await creator.createModel('working.task');
 
-      expect(mockPlatform.closeModelCallCount, 0,
-          reason: 'No need to close - previous model never created');
+      expect(
+        mockPlatform.closeModelCallCount,
+        0,
+        reason: 'No need to close - previous model never created',
+      );
       expect(mockPlatform.createModelCallCount, 2);
     });
   });
@@ -297,8 +320,11 @@ void main() {
       final result2 = await creator.createModel('test.task');
 
       expect(result1, result2);
-      expect(mockPlatform.createModelCallCount, 1,
-          reason: 'Should reuse existing model, not create new one');
+      expect(
+        mockPlatform.createModelCallCount,
+        1,
+        reason: 'Should reuse existing model, not create new one',
+      );
     });
 
     test('Failed completer does not block future attempts', () async {
@@ -331,14 +357,16 @@ void main() {
 
       await expectLater(
         creator.createModel('FastVLM.litertlm'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          allOf(
-            contains('RET_CHECK failure'),
-            contains('Error building tflite model'),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(
+              contains('RET_CHECK failure'),
+              contains('Error building tflite model'),
+            ),
           ),
-        )),
+        ),
       );
     });
 
@@ -351,11 +379,13 @@ void main() {
 
       await expectLater(
         creator.createModel('modelA.task'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Model A incompatible'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Model A incompatible'),
+          ),
+        ),
       );
 
       // Second model error - should be different
@@ -363,15 +393,20 @@ void main() {
 
       await expectLater(
         creator.createModel('modelB.task'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Model B incompatible'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Model B incompatible'),
+          ),
+        ),
       );
 
-      expect(mockPlatform.createModelCallCount, 2,
-          reason: 'Both models should have been attempted');
+      expect(
+        mockPlatform.createModelCallCount,
+        2,
+        reason: 'Both models should have been attempted',
+      );
     });
   });
 
@@ -437,11 +472,13 @@ void main() {
 
       await expectLater(
         creator.createModel('bad-tokenizer.tflite'),
-        throwsA(isA<Exception>().having(
-          (e) => e.toString(),
-          'message',
-          contains('Tokenizer load error'),
-        )),
+        throwsA(
+          isA<Exception>().having(
+            (e) => e.toString(),
+            'message',
+            contains('Tokenizer load error'),
+          ),
+        ),
       );
 
       // Third attempt succeeds

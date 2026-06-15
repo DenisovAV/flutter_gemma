@@ -9,12 +9,8 @@ import 'package:flutter_gemma_litertlm/src/ffi/ffi_inference_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('FfiInferenceModel is an InferenceModel that mixes in CloseNotifier',
-      () {
-    expect(
-      <Type>[FfiInferenceModel].single == FfiInferenceModel,
-      isTrue,
-    );
+  test('FfiInferenceModel is an InferenceModel that mixes in CloseNotifier', () {
+    expect(<Type>[FfiInferenceModel].single == FfiInferenceModel, isTrue);
     // Compile-time contract: if FfiInferenceModel did not mix in CloseNotifier
     // (which provides addCloseListener) AND extend InferenceModel, the package
     // would not compile. The assertions below are tautological at runtime; the

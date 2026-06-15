@@ -4,10 +4,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 class ResultCard extends StatelessWidget {
   final RetrievalResult result;
 
-  const ResultCard({
-    super.key,
-    required this.result,
-  });
+  const ResultCard({super.key, required this.result});
 
   Color _getScoreColor(double score) {
     if (score >= 0.8) return Colors.green;
@@ -59,10 +56,7 @@ class ResultCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              result.content,
-              style: const TextStyle(fontSize: 14),
-            ),
+            Text(result.content, style: const TextStyle(fontSize: 14)),
           ],
         ),
       ),

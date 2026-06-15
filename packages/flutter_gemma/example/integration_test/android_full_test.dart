@@ -27,9 +27,15 @@ Future<void> _install(String path) async {
   ).fromFile(path).install();
 }
 
-Future<String> _chat(PreferredBackend backend, int maxTokens, String prompt, {
-  bool supportImage = false, bool supportAudio = false, bool enableThinking = false,
-  Uint8List? image, Uint8List? audio,
+Future<String> _chat(
+  PreferredBackend backend,
+  int maxTokens,
+  String prompt, {
+  bool supportImage = false,
+  bool supportAudio = false,
+  bool enableThinking = false,
+  Uint8List? image,
+  Uint8List? audio,
 }) async {
   final model = await FlutterGemma.getActiveModel(
     maxTokens: maxTokens,
@@ -39,15 +45,15 @@ Future<String> _chat(PreferredBackend backend, int maxTokens, String prompt, {
     supportAudio: supportAudio,
   );
   final session = await model.createSession(
-    temperature: 0.8, topK: 1,
+    temperature: 0.8,
+    topK: 1,
     enableVisionModality: supportImage,
     enableAudioModality: supportAudio,
     enableThinking: enableThinking,
   );
-  await session.addQueryChunk(Message(
-    text: prompt, isUser: true,
-    imageBytes: image, audioBytes: audio,
-  ));
+  await session.addQueryChunk(
+    Message(text: prompt, isUser: true, imageBytes: image, audioBytes: audio),
+  );
   final r = await session.getResponse();
   await session.close();
   await model.close();
@@ -59,84 +65,144 @@ void main() {
 
   setUpAll(() async {
     await registerTestEngines();
-    _testImage = File(_imgPath).existsSync() ? File(_imgPath).readAsBytesSync() : Uint8List(0);
-    _testAudio = File(_audioPath).existsSync() ? File(_audioPath).readAsBytesSync() : Uint8List(0);
+    _testImage = File(_imgPath).existsSync()
+        ? File(_imgPath).readAsBytesSync()
+        : Uint8List(0);
+    _testAudio = File(_audioPath).existsSync()
+        ? File(_audioPath).readAsBytesSync()
+        : Uint8List(0);
     print('Assets: image=${_testImage.length}B, audio=${_testAudio.length}B');
   });
 
   group('Gemma3-1B', () {
-    setUpAll(() async { await _install(_gemma3_1b); });
+    setUpAll(() async {
+      await _install(_gemma3_1b);
+    });
     testWidgets('CPU', (t) async {
       final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[G3-1B CPU] $r'); expect(r, isNotEmpty);
+      print('[G3-1B CPU] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('GPU', (t) async {
       final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[G3-1B GPU] $r'); expect(r, isNotEmpty);
+      print('[G3-1B GPU] $r');
+      expect(r, isNotEmpty);
     });
   });
 
   group('Qwen3-0.6B', () {
-    setUpAll(() async { await _install(_qwen3_06); });
+    setUpAll(() async {
+      await _install(_qwen3_06);
+    });
     testWidgets('CPU', (t) async {
       final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[Qwen CPU] $r'); expect(r, isNotEmpty);
+      print('[Qwen CPU] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('GPU', (t) async {
       final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[Qwen GPU] $r'); expect(r, isNotEmpty);
+      print('[Qwen GPU] $r');
+      expect(r, isNotEmpty);
     });
   });
 
   group('Gemma3n-E2B', () {
-    setUpAll(() async { await _install(_gemma3n); });
+    setUpAll(() async {
+      await _install(_gemma3n);
+    });
     testWidgets('CPU', (t) async {
       final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[G3n CPU] $r'); expect(r, isNotEmpty);
+      print('[G3n CPU] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('GPU', (t) async {
       final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[G3n GPU] $r'); expect(r, isNotEmpty);
+      print('[G3n GPU] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('vision', (t) async {
-      if (_testImage.isEmpty) { print('[G3n vision] SKIP'); return; }
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Describe this image',
-          supportImage: true, image: _testImage);
-      print('[G3n vision] $r'); expect(r, isNotEmpty);
+      if (_testImage.isEmpty) {
+        print('[G3n vision] SKIP');
+        return;
+      }
+      final r = await _chat(
+        PreferredBackend.gpu,
+        4096,
+        'Describe this image',
+        supportImage: true,
+        image: _testImage,
+      );
+      print('[G3n vision] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('audio', (t) async {
-      if (_testAudio.isEmpty) { print('[G3n audio] SKIP'); return; }
-      final r = await _chat(PreferredBackend.cpu, 4096, 'What did you hear?',
-          supportAudio: true, audio: _testAudio);
-      print('[G3n audio] $r'); expect(r, isNotEmpty);
+      if (_testAudio.isEmpty) {
+        print('[G3n audio] SKIP');
+        return;
+      }
+      final r = await _chat(
+        PreferredBackend.cpu,
+        4096,
+        'What did you hear?',
+        supportAudio: true,
+        audio: _testAudio,
+      );
+      print('[G3n audio] $r');
+      expect(r, isNotEmpty);
     });
   });
 
   group('Gemma4-E2B', () {
-    setUpAll(() async { await _install(_gemma4); });
+    setUpAll(() async {
+      await _install(_gemma4);
+    });
     testWidgets('CPU', (t) async {
       final r = await _chat(PreferredBackend.cpu, 4096, 'Say hi');
-      print('[G4 CPU] $r'); expect(r, isNotEmpty);
+      print('[G4 CPU] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('GPU', (t) async {
       final r = await _chat(PreferredBackend.gpu, 4096, 'What is 2+2?');
-      print('[G4 GPU] $r'); expect(r, isNotEmpty);
+      print('[G4 GPU] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('vision', (t) async {
-      if (_testImage.isEmpty) { print('[G4 vision] SKIP'); return; }
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Describe this image',
-          supportImage: true, image: _testImage);
-      print('[G4 vision] $r'); expect(r, isNotEmpty);
+      if (_testImage.isEmpty) {
+        print('[G4 vision] SKIP');
+        return;
+      }
+      final r = await _chat(
+        PreferredBackend.gpu,
+        4096,
+        'Describe this image',
+        supportImage: true,
+        image: _testImage,
+      );
+      print('[G4 vision] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('audio', (t) async {
-      if (_testAudio.isEmpty) { print('[G4 audio] SKIP'); return; }
-      final r = await _chat(PreferredBackend.gpu, 4096, 'What did you hear?',
-          supportAudio: true, audio: _testAudio);
-      print('[G4 audio] $r'); expect(r, isNotEmpty);
+      if (_testAudio.isEmpty) {
+        print('[G4 audio] SKIP');
+        return;
+      }
+      final r = await _chat(
+        PreferredBackend.gpu,
+        4096,
+        'What did you hear?',
+        supportAudio: true,
+        audio: _testAudio,
+      );
+      print('[G4 audio] $r');
+      expect(r, isNotEmpty);
     });
     testWidgets('thinking', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Why is the sky blue?',
-          enableThinking: true);
+      final r = await _chat(
+        PreferredBackend.gpu,
+        4096,
+        'Why is the sky blue?',
+        enableThinking: true,
+      );
       print('[G4 thinking] ${r.substring(0, r.length.clamp(0, 100))}...');
       expect(r, isNotEmpty);
     });

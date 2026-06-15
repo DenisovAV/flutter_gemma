@@ -60,7 +60,7 @@ class InferenceChat {
     this.toolChoice =
         ToolChoice.auto, // Default to auto for backward compatibility
     String?
-        systemInstruction, // kept for API compatibility, forwarded to session via sessionCreator
+    systemInstruction, // kept for API compatibility, forwarded to session via sessionCreator
   });
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
@@ -75,8 +75,11 @@ class InferenceChat {
     await addQueryChunk(message);
   }
 
-  Future<void> addQueryChunk(Message message,
-      [bool noTool = false, bool prefix = false]) async {
+  Future<void> addQueryChunk(
+    Message message, [
+    bool noTool = false,
+    bool prefix = false,
+  ]) async {
     var messageToSend = message;
 
     // Only add tools prompt for the first user text message (not a tool response)
@@ -96,10 +99,7 @@ class InferenceChat {
       final toolsPrompt = createToolsPrompt();
 
       // Create tools prompt message for both storage and session
-      final toolsPromptMessage = Message(
-        text: toolsPrompt,
-        isUser: true,
-      );
+      final toolsPromptMessage = Message(text: toolsPrompt, isUser: true);
 
       // Send to session
       await session.addQueryChunk(toolsPromptMessage);
@@ -109,13 +109,15 @@ class InferenceChat {
     } else if (!supportsFunctionCalls && tools.isNotEmpty && !noTool) {
       // Log warning if model doesn't support function calls but tools are provided
       gemmaLog(
-          'WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.');
+        'WARNING: Model does not support function calls, but tools were provided. Tools will be ignored.',
+      );
     }
 
     // Qwen3: append /no_think to suppress thinking at model level when not requested
     if (!isThinking && modelType == ModelType.qwen3 && message.isUser) {
-      messageToSend =
-          messageToSend.copyWith(text: '${messageToSend.text} /no_think');
+      messageToSend = messageToSend.copyWith(
+        text: '${messageToSend.text} /no_think',
+      );
     }
 
     // --- DETAILED LOGGING ---
@@ -123,8 +125,10 @@ class InferenceChat {
       final historyForLogging = _modelHistory.map((m) => m.text).join('\n');
       gemmaLog('--- Sending to Native ---');
       gemmaLog('History:\n$historyForLogging', level: GemmaLogLevel.verbose);
-      gemmaLog('Current Message:\n${messageToSend.text}',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'Current Message:\n${messageToSend.text}',
+        level: GemmaLogLevel.verbose,
+      );
       gemmaLog('-------------------------');
     }
     // --- END LOGGING ---
@@ -148,8 +152,12 @@ class InferenceChat {
   Future<ModelResponse> generateChatResponse() async {
     gemmaLog('InferenceChat: Getting response from native model...');
     final response = await session.getResponse();
-    final cleanedResponse = ModelThinkingFilter.cleanResponse(response,
-        isThinking: isThinking, modelType: modelType, fileType: fileType);
+    final cleanedResponse = ModelThinkingFilter.cleanResponse(
+      response,
+      isThinking: isThinking,
+      modelType: modelType,
+      fileType: fileType,
+    );
 
     // Gemma 4 path: SDK already parsed `<|tool_call>...<tool_call|>` into
     // structured `tool_calls` JSON. Read it from session.lastRawResponse
@@ -164,7 +172,8 @@ class InferenceChat {
         final allCalls = SdkResponseParser.extractToolCalls(raw);
         if (allCalls.isNotEmpty) {
           gemmaLog(
-              'InferenceChat: Detected ${allCalls.length} SDK-parsed tool call(s)');
+            'InferenceChat: Detected ${allCalls.length} SDK-parsed tool call(s)',
+          );
           // Strip Gemma 4 escape tokens (`<|"|>`) before persisting to history.
           // Keeping raw lets the SDK echo those tokens back into the next
           // prompt and the model reproduces them in later tool_calls (#248).
@@ -180,13 +189,15 @@ class InferenceChat {
 
     if (cleanedResponse.isEmpty) {
       gemmaLog(
-          'InferenceChat: Raw response from native model is EMPTY after cleaning.');
+        'InferenceChat: Raw response from native model is EMPTY after cleaning.',
+      );
       return const TextResponse(''); // Return TextResponse instead of String
     }
 
     gemmaLog(
-        'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---',
-        level: GemmaLogLevel.verbose);
+      'InferenceChat: Raw response from native model:\n--- START ---\n$cleanedResponse\n--- END ---',
+      level: GemmaLogLevel.verbose,
+    );
 
     // Try to parse as function call if tools are available and model supports function calls
     if (tools.isNotEmpty &&
@@ -198,13 +209,15 @@ class InferenceChat {
       );
       if (allCalls.isNotEmpty) {
         gemmaLog(
-            'InferenceChat: Detected ${allCalls.length} function call(s) in sync response');
+          'InferenceChat: Detected ${allCalls.length} function call(s) in sync response',
+        );
         final toolCallMessage = Message.toolCall(text: cleanedResponse);
         _fullHistory.add(toolCallMessage);
         _modelHistory.add(toolCallMessage);
         gemmaLog(
-            'InferenceChat: Added tool call to history: ${toolCallMessage.text}',
-            level: GemmaLogLevel.verbose);
+          'InferenceChat: Added tool call to history: ${toolCallMessage.text}',
+          level: GemmaLogLevel.verbose,
+        );
         if (allCalls.length == 1) {
           return allCalls.first;
         }
@@ -220,7 +233,8 @@ class InferenceChat {
     // Clear model history for single-turn models (e.g., FunctionGemma)
     if (_isSingleTurnModel) {
       gemmaLog(
-          'InferenceChat: Single-turn model detected, clearing model history...');
+        'InferenceChat: Single-turn model detected, clearing model history...',
+      );
       _modelHistory.clear();
       _prefixes.clear();
       _currentTokens = 0;
@@ -233,7 +247,8 @@ class InferenceChat {
     }
 
     return TextResponse(
-        cleanedResponse); // Return TextResponse instead of String
+      cleanedResponse,
+    ); // Return TextResponse instead of String
   }
 
   Stream<ModelResponse> generateChatResponseAsync() async* {
@@ -248,19 +263,23 @@ class InferenceChat {
     // Track if we emitted a function call (to record correct history and skip session clearing)
     bool emittedFunctionCall = false;
 
-    final originalStream =
-        session.getResponseAsync().map((token) => TextResponse(token));
+    final originalStream = session.getResponseAsync().map(
+      (token) => TextResponse(token),
+    );
 
     // Apply thinking filter for models that may generate <think> tags.
     // enable_thinking=false is passed via extraContext for .litertlm but is not
     // reliable for all model bundles — keep filter as safety net.
-    final bool modelCanThink = modelType == ModelType.deepSeek ||
+    final bool modelCanThink =
+        modelType == ModelType.deepSeek ||
         modelType == ModelType.qwen ||
         modelType == ModelType.qwen3 ||
         modelType == ModelType.gemmaIt;
     final Stream<ModelResponse> filteredStream = (isThinking || modelCanThink)
-        ? ModelThinkingFilter.filterThinkingStream(originalStream,
-            modelType: modelType)
+        ? ModelThinkingFilter.filterThinkingStream(
+            originalStream,
+            modelType: modelType,
+          )
         : originalStream;
 
     // If user didn't request thinking, discard ThinkingResponse events
@@ -270,15 +289,19 @@ class InferenceChat {
 
     // Apply stop token filter for .litertlm on iOS (MediaPipe doesn't handle stop tokens)
     final Stream<ModelResponse> stopFilteredStream =
-        StopTokenFilter.filterStopTokens(thinkingHandledStream,
-            fileType: fileType);
+        StopTokenFilter.filterStopTokens(
+          thinkingHandledStream,
+          fileType: fileType,
+        );
 
     await for (final response in stopFilteredStream) {
       if (response is TextResponse) {
         final token = response.token;
         if (kDebugMode) {
-          gemmaLog('InferenceChat: Received filtered token: "$token"',
-              level: GemmaLogLevel.verbose);
+          gemmaLog(
+            'InferenceChat: Received filtered token: "$token"',
+            level: GemmaLogLevel.verbose,
+          );
         }
 
         // Track if this token should be added to buffer (default true)
@@ -294,13 +317,16 @@ class InferenceChat {
             funcBuffer += token;
             if (kDebugMode) {
               gemmaLog(
-                  'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars',
-                  level: GemmaLogLevel.verbose);
+                'InferenceChat: Buffering token: "$token", total: ${funcBuffer.length} chars',
+                level: GemmaLogLevel.verbose,
+              );
             }
 
             // Check if we now have a complete JSON
-            if (FunctionCallParser.isFunctionCallComplete(funcBuffer,
-                modelType: modelType)) {
+            if (FunctionCallParser.isFunctionCallComplete(
+              funcBuffer,
+              modelType: modelType,
+            )) {
               // First try to extract message from any JSON with message field
               try {
                 final jsonData = jsonDecode(funcBuffer);
@@ -310,8 +336,9 @@ class InferenceChat {
                   final message = jsonData['message'] as String;
                   if (kDebugMode) {
                     gemmaLog(
-                        'InferenceChat: Extracted message from JSON: "$message"',
-                        level: GemmaLogLevel.verbose);
+                      'InferenceChat: Extracted message from JSON: "$message"',
+                      level: GemmaLogLevel.verbose,
+                    );
                   }
                   yield TextResponse(message);
                   funcBuffer = '';
@@ -320,7 +347,8 @@ class InferenceChat {
                 }
               } catch (e) {
                 gemmaLog(
-                    'InferenceChat: Failed to parse JSON for message extraction: $e');
+                  'InferenceChat: Failed to parse JSON for message extraction: $e',
+                );
               }
 
               // If no message field found, try parsing as function call(s)
@@ -330,7 +358,8 @@ class InferenceChat {
               );
               if (allCalls.isNotEmpty) {
                 gemmaLog(
-                    'InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!');
+                  'InferenceChat: Found ${allCalls.length} function call(s) in complete buffer!',
+                );
                 emittedFunctionCall = true;
                 // Add function call to history IMMEDIATELY (before yielding)
                 // so tool response from caller comes AFTER in history order
@@ -338,7 +367,8 @@ class InferenceChat {
                 _fullHistory.add(toolCallMessage);
                 _modelHistory.add(toolCallMessage);
                 gemmaLog(
-                    'InferenceChat: Added function call to history before yielding');
+                  'InferenceChat: Added function call to history before yielding',
+                );
                 if (allCalls.length == 1) {
                   yield allCalls.first;
                 } else {
@@ -360,7 +390,8 @@ class InferenceChat {
             // If buffer gets too long without completing, flush as text
             if (funcBuffer.length > maxFunctionBufferLength) {
               gemmaLog(
-                  'InferenceChat: Buffer too long without completion, flushing as text');
+                'InferenceChat: Buffer too long without completion, flushing as text',
+              );
               yield TextResponse(funcBuffer);
               funcBuffer = '';
               shouldAddToBuffer = false;
@@ -371,12 +402,15 @@ class InferenceChat {
             shouldAddToBuffer = false;
           } else {
             // Not currently buffering - check if this token starts a function call
-            if (FunctionCallParser.isFunctionCallStart(token,
-                modelType: modelType)) {
+            if (FunctionCallParser.isFunctionCallStart(
+              token,
+              modelType: modelType,
+            )) {
               if (kDebugMode) {
                 gemmaLog(
-                    'InferenceChat: Found potential function call start in token: "$token"',
-                    level: GemmaLogLevel.verbose);
+                  'InferenceChat: Found potential function call start in token: "$token"',
+                  level: GemmaLogLevel.verbose,
+                );
               }
               funcBuffer = token;
               shouldAddToBuffer =
@@ -384,8 +418,10 @@ class InferenceChat {
             } else {
               // Normal text token - emit immediately
               if (kDebugMode) {
-                gemmaLog('InferenceChat: Emitting text token: "$token"',
-                    level: GemmaLogLevel.verbose);
+                gemmaLog(
+                  'InferenceChat: Emitting text token: "$token"',
+                  level: GemmaLogLevel.verbose,
+                );
               }
               yield response;
               shouldAddToBuffer = true; // Add to main buffer for history
@@ -395,8 +431,9 @@ class InferenceChat {
           // No function processing happening - emit token directly
           if (kDebugMode) {
             gemmaLog(
-                'InferenceChat: No function processing, emitting token as text: "$token"',
-                level: GemmaLogLevel.verbose);
+              'InferenceChat: No function processing, emitting token as text: "$token"',
+              level: GemmaLogLevel.verbose,
+            );
           }
           yield response;
           shouldAddToBuffer = true; // Add to main buffer for history
@@ -414,8 +451,10 @@ class InferenceChat {
 
     gemmaLog('InferenceChat: Native token stream ended');
     final response = buffer.toString();
-    gemmaLog('InferenceChat: Complete response accumulated: "$response"',
-        level: GemmaLogLevel.verbose);
+    gemmaLog(
+      'InferenceChat: Complete response accumulated: "$response"',
+      level: GemmaLogLevel.verbose,
+    );
 
     // Gemma 4 path: streaming yielded plain text via the SDK passthrough
     // format. The tool calls live in the structured `lastRawResponse` JSON.
@@ -430,7 +469,8 @@ class InferenceChat {
         final allCalls = SdkResponseParser.extractToolCalls(raw);
         if (allCalls.isNotEmpty) {
           gemmaLog(
-              'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream');
+            'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream',
+          );
           emittedFunctionCall = true;
           if (allCalls.length == 1) {
             yield allCalls.first;
@@ -444,7 +484,8 @@ class InferenceChat {
     // Handle end of stream - process any remaining buffer
     if (funcBuffer.isNotEmpty) {
       gemmaLog(
-          'InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars');
+        'InferenceChat: Processing remaining buffer at end of stream: ${funcBuffer.length} chars',
+      );
 
       // For FunctionGemma, the function call spans response + funcBuffer
       // (e.g., response="<start_function_call>call:fn", funcBuffer="{params}")
@@ -454,8 +495,10 @@ class InferenceChat {
           : funcBuffer;
 
       // First try to extract message from JSON if it has message field
-      if (FunctionCallParser.isFunctionCallComplete(contentToCheck,
-          modelType: modelType)) {
+      if (FunctionCallParser.isFunctionCallComplete(
+        contentToCheck,
+        modelType: modelType,
+      )) {
         try {
           // For JSON parsing, use funcBuffer (the actual JSON part)
           // For FunctionGemma parsing, use contentToCheck (full function call)
@@ -465,8 +508,9 @@ class InferenceChat {
                 jsonData.containsKey('message')) {
               final message = jsonData['message'] as String;
               gemmaLog(
-                  'InferenceChat: Extracted message from end-of-stream JSON: "$message"',
-                  level: GemmaLogLevel.verbose);
+                'InferenceChat: Extracted message from end-of-stream JSON: "$message"',
+                level: GemmaLogLevel.verbose,
+              );
               yield TextResponse(message);
               return;
             }
@@ -479,14 +523,16 @@ class InferenceChat {
           );
           if (allCalls.isNotEmpty) {
             gemmaLog(
-                'InferenceChat: ${allCalls.length} function call(s) found at end of stream');
+              'InferenceChat: ${allCalls.length} function call(s) found at end of stream',
+            );
             emittedFunctionCall = true;
             // Add function call to history IMMEDIATELY (before yielding)
             final toolCallMessage = Message.toolCall(text: contentToCheck);
             _fullHistory.add(toolCallMessage);
             _modelHistory.add(toolCallMessage);
             gemmaLog(
-                'InferenceChat: Added function call to history at end of stream');
+              'InferenceChat: Added function call to history at end of stream',
+            );
             if (allCalls.length == 1) {
               yield allCalls.first;
             } else {
@@ -501,7 +547,8 @@ class InferenceChat {
         }
       } else {
         gemmaLog(
-            'InferenceChat: No complete JSON at end of stream, emitting remaining as text');
+          'InferenceChat: No complete JSON at end of stream, emitting remaining as text',
+        );
         yield TextResponse(funcBuffer);
       }
     }
@@ -529,15 +576,17 @@ class InferenceChat {
       if (!emittedFunctionCall) {
         final chatMessage = Message(text: response, isUser: false);
         gemmaLog(
-            'InferenceChat: Created text message object: ${chatMessage.text}',
-            level: GemmaLogLevel.verbose);
+          'InferenceChat: Created text message object: ${chatMessage.text}',
+          level: GemmaLogLevel.verbose,
+        );
         _fullHistory.add(chatMessage);
         gemmaLog('InferenceChat: Added to full history');
         _modelHistory.add(chatMessage);
         gemmaLog('InferenceChat: Added to model history');
       } else {
         gemmaLog(
-            'InferenceChat: Function call was already added to history when yielded');
+          'InferenceChat: Function call was already added to history when yielded',
+        );
       }
       gemmaLog('InferenceChat: Message added to history successfully');
 
@@ -545,7 +594,8 @@ class InferenceChat {
       // BUT only if this was NOT a function call - we need context for tool response
       if (_isSingleTurnModel && !emittedFunctionCall) {
         gemmaLog(
-            'InferenceChat: Single-turn model detected (text response), clearing model history...');
+          'InferenceChat: Single-turn model detected (text response), clearing model history...',
+        );
         _modelHistory.clear();
         _prefixes.clear();
         _currentTokens = 0;
@@ -557,7 +607,8 @@ class InferenceChat {
         gemmaLog('InferenceChat: Model history cleared and session recreated');
       } else if (_isSingleTurnModel && emittedFunctionCall) {
         gemmaLog(
-            'InferenceChat: Single-turn model with function call - keeping history for tool response');
+          'InferenceChat: Single-turn model with function call - keeping history for tool response',
+        );
       }
     } catch (e) {
       gemmaLog('InferenceChat: Error adding message to history: $e');
@@ -647,22 +698,27 @@ class InferenceChat {
     switch (toolChoice) {
       case ToolChoice.auto:
         toolsPrompt.writeln(
-            'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.');
+          'You have access to functions. ONLY call a function when the user explicitly requests an action or command (like "change color", "show alert", "set title"). For regular conversation, greetings, and questions, respond normally without calling any functions.',
+        );
       case ToolChoice.required:
         toolsPrompt.writeln(
-            'You have access to functions. You MUST respond with a function call. Do not respond with plain text. Always select the most appropriate function based on the user\'s message.');
+          'You have access to functions. You MUST respond with a function call. Do not respond with plain text. Always select the most appropriate function based on the user\'s message.',
+        );
       case ToolChoice.none:
         return ''; // Should not reach here, but defensive
     }
 
     toolsPrompt.writeln(
-        'When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}');
+      'When you do need to call a function, respond with ONLY the JSON in this format: {"name": function_name, "parameters": {argument: value}}',
+    );
     toolsPrompt.writeln(
-        'After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.');
+      'After the function is executed, you will get a response. Then provide a helpful message to the user about what was accomplished.',
+    );
     toolsPrompt.writeln('<tool_code>');
     for (final tool in tools) {
       toolsPrompt.writeln(
-          '${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}');
+        '${tool.name}: ${tool.description} Parameters: ${jsonEncode(tool.parameters)}',
+      );
     }
     toolsPrompt.writeln('</tool_code>');
     return toolsPrompt.toString();
@@ -674,13 +730,15 @@ class InferenceChat {
     // FunctionGemma requires developer turn for tools definition
     toolsPrompt.write('$startTurn$developerPrefix\n');
     toolsPrompt.writeln(
-        'You are a model that can do function calling with the following functions');
+      'You are a model that can do function calling with the following functions',
+    );
 
     for (final tool in tools) {
       toolsPrompt.write(functionGemmaStartDecl);
       toolsPrompt.write('declaration:${tool.name}{');
       toolsPrompt.write(
-          'description:$functionGemmaEscape${tool.description}$functionGemmaEscape');
+        'description:$functionGemmaEscape${tool.description}$functionGemmaEscape',
+      );
 
       // Access properties from JSON Schema structure (following Google's FunctionGemma format)
       final properties = tool.parameters['properties'] as Map<String, dynamic>?;
@@ -697,7 +755,8 @@ class InferenceChat {
             final parts = <String>[];
             if (desc != null) {
               parts.add(
-                  'description:$functionGemmaEscape$desc$functionGemmaEscape');
+                'description:$functionGemmaEscape$desc$functionGemmaEscape',
+              );
             }
             if (enumValues != null && enumValues.isNotEmpty) {
               // Validate enum values don't contain FunctionGemma special tokens
@@ -730,8 +789,9 @@ class InferenceChat {
               .join(',');
           toolsPrompt.write(',required:[$requiredStr]');
         }
-        toolsPrompt
-            .write(',type:${functionGemmaEscape}OBJECT$functionGemmaEscape}');
+        toolsPrompt.write(
+          ',type:${functionGemmaEscape}OBJECT$functionGemmaEscape}',
+        );
       }
 
       toolsPrompt.writeln('}$functionGemmaEndDecl');

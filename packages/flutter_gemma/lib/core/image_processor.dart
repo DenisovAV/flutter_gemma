@@ -15,8 +15,10 @@ class ImageProcessor {
 
   /// Processes an image to ensure compatibility with AI vision encoders
   /// and prevents corruption issues that cause repeating text patterns.
-  static Future<ProcessedImage> processImage(Uint8List imageBytes,
-      {String? originalFormat}) async {
+  static Future<ProcessedImage> processImage(
+    Uint8List imageBytes, {
+    String? originalFormat,
+  }) async {
     try {
       gemmaLog('ImageProcessor: Starting image processing...');
 
@@ -26,14 +28,19 @@ class ImageProcessor {
       // Step 2: Decode image to check format and get dimensions
       final decodedImage = await _decodeImage(imageBytes);
       gemmaLog(
-          'ImageProcessor: Original image - Format: ${originalFormat ?? 'unknown'}, '
-          'Width: ${decodedImage.width}, Height: ${decodedImage.height}');
+        'ImageProcessor: Original image - Format: ${originalFormat ?? 'unknown'}, '
+        'Width: ${decodedImage.width}, Height: ${decodedImage.height}',
+      );
 
       // Step 3: Resize to target dimensions (896x896 for Gemma 3)
-      final resizedImage =
-          await _resizeImage(decodedImage, _targetWidth, _targetHeight);
+      final resizedImage = await _resizeImage(
+        decodedImage,
+        _targetWidth,
+        _targetHeight,
+      );
       gemmaLog(
-          'ImageProcessor: Image resized to ${_targetWidth}x$_targetHeight');
+        'ImageProcessor: Image resized to ${_targetWidth}x$_targetHeight',
+      );
 
       // Step 4: Convert to optimal format (PNG for lossless quality)
       final processedBytes = await _encodeToPng(resizedImage);
@@ -42,7 +49,8 @@ class ImageProcessor {
       // Step 5: Create Base64 encoded version for transmission
       final base64String = _encodeBase64Safe(processedBytes);
       gemmaLog(
-          'ImageProcessor: Base64 encoding completed (${base64String.length} chars)');
+        'ImageProcessor: Base64 encoding completed (${base64String.length} chars)',
+      );
 
       // Step 6: Validate final output
       _validateProcessedImage(processedBytes, base64String);
@@ -72,13 +80,15 @@ class ImageProcessor {
 
     if (imageBytes.length > _maxFileSize) {
       throw ImageProcessingException(
-          'Image size (${imageBytes.length} bytes) exceeds maximum allowed size ($_maxFileSize bytes)');
+        'Image size (${imageBytes.length} bytes) exceeds maximum allowed size ($_maxFileSize bytes)',
+      );
     }
 
     // Check for minimum viable image size (roughly 100x100 pixels in most formats)
     if (imageBytes.length < 1024) {
       gemmaLog(
-          'ImageProcessor: Warning - Image appears very small (${imageBytes.length} bytes)');
+        'ImageProcessor: Warning - Image appears very small (${imageBytes.length} bytes)',
+      );
     }
   }
 
@@ -95,7 +105,10 @@ class ImageProcessor {
 
   /// Resizes image to target dimensions using high-quality filtering
   static Future<ui.Image> _resizeImage(
-      ui.Image image, int width, int height) async {
+    ui.Image image,
+    int width,
+    int height,
+  ) async {
     final recorder = ui.PictureRecorder();
     final canvas = ui.Canvas(recorder);
 
@@ -194,7 +207,9 @@ class ImageProcessor {
 
   /// Validates the processed image output
   static void _validateProcessedImage(
-      Uint8List processedBytes, String base64String) {
+    Uint8List processedBytes,
+    String base64String,
+  ) {
     if (processedBytes.isEmpty) {
       throw const ImageProcessingException('Processed image bytes are empty');
     }
@@ -208,7 +223,8 @@ class ImageProcessor {
       final decodedBytes = base64.decode(base64String);
       if (!_listEquals(decodedBytes, processedBytes)) {
         throw const ImageProcessingException(
-            'Base64 encoding/decoding verification failed');
+          'Base64 encoding/decoding verification failed',
+        );
       }
     } catch (e) {
       throw ImageProcessingException('Base64 validation failed: $e');

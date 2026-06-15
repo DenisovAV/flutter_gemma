@@ -97,70 +97,74 @@ void main() {
       expect(session.lastRawResponse, contains('Hi'));
     });
 
-    test('two sessions with distinct handles produce isolated outputs',
-        () async {
-      final handleA = _FakeConversationHandle(['I am A']);
-      final handleB = _FakeConversationHandle(['I am B']);
+    test(
+      'two sessions with distinct handles produce isolated outputs',
+      () async {
+        final handleA = _FakeConversationHandle(['I am A']);
+        final handleB = _FakeConversationHandle(['I am B']);
 
-      final sessionA = FfiInferenceModelSession(
-        handle: handleA,
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.litertlm,
-        supportImage: false,
-        supportAudio: false,
-        onClose: () {},
-      );
-      final sessionB = FfiInferenceModelSession(
-        handle: handleB,
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.litertlm,
-        supportImage: false,
-        supportAudio: false,
-        onClose: () {},
-      );
+        final sessionA = FfiInferenceModelSession(
+          handle: handleA,
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+          supportImage: false,
+          supportAudio: false,
+          onClose: () {},
+        );
+        final sessionB = FfiInferenceModelSession(
+          handle: handleB,
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+          supportImage: false,
+          supportAudio: false,
+          onClose: () {},
+        );
 
-      await sessionA.addQueryChunk(const Message(text: 'q', isUser: true));
-      await sessionB.addQueryChunk(const Message(text: 'q', isUser: true));
+        await sessionA.addQueryChunk(const Message(text: 'q', isUser: true));
+        await sessionB.addQueryChunk(const Message(text: 'q', isUser: true));
 
-      final respA = await sessionA.getResponse();
-      final respB = await sessionB.getResponse();
+        final respA = await sessionA.getResponse();
+        final respB = await sessionB.getResponse();
 
-      expect(respA, 'I am A');
-      expect(respB, 'I am B');
-    });
+        expect(respA, 'I am A');
+        expect(respB, 'I am B');
+      },
+    );
 
-    test('close() closes only this session\'s handle and fires onClose',
-        () async {
-      final handleA = _FakeConversationHandle(['a']);
-      final handleB = _FakeConversationHandle(['b']);
-      var onCloseACalled = false;
+    test(
+      'close() closes only this session\'s handle and fires onClose',
+      () async {
+        final handleA = _FakeConversationHandle(['a']);
+        final handleB = _FakeConversationHandle(['b']);
+        var onCloseACalled = false;
 
-      final sessionA = FfiInferenceModelSession(
-        handle: handleA,
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.litertlm,
-        supportImage: false,
-        supportAudio: false,
-        onClose: () => onCloseACalled = true,
-      );
-      final sessionB = FfiInferenceModelSession(
-        handle: handleB,
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.litertlm,
-        supportImage: false,
-        supportAudio: false,
-        onClose: () {},
-      );
+        final sessionA = FfiInferenceModelSession(
+          handle: handleA,
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+          supportImage: false,
+          supportAudio: false,
+          onClose: () => onCloseACalled = true,
+        );
+        final sessionB = FfiInferenceModelSession(
+          handle: handleB,
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+          supportImage: false,
+          supportAudio: false,
+          onClose: () {},
+        );
 
-      await sessionA.close();
+        await sessionA.close();
 
-      expect(handleA.isClosed, isTrue);
-      expect(handleB.isClosed, isFalse, reason: 'B must survive A.close()');
-      expect(onCloseACalled, isTrue);
-      // B is still usable after A closed.
-      await sessionB.addQueryChunk(const Message(text: 'q', isUser: true));
-      expect(await sessionB.getResponse(), 'b');
-    });
+        expect(handleA.isClosed, isTrue);
+        expect(handleB.isClosed, isFalse, reason: 'B must survive A.close()');
+        expect(onCloseACalled, isTrue);
+        // B is still usable after A closed.
+        await sessionB.addQueryChunk(const Message(text: 'q', isUser: true));
+        expect(await sessionB.getResponse(), 'b');
+      },
+    );
 
     test('methods throw StateError after close', () async {
       final session = FfiInferenceModelSession(

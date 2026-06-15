@@ -74,10 +74,7 @@ void main() {
       );
 
       // Empty not allowed
-      expect(
-        () => BundledSource(''),
-        throwsA(isA<ArgumentError>()),
-      );
+      expect(() => BundledSource(''), throwsA(isA<ArgumentError>()));
     });
 
     test('BundledSource validates LoRA source compatibility', () {

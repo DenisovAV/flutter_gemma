@@ -21,57 +21,72 @@ const _url =
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('iOS GPU: Gemma3-1B honors randomSeed + temperature',
-      (t) async {
-    await registerTestEngines();
+  testWidgets(
+    'iOS GPU: Gemma3-1B honors randomSeed + temperature',
+    (t) async {
+      await registerTestEngines();
 
-    await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromNetwork(
-      _url,
-      token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
-    ).install();
+      await FlutterGemma.installModel(
+            modelType: ModelType.gemmaIt,
+            fileType: ModelFileType.litertlm,
+          )
+          .fromNetwork(
+            _url,
+            token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+          )
+          .install();
 
-    final model = await FlutterGemma.getActiveModel(
-      maxTokens: 4096,
-      preferredBackend: PreferredBackend.gpu,
-    );
-
-    Future<String> runOnce(int seed) async {
-      final session = await model.createSession(
-        temperature: 1.0,
-        topK: 50,
-        topP: 0.95,
-        randomSeed: seed,
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.gpu,
       );
-      await session.addQueryChunk(const Message(
-        text: 'Write a 30-word creative story about a dragon.',
-        isUser: true,
-      ));
-      final out = await session.getResponse();
-      await session.close();
-      return out;
-    }
 
-    final seed42a = await runOnce(42);
-    print('[GPU seed=42 #A]\n$seed42a\n');
-    final seed42b = await runOnce(42);
-    print('[GPU seed=42 #B]\n$seed42b\n');
-    final seed99 = await runOnce(99);
-    print('[GPU seed=99]\n$seed99\n');
+      Future<String> runOnce(int seed) async {
+        final session = await model.createSession(
+          temperature: 1.0,
+          topK: 50,
+          topP: 0.95,
+          randomSeed: seed,
+        );
+        await session.addQueryChunk(
+          const Message(
+            text: 'Write a 30-word creative story about a dragon.',
+            isUser: true,
+          ),
+        );
+        final out = await session.getResponse();
+        await session.close();
+        return out;
+      }
 
-    expect(seed42a, equals(seed42b),
-        reason: 'Same seed (42) twice must yield identical output. '
+      final seed42a = await runOnce(42);
+      print('[GPU seed=42 #A]\n$seed42a\n');
+      final seed42b = await runOnce(42);
+      print('[GPU seed=42 #B]\n$seed42b\n');
+      final seed99 = await runOnce(99);
+      print('[GPU seed=99]\n$seed99\n');
+
+      expect(
+        seed42a,
+        equals(seed42b),
+        reason:
+            'Same seed (42) twice must yield identical output. '
             'Different = sampler params dropped.\n'
-            'A=$seed42a\nB=$seed42b');
+            'A=$seed42a\nB=$seed42b',
+      );
 
-    expect(seed42a, isNot(equals(seed99)),
-        reason: 'Different seeds (42 vs 99) must yield different output. '
+      expect(
+        seed42a,
+        isNot(equals(seed99)),
+        reason:
+            'Different seeds (42 vs 99) must yield different output. '
             'Identical = sampler ignores seed.\n'
-            'seed42=$seed42a\nseed99=$seed99');
+            'seed42=$seed42a\nseed99=$seed99',
+      );
 
-    await model.close();
-    print('iOS GPU SAMPLER PARAMS PASSED');
-  }, timeout: const Timeout(Duration(minutes: 10)));
+      await model.close();
+      print('iOS GPU SAMPLER PARAMS PASSED');
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 }

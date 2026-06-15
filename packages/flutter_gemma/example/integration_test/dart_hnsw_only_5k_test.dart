@@ -27,8 +27,12 @@ class _LatencyStats {
     return s[((s.length - 1) * p / 100).round()];
   }
 
-  Map<String, int> toJson() =>
-      {'p50_us': p50, 'p95_us': p95, 'p99_us': p99, 'count': samplesUs.length};
+  Map<String, int> toJson() => {
+    'p50_us': p50,
+    'p95_us': p95,
+    'p99_us': p99,
+    'count': samplesUs.length,
+  };
 }
 
 void main() {
@@ -47,7 +51,8 @@ void main() {
     await tester.runAsync(() async {
       final base = await getApplicationSupportDirectory();
       final cacheFile = File(
-          '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json');
+        '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json',
+      );
       final raw =
           jsonDecode(cacheFile.readAsStringSync()) as Map<String, dynamic>;
       final vectors = (raw['vectors'] as List)
@@ -76,7 +81,8 @@ void main() {
       final upsertSec = upsertSw.elapsedMicroseconds / 1e6;
       // ignore: avoid_print
       print(
-          '[dart5k] upsert: ${upsertSec.toStringAsFixed(2)}s, ${(_totalDocs / upsertSec).toStringAsFixed(0)} pts/sec');
+        '[dart5k] upsert: ${upsertSec.toStringAsFixed(2)}s, ${(_totalDocs / upsertSec).toStringAsFixed(0)} pts/sec',
+      );
 
       final samples = <int>[];
       for (var i = 0; i < _searchSamples; i++) {
@@ -89,19 +95,23 @@ void main() {
       final stats = _LatencyStats(samples);
       // ignore: avoid_print
       print(
-          '[dart5k] search: p50=${stats.p50}us p95=${stats.p95}us p99=${stats.p99}us');
+        '[dart5k] search: p50=${stats.p50}us p95=${stats.p95}us p99=${stats.p99}us',
+      );
 
       final out = File(
-          '${base.path}/dart_hnsw_only_5k_${Platform.operatingSystem}.json');
-      out.writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
-        'platform': Platform.operatingSystem,
-        'n': _totalDocs,
-        'upsert': {
-          'seconds': upsertSec,
-          'points_per_sec': (_totalDocs / upsertSec).round(),
-        },
-        'search': stats.toJson(),
-      }));
+        '${base.path}/dart_hnsw_only_5k_${Platform.operatingSystem}.json',
+      );
+      out.writeAsStringSync(
+        const JsonEncoder.withIndent('  ').convert({
+          'platform': Platform.operatingSystem,
+          'n': _totalDocs,
+          'upsert': {
+            'seconds': upsertSec,
+            'points_per_sec': (_totalDocs / upsertSec).round(),
+          },
+          'search': stats.toJson(),
+        }),
+      );
       // ignore: avoid_print
       print('[dart5k] written: ${out.path}');
 

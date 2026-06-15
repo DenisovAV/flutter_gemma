@@ -5,7 +5,8 @@ import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/embedding_test_screen.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/models/embedding_model.dart'
+    as example_embedding_model;
 import 'package:flutter_gemma_example/models/translate_model.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
@@ -23,7 +24,8 @@ class UniversalDownloadScreen extends StatefulWidget {
   });
 
   @override
-  State<UniversalDownloadScreen> createState() => _UniversalDownloadScreenState();
+  State<UniversalDownloadScreen> createState() =>
+      _UniversalDownloadScreenState();
 }
 
 class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
@@ -131,13 +133,15 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
 
     try {
       if (widget.model.kind == ModelKind.embedding) {
-        await _embeddingDownloadService!.downloadModel(widget.model.needsAuth ? _token : '',
-            (modelProg, tokenizerProg) {
-          setState(() {
-            _modelProgress = modelProg;
-            _tokenizerProgress = tokenizerProg;
-          });
-        });
+        await _embeddingDownloadService!.downloadModel(
+          widget.model.needsAuth ? _token : '',
+          (modelProg, tokenizerProg) {
+            setState(() {
+              _modelProgress = modelProg;
+              _tokenizerProgress = tokenizerProg;
+            });
+          },
+        );
 
         debugPrint('[UI] Embedding download completed');
 
@@ -258,12 +262,15 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
             _buildInfoRow('Size:', widget.model.size),
             _buildInfoRow('Type:', _kindLabel(widget.model.kind)),
             if (widget.model.kind == ModelKind.embedding) ...[
-              _buildInfoRow('Dimension:',
-                  '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D'),
+              _buildInfoRow(
+                'Dimension:',
+                '${(widget.model as example_embedding_model.EmbeddingModel).dimension}D',
+              ),
             ] else if (widget.model.kind == ModelKind.inference) ...[
               if ((widget.model as InferenceModelInterface).supportImage)
                 _buildInfoRow('Multimodal:', 'Yes'),
-              if ((widget.model as InferenceModelInterface).supportsFunctionCalls)
+              if ((widget.model as InferenceModelInterface)
+                  .supportsFunctionCalls)
                 _buildInfoRow('Functions:', 'Yes'),
               if ((widget.model as InferenceModelInterface).supportsThinking)
                 _buildInfoRow('Thinking:', 'Yes'),
@@ -294,10 +301,7 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(label, style: const TextStyle(color: Colors.white)),
           ),
           Text(
             value,
@@ -403,11 +407,17 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           children: [
             const Text(
               'Overall: ',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             Text(
               '${((_modelProgress + _tokenizerProgress) / 2).toStringAsFixed(1)}%',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -487,9 +497,8 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => TranslateScreen(
-              model: widget.model as TranslateModel,
-            ),
+            builder: (context) =>
+                TranslateScreen(model: widget.model as TranslateModel),
           ),
         );
         break;
@@ -578,7 +587,9 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
                     ),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () async {
-                        final uri = Uri.parse('https://huggingface.co/settings/tokens');
+                        final uri = Uri.parse(
+                          'https://huggingface.co/settings/tokens',
+                        );
                         if (await canLaunchUrl(uri)) {
                           await launchUrl(uri);
                         }

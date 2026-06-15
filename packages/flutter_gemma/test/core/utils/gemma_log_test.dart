@@ -5,11 +5,13 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 void main() {
   group('GemmaLogLevel ordering invariant', () {
-    test('severity order is none < info < verbose (gemmaLog filters on .index)',
-        () {
-      expect(GemmaLogLevel.none.index, lessThan(GemmaLogLevel.info.index));
-      expect(GemmaLogLevel.info.index, lessThan(GemmaLogLevel.verbose.index));
-    });
+    test(
+      'severity order is none < info < verbose (gemmaLog filters on .index)',
+      () {
+        expect(GemmaLogLevel.none.index, lessThan(GemmaLogLevel.info.index));
+        expect(GemmaLogLevel.info.index, lessThan(GemmaLogLevel.verbose.index));
+      },
+    );
   });
 
   group('sanitizeForLog', () {

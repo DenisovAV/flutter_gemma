@@ -54,7 +54,8 @@ String sanitizeForLog(String text) {
     if (u == 0xFFFD) {
       out.write('U+FFFD');
     } else if (u >= 0xD800 && u <= 0xDBFF) {
-      final hasLow = i + 1 < text.length &&
+      final hasLow =
+          i + 1 < text.length &&
           text.codeUnitAt(i + 1) >= 0xDC00 &&
           text.codeUnitAt(i + 1) <= 0xDFFF;
       if (hasLow) {

@@ -32,8 +32,8 @@ class InferenceInstallationBuilder {
   InferenceInstallationBuilder({
     required ModelType modelType,
     ModelFileType fileType = ModelFileType.task,
-  })  : _modelType = modelType,
-        _fileType = fileType;
+  }) : _modelType = modelType,
+       _fileType = fileType;
 
   /// Set model source from network URL (HTTP/HTTPS)
   ///
@@ -49,8 +49,11 @@ class InferenceInstallationBuilder {
     String? token,
     bool? foreground,
   }) {
-    _modelSource =
-        ModelSource.network(url, authToken: token, foreground: foreground);
+    _modelSource = ModelSource.network(
+      url,
+      authToken: token,
+      foreground: foreground,
+    );
     return this;
   }
 
@@ -90,8 +93,10 @@ class InferenceInstallationBuilder {
   }
 
   /// Convenience: Add LoRA weights from network URL
-  InferenceInstallationBuilder withLoraFromNetwork(String url,
-      {String? token}) {
+  InferenceInstallationBuilder withLoraFromNetwork(
+    String url, {
+    String? token,
+  }) {
     _loraSource = ModelSource.network(url, authToken: token);
     return this;
   }
@@ -118,7 +123,8 @@ class InferenceInstallationBuilder {
   ///
   /// Called periodically during installation with progress percentage (0-100).
   InferenceInstallationBuilder withProgress(
-      void Function(int progress) onProgress) {
+    void Function(int progress) onProgress,
+  ) {
     _onProgress = onProgress;
     return this;
   }
@@ -161,7 +167,8 @@ class InferenceInstallationBuilder {
 
     if (_modelSource == null) {
       throw StateError(
-          'Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().');
+        'Model source not configured. Use fromNetwork(), fromAsset(), fromBundled(), or fromFile().',
+      );
     }
 
     // Create spec
@@ -195,19 +202,13 @@ class InferenceInstallationBuilder {
           _onProgress!(progress);
         }
       } else {
-        await handler!.install(
-          _modelSource!,
-          cancelToken: _cancelToken,
-        );
+        await handler!.install(_modelSource!, cancelToken: _cancelToken);
       }
 
       // Install LoRA if provided
       if (_loraSource != null) {
         final loraHandler = handlerRegistry.getHandler(_loraSource!);
-        await loraHandler!.install(
-          _loraSource!,
-          cancelToken: _cancelToken,
-        );
+        await loraHandler!.install(_loraSource!, cancelToken: _cancelToken);
       }
     }
 

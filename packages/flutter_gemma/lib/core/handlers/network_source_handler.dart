@@ -32,15 +32,13 @@ class NetworkSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is NetworkSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
 
-    final effectiveToken = source.authToken ??
+    final effectiveToken =
+        source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getWriteTargetPath(filename);
@@ -78,7 +76,8 @@ class NetworkSourceHandler implements SourceHandler {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
 
-    final effectiveToken = source.authToken ??
+    final effectiveToken =
+        source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
     final filename = path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getWriteTargetPath(filename);

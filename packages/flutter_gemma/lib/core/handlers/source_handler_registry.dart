@@ -26,6 +26,7 @@ class SourceHandlerRegistry {
       }
     }
     throw UnsupportedError(
-        'No handler found for source type: ${source.runtimeType}');
+      'No handler found for source type: ${source.runtimeType}',
+    );
   }
 }

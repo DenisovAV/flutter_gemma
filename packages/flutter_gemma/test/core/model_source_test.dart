@@ -6,8 +6,10 @@ void main() {
     test('creates valid HTTPS source', () {
       final source = ModelSource.network('https://example.com/model.bin');
       expect(source, isA<NetworkSource>());
-      expect((source as NetworkSource).url,
-          equals('https://example.com/model.bin'));
+      expect(
+        (source as NetworkSource).url,
+        equals('https://example.com/model.bin'),
+      );
       expect(source.isSecure, isTrue);
       expect(source.requiresDownload, isTrue);
       expect(source.supportsProgress, isTrue);
@@ -24,7 +26,9 @@ void main() {
       expect(() => ModelSource.network(''), throwsArgumentError);
       expect(() => ModelSource.network('invalid'), throwsArgumentError);
       expect(
-          () => ModelSource.network('ftp://example.com'), throwsArgumentError);
+        () => ModelSource.network('ftp://example.com'),
+        throwsArgumentError,
+      );
     });
 
     test('validates LoRA source compatibility', () {
@@ -60,21 +64,27 @@ void main() {
 
     test('normalizes path without assets/ prefix', () {
       final source = ModelSource.asset('models/demo.bin');
-      expect((source as AssetSource).normalizedPath,
-          equals('assets/models/demo.bin'));
+      expect(
+        (source as AssetSource).normalizedPath,
+        equals('assets/models/demo.bin'),
+      );
     });
 
     test('handles leading slash', () {
       final source = ModelSource.asset('/assets/models/demo.bin');
-      expect((source as AssetSource).normalizedPath,
-          equals('assets/models/demo.bin'));
+      expect(
+        (source as AssetSource).normalizedPath,
+        equals('assets/models/demo.bin'),
+      );
     });
 
     test('throws for invalid paths', () {
       expect(() => ModelSource.asset(''), throwsArgumentError);
       expect(() => ModelSource.asset('../outside'), throwsArgumentError);
       expect(
-          () => ModelSource.asset('http://example.com'), throwsArgumentError);
+        () => ModelSource.asset('http://example.com'),
+        throwsArgumentError,
+      );
     });
 
     test('validates asset LoRA compatibility', () {
@@ -100,8 +110,10 @@ void main() {
     test('creates valid bundled source', () {
       final source = ModelSource.bundled('production_gemma_7b');
       expect(source, isA<BundledSource>());
-      expect((source as BundledSource).resourceName,
-          equals('production_gemma_7b'));
+      expect(
+        (source as BundledSource).resourceName,
+        equals('production_gemma_7b'),
+      );
       expect(source.requiresDownload, isFalse);
       expect(source.supportsProgress, isFalse);
       expect(source.supportsResume, isFalse);
@@ -189,12 +201,14 @@ void main() {
       ];
 
       final types = sources
-          .map((source) => switch (source) {
-                NetworkSource() => 'network',
-                AssetSource() => 'asset',
-                BundledSource() => 'bundled',
-                FileSource() => 'file',
-              })
+          .map(
+            (source) => switch (source) {
+              NetworkSource() => 'network',
+              AssetSource() => 'asset',
+              BundledSource() => 'bundled',
+              FileSource() => 'file',
+            },
+          )
           .toList();
 
       expect(types, equals(['network', 'asset', 'bundled', 'file']));

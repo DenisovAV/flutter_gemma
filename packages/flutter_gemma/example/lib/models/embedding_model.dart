@@ -59,7 +59,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     dimension: 768, // Fixed embedding dimension for EmbeddingGemma-300M
     maxSeqLen: 256,
     needsAuth: false,
-    sourceType: ModelSourceType.asset, // Use Flutter assets - works in debug and production
+    sourceType: ModelSourceType
+        .asset, // Use Flutter assets - works in debug and production
   ),
 
   embeddingGemma512(
@@ -79,7 +80,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
   // Gecko-110m models (generate 768D embeddings)
   // Gecko 64 is the smallest and fastest model - ideal for short queries
   gecko64(
-    url: 'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite',
+    url:
+        'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite',
     tokenizerUrl:
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
     filename: 'Gecko_64_quant.tflite',
@@ -96,7 +98,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_256_quant.tflite',
     tokenizerUrl:
         'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model',
-    filename: 'Gecko_256_quant.tflite', // Fixed: match actual downloaded filename
+    filename:
+        'Gecko_256_quant.tflite', // Fixed: match actual downloaded filename
     tokenizerFilename: 'sentencepiece.model',
     displayName: 'Gecko (seq=256)',
     size: '114MB',
@@ -152,7 +155,8 @@ enum EmbeddingModel implements EmbeddingModelInterface {
     required this.dimension,
     required this.maxSeqLen,
     required this.needsAuth,
-    this.sourceType = ModelSourceType.network, // Default to network for backward compatibility
+    this.sourceType = ModelSourceType
+        .network, // Default to network for backward compatibility
   });
 
   // BaseModel interface implementation

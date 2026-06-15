@@ -18,13 +18,14 @@ class TranslateGemmaXmlPromptStrategy extends TranslationPromptStrategy {
     required String src,
     required String dst,
     required String text,
-  }) =>
-      '<src>$src</src><dst>$dst</dst><text>${_escape(text)}</text>';
+  }) => '<src>$src</src><dst>$dst</dst><text>${_escape(text)}</text>';
 
   // Stop user-typed `<` / `>` from breaking the tag protocol — without this,
   // pasting `</text><dst>de</dst><text>...` would override the target lang.
-  String _escape(String s) =>
-      s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  String _escape(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
 
   /// Curated subset of the ~55 ISO 639-1 codes Google's source
   /// `google/translategemma-4b-it` model card claims to support. Neither the
@@ -33,48 +34,48 @@ class TranslateGemmaXmlPromptStrategy extends TranslationPromptStrategy {
   /// shown in examples plus the top global languages by speaker count.
   @override
   Map<String, String> get supportedLanguages => const {
-        'ar': 'Arabic',
-        'bg': 'Bulgarian',
-        'bn': 'Bengali',
-        'cs': 'Czech',
-        'da': 'Danish',
-        'de': 'German',
-        'el': 'Greek',
-        'en': 'English',
-        'es': 'Spanish',
-        'et': 'Estonian',
-        'fa': 'Persian',
-        'fi': 'Finnish',
-        'fr': 'French',
-        'he': 'Hebrew',
-        'hi': 'Hindi',
-        'hr': 'Croatian',
-        'hu': 'Hungarian',
-        'id': 'Indonesian',
-        'it': 'Italian',
-        'ja': 'Japanese',
-        'ko': 'Korean',
-        'lt': 'Lithuanian',
-        'lv': 'Latvian',
-        'ms': 'Malay',
-        'nl': 'Dutch',
-        'no': 'Norwegian',
-        'pl': 'Polish',
-        'pt': 'Portuguese',
-        'ro': 'Romanian',
-        'ru': 'Russian',
-        'sk': 'Slovak',
-        'sl': 'Slovenian',
-        'sr': 'Serbian',
-        'sv': 'Swedish',
-        'sw': 'Swahili',
-        'ta': 'Tamil',
-        'te': 'Telugu',
-        'th': 'Thai',
-        'tr': 'Turkish',
-        'uk': 'Ukrainian',
-        'ur': 'Urdu',
-        'vi': 'Vietnamese',
-        'zh': 'Chinese',
-      };
+    'ar': 'Arabic',
+    'bg': 'Bulgarian',
+    'bn': 'Bengali',
+    'cs': 'Czech',
+    'da': 'Danish',
+    'de': 'German',
+    'el': 'Greek',
+    'en': 'English',
+    'es': 'Spanish',
+    'et': 'Estonian',
+    'fa': 'Persian',
+    'fi': 'Finnish',
+    'fr': 'French',
+    'he': 'Hebrew',
+    'hi': 'Hindi',
+    'hr': 'Croatian',
+    'hu': 'Hungarian',
+    'id': 'Indonesian',
+    'it': 'Italian',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'lt': 'Lithuanian',
+    'lv': 'Latvian',
+    'ms': 'Malay',
+    'nl': 'Dutch',
+    'no': 'Norwegian',
+    'pl': 'Polish',
+    'pt': 'Portuguese',
+    'ro': 'Romanian',
+    'ru': 'Russian',
+    'sk': 'Slovak',
+    'sl': 'Slovenian',
+    'sr': 'Serbian',
+    'sv': 'Swedish',
+    'sw': 'Swahili',
+    'ta': 'Tamil',
+    'te': 'Telugu',
+    'th': 'Thai',
+    'tr': 'Turkish',
+    'uk': 'Ukrainian',
+    'ur': 'Urdu',
+    'vi': 'Vietnamese',
+    'zh': 'Chinese',
+  };
 }

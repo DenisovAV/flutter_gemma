@@ -14,12 +14,14 @@ void main() {
 
     print('Step 2: Install model...');
     await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromNetwork(
-      'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
-      token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
-    ).install();
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+        )
+        .fromNetwork(
+          'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
+          token: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+        )
+        .install();
     print('Model installed');
 
     // Step 3: Create model via plugin (FFI path for .litertlm on iOS)

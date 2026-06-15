@@ -120,10 +120,7 @@ void main() {
     test('toString() returns formatted message', () {
       final exception = DownloadCancelledException('Test reason', null);
 
-      expect(
-        exception.toString(),
-        'DownloadCancelledException: Test reason',
-      );
+      expect(exception.toString(), 'DownloadCancelledException: Test reason');
     });
 
     test('can be thrown and caught', () {

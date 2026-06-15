@@ -61,7 +61,8 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
   external JSPromise<JSArray<JSObject>> getAllDocumentsWithEmbeddings();
 
   external JSPromise<JSArray<JSObject>> getDocumentsByIds(
-      JSArray<JSString> ids);
+    JSArray<JSString> ids,
+  );
 
   // ========================================================================
   // Dart Helper Methods (type conversion wrappers)
@@ -142,7 +143,7 @@ extension type SQLiteVectorStore._(JSObject _) implements JSObject {
   ///
   /// Used during initialize() to rebuild in-memory HNSW index
   Future<List<DocumentWithEmbedding>>
-      getAllDocumentsWithEmbeddingsDart() async {
+  getAllDocumentsWithEmbeddingsDart() async {
     final jsResults = await getAllDocumentsWithEmbeddings().toDart;
 
     return jsResults.toDart

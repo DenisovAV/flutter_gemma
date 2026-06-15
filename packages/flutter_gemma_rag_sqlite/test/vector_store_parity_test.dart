@@ -240,8 +240,11 @@ void main() {
       for (final result in results) {
         final embedding = embeddings[result.id]!;
         final expected = cosineSimilarity(query, embedding);
-        expect(result.similarity, closeTo(expected, 0.0001),
-            reason: 'Similarity mismatch for ${result.id}');
+        expect(
+          result.similarity,
+          closeTo(expected, 0.0001),
+          reason: 'Similarity mismatch for ${result.id}',
+        );
       }
     });
 
@@ -272,22 +275,34 @@ void main() {
       final hnswResults = index.search(query, 5);
 
       // HNSW should always find the exact match
-      expect(hnswResults.isNotEmpty, true,
-          reason: 'HNSW should return results');
+      expect(
+        hnswResults.isNotEmpty,
+        true,
+        reason: 'HNSW should return results',
+      );
 
       // First result should have similarity 1.0 (exact match)
-      expect(hnswResults[0].similarity, closeTo(1.0, 0.0001),
-          reason: 'First result should have similarity 1.0 (exact match)');
+      expect(
+        hnswResults[0].similarity,
+        closeTo(1.0, 0.0001),
+        reason: 'First result should have similarity 1.0 (exact match)',
+      );
 
       // Verify it's the 'exact' document
-      expect(hnswResults[0].id, 'exact',
-          reason: 'First result should be exact match');
+      expect(
+        hnswResults[0].id,
+        'exact',
+        reason: 'First result should be exact match',
+      );
 
       // All results should have valid similarity values
       for (final result in hnswResults) {
         final bruteForce = cosineSimilarity(query, embeddings[result.id]!);
-        expect(result.similarity, closeTo(bruteForce, 0.0001),
-            reason: 'Similarity should match brute-force calculation');
+        expect(
+          result.similarity,
+          closeTo(bruteForce, 0.0001),
+          reason: 'Similarity should match brute-force calculation',
+        );
       }
     });
 
@@ -307,13 +322,19 @@ void main() {
 
       // All results should be above threshold
       for (final result in results) {
-        expect(result.similarity, greaterThanOrEqualTo(threshold),
-            reason: '${result.id} should be above threshold');
+        expect(
+          result.similarity,
+          greaterThanOrEqualTo(threshold),
+          reason: '${result.id} should be above threshold',
+        );
       }
 
       // 'low' should not be in results (similarity = 0.0)
-      expect(results.any((r) => r.id == 'low'), false,
-          reason: "'low' has similarity 0.0, should not pass threshold");
+      expect(
+        results.any((r) => r.id == 'low'),
+        false,
+        reason: "'low' has similarity 0.0, should not pass threshold",
+      );
     });
 
     test('HNSW and brute-force produce same ranking order', () {
@@ -340,8 +361,10 @@ void main() {
       // Verify all similarities are in descending order
       for (int i = 1; i < results.length; i++) {
         expect(
-            results[i].similarity, lessThanOrEqualTo(results[i - 1].similarity),
-            reason: 'Results should be sorted by similarity descending');
+          results[i].similarity,
+          lessThanOrEqualTo(results[i - 1].similarity),
+          reason: 'Results should be sorted by similarity descending',
+        );
       }
     });
   });

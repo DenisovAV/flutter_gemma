@@ -11,25 +11,25 @@ import 'dart:ffi' as ffi;
 class LiteRtLmBindings {
   /// Holds the symbol lookup function.
   final ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName)
-      _lookup;
+  _lookup;
 
   /// The symbols are looked up in [dynamicLibrary].
   LiteRtLmBindings(ffi.DynamicLibrary dynamicLibrary)
-      : _lookup = dynamicLibrary.lookup;
+    : _lookup = dynamicLibrary.lookup;
 
   /// The symbols are looked up with [lookup].
   LiteRtLmBindings.fromLookup(
-      ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName)
-          lookup)
-      : _lookup = lookup;
+    ffi.Pointer<T> Function<T extends ffi.NativeType>(String symbolName) lookup,
+  ) : _lookup = lookup;
 
   ffi.Pointer<LiteRtLmSessionConfig> litert_lm_session_config_create() {
     return _litert_lm_session_config_create();
   }
 
-  late final _litert_lm_session_config_createPtr = _lookup<
-          ffi.NativeFunction<ffi.Pointer<LiteRtLmSessionConfig> Function()>>(
-      'litert_lm_session_config_create');
+  late final _litert_lm_session_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Pointer<LiteRtLmSessionConfig> Function()>
+      >('litert_lm_session_config_create');
   late final _litert_lm_session_config_create =
       _litert_lm_session_config_createPtr
           .asFunction<ffi.Pointer<LiteRtLmSessionConfig> Function()>();
@@ -44,10 +44,12 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_session_config_set_max_output_tokensPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>,
-              ffi.Int)>>('litert_lm_session_config_set_max_output_tokens');
+  late final _litert_lm_session_config_set_max_output_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>, ffi.Int)
+        >
+      >('litert_lm_session_config_set_max_output_tokens');
   late final _litert_lm_session_config_set_max_output_tokens =
       _litert_lm_session_config_set_max_output_tokensPtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmSessionConfig>, int)>();
@@ -62,46 +64,55 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_session_config_set_apply_prompt_templatePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>,
-              ffi.Bool)>>('litert_lm_session_config_set_apply_prompt_template');
+  late final _litert_lm_session_config_set_apply_prompt_templatePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>, ffi.Bool)
+        >
+      >('litert_lm_session_config_set_apply_prompt_template');
   late final _litert_lm_session_config_set_apply_prompt_template =
-      _litert_lm_session_config_set_apply_prompt_templatePtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmSessionConfig>, bool)>();
+      _litert_lm_session_config_set_apply_prompt_templatePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSessionConfig>, bool)
+          >();
 
   void litert_lm_session_config_set_sampler_params(
     ffi.Pointer<LiteRtLmSessionConfig> config,
     ffi.Pointer<LiteRtLmSamplerParams> sampler_params,
   ) {
-    return _litert_lm_session_config_set_sampler_params(
-      config,
-      sampler_params,
-    );
+    return _litert_lm_session_config_set_sampler_params(config, sampler_params);
   }
 
-  late final _litert_lm_session_config_set_sampler_paramsPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>,
-                  ffi.Pointer<LiteRtLmSamplerParams>)>>(
-      'litert_lm_session_config_set_sampler_params');
+  late final _litert_lm_session_config_set_sampler_paramsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmSessionConfig>,
+            ffi.Pointer<LiteRtLmSamplerParams>,
+          )
+        >
+      >('litert_lm_session_config_set_sampler_params');
   late final _litert_lm_session_config_set_sampler_params =
-      _litert_lm_session_config_set_sampler_paramsPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmSessionConfig>,
-              ffi.Pointer<LiteRtLmSamplerParams>)>();
+      _litert_lm_session_config_set_sampler_paramsPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmSessionConfig>,
+              ffi.Pointer<LiteRtLmSamplerParams>,
+            )
+          >();
 
   void litert_lm_session_config_delete(
     ffi.Pointer<LiteRtLmSessionConfig> config,
   ) {
-    return _litert_lm_session_config_delete(
-      config,
-    );
+    return _litert_lm_session_config_delete(config);
   }
 
-  late final _litert_lm_session_config_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>)>>(
-      'litert_lm_session_config_delete');
+  late final _litert_lm_session_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSessionConfig>)
+        >
+      >('litert_lm_session_config_delete');
   late final _litert_lm_session_config_delete =
       _litert_lm_session_config_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmSessionConfig>)>();
@@ -124,24 +135,31 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_config_createPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_conversation_config_createPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmConversationConfig> Function(
-              ffi.Pointer<LiteRtLmEngine>,
-              ffi.Pointer<LiteRtLmSessionConfig>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Bool)>>('litert_lm_conversation_config_create');
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<LiteRtLmSessionConfig>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Bool,
+          )
+        >
+      >('litert_lm_conversation_config_create');
   late final _litert_lm_conversation_config_create =
-      _litert_lm_conversation_config_createPtr.asFunction<
-          ffi.Pointer<LiteRtLmConversationConfig> Function(
+      _litert_lm_conversation_config_createPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmConversationConfig> Function(
               ffi.Pointer<LiteRtLmEngine>,
               ffi.Pointer<LiteRtLmSessionConfig>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
-              bool)>();
+              bool,
+            )
+          >();
 
   void litert_lm_conversation_config_set_session_config(
     ffi.Pointer<LiteRtLmConversationConfig> config,
@@ -153,15 +171,23 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_config_set_session_configPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-                  ffi.Pointer<LiteRtLmSessionConfig>)>>(
-      'litert_lm_conversation_config_set_session_config');
+  late final _litert_lm_conversation_config_set_session_configPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<LiteRtLmSessionConfig>,
+          )
+        >
+      >('litert_lm_conversation_config_set_session_config');
   late final _litert_lm_conversation_config_set_session_config =
-      _litert_lm_conversation_config_set_session_configPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<LiteRtLmSessionConfig>)>();
+      _litert_lm_conversation_config_set_session_configPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<LiteRtLmSessionConfig>,
+            )
+          >();
 
   void litert_lm_conversation_config_set_system_message(
     ffi.Pointer<LiteRtLmConversationConfig> config,
@@ -173,55 +199,73 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_config_set_system_messagePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-                  ffi.Pointer<ffi.Char>)>>(
-      'litert_lm_conversation_config_set_system_message');
+  late final _litert_lm_conversation_config_set_system_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_system_message');
   late final _litert_lm_conversation_config_set_system_message =
-      _litert_lm_conversation_config_set_system_messagePtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<ffi.Char>)>();
+      _litert_lm_conversation_config_set_system_messagePtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_conversation_config_set_tools(
     ffi.Pointer<LiteRtLmConversationConfig> config,
     ffi.Pointer<ffi.Char> tools_json,
   ) {
-    return _litert_lm_conversation_config_set_tools(
-      config,
-      tools_json,
-    );
+    return _litert_lm_conversation_config_set_tools(config, tools_json);
   }
 
-  late final _litert_lm_conversation_config_set_toolsPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-                  ffi.Pointer<ffi.Char>)>>(
-      'litert_lm_conversation_config_set_tools');
+  late final _litert_lm_conversation_config_set_toolsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_tools');
   late final _litert_lm_conversation_config_set_tools =
-      _litert_lm_conversation_config_set_toolsPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<ffi.Char>)>();
+      _litert_lm_conversation_config_set_toolsPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_conversation_config_set_messages(
     ffi.Pointer<LiteRtLmConversationConfig> config,
     ffi.Pointer<ffi.Char> messages_json,
   ) {
-    return _litert_lm_conversation_config_set_messages(
-      config,
-      messages_json,
-    );
+    return _litert_lm_conversation_config_set_messages(config, messages_json);
   }
 
-  late final _litert_lm_conversation_config_set_messagesPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-                  ffi.Pointer<ffi.Char>)>>(
-      'litert_lm_conversation_config_set_messages');
+  late final _litert_lm_conversation_config_set_messagesPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_messages');
   late final _litert_lm_conversation_config_set_messages =
-      _litert_lm_conversation_config_set_messagesPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<ffi.Char>)>();
+      _litert_lm_conversation_config_set_messagesPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_conversation_config_set_extra_context(
     ffi.Pointer<LiteRtLmConversationConfig> config,
@@ -233,15 +277,23 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_config_set_extra_contextPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-                  ffi.Pointer<ffi.Char>)>>(
-      'litert_lm_conversation_config_set_extra_context');
+  late final _litert_lm_conversation_config_set_extra_contextPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationConfig>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_config_set_extra_context');
   late final _litert_lm_conversation_config_set_extra_context =
-      _litert_lm_conversation_config_set_extra_contextPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmConversationConfig>,
-              ffi.Pointer<ffi.Char>)>();
+      _litert_lm_conversation_config_set_extra_contextPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmConversationConfig>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_conversation_config_set_enable_constrained_decoding(
     ffi.Pointer<LiteRtLmConversationConfig> config,
@@ -255,14 +307,15 @@ class LiteRtLmBindings {
 
   late final _litert_lm_conversation_config_set_enable_constrained_decodingPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Void Function(
-                      ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)>>(
-          'litert_lm_conversation_config_set_enable_constrained_decoding');
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)
+        >
+      >('litert_lm_conversation_config_set_enable_constrained_decoding');
   late final _litert_lm_conversation_config_set_enable_constrained_decoding =
       _litert_lm_conversation_config_set_enable_constrained_decodingPtr
           .asFunction<
-              void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)>();
+            void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)
+          >();
 
   void litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
     ffi.Pointer<LiteRtLmConversationConfig> config,
@@ -276,60 +329,68 @@ class LiteRtLmBindings {
 
   late final _litert_lm_conversation_config_set_filter_channel_content_from_kv_cachePtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Void Function(
-                      ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)>>(
-          'litert_lm_conversation_config_set_filter_channel_content_from_kv_cache');
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>, ffi.Bool)
+        >
+      >(
+        'litert_lm_conversation_config_set_filter_channel_content_from_kv_cache',
+      );
   late final _litert_lm_conversation_config_set_filter_channel_content_from_kv_cache =
       _litert_lm_conversation_config_set_filter_channel_content_from_kv_cachePtr
           .asFunction<
-              void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)>();
+            void Function(ffi.Pointer<LiteRtLmConversationConfig>, bool)
+          >();
 
   void litert_lm_conversation_config_delete(
     ffi.Pointer<LiteRtLmConversationConfig> config,
   ) {
-    return _litert_lm_conversation_config_delete(
-      config,
-    );
+    return _litert_lm_conversation_config_delete(config);
   }
 
-  late final _litert_lm_conversation_config_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>)>>(
-      'litert_lm_conversation_config_delete');
+  late final _litert_lm_conversation_config_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationConfig>)
+        >
+      >('litert_lm_conversation_config_delete');
   late final _litert_lm_conversation_config_delete =
       _litert_lm_conversation_config_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmConversationConfig>)>();
 
   ffi.Pointer<LiteRtLmConversationOptionalArgs>
-      litert_lm_conversation_optional_args_create() {
+  litert_lm_conversation_optional_args_create() {
     return _litert_lm_conversation_optional_args_create();
   }
 
-  late final _litert_lm_conversation_optional_args_createPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmConversationOptionalArgs>
-              Function()>>('litert_lm_conversation_optional_args_create');
+  late final _litert_lm_conversation_optional_args_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()
+        >
+      >('litert_lm_conversation_optional_args_create');
   late final _litert_lm_conversation_optional_args_create =
-      _litert_lm_conversation_optional_args_createPtr.asFunction<
-          ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()>();
+      _litert_lm_conversation_optional_args_createPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmConversationOptionalArgs> Function()
+          >();
 
   void litert_lm_conversation_optional_args_delete(
     ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
   ) {
-    return _litert_lm_conversation_optional_args_delete(
-      optional_args,
-    );
+    return _litert_lm_conversation_optional_args_delete(optional_args);
   }
 
-  late final _litert_lm_conversation_optional_args_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(
-                  ffi.Pointer<LiteRtLmConversationOptionalArgs>)>>(
-      'litert_lm_conversation_optional_args_delete');
+  late final _litert_lm_conversation_optional_args_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)
+        >
+      >('litert_lm_conversation_optional_args_delete');
   late final _litert_lm_conversation_optional_args_delete =
-      _litert_lm_conversation_optional_args_deletePtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)>();
+      _litert_lm_conversation_optional_args_deletePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>)
+          >();
 
   void litert_lm_conversation_optional_args_set_visual_token_budget(
     ffi.Pointer<LiteRtLmConversationOptionalArgs> optional_args,
@@ -343,29 +404,29 @@ class LiteRtLmBindings {
 
   late final _litert_lm_conversation_optional_args_set_visual_token_budgetPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Void Function(
-                      ffi.Pointer<LiteRtLmConversationOptionalArgs>, ffi.Int)>>(
-          'litert_lm_conversation_optional_args_set_visual_token_budget');
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            ffi.Int,
+          )
+        >
+      >('litert_lm_conversation_optional_args_set_visual_token_budget');
   late final _litert_lm_conversation_optional_args_set_visual_token_budget =
       _litert_lm_conversation_optional_args_set_visual_token_budgetPtr
           .asFunction<
-              void Function(
-                  ffi.Pointer<LiteRtLmConversationOptionalArgs>, int)>();
+            void Function(ffi.Pointer<LiteRtLmConversationOptionalArgs>, int)
+          >();
 
-  void litert_lm_set_min_log_level(
-    int level,
-  ) {
-    return _litert_lm_set_min_log_level(
-      level,
-    );
+  void litert_lm_set_min_log_level(int level) {
+    return _litert_lm_set_min_log_level(level);
   }
 
   late final _litert_lm_set_min_log_levelPtr =
       _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>(
-          'litert_lm_set_min_log_level');
-  late final _litert_lm_set_min_log_level =
-      _litert_lm_set_min_log_levelPtr.asFunction<void Function(int)>();
+        'litert_lm_set_min_log_level',
+      );
+  late final _litert_lm_set_min_log_level = _litert_lm_set_min_log_levelPtr
+      .asFunction<void Function(int)>();
 
   ffi.Pointer<LiteRtLmEngineSettings> litert_lm_engine_settings_create(
     ffi.Pointer<ffi.Char> model_path,
@@ -381,33 +442,40 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_createPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_engine_settings_createPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmEngineSettings> Function(
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>)>>('litert_lm_engine_settings_create');
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_engine_settings_create');
   late final _litert_lm_engine_settings_create =
-      _litert_lm_engine_settings_createPtr.asFunction<
-          ffi.Pointer<LiteRtLmEngineSettings> Function(
+      _litert_lm_engine_settings_createPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmEngineSettings> Function(
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>)>();
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_engine_settings_delete(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {
-    return _litert_lm_engine_settings_delete(
-      settings,
-    );
+    return _litert_lm_engine_settings_delete(settings);
   }
 
-  late final _litert_lm_engine_settings_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>)>>(
-      'litert_lm_engine_settings_delete');
+  late final _litert_lm_engine_settings_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>)
+        >
+      >('litert_lm_engine_settings_delete');
   late final _litert_lm_engine_settings_delete =
       _litert_lm_engine_settings_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmEngineSettings>)>();
@@ -422,13 +490,17 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_max_num_tokensPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-              ffi.Int)>>('litert_lm_engine_settings_set_max_num_tokens');
+  late final _litert_lm_engine_settings_set_max_num_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_max_num_tokens');
   late final _litert_lm_engine_settings_set_max_num_tokens =
-      _litert_lm_engine_settings_set_max_num_tokensPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+      _litert_lm_engine_settings_set_max_num_tokensPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
 
   void litert_lm_engine_settings_set_parallel_file_section_loading(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -442,14 +514,15 @@ class LiteRtLmBindings {
 
   late final _litert_lm_engine_settings_set_parallel_file_section_loadingPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Void Function(
-                      ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)>>(
-          'litert_lm_engine_settings_set_parallel_file_section_loading');
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_parallel_file_section_loading');
   late final _litert_lm_engine_settings_set_parallel_file_section_loading =
       _litert_lm_engine_settings_set_parallel_file_section_loadingPtr
           .asFunction<
-              void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
 
   void litert_lm_engine_settings_set_max_num_images(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -461,33 +534,42 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_max_num_imagesPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-              ffi.Int)>>('litert_lm_engine_settings_set_max_num_images');
+  late final _litert_lm_engine_settings_set_max_num_imagesPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_max_num_images');
   late final _litert_lm_engine_settings_set_max_num_images =
-      _litert_lm_engine_settings_set_max_num_imagesPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+      _litert_lm_engine_settings_set_max_num_imagesPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
 
   void litert_lm_engine_settings_set_cache_dir(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
     ffi.Pointer<ffi.Char> cache_dir,
   ) {
-    return _litert_lm_engine_settings_set_cache_dir(
-      settings,
-      cache_dir,
-    );
+    return _litert_lm_engine_settings_set_cache_dir(settings, cache_dir);
   }
 
-  late final _litert_lm_engine_settings_set_cache_dirPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(
-                  ffi.Pointer<LiteRtLmEngineSettings>, ffi.Pointer<ffi.Char>)>>(
-      'litert_lm_engine_settings_set_cache_dir');
+  late final _litert_lm_engine_settings_set_cache_dirPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmEngineSettings>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_engine_settings_set_cache_dir');
   late final _litert_lm_engine_settings_set_cache_dir =
-      _litert_lm_engine_settings_set_cache_dirPtr.asFunction<
-          void Function(
-              ffi.Pointer<LiteRtLmEngineSettings>, ffi.Pointer<ffi.Char>)>();
+      _litert_lm_engine_settings_set_cache_dirPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmEngineSettings>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_engine_settings_set_litert_dispatch_lib_dir(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -501,14 +583,21 @@ class LiteRtLmBindings {
 
   late final _litert_lm_engine_settings_set_litert_dispatch_lib_dirPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-                      ffi.Pointer<ffi.Char>)>>(
-          'litert_lm_engine_settings_set_litert_dispatch_lib_dir');
+        ffi.NativeFunction<
+          ffi.Void Function(
+            ffi.Pointer<LiteRtLmEngineSettings>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_engine_settings_set_litert_dispatch_lib_dir');
   late final _litert_lm_engine_settings_set_litert_dispatch_lib_dir =
-      _litert_lm_engine_settings_set_litert_dispatch_lib_dirPtr.asFunction<
-          void Function(
-              ffi.Pointer<LiteRtLmEngineSettings>, ffi.Pointer<ffi.Char>)>();
+      _litert_lm_engine_settings_set_litert_dispatch_lib_dirPtr
+          .asFunction<
+            void Function(
+              ffi.Pointer<LiteRtLmEngineSettings>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_engine_settings_set_activation_data_type(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -520,13 +609,17 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_activation_data_typePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-              ffi.Int)>>('litert_lm_engine_settings_set_activation_data_type');
+  late final _litert_lm_engine_settings_set_activation_data_typePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_activation_data_type');
   late final _litert_lm_engine_settings_set_activation_data_type =
-      _litert_lm_engine_settings_set_activation_data_typePtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+      _litert_lm_engine_settings_set_activation_data_typePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
 
   void litert_lm_engine_settings_set_prefill_chunk_size(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -538,26 +631,30 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_prefill_chunk_sizePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-              ffi.Int)>>('litert_lm_engine_settings_set_prefill_chunk_size');
+  late final _litert_lm_engine_settings_set_prefill_chunk_sizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_prefill_chunk_size');
   late final _litert_lm_engine_settings_set_prefill_chunk_size =
-      _litert_lm_engine_settings_set_prefill_chunk_sizePtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+      _litert_lm_engine_settings_set_prefill_chunk_sizePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
 
   void litert_lm_engine_settings_enable_benchmark(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {
-    return _litert_lm_engine_settings_enable_benchmark(
-      settings,
-    );
+    return _litert_lm_engine_settings_enable_benchmark(settings);
   }
 
-  late final _litert_lm_engine_settings_enable_benchmarkPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>)>>(
-      'litert_lm_engine_settings_enable_benchmark');
+  late final _litert_lm_engine_settings_enable_benchmarkPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>)
+        >
+      >('litert_lm_engine_settings_enable_benchmark');
   late final _litert_lm_engine_settings_enable_benchmark =
       _litert_lm_engine_settings_enable_benchmarkPtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmEngineSettings>)>();
@@ -572,13 +669,17 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_num_prefill_tokensPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-              ffi.Int)>>('litert_lm_engine_settings_set_num_prefill_tokens');
+  late final _litert_lm_engine_settings_set_num_prefill_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_num_prefill_tokens');
   late final _litert_lm_engine_settings_set_num_prefill_tokens =
-      _litert_lm_engine_settings_set_num_prefill_tokensPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+      _litert_lm_engine_settings_set_num_prefill_tokensPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
 
   void litert_lm_engine_settings_set_num_decode_tokens(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -590,13 +691,17 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_num_decode_tokensPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>,
-              ffi.Int)>>('litert_lm_engine_settings_set_num_decode_tokens');
+  late final _litert_lm_engine_settings_set_num_decode_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_num_decode_tokens');
   late final _litert_lm_engine_settings_set_num_decode_tokens =
-      _litert_lm_engine_settings_set_num_decode_tokensPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)>();
+      _litert_lm_engine_settings_set_num_decode_tokensPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
 
   void litert_lm_engine_settings_set_enable_speculative_decoding(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -610,13 +715,15 @@ class LiteRtLmBindings {
 
   late final _litert_lm_engine_settings_set_enable_speculative_decodingPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Void Function(
-                      ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)>>(
-          'litert_lm_engine_settings_set_enable_speculative_decoding');
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_enable_speculative_decoding');
   late final _litert_lm_engine_settings_set_enable_speculative_decoding =
-      _litert_lm_engine_settings_set_enable_speculative_decodingPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+      _litert_lm_engine_settings_set_enable_speculative_decodingPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
 
   void litert_lm_engine_settings_set_use_hw_masking_for_npu(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
@@ -628,42 +735,47 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(
-                  ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)>>(
-      'litert_lm_engine_settings_set_use_hw_masking_for_npu');
+  late final _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_use_hw_masking_for_npu');
   late final _litert_lm_engine_settings_set_use_hw_masking_for_npu =
-      _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr.asFunction<
-          void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)>();
+      _litert_lm_engine_settings_set_use_hw_masking_for_npuPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
 
   ffi.Pointer<LiteRtLmEngine> litert_lm_engine_create(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {
-    return _litert_lm_engine_create(
-      settings,
-    );
+    return _litert_lm_engine_create(settings);
   }
 
-  late final _litert_lm_engine_createPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_engine_createPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmEngine> Function(
-              ffi.Pointer<LiteRtLmEngineSettings>)>>('litert_lm_engine_create');
-  late final _litert_lm_engine_create = _litert_lm_engine_createPtr.asFunction<
-      ffi.Pointer<LiteRtLmEngine> Function(
-          ffi.Pointer<LiteRtLmEngineSettings>)>();
+            ffi.Pointer<LiteRtLmEngineSettings>,
+          )
+        >
+      >('litert_lm_engine_create');
+  late final _litert_lm_engine_create = _litert_lm_engine_createPtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmEngine> Function(
+          ffi.Pointer<LiteRtLmEngineSettings>,
+        )
+      >();
 
-  void litert_lm_engine_delete(
-    ffi.Pointer<LiteRtLmEngine> engine,
-  ) {
-    return _litert_lm_engine_delete(
-      engine,
-    );
+  void litert_lm_engine_delete(ffi.Pointer<LiteRtLmEngine> engine) {
+    return _litert_lm_engine_delete(engine);
   }
 
-  late final _litert_lm_engine_deletePtr = _lookup<
-          ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmEngine>)>>(
-      'litert_lm_engine_delete');
+  late final _litert_lm_engine_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmEngine>)>
+      >('litert_lm_engine_delete');
   late final _litert_lm_engine_delete = _litert_lm_engine_deletePtr
       .asFunction<void Function(ffi.Pointer<LiteRtLmEngine>)>();
 
@@ -671,47 +783,46 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmEngine> engine,
     ffi.Pointer<LiteRtLmSessionConfig> config,
   ) {
-    return _litert_lm_engine_create_session(
-      engine,
-      config,
-    );
+    return _litert_lm_engine_create_session(engine, config);
   }
 
-  late final _litert_lm_engine_create_sessionPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmSession> Function(ffi.Pointer<LiteRtLmEngine>,
-                  ffi.Pointer<LiteRtLmSessionConfig>)>>(
-      'litert_lm_engine_create_session');
+  late final _litert_lm_engine_create_sessionPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmSession> Function(
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<LiteRtLmSessionConfig>,
+          )
+        >
+      >('litert_lm_engine_create_session');
   late final _litert_lm_engine_create_session =
-      _litert_lm_engine_create_sessionPtr.asFunction<
-          ffi.Pointer<LiteRtLmSession> Function(ffi.Pointer<LiteRtLmEngine>,
-              ffi.Pointer<LiteRtLmSessionConfig>)>();
+      _litert_lm_engine_create_sessionPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmSession> Function(
+              ffi.Pointer<LiteRtLmEngine>,
+              ffi.Pointer<LiteRtLmSessionConfig>,
+            )
+          >();
 
-  void litert_lm_session_delete(
-    ffi.Pointer<LiteRtLmSession> session,
-  ) {
-    return _litert_lm_session_delete(
-      session,
-    );
+  void litert_lm_session_delete(ffi.Pointer<LiteRtLmSession> session) {
+    return _litert_lm_session_delete(session);
   }
 
-  late final _litert_lm_session_deletePtr = _lookup<
-          ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmSession>)>>(
-      'litert_lm_session_delete');
+  late final _litert_lm_session_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmSession>)>
+      >('litert_lm_session_delete');
   late final _litert_lm_session_delete = _litert_lm_session_deletePtr
       .asFunction<void Function(ffi.Pointer<LiteRtLmSession>)>();
 
-  void litert_lm_session_cancel_process(
-    ffi.Pointer<LiteRtLmSession> session,
-  ) {
-    return _litert_lm_session_cancel_process(
-      session,
-    );
+  void litert_lm_session_cancel_process(ffi.Pointer<LiteRtLmSession> session) {
+    return _litert_lm_session_cancel_process(session);
   }
 
-  late final _litert_lm_session_cancel_processPtr = _lookup<
-          ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmSession>)>>(
-      'litert_lm_session_cancel_process');
+  late final _litert_lm_session_cancel_processPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmSession>)>
+      >('litert_lm_session_cancel_process');
   late final _litert_lm_session_cancel_process =
       _litert_lm_session_cancel_processPtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmSession>)>();
@@ -721,40 +832,44 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmInputData> inputs,
     int num_inputs,
   ) {
-    return _litert_lm_session_run_prefill(
-      session,
-      inputs,
-      num_inputs,
-    );
+    return _litert_lm_session_run_prefill(session, inputs, num_inputs);
   }
 
-  late final _litert_lm_session_run_prefillPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_session_run_prefillPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Int Function(
-              ffi.Pointer<LiteRtLmSession>,
-              ffi.Pointer<LiteRtLmInputData>,
-              ffi.Size)>>('litert_lm_session_run_prefill');
-  late final _litert_lm_session_run_prefill =
-      _litert_lm_session_run_prefillPtr.asFunction<
-          int Function(ffi.Pointer<LiteRtLmSession>,
-              ffi.Pointer<LiteRtLmInputData>, int)>();
+            ffi.Pointer<LiteRtLmSession>,
+            ffi.Pointer<LiteRtLmInputData>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_session_run_prefill');
+  late final _litert_lm_session_run_prefill = _litert_lm_session_run_prefillPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<LiteRtLmSession>,
+          ffi.Pointer<LiteRtLmInputData>,
+          int,
+        )
+      >();
 
   ffi.Pointer<LiteRtLmResponses> litert_lm_session_run_decode(
     ffi.Pointer<LiteRtLmSession> session,
   ) {
-    return _litert_lm_session_run_decode(
-      session,
-    );
+    return _litert_lm_session_run_decode(session);
   }
 
-  late final _litert_lm_session_run_decodePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmResponses> Function(
-              ffi.Pointer<LiteRtLmSession>)>>('litert_lm_session_run_decode');
-  late final _litert_lm_session_run_decode =
-      _litert_lm_session_run_decodePtr.asFunction<
-          ffi.Pointer<LiteRtLmResponses> Function(
-              ffi.Pointer<LiteRtLmSession>)>();
+  late final _litert_lm_session_run_decodePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmResponses> Function(ffi.Pointer<LiteRtLmSession>)
+        >
+      >('litert_lm_session_run_decode');
+  late final _litert_lm_session_run_decode = _litert_lm_session_run_decodePtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmResponses> Function(ffi.Pointer<LiteRtLmSession>)
+      >();
 
   ffi.Pointer<LiteRtLmResponses> litert_lm_session_run_text_scoring(
     ffi.Pointer<LiteRtLmSession> session,
@@ -770,67 +885,77 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_session_run_text_scoringPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_session_run_text_scoringPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmResponses> Function(
+            ffi.Pointer<LiteRtLmSession>,
+            ffi.Pointer<ffi.Pointer<ffi.Char>>,
+            ffi.Size,
+            ffi.Bool,
+          )
+        >
+      >('litert_lm_session_run_text_scoring');
+  late final _litert_lm_session_run_text_scoring =
+      _litert_lm_session_run_text_scoringPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmResponses> Function(
               ffi.Pointer<LiteRtLmSession>,
               ffi.Pointer<ffi.Pointer<ffi.Char>>,
-              ffi.Size,
-              ffi.Bool)>>('litert_lm_session_run_text_scoring');
-  late final _litert_lm_session_run_text_scoring =
-      _litert_lm_session_run_text_scoringPtr.asFunction<
-          ffi.Pointer<LiteRtLmResponses> Function(ffi.Pointer<LiteRtLmSession>,
-              ffi.Pointer<ffi.Pointer<ffi.Char>>, int, bool)>();
+              int,
+              bool,
+            )
+          >();
 
   ffi.Pointer<LiteRtLmResponses> litert_lm_session_generate_content(
     ffi.Pointer<LiteRtLmSession> session,
     ffi.Pointer<LiteRtLmInputData> inputs,
     int num_inputs,
   ) {
-    return _litert_lm_session_generate_content(
-      session,
-      inputs,
-      num_inputs,
-    );
+    return _litert_lm_session_generate_content(session, inputs, num_inputs);
   }
 
-  late final _litert_lm_session_generate_contentPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_session_generate_contentPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmResponses> Function(
+            ffi.Pointer<LiteRtLmSession>,
+            ffi.Pointer<LiteRtLmInputData>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_session_generate_content');
+  late final _litert_lm_session_generate_content =
+      _litert_lm_session_generate_contentPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmResponses> Function(
               ffi.Pointer<LiteRtLmSession>,
               ffi.Pointer<LiteRtLmInputData>,
-              ffi.Size)>>('litert_lm_session_generate_content');
-  late final _litert_lm_session_generate_content =
-      _litert_lm_session_generate_contentPtr.asFunction<
-          ffi.Pointer<LiteRtLmResponses> Function(ffi.Pointer<LiteRtLmSession>,
-              ffi.Pointer<LiteRtLmInputData>, int)>();
+              int,
+            )
+          >();
 
-  void litert_lm_responses_delete(
-    ffi.Pointer<LiteRtLmResponses> responses,
-  ) {
-    return _litert_lm_responses_delete(
-      responses,
-    );
+  void litert_lm_responses_delete(ffi.Pointer<LiteRtLmResponses> responses) {
+    return _litert_lm_responses_delete(responses);
   }
 
-  late final _litert_lm_responses_deletePtr = _lookup<
-          ffi
-          .NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmResponses>)>>(
-      'litert_lm_responses_delete');
+  late final _litert_lm_responses_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmResponses>)>
+      >('litert_lm_responses_delete');
   late final _litert_lm_responses_delete = _litert_lm_responses_deletePtr
       .asFunction<void Function(ffi.Pointer<LiteRtLmResponses>)>();
 
   int litert_lm_responses_get_num_candidates(
     ffi.Pointer<LiteRtLmResponses> responses,
   ) {
-    return _litert_lm_responses_get_num_candidates(
-      responses,
-    );
+    return _litert_lm_responses_get_num_candidates(responses);
   }
 
-  late final _litert_lm_responses_get_num_candidatesPtr = _lookup<
-          ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmResponses>)>>(
-      'litert_lm_responses_get_num_candidates');
+  late final _litert_lm_responses_get_num_candidatesPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmResponses>)>
+      >('litert_lm_responses_get_num_candidates');
   late final _litert_lm_responses_get_num_candidates =
       _litert_lm_responses_get_num_candidatesPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmResponses>)>();
@@ -839,35 +964,37 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_get_response_text_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_get_response_text_at(responses, index);
   }
 
-  late final _litert_lm_responses_get_response_text_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_get_response_text_at');
-  late final _litert_lm_responses_get_response_text_at =
-      _litert_lm_responses_get_response_text_atPtr.asFunction<
+  late final _litert_lm_responses_get_response_text_atPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<LiteRtLmResponses>, int)>();
+            ffi.Pointer<LiteRtLmResponses>,
+            ffi.Int,
+          )
+        >
+      >('litert_lm_responses_get_response_text_at');
+  late final _litert_lm_responses_get_response_text_at =
+      _litert_lm_responses_get_response_text_atPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmResponses>, int)
+          >();
 
   bool litert_lm_responses_has_score_at(
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_has_score_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_has_score_at(responses, index);
   }
 
-  late final _litert_lm_responses_has_score_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Bool Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_has_score_at');
+  late final _litert_lm_responses_has_score_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Bool Function(ffi.Pointer<LiteRtLmResponses>, ffi.Int)
+        >
+      >('litert_lm_responses_has_score_at');
   late final _litert_lm_responses_has_score_at =
       _litert_lm_responses_has_score_atPtr
           .asFunction<bool Function(ffi.Pointer<LiteRtLmResponses>, int)>();
@@ -876,16 +1003,15 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_get_score_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_get_score_at(responses, index);
   }
 
-  late final _litert_lm_responses_get_score_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Float Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_get_score_at');
+  late final _litert_lm_responses_get_score_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Float Function(ffi.Pointer<LiteRtLmResponses>, ffi.Int)
+        >
+      >('litert_lm_responses_get_score_at');
   late final _litert_lm_responses_get_score_at =
       _litert_lm_responses_get_score_atPtr
           .asFunction<double Function(ffi.Pointer<LiteRtLmResponses>, int)>();
@@ -894,16 +1020,15 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_has_token_length_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_has_token_length_at(responses, index);
   }
 
-  late final _litert_lm_responses_has_token_length_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Bool Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_has_token_length_at');
+  late final _litert_lm_responses_has_token_length_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Bool Function(ffi.Pointer<LiteRtLmResponses>, ffi.Int)
+        >
+      >('litert_lm_responses_has_token_length_at');
   late final _litert_lm_responses_has_token_length_at =
       _litert_lm_responses_has_token_length_atPtr
           .asFunction<bool Function(ffi.Pointer<LiteRtLmResponses>, int)>();
@@ -912,16 +1037,15 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_get_token_length_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_get_token_length_at(responses, index);
   }
 
-  late final _litert_lm_responses_get_token_length_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_get_token_length_at');
+  late final _litert_lm_responses_get_token_length_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmResponses>, ffi.Int)
+        >
+      >('litert_lm_responses_get_token_length_at');
   late final _litert_lm_responses_get_token_length_at =
       _litert_lm_responses_get_token_length_atPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmResponses>, int)>();
@@ -930,16 +1054,15 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_has_token_scores_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_has_token_scores_at(responses, index);
   }
 
-  late final _litert_lm_responses_has_token_scores_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Bool Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_has_token_scores_at');
+  late final _litert_lm_responses_has_token_scores_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Bool Function(ffi.Pointer<LiteRtLmResponses>, ffi.Int)
+        >
+      >('litert_lm_responses_has_token_scores_at');
   late final _litert_lm_responses_has_token_scores_at =
       _litert_lm_responses_has_token_scores_atPtr
           .asFunction<bool Function(ffi.Pointer<LiteRtLmResponses>, int)>();
@@ -948,16 +1071,15 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_get_num_token_scores_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_get_num_token_scores_at(responses, index);
   }
 
-  late final _litert_lm_responses_get_num_token_scores_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_get_num_token_scores_at');
+  late final _litert_lm_responses_get_num_token_scores_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmResponses>, ffi.Int)
+        >
+      >('litert_lm_responses_get_num_token_scores_at');
   late final _litert_lm_responses_get_num_token_scores_at =
       _litert_lm_responses_get_num_token_scores_atPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmResponses>, int)>();
@@ -966,51 +1088,58 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmResponses> responses,
     int index,
   ) {
-    return _litert_lm_responses_get_token_scores_at(
-      responses,
-      index,
-    );
+    return _litert_lm_responses_get_token_scores_at(responses, index);
   }
 
-  late final _litert_lm_responses_get_token_scores_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Pointer<ffi.Float> Function(ffi.Pointer<LiteRtLmResponses>,
-              ffi.Int)>>('litert_lm_responses_get_token_scores_at');
-  late final _litert_lm_responses_get_token_scores_at =
-      _litert_lm_responses_get_token_scores_atPtr.asFunction<
+  late final _litert_lm_responses_get_token_scores_atPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<ffi.Float> Function(
-              ffi.Pointer<LiteRtLmResponses>, int)>();
+            ffi.Pointer<LiteRtLmResponses>,
+            ffi.Int,
+          )
+        >
+      >('litert_lm_responses_get_token_scores_at');
+  late final _litert_lm_responses_get_token_scores_at =
+      _litert_lm_responses_get_token_scores_atPtr
+          .asFunction<
+            ffi.Pointer<ffi.Float> Function(ffi.Pointer<LiteRtLmResponses>, int)
+          >();
 
   ffi.Pointer<LiteRtLmBenchmarkInfo> litert_lm_session_get_benchmark_info(
     ffi.Pointer<LiteRtLmSession> session,
   ) {
-    return _litert_lm_session_get_benchmark_info(
-      session,
-    );
+    return _litert_lm_session_get_benchmark_info(session);
   }
 
-  late final _litert_lm_session_get_benchmark_infoPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
-                  ffi.Pointer<LiteRtLmSession>)>>(
-      'litert_lm_session_get_benchmark_info');
-  late final _litert_lm_session_get_benchmark_info =
-      _litert_lm_session_get_benchmark_infoPtr.asFunction<
+  late final _litert_lm_session_get_benchmark_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
-              ffi.Pointer<LiteRtLmSession>)>();
+            ffi.Pointer<LiteRtLmSession>,
+          )
+        >
+      >('litert_lm_session_get_benchmark_info');
+  late final _litert_lm_session_get_benchmark_info =
+      _litert_lm_session_get_benchmark_infoPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
+              ffi.Pointer<LiteRtLmSession>,
+            )
+          >();
 
   void litert_lm_benchmark_info_delete(
     ffi.Pointer<LiteRtLmBenchmarkInfo> benchmark_info,
   ) {
-    return _litert_lm_benchmark_info_delete(
-      benchmark_info,
-    );
+    return _litert_lm_benchmark_info_delete(benchmark_info);
   }
 
-  late final _litert_lm_benchmark_info_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>>(
-      'litert_lm_benchmark_info_delete');
+  late final _litert_lm_benchmark_info_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)
+        >
+      >('litert_lm_benchmark_info_delete');
   late final _litert_lm_benchmark_info_delete =
       _litert_lm_benchmark_info_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>();
@@ -1018,15 +1147,15 @@ class LiteRtLmBindings {
   double litert_lm_benchmark_info_get_time_to_first_token(
     ffi.Pointer<LiteRtLmBenchmarkInfo> benchmark_info,
   ) {
-    return _litert_lm_benchmark_info_get_time_to_first_token(
-      benchmark_info,
-    );
+    return _litert_lm_benchmark_info_get_time_to_first_token(benchmark_info);
   }
 
-  late final _litert_lm_benchmark_info_get_time_to_first_tokenPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>>(
-      'litert_lm_benchmark_info_get_time_to_first_token');
+  late final _litert_lm_benchmark_info_get_time_to_first_tokenPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)
+        >
+      >('litert_lm_benchmark_info_get_time_to_first_token');
   late final _litert_lm_benchmark_info_get_time_to_first_token =
       _litert_lm_benchmark_info_get_time_to_first_tokenPtr
           .asFunction<double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>();
@@ -1041,9 +1170,10 @@ class LiteRtLmBindings {
 
   late final _litert_lm_benchmark_info_get_total_init_time_in_secondPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>>(
-          'litert_lm_benchmark_info_get_total_init_time_in_second');
+        ffi.NativeFunction<
+          ffi.Double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)
+        >
+      >('litert_lm_benchmark_info_get_total_init_time_in_second');
   late final _litert_lm_benchmark_info_get_total_init_time_in_second =
       _litert_lm_benchmark_info_get_total_init_time_in_secondPtr
           .asFunction<double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>();
@@ -1051,15 +1181,13 @@ class LiteRtLmBindings {
   int litert_lm_benchmark_info_get_num_prefill_turns(
     ffi.Pointer<LiteRtLmBenchmarkInfo> benchmark_info,
   ) {
-    return _litert_lm_benchmark_info_get_num_prefill_turns(
-      benchmark_info,
-    );
+    return _litert_lm_benchmark_info_get_num_prefill_turns(benchmark_info);
   }
 
-  late final _litert_lm_benchmark_info_get_num_prefill_turnsPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>>(
-      'litert_lm_benchmark_info_get_num_prefill_turns');
+  late final _litert_lm_benchmark_info_get_num_prefill_turnsPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>
+      >('litert_lm_benchmark_info_get_num_prefill_turns');
   late final _litert_lm_benchmark_info_get_num_prefill_turns =
       _litert_lm_benchmark_info_get_num_prefill_turnsPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>();
@@ -1067,15 +1195,13 @@ class LiteRtLmBindings {
   int litert_lm_benchmark_info_get_num_decode_turns(
     ffi.Pointer<LiteRtLmBenchmarkInfo> benchmark_info,
   ) {
-    return _litert_lm_benchmark_info_get_num_decode_turns(
-      benchmark_info,
-    );
+    return _litert_lm_benchmark_info_get_num_decode_turns(benchmark_info);
   }
 
-  late final _litert_lm_benchmark_info_get_num_decode_turnsPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>>(
-      'litert_lm_benchmark_info_get_num_decode_turns');
+  late final _litert_lm_benchmark_info_get_num_decode_turnsPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>
+      >('litert_lm_benchmark_info_get_num_decode_turns');
   late final _litert_lm_benchmark_info_get_num_decode_turns =
       _litert_lm_benchmark_info_get_num_decode_turnsPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>)>();
@@ -1090,10 +1216,12 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_benchmark_info_get_prefill_token_count_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>,
-              ffi.Int)>>('litert_lm_benchmark_info_get_prefill_token_count_at');
+  late final _litert_lm_benchmark_info_get_prefill_token_count_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, ffi.Int)
+        >
+      >('litert_lm_benchmark_info_get_prefill_token_count_at');
   late final _litert_lm_benchmark_info_get_prefill_token_count_at =
       _litert_lm_benchmark_info_get_prefill_token_count_atPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)>();
@@ -1108,10 +1236,12 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_benchmark_info_get_decode_token_count_atPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>,
-              ffi.Int)>>('litert_lm_benchmark_info_get_decode_token_count_at');
+  late final _litert_lm_benchmark_info_get_decode_token_count_atPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, ffi.Int)
+        >
+      >('litert_lm_benchmark_info_get_decode_token_count_at');
   late final _litert_lm_benchmark_info_get_decode_token_count_at =
       _litert_lm_benchmark_info_get_decode_token_count_atPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)>();
@@ -1128,13 +1258,15 @@ class LiteRtLmBindings {
 
   late final _litert_lm_benchmark_info_get_prefill_tokens_per_sec_atPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Double Function(
-                      ffi.Pointer<LiteRtLmBenchmarkInfo>, ffi.Int)>>(
-          'litert_lm_benchmark_info_get_prefill_tokens_per_sec_at');
+        ffi.NativeFunction<
+          ffi.Double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, ffi.Int)
+        >
+      >('litert_lm_benchmark_info_get_prefill_tokens_per_sec_at');
   late final _litert_lm_benchmark_info_get_prefill_tokens_per_sec_at =
-      _litert_lm_benchmark_info_get_prefill_tokens_per_sec_atPtr.asFunction<
-          double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)>();
+      _litert_lm_benchmark_info_get_prefill_tokens_per_sec_atPtr
+          .asFunction<
+            double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)
+          >();
 
   double litert_lm_benchmark_info_get_decode_tokens_per_sec_at(
     ffi.Pointer<LiteRtLmBenchmarkInfo> benchmark_info,
@@ -1148,13 +1280,15 @@ class LiteRtLmBindings {
 
   late final _litert_lm_benchmark_info_get_decode_tokens_per_sec_atPtr =
       _lookup<
-              ffi.NativeFunction<
-                  ffi.Double Function(
-                      ffi.Pointer<LiteRtLmBenchmarkInfo>, ffi.Int)>>(
-          'litert_lm_benchmark_info_get_decode_tokens_per_sec_at');
+        ffi.NativeFunction<
+          ffi.Double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, ffi.Int)
+        >
+      >('litert_lm_benchmark_info_get_decode_tokens_per_sec_at');
   late final _litert_lm_benchmark_info_get_decode_tokens_per_sec_at =
-      _litert_lm_benchmark_info_get_decode_tokens_per_sec_atPtr.asFunction<
-          double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)>();
+      _litert_lm_benchmark_info_get_decode_tokens_per_sec_atPtr
+          .asFunction<
+            double Function(ffi.Pointer<LiteRtLmBenchmarkInfo>, int)
+          >();
 
   int litert_lm_session_run_decode_async(
     ffi.Pointer<LiteRtLmSession> session,
@@ -1168,14 +1302,25 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_session_run_decode_asyncPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<LiteRtLmSession>, LiteRtLmStreamCallback,
-              ffi.Pointer<ffi.Void>)>>('litert_lm_session_run_decode_async');
+  late final _litert_lm_session_run_decode_asyncPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmSession>,
+            LiteRtLmStreamCallback,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('litert_lm_session_run_decode_async');
   late final _litert_lm_session_run_decode_async =
-      _litert_lm_session_run_decode_asyncPtr.asFunction<
-          int Function(ffi.Pointer<LiteRtLmSession>, LiteRtLmStreamCallback,
-              ffi.Pointer<ffi.Void>)>();
+      _litert_lm_session_run_decode_asyncPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<LiteRtLmSession>,
+              LiteRtLmStreamCallback,
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
 
   int litert_lm_session_generate_content_stream(
     ffi.Pointer<LiteRtLmSession> session,
@@ -1193,78 +1338,87 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_session_generate_content_streamPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int Function(
-                  ffi.Pointer<LiteRtLmSession>,
-                  ffi.Pointer<LiteRtLmInputData>,
-                  ffi.Size,
-                  LiteRtLmStreamCallback,
-                  ffi.Pointer<ffi.Void>)>>(
-      'litert_lm_session_generate_content_stream');
+  late final _litert_lm_session_generate_content_streamPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmSession>,
+            ffi.Pointer<LiteRtLmInputData>,
+            ffi.Size,
+            LiteRtLmStreamCallback,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('litert_lm_session_generate_content_stream');
   late final _litert_lm_session_generate_content_stream =
-      _litert_lm_session_generate_content_streamPtr.asFunction<
-          int Function(
+      _litert_lm_session_generate_content_streamPtr
+          .asFunction<
+            int Function(
               ffi.Pointer<LiteRtLmSession>,
               ffi.Pointer<LiteRtLmInputData>,
               int,
               LiteRtLmStreamCallback,
-              ffi.Pointer<ffi.Void>)>();
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
 
   ffi.Pointer<LiteRtLmConversation> litert_lm_conversation_create(
     ffi.Pointer<LiteRtLmEngine> engine,
     ffi.Pointer<LiteRtLmConversationConfig> config,
   ) {
-    return _litert_lm_conversation_create(
-      engine,
-      config,
-    );
+    return _litert_lm_conversation_create(engine, config);
   }
 
-  late final _litert_lm_conversation_createPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmConversation> Function(
-                  ffi.Pointer<LiteRtLmEngine>,
-                  ffi.Pointer<LiteRtLmConversationConfig>)>>(
-      'litert_lm_conversation_create');
-  late final _litert_lm_conversation_create =
-      _litert_lm_conversation_createPtr.asFunction<
+  late final _litert_lm_conversation_createPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmConversation> Function(
-              ffi.Pointer<LiteRtLmEngine>,
-              ffi.Pointer<LiteRtLmConversationConfig>)>();
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<LiteRtLmConversationConfig>,
+          )
+        >
+      >('litert_lm_conversation_create');
+  late final _litert_lm_conversation_create = _litert_lm_conversation_createPtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmConversation> Function(
+          ffi.Pointer<LiteRtLmEngine>,
+          ffi.Pointer<LiteRtLmConversationConfig>,
+        )
+      >();
 
   void litert_lm_conversation_delete(
     ffi.Pointer<LiteRtLmConversation> conversation,
   ) {
-    return _litert_lm_conversation_delete(
-      conversation,
-    );
+    return _litert_lm_conversation_delete(conversation);
   }
 
-  late final _litert_lm_conversation_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>>(
-      'litert_lm_conversation_delete');
+  late final _litert_lm_conversation_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>
+      >('litert_lm_conversation_delete');
   late final _litert_lm_conversation_delete = _litert_lm_conversation_deletePtr
       .asFunction<void Function(ffi.Pointer<LiteRtLmConversation>)>();
 
   ffi.Pointer<LiteRtLmConversation> litert_lm_conversation_clone(
     ffi.Pointer<LiteRtLmConversation> conversation,
   ) {
-    return _litert_lm_conversation_clone(
-      conversation,
-    );
+    return _litert_lm_conversation_clone(conversation);
   }
 
-  late final _litert_lm_conversation_clonePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmConversation> Function(
-                  ffi.Pointer<LiteRtLmConversation>)>>(
-      'litert_lm_conversation_clone');
-  late final _litert_lm_conversation_clone =
-      _litert_lm_conversation_clonePtr.asFunction<
+  late final _litert_lm_conversation_clonePtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmConversation> Function(
-              ffi.Pointer<LiteRtLmConversation>)>();
+            ffi.Pointer<LiteRtLmConversation>,
+          )
+        >
+      >('litert_lm_conversation_clone');
+  late final _litert_lm_conversation_clone = _litert_lm_conversation_clonePtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmConversation> Function(
+          ffi.Pointer<LiteRtLmConversation>,
+        )
+      >();
 
   ffi.Pointer<LiteRtLmJsonResponse> litert_lm_conversation_send_message(
     ffi.Pointer<LiteRtLmConversation> conversation,
@@ -1280,34 +1434,38 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_send_messagePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmJsonResponse> Function(
-                  ffi.Pointer<LiteRtLmConversation>,
-                  ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<LiteRtLmConversationOptionalArgs>)>>(
-      'litert_lm_conversation_send_message');
-  late final _litert_lm_conversation_send_message =
-      _litert_lm_conversation_send_messagePtr.asFunction<
+  late final _litert_lm_conversation_send_messagePtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmJsonResponse> Function(
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+          )
+        >
+      >('litert_lm_conversation_send_message');
+  late final _litert_lm_conversation_send_message =
+      _litert_lm_conversation_send_messagePtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmJsonResponse> Function(
               ffi.Pointer<LiteRtLmConversation>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
-              ffi.Pointer<LiteRtLmConversationOptionalArgs>)>();
+              ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            )
+          >();
 
   void litert_lm_json_response_delete(
     ffi.Pointer<LiteRtLmJsonResponse> response,
   ) {
-    return _litert_lm_json_response_delete(
-      response,
-    );
+    return _litert_lm_json_response_delete(response);
   }
 
-  late final _litert_lm_json_response_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmJsonResponse>)>>(
-      'litert_lm_json_response_delete');
+  late final _litert_lm_json_response_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmJsonResponse>)>
+      >('litert_lm_json_response_delete');
   late final _litert_lm_json_response_delete =
       _litert_lm_json_response_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmJsonResponse>)>();
@@ -1315,19 +1473,20 @@ class LiteRtLmBindings {
   ffi.Pointer<ffi.Char> litert_lm_json_response_get_string(
     ffi.Pointer<LiteRtLmJsonResponse> response,
   ) {
-    return _litert_lm_json_response_get_string(
-      response,
-    );
+    return _litert_lm_json_response_get_string(response);
   }
 
-  late final _litert_lm_json_response_get_stringPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<ffi.Char> Function(
-                  ffi.Pointer<LiteRtLmJsonResponse>)>>(
-      'litert_lm_json_response_get_string');
+  late final _litert_lm_json_response_get_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)
+        >
+      >('litert_lm_json_response_get_string');
   late final _litert_lm_json_response_get_string =
-      _litert_lm_json_response_get_stringPtr.asFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)>();
+      _litert_lm_json_response_get_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmJsonResponse>)
+          >();
 
   int litert_lm_conversation_send_message_stream(
     ffi.Pointer<LiteRtLmConversation> conversation,
@@ -1347,25 +1506,31 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_send_message_streamPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Int Function(
-                  ffi.Pointer<LiteRtLmConversation>,
-                  ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<ffi.Char>,
-                  ffi.Pointer<LiteRtLmConversationOptionalArgs>,
-                  LiteRtLmStreamCallback,
-                  ffi.Pointer<ffi.Void>)>>(
-      'litert_lm_conversation_send_message_stream');
+  late final _litert_lm_conversation_send_message_streamPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Pointer<LiteRtLmConversationOptionalArgs>,
+            LiteRtLmStreamCallback,
+            ffi.Pointer<ffi.Void>,
+          )
+        >
+      >('litert_lm_conversation_send_message_stream');
   late final _litert_lm_conversation_send_message_stream =
-      _litert_lm_conversation_send_message_streamPtr.asFunction<
-          int Function(
+      _litert_lm_conversation_send_message_streamPtr
+          .asFunction<
+            int Function(
               ffi.Pointer<LiteRtLmConversation>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<ffi.Char>,
               ffi.Pointer<LiteRtLmConversationOptionalArgs>,
               LiteRtLmStreamCallback,
-              ffi.Pointer<ffi.Void>)>();
+              ffi.Pointer<ffi.Void>,
+            )
+          >();
 
   ffi.Pointer<ffi.Char> litert_lm_conversation_render_message_to_string(
     ffi.Pointer<LiteRtLmConversation> conversation,
@@ -1377,28 +1542,34 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_conversation_render_message_to_stringPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<ffi.Char> Function(
-                  ffi.Pointer<LiteRtLmConversation>, ffi.Pointer<ffi.Char>)>>(
-      'litert_lm_conversation_render_message_to_string');
-  late final _litert_lm_conversation_render_message_to_string =
-      _litert_lm_conversation_render_message_to_stringPtr.asFunction<
+  late final _litert_lm_conversation_render_message_to_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<LiteRtLmConversation>, ffi.Pointer<ffi.Char>)>();
+            ffi.Pointer<LiteRtLmConversation>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_conversation_render_message_to_string');
+  late final _litert_lm_conversation_render_message_to_string =
+      _litert_lm_conversation_render_message_to_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<LiteRtLmConversation>,
+              ffi.Pointer<ffi.Char>,
+            )
+          >();
 
   void litert_lm_conversation_cancel_process(
     ffi.Pointer<LiteRtLmConversation> conversation,
   ) {
-    return _litert_lm_conversation_cancel_process(
-      conversation,
-    );
+    return _litert_lm_conversation_cancel_process(conversation);
   }
 
-  late final _litert_lm_conversation_cancel_processPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>>(
-      'litert_lm_conversation_cancel_process');
+  late final _litert_lm_conversation_cancel_processPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmConversation>)>
+      >('litert_lm_conversation_cancel_process');
   late final _litert_lm_conversation_cancel_process =
       _litert_lm_conversation_cancel_processPtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmConversation>)>();
@@ -1406,53 +1577,61 @@ class LiteRtLmBindings {
   ffi.Pointer<LiteRtLmBenchmarkInfo> litert_lm_conversation_get_benchmark_info(
     ffi.Pointer<LiteRtLmConversation> conversation,
   ) {
-    return _litert_lm_conversation_get_benchmark_info(
-      conversation,
-    );
+    return _litert_lm_conversation_get_benchmark_info(conversation);
   }
 
-  late final _litert_lm_conversation_get_benchmark_infoPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
-                  ffi.Pointer<LiteRtLmConversation>)>>(
-      'litert_lm_conversation_get_benchmark_info');
-  late final _litert_lm_conversation_get_benchmark_info =
-      _litert_lm_conversation_get_benchmark_infoPtr.asFunction<
+  late final _litert_lm_conversation_get_benchmark_infoPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
-              ffi.Pointer<LiteRtLmConversation>)>();
+            ffi.Pointer<LiteRtLmConversation>,
+          )
+        >
+      >('litert_lm_conversation_get_benchmark_info');
+  late final _litert_lm_conversation_get_benchmark_info =
+      _litert_lm_conversation_get_benchmark_infoPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmBenchmarkInfo> Function(
+              ffi.Pointer<LiteRtLmConversation>,
+            )
+          >();
 
   ffi.Pointer<LiteRtLmTokenizeResult> litert_lm_engine_tokenize(
     ffi.Pointer<LiteRtLmEngine> engine,
     ffi.Pointer<ffi.Char> text,
   ) {
-    return _litert_lm_engine_tokenize(
-      engine,
-      text,
-    );
+    return _litert_lm_engine_tokenize(engine, text);
   }
 
-  late final _litert_lm_engine_tokenizePtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_engine_tokenizePtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmTokenizeResult> Function(
-              ffi.Pointer<LiteRtLmEngine>,
-              ffi.Pointer<ffi.Char>)>>('litert_lm_engine_tokenize');
-  late final _litert_lm_engine_tokenize =
-      _litert_lm_engine_tokenizePtr.asFunction<
-          ffi.Pointer<LiteRtLmTokenizeResult> Function(
-              ffi.Pointer<LiteRtLmEngine>, ffi.Pointer<ffi.Char>)>();
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<ffi.Char>,
+          )
+        >
+      >('litert_lm_engine_tokenize');
+  late final _litert_lm_engine_tokenize = _litert_lm_engine_tokenizePtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmTokenizeResult> Function(
+          ffi.Pointer<LiteRtLmEngine>,
+          ffi.Pointer<ffi.Char>,
+        )
+      >();
 
   void litert_lm_tokenize_result_delete(
     ffi.Pointer<LiteRtLmTokenizeResult> result,
   ) {
-    return _litert_lm_tokenize_result_delete(
-      result,
-    );
+    return _litert_lm_tokenize_result_delete(result);
   }
 
-  late final _litert_lm_tokenize_result_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmTokenizeResult>)>>(
-      'litert_lm_tokenize_result_delete');
+  late final _litert_lm_tokenize_result_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmTokenizeResult>)
+        >
+      >('litert_lm_tokenize_result_delete');
   late final _litert_lm_tokenize_result_delete =
       _litert_lm_tokenize_result_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmTokenizeResult>)>();
@@ -1460,32 +1639,33 @@ class LiteRtLmBindings {
   ffi.Pointer<ffi.Int> litert_lm_tokenize_result_get_tokens(
     ffi.Pointer<LiteRtLmTokenizeResult> result,
   ) {
-    return _litert_lm_tokenize_result_get_tokens(
-      result,
-    );
+    return _litert_lm_tokenize_result_get_tokens(result);
   }
 
-  late final _litert_lm_tokenize_result_get_tokensPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<ffi.Int> Function(
-                  ffi.Pointer<LiteRtLmTokenizeResult>)>>(
-      'litert_lm_tokenize_result_get_tokens');
+  late final _litert_lm_tokenize_result_get_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Int> Function(ffi.Pointer<LiteRtLmTokenizeResult>)
+        >
+      >('litert_lm_tokenize_result_get_tokens');
   late final _litert_lm_tokenize_result_get_tokens =
-      _litert_lm_tokenize_result_get_tokensPtr.asFunction<
-          ffi.Pointer<ffi.Int> Function(ffi.Pointer<LiteRtLmTokenizeResult>)>();
+      _litert_lm_tokenize_result_get_tokensPtr
+          .asFunction<
+            ffi.Pointer<ffi.Int> Function(ffi.Pointer<LiteRtLmTokenizeResult>)
+          >();
 
   int litert_lm_tokenize_result_get_num_tokens(
     ffi.Pointer<LiteRtLmTokenizeResult> result,
   ) {
-    return _litert_lm_tokenize_result_get_num_tokens(
-      result,
-    );
+    return _litert_lm_tokenize_result_get_num_tokens(result);
   }
 
-  late final _litert_lm_tokenize_result_get_num_tokensPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Size Function(ffi.Pointer<LiteRtLmTokenizeResult>)>>(
-      'litert_lm_tokenize_result_get_num_tokens');
+  late final _litert_lm_tokenize_result_get_num_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Size Function(ffi.Pointer<LiteRtLmTokenizeResult>)
+        >
+      >('litert_lm_tokenize_result_get_num_tokens');
   late final _litert_lm_tokenize_result_get_num_tokens =
       _litert_lm_tokenize_result_get_num_tokensPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmTokenizeResult>)>();
@@ -1495,36 +1675,40 @@ class LiteRtLmBindings {
     ffi.Pointer<ffi.Int> tokens,
     int num_tokens,
   ) {
-    return _litert_lm_engine_detokenize(
-      engine,
-      tokens,
-      num_tokens,
-    );
+    return _litert_lm_engine_detokenize(engine, tokens, num_tokens);
   }
 
-  late final _litert_lm_engine_detokenizePtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_engine_detokenizePtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmDetokenizeResult> Function(
-              ffi.Pointer<LiteRtLmEngine>,
-              ffi.Pointer<ffi.Int>,
-              ffi.Size)>>('litert_lm_engine_detokenize');
-  late final _litert_lm_engine_detokenize =
-      _litert_lm_engine_detokenizePtr.asFunction<
-          ffi.Pointer<LiteRtLmDetokenizeResult> Function(
-              ffi.Pointer<LiteRtLmEngine>, ffi.Pointer<ffi.Int>, int)>();
+            ffi.Pointer<LiteRtLmEngine>,
+            ffi.Pointer<ffi.Int>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_engine_detokenize');
+  late final _litert_lm_engine_detokenize = _litert_lm_engine_detokenizePtr
+      .asFunction<
+        ffi.Pointer<LiteRtLmDetokenizeResult> Function(
+          ffi.Pointer<LiteRtLmEngine>,
+          ffi.Pointer<ffi.Int>,
+          int,
+        )
+      >();
 
   void litert_lm_detokenize_result_delete(
     ffi.Pointer<LiteRtLmDetokenizeResult> result,
   ) {
-    return _litert_lm_detokenize_result_delete(
-      result,
-    );
+    return _litert_lm_detokenize_result_delete(result);
   }
 
-  late final _litert_lm_detokenize_result_deletePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<LiteRtLmDetokenizeResult>)>>(
-      'litert_lm_detokenize_result_delete');
+  late final _litert_lm_detokenize_result_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmDetokenizeResult>)
+        >
+      >('litert_lm_detokenize_result_delete');
   late final _litert_lm_detokenize_result_delete =
       _litert_lm_detokenize_result_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmDetokenizeResult>)>();
@@ -1532,48 +1716,50 @@ class LiteRtLmBindings {
   ffi.Pointer<ffi.Char> litert_lm_detokenize_result_get_string(
     ffi.Pointer<LiteRtLmDetokenizeResult> result,
   ) {
-    return _litert_lm_detokenize_result_get_string(
-      result,
-    );
+    return _litert_lm_detokenize_result_get_string(result);
   }
 
-  late final _litert_lm_detokenize_result_get_stringPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<ffi.Char> Function(
-                  ffi.Pointer<LiteRtLmDetokenizeResult>)>>(
-      'litert_lm_detokenize_result_get_string');
+  late final _litert_lm_detokenize_result_get_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmDetokenizeResult>)
+        >
+      >('litert_lm_detokenize_result_get_string');
   late final _litert_lm_detokenize_result_get_string =
-      _litert_lm_detokenize_result_get_stringPtr.asFunction<
-          ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<LiteRtLmDetokenizeResult>)>();
+      _litert_lm_detokenize_result_get_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<LiteRtLmDetokenizeResult>,
+            )
+          >();
 
   void litert_lm_token_union_delete(
     ffi.Pointer<LiteRtLmTokenUnion> token_union,
   ) {
-    return _litert_lm_token_union_delete(
-      token_union,
-    );
+    return _litert_lm_token_union_delete(token_union);
   }
 
-  late final _litert_lm_token_union_deletePtr = _lookup<
-          ffi
-          .NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmTokenUnion>)>>(
-      'litert_lm_token_union_delete');
+  late final _litert_lm_token_union_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmTokenUnion>)>
+      >('litert_lm_token_union_delete');
   late final _litert_lm_token_union_delete = _litert_lm_token_union_deletePtr
       .asFunction<void Function(ffi.Pointer<LiteRtLmTokenUnion>)>();
 
   LiteRtLmTokenUnionType litert_lm_token_union_get_type(
     ffi.Pointer<LiteRtLmTokenUnion> token_union,
   ) {
-    return LiteRtLmTokenUnionType.fromValue(_litert_lm_token_union_get_type(
-      token_union,
-    ));
+    return LiteRtLmTokenUnionType.fromValue(
+      _litert_lm_token_union_get_type(token_union),
+    );
   }
 
-  late final _litert_lm_token_union_get_typePtr = _lookup<
-          ffi.NativeFunction<
-              ffi.UnsignedInt Function(ffi.Pointer<LiteRtLmTokenUnion>)>>(
-      'litert_lm_token_union_get_type');
+  late final _litert_lm_token_union_get_typePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.UnsignedInt Function(ffi.Pointer<LiteRtLmTokenUnion>)
+        >
+      >('litert_lm_token_union_get_type');
   late final _litert_lm_token_union_get_type =
       _litert_lm_token_union_get_typePtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmTokenUnion>)>();
@@ -1581,18 +1767,20 @@ class LiteRtLmBindings {
   ffi.Pointer<ffi.Char> litert_lm_token_union_get_string(
     ffi.Pointer<LiteRtLmTokenUnion> token_union,
   ) {
-    return _litert_lm_token_union_get_string(
-      token_union,
-    );
+    return _litert_lm_token_union_get_string(token_union);
   }
 
-  late final _litert_lm_token_union_get_stringPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmTokenUnion>)>>(
-      'litert_lm_token_union_get_string');
+  late final _litert_lm_token_union_get_stringPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmTokenUnion>)
+        >
+      >('litert_lm_token_union_get_string');
   late final _litert_lm_token_union_get_string =
-      _litert_lm_token_union_get_stringPtr.asFunction<
-          ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmTokenUnion>)>();
+      _litert_lm_token_union_get_stringPtr
+          .asFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Pointer<LiteRtLmTokenUnion>)
+          >();
 
   int litert_lm_token_union_get_ids(
     ffi.Pointer<LiteRtLmTokenUnion> token_union,
@@ -1606,44 +1794,46 @@ class LiteRtLmBindings {
     );
   }
 
-  late final _litert_lm_token_union_get_idsPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_token_union_get_idsPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Int Function(
-              ffi.Pointer<LiteRtLmTokenUnion>,
-              ffi.Pointer<ffi.Pointer<ffi.Int>>,
-              ffi.Pointer<ffi.Size>)>>('litert_lm_token_union_get_ids');
-  late final _litert_lm_token_union_get_ids =
-      _litert_lm_token_union_get_idsPtr.asFunction<
-          int Function(ffi.Pointer<LiteRtLmTokenUnion>,
-              ffi.Pointer<ffi.Pointer<ffi.Int>>, ffi.Pointer<ffi.Size>)>();
+            ffi.Pointer<LiteRtLmTokenUnion>,
+            ffi.Pointer<ffi.Pointer<ffi.Int>>,
+            ffi.Pointer<ffi.Size>,
+          )
+        >
+      >('litert_lm_token_union_get_ids');
+  late final _litert_lm_token_union_get_ids = _litert_lm_token_union_get_idsPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<LiteRtLmTokenUnion>,
+          ffi.Pointer<ffi.Pointer<ffi.Int>>,
+          ffi.Pointer<ffi.Size>,
+        )
+      >();
 
-  void litert_lm_token_unions_delete(
-    ffi.Pointer<LiteRtLmTokenUnions> tokens,
-  ) {
-    return _litert_lm_token_unions_delete(
-      tokens,
-    );
+  void litert_lm_token_unions_delete(ffi.Pointer<LiteRtLmTokenUnions> tokens) {
+    return _litert_lm_token_unions_delete(tokens);
   }
 
-  late final _litert_lm_token_unions_deletePtr = _lookup<
-          ffi
-          .NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmTokenUnions>)>>(
-      'litert_lm_token_unions_delete');
+  late final _litert_lm_token_unions_deletePtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Void Function(ffi.Pointer<LiteRtLmTokenUnions>)>
+      >('litert_lm_token_unions_delete');
   late final _litert_lm_token_unions_delete = _litert_lm_token_unions_deletePtr
       .asFunction<void Function(ffi.Pointer<LiteRtLmTokenUnions>)>();
 
   int litert_lm_token_unions_get_num_tokens(
     ffi.Pointer<LiteRtLmTokenUnions> tokens,
   ) {
-    return _litert_lm_token_unions_get_num_tokens(
-      tokens,
-    );
+    return _litert_lm_token_unions_get_num_tokens(tokens);
   }
 
-  late final _litert_lm_token_unions_get_num_tokensPtr = _lookup<
-          ffi
-          .NativeFunction<ffi.Size Function(ffi.Pointer<LiteRtLmTokenUnions>)>>(
-      'litert_lm_token_unions_get_num_tokens');
+  late final _litert_lm_token_unions_get_num_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<ffi.Size Function(ffi.Pointer<LiteRtLmTokenUnions>)>
+      >('litert_lm_token_unions_get_num_tokens');
   late final _litert_lm_token_unions_get_num_tokens =
       _litert_lm_token_unions_get_num_tokensPtr
           .asFunction<int Function(ffi.Pointer<LiteRtLmTokenUnions>)>();
@@ -1652,57 +1842,66 @@ class LiteRtLmBindings {
     ffi.Pointer<LiteRtLmTokenUnions> tokens,
     int index,
   ) {
-    return _litert_lm_token_unions_get_token_at(
-      tokens,
-      index,
-    );
+    return _litert_lm_token_unions_get_token_at(tokens, index);
   }
 
-  late final _litert_lm_token_unions_get_token_atPtr = _lookup<
-      ffi.NativeFunction<
+  late final _litert_lm_token_unions_get_token_atPtr =
+      _lookup<
+        ffi.NativeFunction<
           ffi.Pointer<LiteRtLmTokenUnion> Function(
-              ffi.Pointer<LiteRtLmTokenUnions>,
-              ffi.Size)>>('litert_lm_token_unions_get_token_at');
+            ffi.Pointer<LiteRtLmTokenUnions>,
+            ffi.Size,
+          )
+        >
+      >('litert_lm_token_unions_get_token_at');
   late final _litert_lm_token_unions_get_token_at =
-      _litert_lm_token_unions_get_token_atPtr.asFunction<
-          ffi.Pointer<LiteRtLmTokenUnion> Function(
-              ffi.Pointer<LiteRtLmTokenUnions>, int)>();
+      _litert_lm_token_unions_get_token_atPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmTokenUnion> Function(
+              ffi.Pointer<LiteRtLmTokenUnions>,
+              int,
+            )
+          >();
 
   ffi.Pointer<LiteRtLmTokenUnion> litert_lm_engine_get_start_token(
     ffi.Pointer<LiteRtLmEngine> engine,
   ) {
-    return _litert_lm_engine_get_start_token(
-      engine,
-    );
+    return _litert_lm_engine_get_start_token(engine);
   }
 
-  late final _litert_lm_engine_get_start_tokenPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmTokenUnion> Function(
-                  ffi.Pointer<LiteRtLmEngine>)>>(
-      'litert_lm_engine_get_start_token');
+  late final _litert_lm_engine_get_start_tokenPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmTokenUnion> Function(ffi.Pointer<LiteRtLmEngine>)
+        >
+      >('litert_lm_engine_get_start_token');
   late final _litert_lm_engine_get_start_token =
-      _litert_lm_engine_get_start_tokenPtr.asFunction<
-          ffi.Pointer<LiteRtLmTokenUnion> Function(
-              ffi.Pointer<LiteRtLmEngine>)>();
+      _litert_lm_engine_get_start_tokenPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmTokenUnion> Function(
+              ffi.Pointer<LiteRtLmEngine>,
+            )
+          >();
 
   ffi.Pointer<LiteRtLmTokenUnions> litert_lm_engine_get_stop_tokens(
     ffi.Pointer<LiteRtLmEngine> engine,
   ) {
-    return _litert_lm_engine_get_stop_tokens(
-      engine,
-    );
+    return _litert_lm_engine_get_stop_tokens(engine);
   }
 
-  late final _litert_lm_engine_get_stop_tokensPtr = _lookup<
-          ffi.NativeFunction<
-              ffi.Pointer<LiteRtLmTokenUnions> Function(
-                  ffi.Pointer<LiteRtLmEngine>)>>(
-      'litert_lm_engine_get_stop_tokens');
+  late final _litert_lm_engine_get_stop_tokensPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmTokenUnions> Function(ffi.Pointer<LiteRtLmEngine>)
+        >
+      >('litert_lm_engine_get_stop_tokens');
   late final _litert_lm_engine_get_stop_tokens =
-      _litert_lm_engine_get_stop_tokensPtr.asFunction<
-          ffi.Pointer<LiteRtLmTokenUnions> Function(
-              ffi.Pointer<LiteRtLmEngine>)>();
+      _litert_lm_engine_get_stop_tokensPtr
+          .asFunction<
+            ffi.Pointer<LiteRtLmTokenUnions> Function(
+              ffi.Pointer<LiteRtLmEngine>,
+            )
+          >();
 }
 
 final class LiteRtLmEngine extends ffi.Opaque {}
@@ -1733,11 +1932,12 @@ enum LiteRtLmTokenUnionType {
   const LiteRtLmTokenUnionType(this.value);
 
   static LiteRtLmTokenUnionType fromValue(int value) => switch (value) {
-        0 => kLiteRtLmTokenUnionTypeString,
-        1 => kLiteRtLmTokenUnionTypeIds,
-        _ => throw ArgumentError(
-            'Unknown value for LiteRtLmTokenUnionType: $value'),
-      };
+    0 => kLiteRtLmTokenUnionTypeString,
+    1 => kLiteRtLmTokenUnionTypeIds,
+    _ => throw ArgumentError(
+      'Unknown value for LiteRtLmTokenUnionType: $value',
+    ),
+  };
 }
 
 final class LiteRtLmTokenUnion extends ffi.Opaque {}
@@ -1758,13 +1958,12 @@ enum LiteRtLmSamplerType {
   const LiteRtLmSamplerType(this.value);
 
   static LiteRtLmSamplerType fromValue(int value) => switch (value) {
-        0 => kLiteRtLmSamplerTypeUnspecified,
-        1 => kLiteRtLmSamplerTypeTopK,
-        2 => kLiteRtLmSamplerTypeTopP,
-        3 => kLiteRtLmSamplerTypeGreedy,
-        _ =>
-          throw ArgumentError('Unknown value for LiteRtLmSamplerType: $value'),
-      };
+    0 => kLiteRtLmSamplerTypeUnspecified,
+    1 => kLiteRtLmSamplerTypeTopK,
+    2 => kLiteRtLmSamplerTypeTopP,
+    3 => kLiteRtLmSamplerTypeGreedy,
+    _ => throw ArgumentError('Unknown value for LiteRtLmSamplerType: $value'),
+  };
 }
 
 final class LiteRtLmSamplerParams extends ffi.Struct {
@@ -1797,14 +1996,13 @@ enum LiteRtLmInputDataType {
   const LiteRtLmInputDataType(this.value);
 
   static LiteRtLmInputDataType fromValue(int value) => switch (value) {
-        0 => kLiteRtLmInputDataTypeText,
-        1 => kLiteRtLmInputDataTypeImage,
-        2 => kLiteRtLmInputDataTypeImageEnd,
-        3 => kLiteRtLmInputDataTypeAudio,
-        4 => kLiteRtLmInputDataTypeAudioEnd,
-        _ => throw ArgumentError(
-            'Unknown value for LiteRtLmInputDataType: $value'),
-      };
+    0 => kLiteRtLmInputDataTypeText,
+    1 => kLiteRtLmInputDataTypeImage,
+    2 => kLiteRtLmInputDataTypeImageEnd,
+    3 => kLiteRtLmInputDataTypeAudio,
+    4 => kLiteRtLmInputDataTypeAudioEnd,
+    _ => throw ArgumentError('Unknown value for LiteRtLmInputDataType: $value'),
+  };
 }
 
 final class LiteRtLmInputData extends ffi.Struct {
@@ -1819,15 +2017,19 @@ final class LiteRtLmInputData extends ffi.Struct {
   external int size;
 }
 
-typedef LiteRtLmStreamCallbackFunction = ffi.Void Function(
-    ffi.Pointer<ffi.Void> callback_data,
-    ffi.Pointer<ffi.Char> chunk,
-    ffi.Bool is_final,
-    ffi.Pointer<ffi.Char> error_msg);
-typedef DartLiteRtLmStreamCallbackFunction = void Function(
-    ffi.Pointer<ffi.Void> callback_data,
-    ffi.Pointer<ffi.Char> chunk,
-    bool is_final,
-    ffi.Pointer<ffi.Char> error_msg);
-typedef LiteRtLmStreamCallback
-    = ffi.Pointer<ffi.NativeFunction<LiteRtLmStreamCallbackFunction>>;
+typedef LiteRtLmStreamCallbackFunction =
+    ffi.Void Function(
+      ffi.Pointer<ffi.Void> callback_data,
+      ffi.Pointer<ffi.Char> chunk,
+      ffi.Bool is_final,
+      ffi.Pointer<ffi.Char> error_msg,
+    );
+typedef DartLiteRtLmStreamCallbackFunction =
+    void Function(
+      ffi.Pointer<ffi.Void> callback_data,
+      ffi.Pointer<ffi.Char> chunk,
+      bool is_final,
+      ffi.Pointer<ffi.Char> error_msg,
+    );
+typedef LiteRtLmStreamCallback =
+    ffi.Pointer<ffi.NativeFunction<LiteRtLmStreamCallbackFunction>>;

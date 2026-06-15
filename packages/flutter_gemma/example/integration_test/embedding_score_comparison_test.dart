@@ -27,12 +27,15 @@ void main() {
     final model = await FlutterGemma.getActiveEmbedder();
 
     try {
-      final queryEmb = await model
-          .generateEmbedding('Which planet is known as the Red Planet');
-      final similarEmb = await model
-          .generateEmbedding('Mars is famous for its reddish appearance');
-      final diffEmb = await model
-          .generateEmbedding('The stock market closed higher today');
+      final queryEmb = await model.generateEmbedding(
+        'Which planet is known as the Red Planet',
+      );
+      final similarEmb = await model.generateEmbedding(
+        'Mars is famous for its reddish appearance',
+      );
+      final diffEmb = await model.generateEmbedding(
+        'The stock market closed higher today',
+      );
 
       final simScore = _cosineSimilarity(queryEmb, similarEmb);
       final diffScore = _cosineSimilarity(queryEmb, diffEmb);

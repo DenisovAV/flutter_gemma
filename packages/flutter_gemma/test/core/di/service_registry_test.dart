@@ -39,7 +39,9 @@ class MockFileSystemService implements FileSystemService {
 
   @override
   Future<void> registerExternalFile(
-      String filename, String externalPath) async {}
+    String filename,
+    String externalPath,
+  ) async {}
 
   @override
   Future<String> getModelStorageDirectory() async => '/models';
@@ -110,7 +112,9 @@ class MockProtectedFilesRegistry implements ProtectedFilesRegistry {
 
   @override
   Future<void> registerExternalPath(
-      String filename, String externalPath) async {}
+    String filename,
+    String externalPath,
+  ) async {}
 
   @override
   Future<String?> getExternalPath(String filename) async => null;
@@ -437,7 +441,9 @@ void main() {
         );
         expect(
           identical(
-              registry.sourceHandlerRegistry, registry.sourceHandlerRegistry),
+            registry.sourceHandlerRegistry,
+            registry.sourceHandlerRegistry,
+          ),
           isTrue,
         );
       });

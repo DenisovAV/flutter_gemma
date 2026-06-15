@@ -110,7 +110,9 @@ const _loremWords = [
 
 String _chunk(math.Random rng, int wordCount) {
   final words = List.generate(
-      wordCount, (_) => _loremWords[rng.nextInt(_loremWords.length)]);
+    wordCount,
+    (_) => _loremWords[rng.nextInt(_loremWords.length)],
+  );
   return words.join(' ');
 }
 
@@ -129,11 +131,11 @@ class _LatencyStats {
   }
 
   Map<String, int> toJson() => {
-        'p50_us': p50,
-        'p95_us': p95,
-        'p99_us': p99,
-        'count': samplesUs.length,
-      };
+    'p50_us': p50,
+    'p95_us': p95,
+    'p99_us': p99,
+    'count': samplesUs.length,
+  };
 }
 
 void main() {
@@ -148,120 +150,134 @@ void main() {
   // integration tests on the Windows device runner — without a
   // WidgetTester-bound test, the runner declares the test "did not
   // complete" after ~3 minutes even though async work is still in flight.
-  testWidgets('DartVectorStore baseline — upsert + search at 1k/5k',
-      (WidgetTester tester) async {
-    // See the qdrant bench for the rationale — long FFI loops deadlock
-    // the test runner on Windows desktop unless they run outside the
-    // FakeAsync zone via `tester.runAsync(...)`.
-    await tester.runAsync(() async {
-      await registerTestEngines();
-      await FlutterGemma.installEmbedder()
-          .modelFromAsset(_modelPath)
-          .tokenizerFromAsset(_tokenizerPath)
-          .install();
-      final embedder = await FlutterGemma.getActiveEmbedder();
+  testWidgets(
+    'DartVectorStore baseline — upsert + search at 1k/5k',
+    (WidgetTester tester) async {
+      // See the qdrant bench for the rationale — long FFI loops deadlock
+      // the test runner on Windows desktop unless they run outside the
+      // FakeAsync zone via `tester.runAsync(...)`.
+      await tester.runAsync(() async {
+        await registerTestEngines();
+        await FlutterGemma.installEmbedder()
+            .modelFromAsset(_modelPath)
+            .tokenizerFromAsset(_tokenizerPath)
+            .install();
+        final embedder = await FlutterGemma.getActiveEmbedder();
 
-      final totalDocs = _sizes.reduce(math.max);
-      final rng = math.Random(42);
-      final texts = List.generate(totalDocs, (i) {
-        final len = 30 + rng.nextInt(50);
-        return _chunk(rng, len);
-      });
-      // ignore: avoid_print
-      print('[dart_bench] generated ${texts.length} lorem chunks');
-
-      final sw = Stopwatch()..start();
-      final vectors = <List<double>>[];
-      for (var i = 0; i < texts.length; i++) {
-        vectors.add(await embedder.generateEmbedding(texts[i]));
-        if ((i + 1) % 500 == 0) {
-          // ignore: avoid_print
-          print('[dart_bench] embedded ${i + 1}/${texts.length} '
-              '(${sw.elapsed.inSeconds}s elapsed)');
-        }
-      }
-      sw.stop();
-      final dim = vectors.first.length;
-      // ignore: avoid_print
-      print('[dart_bench] embeddings ready: $dim-dim, '
-          '${sw.elapsed.inSeconds}s total');
-
-      final categories = ['tech', 'science', 'culture'];
-      final results = <Map<String, dynamic>>[];
-
-      for (final size in _sizes) {
-        final base = await getApplicationSupportDirectory();
-        final dbPath =
-            '${base.path}/dart_bench_${size}_${DateTime.now().microsecondsSinceEpoch}.db';
-
-        final repo = SqliteVectorStore();
-        await repo.initialize(dbPath);
-
-        // Upsert N points. DartVectorStoreRepository has no batch API — it
-        // adds documents one at a time. The single-call overhead is part of
-        // the legacy story; don't try to hide it.
-        final upsertSw = Stopwatch()..start();
-        for (var i = 0; i < size; i++) {
-          await repo.addDocument(
-            id: 'doc_$i',
-            content: texts[i],
-            embedding: vectors[i],
-            metadata: '{"category":"${categories[i % categories.length]}"}',
-          );
-        }
-        upsertSw.stop();
-        final upsertSec = upsertSw.elapsedMicroseconds / 1e6;
-        final upsertRate = size / upsertSec;
-        // ignore: avoid_print
-        print('[dart_bench] N=$size upsert: ${upsertSec.toStringAsFixed(2)}s, '
-            '${upsertRate.toStringAsFixed(0)} points/sec');
-
-        final searchSamples = <int>[];
-        for (var i = 0; i < _searchSamples; i++) {
-          final q = vectors[rng.nextInt(size)];
-          final s = Stopwatch()..start();
-          await repo.searchSimilar(queryEmbedding: q, topK: 10);
-          s.stop();
-          searchSamples.add(s.elapsedMicroseconds);
-        }
-        final searchStats = _LatencyStats(searchSamples);
-
-        // ignore: avoid_print
-        print('[dart_bench] N=$size search:   p50=${searchStats.p50}us  '
-            'p95=${searchStats.p95}us  p99=${searchStats.p99}us');
-
-        results.add({
-          'n': size,
-          'upsert': {
-            'seconds': upsertSec,
-            'points_per_sec': upsertRate.round(),
-          },
-          'search': searchStats.toJson(),
-          // No payload filtering on legacy impl — leaves comparison
-          // honest: qdrant has filters, Dart HNSW doesn't.
-          'search_with_filter': null,
+        final totalDocs = _sizes.reduce(math.max);
+        final rng = math.Random(42);
+        final texts = List.generate(totalDocs, (i) {
+          final len = 30 + rng.nextInt(50);
+          return _chunk(rng, len);
         });
+        // ignore: avoid_print
+        print('[dart_bench] generated ${texts.length} lorem chunks');
 
-        await repo.close();
-        final f = File(dbPath);
-        if (f.existsSync()) f.deleteSync();
-      }
+        final sw = Stopwatch()..start();
+        final vectors = <List<double>>[];
+        for (var i = 0; i < texts.length; i++) {
+          vectors.add(await embedder.generateEmbedding(texts[i]));
+          if ((i + 1) % 500 == 0) {
+            // ignore: avoid_print
+            print(
+              '[dart_bench] embedded ${i + 1}/${texts.length} '
+              '(${sw.elapsed.inSeconds}s elapsed)',
+            );
+          }
+        }
+        sw.stop();
+        final dim = vectors.first.length;
+        // ignore: avoid_print
+        print(
+          '[dart_bench] embeddings ready: $dim-dim, '
+          '${sw.elapsed.inSeconds}s total',
+        );
 
-      final out = File(
-        '${(await getApplicationSupportDirectory()).path}/qdrant_bench_dart_${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch}.json',
-      );
-      out.writeAsStringSync(const JsonEncoder.withIndent('  ').convert({
-        'impl': 'DartVectorStoreRepository (sqlite3 + local_hnsw)',
-        'platform': Platform.operatingSystem,
-        'os_version': Platform.operatingSystemVersion,
-        'embedding_dim': dim,
-        'corpus_chars_per_doc_avg':
-            (texts.fold<int>(0, (s, t) => s + t.length) / texts.length).round(),
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
-        'results': results,
-      }));
-      // ignore: avoid_print
-      print('[dart_bench] results written: ${out.path}');
-    }); // end of tester.runAsync
-  }, timeout: const Timeout(Duration(minutes: 60)));
+        final categories = ['tech', 'science', 'culture'];
+        final results = <Map<String, dynamic>>[];
+
+        for (final size in _sizes) {
+          final base = await getApplicationSupportDirectory();
+          final dbPath =
+              '${base.path}/dart_bench_${size}_${DateTime.now().microsecondsSinceEpoch}.db';
+
+          final repo = SqliteVectorStore();
+          await repo.initialize(dbPath);
+
+          // Upsert N points. DartVectorStoreRepository has no batch API — it
+          // adds documents one at a time. The single-call overhead is part of
+          // the legacy story; don't try to hide it.
+          final upsertSw = Stopwatch()..start();
+          for (var i = 0; i < size; i++) {
+            await repo.addDocument(
+              id: 'doc_$i',
+              content: texts[i],
+              embedding: vectors[i],
+              metadata: '{"category":"${categories[i % categories.length]}"}',
+            );
+          }
+          upsertSw.stop();
+          final upsertSec = upsertSw.elapsedMicroseconds / 1e6;
+          final upsertRate = size / upsertSec;
+          // ignore: avoid_print
+          print(
+            '[dart_bench] N=$size upsert: ${upsertSec.toStringAsFixed(2)}s, '
+            '${upsertRate.toStringAsFixed(0)} points/sec',
+          );
+
+          final searchSamples = <int>[];
+          for (var i = 0; i < _searchSamples; i++) {
+            final q = vectors[rng.nextInt(size)];
+            final s = Stopwatch()..start();
+            await repo.searchSimilar(queryEmbedding: q, topK: 10);
+            s.stop();
+            searchSamples.add(s.elapsedMicroseconds);
+          }
+          final searchStats = _LatencyStats(searchSamples);
+
+          // ignore: avoid_print
+          print(
+            '[dart_bench] N=$size search:   p50=${searchStats.p50}us  '
+            'p95=${searchStats.p95}us  p99=${searchStats.p99}us',
+          );
+
+          results.add({
+            'n': size,
+            'upsert': {
+              'seconds': upsertSec,
+              'points_per_sec': upsertRate.round(),
+            },
+            'search': searchStats.toJson(),
+            // No payload filtering on legacy impl — leaves comparison
+            // honest: qdrant has filters, Dart HNSW doesn't.
+            'search_with_filter': null,
+          });
+
+          await repo.close();
+          final f = File(dbPath);
+          if (f.existsSync()) f.deleteSync();
+        }
+
+        final out = File(
+          '${(await getApplicationSupportDirectory()).path}/qdrant_bench_dart_${Platform.operatingSystem}_${DateTime.now().millisecondsSinceEpoch}.json',
+        );
+        out.writeAsStringSync(
+          const JsonEncoder.withIndent('  ').convert({
+            'impl': 'DartVectorStoreRepository (sqlite3 + local_hnsw)',
+            'platform': Platform.operatingSystem,
+            'os_version': Platform.operatingSystemVersion,
+            'embedding_dim': dim,
+            'corpus_chars_per_doc_avg':
+                (texts.fold<int>(0, (s, t) => s + t.length) / texts.length)
+                    .round(),
+            'timestamp': DateTime.now().toUtc().toIso8601String(),
+            'results': results,
+          }),
+        );
+        // ignore: avoid_print
+        print('[dart_bench] results written: ${out.path}');
+      }); // end of tester.runAsync
+    },
+    timeout: const Timeout(Duration(minutes: 60)),
+  );
 }

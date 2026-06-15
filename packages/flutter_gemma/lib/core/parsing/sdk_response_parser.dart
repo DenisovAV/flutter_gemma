@@ -84,7 +84,9 @@ class SdkResponseParser {
   }
 
   static void _harvestCalls(
-      Map<String, dynamic> json, List<FunctionCallResponse> out) {
+    Map<String, dynamic> json,
+    List<FunctionCallResponse> out,
+  ) {
     void addFromCallObject(Object? raw) {
       if (raw is! Map<String, dynamic>) return;
       Map<String, dynamic>? fn;
@@ -161,16 +163,16 @@ class SdkResponseParser {
   ///
   /// Reference: upstream `c/engine_test.cc::CreateConversationConfigWithTools`.
   static String serializeToolsForSdk(List<Tool> tools) => jsonEncode([
-        for (final tool in tools)
-          {
-            'type': 'function',
-            'function': {
-              'name': tool.name,
-              'description': tool.description,
-              'parameters': tool.parameters,
-            },
-          },
-      ]);
+    for (final tool in tools)
+      {
+        'type': 'function',
+        'function': {
+          'name': tool.name,
+          'description': tool.description,
+          'parameters': tool.parameters,
+        },
+      },
+  ]);
 
   /// Build the JSON message that delivers a tool execution result back to
   /// the model on the next turn. Format mirrors upstream Python
@@ -183,15 +185,11 @@ class SdkResponseParser {
     required String toolName,
     required Object? response,
     String? toolCallId,
-  }) =>
-      jsonEncode({
-        'role': 'tool',
-        'content': [
-          {
-            'name': toolName,
-            'response': response,
-          },
-        ],
-        if (toolCallId != null) 'tool_call_id': toolCallId,
-      });
+  }) => jsonEncode({
+    'role': 'tool',
+    'content': [
+      {'name': toolName, 'response': response},
+    ],
+    if (toolCallId != null) 'tool_call_id': toolCallId,
+  });
 }

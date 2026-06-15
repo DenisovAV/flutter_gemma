@@ -26,43 +26,48 @@ void main() {
     return dot / (math.sqrt(normA) * math.sqrt(normB));
   }
 
-  testWidgets('Embedding: install, generate, compare', (tester) async {
-    await registerTestEngines();
+  testWidgets(
+    'Embedding: install, generate, compare',
+    (tester) async {
+      await registerTestEngines();
 
-    await FlutterGemma.installEmbedder()
-        .modelFromAsset(
-            'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite')
-        .tokenizerFromAsset('assets/models/sentencepiece.model')
-        .install();
+      await FlutterGemma.installEmbedder()
+          .modelFromAsset(
+            'assets/models/embeddinggemma-300M_seq256_mixed-precision.tflite',
+          )
+          .tokenizerFromAsset('assets/models/sentencepiece.model')
+          .install();
 
-    final model = await FlutterGemma.getActiveEmbedder();
+      final model = await FlutterGemma.getActiveEmbedder();
 
-    try {
-      // 1. Non-zero embeddings
-      final queryEmb = await model.generateEmbedding(queryText);
-      expect(queryEmb, isNotEmpty);
-      expect(queryEmb.any((v) => v != 0), isTrue);
+      try {
+        // 1. Non-zero embeddings
+        final queryEmb = await model.generateEmbedding(queryText);
+        expect(queryEmb, isNotEmpty);
+        expect(queryEmb.any((v) => v != 0), isTrue);
 
-      // 2. Repeatability — same text produces identical embeddings
-      final queryEmb2 = await model.generateEmbedding(queryText);
-      expect(queryEmb.length, equals(queryEmb2.length));
-      for (int i = 0; i < queryEmb.length; i++) {
-        expect(queryEmb[i], closeTo(queryEmb2[i], 1e-6));
+        // 2. Repeatability — same text produces identical embeddings
+        final queryEmb2 = await model.generateEmbedding(queryText);
+        expect(queryEmb.length, equals(queryEmb2.length));
+        for (int i = 0; i < queryEmb.length; i++) {
+          expect(queryEmb[i], closeTo(queryEmb2[i], 1e-6));
+        }
+
+        // 3. Similar texts — high cosine similarity
+        final similarEmb = await model.generateEmbedding(similarText);
+        final simSimilarity = cosineSimilarity(queryEmb, similarEmb);
+        print('simSimilarity: $simSimilarity');
+        expect(simSimilarity, greaterThan(0.5));
+
+        // 4. Different texts — low cosine similarity
+        final diffEmb = await model.generateEmbedding(differentText);
+        final diffSimilarity = cosineSimilarity(queryEmb, diffEmb);
+        print('diffSimilarity: $diffSimilarity');
+        expect(diffSimilarity, lessThan(0.3));
+      } finally {
+        await model.close();
       }
-
-      // 3. Similar texts — high cosine similarity
-      final similarEmb = await model.generateEmbedding(similarText);
-      final simSimilarity = cosineSimilarity(queryEmb, similarEmb);
-      print('simSimilarity: $simSimilarity');
-      expect(simSimilarity, greaterThan(0.5));
-
-      // 4. Different texts — low cosine similarity
-      final diffEmb = await model.generateEmbedding(differentText);
-      final diffSimilarity = cosineSimilarity(queryEmb, diffEmb);
-      print('diffSimilarity: $diffSimilarity');
-      expect(diffSimilarity, lessThan(0.3));
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 10)));
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 }

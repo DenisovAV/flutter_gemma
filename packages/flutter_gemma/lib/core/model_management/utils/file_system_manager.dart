@@ -48,8 +48,10 @@ class ModelFileSystemManager {
     // Check if this is the problematic Android path format
     if (originalPath.contains('/data/user/0/')) {
       // Replace with the correct Android app data path
-      final correctedPath =
-          originalPath.replaceFirst('/data/user/0/', '/data/data/');
+      final correctedPath = originalPath.replaceFirst(
+        '/data/user/0/',
+        '/data/data/',
+      );
       return path.join(correctedPath, filename);
     }
     // For other platforms, use path.join for correct separators (\ on Windows, / on Unix)
@@ -72,7 +74,8 @@ class ModelFileSystemManager {
       final sizeInBytes = await file.length();
       if (sizeInBytes < minSizeBytes) {
         gemmaLog(
-            'File $filePath too small: $sizeInBytes bytes (minimum: $minSizeBytes)');
+          'File $filePath too small: $sizeInBytes bytes (minimum: $minSizeBytes)',
+        );
         return false;
       }
 
@@ -131,12 +134,14 @@ class ModelFileSystemManager {
 
       // This file is orphaned
       final stat = await file.stat();
-      orphaned.add(OrphanedFileInfo(
-        filename: fileName,
-        path: file.path,
-        sizeBytes: stat.size,
-        lastModified: stat.modified,
-      ));
+      orphaned.add(
+        OrphanedFileInfo(
+          filename: fileName,
+          path: file.path,
+          sizeBytes: stat.size,
+          lastModified: stat.modified,
+        ),
+      );
     }
 
     return orphaned;
@@ -154,7 +159,8 @@ class ModelFileSystemManager {
         .listSync()
         .whereType<File>()
         .where(
-            (file) => supportedExtensions.any((ext) => file.path.endsWith(ext)))
+          (file) => supportedExtensions.any((ext) => file.path.endsWith(ext)),
+        )
         .toList();
 
     int totalSize = 0;
@@ -189,9 +195,11 @@ class ModelFileSystemManager {
 
       // Check database records
       final records = await downloader.database.allRecords();
-      if (records.any((record) =>
-          record.task.filename == filename &&
-          record.status != TaskStatus.complete)) {
+      if (records.any(
+        (record) =>
+            record.task.filename == filename &&
+            record.status != TaskStatus.complete,
+      )) {
         return true;
       }
 
@@ -341,8 +349,9 @@ class ModelFileSystemManager {
     return false;
   }
 
-  static const MethodChannel _bundledChannel =
-      MethodChannel('flutter_gemma_bundled');
+  static const MethodChannel _bundledChannel = MethodChannel(
+    'flutter_gemma_bundled',
+  );
 
   /// Get platform-specific bundled resource path
   static Future<String> _getBundledResourcePath(String resourceName) async {

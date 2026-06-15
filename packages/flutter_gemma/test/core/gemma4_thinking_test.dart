@@ -10,22 +10,23 @@ void main() {
     }
 
     test(
-        'complete block in single chunk yields ThinkingResponse + TextResponse',
-        () async {
-      final stream = makeStream([
-        '<|channel>thought\nI need to think about this.<channel|>The answer is 42.',
-      ]);
+      'complete block in single chunk yields ThinkingResponse + TextResponse',
+      () async {
+        final stream = makeStream([
+          '<|channel>thought\nI need to think about this.<channel|>The answer is 42.',
+        ]);
 
-      final results = await ModelThinkingFilter.filterThinkingStream(
-        stream,
-        modelType: ModelType.gemmaIt,
-      ).toList();
+        final results = await ModelThinkingFilter.filterThinkingStream(
+          stream,
+          modelType: ModelType.gemmaIt,
+        ).toList();
 
-      expect(results, [
-        const ThinkingResponse('I need to think about this.'),
-        const TextResponse('The answer is 42.'),
-      ]);
-    });
+        expect(results, [
+          const ThinkingResponse('I need to think about this.'),
+          const TextResponse('The answer is 42.'),
+        ]);
+      },
+    );
 
     test('thinking split across multiple chunks buffers correctly', () async {
       final stream = makeStream([
@@ -40,20 +41,21 @@ void main() {
       ).toList();
 
       // Intermediate thinking chunks are yielded as they arrive
-      final thinkingParts =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
-      final textParts =
-          results.whereType<TextResponse>().map((r) => r.token).join();
+      final thinkingParts = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
+      final textParts = results
+          .whereType<TextResponse>()
+          .map((r) => r.token)
+          .join();
 
       expect(thinkingParts, 'I am thinking hard');
       expect(textParts, 'Final answer.');
     });
 
     test('no thinking block passes through as TextResponse', () async {
-      final stream = makeStream([
-        'Hello, ',
-        'world!',
-      ]);
+      final stream = makeStream(['Hello, ', 'world!']);
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
@@ -75,19 +77,21 @@ void main() {
         modelType: ModelType.gemmaIt,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).toList();
-      final text =
-          results.whereType<TextResponse>().map((r) => r.token).toList();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .toList();
+      final text = results
+          .whereType<TextResponse>()
+          .map((r) => r.token)
+          .toList();
 
       expect(thinking, ['First thought.', 'Second thought.']);
       expect(text, ['Text between.', 'Final text.']);
     });
 
     test('partial start marker at stream end is flushed as text', () async {
-      final stream = makeStream([
-        'Some text<|chan',
-      ]);
+      final stream = makeStream(['Some text<|chan']);
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
@@ -99,24 +103,22 @@ void main() {
     });
 
     test('partial end marker at stream end is flushed as thinking', () async {
-      final stream = makeStream([
-        '<|channel>thought\nThinking content<chan',
-      ]);
+      final stream = makeStream(['<|channel>thought\nThinking content<chan']);
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
         modelType: ModelType.gemmaIt,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       expect(thinking, 'Thinking content<chan');
     });
 
     test('empty thinking block yields only TextResponse', () async {
-      final stream = makeStream([
-        '<|channel>thought\n<channel|>The answer.',
-      ]);
+      final stream = makeStream(['<|channel>thought\n<channel|>The answer.']);
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,
@@ -124,8 +126,10 @@ void main() {
       ).toList();
 
       expect(results.whereType<ThinkingResponse>(), isEmpty);
-      expect(results.whereType<TextResponse>().map((r) => r.token).join(),
-          'The answer.');
+      expect(
+        results.whereType<TextResponse>().map((r) => r.token).join(),
+        'The answer.',
+      );
     });
 
     test('start marker split across chunks', () async {
@@ -139,8 +143,10 @@ void main() {
         modelType: ModelType.gemmaIt,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking, 'Thinking.');
@@ -202,8 +208,10 @@ void main() {
         modelType: ModelType.deepSeek,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking.contains('I think '), isTrue);
@@ -221,8 +229,10 @@ void main() {
         modelType: ModelType.deepSeek,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking, 'thinking');
@@ -241,8 +251,10 @@ void main() {
         modelType: ModelType.qwen3,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking, 'reasoning');
@@ -261,8 +273,10 @@ void main() {
         modelType: ModelType.qwen3,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking, 'I am thinking');
@@ -280,8 +294,10 @@ void main() {
         modelType: ModelType.qwen3,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking, 'reasoning');
@@ -299,8 +315,10 @@ void main() {
         modelType: ModelType.qwen3,
       ).toList();
 
-      final thinking =
-          results.whereType<ThinkingResponse>().map((r) => r.content).join();
+      final thinking = results
+          .whereType<ThinkingResponse>()
+          .map((r) => r.content)
+          .join();
       final text = results.whereType<TextResponse>().map((r) => r.token).join();
 
       expect(thinking, 'thinking');
@@ -324,9 +342,7 @@ void main() {
     });
 
     test('partial <think> at end of stream flushed as text', () async {
-      final stream = Stream.fromIterable([
-        const TextResponse('Some text<thi'),
-      ]);
+      final stream = Stream.fromIterable([const TextResponse('Some text<thi')]);
 
       final results = await ModelThinkingFilter.filterThinkingStream(
         stream,

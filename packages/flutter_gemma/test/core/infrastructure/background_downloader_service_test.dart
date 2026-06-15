@@ -16,17 +16,17 @@ void main() {
       // Mock the background_downloader plugin channel
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('com.bbflight.background_downloader'),
-        (call) async => null,
-      );
+            const MethodChannel('com.bbflight.background_downloader'),
+            (call) async => null,
+          );
     });
 
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
-        const MethodChannel('com.bbflight.background_downloader'),
-        null,
-      );
+            const MethodChannel('com.bbflight.background_downloader'),
+            null,
+          );
     });
 
     group('Interface Implementation', () {
@@ -214,20 +214,22 @@ void main() {
         );
       });
 
-      test('downloadWithProgress() has same signature as SmartDownloader.downloadWithProgress()',
-          () {
-        // Both should accept: url, targetPath, token (optional), maxRetries (optional)
-        expect(
-          () => service.downloadWithProgress(
-            'https://example.com/model.bin',
-            '/tmp/model.bin',
-            token: 'test',
-            maxRetries: 5,
-          ),
-          returnsNormally,
-          reason: 'API should match SmartDownloader',
-        );
-      });
+      test(
+        'downloadWithProgress() has same signature as SmartDownloader.downloadWithProgress()',
+        () {
+          // Both should accept: url, targetPath, token (optional), maxRetries (optional)
+          expect(
+            () => service.downloadWithProgress(
+              'https://example.com/model.bin',
+              '/tmp/model.bin',
+              token: 'test',
+              maxRetries: 5,
+            ),
+            returnsNormally,
+            reason: 'API should match SmartDownloader',
+          );
+        },
+      );
     });
 
     group('No Legacy Code', () {
@@ -238,7 +240,8 @@ void main() {
         expect(
           () => BackgroundDownloaderService(),
           returnsNormally,
-          reason: 'Should not require complex initialization (no _downloader, _activeTasks, etc.)',
+          reason:
+              'Should not require complex initialization (no _downloader, _activeTasks, etc.)',
         );
       });
     });

@@ -52,9 +52,11 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   List<Model> _sortModels(List<Model> models) {
     switch (selectedSort) {
       case SortType.alphabetical:
-        return [...models]..sort((a, b) => a.displayName.compareTo(b.displayName));
+        return [...models]
+          ..sort((a, b) => a.displayName.compareTo(b.displayName));
       case SortType.size:
-        return [...models]..sort((a, b) => _sizeToMB(a.size).compareTo(_sizeToMB(b.size)));
+        return [...models]
+          ..sort((a, b) => _sizeToMB(a.size).compareTo(_sizeToMB(b.size)));
       case SortType.defaultOrder:
         return models; // Keep original order
     }
@@ -94,12 +96,16 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
     // On desktop, only show models with desktopUrl (litertlm format required)
     if (_isDesktop) {
-      models = models.where((model) => model.localModel || model.supportsDesktop).toList();
+      models = models
+          .where((model) => model.localModel || model.supportsDesktop)
+          .toList();
     }
 
     // On web, only show models with webUrl or local models
     if (kIsWeb) {
-      models = models.where((model) => model.localModel || model.webUrl != null).toList();
+      models = models
+          .where((model) => model.localModel || model.webUrl != null)
+          .toList();
     }
 
     // Apply filtering then sorting
@@ -132,7 +138,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            showFilters ? Icons.filter_list : Icons.filter_list_outlined,
+                            showFilters
+                                ? Icons.filter_list
+                                : Icons.filter_list_outlined,
                             color: Colors.white,
                           ),
                           const SizedBox(width: 8),
@@ -170,8 +178,10 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                                 // Features
                                 const Text(
                                   'Features:',
-                                  style:
-                                      TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 Wrap(
@@ -187,7 +197,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                                       },
                                       selectedColor: Colors.orange[700],
                                       labelStyle: TextStyle(
-                                        color: filterMultimodal ? Colors.white : null,
+                                        color: filterMultimodal
+                                            ? Colors.white
+                                            : null,
                                       ),
                                     ),
                                     FilterChip(
@@ -200,7 +212,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                                       },
                                       selectedColor: Colors.purple[600],
                                       labelStyle: TextStyle(
-                                        color: filterFunctionCalls ? Colors.white : null,
+                                        color: filterFunctionCalls
+                                            ? Colors.white
+                                            : null,
                                       ),
                                     ),
                                     FilterChip(
@@ -213,7 +227,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                                       },
                                       selectedColor: Colors.indigo[600],
                                       labelStyle: TextStyle(
-                                        color: filterThinking ? Colors.white : null,
+                                        color: filterThinking
+                                            ? Colors.white
+                                            : null,
                                       ),
                                     ),
                                   ],
@@ -257,7 +273,10 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                       isExpanded: true,
                       dropdownColor: const Color(0xFF1a2951),
                       style: const TextStyle(color: Colors.white),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: Colors.white,
+                      ),
                       items: SortType.values.map((type) {
                         return DropdownMenuItem<SortType>(
                           value: type,
@@ -281,10 +300,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
               margin: const EdgeInsets.only(bottom: 12.0),
               child: Text(
                 'Showing ${models.length} ${_getModelsWord(models.length)}',
-                style: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey[400], fontSize: 14),
               ),
             ),
             // Models list
@@ -354,9 +370,7 @@ class _ModelCardState extends State<ModelCard> {
                     children: [
                       const Text(
                         'Backend: ',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(width: 8),
                       SegmentedButton<PreferredBackend>(
@@ -379,7 +393,10 @@ class _ModelCardState extends State<ModelCard> {
                         style: ButtonStyle(
                           visualDensity: VisualDensity.compact,
                           padding: WidgetStateProperty.all(
-                            const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                            const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 0,
+                            ),
                           ),
                         ),
                       ),
@@ -390,7 +407,8 @@ class _ModelCardState extends State<ModelCard> {
                   Text(
                     'Backend: ${widget.model.preferredBackend.name.toUpperCase()}',
                     style: TextStyle(
-                      color: widget.model.preferredBackend == PreferredBackend.gpu
+                      color:
+                          widget.model.preferredBackend == PreferredBackend.gpu
                           ? Colors.green[600]
                           : Colors.blue[600],
                       fontWeight: FontWeight.w500,
@@ -411,37 +429,52 @@ class _ModelCardState extends State<ModelCard> {
                     children: [
                       if (widget.model.supportsFunctionCalls)
                         Chip(
-                          label: const Text('Function Calls',
-                              style: TextStyle(
-                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                          label: const Text(
+                            'Function Calls',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           backgroundColor: Colors.purple[600],
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                       if (widget.model.supportImage)
                         Chip(
-                          label: const Text('Multimodal',
-                              style: TextStyle(
-                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                          label: const Text(
+                            'Multimodal',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           backgroundColor: Colors.orange[700],
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                       if (widget.model.isThinking)
                         Chip(
-                          label: const Text('Thinking',
-                              style: TextStyle(
-                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w500)),
+                          label: const Text(
+                            'Thinking',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                           backgroundColor: Colors.indigo[600],
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
                         ),
                     ],
                   ),
                 ],
               ],
             ),
-            trailing: Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.grey[400],
-            ),
+            trailing: Icon(Icons.arrow_forward_ios, color: Colors.grey[400]),
             onTap: () {
               // Local models don't need download screen - go directly to chat
               if (widget.model.localModel) {

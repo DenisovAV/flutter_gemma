@@ -53,7 +53,8 @@ void main() {
     final spHandle = dlopen(spName, _rtldLazy);
     calloc.free(spName);
     print(
-        '[repro] libStreamProxy handle: ${spHandle.address.toRadixString(16)}');
+      '[repro] libStreamProxy handle: ${spHandle.address.toRadixString(16)}',
+    );
     if (spHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 1 FAILED: $err');
@@ -67,7 +68,8 @@ void main() {
     final lmName = 'libLiteRtLm.so'.toNativeUtf8();
     final localHandle = dlopen(lmName, _rtldLazy);
     print(
-        '[repro] libLiteRtLm RTLD_LAZY handle: ${localHandle.address.toRadixString(16)}');
+      '[repro] libLiteRtLm RTLD_LAZY handle: ${localHandle.address.toRadixString(16)}',
+    );
     if (localHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 2 FAILED (LOCAL): $err');
@@ -89,7 +91,8 @@ void main() {
     final shimHandle = dlopen(shimPath, _rtldNow | _rtldGlobal);
     calloc.free(shimPath);
     print(
-        '[repro] libUnwindShim handle: ${shimHandle.address.toRadixString(16)}');
+      '[repro] libUnwindShim handle: ${shimHandle.address.toRadixString(16)}',
+    );
     if (shimHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 2.5 FAILED: $err');
@@ -99,11 +102,13 @@ void main() {
     print('[repro] Stage 2.5 OK — shim preloaded with RTLD_GLOBAL');
 
     print(
-        '[repro] === Stage 3: dlopen libLiteRtLm.so RTLD_LAZY|RTLD_GLOBAL ===');
+      '[repro] === Stage 3: dlopen libLiteRtLm.so RTLD_LAZY|RTLD_GLOBAL ===',
+    );
     clearError();
     final globalHandle = dlopen(lmName, _rtldLazy | _rtldGlobal);
     print(
-        '[repro] libLiteRtLm RTLD_GLOBAL handle: ${globalHandle.address.toRadixString(16)}');
+      '[repro] libLiteRtLm RTLD_GLOBAL handle: ${globalHandle.address.toRadixString(16)}',
+    );
     if (globalHandle.address == 0) {
       final err = readError();
       print('[repro] STAGE 3 FAILED (GLOBAL): $err');
@@ -114,11 +119,13 @@ void main() {
 
     // === Stage 4: try via stream_proxy_load_global like plugin does ===
     print(
-        '[repro] === Stage 4: stream_proxy_load_global("libLiteRtLm.so") ===');
+      '[repro] === Stage 4: stream_proxy_load_global("libLiteRtLm.so") ===',
+    );
     final proxyLib = DynamicLibrary.open('libStreamProxy.so');
-    final loadGlobal =
-        proxyLib.lookupFunction<_ProxyLoadGlobalC, _ProxyLoadGlobalC>(
-            'stream_proxy_load_global');
+    final loadGlobal = proxyLib
+        .lookupFunction<_ProxyLoadGlobalC, _ProxyLoadGlobalC>(
+          'stream_proxy_load_global',
+        );
     final viaProxy = loadGlobal(lmName);
     print('[repro] via proxy handle: ${viaProxy.address.toRadixString(16)}');
     if (viaProxy.address == 0) {
@@ -130,6 +137,7 @@ void main() {
     calloc.free(lmName);
     print('[repro] Stage 4 OK');
     print(
-        '[repro] === ALL STAGES PASSED on API ${Platform.operatingSystemVersion} ===');
+      '[repro] === ALL STAGES PASSED on API ${Platform.operatingSystemVersion} ===',
+    );
   });
 }

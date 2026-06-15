@@ -54,9 +54,7 @@ class SqliteVectorStore implements VectorStoreRepository {
   }
 
   void _detectDimension() {
-    final result = _db!.select(
-      'SELECT embedding FROM $_tableName LIMIT 1',
-    );
+    final result = _db!.select('SELECT embedding FROM $_tableName LIMIT 1');
     if (result.isNotEmpty) {
       final blob = result.first['embedding'] as Uint8List;
       _detectedDimension = blob.length ~/ 4; // float32 = 4 bytes
@@ -244,9 +242,7 @@ class SqliteVectorStore implements VectorStoreRepository {
 
   Future<void> _rebuildHnswIndex() async {
     try {
-      final rows = _db!.select(
-        'SELECT id, embedding FROM $_tableName',
-      );
+      final rows = _db!.select('SELECT id, embedding FROM $_tableName');
 
       if (rows.isEmpty) {
         _hnswIndex.clear();

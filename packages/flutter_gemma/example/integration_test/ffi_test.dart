@@ -63,7 +63,9 @@ void main() {
       );
 
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session.addQueryChunk(const Message(text: 'Say hello', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'Say hello', isUser: true),
+      );
 
       final chunks = <String>[];
       await for (final chunk in session.getResponseAsync()) {
@@ -91,7 +93,9 @@ void main() {
       );
 
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session.addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'What is 2+2?', isUser: true),
+      );
       final response = await session.getResponse();
       print('[Gemma4 GPU text] Response: $response');
       expect(response, isNotEmpty);
@@ -113,7 +117,9 @@ void main() {
       );
 
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session.addQueryChunk(const Message(text: 'Say hello', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'Say hello', isUser: true),
+      );
 
       final chunks = <String>[];
       await for (final chunk in session.getResponseAsync()) {
@@ -146,11 +152,13 @@ void main() {
         enableVisionModality: true,
       );
 
-      await session.addQueryChunk(Message(
-        text: 'What do you see in this image?',
-        isUser: true,
-        imageBytes: _testImage,
-      ));
+      await session.addQueryChunk(
+        Message(
+          text: 'What do you see in this image?',
+          isUser: true,
+          imageBytes: _testImage,
+        ),
+      );
 
       final response = await session.getResponse();
       print('[Gemma4 GPU vision] Response: $response');
@@ -162,7 +170,9 @@ void main() {
     });
 
     testWidgets('GPU with audio', (tester) async {
-      final testAudio = File('/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/test_audio.wav').readAsBytesSync();
+      final testAudio = File(
+        '/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/test_audio.wav',
+      ).readAsBytesSync();
       print('[Gemma4 audio] Loaded ${testAudio.length} bytes');
 
       await FlutterGemma.installModel(
@@ -182,11 +192,13 @@ void main() {
         enableAudioModality: true,
       );
 
-      await session.addQueryChunk(Message(
-        text: 'What did you hear?',
-        isUser: true,
-        audioBytes: testAudio,
-      ));
+      await session.addQueryChunk(
+        Message(
+          text: 'What did you hear?',
+          isUser: true,
+          audioBytes: testAudio,
+        ),
+      );
 
       final response = await session.getResponse();
       print('[Gemma4 GPU audio] Response: $response');
@@ -233,7 +245,9 @@ void main() {
       );
 
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session.addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'What is 2+2?', isUser: true),
+      );
       final response = await session.getResponse();
       print('[Gemma3n GPU text] Response: $response');
       expect(response, isNotEmpty);
@@ -288,11 +302,13 @@ void main() {
         enableVisionModality: true,
       );
 
-      await session.addQueryChunk(Message(
-        text: 'Describe this image',
-        isUser: true,
-        imageBytes: _testImage,
-      ));
+      await session.addQueryChunk(
+        Message(
+          text: 'Describe this image',
+          isUser: true,
+          imageBytes: _testImage,
+        ),
+      );
 
       final response = await session.getResponse();
       print('[Gemma3n GPU vision] Response: $response');
@@ -304,7 +320,9 @@ void main() {
     });
 
     testWidgets('CPU with audio', (tester) async {
-      final testAudio = File('/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/test_audio.wav').readAsBytesSync();
+      final testAudio = File(
+        '/Users/sashadenisov/Library/Containers/dev.flutterberlin.flutterGemmaExample55/Data/Documents/test_audio.wav',
+      ).readAsBytesSync();
       print('[Gemma3n audio] Loaded ${testAudio.length} bytes');
 
       await FlutterGemma.installModel(
@@ -324,11 +342,13 @@ void main() {
         enableAudioModality: true,
       );
 
-      await session.addQueryChunk(Message(
-        text: 'What did you hear?',
-        isUser: true,
-        audioBytes: testAudio,
-      ));
+      await session.addQueryChunk(
+        Message(
+          text: 'What did you hear?',
+          isUser: true,
+          audioBytes: testAudio,
+        ),
+      );
 
       try {
         final response = await session.getResponse();
@@ -336,7 +356,9 @@ void main() {
         expect(response, isNotEmpty);
         print('[Gemma3n CPU audio] PASSED');
       } catch (e) {
-        print('[Gemma3n CPU audio] Error (may be expected with tiny audio): $e');
+        print(
+          '[Gemma3n CPU audio] Error (may be expected with tiny audio): $e',
+        );
       }
 
       await session.close();

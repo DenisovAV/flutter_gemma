@@ -14,88 +14,117 @@ void main() {
   const modelUrl =
       'https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm';
 
-  testWidgets('Qwen3: thinking tags stripped when isThinking=false',
-      (tester) async {
-    await registerTestEngines();
+  testWidgets(
+    'Qwen3: thinking tags stripped when isThinking=false',
+    (tester) async {
+      await registerTestEngines();
 
-    // Install Qwen3 model
-    await FlutterGemma.installModel(
-      modelType: ModelType.qwen3,
-      fileType: ModelFileType.litertlm,
-    ).fromNetwork(modelUrl).install();
-
-    final model = await FlutterGemma.getActiveModel(maxTokens: 512);
-    try {
-      // Create chat WITHOUT thinking mode
-      final chat = await model.createChat(
+      // Install Qwen3 model
+      await FlutterGemma.installModel(
         modelType: ModelType.qwen3,
-        isThinking: false,
-      );
+        fileType: ModelFileType.litertlm,
+      ).fromNetwork(modelUrl).install();
 
-      await chat.addQuery(const Message(text: 'What is 2+2?', isUser: true));
+      final model = await FlutterGemma.getActiveModel(maxTokens: 512);
+      try {
+        // Create chat WITHOUT thinking mode
+        final chat = await model.createChat(
+          modelType: ModelType.qwen3,
+          isThinking: false,
+        );
 
-      // Test sync response
-      final response = await chat.generateChatResponse();
-      final text =
-          response is TextResponse ? response.token : response.toString();
-      debugPrint('Response (isThinking=false): $text');
+        await chat.addQuery(const Message(text: 'What is 2+2?', isUser: true));
 
-      expect(text, isNot(contains('<think>')),
-          reason: 'Thinking tags should be stripped when isThinking=false');
-      expect(text, isNot(contains('</think>')),
+        // Test sync response
+        final response = await chat.generateChatResponse();
+        final text = response is TextResponse
+            ? response.token
+            : response.toString();
+        debugPrint('Response (isThinking=false): $text');
+
+        expect(
+          text,
+          isNot(contains('<think>')),
+          reason: 'Thinking tags should be stripped when isThinking=false',
+        );
+        expect(
+          text,
+          isNot(contains('</think>')),
           reason:
-              'Thinking close tags should be stripped when isThinking=false');
-      expect(text.trim(), isNotEmpty,
-          reason: 'Response should not be empty after stripping');
+              'Thinking close tags should be stripped when isThinking=false',
+        );
+        expect(
+          text.trim(),
+          isNotEmpty,
+          reason: 'Response should not be empty after stripping',
+        );
 
-      await chat.close();
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 10)));
-
-  testWidgets('Qwen3: thinking tags present when isThinking=true',
-      (tester) async {
-    await registerTestEngines();
-
-    final model = await FlutterGemma.getActiveModel(maxTokens: 512);
-    try {
-      // Create chat WITH thinking mode
-      final chat = await model.createChat(
-        modelType: ModelType.qwen3,
-        isThinking: true,
-      );
-
-      await chat.addQuery(const Message(text: 'What is 2+2?', isUser: true));
-
-      // Test streaming response — should emit ThinkingResponse events
-      final responses = <ModelResponse>[];
-      await for (final response in chat.generateChatResponseAsync()) {
-        responses.add(response);
+        await chat.close();
+      } finally {
+        await model.close();
       }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 
-      final hasThinking = responses.any((r) => r is ThinkingResponse);
-      final hasText = responses.any((r) => r is TextResponse);
+  testWidgets(
+    'Qwen3: thinking tags present when isThinking=true',
+    (tester) async {
+      await registerTestEngines();
 
-      debugPrint(
-          'Thinking responses: ${responses.whereType<ThinkingResponse>().length}');
-      debugPrint(
-          'Text responses: ${responses.whereType<TextResponse>().length}');
+      final model = await FlutterGemma.getActiveModel(maxTokens: 512);
+      try {
+        // Create chat WITH thinking mode
+        final chat = await model.createChat(
+          modelType: ModelType.qwen3,
+          isThinking: true,
+        );
 
-      expect(hasThinking, isTrue,
-          reason: 'Should emit ThinkingResponse when isThinking=true');
-      expect(hasText, isTrue,
-          reason: 'Should emit TextResponse after thinking');
+        await chat.addQuery(const Message(text: 'What is 2+2?', isUser: true));
 
-      // Verify text responses don't contain raw think tags
-      final textContent =
-          responses.whereType<TextResponse>().map((r) => r.token).join();
-      expect(textContent, isNot(contains('<think>')),
-          reason: 'TextResponse tokens should not contain raw think tags');
+        // Test streaming response — should emit ThinkingResponse events
+        final responses = <ModelResponse>[];
+        await for (final response in chat.generateChatResponseAsync()) {
+          responses.add(response);
+        }
 
-      await chat.close();
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 10)));
+        final hasThinking = responses.any((r) => r is ThinkingResponse);
+        final hasText = responses.any((r) => r is TextResponse);
+
+        debugPrint(
+          'Thinking responses: ${responses.whereType<ThinkingResponse>().length}',
+        );
+        debugPrint(
+          'Text responses: ${responses.whereType<TextResponse>().length}',
+        );
+
+        expect(
+          hasThinking,
+          isTrue,
+          reason: 'Should emit ThinkingResponse when isThinking=true',
+        );
+        expect(
+          hasText,
+          isTrue,
+          reason: 'Should emit TextResponse after thinking',
+        );
+
+        // Verify text responses don't contain raw think tags
+        final textContent = responses
+            .whereType<TextResponse>()
+            .map((r) => r.token)
+            .join();
+        expect(
+          textContent,
+          isNot(contains('<think>')),
+          reason: 'TextResponse tokens should not contain raw think tags',
+        );
+
+        await chat.close();
+      } finally {
+        await model.close();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 }

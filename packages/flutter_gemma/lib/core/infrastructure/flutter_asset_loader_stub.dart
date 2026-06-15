@@ -9,14 +9,18 @@ import 'package:flutter_gemma/core/services/asset_loader.dart';
 class FlutterAssetLoader implements AssetLoader {
   @override
   Future<Uint8List> loadAsset(String path) => throw UnsupportedError(
-      'FlutterAssetLoader is not available on this platform');
+    'FlutterAssetLoader is not available on this platform',
+  );
 
   Future<void> copyAssetToFile(String assetPath, String targetPath) =>
       throw UnsupportedError(
-          'FlutterAssetLoader is not available on this platform');
+        'FlutterAssetLoader is not available on this platform',
+      );
 
   Stream<int> copyAssetToFileWithProgress(
-          String assetPath, String targetPath) =>
-      throw UnsupportedError(
-          'FlutterAssetLoader is not available on this platform');
+    String assetPath,
+    String targetPath,
+  ) => throw UnsupportedError(
+    'FlutterAssetLoader is not available on this platform',
+  );
 }

@@ -15,7 +15,9 @@ void main() {
 
   testWidgets('getPlatformVersion test', (tester) async {
     final FlutterGemmaPlugin gemma = FlutterGemmaPlugin.instance;
-    final InferenceModel model = await gemma.createModel(modelType: ModelType.general);
+    final InferenceModel model = await gemma.createModel(
+      modelType: ModelType.general,
+    );
     final InferenceModelSession session = await model.createSession();
     final String response = await session.getResponse();
     // The version string depends on the host platform running the test, so

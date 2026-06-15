@@ -50,12 +50,14 @@ class ResumeChecker {
         final directory = file.parent;
         final directoryExists = await directory.exists();
         gemmaLog(
-            'ResumeChecker: Directory exists: $directoryExists - ${directory.path}');
+          'ResumeChecker: Directory exists: $directoryExists - ${directory.path}',
+        );
 
         if (directoryExists) {
           final files = await directory.list().toList();
           gemmaLog(
-              'ResumeChecker: Directory contents (${files.length} items):');
+            'ResumeChecker: Directory contents (${files.length} items):',
+          );
           for (final item in files) {
             final name = item.path.split('/').last;
             final isFile = item is File;
@@ -80,7 +82,8 @@ class ResumeChecker {
       final isValid = await ModelFileSystemManager.isFileValid(filePath);
 
       gemmaLog(
-          'ResumeChecker: File size: $fileSize, isValid: $isValid for $filename');
+        'ResumeChecker: File size: $fileSize, isValid: $isValid for $filename',
+      );
 
       if (isValid && fileSize > 0) {
         gemmaLog('ResumeChecker: File is already complete: $filename');
@@ -95,23 +98,24 @@ class ResumeChecker {
       );
 
       Task? task = allTasks.cast<Task?>().firstWhere(
-            (t) => t?.filename == filename,
-            orElse: () => null,
-          );
+        (t) => t?.filename == filename,
+        orElse: () => null,
+      );
 
       // If not in active tasks, check database records
       if (task == null) {
         final records = await _downloader.database.allRecords();
         final record = records.cast<TaskRecord?>().firstWhere(
-              (r) => r?.task.filename == filename,
-              orElse: () => null,
-            );
+          (r) => r?.task.filename == filename,
+          orElse: () => null,
+        );
         task = record?.task;
       }
 
       if (task == null) {
         gemmaLog(
-            'ResumeChecker: No tracked task for $filename - returning noTask status');
+          'ResumeChecker: No tracked task for $filename - returning noTask status',
+        );
         return ResumeStatus.noTask;
       }
 
@@ -137,7 +141,8 @@ class ResumeChecker {
   /// [spec] - The model specification to check
   /// Returns map of filename -> ResumeStatus for each file
   static Future<Map<String, ResumeStatus>> checkModelResume(
-      ModelSpec spec) async {
+    ModelSpec spec,
+  ) async {
     gemmaLog('ResumeChecker: Checking resume status for model: ${spec.name}');
 
     final results = <String, ResumeStatus>{};
@@ -158,7 +163,8 @@ class ResumeChecker {
   /// [spec] - The model specification to analyze
   /// Returns structured recommendations for each file
   static Future<Map<String, ResumeRecommendation>> getResumeRecommendations(
-      ModelSpec spec) async {
+    ModelSpec spec,
+  ) async {
     final statuses = await checkModelResume(spec);
     final recommendations = <String, ResumeRecommendation>{};
 
@@ -168,29 +174,29 @@ class ResumeChecker {
 
       recommendations[filename] = switch (status) {
         ResumeStatus.canResume => const ResumeRecommendation(
-            action: ResumeAction.resume,
-            reason: 'File can be resumed from partial state',
-          ),
+          action: ResumeAction.resume,
+          reason: 'File can be resumed from partial state',
+        ),
         ResumeStatus.fileComplete => const ResumeRecommendation(
-            action: ResumeAction.skip,
-            reason: 'File is already complete and valid',
-          ),
+          action: ResumeAction.skip,
+          reason: 'File is already complete and valid',
+        ),
         ResumeStatus.cannotResume => const ResumeRecommendation(
-            action: ResumeAction.restart,
-            reason: 'Resume not possible, should delete and restart',
-          ),
+          action: ResumeAction.restart,
+          reason: 'Resume not possible, should delete and restart',
+        ),
         ResumeStatus.noTask => const ResumeRecommendation(
-            action: ResumeAction.restart,
-            reason: 'No registered task, should start fresh download',
-          ),
+          action: ResumeAction.restart,
+          reason: 'No registered task, should start fresh download',
+        ),
         ResumeStatus.fileNotFound => const ResumeRecommendation(
-            action: ResumeAction.download,
-            reason: 'File not found, should start new download',
-          ),
+          action: ResumeAction.download,
+          reason: 'File not found, should start new download',
+        ),
         ResumeStatus.error => const ResumeRecommendation(
-            action: ResumeAction.restart,
-            reason: 'Error during resume check, safer to restart',
-          ),
+          action: ResumeAction.restart,
+          reason: 'Error during resume check, safer to restart',
+        ),
       };
     }
 
@@ -203,7 +209,8 @@ class ResumeChecker {
   /// Returns the number of cleaned up files
   static Future<int> cleanupInvalidResumeStates(ModelSpec spec) async {
     gemmaLog(
-        'ResumeChecker: Cleaning up invalid resume states for ${spec.name}');
+      'ResumeChecker: Cleaning up invalid resume states for ${spec.name}',
+    );
 
     final statuses = await checkModelResume(spec);
     int cleanedCount = 0;
@@ -220,7 +227,8 @@ class ResumeChecker {
             await ModelFileSystemManager.deleteModelFile(filename);
             cleanedCount++;
             gemmaLog(
-                'ResumeChecker: Cleaned up invalid resume state for $filename');
+              'ResumeChecker: Cleaned up invalid resume state for $filename',
+            );
           } catch (e) {
             gemmaLog('ResumeChecker: Failed to cleanup $filename: $e');
           }
@@ -229,8 +237,9 @@ class ResumeChecker {
         case ResumeStatus.noTask:
           // File exists but no task - check if it's partial
           try {
-            final filePath =
-                await ModelFileSystemManager.getModelFilePath(filename);
+            final filePath = await ModelFileSystemManager.getModelFilePath(
+              filename,
+            );
             final isValid = await ModelFileSystemManager.isFileValid(filePath);
 
             if (!isValid) {
@@ -238,11 +247,13 @@ class ResumeChecker {
               await ModelFileSystemManager.deleteModelFile(filename);
               cleanedCount++;
               gemmaLog(
-                  'ResumeChecker: Removed orphaned partial file: $filename');
+                'ResumeChecker: Removed orphaned partial file: $filename',
+              );
             }
           } catch (e) {
             gemmaLog(
-                'ResumeChecker: Error checking orphaned file $filename: $e');
+              'ResumeChecker: Error checking orphaned file $filename: $e',
+            );
           }
           break;
 
@@ -253,7 +264,8 @@ class ResumeChecker {
     }
 
     gemmaLog(
-        'ResumeChecker: Cleaned up $cleanedCount files for model ${spec.name}');
+      'ResumeChecker: Cleaned up $cleanedCount files for model ${spec.name}',
+    );
     return cleanedCount;
   }
 
@@ -322,10 +334,7 @@ class ResumeRecommendation {
   final ResumeAction action;
   final String reason;
 
-  const ResumeRecommendation({
-    required this.action,
-    required this.reason,
-  });
+  const ResumeRecommendation({required this.action, required this.reason});
 
   @override
   String toString() => '${action.name}: $reason';

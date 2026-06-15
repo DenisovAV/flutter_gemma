@@ -78,28 +78,41 @@ class DegradingManager {
 
 void main() {
   group('Issue #314 — init race (bug)', () {
-    test('BUG: concurrent initialize() lets a caller proceed before restore',
-        () async {
-      final m = BuggyManager();
-      final first = m.initialize();
-      await m.initialize();
-      expect(m.active, isNull,
-          reason: 'BUG: 2nd caller returned before restore set active');
-      await first;
-      expect(m.active, 'model-a');
-    });
+    test(
+      'BUG: concurrent initialize() lets a caller proceed before restore',
+      () async {
+        final m = BuggyManager();
+        final first = m.initialize();
+        await m.initialize();
+        expect(
+          m.active,
+          isNull,
+          reason: 'BUG: 2nd caller returned before restore set active',
+        );
+        await first;
+        expect(m.active, 'model-a');
+      },
+    );
   });
 
   group('Issue #314 — init race (fix)', () {
-    test('FIX: concurrent initialize() all await one completed restore',
-        () async {
-      final m = FixedManager();
-      await Future.wait([m.initialize(), m.initialize(), m.initialize()]);
-      expect(m.active, 'model-a',
-          reason: 'FIX: every caller observes the completed restore');
-      expect(m.restoreCount, 1,
-          reason: 'FIX: single-flight — restore runs exactly once');
-    });
+    test(
+      'FIX: concurrent initialize() all await one completed restore',
+      () async {
+        final m = FixedManager();
+        await Future.wait([m.initialize(), m.initialize(), m.initialize()]);
+        expect(
+          m.active,
+          'model-a',
+          reason: 'FIX: every caller observes the completed restore',
+        );
+        expect(
+          m.restoreCount,
+          1,
+          reason: 'FIX: single-flight — restore runs exactly once',
+        );
+      },
+    );
 
     test('FIX: a later initialize() after completion is a no-op', () async {
       final m = FixedManager();
@@ -110,21 +123,31 @@ void main() {
   });
 
   group('Issue #314 follow-up — restore failure degrades', () {
-    test('init completes normally when restore throws (no active model)',
-        () async {
-      final m = DegradingManager();
-      await m.initialize(); // must NOT throw
-      expect(m.active, isNull,
-          reason: 'degraded: restore failed → no active model');
-    });
+    test(
+      'init completes normally when restore throws (no active model)',
+      () async {
+        final m = DegradingManager();
+        await m.initialize(); // must NOT throw
+        expect(
+          m.active,
+          isNull,
+          reason: 'degraded: restore failed → no active model',
+        );
+      },
+    );
 
-    test('a failed restore is still single-flight (not retried per call)',
-        () async {
-      final m = DegradingManager();
-      await m.initialize();
-      await m.initialize();
-      expect(m.restoreCount, 1,
-          reason: 'cached future: degraded init is not re-run');
-    });
+    test(
+      'a failed restore is still single-flight (not retried per call)',
+      () async {
+        final m = DegradingManager();
+        await m.initialize();
+        await m.initialize();
+        expect(
+          m.restoreCount,
+          1,
+          reason: 'cached future: degraded init is not re-run',
+        );
+      },
+    );
   });
 }

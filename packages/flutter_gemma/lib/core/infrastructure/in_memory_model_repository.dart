@@ -39,7 +39,8 @@ class InMemoryModelRepository implements ModelRepository {
     }
     final model = _models[id];
     gemmaLog(
-        '[InMemoryModelRepository] ${model != null ? "✅ Loaded" : "❌ Not found"}: $id');
+      '[InMemoryModelRepository] ${model != null ? "✅ Loaded" : "❌ Not found"}: $id',
+    );
     return model;
   }
 
@@ -50,14 +51,16 @@ class InMemoryModelRepository implements ModelRepository {
     }
     final existed = _models.remove(id) != null;
     gemmaLog(
-        '[InMemoryModelRepository] ${existed ? "🗑️  Deleted" : "⚠️  Not found"}: $id');
+      '[InMemoryModelRepository] ${existed ? "🗑️  Deleted" : "⚠️  Not found"}: $id',
+    );
   }
 
   @override
   Future<List<ModelInfo>> listInstalled() async {
     final models = _models.values.toList();
     gemmaLog(
-        '[InMemoryModelRepository] 📋 Listing ${models.length} installed models');
+      '[InMemoryModelRepository] 📋 Listing ${models.length} installed models',
+    );
     return models;
   }
 
@@ -68,7 +71,8 @@ class InMemoryModelRepository implements ModelRepository {
     }
     final installed = _models.containsKey(id);
     gemmaLog(
-        '[InMemoryModelRepository] ${installed ? "✅" : "❌"} isInstalled($id): $installed');
+      '[InMemoryModelRepository] ${installed ? "✅" : "❌"} isInstalled($id): $installed',
+    );
     return installed;
   }
 

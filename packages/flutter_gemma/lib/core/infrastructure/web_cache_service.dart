@@ -60,7 +60,8 @@ class WebCacheService {
 
       if (kDebugMode) {
         gemmaLog(
-            '[WebCacheService] 🔍 isCached($url) -> $cached (normalized: $normalizedUrl)');
+          '[WebCacheService] 🔍 isCached($url) -> $cached (normalized: $normalizedUrl)',
+        );
       }
 
       return cached;
@@ -80,7 +81,8 @@ class WebCacheService {
 
       if (kDebugMode) {
         gemmaLog(
-            'WebCacheService: getCachedBlobUrl($url) normalized: $normalizedUrl');
+          'WebCacheService: getCachedBlobUrl($url) normalized: $normalizedUrl',
+        );
       }
 
       // Check cache first
@@ -97,7 +99,8 @@ class WebCacheService {
 
       if (blobUrl == null) {
         gemmaLog(
-            '[WebCacheService] ❌ Failed to create blob URL for $normalizedUrl');
+          '[WebCacheService] ❌ Failed to create blob URL for $normalizedUrl',
+        );
         // Cache corrupted? Delete metadata
         await _deleteMetadata(url);
         return null;
@@ -126,19 +129,22 @@ class WebCacheService {
 
       if (kDebugMode) {
         gemmaLog(
-            'WebCacheService: cacheModel($url) size: ${data.length} bytes, normalized: $normalizedUrl');
+          'WebCacheService: cacheModel($url) size: ${data.length} bytes, normalized: $normalizedUrl',
+        );
       }
 
       // Store in Cache API
       await _cacheInterop.put(cacheName, normalizedUrl, data);
 
       // Store metadata
-      await _saveMetadata(CacheMetadata(
-        url: url,
-        sizeInBytes: data.length,
-        timestamp: DateTime.now(),
-        cacheKey: normalizedUrl,
-      ));
+      await _saveMetadata(
+        CacheMetadata(
+          url: url,
+          sizeInBytes: data.length,
+          timestamp: DateTime.now(),
+          cacheKey: normalizedUrl,
+        ),
+      );
 
       if (kDebugMode) {
         gemmaLog('[WebCacheService] ✅ Successfully cached $url');
@@ -149,18 +155,21 @@ class WebCacheService {
       // Handle QuotaExceededError
       if (e.toString().contains('quota')) {
         gemmaLog(
-            '[WebCacheService] ⚠️  Storage quota exceeded, attempting cleanup');
+          '[WebCacheService] ⚠️  Storage quota exceeded, attempting cleanup',
+        );
         await _cleanupOldEntries();
         // Retry once after cleanup
         try {
           final normalizedUrl = UrlUtils.normalizeUrl(url);
           await _cacheInterop.put(cacheName, normalizedUrl, data);
-          await _saveMetadata(CacheMetadata(
-            url: url,
-            sizeInBytes: data.length,
-            timestamp: DateTime.now(),
-            cacheKey: normalizedUrl,
-          ));
+          await _saveMetadata(
+            CacheMetadata(
+              url: url,
+              sizeInBytes: data.length,
+              timestamp: DateTime.now(),
+              cacheKey: normalizedUrl,
+            ),
+          );
           gemmaLog('[WebCacheService] ✅ Cached after cleanup: $url');
           return;
         } catch (retryError) {
@@ -212,7 +221,8 @@ class WebCacheService {
 
       if (kDebugMode) {
         gemmaLog(
-            '[WebCacheService] ${granted ? "✅" : "⚠️ "} Persistent storage ${granted ? "granted" : "denied"}');
+          '[WebCacheService] ${granted ? "✅" : "⚠️ "} Persistent storage ${granted ? "granted" : "denied"}',
+        );
       }
 
       // Save grant status
@@ -361,20 +371,24 @@ class WebCacheService {
 
           if (kDebugMode) {
             gemmaLog(
-                '[WebCacheService] 🗑️ Deleted old entry: ${meta.url} (age: ${age.inDays} days)');
+              '[WebCacheService] 🗑️ Deleted old entry: ${meta.url} (age: ${age.inDays} days)',
+            );
           }
         }
       }
 
       if (kDebugMode) {
         gemmaLog(
-            '[WebCacheService] ✅ Cleanup complete, deleted $deletedCount entries');
+          '[WebCacheService] ✅ Cleanup complete, deleted $deletedCount entries',
+        );
       }
 
       // Update last cleanup timestamp
       final prefs = _prefs;
       await prefs.setInt(
-          PreferencesKeys.webCacheLastCleanup, now.millisecondsSinceEpoch);
+        PreferencesKeys.webCacheLastCleanup,
+        now.millisecondsSinceEpoch,
+      );
     } catch (e) {
       gemmaLog('[WebCacheService] ❌ _cleanupOldEntries failed: $e');
     }
@@ -394,7 +408,7 @@ class WebCacheService {
   Stream<int> getOrCacheAndRegisterWithProgress({
     required String cacheKey,
     required Future<Uint8List> Function(void Function(double) onProgress)
-        loader,
+    loader,
     required String targetPath,
   }) async* {
     try {
@@ -411,28 +425,31 @@ class WebCacheService {
 
       // 2. Load data with progress tracking
       gemmaLog(
-          '[WebCacheService] 📥 Loading: $cacheKey (cache: ${enableCache ? "enabled" : "disabled"})');
+        '[WebCacheService] 📥 Loading: $cacheKey (cache: ${enableCache ? "enabled" : "disabled"})',
+      );
 
       final controller = StreamController<int>();
       Uint8List? loadedData;
 
       // Start loading in background with progress callback
       loader((progress) {
-        final percent = (progress * 100).clamp(0, 99).toInt();
-        if (!controller.isClosed) {
-          controller.add(percent);
-        }
-      }).then((data) {
-        loadedData = data;
-        if (!controller.isClosed) {
-          controller.close();
-        }
-      }).catchError((error) {
-        if (!controller.isClosed) {
-          controller.addError(error);
-          controller.close();
-        }
-      });
+            final percent = (progress * 100).clamp(0, 99).toInt();
+            if (!controller.isClosed) {
+              controller.add(percent);
+            }
+          })
+          .then((data) {
+            loadedData = data;
+            if (!controller.isClosed) {
+              controller.close();
+            }
+          })
+          .catchError((error) {
+            if (!controller.isClosed) {
+              controller.addError(error);
+              controller.close();
+            }
+          });
 
       // Yield progress updates
       await for (final progress in controller.stream) {
@@ -468,7 +485,8 @@ class WebCacheService {
       yield 100; // Final completion
     } catch (e) {
       gemmaLog(
-          '[WebCacheService] ❌ getOrCacheAndRegisterWithProgress failed: $e');
+        '[WebCacheService] ❌ getOrCacheAndRegisterWithProgress failed: $e',
+      );
       rethrow;
     }
   }

@@ -149,19 +149,24 @@ void main() {
   setUp(() => client = MockFfiClient());
 
   group('Issue #308 (FFI) — createSession reuses the cached session (bug)', () {
-    test(
-        'BUG: second createSession returns the SAME session, no fresh '
+    test('BUG: second createSession returns the SAME session, no fresh '
         'handle — KV cache bleeds', () async {
       final creator = BuggyFfiSessionCreator(client);
 
       final a = await creator.createSession();
       final b = await creator.createSession();
 
-      expect(client.createHandleCallCount, 1,
-          reason: 'BUG: no fresh conversation handle for the 2nd chat');
+      expect(
+        client.createHandleCallCount,
+        1,
+        reason: 'BUG: no fresh conversation handle for the 2nd chat',
+      );
       expect(identical(a, b), isTrue);
-      expect(a.handle.id, b.handle.id,
-          reason: 'BUG: same handle → prior KV cache is reused');
+      expect(
+        a.handle.id,
+        b.handle.id,
+        reason: 'BUG: same handle → prior KV cache is reused',
+      );
     });
 
     // NOTE: unlike the MediaPipe original (#309), the FFI buggy path
@@ -180,21 +185,29 @@ void main() {
 
       expect(client.createHandleCallCount, 2);
       expect(identical(a, b), isFalse);
-      expect(a.handle.id != b.handle.id, isTrue,
-          reason: 'FIX: distinct handles → no KV-cache bleed');
+      expect(
+        a.handle.id != b.handle.id,
+        isTrue,
+        reason: 'FIX: distinct handles → no KV-cache bleed',
+      );
     });
 
-    test('FIX: the prior session is closed before the next is created',
-        () async {
-      final creator = FixedFfiSessionCreator(client);
+    test(
+      'FIX: the prior session is closed before the next is created',
+      () async {
+        final creator = FixedFfiSessionCreator(client);
 
-      final a = await creator.createSession();
-      expect(a.handle.closed, isFalse);
+        final a = await creator.createSession();
+        expect(a.handle.closed, isFalse);
 
-      await creator.createSession();
-      expect(a.handle.closed, isTrue,
-          reason: 'FIX: old handle closed so its KV cache is released');
-    });
+        await creator.createSession();
+        expect(
+          a.handle.closed,
+          isTrue,
+          reason: 'FIX: old handle closed so its KV cache is released',
+        );
+      },
+    );
 
     test('FIX: a failed createSession does not block retry', () async {
       final creator = FixedFfiSessionCreator(client);
@@ -204,8 +217,11 @@ void main() {
       client.shouldFail = false;
       final session = await creator.createSession();
       expect(session.handle.id, greaterThan(0));
-      expect(client.createHandleCallCount, 2,
-          reason: 'FIX: completer cleared on failure → retry runs');
+      expect(
+        client.createHandleCallCount,
+        2,
+        reason: 'FIX: completer cleared on failure → retry runs',
+      );
     });
 
     test('FIX: concurrent createSession calls dedupe to one handle', () async {
@@ -217,14 +233,16 @@ void main() {
         creator.createSession(),
       ]);
 
-      expect(client.createHandleCallCount, 1,
-          reason: 'concurrent callers share one in-flight creation');
+      expect(
+        client.createHandleCallCount,
+        1,
+        reason: 'concurrent callers share one in-flight creation',
+      );
       expect(identical(results[0], results[1]), isTrue);
       expect(identical(results[1], results[2]), isTrue);
     });
 
-    test(
-        'FIX: idempotent close — closing a superseded session does not '
+    test('FIX: idempotent close — closing a superseded session does not '
         'double-close its handle', () async {
       final creator = FixedFfiSessionCreator(client);
 

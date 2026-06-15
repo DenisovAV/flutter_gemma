@@ -64,7 +64,9 @@ class ThinkingWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
+                ),
                 borderRadius: BorderRadius.circular(4.0),
               ),
               child: Text(
@@ -96,7 +98,8 @@ class StreamingThinkingWidget extends StatefulWidget {
   final VoidCallback? onToggle;
 
   @override
-  State<StreamingThinkingWidget> createState() => _StreamingThinkingWidgetState();
+  State<StreamingThinkingWidget> createState() =>
+      _StreamingThinkingWidgetState();
 }
 
 class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
@@ -111,13 +114,9 @@ class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(
-      begin: 0.3,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.repeat(reverse: true);
   }
 
@@ -197,7 +196,9 @@ class _StreamingThinkingWidgetState extends State<StreamingThinkingWidget>
             Container(
               padding: const EdgeInsets.all(8.0),
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
+                ),
                 borderRadius: BorderRadius.circular(4.0),
               ),
               child: Text(

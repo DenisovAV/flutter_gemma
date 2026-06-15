@@ -5,9 +5,13 @@ import 'package:flutter_gemma/core/model.dart';
 void main() {
   group('FunctionGemma Parser', () {
     test('parses function call with single parameter', () {
-      const input = '<start_function_call>call:get_weather{location:<escape>San Francisco<escape>}<end_function_call>';
+      const input =
+          '<start_function_call>call:get_weather{location:<escape>San Francisco<escape>}<end_function_call>';
 
-      final result = FunctionCallParser.parse(input, modelType: ModelType.functionGemma);
+      final result = FunctionCallParser.parse(
+        input,
+        modelType: ModelType.functionGemma,
+      );
 
       expect(result, isNotNull);
       expect(result!.name, equals('get_weather'));
@@ -15,9 +19,13 @@ void main() {
     });
 
     test('parses function call with multiple parameters', () {
-      const input = '<start_function_call>call:get_weather{location:<escape>Tokyo<escape>,unit:<escape>celsius<escape>}<end_function_call>';
+      const input =
+          '<start_function_call>call:get_weather{location:<escape>Tokyo<escape>,unit:<escape>celsius<escape>}<end_function_call>';
 
-      final result = FunctionCallParser.parse(input, modelType: ModelType.functionGemma);
+      final result = FunctionCallParser.parse(
+        input,
+        modelType: ModelType.functionGemma,
+      );
 
       expect(result, isNotNull);
       expect(result!.name, equals('get_weather'));
@@ -28,7 +36,10 @@ void main() {
     test('returns null for invalid format', () {
       const input = 'Just some regular text';
 
-      final result = FunctionCallParser.parse(input, modelType: ModelType.functionGemma);
+      final result = FunctionCallParser.parse(
+        input,
+        modelType: ModelType.functionGemma,
+      );
 
       expect(result, isNull);
     });
@@ -80,9 +91,13 @@ void main() {
 
   group('JSON Parser (existing models)', () {
     test('still works for gemmaIt', () {
-      const input = '<tool_code>{"name": "get_weather", "parameters": {"location": "NYC"}}</tool_code>';
+      const input =
+          '<tool_code>{"name": "get_weather", "parameters": {"location": "NYC"}}</tool_code>';
 
-      final result = FunctionCallParser.parse(input, modelType: ModelType.gemmaIt);
+      final result = FunctionCallParser.parse(
+        input,
+        modelType: ModelType.gemmaIt,
+      );
 
       expect(result, isNotNull);
       expect(result!.name, equals('get_weather'));

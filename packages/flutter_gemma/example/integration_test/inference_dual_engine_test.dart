@@ -40,12 +40,14 @@ void main() {
       try {
         final chat1 = await createTestChat(model);
         await chat1.addQueryChunk(
-            const Message(text: 'Say hello', isUser: true));
+          const Message(text: 'Say hello', isUser: true),
+        );
         final response1 = await chat1.generateChatResponse();
         expect(response1, isA<TextResponse>());
         final text1 = (response1 as TextResponse).token;
         print(
-            '[DualEngine] MediaPipe response: "${text1.length > 80 ? text1.substring(0, 80) : text1}"');
+          '[DualEngine] MediaPipe response: "${text1.length > 80 ? text1.substring(0, 80) : text1}"',
+        );
         expect(text1, isNotEmpty);
       } finally {
         await model.close();
@@ -62,12 +64,14 @@ void main() {
       try {
         final chat2 = await createTestChat(model);
         await chat2.addQueryChunk(
-            const Message(text: 'Say hello', isUser: true));
+          const Message(text: 'Say hello', isUser: true),
+        );
         final response2 = await chat2.generateChatResponse();
         expect(response2, isA<TextResponse>());
         final text2 = (response2 as TextResponse).token;
         print(
-            '[DualEngine] LiteRT-LM response: "${text2.length > 80 ? text2.substring(0, 80) : text2}"');
+          '[DualEngine] LiteRT-LM response: "${text2.length > 80 ? text2.substring(0, 80) : text2}"',
+        );
         expect(text2, isNotEmpty);
       } finally {
         await model.close();

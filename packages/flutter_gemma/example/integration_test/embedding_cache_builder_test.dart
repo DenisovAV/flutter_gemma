@@ -118,7 +118,9 @@ const _loremWords = [
 
 String _chunk(math.Random rng, int wordCount) {
   final words = List.generate(
-      wordCount, (_) => _loremWords[rng.nextInt(_loremWords.length)]);
+    wordCount,
+    (_) => _loremWords[rng.nextInt(_loremWords.length)],
+  );
   return words.join(' ');
 }
 
@@ -126,13 +128,20 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.defaultTestTimeout = const Timeout(Duration(hours: 2));
 
-  testWidgets('build embedding cache slice [$_rangeFrom..$_rangeTo)',
-      (WidgetTester tester) async {
+  testWidgets('build embedding cache slice [$_rangeFrom..$_rangeTo)', (
+    WidgetTester tester,
+  ) async {
     await tester.runAsync(() async {
-      expect(_rangeFrom < _rangeTo, isTrue,
-          reason: 'RANGE_FROM must be < RANGE_TO');
-      expect(_rangeTo <= _totalDocs, isTrue,
-          reason: 'RANGE_TO must be <= $_totalDocs');
+      expect(
+        _rangeFrom < _rangeTo,
+        isTrue,
+        reason: 'RANGE_FROM must be < RANGE_TO',
+      );
+      expect(
+        _rangeTo <= _totalDocs,
+        isTrue,
+        reason: 'RANGE_TO must be <= $_totalDocs',
+      );
 
       await registerTestEngines();
       await FlutterGemma.installEmbedder()
@@ -144,16 +153,21 @@ void main() {
       // Always regenerate the full deterministic text list — same seed
       // produces the same texts regardless of slice.
       final rng = math.Random(42);
-      final texts =
-          List.generate(_totalDocs, (_) => _chunk(rng, 30 + rng.nextInt(50)));
+      final texts = List.generate(
+        _totalDocs,
+        (_) => _chunk(rng, 30 + rng.nextInt(50)),
+      );
       // ignore: avoid_print
-      print('[cache] full corpus regenerated (seed=42), '
-          'slice [$_rangeFrom..$_rangeTo)');
+      print(
+        '[cache] full corpus regenerated (seed=42), '
+        'slice [$_rangeFrom..$_rangeTo)',
+      );
 
       // Load existing cache or initialize a fresh placeholder list.
       final base = await getApplicationSupportDirectory();
       final cacheFile = File(
-          '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json');
+        '${base.path}/embeddings_cache_${_totalDocs}_${_expectedDim}d.json',
+      );
       List<List<double>?> slots;
       Map<String, dynamic> meta;
       if (cacheFile.existsSync()) {
@@ -167,8 +181,10 @@ void main() {
           return null;
         }).toList();
         // ignore: avoid_print
-        print('[cache] loaded existing file with '
-            '${slots.where((s) => s != null).length}/${slots.length} slots filled');
+        print(
+          '[cache] loaded existing file with '
+          '${slots.where((s) => s != null).length}/${slots.length} slots filled',
+        );
       } else {
         slots = List<List<double>?>.filled(_totalDocs, null);
         meta = <String, dynamic>{
@@ -188,8 +204,10 @@ void main() {
         slots[i] = await embedder.generateEmbedding(texts[i]);
         if ((i - _rangeFrom + 1) % 100 == 0) {
           // ignore: avoid_print
-          print('[cache] embedded ${i + 1} '
-              '(${sw.elapsed.inSeconds}s elapsed for slice)');
+          print(
+            '[cache] embedded ${i + 1} '
+            '(${sw.elapsed.inSeconds}s elapsed for slice)',
+          );
         }
       }
       sw.stop();
@@ -203,7 +221,8 @@ void main() {
       final filled = slots.where((s) => s != null && s.isNotEmpty).length;
       // ignore: avoid_print
       print(
-          '[cache] written: ${cacheFile.path} — $filled/$_totalDocs slots filled');
+        '[cache] written: ${cacheFile.path} — $filled/$_totalDocs slots filled',
+      );
     });
   });
 }

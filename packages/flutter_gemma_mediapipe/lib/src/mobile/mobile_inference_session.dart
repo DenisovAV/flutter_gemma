@@ -57,7 +57,8 @@ class MobileInferenceModelSession extends InferenceModelSession {
   void _assertNotClosed() {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
   }
 
@@ -84,19 +85,23 @@ class MobileInferenceModelSession extends InferenceModelSession {
       );
     }
     gemmaLog(
-        '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}',
-        level: GemmaLogLevel.verbose);
+      '[MobileSession.addQueryChunk] modelType=$modelType, fileType=$fileType, msgType=${message.type}',
+      level: GemmaLogLevel.verbose,
+    );
     final finalPrompt = messageToSend.transformToChatPrompt(
-        type: modelType, fileType: fileType);
+      type: modelType,
+      fileType: fileType,
+    );
     gemmaLog(
-        '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}',
-        level: GemmaLogLevel.verbose);
+      '[MobileSession.addQueryChunk] finalPrompt length=${finalPrompt.length}',
+      level: GemmaLogLevel.verbose,
+    );
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
           ? message.images
           : (message.imageBytes != null
-              ? [message.imageBytes!]
-              : const <Uint8List>[]);
+                ? [message.imageBytes!]
+                : const <Uint8List>[]);
       for (final image in images) {
         await _addImage(image);
       }
@@ -158,8 +163,9 @@ class MobileInferenceModelSession extends InferenceModelSession {
             } else if (event is Map &&
                 event.containsKey('code') &&
                 event['code'] == "ERROR") {
-              controller.addError(Exception(
-                  event['message'] ?? 'Unknown async error occurred'));
+              controller.addError(
+                Exception(event['message'] ?? 'Unknown async error occurred'),
+              );
             } else if (event is Map && event.containsKey('partialResult')) {
               final partial = event['partialResult'] as String;
               controller.add(partial);
@@ -320,13 +326,15 @@ class MultiSessionMobileInferenceModelSession extends InferenceModelSession {
       );
     }
     final finalPrompt = messageToSend.transformToChatPrompt(
-        type: modelType, fileType: fileType);
+      type: modelType,
+      fileType: fileType,
+    );
     if (message.hasImage && supportImage) {
       final images = message.images.isNotEmpty
           ? message.images
           : (message.imageBytes != null
-              ? [message.imageBytes!]
-              : const <Uint8List>[]);
+                ? [message.imageBytes!]
+                : const <Uint8List>[]);
       for (final image in images) {
         await platformService.addImageToSession(sessionId, image);
       }
@@ -387,8 +395,9 @@ class MultiSessionMobileInferenceModelSession extends InferenceModelSession {
             // {code: ERROR, sessionId, message} (not an EventChannel error,
             // which would be broadcast to every session and lose the id).
             if (event['code'] == 'ERROR') {
-              controller.addError(Exception(
-                  event['message'] ?? 'Unknown async error occurred'));
+              controller.addError(
+                Exception(event['message'] ?? 'Unknown async error occurred'),
+              );
               cleanup();
               controller.close();
               return;
@@ -408,15 +417,18 @@ class MultiSessionMobileInferenceModelSession extends InferenceModelSession {
             if (!controller.isClosed) controller.close();
           },
         );
-        unawaited(platformService
-            .generateResponseAsyncForSession(sessionId)
-            .catchError((Object e, StackTrace st) {
-          // A synchronous native failure (before any event) must surface and
-          // release the mutex, not hang the controller.
-          if (!controller.isClosed) controller.addError(e, st);
-          cleanup();
-          if (!controller.isClosed) controller.close();
-        }));
+        unawaited(
+          platformService.generateResponseAsyncForSession(sessionId).catchError((
+            Object e,
+            StackTrace st,
+          ) {
+            // A synchronous native failure (before any event) must surface and
+            // release the mutex, not hang the controller.
+            if (!controller.isClosed) controller.addError(e, st);
+            cleanup();
+            if (!controller.isClosed) controller.close();
+          }),
+        );
       } catch (e, st) {
         if (!controller.isClosed) controller.addError(e, st);
         await cleanup();

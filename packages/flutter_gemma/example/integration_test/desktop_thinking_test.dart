@@ -66,7 +66,10 @@ void main() {
         );
 
         await chat.addQuery(
-          const Message(text: 'Explain why the sky is blue. Think step by step.', isUser: true),
+          const Message(
+            text: 'Explain why the sky is blue. Think step by step.',
+            isUser: true,
+          ),
         );
 
         final responses = <ModelResponse>[];
@@ -85,24 +88,37 @@ void main() {
             .map((r) => r.token)
             .join();
 
-        print('[Gemma 4 E2B Desktop] Thinking tokens: ${thinkingTokens.length} chars');
+        print(
+          '[Gemma 4 E2B Desktop] Thinking tokens: ${thinkingTokens.length} chars',
+        );
         print('[Gemma 4 E2B Desktop] Text tokens: ${textTokens.length} chars');
 
         // Should have thinking content
-        expect(thinkingTokens.isNotEmpty, isTrue,
-            reason: 'Expected non-empty thinking content');
+        expect(
+          thinkingTokens.isNotEmpty,
+          isTrue,
+          reason: 'Expected non-empty thinking content',
+        );
 
         // Should have text content
-        expect(textTokens.isNotEmpty, isTrue,
-            reason: 'Expected non-empty text response');
+        expect(
+          textTokens.isNotEmpty,
+          isTrue,
+          reason: 'Expected non-empty text response',
+        );
 
         // Thinking should come before text in stream order
-        final firstThinkingIdx = responses.indexWhere((r) => r is ThinkingResponse);
+        final firstThinkingIdx = responses.indexWhere(
+          (r) => r is ThinkingResponse,
+        );
         final firstTextIdx = responses.indexWhere((r) => r is TextResponse);
 
         if (firstThinkingIdx >= 0 && firstTextIdx >= 0) {
-          expect(firstThinkingIdx, lessThan(firstTextIdx),
-              reason: 'First thinking should appear before first text');
+          expect(
+            firstThinkingIdx,
+            lessThan(firstTextIdx),
+            reason: 'First thinking should appear before first text',
+          );
         }
 
         print('[Gemma 4 E2B Desktop] thinking_stream PASSED');
@@ -133,9 +149,7 @@ void main() {
           modelType: ModelType.gemmaIt,
         );
 
-        await chat.addQuery(
-          const Message(text: 'What is 2+2?', isUser: true),
-        );
+        await chat.addQuery(const Message(text: 'What is 2+2?', isUser: true));
 
         final responses = <ModelResponse>[];
         await tester.runAsync(() async {
@@ -145,17 +159,25 @@ void main() {
         });
 
         // Without thinking enabled, no ThinkingResponse should appear
-        final thinkingResponses = responses.whereType<ThinkingResponse>().toList();
-        expect(thinkingResponses, isEmpty,
-            reason: 'No ThinkingResponse expected with isThinking=false');
+        final thinkingResponses = responses
+            .whereType<ThinkingResponse>()
+            .toList();
+        expect(
+          thinkingResponses,
+          isEmpty,
+          reason: 'No ThinkingResponse expected with isThinking=false',
+        );
 
         // Should still have text content
         final textTokens = responses
             .whereType<TextResponse>()
             .map((r) => r.token)
             .join();
-        expect(textTokens.isNotEmpty, isTrue,
-            reason: 'Expected non-empty text response');
+        expect(
+          textTokens.isNotEmpty,
+          isTrue,
+          reason: 'Expected non-empty text response',
+        );
 
         print('[Gemma 4 E2B Desktop] no_thinking PASSED');
       } finally {

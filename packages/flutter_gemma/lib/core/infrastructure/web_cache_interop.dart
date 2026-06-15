@@ -14,11 +14,16 @@ external JSPromise<JSBoolean> _cacheHasJS(JSString cacheName, JSString url);
 
 @JS('cacheGetBlobUrl')
 external JSPromise<JSString?> _cacheGetBlobUrlJS(
-    JSString cacheName, JSString url);
+  JSString cacheName,
+  JSString url,
+);
 
 @JS('cachePut')
 external JSPromise<JSAny?> _cachePutJS(
-    JSString cacheName, JSString url, JSUint8Array data);
+  JSString cacheName,
+  JSString url,
+  JSUint8Array data,
+);
 
 @JS('cacheDelete')
 external JSPromise<JSBoolean> _cacheDeleteJS(JSString cacheName, JSString url);
@@ -141,10 +146,7 @@ class WebCacheInterop {
   Future<StorageQuota> getStorageQuota() async {
     try {
       final result = await _storageGetQuotaJS().toDart;
-      return StorageQuota(
-        result.usage.toDartInt,
-        result.quota.toDartInt,
-      );
+      return StorageQuota(result.usage.toDartInt, result.quota.toDartInt);
     } catch (e) {
       gemmaLog('[WebCacheInterop] ❌ getStorageQuota failed: $e');
       return StorageQuota(0, 0);

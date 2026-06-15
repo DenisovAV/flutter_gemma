@@ -50,7 +50,8 @@ class WebModelManager extends ModelFileManager {
       // no active model. (#314 follow-up; mirrors MobileModelManager.)
       // Include the stack trace so an unexpected restore bug stays diagnosable.
       gemmaLog(
-          'WebModelManager: active-model restore failed, starting with no active model: $e\n$st');
+        'WebModelManager: active-model restore failed, starting with no active model: $e\n$st',
+      );
     }
   }
 
@@ -60,13 +61,16 @@ class WebModelManager extends ModelFileManager {
   /// we have to recover the original ModelSource (not just a filename).
   Future<void> _restoreActiveInferenceModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final modelTypeName =
-        prefs.getString(PreferencesKeys.activeInferenceModelType);
-    final fileTypeName =
-        prefs.getString(PreferencesKeys.activeInferenceFileType);
+    final modelTypeName = prefs.getString(
+      PreferencesKeys.activeInferenceModelType,
+    );
+    final fileTypeName = prefs.getString(
+      PreferencesKeys.activeInferenceFileType,
+    );
     final filename = prefs.getString(PreferencesKeys.activeInferenceFilename);
-    final sourceEncoded =
-        prefs.getString(PreferencesKeys.activeInferenceSource);
+    final sourceEncoded = prefs.getString(
+      PreferencesKeys.activeInferenceSource,
+    );
 
     if (modelTypeName == null ||
         fileTypeName == null ||
@@ -82,14 +86,16 @@ class WebModelManager extends ModelFileManager {
       fileType = ModelFileType.values.byName(fileTypeName);
     } catch (e) {
       gemmaLog(
-          '[WebModelManager] active model restore: unknown enum value — skipping');
+        '[WebModelManager] active model restore: unknown enum value — skipping',
+      );
       return;
     }
 
     final source = ModelSource.tryDecode(sourceEncoded);
     if (source == null) {
       gemmaLog(
-          '[WebModelManager] active model restore: malformed source — skipping');
+        '[WebModelManager] active model restore: malformed source — skipping',
+      );
       return;
     }
 
@@ -99,7 +105,8 @@ class WebModelManager extends ModelFileManager {
     final repo = ServiceRegistry.instance.modelRepository;
     if (!await repo.isInstalled(filename)) {
       gemmaLog(
-          '[WebModelManager] active model restore: $filename not in repository — skipping');
+        '[WebModelManager] active model restore: $filename not in repository — skipping',
+      );
       return;
     }
 
@@ -114,14 +121,18 @@ class WebModelManager extends ModelFileManager {
 
   Future<void> _restoreActiveEmbeddingModel() async {
     final prefs = await SharedPreferences.getInstance();
-    final modelFilename =
-        prefs.getString(PreferencesKeys.activeEmbeddingFilename);
-    final tokenizerFilename =
-        prefs.getString(PreferencesKeys.activeEmbeddingTokenizerFilename);
-    final modelSourceEncoded =
-        prefs.getString(PreferencesKeys.activeEmbeddingSource);
-    final tokenizerSourceEncoded =
-        prefs.getString(PreferencesKeys.activeEmbeddingTokenizerSource);
+    final modelFilename = prefs.getString(
+      PreferencesKeys.activeEmbeddingFilename,
+    );
+    final tokenizerFilename = prefs.getString(
+      PreferencesKeys.activeEmbeddingTokenizerFilename,
+    );
+    final modelSourceEncoded = prefs.getString(
+      PreferencesKeys.activeEmbeddingSource,
+    );
+    final tokenizerSourceEncoded = prefs.getString(
+      PreferencesKeys.activeEmbeddingTokenizerSource,
+    );
 
     if (modelFilename == null ||
         tokenizerFilename == null ||
@@ -134,7 +145,8 @@ class WebModelManager extends ModelFileManager {
     final tokenizerSource = ModelSource.tryDecode(tokenizerSourceEncoded);
     if (modelSource == null || tokenizerSource == null) {
       gemmaLog(
-          '[WebModelManager] active embedding restore: malformed source — skipping');
+        '[WebModelManager] active embedding restore: malformed source — skipping',
+      );
       return;
     }
 
@@ -142,7 +154,8 @@ class WebModelManager extends ModelFileManager {
     if (!await repo.isInstalled(modelFilename) ||
         !await repo.isInstalled(tokenizerFilename)) {
       gemmaLog(
-          '[WebModelManager] active embedding restore: file missing — skipping');
+        '[WebModelManager] active embedding restore: file missing — skipping',
+      );
       return;
     }
 
@@ -152,7 +165,8 @@ class WebModelManager extends ModelFileManager {
       tokenizerSource: tokenizerSource,
     );
     gemmaLog(
-        '[WebModelManager] restored active embedding model: $modelFilename');
+      '[WebModelManager] restored active embedding model: $modelFilename',
+    );
   }
 
   /// Checks if a model is installed
@@ -178,8 +192,10 @@ class WebModelManager extends ModelFileManager {
   }
 
   @override
-  Stream<DownloadProgress> downloadModelWithProgress(ModelSpec spec,
-      {String? token}) async* {
+  Stream<DownloadProgress> downloadModelWithProgress(
+    ModelSpec spec, {
+    String? token,
+  }) async* {
     await _ensureInitialized();
 
     gemmaLog('WebModelManager: Starting download for ${spec.name}');
@@ -219,8 +235,9 @@ class WebModelManager extends ModelFileManager {
       // Download via Modern API handler with progress
       // All handlers implement installWithProgress (handlers that don't support
       // true progress will emit 100% immediately)
-      await for (final progress
-          in handler.installWithProgress(sourceToInstall)) {
+      await for (final progress in handler.installWithProgress(
+        sourceToInstall,
+      )) {
         yield DownloadProgress(
           currentFileIndex: i,
           totalFiles: totalFiles,
@@ -376,7 +393,8 @@ class WebModelManager extends ModelFileManager {
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
           gemmaLog(
-              '[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...');
+            '[WebModelManager] Blob URL lost for ${file.filename}, restoring from cache...',
+          );
 
           // Try to restore from Cache API
           final networkSource = file.source as NetworkSource;
@@ -385,34 +403,40 @@ class WebModelManager extends ModelFileManager {
           final cacheService = downloadService.cacheService;
 
           // Get cached blob URL (cache service handles URL normalization internally)
-          final cachedBlobUrl =
-              await cacheService.getCachedBlobUrl(networkSource.url);
+          final cachedBlobUrl = await cacheService.getCachedBlobUrl(
+            networkSource.url,
+          );
           if (cachedBlobUrl != null) {
             gemmaLog(
-                '[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl');
+              '[WebModelManager] ✅ Restored blob URL from cache: $cachedBlobUrl',
+            );
             // Re-register the blob URL
             fileSystem.registerUrl(file.filename, cachedBlobUrl);
             url = cachedBlobUrl;
           } else {
             gemmaLog(
-                '[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)');
+              '[WebModelManager] ⚠️  Not found in cache, will use original URL (may require auth)',
+            );
           }
         }
         path = url ?? (file.source as NetworkSource).url;
       } else if (file.source is BundledSource) {
         // Web: Bundled resources
         path = await fileSystem.getBundledResourcePath(
-            (file.source as BundledSource).resourceName);
+          (file.source as BundledSource).resourceName,
+        );
       } else if (file.source is AssetSource) {
         // Web: Get registered Blob URL (created by WebAssetSourceHandler)
         // If URL lost (page reload), recreate it
         var url = fileSystem.getUrl(file.filename);
         if (url == null) {
           gemmaLog(
-              '[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...');
+            '[WebModelManager] Blob URL lost for ${file.filename}, recreating from asset...',
+          );
           // Recreate Blob URL by reinstalling
-          final handler =
-              registry.sourceHandlerRegistry.getHandler(file.source);
+          final handler = registry.sourceHandlerRegistry.getHandler(
+            file.source,
+          );
           if (handler != null) {
             await handler.install(file.source);
             url = fileSystem.getUrl(file.filename);
@@ -451,10 +475,12 @@ class WebModelManager extends ModelFileManager {
     final installedCount = allInstalled.length;
 
     // Count by type
-    final inferenceCount =
-        allInstalled.where((m) => m.type == repo.ModelType.inference).length;
-    final embeddingCount =
-        allInstalled.where((m) => m.type == repo.ModelType.embedding).length;
+    final inferenceCount = allInstalled
+        .where((m) => m.type == repo.ModelType.inference)
+        .length;
+    final embeddingCount = allInstalled
+        .where((m) => m.type == repo.ModelType.embedding)
+        .length;
 
     return {
       'protectedFiles': installedCount,
@@ -579,8 +605,9 @@ class WebModelManager extends ModelFileManager {
     return InferenceModelSpec(
       name: name,
       modelSource: BundledSource(resourceName),
-      loraSource:
-          loraResourceName != null ? BundledSource(loraResourceName) : null,
+      loraSource: loraResourceName != null
+          ? BundledSource(loraResourceName)
+          : null,
       replacePolicy: replacePolicy,
       modelType: modelType,
       fileType: fileType,
@@ -654,8 +681,9 @@ class WebModelManager extends ModelFileManager {
   Future<void> installModelFromAsset(String path, {String? loraPath}) async {
     if (kReleaseMode) {
       throw UnsupportedError(
-          "Asset model loading is not supported in release builds. "
-          "Use fromNetwork() or fromBundled() instead.");
+        "Asset model loading is not supported in release builds. "
+        "Use fromNetwork() or fromBundled() instead.",
+      );
     }
 
     await _ensureInitialized();
@@ -693,14 +721,18 @@ class WebModelManager extends ModelFileManager {
   /// }
   /// ```
   @Deprecated(
-      'Use FlutterGemma.installModel().fromAsset().installWithProgress() instead')
+    'Use FlutterGemma.installModel().fromAsset().installWithProgress() instead',
+  )
   @override
-  Stream<int> installModelFromAssetWithProgress(String path,
-      {String? loraPath}) async* {
+  Stream<int> installModelFromAssetWithProgress(
+    String path, {
+    String? loraPath,
+  }) async* {
     if (kReleaseMode) {
       throw UnsupportedError(
-          "Asset model loading is not supported in release builds. "
-          "Use fromNetwork() or fromBundled() instead.");
+        "Asset model loading is not supported in release builds. "
+        "Use fromNetwork() or fromBundled() instead.",
+      );
     }
 
     await _ensureInitialized();
@@ -751,8 +783,8 @@ class WebModelManager extends ModelFileManager {
 
     final loraSource = loraPath != null
         ? (loraPath.startsWith('http')
-            ? ModelSource.network(loraPath)
-            : ModelSource.file(loraPath))
+              ? ModelSource.network(loraPath)
+              : ModelSource.file(loraPath))
         : null;
 
     // Convert legacy parameters to Modern API ModelSpec
@@ -792,7 +824,8 @@ class WebModelManager extends ModelFileManager {
 
     if (_activeInferenceModel == null) {
       throw Exception(
-          'No active inference model to apply LoRA weights to. Use setModelPath first.');
+        'No active inference model to apply LoRA weights to. Use setModelPath first.',
+      );
     }
 
     final current = _activeInferenceModel as InferenceModelSpec;
@@ -876,16 +909,23 @@ class WebModelManager extends ModelFileManager {
     try {
       final filename = spec.files
           .firstWhere(
-              (f) => f.prefsKey == PreferencesKeys.installedModelFileName)
+            (f) => f.prefsKey == PreferencesKeys.installedModelFileName,
+          )
           .filename;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          PreferencesKeys.activeInferenceModelType, spec.modelType.name);
+        PreferencesKeys.activeInferenceModelType,
+        spec.modelType.name,
+      );
       await prefs.setString(
-          PreferencesKeys.activeInferenceFileType, spec.fileType.name);
+        PreferencesKeys.activeInferenceFileType,
+        spec.fileType.name,
+      );
       await prefs.setString(PreferencesKeys.activeInferenceFilename, filename);
       await prefs.setString(
-          PreferencesKeys.activeInferenceSource, spec.modelSource.encode());
+        PreferencesKeys.activeInferenceSource,
+        spec.modelSource.encode(),
+      );
     } catch (e) {
       gemmaLog('[WebModelManager] persistActiveInferenceIdentity failed: $e');
     }
@@ -893,19 +933,29 @@ class WebModelManager extends ModelFileManager {
 
   Future<void> _persistActiveEmbeddingIdentity(EmbeddingModelSpec spec) async {
     try {
-      final modelFile = spec.files
-          .firstWhere((f) => f.prefsKey == PreferencesKeys.embeddingModelFile);
+      final modelFile = spec.files.firstWhere(
+        (f) => f.prefsKey == PreferencesKeys.embeddingModelFile,
+      );
       final tokenizerFile = spec.files.firstWhere(
-          (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile);
+        (f) => f.prefsKey == PreferencesKeys.embeddingTokenizerFile,
+      );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          PreferencesKeys.activeEmbeddingFilename, modelFile.filename);
-      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerFilename,
-          tokenizerFile.filename);
+        PreferencesKeys.activeEmbeddingFilename,
+        modelFile.filename,
+      );
       await prefs.setString(
-          PreferencesKeys.activeEmbeddingSource, spec.modelSource.encode());
-      await prefs.setString(PreferencesKeys.activeEmbeddingTokenizerSource,
-          spec.tokenizerSource.encode());
+        PreferencesKeys.activeEmbeddingTokenizerFilename,
+        tokenizerFile.filename,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeEmbeddingSource,
+        spec.modelSource.encode(),
+      );
+      await prefs.setString(
+        PreferencesKeys.activeEmbeddingTokenizerSource,
+        spec.tokenizerSource.encode(),
+      );
     } catch (e) {
       gemmaLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
     }

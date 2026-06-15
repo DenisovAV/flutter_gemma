@@ -41,13 +41,12 @@ class WebAssetSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is AssetSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     // Delegate to installWithProgress, ignore progress events
-    await for (final _
-        in installWithProgress(source, cancelToken: cancelToken)) {
+    await for (final _ in installWithProgress(
+      source,
+      cancelToken: cancelToken,
+    )) {
       // Ignore progress updates
     }
   }
@@ -70,7 +69,8 @@ class WebAssetSourceHandler implements SourceHandler {
         cacheKey: cacheKey,
         loader: (onProgress) async {
           gemmaLog(
-              '[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}');
+            '[WebAssetSourceHandler] Loading asset: ${source.normalizedPath}',
+          );
 
           onProgress(0.0);
           final byteData = await rootBundle.load(source.normalizedPath);
@@ -78,12 +78,15 @@ class WebAssetSourceHandler implements SourceHandler {
 
           // Validate asset is not empty
           if (bytes.isEmpty) {
-            throw StateError('Asset file is empty: ${source.normalizedPath}. '
-                'Check that the file exists and is not corrupted.');
+            throw StateError(
+              'Asset file is empty: ${source.normalizedPath}. '
+              'Check that the file exists and is not corrupted.',
+            );
           }
 
           gemmaLog(
-              '[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes');
+            '[WebAssetSourceHandler] Asset loaded: ${bytes.length} bytes',
+          );
           onProgress(1.0);
 
           return bytes;

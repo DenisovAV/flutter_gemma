@@ -17,19 +17,13 @@ class BundledSourceHandler implements SourceHandler {
   final FileSystemService fileSystem;
   final ModelRepository repository;
 
-  BundledSourceHandler({
-    required this.fileSystem,
-    required this.repository,
-  });
+  BundledSourceHandler({required this.fileSystem, required this.repository});
 
   @override
   bool supports(ModelSource source) => source is BundledSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     // Bundled resources are instant, no cancellation needed
     if (source is! BundledSource) {
       throw ArgumentError('BundledSourceHandler only supports BundledSource');
@@ -37,8 +31,9 @@ class BundledSourceHandler implements SourceHandler {
 
     // Get platform-specific bundled resource path
     // This path is used directly by the native layer (no copying needed)
-    final bundledPath =
-        await fileSystem.getBundledResourcePath(source.resourceName);
+    final bundledPath = await fileSystem.getBundledResourcePath(
+      source.resourceName,
+    );
 
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(bundledPath);
@@ -67,8 +62,9 @@ class BundledSourceHandler implements SourceHandler {
     }
 
     // Get platform-specific bundled resource path
-    final bundledPath =
-        await fileSystem.getBundledResourcePath(source.resourceName);
+    final bundledPath = await fileSystem.getBundledResourcePath(
+      source.resourceName,
+    );
 
     // Bundled resources are immediately available, report 100% after verification
     yield 100;

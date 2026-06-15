@@ -21,11 +21,12 @@ class ChatListWidget extends StatefulWidget {
   final InferenceChat? chat;
   final List<Message> messages;
   final ValueChanged<ModelResponse>
-      gemmaHandler; // Accepts ModelResponse (TextToken | FunctionCall)
-  final ValueChanged<Message> messageHandler; // Handles all message additions to history
+  gemmaHandler; // Accepts ModelResponse (TextToken | FunctionCall)
+  final ValueChanged<Message>
+  messageHandler; // Handles all message additions to history
   final ValueChanged<String> errorHandler;
   final bool
-      isProcessing; // Indicates if the model is currently processing (including function calls)
+  isProcessing; // Indicates if the model is currently processing (including function calls)
   final bool useSyncMode; // Toggle for sync/async mode
   final bool supportsAudio; // Whether the model supports audio input
 
@@ -69,7 +70,8 @@ class _ChatListWidgetState extends State<ChatListWidget> {
       itemBuilder: (context, index) {
         if (index == 0) {
           // Show GemmaInputField if processing OR last message is from user
-          if (widget.isProcessing || (widget.messages.isNotEmpty && widget.messages.last.isUser)) {
+          if (widget.isProcessing ||
+              (widget.messages.isNotEmpty && widget.messages.last.isUser)) {
             return GemmaInputField(
               chat: widget.chat,
               messages: widget.messages,
@@ -81,19 +83,26 @@ class _ChatListWidgetState extends State<ChatListWidget> {
                 // Add thinking as special thinking message to history
                 if (thinkingContent.isNotEmpty) {
                   debugPrint(
-                      'ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars');
-                  final thinkingMessage = Message.thinking(text: thinkingContent);
-                  widget.messageHandler(thinkingMessage); // Add to history through message handler
+                    'ChatListWidget: Adding thinking as thinking message: ${thinkingContent.length} chars',
+                  );
+                  final thinkingMessage = Message.thinking(
+                    text: thinkingContent,
+                  );
+                  widget.messageHandler(
+                    thinkingMessage,
+                  ); // Add to history through message handler
 
                   setState(() {
-                    _currentThinkingContent = ''; // Clear current thinking as it's now in history
+                    _currentThinkingContent =
+                        ''; // Clear current thinking as it's now in history
                   });
                 }
               },
             );
           }
           // Show ChatInputField only when not processing and last message is not from user
-          if (widget.messages.isEmpty || (!widget.messages.last.isUser && !widget.isProcessing)) {
+          if (widget.messages.isEmpty ||
+              (!widget.messages.last.isUser && !widget.isProcessing)) {
             return ChatInputField(
               handleSubmitted: _handleNewMessage,
               supportsImages: widget.chat?.supportsImages ?? false,
@@ -122,8 +131,10 @@ class _ChatListWidgetState extends State<ChatListWidget> {
 
           // If this is a thinking message, show as ThinkingWidget
           if (message.type == MessageType.thinking) {
-            final originalMessageIndex = widget.messages.length - 1 - messageIndex;
-            final isExpanded = _thinkingExpandedStates[originalMessageIndex] ?? false;
+            final originalMessageIndex =
+                widget.messages.length - 1 - messageIndex;
+            final isExpanded =
+                _thinkingExpandedStates[originalMessageIndex] ?? false;
 
             return ThinkingWidget(
               thinking: ThinkingResponse(message.text),
@@ -137,9 +148,7 @@ class _ChatListWidgetState extends State<ChatListWidget> {
           }
 
           // Regular message
-          return ChatMessageWidget(
-            message: message,
-          );
+          return ChatMessageWidget(message: message);
         }
         return null;
       },

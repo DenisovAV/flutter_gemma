@@ -14,9 +14,7 @@ class SampleDocumentsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sample Documents'),
-      ),
+      appBar: AppBar(title: const Text('Sample Documents')),
       body: Column(
         children: [
           Expanded(

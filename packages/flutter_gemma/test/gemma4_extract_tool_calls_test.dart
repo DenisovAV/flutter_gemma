@@ -29,11 +29,17 @@ void main() {
         'tool_calls': [
           {
             'type': 'function',
-            'function': {'name': 'first', 'arguments': {'a': 1}},
+            'function': {
+              'name': 'first',
+              'arguments': {'a': 1},
+            },
           },
           {
             'type': 'function',
-            'function': {'name': 'second', 'arguments': {'b': 2}},
+            'function': {
+              'name': 'second',
+              'arguments': {'b': 2},
+            },
           },
         ],
       });
@@ -73,8 +79,7 @@ void main() {
       expect(SdkResponseParser.extractToolCalls('{'), isEmpty);
     });
 
-    test('concatenated JSON documents (parallel calls in distinct messages)',
-        () {
+    test('concatenated JSON documents (parallel calls in distinct messages)', () {
       // Real shape captured from SDK on macOS GPU 2026-04-29 when prompt asks
       // for two unrelated tools: SDK emits two top-level JSON objects glued
       // together rather than one with a unified tool_calls array.
@@ -99,10 +104,7 @@ void main() {
               'name': 'complex',
               'arguments': {
                 'tags': ['<|"|>red<|"|>', '<|"|>blue<|"|>'],
-                'meta': {
-                  'note': '<|"|>important<|"|>',
-                  'count': 7,
-                },
+                'meta': {'note': '<|"|>important<|"|>', 'count': 7},
               },
             },
           },
@@ -111,7 +113,10 @@ void main() {
       final calls = SdkResponseParser.extractToolCalls(raw);
       expect(calls, hasLength(1));
       expect(calls.first.args['tags'], equals(['red', 'blue']));
-      expect(calls.first.args['meta'], equals({'note': 'important', 'count': 7}));
+      expect(
+        calls.first.args['meta'],
+        equals({'note': 'important', 'count': 7}),
+      );
     });
   });
 
@@ -137,8 +142,9 @@ void main() {
       });
       final cleaned = SdkResponseParser.cleanRawForHistory(raw);
       final decoded = jsonDecode(cleaned) as Map<String, dynamic>;
-      final args = (decoded['tool_calls'] as List).first['function']
-          ['arguments'] as Map<String, dynamic>;
+      final args =
+          (decoded['tool_calls'] as List).first['function']['arguments']
+              as Map<String, dynamic>;
       expect(args['aggregation'], equals('sumAmount'));
       expect(args['startYear'], equals(2023));
     });
@@ -166,7 +172,9 @@ void main() {
     test('returns input unchanged when not valid JSON', () {
       const malformed = 'not really json {{{';
       expect(
-          SdkResponseParser.cleanRawForHistory(malformed), equals(malformed));
+        SdkResponseParser.cleanRawForHistory(malformed),
+        equals(malformed),
+      );
     });
 
     test('preserves non-string fields verbatim', () {
@@ -183,8 +191,13 @@ void main() {
         ],
       });
       final cleaned = SdkResponseParser.cleanRawForHistory(raw);
-      final args = (jsonDecode(cleaned) as Map<String, dynamic>)['tool_calls']
-          [0]['function']['arguments'] as Map<String, dynamic>;
+      final args =
+          (jsonDecode(cleaned)
+                  as Map<
+                    String,
+                    dynamic
+                  >)['tool_calls'][0]['function']['arguments']
+              as Map<String, dynamic>;
       expect(args['level'], equals(75));
       expect(args['muted'], equals(false));
       expect(args['ratio'], equals(0.5));

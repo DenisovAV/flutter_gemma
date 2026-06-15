@@ -15,28 +15,28 @@ void main() {
       // Create a mock that captures messages
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMessageHandler(
-        'dev.flutter.pigeon.flutter_gemma_mediapipe.PlatformService.createModel',
-        (ByteData? message) async {
-          if (message != null) {
-            // Pigeon uses StandardMessageCodec
-            const codec = StandardMessageCodec();
-            final decoded = codec.decodeMessage(message);
-            if (decoded is List) {
-              capturedMessages.add(decoded);
-            }
-          }
-          // Return success (list with null = success)
-          return const StandardMessageCodec().encodeMessage([null]);
-        },
-      );
+            'dev.flutter.pigeon.flutter_gemma_mediapipe.PlatformService.createModel',
+            (ByteData? message) async {
+              if (message != null) {
+                // Pigeon uses StandardMessageCodec
+                const codec = StandardMessageCodec();
+                final decoded = codec.decodeMessage(message);
+                if (decoded is List) {
+                  capturedMessages.add(decoded);
+                }
+              }
+              // Return success (list with null = success)
+              return const StandardMessageCodec().encodeMessage([null]);
+            },
+          );
     });
 
     tearDown(() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMessageHandler(
-        'dev.flutter.pigeon.flutter_gemma_mediapipe.PlatformService.createModel',
-        null,
-      );
+            'dev.flutter.pigeon.flutter_gemma_mediapipe.PlatformService.createModel',
+            null,
+          );
     });
 
     test('supportAudio=true is sent to native', () async {

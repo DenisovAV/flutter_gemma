@@ -54,31 +54,31 @@ class ModelInfo {
   });
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'source': _sourceToJson(source),
-        'installedAt': installedAt.toIso8601String(),
-        'sizeBytes': sizeBytes,
-        'type': type.toString(),
-        'hasLoraWeights': hasLoraWeights,
-      };
+    'id': id,
+    'source': _sourceToJson(source),
+    'installedAt': installedAt.toIso8601String(),
+    'sizeBytes': sizeBytes,
+    'type': type.toString(),
+    'hasLoraWeights': hasLoraWeights,
+  };
 
   factory ModelInfo.fromJson(Map<String, dynamic> json) => ModelInfo(
-        id: json['id'] as String,
-        source: _sourceFromJson(json['source'] as Map<String, dynamic>),
-        installedAt: DateTime.parse(json['installedAt'] as String),
-        sizeBytes: json['sizeBytes'] as int,
-        type: ModelType.values.firstWhere((e) => e.toString() == json['type']),
-        hasLoraWeights: json['hasLoraWeights'] as bool,
-      );
+    id: json['id'] as String,
+    source: _sourceFromJson(json['source'] as Map<String, dynamic>),
+    installedAt: DateTime.parse(json['installedAt'] as String),
+    sizeBytes: json['sizeBytes'] as int,
+    type: ModelType.values.firstWhere((e) => e.toString() == json['type']),
+    hasLoraWeights: json['hasLoraWeights'] as bool,
+  );
 
   static Map<String, dynamic> _sourceToJson(ModelSource source) =>
       switch (source) {
         NetworkSource(:final url) => {'type': 'network', 'url': url},
         AssetSource(:final path) => {'type': 'asset', 'path': path},
         BundledSource(:final resourceName) => {
-            'type': 'bundled',
-            'resourceName': resourceName
-          },
+          'type': 'bundled',
+          'resourceName': resourceName,
+        },
         FileSource(:final path) => {'type': 'file', 'path': path},
       };
 
@@ -95,7 +95,4 @@ class ModelInfo {
 }
 
 /// Type of model
-enum ModelType {
-  inference,
-  embedding,
-}
+enum ModelType { inference, embedding }

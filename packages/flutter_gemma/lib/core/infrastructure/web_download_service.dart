@@ -94,22 +94,36 @@ class WebDownloadService implements DownloadService {
       if (opfsService == null) {
         gemmaLog('[WARNING] OPFS not available, falling back to cacheApi mode');
         gemmaLog(
-            '[WARNING] Large models (>2GB) may fail with ArrayBuffer limit');
+          '[WARNING] Large models (>2GB) may fail with ArrayBuffer limit',
+        );
         gemmaLog(
-            '[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)');
+          '[WARNING] Use a browser that supports OPFS (Chrome 86+, Edge 86+, Safari 15.2+)',
+        );
         // Fall back to cache API mode
-        yield* _downloadToCache(url, targetPath,
-            token: token, cancelToken: cancelToken);
+        yield* _downloadToCache(
+          url,
+          targetPath,
+          token: token,
+          cancelToken: cancelToken,
+        );
         return;
       }
-      yield* _downloadToOPFS(url, targetPath,
-          token: token, cancelToken: cancelToken);
+      yield* _downloadToOPFS(
+        url,
+        targetPath,
+        token: token,
+        cancelToken: cancelToken,
+      );
       return;
     }
 
     // CACHE API / NONE MODES: Use blob URLs
-    yield* _downloadToCache(url, targetPath,
-        token: token, cancelToken: cancelToken);
+    yield* _downloadToCache(
+      url,
+      targetPath,
+      token: token,
+      cancelToken: cancelToken,
+    );
   }
 
   /// Download to cache (Cache API or None mode)
@@ -145,10 +159,16 @@ class WebDownloadService implements DownloadService {
     } else {
       // PRIVATE PATH: Fetch with auth
       gemmaLog(
-          'WebDownloadService: Starting authenticated download for $targetPath');
+        'WebDownloadService: Starting authenticated download for $targetPath',
+      );
 
       yield* _downloadWithAuth(
-          url, normalizedUrl, targetPath, token, cancelToken);
+        url,
+        normalizedUrl,
+        targetPath,
+        token,
+        cancelToken,
+      );
     }
   }
 
@@ -190,32 +210,37 @@ class WebDownloadService implements DownloadService {
 
       // Start download in background with abort signal
       // ignore: receiver_of_type_never
-      opfsService!.downloadToOPFS(
-        url,
-        targetPath,
-        authToken: token,
-        onProgress: (percentage) {
-          if (streamController != null && !streamController.isClosed) {
-            streamController.add(percentage);
-          }
-        },
-        abortSignal: abortController.signal,
-      ).then((_) {
-        gemmaLog('[WebDownloadService] ✅ OPFS download complete: $targetPath');
+      opfsService!
+          .downloadToOPFS(
+            url,
+            targetPath,
+            authToken: token,
+            onProgress: (percentage) {
+              if (streamController != null && !streamController.isClosed) {
+                streamController.add(percentage);
+              }
+            },
+            abortSignal: abortController.signal,
+          )
+          .then((_) {
+            gemmaLog(
+              '[WebDownloadService] ✅ OPFS download complete: $targetPath',
+            );
 
-        // Register as OPFS file
-        _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
+            // Register as OPFS file
+            _fileSystem.registerUrl(targetPath, 'opfs://$targetPath');
 
-        if (streamController != null && !streamController.isClosed) {
-          streamController.close();
-        }
-      }).catchError((error) {
-        gemmaLog('[WebDownloadService] ❌ OPFS download failed: $error');
-        if (streamController != null && !streamController.isClosed) {
-          streamController.addError(error);
-          streamController.close();
-        }
-      });
+            if (streamController != null && !streamController.isClosed) {
+              streamController.close();
+            }
+          })
+          .catchError((error) {
+            gemmaLog('[WebDownloadService] ❌ OPFS download failed: $error');
+            if (streamController != null && !streamController.isClosed) {
+              streamController.addError(error);
+              streamController.close();
+            }
+          });
 
       // Yield progress events
       await for (final progress in streamController.stream) {
@@ -262,7 +287,8 @@ class WebDownloadService implements DownloadService {
           final response = await _jsInterop.fetchFile(url);
 
           gemmaLog(
-              '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
+            '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes',
+          );
           onProgress(1.0);
 
           return response.data;
@@ -298,7 +324,8 @@ class WebDownloadService implements DownloadService {
       cancelToken?.throwIfCancelled();
 
       gemmaLog(
-          'WebDownloadService: Starting authenticated download for $targetPath');
+        'WebDownloadService: Starting authenticated download for $targetPath',
+      );
 
       // Use unified caching helper with auth download
       yield* cacheService.getOrCacheAndRegisterWithProgress(
@@ -307,7 +334,8 @@ class WebDownloadService implements DownloadService {
           cancelToken?.throwIfCancelled();
 
           gemmaLog(
-              '[WebDownloadService] 📥 Downloading authenticated model: $url');
+            '[WebDownloadService] 📥 Downloading authenticated model: $url',
+          );
 
           // Create completer for async result
           final completer = Completer<Uint8List>();
@@ -315,17 +343,19 @@ class WebDownloadService implements DownloadService {
           // Start download with streaming progress
           _jsInterop
               .fetchWithAuth(
-            url,
-            authToken,
-            onProgress: onProgress, // Pass progress callback directly
-          )
+                url,
+                authToken,
+                onProgress: onProgress, // Pass progress callback directly
+              )
               .then((response) {
-            gemmaLog(
-                '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes');
-            completer.complete(response.data);
-          }).catchError((error) {
-            completer.completeError(error);
-          });
+                gemmaLog(
+                  '[WebDownloadService] ✅ Downloaded: ${response.data.length} bytes',
+                );
+                completer.complete(response.data);
+              })
+              .catchError((error) {
+                completer.completeError(error);
+              });
 
           return await completer.future;
         },
@@ -339,7 +369,8 @@ class WebDownloadService implements DownloadService {
       }
 
       gemmaLog(
-          '[WebDownloadService] ✅ Authenticated model downloaded and cached');
+        '[WebDownloadService] ✅ Authenticated model downloaded and cached',
+      );
     } on DownloadCancelledException {
       gemmaLog('WebDownloadService: Download cancelled for $targetPath');
       rethrow;

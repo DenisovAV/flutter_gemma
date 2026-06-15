@@ -24,22 +24,21 @@ class LitertEmbeddingModel extends EmbeddingModel with CloseNotifier {
     VoidCallback? onClose,
   }) async {
     throw UnsupportedError(
-        'LitertEmbeddingModel is not available on web — use FlutterGemmaWeb');
+      'LitertEmbeddingModel is not available on web — use FlutterGemmaWeb',
+    );
   }
 
   @override
   Future<List<double>> generateEmbedding(
     String text, {
     TaskType taskType = TaskType.retrievalQuery,
-  }) =>
-      throw UnsupportedError('stub');
+  }) => throw UnsupportedError('stub');
 
   @override
   Future<List<List<double>>> generateEmbeddings(
     List<String> texts, {
     TaskType taskType = TaskType.retrievalQuery,
-  }) =>
-      throw UnsupportedError('stub');
+  }) => throw UnsupportedError('stub');
 
   @override
   Future<int> getDimension() => throw UnsupportedError('stub');

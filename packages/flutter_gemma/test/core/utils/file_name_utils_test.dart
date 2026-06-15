@@ -212,10 +212,7 @@ void main() {
 
     group('isFileValid', () {
       test('returns true for large model files', () {
-        expect(
-          FileNameUtils.isFileValid('model.bin', 2 * 1024 * 1024),
-          true,
-        );
+        expect(FileNameUtils.isFileValid('model.bin', 2 * 1024 * 1024), true);
       });
 
       test('returns false for small model files', () {
@@ -239,10 +236,7 @@ void main() {
       });
 
       test('handles exact minimum size for model files', () {
-        expect(
-          FileNameUtils.isFileValid('model.task', 1024 * 1024),
-          true,
-        );
+        expect(FileNameUtils.isFileValid('model.task', 1024 * 1024), true);
       });
 
       test('handles exact minimum size for config files', () {
@@ -250,10 +244,7 @@ void main() {
       });
 
       test('handles one byte below minimum for model files', () {
-        expect(
-          FileNameUtils.isFileValid('model.bin', 1024 * 1024 - 1),
-          false,
-        );
+        expect(FileNameUtils.isFileValid('model.bin', 1024 * 1024 - 1), false);
       });
 
       test('handles one byte below minimum for config files', () {

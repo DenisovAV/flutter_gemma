@@ -24,8 +24,11 @@ class VisionEncoderValidator {
       final specs = _getSpecsForEncoder(encoderType);
 
       // Perform comprehensive validation
-      final formatValidation =
-          _validateFormat(imageBytes, originalFormat, specs);
+      final formatValidation = _validateFormat(
+        imageBytes,
+        originalFormat,
+        specs,
+      );
       if (!formatValidation.isValid) {
         return formatValidation;
       }
@@ -40,14 +43,17 @@ class VisionEncoderValidator {
         return dimensionValidation;
       }
 
-      final compatibilityValidation =
-          _validateEncoderCompatibility(imageBytes, encoderType);
+      final compatibilityValidation = _validateEncoderCompatibility(
+        imageBytes,
+        encoderType,
+      );
       if (!compatibilityValidation.isValid) {
         return compatibilityValidation;
       }
 
       gemmaLog(
-          'VisionEncoderValidator: Image validation passed for $encoderType');
+        'VisionEncoderValidator: Image validation passed for $encoderType',
+      );
 
       return ValidationResult(
         isValid: true,
@@ -62,7 +68,7 @@ class VisionEncoderValidator {
         encoderType: encoderType,
         message: 'Validation failed: $e',
         suggestions: [
-          'Check image format and try processing with ImageProcessor'
+          'Check image format and try processing with ImageProcessor',
         ],
       );
     }
@@ -107,7 +113,9 @@ class VisionEncoderValidator {
 
   /// Validates image file size
   static ValidationResult _validateSize(
-      Uint8List imageBytes, VisionSpecs specs) {
+    Uint8List imageBytes,
+    VisionSpecs specs,
+  ) {
     final sizeInBytes = imageBytes.length;
     final sizeInMB = sizeInBytes / (1024 * 1024);
 
@@ -141,7 +149,9 @@ class VisionEncoderValidator {
 
   /// Validates image dimensions
   static ValidationResult _validateDimensions(
-      Uint8List imageBytes, VisionSpecs specs) {
+    Uint8List imageBytes,
+    VisionSpecs specs,
+  ) {
     try {
       // This is a simplified check - in a real implementation,
       // you would decode the image to get actual dimensions
@@ -166,7 +176,7 @@ class VisionEncoderValidator {
           message:
               'Image dimensions too large: ${estimatedDimensions.width}x${estimatedDimensions.height}',
           suggestions: [
-            'Resize image to ${specs.targetWidth}x${specs.targetHeight}'
+            'Resize image to ${specs.targetWidth}x${specs.targetHeight}',
           ],
         );
       }
@@ -325,10 +335,7 @@ class VisionEncoderValidator {
 }
 
 /// Vision encoder types with their specifications
-enum VisionEncoderType {
-  gemma3SigLIP,
-  general,
-}
+enum VisionEncoderType { gemma3SigLIP, general }
 
 /// Base class for vision encoder specifications
 abstract class VisionSpecs {
@@ -362,35 +369,35 @@ abstract class VisionSpecs {
 /// Gemma 3 SigLIP vision encoder specifications
 class Gemma3Specs extends VisionSpecs {
   const Gemma3Specs()
-      : super(
-          encoderType: VisionEncoderType.gemma3SigLIP,
-          supportedFormats: const ['png', 'jpg', 'jpeg'],
-          maxFileSize: 5 * 1024 * 1024, // 5MB
-          minFileSize: 10 * 1024, // 10KB
-          maxWidth: 1024,
-          maxHeight: 1024,
-          minWidth: 224,
-          minHeight: 224,
-          targetWidth: 896,
-          targetHeight: 896,
-        );
+    : super(
+        encoderType: VisionEncoderType.gemma3SigLIP,
+        supportedFormats: const ['png', 'jpg', 'jpeg'],
+        maxFileSize: 5 * 1024 * 1024, // 5MB
+        minFileSize: 10 * 1024, // 10KB
+        maxWidth: 1024,
+        maxHeight: 1024,
+        minWidth: 224,
+        minHeight: 224,
+        targetWidth: 896,
+        targetHeight: 896,
+      );
 }
 
 /// General vision encoder specifications
 class GeneralVisionSpecs extends VisionSpecs {
   const GeneralVisionSpecs()
-      : super(
-          encoderType: VisionEncoderType.general,
-          supportedFormats: const ['png', 'jpg', 'jpeg', 'webp'],
-          maxFileSize: 10 * 1024 * 1024, // 10MB
-          minFileSize: 5 * 1024, // 5KB
-          maxWidth: 2048,
-          maxHeight: 2048,
-          minWidth: 112,
-          minHeight: 112,
-          targetWidth: 512,
-          targetHeight: 512,
-        );
+    : super(
+        encoderType: VisionEncoderType.general,
+        supportedFormats: const ['png', 'jpg', 'jpeg', 'webp'],
+        maxFileSize: 10 * 1024 * 1024, // 10MB
+        minFileSize: 5 * 1024, // 5KB
+        maxWidth: 2048,
+        maxHeight: 2048,
+        minWidth: 112,
+        minHeight: 112,
+        targetWidth: 512,
+        targetHeight: 512,
+      );
 }
 
 /// Result of image validation

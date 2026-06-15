@@ -80,7 +80,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       _statusMessage = hasModel
           ? 'Embedding model ready. Initialize VectorStore to begin.'
           : 'WARNING: No embedding model!\n'
-              'Please create an embedding model first from the Embedding Models screen.';
+                'Please create an embedding model first from the Embedding Models screen.';
     });
   }
 
@@ -152,9 +152,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
         _results = [];
         _statusMessage = recovered
             ? 'Failed to switch to ${next.label}: $e\n'
-                'Reverted to ${previous.label} — re-initialize the VectorStore.'
+                  'Reverted to ${previous.label} — re-initialize the VectorStore.'
             : 'Failed to switch backend and could not recover: $e\n'
-                'Please restart the app.';
+                  'Please restart the app.';
       });
     }
   }
@@ -310,7 +310,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       final category = _categoryFilter;
       final filter = category == null
           ? null
-          : Filter(must: [FieldEquals(key: 'category', value: category)]);
+          : Filter(
+              must: [FieldEquals(key: 'category', value: category)],
+            );
 
       final results = await FlutterGemmaPlugin.instance.searchSimilar(
         query: query,
@@ -324,8 +326,9 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
       setState(() {
         _results = results;
         _searchTimeMs = stopwatch.elapsedMilliseconds;
-        final filterDesc =
-            _categoryFilter == null ? 'no filter' : 'category=$_categoryFilter';
+        final filterDesc = _categoryFilter == null
+            ? 'no filter'
+            : 'category=$_categoryFilter';
         _statusMessage =
             'Found ${results.length} results in ${_searchTimeMs}ms ($filterDesc)';
         _isLoading = false;
@@ -398,9 +401,7 @@ class _RagDemoScreenState extends State<RagDemoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('RAG Demo'),
-      ),
+      appBar: AppBar(title: const Text('RAG Demo')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

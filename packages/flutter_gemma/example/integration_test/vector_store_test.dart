@@ -83,12 +83,12 @@ void main() {
         embedding: [0.0, 1.0, 0.0],
       );
 
-      final results =
-          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
-        queryEmbedding: [1.0, 0.0, 0.0],
-        topK: 2,
-        threshold: 0.5,
-      );
+      final results = await ServiceRegistry.instance.vectorStoreRepository
+          .searchSimilar(
+            queryEmbedding: [1.0, 0.0, 0.0],
+            topK: 2,
+            threshold: 0.5,
+          );
 
       expect(results.length, 2);
       expect(results[0].id, 'doc1');
@@ -132,8 +132,9 @@ void main() {
       await cleanupStore();
     });
 
-    testWidgets('Test 6: Dimension Validation - Reject Mismatched',
-        (tester) async {
+    testWidgets('Test 6: Dimension Validation - Reject Mismatched', (
+      tester,
+    ) async {
       await initStore();
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -155,13 +156,7 @@ void main() {
 
     testWidgets('Test 7: BLOB Compatibility - Round Trip', (tester) async {
       await initStore();
-      final originalEmbedding = [
-        0.123456789,
-        -0.987654321,
-        0.5,
-        0.0,
-        1.0,
-      ];
+      final originalEmbedding = [0.123456789, -0.987654321, 0.5, 0.0, 1.0];
 
       await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
         id: 'doc1',
@@ -169,12 +164,12 @@ void main() {
         embedding: originalEmbedding,
       );
 
-      final results =
-          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
-        queryEmbedding: originalEmbedding,
-        topK: 1,
-        threshold: 0.0,
-      );
+      final results = await ServiceRegistry.instance.vectorStoreRepository
+          .searchSimilar(
+            queryEmbedding: originalEmbedding,
+            topK: 1,
+            threshold: 0.0,
+          );
 
       expect(results.length, 1);
       expect(results[0].id, 'doc1');
@@ -196,12 +191,12 @@ void main() {
         embedding: [0.9, 0.1, 0.0],
       );
 
-      final results =
-          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
-        queryEmbedding: [1.0, 0.0, 0.0],
-        topK: 2,
-        threshold: 0.0,
-      );
+      final results = await ServiceRegistry.instance.vectorStoreRepository
+          .searchSimilar(
+            queryEmbedding: [1.0, 0.0, 0.0],
+            topK: 2,
+            threshold: 0.0,
+          );
 
       expect(results.length, 2);
       expect(results[0].metadata, isNotNull);
@@ -228,21 +223,25 @@ void main() {
         embedding: [0.0, 1.0, 0.0],
       );
 
-      final resultsHighThreshold =
-          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
-        queryEmbedding: [1.0, 0.0, 0.0],
-        topK: 10,
-        threshold: 0.8,
-      );
+      final resultsHighThreshold = await ServiceRegistry
+          .instance
+          .vectorStoreRepository
+          .searchSimilar(
+            queryEmbedding: [1.0, 0.0, 0.0],
+            topK: 10,
+            threshold: 0.8,
+          );
       expect(resultsHighThreshold.length, 1);
       expect(resultsHighThreshold[0].id, 'doc1');
 
-      final resultsLowThreshold =
-          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
-        queryEmbedding: [1.0, 0.0, 0.0],
-        topK: 10,
-        threshold: 0.0,
-      );
+      final resultsLowThreshold = await ServiceRegistry
+          .instance
+          .vectorStoreRepository
+          .searchSimilar(
+            queryEmbedding: [1.0, 0.0, 0.0],
+            topK: 10,
+            threshold: 0.0,
+          );
       expect(resultsLowThreshold.length, 3);
       await cleanupStore();
     });
@@ -269,12 +268,12 @@ void main() {
       stats = await FlutterGemmaPlugin.instance.getVectorStoreStats();
       expect(stats.documentCount, 1);
 
-      final results =
-          await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
-        queryEmbedding: [0.0, 1.0, 0.0],
-        topK: 1,
-        threshold: 0.0,
-      );
+      final results = await ServiceRegistry.instance.vectorStoreRepository
+          .searchSimilar(
+            queryEmbedding: [0.0, 1.0, 0.0],
+            topK: 1,
+            threshold: 0.0,
+          );
 
       expect(results.length, 1);
       expect(results[0].id, 'doc1');

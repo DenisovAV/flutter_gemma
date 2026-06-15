@@ -71,27 +71,39 @@ Future<void> _exercise(String label, EmbeddingModel model) async {
 
   // TaskType.prefix wires.
   final qSame = await model.generateEmbedding(_queries[0]);
-  final dSame = await model.generateEmbedding(_queries[0],
-      taskType: TaskType.retrievalDocument);
+  final dSame = await model.generateEmbedding(
+    _queries[0],
+    taskType: TaskType.retrievalDocument,
+  );
   final cosTypes = _cosine(qSame, dSame);
-  print('[$label] cosine(query vs doc, same text) = '
-      '${cosTypes.toStringAsFixed(4)}');
+  print(
+    '[$label] cosine(query vs doc, same text) = '
+    '${cosTypes.toStringAsFixed(4)}',
+  );
   expect(cosTypes, lessThan(0.999));
 
   // Semantic gradient (log only).
   final qWarm = await model.generateEmbedding(_queries[1]);
   final qPizza = await model.generateEmbedding(_queries[2]);
-  print('[$label] cosine(climate, global_warming) = '
-      '${_cosine(q, qWarm).toStringAsFixed(4)}');
-  print('[$label] cosine(climate, pizza)          = '
-      '${_cosine(q, qPizza).toStringAsFixed(4)}');
+  print(
+    '[$label] cosine(climate, global_warming) = '
+    '${_cosine(q, qWarm).toStringAsFixed(4)}',
+  );
+  print(
+    '[$label] cosine(climate, pizza)          = '
+    '${_cosine(q, qPizza).toStringAsFixed(4)}',
+  );
 
   // Batch == single.
-  final batch = await model.generateEmbeddings(_docs,
-      taskType: TaskType.retrievalDocument);
+  final batch = await model.generateEmbeddings(
+    _docs,
+    taskType: TaskType.retrievalDocument,
+  );
   for (var i = 0; i < _docs.length; i++) {
-    final single = await model.generateEmbedding(_docs[i],
-        taskType: TaskType.retrievalDocument);
+    final single = await model.generateEmbedding(
+      _docs[i],
+      taskType: TaskType.retrievalDocument,
+    );
     expect(_cosine(batch[i], single), greaterThan(0.99999));
   }
 
@@ -106,8 +118,10 @@ Future<void> _exercise(String label, EmbeddingModel model) async {
         bestIdx = j;
       }
     }
-    print('[$label] best match for "${_queries[i]}" → '
-        '"${_docs[bestIdx]}" (cos=${bestCos.toStringAsFixed(3)})');
+    print(
+      '[$label] best match for "${_queries[i]}" → '
+      '"${_docs[bestIdx]}" (cos=${bestCos.toStringAsFixed(3)})',
+    );
   }
 }
 
@@ -128,17 +142,21 @@ void main() {
     }
   }, timeout: const Timeout(Duration(minutes: 5)));
 
-  testWidgets('EmbeddingGemma 256 — full RAG flow', (_) async {
-    await registerTestEngines();
-    await FlutterGemma.installEmbedder()
-        .modelFromFile(await _docsPath(_gemmaModelName))
-        .tokenizerFromFile(await _docsPath(_gemmaTokenizerName))
-        .install();
-    final model = await FlutterGemma.getActiveEmbedder();
-    try {
-      await _exercise('EmbeddingGemma256', model);
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 5)));
+  testWidgets(
+    'EmbeddingGemma 256 — full RAG flow',
+    (_) async {
+      await registerTestEngines();
+      await FlutterGemma.installEmbedder()
+          .modelFromFile(await _docsPath(_gemmaModelName))
+          .tokenizerFromFile(await _docsPath(_gemmaTokenizerName))
+          .install();
+      final model = await FlutterGemma.getActiveEmbedder();
+      try {
+        await _exercise('EmbeddingGemma256', model);
+      } finally {
+        await model.close();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
 }

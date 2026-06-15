@@ -64,7 +64,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     if (supportImage || maxNumImages != null) {
       if (kDebugMode) {
         gemmaLog(
-            'Warning: Image support is not yet implemented for web platform');
+          'Warning: Image support is not yet implemented for web platform',
+        );
       }
     }
 
@@ -76,7 +77,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     if (_initializedModel != null) {
       if (kDebugMode) {
         gemmaLog(
-            '[FlutterGemmaWeb] Replacing existing model, closing it first');
+          '[FlutterGemmaWeb] Replacing existing model, closing it first',
+        );
       }
       await _initializedModel!.close();
       _initializedModel = null;
@@ -147,14 +149,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       // No active embedding model - user must set one first
       if (activeModel == null) {
         throw StateError(
-            'No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first');
+          'No active embedding model set. Use `FlutterGemma.installEmbedder()` or `modelManager.setActiveModel()` to set a model first',
+        );
       }
 
       // Get the actual model file paths through unified system
       final modelFilePaths = await manager.getModelFilePaths(activeModel);
       if (modelFilePaths == null || modelFilePaths.isEmpty) {
         throw StateError(
-            'Embedding model file paths not found. Use the `modelManager` to load the model first');
+          'Embedding model file paths not found. Use the `modelManager` to load the model first',
+        );
       }
 
       // Extract model and tokenizer paths from spec
@@ -165,7 +169,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
       if (activeModelPath == null || activeTokenizerPath == null) {
         throw StateError(
-            'Could not find model or tokenizer path in active embedding model');
+          'Could not find model or tokenizer path in active embedding model',
+        );
       }
 
       modelPath = activeModelPath;
@@ -173,7 +178,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
       if (kDebugMode) {
         gemmaLog(
-            'Using active embedding model: $modelPath, tokenizer: $tokenizerPath');
+          'Using active embedding model: $modelPath, tokenizer: $tokenizerPath',
+        );
       }
     }
 
@@ -183,14 +189,16 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     // it compares against the last resolved paths it cached itself.
     if (_initializedEmbeddingModel != null) {
       final p = _lastEmbeddingPaths;
-      final modelChanged = p == null ||
+      final modelChanged =
+          p == null ||
           p.modelPath != modelPath ||
           p.tokenizerPath != tokenizerPath;
 
       if (modelChanged) {
         if (kDebugMode) {
           gemmaLog(
-              '[FlutterGemmaWeb] Embedding model paths changed, closing existing model');
+            '[FlutterGemmaWeb] Embedding model paths changed, closing existing model',
+          );
         }
         await _initializedEmbeddingModel?.close();
         _initializedEmbeddingModel = null;
@@ -211,8 +219,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     final EmbeddingBackendProvider? backend = activeEmb is EmbeddingModelSpec
         ? EmbeddingRegistry.instance.findFor(activeEmb)
         : (EmbeddingRegistry.instance.registered.isNotEmpty
-            ? EmbeddingRegistry.instance.registered.first
-            : null);
+              ? EmbeddingRegistry.instance.registered.first
+              : null);
     if (backend == null) {
       throw StateError(
         'No embedding backend registered. Add flutter_gemma_embeddings to '
@@ -254,8 +262,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   @override
   Future<void> initializeVectorStore(String databasePath) async {
-    await ServiceRegistry.instance.vectorStoreRepository
-        .initialize(databasePath);
+    await ServiceRegistry.instance.vectorStoreRepository.initialize(
+      databasePath,
+    );
   }
 
   @override
@@ -320,8 +329,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     }
 
     // Generate query embedding and search
-    final queryEmbedding =
-        await _initializedEmbeddingModel!.generateEmbedding(query);
+    final queryEmbedding = await _initializedEmbeddingModel!.generateEmbedding(
+      query,
+    );
     return await ServiceRegistry.instance.vectorStoreRepository.searchSimilar(
       queryEmbedding: queryEmbedding,
       topK: topK,

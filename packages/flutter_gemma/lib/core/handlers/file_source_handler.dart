@@ -29,10 +29,7 @@ class FileSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is FileSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     // File sources are instant (just registration), no cancellation needed
     if (source is! FileSource) {
       throw ArgumentError('FileSourceHandler only supports FileSource');

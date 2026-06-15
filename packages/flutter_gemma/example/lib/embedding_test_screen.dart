@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/models/embedding_model.dart'
+    as example_embedding_model;
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 import 'package:flutter_gemma_example/cosine_similarity_screen.dart';
 import 'package:flutter_gemma_example/rag_demo_screen.dart';
@@ -52,7 +53,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         final authToken = await AuthTokenService.loadToken();
         token = authToken?.isNotEmpty == true ? authToken : null;
         if (kDebugMode) {
-          debugPrint('[EmbeddingTestScreen] Using auth token: ${token != null ? "YES" : "NO"}');
+          debugPrint(
+            '[EmbeddingTestScreen] Using auth token: ${token != null ? "YES" : "NO"}',
+          );
         }
       }
 
@@ -72,8 +75,10 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       // Add tokenizer source
       switch (widget.model.sourceType) {
         case ModelSourceType.network:
-          builder = builder.tokenizerFromNetwork(widget.model.tokenizerUrl,
-              token: token);
+          builder = builder.tokenizerFromNetwork(
+            widget.model.tokenizerUrl,
+            token: token,
+          );
         case ModelSourceType.asset:
           builder = builder.tokenizerFromAsset(widget.model.tokenizerUrl);
         case ModelSourceType.bundled:
@@ -88,7 +93,8 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
 
       // Get active embedding model
       _embeddingModel = await FlutterGemma.getActiveEmbedder(
-        preferredBackend: PreferredBackend.gpu, // Use GPU mode for better performance
+        preferredBackend:
+            PreferredBackend.gpu, // Use GPU mode for better performance
       );
 
       if (kDebugMode) {
@@ -121,7 +127,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
           IconButton(
             icon: const Icon(Icons.analytics),
             tooltip: 'Test Cosine Similarity',
-            onPressed: _embeddingModel != null ? _navigateToCosineSimilarity : null,
+            onPressed: _embeddingModel != null
+                ? _navigateToCosineSimilarity
+                : null,
           ),
         ],
       ),
@@ -197,7 +205,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                   child: ElevatedButton(
                     onPressed: _isGenerating ? null : _generateEmbedding,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isGenerating ? Colors.grey : const Color(0xFF1a4a7c),
+                      backgroundColor: _isGenerating
+                          ? Colors.grey
+                          : const Color(0xFF1a4a7c),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
@@ -210,7 +220,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
                                 ),
                               ),
                               SizedBox(width: 8),
@@ -226,7 +238,10 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[600],
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 24,
+                    ),
                   ),
                   child: const Text('Clear'),
                 ),
@@ -284,9 +299,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Expanded(
-                        child: _buildResultsContent(),
-                      ),
+                      Expanded(child: _buildResultsContent()),
                     ],
                   ),
                 ),
@@ -305,10 +318,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70),
-            ),
+            child: Text(label, style: const TextStyle(color: Colors.white70)),
           ),
           Text(
             value,
@@ -353,7 +363,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Generated ${embedding.length}-dimensional embedding vector'),
+            content: Text(
+              'Generated ${embedding.length}-dimensional embedding vector',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -370,10 +382,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -436,7 +445,10 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         children: [
           Text(
             'Vector (${_embeddingResult!.length} dimensions):',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -453,7 +465,10 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                   children: [
                     // Show first few dimensions
                     Text(
-                      _embeddingResult!.take(10).map((v) => v.toStringAsFixed(4)).join(', ') +
+                      _embeddingResult!
+                              .take(10)
+                              .map((v) => v.toStringAsFixed(4))
+                              .join(', ') +
                           (_embeddingResult!.length > 10 ? '...' : ''),
                       style: const TextStyle(
                         color: Colors.white,
@@ -464,7 +479,10 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Magnitude: ${_calculateMagnitude(_embeddingResult!).toStringAsFixed(6)}',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -524,9 +542,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
   void _navigateToVectorStore() {
     Navigator.push(
       context,
-      MaterialPageRoute<void>(
-        builder: (context) => const RagDemoScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (context) => const RagDemoScreen()),
     );
   }
 }

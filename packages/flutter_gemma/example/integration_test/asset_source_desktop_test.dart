@@ -25,8 +25,9 @@ import 'inference_test_helpers.dart' show registerTestEngines;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('AssetSource install falls back to writeFile on desktop',
-      (t) async {
+  testWidgets('AssetSource install falls back to writeFile on desktop', (
+    t,
+  ) async {
     await registerTestEngines();
 
     // assets/test/test_image.jpg is a 14 KB fixture bundled in the example.
@@ -43,9 +44,9 @@ void main() {
 
     // The actual probe — installing from an asset on macOS must not throw
     // "_Exception: Failed to copy asset: ... - MissingPluginException(...)".
-    await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-        .fromAsset(fixturePath)
-        .install();
+    await FlutterGemma.installModel(
+      modelType: ModelType.gemmaIt,
+    ).fromAsset(fixturePath).install();
 
     // Verify the file actually landed in the canonical model storage dir.
     // On desktop this is Application Support/flutter_gemma/ (not Documents),
@@ -53,11 +54,16 @@ void main() {
     final expectedPath = await ServiceRegistry.instance.fileSystemService
         .getTargetPath(fixtureBasename);
     final installed = File(expectedPath);
-    expect(installed.existsSync(), isTrue,
-        reason:
-            'Asset should have been written to the model storage directory');
-    expect(installed.lengthSync(), greaterThan(0),
-        reason: 'Written file should be non-empty');
+    expect(
+      installed.existsSync(),
+      isTrue,
+      reason: 'Asset should have been written to the model storage directory',
+    );
+    expect(
+      installed.lengthSync(),
+      greaterThan(0),
+      reason: 'Written file should be non-empty',
+    );
 
     // Cleanup.
     await FlutterGemma.uninstallModel(fixtureBasename);

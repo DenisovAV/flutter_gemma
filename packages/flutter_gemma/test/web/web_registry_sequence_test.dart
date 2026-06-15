@@ -30,8 +30,9 @@ class _RealLiteRtLmWebEngine implements InferenceEngineProvider {
       spec.fileType == ModelFileType.litertlm;
   @override
   Future<InferenceModel> createModel(
-          InferenceModelSpec spec, RuntimeConfig config) async =>
-      throw _LiteRtLmReached();
+    InferenceModelSpec spec,
+    RuntimeConfig config,
+  ) async => throw _LiteRtLmReached();
 }
 
 class _LiteRtLmReached implements Exception {}
@@ -48,55 +49,66 @@ class _CoreMediaPipe implements InferenceEngineProvider {
       spec.fileType == ModelFileType.binary;
   @override
   Future<InferenceModel> createModel(
-          InferenceModelSpec spec, RuntimeConfig config) async =>
-      throw _MediaPipeReached();
+    InferenceModelSpec spec,
+    RuntimeConfig config,
+  ) async => throw _MediaPipeReached();
 }
 
 class _MediaPipeReached implements Exception {}
 
 InferenceModelSpec _spec(ModelFileType ft) => InferenceModelSpec(
-      name: 'web',
-      modelSource: AssetSource('models/active.bin'),
-      modelType: ModelType.general,
-      fileType: ft,
-    );
+  name: 'web',
+  modelSource: AssetSource('models/active.bin'),
+  modelType: ModelType.general,
+  fileType: ft,
+);
 
 void main() {
   setUp(() => EngineRegistry.instance.reset());
 
-  test(
-      'with both web engines registered, .task resolves to MediaPipe '
+  test('with both web engines registered, .task resolves to MediaPipe '
       '(and the litertlm engine does not capture it)', () async {
     // The example registers both opt-in web engines:
     //   initialize(inferenceEngines: [LiteRtLmEngine(), MediaPipeEngine()]).
-    EngineRegistry.instance
-        .registerAll(const [_RealLiteRtLmWebEngine(), _CoreMediaPipe()]);
+    EngineRegistry.instance.registerAll(const [
+      _RealLiteRtLmWebEngine(),
+      _CoreMediaPipe(),
+    ]);
     // .task probe → MediaPipe (the litertlm engine only handles .litertlm).
-    final taskEngine =
-        EngineRegistry.instance.findFor(_spec(ModelFileType.task));
-    expect(taskEngine, isNotNull,
-        reason: 'MediaPipe must be selected for .task');
+    final taskEngine = EngineRegistry.instance.findFor(
+      _spec(ModelFileType.task),
+    );
+    expect(
+      taskEngine,
+      isNotNull,
+      reason: 'MediaPipe must be selected for .task',
+    );
     await expectLater(
-      () => taskEngine!.createModel(_spec(ModelFileType.task),
-          const RuntimeConfig(maxTokens: 1, modelPath: '')),
+      () => taskEngine!.createModel(
+        _spec(ModelFileType.task),
+        const RuntimeConfig(maxTokens: 1, modelPath: ''),
+      ),
       throwsA(isA<_MediaPipeReached>()),
       reason: '.task routes to MediaPipe',
     );
   });
 
-  test(
-      '.litertlm resolves to the REAL litertlm engine (builds, does not '
+  test('.litertlm resolves to the REAL litertlm engine (builds, does not '
       'throw UnsupportedError)', () async {
     EngineRegistry.instance.registerAll(const [_RealLiteRtLmWebEngine()]);
-    final engine =
-        EngineRegistry.instance.findFor(_spec(ModelFileType.litertlm));
+    final engine = EngineRegistry.instance.findFor(
+      _spec(ModelFileType.litertlm),
+    );
     expect(engine, isNotNull);
     expect(engine!.name, 'LiteRT-LM');
     await expectLater(
-      () => engine.createModel(_spec(ModelFileType.litertlm),
-          const RuntimeConfig(maxTokens: 1, modelPath: '')),
-      throwsA(isA<
-          _LiteRtLmReached>()), // reaches the real build path (sentinel), NOT UnsupportedError
+      () => engine.createModel(
+        _spec(ModelFileType.litertlm),
+        const RuntimeConfig(maxTokens: 1, modelPath: ''),
+      ),
+      throwsA(
+        isA<_LiteRtLmReached>(),
+      ), // reaches the real build path (sentinel), NOT UnsupportedError
       reason:
           '.litertlm routes to the real litertlm engine, which builds (not throws-unsupported)',
     );

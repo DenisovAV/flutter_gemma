@@ -57,7 +57,8 @@ class SmartDownloader {
         ],
       );
       gemmaLog(
-          '📲 SmartDownloader: Configured for AUTO foreground (>${_foregroundThresholdMB}MB)');
+        '📲 SmartDownloader: Configured for AUTO foreground (>${_foregroundThresholdMB}MB)',
+      );
     }
 
     _isConfigured = true;
@@ -155,8 +156,9 @@ class SmartDownloader {
 
     // Listen for cancellation
     if (cancelToken != null) {
-      cancellationListener =
-          cancelToken.whenCancelled.asStream().listen((_) async {
+      cancellationListener = cancelToken.whenCancelled.asStream().listen((
+        _,
+      ) async {
         gemmaLog('🚫 Cancellation requested');
 
         // Cancel the actual download task
@@ -164,7 +166,8 @@ class SmartDownloader {
           gemmaLog('🚫 Cancelling task: $currentTaskId');
           try {
             await FileDownloader().cancelTaskWithId(
-                currentTaskId!); // ← ADD: Actually cancel the task
+              currentTaskId!,
+            ); // ← ADD: Actually cancel the task
           } catch (e) {
             gemmaLog('⚠️ Failed to cancel task: $e');
           }
@@ -185,27 +188,29 @@ class SmartDownloader {
     }
 
     // Configure FileDownloader and start download
-    _ensureConfigured(foreground).then((_) async {
-      await _downloadWithSmartRetry(
-        url: url,
-        targetPath: targetPath,
-        token: token,
-        maxRetries: maxRetries,
-        progress: progress,
-        currentAttempt: 1,
-        currentListener: currentListener,
-        cancelToken: cancelToken,
-        onListenerCreated: (listener) {
-          currentListener = listener;
-        },
-        onTaskCreated: (taskId) {
-          currentTaskId = taskId;
-        },
-      );
-    }).whenComplete(() {
-      // Clean up cancellation listener when download completes
-      cancellationListener?.cancel();
-    });
+    _ensureConfigured(foreground)
+        .then((_) async {
+          await _downloadWithSmartRetry(
+            url: url,
+            targetPath: targetPath,
+            token: token,
+            maxRetries: maxRetries,
+            progress: progress,
+            currentAttempt: 1,
+            currentListener: currentListener,
+            cancelToken: cancelToken,
+            onListenerCreated: (listener) {
+              currentListener = listener;
+            },
+            onTaskCreated: (taskId) {
+              currentTaskId = taskId;
+            },
+          );
+        })
+        .whenComplete(() {
+          // Clean up cancellation listener when download completes
+          cancellationListener?.cancel();
+        });
 
     return progress.stream;
   }
@@ -239,7 +244,8 @@ class SmartDownloader {
         '${url.hashCode.toUnsigned(32).toRadixString(16)}_${targetPath.hashCode.toUnsigned(32).toRadixString(16)}';
 
     gemmaLog(
-        '🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries');
+      '🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries',
+    );
     gemmaLog('🔵 URL: $url');
     gemmaLog('🔵 Target: $targetPath');
     gemmaLog('🔵 TaskId: $taskId');
@@ -254,7 +260,8 @@ class SmartDownloader {
       final existingTask = await downloader.taskForId(taskId);
       if (existingTask != null) {
         gemmaLog(
-            '🔵 Task $taskId already in progress, attaching to existing...');
+          '🔵 Task $taskId already in progress, attaching to existing...',
+        );
 
         // Create completer to wait for existing task completion
         final completer = Completer<void>();
@@ -285,7 +292,8 @@ class SmartDownloader {
                 progress.addError(
                   DownloadException(
                     DownloadError.network(
-                        'Existing download failed: ${update.status}'),
+                      'Existing download failed: ${update.status}',
+                    ),
                   ),
                 );
                 progress.close();
@@ -303,15 +311,17 @@ class SmartDownloader {
         return;
       }
 
-      final (baseDirectory, directory, filename) =
-          await Task.split(filePath: targetPath);
+      final (baseDirectory, directory, filename) = await Task.split(
+        filePath: targetPath,
+      );
 
       // Auto-detect allowPause based on URL
       // HuggingFace uses weak ETags - resume not reliable
       // Other servers (GCS, Kaggle, custom) - resume usually works
       final allowPause = !_isHuggingFaceUrl(url);
       gemmaLog(
-          '🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})');
+        '🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})',
+      );
 
       final task = DownloadTask(
         taskId: taskId,
@@ -350,7 +360,8 @@ class SmartDownloader {
         if (update.task.taskId != task.taskId) return;
 
         gemmaLog(
-            '📡 Received update for task ${task.taskId}: ${update.runtimeType}');
+          '📡 Received update for task ${task.taskId}: ${update.runtimeType}',
+        );
 
         if (update is TaskProgressUpdate) {
           final percents = (update.progress * 100).round();
@@ -360,7 +371,8 @@ class SmartDownloader {
           }
         } else if (update is TaskStatusUpdate) {
           gemmaLog(
-              '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}');
+            '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
+          );
 
           switch (update.status) {
             case TaskStatus.complete:
@@ -375,7 +387,8 @@ class SmartDownloader {
             case TaskStatus.failed:
               gemmaLog('🔴 SmartDownloader: TaskStatus.failed detected');
               gemmaLog(
-                  '🔴 HTTP Status Code from update: ${update.responseStatusCode}');
+                '🔴 HTTP Status Code from update: ${update.responseStatusCode}',
+              );
               gemmaLog('🔴 Exception: ${update.exception}');
               gemmaLog('🔴 Progress closed: ${progress.isClosed}');
               gemmaLog('🔴 Current attempt: $currentAttempt');
@@ -389,7 +402,8 @@ class SmartDownloader {
                   httpCode =
                       (update.exception as TaskHttpException).httpResponseCode;
                   gemmaLog(
-                      '🔴 HTTP Status Code from TaskHttpException: $httpCode');
+                    '🔴 HTTP Status Code from TaskHttpException: $httpCode',
+                  );
                 }
               }
 
@@ -433,7 +447,8 @@ class SmartDownloader {
 
             case TaskStatus.notFound:
               gemmaLog(
-                  '🔴 SmartDownloader: TaskStatus.notFound detected (404)');
+                '🔴 SmartDownloader: TaskStatus.notFound detected (404)',
+              );
 
               // 404 is a non-retryable error - handle immediately
               // Note: 404 always returns false (no resume), but using same pattern for consistency
@@ -491,9 +506,11 @@ class SmartDownloader {
 
       if (currentAttempt < maxRetries) {
         gemmaLog(
-            '⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries');
+          '⚠️ Retrying after exception... attempt ${currentAttempt + 1}/$maxRetries',
+        );
         await Future.delayed(
-            Duration(seconds: currentAttempt * 2)); // Exponential backoff
+          Duration(seconds: currentAttempt * 2),
+        ); // Exponential backoff
 
         // Check cancellation before retry
         try {

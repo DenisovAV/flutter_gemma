@@ -174,8 +174,10 @@ class _TranslateScreenState extends State<TranslateScreen> {
       ),
       body: !_isModelInitialized
           ? (_error != null
-              ? _buildErrorState(_error!)
-              : const LoadingWidget(message: 'Initializing translation model'))
+                ? _buildErrorState(_error!)
+                : const LoadingWidget(
+                    message: 'Initializing translation model',
+                  ))
           : Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -183,13 +185,25 @@ class _TranslateScreenState extends State<TranslateScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: _langPicker(entries, _src, (v) => setState(() => _src = v))),
+                      Expanded(
+                        child: _langPicker(
+                          entries,
+                          _src,
+                          (v) => setState(() => _src = v),
+                        ),
+                      ),
                       IconButton(
                         icon: const Icon(Icons.swap_horiz, color: Colors.white),
                         tooltip: 'Swap languages',
                         onPressed: _translating ? null : _swap,
                       ),
-                      Expanded(child: _langPicker(entries, _dst, (v) => setState(() => _dst = v))),
+                      Expanded(
+                        child: _langPicker(
+                          entries,
+                          _dst,
+                          (v) => setState(() => _dst = v),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),

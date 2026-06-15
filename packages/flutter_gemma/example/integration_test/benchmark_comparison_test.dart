@@ -71,15 +71,15 @@ class BenchmarkResult {
   });
 
   Map<String, dynamic> toJson() => {
-        'model': modelName,
-        'category': testCategory,
-        'test': testName,
-        'question': question,
-        'response': response,
-        'duration_ms': durationMs,
-        'first_token_ms': firstTokenMs,
-        'timestamp': timestamp.toIso8601String(),
-      };
+    'model': modelName,
+    'category': testCategory,
+    'test': testName,
+    'question': question,
+    'response': response,
+    'duration_ms': durationMs,
+    'first_token_ms': firstTokenMs,
+    'timestamp': timestamp.toIso8601String(),
+  };
 }
 
 // --- Test data ---
@@ -91,7 +91,7 @@ const _textQuestions = <(String name, String question)>[
   ('technical', 'What are the main differences between TCP and UDP?'),
   (
     'multilingual',
-    "Translate 'Hello, how are you?' to Spanish, French, and German"
+    "Translate 'Hello, how are you?' to Spanish, French, and German",
   ),
 ];
 
@@ -163,9 +163,11 @@ Future<BenchmarkResult> _runTextBenchmark({
 
   print('[Benchmark] $modelName / $category / $testName');
   print(
-      '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
+    '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms',
+  );
   print(
-      '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
+    '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."',
+  );
 
   return result;
 }
@@ -187,11 +189,9 @@ Future<BenchmarkResult> _runVisionBenchmark({
     final sw = Stopwatch()..start();
     int firstTokenMs = -1;
 
-    await chat.addQueryChunk(Message.withImage(
-      text: question,
-      imageBytes: imageBytes,
-      isUser: true,
-    ));
+    await chat.addQueryChunk(
+      Message.withImage(text: question, imageBytes: imageBytes, isUser: true),
+    );
 
     final buffer = StringBuffer();
     await for (final response in chat.generateChatResponseAsync()) {
@@ -217,9 +217,11 @@ Future<BenchmarkResult> _runVisionBenchmark({
 
     print('[Benchmark] $modelName / vision / $testName');
     print(
-        '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
+      '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms',
+    );
     print(
-        '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
+      '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."',
+    );
 
     return result;
   } finally {
@@ -244,11 +246,9 @@ Future<BenchmarkResult> _runAudioBenchmark({
     final sw = Stopwatch()..start();
     int firstTokenMs = -1;
 
-    await chat.addQueryChunk(Message.withAudio(
-      text: question,
-      audioBytes: audioBytes,
-      isUser: true,
-    ));
+    await chat.addQueryChunk(
+      Message.withAudio(text: question, audioBytes: audioBytes, isUser: true),
+    );
 
     final buffer = StringBuffer();
     await for (final response in chat.generateChatResponseAsync()) {
@@ -274,9 +274,11 @@ Future<BenchmarkResult> _runAudioBenchmark({
 
     print('[Benchmark] $modelName / audio / $testName');
     print(
-        '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms');
+      '  First token: ${result.firstTokenMs}ms, Total: ${result.durationMs}ms',
+    );
     print(
-        '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."');
+      '  Response: "${result.response.length > 100 ? result.response.substring(0, 100) : result.response}..."',
+    );
 
     return result;
   } finally {
@@ -287,9 +289,9 @@ Future<BenchmarkResult> _runAudioBenchmark({
 Future<void> _saveResults() async {
   final timestamp = DateTime.now().millisecondsSinceEpoch;
   final path = '/sdcard/Download/benchmark_results_$timestamp.json';
-  final json = const JsonEncoder.withIndent('  ').convert(
-    _allResults.map((r) => r.toJson()).toList(),
-  );
+  final json = const JsonEncoder.withIndent(
+    '  ',
+  ).convert(_allResults.map((r) => r.toJson()).toList());
   final file = File(path);
   await file.writeAsString(json);
   print('[Benchmark] Results saved to $path');
@@ -301,146 +303,149 @@ Future<void> _saveResults() async {
 void main() {
   initIntegrationTest();
 
-  testWidgets('Benchmark: Gemma 3 Nano E2B vs Gemma 4 E2B', (tester) async {
-    if (!Platform.isAndroid) {
-      markTestSkipped(
-          'Benchmark only runs on Android (requires /data/local/tmp models)');
-      return;
-    }
-
-    await registerTestEngines();
-
-    // Pre-load test assets
-    final imageBytes = await _loadTestImage();
-    final audioBytes = await _loadTestAudio();
-    print('[Benchmark] Test image: ${imageBytes.length} bytes');
-    print('[Benchmark] Test audio: ${audioBytes.length} bytes');
-
-    for (final modelConfig in _models) {
-      print('\n${'=' * 60}');
-      print('BENCHMARKING: ${modelConfig.name}');
-      print('${'=' * 60}\n');
-
-      // --- Install model ---
-      await _installBenchmarkModel(modelConfig);
-
-      // --- Text benchmarks (single-turn, new chat per question) ---
-      {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
+  testWidgets(
+    'Benchmark: Gemma 3 Nano E2B vs Gemma 4 E2B',
+    (tester) async {
+      if (!Platform.isAndroid) {
+        markTestSkipped(
+          'Benchmark only runs on Android (requires /data/local/tmp models)',
         );
-        try {
-          for (final (name, question) in _textQuestions) {
-            final chat = await model.createChat(
-              modelType: ModelType.gemmaIt,
-            );
-            final result = await _runTextBenchmark(
-              modelName: modelConfig.name,
-              chat: chat,
-              category: 'text',
-              testName: name,
-              question: question,
-            );
-            _allResults.add(result);
+        return;
+      }
+
+      await registerTestEngines();
+
+      // Pre-load test assets
+      final imageBytes = await _loadTestImage();
+      final audioBytes = await _loadTestAudio();
+      print('[Benchmark] Test image: ${imageBytes.length} bytes');
+      print('[Benchmark] Test audio: ${audioBytes.length} bytes');
+
+      for (final modelConfig in _models) {
+        print('\n${'=' * 60}');
+        print('BENCHMARKING: ${modelConfig.name}');
+        print('${'=' * 60}\n');
+
+        // --- Install model ---
+        await _installBenchmarkModel(modelConfig);
+
+        // --- Text benchmarks (single-turn, new chat per question) ---
+        {
+          final model = await FlutterGemma.getActiveModel(
+            maxTokens: 4096,
+            preferredBackend: PreferredBackend.gpu,
+          );
+          try {
+            for (final (name, question) in _textQuestions) {
+              final chat = await model.createChat(modelType: ModelType.gemmaIt);
+              final result = await _runTextBenchmark(
+                modelName: modelConfig.name,
+                chat: chat,
+                category: 'text',
+                testName: name,
+                question: question,
+              );
+              _allResults.add(result);
+            }
+          } finally {
+            await model.close();
           }
-        } finally {
-          await model.close();
         }
-      }
 
-      // --- Multi-turn chat benchmark (single chat, 5 steps) ---
-      {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
-        );
-        try {
-          final chat = await model.createChat(
-            modelType: ModelType.gemmaIt,
+        // --- Multi-turn chat benchmark (single chat, 5 steps) ---
+        {
+          final model = await FlutterGemma.getActiveModel(
+            maxTokens: 4096,
+            preferredBackend: PreferredBackend.gpu,
           );
+          try {
+            final chat = await model.createChat(modelType: ModelType.gemmaIt);
 
-          for (var i = 0; i < _chatSteps.length; i++) {
-            final result = await _runTextBenchmark(
-              modelName: modelConfig.name,
-              chat: chat,
-              category: 'multi_turn',
-              testName: 'step_${i + 1}',
-              question: _chatSteps[i],
-            );
-            _allResults.add(result);
+            for (var i = 0; i < _chatSteps.length; i++) {
+              final result = await _runTextBenchmark(
+                modelName: modelConfig.name,
+                chat: chat,
+                category: 'multi_turn',
+                testName: 'step_${i + 1}',
+                question: _chatSteps[i],
+              );
+              _allResults.add(result);
+            }
+          } finally {
+            await model.close();
           }
-        } finally {
-          await model.close();
         }
-      }
 
-      // --- Vision benchmarks ---
-      {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
-          supportImage: true,
-          maxNumImages: 1,
+        // --- Vision benchmarks ---
+        {
+          final model = await FlutterGemma.getActiveModel(
+            maxTokens: 4096,
+            preferredBackend: PreferredBackend.gpu,
+            supportImage: true,
+            maxNumImages: 1,
+          );
+          try {
+            final r1 = await _runVisionBenchmark(
+              modelName: modelConfig.name,
+              model: model,
+              testName: 'describe_object',
+              question: 'What do you see in this image? Describe it briefly.',
+              imageBytes: imageBytes,
+            );
+            _allResults.add(r1);
+
+            final r2 = await _runVisionBenchmark(
+              modelName: modelConfig.name,
+              model: model,
+              testName: 'describe_detail',
+              question: 'Describe everything you see in this image in detail.',
+              imageBytes: imageBytes,
+            );
+            _allResults.add(r2);
+          } finally {
+            await model.close();
+          }
+        }
+
+        // --- Audio benchmarks ---
+        {
+          final model = await FlutterGemma.getActiveModel(
+            maxTokens: 4096,
+            preferredBackend: PreferredBackend.gpu,
+            supportAudio: true,
+          );
+          try {
+            final r1 = await _runAudioBenchmark(
+              modelName: modelConfig.name,
+              model: model,
+              testName: 'transcribe_short',
+              question: 'What was said in this audio?',
+              audioBytes: audioBytes,
+            );
+            _allResults.add(r1);
+
+            final r2 = await _runAudioBenchmark(
+              modelName: modelConfig.name,
+              model: model,
+              testName: 'transcribe_summarize',
+              question: 'Transcribe this audio and summarize what was said.',
+              audioBytes: audioBytes,
+            );
+            _allResults.add(r2);
+          } finally {
+            await model.close();
+          }
+        }
+
+        print(
+          '\n[Benchmark] ${modelConfig.name} complete. '
+          'Results so far: ${_allResults.length}',
         );
-        try {
-          final r1 = await _runVisionBenchmark(
-            modelName: modelConfig.name,
-            model: model,
-            testName: 'describe_object',
-            question: 'What do you see in this image? Describe it briefly.',
-            imageBytes: imageBytes,
-          );
-          _allResults.add(r1);
-
-          final r2 = await _runVisionBenchmark(
-            modelName: modelConfig.name,
-            model: model,
-            testName: 'describe_detail',
-            question: 'Describe everything you see in this image in detail.',
-            imageBytes: imageBytes,
-          );
-          _allResults.add(r2);
-        } finally {
-          await model.close();
-        }
       }
 
-      // --- Audio benchmarks ---
-      {
-        final model = await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.gpu,
-          supportAudio: true,
-        );
-        try {
-          final r1 = await _runAudioBenchmark(
-            modelName: modelConfig.name,
-            model: model,
-            testName: 'transcribe_short',
-            question: 'What was said in this audio?',
-            audioBytes: audioBytes,
-          );
-          _allResults.add(r1);
-
-          final r2 = await _runAudioBenchmark(
-            modelName: modelConfig.name,
-            model: model,
-            testName: 'transcribe_summarize',
-            question: 'Transcribe this audio and summarize what was said.',
-            audioBytes: audioBytes,
-          );
-          _allResults.add(r2);
-        } finally {
-          await model.close();
-        }
-      }
-
-      print('\n[Benchmark] ${modelConfig.name} complete. '
-          'Results so far: ${_allResults.length}');
-    }
-
-    // --- Save all results ---
-    await _saveResults();
-  }, timeout: const Timeout(Duration(minutes: 60)));
+      // --- Save all results ---
+      await _saveResults();
+    },
+    timeout: const Timeout(Duration(minutes: 60)),
+  );
 }

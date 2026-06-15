@@ -11,13 +11,13 @@ import 'package:flutter_gemma/pigeon.g.dart';
 /// without wiring a store knows exactly what to do.
 class UnconfiguredVectorStore implements VectorStoreRepository {
   static Never _fail() => throw StateError(
-        'No vector store is configured. flutter_gemma 1.0 ships no built-in RAG '
-        'backend. Add a RAG package to pubspec.yaml and pass its store to '
-        'FlutterGemma.initialize(vectorStore: ...):\n'
-        '  • flutter_gemma_rag_sqlite  → SqliteVectorStore() (native) / '
-        'WebSqliteVectorStore() (web)\n'
-        '  • flutter_gemma_rag_qdrant  → QdrantVectorStore() (native only)',
-      );
+    'No vector store is configured. flutter_gemma 1.0 ships no built-in RAG '
+    'backend. Add a RAG package to pubspec.yaml and pass its store to '
+    'FlutterGemma.initialize(vectorStore: ...):\n'
+    '  • flutter_gemma_rag_sqlite  → SqliteVectorStore() (native) / '
+    'WebSqliteVectorStore() (web)\n'
+    '  • flutter_gemma_rag_qdrant  → QdrantVectorStore() (native only)',
+  );
 
   @override
   bool get isInitialized => false;
@@ -34,8 +34,7 @@ class UnconfiguredVectorStore implements VectorStoreRepository {
     required String content,
     required List<double> embedding,
     String? metadata,
-  }) async =>
-      _fail();
+  }) async => _fail();
 
   @override
   Future<void> removeDocument({required String id}) async => _fail();
@@ -46,8 +45,7 @@ class UnconfiguredVectorStore implements VectorStoreRepository {
     required int topK,
     double threshold = 0.0,
     Filter? filter,
-  }) async =>
-      _fail();
+  }) async => _fail();
 
   @override
   Future<VectorStoreStats> getStats() async => _fail();

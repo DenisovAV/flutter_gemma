@@ -66,10 +66,8 @@ class TestModelConfig {
 
   /// All engine configs to test on current platform.
   static List<({TestModelConfig config, String label})>
-      allForCurrentPlatform() {
-    return [
-      (config: forCurrentPlatform(), label: 'default engine'),
-    ];
+  allForCurrentPlatform() {
+    return [(config: forCurrentPlatform(), label: 'default engine')];
   }
 }
 
@@ -107,7 +105,5 @@ Future<InferenceModel> createTestModel({int maxTokens = 512}) async {
 
 /// Create a chat from a model with FunctionGemma model type.
 Future<InferenceChat> createTestChat(InferenceModel model) async {
-  return await model.createChat(
-    modelType: ModelType.functionGemma,
-  );
+  return await model.createChat(modelType: ModelType.functionGemma);
 }

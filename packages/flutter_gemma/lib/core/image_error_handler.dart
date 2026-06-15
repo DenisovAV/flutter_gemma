@@ -62,8 +62,10 @@ class ImageErrorHandler {
     gemmaLog('Expected Images: $expectedImageCount');
     gemmaLog('Prompt Length: ${prompt?.length ?? 0}');
     if (prompt != null && prompt.length < _maxLogSize) {
-      gemmaLog('Prompt Preview: ${_sanitizePromptForLogging(prompt)}',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'Prompt Preview: ${_sanitizePromptForLogging(prompt)}',
+        level: GemmaLogLevel.verbose,
+      );
     }
 
     final errorType = _categorizeTokenizationError(error, prompt);
@@ -75,8 +77,11 @@ class ImageErrorHandler {
       expectedImageCount,
     );
 
-    final message =
-        _createTokenizationErrorMessage(error, errorType, modelType);
+    final message = _createTokenizationErrorMessage(
+      error,
+      errorType,
+      modelType,
+    );
 
     gemmaLog('Tokenization Recovery: ${suggestions.join(', ')}');
     gemmaLog('================================');
@@ -135,8 +140,10 @@ class ImageErrorHandler {
       gemmaLog('=== DETECTING RESPONSE CORRUPTION ===');
       gemmaLog('Response Length: ${response.length}');
       if (response.length < _maxLogSize) {
-        gemmaLog('Response Preview: ${_sanitizeResponseForLogging(response)}',
-            level: GemmaLogLevel.verbose);
+        gemmaLog(
+          'Response Preview: ${_sanitizeResponseForLogging(response)}',
+          level: GemmaLogLevel.verbose,
+        );
       }
 
       // Check for known corruption patterns
@@ -146,8 +153,10 @@ class ImageErrorHandler {
       final analysis = _analyzeResponseCharacteristics(response);
 
       // Determine confidence level
-      final confidence =
-          _calculateCorruptionConfidence(hasCorruption, analysis);
+      final confidence = _calculateCorruptionConfidence(
+        hasCorruption,
+        analysis,
+      );
 
       gemmaLog('Corruption Detected: $hasCorruption');
       gemmaLog('Confidence Level: ${confidence.toStringAsFixed(2)}');
@@ -243,7 +252,9 @@ class ImageErrorHandler {
 
   /// Generates recovery suggestions based on error type
   static List<String> _generateRecoverySuggestions(
-      ErrorType errorType, Uint8List? imageBytes) {
+    ErrorType errorType,
+    Uint8List? imageBytes,
+  ) {
     final suggestions = <String>[];
 
     switch (errorType) {
@@ -328,7 +339,8 @@ class ImageErrorHandler {
 
   /// Gets validation-specific recovery suggestions
   static List<String> _getValidationRecoverySuggestions(
-      ValidationResult result) {
+    ValidationResult result,
+  ) {
     return List<String>.from(result.suggestions);
   }
 
@@ -354,14 +366,17 @@ class ImageErrorHandler {
     // Pattern analysis
     analysis['hasRepeatingDots'] = response.contains(RegExp(r'\.{3,}'));
     analysis['hasRepeatingChars'] = response.contains(RegExp(r'(.)\1{5,}'));
-    analysis['hasSingleChars'] =
-        response.contains(RegExp(r'\b.\b.*\b.\b.*\b.\b'));
+    analysis['hasSingleChars'] = response.contains(
+      RegExp(r'\b.\b.*\b.\b.*\b.\b'),
+    );
 
     // Content analysis
-    analysis['isMostlySymbols'] =
-        RegExp(r'^[^a-zA-Z0-9\s]{10,}').hasMatch(response);
-    analysis['hasDescribeLoop'] =
-        response.contains(RegExp(r'describe\.describe\.describe'));
+    analysis['isMostlySymbols'] = RegExp(
+      r'^[^a-zA-Z0-9\s]{10,}',
+    ).hasMatch(response);
+    analysis['hasDescribeLoop'] = response.contains(
+      RegExp(r'describe\.describe\.describe'),
+    );
 
     return analysis;
   }
@@ -450,7 +465,9 @@ class ImageErrorHandler {
     }
     // Remove potentially sensitive Base64 data
     return prompt.replaceAll(
-        RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'), '[IMAGE_DATA]');
+      RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'),
+      '[IMAGE_DATA]',
+    );
   }
 
   /// Sanitizes response for safe logging
@@ -478,12 +495,7 @@ enum ErrorType {
 }
 
 /// Actions to take when corruption is detected
-enum CorruptionAction {
-  none,
-  monitorResponse,
-  validateImage,
-  reprocessImage,
-}
+enum CorruptionAction { none, monitorResponse, validateImage, reprocessImage }
 
 /// Result of error handling
 class ErrorHandlingResult {

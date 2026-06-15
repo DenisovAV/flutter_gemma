@@ -15,11 +15,15 @@ class RuntimeConfig {
     this.enableSpeculativeDecoding,
     this.maxConcurrentSessions,
     this.loraRanks,
-  })  : assert(maxTokens >= 0, 'maxTokens must not be negative'),
-        assert(maxNumImages == null || maxNumImages >= 0,
-            'maxNumImages must not be negative'),
-        assert(maxConcurrentSessions == null || maxConcurrentSessions > 0,
-            'maxConcurrentSessions must be positive when set');
+  }) : assert(maxTokens >= 0, 'maxTokens must not be negative'),
+       assert(
+         maxNumImages == null || maxNumImages >= 0,
+         'maxNumImages must not be negative',
+       ),
+       assert(
+         maxConcurrentSessions == null || maxConcurrentSessions > 0,
+         'maxConcurrentSessions must be positive when set',
+       );
 
   final int maxTokens;
 

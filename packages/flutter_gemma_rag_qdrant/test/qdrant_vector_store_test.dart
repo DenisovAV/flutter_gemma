@@ -63,28 +63,30 @@ void main() {
       expect(stats.vectorDimension, equals(4));
     });
 
-    test('searchSimilar returns the closest doc back with original id',
-        () async {
-      await repo.addDocument(
-        id: 'doc_far',
-        content: 'far',
-        embedding: const [0.0, 1.0, 0.0, 0.0],
-      );
-      await repo.addDocument(
-        id: 'doc_near',
-        content: 'near',
-        embedding: const [1.0, 0.0, 0.0, 0.0],
-      );
+    test(
+      'searchSimilar returns the closest doc back with original id',
+      () async {
+        await repo.addDocument(
+          id: 'doc_far',
+          content: 'far',
+          embedding: const [0.0, 1.0, 0.0, 0.0],
+        );
+        await repo.addDocument(
+          id: 'doc_near',
+          content: 'near',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+        );
 
-      final hits = await repo.searchSimilar(
-        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
-        topK: 2,
-      );
-      expect(hits, hasLength(2));
-      expect(hits.first.id, equals('doc_near'));
-      expect(hits.first.content, equals('near'));
-      expect(hits.first.similarity, greaterThan(0.9));
-    });
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 2,
+        );
+        expect(hits, hasLength(2));
+        expect(hits.first.id, equals('doc_near'));
+        expect(hits.first.content, equals('near'));
+        expect(hits.first.similarity, greaterThan(0.9));
+      },
+    );
 
     test('threshold filters out low-similarity hits', () async {
       await repo.addDocument(

@@ -27,7 +27,8 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     required VoidCallback onClose,
   }) {
     throw UnsupportedError(
-        'FfiInferenceModel is not available on web — use FlutterGemmaWeb instead.');
+      'FfiInferenceModel is not available on web — use FlutterGemmaWeb instead.',
+    );
   }
 
   @override
@@ -56,8 +57,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
-  }) =>
-      throw UnsupportedError('web stub — never instantiated');
+  }) => throw UnsupportedError('web stub — never instantiated');
 
   @override
   Future<void> close() =>

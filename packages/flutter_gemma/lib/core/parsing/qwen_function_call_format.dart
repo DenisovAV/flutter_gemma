@@ -61,8 +61,10 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
     final content = JsonParsingUtils.cleanModelResponse(text);
 
     final results = <FunctionCallResponse>[];
-    final regex =
-        RegExp(r'<tool_call>\s*([\s\S]*?)\s*</tool_call>', multiLine: true);
+    final regex = RegExp(
+      r'<tool_call>\s*([\s\S]*?)\s*</tool_call>',
+      multiLine: true,
+    );
     for (final match in regex.allMatches(content)) {
       final result = JsonParsingUtils.parseJsonString(match.group(1)!.trim());
       if (result != null) results.add(result);
@@ -74,14 +76,18 @@ class QwenFunctionCallFormat extends FunctionCallFormat {
 
   /// Parse `<tool_call>JSON</tool_call>` format.
   FunctionCallResponse? _parseToolCallBlock(String content) {
-    final regex =
-        RegExp(r'<tool_call>\s*([\s\S]*?)\s*</tool_call>', multiLine: true);
+    final regex = RegExp(
+      r'<tool_call>\s*([\s\S]*?)\s*</tool_call>',
+      multiLine: true,
+    );
     final match = regex.firstMatch(content);
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('QwenFormat: Found tool_call block: $jsonStr',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'QwenFormat: Found tool_call block: $jsonStr',
+        level: GemmaLogLevel.verbose,
+      );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;

@@ -22,7 +22,8 @@ void main() {
   setUp(() async {
     final base = await getApplicationSupportDirectory();
     shardDir = Directory(
-        '${base.path}/qdrant_smoke_${DateTime.now().microsecondsSinceEpoch}');
+      '${base.path}/qdrant_smoke_${DateTime.now().microsecondsSinceEpoch}',
+    );
   });
 
   tearDown(() async {
@@ -32,10 +33,7 @@ void main() {
   });
 
   test('open + version', () async {
-    final client = await QdrantEdgeClient.open(
-      path: shardDir.path,
-      dim: 4,
-    );
+    final client = await QdrantEdgeClient.open(path: shardDir.path, dim: 4);
     addTearDown(client.close);
 
     final v = client.version();
@@ -93,12 +91,14 @@ void main() {
     expect(await client.count(), equals(3));
 
     // Filter: english docs priced 200-1000.
-    final filterJson = FilterCodec.encode(const Filter(
-      must: [
-        FieldEquals(key: 'lang', value: 'en'),
-        FieldRange(key: 'price', gte: 200.0, lte: 1000.0),
-      ],
-    ));
+    final filterJson = FilterCodec.encode(
+      const Filter(
+        must: [
+          FieldEquals(key: 'lang', value: 'en'),
+          FieldRange(key: 'price', gte: 200.0, lte: 1000.0),
+        ],
+      ),
+    );
     expect(filterJson, isNotNull);
 
     final hits = await client.search(

@@ -29,10 +29,12 @@ void main() {
   late _FixedPathProviderPlatform mockProvider;
 
   setUp(() async {
-    fakeDocuments =
-        await Directory.systemTemp.createTemp('flutter_gemma_docs_');
-    fakeAppSupport =
-        await Directory.systemTemp.createTemp('flutter_gemma_appsupport_');
+    fakeDocuments = await Directory.systemTemp.createTemp(
+      'flutter_gemma_docs_',
+    );
+    fakeAppSupport = await Directory.systemTemp.createTemp(
+      'flutter_gemma_appsupport_',
+    );
     mockProvider = _FixedPathProviderPlatform(
       documentsPath: fakeDocuments.path,
       appSupportPath: fakeAppSupport.path,
@@ -53,16 +55,18 @@ void main() {
   });
 
   group('PlatformFileSystemService path resolution', () {
-    test('getTargetPath returns path under the canonical storage directory',
-        () async {
-      final service = PlatformFileSystemService();
-      final targetPath = await service.getTargetPath('foo.litertlm');
-      final storageDir = await service.getModelStorageDirectory();
+    test(
+      'getTargetPath returns path under the canonical storage directory',
+      () async {
+        final service = PlatformFileSystemService();
+        final targetPath = await service.getTargetPath('foo.litertlm');
+        final storageDir = await service.getModelStorageDirectory();
 
-      // The file path must be inside the storage dir.
-      expect(targetPath, startsWith(storageDir));
-      expect(p.basename(targetPath), 'foo.litertlm');
-    });
+        // The file path must be inside the storage dir.
+        expect(targetPath, startsWith(storageDir));
+        expect(p.basename(targetPath), 'foo.litertlm');
+      },
+    );
 
     test('getModelStorageDirectory matches getTargetPath parent', () async {
       final service = PlatformFileSystemService();
@@ -83,40 +87,47 @@ void main() {
       expect(targetPath, equals(p.join(storageDir, 'test.bin')));
     });
 
-    test('legacy Documents fallback emits debug log and returns legacy path',
-        () async {
-      // Only desktop platforms execute the legacy probe; skip on mobile.
-      if (Platform.isAndroid || Platform.isIOS) return;
+    test(
+      'legacy Documents fallback emits debug log and returns legacy path',
+      () async {
+        // Only desktop platforms execute the legacy probe; skip on mobile.
+        if (Platform.isAndroid || Platform.isIOS) return;
 
-      // Arrange: write a file to the "legacy Documents" location so that the
-      // fallback probe in getTargetPath finds it. The "new" location at
-      // <appSupport>/flutter_gemma/old_model.litertlm is left empty so the
-      // probe fires.
-      final legacyFile = File(p.join(fakeDocuments.path, 'old_model.litertlm'));
-      legacyFile.writeAsStringSync('placeholder');
-
-      final service = PlatformFileSystemService();
-
-      // Capture debugPrint output.
-      final logs = <String>[];
-      final originalDebugPrint = debugPrint;
-      debugPrint = (String? message, {int? wrapWidth}) {
-        if (message != null) logs.add(message);
-      };
-
-      try {
-        final resultPath = await service.getTargetPath('old_model.litertlm');
-        expect(resultPath, equals(legacyFile.path),
-            reason: 'Should fall back to legacy Documents path');
-        expect(
-          logs.any((l) => l.contains('legacy Documents path')),
-          isTrue,
-          reason: 'Should emit debug log nudging re-install',
+        // Arrange: write a file to the "legacy Documents" location so that the
+        // fallback probe in getTargetPath finds it. The "new" location at
+        // <appSupport>/flutter_gemma/old_model.litertlm is left empty so the
+        // probe fires.
+        final legacyFile = File(
+          p.join(fakeDocuments.path, 'old_model.litertlm'),
         );
-      } finally {
-        debugPrint = originalDebugPrint;
-      }
-    });
+        legacyFile.writeAsStringSync('placeholder');
+
+        final service = PlatformFileSystemService();
+
+        // Capture debugPrint output.
+        final logs = <String>[];
+        final originalDebugPrint = debugPrint;
+        debugPrint = (String? message, {int? wrapWidth}) {
+          if (message != null) logs.add(message);
+        };
+
+        try {
+          final resultPath = await service.getTargetPath('old_model.litertlm');
+          expect(
+            resultPath,
+            equals(legacyFile.path),
+            reason: 'Should fall back to legacy Documents path',
+          );
+          expect(
+            logs.any((l) => l.contains('legacy Documents path')),
+            isTrue,
+            reason: 'Should emit debug log nudging re-install',
+          );
+        } finally {
+          debugPrint = originalDebugPrint;
+        }
+      },
+    );
 
     test('getModelStorageDirectory is consistent across two calls', () async {
       final service = PlatformFileSystemService();
@@ -127,24 +138,26 @@ void main() {
   });
 
   group('ModelFileSystemManager round-trip through FileSystemService', () {
-    test('getModelFilePath delegates through ServiceRegistry.fileSystemService',
-        () async {
-      // Initialize ServiceRegistry with a real PlatformFileSystemService so
-      // the delegation chain is exercised end-to-end.
-      await ServiceRegistry.initialize(
-        fileSystemService: PlatformFileSystemService(),
-      );
+    test(
+      'getModelFilePath delegates through ServiceRegistry.fileSystemService',
+      () async {
+        // Initialize ServiceRegistry with a real PlatformFileSystemService so
+        // the delegation chain is exercised end-to-end.
+        await ServiceRegistry.initialize(
+          fileSystemService: PlatformFileSystemService(),
+        );
 
-      final service = ServiceRegistry.instance.fileSystemService;
-      final expectedPath = await service.getTargetPath('roundtrip.bin');
+        final service = ServiceRegistry.instance.fileSystemService;
+        final expectedPath = await service.getTargetPath('roundtrip.bin');
 
-      // ModelFileSystemManager.getModelFilePath must return the same value.
-      // It is defined in a `part` file of flutter_gemma_mobile, so we call
-      // the service directly (same underlying implementation).
-      final storageDir = await service.getModelStorageDirectory();
-      expect(expectedPath, startsWith(storageDir));
-      expect(p.basename(expectedPath), 'roundtrip.bin');
-    });
+        // ModelFileSystemManager.getModelFilePath must return the same value.
+        // It is defined in a `part` file of flutter_gemma_mobile, so we call
+        // the service directly (same underlying implementation).
+        final storageDir = await service.getModelStorageDirectory();
+        expect(expectedPath, startsWith(storageDir));
+        expect(p.basename(expectedPath), 'roundtrip.bin');
+      },
+    );
   });
 }
 

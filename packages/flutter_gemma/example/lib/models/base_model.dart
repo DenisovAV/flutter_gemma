@@ -17,11 +17,7 @@ enum ModelSourceType {
 
 /// Task category used to dispatch a downloaded model to the right
 /// post-install screen and to gate kind-specific UI fields.
-enum ModelKind {
-  inference,
-  embedding,
-  translation,
-}
+enum ModelKind { inference, embedding, translation }
 
 /// Base interface for all model types (inference, embedding, translation)
 abstract class BaseModel {

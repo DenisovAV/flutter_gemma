@@ -87,8 +87,10 @@ class PhiFunctionCallFormat extends FunctionCallFormat {
     if (match == null) return [];
 
     final jsonStr = match.group(1)!.trim();
-    gemmaLog('PhiFormat: Found tool_calls block: $jsonStr',
-        level: GemmaLogLevel.verbose);
+    gemmaLog(
+      'PhiFormat: Found tool_calls block: $jsonStr',
+      level: GemmaLogLevel.verbose,
+    );
 
     // Phi-4 always outputs a JSON array
     final results = JsonParsingUtils.parseJsonArray(jsonStr);

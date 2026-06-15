@@ -10,7 +10,10 @@ void main() {
         const androidPath = '/data/user/0/com.example.app/files';
         const filename = 'model.bin';
 
-        final corrected = ModelFileSystemManager.getCorrectedPath(androidPath, filename);
+        final corrected = ModelFileSystemManager.getCorrectedPath(
+          androidPath,
+          filename,
+        );
         expect(corrected, '/data/data/com.example.app/files/model.bin');
       });
 
@@ -18,22 +21,34 @@ void main() {
         const normalPath = '/data/data/com.example.app/files';
         const filename = 'model.bin';
 
-        final result = ModelFileSystemManager.getCorrectedPath(normalPath, filename);
+        final result = ModelFileSystemManager.getCorrectedPath(
+          normalPath,
+          filename,
+        );
         expect(result, '/data/data/com.example.app/files/model.bin');
       });
 
       test('handles iOS paths correctly', () {
-        const iosPath = '/var/mobile/Containers/Data/Application/ABC123/Documents';
+        const iosPath =
+            '/var/mobile/Containers/Data/Application/ABC123/Documents';
         const filename = 'model.bin';
 
-        final result = ModelFileSystemManager.getCorrectedPath(iosPath, filename);
-        expect(result, '/var/mobile/Containers/Data/Application/ABC123/Documents/model.bin');
+        final result = ModelFileSystemManager.getCorrectedPath(
+          iosPath,
+          filename,
+        );
+        expect(
+          result,
+          '/var/mobile/Containers/Data/Application/ABC123/Documents/model.bin',
+        );
       });
     });
 
     group('isFileValid', () {
       test('rejects non-existent files', () async {
-        final result = await ModelFileSystemManager.isFileValid('/nonexistent/file.bin');
+        final result = await ModelFileSystemManager.isFileValid(
+          '/nonexistent/file.bin',
+        );
         expect(result, false);
       });
 
@@ -54,7 +69,9 @@ void main() {
         // Create a file that meets custom size requirement
         final tempDir = Directory.systemTemp.createTempSync();
         final validFile = File('${tempDir.path}/valid.json');
-        await validFile.writeAsString('{"valid": "json content"}'); // Small but valid for JSON
+        await validFile.writeAsString(
+          '{"valid": "json content"}',
+        ); // Small but valid for JSON
 
         final result = await ModelFileSystemManager.isFileValid(
           validFile.path,
@@ -100,7 +117,9 @@ void main() {
         final tokenizerFile = File('${tempDir.path}/tokenizer.json');
 
         await modelFile.writeAsBytes(List.filled(2 * 1024 * 1024, 0)); // 2MB
-        await tokenizerFile.writeAsString('{"tokenizer": "config"}'); // Valid JSON
+        await tokenizerFile.writeAsString(
+          '{"tokenizer": "config"}',
+        ); // Valid JSON
 
         // This test would need to mock getModelFilePath to return our temp files
         // For now, it just tests that the method exists and can be called

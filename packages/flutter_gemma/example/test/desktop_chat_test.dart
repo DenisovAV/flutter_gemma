@@ -26,7 +26,8 @@ void main() {
 
       if (!hasModel) {
         fail(
-            'No active model set. Install gemma-3n-E2B-it-int4 first via the example app.');
+          'No active model set. Install gemma-3n-E2B-it-int4 first via the example app.',
+        );
       }
 
       // Create model with minimal config - NO audio/image support to test pure text
@@ -78,7 +79,8 @@ void main() {
       debugPrint('\n=== Test: Streaming response ===');
 
       await chat.addQueryChunk(
-          const Message(text: 'Count from 1 to 3', isUser: true));
+        const Message(text: 'Count from 1 to 3', isUser: true),
+      );
 
       final chunks = <String>[];
       await for (final response in chat.generateChatResponseAsync()) {

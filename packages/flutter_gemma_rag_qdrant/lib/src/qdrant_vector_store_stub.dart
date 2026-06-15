@@ -13,7 +13,8 @@ class QdrantVectorStore implements VectorStoreRepository {
   @override
   Future<void> initialize(String databasePath) async =>
       throw UnimplementedError(
-          'QdrantVectorStore is native-only; qdrant-edge cannot run on web');
+        'QdrantVectorStore is native-only; qdrant-edge cannot run on web',
+      );
 
   @override
   Future<void> addDocument({
@@ -21,14 +22,15 @@ class QdrantVectorStore implements VectorStoreRepository {
     required String content,
     required List<double> embedding,
     String? metadata,
-  }) async =>
-      throw UnimplementedError(
-          'QdrantVectorStore is native-only; qdrant-edge cannot run on web');
+  }) async => throw UnimplementedError(
+    'QdrantVectorStore is native-only; qdrant-edge cannot run on web',
+  );
 
   @override
   Future<void> removeDocument({required String id}) async =>
       throw UnimplementedError(
-          'QdrantVectorStore is native-only; qdrant-edge cannot run on web');
+        'QdrantVectorStore is native-only; qdrant-edge cannot run on web',
+      );
 
   @override
   Future<List<RetrievalResult>> searchSimilar({
@@ -36,17 +38,19 @@ class QdrantVectorStore implements VectorStoreRepository {
     required int topK,
     double threshold = 0.0,
     Filter? filter,
-  }) async =>
-      throw UnimplementedError(
-          'QdrantVectorStore is native-only; qdrant-edge cannot run on web');
+  }) async => throw UnimplementedError(
+    'QdrantVectorStore is native-only; qdrant-edge cannot run on web',
+  );
 
   @override
   Future<VectorStoreStats> getStats() async => throw UnimplementedError(
-      'QdrantVectorStore is native-only; qdrant-edge cannot run on web');
+    'QdrantVectorStore is native-only; qdrant-edge cannot run on web',
+  );
 
   @override
   Future<void> clear() async => throw UnimplementedError(
-      'QdrantVectorStore is native-only; qdrant-edge cannot run on web');
+    'QdrantVectorStore is native-only; qdrant-edge cannot run on web',
+  );
 
   @override
   Future<void> close() async {}

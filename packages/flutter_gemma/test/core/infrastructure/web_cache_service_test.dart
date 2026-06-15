@@ -9,6 +9,7 @@ import 'package:flutter_gemma/core/infrastructure/web_cache_interop_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_cache_interop.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
   group('WebCacheService', () {
     late WebCacheService cacheService;
@@ -39,12 +40,16 @@ void main() {
     });
 
     test('isCached returns false for non-existent URL', () async {
-      final cached = await cacheService.isCached('https://example.com/non-existent.bin');
+      final cached = await cacheService.isCached(
+        'https://example.com/non-existent.bin',
+      );
       expect(cached, isFalse);
     });
 
     test('getCachedBlobUrl returns null for non-existent URL', () async {
-      final blobUrl = await cacheService.getCachedBlobUrl('https://example.com/non-existent.bin');
+      final blobUrl = await cacheService.getCachedBlobUrl(
+        'https://example.com/non-existent.bin',
+      );
       expect(blobUrl, isNull);
     });
 
@@ -69,10 +74,7 @@ void main() {
     // and proper mocking setup
 
     test('clearCache completes without error', () async {
-      await expectLater(
-        cacheService.clearCache(),
-        completes,
-      );
+      await expectLater(cacheService.clearCache(), completes);
     });
   });
 

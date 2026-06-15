@@ -20,9 +20,13 @@ void main() {
     });
 
     test('FieldEquals encodes to match.value', () {
-      final json = _decode(FilterCodec.encode(
-        const Filter(must: [FieldEquals(key: 'lang', value: 'en')]),
-      ));
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'lang', value: 'en')],
+          ),
+        ),
+      );
       expect(json, {
         'must': [
           {
@@ -34,13 +38,15 @@ void main() {
     });
 
     test('FieldMatchAny encodes to match.any', () {
-      final json = _decode(FilterCodec.encode(
-        const Filter(
-          should: [
-            FieldMatchAny(key: 'tag', values: ['a', 'b', 'c'])
-          ],
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(
+            should: [
+              FieldMatchAny(key: 'tag', values: ['a', 'b', 'c']),
+            ],
+          ),
         ),
-      ));
+      );
       expect(json, {
         'should': [
           {
@@ -54,52 +60,70 @@ void main() {
     });
 
     test('FieldRange encodes to range with optional gte/lte', () {
-      final both = _decode(FilterCodec.encode(
-        const Filter(must: [FieldRange(key: 'price', gte: 10.0, lte: 100.0)]),
-      ));
+      final both = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldRange(key: 'price', gte: 10.0, lte: 100.0)]),
+        ),
+      );
       expect(both['must'][0]['range'], {'gte': 10.0, 'lte': 100.0});
 
-      final gteOnly = _decode(FilterCodec.encode(
-        const Filter(must: [FieldRange(key: 'price', gte: 10.0)]),
-      ));
+      final gteOnly = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldRange(key: 'price', gte: 10.0)]),
+        ),
+      );
       expect(gteOnly['must'][0]['range'], {'gte': 10.0});
       expect(gteOnly['must'][0]['range'].containsKey('lte'), isFalse);
 
-      final lteOnly = _decode(FilterCodec.encode(
-        const Filter(must: [FieldRange(key: 'price', lte: 100.0)]),
-      ));
+      final lteOnly = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldRange(key: 'price', lte: 100.0)]),
+        ),
+      );
       expect(lteOnly['must'][0]['range'], {'lte': 100.0});
       expect(lteOnly['must'][0]['range'].containsKey('gte'), isFalse);
     });
 
     test('mustNot serializes to snake_case must_not (qdrant wire format)', () {
-      final json = _decode(FilterCodec.encode(
-        const Filter(mustNot: [FieldEquals(key: 'archived', value: true)]),
-      ));
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(mustNot: [FieldEquals(key: 'archived', value: true)]),
+        ),
+      );
       expect(json.keys, contains('must_not'));
       expect(json.keys, isNot(contains('mustNot')));
     });
 
     test('combined must + mustNot serializes all buckets', () {
-      final json = _decode(FilterCodec.encode(
-        const Filter(
-          must: [
-            FieldEquals(key: 'lang', value: 'en'),
-            FieldRange(key: 'price', gte: 50.0),
-          ],
-          mustNot: [FieldEquals(key: 'archived', value: true)],
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldEquals(key: 'lang', value: 'en'),
+              FieldRange(key: 'price', gte: 50.0),
+            ],
+            mustNot: [FieldEquals(key: 'archived', value: true)],
+          ),
         ),
-      ));
+      );
       expect(json['must'], hasLength(2));
       expect(json['must_not'], hasLength(1));
-      expect(json.containsKey('should'), isFalse,
-          reason: 'empty buckets are omitted, not serialized as []');
+      expect(
+        json.containsKey('should'),
+        isFalse,
+        reason: 'empty buckets are omitted, not serialized as []',
+      );
     });
 
     test('empty buckets are omitted from output', () {
-      final json = _decode(FilterCodec.encode(
-        const Filter(must: [FieldEquals(key: 'k', value: 1)], should: []),
-      ));
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'k', value: 1)],
+            should: [],
+          ),
+        ),
+      );
       expect(json.keys, equals({'must'}));
     });
   });

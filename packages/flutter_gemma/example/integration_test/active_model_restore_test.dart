@@ -39,47 +39,54 @@ Future<String> _docsPath(String name) async {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('install persists active model identity to prefs', (_) async {
-    await registerTestEngines();
+  testWidgets(
+    'install persists active model identity to prefs',
+    (_) async {
+      await registerTestEngines();
 
-    // Clear any stale persisted identity from prior runs to make this
-    // assertion meaningful.
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('active_inference_model_type');
-    await prefs.remove('active_inference_file_type');
-    await prefs.remove('active_inference_filename');
+      // Clear any stale persisted identity from prior runs to make this
+      // assertion meaningful.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('active_inference_model_type');
+      await prefs.remove('active_inference_file_type');
+      await prefs.remove('active_inference_filename');
 
-    final modelPath = await _docsPath(_modelName);
-    await FlutterGemma.installModel(
-      modelType: ModelType.gemmaIt,
-      fileType: ModelFileType.litertlm,
-    ).fromFile(modelPath).install();
+      final modelPath = await _docsPath(_modelName);
+      await FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+      ).fromFile(modelPath).install();
 
-    expect(FlutterGemma.hasActiveModel(), isTrue);
+      expect(FlutterGemma.hasActiveModel(), isTrue);
 
-    // Give the fire-and-forget persistence a moment to land.
-    await Future<void>.delayed(const Duration(milliseconds: 200));
+      // Give the fire-and-forget persistence a moment to land.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    final stored = await SharedPreferences.getInstance();
-    expect(stored.getString('active_inference_model_type'), 'gemmaIt');
-    expect(stored.getString('active_inference_file_type'), 'litertlm');
-    expect(stored.getString('active_inference_filename'), _modelName);
-  }, timeout: const Timeout(Duration(minutes: 5)));
+      final stored = await SharedPreferences.getInstance();
+      expect(stored.getString('active_inference_model_type'), 'gemmaIt');
+      expect(stored.getString('active_inference_file_type'), 'litertlm');
+      expect(stored.getString('active_inference_filename'), _modelName);
+    },
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
 
-  testWidgets('second initialize() rehydrates active model without install',
-      (_) async {
-    // Simulate "app relaunched": throw away the in-memory ServiceRegistry
-    // (and with it, the MobileModelManager's `_activeInferenceModel`) and
-    // start over. The persisted prefs from the prior test should be enough
-    // to make hasActiveModel() true.
-    ServiceRegistry.reset();
-    await registerTestEngines();
+  testWidgets(
+    'second initialize() rehydrates active model without install',
+    (_) async {
+      // Simulate "app relaunched": throw away the in-memory ServiceRegistry
+      // (and with it, the MobileModelManager's `_activeInferenceModel`) and
+      // start over. The persisted prefs from the prior test should be enough
+      // to make hasActiveModel() true.
+      ServiceRegistry.reset();
+      await registerTestEngines();
 
-    expect(
-      FlutterGemma.hasActiveModel(),
-      isTrue,
-      reason:
-          'active model should be auto-restored from SharedPreferences on second initialize()',
-    );
-  }, timeout: const Timeout(Duration(minutes: 2)));
+      expect(
+        FlutterGemma.hasActiveModel(),
+        isTrue,
+        reason:
+            'active model should be auto-restored from SharedPreferences on second initialize()',
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
 }

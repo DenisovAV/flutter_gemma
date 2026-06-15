@@ -50,7 +50,9 @@ class ModelDownloadService {
     try {
       // Extract SAME filename that Modern API will use during download
       final uri = Uri.parse(modelUrl);
-      final actualFilename = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : modelFilename;
+      final actualFilename = uri.pathSegments.isNotEmpty
+          ? uri.pathSegments.last
+          : modelFilename;
 
       // Modern API: Check if model is installed using actual filename
       final isInstalled = await FlutterGemma.isModelInstalled(actualFilename);
@@ -73,11 +75,15 @@ class ModelDownloadService {
       }
 
       // Validate size if possible
-      final Map<String, String> headers =
-          token.isNotEmpty ? {'Authorization': 'Bearer $token'} : {};
+      final Map<String, String> headers = token.isNotEmpty
+          ? {'Authorization': 'Bearer $token'}
+          : {};
 
       try {
-        final headResponse = await http.head(Uri.parse(modelUrl), headers: headers);
+        final headResponse = await http.head(
+          Uri.parse(modelUrl),
+          headers: headers,
+        );
         if (headResponse.statusCode == 200) {
           final contentLengthHeader = headResponse.headers['content-length'];
           if (contentLengthHeader != null) {
@@ -112,12 +118,12 @@ class ModelDownloadService {
       final authToken = token.isEmpty ? null : token;
 
       // Modern API: Install inference model from network with progress tracking
-      await FlutterGemma.installModel(
-        modelType: modelType,
-        fileType: fileType,
-      ).fromNetwork(modelUrl, token: authToken, foreground: foreground).withProgress((progress) {
-        onProgress(progress.toDouble());
-      }).install();
+      await FlutterGemma.installModel(modelType: modelType, fileType: fileType)
+          .fromNetwork(modelUrl, token: authToken, foreground: foreground)
+          .withProgress((progress) {
+            onProgress(progress.toDouble());
+          })
+          .install();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error downloading model: $e');
@@ -131,8 +137,9 @@ class ModelDownloadService {
     try {
       // Extract actual filename used by Modern API
       final uri = Uri.parse(modelUrl);
-      final actualFilename =
-          uri.pathSegments.isNotEmpty ? uri.pathSegments.last : modelFilename;
+      final actualFilename = uri.pathSegments.isNotEmpty
+          ? uri.pathSegments.last
+          : modelFilename;
 
       // Use Modern API to properly uninstall (deletes metadata + file)
       await FlutterGemma.uninstallModel(actualFilename);

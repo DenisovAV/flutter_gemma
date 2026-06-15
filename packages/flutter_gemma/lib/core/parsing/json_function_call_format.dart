@@ -64,8 +64,10 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     final results = <FunctionCallResponse>[];
 
     // Try XML tool_code blocks (multiple)
-    final xmlRegex =
-        RegExp(r'<tool_code>\s*([\s\S]*?)\s*</tool_code>', multiLine: true);
+    final xmlRegex = RegExp(
+      r'<tool_code>\s*([\s\S]*?)\s*</tool_code>',
+      multiLine: true,
+    );
     for (final match in xmlRegex.allMatches(content)) {
       final result = JsonParsingUtils.parseJsonString(match.group(1)!.trim());
       if (result != null) results.add(result);
@@ -73,8 +75,10 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     if (results.isNotEmpty) return results;
 
     // Try markdown tool_code blocks
-    final mdToolCodeRegex =
-        RegExp(r'```tool_code\s*([\s\S]*?)\s*```', multiLine: true);
+    final mdToolCodeRegex = RegExp(
+      r'```tool_code\s*([\s\S]*?)\s*```',
+      multiLine: true,
+    );
     for (final match in mdToolCodeRegex.allMatches(content)) {
       final result = JsonParsingUtils.parseJsonString(match.group(1)!.trim());
       if (result != null) results.add(result);
@@ -98,14 +102,18 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
   /// Parse `<tool_code>JSON</tool_code>` format.
   FunctionCallResponse? _parseToolCodeXmlBlock(String content) {
-    final regex =
-        RegExp(r'<tool_code>\s*([\s\S]*?)\s*</tool_code>', multiLine: true);
+    final regex = RegExp(
+      r'<tool_code>\s*([\s\S]*?)\s*</tool_code>',
+      multiLine: true,
+    );
     final match = regex.firstMatch(content);
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('JsonFormat: Found tool_code XML block: $jsonStr',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'JsonFormat: Found tool_code XML block: $jsonStr',
+        level: GemmaLogLevel.verbose,
+      );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;
@@ -118,8 +126,10 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('JsonFormat: Found tool_code markdown block: $jsonStr',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'JsonFormat: Found tool_code markdown block: $jsonStr',
+        level: GemmaLogLevel.verbose,
+      );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
     return null;
@@ -132,8 +142,10 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
 
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
-      gemmaLog('JsonFormat: Found markdown json block: $jsonStr',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'JsonFormat: Found markdown json block: $jsonStr',
+        level: GemmaLogLevel.verbose,
+      );
       return JsonParsingUtils.parseJsonString(jsonStr);
     }
 
@@ -143,8 +155,10 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
     if (match != null) {
       final jsonStr = match.group(1)!.trim();
       if (jsonStr.startsWith('{') && jsonStr.contains('"name"')) {
-        gemmaLog('JsonFormat: Found markdown code block: $jsonStr',
-            level: GemmaLogLevel.verbose);
+        gemmaLog(
+          'JsonFormat: Found markdown code block: $jsonStr',
+          level: GemmaLogLevel.verbose,
+        );
         return JsonParsingUtils.parseJsonString(jsonStr);
       }
     }
@@ -155,8 +169,10 @@ class JsonFunctionCallFormat extends FunctionCallFormat {
   FunctionCallResponse? _parseDirectJson(String content) {
     final trimmed = content.trim();
     if (trimmed.startsWith('{') && trimmed.contains('"name"')) {
-      gemmaLog('JsonFormat: Found direct JSON: $trimmed',
-          level: GemmaLogLevel.verbose);
+      gemmaLog(
+        'JsonFormat: Found direct JSON: $trimmed',
+        level: GemmaLogLevel.verbose,
+      );
       return JsonParsingUtils.parseJsonString(trimmed);
     }
     return null;

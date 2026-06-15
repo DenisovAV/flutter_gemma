@@ -10,8 +10,8 @@ class TranslateRunner {
   TranslateRunner({
     required InferenceModel model,
     required TranslationPromptStrategy strategy,
-  })  : _model = model,
-        _strategy = strategy;
+  }) : _model = model,
+       _strategy = strategy;
 
   final InferenceModel _model;
   final TranslationPromptStrategy _strategy;

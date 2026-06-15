@@ -51,14 +51,8 @@ class Message {
     );
   }
 
-  factory Message.text({
-    required String text,
-    bool isUser = false,
-  }) {
-    return Message(
-      text: text,
-      isUser: isUser,
-    );
+  factory Message.text({required String text, bool isUser = false}) {
+    return Message(text: text, isUser: isUser);
   }
 
   factory Message.withImage({
@@ -118,11 +112,7 @@ class Message {
     required Uint8List audioBytes,
     bool isUser = false,
   }) {
-    return Message(
-      text: text,
-      audioBytes: audioBytes,
-      isUser: isUser,
-    );
+    return Message(text: text, audioBytes: audioBytes, isUser: isUser);
   }
 
   factory Message.audioOnly({
@@ -130,11 +120,7 @@ class Message {
     bool isUser = false,
     String text = '',
   }) {
-    return Message(
-      text: text,
-      audioBytes: audioBytes,
-      isUser: isUser,
-    );
+    return Message(text: text, audioBytes: audioBytes, isUser: isUser);
   }
 
   factory Message.toolResponse({
@@ -150,21 +136,12 @@ class Message {
     );
   }
 
-  factory Message.toolCall({
-    required String text,
-  }) {
+  factory Message.toolCall({required String text}) {
     // Tool calls are from the model.
-    return Message(
-      text: text,
-      type: MessageType.toolCall,
-      isUser: false,
-    );
+    return Message(text: text, type: MessageType.toolCall, isUser: false);
   }
 
-  factory Message.systemInfo({
-    required String text,
-    String? icon,
-  }) {
+  factory Message.systemInfo({required String text, String? icon}) {
     return Message(
       text: text,
       type: MessageType.systemInfo,
@@ -173,14 +150,8 @@ class Message {
     );
   }
 
-  factory Message.thinking({
-    required String text,
-  }) {
-    return Message(
-      text: text,
-      type: MessageType.thinking,
-      isUser: false,
-    );
+  factory Message.thinking({required String text}) {
+    return Message(text: text, type: MessageType.thinking, isUser: false);
   }
 
   @override

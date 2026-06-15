@@ -15,54 +15,66 @@ const _taskFilename = 'functiongemma-270M-it.task';
 void main() {
   initIntegrationTest();
 
-  testWidgets('Inference: model download and cache', (tester) async {
-    // 1. Initialize
-    await registerTestEngines();
+  testWidgets(
+    'Inference: model download and cache',
+    (tester) async {
+      // 1. Initialize
+      await registerTestEngines();
 
-    // 2. Download model from network
-    await FlutterGemma.installModel(
-      modelType: ModelType.functionGemma,
-      fileType: ModelFileType.task,
-    )
-        .fromNetwork(_taskUrl)
-        .withProgress(
-            (progress) => print('[Download] Progress: $progress%'))
-        .install();
+      // 2. Download model from network
+      await FlutterGemma.installModel(
+            modelType: ModelType.functionGemma,
+            fileType: ModelFileType.task,
+          )
+          .fromNetwork(_taskUrl)
+          .withProgress((progress) => print('[Download] Progress: $progress%'))
+          .install();
 
-    // 3. Verify active model
-    expect(FlutterGemma.hasActiveModel(), isTrue,
-        reason: 'Active model should be set after install');
+      // 3. Verify active model
+      expect(
+        FlutterGemma.hasActiveModel(),
+        isTrue,
+        reason: 'Active model should be set after install',
+      );
 
-    // 4. Verify model installed on disk
-    final isInstalled = await FlutterGemma.isModelInstalled(_taskFilename);
-    expect(isInstalled, isTrue, reason: 'Model file should exist on disk');
+      // 4. Verify model installed on disk
+      final isInstalled = await FlutterGemma.isModelInstalled(_taskFilename);
+      expect(isInstalled, isTrue, reason: 'Model file should exist on disk');
 
-    // 5. Cache check — second install should be instant (no re-download)
-    final stopwatch = Stopwatch()..start();
-    await FlutterGemma.installModel(
-      modelType: ModelType.functionGemma,
-      fileType: ModelFileType.task,
-    ).fromNetwork(_taskUrl).install();
-    stopwatch.stop();
-    print('[Cache] Second install took ${stopwatch.elapsedMilliseconds}ms');
-    expect(stopwatch.elapsedMilliseconds, lessThan(5000),
-        reason: 'Cached model should not trigger re-download');
+      // 5. Cache check — second install should be instant (no re-download)
+      final stopwatch = Stopwatch()..start();
+      await FlutterGemma.installModel(
+        modelType: ModelType.functionGemma,
+        fileType: ModelFileType.task,
+      ).fromNetwork(_taskUrl).install();
+      stopwatch.stop();
+      print('[Cache] Second install took ${stopwatch.elapsedMilliseconds}ms');
+      expect(
+        stopwatch.elapsedMilliseconds,
+        lessThan(5000),
+        reason: 'Cached model should not trigger re-download',
+      );
 
-    // 6. Quick inference sanity check
-    final model = await createTestModel();
-    try {
-      final chat = await createTestChat(model);
-      await chat.addQueryChunk(
-          const Message(text: 'Say hi', isUser: true));
-      final response = await chat.generateChatResponse();
-      expect(response, isA<TextResponse>());
-      final text = (response as TextResponse).token;
-      print(
-          '[Inference] Response: "${text.length > 100 ? text.substring(0, 100) : text}"');
-      expect(text, isNotEmpty,
-          reason: 'Model should produce non-empty response');
-    } finally {
-      await model.close();
-    }
-  }, timeout: const Timeout(Duration(minutes: 10)));
+      // 6. Quick inference sanity check
+      final model = await createTestModel();
+      try {
+        final chat = await createTestChat(model);
+        await chat.addQueryChunk(const Message(text: 'Say hi', isUser: true));
+        final response = await chat.generateChatResponse();
+        expect(response, isA<TextResponse>());
+        final text = (response as TextResponse).token;
+        print(
+          '[Inference] Response: "${text.length > 100 ? text.substring(0, 100) : text}"',
+        );
+        expect(
+          text,
+          isNotEmpty,
+          reason: 'Model should produce non-empty response',
+        );
+      } finally {
+        await model.close();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 }

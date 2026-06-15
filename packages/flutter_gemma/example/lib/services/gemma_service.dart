@@ -9,8 +9,13 @@ class GemmaLocalService {
   Future<void> addQuery(Message message) => _chat.addQuery(message);
 
   /// Process message and return stream with sync/async mode support
-  Future<Stream<ModelResponse>> processMessage(Message message, {bool useSyncMode = false}) async {
-    debugPrint('GemmaLocalService: processMessage() called with: "${message.text}"');
+  Future<Stream<ModelResponse>> processMessage(
+    Message message, {
+    bool useSyncMode = false,
+  }) async {
+    debugPrint(
+      'GemmaLocalService: processMessage() called with: "${message.text}"',
+    );
     debugPrint('GemmaLocalService: Adding query to chat: "${message.text}"');
     await _chat.addQuery(message);
 

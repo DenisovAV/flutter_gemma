@@ -58,7 +58,10 @@ enum _ChatFormatMode {
 /// [_ChatFormatMode] applies; the produced strings are identical to the prior
 /// inline branching in [MessageExtension.transformToChatPrompt].
 _ChatFormatMode _chatFormatModeFor(
-    ModelType type, ModelFileType fileType, MessageType messageType) {
+  ModelType type,
+  ModelFileType fileType,
+  MessageType messageType,
+) {
   // System messages should not be sent to the model.
   if (messageType == MessageType.systemInfo) return _ChatFormatMode.drop;
 
@@ -81,12 +84,14 @@ _ChatFormatMode _chatFormatModeFor(
 }
 
 extension MessageExtension on Message {
-  String transformToChatPrompt(
-      {ModelType type = ModelType.general,
-      ModelFileType fileType = ModelFileType.binary}) {
+  String transformToChatPrompt({
+    ModelType type = ModelType.general,
+    ModelFileType fileType = ModelFileType.binary,
+  }) {
     // DEBUG LOG
     gemmaLog(
-        '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser');
+      '[transformToChatPrompt] modelType=$type, fileType=$fileType, messageType=${this.type}, isUser=$isUser',
+    );
 
     switch (_chatFormatModeFor(type, fileType, this.type)) {
       case _ChatFormatMode.drop:
@@ -94,7 +99,8 @@ extension MessageExtension on Message {
       case _ChatFormatMode.raw:
         final result = _formatToolResponseContent();
         gemmaLog(
-            '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}');
+          '[transformToChatPrompt] Using _formatToolResponseContent, result length=${result.length}',
+        );
         return result;
       case _ChatFormatMode.manual:
         // .bin/.tflite files (and .litertlm on iOS) - manual formatting by model type.
@@ -227,8 +233,9 @@ class ModelThinkingFilter {
   /// Filters ModelResponse stream for models with thinking support.
   /// Supports DeepSeek/Qwen3 (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`).
   static Stream<ModelResponse> filterThinkingStream(
-      Stream<ModelResponse> originalStream,
-      {required ModelType modelType}) async* {
+    Stream<ModelResponse> originalStream, {
+    required ModelType modelType,
+  }) async* {
     switch (modelType) {
       case ModelType.deepSeek:
         // DeepSeek starts in thinking mode (no opening <think> tag).
@@ -301,13 +308,16 @@ class ModelThinkingFilter {
                   qwenInside = false;
                 } else {
                   final partial = _findPartialSuffix(qwenBuffer, endTag);
-                  final safe =
-                      qwenBuffer.substring(0, qwenBuffer.length - partial);
+                  final safe = qwenBuffer.substring(
+                    0,
+                    qwenBuffer.length - partial,
+                  );
                   if (safe.isNotEmpty) {
                     yield ThinkingResponse(safe);
                   }
-                  qwenBuffer =
-                      qwenBuffer.substring(qwenBuffer.length - partial);
+                  qwenBuffer = qwenBuffer.substring(
+                    qwenBuffer.length - partial,
+                  );
                   break;
                 }
               } else {
@@ -321,13 +331,16 @@ class ModelThinkingFilter {
                   qwenInside = true;
                 } else {
                   final partial = _findPartialSuffix(qwenBuffer, startTag);
-                  final safe =
-                      qwenBuffer.substring(0, qwenBuffer.length - partial);
+                  final safe = qwenBuffer.substring(
+                    0,
+                    qwenBuffer.length - partial,
+                  );
                   if (safe.isNotEmpty) {
                     yield TextResponse(safe);
                   }
-                  qwenBuffer =
-                      qwenBuffer.substring(qwenBuffer.length - partial);
+                  qwenBuffer = qwenBuffer.substring(
+                    qwenBuffer.length - partial,
+                  );
                   break;
                 }
               }
@@ -363,19 +376,23 @@ class ModelThinkingFilter {
                   if (thinkingContent.isNotEmpty) {
                     yield ThinkingResponse(thinkingContent);
                   }
-                  gemmaBuffer =
-                      gemmaBuffer.substring(endIdx + endMarker.length);
+                  gemmaBuffer = gemmaBuffer.substring(
+                    endIdx + endMarker.length,
+                  );
                   gemmaInsideThinking = false;
                 } else {
                   // Check for partial end marker at tail
                   final partial = _findPartialSuffix(gemmaBuffer, endMarker);
-                  final safe =
-                      gemmaBuffer.substring(0, gemmaBuffer.length - partial);
+                  final safe = gemmaBuffer.substring(
+                    0,
+                    gemmaBuffer.length - partial,
+                  );
                   if (safe.isNotEmpty) {
                     yield ThinkingResponse(safe);
                   }
-                  gemmaBuffer =
-                      gemmaBuffer.substring(gemmaBuffer.length - partial);
+                  gemmaBuffer = gemmaBuffer.substring(
+                    gemmaBuffer.length - partial,
+                  );
                   break;
                 }
               } else {
@@ -385,19 +402,23 @@ class ModelThinkingFilter {
                   if (textBefore.isNotEmpty) {
                     yield TextResponse(textBefore);
                   }
-                  gemmaBuffer =
-                      gemmaBuffer.substring(startIdx + startMarker.length);
+                  gemmaBuffer = gemmaBuffer.substring(
+                    startIdx + startMarker.length,
+                  );
                   gemmaInsideThinking = true;
                 } else {
                   // Check for partial start marker at tail
                   final partial = _findPartialSuffix(gemmaBuffer, startMarker);
-                  final safe =
-                      gemmaBuffer.substring(0, gemmaBuffer.length - partial);
+                  final safe = gemmaBuffer.substring(
+                    0,
+                    gemmaBuffer.length - partial,
+                  );
                   if (safe.isNotEmpty) {
                     yield TextResponse(safe);
                   }
-                  gemmaBuffer =
-                      gemmaBuffer.substring(gemmaBuffer.length - partial);
+                  gemmaBuffer = gemmaBuffer.substring(
+                    gemmaBuffer.length - partial,
+                  );
                   break;
                 }
               }
@@ -429,8 +450,10 @@ class ModelThinkingFilter {
   /// Removes thinking blocks from final text.
   /// Supports DeepSeek/Qwen3 (`<think>...</think>`) and Gemma 4 (`<|channel>thought\n...<channel|>`).
   /// Note: For streaming thinking output, use [filterThinkingStream] with generateChatResponseAsync() instead.
-  static String removeThinkingFromText(String text,
-      {required ModelType modelType}) {
+  static String removeThinkingFromText(
+    String text, {
+    required ModelType modelType,
+  }) {
     switch (modelType) {
       case ModelType.deepSeek:
       case ModelType.qwen:
@@ -444,7 +467,9 @@ class ModelThinkingFilter {
         // Remove all <|channel>thought\n...<channel|> blocks (Gemma 4 E2B/E4B)
         return text
             .replaceAll(
-                RegExp(r'<\|channel>thought\n.*?<channel\|>', dotAll: true), '')
+              RegExp(r'<\|channel>thought\n.*?<channel\|>', dotAll: true),
+              '',
+            )
             .trim();
 
       case ModelType.general:
@@ -459,14 +484,17 @@ class ModelThinkingFilter {
   }
 
   /// Cleans model response from service tags and thinking blocks
-  static String cleanResponse(String response,
-      {required bool isThinking,
-      required ModelType modelType,
-      required ModelFileType fileType}) {
+  static String cleanResponse(
+    String response, {
+    required bool isThinking,
+    required ModelType modelType,
+    required ModelFileType fileType,
+  }) {
     String cleaned = response;
 
     // Strip thinking tags for models that may generate them
-    final bool modelCanThink = modelType == ModelType.deepSeek ||
+    final bool modelCanThink =
+        modelType == ModelType.deepSeek ||
         modelType == ModelType.qwen ||
         modelType == ModelType.qwen3 ||
         modelType == ModelType.gemmaIt ||

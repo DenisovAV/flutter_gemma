@@ -5,35 +5,31 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('ffiBackendFallbackOrder', () {
     test('tries NPU, then GPU, then CPU for an NPU preference', () {
-      expect(
-        ffiBackendFallbackOrder(PreferredBackend.npu),
-        const [
-          PreferredBackend.npu,
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      );
+      expect(ffiBackendFallbackOrder(PreferredBackend.npu), const [
+        PreferredBackend.npu,
+        PreferredBackend.gpu,
+        PreferredBackend.cpu,
+      ]);
     });
 
     test('tries GPU, then CPU for a GPU preference', () {
-      expect(
-        ffiBackendFallbackOrder(PreferredBackend.gpu),
-        const [PreferredBackend.gpu, PreferredBackend.cpu],
-      );
+      expect(ffiBackendFallbackOrder(PreferredBackend.gpu), const [
+        PreferredBackend.gpu,
+        PreferredBackend.cpu,
+      ]);
     });
 
     test('tries GPU, then CPU when no preference is provided', () {
-      expect(
-        ffiBackendFallbackOrder(null),
-        const [PreferredBackend.gpu, PreferredBackend.cpu],
-      );
+      expect(ffiBackendFallbackOrder(null), const [
+        PreferredBackend.gpu,
+        PreferredBackend.cpu,
+      ]);
     });
 
     test('tries only CPU for a CPU preference', () {
-      expect(
-        ffiBackendFallbackOrder(PreferredBackend.cpu),
-        const [PreferredBackend.cpu],
-      );
+      expect(ffiBackendFallbackOrder(PreferredBackend.cpu), const [
+        PreferredBackend.cpu,
+      ]);
     });
   });
 
@@ -94,19 +90,22 @@ void main() {
           shutdownClient: (client) => client.shutdown(),
         ),
         throwsA(
-          isA<BackendInitException>().having(
-            (exception) => exception.attempts.map((attempt) => attempt.backend),
-            'attempted backends',
-            [
-              PreferredBackend.npu,
-              PreferredBackend.gpu,
-              PreferredBackend.cpu,
-            ],
-          ).having(
-            (exception) => exception.lastAttempt.backend,
-            'last attempt',
-            PreferredBackend.cpu,
-          ),
+          isA<BackendInitException>()
+              .having(
+                (exception) =>
+                    exception.attempts.map((attempt) => attempt.backend),
+                'attempted backends',
+                [
+                  PreferredBackend.npu,
+                  PreferredBackend.gpu,
+                  PreferredBackend.cpu,
+                ],
+              )
+              .having(
+                (exception) => exception.lastAttempt.backend,
+                'last attempt',
+                PreferredBackend.cpu,
+              ),
         ),
       );
 

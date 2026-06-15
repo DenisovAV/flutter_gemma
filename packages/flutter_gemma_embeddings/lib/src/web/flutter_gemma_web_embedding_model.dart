@@ -12,8 +12,8 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
     required this.onClose,
     String? modelPath,
     String? tokenizerPath,
-  })  : _modelPath = modelPath,
-        _tokenizerPath = tokenizerPath;
+  }) : _modelPath = modelPath,
+       _tokenizerPath = tokenizerPath;
 
   final VoidCallback onClose;
   final String? _modelPath;
@@ -28,7 +28,8 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   void _assertNotClosed() {
     if (_isClosed) {
       throw StateError(
-          'EmbeddingModel is closed. Create a new instance to use it again');
+        'EmbeddingModel is closed. Create a new instance to use it again',
+      );
     }
   }
 
@@ -38,7 +39,8 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
 
     if (_modelPath == null || _tokenizerPath == null) {
       throw StateError(
-          'Model and tokenizer paths must be provided. Use createEmbeddingModel with modelPath and tokenizerPath parameters.');
+        'Model and tokenizer paths must be provided. Use createEmbeddingModel with modelPath and tokenizerPath parameters.',
+      );
     }
 
     try {
@@ -89,8 +91,9 @@ class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
       if (taskType == TaskType.retrievalDocument) {
         final results = <List<double>>[];
         for (final text in texts) {
-          results
-              .add(await LiteRTWebEmbeddings.generateDocumentEmbedding(text));
+          results.add(
+            await LiteRTWebEmbeddings.generateDocumentEmbedding(text),
+          );
         }
         return results;
       }

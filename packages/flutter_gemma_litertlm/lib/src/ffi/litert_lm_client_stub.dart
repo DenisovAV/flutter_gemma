@@ -8,7 +8,8 @@
 class LiteRtLmFfiClient {
   LiteRtLmFfiClient() {
     throw UnsupportedError(
-        'LiteRtLmFfiClient is not available on web — use FlutterGemmaWeb instead.');
+      'LiteRtLmFfiClient is not available on web — use FlutterGemmaWeb instead.',
+    );
   }
 
   Future<void> initialize({
@@ -20,8 +21,7 @@ class LiteRtLmFfiClient {
     int maxNumImages = 0,
     bool enableAudio = false,
     bool? enableSpeculativeDecoding,
-  }) =>
-      throw UnsupportedError('web stub — never instantiated');
+  }) => throw UnsupportedError('web stub — never instantiated');
 
   // Referenced by the FFI fallback runtime in flutter_gemma_mobile.dart
   // (shutdownClient callback). Present so the web import graph compiles;

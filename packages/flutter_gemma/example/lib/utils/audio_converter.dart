@@ -31,9 +31,7 @@ class AudioConverter {
     final samples = _bytesToSamples(pcmData);
 
     // Convert stereo to mono if needed
-    final monoSamples = sourceChannels == 2
-        ? _stereoToMono(samples)
-        : samples;
+    final monoSamples = sourceChannels == 2 ? _stereoToMono(samples) : samples;
 
     // Resample to 16kHz if needed
     final resampledSamples = sourceSampleRate != targetSampleRate
@@ -95,7 +93,9 @@ class AudioConverter {
         sampleRate = byteData.getUint32(chunkDataStart + 4, Endian.little);
       } else if (chunkId == 'data') {
         // Data chunk found
-        pcmData = Uint8List.fromList(wavData.sublist(chunkDataStart, chunkDataStart + chunkSize));
+        pcmData = Uint8List.fromList(
+          wavData.sublist(chunkDataStart, chunkDataStart + chunkSize),
+        );
       }
 
       // Move to next chunk
@@ -235,8 +235,8 @@ class AudioConverter {
       final fraction = (i * ratio) - srcIndex;
 
       // Linear interpolation
-      final value = samples[srcIndex] * (1 - fraction) +
-          samples[srcIndexNext] * fraction;
+      final value =
+          samples[srcIndex] * (1 - fraction) + samples[srcIndexNext] * fraction;
       resampled[i] = value.round().clamp(-32768, 32767);
     }
 

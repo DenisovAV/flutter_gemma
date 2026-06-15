@@ -208,10 +208,14 @@ class LiteRtRankedTensorTypeView {
   factory LiteRtRankedTensorTypeView.calloc() {
     if (Platform.isWindows) {
       return LiteRtRankedTensorTypeView._(
-          nullptr, calloc<LiteRtRankedTensorTypeMsvc>());
+        nullptr,
+        calloc<LiteRtRankedTensorTypeMsvc>(),
+      );
     }
     return LiteRtRankedTensorTypeView._(
-        calloc<LiteRtRankedTensorTypePosix>(), nullptr);
+      calloc<LiteRtRankedTensorTypePosix>(),
+      nullptr,
+    );
   }
 
   final Pointer<LiteRtRankedTensorTypePosix> _posix;
@@ -275,13 +279,15 @@ DynamicLibrary _openLiteRt() {
       } catch (_) {}
     }
     throw UnsupportedError(
-        'LiteRtLm framework/dylib not found in any of: ${candidates.join(", ")}');
+      'LiteRtLm framework/dylib not found in any of: ${candidates.join(", ")}',
+    );
   }
   if (Platform.isAndroid) return DynamicLibrary.open('libLiteRtLm.so');
   if (Platform.isLinux) return DynamicLibrary.open('libLiteRt.so');
   if (Platform.isWindows) return DynamicLibrary.open('LiteRt.dll');
   throw UnsupportedError(
-      'LiteRT is not available on ${Platform.operatingSystem}');
+    'LiteRT is not available on ${Platform.operatingSystem}',
+  );
 }
 
 // ----- Bindings --------------------------------------------------------------
@@ -298,73 +304,126 @@ class LiteRtBindings {
 
   // Environment.
 
-  late final createEnvironment = _lib.lookupFunction<
-      Int32 Function(IntPtr, Pointer<Void>, Pointer<LiteRtEnvironment>),
-      int Function(int, Pointer<Void>, Pointer<LiteRtEnvironment>)>(
-    'LiteRtCreateEnvironment',
-  );
+  late final createEnvironment = _lib
+      .lookupFunction<
+        Int32 Function(IntPtr, Pointer<Void>, Pointer<LiteRtEnvironment>),
+        int Function(int, Pointer<Void>, Pointer<LiteRtEnvironment>)
+      >('LiteRtCreateEnvironment');
 
-  late final destroyEnvironment = _lib.lookupFunction<
-      Void Function(LiteRtEnvironment),
-      void Function(LiteRtEnvironment)>('LiteRtDestroyEnvironment');
+  late final destroyEnvironment = _lib
+      .lookupFunction<
+        Void Function(LiteRtEnvironment),
+        void Function(LiteRtEnvironment)
+      >('LiteRtDestroyEnvironment');
 
   // Model.
 
-  late final createModelFromFile = _lib.lookupFunction<
-      Int32 Function(Pointer<Utf8>, Pointer<LiteRtModel>),
-      int Function(Pointer<Utf8>, Pointer<LiteRtModel>)>(
-    'LiteRtCreateModelFromFile',
-  );
+  late final createModelFromFile = _lib
+      .lookupFunction<
+        Int32 Function(Pointer<Utf8>, Pointer<LiteRtModel>),
+        int Function(Pointer<Utf8>, Pointer<LiteRtModel>)
+      >('LiteRtCreateModelFromFile');
 
-  late final destroyModel = _lib.lookupFunction<Void Function(LiteRtModel),
-      void Function(LiteRtModel)>('LiteRtDestroyModel');
+  late final destroyModel = _lib
+      .lookupFunction<Void Function(LiteRtModel), void Function(LiteRtModel)>(
+        'LiteRtDestroyModel',
+      );
 
   // Compilation options.
 
-  late final createOptions = _lib.lookupFunction<
-      Int32 Function(Pointer<LiteRtOptions>),
-      int Function(Pointer<LiteRtOptions>)>('LiteRtCreateOptions');
+  late final createOptions = _lib
+      .lookupFunction<
+        Int32 Function(Pointer<LiteRtOptions>),
+        int Function(Pointer<LiteRtOptions>)
+      >('LiteRtCreateOptions');
 
-  late final destroyOptions = _lib.lookupFunction<Void Function(LiteRtOptions),
-      void Function(LiteRtOptions)>('LiteRtDestroyOptions');
+  late final destroyOptions = _lib
+      .lookupFunction<
+        Void Function(LiteRtOptions),
+        void Function(LiteRtOptions)
+      >('LiteRtDestroyOptions');
 
-  late final setOptionsHardwareAccelerators = _lib.lookupFunction<
-      Int32 Function(LiteRtOptions, Int32),
-      int Function(LiteRtOptions, int)>('LiteRtSetOptionsHardwareAccelerators');
+  late final setOptionsHardwareAccelerators = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtOptions, Int32),
+        int Function(LiteRtOptions, int)
+      >('LiteRtSetOptionsHardwareAccelerators');
 
   // Compiled model.
 
-  late final createCompiledModel = _lib.lookupFunction<
-      Int32 Function(LiteRtEnvironment, LiteRtModel, LiteRtOptions,
-          Pointer<LiteRtCompiledModel>),
-      int Function(LiteRtEnvironment, LiteRtModel, LiteRtOptions,
-          Pointer<LiteRtCompiledModel>)>('LiteRtCreateCompiledModel');
+  late final createCompiledModel = _lib
+      .lookupFunction<
+        Int32 Function(
+          LiteRtEnvironment,
+          LiteRtModel,
+          LiteRtOptions,
+          Pointer<LiteRtCompiledModel>,
+        ),
+        int Function(
+          LiteRtEnvironment,
+          LiteRtModel,
+          LiteRtOptions,
+          Pointer<LiteRtCompiledModel>,
+        )
+      >('LiteRtCreateCompiledModel');
 
-  late final destroyCompiledModel = _lib.lookupFunction<
-      Void Function(LiteRtCompiledModel),
-      void Function(LiteRtCompiledModel)>('LiteRtDestroyCompiledModel');
+  late final destroyCompiledModel = _lib
+      .lookupFunction<
+        Void Function(LiteRtCompiledModel),
+        void Function(LiteRtCompiledModel)
+      >('LiteRtDestroyCompiledModel');
 
-  late final runCompiledModel = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
-          Pointer<LiteRtTensorBuffer>, IntPtr, Pointer<LiteRtTensorBuffer>),
-      int Function(LiteRtCompiledModel, int, int, Pointer<LiteRtTensorBuffer>,
-          int, Pointer<LiteRtTensorBuffer>)>('LiteRtRunCompiledModel');
+  late final runCompiledModel = _lib
+      .lookupFunction<
+        Int32 Function(
+          LiteRtCompiledModel,
+          IntPtr,
+          IntPtr,
+          Pointer<LiteRtTensorBuffer>,
+          IntPtr,
+          Pointer<LiteRtTensorBuffer>,
+        ),
+        int Function(
+          LiteRtCompiledModel,
+          int,
+          int,
+          Pointer<LiteRtTensorBuffer>,
+          int,
+          Pointer<LiteRtTensorBuffer>,
+        )
+      >('LiteRtRunCompiledModel');
 
-  late final getInputBufferRequirements = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
-          Pointer<LiteRtTensorBufferRequirements>),
-      int Function(LiteRtCompiledModel, int, int,
-          Pointer<LiteRtTensorBufferRequirements>)>(
-    'LiteRtGetCompiledModelInputBufferRequirements',
-  );
+  late final getInputBufferRequirements = _lib
+      .lookupFunction<
+        Int32 Function(
+          LiteRtCompiledModel,
+          IntPtr,
+          IntPtr,
+          Pointer<LiteRtTensorBufferRequirements>,
+        ),
+        int Function(
+          LiteRtCompiledModel,
+          int,
+          int,
+          Pointer<LiteRtTensorBufferRequirements>,
+        )
+      >('LiteRtGetCompiledModelInputBufferRequirements');
 
-  late final getOutputBufferRequirements = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr,
-          Pointer<LiteRtTensorBufferRequirements>),
-      int Function(LiteRtCompiledModel, int, int,
-          Pointer<LiteRtTensorBufferRequirements>)>(
-    'LiteRtGetCompiledModelOutputBufferRequirements',
-  );
+  late final getOutputBufferRequirements = _lib
+      .lookupFunction<
+        Int32 Function(
+          LiteRtCompiledModel,
+          IntPtr,
+          IntPtr,
+          Pointer<LiteRtTensorBufferRequirements>,
+        ),
+        int Function(
+          LiteRtCompiledModel,
+          int,
+          int,
+          Pointer<LiteRtTensorBufferRequirements>,
+        )
+      >('LiteRtGetCompiledModelOutputBufferRequirements');
 
   // LiteRtStatus LiteRtGetCompiledModelInputTensorLayout(
   //     LiteRtCompiledModel, LiteRtParamIndex signature_index,
@@ -372,46 +431,66 @@ class LiteRtBindings {
   //
   // Layout pointer is opaque on our side — the caller picks the right
   // POSIX/MSVC backing struct via [LiteRtLayoutView].
-  late final getInputTensorLayout = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr, Pointer<Void>),
-      int Function(LiteRtCompiledModel, int, int, Pointer<Void>)>(
-    'LiteRtGetCompiledModelInputTensorLayout',
-  );
+  late final getInputTensorLayout = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr, Pointer<Void>),
+        int Function(LiteRtCompiledModel, int, int, Pointer<Void>)
+      >('LiteRtGetCompiledModelInputTensorLayout');
 
   // LiteRtStatus LiteRtGetCompiledModelOutputTensorLayouts(
   //     LiteRtCompiledModel, LiteRtParamIndex signature_index,
   //     size_t num_layouts, LiteRtLayout* layouts, bool update_allocation);
-  late final getOutputTensorLayouts = _lib.lookupFunction<
-      Int32 Function(LiteRtCompiledModel, IntPtr, IntPtr, Pointer<Void>, Bool),
-      int Function(LiteRtCompiledModel, int, int, Pointer<Void>, bool)>(
-    'LiteRtGetCompiledModelOutputTensorLayouts',
-  );
+  late final getOutputTensorLayouts = _lib
+      .lookupFunction<
+        Int32 Function(
+          LiteRtCompiledModel,
+          IntPtr,
+          IntPtr,
+          Pointer<Void>,
+          Bool,
+        ),
+        int Function(LiteRtCompiledModel, int, int, Pointer<Void>, bool)
+      >('LiteRtGetCompiledModelOutputTensorLayouts');
 
   // Tensor buffer.
 
   // Tensor type is opaque on our side — fill it via
   // [LiteRtRankedTensorTypeView] which picks the right POSIX/MSVC backing.
-  late final createTensorBufferFromHostMemory = _lib.lookupFunction<
-      Int32 Function(Pointer<Void>, Pointer<Void>, IntPtr, Pointer<Void>,
-          Pointer<LiteRtTensorBuffer>),
-      int Function(Pointer<Void>, Pointer<Void>, int, Pointer<Void>,
-          Pointer<LiteRtTensorBuffer>)>(
-    'LiteRtCreateTensorBufferFromHostMemory',
-  );
+  late final createTensorBufferFromHostMemory = _lib
+      .lookupFunction<
+        Int32 Function(
+          Pointer<Void>,
+          Pointer<Void>,
+          IntPtr,
+          Pointer<Void>,
+          Pointer<LiteRtTensorBuffer>,
+        ),
+        int Function(
+          Pointer<Void>,
+          Pointer<Void>,
+          int,
+          Pointer<Void>,
+          Pointer<LiteRtTensorBuffer>,
+        )
+      >('LiteRtCreateTensorBufferFromHostMemory');
 
-  late final destroyTensorBuffer = _lib.lookupFunction<
-      Void Function(LiteRtTensorBuffer),
-      void Function(LiteRtTensorBuffer)>('LiteRtDestroyTensorBuffer');
+  late final destroyTensorBuffer = _lib
+      .lookupFunction<
+        Void Function(LiteRtTensorBuffer),
+        void Function(LiteRtTensorBuffer)
+      >('LiteRtDestroyTensorBuffer');
 
-  late final lockTensorBuffer = _lib.lookupFunction<
-      Int32 Function(LiteRtTensorBuffer, Pointer<Pointer<Void>>, Int32),
-      int Function(LiteRtTensorBuffer, Pointer<Pointer<Void>>, int)>(
-    'LiteRtLockTensorBuffer',
-  );
+  late final lockTensorBuffer = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtTensorBuffer, Pointer<Pointer<Void>>, Int32),
+        int Function(LiteRtTensorBuffer, Pointer<Pointer<Void>>, int)
+      >('LiteRtLockTensorBuffer');
 
-  late final unlockTensorBuffer = _lib.lookupFunction<
-      Int32 Function(LiteRtTensorBuffer),
-      int Function(LiteRtTensorBuffer)>('LiteRtUnlockTensorBuffer');
+  late final unlockTensorBuffer = _lib
+      .lookupFunction<
+        Int32 Function(LiteRtTensorBuffer),
+        int Function(LiteRtTensorBuffer)
+      >('LiteRtUnlockTensorBuffer');
 }
 
 // ----- Status / alignment helpers --------------------------------------------

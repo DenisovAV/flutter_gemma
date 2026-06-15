@@ -84,14 +84,16 @@ class QdrantVectorStore implements VectorStoreRepository {
     final shardPath = _shardPath;
     if (shardPath == null) {
       throw const VectorStoreException(
-          'Vector store not initialized — call initialize(path) first.');
+        'Vector store not initialized — call initialize(path) first.',
+      );
     }
     final existing = _client;
     if (existing != null) {
       if (_dim != dim) {
         throw ArgumentError(
-            'Embedding dimension mismatch: shard was opened with dim=$_dim, '
-            'got vector of length $dim');
+          'Embedding dimension mismatch: shard was opened with dim=$_dim, '
+          'got vector of length $dim',
+        );
       }
       return existing;
     }
@@ -150,7 +152,8 @@ class QdrantVectorStore implements VectorStoreRepository {
     final c = _client;
     if (c == null) {
       debugPrint(
-          '[QdrantVectorStore] removeDocument($id) called before initialize() — ignored');
+        '[QdrantVectorStore] removeDocument($id) called before initialize() — ignored',
+      );
       return;
     }
     try {
@@ -174,8 +177,9 @@ class QdrantVectorStore implements VectorStoreRepository {
     }
     if (queryEmbedding.length != _dim) {
       throw ArgumentError(
-          'Query embedding dimension ${queryEmbedding.length} does not '
-          'match stored dimension $_dim');
+        'Query embedding dimension ${queryEmbedding.length} does not '
+        'match stored dimension $_dim',
+      );
     }
     final filterJson = FilterCodec.encode(filter);
     final hits = await c.search(
@@ -219,7 +223,8 @@ class QdrantVectorStore implements VectorStoreRepository {
       await c.close();
     } catch (e) {
       throw VectorStoreException(
-          'Failed to close qdrant client during clear: $e');
+        'Failed to close qdrant client during clear: $e',
+      );
     }
     final dir = Directory(path);
     if (dir.existsSync()) {

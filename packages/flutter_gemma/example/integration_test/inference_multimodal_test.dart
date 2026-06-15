@@ -58,19 +58,22 @@ void main() {
         supportImage: true,
       );
 
-      await chat.addQueryChunk(Message.withImage(
-        text: 'What do you see in this image? Describe briefly.',
-        imageBytes: imageBytes,
-        isUser: true,
-      ));
+      await chat.addQueryChunk(
+        Message.withImage(
+          text: 'What do you see in this image? Describe briefly.',
+          imageBytes: imageBytes,
+          isUser: true,
+        ),
+      );
 
       final response = await chat.generateChatResponse();
       expect(response, isA<TextResponse>());
       final text = (response as TextResponse).token;
-      print('[Vision] Response: '
-          '"${text.length > 150 ? text.substring(0, 150) : text}"');
-      expect(text, isNotEmpty,
-          reason: 'Vision response should be non-empty');
+      print(
+        '[Vision] Response: '
+        '"${text.length > 150 ? text.substring(0, 150) : text}"',
+      );
+      expect(text, isNotEmpty, reason: 'Vision response should be non-empty');
     } finally {
       await model.close();
     }

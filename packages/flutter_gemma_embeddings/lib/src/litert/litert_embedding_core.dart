@@ -58,11 +58,11 @@ class EmbeddingCore {
     required this.tokenizer,
     required this.inputSequenceLength,
     required this.outputDimension,
-  })  : _bindings = bindings,
-        _environment = environment,
-        _model = model,
-        _options = options,
-        _compiledModel = compiledModel;
+  }) : _bindings = bindings,
+       _environment = environment,
+       _model = model,
+       _options = options,
+       _compiledModel = compiledModel;
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
@@ -158,7 +158,8 @@ class EmbeddingCore {
               .check('LiteRtGetCompiledModelInputTensorLayout');
           if (inLayout.rank < 2) {
             throw StateError(
-                'Embedding model input has rank=${inLayout.rank}, expected >=2');
+              'Embedding model input has rank=${inLayout.rank}, expected >=2',
+            );
           }
           seqLen = inLayout.dimension(1);
         } finally {
@@ -176,7 +177,8 @@ class EmbeddingCore {
               .check('LiteRtGetCompiledModelOutputTensorLayouts');
           if (outLayouts.rank < 2) {
             throw StateError(
-                'Embedding model output has rank=${outLayouts.rank}, expected >=2');
+              'Embedding model output has rank=${outLayouts.rank}, expected >=2',
+            );
           }
           dim = outLayouts.dimension(1);
         } finally {
@@ -187,7 +189,8 @@ class EmbeddingCore {
       }
 
       gemmaLog(
-          '[EmbeddingCore] loaded: seqLen=$seqLen, dim=$dim, backend=$backend');
+        '[EmbeddingCore] loaded: seqLen=$seqLen, dim=$dim, backend=$backend',
+      );
 
       return EmbeddingCore._(
         bindings: bindings,
@@ -252,14 +255,24 @@ class EmbeddingCore {
       }
 
       _bindings
-          .createTensorBufferFromHostMemory(inType.pointer,
-              inAlloc.aligned.cast(), seq * 4, nullptr, inBufPtr)
+          .createTensorBufferFromHostMemory(
+            inType.pointer,
+            inAlloc.aligned.cast(),
+            seq * 4,
+            nullptr,
+            inBufPtr,
+          )
           .check('CreateTensorBufferFromHostMemory(input)');
       inBufCreated = true;
 
       _bindings
-          .createTensorBufferFromHostMemory(outType.pointer,
-              outAlloc.aligned.cast(), dim * 4, nullptr, outBufPtr)
+          .createTensorBufferFromHostMemory(
+            outType.pointer,
+            outAlloc.aligned.cast(),
+            dim * 4,
+            nullptr,
+            outBufPtr,
+          )
           .check('CreateTensorBufferFromHostMemory(output)');
       outBufCreated = true;
 
@@ -275,7 +288,10 @@ class EmbeddingCore {
       try {
         _bindings
             .lockTensorBuffer(
-                outBufPtr.value, lockedPtr, kLiteRtTensorBufferLockModeRead)
+              outBufPtr.value,
+              lockedPtr,
+              kLiteRtTensorBufferLockModeRead,
+            )
             .check('LiteRtLockTensorBuffer(output)');
         final outFloat = lockedPtr.value.cast<Float>();
         final result = List<double>.generate(dim, (i) => outFloat[i]);

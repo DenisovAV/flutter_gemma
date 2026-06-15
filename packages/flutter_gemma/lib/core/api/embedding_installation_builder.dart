@@ -64,8 +64,10 @@ class EmbeddingInstallationBuilder {
   /// Set tokenizer source from network URL (HTTP/HTTPS).
   ///
   /// [token] optional auth token for the URL (e.g. HuggingFace).
-  EmbeddingInstallationBuilder tokenizerFromNetwork(String url,
-      {String? token}) {
+  EmbeddingInstallationBuilder tokenizerFromNetwork(
+    String url, {
+    String? token,
+  }) {
     _tokenizerSource = ModelSource.network(url, authToken: token);
     return this;
   }
@@ -92,14 +94,16 @@ class EmbeddingInstallationBuilder {
 
   /// Add model file progress callback
   EmbeddingInstallationBuilder withModelProgress(
-      void Function(int progress) onProgress) {
+    void Function(int progress) onProgress,
+  ) {
     _onModelProgress = onProgress;
     return this;
   }
 
   /// Add tokenizer file progress callback
   EmbeddingInstallationBuilder withTokenizerProgress(
-      void Function(int progress) onProgress) {
+    void Function(int progress) onProgress,
+  ) {
     _onTokenizerProgress = onProgress;
     return this;
   }
@@ -165,12 +169,14 @@ class EmbeddingInstallationBuilder {
 
     // Check if both model and tokenizer are already installed
     final isModelInstalled = await repository.isInstalled(modelFilename);
-    final isTokenizerInstalled =
-        await repository.isInstalled(tokenizerFilename);
+    final isTokenizerInstalled = await repository.isInstalled(
+      tokenizerFilename,
+    );
 
     if (isModelInstalled && isTokenizerInstalled) {
       gemmaLog(
-          'ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)');
+        'ℹ️  Embedding model already installed: $modelFilename + $tokenizerFilename (skipping download)',
+      );
     } else {
       final handlerRegistry = registry.sourceHandlerRegistry;
 
@@ -186,10 +192,7 @@ class EmbeddingInstallationBuilder {
             _onModelProgress!(progress);
           }
         } else {
-          await modelHandler!.install(
-            _modelSource!,
-            cancelToken: _cancelToken,
-          );
+          await modelHandler!.install(_modelSource!, cancelToken: _cancelToken);
         }
       } else {
         gemmaLog('ℹ️  Embedding model file already installed: $modelFilename');
@@ -198,8 +201,9 @@ class EmbeddingInstallationBuilder {
       // Install tokenizer file if not already installed
       if (!isTokenizerInstalled) {
         gemmaLog('📥 Installing tokenizer...');
-        final tokenizerHandler =
-            handlerRegistry.getHandler(effectiveTokenizerSource);
+        final tokenizerHandler = handlerRegistry.getHandler(
+          effectiveTokenizerSource,
+        );
         if (_onTokenizerProgress != null) {
           await for (final progress in tokenizerHandler!.installWithProgress(
             effectiveTokenizerSource,

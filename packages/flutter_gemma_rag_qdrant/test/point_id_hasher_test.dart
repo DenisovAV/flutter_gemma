@@ -5,7 +5,9 @@ void main() {
   group('PointIdHasher', () {
     test('is deterministic — same input maps to same UUID', () {
       expect(
-          PointIdHasher.hash('doc_42'), equals(PointIdHasher.hash('doc_42')));
+        PointIdHasher.hash('doc_42'),
+        equals(PointIdHasher.hash('doc_42')),
+      );
       expect(
         PointIdHasher.hash('the quick brown fox'),
         equals(PointIdHasher.hash('the quick brown fox')),
@@ -17,17 +19,15 @@ void main() {
         PointIdHasher.hash('doc_42'),
         isNot(equals(PointIdHasher.hash('doc_43'))),
       );
-      expect(
-        PointIdHasher.hash('a'),
-        isNot(equals(PointIdHasher.hash('b'))),
-      );
+      expect(PointIdHasher.hash('a'), isNot(equals(PointIdHasher.hash('b'))));
     });
 
     test('output is a canonical lowercase UUIDv5 string', () {
       // RFC 4122: 8-4-4-4-12 hex chars, version nibble = 5, variant nibble in {8,9,a,b}.
       final uuid = PointIdHasher.hash('doc_42');
       final re = RegExp(
-          r'^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$');
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      );
       expect(re.hasMatch(uuid), isTrue, reason: 'got: $uuid');
     });
 
@@ -45,8 +45,11 @@ void main() {
       expect(uuid1.length, equals(36));
       expect(uuid2.length, equals(36));
       expect(uuid3.length, equals(36));
-      expect({uuid1, uuid2, uuid3}.length, equals(3),
-          reason: 'all three must produce distinct UUIDs');
+      expect(
+        {uuid1, uuid2, uuid3}.length,
+        equals(3),
+        reason: 'all three must produce distinct UUIDs',
+      );
     });
 
     test('namespace constant is RFC 4122 DNS — locks the hash space', () {

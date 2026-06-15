@@ -57,8 +57,11 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       TextEditingController();
   final TextEditingController _huggingFaceTokenController =
       TextEditingController(
-    text: const String.fromEnvironment('HUGGINGFACE_TOKEN', defaultValue: ''),
-  );
+        text: const String.fromEnvironment(
+          'HUGGINGFACE_TOKEN',
+          defaultValue: '',
+        ),
+      );
 
   // Model URLs
   // Note: Gemma models require accepting license at https://huggingface.co/litert-community/gemma-3-270m-it
@@ -145,7 +148,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       if (inferenceModels.isNotEmpty) {
         setState(() => _inferenceModelReady = true);
         _log(
-            '✅ ${inferenceModels.length} inference model(s) ready for testing');
+          '✅ ${inferenceModels.length} inference model(s) ready for testing',
+        );
       }
 
       // Check for embedding models (typically .tflite and .model files)
@@ -309,14 +313,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await File(file3).delete().catchError((_) => File(file3));
 
       _log('📥 Modern: Downloading model 1...');
-      await FlutterGemma.installModel(
-        modelType: legacy.ModelType.gemmaIt,
-      )
+      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(
-              'https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore')
+            'https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore',
+          )
           .withProgress((progress) {
-        setState(() => _progress['modern_1'] = progress);
-      }).install();
+            setState(() => _progress['modern_1'] = progress);
+          })
+          .install();
 
       final modern1Size = await File(file3).length();
       _log('✅ Modern API Model 1: $modern1Size bytes');
@@ -327,14 +331,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       await File(file4).delete().catchError((_) => File(file4));
 
       _log('📥 Modern: Downloading model 2...');
-      await FlutterGemma.installModel(
-        modelType: legacy.ModelType.gemmaIt,
-      )
+      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(
-              'https://raw.githubusercontent.com/github/gitignore/main/Ruby.gitignore')
+            'https://raw.githubusercontent.com/github/gitignore/main/Ruby.gitignore',
+          )
           .withProgress((progress) {
-        setState(() => _progress['modern_2'] = progress);
-      }).install();
+            setState(() => _progress['modern_2'] = progress);
+          })
+          .install();
 
       final modern2Size = await File(file4).length();
       _log('✅ Modern API Model 2: $modern2Size bytes');
@@ -391,7 +395,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       final modernFiles = [
         'Node.gitignore',
         'Python.gitignore',
-        'Java.gitignore'
+        'Java.gitignore',
       ];
 
       for (var i = 0; i < urls.length; i++) {
@@ -512,7 +516,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       for (var i = 1; i < legacyProgress.length; i++) {
         if (legacyProgress[i] < legacyProgress[i - 1]) {
           throw Exception(
-              'Legacy: Progress decreased: ${legacyProgress[i]} < ${legacyProgress[i - 1]}');
+            'Legacy: Progress decreased: ${legacyProgress[i]} < ${legacyProgress[i - 1]}',
+          );
         }
       }
 
@@ -533,15 +538,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('📥 Modern: Downloading file with progress tracking...');
 
       final modernProgress = <int>[];
-      await FlutterGemma.installModel(
-        modelType: legacy.ModelType.gemmaIt,
-      )
+      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(
-              'https://raw.githubusercontent.com/github/gitignore/main/Swift.gitignore')
+            'https://raw.githubusercontent.com/github/gitignore/main/Swift.gitignore',
+          )
           .withProgress((progress) {
-        modernProgress.add(progress);
-        setState(() => _progress['modern_progress'] = progress);
-      }).install();
+            modernProgress.add(progress);
+            setState(() => _progress['modern_progress'] = progress);
+          })
+          .install();
 
       _log('✅ Modern: Complete with ${modernProgress.length} updates');
 
@@ -549,7 +554,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       for (var i = 1; i < modernProgress.length; i++) {
         if (modernProgress[i] < modernProgress[i - 1]) {
           throw Exception(
-              'Modern: Progress decreased: ${modernProgress[i]} < ${modernProgress[i - 1]}');
+            'Modern: Progress decreased: ${modernProgress[i]} < ${modernProgress[i - 1]}',
+          );
         }
       }
 
@@ -595,11 +601,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       );
 
       try {
-        await FlutterGemma.installModel(
-          modelType: legacy.ModelType.gemmaIt,
-        )
+        await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
-                'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_file_12345.txt')
+              'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_file_12345.txt',
+            )
             .install();
         throw Exception('Modern: Should have thrown 404 error');
       } catch (e) {
@@ -658,11 +663,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       );
 
       try {
-        await FlutterGemma.installModel(
-          modelType: legacy.ModelType.gemmaIt,
-        )
+        await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
-                'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt')
+              'https://raw.githubusercontent.com/github/gitignore/main/nonexistent_auth_file_67890.txt',
+            )
             .install();
         throw Exception('Modern: Should have thrown HTTP error');
       } catch (e) {
@@ -741,8 +745,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // Estimate downloaded size based on progress (509 MB total)
       const totalSizeMB = 509.0;
-      final estimatedMB =
-          (totalSizeMB * downloadProgress / 100).toStringAsFixed(1);
+      final estimatedMB = (totalSizeMB * downloadProgress / 100)
+          .toStringAsFixed(1);
 
       _log('📊 Progress: $downloadProgress% (~$estimatedMB MB downloaded)');
 
@@ -755,7 +759,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _log('📁 Actual file on disk: $actualMB MB');
       } else {
         _log(
-            '⚠️  File not yet on disk (iOS may keep it in temp until complete)');
+          '⚠️  File not yet on disk (iOS may keep it in temp until complete)',
+        );
       }
 
       // Save test state
@@ -784,7 +789,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // Show instruction on screen
       setState(() {
-        _killAppInstruction = '📱 NOW KILL THE APP:\n\n'
+        _killAppInstruction =
+            '📱 NOW KILL THE APP:\n\n'
             '1. Swipe up → show app switcher\n'
             '2. Swipe up on this app to kill it\n'
             '3. Restart the app\n'
@@ -844,11 +850,13 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           final downloaded = ((currentSize - partialSizeBefore) / 1024 / 1024)
               .toStringAsFixed(1);
           _log(
-              '✅ Background download worked! Downloaded $downloaded MB during app kill');
+            '✅ Background download worked! Downloaded $downloaded MB during app kill',
+          );
         }
       } else {
         _log(
-            '⚠️  File not yet on disk (iOS may keep in temp) - checking task database...');
+          '⚠️  File not yet on disk (iOS may keep in temp) - checking task database...',
+        );
       }
 
       // === CHECK 2: Task should be in FileDownloader database ===
@@ -858,26 +866,28 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('🔄 Calling resumeFromBackground()...');
       await downloader.resumeFromBackground();
       await Future.delayed(
-          const Duration(seconds: 2)); // Give it time to restore
+        const Duration(seconds: 2),
+      ); // Give it time to restore
 
       final records = await downloader.database.allRecords();
       final record = records.cast<TaskRecord?>().firstWhere(
-            (r) => r?.task.filename == filename,
-            orElse: () => null,
-          );
+        (r) => r?.task.filename == filename,
+        orElse: () => null,
+      );
 
       if (record == null) {
         _log(
-            '⚠️  Task not in database - resumeFromBackground() should restore it');
+          '⚠️  Task not in database - resumeFromBackground() should restore it',
+        );
         _log('🔄 Calling resumeFromBackground()...');
         await downloader.resumeFromBackground();
 
         // Check again
         final records2 = await downloader.database.allRecords();
         final record2 = records2.cast<TaskRecord?>().firstWhere(
-              (r) => r?.task.filename == filename,
-              orElse: () => null,
-            );
+          (r) => r?.task.filename == filename,
+          orElse: () => null,
+        );
 
         if (record2 == null) {
           throw Exception('❌ Task not restored by resumeFromBackground()!');
@@ -891,9 +901,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // Get the latest record
       final finalRecords = await downloader.database.allRecords();
       final taskRecord = finalRecords.cast<TaskRecord?>().firstWhere(
-            (r) => r?.task.filename == filename,
-            orElse: () => null,
-          );
+        (r) => r?.task.filename == filename,
+        orElse: () => null,
+      );
 
       if (taskRecord == null) {
         throw Exception('❌ Task disappeared!');
@@ -969,7 +979,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       if (finalSize < 100 * 1024 * 1024) {
         throw Exception(
-            '❌ Final file too small ($finalMB MB), expected ~509 MB');
+          '❌ Final file too small ($finalMB MB), expected ~509 MB',
+        );
       }
 
       _log('');
@@ -978,11 +989,13 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('  • Before kill: $progressBefore%');
       if (partialSizeBefore > 0) {
         _log(
-            '  • File before: ${(partialSizeBefore / 1024 / 1024).toStringAsFixed(1)} MB');
+          '  • File before: ${(partialSizeBefore / 1024 / 1024).toStringAsFixed(1)} MB',
+        );
       }
       if (currentSize > 0 && currentSize > partialSizeBefore) {
         _log(
-            '  • After restart: ${(currentSize / 1024 / 1024).toStringAsFixed(1)} MB');
+          '  • After restart: ${(currentSize / 1024 / 1024).toStringAsFixed(1)} MB',
+        );
         _log('  • Background download: ✅ Worked during kill!');
       } else {
         _log('  • Background download: ⚠️  Reset by iOS force kill (expected)');
@@ -1101,22 +1114,22 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       // Start both downloads concurrently
       await Future.wait([
-        FlutterGemma.installModel(
-          modelType: legacy.ModelType.gemmaIt,
-        )
+        FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
-                'https://raw.githubusercontent.com/github/gitignore/main/Dart.gitignore')
+              'https://raw.githubusercontent.com/github/gitignore/main/Dart.gitignore',
+            )
             .withProgress((progress) {
-          setState(() => _progress['modern_concurrent1'] = progress);
-        }).install(),
-        FlutterGemma.installModel(
-          modelType: legacy.ModelType.gemmaIt,
-        )
+              setState(() => _progress['modern_concurrent1'] = progress);
+            })
+            .install(),
+        FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
             .fromNetwork(
-                'https://raw.githubusercontent.com/github/gitignore/main/Kotlin.gitignore')
+              'https://raw.githubusercontent.com/github/gitignore/main/Kotlin.gitignore',
+            )
             .withProgress((progress) {
-          setState(() => _progress['modern_concurrent2'] = progress);
-        }).install(),
+              setState(() => _progress['modern_concurrent2'] = progress);
+            })
+            .install(),
       ]);
 
       final modernSize1 = await File(modernFile1).length();
@@ -1213,12 +1226,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     final prefs = await SharedPreferences.getInstance();
     final allKeys = prefs.getKeys();
     final bundledKeys = allKeys
-        .where((key) =>
-            key.startsWith('bundled_path_') ||
-            key == 'installed_models' ||
-            key == 'installed_loras' ||
-            key == 'installed_model_file_name' ||
-            key == 'installed_lora_file_name')
+        .where(
+          (key) =>
+              key.startsWith('bundled_path_') ||
+              key == 'installed_models' ||
+              key == 'installed_loras' ||
+              key == 'installed_model_file_name' ||
+              key == 'installed_lora_file_name',
+        )
         .toList();
 
     for (final key in bundledKeys) {
@@ -1283,8 +1298,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testBundledInferenceLegacy() async {
-    await _runTest('Bundled Inference Model (Legacy)',
-        _testBundledInferenceLegacy_internal);
+    await _runTest(
+      'Bundled Inference Model (Legacy)',
+      _testBundledInferenceLegacy_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper
@@ -1300,13 +1317,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
         final spec =
             legacy_mobile.MobileModelManager.createBundledInferenceSpec(
-          resourceName: resourceName,
-        );
+              resourceName: resourceName,
+            );
         await manager.deleteModel(spec);
       }
 
       _log(
-          '🔧 Installing via Modern API: FlutterGemma.installModel().fromBundled()');
+        '🔧 Installing via Modern API: FlutterGemma.installModel().fromBundled()',
+      );
 
       // Modern API: Install bundled model
       await FlutterGemma.installModel(
@@ -1340,8 +1358,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testBundledInferenceModern() async {
-    await _runTest('Bundled Inference Model (Modern)',
-        _testBundledInferenceModern_internal);
+    await _runTest(
+      'Bundled Inference Model (Modern)',
+      _testBundledInferenceModern_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper
@@ -1356,7 +1376,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       final manager = legacy.FlutterGemmaPlugin.instance.modelManager;
 
       _log(
-          '🔧 Creating BundledSource embedding spec via MobileModelManager...');
+        '🔧 Creating BundledSource embedding spec via MobileModelManager...',
+      );
 
       // Legacy API: Create bundled embedding spec
       final spec = legacy_mobile.MobileModelManager.createBundledEmbeddingSpec(
@@ -1399,8 +1420,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testBundledEmbeddingLegacy() async {
-    await _runTest('Bundled Embedding Model (Legacy)',
-        _testBundledEmbeddingLegacy_internal);
+    await _runTest(
+      'Bundled Embedding Model (Legacy)',
+      _testBundledEmbeddingLegacy_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper
@@ -1434,10 +1457,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('✅ [MODERN] Embedding model + tokenizer installed');
 
       // Modern API: Verify both files installed
-      final modelInstalled =
-          await FlutterGemma.isModelInstalled(modelResourceName);
-      final tokenizerInstalled =
-          await FlutterGemma.isModelInstalled(tokenizerResourceName);
+      final modelInstalled = await FlutterGemma.isModelInstalled(
+        modelResourceName,
+      );
+      final tokenizerInstalled = await FlutterGemma.isModelInstalled(
+        tokenizerResourceName,
+      );
 
       if (!modelInstalled || !tokenizerInstalled) {
         throw Exception('Model or tokenizer not marked as installed');
@@ -1459,8 +1484,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testBundledEmbeddingModern() async {
-    await _runTest('Bundled Embedding Model (Modern)',
-        _testBundledEmbeddingModern_internal);
+    await _runTest(
+      'Bundled Embedding Model (Modern)',
+      _testBundledEmbeddingModern_internal,
+    );
   }
 
   // === NETWORK DOWNLOAD ===
@@ -1476,7 +1503,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('⚠️  WARNING: No HuggingFace token provided!');
       _log('⚠️  Gemma models require:');
       _log(
-          '   1. Accept license at https://huggingface.co/litert-community/gemma-3-270m-it');
+        '   1. Accept license at https://huggingface.co/litert-community/gemma-3-270m-it',
+      );
       _log('   2. Create token at https://huggingface.co/settings/tokens');
       _log('   3. Enter token in Configuration section above');
     } else {
@@ -1499,8 +1527,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       spec,
       token: token.isEmpty ? null : token,
     )) {
-      setState(() => _progress['inference_download_legacy'] =
-          progress.currentFileProgress);
+      setState(
+        () => _progress['inference_download_legacy'] =
+            progress.currentFileProgress,
+      );
       if (progress.currentFileProgress % 10 == 0) {
         _log('Progress: ${progress.currentFileProgress}%');
       }
@@ -1511,8 +1541,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testInferenceDownloadLegacy() async {
-    await _runTest('Download Inference Model (Legacy)',
-        _testInferenceDownloadLegacy_internal);
+    await _runTest(
+      'Download Inference Model (Legacy)',
+      _testInferenceDownloadLegacy_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper
@@ -1525,7 +1557,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('⚠️  WARNING: No HuggingFace token provided!');
       _log('⚠️  Gemma models require:');
       _log(
-          '   1. Accept license at https://huggingface.co/litert-community/gemma-3-270m-it');
+        '   1. Accept license at https://huggingface.co/litert-community/gemma-3-270m-it',
+      );
       _log('   2. Create token at https://huggingface.co/settings/tokens');
       _log('   3. Enter token in Configuration section above');
     } else {
@@ -1545,24 +1578,25 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     }
 
     // Modern API: Install model from network
-    await FlutterGemma.installModel(
-      modelType: legacy.ModelType.gemmaIt,
-    )
+    await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
         .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
         .withProgress((progress) {
-      setState(() => _progress['inference_download_modern'] = progress);
-      if (progress % 10 == 0) {
-        _log('Progress: $progress%');
-      }
-    }).install();
+          setState(() => _progress['inference_download_modern'] = progress);
+          if (progress % 10 == 0) {
+            _log('Progress: $progress%');
+          }
+        })
+        .install();
 
     _log('✅ [MODERN] Inference model downloaded');
     setState(() => _inferenceModelReady = true);
   }
 
   Future<void> _testInferenceDownloadModern() async {
-    await _runTest('Download Inference Model (Modern)',
-        _testInferenceDownloadModern_internal);
+    await _runTest(
+      'Download Inference Model (Modern)',
+      _testInferenceDownloadModern_internal,
+    );
   }
 
   // === ASSET LOADING ===
@@ -1597,8 +1631,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testInferenceFromAssetsLegacy() async {
-    await _runTest('Load Inference from Assets (Legacy)',
-        _testInferenceFromAssetsLegacy_internal);
+    await _runTest(
+      'Load Inference from Assets (Legacy)',
+      _testInferenceFromAssetsLegacy_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1633,8 +1669,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testInferenceFromAssetsModern() async {
-    await _runTest('Load Inference from Assets (Modern)',
-        _testInferenceFromAssetsModern_internal);
+    await _runTest(
+      'Load Inference from Assets (Modern)',
+      _testInferenceFromAssetsModern_internal,
+    );
   }
 
   // === CUSTOM FILE PATH ===
@@ -1708,10 +1746,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('');
 
     _log('💬 Prompt: "What is the capital of France?"');
-    await session.addQueryChunk(const legacy.Message(
-      text: 'What is the capital of France?',
-      isUser: true,
-    ));
+    await session.addQueryChunk(
+      const legacy.Message(
+        text: 'What is the capital of France?',
+        isUser: true,
+      ),
+    );
 
     _log('⏳ Generating response...');
     final startGen = DateTime.now();
@@ -1744,7 +1784,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     if (token.isEmpty) {
       _log(
-          '⚠️  Note: No HuggingFace token provided. Some models may require authentication.');
+        '⚠️  Note: No HuggingFace token provided. Some models may require authentication.',
+      );
     }
 
     // Legacy API: Create embedding spec (includes both model and tokenizer)
@@ -1765,11 +1806,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       spec,
       token: token.isEmpty ? null : token,
     )) {
-      setState(() => _progress['embedding_download_legacy'] =
-          progress.currentFileProgress);
+      setState(
+        () => _progress['embedding_download_legacy'] =
+            progress.currentFileProgress,
+      );
       if (progress.currentFileProgress % 10 == 0) {
         _log(
-            'File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%');
+          'File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%',
+        );
       }
     }
 
@@ -1778,8 +1822,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testEmbeddingDownloadLegacy() async {
-    await _runTest('Download Embedding Model (Legacy)',
-        _testEmbeddingDownloadLegacy_internal);
+    await _runTest(
+      'Download Embedding Model (Legacy)',
+      _testEmbeddingDownloadLegacy_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1790,7 +1836,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
     if (token.isEmpty) {
       _log(
-          '⚠️  Note: No HuggingFace token provided. Some models may require authentication.');
+        '⚠️  Note: No HuggingFace token provided. Some models may require authentication.',
+      );
     }
 
     final authToken = token.isEmpty ? null : token;
@@ -1818,28 +1865,35 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         .modelFromNetwork(embeddingModelUrl, token: authToken)
         .tokenizerFromNetwork(embeddingTokenizerUrl, token: authToken)
         .withModelProgress((progress) {
-      modelProgress = progress;
-      setState(
-          () => _progress['embedding_download_modern'] = modelProgress ~/ 2);
-      if (progress % 10 == 0) {
-        _log('Model: $progress%');
-      }
-    }).withTokenizerProgress((progress) {
-      tokenizerProgress = progress;
-      setState(() =>
-          _progress['embedding_download_modern'] = 50 + tokenizerProgress ~/ 2);
-      if (progress % 10 == 0) {
-        _log('Tokenizer: $progress%');
-      }
-    }).install();
+          modelProgress = progress;
+          setState(
+            () => _progress['embedding_download_modern'] = modelProgress ~/ 2,
+          );
+          if (progress % 10 == 0) {
+            _log('Model: $progress%');
+          }
+        })
+        .withTokenizerProgress((progress) {
+          tokenizerProgress = progress;
+          setState(
+            () => _progress['embedding_download_modern'] =
+                50 + tokenizerProgress ~/ 2,
+          );
+          if (progress % 10 == 0) {
+            _log('Tokenizer: $progress%');
+          }
+        })
+        .install();
 
     _log('✅ [MODERN] Embedding model and tokenizer downloaded successfully');
     setState(() => _embeddingModelReady = true);
   }
 
   Future<void> _testEmbeddingDownloadModern() async {
-    await _runTest('Download Embedding Model (Modern)',
-        _testEmbeddingDownloadModern_internal);
+    await _runTest(
+      'Download Embedding Model (Modern)',
+      _testEmbeddingDownloadModern_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1873,8 +1927,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testEmbeddingFromAssetsLegacy() async {
-    await _runTest('Load Embedding from Assets (Legacy)',
-        _testEmbeddingFromAssetsLegacy_internal);
+    await _runTest(
+      'Load Embedding from Assets (Legacy)',
+      _testEmbeddingFromAssetsLegacy_internal,
+    );
   }
 
   /// Internal version without _runTest wrapper (for use in _runAllTests)
@@ -1903,12 +1959,16 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         .modelFromAsset(embeddingModelAssetPath)
         .tokenizerFromAsset(embeddingTokenizerAssetPath)
         .withModelProgress((progress) {
-      setState(() => _progress['embedding_asset_modern'] = progress ~/ 2);
-      _log('📊 Model copy progress: $progress%');
-    }).withTokenizerProgress((progress) {
-      setState(() => _progress['embedding_asset_modern'] = 50 + progress ~/ 2);
-      _log('📊 Tokenizer copy progress: $progress%');
-    }).install();
+          setState(() => _progress['embedding_asset_modern'] = progress ~/ 2);
+          _log('📊 Model copy progress: $progress%');
+        })
+        .withTokenizerProgress((progress) {
+          setState(
+            () => _progress['embedding_asset_modern'] = 50 + progress ~/ 2,
+          );
+          _log('📊 Tokenizer copy progress: $progress%');
+        })
+        .install();
 
     setState(() => _progress['embedding_asset_modern'] = 100);
     _log('✅ [MODERN] Embedding model and tokenizer loaded from assets');
@@ -1916,8 +1976,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   }
 
   Future<void> _testEmbeddingFromAssetsModern() async {
-    await _runTest('Load Embedding from Assets (Modern)',
-        _testEmbeddingFromAssetsModern_internal);
+    await _runTest(
+      'Load Embedding from Assets (Modern)',
+      _testEmbeddingFromAssetsModern_internal,
+    );
   }
 
   Future<void> _setCustomEmbeddingPaths() async {
@@ -1960,8 +2022,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('📋 Using Modern API with active embedding model...');
 
     // Modern API: Use active embedding model (no paths needed!)
-    final embeddingModel =
-        await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+    final embeddingModel = await legacy.FlutterGemmaPlugin.instance
+        .createEmbeddingModel();
 
     _log('✅ Embedding model created successfully');
     _log('');
@@ -1980,8 +2042,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     // Test 2: Different text
     _log('💬 Test 2: Generating embedding for: "Artificial Intelligence"');
     final startTime2 = DateTime.now();
-    final embedding2 =
-        await embeddingModel.generateEmbedding('Artificial Intelligence');
+    final embedding2 = await embeddingModel.generateEmbedding(
+      'Artificial Intelligence',
+    );
     final duration2 = DateTime.now().difference(startTime2);
 
     _log('🔢 Embedding dimensions: ${embedding2.length}');
@@ -1993,12 +2056,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     _log('💬 Test 3: Calculating cosine similarity...');
     final similarity = _cosineSimilarity(embedding1, embedding2);
     _log(
-        '📊 Similarity between texts: ${(similarity * 100).toStringAsFixed(2)}%');
+      '📊 Similarity between texts: ${(similarity * 100).toStringAsFixed(2)}%',
+    );
     _log('');
 
     _log('✅ Embedding test successful!');
     _log(
-        '📈 Performance: avg ${((duration1.inMilliseconds + duration2.inMilliseconds) / 2).toStringAsFixed(0)}ms per embedding');
+      '📈 Performance: avg ${((duration1.inMilliseconds + duration2.inMilliseconds) / 2).toStringAsFixed(0)}ms per embedding',
+    );
 
     await embeddingModel.close();
   }
@@ -2060,15 +2125,17 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('═══════════════════════════════════════════');
 
       // Cleanup inference models
-      final inferenceModels = await manager
-          .getInstalledModels(legacy_mobile.ModelManagementType.inference);
+      final inferenceModels = await manager.getInstalledModels(
+        legacy_mobile.ModelManagementType.inference,
+      );
       for (final modelName in inferenceModels) {
         _log('  🗑️  Deleting inference: $modelName');
       }
 
       // Cleanup embedding models
-      final embeddingModels = await manager
-          .getInstalledModels(legacy_mobile.ModelManagementType.embedding);
+      final embeddingModels = await manager.getInstalledModels(
+        legacy_mobile.ModelManagementType.embedding,
+      );
       for (final modelName in embeddingModels) {
         _log('  🗑️  Deleting embedding: $modelName');
       }
@@ -2094,7 +2161,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // TEST 1-2: Inference Legacy (download + run + delete)
       _currentTestIndex++;
       _log(
-          '▶️  [$_currentTestIndex/$_totalTests] Download Inference (Legacy) - Install');
+        '▶️  [$_currentTestIndex/$_totalTests] Download Inference (Legacy) - Install',
+      );
 
       final inferenceSpec = legacy_mobile.InferenceModelSpec.fromLegacyUrl(
         name: 'gemma3-270m-it-q8',
@@ -2106,8 +2174,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         inferenceSpec,
         token: token.isEmpty ? null : token,
       )) {
-        setState(() => _progress['inference_download_legacy'] =
-            progress.currentFileProgress);
+        setState(
+          () => _progress['inference_download_legacy'] =
+              progress.currentFileProgress,
+        );
         if (progress.currentFileProgress % 10 == 0) {
           _log('  Progress: ${progress.currentFileProgress}%');
         }
@@ -2119,18 +2189,19 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
       _log('  🔧 Creating model...');
-      final inferenceModel1 =
-          await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
-        maxTokens: 512,
-      );
+      final inferenceModel1 = await legacy.FlutterGemmaPlugin.instance
+          .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
       _log('  ✅ Model created');
       _log('  🔧 Creating session...');
       final session1 = await inferenceModel1.createSession();
       _log('  ✅ Session created');
       _log('  📤 Adding query: "What is the capital of France?"');
-      await session1.addQueryChunk(const legacy.Message(
-          text: 'What is the capital of France?', isUser: true));
+      await session1.addQueryChunk(
+        const legacy.Message(
+          text: 'What is the capital of France?',
+          isUser: true,
+        ),
+      );
       _log('  🤖 Generating response...');
       final response1 = await session1.getResponse();
       _log('  ✅ Got response: length=${response1.length}');
@@ -2138,7 +2209,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         throw Exception('Model returned empty response');
       }
       _log(
-          '  📝 Response (${response1.length} chars): ${response1.length > 100 ? "${response1.substring(0, 100)}..." : response1}');
+        '  📝 Response (${response1.length} chars): ${response1.length > 100 ? "${response1.substring(0, 100)}..." : response1}',
+      );
       await session1.close();
       await inferenceModel1.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2150,19 +2222,19 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // TEST 3-4: Inference Modern (download + run + delete)
       _currentTestIndex++;
       _log(
-          '▶️  [$_currentTestIndex/$_totalTests] Download Inference (Modern) - Install');
+        '▶️  [$_currentTestIndex/$_totalTests] Download Inference (Modern) - Install',
+      );
 
       _log('  📥 Downloading with Modern API...');
-      await FlutterGemma.installModel(
-        modelType: legacy.ModelType.gemmaIt,
-      )
+      await FlutterGemma.installModel(modelType: legacy.ModelType.gemmaIt)
           .fromNetwork(inferenceModelUrl, token: token.isEmpty ? null : token)
           .withProgress((progress) {
-        setState(() => _progress['inference_download_modern'] = progress);
-        if (progress % 10 == 0) {
-          _log('  Progress: $progress%');
-        }
-      }).install();
+            setState(() => _progress['inference_download_modern'] = progress);
+            if (progress % 10 == 0) {
+              _log('  Progress: $progress%');
+            }
+          })
+          .install();
       _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
       setState(() => _inferenceModelReady = true);
       await Future.delayed(const Duration(milliseconds: 500));
@@ -2170,20 +2242,23 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
       _log('  🔧 Getting active model with Modern API...');
-      final inferenceModel2 = await FlutterGemma.getActiveModel(
-        maxTokens: 512,
-      );
+      final inferenceModel2 = await FlutterGemma.getActiveModel(maxTokens: 512);
       _log('  ✅ Model ready');
       _log('  🔧 Creating session...');
       final session2 = await inferenceModel2.createSession();
-      await session2.addQueryChunk(const legacy.Message(
-          text: 'What is the capital of France?', isUser: true));
+      await session2.addQueryChunk(
+        const legacy.Message(
+          text: 'What is the capital of France?',
+          isUser: true,
+        ),
+      );
       final response2 = await session2.getResponse();
       if (response2.isEmpty) {
         throw Exception('Model returned empty response');
       }
       _log(
-          '  📝 Response (${response2.length} chars): ${response2.length > 100 ? "${response2.substring(0, 100)}..." : response2}');
+        '  📝 Response (${response2.length} chars): ${response2.length > 100 ? "${response2.substring(0, 100)}..." : response2}',
+      );
       await session2.close();
       await inferenceModel2.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2196,7 +2271,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       if (kIsWeb) {
         _log('');
         _log(
-            '⏭️  [5-8/32] Skipping Network Embedding tests (not implemented on web)');
+          '⏭️  [5-8/32] Skipping Network Embedding tests (not implemented on web)',
+        );
         _log('💡 Web platform does not yet support embedding models');
         _currentTestIndex += 4;
         await Future.delayed(const Duration(milliseconds: 300));
@@ -2204,7 +2280,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 5-6: Embedding Legacy (download + run + delete)
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Legacy) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Legacy) - Install',
+        );
 
         final embeddingSpec = legacy_mobile.EmbeddingModelSpec.fromLegacyUrl(
           name: 'embeddinggemma-300m',
@@ -2217,11 +2294,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           embeddingSpec,
           token: token.isEmpty ? null : token,
         )) {
-          setState(() => _progress['embedding_download_legacy'] =
-              progress.currentFileProgress);
+          setState(
+            () => _progress['embedding_download_legacy'] =
+                progress.currentFileProgress,
+          );
           if (progress.currentFileProgress % 10 == 0) {
             _log(
-                '  File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%');
+              '  File ${progress.currentFileIndex + 1}/${progress.totalFiles}: ${progress.currentFileProgress}%',
+            );
           }
         }
         _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
@@ -2230,8 +2310,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-        final embeddingModel1 =
-            await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+        final embeddingModel1 = await legacy.FlutterGemmaPlugin.instance
+            .createEmbeddingModel();
         final emb1 = await embeddingModel1.generateEmbedding('Hello, world!');
         _log('  🔢 Dimensions: ${emb1.length}');
         _log('  🔢 First 5 values: ${emb1.take(5).toList()}');
@@ -2245,23 +2325,30 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 7-8: Embedding Modern (download + run + delete)
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Modern) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] Download Embedding (Modern) - Install',
+        );
 
         _log('  📥 Downloading with Modern API...');
         await FlutterGemma.installEmbedder()
-            .modelFromNetwork(embeddingModelUrl,
-                token: token.isEmpty ? null : token)
-            .tokenizerFromNetwork(embeddingTokenizerUrl,
-                token: token.isEmpty ? null : token)
+            .modelFromNetwork(
+              embeddingModelUrl,
+              token: token.isEmpty ? null : token,
+            )
+            .tokenizerFromNetwork(
+              embeddingTokenizerUrl,
+              token: token.isEmpty ? null : token,
+            )
             .withModelProgress((progress) {
-          if (progress % 10 == 0) {
-            _log('  Model: $progress%');
-          }
-        }).withTokenizerProgress((progress) {
-          if (progress % 10 == 0) {
-            _log('  Tokenizer: $progress%');
-          }
-        }).install();
+              if (progress % 10 == 0) {
+                _log('  Model: $progress%');
+              }
+            })
+            .withTokenizerProgress((progress) {
+              if (progress % 10 == 0) {
+                _log('  Tokenizer: $progress%');
+              }
+            })
+            .install();
         _log('✅ [$_currentTestIndex/$_totalTests] Download complete');
         setState(() => _embeddingModelReady = true);
         await Future.delayed(const Duration(milliseconds: 500));
@@ -2298,7 +2385,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         assetsAvailable = false;
         _log('⚠️  Asset files not found in assets/models/');
         _log(
-            '💡 To run Assets tests, add model files to example/assets/models/');
+          '💡 To run Assets tests, add model files to example/assets/models/',
+        );
       }
 
       if (!assetsAvailable) {
@@ -2310,13 +2398,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 9-10: Inference Assets Legacy
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Legacy) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Legacy) - Install',
+        );
 
         final assetInferenceSpec =
             legacy_mobile.MobileModelManager.createInferenceSpec(
-          name: 'gemma3-270m-it-q8',
-          modelUrl: inferenceAssetPath,
-        );
+              name: 'gemma3-270m-it-q8',
+              modelUrl: inferenceAssetPath,
+            );
 
         _log('  📦 Installing from assets...');
         await manager.ensureModelReadyFromSpec(assetInferenceSpec);
@@ -2326,20 +2415,22 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-        final inferenceModel3 =
-            await legacy.FlutterGemmaPlugin.instance.createModel(
-          modelType: legacy.ModelType.gemmaIt,
-          maxTokens: 512,
-        );
+        final inferenceModel3 = await legacy.FlutterGemmaPlugin.instance
+            .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
         final session3 = await inferenceModel3.createSession();
-        await session3.addQueryChunk(const legacy.Message(
-            text: 'What is the capital of France?', isUser: true));
+        await session3.addQueryChunk(
+          const legacy.Message(
+            text: 'What is the capital of France?',
+            isUser: true,
+          ),
+        );
         final response3 = await session3.getResponse();
         if (response3.isEmpty) {
           throw Exception('Model returned empty response');
         }
         _log(
-            '  📝 Response (${response3.length} chars): ${response3.length > 100 ? "${response3.substring(0, 100)}..." : response3}');
+          '  📝 Response (${response3.length} chars): ${response3.length > 100 ? "${response3.substring(0, 100)}..." : response3}',
+        );
         await session3.close();
         await inferenceModel3.close();
         _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2351,7 +2442,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 11-12: Inference Assets Modern
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Modern) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] Assets Inference (Modern) - Install',
+        );
 
         _log('  📦 Installing with Modern API...');
         await FlutterGemma.installModel(
@@ -2370,14 +2462,19 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _log('  ✅ Model ready');
         _log('  🔧 Creating session...');
         final session4 = await inferenceModel4.createSession();
-        await session4.addQueryChunk(const legacy.Message(
-            text: 'What is the capital of France?', isUser: true));
+        await session4.addQueryChunk(
+          const legacy.Message(
+            text: 'What is the capital of France?',
+            isUser: true,
+          ),
+        );
         final response4 = await session4.getResponse();
         if (response4.isEmpty) {
           throw Exception('Model returned empty response');
         }
         _log(
-            '  📝 Response (${response4.length} chars): ${response4.length > 100 ? "${response4.substring(0, 100)}..." : response4}');
+          '  📝 Response (${response4.length} chars): ${response4.length > 100 ? "${response4.substring(0, 100)}..." : response4}',
+        );
         await session4.close();
         await inferenceModel4.close();
         _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2390,7 +2487,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         if (kIsWeb) {
           _log('');
           _log(
-              '⏭️  [13-16/32] Skipping Assets Embedding tests (not implemented on web)');
+            '⏭️  [13-16/32] Skipping Assets Embedding tests (not implemented on web)',
+          );
           _log('💡 Web platform does not yet support embedding models');
           _currentTestIndex += 4;
           await Future.delayed(const Duration(milliseconds: 300));
@@ -2398,14 +2496,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           // TEST 13-14: Embedding Assets Legacy
           _currentTestIndex++;
           _log(
-              '▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Legacy) - Install');
+            '▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Legacy) - Install',
+          );
 
           final assetEmbeddingSpec =
               legacy_mobile.MobileModelManager.createEmbeddingSpec(
-            name: 'embeddinggemma-300M',
-            modelUrl: embeddingModelAssetPath,
-            tokenizerUrl: embeddingTokenizerAssetPath,
-          );
+                name: 'embeddinggemma-300M',
+                modelUrl: embeddingModelAssetPath,
+                tokenizerUrl: embeddingTokenizerAssetPath,
+              );
 
           _log('  📦 Installing model and tokenizer from assets...');
           await manager.ensureModelReadyFromSpec(assetEmbeddingSpec);
@@ -2415,8 +2514,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
           _currentTestIndex++;
           _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-          final embeddingModel3 =
-              await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+          final embeddingModel3 = await legacy.FlutterGemmaPlugin.instance
+              .createEmbeddingModel();
           final emb3 = await embeddingModel3.generateEmbedding('Hello, world!');
           _log('  🔢 Dimensions: ${emb3.length}');
           _log('  🔢 First 5 values: ${emb3.take(5).toList()}');
@@ -2430,7 +2529,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
           // TEST 15-16: Embedding Assets Modern
           _currentTestIndex++;
           _log(
-              '▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Modern) - Install');
+            '▶️  [$_currentTestIndex/$_totalTests] Assets Embedding (Modern) - Install',
+          );
 
           _log('  📦 Installing with Modern API...');
           await FlutterGemma.installEmbedder()
@@ -2470,12 +2570,13 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // TEST 17-18: Bundled Inference Legacy
       _currentTestIndex++;
       _log(
-          '▶️  [$_currentTestIndex/$_totalTests] Bundled Inference (Legacy) - Install');
+        '▶️  [$_currentTestIndex/$_totalTests] Bundled Inference (Legacy) - Install',
+      );
 
       final bundledInferenceSpec =
           legacy_mobile.MobileModelManager.createBundledInferenceSpec(
-        resourceName: 'gemma3-270m-it-q8.task',
-      );
+            resourceName: 'gemma3-270m-it-q8.task',
+          );
 
       _log('  📲 Installing from bundled resources...');
       await manager.ensureModelReadyFromSpec(bundledInferenceSpec);
@@ -2485,20 +2586,22 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-      final inferenceModel5 =
-          await legacy.FlutterGemmaPlugin.instance.createModel(
-        modelType: legacy.ModelType.gemmaIt,
-        maxTokens: 512,
-      );
+      final inferenceModel5 = await legacy.FlutterGemmaPlugin.instance
+          .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
       final session5 = await inferenceModel5.createSession();
-      await session5.addQueryChunk(const legacy.Message(
-          text: 'What is the capital of France?', isUser: true));
+      await session5.addQueryChunk(
+        const legacy.Message(
+          text: 'What is the capital of France?',
+          isUser: true,
+        ),
+      );
       final response5 = await session5.getResponse();
       if (response5.isEmpty) {
         throw Exception('Model returned empty response');
       }
       _log(
-          '  📝 Response (${response5.length} chars): ${response5.length > 100 ? "${response5.substring(0, 100)}..." : response5}');
+        '  📝 Response (${response5.length} chars): ${response5.length > 100 ? "${response5.substring(0, 100)}..." : response5}',
+      );
       await session5.close();
       await inferenceModel5.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2507,7 +2610,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // TEST 19-20: Bundled Inference Modern
       _currentTestIndex++;
       _log(
-          '▶️  [$_currentTestIndex/$_totalTests] Bundled Inference (Modern) - Install');
+        '▶️  [$_currentTestIndex/$_totalTests] Bundled Inference (Modern) - Install',
+      );
 
       _log('  📲 Installing with Modern API...');
       await FlutterGemma.installModel(
@@ -2520,20 +2624,23 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _currentTestIndex++;
       _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
       _log('  🔧 Getting active model with Modern API...');
-      final inferenceModel6 = await FlutterGemma.getActiveModel(
-        maxTokens: 512,
-      );
+      final inferenceModel6 = await FlutterGemma.getActiveModel(maxTokens: 512);
       _log('  ✅ Model ready');
       _log('  🔧 Creating session...');
       final session6 = await inferenceModel6.createSession();
-      await session6.addQueryChunk(const legacy.Message(
-          text: 'What is the capital of France?', isUser: true));
+      await session6.addQueryChunk(
+        const legacy.Message(
+          text: 'What is the capital of France?',
+          isUser: true,
+        ),
+      );
       final response6 = await session6.getResponse();
       if (response6.isEmpty) {
         throw Exception('Model returned empty response');
       }
       _log(
-          '  📝 Response (${response6.length} chars): ${response6.length > 100 ? "${response6.substring(0, 100)}..." : response6}');
+        '  📝 Response (${response6.length} chars): ${response6.length > 100 ? "${response6.substring(0, 100)}..." : response6}',
+      );
       await session6.close();
       await inferenceModel6.close();
       _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2543,7 +2650,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       if (kIsWeb) {
         _log('');
         _log(
-            '⏭️  [21-24/32] Skipping Bundled Embedding tests (not implemented on web)');
+          '⏭️  [21-24/32] Skipping Bundled Embedding tests (not implemented on web)',
+        );
         _log('💡 Web platform does not yet support embedding models');
         _currentTestIndex += 4;
         await Future.delayed(const Duration(milliseconds: 300));
@@ -2551,14 +2659,15 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 21-22: Bundled Embedding Legacy
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Legacy) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Legacy) - Install',
+        );
 
         final bundledEmbeddingSpec =
             legacy_mobile.MobileModelManager.createBundledEmbeddingSpec(
-          modelResourceName:
-              'embeddinggemma-300M_seq1024_mixed-precision.tflite',
-          tokenizerResourceName: 'sentencepiece.model',
-        );
+              modelResourceName:
+                  'embeddinggemma-300M_seq1024_mixed-precision.tflite',
+              tokenizerResourceName: 'sentencepiece.model',
+            );
 
         _log('  📲 Installing from bundled resources...');
         await manager.ensureModelReadyFromSpec(bundledEmbeddingSpec);
@@ -2568,8 +2677,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-        final embeddingModel5 =
-            await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel();
+        final embeddingModel5 = await legacy.FlutterGemmaPlugin.instance
+            .createEmbeddingModel();
         final emb5 = await embeddingModel5.generateEmbedding('Hello, world!');
         _log('  🔢 Dimensions: ${emb5.length}');
         _log('  🔢 First 5 values: ${emb5.take(5).toList()}');
@@ -2580,12 +2689,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 23-24: Bundled Embedding Modern
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Modern) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] Bundled Embedding (Modern) - Install',
+        );
 
         _log('  📲 Installing with Modern API...');
         await FlutterGemma.installEmbedder()
             .modelFromBundled(
-                'embeddinggemma-300M_seq1024_mixed-precision.tflite')
+              'embeddinggemma-300M_seq1024_mixed-precision.tflite',
+            )
             .tokenizerFromBundled('sentencepiece.model')
             .install();
         _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
@@ -2616,15 +2727,18 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       // TEST 25-32: All FileSource tests - SKIP ON WEB (local paths not supported)
       if (kIsWeb) {
         _log(
-            '⏭️  [25-32/32] Skipping all FileSource tests (local file paths not available)');
+          '⏭️  [25-32/32] Skipping all FileSource tests (local file paths not available)',
+        );
         _log(
-            '💡 Web: FileSource works with URLs/assets, but these tests use local paths');
+          '💡 Web: FileSource works with URLs/assets, but these tests use local paths',
+        );
         _currentTestIndex += 8;
       } else {
         // TEST 25-26: FileSource Inference Legacy
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Legacy) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Legacy) - Install',
+        );
 
         final inferenceFilePath = _customInferencePathController.text.trim();
         if (inferenceFilePath.isEmpty) {
@@ -2645,20 +2759,22 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Inference');
-        final inferenceModel7 =
-            await legacy.FlutterGemmaPlugin.instance.createModel(
-          modelType: legacy.ModelType.gemmaIt,
-          maxTokens: 512,
-        );
+        final inferenceModel7 = await legacy.FlutterGemmaPlugin.instance
+            .createModel(modelType: legacy.ModelType.gemmaIt, maxTokens: 512);
         final session7 = await inferenceModel7.createSession();
-        await session7.addQueryChunk(const legacy.Message(
-            text: 'What is the capital of France?', isUser: true));
+        await session7.addQueryChunk(
+          const legacy.Message(
+            text: 'What is the capital of France?',
+            isUser: true,
+          ),
+        );
         final response7 = await session7.getResponse();
         if (response7.isEmpty) {
           throw Exception('Model returned empty response');
         }
         _log(
-            '  📝 Response (${response7.length} chars): ${response7.length > 100 ? "${response7.substring(0, 100)}..." : response7}');
+          '  📝 Response (${response7.length} chars): ${response7.length > 100 ? "${response7.substring(0, 100)}..." : response7}',
+        );
         await session7.close();
         await inferenceModel7.close();
         _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2667,7 +2783,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 27-28: FileSource Inference Modern
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Modern) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] FileSource Inference (Modern) - Install',
+        );
 
         _log('  📁 [MODERN] Installing from file...');
         await FlutterGemma.installModel(
@@ -2686,14 +2803,19 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         _log('  ✅ Model ready');
         _log('  🔧 Creating session...');
         final session8 = await inferenceModel8.createSession();
-        await session8.addQueryChunk(const legacy.Message(
-            text: 'What is the capital of France?', isUser: true));
+        await session8.addQueryChunk(
+          const legacy.Message(
+            text: 'What is the capital of France?',
+            isUser: true,
+          ),
+        );
         final response8 = await session8.getResponse();
         if (response8.isEmpty) {
           throw Exception('Model returned empty response');
         }
         _log(
-            '  📝 Response (${response8.length} chars): ${response8.length > 100 ? "${response8.substring(0, 100)}..." : response8}');
+          '  📝 Response (${response8.length} chars): ${response8.length > 100 ? "${response8.substring(0, 100)}..." : response8}',
+        );
         await session8.close();
         await inferenceModel8.close();
         _log('✅ [$_currentTestIndex/$_totalTests] Inference complete');
@@ -2702,12 +2824,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 29-30: FileSource Embedding Legacy
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Legacy) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Legacy) - Install',
+        );
 
-        final embeddingModelPath =
-            _customEmbeddingModelPathController.text.trim();
-        final embeddingTokenizerPath =
-            _customEmbeddingTokenizerPathController.text.trim();
+        final embeddingModelPath = _customEmbeddingModelPathController.text
+            .trim();
+        final embeddingTokenizerPath = _customEmbeddingTokenizerPathController
+            .text
+            .trim();
 
         if (embeddingModelPath.isEmpty || embeddingTokenizerPath.isEmpty) {
           throw Exception('Embedding paths not configured in controllers');
@@ -2719,28 +2843,31 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         final embeddingModelFile = File(embeddingModelPath);
         if (!await embeddingModelFile.exists()) {
           throw Exception(
-              'Embedding model file does not exist: $embeddingModelPath');
+            'Embedding model file does not exist: $embeddingModelPath',
+          );
         }
 
         final embeddingTokenizerFile = File(embeddingTokenizerPath);
         if (!await embeddingTokenizerFile.exists()) {
           throw Exception(
-              'Embedding tokenizer file does not exist: $embeddingTokenizerPath');
+            'Embedding tokenizer file does not exist: $embeddingTokenizerPath',
+          );
         }
 
         _log(
-            '  📁 [LEGACY] Paths validated (Legacy API uses paths directly in createEmbeddingModel)');
+          '  📁 [LEGACY] Paths validated (Legacy API uses paths directly in createEmbeddingModel)',
+        );
         _log('✅ [$_currentTestIndex/$_totalTests] Install complete');
         setState(() => _embeddingModelReady = true);
         await Future.delayed(const Duration(milliseconds: 500));
 
         _currentTestIndex++;
         _log('▶️  [$_currentTestIndex/$_totalTests]   ▶️ Run Embedding');
-        final embeddingModel7 =
-            await legacy.FlutterGemmaPlugin.instance.createEmbeddingModel(
-          modelPath: embeddingModelPath,
-          tokenizerPath: embeddingTokenizerPath,
-        );
+        final embeddingModel7 = await legacy.FlutterGemmaPlugin.instance
+            .createEmbeddingModel(
+              modelPath: embeddingModelPath,
+              tokenizerPath: embeddingTokenizerPath,
+            );
         final emb7 = await embeddingModel7.generateEmbedding('Hello, world!');
         _log('  🔢 Dimensions: ${emb7.length}');
         _log('  🔢 First 5 values: ${emb7.take(5).toList()}');
@@ -2751,7 +2878,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
         // TEST 31-32: FileSource Embedding Modern
         _currentTestIndex++;
         _log(
-            '▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Modern) - Install');
+          '▶️  [$_currentTestIndex/$_totalTests] FileSource Embedding (Modern) - Install',
+        );
 
         _log('  📁 [MODERN] Installing from files...');
         await FlutterGemma.installEmbedder()
@@ -2788,7 +2916,8 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
       _log('✅ Section 2 - Assets: 4 installs, 4 runs, 4 cleanups');
       _log('✅ Section 3 - Bundled: 4 installs, 4 runs (inference + embedding)');
       _log(
-          '✅ Section 4 - FileSource: 4 installs, 4 runs (inference + embedding)');
+        '✅ Section 4 - FileSource: 4 installs, 4 runs (inference + embedding)',
+      );
       _log('🎯 All source types and APIs verified!');
       _log('');
 
@@ -2823,19 +2952,12 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
     return Card(
       margin: const EdgeInsets.all(8),
       child: ExpansionTile(
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         initiallyExpanded: false,
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: children,
-            ),
+            child: Wrap(spacing: 8, runSpacing: 8, children: children),
           ),
         ],
       ),
@@ -2855,9 +2977,7 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Integration Tests'),
-      ),
+      appBar: AppBar(title: const Text('Integration Tests')),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -2872,10 +2992,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                   color: _testStatus == 'Test is running'
                       ? Colors.blue
                       : _testStatus == 'Passed'
-                          ? Colors.green
-                          : _testStatus == 'Failed'
-                              ? Colors.red
-                              : Colors.grey,
+                      ? Colors.green
+                      : _testStatus == 'Failed'
+                      ? Colors.red
+                      : Colors.grey,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -2907,8 +3027,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       LinearProgressIndicator(
                         value: _currentTestIndex / _totalTests,
                         backgroundColor: Colors.grey.shade300,
-                        valueColor:
-                            const AlwaysStoppedAnimation<Color>(Colors.blue),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Colors.blue,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -2991,14 +3112,17 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                             ),
                             SizedBox(height: 4),
                             Text(
-                                '1. Go to: https://huggingface.co/settings/tokens'),
+                              '1. Go to: https://huggingface.co/settings/tokens',
+                            ),
                             Text('2. Create CLASSIC token (recommended)'),
                             Text('   OR fine-grained token with:'),
                             Text(
-                                '   - "Access public gated repositories" enabled'),
+                              '   - "Access public gated repositories" enabled',
+                            ),
                             Text('3. Accept model license at:'),
                             Text(
-                                '   https://huggingface.co/litert-community/gemma-3-270m-it'),
+                              '   https://huggingface.co/litert-community/gemma-3-270m-it',
+                            ),
                           ],
                         ),
                       ),
@@ -3026,7 +3150,9 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       Text(
                         '🚀 Automated Test Suite',
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       SizedBox(height: 4),
                       Text('Runs all tests from:'),
@@ -3035,12 +3161,18 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       Text('  • Bundled (4 install + 4 run = 8)'),
                       Text('  • FileSource (4 install + 4 run = 8)'),
                       SizedBox(height: 4),
-                      Text('Total: 32 tests',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(
+                        'Total: 32 tests',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       SizedBox(height: 4),
-                      Text('Each model is tested after installation!',
-                          style: TextStyle(
-                              fontSize: 12, fontStyle: FontStyle.italic)),
+                      Text(
+                        'Each model is tested after installation!',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -3064,15 +3196,27 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                 _buildButton('404 (L+M)', _test404Error),
                 _buildButton('401 (L+M)', _test401Error),
                 _buildButton(
-                    'App Kill Resume', _testInterruptAndRestart, Colors.orange),
+                  'App Kill Resume',
+                  _testInterruptAndRestart,
+                  Colors.orange,
+                ),
                 if (_hasPendingResumeTest)
-                  _buildButton('Continue Resume Test',
-                      _testInterruptAndRestart_Part2, Colors.deepOrange),
+                  _buildButton(
+                    'Continue Resume Test',
+                    _testInterruptAndRestart_Part2,
+                    Colors.deepOrange,
+                  ),
                 if (_interruptedUrl != null && _interruptedPath != null)
                   _buildButton(
-                      'Resume Manual', _resumeInterrupted, Colors.purple),
+                    'Resume Manual',
+                    _resumeInterrupted,
+                    Colors.purple,
+                  ),
                 _buildButton(
-                    'Concurrent (L+M)', _testConcurrentDownloads, Colors.cyan),
+                  'Concurrent (L+M)',
+                  _testConcurrentDownloads,
+                  Colors.cyan,
+                ),
               ],
             ),
 
@@ -3081,11 +3225,20 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
               title: 'Storage Management',
               children: [
                 _buildButton(
-                    'Show Orphaned Files', _showOrphanedFiles, Colors.blue),
-                _buildButton('Cleanup Orphaned Files', _cleanupOrphanedFiles,
-                    Colors.red),
+                  'Show Orphaned Files',
+                  _showOrphanedFiles,
+                  Colors.blue,
+                ),
                 _buildButton(
-                    'Show Storage Stats', _showStorageStats, Colors.blue),
+                  'Cleanup Orphaned Files',
+                  _cleanupOrphanedFiles,
+                  Colors.red,
+                ),
+                _buildButton(
+                  'Show Storage Stats',
+                  _showStorageStats,
+                  Colors.blue,
+                ),
               ],
             ),
 
@@ -3110,25 +3263,37 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                          'Android: Place models in android/src/main/assets/models/'),
+                        'Android: Place models in android/src/main/assets/models/',
+                      ),
                       Text('iOS: Add models to Xcode Bundle Resources'),
                       Text(
-                          '✅ Zero-copy - models used directly without copying!'),
+                        '✅ Zero-copy - models used directly without copying!',
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Inference:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Inference:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     Expanded(
-                        child: _buildButton('Legacy',
-                            _testBundledInferenceLegacy, Colors.purple[300]!)),
+                      child: _buildButton(
+                        'Legacy',
+                        _testBundledInferenceLegacy,
+                        Colors.purple[300]!,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _buildButton('Modern',
-                            _testBundledInferenceModern, Colors.purple)),
+                      child: _buildButton(
+                        'Modern',
+                        _testBundledInferenceModern,
+                        Colors.purple,
+                      ),
+                    ),
                   ],
                 ),
                 _buildButton(
@@ -3137,17 +3302,27 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                   _bundledInferenceModelReady ? Colors.green : Colors.grey,
                 ),
                 const SizedBox(height: 8),
-                const Text('Embedding:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Embedding:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     Expanded(
-                        child: _buildButton('Legacy',
-                            _testBundledEmbeddingLegacy, Colors.purple[300]!)),
+                      child: _buildButton(
+                        'Legacy',
+                        _testBundledEmbeddingLegacy,
+                        Colors.purple[300]!,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _buildButton('Modern',
-                            _testBundledEmbeddingModern, Colors.purple)),
+                      child: _buildButton(
+                        'Modern',
+                        _testBundledEmbeddingModern,
+                        Colors.purple,
+                      ),
+                    ),
                   ],
                 ),
                 _buildButton(
@@ -3162,31 +3337,47 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
             _buildSection(
               title: 'Inference Model Tests',
               children: [
-                const Text('Network Download:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Network Download:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     Expanded(
-                        child: _buildButton(
-                            'Legacy', _testInferenceDownloadLegacy)),
+                      child: _buildButton(
+                        'Legacy',
+                        _testInferenceDownloadLegacy,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _buildButton(
-                            'Modern', _testInferenceDownloadModern)),
+                      child: _buildButton(
+                        'Modern',
+                        _testInferenceDownloadModern,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('Asset Loading:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Asset Loading:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     Expanded(
-                        child: _buildButton(
-                            'Legacy', _testInferenceFromAssetsLegacy)),
+                      child: _buildButton(
+                        'Legacy',
+                        _testInferenceFromAssetsLegacy,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _buildButton(
-                            'Modern', _testInferenceFromAssetsModern)),
+                      child: _buildButton(
+                        'Modern',
+                        _testInferenceFromAssetsModern,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -3196,8 +3387,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Custom File Path:',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Custom File Path:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _customInferencePathController,
@@ -3211,12 +3404,18 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                       Row(
                         children: [
                           Expanded(
-                              child: _buildButton(
-                                  'Legacy', _setCustomInferencePathLegacy)),
+                            child: _buildButton(
+                              'Legacy',
+                              _setCustomInferencePathLegacy,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
-                              child: _buildButton(
-                                  'Modern', _setCustomInferencePathModern)),
+                            child: _buildButton(
+                              'Modern',
+                              _setCustomInferencePathModern,
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -3234,31 +3433,47 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
             _buildSection(
               title: 'Embedding Model Tests',
               children: [
-                const Text('Network Download:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Network Download:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     Expanded(
-                        child: _buildButton(
-                            'Legacy', _testEmbeddingDownloadLegacy)),
+                      child: _buildButton(
+                        'Legacy',
+                        _testEmbeddingDownloadLegacy,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _buildButton(
-                            'Modern', _testEmbeddingDownloadModern)),
+                      child: _buildButton(
+                        'Modern',
+                        _testEmbeddingDownloadModern,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text('Asset Loading:',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Asset Loading:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 Row(
                   children: [
                     Expanded(
-                        child: _buildButton(
-                            'Legacy', _testEmbeddingFromAssetsLegacy)),
+                      child: _buildButton(
+                        'Legacy',
+                        _testEmbeddingFromAssetsLegacy,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: _buildButton(
-                            'Modern', _testEmbeddingFromAssetsModern)),
+                      child: _buildButton(
+                        'Modern',
+                        _testEmbeddingFromAssetsModern,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -3268,8 +3483,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Custom File Paths:',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Custom File Paths:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: _customEmbeddingModelPathController,
@@ -3289,8 +3506,10 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      _buildButton('Set Custom Paths (Legacy only)',
-                          _setCustomEmbeddingPaths),
+                      _buildButton(
+                        'Set Custom Paths (Legacy only)',
+                        _setCustomEmbeddingPaths,
+                      ),
                     ],
                   ),
                 ),
@@ -3306,18 +3525,14 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
             _buildSection(
               title: 'RAG Demo',
               children: [
-                _buildButton(
-                  'Open RAG Demo',
-                  () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (context) => const RagDemoScreen(),
-                      ),
-                    );
-                  },
-                  Colors.deepPurple,
-                ),
+                _buildButton('Open RAG Demo', () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (context) => const RagDemoScreen(),
+                    ),
+                  );
+                }, Colors.deepPurple),
               ],
             ),
 

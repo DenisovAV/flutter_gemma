@@ -43,13 +43,12 @@ class WebBundledSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is BundledSource;
 
   @override
-  Future<void> install(
-    ModelSource source, {
-    CancelToken? cancelToken,
-  }) async {
+  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
     // Delegate to installWithProgress, ignore progress events
-    await for (final _
-        in installWithProgress(source, cancelToken: cancelToken)) {
+    await for (final _ in installWithProgress(
+      source,
+      cancelToken: cancelToken,
+    )) {
       // Ignore progress updates
     }
   }
@@ -61,7 +60,8 @@ class WebBundledSourceHandler implements SourceHandler {
   }) async* {
     if (source is! BundledSource) {
       throw ArgumentError(
-          'WebBundledSourceHandler only supports BundledSource');
+        'WebBundledSourceHandler only supports BundledSource',
+      );
     }
 
     final resourceName = source.resourceName;
@@ -74,19 +74,23 @@ class WebBundledSourceHandler implements SourceHandler {
         cacheKey: cacheKey,
         loader: (onProgress) async {
           gemmaLog(
-              '[WebBundledSourceHandler] Fetching bundled resource: $resourceName');
+            '[WebBundledSourceHandler] Fetching bundled resource: $resourceName',
+          );
 
           onProgress(0.0);
           final response = await jsInterop.fetchFile('/$resourceName');
 
           // Validate resource is not empty
           if (response.data.isEmpty) {
-            throw StateError('Bundled resource is empty: $resourceName. '
-                'Check that the resource exists in the web bundle.');
+            throw StateError(
+              'Bundled resource is empty: $resourceName. '
+              'Check that the resource exists in the web bundle.',
+            );
           }
 
           gemmaLog(
-              '[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes');
+            '[WebBundledSourceHandler] Resource fetched: ${response.data.length} bytes',
+          );
           onProgress(1.0);
 
           return response.data;
@@ -110,7 +114,8 @@ class WebBundledSourceHandler implements SourceHandler {
       await repository.saveModel(modelInfo);
     } catch (e) {
       gemmaLog(
-          '[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e');
+        '[WebBundledSourceHandler] ❌ Failed to install bundled resource: $e',
+      );
       rethrow;
     }
   }

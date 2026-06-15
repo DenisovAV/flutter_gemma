@@ -1,16 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart'; // For EmbeddingModelSpec
 import 'package:flutter_gemma_example/models/base_model.dart'; // For ModelSourceType
-import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/models/embedding_model.dart'
+    as example_embedding_model;
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 import 'package:path_provider/path_provider.dart';
 
 class EmbeddingModelDownloadService {
   final example_embedding_model.EmbeddingModel model;
 
-  EmbeddingModelDownloadService({
-    required this.model,
-  });
+  EmbeddingModelDownloadService({required this.model});
 
   /// Load the token from SharedPreferences.
   Future<String?> loadToken() => AuthTokenService.loadToken();
@@ -37,18 +36,25 @@ class EmbeddingModelDownloadService {
       String extractFilename(String url, ModelSourceType sourceType) {
         if (sourceType == ModelSourceType.network) {
           final uri = Uri.parse(url);
-          return uri.pathSegments.isNotEmpty ? uri.pathSegments.last : model.filename;
+          return uri.pathSegments.isNotEmpty
+              ? uri.pathSegments.last
+              : model.filename;
         }
         // For asset/bundled, use the path as-is
         return url.split('/').last;
       }
 
       final modelFilename = extractFilename(model.url, model.sourceType);
-      final tokenizerFilename = extractFilename(model.tokenizerUrl, model.sourceType);
+      final tokenizerFilename = extractFilename(
+        model.tokenizerUrl,
+        model.sourceType,
+      );
 
       // Check if both files are installed using actual filenames
       final modelInstalled = await FlutterGemma.isModelInstalled(modelFilename);
-      final tokenizerInstalled = await FlutterGemma.isModelInstalled(tokenizerFilename);
+      final tokenizerInstalled = await FlutterGemma.isModelInstalled(
+        tokenizerFilename,
+      );
 
       final installed = modelInstalled && tokenizerInstalled;
 
@@ -96,7 +102,10 @@ class EmbeddingModelDownloadService {
       switch (model.sourceType) {
         case ModelSourceType.network:
           final authToken = token.isEmpty ? null : token;
-          builder = builder.tokenizerFromNetwork(model.tokenizerUrl, token: authToken);
+          builder = builder.tokenizerFromNetwork(
+            model.tokenizerUrl,
+            token: authToken,
+          );
         case ModelSourceType.asset:
           builder = builder.tokenizerFromAsset(model.tokenizerUrl);
         case ModelSourceType.bundled:
@@ -104,13 +113,16 @@ class EmbeddingModelDownloadService {
       }
 
       // Add progress callbacks and install
-      await builder.withModelProgress((progress) {
-        modelProgress = progress.toDouble();
-        onProgress(modelProgress, tokenizerProgress);
-      }).withTokenizerProgress((progress) {
-        tokenizerProgress = progress.toDouble();
-        onProgress(modelProgress, tokenizerProgress);
-      }).install();
+      await builder
+          .withModelProgress((progress) {
+            modelProgress = progress.toDouble();
+            onProgress(modelProgress, tokenizerProgress);
+          })
+          .withTokenizerProgress((progress) {
+            tokenizerProgress = progress.toDouble();
+            onProgress(modelProgress, tokenizerProgress);
+          })
+          .install();
     } catch (e) {
       if (kDebugMode) {
         debugPrint('Error downloading embedding model: $e');
@@ -126,13 +138,18 @@ class EmbeddingModelDownloadService {
       String extractFilename(String url, ModelSourceType sourceType) {
         if (sourceType == ModelSourceType.network) {
           final uri = Uri.parse(url);
-          return uri.pathSegments.isNotEmpty ? uri.pathSegments.last : model.filename;
+          return uri.pathSegments.isNotEmpty
+              ? uri.pathSegments.last
+              : model.filename;
         }
         return url.split('/').last;
       }
 
       final modelFilename = extractFilename(model.url, model.sourceType);
-      final tokenizerFilename = extractFilename(model.tokenizerUrl, model.sourceType);
+      final tokenizerFilename = extractFilename(
+        model.tokenizerUrl,
+        model.sourceType,
+      );
 
       // Use Modern API to properly uninstall (deletes metadata + files)
       await FlutterGemma.uninstallModel(modelFilename);
@@ -148,8 +165,12 @@ class EmbeddingModelDownloadService {
   Future<bool> isEmbeddingModelInstalled() async {
     try {
       // Modern API: Check if both files are installed
-      final modelInstalled = await FlutterGemma.isModelInstalled(model.filename);
-      final tokenizerInstalled = await FlutterGemma.isModelInstalled(model.tokenizerFilename);
+      final modelInstalled = await FlutterGemma.isModelInstalled(
+        model.filename,
+      );
+      final tokenizerInstalled = await FlutterGemma.isModelInstalled(
+        model.tokenizerFilename,
+      );
       return modelInstalled && tokenizerInstalled;
     } catch (e) {
       if (kDebugMode) {

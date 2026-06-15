@@ -46,7 +46,9 @@ void main() {
     testWidgets('sync CPU', (t) async {
       await _install(_gemma3_1bPath);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 512, preferredBackend: PreferredBackend.cpu);
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.cpu,
+      );
       final session = await model.createSession(temperature: 0.8, topK: 1);
       await session.addQueryChunk(const Message(text: 'Say hi', isUser: true));
       final r = await session.getResponse();
@@ -59,10 +61,13 @@ void main() {
     testWidgets('stream GPU', (t) async {
       await _install(_gemma3_1bPath);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 512, preferredBackend: PreferredBackend.gpu);
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.gpu,
+      );
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session
-          .addQueryChunk(const Message(text: 'Say hello', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'Say hello', isUser: true),
+      );
       final chunks = <String>[];
       await for (final c in session.getResponseAsync()) {
         chunks.add(c);
@@ -80,10 +85,13 @@ void main() {
     testWidgets('sync GPU', (t) async {
       await _install(_gemma4Path);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 512, preferredBackend: PreferredBackend.gpu);
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.gpu,
+      );
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session
-          .addQueryChunk(const Message(text: 'What is 2+2?', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'What is 2+2?', isUser: true),
+      );
       final r = await session.getResponse();
       print('[g4 gpu sync] $r');
       expect(r, isNotEmpty);
@@ -94,10 +102,13 @@ void main() {
     testWidgets('stream GPU', (t) async {
       await _install(_gemma4Path);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 512, preferredBackend: PreferredBackend.gpu);
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.gpu,
+      );
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session
-          .addQueryChunk(const Message(text: 'Say hello', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'Say hello', isUser: true),
+      );
       final chunks = <String>[];
       await for (final c in session.getResponseAsync()) {
         chunks.add(c);
@@ -117,11 +128,17 @@ void main() {
         maxNumImages: 1,
       );
       final session = await model.createSession(
-          temperature: 0.8, topK: 1, enableVisionModality: true);
-      await session.addQueryChunk(Message(
+        temperature: 0.8,
+        topK: 1,
+        enableVisionModality: true,
+      );
+      await session.addQueryChunk(
+        Message(
           text: 'Describe this image briefly',
           isUser: true,
-          imageBytes: _testImage));
+          imageBytes: _testImage,
+        ),
+      );
       final r = await session.getResponse();
       print('[g4 gpu vision] $r');
       expect(r, isNotEmpty);
@@ -137,9 +154,17 @@ void main() {
         supportAudio: true,
       );
       final session = await model.createSession(
-          temperature: 0.8, topK: 1, enableAudioModality: true);
-      await session.addQueryChunk(Message(
-          text: 'What did you hear?', isUser: true, audioBytes: _testAudio));
+        temperature: 0.8,
+        topK: 1,
+        enableAudioModality: true,
+      );
+      await session.addQueryChunk(
+        Message(
+          text: 'What did you hear?',
+          isUser: true,
+          audioBytes: _testAudio,
+        ),
+      );
       final r = await session.getResponse();
       print('[g4 gpu audio] $r');
       expect(r, isNotEmpty);
@@ -150,11 +175,20 @@ void main() {
     testWidgets('thinking GPU', (t) async {
       await _install(_gemma4Path);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 2048, preferredBackend: PreferredBackend.gpu);
+        maxTokens: 2048,
+        preferredBackend: PreferredBackend.gpu,
+      );
       final session = await model.createSession(
-          temperature: 0.8, topK: 1, enableThinking: true);
-      await session.addQueryChunk(const Message(
-          text: 'Why is the sky blue? Think step by step.', isUser: true));
+        temperature: 0.8,
+        topK: 1,
+        enableThinking: true,
+      );
+      await session.addQueryChunk(
+        const Message(
+          text: 'Why is the sky blue? Think step by step.',
+          isUser: true,
+        ),
+      );
       final chunks = <String>[];
       bool hasThinking = false;
       bool hasText = false;
@@ -165,9 +199,11 @@ void main() {
       }
       final full = chunks.join();
       print(
-          '[g4 gpu thinking] ${chunks.length} chunks, thinking=$hasThinking, text=$hasText');
+        '[g4 gpu thinking] ${chunks.length} chunks, thinking=$hasThinking, text=$hasText',
+      );
       print(
-          '[g4 gpu thinking] first 200: ${full.substring(0, full.length.clamp(0, 200))}');
+        '[g4 gpu thinking] first 200: ${full.substring(0, full.length.clamp(0, 200))}',
+      );
       expect(chunks, isNotEmpty);
       expect(hasThinking, true, reason: 'Should have thinking chunks');
       expect(hasText, true, reason: 'Should have text chunks');
@@ -182,7 +218,9 @@ void main() {
     testWidgets('sync CPU', (t) async {
       await _install(_gemma3nPath);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 512, preferredBackend: PreferredBackend.cpu);
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.cpu,
+      );
       final session = await model.createSession(temperature: 0.8, topK: 1);
       await session.addQueryChunk(const Message(text: 'Say hi', isUser: true));
       final r = await session.getResponse();
@@ -195,10 +233,13 @@ void main() {
     testWidgets('stream GPU', (t) async {
       await _install(_gemma3nPath);
       final model = await FlutterGemma.getActiveModel(
-          maxTokens: 512, preferredBackend: PreferredBackend.gpu);
+        maxTokens: 512,
+        preferredBackend: PreferredBackend.gpu,
+      );
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session
-          .addQueryChunk(const Message(text: 'Say hello', isUser: true));
+      await session.addQueryChunk(
+        const Message(text: 'Say hello', isUser: true),
+      );
       final chunks = <String>[];
       await for (final c in session.getResponseAsync()) {
         chunks.add(c);
@@ -218,11 +259,17 @@ void main() {
         maxNumImages: 1,
       );
       final session = await model.createSession(
-          temperature: 0.8, topK: 1, enableVisionModality: true);
-      await session.addQueryChunk(Message(
+        temperature: 0.8,
+        topK: 1,
+        enableVisionModality: true,
+      );
+      await session.addQueryChunk(
+        Message(
           text: 'Describe this image briefly',
           isUser: true,
-          imageBytes: _testImage));
+          imageBytes: _testImage,
+        ),
+      );
       final r = await session.getResponse();
       print('[g3n gpu vision] $r');
       expect(r, isNotEmpty);
@@ -238,9 +285,17 @@ void main() {
         supportAudio: true,
       );
       final session = await model.createSession(
-          temperature: 0.8, topK: 1, enableAudioModality: true);
-      await session.addQueryChunk(Message(
-          text: 'What did you hear?', isUser: true, audioBytes: _testAudio));
+        temperature: 0.8,
+        topK: 1,
+        enableAudioModality: true,
+      );
+      await session.addQueryChunk(
+        Message(
+          text: 'What did you hear?',
+          isUser: true,
+          audioBytes: _testAudio,
+        ),
+      );
       final r = await session.getResponse();
       print('[g3n cpu audio] $r');
       expect(r, isNotEmpty);
@@ -256,9 +311,17 @@ void main() {
         supportAudio: true,
       );
       final session = await model.createSession(
-          temperature: 0.8, topK: 1, enableAudioModality: true);
-      await session.addQueryChunk(Message(
-          text: 'What did you hear?', isUser: true, audioBytes: _testAudio));
+        temperature: 0.8,
+        topK: 1,
+        enableAudioModality: true,
+      );
+      await session.addQueryChunk(
+        Message(
+          text: 'What did you hear?',
+          isUser: true,
+          audioBytes: _testAudio,
+        ),
+      );
       final r = await session.getResponse();
       print('[g3n gpu audio] $r');
       expect(r, isNotEmpty);

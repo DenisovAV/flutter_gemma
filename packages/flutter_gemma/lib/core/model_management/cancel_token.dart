@@ -48,8 +48,10 @@ class CancelToken {
   /// [reason] - Optional message explaining why the operation was cancelled
   void cancel([String reason = 'Operation cancelled']) {
     if (isCancelled) {
-      gemmaLog('⚠️ CancelToken already cancelled. '
-          'Previous reason: $_cancelReason, new reason: $reason');
+      gemmaLog(
+        '⚠️ CancelToken already cancelled. '
+        'Previous reason: $_cancelReason, new reason: $reason',
+      );
       return;
     }
 

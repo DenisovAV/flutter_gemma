@@ -11,15 +11,10 @@ import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 /// drift. The example ships both formats (`.litertlm` + `.task`). The element
 /// type (`InferenceEngineProvider`) is inferred from the concrete engines, so
 /// the example needn't import the internal provider interface.
-const kExampleInferenceEngines = [
-  LiteRtLmEngine(),
-  MediaPipeEngine(),
-];
+const kExampleInferenceEngines = [LiteRtLmEngine(), MediaPipeEngine()];
 
 /// The opt-in embedding backends the example registers. Single source of truth.
-const kExampleEmbeddingBackends = [
-  LiteRtEmbeddingBackend(),
-];
+const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];
 
 /// The RAG vector-store backends the example can switch between.
 enum RagBackend {
@@ -37,9 +32,9 @@ enum RagBackend {
   /// subdir there and `clear()` recursively deletes it), so each backend gets
   /// its own path shape — they never collide on disk.
   String get storageName => switch (this) {
-        RagBackend.sqlite => 'rag_demo.db',
-        RagBackend.qdrant => 'rag_demo_qdrant',
-      };
+    RagBackend.sqlite => 'rag_demo.db',
+    RagBackend.qdrant => 'rag_demo_qdrant',
+  };
 }
 
 /// Builds the VectorStoreRepository for [backend] on the current platform.

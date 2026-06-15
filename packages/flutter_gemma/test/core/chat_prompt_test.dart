@@ -33,7 +33,12 @@ void main() {
       final prompt = chat.createToolsPrompt();
 
       // Check enum format: enum:[<escape>red<escape>,<escape>blue<escape>,<escape>green<escape>]
-      expect(prompt, contains('enum:[<escape>red<escape>,<escape>blue<escape>,<escape>green<escape>]'));
+      expect(
+        prompt,
+        contains(
+          'enum:[<escape>red<escape>,<escape>blue<escape>,<escape>green<escape>]',
+        ),
+      );
       expect(prompt, contains('description:<escape>The color name<escape>'));
       expect(prompt, contains('type:<escape>STRING<escape>'));
     });
@@ -51,10 +56,7 @@ void main() {
             parameters: {
               'type': 'object',
               'properties': {
-                'title': {
-                  'type': 'string',
-                  'description': 'The title text',
-                },
+                'title': {'type': 'string', 'description': 'The title text'},
               },
               'required': ['title'],
             },
@@ -123,11 +125,13 @@ void main() {
 
       expect(
         () => chat.createToolsPrompt(),
-        throwsA(isA<ArgumentError>().having(
-          (e) => e.message,
-          'message',
-          contains('contains FunctionGemma special tokens'),
-        )),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains('contains FunctionGemma special tokens'),
+          ),
+        ),
       );
     });
 
@@ -155,10 +159,7 @@ void main() {
         ],
       );
 
-      expect(
-        () => chat.createToolsPrompt(),
-        throwsA(isA<ArgumentError>()),
-      );
+      expect(() => chat.createToolsPrompt(), throwsA(isA<ArgumentError>()));
     });
 
     test('handles multiple parameters with enums', () {
@@ -192,8 +193,14 @@ void main() {
 
       final prompt = chat.createToolsPrompt();
 
-      expect(prompt, contains('enum:[<escape>red<escape>,<escape>blue<escape>]'));
-      expect(prompt, contains('enum:[<escape>small<escape>,<escape>large<escape>]'));
+      expect(
+        prompt,
+        contains('enum:[<escape>red<escape>,<escape>blue<escape>]'),
+      );
+      expect(
+        prompt,
+        contains('enum:[<escape>small<escape>,<escape>large<escape>]'),
+      );
     });
 
     test('preserves field order: description, enum, type', () {
@@ -232,8 +239,16 @@ void main() {
       final enumIndex = colorBlock.indexOf('enum:');
       final typeIndex = colorBlock.indexOf('type:');
 
-      expect(descIndex, lessThan(enumIndex), reason: 'description should come before enum');
-      expect(enumIndex, lessThan(typeIndex), reason: 'enum should come before type');
+      expect(
+        descIndex,
+        lessThan(enumIndex),
+        reason: 'description should come before enum',
+      );
+      expect(
+        enumIndex,
+        lessThan(typeIndex),
+        reason: 'enum should come before type',
+      );
     });
   });
 

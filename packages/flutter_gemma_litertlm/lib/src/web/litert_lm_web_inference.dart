@@ -101,10 +101,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
   InferenceModelSession? get session => _session;
 
   @override
-  List<InferenceModelSession> get sessions => List.unmodifiable([
-        if (_session != null) _session!,
-        ..._openSessions,
-      ]);
+  List<InferenceModelSession> get sessions =>
+      List.unmodifiable([if (_session != null) _session!, ..._openSessions]);
 
   Future<void> _ensureEngine() async {
     if (_engine != null) return;
@@ -157,7 +155,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
 
     if (kDebugMode) {
       gemmaLog(
-          '[LiteRtLmWebInferenceModel] Engine.create({model: $diagDescription})');
+        '[LiteRtLmWebInferenceModel] Engine.create({model: $diagDescription})',
+      );
     }
     final sw = Stopwatch()..start();
     final engineFuture = LiteRtLmEngine.create(
@@ -166,7 +165,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     _engine = await engineFuture.toDart;
     if (kDebugMode) {
       gemmaLog(
-          '[LiteRtLmWebInferenceModel/perf] Engine.create: ${sw.elapsedMilliseconds}ms');
+        '[LiteRtLmWebInferenceModel/perf] Engine.create: ${sw.elapsedMilliseconds}ms',
+      );
     }
   }
 
@@ -185,7 +185,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
     if (loraPath != null) {
       throw UnsupportedError(
@@ -210,11 +211,13 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     // options should not be null" — so we force-disable them and warn.
     if (enableVisionModality == true || enableAudioModality == true) {
       if (kDebugMode) {
-        gemmaLog('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
-            'is requested but @litert-lm/core@0.12.1 does not expose the '
-            'Vision/AudioExecutor config in its TypeScript API — image/audio '
-            'inputs are dropped on web until upstream extends EngineSettings. '
-            'Track: https://github.com/google-ai-edge/LiteRT-LM');
+        gemmaLog(
+          '[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
+          'is requested but @litert-lm/core@0.12.1 does not expose the '
+          'Vision/AudioExecutor config in its TypeScript API — image/audio '
+          'inputs are dropped on web until upstream extends EngineSettings. '
+          'Track: https://github.com/google-ai-edge/LiteRT-LM',
+        );
       }
     }
     const visionEnabled = false;
@@ -254,7 +257,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
       completer.complete(session);
       if (kDebugMode) {
         gemmaLog(
-            '[LiteRtLmWebInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms');
+          '[LiteRtLmWebInferenceModel/perf] createSession total: ${sessionSw.elapsedMilliseconds}ms',
+        );
       }
       return session;
     } catch (e, st) {
@@ -279,7 +283,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
   }) async {
     if (_isClosed) {
       throw StateError(
-          'Model is closed. Create a new instance to use it again');
+        'Model is closed. Create a new instance to use it again',
+      );
     }
     if (loraPath != null) {
       throw UnsupportedError(
@@ -298,9 +303,11 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     // detailed comment in createSession. Force-disable here too.
     if ((enableVisionModality == true || enableAudioModality == true) &&
         kDebugMode) {
-      gemmaLog('[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
-          'is dropped on the web .litertlm path until upstream extends '
-          'EngineSettings.');
+      gemmaLog(
+        '[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
+        'is dropped on the web .litertlm path until upstream extends '
+        'EngineSettings.',
+      );
     }
 
     await _ensureEngine();
@@ -373,15 +380,16 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     // byte-identical between web and native.
     final toolsForPreface = (modelType == ModelType.gemma4 && tools.isNotEmpty)
         ? (jsonDecode(SdkResponseParser.serializeToolsForSdk(tools))
-            as List<dynamic>)
+              as List<dynamic>)
         : const <dynamic>[];
     final prefaceMap = <String, Object>{
       if (prefaceMessages.isNotEmpty) 'messages': prefaceMessages,
       if (toolsForPreface.isNotEmpty) 'tools': toolsForPreface,
       if (enableThinking) 'extra_context': <String, Object>{'thinking': true},
     };
-    final prefaceJs =
-        prefaceMap.isNotEmpty ? prefaceMap.jsify() as JSObject : null;
+    final prefaceJs = prefaceMap.isNotEmpty
+        ? prefaceMap.jsify() as JSObject
+        : null;
 
     final beforeConv = sw.elapsedMilliseconds;
     final convoFuture = _engine!.createConversation(
@@ -395,7 +403,8 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     final conversation = await convoFuture.toDart;
     if (kDebugMode) {
       gemmaLog(
-          '[LiteRtLmWebInferenceModel/perf] createConversation: ${sw.elapsedMilliseconds - beforeConv}ms');
+        '[LiteRtLmWebInferenceModel/perf] createConversation: ${sw.elapsedMilliseconds - beforeConv}ms',
+      );
     }
     return conversation;
   }
@@ -474,8 +483,9 @@ class LiteRtLmWebSession extends InferenceModelSession
   String? get lastRawResponse => _lastRawResponse;
 
   /// JS `JSON.stringify` handle, looked up once per session.
-  late final JSObject _jsJson =
-      globalContext.getProperty<JSObject>('JSON'.toJS);
+  late final JSObject _jsJson = globalContext.getProperty<JSObject>(
+    'JSON'.toJS,
+  );
 
   String _stringifyChunk(JSObject value) =>
       _jsJson.callMethod<JSString>('stringify'.toJS, value).toDart;
@@ -487,8 +497,10 @@ class LiteRtLmWebSession extends InferenceModelSession
   @override
   Future<void> addQueryChunk(Message message) async {
     _assertNotClosed();
-    final prompt =
-        message.transformToChatPrompt(type: modelType, fileType: fileType);
+    final prompt = message.transformToChatPrompt(
+      type: modelType,
+      fileType: fileType,
+    );
     _queryBuffer.write(prompt);
     if (message.hasImage && supportImage) {
       if (message.imageBytes != null) {
@@ -520,8 +532,9 @@ class LiteRtLmWebSession extends InferenceModelSession
     _assertNotClosed();
     final text = _queryBuffer.toString();
     _queryBuffer.clear();
-    final images =
-        _pendingImages.isNotEmpty ? List<Uint8List>.from(_pendingImages) : null;
+    final images = _pendingImages.isNotEmpty
+        ? List<Uint8List>.from(_pendingImages)
+        : null;
     final audio = _pendingAudio;
     _pendingImages.clear();
     _pendingAudio = null;
@@ -578,10 +591,9 @@ class LiteRtLmWebSession extends InferenceModelSession
             },
           },
       ];
-      messageArg = <String, Object>{
-        'role': 'user',
-        'content': contentItems,
-      }.jsify() as JSAny;
+      messageArg =
+          <String, Object>{'role': 'user', 'content': contentItems}.jsify()
+              as JSAny;
     }
     // Gemma 4 path mirrors FfiInferenceModelSession.getResponseAsync — every
     // raw chunk is stringified and appended to rawBuffer so chat.dart can
@@ -609,55 +621,61 @@ class LiteRtLmWebSession extends InferenceModelSession
           if (!controller.isClosed) controller.close();
           return;
         }
-        iter.next().toDart.then((JSObject step) {
-          if (controller.isClosed || _isCancelled) {
+        iter.next().toDart.then(
+          (JSObject step) {
+            if (controller.isClosed || _isCancelled) {
+              releaseMutex();
+              if (!controller.isClosed) controller.close();
+              return;
+            }
+            final done = (step.getProperty<JSBoolean>('done'.toJS)).toDart;
+            if (done) {
+              if (accumulateRaw) {
+                _lastRawResponse = rawBuffer!.toString();
+              }
+              if (kDebugMode) {
+                final total = genSw.elapsedMilliseconds;
+                gemmaLog(
+                  '[LiteRtLmWebSession/perf] generation total: ${total}ms '
+                  '(prefill ${firstChunkMs ?? 0}ms, $chunkCount chunks)',
+                );
+              }
+              releaseMutex();
+              controller.close();
+              return;
+            }
+            if (firstChunkMs == null) {
+              firstChunkMs = genSw.elapsedMilliseconds;
+              if (kDebugMode) {
+                gemmaLog(
+                  '[LiteRtLmWebSession/perf] time-to-first-chunk: ${firstChunkMs}ms',
+                );
+              }
+            }
+            chunkCount++;
+            final value = step.getProperty<JSObject?>('value'.toJS);
+            if (value != null) {
+              // Stringify the JS chunk into the same JSON shape liblitert_lm
+              // streams via the native FFI callback. Both engines then dump it
+              // into the shared SdkTextExtractor — single source of truth for
+              // text-vs-thinking extraction, identical to ffi_inference_model.dart.
+              final jsonStr = _stringifyChunk(value);
+              if (accumulateRaw) {
+                rawBuffer!.write(jsonStr);
+              }
+              final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
+              if (text.isNotEmpty) controller.add(text);
+            }
+            pump();
+          },
+          onError: (Object error, StackTrace st) {
             releaseMutex();
-            if (!controller.isClosed) controller.close();
-            return;
-          }
-          final done = (step.getProperty<JSBoolean>('done'.toJS)).toDart;
-          if (done) {
-            if (accumulateRaw) {
-              _lastRawResponse = rawBuffer!.toString();
+            if (!controller.isClosed) {
+              controller.addError(error, st);
+              controller.close();
             }
-            if (kDebugMode) {
-              final total = genSw.elapsedMilliseconds;
-              gemmaLog('[LiteRtLmWebSession/perf] generation total: ${total}ms '
-                  '(prefill ${firstChunkMs ?? 0}ms, $chunkCount chunks)');
-            }
-            releaseMutex();
-            controller.close();
-            return;
-          }
-          if (firstChunkMs == null) {
-            firstChunkMs = genSw.elapsedMilliseconds;
-            if (kDebugMode) {
-              gemmaLog(
-                  '[LiteRtLmWebSession/perf] time-to-first-chunk: ${firstChunkMs}ms');
-            }
-          }
-          chunkCount++;
-          final value = step.getProperty<JSObject?>('value'.toJS);
-          if (value != null) {
-            // Stringify the JS chunk into the same JSON shape liblitert_lm
-            // streams via the native FFI callback. Both engines then dump it
-            // into the shared SdkTextExtractor — single source of truth for
-            // text-vs-thinking extraction, identical to ffi_inference_model.dart.
-            final jsonStr = _stringifyChunk(value);
-            if (accumulateRaw) {
-              rawBuffer!.write(jsonStr);
-            }
-            final text = SdkTextExtractor.extractTextFromResponse(jsonStr);
-            if (text.isNotEmpty) controller.add(text);
-          }
-          pump();
-        }, onError: (Object error, StackTrace st) {
-          releaseMutex();
-          if (!controller.isClosed) {
-            controller.addError(error, st);
-            controller.close();
-          }
-        });
+          },
+        );
       }
 
       pump();

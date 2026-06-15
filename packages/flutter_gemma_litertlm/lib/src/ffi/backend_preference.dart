@@ -4,25 +4,22 @@ import 'package:flutter_gemma/pigeon.g.dart';
 
 List<PreferredBackend> ffiBackendFallbackOrder(
   PreferredBackend? preferredBackend,
-) =>
-    switch (preferredBackend) {
-      PreferredBackend.npu => const [
-          PreferredBackend.npu,
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      PreferredBackend.gpu || null => const [
-          PreferredBackend.gpu,
-          PreferredBackend.cpu,
-        ],
-      PreferredBackend.cpu => const [PreferredBackend.cpu],
-    };
+) => switch (preferredBackend) {
+  PreferredBackend.npu => const [
+    PreferredBackend.npu,
+    PreferredBackend.gpu,
+    PreferredBackend.cpu,
+  ],
+  PreferredBackend.gpu ||
+  null => const [PreferredBackend.gpu, PreferredBackend.cpu],
+  PreferredBackend.cpu => const [PreferredBackend.cpu],
+};
 
 String ffiBackendWireName(PreferredBackend backend) => switch (backend) {
-      PreferredBackend.npu => 'npu',
-      PreferredBackend.gpu => 'gpu',
-      PreferredBackend.cpu => 'cpu',
-    };
+  PreferredBackend.npu => 'npu',
+  PreferredBackend.gpu => 'gpu',
+  PreferredBackend.cpu => 'cpu',
+};
 
 /// Failure details for a single FFI backend initialization attempt.
 class BackendInitAttemptFailure {
@@ -48,7 +45,7 @@ class BackendInitAttemptFailure {
 /// Exception thrown after every FFI backend fallback attempt fails.
 class BackendInitException implements Exception {
   BackendInitException({required Iterable<BackendInitAttemptFailure> attempts})
-      : attempts = List.unmodifiable(attempts) {
+    : attempts = List.unmodifiable(attempts) {
     if (this.attempts.isEmpty) {
       throw ArgumentError.value(
         attempts,
@@ -78,7 +75,7 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
   required String logTag,
   required T Function() createClient,
   required Future<void> Function(T client, PreferredBackend backend)
-      initializeClient,
+  initializeClient,
   required void Function(T client) shutdownClient,
 }) async {
   final attempts = <BackendInitAttemptFailure>[];

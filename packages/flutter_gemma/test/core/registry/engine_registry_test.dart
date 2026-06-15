@@ -19,30 +19,39 @@ class _FakeEngine implements InferenceEngineProvider {
   bool canHandle(InferenceModelSpec spec) => _canHandle(spec);
   @override
   Future<InferenceModel> createModel(
-          InferenceModelSpec spec, RuntimeConfig config) =>
-      throw UnimplementedError();
+    InferenceModelSpec spec,
+    RuntimeConfig config,
+  ) => throw UnimplementedError();
 }
 
 InferenceModelSpec _spec(ModelFileType ft) => InferenceModelSpec(
-      name: 'test',
-      modelSource: AssetSource('models/test.bin'),
-      modelType: ModelType.general,
-      fileType: ft,
-    );
+  name: 'test',
+  modelSource: AssetSource('models/test.bin'),
+  modelType: ModelType.general,
+  fileType: ft,
+);
 
 void main() {
   setUp(() => EngineRegistry.instance.reset());
 
   test('findFor returns the first engine whose canHandle is true', () {
-    final mp =
-        _FakeEngine('MediaPipe', (s) => s.fileType == ModelFileType.task);
-    final lr =
-        _FakeEngine('LiteRT-LM', (s) => s.fileType == ModelFileType.litertlm);
+    final mp = _FakeEngine(
+      'MediaPipe',
+      (s) => s.fileType == ModelFileType.task,
+    );
+    final lr = _FakeEngine(
+      'LiteRT-LM',
+      (s) => s.fileType == ModelFileType.litertlm,
+    );
     EngineRegistry.instance.registerAll([mp, lr]);
     expect(
-        EngineRegistry.instance.findFor(_spec(ModelFileType.task)), same(mp));
-    expect(EngineRegistry.instance.findFor(_spec(ModelFileType.litertlm)),
-        same(lr));
+      EngineRegistry.instance.findFor(_spec(ModelFileType.task)),
+      same(mp),
+    );
+    expect(
+      EngineRegistry.instance.findFor(_spec(ModelFileType.litertlm)),
+      same(lr),
+    );
   });
 
   test('findFor returns null when no engine can handle the spec', () {
@@ -50,15 +59,19 @@ void main() {
       _FakeEngine('MediaPipe', (s) => s.fileType == ModelFileType.task),
     ]);
     expect(
-        EngineRegistry.instance.findFor(_spec(ModelFileType.litertlm)), isNull);
+      EngineRegistry.instance.findFor(_spec(ModelFileType.litertlm)),
+      isNull,
+    );
   });
 
   test('higher priority wins when two engines both canHandle', () {
     final core = _FakeEngine('Core', (_) => true, priority: 0);
     final third = _FakeEngine('ThirdParty', (_) => true, priority: 10);
     EngineRegistry.instance.registerAll([core, third]);
-    expect(EngineRegistry.instance.findFor(_spec(ModelFileType.task)),
-        same(third));
+    expect(
+      EngineRegistry.instance.findFor(_spec(ModelFileType.task)),
+      same(third),
+    );
   });
 
   test('equal priority -> first registered wins', () {
@@ -76,11 +89,15 @@ void main() {
   });
 
   test('explicitly registered engine is used by findFor (initialize path)', () {
-    final custom =
-        _FakeEngine('Custom', (s) => s.fileType == ModelFileType.task);
+    final custom = _FakeEngine(
+      'Custom',
+      (s) => s.fileType == ModelFileType.task,
+    );
     EngineRegistry.instance.registerAll([custom]);
     expect(EngineRegistry.instance.registered.single, same(custom));
-    expect(EngineRegistry.instance.findFor(_spec(ModelFileType.task)),
-        same(custom));
+    expect(
+      EngineRegistry.instance.findFor(_spec(ModelFileType.task)),
+      same(custom),
+    );
   });
 }

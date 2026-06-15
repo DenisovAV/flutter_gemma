@@ -76,10 +76,7 @@ class HnswVectorIndex {
     }
 
     // Add to HNSW index
-    _index!.add(LocalHnswItem(
-      item: id,
-      vector: embedding,
-    ));
+    _index!.add(LocalHnswItem(item: id, vector: embedding));
 
     // Cache embedding for exact similarity recalculation
     _embeddings[id] = List.unmodifiable(embedding);
@@ -221,10 +218,7 @@ class DocumentEmbedding {
   final String id;
   final List<double> embedding;
 
-  const DocumentEmbedding({
-    required this.id,
-    required this.embedding,
-  });
+  const DocumentEmbedding({required this.id, required this.embedding});
 }
 
 /// HNSW search result
@@ -232,8 +226,5 @@ class HnswSearchResult {
   final String id;
   final double similarity;
 
-  const HnswSearchResult({
-    required this.id,
-    required this.similarity,
-  });
+  const HnswSearchResult({required this.id, required this.similarity});
 }

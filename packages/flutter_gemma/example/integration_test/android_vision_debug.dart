@@ -7,7 +7,13 @@ const _dir = '/data/local/tmp/flutter_gemma_test';
 const _gemma3n = '$_dir/gemma-3n-E2B-it-int4.litertlm';
 const _gemma4 = '$_dir/gemma-4-E2B-it.litertlm';
 
-typedef _CreateSettingsC = Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>);
+typedef _CreateSettingsC =
+    Pointer Function(
+      Pointer<Utf8>,
+      Pointer<Utf8>,
+      Pointer<Utf8>,
+      Pointer<Utf8>,
+    );
 typedef _DeleteSettingsC = Void Function(Pointer);
 typedef _SetMaxTokensC = Void Function(Pointer, Int32);
 typedef _CreateEngineC = Pointer Function(Pointer);
@@ -28,30 +34,61 @@ void main() {
     print('Library loaded');
   });
 
-  void testEngine(String name, String modelPath, String backend,
-      String? vision, String? audio) {
+  void testEngine(
+    String name,
+    String modelPath,
+    String backend,
+    String? vision,
+    String? audio,
+  ) {
     testWidgets('$name: b=$backend v=$vision a=$audio', (t) async {
-      final createSettings = lib.lookupFunction<_CreateSettingsC,
-          Pointer Function(Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>, Pointer<Utf8>)>(
-          'litert_lm_engine_settings_create');
-      final deleteSettings = lib.lookupFunction<_DeleteSettingsC, void Function(Pointer)>(
-          'litert_lm_engine_settings_delete');
-      final setMaxTokens = lib.lookupFunction<_SetMaxTokensC, void Function(Pointer, int)>(
-          'litert_lm_engine_settings_set_max_num_tokens');
-      final createEngine = lib.lookupFunction<_CreateEngineC, Pointer Function(Pointer)>(
-          'litert_lm_engine_create');
-      final deleteEngine = lib.lookupFunction<_DeleteEngineC, void Function(Pointer)>(
-          'litert_lm_engine_delete');
-      final createConv = lib.lookupFunction<_CreateConvC, Pointer Function(Pointer, Pointer)>(
-          'litert_lm_conversation_create');
-      final deleteConv = lib.lookupFunction<_DeleteConvC, void Function(Pointer)>(
-          'litert_lm_conversation_delete');
-      final sendMsg = lib.lookupFunction<_SendMsgC, Pointer Function(Pointer, Pointer<Utf8>, Pointer)>(
-          'litert_lm_conversation_send_message');
-      final getRespStr = lib.lookupFunction<_GetRespStrC, Pointer<Utf8> Function(Pointer)>(
-          'litert_lm_json_response_get_string');
-      final deleteResp = lib.lookupFunction<_DeleteRespC, void Function(Pointer)>(
-          'litert_lm_json_response_delete');
+      final createSettings = lib
+          .lookupFunction<
+            _CreateSettingsC,
+            Pointer Function(
+              Pointer<Utf8>,
+              Pointer<Utf8>,
+              Pointer<Utf8>,
+              Pointer<Utf8>,
+            )
+          >('litert_lm_engine_settings_create');
+      final deleteSettings = lib
+          .lookupFunction<_DeleteSettingsC, void Function(Pointer)>(
+            'litert_lm_engine_settings_delete',
+          );
+      final setMaxTokens = lib
+          .lookupFunction<_SetMaxTokensC, void Function(Pointer, int)>(
+            'litert_lm_engine_settings_set_max_num_tokens',
+          );
+      final createEngine = lib
+          .lookupFunction<_CreateEngineC, Pointer Function(Pointer)>(
+            'litert_lm_engine_create',
+          );
+      final deleteEngine = lib
+          .lookupFunction<_DeleteEngineC, void Function(Pointer)>(
+            'litert_lm_engine_delete',
+          );
+      final createConv = lib
+          .lookupFunction<_CreateConvC, Pointer Function(Pointer, Pointer)>(
+            'litert_lm_conversation_create',
+          );
+      final deleteConv = lib
+          .lookupFunction<_DeleteConvC, void Function(Pointer)>(
+            'litert_lm_conversation_delete',
+          );
+      final sendMsg = lib
+          .lookupFunction<
+            _SendMsgC,
+            Pointer Function(Pointer, Pointer<Utf8>, Pointer)
+          >('litert_lm_conversation_send_message');
+      final getRespStr = lib
+          .lookupFunction<_GetRespStrC, Pointer<Utf8> Function(Pointer)>(
+            'litert_lm_json_response_get_string',
+          );
+      final deleteResp = lib
+          .lookupFunction<_DeleteRespC, void Function(Pointer)>(
+            'litert_lm_json_response_delete',
+          );
 
       final modelPtr = modelPath.toNativeUtf8();
       final backendPtr = backend.toNativeUtf8();
@@ -59,14 +96,16 @@ void main() {
       final audioPtr = audio?.toNativeUtf8();
 
       final settings = createSettings(
-        modelPtr, backendPtr,
+        modelPtr,
+        backendPtr,
         visionPtr ?? Pointer.fromAddress(0).cast(),
         audioPtr ?? Pointer.fromAddress(0).cast(),
       );
 
       if (settings.address == 0) {
         print('| $name | $backend | $vision | $audio | SETTINGS_FAIL |');
-        calloc.free(modelPtr); calloc.free(backendPtr);
+        calloc.free(modelPtr);
+        calloc.free(backendPtr);
         if (visionPtr != null) calloc.free(visionPtr);
         if (audioPtr != null) calloc.free(audioPtr);
         return;
@@ -86,14 +125,16 @@ void main() {
           result = 'CONV_FAIL';
         } else {
           // Try with image if vision enabled
-          final msgJson = '{"role":"user","content":[{"type":"text","text":"Hi"}]}';
+          final msgJson =
+              '{"role":"user","content":[{"type":"text","text":"Hi"}]}';
           final msg = msgJson.toNativeUtf8();
           final resp = sendMsg(conv, msg, nullptr);
           if (resp.address == 0) {
             result = 'SEND_NULL';
           } else {
             final str = getRespStr(resp);
-            result = 'OK: ${str.toDartString().substring(0, 60.clamp(0, str.toDartString().length))}';
+            result =
+                'OK: ${str.toDartString().substring(0, 60.clamp(0, str.toDartString().length))}';
             deleteResp(resp);
           }
           calloc.free(msg);
@@ -102,7 +143,8 @@ void main() {
         deleteEngine(engine);
       }
 
-      calloc.free(modelPtr); calloc.free(backendPtr);
+      calloc.free(modelPtr);
+      calloc.free(backendPtr);
       if (visionPtr != null) calloc.free(visionPtr);
       if (audioPtr != null) calloc.free(audioPtr);
 

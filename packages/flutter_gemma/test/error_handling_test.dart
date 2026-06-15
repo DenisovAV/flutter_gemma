@@ -86,7 +86,10 @@ void main() {
     });
 
     test('toTitle returns short error titles', () {
-      expect(const DownloadError.unauthorized().toTitle(), 'Authentication Required');
+      expect(
+        const DownloadError.unauthorized().toTitle(),
+        'Authentication Required',
+      );
       expect(const DownloadError.forbidden().toTitle(), 'Access Forbidden');
       expect(const DownloadError.notFound().toTitle(), 'Model Not Found');
       expect(const DownloadError.rateLimited().toTitle(), 'Rate Limited');

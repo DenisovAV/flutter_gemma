@@ -7,7 +7,11 @@ import 'package:flutter_gemma_example/model_selection_screen.dart';
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, this.model = Model.gemma3_1B, this.selectedBackend});
+  const ChatScreen({
+    super.key,
+    this.model = Model.gemma3_1B,
+    this.selectedBackend,
+  });
 
   final Model model;
   final PreferredBackend? selectedBackend;
@@ -39,7 +43,8 @@ class ChatScreenState extends State<ChatScreen> {
         'properties': {
           'color': {
             'type': 'string',
-            'description': 'The color name (red, green, blue, yellow, purple, orange)',
+            'description':
+                'The color name (red, green, blue, yellow, purple, orange)',
           },
         },
         'required': ['color'],
@@ -119,7 +124,9 @@ class ChatScreenState extends State<ChatScreen> {
         String? token;
         if (widget.model.needsAuth) {
           token = await AuthTokenService.loadToken();
-          debugPrint('[ChatScreen] Loaded auth token: ${token != null ? "✅" : "❌"}');
+          debugPrint(
+            '[ChatScreen] Loaded auth token: ${token != null ? "✅" : "❌"}',
+          );
         }
 
         await installer.fromNetwork(widget.model.url, token: token).install();
@@ -131,7 +138,8 @@ class ChatScreenState extends State<ChatScreen> {
       debugPrint('[ChatScreen] Step 2: Creating InferenceModel...');
       final model = await FlutterGemma.getActiveModel(
         maxTokens: widget.model.maxTokens,
-        preferredBackend: widget.selectedBackend ?? widget.model.preferredBackend,
+        preferredBackend:
+            widget.selectedBackend ?? widget.model.preferredBackend,
         supportImage: widget.model.supportImage,
         maxNumImages: widget.model.maxNumImages,
         supportAudio: widget.model.supportAudio,
@@ -179,10 +187,12 @@ class ChatScreenState extends State<ChatScreen> {
     // Set streaming state and show "Calling function..." in one setState
     setState(() {
       _isStreaming = true;
-      _messages.add(Message.systemInfo(
-        text:
-            "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: "${e.value}"').join(', ')})",
-      ));
+      _messages.add(
+        Message.systemInfo(
+          text:
+              "🔧 Calling: ${functionCall.name}(${functionCall.args.entries.map((e) => '${e.key}: "${e.value}"').join(', ')})",
+        ),
+      );
     });
 
     // Small delay to show the calling message
@@ -190,18 +200,18 @@ class ChatScreenState extends State<ChatScreen> {
 
     // 2. Show "Executing function"
     setState(() {
-      _messages.add(Message.systemInfo(
-        text: "⚡ Executing function",
-      ));
+      _messages.add(Message.systemInfo(text: "⚡ Executing function"));
     });
 
     final toolResponse = await _executeTool(functionCall);
 
     // 3. Show "Function completed"
     setState(() {
-      _messages.add(Message.systemInfo(
-        text: "✅ Function completed: ${toolResponse['message'] ?? 'Success'}",
-      ));
+      _messages.add(
+        Message.systemInfo(
+          text: "✅ Function completed: ${toolResponse['message'] ?? 'Success'}",
+        ),
+      );
     });
 
     // Small delay to show completion
@@ -249,14 +259,19 @@ class ChatScreenState extends State<ChatScreen> {
   }
 
   // Function to execute tools
-  Future<Map<String, dynamic>> _executeTool(FunctionCallResponse functionCall) async {
+  Future<Map<String, dynamic>> _executeTool(
+    FunctionCallResponse functionCall,
+  ) async {
     if (functionCall.name == 'change_app_title') {
       final newTitle = functionCall.args['title'] as String?;
       if (newTitle != null && newTitle.isNotEmpty) {
         setState(() {
           _appTitle = newTitle;
         });
-        return {'status': 'success', 'message': 'App title changed to "$newTitle"'};
+        return {
+          'status': 'success',
+          'message': 'App title changed to "$newTitle"',
+        };
       } else {
         return {'error': 'Title cannot be empty'};
       }
@@ -275,14 +290,21 @@ class ChatScreenState extends State<ChatScreen> {
         setState(() {
           _backgroundColor = colorMap[colorName]!;
         });
-        return {'status': 'success', 'message': 'Background color changed to $colorName'};
+        return {
+          'status': 'success',
+          'message': 'Background color changed to $colorName',
+        };
       } else {
-        return {'error': 'Color not supported', 'available_colors': colorMap.keys.toList()};
+        return {
+          'error': 'Color not supported',
+          'available_colors': colorMap.keys.toList(),
+        };
       }
     }
     if (functionCall.name == 'show_alert') {
       final title = functionCall.args['title'] as String? ?? 'Alert';
-      final message = functionCall.args['message'] as String? ?? 'No message provided';
+      final message =
+          functionCall.args['message'] as String? ?? 'No message provided';
 
       // Show the alert dialog
       await showDialog(
@@ -301,7 +323,10 @@ class ChatScreenState extends State<ChatScreen> {
         },
       );
 
-      return {'status': 'success', 'message': 'Alert dialog shown with title "$title"'};
+      return {
+        'status': 'success',
+        'message': 'Alert dialog shown with title "$title"',
+      };
     }
     return {'error': 'Tool not found'};
   }
@@ -365,55 +390,57 @@ class ChatScreenState extends State<ChatScreen> {
           if (chat?.supportsImages == true)
             const Padding(
               padding: EdgeInsets.only(right: 16.0),
-              child: Icon(
-                Icons.image,
-                color: Colors.green,
-                size: 20,
-              ),
+              child: Icon(Icons.image, color: Colors.green, size: 20),
             ),
         ],
       ),
-      body: Stack(children: [
-        Center(
-          child: Image.asset(
-            'assets/background.png',
-            width: 200,
-            height: 200,
+      body: Stack(
+        children: [
+          Center(
+            child: Image.asset(
+              'assets/background.png',
+              width: 200,
+              height: 200,
+            ),
           ),
-        ),
-        _isModelInitialized
-            ? Column(children: [
-                if (_error != null) _buildErrorBanner(_error!),
-                if (chat?.supportsImages == true && _messages.isEmpty) _buildImageSupportInfo(),
-                if (widget.model.supportAudio && _messages.isEmpty) _buildAudioSupportInfo(),
-                Expanded(
-                  child: ChatListWidget(
-                    chat: chat,
-                    useSyncMode: _useSyncMode,
-                    supportsAudio: widget.model.supportAudio,
-                    gemmaHandler: _handleGemmaResponse,
-                    messageHandler: (message) {
-                      // Handles all message additions to history
-                      setState(() {
-                        _error = null;
-                        _messages.add(message);
-                        // Set streaming to true when user sends message
-                        _isStreaming = true;
-                      });
-                    },
-                    errorHandler: (err) {
-                      setState(() {
-                        _error = err;
-                        _isStreaming = false; // Reset streaming on error
-                      });
-                    },
-                    messages: _messages,
-                    isProcessing: _isStreaming,
-                  ),
+          _isModelInitialized
+              ? Column(
+                  children: [
+                    if (_error != null) _buildErrorBanner(_error!),
+                    if (chat?.supportsImages == true && _messages.isEmpty)
+                      _buildImageSupportInfo(),
+                    if (widget.model.supportAudio && _messages.isEmpty)
+                      _buildAudioSupportInfo(),
+                    Expanded(
+                      child: ChatListWidget(
+                        chat: chat,
+                        useSyncMode: _useSyncMode,
+                        supportsAudio: widget.model.supportAudio,
+                        gemmaHandler: _handleGemmaResponse,
+                        messageHandler: (message) {
+                          // Handles all message additions to history
+                          setState(() {
+                            _error = null;
+                            _messages.add(message);
+                            // Set streaming to true when user sends message
+                            _isStreaming = true;
+                          });
+                        },
+                        errorHandler: (err) {
+                          setState(() {
+                            _error = err;
+                            _isStreaming = false; // Reset streaming on error
+                          });
+                        },
+                        messages: _messages,
+                        isProcessing: _isStreaming,
+                      ),
+                    ),
+                  ],
                 )
-              ])
-            : const LoadingWidget(message: 'Initializing model'),
-      ]),
+              : const LoadingWidget(message: 'Initializing model'),
+        ],
+      ),
     );
   }
 
@@ -441,11 +468,7 @@ class ChatScreenState extends State<ChatScreen> {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.info_outline,
-            color: Colors.green,
-            size: 20,
-          ),
+          const Icon(Icons.info_outline, color: Colors.green, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -484,11 +507,7 @@ class ChatScreenState extends State<ChatScreen> {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.mic,
-            color: Colors.blue,
-            size: 20,
-          ),
+          const Icon(Icons.mic, color: Colors.blue, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Column(

@@ -42,11 +42,7 @@ class SearchHit {
   /// Decoded payload object if the point had one, otherwise null.
   final Map<String, dynamic>? payload;
 
-  const SearchHit({
-    required this.id,
-    required this.score,
-    this.payload,
-  });
+  const SearchHit({required this.id, required this.score, this.payload});
 }
 
 /// Typed wrapper around any failure surfaced by the qdrant-edge FFI shim.
@@ -109,7 +105,8 @@ class QdrantEdgeClient {
       libPath = 'qdrant_edge_ffi.dll';
     } else {
       throw UnsupportedError(
-          'qdrant-edge is not available on ${Platform.operatingSystem}');
+        'qdrant-edge is not available on ${Platform.operatingSystem}',
+      );
     }
 
     final DynamicLibrary lib;
@@ -123,8 +120,9 @@ class QdrantEdgeClient {
           ? ' (Apple Intel hosts are not supported — Apple Silicon arm64 only)'
           : '';
       throw QdrantException(
-          'qdrant-edge native library not found for ${Platform.operatingSystem}$hint. '
-          'Did `flutter pub get` complete? Underlying error: $e');
+        'qdrant-edge native library not found for ${Platform.operatingSystem}$hint. '
+        'Did `flutter pub get` complete? Underlying error: $e',
+      );
     }
     return _bindings = QdrantEdgeBindings(lib);
   }
@@ -170,8 +168,9 @@ class QdrantEdgeClient {
         errorOut.cast(),
       );
       if (handle == nullptr) {
-        throw QdrantException(_consumeString(client._b, errorOut) ??
-            'qe_shard_open returned null');
+        throw QdrantException(
+          _consumeString(client._b, errorOut) ?? 'qe_shard_open returned null',
+        );
       }
       client._shard = handle;
       _finalizer.attach(client, handle, detach: client);
@@ -202,8 +201,9 @@ class QdrantEdgeClient {
     _checkOpen();
     final idPtr = id.toNativeUtf8();
     final vecPtr = _allocFloatVec(vector);
-    final payloadPtr =
-        payload == null ? nullptr : jsonEncode(payload).toNativeUtf8();
+    final payloadPtr = payload == null
+        ? nullptr
+        : jsonEncode(payload).toNativeUtf8();
     final errorOut = calloc<Pointer<Utf8>>();
     try {
       final rc = _b.qe_shard_upsert(
@@ -216,7 +216,8 @@ class QdrantEdgeClient {
       );
       if (rc != 0) {
         throw QdrantException(
-            _consumeString(_b, errorOut) ?? 'qe_shard_upsert rc=$rc');
+          _consumeString(_b, errorOut) ?? 'qe_shard_upsert rc=$rc',
+        );
       }
     } finally {
       malloc.free(idPtr);
@@ -229,8 +230,9 @@ class QdrantEdgeClient {
   /// Bulk upsert. The shim accepts a JSON array of point objects; this
   /// method composes that JSON internally so callers stay in Dart-land.
   Future<void> upsertBatch(
-      List<({String id, List<double> vector, Map<String, dynamic>? payload})>
-          points) async {
+    List<({String id, List<double> vector, Map<String, dynamic>? payload})>
+    points,
+  ) async {
     _checkOpen();
     if (points.isEmpty) return;
     final json = jsonEncode([
@@ -239,7 +241,7 @@ class QdrantEdgeClient {
           'id': p.id,
           'vector': p.vector,
           if (p.payload != null) 'payload': p.payload,
-        }
+        },
     ]);
     final jsonPtr = json.toNativeUtf8();
     final errorOut = calloc<Pointer<Utf8>>();
@@ -251,7 +253,8 @@ class QdrantEdgeClient {
       );
       if (rc != 0) {
         throw QdrantException(
-            _consumeString(_b, errorOut) ?? 'qe_shard_upsert_batch rc=$rc');
+          _consumeString(_b, errorOut) ?? 'qe_shard_upsert_batch rc=$rc',
+        );
       }
     } finally {
       malloc.free(jsonPtr);
@@ -296,7 +299,8 @@ class QdrantEdgeClient {
       }
       if (rc != 0) {
         throw QdrantException(
-            _consumeString(_b, errorOut) ?? 'qe_shard_search rc=$rc');
+          _consumeString(_b, errorOut) ?? 'qe_shard_search rc=$rc',
+        );
       }
       final responseJson = _consumeString(_b, responseOut);
       if (responseJson == null) return const [];
@@ -317,14 +321,11 @@ class QdrantEdgeClient {
     final jsonPtr = json.toNativeUtf8();
     final errorOut = calloc<Pointer<Utf8>>();
     try {
-      final rc = _b.qe_shard_delete(
-        _shard,
-        jsonPtr.cast(),
-        errorOut.cast(),
-      );
+      final rc = _b.qe_shard_delete(_shard, jsonPtr.cast(), errorOut.cast());
       if (rc != 0) {
         throw QdrantException(
-            _consumeString(_b, errorOut) ?? 'qe_shard_delete rc=$rc');
+          _consumeString(_b, errorOut) ?? 'qe_shard_delete rc=$rc',
+        );
       }
     } finally {
       malloc.free(jsonPtr);
@@ -340,7 +341,8 @@ class QdrantEdgeClient {
       final n = _b.qe_shard_count(_shard, errorOut.cast());
       if (n < 0) {
         throw QdrantException(
-            _consumeString(_b, errorOut) ?? 'qe_shard_count returned -1');
+          _consumeString(_b, errorOut) ?? 'qe_shard_count returned -1',
+        );
       }
       return n;
     } finally {
@@ -377,7 +379,9 @@ class QdrantEdgeClient {
   /// frees it via `qe_string_free`, and returns the Dart copy. Returns null when
   /// the native side didn't write anything into the slot.
   static String? _consumeString(
-      QdrantEdgeBindings b, Pointer<Pointer<Utf8>> slot) {
+    QdrantEdgeBindings b,
+    Pointer<Pointer<Utf8>> slot,
+  ) {
     final p = slot.value;
     if (p == nullptr) return null;
     final s = p.toDartString();
@@ -403,7 +407,8 @@ class QdrantEdgeClient {
       throw QdrantException('Malformed search response from native shim: $e');
     } on TypeError catch (e) {
       throw QdrantException(
-          'Unexpected search response shape from native shim: $e');
+        'Unexpected search response shape from native shim: $e',
+      );
     }
   }
 }

@@ -87,7 +87,9 @@ InferenceModel? _sharedModel;
 PreferredBackend? _sharedBackend;
 
 Future<InferenceModel> _ensureModel(
-    PreferredBackend backend, int maxTokens) async {
+  PreferredBackend backend,
+  int maxTokens,
+) async {
   if (_sharedModel != null && _sharedBackend == backend) return _sharedModel!;
   if (_sharedModel != null && _sharedBackend != backend) {
     await _sharedModel!.close();
@@ -132,12 +134,9 @@ Future<String> _chat(
     enableAudioModality: supportAudio,
     enableThinking: enableThinking,
   );
-  await session.addQueryChunk(Message(
-    text: prompt,
-    isUser: true,
-    imageBytes: image,
-    audioBytes: audio,
-  ));
+  await session.addQueryChunk(
+    Message(text: prompt, isUser: true, imageBytes: image, audioBytes: audio),
+  );
 
   // Collect streaming response
   final chunks = <String>[];
@@ -179,7 +178,9 @@ void main() {
       try {
         final data = await rootBundle.load('assets/test/test_image.jpg');
         _testImage = data.buffer.asUint8List();
-      } catch (_) {/* asset not bundled — leave empty */}
+      } catch (_) {
+        /* asset not bundled — leave empty */
+      }
     }
     for (final path in [
       '$_androidDir/test_audio.wav',
@@ -196,7 +197,9 @@ void main() {
       try {
         final data = await rootBundle.load('assets/test/test_audio.wav');
         _testAudio = data.buffer.asUint8List();
-      } catch (_) {/* asset not bundled — leave empty */}
+      } catch (_) {
+        /* asset not bundled — leave empty */
+      }
     }
     print('Platform: ${Platform.operatingSystem}');
     print('Assets: image=${_testImage.length}B, audio=${_testAudio.length}B');
@@ -239,8 +242,12 @@ void main() {
         return;
       }
       final r = await _chat(
-          PreferredBackend.gpu, 4096, 'Describe this image briefly',
-          supportImage: true, image: _testImage);
+        PreferredBackend.gpu,
+        4096,
+        'Describe this image briefly',
+        supportImage: true,
+        image: _testImage,
+      );
       print('[Gemma4 vision] $r');
       expect(r, isNotEmpty);
     });
@@ -250,15 +257,24 @@ void main() {
         print('[Gemma4 audio] SKIP: no audio');
         return;
       }
-      final r = await _chat(PreferredBackend.gpu, 4096, 'What did you hear?',
-          supportAudio: true, audio: _testAudio);
+      final r = await _chat(
+        PreferredBackend.gpu,
+        4096,
+        'What did you hear?',
+        supportAudio: true,
+        audio: _testAudio,
+      );
       print('[Gemma4 audio] $r');
       expect(r, isNotEmpty);
     });
 
     testWidgets('GPU thinking', (t) async {
-      final r = await _chat(PreferredBackend.gpu, 4096, 'Why is the sky blue?',
-          enableThinking: true);
+      final r = await _chat(
+        PreferredBackend.gpu,
+        4096,
+        'Why is the sky blue?',
+        enableThinking: true,
+      );
       final hasThinking = r.contains('<|channel>thought');
       print('[Gemma4 thinking] ${r.length} chars, thinking=$hasThinking');
       expect(r, isNotEmpty);
@@ -296,13 +312,15 @@ void main() {
       final chat = await model.createChat(temperature: 0.8, topK: 1);
 
       await chat.addQueryChunk(
-          Message(text: 'My favourite colour is purple.', isUser: true));
+        Message(text: 'My favourite colour is purple.', isUser: true),
+      );
       final r1 = await chat.generateChatResponse();
       print('[Gemma4 chat turn 1] $r1');
       expect(r1.toString(), isNotEmpty);
 
       await chat.addQueryChunk(
-          Message(text: 'What is my favourite colour?', isUser: true));
+        Message(text: 'What is my favourite colour?', isUser: true),
+      );
       final r2 = await chat.generateChatResponse();
       print('[Gemma4 chat turn 2] $r2');
       expect(r2.toString(), isNotEmpty);
@@ -317,14 +335,16 @@ void main() {
       final chat = await model.createChat(temperature: 0.8, topK: 1);
 
       await chat.addQueryChunk(
-          Message(text: 'Remember the secret word: BANANA.', isUser: true));
+        Message(text: 'Remember the secret word: BANANA.', isUser: true),
+      );
       await chat.generateChatResponse();
 
       await chat.clearHistory();
       print('[Gemma4 chat clearHistory] OK');
 
       await chat.addQueryChunk(
-          Message(text: 'What was the secret word?', isUser: true));
+        Message(text: 'What was the secret word?', isUser: true),
+      );
       final r = await chat.generateChatResponse();
       print('[Gemma4 chat after clear] $r');
       // After clearHistory the model should not remember "BANANA".
@@ -337,7 +357,8 @@ void main() {
       final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final chat = await model.createChat(temperature: 0.8, topK: 1);
       await chat.addQueryChunk(
-          Message(text: 'Write a 1000-word essay about Berlin.', isUser: true));
+        Message(text: 'Write a 1000-word essay about Berlin.', isUser: true),
+      );
 
       final received = <String>[];
       var stopped = false;
@@ -348,9 +369,10 @@ void main() {
           await chat.stopGeneration();
         }
       });
-      await sub
-          .asFuture<void>()
-          .timeout(const Duration(seconds: 30), onTimeout: () => sub.cancel());
+      await sub.asFuture<void>().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => sub.cancel(),
+      );
 
       print('[Gemma4 chat stop] got ${received.length} chunks before stop');
       expect(received, isNotEmpty);
@@ -376,9 +398,12 @@ void main() {
     testWidgets('session stopGeneration (low-level)', (t) async {
       final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
-      await session.addQueryChunk(Message(
+      await session.addQueryChunk(
+        Message(
           text: 'Write a 1000-word essay about the Berlin Wall.',
-          isUser: true));
+          isUser: true,
+        ),
+      );
 
       final received = <String>[];
       var stopped = false;
@@ -389,9 +414,10 @@ void main() {
           await session.stopGeneration();
         }
       });
-      await sub
-          .asFuture<void>()
-          .timeout(const Duration(seconds: 30), onTimeout: () => sub.cancel());
+      await sub.asFuture<void>().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => sub.cancel(),
+      );
 
       print('[Gemma4 session stop] got ${received.length} chunks');
       expect(received, isNotEmpty);
@@ -400,12 +426,14 @@ void main() {
       await session.close();
     });
 
-    testWidgets('stream cancel via subscription.cancel (no stopGeneration)',
-        (t) async {
+    testWidgets('stream cancel via subscription.cancel (no stopGeneration)', (
+      t,
+    ) async {
       final model = await _ensureModel(PreferredBackend.gpu, 4096);
       final session = await model.createSession(temperature: 0.8, topK: 1);
       await session.addQueryChunk(
-          Message(text: 'Write a 1000-word essay about Paris.', isUser: true));
+        Message(text: 'Write a 1000-word essay about Paris.', isUser: true),
+      );
 
       final received = <String>[];
       final completer = Completer<void>();
@@ -437,8 +465,9 @@ void main() {
 
       for (var i = 0; i < 3; i++) {
         final session = await model.createSession(temperature: 0.8, topK: 1);
-        await session
-            .addQueryChunk(Message(text: 'Iteration $i: hi', isUser: true));
+        await session.addQueryChunk(
+          Message(text: 'Iteration $i: hi', isUser: true),
+        );
         final chunks = <String>[];
         await for (final c in session.getResponseAsync()) {
           chunks.add(c);
@@ -481,8 +510,11 @@ void main() {
         expect(ra, contains('alice'), reason: 'A should recall Alice');
         expect(ra, isNot(contains('bob')), reason: 'A must not see B history');
         expect(rb, contains('bob'), reason: 'B should recall Bob');
-        expect(rb, isNot(contains('alice')),
-            reason: 'B must not see A history');
+        expect(
+          rb,
+          isNot(contains('alice')),
+          reason: 'B must not see A history',
+        );
       } finally {
         await a.close();
         await b.close();
@@ -505,12 +537,14 @@ void main() {
     // C2: an abandoned stream must release the generation mutex, or the next
     // session deadlocks. Subscribe, cancel mid-flight, then a fresh session
     // must still be able to generate.
-    testWidgets('abandoning a stream releases the mutex (no deadlock)',
-        (t) async {
+    testWidgets('abandoning a stream releases the mutex (no deadlock)', (
+      t,
+    ) async {
       final model = await _ensureModel(PreferredBackend.gpu, 1024);
       final a = await model.openSession(temperature: 0.0, topK: 1);
       await a.addQueryChunk(
-          const Message(text: 'Count slowly to twenty.', isUser: true));
+        const Message(text: 'Count slowly to twenty.', isUser: true),
+      );
       // Start streaming, then cancel the subscription after the first chunk
       // without draining — this is the "abandoned stream" case.
       final sub = a.getResponseAsync().listen((_) {});
@@ -534,7 +568,8 @@ void main() {
       final a = await model.openSession(temperature: 0.0, topK: 1);
       final b = await model.openSession(temperature: 0.0, topK: 1);
       await a.addQueryChunk(
-          const Message(text: 'Count slowly to twenty.', isUser: true));
+        const Message(text: 'Count slowly to twenty.', isUser: true),
+      );
       final sub = a.getResponseAsync().listen((_) {});
       await Future<void>.delayed(const Duration(milliseconds: 200));
       // Close A while its turn is (likely) still streaming.
@@ -553,15 +588,14 @@ void main() {
       final model = await _ensureModel(PreferredBackend.gpu, 1024);
       final a = await model.openSession(temperature: 0.0, topK: 1);
       try {
-        await a.addQueryChunk(Message(
-          text: 'describe',
-          isUser: true,
-          imageBytes: Uint8List.fromList(List<int>.filled(16, 0)),
-        ));
-        await expectLater(
-          a.getResponse(),
-          throwsA(isA<UnsupportedError>()),
+        await a.addQueryChunk(
+          Message(
+            text: 'describe',
+            isUser: true,
+            imageBytes: Uint8List.fromList(List<int>.filled(16, 0)),
+          ),
         );
+        await expectLater(a.getResponse(), throwsA(isA<UnsupportedError>()));
       } finally {
         await a.close();
       }
@@ -627,8 +661,9 @@ void main() {
       }
     }
 
-    testWidgets('NPU engine_create accepts non-default sampler params',
-        (t) async {
+    testWidgets('NPU engine_create accepts non-default sampler params', (
+      t,
+    ) async {
       final model = await _installAndGetNpu();
       if (model == null) return;
       final session = await model.createSession(
@@ -638,31 +673,37 @@ void main() {
         topP: 0.75,
       );
       await session.addQueryChunk(
-          const Message(text: 'What is the capital of France?', isUser: true));
+        const Message(text: 'What is the capital of France?', isUser: true),
+      );
       final out = await session.getResponse();
       print('[Gemma4 NPU engine_create] $out');
       expect(out, isNotEmpty);
       // Paris should appear in any sensible answer.
-      expect(out.toLowerCase().contains('paris'), isTrue,
-          reason:
-              'NPU should produce a coherent answer about France\'s capital');
+      expect(
+        out.toLowerCase().contains('paris'),
+        isTrue,
+        reason: 'NPU should produce a coherent answer about France\'s capital',
+      );
       await session.close();
       await model.close();
     });
 
-    testWidgets('NPU generation is deterministic (greedy ignores seed)',
-        (t) async {
+    testWidgets('NPU generation is deterministic (greedy ignores seed)', (
+      t,
+    ) async {
       final model = await _installAndGetNpu();
       if (model == null) return;
       final s1 = await model.createSession(temperature: 0.8, randomSeed: 1);
       await s1.addQueryChunk(
-          const Message(text: 'List three colors', isUser: true));
+        const Message(text: 'List three colors', isUser: true),
+      );
       final r1 = await s1.getResponse();
       await s1.close();
 
       final s2 = await model.createSession(temperature: 0.8, randomSeed: 99999);
       await s2.addQueryChunk(
-          const Message(text: 'List three colors', isUser: true));
+        const Message(text: 'List three colors', isUser: true),
+      );
       final r2 = await s2.getResponse();
       await s2.close();
 
@@ -672,8 +713,11 @@ void main() {
       print('[Gemma4 NPU det run2] $r2');
       expect(r1, isNotEmpty);
       expect(r2, isNotEmpty);
-      expect(r1, equals(r2),
-          reason: 'NPU should ignore seed and produce deterministic output');
+      expect(
+        r1,
+        equals(r2),
+        reason: 'NPU should ignore seed and produce deterministic output',
+      );
     });
   });
 
@@ -722,25 +766,42 @@ void main() {
       //     never OneDrive- or Domain-synced).
       //   - macOS/Linux: under getApplicationSupportDirectory()/flutter_gemma/.
       if (Platform.isWindows) {
-        expect(localAppData, isNotNull,
-            reason: 'LOCALAPPDATA env var must be set on Windows');
-        expect(resolved.startsWith(localAppData!), isTrue,
-            reason: 'Phase 5 fix (#179): Windows path must be under '
-                'LOCALAPPDATA ($localAppData), got: $resolved');
+        expect(
+          localAppData,
+          isNotNull,
+          reason: 'LOCALAPPDATA env var must be set on Windows',
+        );
+        expect(
+          resolved.startsWith(localAppData!),
+          isTrue,
+          reason:
+              'Phase 5 fix (#179): Windows path must be under '
+              'LOCALAPPDATA ($localAppData), got: $resolved',
+        );
       } else {
         // macOS, Linux
-        expect(resolved.startsWith(supportDir.path), isTrue,
-            reason: 'Phase 5 fix (#179): macOS/Linux path must be under '
-                'Application Support (${supportDir.path}), got: $resolved');
+        expect(
+          resolved.startsWith(supportDir.path),
+          isTrue,
+          reason:
+              'Phase 5 fix (#179): macOS/Linux path must be under '
+              'Application Support (${supportDir.path}), got: $resolved',
+        );
       }
-      expect(resolved.contains('flutter_gemma'), isTrue,
-          reason: 'Path should be namespaced under flutter_gemma/');
+      expect(
+        resolved.contains('flutter_gemma'),
+        isTrue,
+        reason: 'Path should be namespaced under flutter_gemma/',
+      );
 
       // It should NOT land directly under Documents (where 0.15.0 and
       // earlier put it).
       final legacyBare = '${docsDir.path}${Platform.pathSeparator}$filename';
-      expect(resolved, isNot(equals(legacyBare)),
-          reason: 'Path must not be the legacy Documents/$filename');
+      expect(
+        resolved,
+        isNot(equals(legacyBare)),
+        reason: 'Path must not be the legacy Documents/$filename',
+      );
     });
   });
 
@@ -785,8 +846,9 @@ void main() {
       embModel = null;
     });
 
-    testWidgets('main isolate stays live during a batch of embeddings',
-        (t) async {
+    testWidgets('main isolate stays live during a batch of embeddings', (
+      t,
+    ) async {
       final model = embModel!;
       // Warm up (first call pays worker spawn + native compile).
       await model.generateEmbedding('warm up');
@@ -823,18 +885,23 @@ void main() {
 
       final perCall = sw.elapsedMilliseconds / texts.length;
       print(
-          '[#299] ${texts.length} embeddings: perCall=${perCall.toStringAsFixed(0)}ms  '
-          'main-isolate ticks during run=$ticks');
+        '[#299] ${texts.length} embeddings: perCall=${perCall.toStringAsFixed(0)}ms  '
+        'main-isolate ticks during run=$ticks',
+      );
 
       // The whole point of #299: the worker keeps the calling isolate free, so
       // the main isolate scheduled many microtasks while the forwards ran. A
       // regression to the synchronous path would freeze the main isolate for
       // the full forward time, yielding far fewer (near-zero) ticks. We require
       // comfortably more than one tick per embedding.
-      expect(ticks, greaterThan(texts.length),
-          reason: 'main isolate barely advanced during the embedding batch — '
-              'the forward is blocking the calling isolate (issue #299 '
-              'regression)');
+      expect(
+        ticks,
+        greaterThan(texts.length),
+        reason:
+            'main isolate barely advanced during the embedding batch — '
+            'the forward is blocking the calling isolate (issue #299 '
+            'regression)',
+      );
     });
   });
 }

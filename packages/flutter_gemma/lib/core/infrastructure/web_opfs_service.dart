@@ -177,10 +177,7 @@ class WebOPFSService {
   Future<Map<String, int>> getStorageStats() async {
     try {
       final stats = await _opfs.getStorageStats().toDart as StorageStats;
-      return {
-        'usage': stats.usage.toDartInt,
-        'quota': stats.quota.toDartInt,
-      };
+      return {'usage': stats.usage.toDartInt, 'quota': stats.quota.toDartInt};
     } catch (e) {
       gemmaLog('[WebOPFSService] Failed to get storage stats: $e');
       return {'usage': 0, 'quota': 0};

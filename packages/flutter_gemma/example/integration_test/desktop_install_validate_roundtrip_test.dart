@@ -55,8 +55,9 @@ void main() {
     setUp(() async {
       await registerTestEngines();
       // Clean state: remove leftover metadata from a prior run.
-      final alreadyInstalled =
-          await FlutterGemma.isModelInstalled(fixtureBasename);
+      final alreadyInstalled = await FlutterGemma.isModelInstalled(
+        fixtureBasename,
+      );
       if (alreadyInstalled) {
         await FlutterGemma.uninstallModel(fixtureBasename);
       }
@@ -70,96 +71,119 @@ void main() {
     });
 
     testWidgets(
-        'file installed via FileSource is found in model storage directory',
-        (tester) async {
-      // Step 1 — install. FileSource does no copying; it registers the
-      // external path directly. This exercises the metadata path.
-      await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-          .fromFile(fixtureFile.path)
-          .install();
+      'file installed via FileSource is found in model storage directory',
+      (tester) async {
+        // Step 1 — install. FileSource does no copying; it registers the
+        // external path directly. This exercises the metadata path.
+        await FlutterGemma.installModel(
+          modelType: ModelType.gemmaIt,
+        ).fromFile(fixtureFile.path).install();
 
-      // Step 2 — metadata check (repository layer).
-      expect(
-        await FlutterGemma.isModelInstalled(fixtureBasename),
-        isTrue,
-        reason: 'Repository must record the model after install',
-      );
+        // Step 2 — metadata check (repository layer).
+        expect(
+          await FlutterGemma.isModelInstalled(fixtureBasename),
+          isTrue,
+          reason: 'Repository must record the model after install',
+        );
 
-      // Step 3 — verify the canonical storage directory reported by
-      // FileSystemService is consistent (the central fix: all paths now route
-      // through the same service).
-      final storageDir = await ServiceRegistry.instance.fileSystemService
-          .getModelStorageDirectory();
-      expect(Directory(storageDir).existsSync(), isTrue,
-          reason: 'Model storage directory must exist');
+        // Step 3 — verify the canonical storage directory reported by
+        // FileSystemService is consistent (the central fix: all paths now route
+        // through the same service).
+        final storageDir = await ServiceRegistry.instance.fileSystemService
+            .getModelStorageDirectory();
+        expect(
+          Directory(storageDir).existsSync(),
+          isTrue,
+          reason: 'Model storage directory must exist',
+        );
 
-      // For FileSource the actual file stays at its original location, but
-      // getModelStorageDirectory() must never return the legacy Documents dir
-      // on a clean desktop install — it must return the AppSupport-derived path.
-      if (Platform.isWindows) {
-        final localAppData = Platform.environment['LOCALAPPDATA'];
-        if (localAppData != null && localAppData.isNotEmpty) {
-          expect(storageDir, startsWith(localAppData),
-              reason: 'Windows: storage dir must be under LOCALAPPDATA, '
-                  'not OneDrive-synced Documents');
+        // For FileSource the actual file stays at its original location, but
+        // getModelStorageDirectory() must never return the legacy Documents dir
+        // on a clean desktop install — it must return the AppSupport-derived path.
+        if (Platform.isWindows) {
+          final localAppData = Platform.environment['LOCALAPPDATA'];
+          if (localAppData != null && localAppData.isNotEmpty) {
+            expect(
+              storageDir,
+              startsWith(localAppData),
+              reason:
+                  'Windows: storage dir must be under LOCALAPPDATA, '
+                  'not OneDrive-synced Documents',
+            );
+          }
+        } else if (Platform.isMacOS || Platform.isLinux) {
+          // Must NOT be the user's Documents folder.
+          final home = Platform.environment['HOME'] ?? '';
+          final documentsDir = p.join(home, 'Documents');
+          expect(
+            storageDir,
+            isNot(startsWith(documentsDir)),
+            reason:
+                'macOS/Linux: storage dir must not be the user Documents '
+                'folder (iCloud/cloud-sync risk)',
+          );
         }
-      } else if (Platform.isMacOS || Platform.isLinux) {
-        // Must NOT be the user's Documents folder.
-        final home = Platform.environment['HOME'] ?? '';
-        final documentsDir = p.join(home, 'Documents');
-        expect(storageDir, isNot(startsWith(documentsDir)),
-            reason: 'macOS/Linux: storage dir must not be the user Documents '
-                'folder (iCloud/cloud-sync risk)');
-      }
 
-      // Step 4 — clean up.
-      await FlutterGemma.uninstallModel(fixtureBasename);
-      expect(
-        await FlutterGemma.isModelInstalled(fixtureBasename),
-        isFalse,
-        reason: 'Model must be unregistered after uninstall',
-      );
-    });
+        // Step 4 — clean up.
+        await FlutterGemma.uninstallModel(fixtureBasename);
+        expect(
+          await FlutterGemma.isModelInstalled(fixtureBasename),
+          isFalse,
+          reason: 'Model must be unregistered after uninstall',
+        );
+      },
+    );
 
     testWidgets(
-        'file installed via AssetSource lands in model storage directory',
-        (tester) async {
-      // assets/test/test_image.jpg is a 14 KB fixture bundled in the example.
-      // Re-using it to confirm that AssetSource also writes to the canonical
-      // storage dir (the writeFile fallback path on desktop).
-      const assetPath = 'assets/test/test_image.jpg';
-      const assetBasename = 'test_image.jpg';
+      'file installed via AssetSource lands in model storage directory',
+      (tester) async {
+        // assets/test/test_image.jpg is a 14 KB fixture bundled in the example.
+        // Re-using it to confirm that AssetSource also writes to the canonical
+        // storage dir (the writeFile fallback path on desktop).
+        const assetPath = 'assets/test/test_image.jpg';
+        const assetBasename = 'test_image.jpg';
 
-      // Clean up any leftover from a prior run.
-      if (await FlutterGemma.isModelInstalled(assetBasename)) {
-        await FlutterGemma.uninstallModel(assetBasename);
-      }
+        // Clean up any leftover from a prior run.
+        if (await FlutterGemma.isModelInstalled(assetBasename)) {
+          await FlutterGemma.uninstallModel(assetBasename);
+        }
 
-      await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-          .fromAsset(assetPath)
-          .install();
+        await FlutterGemma.installModel(
+          modelType: ModelType.gemmaIt,
+        ).fromAsset(assetPath).install();
 
-      // Resolve the expected path through FileSystemService — this is the fix:
-      // both the writer (AssetSourceHandler via writeFile) and this reader use
-      // the same getTargetPath() call.
-      final expectedPath = await ServiceRegistry.instance.fileSystemService
-          .getTargetPath(assetBasename);
-      final installedFile = File(expectedPath);
+        // Resolve the expected path through FileSystemService — this is the fix:
+        // both the writer (AssetSourceHandler via writeFile) and this reader use
+        // the same getTargetPath() call.
+        final expectedPath = await ServiceRegistry.instance.fileSystemService
+            .getTargetPath(assetBasename);
+        final installedFile = File(expectedPath);
 
-      expect(installedFile.existsSync(), isTrue,
-          reason: 'AssetSource must write to the path reported by '
-              'FileSystemService.getTargetPath()');
-      expect(installedFile.lengthSync(), greaterThan(0),
-          reason: 'Written file must be non-empty');
-
-      // The canonical storage dir must be the parent of the installed file.
-      final storageDir = await ServiceRegistry.instance.fileSystemService
-          .getModelStorageDirectory();
-      expect(p.dirname(expectedPath), equals(storageDir),
+        expect(
+          installedFile.existsSync(),
+          isTrue,
           reason:
-              'getTargetPath() parent must equal getModelStorageDirectory()');
+              'AssetSource must write to the path reported by '
+              'FileSystemService.getTargetPath()',
+        );
+        expect(
+          installedFile.lengthSync(),
+          greaterThan(0),
+          reason: 'Written file must be non-empty',
+        );
 
-      await FlutterGemma.uninstallModel(assetBasename);
-    });
+        // The canonical storage dir must be the parent of the installed file.
+        final storageDir = await ServiceRegistry.instance.fileSystemService
+            .getModelStorageDirectory();
+        expect(
+          p.dirname(expectedPath),
+          equals(storageDir),
+          reason:
+              'getTargetPath() parent must equal getModelStorageDirectory()',
+        );
+
+        await FlutterGemma.uninstallModel(assetBasename);
+      },
+    );
   });
 }

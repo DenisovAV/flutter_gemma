@@ -78,8 +78,10 @@ void main() {
           fail('Test requires Android with .litertlm/.task models');
         }
         if (!File(model.filePath).existsSync()) {
-          fail('Model not found: ${model.filePath}\n'
-              'Push it first: adb push <model> ${model.filePath}');
+          fail(
+            'Model not found: ${model.filePath}\n'
+            'Push it first: adb push <model> ${model.filePath}',
+          );
         }
       });
 
@@ -112,7 +114,10 @@ void main() {
           );
 
           await chat.addQuery(
-            const Message(text: 'Explain why the sky is blue. Think step by step.', isUser: true),
+            const Message(
+              text: 'Explain why the sky is blue. Think step by step.',
+              isUser: true,
+            ),
           );
 
           final responses = <ModelResponse>[];
@@ -131,24 +136,38 @@ void main() {
               .map((r) => r.token)
               .join();
 
-          print('[${model.name}] Thinking tokens: ${thinkingTokens.length} chars');
+          print(
+            '[${model.name}] Thinking tokens: ${thinkingTokens.length} chars',
+          );
           print('[${model.name}] Text tokens: ${textTokens.length} chars');
 
           // Should have thinking content
-          expect(thinkingTokens.isNotEmpty, isTrue,
-              reason: '${model.name}: Expected non-empty thinking content');
+          expect(
+            thinkingTokens.isNotEmpty,
+            isTrue,
+            reason: '${model.name}: Expected non-empty thinking content',
+          );
 
           // Should have text content
-          expect(textTokens.isNotEmpty, isTrue,
-              reason: '${model.name}: Expected non-empty text response');
+          expect(
+            textTokens.isNotEmpty,
+            isTrue,
+            reason: '${model.name}: Expected non-empty text response',
+          );
 
           // Thinking should come before text in stream order
-          final firstThinkingIdx = responses.indexWhere((r) => r is ThinkingResponse);
+          final firstThinkingIdx = responses.indexWhere(
+            (r) => r is ThinkingResponse,
+          );
           final firstTextIdx = responses.indexWhere((r) => r is TextResponse);
 
           if (firstThinkingIdx >= 0 && firstTextIdx >= 0) {
-            expect(firstThinkingIdx, lessThan(firstTextIdx),
-                reason: '${model.name}: First thinking should appear before first text');
+            expect(
+              firstThinkingIdx,
+              lessThan(firstTextIdx),
+              reason:
+                  '${model.name}: First thinking should appear before first text',
+            );
           }
 
           print('[${model.name}] thinking_stream PASSED');
@@ -187,17 +206,26 @@ void main() {
           });
 
           // Without thinking enabled, no ThinkingResponse should appear
-          final thinkingResponses = responses.whereType<ThinkingResponse>().toList();
-          expect(thinkingResponses, isEmpty,
-              reason: '${model.name}: No ThinkingResponse expected with isThinking=false');
+          final thinkingResponses = responses
+              .whereType<ThinkingResponse>()
+              .toList();
+          expect(
+            thinkingResponses,
+            isEmpty,
+            reason:
+                '${model.name}: No ThinkingResponse expected with isThinking=false',
+          );
 
           // Should still have text content
           final textTokens = responses
               .whereType<TextResponse>()
               .map((r) => r.token)
               .join();
-          expect(textTokens.isNotEmpty, isTrue,
-              reason: '${model.name}: Expected non-empty text response');
+          expect(
+            textTokens.isNotEmpty,
+            isTrue,
+            reason: '${model.name}: Expected non-empty text response',
+          );
 
           print('[${model.name}] no_thinking PASSED');
         } finally {

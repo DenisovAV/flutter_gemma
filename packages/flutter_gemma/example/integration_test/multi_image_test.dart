@@ -93,20 +93,24 @@ void main() {
     print('[multi-image] model closed');
   });
 
-  testWidgets('Message.withImages([img1, img2]) — both images reach engine',
-      (t) async {
+  testWidgets('Message.withImages([img1, img2]) — both images reach engine', (
+    t,
+  ) async {
     final session = await _model.createSession(
       temperature: 0.8,
       topK: 1,
       enableVisionModality: true,
     );
 
-    await session.addQueryChunk(Message.withImages(
-      text: 'I am sending you two images. Tell me how many images you see '
-          'and briefly describe each. Answer in 2 short sentences.',
-      imageBytes: [_img1, _img2],
-      isUser: true,
-    ));
+    await session.addQueryChunk(
+      Message.withImages(
+        text:
+            'I am sending you two images. Tell me how many images you see '
+            'and briefly describe each. Answer in 2 short sentences.',
+        imageBytes: [_img1, _img2],
+        isUser: true,
+      ),
+    );
 
     final out = await session.getResponse();
     await session.close();
@@ -115,19 +119,20 @@ void main() {
     expect(out, isNotEmpty);
   });
 
-  testWidgets('Message.withImages([img1, img1]) — duplicate dedup',
-      (t) async {
+  testWidgets('Message.withImages([img1, img1]) — duplicate dedup', (t) async {
     final session = await _model.createSession(
       temperature: 0.8,
       topK: 1,
       enableVisionModality: true,
     );
 
-    await session.addQueryChunk(Message.withImages(
-      text: 'Describe this image briefly.',
-      imageBytes: [_img1, _img1],
-      isUser: true,
-    ));
+    await session.addQueryChunk(
+      Message.withImages(
+        text: 'Describe this image briefly.',
+        imageBytes: [_img1, _img1],
+        isUser: true,
+      ),
+    );
 
     final out = await session.getResponse();
     await session.close();
@@ -136,19 +141,22 @@ void main() {
     expect(out, isNotEmpty);
   });
 
-  testWidgets('Backward compat: Message.withImage(single) still works',
-      (t) async {
+  testWidgets('Backward compat: Message.withImage(single) still works', (
+    t,
+  ) async {
     final session = await _model.createSession(
       temperature: 0.8,
       topK: 1,
       enableVisionModality: true,
     );
 
-    await session.addQueryChunk(Message.withImage(
-      text: 'Describe this image in one sentence.',
-      imageBytes: _img1,
-      isUser: true,
-    ));
+    await session.addQueryChunk(
+      Message.withImage(
+        text: 'Describe this image in one sentence.',
+        imageBytes: _img1,
+        isUser: true,
+      ),
+    );
 
     final out = await session.getResponse();
     await session.close();

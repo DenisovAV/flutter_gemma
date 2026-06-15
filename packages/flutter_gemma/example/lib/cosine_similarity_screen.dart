@@ -2,7 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_example/models/embedding_model.dart' as example_embedding_model;
+import 'package:flutter_gemma_example/models/embedding_model.dart'
+    as example_embedding_model;
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 
 class CosineSimilarityScreen extends StatefulWidget {
@@ -78,7 +79,9 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
         final authToken = await AuthTokenService.loadToken();
         token = authToken?.isNotEmpty == true ? authToken : null;
         if (kDebugMode) {
-          debugPrint('[CosineSimilarityScreen] Using auth token: ${token != null ? "YES" : "NO"}');
+          debugPrint(
+            '[CosineSimilarityScreen] Using auth token: ${token != null ? "YES" : "NO"}',
+          );
         }
       }
 
@@ -93,7 +96,8 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
 
       // Get active embedding model
       _embeddingModel = await FlutterGemma.getActiveEmbedder(
-        preferredBackend: PreferredBackend.gpu, // Use GPU mode for better performance
+        preferredBackend:
+            PreferredBackend.gpu, // Use GPU mode for better performance
       );
 
       if (kDebugMode) {
@@ -172,7 +176,9 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       if (kDebugMode) {
         debugPrint('Generating different embedding...');
       }
-      _differentEmbedding = await _embeddingModel!.generateEmbedding(differentText);
+      _differentEmbedding = await _embeddingModel!.generateEmbedding(
+        differentText,
+      );
 
       // Debug: Print vector info
       if (kDebugMode) {
@@ -181,17 +187,26 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
         debugPrint('Similar vector length: ${_similarEmbedding!.length}');
         debugPrint('Different vector length: ${_differentEmbedding!.length}');
 
-        debugPrint('Query first 5 values: ${_queryEmbedding!.take(5).toList()}');
-        debugPrint('Similar first 5 values: ${_similarEmbedding!.take(5).toList()}');
-        debugPrint('Different first 5 values: ${_differentEmbedding!.take(5).toList()}');
+        debugPrint(
+          'Query first 5 values: ${_queryEmbedding!.take(5).toList()}',
+        );
+        debugPrint(
+          'Similar first 5 values: ${_similarEmbedding!.take(5).toList()}',
+        );
+        debugPrint(
+          'Different first 5 values: ${_differentEmbedding!.take(5).toList()}',
+        );
 
         // Calculate norms
-        final queryNorm =
-            math.sqrt(_queryEmbedding!.fold<double>(0.0, (sum, val) => sum + val * val));
-        final similarNorm =
-            math.sqrt(_similarEmbedding!.fold<double>(0.0, (sum, val) => sum + val * val));
-        final differentNorm =
-            math.sqrt(_differentEmbedding!.fold<double>(0.0, (sum, val) => sum + val * val));
+        final queryNorm = math.sqrt(
+          _queryEmbedding!.fold<double>(0.0, (sum, val) => sum + val * val),
+        );
+        final similarNorm = math.sqrt(
+          _similarEmbedding!.fold<double>(0.0, (sum, val) => sum + val * val),
+        );
+        final differentNorm = math.sqrt(
+          _differentEmbedding!.fold<double>(0.0, (sum, val) => sum + val * val),
+        );
 
         debugPrint('Query norm: $queryNorm');
         debugPrint('Similar norm: $similarNorm');
@@ -199,8 +214,14 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       }
 
       // Calculate similarities
-      _querySimilarSimilarity = _cosineSimilarity(_queryEmbedding!, _similarEmbedding!);
-      _queryDifferentSimilarity = _cosineSimilarity(_queryEmbedding!, _differentEmbedding!);
+      _querySimilarSimilarity = _cosineSimilarity(
+        _queryEmbedding!,
+        _similarEmbedding!,
+      );
+      _queryDifferentSimilarity = _cosineSimilarity(
+        _queryEmbedding!,
+        _differentEmbedding!,
+      );
 
       if (kDebugMode) {
         debugPrint('✅ Query vs Similar: $_querySimilarSimilarity');
@@ -231,10 +252,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -302,12 +320,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
             ),
             const SizedBox(height: 12),
 
-            _buildSentenceCard(
-              'Query',
-              queryText,
-              Colors.blue,
-              Icons.search,
-            ),
+            _buildSentenceCard('Query', queryText, Colors.blue, Icons.search),
             const SizedBox(height: 12),
             _buildSentenceCard(
               'Similar (should score HIGH)',
@@ -332,7 +345,9 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _isGenerating ? null : _generateAndCompare,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isGenerating ? Colors.grey : const Color(0xFF1a4a7c),
+                      backgroundColor: _isGenerating
+                          ? Colors.grey
+                          : const Color(0xFF1a4a7c),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -342,11 +357,17 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                             height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Icon(Icons.play_arrow),
-                    label: Text(_isGenerating ? 'Calculating...' : 'Calculate Similarities'),
+                    label: Text(
+                      _isGenerating
+                          ? 'Calculating...'
+                          : 'Calculate Similarities',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -355,7 +376,10 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[600],
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 24,
+                    ),
                   ),
                   child: const Text('Clear'),
                 ),
@@ -397,7 +421,8 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                 ),
               ),
 
-            if (_querySimilarSimilarity != null && _queryDifferentSimilarity != null) ...[
+            if (_querySimilarSimilarity != null &&
+                _queryDifferentSimilarity != null) ...[
               const Text(
                 'Similarity Scores',
                 style: TextStyle(
@@ -452,18 +477,12 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                       _buildInterpretationText(
                         'Cosine similarity ranges from -1 to 1:',
                       ),
-                      _buildInterpretationText(
-                        '  • 1.0 = Identical meaning',
-                      ),
-                      _buildInterpretationText(
-                        '  • 0.8-1.0 = Very similar',
-                      ),
+                      _buildInterpretationText('  • 1.0 = Identical meaning'),
+                      _buildInterpretationText('  • 0.8-1.0 = Very similar'),
                       _buildInterpretationText(
                         '  • 0.5-0.8 = Moderately similar',
                       ),
-                      _buildInterpretationText(
-                        '  • 0.0-0.5 = Weakly similar',
-                      ),
+                      _buildInterpretationText('  • 0.0-0.5 = Weakly similar'),
                       _buildInterpretationText(
                         '  • <0.0 = Opposite meaning (rare)',
                       ),
@@ -490,10 +509,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70),
-            ),
+            child: Text(label, style: const TextStyle(color: Colors.white70)),
           ),
           Expanded(
             child: Text(
@@ -509,7 +525,12 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
     );
   }
 
-  Widget _buildSentenceCard(String label, String text, Color color, IconData icon) {
+  Widget _buildSentenceCard(
+    String label,
+    String text,
+    Color color,
+    IconData icon,
+  ) {
     return Card(
       color: const Color(0xFF1a3a5c),
       child: Padding(
@@ -546,7 +567,12 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
     );
   }
 
-  Widget _buildSimilarityCard(String label, double score, Color color, String explanation) {
+  Widget _buildSimilarityCard(
+    String label,
+    double score,
+    Color color,
+    String explanation,
+  ) {
     final percentage = (score * 100).toStringAsFixed(1);
     final scoreText = score.toStringAsFixed(4);
 
@@ -569,7 +595,10 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -611,10 +640,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
             const SizedBox(height: 8),
             Text(
               explanation,
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
           ],
         ),
@@ -627,10 +653,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Text(
         text,
-        style: TextStyle(
-          color: color ?? Colors.white70,
-          fontSize: 13,
-        ),
+        style: TextStyle(color: color ?? Colors.white70, fontSize: 13),
       ),
     );
   }

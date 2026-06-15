@@ -51,69 +51,95 @@ void main() {
     });
 
     // A1: Range requests supported → prerequisite for ParallelDownloadTask and allowPause resume.
-    testWidgets('HF CDN supports byte range requests (Accept-Ranges: bytes)',
-        (tester) async {
-      final response = await _headFollowingRedirects(client, _smallModelUrl);
-      final acceptRanges = response.headers['accept-ranges'];
-      debugPrint('[CDN] Accept-Ranges: $acceptRanges');
-      expect(acceptRanges, equals('bytes'),
-          reason: 'ParallelDownloadTask requires Range request support. '
-              'If this fails, chunked download cannot be used with HuggingFace URLs.');
-    }, timeout: const Timeout(Duration(minutes: 2)));
+    testWidgets(
+      'HF CDN supports byte range requests (Accept-Ranges: bytes)',
+      (tester) async {
+        final response = await _headFollowingRedirects(client, _smallModelUrl);
+        final acceptRanges = response.headers['accept-ranges'];
+        debugPrint('[CDN] Accept-Ranges: $acceptRanges');
+        expect(
+          acceptRanges,
+          equals('bytes'),
+          reason:
+              'ParallelDownloadTask requires Range request support. '
+              'If this fails, chunked download cannot be used with HuggingFace URLs.',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     // A2: Content-Length after redirect → required for ParallelDownloadTask chunk size calculation.
     // background_downloader throws IllegalStateException if Content-Length is missing.
-    testWidgets('HF CDN returns Content-Length after following redirects',
-        (tester) async {
-      final response = await _headFollowingRedirects(client, _smallModelUrl);
-      final contentLength = response.headers['content-length'];
-      debugPrint('[CDN] Content-Length: $contentLength');
+    testWidgets(
+      'HF CDN returns Content-Length after following redirects',
+      (tester) async {
+        final response = await _headFollowingRedirects(client, _smallModelUrl);
+        final contentLength = response.headers['content-length'];
+        debugPrint('[CDN] Content-Length: $contentLength');
 
-      // Document result — don't hard-fail since CDN nodes may vary.
-      // If null → ParallelDownloadTask will fail with HuggingFace URLs.
-      if (contentLength == null) {
-        debugPrint('[CDN] WARNING: Content-Length missing after redirects. '
+        // Document result — don't hard-fail since CDN nodes may vary.
+        // If null → ParallelDownloadTask will fail with HuggingFace URLs.
+        if (contentLength == null) {
+          debugPrint(
+            '[CDN] WARNING: Content-Length missing after redirects. '
             'ParallelDownloadTask will NOT work with this HF URL. '
-            'Workaround: pass Known-Content-Length header manually.');
-      } else {
-        final bytes = int.tryParse(contentLength) ?? 0;
-        debugPrint(
-            '[CDN] Model size: ${(bytes / 1024 / 1024).toStringAsFixed(1)} MB');
-        expect(bytes, greaterThan(0),
-            reason: 'Content-Length must be a positive integer');
-      }
-    }, timeout: const Timeout(Duration(minutes: 2)));
+            'Workaround: pass Known-Content-Length header manually.',
+          );
+        } else {
+          final bytes = int.tryParse(contentLength) ?? 0;
+          debugPrint(
+            '[CDN] Model size: ${(bytes / 1024 / 1024).toStringAsFixed(1)} MB',
+          );
+          expect(
+            bytes,
+            greaterThan(0),
+            reason: 'Content-Length must be a positive integer',
+          );
+        }
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     // A3: ETag type — documents whether HF uses weak or strong ETags.
     // background_downloader refuses to resume if ETag is weak (W/"...").
     // If this ever changes to strong ETag, allowPause: true becomes viable for HF.
     testWidgets(
-        'HF CDN ETag type is documented (weak blocks allowPause resume)',
-        (tester) async {
-      final response = await _headFollowingRedirects(client, _smallModelUrl);
-      final etag = response.headers['etag'];
-      debugPrint('[CDN] ETag: $etag');
+      'HF CDN ETag type is documented (weak blocks allowPause resume)',
+      (tester) async {
+        final response = await _headFollowingRedirects(client, _smallModelUrl);
+        final etag = response.headers['etag'];
+        debugPrint('[CDN] ETag: $etag');
 
-      final isWeak = etag?.startsWith('W/') ?? false;
-      final isStrong = etag != null && !isWeak;
-      debugPrint(
-          '[CDN] ETag is ${isWeak ? "WEAK" : isStrong ? "STRONG" : "ABSENT"}');
+        final isWeak = etag?.startsWith('W/') ?? false;
+        final isStrong = etag != null && !isWeak;
+        debugPrint(
+          '[CDN] ETag is ${isWeak
+              ? "WEAK"
+              : isStrong
+              ? "STRONG"
+              : "ABSENT"}',
+        );
 
-      if (isWeak) {
-        debugPrint('[CDN] KNOWN LIMITATION (issue #192): weak ETag prevents '
+        if (isWeak) {
+          debugPrint(
+            '[CDN] KNOWN LIMITATION (issue #192): weak ETag prevents '
             'background_downloader from resuming interrupted downloads. '
             'timeout → fail → full restart from byte 0. '
-            'Fix: wait for HF to switch to strong ETags, or use ParallelDownloadTask.');
-      } else if (isStrong) {
-        debugPrint(
+            'Fix: wait for HF to switch to strong ETags, or use ParallelDownloadTask.',
+          );
+        } else if (isStrong) {
+          debugPrint(
             '[CDN] Strong ETag detected — allowPause: true fix is NOW viable! '
-            'Consider re-enabling pause/resume for HuggingFace URLs.');
-      }
+            'Consider re-enabling pause/resume for HuggingFace URLs.',
+          );
+        }
 
-      // Always passes — this test documents behavior, not enforces it.
-      // Change this expect to isStrong when we want to assert the fix is needed.
-      expect(etag, isNotNull, reason: 'ETag header should always be present');
-    }, timeout: const Timeout(Duration(minutes: 2)));
+        // Always passes — this test documents behavior, not enforces it.
+        // Change this expect to isStrong when we want to assert the fix is needed.
+        expect(etag, isNotNull, reason: 'ETag header should always be present');
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 
   // ─────────────────────────────────────────────
@@ -135,75 +161,109 @@ void main() {
     });
 
     // B1: Download completes and fires progress callbacks.
-    testWidgets('download completes and reports progress', (tester) async {
-      final progressValues = <int>[];
+    testWidgets(
+      'download completes and reports progress',
+      (tester) async {
+        final progressValues = <int>[];
 
-      await FlutterGemma.installModel(
-        modelType: ModelType.functionGemma,
-        fileType: ModelFileType.task,
-      ).fromNetwork(_smallModelUrl).withProgress((p) {
-        debugPrint('[Download] Progress: $p%');
-        progressValues.add(p);
-      }).install();
+        await FlutterGemma.installModel(
+          modelType: ModelType.functionGemma,
+          fileType: ModelFileType.task,
+        ).fromNetwork(_smallModelUrl).withProgress((p) {
+          debugPrint('[Download] Progress: $p%');
+          progressValues.add(p);
+        }).install();
 
-      expect(FlutterGemma.hasActiveModel(), isTrue,
-          reason: 'Active model should be set after install');
-      expect(await FlutterGemma.isModelInstalled(_smallModelFilename), isTrue,
-          reason: 'Model file should exist on disk');
-      expect(progressValues, isNotEmpty,
-          reason: 'Progress callbacks should fire during download');
-      expect(progressValues.last, equals(100),
-          reason: 'Final progress should be 100%');
-    }, timeout: const Timeout(Duration(minutes: 15)));
+        expect(
+          FlutterGemma.hasActiveModel(),
+          isTrue,
+          reason: 'Active model should be set after install',
+        );
+        expect(
+          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          isTrue,
+          reason: 'Model file should exist on disk',
+        );
+        expect(
+          progressValues,
+          isNotEmpty,
+          reason: 'Progress callbacks should fire during download',
+        );
+        expect(
+          progressValues.last,
+          equals(100),
+          reason: 'Final progress should be 100%',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 15)),
+    );
 
     // B2: Progress is monotonically non-decreasing.
     // A silent restart (e.g., from weak ETag mismatch or retry) causes progress to
     // reset to 0 mid-download. This test catches such regressions.
     // NOTE: On slow connections with issue #192 active, this test may time out before
     // the download completes — that is the expected failure mode.
-    testWidgets('download progress does not reset to zero mid-download',
-        (tester) async {
-      int maxProgress = 0;
-      bool progressReset = false;
-      int resetFromPercent = 0;
+    testWidgets(
+      'download progress does not reset to zero mid-download',
+      (tester) async {
+        int maxProgress = 0;
+        bool progressReset = false;
+        int resetFromPercent = 0;
 
-      await FlutterGemma.installModel(
-        modelType: ModelType.functionGemma,
-        fileType: ModelFileType.task,
-      ).fromNetwork(_smallModelUrl).withProgress((p) {
-        // Allow small backwards movement (±2%) for rounding, but not a full reset.
-        if (p > 0 && p < maxProgress - 5) {
-          progressReset = true;
-          resetFromPercent = maxProgress;
-          debugPrint(
-              '[Download] Progress reset detected: was $maxProgress%, now $p%');
-        }
-        if (p > maxProgress) maxProgress = p;
-      }).install();
+        await FlutterGemma.installModel(
+          modelType: ModelType.functionGemma,
+          fileType: ModelFileType.task,
+        ).fromNetwork(_smallModelUrl).withProgress((p) {
+          // Allow small backwards movement (±2%) for rounding, but not a full reset.
+          if (p > 0 && p < maxProgress - 5) {
+            progressReset = true;
+            resetFromPercent = maxProgress;
+            debugPrint(
+              '[Download] Progress reset detected: was $maxProgress%, now $p%',
+            );
+          }
+          if (p > maxProgress) maxProgress = p;
+        }).install();
 
-      expect(progressReset, isFalse,
-          reason: 'Progress reset from $resetFromPercent% to near 0 — '
+        expect(
+          progressReset,
+          isFalse,
+          reason:
+              'Progress reset from $resetFromPercent% to near 0 — '
               'indicates a silent download restart. '
               'Possible cause: weak ETag mismatch on resume, or network retry. '
-              'See issue #192.');
-    }, timeout: const Timeout(Duration(minutes: 15)));
+              'See issue #192.',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 15)),
+    );
 
     // B3: Cancelling (uninstall after partial) cleans up properly.
     // We install the model fully, then uninstall — verifies cleanup works.
     // Full cancel-mid-download is not testable without a public cancel API.
-    testWidgets('uninstalled model is removed from disk', (tester) async {
-      await FlutterGemma.installModel(
-        modelType: ModelType.functionGemma,
-        fileType: ModelFileType.task,
-      ).fromNetwork(_smallModelUrl).install();
+    testWidgets(
+      'uninstalled model is removed from disk',
+      (tester) async {
+        await FlutterGemma.installModel(
+          modelType: ModelType.functionGemma,
+          fileType: ModelFileType.task,
+        ).fromNetwork(_smallModelUrl).install();
 
-      expect(await FlutterGemma.isModelInstalled(_smallModelFilename), isTrue);
+        expect(
+          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          isTrue,
+        );
 
-      await FlutterGemma.uninstallModel(_smallModelFilename);
+        await FlutterGemma.uninstallModel(_smallModelFilename);
 
-      expect(await FlutterGemma.isModelInstalled(_smallModelFilename), isFalse,
-          reason: 'Model file should be removed after uninstall');
-    }, timeout: const Timeout(Duration(minutes: 15)));
+        expect(
+          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          isFalse,
+          reason: 'Model file should be removed after uninstall',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 15)),
+    );
   });
 
   // ─────────────────────────────────────────────
@@ -232,18 +292,21 @@ void main() {
       'foreground: true download starts and completes on fast network',
       (tester) async {
         await FlutterGemma.installModel(
-          modelType: ModelType.functionGemma,
-          fileType: ModelFileType.task,
-        )
+              modelType: ModelType.functionGemma,
+              fileType: ModelFileType.task,
+            )
             .fromNetwork(_smallModelUrl, foreground: true)
             .withProgress((p) => debugPrint('[Foreground] Progress: $p%'))
             .install();
 
-        expect(await FlutterGemma.isModelInstalled(_smallModelFilename), isTrue,
-            reason:
-                'foreground: true download should complete on fast network. '
-                'On slow connections (< 2 Mbps for 2.6 GB), this times out — '
-                'see issue #192 for the known bug.');
+        expect(
+          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          isTrue,
+          reason:
+              'foreground: true download should complete on fast network. '
+              'On slow connections (< 2 Mbps for 2.6 GB), this times out — '
+              'see issue #192 for the known bug.',
+        );
       },
       skip: !Platform.isAndroid,
       timeout: const Timeout(Duration(minutes: 15)),
@@ -254,7 +317,9 @@ void main() {
 // Follows HTTP redirects manually for HEAD requests.
 // Returns the final response after all redirects are resolved.
 Future<http.Response> _headFollowingRedirects(
-    http.Client client, String url) async {
+  http.Client client,
+  String url,
+) async {
   var uri = Uri.parse(url);
   int hops = 0;
   const maxHops = 10;

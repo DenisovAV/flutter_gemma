@@ -98,8 +98,10 @@ void main() {
 
         // Verify results are sorted
         for (int i = 1; i < results.length; i++) {
-          expect(results[i].similarity,
-              lessThanOrEqualTo(results[i - 1].similarity));
+          expect(
+            results[i].similarity,
+            lessThanOrEqualTo(results[i - 1].similarity),
+          );
         }
       });
 
@@ -139,8 +141,10 @@ void main() {
         expect(results.length, greaterThanOrEqualTo(1));
         // Results should be sorted by similarity descending
         for (int i = 1; i < results.length; i++) {
-          expect(results[i].similarity,
-              lessThanOrEqualTo(results[i - 1].similarity));
+          expect(
+            results[i].similarity,
+            lessThanOrEqualTo(results[i - 1].similarity),
+          );
         }
       });
 

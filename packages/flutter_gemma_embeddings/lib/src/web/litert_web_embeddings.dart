@@ -93,7 +93,8 @@ class LiteRTWebEmbeddings {
   static Future<List<double>> generateEmbedding(String text) async {
     if (!isInitialized()) {
       throw StateError(
-          'LiteRT embeddings not initialized. Call initialize() first.');
+        'LiteRT embeddings not initialized. Call initialize() first.',
+      );
     }
 
     if (text.trim().isEmpty) {
@@ -129,7 +130,8 @@ class LiteRTWebEmbeddings {
   static Future<List<double>> generateDocumentEmbedding(String text) async {
     if (!isInitialized()) {
       throw StateError(
-          'LiteRT embeddings not initialized. Call initialize() first.');
+        'LiteRT embeddings not initialized. Call initialize() first.',
+      );
     }
 
     if (text.trim().isEmpty) {
@@ -160,10 +162,12 @@ class LiteRTWebEmbeddings {
   ///
   /// Throws [Exception] if not initialized or generation fails
   static Future<List<List<double>>> generateEmbeddings(
-      List<String> texts) async {
+    List<String> texts,
+  ) async {
     if (!isInitialized()) {
       throw StateError(
-          'LiteRT embeddings not initialized. Call initialize() first.');
+        'LiteRT embeddings not initialized. Call initialize() first.',
+      );
     }
 
     if (texts.isEmpty) {

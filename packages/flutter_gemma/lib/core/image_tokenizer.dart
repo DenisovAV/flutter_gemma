@@ -22,17 +22,15 @@ class ImageTokenizer {
 
       if (processedImage.base64String.isEmpty) {
         throw const ImageTokenizationException(
-            'Processed image Base64 string cannot be empty');
+          'Processed image Base64 string cannot be empty',
+        );
       }
 
       // Create structured message following multimodal AI model requirements
       final message = {
         'role': role,
         'content': [
-          {
-            'type': 'text',
-            'text': text,
-          },
+          {'type': 'text', 'text': text},
           {
             'type': 'image',
             'image_data': {
@@ -43,8 +41,10 @@ class ImageTokenizer {
         ],
       };
 
-      gemmaLog('ImageTokenizer: Structured message created with '
-          '${(message['content'] as List).length} content items');
+      gemmaLog(
+        'ImageTokenizer: Structured message created with '
+        '${(message['content'] as List).length} content items',
+      );
 
       return message;
     } catch (e) {
@@ -79,7 +79,9 @@ class ImageTokenizer {
 
   /// Creates Gemma-specific image prompt format
   static String _createGemmaImagePrompt(
-      String text, ProcessedImage processedImage) {
+    String text,
+    ProcessedImage processedImage,
+  ) {
     // Gemma models expect specific formatting to avoid tokenization errors
     final prompt = StringBuffer();
 
@@ -102,7 +104,9 @@ class ImageTokenizer {
 
   /// Creates DeepSeek-specific image prompt format
   static String _createDeepSeekImagePrompt(
-      String text, ProcessedImage processedImage) {
+    String text,
+    ProcessedImage processedImage,
+  ) {
     // DeepSeek models use different tokenization patterns
     final prompt = StringBuffer();
 
@@ -114,13 +118,16 @@ class ImageTokenizer {
 
     final result = prompt.toString();
     gemmaLog(
-        'ImageTokenizer: Created DeepSeek prompt (${result.length} chars)');
+      'ImageTokenizer: Created DeepSeek prompt (${result.length} chars)',
+    );
     return result;
   }
 
   /// Creates general-purpose image prompt format
   static String _createGeneralImagePrompt(
-      String text, ProcessedImage processedImage) {
+    String text,
+    ProcessedImage processedImage,
+  ) {
     // General format that works with most vision-language models
     final prompt = StringBuffer();
 
@@ -140,7 +147,8 @@ class ImageTokenizer {
   static bool validateImageTokens(String prompt, int expectedImageCount) {
     try {
       gemmaLog(
-          'ImageTokenizer: Validating image tokens - expected: $expectedImageCount');
+        'ImageTokenizer: Validating image tokens - expected: $expectedImageCount',
+      );
 
       // Count image tokens using various patterns
       int imageTokenCount = 0;
@@ -183,19 +191,22 @@ class ImageTokenizer {
       // Patterns that indicate image corruption
       final corruptionPatterns = [
         RegExp(
-            r'describe\.describe\.describe\.+'), // Infinite "describe" repetition
+          r'describe\.describe\.describe\.+',
+        ), // Infinite "describe" repetition
         RegExp(r'^[₹]{10,}'), // Rupee symbol repetition
         RegExp(r'\bph\b.*\bph\b.*\bph\b'), // Repeating "ph" pattern
         RegExp(r'^(.)\1{10,}'), // Any single character repeated 10+ times
         RegExp(r'\b\w+\.\w+\.\w+\.+'), // Word repetition with dots
         RegExp(
-            r'\b[a-zA-Z]{1,2}\s+[a-zA-Z]{1,2}\s+[a-zA-Z]{1,2}\b'), // Short letter sequences as words
+          r'\b[a-zA-Z]{1,2}\s+[a-zA-Z]{1,2}\s+[a-zA-Z]{1,2}\b',
+        ), // Short letter sequences as words
       ];
 
       for (final pattern in corruptionPatterns) {
         if (pattern.hasMatch(response)) {
           gemmaLog(
-              'ImageTokenizer: Detected corruption pattern - ${pattern.pattern}');
+            'ImageTokenizer: Detected corruption pattern - ${pattern.pattern}',
+          );
           return true;
         }
       }
@@ -216,8 +227,9 @@ class ImageTokenizer {
           if (entry.value > words.length * 0.3) {
             // More than 30% of words
             gemmaLog(
-                'ImageTokenizer: Detected excessive repetition of "${entry.key}" (${entry.value} times)',
-                level: GemmaLogLevel.verbose);
+              'ImageTokenizer: Detected excessive repetition of "${entry.key}" (${entry.value} times)',
+              level: GemmaLogLevel.verbose,
+            );
             return true;
           }
         }
@@ -232,11 +244,7 @@ class ImageTokenizer {
 }
 
 /// Model types that require different tokenization approaches
-enum ModelType {
-  gemmaIt,
-  deepSeek,
-  general,
-}
+enum ModelType { gemmaIt, deepSeek, general }
 
 /// Exception thrown when image tokenization fails
 class ImageTokenizationException implements Exception {

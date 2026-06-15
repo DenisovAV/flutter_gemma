@@ -1,9 +1,20 @@
 name: flutter_gemma_litertlm
-description: "LiteRT-LM (.litertlm) on-device inference engine for flutter_gemma via dart:ffi. Opt-in package; provides an InferenceEngineProvider. Owns the shared LiteRT-LM native library."
+description: "LiteRT-LM (.litertlm) on-device inference engine for flutter_gemma via dart:ffi (5 native platforms) + web. Opt-in InferenceEngineProvider."
 version: 1.0.0-rc.1
 homepage: https://github.com/DenisovAV/flutter_gemma
-repository: https://github.com/DenisovAV/flutter_gemma
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_litertlm
 topics: [gemma, llm, litert, on-device, ffi]
+
+# All six platforms: 5 native via dart:ffi (LiteRT-LM C API) + web via
+# @litert-lm/core. Declared explicitly so the supported set is the package's own
+# contract, not inferred from the transitive import graph.
+platforms:
+  android:
+  ios:
+  web:
+  macos:
+  windows:
+  linux:
 
 resolution: workspace
 

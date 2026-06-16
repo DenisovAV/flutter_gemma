@@ -1,0 +1,41 @@
+name: flutter_gemma_rag_sqlite
+description: "SQLite + HNSW on-device RAG vector store for flutter_gemma (native sqlite3 + web wa-sqlite). Opt-in package; implements flutter_gemma's VectorStoreRepository."
+version: 1.0.0-rc.1
+homepage: https://github.com/DenisovAV/flutter_gemma
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_sqlite
+topics: [rag, sqlite, vector-search, embeddings, web]
+
+# All six platforms: native (sqlite3 + local_hnsw via dart:ffi) and web
+# (wa-sqlite via dart:js_interop). Declared explicitly so the supported set is
+# the package's own contract, not inferred from the transitive import graph.
+platforms:
+  android:
+  ios:
+  web:
+  macos:
+  windows:
+  linux:
+
+resolution: workspace
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+  flutter: '>=3.44.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma: ^1.0.0-rc.1
+  sqlite3: ^3.3.0
+  local_hnsw: ^1.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+# No `flutter:` plugin/asset block. This package has NO hand-written native
+# code and NO web platform-channel class. sqlite3 is a normal pub dep that
+# bundles its own native lib. The wa-sqlite JS (added in Task 4) is loaded by
+# the consuming app from CDN via an index.html <script> tag, not as a Flutter
+# asset — so no `assets:`/`plugin:` block is needed.

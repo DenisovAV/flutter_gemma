@@ -1,0 +1,41 @@
+name: flutter_gemma_rag_qdrant
+description: "qdrant-edge on-device RAG vector store for flutter_gemma (native Rust FFI). Opt-in VectorStoreRepository with payload filtering. Native platforms only (no web)."
+version: 1.0.0-rc.1
+homepage: https://github.com/DenisovAV/flutter_gemma
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_qdrant
+topics: [rag, qdrant, vector-search, embeddings, on-device]
+
+# Native-only (qdrant-edge Rust FFI). Declared explicitly so the supported
+# platform set is the package's own contract, not inferred from the transitive
+# import graph. No web — use flutter_gemma_rag_sqlite (WebSqliteVectorStore).
+platforms:
+  android:
+  ios:
+  macos:
+  windows:
+  linux:
+
+resolution: workspace
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+  flutter: '>=3.44.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_gemma: ^1.0.0-rc.1
+  ffi: ^2.1.0
+  uuid: ^4.0.0
+  hooks: ^1.0.0
+  code_assets: ^1.0.0
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  ffigen: ^20.1.1
+
+# No flutter: plugin/asset block — the native lib is delivered as a CodeAsset by
+# hook/build.dart (Native Assets), not a platform-channel plugin. Native-only.

@@ -47,7 +47,7 @@ jobs:
           cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_x86_64/*"
 
       - name: Patch C API
-        run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+        run: bash packages/flutter_gemma/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
 
       - name: Build libLiteRtLm.so
         run: |
@@ -57,7 +57,7 @@ jobs:
       - name: Build libStreamProxy.so
         run: |
           gcc -shared -fPIC -o /tmp/libStreamProxy.so \
-            native/litert_lm/stream_proxy.c
+            packages/flutter_gemma/native/litert_lm/stream_proxy.c
 
       - name: Collect artifacts
         run: |
@@ -95,7 +95,7 @@ jobs:
           cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_arm64/*"
 
       - name: Patch C API
-        run: bash native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+        run: bash packages/flutter_gemma/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
 
       - name: Build libLiteRtLm.so
         run: |
@@ -105,7 +105,7 @@ jobs:
       - name: Build libStreamProxy.so
         run: |
           gcc -shared -fPIC -o /tmp/libStreamProxy.so \
-            native/litert_lm/stream_proxy.c
+            packages/flutter_gemma/native/litert_lm/stream_proxy.c
 
       - name: Collect artifacts
         run: |
@@ -146,7 +146,7 @@ jobs:
 
       - name: Patch C API
         shell: bash
-        run: bash native/litert_lm/patch_c_api.sh C:/LiteRT-LM
+        run: bash packages/flutter_gemma/native/litert_lm/patch_c_api.sh C:/LiteRT-LM
 
       - name: Build LiteRtLm.dll
         # litert_link_capi_so=true + resolve_symbols_in_exec=false is the same
@@ -172,7 +172,7 @@ jobs:
 
       - name: Build StreamProxy.dll
         run: |
-          cl /LD /Fe:StreamProxy.dll native\litert_lm\stream_proxy.c
+          cl /LD /Fe:StreamProxy.dll packages\flutter_gemma\native\litert_lm\stream_proxy.c
 
       - name: Download DirectXShaderCompiler runtime
         # WebGPU/DX12 backend on Windows requires dxil.dll + dxcompiler.dll

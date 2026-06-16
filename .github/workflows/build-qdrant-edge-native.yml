@@ -3,7 +3,8 @@ name: Build Qdrant Edge Native Libraries
 # Builds the qdrant_edge_ffi cdylib for the 3 platforms where we don't have
 # a local toolchain (Linux x86_64/arm64, Windows x86_64). The 4 remaining
 # platforms (macOS arm64, iOS arm64 device/simulator, Android arm64) are
-# built locally on the maintainer's mac via native/qdrant_edge/build_local.sh
+# built locally on the maintainer's mac via
+# packages/flutter_gemma/native/qdrant_edge/build_local.sh
 # and uploaded to the same GitHub Release.
 #
 # Mirrors the structure of .github/workflows/build-litertlm-native.yml so
@@ -44,13 +45,13 @@ jobs:
           components: ''
 
       - name: Build libqdrant_edge_ffi.so
-        working-directory: native/qdrant_edge/qdrant_edge_ffi
+        working-directory: packages/flutter_gemma/native/qdrant_edge/qdrant_edge_ffi
         run: cargo build --release --target x86_64-unknown-linux-gnu
 
       - name: Collect artifacts
         run: |
           mkdir -p artifacts
-          cp native/qdrant_edge/qdrant_edge_ffi/target/x86_64-unknown-linux-gnu/release/libqdrant_edge_ffi.so artifacts/
+          cp packages/flutter_gemma/native/qdrant_edge/qdrant_edge_ffi/target/x86_64-unknown-linux-gnu/release/libqdrant_edge_ffi.so artifacts/
           ls -lh artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -73,13 +74,13 @@ jobs:
           components: ''
 
       - name: Build libqdrant_edge_ffi.so
-        working-directory: native/qdrant_edge/qdrant_edge_ffi
+        working-directory: packages/flutter_gemma/native/qdrant_edge/qdrant_edge_ffi
         run: cargo build --release --target aarch64-unknown-linux-gnu
 
       - name: Collect artifacts
         run: |
           mkdir -p artifacts
-          cp native/qdrant_edge/qdrant_edge_ffi/target/aarch64-unknown-linux-gnu/release/libqdrant_edge_ffi.so artifacts/
+          cp packages/flutter_gemma/native/qdrant_edge/qdrant_edge_ffi/target/aarch64-unknown-linux-gnu/release/libqdrant_edge_ffi.so artifacts/
           ls -lh artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -102,14 +103,14 @@ jobs:
           components: ''
 
       - name: Build qdrant_edge_ffi.dll
-        working-directory: native/qdrant_edge/qdrant_edge_ffi
+        working-directory: packages/flutter_gemma/native/qdrant_edge/qdrant_edge_ffi
         run: cargo build --release --target x86_64-pc-windows-msvc
 
       - name: Collect artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path artifacts -Force
-          Copy-Item native\qdrant_edge\qdrant_edge_ffi\target\x86_64-pc-windows-msvc\release\qdrant_edge_ffi.dll artifacts\
+          Copy-Item packages\flutter_gemma\native\qdrant_edge\qdrant_edge_ffi\target\x86_64-pc-windows-msvc\release\qdrant_edge_ffi.dll artifacts\
           Get-ChildItem artifacts\
 
       - uses: actions/upload-artifact@v4
@@ -172,6 +173,6 @@ jobs:
 
             macOS arm64, iOS arm64 device/simulator and Android arm64 archives
             are uploaded separately after local builds on the maintainer's
-            machine via native/qdrant_edge/build_local.sh.
+            machine via packages/flutter_gemma/native/qdrant_edge/build_local.sh.
           files: release/*
           fail_on_unmatched_files: false

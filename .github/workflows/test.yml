@@ -21,22 +21,26 @@ jobs:
           cache: true
 
       - name: Install dependencies
+        working-directory: packages/flutter_gemma
         run: flutter pub get
 
       - name: Verify formatting
+        working-directory: packages/flutter_gemma
         run: dart format --output=none --set-exit-if-changed .
         continue-on-error: true
 
       - name: Analyze code
+        working-directory: packages/flutter_gemma
         run: flutter analyze --no-fatal-infos
 
       - name: Run tests
+        working-directory: packages/flutter_gemma
         run: flutter test --coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: ./coverage/lcov.info
+          files: ./packages/flutter_gemma/coverage/lcov.info
           fail_ci_if_error: false
         continue-on-error: true
 
@@ -62,21 +66,22 @@ jobs:
           cache: 'gradle'
 
       - name: Install plugin dependencies
+        working-directory: packages/flutter_gemma
         run: flutter pub get
 
       - name: Install example dependencies
-        working-directory: example
+        working-directory: packages/flutter_gemma/example
         run: flutter pub get
 
       - name: Build example APK
-        working-directory: example
+        working-directory: packages/flutter_gemma/example
         run: flutter build apk --release
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: example-app-debug
-          path: example/build/app/outputs/flutter-apk/app-release.apk
+          path: packages/flutter_gemma/example/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
 
   build-example-ios:
@@ -94,13 +99,14 @@ jobs:
           cache: true
 
       - name: Install plugin dependencies
+        working-directory: packages/flutter_gemma
         run: flutter pub get
 
       - name: Install example dependencies
-        working-directory: example
+        working-directory: packages/flutter_gemma/example
         run: flutter pub get
 
       - name: Build example iOS (no signing)
-        working-directory: example
+        working-directory: packages/flutter_gemma/example
         run: flutter build ios --release --no-codesign
         continue-on-error: true

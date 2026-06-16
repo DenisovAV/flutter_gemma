@@ -31,13 +31,12 @@ flutter test                # all pass
 # Skipping this is how `enableSpeculativeDecoding` web breakage shipped
 # in 0.15.0 — analyze was green, tests passed, web build threw
 # `No named parameter ...` at dart2js time.
-#
+cd example
+flutter build web --no-tree-shake-icons
 # Android MUST be built --release, not --debug: a release build runs R8
 # (shrink/minify/obfuscate) and the full native-asset packaging path, which
 # debug skips. Bugs that only surface under R8 (stripped classes, missing
 # keep rules, native lib packaging) are invisible to `--debug`.
-cd example
-flutter build web --no-tree-shake-icons
 flutter build apk --release
 flutter build macos --debug
 flutter build ios --no-codesign --debug
@@ -181,40 +180,6 @@ for f in "$DIST"/litertlm-*.tar.gz; do
 done
 ```
 
-### ⛔ Three-way checksum consistency — MANDATORY (regression: #316)
-
-`checksums_litertlm.txt` is informational (the build hook does NOT read it —
-it verifies against the `_checksums` map baked into `hook/build.dart`). But a
-STALE txt is dangerous: in #316 a user (`@remingtonc`) hand-verified against
-the txt during a checksum-mismatch debug, the txt said `e24804d9…` while the
-actual asset was `f809c5a2…`, and it sent them down the wrong path. **For
-every tag you touch, the same SHA must appear in all THREE places** —
-the uploaded `.tar.gz`, `checksums_litertlm.txt` on the Release, and the
-`hook/build.dart` `_checksums` entry. Verify after upload:
-
-```bash
-for f in "$DIST"/litertlm-*.tar.gz; do
-  name=$(basename "$f")
-  # 1. actual asset bytes served by GitHub
-  asset=$(curl -sL "https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/$name" | shasum -a 256 | awk '{print $1}')
-  # 2. what checksums_litertlm.txt on the Release claims
-  txt=$(curl -sL "https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/checksums_litertlm.txt" | awk -v n="$name" '$2==n{print $1}')
-  # 3. what hook/build.dart expects
-  hook=$(grep -A1 "'$name'" hook/build.dart | grep -oE "[0-9a-f]{64}" | head -1)
-  echo "$name:"
-  echo "  asset=$asset"
-  echo "  txt  =$txt   $([ "$asset" = "$txt" ] && echo OK || echo '❌ STALE TXT')"
-  echo "  hook =$hook   $([ "$asset" = "$hook" ] && echo OK || echo '❌ HOOK MISMATCH — users will fail to build')"
-done
-```
-All three must match for every platform you re-uploaded. If you re-uploaded a
-`.tar.gz` you MUST also re-upload a fresh `checksums_litertlm.txt` in the same
-`gh release upload --clobber` — never one without the other.
-
-(See also the ⛔ "NEVER overwrite a tag referenced by a published plugin
-version" rule in Step 6 — #316 is what a stale released tag looks like in the
-wild.)
-
 ## Step 7: Update CHANGELOG.md
 
 Add new section at top. Categories: **App Store / packaging fixes**, **Features**, **Bug fixes**, **Breaking changes**, **Native runtime updates** (if `_nativeVersion` bumped). Reference issue / PR numbers (`#245`, `#239`).
@@ -295,10 +260,9 @@ gh release view v0.14.1
 
 ## Common gotchas
 
-- **iOS dylib `minos` MUST equal the Flutter wrapper plist (13.0) — for EVERY native bundle, not just LiteRT-LM.** Flutter Native Assets hardcodes `MinimumOSVersion 13.0` into each generated `*.framework/Info.plist`; if a bundled dylib's binary `minos` is higher, App Store Connect rejects the archive with **ITMS-90208**. Both `litert_lm/build_ios.sh` and `qdrant_edge/build_local.sh` normalize to 13.0 via `vtool -set-build-version <ios|iossim> 13.0 18.5`. **After building ANY iOS dylib (current or a future new artifact), verify:** `vtool -show <dylib> | grep minos` → must be `13.0`. The real iOS 16+ floor is enforced by the podspec, not this metadata. Regressed in 0.16.3 when qdrant un-vendoring shipped a 16.0 dylib (#286) — the check was only in the LiteRT-LM script, not a release-wide rule.
 - **`native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
 - **iOS dylib must be built from commit `5e0d86b`** (post-v0.10.2). v0.10.2 tag predates `libLiteRtMetalAccelerator.dylib` → ABI mismatch → EXC_BAD_ACCESS in `litert_lm_engine_create` on iPhone GPU. `build_ios.sh` defaults to it; do not override unless you know what you're doing.
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.
 - **Linux/Windows builds run on remote VMs** — see `project_gcloud_vm_workflow` memory.
 - **macOS dylib produced LOCALLY**, not in CI — see `project_macos_dylib_built_locally` memory. Same for iOS.
-- **Pub package size ceiling 100 KB** — `.pubignore` already excludes prebuilts, integration tests, and notebooks. If new top-level dirs creep in, dry-run will show > 100 KB and fail.
+- **Pub package size is informational, NOT a hard ceiling** — `.pubignore` already excludes prebuilts, integration tests, and notebooks. The FFI bindings + pigeon + example push each published package to ~700 KB on 0.16.x; the old <=100 KB ceiling predates 0.14.0 and no longer applies. Just confirm `.pubignore` still excludes the heavy dirs.

@@ -41,10 +41,12 @@
 ## Architecture Quick Reference
 
 ### Core Principles
-- **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `lib/core/domain/`
-- **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.)
-- **Engine selection by file extension**: `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference) + LiteRT C API (embeddings). Native prebuilts fetched at build time via `hook/build.dart` (Native Assets) from GitHub release `native-v0.12.0`.
+- **1.0 six-package split** (monorepo, Dart pub workspace): core `flutter_gemma` (no engine) + opt-in `flutter_gemma_litertlm` (.litertlm FFI), `flutter_gemma_embeddings` (LiteRT embeddings), `flutter_gemma_mediapipe` (.task), `flutter_gemma_rag_qdrant` (native RAG), `flutter_gemma_rag_sqlite` (web RAG). Packages → core (one-directional). Engines/backends register via `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`; core registers none by default.
+- **Probe-chain registry**: `EngineRegistry`/`EmbeddingRegistry` select a provider by `canHandle(spec)` + `priority` (descending priority, ascending registration index). Engines are pure factories; core owns singleton lifecycle via `CloseNotifier`/`addCloseListener`.
+- **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
+- **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
+- **Engine selection by file extension** (via `canHandle`): `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time via each package's `hook/build.dart` (Native Assets) from GitHub release `native-v0.12.0-a`. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
 
 ### Supported Models
 
@@ -111,19 +113,18 @@ Exception: Migration files may use inline strings for deprecated keys.
 ### ⚠️ Always read SDK before implementing
 Check `lib/flutter_gemma_interface.dart`, implementation files, and `example/` before making changes.
 
-### ⚠️ `lib/pigeon.g.dart` is generated — DO NOT EDIT MANUALLY
-
-### ⚠️ Use `gemmaLog`, not `debugPrint` (0.16.5+)
-All `lib/` logging goes through `gemmaLog(message, {level})` in `lib/core/utils/gemma_log.dart` — silent in release, `kDebugMode`-gated, U+FFFD-sanitized (#306). Never add a raw `debugPrint` in `lib/`. Model output / prompts / history must be `level: GemmaLogLevel.verbose` (hidden by default, opt-in via `FlutterGemma.logLevel`); hot per-token sites also wrap the call in `if (kDebugMode)` so the string isn't built in release. The top-level `gemmaLogLevel` is per-isolate — propagate it into any spawned isolate via its init payload.
+### ⚠️ Generated pigeon is `flutter_gemma_mediapipe/lib/pigeon.g.dart` — DO NOT EDIT MANUALLY
+Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in `lib/core/domain/platform_types.dart`). Only `flutter_gemma_mediapipe` still uses pigeon (it owns the `PlatformService` HostApi).
 
 ## Versions & Dependencies
 
-- **Flutter**: `>=3.24.0`
-- **Dart SDK**: `>=3.6.0 <4.0.0`
+- **Flutter**: `>=3.44.0` (raised at the 1.0 cut: `large_file_handler` 0.5.0 + dart2wasm need it)
+- **Dart SDK**: `>=3.12.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.12.0` GitHub Release. Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. MTP (speculative decoding) support for Gemma 4.
-- **Current Version**: 0.16.5
+- **LiteRT-LM**: native libs from `native-v0.12.0-a` GitHub Release. Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` on Intel LunarLake/PantherLake silicon. MTP (speculative decoding) support for Gemma 4.
+- **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
+- **Current Version**: all 6 packages `1.0.0-rc.1` (core `flutter_gemma` + 5 opt-in siblings)
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -153,7 +154,7 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by `hook/build.dart` from `native-v0.12.0` GitHub release; SHA256-verified, bundled via Native Assets
+- Native libs fetched at build time by each package's `hook/build.dart` from `native-v0.12.0-a` GitHub release; SHA256-verified, bundled via Native Assets
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 - Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)
@@ -175,56 +176,96 @@ flutter analyze && dart format . && flutter test
 
 ## Key Files
 
+> **1.0 monorepo:** paths below are under `packages/<pkg>/`. The repo is a Dart
+> pub workspace (root `pubspec.yaml` `workspace:` list); core = `flutter_gemma`,
+> engines/RAG = opt-in sibling packages.
+
+**Core (`packages/flutter_gemma/`):**
+
 | File | Purpose |
 |------|---------|
-| `lib/flutter_gemma_interface.dart` | Main plugin interface |
+| `lib/flutter_gemma_interface.dart` | Abstract InferenceModel / EmbeddingModel / Session + CloseNotifier seam |
+| `lib/core/api/flutter_gemma.dart` | `FlutterGemma.initialize/getActiveModel/installModel/installEmbedder/reset/dispose` |
 | `lib/core/message.dart` | Message class (isUser gotcha) |
 | `lib/core/domain/` | ModelSource sealed classes |
-| `lib/core/ffi/litert_lm_client.dart` | Per-platform FFI client (loading, preload, log capture) |
-| `lib/core/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API (inference) |
-| `lib/core/ffi/ffi_inference_model.dart` | Shared FFI inference model (used by mobile + desktop) |
-| `lib/core/litert/litert_bindings.dart` | Hand-written dart:ffi bindings to LiteRT C API (embeddings); dual MSVC/POSIX `LiteRtLayout` structs |
-| `lib/core/litert/litert_embedding_model.dart` | Shared embedding model — Gecko / EmbeddingGemma `.tflite` on all 5 native platforms |
-| `lib/core/qdrant/qdrant_edge_bindings.dart` | ffigen-generated dart:ffi bindings to the qdrant_edge_ffi shim (0.16.0+) |
-| `lib/core/qdrant/qdrant_edge_client.dart` | High-level Dart wrapper around `QdrantEdgeBindings` (shard lifecycle, Finalizer, JSON marshalling) |
-| `lib/core/qdrant/point_id_hasher.dart` | UUIDv5 hash mapping arbitrary `String id` → qdrant `PointId::Uuid` |
-| `lib/core/qdrant/filter_codec.dart` | Encodes `Filter` DSL → qdrant `Filter` JSON envelope |
+| `lib/core/registry/{inference_engine_provider,embedding_backend_provider,engine_registry,embedding_registry,runtime_config}.dart` | Probe-chain registry contracts engines/backends implement |
+| `lib/core/lifecycle/close_notifier.dart` | `CloseNotifier` mixin (addCloseListener / fireCloseListeners) |
 | `lib/core/services/vector_store_filter.dart` | Sealed `Condition` + `Filter` envelope (must/should/mustNot) |
-| `lib/core/infrastructure/qdrant_vector_store_repository.dart` | Native default `VectorStoreRepository` impl (0.16.0+) |
-| `lib/core/infrastructure/dart_vector_store_repository.dart` | `@Deprecated` legacy impl (sqlite3 + `local_hnsw`); removal in 1.0 |
-| `native/qdrant_edge/qdrant_edge_ffi/` | Rust cdylib over qdrant-edge — 10 `qe_*` C functions exposed via `extern "C"` |
-| `native/qdrant_edge/include/qdrant_edge.h` | C header consumed by ffigen + Dart FFI |
-| `native/qdrant_edge/vendored/qdrant-edge/` | Vendored amalgamated qdrant-edge source with `EdgeShardOptions` + Android flock skip patch; removed once upstream qdrant/qdrant#9067 merges |
-| `native/qdrant_edge/build_local.sh` | Local cross-build script for macOS arm64 + iOS arm64 device/sim + Android arm64 |
-| `lib/mobile/flutter_gemma_mobile.dart` | Mobile implementation (FFI for .litertlm, MediaPipe for .task) |
-| `lib/web/flutter_gemma_web.dart` | Web implementation (MediaPipe JS) |
-| `lib/desktop/flutter_gemma_desktop.dart` | Desktop entrypoint, delegates to FFI client |
-| `hook/build.dart` | Native Assets hook: fetches+verifies native prebuilts |
-| `native/litert_lm/build_ios.sh` | Local iOS dylib rebuild script (calls patch_c_api.sh) |
-| `native/litert_lm/patch_c_api.sh` | C API source patcher (linkshared, set_max_num_images, dispatch_lib_dir) |
-| `native/litert_lm/stream_proxy.c` | RTLD_GLOBAL/LoadLibraryEx preload helper + stderr redirect for debug logs |
-| `ios/flutter_gemma.podspec` | iOS pod (companion `lib*.dylib` symlinks come from `example/ios/Podfile` `post_install` — pod-level `script_phase` doesn't reach the host app target) |
-| `example/ios/Podfile` | iOS host app `post_install` block — creates `lib*.dylib` symlinks next to `.framework`s for `gpu_registry` basename `dlopen` |
-| `example/macos/Podfile` | Same `post_install` pattern for macOS (added in 0.14.0; 3-tier dylib source fallback added in 0.14.4 for #255 — Native Assets cache → plugin symlink → repo path) |
+| `lib/core/infrastructure/unconfigured_vector_store.dart` | Default `VectorStoreRepository` sentinel — throws "add a RAG package" |
+| `lib/mobile/flutter_gemma_mobile.dart` | Mobile shell — registry-dispatch createModel + EmbeddingModelSpec |
+| `lib/web/flutter_gemma_web.dart` | Web shell — registry-dispatch |
+| `lib/desktop/flutter_gemma_desktop.dart` | Desktop shell — registry-dispatch |
+| `lib/web/web_model_source.dart`, `web_model_manager.dart` | Public shared web infra (imported by litertlm-web + mediapipe-web) |
+| `lib/core/domain/platform_types.dart` | Plain-Dart `PreferredBackend` enum + RAG value types (RetrievalResult/VectorStoreStats/DocumentWithEmbedding). Core has NO pigeon/PlatformService — these were hand-written off pigeon at the 1.0 cut so the public graph stays dart:io/wasm-clean |
+| `hook/build.dart` | Native Assets hook — empty bundle list (core owns no native lib) |
+| `android/src/.../FlutterGemmaPlugin.kt`, `ios/Classes/FlutterGemmaPlugin.swift` | Slim native plugin — hosts only the `flutter_gemma_bundled` channel (file-ops + litertlm NPU `getNativeLibraryDir`) |
+| `example/lib/gemma_bootstrap.dart` | Single source of truth for the example's engine/backend lists + RAG switcher |
 | `example/lib/models/model.dart` | Model configurations & URLs |
+
+**`packages/flutter_gemma_litertlm/` (.litertlm FFI inference; owns the shared libLiteRtLm bundle):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/litert_lm_engine*.dart` | `LiteRtLmEngine` (InferenceEngineProvider; native + web arms via conditional export) |
+| `lib/src/ffi/litert_lm_client.dart` | Per-platform FFI client (loading, preload, log capture) |
+| `lib/src/ffi/litert_lm_bindings.dart` | Generated dart:ffi bindings to LiteRT-LM C API (inference) |
+| `lib/src/ffi/ffi_inference_model.dart` | FFI inference model (mixes CloseNotifier) |
+| `lib/src/web/litert_lm_web*.dart` | Web `.litertlm` via `@litert-lm/core` (Engine handshake) |
+| `hook/build.dart` | Native Assets hook — OWNS the litertlm bundle; `stage()` is **Apple-only** (Xcode cycle) |
+| `native/litert_lm/{build_ios.sh,patch_c_api.sh,stream_proxy.c}` | iOS dylib rebuild + C API patcher + preload helper |
+
+**`packages/flutter_gemma_embeddings/` (LiteRT C API embeddings; shares libLiteRtLm, autonomous):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/litert_embedding_backend.dart` | `LiteRtEmbeddingBackend` (EmbeddingBackendProvider) |
+| `lib/src/litert/litert_bindings.dart` | Hand-written dart:ffi bindings to LiteRT C API; dual MSVC/POSIX `LiteRtLayout` |
+| `lib/src/litert/litert_embedding_model.dart` | Facade over `EmbeddingWorker` (forward pass on a background isolate, #299) |
+| `lib/src/litert/litert_embedding_core.dart`, `litert_embedding_worker.dart` | Sync native core + the isolate that drives it |
+| `hook/build.dart` | Byte-identical to litertlm hook (single-registrant coordination; no litertlm dep) |
+
+**`packages/flutter_gemma_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/mediapipe_engine*.dart` | `MediaPipeEngine` (io/mobile + web arms); `_mapBackend` core↔package PreferredBackend |
+| `pigeon.dart` | Package pigeon: `PlatformService` HostApi + redeclared `PreferredBackend` |
+| `android/src/.../FlutterGemmaMediaPipePlugin.kt`, `PlatformServiceImpl.kt`, `engines/*` | Android MediaPipe (own pluginClass + channel) |
+| `ios/Classes/FlutterGemmaMediaPipePlugin.swift`, `PlatformServiceImpl.swift`, `InferenceModel.swift` | iOS MediaPipe |
+
+**`packages/flutter_gemma_rag_qdrant/` (native RAG; no web):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/qdrant_vector_store.dart` | `QdrantVectorStore` (VectorStoreRepository) |
+| `lib/src/qdrant/{qdrant_edge_bindings,qdrant_edge_client,point_id_hasher,filter_codec}.dart` | ffigen bindings + Dart wrapper + UUIDv5 hasher + Filter codec |
+| `native/qdrant_edge/{qdrant_edge_ffi/,include/qdrant_edge.h,vendored/,build_local.sh}` | Rust cdylib + C header + vendored source + cross-build |
+| `hook/build.dart` | Native Assets hook — owns the qdrant_edge bundle |
+
+**`packages/flutter_gemma_rag_sqlite/` (web RAG via wa-sqlite; native via sqlite3 — `@Deprecated`, removal in 1.0):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/{sqlite_vector_store,web_sqlite_vector_store}.dart` | `SqliteVectorStore` (native) / `WebSqliteVectorStore` (web) |
+| `web/rag/sqlite_vector_store{,_worker}.js` | wa-sqlite loader + worker (web `<script>`, SRI-pinned) |
 
 ## Project Structure
 
 ```
-flutter_gemma/
-├── android/              # Android native (Kotlin, MediaPipe + LiteRT-LM JNI)
-├── ios/                  # iOS native (Swift) + podspec script_phase
-├── lib/                  # Dart implementation
-│   ├── core/            # Domain, DI, handlers, model management
-│   │   ├── ffi/         # dart:ffi client + bindings for LiteRT-LM inference (all 5 platforms)
-│   │   └── litert/      # dart:ffi bindings + shared model for LiteRT C API embeddings (all 5 platforms)
-│   ├── mobile/          # Mobile entrypoint (selects FFI vs MediaPipe)
-│   ├── web/             # Web platform code
-│   └── desktop/         # Desktop entrypoint (delegates to lib/core/ffi/)
-├── native/litert_lm/    # Native build scripts + C API patcher + stream_proxy.c
-├── hook/build.dart       # Native Assets hook (fetches CI prebuilts at build time)
-├── example/             # Example app + integration tests
-└── test/                # Unit tests
+flutter_gemma/                       # Dart pub workspace (monorepo root)
+├── pubspec.yaml                     # root: workspace: [packages/*] + melos config
+├── packages/
+│   ├── flutter_gemma/               # CORE — no engine; registry, contracts, shells, slim native plugin
+│   │   ├── lib/{core,mobile,web,desktop}/   # registry-dispatch shells + contracts
+│   │   ├── android/ ios/ windows/   # slim native plugin (bundled channel only)
+│   │   ├── hook/build.dart          # empty bundle list
+│   │   └── example/                 # example app + integration tests + MIGRATION.md/README.md
+│   ├── flutter_gemma_litertlm/      # .litertlm FFI (owns libLiteRtLm) + native/litert_lm/ build scripts
+│   ├── flutter_gemma_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
+│   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
+│   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
+│   └── flutter_gemma_rag_sqlite/    # web RAG (wa-sqlite) + native sqlite3 (@Deprecated)
+└── docs/                            # design docs, testing, benchmarks
 ```
 
 ## Repository

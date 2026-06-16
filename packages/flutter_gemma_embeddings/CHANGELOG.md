@@ -1,3 +1,6 @@
+## 1.0.0
+- Stable 1.0.0; spec imports redirected off the `dart:io` mobile lib for a wasm-clean web graph.
+
 ## 1.0.0-rc.1
 - Initial release: on-device text embeddings (Gecko / EmbeddingGemma `.tflite`) via the LiteRT C API + dart:ffi.
 - Provides `LiteRtEmbeddingBackend` (EmbeddingBackendProvider); forward pass runs on a background isolate.

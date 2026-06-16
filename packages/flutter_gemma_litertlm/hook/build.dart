@@ -148,7 +148,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.12.0-a',
+  version: '0.13.1',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -159,21 +159,24 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
+  // 0.13.1: LiteRT-LM 0.13.1 (bundles LiteRT post-v2.1.5 main). Fixes the
+  // Gemma 4 E2B MTP/speculative-decoding crash (#318). Android .so rebuilt with
+  // 16KB page alignment (NDK r28). Built on native-v0.13.1 tag.
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '930296b010ecc316c6b6fc4ed1c722b275b4064b59b5aad8ff7b858e9149c0d7',
+        '2c84bdacd4f367a631270a6b3f8ff87e2d11aa019d8e898a2361f40591667024',
     'litertlm-linux_arm64.tar.gz':
-        '616b2e8cb9903bfd4ee54ca600a9a0cce38ddd16ed3e4b847a6d80e548b9aa60',
+        '79ec60b99076e53bd51e1be4bedeb45abb8d724d1bb45c8acc5c171cc4cde7bd',
     'litertlm-windows_x86_64.tar.gz':
-        'b7264091c05001ef84e53761dfee331f761e3a2362b36b28ab2ce39666400d76',
+        '466b8de4a78218f36fb616a563e7c1e47e7abd24489bfba47ac483bfdf13d63d',
     'litertlm-macos_arm64.tar.gz':
-        'a616c6996853cf095fac8c19de1d4dbf9a7434437da7f9bcc167e0e840147e10',
+        '59d7f73d1cb4077ad82fefb0a8d2a506d8c89d61487a7981816dbffe8a3cbe2d',
     'litertlm-ios_arm64.tar.gz':
-        '88620e05382dcb1fdc5d2d985bfc9812f78f1422b4e9f3d1d8dfbafcf727c4ee',
+        'dce231a0c624e0f7e0287eb5e28a78d895f7af5dc0fa7399f89443ce54a5f44f',
     'litertlm-ios_sim_arm64.tar.gz':
-        '54e067fa11ad510280e01f90260e8bda13f905a27f00e7ebc2d7ef5847868bd1',
+        '08724bafac9381a9fde8658ce5a1137f1f5b966d82dd63e32b2e201d617c0b9d',
     'litertlm-android_arm64.tar.gz':
-        'f809c5a29867062cda74186c7ebebd500a2f36d0b6ad6f7ca8eab902af7fc784',
+        '3a976067216e3d3aa55858f4cc8ee10af813d808b6ab132dbd45d6db56fd3be8',
   },
   companions: [
     'GemmaModelConstraintProvider',
@@ -337,8 +340,8 @@ Directory _cacheBaseDir() {
 /// COMMIT POINT: call LAST, only after the dylib files are fully in place.
 void _writeMarker(_NativeBundle bundle) {
   bundle.markerFile().writeAsStringSync(
-        jsonEncode({'version': bundle.version, 'owner': _packageName}),
-      );
+    jsonEncode({'version': bundle.version, 'owner': _packageName}),
+  );
 }
 
 /// Wipe stale per-platform cached files when a bundle's version changes. Cheap
@@ -415,7 +418,11 @@ bool _hasMainLib(Directory dir, _NativeBundle bundle, OS os) {
 ///   2. cached `<cacheBase>/<bundle-namespace>/<dirName>/` from a previous
 ///      `_downloadAndExtract`.
 Directory? _resolveLibDir(
-    _NativeBundle bundle, String dirName, Uri packageRoot, OS os) {
+  _NativeBundle bundle,
+  String dirName,
+  Uri packageRoot,
+  OS os,
+) {
   // Local prebuilts use a per-bundle directory layout under `native/`.
   // LiteRT historically uses `native/litert_lm/prebuilt/`. For new bundles
   // we use `native/<namespace>/prebuilt/`.
@@ -436,7 +443,9 @@ Directory? _resolveLibDir(
 // ============================================================================
 
 Future<Directory?> _downloadAndExtract(
-    _NativeBundle bundle, String dirName) async {
+  _NativeBundle bundle,
+  String dirName,
+) async {
   final archiveName = bundle.archiveName(dirName);
   final expectedChecksum = bundle.checksums[archiveName];
   if (expectedChecksum == null) {
@@ -458,7 +467,8 @@ Future<Directory?> _downloadAndExtract(
 
     final url = '${bundle.releaseBase}/$archiveName';
     stderr.writeln(
-        'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...');
+      'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...',
+    );
 
     final client = HttpClient();
     try {
@@ -466,7 +476,8 @@ Future<Directory?> _downloadAndExtract(
       final response = await request.close();
       if (response.statusCode != 200) {
         stderr.writeln(
-            'flutter_gemma: Download failed (HTTP ${response.statusCode})');
+          'flutter_gemma: Download failed (HTTP ${response.statusCode})',
+        );
         return null;
       }
       final sink = archiveFile.openWrite();
@@ -493,13 +504,16 @@ Future<Directory?> _downloadAndExtract(
     if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     tmpDir.createSync(recursive: true);
     try {
-      final result = await Process.run(
-        'tar',
-        ['-xzf', archiveFile.path, '-C', tmpDir.path],
-      );
+      final result = await Process.run('tar', [
+        '-xzf',
+        archiveFile.path,
+        '-C',
+        tmpDir.path,
+      ]);
       if (result.exitCode != 0) {
         stderr.writeln(
-            'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}');
+          'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}',
+        );
         return null;
       }
       if (targetDir.existsSync()) targetDir.deleteSync(recursive: true);
@@ -509,7 +523,8 @@ Future<Directory?> _downloadAndExtract(
     }
     archiveFile.deleteSync();
     stderr.writeln(
-        'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}');
+      'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}',
+    );
     return targetDir;
   } catch (e) {
     stderr.writeln('flutter_gemma: ${bundle.namespace} download failed: $e');

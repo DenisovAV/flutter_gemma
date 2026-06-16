@@ -1,18 +1,16 @@
 name: Build LiteRT-LM Native Libraries
 
 on:
-  push:
-    branches:
-      - main
-      - 'release/**'
-    paths:
-      - '.github/workflows/build-litertlm-native.yml'
+  # Manual only. NO push trigger: this is an expensive multi-platform Bazel
+  # build that publishes native libs — auto-firing it on a branch push would
+  # rebuild with the DEFAULT litertlm_version (not the one you want), which is
+  # exactly how native-v0.13.1 once got the wrong Linux libs. Always dispatch
+  # with an explicit litertlm_version.
   workflow_dispatch:
     inputs:
       litertlm_version:
         description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-        default: '032334d81ff96431492be272e536fbafe094b1e9'
       publish_release:
         description: 'Publish to GitHub Release'
         type: boolean
@@ -28,7 +26,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +45,7 @@ jobs:
           cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_x86_64/*"
 
       - name: Patch C API
-        run: bash packages/flutter_gemma/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+        run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
 
       - name: Build libLiteRtLm.so
         run: |
@@ -57,7 +55,7 @@ jobs:
       - name: Build libStreamProxy.so
         run: |
           gcc -shared -fPIC -o /tmp/libStreamProxy.so \
-            packages/flutter_gemma/native/litert_lm/stream_proxy.c
+            packages/flutter_gemma_litertlm/native/litert_lm/stream_proxy.c
 
       - name: Collect artifacts
         run: |
@@ -78,7 +76,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 60
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -95,7 +93,7 @@ jobs:
           cd /tmp/LiteRT-LM && git checkout "$LITERTLM_VERSION" && git lfs pull --include="prebuilt/linux_arm64/*"
 
       - name: Patch C API
-        run: bash packages/flutter_gemma/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
+        run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh /tmp/LiteRT-LM
 
       - name: Build libLiteRtLm.so
         run: |
@@ -105,7 +103,7 @@ jobs:
       - name: Build libStreamProxy.so
         run: |
           gcc -shared -fPIC -o /tmp/libStreamProxy.so \
-            packages/flutter_gemma/native/litert_lm/stream_proxy.c
+            packages/flutter_gemma_litertlm/native/litert_lm/stream_proxy.c
 
       - name: Collect artifacts
         run: |
@@ -128,7 +126,7 @@ jobs:
       run:
         shell: pwsh
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
       ANDROID_NDK_HOME: ''
       BAZEL_OUTPUT_BASE: 'D:\b'
     steps:
@@ -146,7 +144,7 @@ jobs:
 
       - name: Patch C API
         shell: bash
-        run: bash packages/flutter_gemma/native/litert_lm/patch_c_api.sh C:/LiteRT-LM
+        run: bash packages/flutter_gemma_litertlm/native/litert_lm/patch_c_api.sh C:/LiteRT-LM
 
       - name: Build LiteRtLm.dll
         # litert_link_capi_so=true + resolve_symbols_in_exec=false is the same
@@ -172,7 +170,7 @@ jobs:
 
       - name: Build StreamProxy.dll
         run: |
-          cl /LD /Fe:StreamProxy.dll packages\flutter_gemma\native\litert_lm\stream_proxy.c
+          cl /LD /Fe:StreamProxy.dll packages\flutter_gemma_litertlm\native\litert_lm\stream_proxy.c
 
       - name: Download DirectXShaderCompiler runtime
         # WebGPU/DX12 backend on Windows requires dxil.dll + dxcompiler.dll
@@ -233,7 +231,7 @@ jobs:
     permissions:
       contents: write
     env:
-      LITERTLM_VERSION: ${{ inputs.litertlm_version || '032334d81ff96431492be272e536fbafe094b1e9' }}
+      LITERTLM_VERSION: ${{ inputs.litertlm_version }}
     steps:
       - uses: actions/download-artifact@v4
         with:

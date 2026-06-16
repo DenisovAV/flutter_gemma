@@ -105,7 +105,12 @@ build_ios_sim() {
 
 build_android_arm64() {
     echo "==> Android arm64 (aarch64-linux-android, NDK $ANDROID_NDK_HOME, API $ANDROID_API_LEVEL)"
-    cargo ndk -t arm64-v8a --platform "$ANDROID_API_LEVEL" -- build --release
+    # 16 KB ELF LOAD-segment alignment — required for Android 15 (16 KB pages)
+    # and Google Play target SDK 35+ uploads (#319). Matches the LiteRT libs'
+    # max-page-size=16384 (#253). Passed as a Rust linker arg so cargo-ndk
+    # threads it through to the NDK linker.
+    RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,-z,max-page-size=16384" \
+      cargo ndk -t arm64-v8a --platform "$ANDROID_API_LEVEL" -- build --release
     local src="target/aarch64-linux-android/release/libqdrant_edge_ffi.so"
     local out="$DIST_DIR/qdrant-edge-android_arm64"
     rm -rf "$out" && mkdir -p "$out"

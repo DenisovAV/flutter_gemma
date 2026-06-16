@@ -1,3 +1,9 @@
+## 1.0.0
+- Stable 1.0 of the modular package split (see 1.0.0-rc.1 below for full notes).
+- dart2wasm-clean public graph — `dart:io` is off the web/wasm import graph.
+- Dropped pigeon from core; value types are plain Dart in `core/domain/platform_types.dart`.
+- SDK floor raised to Dart 3.12 / Flutter 3.44; `large_file_handler` `^0.5.0`.
+
 ## 1.0.0-rc.1
 - **Modular package split**: core `flutter_gemma` + opt-in `flutter_gemma_litertlm` / `flutter_gemma_mediapipe` / `flutter_gemma_embeddings` / `flutter_gemma_rag_qdrant` / `flutter_gemma_rag_sqlite`.
 - **New `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`** — register the opt-in packages you added; core registers none by default.

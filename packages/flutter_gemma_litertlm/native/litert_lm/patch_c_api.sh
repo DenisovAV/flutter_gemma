@@ -701,4 +701,40 @@ else
   fi
 fi
 
+# ── 11. Mirror the minizip/zlib source off the flaky zlib.net ──
+# Upstream's `minizip` http_archive fetches zlib-1.3.1.tar.gz from
+# https://zlib.net/fossils/ — which is chronically unreliable in CI (it
+# intermittently serves corrupted/varying bytes, failing the sha256 check and
+# aborting the whole Bazel build; observed 3x in one release cycle). Prepend the
+# GitHub release asset (github.com/madler/zlib v1.3.1), which is byte-identical
+# (same sha256 9a93b2b7...) and immutable. Bazel tries `urls` in order, so the
+# GitHub mirror is used first and zlib.net stays as a fallback.
+export WORKSPACE_FILE="$DIR/WORKSPACE"
+if [ -f "$WORKSPACE_FILE" ] && ! grep -q "FLUTTER_GEMMA_ZLIB_MIRROR" "$WORKSPACE_FILE"; then
+  python3 - <<'PYEOF'
+import os
+ws = os.environ['WORKSPACE_FILE']
+with open(ws) as f:
+    s = f.read()
+old = '    url = "https://zlib.net/fossils/zlib-1.3.1.tar.gz",'
+new = ('    # FLUTTER_GEMMA_ZLIB_MIRROR: GitHub release first (immutable, same\n'
+       '    # sha256), zlib.net as fallback — zlib.net is flaky in CI.\n'
+       '    urls = [\n'
+       '        "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",\n'
+       '        "https://zlib.net/fossils/zlib-1.3.1.tar.gz",\n'
+       '    ],')
+if old in s:
+    s = s.replace(old, new)
+    with open(ws, 'w') as f:
+        f.write(s)
+    print("  OK: minizip/zlib mirrored to GitHub release (zlib.net as fallback)")
+else:
+    print("  WARN: minizip zlib.net url line not found; skipping zlib mirror")
+PYEOF
+else
+  if [ -f "$WORKSPACE_FILE" ]; then
+    echo "  SKIP: WORKSPACE already has FLUTTER_GEMMA_ZLIB_MIRROR"
+  fi
+fi
+
 echo "Patch complete."

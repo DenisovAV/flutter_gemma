@@ -180,6 +180,40 @@ for f in "$DIST"/litertlm-*.tar.gz; do
 done
 ```
 
+### ⛔ Three-way checksum consistency — MANDATORY (regression: #316)
+
+`checksums_litertlm.txt` is informational (the build hook does NOT read it —
+it verifies against the `_checksums` map baked into
+`packages/flutter_gemma_litertlm/hook/build.dart`). But a STALE txt is
+dangerous: in #316 a user (`@remingtonc`) hand-verified against the txt during a
+checksum-mismatch debug, the txt said `e24804d9…` while the actual asset was
+`f809c5a2…`, and it sent them down the wrong path. **For every tag you touch,
+the same SHA must appear in all THREE places** — the uploaded `.tar.gz`,
+`checksums_litertlm.txt` on the Release, and the hook's `_checksums` entry.
+Verify after upload:
+
+```bash
+HOOK=packages/flutter_gemma_litertlm/hook/build.dart
+for f in "$DIST"/litertlm-*.tar.gz; do
+  name=$(basename "$f")
+  # 1. actual asset bytes served by GitHub
+  asset=$(curl -sL "https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/$name" | shasum -a 256 | awk '{print $1}')
+  # 2. what checksums_litertlm.txt on the Release claims
+  txt=$(curl -sL "https://github.com/DenisovAV/flutter_gemma/releases/download/$RELEASE/checksums_litertlm.txt" | awk -v n="$name" '$2==n{print $1}')
+  # 3. what the hook expects
+  hook=$(grep -A1 "'$name'" "$HOOK" | grep -oE "[0-9a-f]{64}" | head -1)
+  echo "$name:"
+  echo "  asset=$asset"
+  echo "  txt  =$txt   $([ "$asset" = "$txt" ] && echo OK || echo '❌ STALE TXT')"
+  echo "  hook =$hook   $([ "$asset" = "$hook" ] && echo OK || echo '❌ HOOK MISMATCH — users will fail to build')"
+done
+```
+All three must match for every platform you re-uploaded. If you re-uploaded a
+`.tar.gz` you MUST also re-upload a fresh `checksums_litertlm.txt` in the same
+`gh release upload --clobber` — never one without the other. (#316 is what a
+stale released tag looks like in the wild — see the ⛔ "NEVER overwrite a tag
+referenced by a published plugin version" rule above.)
+
 ## Step 7: Update CHANGELOG.md
 
 Add new section at top. Categories: **App Store / packaging fixes**, **Features**, **Bug fixes**, **Breaking changes**, **Native runtime updates** (if `_nativeVersion` bumped). Reference issue / PR numbers (`#245`, `#239`).

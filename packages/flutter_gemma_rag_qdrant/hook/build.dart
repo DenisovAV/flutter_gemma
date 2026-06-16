@@ -153,9 +153,14 @@ class _NativeBundle {
 /// 0.7.2: normalize the iOS device + simulator dylib `minos` to 13.0 via
 /// `vtool -set-build-version` in build_local.sh, so App Store Connect no
 /// longer rejects the archive with ITMS-90208 (#286 regression in 0.7.1).
+///
+/// 0.7.3: rebuild the Android `.so` with 16 KB ELF LOAD-segment alignment
+/// (`-Wl,-z,max-page-size=16384`), required for Android 15 (16 KB pages) and
+/// Google Play target SDK 35+ uploads (#319). The other six platform archives
+/// are carried over byte-identical from 0.7.2 (only Android changed).
 const _qdrantEdgeBundle = _NativeBundle(
   namespace: 'qdrant_edge',
-  version: '0.7.2',
+  version: '0.7.3',
   releaseTagPrefix: 'qdrant-edge-v',
   archivePrefix: 'qdrant-edge',
   mainLibName: 'qdrant_edge_ffi',
@@ -177,7 +182,7 @@ const _qdrantEdgeBundle = _NativeBundle(
     'qdrant-edge-ios_sim_arm64.tar.gz':
         '09579375e4fbf7bea4b43d98b613cc020b1890381f28bbcc416ec8482cdbfc53',
     'qdrant-edge-android_arm64.tar.gz':
-        '957431c31dc01811feef2231141ba40cf1bb1991c42aab2dc800eb75d937de1d',
+        '0fcf783e04d4344d4e9b39d0b3c897c058268f5a0d43458a45d2219e3792dee5',
   },
 );
 
@@ -264,8 +269,8 @@ Directory _cacheBaseDir() {
 /// COMMIT POINT: call LAST, only after the dylib files are fully in place.
 void _writeMarker(_NativeBundle bundle) {
   bundle.markerFile().writeAsStringSync(
-        jsonEncode({'version': bundle.version, 'owner': _packageName}),
-      );
+    jsonEncode({'version': bundle.version, 'owner': _packageName}),
+  );
 }
 
 /// Wipe stale per-platform cached files when a bundle's version changes. Cheap
@@ -342,7 +347,11 @@ bool _hasMainLib(Directory dir, _NativeBundle bundle, OS os) {
 ///   2. cached `<cacheBase>/<bundle-namespace>/<dirName>/` from a previous
 ///      `_downloadAndExtract`.
 Directory? _resolveLibDir(
-    _NativeBundle bundle, String dirName, Uri packageRoot, OS os) {
+  _NativeBundle bundle,
+  String dirName,
+  Uri packageRoot,
+  OS os,
+) {
   // Local prebuilts use a per-bundle directory layout under `native/`.
   // LiteRT historically uses `native/litert_lm/prebuilt/`. For new bundles
   // we use `native/<namespace>/prebuilt/`.
@@ -363,7 +372,9 @@ Directory? _resolveLibDir(
 // ============================================================================
 
 Future<Directory?> _downloadAndExtract(
-    _NativeBundle bundle, String dirName) async {
+  _NativeBundle bundle,
+  String dirName,
+) async {
   final archiveName = bundle.archiveName(dirName);
   final expectedChecksum = bundle.checksums[archiveName];
   if (expectedChecksum == null) {
@@ -385,7 +396,8 @@ Future<Directory?> _downloadAndExtract(
 
     final url = '${bundle.releaseBase}/$archiveName';
     stderr.writeln(
-        'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...');
+      'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...',
+    );
 
     final client = HttpClient();
     try {
@@ -393,7 +405,8 @@ Future<Directory?> _downloadAndExtract(
       final response = await request.close();
       if (response.statusCode != 200) {
         stderr.writeln(
-            'flutter_gemma: Download failed (HTTP ${response.statusCode})');
+          'flutter_gemma: Download failed (HTTP ${response.statusCode})',
+        );
         return null;
       }
       final sink = archiveFile.openWrite();
@@ -420,13 +433,16 @@ Future<Directory?> _downloadAndExtract(
     if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     tmpDir.createSync(recursive: true);
     try {
-      final result = await Process.run(
-        'tar',
-        ['-xzf', archiveFile.path, '-C', tmpDir.path],
-      );
+      final result = await Process.run('tar', [
+        '-xzf',
+        archiveFile.path,
+        '-C',
+        tmpDir.path,
+      ]);
       if (result.exitCode != 0) {
         stderr.writeln(
-            'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}');
+          'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}',
+        );
         return null;
       }
       if (targetDir.existsSync()) targetDir.deleteSync(recursive: true);
@@ -436,7 +452,8 @@ Future<Directory?> _downloadAndExtract(
     }
     archiveFile.deleteSync();
     stderr.writeln(
-        'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}');
+      'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}',
+    );
     return targetDir;
   } catch (e) {
     stderr.writeln('flutter_gemma: ${bundle.namespace} download failed: $e');

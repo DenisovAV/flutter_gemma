@@ -209,42 +209,42 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.0-rc.1"
+    version: "1.0.0"
   flutter_gemma_embeddings:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_embeddings"
       relative: true
     source: path
-    version: "1.0.0-rc.1"
+    version: "1.0.0"
   flutter_gemma_litertlm:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.0.0-rc.1"
+    version: "1.0.0"
   flutter_gemma_mediapipe:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_mediapipe"
       relative: true
     source: path
-    version: "1.0.0-rc.1"
+    version: "1.0.0"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_qdrant"
       relative: true
     source: path
-    version: "1.0.0-rc.1"
+    version: "1.0.0"
   flutter_gemma_rag_sqlite:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_sqlite"
       relative: true
     source: path
-    version: "1.0.0-rc.1"
+    version: "1.0.0"
   flutter_lints:
     dependency: "direct dev"
     description:

@@ -64,7 +64,7 @@ jobs:
 
       - name: Build StreamProxy.dll
         run: |
-          cl /LD /Fe:StreamProxy.dll packages\flutter_gemma\native\litert_lm\stream_proxy.c
+          cl /LD /Fe:StreamProxy.dll packages\flutter_gemma_litertlm\native\litert_lm\stream_proxy.c
 
       - name: Download DirectXShaderCompiler runtime
         run: |

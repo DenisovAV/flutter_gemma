@@ -164,9 +164,9 @@ const _litertlmBundle = _NativeBundle(
   // 16KB page alignment (NDK r28). Built on native-v0.13.1 tag.
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '7dd32e29e0d432372d6f8abeff04be07ab82c649d97225d051a698458d20e7e6',
+        '2c84bdacd4f367a631270a6b3f8ff87e2d11aa019d8e898a2361f40591667024',
     'litertlm-linux_arm64.tar.gz':
-        '6000cfaa7ba6a5939c15087164358ac462420f27cea41f971fdb67a41676f79b',
+        '79ec60b99076e53bd51e1be4bedeb45abb8d724d1bb45c8acc5c171cc4cde7bd',
     'litertlm-windows_x86_64.tar.gz':
         '466b8de4a78218f36fb616a563e7c1e47e7abd24489bfba47ac483bfdf13d63d',
     'litertlm-macos_arm64.tar.gz':

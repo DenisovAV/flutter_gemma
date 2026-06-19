@@ -1,5 +1,6 @@
 ## 1.0.1
 - Fix empty assistant turn polluting chat history after `stopGeneration()` — cancelled/empty responses are no longer recorded (#325).
+- Point `homepage` to fluttergemma.dev. No code change.
 
 ## 1.0.0
 - Stable 1.0 of the modular package split (see 1.0.0-rc.1 below for full notes).

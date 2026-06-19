@@ -1,7 +1,7 @@
 name: flutter_gemma_embeddings
 description: "On-device text embeddings (Gecko / EmbeddingGemma .tflite via LiteRT + dart:ffi) for flutter_gemma. Opt-in EmbeddingBackendProvider for on-device RAG."
-version: 1.0.0
-homepage: https://github.com/DenisovAV/flutter_gemma
+version: 1.0.1
+homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_embeddings
 topics: [embeddings, gemma, litert, rag, on-device]
 

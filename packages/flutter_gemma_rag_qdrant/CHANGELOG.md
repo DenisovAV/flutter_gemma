@@ -1,3 +1,6 @@
+## 1.0.1
+- Point `homepage` to fluttergemma.dev. No code change.
+
 ## 1.0.0
 - Stable 1.0.0.
 - Rebuild Android `.so` with 16KB page alignment for Android 15 / Play target SDK 35+ (#319; native tag qdrant-edge-v0.7.3).

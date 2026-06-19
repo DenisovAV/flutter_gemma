@@ -1,3 +1,6 @@
+## 1.0.1
+- Point `homepage` to fluttergemma.dev. No code change.
+
 ## 1.0.0
 - Stable 1.0.0; RAG logging routed through `gemmaLog` (silent in release builds).
 

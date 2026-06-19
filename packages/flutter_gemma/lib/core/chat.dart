@@ -572,8 +572,12 @@ class InferenceChat {
     try {
       gemmaLog('InferenceChat: Adding message to history...');
       // For function calls: already added to history when yielded (above)
-      // For text responses: add now since they weren't added during streaming
-      if (!emittedFunctionCall) {
+      // For text responses: add now since they weren't added during streaming.
+      // Skip an EMPTY response: a cancelled stream (stopGeneration before any
+      // text token) ends with response == '', and writing that empty assistant
+      // turn pollutes _modelHistory so later short replies come back empty
+      // (#325). "No text produced" is not a turn worth recording.
+      if (!emittedFunctionCall && response.isNotEmpty) {
         final chatMessage = Message(text: response, isUser: false);
         gemmaLog(
           'InferenceChat: Created text message object: ${chatMessage.text}',

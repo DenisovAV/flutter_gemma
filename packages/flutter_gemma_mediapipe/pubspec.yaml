@@ -1,7 +1,7 @@
 name: flutter_gemma_mediapipe
 description: "MediaPipe (.task) on-device inference engine for flutter_gemma (Android/iOS/Web). Opt-in package; provides an InferenceEngineProvider. Bundles Google's MediaPipe Pod/Gradle deps."
-version: 1.0.0
-homepage: https://github.com/DenisovAV/flutter_gemma
+version: 1.0.1
+homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_mediapipe
 topics: [gemma, llm, mediapipe, on-device, ai]
 

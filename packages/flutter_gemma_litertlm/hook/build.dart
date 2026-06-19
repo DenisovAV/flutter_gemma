@@ -148,7 +148,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.13.1',
+  version: '0.13.1-a',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -159,16 +159,21 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
-  // 0.13.1: LiteRT-LM 0.13.1 (bundles LiteRT post-v2.1.5 main). Fixes the
-  // Gemma 4 E2B MTP/speculative-decoding crash (#318). Android .so rebuilt with
-  // 16KB page alignment (NDK r28). Built on native-v0.13.1 tag.
+  // 0.13.1-a: same LiteRT-LM 0.13.1 build (bundles LiteRT post-v2.1.5 main,
+  // Gemma 4 E2B MTP/speculative-decoding crash fix #318) — with the NPU
+  // dispatch stacks restored on Android (11 Qualcomm/QNN libs) and Windows (12
+  // Intel OpenVino/TBB files), which were accidentally omitted from
+  // native-v0.13.1 (broke PreferredBackend.npu on those platforms in 1.0.0).
+  // Only android_arm64 + windows_x86_64 checksums changed vs 0.13.1; the other
+  // 5 platforms are byte-identical. 16KB page alignment preserved (the ARM64
+  // QNN libs are 16KB-aligned; the *Skel.so are DSP6 blobs, 16KB N/A).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
         '2c84bdacd4f367a631270a6b3f8ff87e2d11aa019d8e898a2361f40591667024',
     'litertlm-linux_arm64.tar.gz':
         '79ec60b99076e53bd51e1be4bedeb45abb8d724d1bb45c8acc5c171cc4cde7bd',
     'litertlm-windows_x86_64.tar.gz':
-        '466b8de4a78218f36fb616a563e7c1e47e7abd24489bfba47ac483bfdf13d63d',
+        'ba2cf8bf67c2dbf8e9faca01585bf5be463c870c6c69ae071fb0157676e399d1',
     'litertlm-macos_arm64.tar.gz':
         '59d7f73d1cb4077ad82fefb0a8d2a506d8c89d61487a7981816dbffe8a3cbe2d',
     'litertlm-ios_arm64.tar.gz':
@@ -176,7 +181,7 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-ios_sim_arm64.tar.gz':
         '08724bafac9381a9fde8658ce5a1137f1f5b966d82dd63e32b2e201d617c0b9d',
     'litertlm-android_arm64.tar.gz':
-        '3a976067216e3d3aa55858f4cc8ee10af813d808b6ab132dbd45d6db56fd3be8',
+        '2705a86f1130f205882551f19352c11a022caf67377d43284d7957c52d3cebf7',
   },
   companions: [
     'GemmaModelConstraintProvider',

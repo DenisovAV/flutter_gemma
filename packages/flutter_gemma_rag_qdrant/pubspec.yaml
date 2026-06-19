@@ -1,7 +1,7 @@
 name: flutter_gemma_rag_qdrant
 description: "qdrant-edge on-device RAG vector store for flutter_gemma (native Rust FFI). Opt-in VectorStoreRepository with payload filtering. Native platforms only (no web)."
-version: 1.0.0
-homepage: https://github.com/DenisovAV/flutter_gemma
+version: 1.0.1
+homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_qdrant
 topics: [rag, qdrant, vector-search, embeddings, on-device]
 

@@ -24,11 +24,11 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.0.0
+  flutter_gemma: ^1.0.1
   ffi: ^2.1.0
   uuid: ^4.0.0
-  hooks: ^1.0.0
-  code_assets: ^1.0.0
+  hooks: ^2.0.0
+  code_assets: ^1.2.0
   crypto: ^3.0.6
 
 dev_dependencies:

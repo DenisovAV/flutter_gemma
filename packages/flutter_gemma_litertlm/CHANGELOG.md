@@ -1,3 +1,6 @@
+## 1.0.1
+- Fix `PreferredBackend.npu` on Android (Qualcomm) + Windows (Intel): native-v0.13.1-a restores the NPU dispatch libs omitted from 1.0.0 (#155).
+
 ## 1.0.0
 - Stable 1.0.0; spec imports redirected off the `dart:io` mobile lib for a wasm-clean web graph.
 

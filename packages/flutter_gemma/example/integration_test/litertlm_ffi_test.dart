@@ -628,6 +628,14 @@ void main() {
     // absent (covers CI and dev machines without NPU hardware).
     String? _findNpuModel() {
       final candidates = <String>[
+        // Android (Qualcomm QNN): SoC-specific .litertlm adb-pushed to the test
+        // dir. sm8750 = Snapdragon 8 Elite (QNN HTP V79). Get it from
+        // litert-community/gemma-4-E2B-it-litert-lm →
+        // gemma-4-E2B-it_qualcomm_sm8750.litertlm. The model is device-specific:
+        // engine_create rejects it on a non-matching SoC.
+        if (Platform.isAndroid)
+          '$_androidDir/gemma-4-E2B-it_qualcomm_sm8750.litertlm',
+        // Windows (Intel NPU): LunarLake/PantherLake-compiled model.
         if (Platform.isWindows)
           '${Platform.environment['USERPROFILE']}\\dev-gemma4-2b-lnl\\gemma4_2b_lnl.litertlm',
         if (Platform.isLinux || Platform.isMacOS)
@@ -650,15 +658,17 @@ void main() {
         fileType: ModelFileType.litertlm,
       ).fromFile(npuModelPath).install();
       await _closeSharedModel();
-      try {
-        return await FlutterGemma.getActiveModel(
-          maxTokens: 4096,
-          preferredBackend: PreferredBackend.npu,
-        );
-      } catch (e) {
-        print('[Gemma4 NPU] SKIP engine_create failed: $e');
-        return null;
-      }
+      // NO try/catch: the NPU model IS present, so a failure in
+      // getActiveModel(npu) is a REAL regression (missing dispatch libs #155,
+      // ABI skew, etc.) and MUST fail the test loudly. Swallowing it here is
+      // exactly how the native-v0.13.1 NPU-libs-missing bug passed green — the
+      // model wasn't staged so the test silently skipped, and even with a model
+      // the catch would have hidden the dispatch_lib_dir failure. "No model" is
+      // a legit skip (handled above); "model present but engine threw" is a FAIL.
+      return await FlutterGemma.getActiveModel(
+        maxTokens: 4096,
+        preferredBackend: PreferredBackend.npu,
+      );
     }
 
     testWidgets('NPU engine_create accepts non-default sampler params', (

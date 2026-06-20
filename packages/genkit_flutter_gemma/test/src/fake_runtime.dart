@@ -92,6 +92,7 @@ class FakeInferenceModel extends gemma.InferenceModel {
     gemma.ToolChoice toolChoice = gemma.ToolChoice.auto,
     String? systemInstruction,
     int? maxFunctionBufferLength,
+    int? maxOutputTokens,
   }) async {
     createChatCallCount++;
     lastToolChoice = toolChoice;
@@ -112,6 +113,7 @@ class FakeInferenceModel extends gemma.InferenceModel {
     String? systemInstruction,
     bool enableThinking = false,
     List<gemma.Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     throw UnimplementedError('FakeInferenceModel.createSession');
   }

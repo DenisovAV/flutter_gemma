@@ -67,6 +67,22 @@ class SiteFooter extends StatelessComponent {
                     [Component.text('flutter_gemma_rag_sqlite')],
                   ),
                 ]),
+                li([
+                  a(
+                    href: 'https://pub.dev/packages/genkit_flutter_gemma',
+                    classes: 'footer-link',
+                    attributes: {'target': '_blank', 'rel': 'noopener'},
+                    [Component.text('genkit_flutter_gemma')],
+                  ),
+                ]),
+                li([
+                  a(
+                    href: 'https://pub.dev/packages/genkit_hybrid',
+                    classes: 'footer-link',
+                    attributes: {'target': '_blank', 'rel': 'noopener'},
+                    [Component.text('genkit_hybrid')],
+                  ),
+                ]),
               ]),
             ]),
             // Docs column

@@ -54,3 +54,14 @@ format only. There is no MediaPipe engine on desktop. See
 Migrating from the 0.16.x monolith is just adding these packages plus one
 `initialize(...)` call — every model / session / chat / embedding / RAG API is
 unchanged. See [Migration (0.x → 1.0)](/docs/migration).
+
+## Genkit integration
+
+Two companion packages integrate flutter_gemma with [Genkit](https://pub.dev/packages/genkit), Google's framework for building AI features:
+
+| Package | What it does | Depends on |
+|---|---|---|
+| **`genkit_flutter_gemma`** | Exposes flutter_gemma as a Genkit model/embedder provider — call `ai.generate(model: flutterGemma.model(...))` and `ai.embed(...)` through the standard Genkit API. | `flutter_gemma` + `genkit` |
+| **`genkit_hybrid`** | Provider-agnostic hybrid routing: combine an on-device and a cloud model behind one routing policy, with correct streaming + before-first-token fallback. | `genkit` only (no flutter_gemma) |
+
+See [Genkit](/docs/genkit) for setup and examples.

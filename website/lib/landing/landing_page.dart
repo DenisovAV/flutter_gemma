@@ -70,17 +70,20 @@ class LandingPage extends StatelessComponent {
       textAlign: TextAlign.center,
       margin: Margin.only(bottom: 1.rem, top: 0.px),
     ),
-    // Shared btn styles (primary/outline defined per-section but base here)
-    css('img').styles(
+    // Landing-only resets — SCOPED under `.landing-root` so they don't leak
+    // into the docs pages (this @css is bundled site-wide). A global
+    // `ul{padding:0}` / heading reset flattened the docs' jaspr_content
+    // typography (list indentation, heading spacing).
+    css('.landing-root img').styles(
       maxWidth: 100.percent,
       height: Unit.auto,
       display: Display.block,
     ),
-    css('h1, h2, h3, h4').styles(
+    css('.landing-root h1, .landing-root h2, .landing-root h3, .landing-root h4').styles(
       margin: Margin.zero,
       padding: Padding.zero,
     ),
-    css('ul').styles(
+    css('.landing-root ul').styles(
       margin: Margin.zero,
       padding: Padding.zero,
     ),

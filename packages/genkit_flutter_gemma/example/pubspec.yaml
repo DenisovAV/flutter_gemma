@@ -2,7 +2,7 @@ name: genkit_flutter_gemma_example
 publish_to: 'none'
 
 environment:
-  sdk: '>=3.10.0 <4.0.0'
+  sdk: '>=3.12.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -24,6 +24,16 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+
+dependency_overrides:
+  flutter_gemma:
+    path: ../../flutter_gemma
+  flutter_gemma_litertlm:
+    path: ../../flutter_gemma_litertlm
+  flutter_gemma_mediapipe:
+    path: ../../flutter_gemma_mediapipe
+  flutter_gemma_embeddings:
+    path: ../../flutter_gemma_embeddings
 
 flutter:
   uses-material-design: true

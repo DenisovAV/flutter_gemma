@@ -58,6 +58,7 @@ There is an example of using:
 - 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
 - ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.
 - 🧹 **Legacy sqlite+local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); web on wa-sqlite (`flutter_gemma_rag_sqlite`).
+- 🧩 **Genkit integration** — use flutter_gemma through [Genkit](https://pub.dev/packages/genkit) via [`genkit_flutter_gemma`](https://pub.dev/packages/genkit_flutter_gemma), and route between on-device and cloud models with [`genkit_hybrid`](https://pub.dev/packages/genkit_hybrid). See [docs](https://fluttergemma.dev/docs/genkit).
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
 

@@ -32,7 +32,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 # No `flutter:` plugin/asset block. This package has NO hand-written native
 # code and NO web platform-channel class. sqlite3 is a normal pub dep that

@@ -114,6 +114,12 @@ void main() {
                   ],
                 ),
                 SidebarGroup(
+                  title: 'Integrations',
+                  links: [
+                    SidebarLink(text: 'Genkit', href: '/docs/genkit'),
+                  ],
+                ),
+                SidebarGroup(
                   title: 'Reference',
                   links: [
                     SidebarLink(text: 'Packages', href: '/docs/packages'),

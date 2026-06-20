@@ -1,6 +1,6 @@
 name: genkit_flutter_gemma
 description: Genkit Dart plugin for flutter_gemma - local on-device AI inference via Google Gemma models.
-version: 0.4.0
+version: 0.4.1
 homepage: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/genkit_flutter_gemma
 repository: https://github.com/DenisovAV/flutter_gemma
 issue_tracker: https://github.com/DenisovAV/flutter_gemma/issues

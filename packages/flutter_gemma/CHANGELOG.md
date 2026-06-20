@@ -1,5 +1,5 @@
 ## 1.0.2
-- Add `maxOutputTokens` on `createSession`/`openSession` to cap generation length (#318).
+- Add `maxOutputTokens` on `createSession`/`openSession`/`createChat`/`openChat` to cap generation length (#318).
 - Clarify `maxTokens` dartdoc: it's the context window (input + output), not reply length.
 
 ## 1.0.1

@@ -578,6 +578,23 @@ final response = await chat.generateChatResponse();
 await model.close();
 ```
 
+> **`maxTokens` vs `maxOutputTokens` — don't confuse them.**
+> `maxTokens` is the **context window**: the total budget shared by the input
+> (system prompt + history + your message) **and** the generated reply — i.e.
+> the KV-cache size. It is **not** the response length. `.litertlm` models
+> require a context window of at least **1024**; passing a smaller `maxTokens`
+> (e.g. `100`) used to crash with `DYNAMIC_UPDATE_SLICE` and is now clamped up
+> to 1024 automatically (#318).
+>
+> To limit how many tokens the model **generates**, use `maxOutputTokens` on
+> `createSession` / `openSession` / `createChat` / `openChat` instead:
+> ```dart
+> final model = await FlutterGemma.getActiveModel(maxTokens: 1024); // context
+> final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
+> ```
+> (`maxOutputTokens` is honored on `.litertlm`; MediaPipe `.task` has no
+> session-level output cap and ignores it.)
+
 ### System Instructions
 
 Control model behavior with a system-level instruction:

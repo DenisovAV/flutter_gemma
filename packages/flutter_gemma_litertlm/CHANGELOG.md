@@ -1,6 +1,6 @@
 ## 1.0.2
 - Clamp `maxTokens` up to 1024 (min context for .litertlm) to fix the DYNAMIC_UPDATE_SLICE crash (#318).
-- Honor `maxOutputTokens` on `createSession` via native `set_max_output_tokens`.
+- Honor `maxOutputTokens` (session + chat) via native `set_max_output_tokens`; skipped on NPU.
 
 ## 1.0.1
 - Fix `PreferredBackend.npu` on Android (Qualcomm) + Windows (Intel): native-v0.13.1-a restores the NPU dispatch libs omitted from 1.0.0 (#155).

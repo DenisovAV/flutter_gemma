@@ -17,9 +17,24 @@ glibc, Windows DXC, stale GPU shader cache) see
 ## Memory
 
 - **iOS:** ensure `Runner.entitlements` contains the memory entitlements and the Podfile sets `platform :ios, '16.0'`. See [Installation → iOS](/docs/installation#ios).
-- Reduce `maxTokens` if you hit memory pressure.
+- Reduce `maxTokens` if you hit memory pressure — but **keep it at 1024 or higher for `.litertlm` models** (see "maxTokens vs maxOutputTokens" below). To shorten replies, use `maxOutputTokens`, not a smaller `maxTokens`.
 - Use smaller models (1B-2B parameters) for devices with <6GB RAM. Multimodal models (Gemma 4, Gemma3n) need 8GB+.
 - Close sessions and models when not needed; monitor usage with `sizeInTokens()`.
+
+## maxTokens vs maxOutputTokens
+
+`maxTokens` (on `getActiveModel`/`createModel`) is the **context window** — the total budget shared by the input (system prompt + history + your message) **and** the generated output (the KV-cache size). It is **not** the reply length.
+
+`.litertlm` models require a context window of at least **1024**. Passing a smaller `maxTokens` (e.g. `100`) used to crash with `DYNAMIC_UPDATE_SLICE failed to prepare` / `Failed to allocate tensors` (even on CPU — the failure is at graph compile, before the backend runs). As of **1.0.2** a too-small `maxTokens` is clamped up to 1024 automatically with a log warning.
+
+To limit how many tokens the model **generates**, use `maxOutputTokens` on `createSession`/`openSession`/`createChat`/`openChat` instead:
+
+```dart
+final model = await FlutterGemma.getActiveModel(maxTokens: 1024); // context window
+final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
+```
+
+(`maxOutputTokens` is honored on `.litertlm`; the MediaPipe `.task` path has no session-level output cap and ignores it.)
 
 ## iOS
 

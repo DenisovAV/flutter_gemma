@@ -29,12 +29,12 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.0.0                 # core — always required
-  flutter_gemma_litertlm: ^1.0.0        # add if you run .litertlm models
-  flutter_gemma_mediapipe: ^1.0.0       # add if you run .task / .bin models
-  flutter_gemma_embeddings: ^1.0.0      # add if you compute embeddings
-  flutter_gemma_rag_qdrant: ^1.0.0      # add for native on-device RAG
-  flutter_gemma_rag_sqlite: ^1.0.0      # add for web (or native sqlite) RAG
+  flutter_gemma: ^1.0.2                 # core — always required
+  flutter_gemma_litertlm: ^1.0.2        # add if you run .litertlm models
+  flutter_gemma_mediapipe: ^1.0.2       # add if you run .task / .bin models
+  flutter_gemma_embeddings: ^1.0.1      # add if you compute embeddings
+  flutter_gemma_rag_qdrant: ^1.0.1      # add for native on-device RAG
+  flutter_gemma_rag_sqlite: ^1.0.1      # add for web (or native sqlite) RAG
 ```
 
 Pick by what you actually used in 0.16.x:

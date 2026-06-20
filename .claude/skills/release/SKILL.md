@@ -62,6 +62,9 @@ If **any** dylib changed → must re-publish GitHub Release archives **and** upd
 ### 1c. patch_c_api.sh / build_*.sh / WORKSPACE patch changed?
 This implies (1b) — verify dylibs were actually rebuilt against the new patches. If not, rebuild before continuing (see "Rebuild native dylibs" below).
 
+### 1d. Website (`website/`, fluttergemma.dev) — ALWAYS in scope
+Every release touches the site. At minimum the package versions hardcoded in its docs must be bumped to the just-published versions (Step 12a) — this is required even for a version-only release. On top of that, any new/changed public API, breaking change, or common pitfall must be documented (Step 12b). Don't defer to "later" — stale docs outlive the release.
+
 ## Step 2: Bump versions
 
 Always:
@@ -291,6 +294,38 @@ The `.github/workflows/release.yml` triggers on `v*.*.*` tag push and creates a 
 gh run list --workflow release.yml --limit 3
 gh release view v0.14.1
 ```
+
+## Step 12: Reflect the release on the website (fluttergemma.dev)
+
+**MANDATORY ON EVERY RELEASE.** The docs site lives in this repo at `website/` (Jaspr static site → Firebase Hosting). Stale docs are a support-burden multiplier — every doc that still shows the old version or omits a new API generates issues.
+
+### 12a. ALWAYS bump the package versions shown on the site (even for a pure version-only release)
+
+The site hardcodes `^X.Y.Z` in pubspec snippets across the docs — these MUST match the versions you just published, or new users copy-paste outdated deps. This is required **every single release**, regardless of whether code changed. Find every stale reference:
+```bash
+cd website
+grep -rnE "flutter_gemma[a-z_]*: *\^?[0-9]+\.[0-9]+\.[0-9]+" content/
+```
+Update each `^X.Y.Z` for all six packages (`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`. Cross-check against pub.dev so the site never lags the published packages.
+
+### 12b. Update docs for any behavior/API change
+- **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).
+- **Breaking changes / migrations** → `migration.md`.
+- **A bug class users hit** → `troubleshooting.md` (e.g. the #318 `maxTokens` vs `maxOutputTokens` confusion belongs here).
+
+### 12c. Deploy — it's automatic on merge to main
+
+**You do NOT run a manual deploy.** `.github/workflows/firebase-hosting-merge.yml` auto-deploys to Firebase Hosting (`aichat-c0c27`, target `fluttergemma`, https://fluttergemma.dev → live channel) on every push to `main` that touches `website/**` or `packages/flutter_gemma/example/**`. So:
+
+1. Commit the `website/` changes (same author rule, no AI attribution) on your release branch / PR.
+2. When the PR merges to `main`, the workflow builds the Jaspr SSG + the Flutter web example (`/try`) and deploys automatically.
+3. Verify the run + spot-check the live page:
+   ```bash
+   gh run list --workflow firebase-hosting-merge.yml --limit 3
+   # then open https://fluttergemma.dev/docs/... and confirm the change is live
+   ```
+
+A manual `./deploy.sh` exists in `website/` for local one-off deploys (it does the same build + `firebase deploy`), but the merge workflow is the normal path — don't run it by hand unless the workflow is broken. The site is NOT on pub.dev; `dart pub publish` never touches it — only this workflow (or `deploy.sh`) does.
 
 ## Common gotchas
 

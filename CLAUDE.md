@@ -89,6 +89,18 @@
 
 ## SDK Gotchas (Non-Obvious)
 
+### ⚠️ maxTokens = CONTEXT window, not output length (#318)
+`maxTokens` (on `getActiveModel`/`createModel`) is the whole **context window** — input (system + history + message) **plus** generated output, i.e. the KV-cache budget. It is **NOT** the response length. `.litertlm` models bake a `kv_cache_max_len` (1024 for every supported model — Gemma 4 E2B, FunctionGemma, …); a `maxTokens` below it underflows the native magic-number KV-cache resize and `DYNAMIC_UPDATE_SLICE` fails to allocate tensors at generation (cryptic `Stream error: INTERNAL: …executor.cc:734`). Verified on Pixel 8a (CPU): 100/256/512 crash, 1024/4096 work.
+- The litertlm engine now **clamps `maxTokens` up to 1024** with a `gemmaLog` warning (`clampLitertlmContextTokens` in `flutter_gemma_litertlm/lib/src/litert_lm_engine.dart`). MediaPipe `.task` tolerates small values and is not clamped.
+- To cap **generation length**, use the new **`maxOutputTokens`** on `createSession`/`openSession` → native `set_max_output_tokens` (litertlm only; MediaPipe has no session-level output cap and logs that it's ignored).
+```dart
+// ❌ WRONG - meant "100-token reply", actually shrinks the context → crash on .litertlm
+await FlutterGemma.getActiveModel(maxTokens: 100);
+// ✅ CORRECT - context stays 1024+, output is capped at 100
+final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+final session = await model.createSession(maxOutputTokens: 100);
+```
+
 ### ⚠️ Message.isUser defaults to false!
 ```dart
 // ❌ WRONG - empty response (isUser defaults to false)

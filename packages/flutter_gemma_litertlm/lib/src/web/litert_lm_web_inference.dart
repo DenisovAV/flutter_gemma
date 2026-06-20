@@ -182,6 +182,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(
@@ -193,6 +194,13 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
         'LoRA weights are not supported on the .litertlm web path '
         '(loraPath=$loraPath). Track upstream @litert-lm/core; remove '
         'loraPath or use a MediaPipe .task web model.',
+      );
+    }
+    if (maxOutputTokens != null) {
+      gemmaLog(
+        '[LiteRtLmWeb] maxOutputTokens ($maxOutputTokens) is not yet wired on '
+        'the .litertlm web path; ignoring. The whole context window (maxTokens) '
+        'still applies.',
       );
     }
 
@@ -280,6 +288,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(

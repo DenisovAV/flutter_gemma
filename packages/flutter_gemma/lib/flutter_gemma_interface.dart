@@ -41,7 +41,14 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Creates and returns a new [InferenceModel] instance.
   ///
   /// [modelType] — model type to create.
-  /// [maxTokens] — maximum context length for the model.
+  /// [maxTokens] — the model's CONTEXT WINDOW: the total number of tokens
+  /// shared by input (system prompt + history + current message) AND the
+  /// generated output, i.e. the KV-cache budget. It is NOT the maximum
+  /// response length — to cap how much is generated, use `maxOutputTokens`
+  /// on [InferenceModel.createSession]. `.litertlm` models require a context
+  /// window of at least 1024 (their baked `kv_cache_max_len`); a smaller
+  /// value is clamped up to 1024 to avoid a native tensor-allocation crash
+  /// (#318). The default (1024) is safe for every supported model.
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
   /// [loraRanks] — optional supported LoRA ranks.
   /// [maxNumImages] — maximum number of images (for multimodal models).
@@ -166,6 +173,17 @@ abstract class InferenceModel {
   /// [loraPath] — optional path to LoRA model.
   /// [enableVisionModality] — enable vision modality for multimodal models.
   /// [enableAudioModality] — enable audio modality for Gemma 3n E4B models.
+  ///
+  /// [maxOutputTokens] — optional cap on how many tokens this session
+  /// *generates* per response. This is the GENERATION length, distinct from
+  /// the model's `maxTokens` (the whole CONTEXT WINDOW — input + output —
+  /// passed to `createModel`/`getActiveModel`). To make the model produce a
+  /// short reply, set `maxOutputTokens` (e.g. 100) and leave `maxTokens` at
+  /// the default; do NOT lower `maxTokens` to 100 — `.litertlm` models require
+  /// a context window of at least 1024 and will fail to allocate tensors
+  /// below it (#318). Currently honored on the `.litertlm` (FFI) path; the
+  /// MediaPipe `.task` path has no session-level output cap and ignores it
+  /// (a log line is emitted).
   Future<InferenceModelSession> createSession({
     double temperature = .8,
     int randomSeed = 1,
@@ -179,6 +197,7 @@ abstract class InferenceModel {
         false, // Enable thinking mode (Gemma 4 via extraContext)
     List<Tool> tools =
         const [], // Native tool calling (Gemma 4 → SDK tools_json)
+    int? maxOutputTokens, // Cap GENERATED tokens (not the context window)
   });
 
   /// Opens a new session detached from [session]. Each call returns a
@@ -241,6 +260,7 @@ abstract class InferenceModel {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     throw UnsupportedError(
       'openSession() is not supported for $runtimeType. '
@@ -275,6 +295,7 @@ abstract class InferenceModel {
     ToolChoice toolChoice = ToolChoice.auto, // Tool calling mode
     int? maxFunctionBufferLength,
     String? systemInstruction,
+    int? maxOutputTokens, // Cap GENERATED tokens (see createSession)
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -287,6 +308,7 @@ abstract class InferenceModel {
         enableAudioModality: supportAudio ?? false,
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
+        maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
@@ -335,6 +357,7 @@ abstract class InferenceModel {
     ToolChoice toolChoice = ToolChoice.auto,
     int? maxFunctionBufferLength,
     String? systemInstruction,
+    int? maxOutputTokens, // Cap GENERATED tokens (see createSession)
   }) async {
     final independentChat = InferenceChat(
       sessionCreator: () => openSession(
@@ -348,6 +371,7 @@ abstract class InferenceModel {
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
         tools: tools,
+        maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,

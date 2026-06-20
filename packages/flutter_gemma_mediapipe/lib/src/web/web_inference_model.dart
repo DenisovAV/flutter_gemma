@@ -108,6 +108,7 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
     bool enableThinking = false, // Not supported on Web (MediaPipe)
     List<Tool> tools =
         const [], // Tools wired through chat.dart prompt; SDK tools_json N/A on web
+    int? maxOutputTokens,
   }) async {
     // Thinking mode not supported on Web (MediaPipe has no extraContext/channels API)
     if (enableThinking) {
@@ -117,6 +118,12 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
           'Use Android or Desktop with .litertlm models for Gemma 4 thinking mode.',
         );
       }
+    }
+    if (maxOutputTokens != null) {
+      gemmaLog(
+        '[MediaPipe Web] maxOutputTokens ($maxOutputTokens) is not supported '
+        'on the .task web path (no session-level output cap); ignoring.',
+      );
     }
 
     // TODO: Implement vision modality for web

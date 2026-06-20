@@ -1,3 +1,6 @@
+## 1.0.2
+- Accept `maxOutputTokens` (session + chat) for interface parity; MediaPipe has no output cap, so it's logged + ignored (#318).
+
 ## 1.0.1
 - Point `homepage` to fluttergemma.dev. No code change.
 

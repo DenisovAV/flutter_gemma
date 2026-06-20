@@ -1,3 +1,8 @@
+## 0.4.1
+
+- Move the package into the [flutter_gemma monorepo](https://github.com/DenisovAV/flutter_gemma) (`packages/genkit_flutter_gemma`); `repository`/`homepage` links updated accordingly. No API or behavioral changes.
+- Bump `flutter_gemma` dependency constraint to `^1.0.1`.
+
 ## 0.4.0
 
 - Bump flutter_gemma dependency to ^1.0.0 (modular package split: core + opt-in engine/backend packages)

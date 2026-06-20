@@ -71,6 +71,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(
@@ -128,6 +129,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         topK: topK,
         topP: topP,
         seed: randomSeed,
+        maxOutputTokens: maxOutputTokens,
       );
       gemmaLog(
         '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms',
@@ -181,6 +183,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(
@@ -221,6 +224,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       topK: topK,
       topP: topP,
       seed: randomSeed,
+      maxOutputTokens: maxOutputTokens,
     );
 
     late final FfiInferenceModelSession session;
@@ -578,6 +582,7 @@ class _VirtualConversationHandle implements ConversationHandle {
     required this.topK,
     required this.topP,
     required this.seed,
+    this.maxOutputTokens,
   });
 
   final LiteRtLmFfiClient client;
@@ -587,6 +592,7 @@ class _VirtualConversationHandle implements ConversationHandle {
   final int topK;
   final double? topP;
   final int seed;
+  final int? maxOutputTokens;
 
   /// Unique identity for this virtual session — the client uses it to tell
   /// whether the live conversation already holds this session's history.
@@ -639,6 +645,7 @@ class _VirtualConversationHandle implements ConversationHandle {
         topP: topP,
         seed: seed,
         extraContext: extraContext,
+        maxOutputTokens: maxOutputTokens,
       )) {
         final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
         assistantText.write(chunkText);

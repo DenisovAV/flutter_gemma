@@ -57,6 +57,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) => throw UnsupportedError('web stub — never instantiated');
 
   @override

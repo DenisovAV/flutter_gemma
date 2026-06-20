@@ -7,6 +7,7 @@ import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModel, InferenceModelSession;
 
@@ -140,10 +141,21 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     bool enableThinking = false,
     List<Tool> tools =
         const [], // MediaPipe path: tools handled via chat.dart prompt
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(
         'Model is closed. Create a new instance to use it again',
+      );
+    }
+    if (maxOutputTokens != null) {
+      // MediaPipe's `maxTokens` is a single total (input + output) set at
+      // model creation; LlmInferenceSessionOptions has no per-session output
+      // cap. Honor the call but make the limitation explicit.
+      gemmaLog(
+        '[MediaPipe] maxOutputTokens ($maxOutputTokens) is not supported on '
+        'the .task path (no session-level output cap); ignoring. Use a smaller '
+        'maxTokens on createModel, or the .litertlm engine, to bound output.',
       );
     }
     // Single-flight guard for genuinely *concurrent* callers only. Unlike
@@ -240,6 +252,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     String? systemInstruction,
     bool enableThinking = false,
     List<Tool> tools = const [],
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(

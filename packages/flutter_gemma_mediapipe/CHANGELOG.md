@@ -1,3 +1,6 @@
+## 1.0.2
+- Accept `maxOutputTokens` on `createSession` for interface parity (no session-level output cap on MediaPipe; logged + ignored) (#318).
+
 ## 1.0.1
 - Point `homepage` to fluttergemma.dev. No code change.
 

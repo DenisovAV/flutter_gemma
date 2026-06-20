@@ -1,3 +1,7 @@
+## 1.0.2
+- Add `maxOutputTokens` on `createSession`/`openSession` to cap generation length (#318).
+- Clarify `maxTokens` dartdoc: it's the context window (input + output), not reply length.
+
 ## 1.0.1
 - Fix empty assistant turn polluting chat history after `stopGeneration()` — cancelled/empty responses are no longer recorded (#325).
 - Point `homepage` to fluttergemma.dev. No code change.

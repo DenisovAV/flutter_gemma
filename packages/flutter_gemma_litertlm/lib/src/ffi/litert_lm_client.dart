@@ -694,6 +694,7 @@ class LiteRtLmFfiClient {
     int topK = 40,
     double? topP,
     int seed = 1,
+    int? maxOutputTokens,
   }) {
     final conv = _createRawConversation(
       systemMessage: systemMessage,
@@ -703,6 +704,7 @@ class LiteRtLmFfiClient {
       topK: topK,
       topP: topP,
       seed: seed,
+      maxOutputTokens: maxOutputTokens,
     );
     gemmaLog('[LiteRtLmFfi] Conversation created');
     final handle = LiteRtLmConversationHandle._(this, conv);
@@ -725,6 +727,7 @@ class LiteRtLmFfiClient {
     int topK = 40,
     double? topP,
     int seed = 1,
+    int? maxOutputTokens,
   }) {
     _assertInitialized();
     final b = _bindings!;
@@ -767,6 +770,16 @@ class LiteRtLmFfiClient {
         '[LiteRtLmFfi] NPU backend — sampler params '
         '(temperature, topK, topP, seed) ignored, engine uses '
         'internal greedy sampling.',
+      );
+    }
+
+    // Optional per-session cap on how many tokens are *generated* (output),
+    // independent of the engine's context window (maxTokens / KV-cache). This
+    // is what callers usually want when they say "limit the response length".
+    if (maxOutputTokens != null) {
+      b.litert_lm_session_config_set_max_output_tokens(
+        sessionConfig,
+        maxOutputTokens,
       );
     }
 
@@ -1022,6 +1035,7 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     String? extraContext,
+    int? maxOutputTokens,
   }) {
     // StreamController (not async*) so the mutex release is tied to the
     // controller lifecycle — it fires on done, error, AND consumer cancel /
@@ -1077,6 +1091,7 @@ class LiteRtLmFfiClient {
             topK: topK,
             topP: topP,
             seed: seed,
+            maxOutputTokens: maxOutputTokens,
           );
           _virtualActiveToken = conversationToken;
         }

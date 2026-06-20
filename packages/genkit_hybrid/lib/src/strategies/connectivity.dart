@@ -5,12 +5,10 @@ import '../routing_strategy.dart';
 /// depends on no connectivity SDK.
 class ConnectivityStrategy implements RoutingStrategy {
   ConnectivityStrategy({
-    required bool Function() isOnline,
-    required String online,
-    required String offline,
-  })  : _isOnline = isOnline,
-        _online = online,
-        _offline = offline;
+    required this._isOnline,
+    required this._online,
+    required this._offline,
+  });
 
   final bool Function() _isOnline;
   final String _online;

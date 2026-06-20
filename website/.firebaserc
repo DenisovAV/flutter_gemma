@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "aichat-c0c27"
+  },
+  "targets": {
+    "aichat-c0c27": {
+      "hosting": {
+        "fluttergemma": [
+          "fluttergemma"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

@@ -1,0 +1,60 @@
+# Auto-deploy the fluttergemma.dev website to Firebase Hosting on push to main.
+# Builds two artifacts onto one hosting site:
+#   /  + /docs/*  -> Jaspr static site (website/)
+#   /try/...      -> the Flutter web example app (live demo)
+name: Deploy website to Firebase Hosting (merge)
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+      - 'packages/flutter_gemma/example/**'
+      - '.github/workflows/firebase-hosting-merge.yml'
+  # Allow manual runs from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter (bundles Dart)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Install Jaspr CLI
+        run: dart pub global activate jaspr_cli
+
+      - name: Build Jaspr site (SSG)
+        working-directory: website
+        run: |
+          export PATH="$HOME/.pub-cache/bin:$PATH"
+          dart pub get
+          jaspr build --sitemap-domain "https://fluttergemma.dev"
+
+      - name: Build Flutter web example (live demo at /try)
+        working-directory: packages/flutter_gemma/example
+        run: |
+          flutter pub get
+          flutter build web --release --base-href /try/
+
+      - name: Assemble /try into the Jaspr build output
+        run: |
+          rm -rf website/build/jaspr/try
+          mkdir -p website/build/jaspr/try
+          cp -R packages/flutter_gemma/example/build/web/. website/build/jaspr/try/
+
+      - name: Deploy to Firebase Hosting (live)
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AICHAT_C0C27 }}
+          channelId: live
+          projectId: aichat-c0c27
+          entryPoint: website
+          target: fluttergemma

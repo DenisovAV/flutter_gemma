@@ -776,11 +776,21 @@ class LiteRtLmFfiClient {
     // Optional per-session cap on how many tokens are *generated* (output),
     // independent of the engine's context window (maxTokens / KV-cache). This
     // is what callers usually want when they say "limit the response length".
+    // Skipped on NPU for the same reason as sampler params: the NPU executor
+    // only supports internal greedy sampling and rejects extra session config
+    // upstream — setting it there risks engine_create/generation failures.
     if (maxOutputTokens != null) {
-      b.litert_lm_session_config_set_max_output_tokens(
-        sessionConfig,
-        maxOutputTokens,
-      );
+      if (_backend != 'npu') {
+        b.litert_lm_session_config_set_max_output_tokens(
+          sessionConfig,
+          maxOutputTokens,
+        );
+      } else {
+        gemmaLog(
+          '[LiteRtLmFfi] NPU backend — maxOutputTokens ($maxOutputTokens) '
+          'ignored (NPU executor uses internal greedy sampling).',
+        );
+      }
     }
 
     final systemPtr = systemMessage?.toNativeUtf8();

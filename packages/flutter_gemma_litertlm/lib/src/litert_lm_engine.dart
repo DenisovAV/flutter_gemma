@@ -5,7 +5,7 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
-import 'package:meta/meta.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path_provider/path_provider.dart';
 
 import 'ffi/backend_preference.dart';

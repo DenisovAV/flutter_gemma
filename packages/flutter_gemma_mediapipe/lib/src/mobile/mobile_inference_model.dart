@@ -56,6 +56,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
     ToolChoice toolChoice = ToolChoice.auto,
     int? maxFunctionBufferLength,
     String? systemInstruction,
+    int? maxOutputTokens,
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -68,6 +69,7 @@ class MobileInferenceModel extends InferenceModel with CloseNotifier {
         enableAudioModality: supportAudio ?? this.supportAudio,
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
+        maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,

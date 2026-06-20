@@ -295,6 +295,7 @@ abstract class InferenceModel {
     ToolChoice toolChoice = ToolChoice.auto, // Tool calling mode
     int? maxFunctionBufferLength,
     String? systemInstruction,
+    int? maxOutputTokens, // Cap GENERATED tokens (see createSession)
   }) async {
     chat = InferenceChat(
       sessionCreator: () => createSession(
@@ -307,6 +308,7 @@ abstract class InferenceModel {
         enableAudioModality: supportAudio ?? false,
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
+        maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,
@@ -355,6 +357,7 @@ abstract class InferenceModel {
     ToolChoice toolChoice = ToolChoice.auto,
     int? maxFunctionBufferLength,
     String? systemInstruction,
+    int? maxOutputTokens, // Cap GENERATED tokens (see createSession)
   }) async {
     final independentChat = InferenceChat(
       sessionCreator: () => openSession(
@@ -368,6 +371,7 @@ abstract class InferenceModel {
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
         tools: tools,
+        maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,

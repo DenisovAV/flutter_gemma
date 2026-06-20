@@ -258,6 +258,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
     ToolChoice toolChoice = ToolChoice.auto,
     int? maxFunctionBufferLength,
     String? systemInstruction,
+    int? maxOutputTokens,
   }) async {
     if (_isClosed) {
       throw StateError(
@@ -276,6 +277,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         systemInstruction: systemInstruction,
         enableThinking: isThinking,
         tools: tools,
+        maxOutputTokens: maxOutputTokens,
       ),
       maxTokens: maxTokens,
       tokenBuffer: tokenBuffer,

@@ -115,7 +115,7 @@ final response = await ai.generate(
     maxTokens: 2048,
     temperature: 0.5,
     topK: 40,
-    isThinking: false,
+    supportImage: true,
   ),
 );
 ```

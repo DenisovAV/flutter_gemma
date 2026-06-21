@@ -37,7 +37,10 @@ Model fakeModel({
       }
       return ModelResponse(
         finishReason: FinishReason.stop,
-        message: Message(role: Role.model, content: [TextPart(text: text)]),
+        message: Message(
+          role: Role.model,
+          content: [TextPart(text: text)],
+        ),
       );
     },
   );

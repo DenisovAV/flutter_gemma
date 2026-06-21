@@ -15,6 +15,7 @@ class ConnectivityStrategy implements RoutingStrategy {
   final String _offline;
 
   @override
-  List<String> route(RoutingContext context) =>
-      [_isOnline() ? _online : _offline];
+  List<String> route(RoutingContext context) => [
+    _isOnline() ? _online : _offline,
+  ];
 }

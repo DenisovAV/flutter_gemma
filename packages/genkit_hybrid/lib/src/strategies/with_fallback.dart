@@ -6,7 +6,7 @@ import '../routing_strategy.dart';
 /// [inner] are not duplicated (inner order preserved, then remaining tail).
 class WithFallback implements RoutingStrategy {
   WithFallback(this._inner, {required List<String> fallbackOrder})
-      : _fallbackOrder = List.unmodifiable(fallbackOrder);
+    : _fallbackOrder = List.unmodifiable(fallbackOrder);
 
   final RoutingStrategy _inner;
   final List<String> _fallbackOrder;

@@ -1,3 +1,7 @@
+## 0.4.2
+
+- Bump `genkit` to `^0.14.1` and `schemantic` to `^0.2.0`. No API or behavioral changes; tests green against the new versions.
+
 ## 0.4.1
 
 - Move the package into the [flutter_gemma monorepo](https://github.com/DenisovAV/flutter_gemma) (`packages/genkit_flutter_gemma`); `repository`/`homepage` links updated accordingly. No API or behavioral changes.

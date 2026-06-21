@@ -20,13 +20,13 @@ with the on-device model exactly as it would with any cloud provider.
 
 ```
 dependencies:
-  genkit_flutter_gemma: ^0.4.0
-  flutter_gemma: ^1.0.0
+  genkit_flutter_gemma: ^0.4.2
+  flutter_gemma: ^1.0.2
   # Add the inference engine(s) you need:
-  flutter_gemma_litertlm: ^1.0.0   # .litertlm models (mobile + desktop)
-  flutter_gemma_mediapipe: ^1.0.0  # .task / .bin models (mobile + web)
+  flutter_gemma_litertlm: ^1.0.2   # .litertlm models (mobile + desktop)
+  flutter_gemma_mediapipe: ^1.0.2  # .task / .bin models (mobile + web)
   # Optional — for embeddings:
-  flutter_gemma_embeddings: ^1.0.0
+  flutter_gemma_embeddings: ^1.0.1
 ```
 
 ### Setup
@@ -140,13 +140,16 @@ flutter_gemma and works with **any** pair of Genkit models.
 ```
 dependencies:
   genkit_hybrid: ^0.1.0
-  genkit: any
+  genkit: ^0.14.0
 ```
 
 ### Basic usage
 
 ```dart
+import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/genkit_hybrid.dart';
+
+final ai = Genkit();
 
 // onDeviceModel and cloudModel are ordinary Genkit Models you already have.
 final smart = hybridModelOnDeviceCloud(
@@ -158,6 +161,9 @@ final smart = hybridModelOnDeviceCloud(
     offline: kOnDevice,
   ),
 );
+
+// A hybrid model is an ordinary Model — register it, then use it like any other.
+ai.registry.register(smart);
 
 final response = await ai.generate(model: smart, prompt: 'Hello!');
 ```

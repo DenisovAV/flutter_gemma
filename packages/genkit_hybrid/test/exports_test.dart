@@ -7,16 +7,27 @@ void main() {
     expect(kCloud, 'cloud');
     expect(
       FallbackStrategy(['cloud']).route(
-        const RoutingContext(request: null, branchKeys: {'cloud'}, isStreaming: false),
+        const RoutingContext(
+          request: null,
+          branchKeys: {'cloud'},
+          isStreaming: false,
+        ),
       ),
       ['cloud'],
     );
     expect(PreRoutingStrategy((_) => 'cloud'), isA<RoutingStrategy>());
     expect(
-      ConnectivityStrategy(isOnline: () => true, online: 'cloud', offline: 'onDevice'),
+      ConnectivityStrategy(
+        isOnline: () => true,
+        online: 'cloud',
+        offline: 'onDevice',
+      ),
       isA<RoutingStrategy>(),
     );
-    expect(InputSizeStrategy(threshold: 1, small: 'a', large: 'b'), isA<RoutingStrategy>());
+    expect(
+      InputSizeStrategy(threshold: 1, small: 'a', large: 'b'),
+      isA<RoutingStrategy>(),
+    );
     expect(FirstMatch(const []), isA<RoutingStrategy>());
     expect(
       WithFallback(FallbackStrategy(['cloud']), fallbackOrder: const []),

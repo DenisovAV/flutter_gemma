@@ -14,7 +14,7 @@ dependencies:
   flutter_gemma_litertlm: ^1.0.0
   flutter_gemma_mediapipe: ^1.0.0
   flutter_gemma_embeddings: ^1.0.0
-  genkit: ^0.13.0
+  genkit: ^0.14.1
   genkit_flutter_gemma:
     path: ../
 

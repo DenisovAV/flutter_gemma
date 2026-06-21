@@ -42,8 +42,16 @@ void main() {
     var deviceCalls = 0, cloudCalls = 0;
     final model = hybridModel(
       branches: {
-        'onDevice': fakeModel(name: 'd', text: 'from-device', onCall: () => deviceCalls++),
-        'cloud': fakeModel(name: 'c', text: 'from-cloud', onCall: () => cloudCalls++),
+        'onDevice': fakeModel(
+          name: 'd',
+          text: 'from-device',
+          onCall: () => deviceCalls++,
+        ),
+        'cloud': fakeModel(
+          name: 'c',
+          text: 'from-cloud',
+          onCall: () => cloudCalls++,
+        ),
       },
       strategy: _Pick(['cloud']),
     );
@@ -58,7 +66,11 @@ void main() {
     final model = hybridModel(
       branches: {
         'onDevice': fakeModel(name: 'd', throwBeforeToken: true),
-        'cloud': fakeModel(name: 'c', text: 'recovered', onCall: () => cloudCalls++),
+        'cloud': fakeModel(
+          name: 'c',
+          text: 'recovered',
+          onCall: () => cloudCalls++,
+        ),
       },
       strategy: _Pick(['onDevice', 'cloud']),
     );
@@ -77,7 +89,11 @@ void main() {
     );
     expect(
       () => model.fn(_req(), _blockingCtx),
-      throwsA(predicate<StateError>((e) => e.message.contains('fail-before-token:c2'))),
+      throwsA(
+        predicate<StateError>(
+          (e) => e.message.contains('fail-before-token:c2'),
+        ),
+      ),
     );
   });
 
@@ -86,7 +102,10 @@ void main() {
       branches: {'cloud': fakeModel(name: 'c')},
       strategy: _Pick([]),
     );
-    expect(() => model.fn(_req(), _blockingCtx), throwsA(isA<GenkitException>()));
+    expect(
+      () => model.fn(_req(), _blockingCtx),
+      throwsA(isA<GenkitException>()),
+    );
   });
 
   test('unknown branch key throws config error', () async {
@@ -94,29 +113,44 @@ void main() {
       branches: {'cloud': fakeModel(name: 'c')},
       strategy: _Pick(['nope']),
     );
-    expect(() => model.fn(_req(), _blockingCtx), throwsA(isA<GenkitException>()));
-  });
-
-  test('permanent GenkitException (e.g. bad auth) does NOT fall back', () async {
-    var cloudCalls = 0;
-    final authFailModel = Model(
-      name: 'auth-fail',
-      fn: (request, context) async =>
-          throw GenkitException('bad key', status: StatusCodes.PERMISSION_DENIED),
-    );
-    final model = hybridModel(
-      branches: {
-        'cloud': authFailModel,
-        'onDevice': fakeModel(name: 'd', text: 'should-not-run', onCall: () => cloudCalls++),
-      },
-      strategy: _Pick(['cloud', 'onDevice']),
-    );
     expect(
       () => model.fn(_req(), _blockingCtx),
       throwsA(isA<GenkitException>()),
     );
-    expect(cloudCalls, 0); // permanent error propagated; second branch NOT tried
   });
+
+  test(
+    'permanent GenkitException (e.g. bad auth) does NOT fall back',
+    () async {
+      var cloudCalls = 0;
+      final authFailModel = Model(
+        name: 'auth-fail',
+        fn: (request, context) async => throw GenkitException(
+          'bad key',
+          status: StatusCodes.PERMISSION_DENIED,
+        ),
+      );
+      final model = hybridModel(
+        branches: {
+          'cloud': authFailModel,
+          'onDevice': fakeModel(
+            name: 'd',
+            text: 'should-not-run',
+            onCall: () => cloudCalls++,
+          ),
+        },
+        strategy: _Pick(['cloud', 'onDevice']),
+      );
+      expect(
+        () => model.fn(_req(), _blockingCtx),
+        throwsA(isA<GenkitException>()),
+      );
+      expect(
+        cloudCalls,
+        0,
+      ); // permanent error propagated; second branch NOT tried
+    },
+  );
 
   test('transient GenkitException (UNAVAILABLE) DOES fall back', () async {
     var deviceCalls = 0;
@@ -128,7 +162,11 @@ void main() {
     final model = hybridModel(
       branches: {
         'cloud': unavailable,
-        'onDevice': fakeModel(name: 'd', text: 'recovered', onCall: () => deviceCalls++),
+        'onDevice': fakeModel(
+          name: 'd',
+          text: 'recovered',
+          onCall: () => deviceCalls++,
+        ),
       },
       strategy: _Pick(['cloud', 'onDevice']),
     );
@@ -137,47 +175,66 @@ void main() {
     expect(res.message!.content.first.text, 'recovered');
   });
 
-  test('streaming: branch fails before first token -> next branch used', () async {
-    final s = _streamingCtx();
-    final model = hybridModel(
-      branches: {
-        'onDevice': fakeModel(name: 'd', throwBeforeToken: true),
-        'cloud': fakeModel(name: 'c', text: 'done', chunks: ['he', 'llo']),
-      },
-      strategy: _Pick(['onDevice', 'cloud']),
-    );
-    final res = await model.fn(_req(), s.ctx);
-    expect(s.received, ['he', 'llo']);
-    expect(res.message!.content.first.text, 'done');
-  });
+  test(
+    'streaming: branch fails before first token -> next branch used',
+    () async {
+      final s = _streamingCtx();
+      final model = hybridModel(
+        branches: {
+          'onDevice': fakeModel(name: 'd', throwBeforeToken: true),
+          'cloud': fakeModel(name: 'c', text: 'done', chunks: ['he', 'llo']),
+        },
+        strategy: _Pick(['onDevice', 'cloud']),
+      );
+      final res = await model.fn(_req(), s.ctx);
+      expect(s.received, ['he', 'llo']);
+      expect(res.message!.content.first.text, 'done');
+    },
+  );
 
-  test('streaming: branch fails AFTER first token -> propagates, no re-route', () async {
-    final s = _streamingCtx();
-    var cloudCalls = 0;
-    final model = hybridModel(
-      branches: {
-        'onDevice': fakeModel(name: 'd', chunks: ['partial'], throwAfterToken: true),
-        'cloud': fakeModel(name: 'c', text: 'should-not-run', onCall: () => cloudCalls++),
-      },
-      strategy: _Pick(['onDevice', 'cloud']),
-    );
-    await expectLater(
-        () => model.fn(_req(), s.ctx), throwsA(isA<StateError>()));
-    expect(s.received, ['partial']); // first token already delivered
-    expect(cloudCalls, 0);           // NOT re-routed mid-stream
-  });
+  test(
+    'streaming: branch fails AFTER first token -> propagates, no re-route',
+    () async {
+      final s = _streamingCtx();
+      var cloudCalls = 0;
+      final model = hybridModel(
+        branches: {
+          'onDevice': fakeModel(
+            name: 'd',
+            chunks: ['partial'],
+            throwAfterToken: true,
+          ),
+          'cloud': fakeModel(
+            name: 'c',
+            text: 'should-not-run',
+            onCall: () => cloudCalls++,
+          ),
+        },
+        strategy: _Pick(['onDevice', 'cloud']),
+      );
+      await expectLater(
+        () => model.fn(_req(), s.ctx),
+        throwsA(isA<StateError>()),
+      );
+      expect(s.received, ['partial']); // first token already delivered
+      expect(cloudCalls, 0); // NOT re-routed mid-stream
+    },
+  );
 
-  test('hybridModel uses a custom name when provided, defaults to "hybrid"', () {
-    final a = hybridModel(
-      branches: {'cloud': fakeModel(name: 'c')},
-      strategy: _Pick(['cloud']),
-    );
-    final b = hybridModel(
-      branches: {'cloud': fakeModel(name: 'c')},
-      strategy: _Pick(['cloud']),
-      name: 'router-A',
-    );
-    expect(a.name, 'hybrid');
-    expect(b.name, 'router-A');
-  });
+  test(
+    'hybridModel uses a custom name when provided, defaults to "hybrid"',
+    () {
+      final a = hybridModel(
+        branches: {'cloud': fakeModel(name: 'c')},
+        strategy: _Pick(['cloud']),
+      );
+      final b = hybridModel(
+        branches: {'cloud': fakeModel(name: 'c')},
+        strategy: _Pick(['cloud']),
+        name: 'router-A',
+      );
+      expect(a.name, 'hybrid');
+      expect(b.name, 'router-A');
+    },
+  );
 }

@@ -71,10 +71,7 @@ void main() {
       // Register the hybrid model so the Genkit registry can find it by name.
       ai.registry.register(smart);
 
-      final res = await ai.generate(
-        model: smart,
-        prompt: 'hi',
-      );
+      final res = await ai.generate(model: smart, prompt: 'hi');
 
       expect(res.text, equals('CLOUD'));
 
@@ -96,10 +93,7 @@ void main() {
 
       ai.registry.register(smart);
 
-      final res = await ai.generate(
-        model: smart,
-        prompt: 'hi',
-      );
+      final res = await ai.generate(model: smart, prompt: 'hi');
 
       expect(res.text, equals('RECOVERED'));
 

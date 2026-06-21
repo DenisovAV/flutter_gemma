@@ -33,22 +33,36 @@ void main() {
   test('RoutingStrategy can be implemented and returns ordered keys', () {
     final s = _ConstStrategy(['cloud', 'onDevice']);
     const ctx = RoutingContext(
-      request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false,
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
     );
     expect(s.route(ctx), ['cloud', 'onDevice']);
   });
 
   test('PreRoutingStrategy wraps a function and returns single key', () {
     final s = PreRoutingStrategy((c) => c.isStreaming ? 'cloud' : 'onDevice');
-    const stream = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: true);
-    const block = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const stream = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: true,
+    );
+    const block = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(stream), ['cloud']);
     expect(s.route(block), ['onDevice']);
   });
 
   test('FallbackStrategy returns its fixed order regardless of context', () {
     final s = FallbackStrategy(['onDevice', 'cloud']);
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['onDevice', 'cloud']);
   });
 
@@ -59,63 +73,121 @@ void main() {
       online: 'cloud',
       offline: 'onDevice',
     );
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['cloud']);
     online = false;
     expect(s.route(ctx), ['onDevice']);
   });
 
   test('InputSizeStrategy routes by total prompt char length', () {
-    final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
-    final shortReq = ModelRequest(messages: [
-      Message(role: Role.user, content: [TextPart(text: 'hi')]),
-    ]);
-    final longReq = ModelRequest(messages: [
-      Message(role: Role.user, content: [TextPart(text: 'this is a long prompt')]),
-    ]);
-    RoutingContext ctx(ModelRequest r) =>
-        RoutingContext(request: r, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    final s = InputSizeStrategy(
+      threshold: 10,
+      small: 'onDevice',
+      large: 'cloud',
+    );
+    final shortReq = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'hi')],
+        ),
+      ],
+    );
+    final longReq = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: 'this is a long prompt')],
+        ),
+      ],
+    );
+    RoutingContext ctx(ModelRequest r) => RoutingContext(
+      request: r,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx(shortReq)), ['onDevice']);
     expect(s.route(ctx(longReq)), ['cloud']);
   });
 
   test('InputSizeStrategy treats null request as size 0 (small)', () {
-    final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    final s = InputSizeStrategy(
+      threshold: 10,
+      small: 'onDevice',
+      large: 'cloud',
+    );
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['onDevice']);
   });
 
   test('FirstMatch returns first non-empty child result; skips empty', () {
     final s = FirstMatch([
-      _ConstStrategy([]),            // no decision -> skipped
-      _ConstStrategy(['cloud']),     // first match
-      _ConstStrategy(['onDevice']),  // never reached
+      _ConstStrategy([]), // no decision -> skipped
+      _ConstStrategy(['cloud']), // first match
+      _ConstStrategy(['onDevice']), // never reached
     ]);
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['cloud']);
   });
 
   test('FirstMatch returns empty when all children are empty', () {
     final s = FirstMatch([_ConstStrategy([]), _ConstStrategy([])]);
-    const ctx = RoutingContext(request: null, branchKeys: {'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), isEmpty);
   });
 
   test('WithFallback appends fallback tail to inner pick', () {
-    final s = WithFallback(_ConstStrategy(['cloud']), fallbackOrder: ['onDevice']);
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    final s = WithFallback(
+      _ConstStrategy(['cloud']),
+      fallbackOrder: ['onDevice'],
+    );
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['cloud', 'onDevice']);
   });
 
   test('WithFallback de-dupes keys already chosen by inner strategy', () {
-    final s = WithFallback(_ConstStrategy(['onDevice']), fallbackOrder: ['onDevice', 'cloud']);
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    final s = WithFallback(
+      _ConstStrategy(['onDevice']),
+      fallbackOrder: ['onDevice', 'cloud'],
+    );
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['onDevice', 'cloud']);
   });
 
   test('WithFallback returns just the tail when inner is empty', () {
-    final s = WithFallback(_ConstStrategy([]), fallbackOrder: ['onDevice', 'cloud']);
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    final s = WithFallback(
+      _ConstStrategy([]),
+      fallbackOrder: ['onDevice', 'cloud'],
+    );
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['onDevice', 'cloud']);
   });
 
@@ -123,13 +195,21 @@ void main() {
     final input = ['onDevice', 'cloud'];
     final s = FallbackStrategy(input);
     input.add('mutated'); // mutate AFTER construction
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['onDevice', 'cloud']); // unaffected by mutation
   });
 
   test('FallbackStrategy returns an unmodifiable list', () {
     final s = FallbackStrategy(['onDevice', 'cloud']);
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(() => s.route(ctx).add('x'), throwsUnsupportedError);
   });
 
@@ -141,22 +221,43 @@ void main() {
     final tail = ['onDevice'];
     final s = WithFallback(_ConstStrategy(['cloud']), fallbackOrder: tail);
     tail.add('mutated'); // mutate AFTER construction
-    const ctx = RoutingContext(request: null, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['cloud', 'onDevice']); // unaffected
   });
 
   test('PreRoutingStrategy treats empty-string return as no decision', () {
     final s = PreRoutingStrategy((_) => '');
-    const ctx = RoutingContext(request: null, branchKeys: {'cloud'}, isStreaming: false);
+    const ctx = RoutingContext(
+      request: null,
+      branchKeys: {'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), isEmpty);
   });
 
   test('InputSizeStrategy: size equal to threshold routes to small', () {
-    final s = InputSizeStrategy(threshold: 10, small: 'onDevice', large: 'cloud');
-    final exactReq = ModelRequest(messages: [
-      Message(role: Role.user, content: [TextPart(text: '1234567890')]), // exactly 10 chars
-    ]);
-    final ctx = RoutingContext(request: exactReq, branchKeys: {'onDevice', 'cloud'}, isStreaming: false);
+    final s = InputSizeStrategy(
+      threshold: 10,
+      small: 'onDevice',
+      large: 'cloud',
+    );
+    final exactReq = ModelRequest(
+      messages: [
+        Message(
+          role: Role.user,
+          content: [TextPart(text: '1234567890')],
+        ), // exactly 10 chars
+      ],
+    );
+    final ctx = RoutingContext(
+      request: exactReq,
+      branchKeys: {'onDevice', 'cloud'},
+      isStreaming: false,
+    );
     expect(s.route(ctx), ['onDevice']); // == threshold -> small
   });
 }

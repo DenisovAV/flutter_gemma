@@ -5,9 +5,13 @@ existing Genkit models (on-device, cloud, anything) behind one routing policy. T
 is an ordinary `Model` — your app still calls a single `ai.generate`.
 
 ```dart
+import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/genkit_hybrid.dart';
 
-// onDeviceModel and cloudModel are ordinary Genkit Models you already have.
+final ai = Genkit();
+
+// onDeviceModel and cloudModel are ordinary Genkit Models you already have —
+// e.g. from genkit_flutter_gemma (on-device) and genkit_google_genai (cloud).
 final smart = hybridModelOnDeviceCloud(
   onDevice: onDeviceModel,
   cloud: cloudModel,
@@ -17,6 +21,9 @@ final smart = hybridModelOnDeviceCloud(
     offline: kOnDevice,
   ),
 );
+
+// The hybrid model is an ordinary Model — register it, then use it like any other.
+ai.registry.register(smart);
 
 final res = await ai.generate(model: smart, prompt: 'Hello!');
 ```

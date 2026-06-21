@@ -46,11 +46,13 @@ Model hybridModel({
   return Model(
     name: name,
     fn: (request, context) async {
-      final order = strategy.route(RoutingContext(
-        request: request,
-        branchKeys: frozenBranches.keys.toSet(),
-        isStreaming: context.streamingRequested,
-      ));
+      final order = strategy.route(
+        RoutingContext(
+          request: request,
+          branchKeys: frozenBranches.keys.toSet(),
+          isStreaming: context.streamingRequested,
+        ),
+      );
 
       if (order.isEmpty) {
         throw GenkitException(

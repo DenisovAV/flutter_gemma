@@ -35,9 +35,20 @@ void main() {
     try {
       await FlutterGemmaPlugin.instance.clearVectorStore();
     } catch (_) {}
+    // Close the store so the underlying sqlite3 database handle is released
+    // before deleting the file. On Windows an open handle locks the file and
+    // File.delete throws PathAccessException (errno 32); POSIX allows unlinking
+    // an open file, which masked this. Each test re-opens via initStore().
+    try {
+      await ServiceRegistry.instance.vectorStoreRepository.close();
+    } catch (_) {}
     final dbFile = File(databasePath);
     if (await dbFile.exists()) {
-      await dbFile.delete();
+      try {
+        await dbFile.delete();
+      } catch (_) {
+        // Best-effort cleanup; a lingering lock must not fail the test.
+      }
     }
   }
 

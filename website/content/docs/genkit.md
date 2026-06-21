@@ -140,13 +140,16 @@ flutter_gemma and works with **any** pair of Genkit models.
 ```
 dependencies:
   genkit_hybrid: ^0.1.0
-  genkit: any
+  genkit: ^0.14.0
 ```
 
 ### Basic usage
 
 ```dart
+import 'package:genkit/genkit.dart';
 import 'package:genkit_hybrid/genkit_hybrid.dart';
+
+final ai = Genkit();
 
 // onDeviceModel and cloudModel are ordinary Genkit Models you already have.
 final smart = hybridModelOnDeviceCloud(
@@ -158,6 +161,9 @@ final smart = hybridModelOnDeviceCloud(
     offline: kOnDevice,
   ),
 );
+
+// A hybrid model is an ordinary Model — register it, then use it like any other.
+ai.registry.register(smart);
 
 final response = await ai.generate(model: smart, prompt: 'Hello!');
 ```

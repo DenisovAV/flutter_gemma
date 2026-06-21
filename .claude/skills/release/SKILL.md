@@ -65,6 +65,12 @@ This implies (1b) — verify dylibs were actually rebuilt against the new patche
 ### 1d. Website (`website/`, fluttergemma.dev) — ALWAYS in scope
 Every release touches the site. At minimum the package versions hardcoded in its docs must be bumped to the just-published versions (Step 12a) — this is required even for a version-only release. On top of that, any new/changed public API, breaking change, or common pitfall must be documented (Step 12b). Don't defer to "later" — stale docs outlive the release.
 
+### 1e. Did the core public API change? → realign the Genkit packages
+```bash
+git diff <last-tag> -- packages/flutter_gemma/lib/flutter_gemma_interface.dart packages/flutter_gemma/lib/core
+```
+If the public `InferenceModel` / `InferenceChat` / `EmbeddingModel` / `Message` / `ModelResponse` / enum surface changed, the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) likely no longer compile or are missing the new features. **Run the `upgrade-genkit` skill** before publishing — it realigns converters + the test fakes (which must match upstream signatures) and bumps those packages. They release in lockstep with the monorepo, so don't ship a core change that leaves them broken.
+
 ## Step 2: Bump versions
 
 Always:
@@ -306,7 +312,7 @@ The site hardcodes `^X.Y.Z` in pubspec snippets across the docs — these MUST m
 cd website
 grep -rnE "flutter_gemma[a-z_]*: *\^?[0-9]+\.[0-9]+\.[0-9]+" content/
 ```
-Update each `^X.Y.Z` for all six packages (`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`. Cross-check against pub.dev so the site never lags the published packages.
+Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`, `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`) AND the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) to the just-published versions. Common spots: `installation.md`, `getting-started.md`, `migration.md`, `packages.md`, `genkit.md`. Cross-check against pub.dev so the site never lags the published packages.
 
 ### 12b. Update docs for any behavior/API change
 - **New / changed public API** → the topic doc that covers it (e.g. a new `createSession` param → `getting-started.md`; multimodal → `multimodal.md`; models → `models.md`).

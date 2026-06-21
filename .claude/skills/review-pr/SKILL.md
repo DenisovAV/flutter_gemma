@@ -38,14 +38,24 @@ fi
 
 ### Step 2: Identify changed areas
 
-From the diff, detect which platforms/areas are affected:
-- `android/` — Android native (Kotlin, engines, MediaPipe/LiteRT-LM)
-- `ios/` — iOS native (Swift, MediaPipe, embeddings)
-- `lib/web/` or `web/` — Web platform (JS interop, WASM)
-- `lib/desktop/` or `litertlm-server/` — Desktop (gRPC, Kotlin JVM)
-- `lib/core/` — Core abstractions (ModelSource, handlers, DI)
-- `example/integration_test/` — E2E tests
-- `macos/scripts/` or `windows/scripts/` — Build/setup scripts
+This is a **Dart pub workspace monorepo** — all code lives under `packages/<pkg>/`.
+From the diff, detect which package(s)/area(s) are affected:
+
+**Packages (`packages/<pkg>/`):**
+- `flutter_gemma/` — core: registry, contracts, shells, ModelSource, slim native plugin (its `android/` `ios/` host only the bundled channel)
+- `flutter_gemma_litertlm/` — `.litertlm` FFI engine; `native/litert_lm/` build scripts, `lib/src/ffi/`, `hook/build.dart`
+- `flutter_gemma_embeddings/` — LiteRT C API embeddings (isolate worker)
+- `flutter_gemma_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
+- `flutter_gemma_rag_qdrant/` — native RAG (qdrant-edge Rust FFI), `native/qdrant_edge/`
+- `flutter_gemma_rag_sqlite/` — web RAG (wa-sqlite) + native sqlite3
+- `genkit_flutter_gemma/`, `genkit_hybrid/` — Genkit integration packages (Dart; no native)
+- `flutter_gemma/example/` — example app + `integration_test/` E2E
+
+**Native (per package):** `packages/<pkg>/android/`, `ios/`, `windows/`, `native/`, `hook/build.dart`
+**Web:** `packages/*/lib/src/web/`, `packages/*/web/` (JS interop, WASM)
+**Desktop:** `packages/*/lib/desktop/` + FFI in `flutter_gemma_litertlm`
+**Site:** `website/` — Jaspr landing + docs (deployed to fluttergemma.dev; CI `.github/workflows/firebase-hosting-merge.yml`)
+**Repo-level:** `.github/workflows/`, `.claude/skills/`, root `pubspec.yaml` (workspace + melos)
 
 ### Step 3: Launch ALL agents in parallel
 

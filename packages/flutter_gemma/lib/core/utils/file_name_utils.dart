@@ -23,6 +23,8 @@ class FileNameUtils {
     '.json', // Config/tokenizer files (metadata)
     '.model', // SentencePiece tokenizers (embedding models)
     '.litertlm', // LiteRT model files (newer format)
+    '.onnx', // ONNX model graphs (flutter_gemma_onnx_embeddings)
+    '.ort', // ONNX Runtime optimised models
   ];
 
   /// Removes all supported extensions from filename to get base name
@@ -84,6 +86,9 @@ class FileNameUtils {
   /// Small file extensions:
   /// - .json (config files, typically <100KB)
   /// - .model (SentencePiece tokenizers, typically <500KB)
+  /// - .onnx (ONNX graph file — weights live in a companion .onnx_data file;
+  ///          the graph itself is typically a few hundred KB)
+  /// - .ort (ONNX Runtime optimised model graph, same as .onnx)
   ///
   /// Platform Support: All
   ///
@@ -92,7 +97,7 @@ class FileNameUtils {
   ///
   /// Returns: true if extension is for small files, false otherwise
   static bool isSmallFile(String extension) {
-    const smallFileExtensions = ['.json', '.model'];
+    const smallFileExtensions = ['.json', '.model', '.onnx', '.ort'];
     return smallFileExtensions.contains(extension);
   }
 

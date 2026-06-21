@@ -1,13 +1,14 @@
 name: flutter_gemma_rag_sqlite
-description: "SQLite + HNSW on-device RAG vector store for flutter_gemma (native sqlite3 + web wa-sqlite). Opt-in package; implements flutter_gemma's VectorStoreRepository."
-version: 1.0.1
+description: "SQLite vector search (sqlite-vec) on-device RAG vector store for flutter_gemma. Opt-in package; implements flutter_gemma's VectorStoreRepository."
+version: 1.1.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_sqlite
 topics: [rag, sqlite, vector-search, embeddings, web]
 
-# All six platforms: native (sqlite3 + local_hnsw via dart:ffi) and web
-# (wa-sqlite via dart:js_interop). Declared explicitly so the supported set is
-# the package's own contract, not inferred from the transitive import graph.
+# All six platforms: native (sqlite3 + sqlite-vec/vec0 via dart:ffi) and web
+# (sqlite-vec/vec0 statically linked into a custom sqlite3.wasm, driven through
+# package:sqlite3/wasm.dart). Declared explicitly so the supported set is the
+# package's own contract, not inferred from the transitive import graph.
 platforms:
   android:
   ios:
@@ -27,15 +28,27 @@ dependencies:
     sdk: flutter
   flutter_gemma: ^1.0.1
   sqlite3: ^3.3.0
-  local_hnsw: ^1.0.0
+  # Native Assets hook deps — hook/build.dart fetches the per-platform
+  # sqlite-vec (vec0) loadable extension from a GitHub Release, SHA256-verifies
+  # it, and bundles it as a CodeAsset (resolved by DynamicLibrary.open).
+  hooks: ^2.0.0
+  code_assets: ^1.2.0
+  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # tool/bench_vector_stores.dart benchmarks the vec0 store against qdrant in
+  # the same harness; dev-only, never exported from lib/ (the published package
+  # has no qdrant dependency). Path-pinned to the workspace sibling.
+  flutter_gemma_rag_qdrant:
+    path: ../flutter_gemma_rag_qdrant
 
-# No `flutter:` plugin/asset block. This package has NO hand-written native
-# code and NO web platform-channel class. sqlite3 is a normal pub dep that
-# bundles its own native lib. The wa-sqlite JS (added in Task 4) is loaded by
-# the consuming app from CDN via an index.html <script> tag, not as a Flutter
-# asset — so no `assets:`/`plugin:` block is needed.
+# No `flutter:` plugin block. This package has NO hand-written native code and
+# NO web platform-channel class. On native, sqlite3 is a normal pub dep and the
+# vec0 loadable extension comes from the Native Assets hook above. On web, the
+# custom sqlite3.wasm (sqlite-vec/vec0 linked in) ships as the package web asset
+# `web/rag/sqlite3.wasm`; the consuming app copies it to its own web root (next
+# to index.html, at `rag/sqlite3.wasm`) so WasmSqlite3.loadFromUrl can fetch it
+# — there is no wa-sqlite CDN <script> and no index.html wiring anymore.

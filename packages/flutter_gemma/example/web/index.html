@@ -68,8 +68,11 @@
   <!-- LiteRT.js Embeddings (bundled with Vite) -->
   <script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/litert_embeddings.js"></script>
 
-  <!-- SQLite WASM VectorStore -->
-  <script type="module" src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@0.11.14/web/sqlite_vector_store.js"></script>
+  <!-- SQLite vector store (flutter_gemma_rag_sqlite): sqlite-vec / vec0 is
+       statically linked into a custom sqlite3.wasm and loaded directly from
+       Dart via package:sqlite3/wasm.dart (WasmSqlite3.loadFromUrl). The wasm
+       ships as the package web asset web/rag/sqlite3.wasm — no <script> tag and
+       no wa-sqlite CDN module are needed anymore. -->
 </head>
 <body>
 <script src="flutter_bootstrap.js" async></script>

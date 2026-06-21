@@ -78,10 +78,11 @@ abstract class VectorStoreRepository {
   /// - [topK]: Maximum number of results to return
   /// - [threshold]: Minimum similarity score (0.0 to 1.0, default 0.0)
   /// - [filter]: Optional payload predicate. Honored by implementations that
-  ///   support it (qdrant-edge on native); silently ignored by others
-  ///   (wa-sqlite on Web, legacy SQLite+HNSW). Passing a non-empty filter
-  ///   on an implementation that ignores it returns the same hits as
-  ///   `filter: null` — never throws.
+  ///   support it (qdrant-edge, and sqlite-vec over declared [FilterSchema]
+  ///   columns on both native and web). A condition on an undeclared/unsupported
+  ///   field is treated as a no-op rather than an error, so passing a non-empty
+  ///   filter to an implementation (or field) that ignores it returns the same
+  ///   hits as `filter: null` — never throws.
   ///
   /// Returns:
   /// - List of [RetrievalResult] sorted by similarity (highest first)
@@ -128,15 +129,36 @@ abstract class VectorStoreRepository {
   /// Returns true if [initialize] was called successfully
   bool get isInitialized;
 
-  /// Whether HNSW indexing is enabled
+  /// Legacy no-op kept for source compatibility.
   ///
-  /// When true, search uses O(log n) HNSW algorithm for large datasets.
-  /// When false, always uses O(n) brute-force search.
-  ///
-  /// Can be toggled at runtime for performance testing.
-  /// Default: true
+  /// Vector search now runs inside the store's engine (qdrant-edge, or
+  /// sqlite-vec/`vec0`), so there is no Dart-side HNSW to toggle. Implementations
+  /// accept the get/set but ignore it. Scheduled for removal in 2.0.
   bool get enableHnsw;
   set enableHnsw(bool value);
+
+  /// The filterable-metadata schema this store was configured with.
+  ///
+  /// Concrete (bodied) member with a no-op default so that adding it does NOT
+  /// force an override on existing or external `implements`-ers (this is an
+  /// `abstract class`, not an `interface class`, so the body is inherited).
+  /// Stores that honor [Filter] (qdrant, sqlite/vec0) override [configure] to
+  /// stash the schema and expose it here; everyone else keeps the empty default.
+  FilterSchema get filterSchema => const FilterSchema();
+
+  /// Declare which metadata fields this store should make filterable.
+  ///
+  /// Called **once at registration, before [initialize]** — the schema is
+  /// threaded from `FlutterGemma.initialize(filterSchema:)` through the service
+  /// registry into the store's constructor wiring, so the store can promote the
+  /// declared fields to typed storage columns (vec0) or top-level payload keys
+  /// (qdrant) the first time it creates its table / writes a document.
+  ///
+  /// Default is a no-op: a store that does not override this keeps ignoring
+  /// filters, and the never-throws contract on [searchSimilar] still holds — an
+  /// empty or undeclared-key [Filter] returns the same hits as `filter: null`,
+  /// it never throws.
+  void configure(FilterSchema schema) {}
 }
 
 /// Exception thrown by VectorStore operations

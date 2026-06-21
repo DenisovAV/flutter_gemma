@@ -71,18 +71,42 @@ cp "$TMP_VEC"/sqlite-vec.h "$SRC/src/sqlite-vec.h"
 cp "$PATCHES/os_web.c"     "$SRC/src/os_web.c"
 cp "$PATCHES/getentropy.c" "$SRC/src/getentropy.c"
 
-# ---- 4. splice three lines into the LIVE upstream CMakeLists -----------------
-# (a) add the two extra source files to the build's `sources` list;
-# (b) add -DSQLITE_CORE so sqlite-vec links as a core extension.
+# ---- 4. splice into the LIVE upstream CMakeLists ----------------------------
+# We change three things:
+#  (a) add sqlite-vec.c + getentropy.c to the BASE `sources` list (so the
+#      PUBLISHED `sqlite3_opt` non-crypto target links them — that target is
+#      what becomes out/sqlite3.wasm, line `base_sqlite3_target(sqlite3_opt …)`);
+#  (b) drop getentropy.c from the crypto (sqlite3mc) branch's `list(APPEND …)`
+#      so it isn't double-linked there → no "duplicate symbol getentropy";
+#  (c) add -DSQLITE_CORE so sqlite-vec links as a statically-registered core
+#      extension.
+#
+# WHY getentropy.c must be in the base list: upstream only adds it to the crypto
+# branch. sqlite-vec (via wasi-libc) pulls the WASI `random_get` import into the
+# NON-crypto target too; without our patched getentropy.c (which stubs that
+# import, backed by Dart randomness) the published wasm keeps a
+# `wasi_snapshot_preview1.random_get` import the simolus3 loader can't satisfy
+# (`WebAssembly.instantiate(): Import #N "wasi_snapshot_preview1": module is not
+# an object or function`). Verify after the build with `wasm-dis … | grep wasi`.
+#
+# NOTE: the `\$` are deliberate — `${CMAKE_CURRENT_SOURCE_DIR}` must land
+# LITERALLY in the CMakeLists; the `$` is escaped from perl's interpolation
+# (unescaped, perl expands it to "" and emits `/sqlite-vec.c` → "No rule to make
+# target `/sqlite-vec.c`").
 CML="$SRC/src/CMakeLists.txt"
-if ! grep -q "sqlite-vec.c" "$CML"; then
-  perl -0pi -e 's{(\$\{CMAKE_CURRENT_SOURCE_DIR\}/os_web.c)}{$1\n    ${CMAKE_CURRENT_SOURCE_DIR}/sqlite-vec.c\n    ${CMAKE_CURRENT_SOURCE_DIR}/getentropy.c}' "$CML"
+if ! grep -q "CMAKE_CURRENT_SOURCE_DIR}/sqlite-vec.c" "$CML"; then
+  perl -0pi -e 's{(\$\{CMAKE_CURRENT_SOURCE_DIR\}/os_web.c)}{$1\n    \${CMAKE_CURRENT_SOURCE_DIR}/sqlite-vec.c\n    \${CMAKE_CURRENT_SOURCE_DIR}/getentropy.c}' "$CML"
 fi
+# Drop the crypto-branch getentropy.c so it isn't linked twice in sqlite3mc.
+perl -0pi -e 's{\n\s*list\(APPEND sources "\$\{CMAKE_CURRENT_SOURCE_DIR\}/getentropy\.c"\)}{}' "$CML"
 if ! grep -q "SQLITE_CORE" "$CML"; then
   perl -0pi -e 's{(set\(flags -Wall -Wextra[^\)]*)}{$1 -DSQLITE_CORE}' "$CML"
 fi
-grep -q "sqlite-vec.c" "$CML" || { echo "ERROR: CMakeLists splice (sources) failed" >&2; exit 1; }
+grep -q "CMAKE_CURRENT_SOURCE_DIR}/sqlite-vec.c" "$CML" || { echo "ERROR: CMakeLists splice (sources) failed" >&2; exit 1; }
+grep -q "CMAKE_CURRENT_SOURCE_DIR}/getentropy.c" "$CML"  || { echo "ERROR: CMakeLists splice (getentropy) failed" >&2; exit 1; }
 grep -q "SQLITE_CORE"  "$CML" || { echo "ERROR: CMakeLists splice (SQLITE_CORE) failed" >&2; exit 1; }
+# Exactly one getentropy.c reference must remain (the base list).
+[ "$(grep -c "getentropy.c" "$CML")" = "1" ] || { echo "ERROR: getentropy.c not deduped (expected 1 ref)" >&2; exit 1; }
 echo "==> CMakeLists patched (sqlite-vec sources + -DSQLITE_CORE)"
 
 # ---- 5. build via the repo's own WASI-clang + binaryen pipeline --------------

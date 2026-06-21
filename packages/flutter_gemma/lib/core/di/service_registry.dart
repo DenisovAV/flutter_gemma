@@ -29,6 +29,7 @@ import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/infrastructure/unconfigured_vector_store.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
     if (dart.library.js_interop) 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
@@ -253,6 +254,7 @@ class ServiceRegistry {
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
     VectorStoreRepository? vectorStoreRepository,
+    FilterSchema filterSchema = const FilterSchema(),
   }) async {
     // Initialize file system service first
     final fileSystem = fileSystemService ?? _createDefaultFileSystemService();
@@ -283,6 +285,7 @@ class ServiceRegistry {
       modelRepository: modelRepository,
       protectedFilesRegistry: protectedFilesRegistry,
       vectorStoreRepository: vectorStoreRepository,
+      filterSchema: filterSchema,
     );
   }
 
@@ -296,6 +299,7 @@ class ServiceRegistry {
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
     VectorStoreRepository? vectorStoreRepository,
+    FilterSchema filterSchema = const FilterSchema(),
   }) {
     // Initialize infrastructure services
     _fileSystemService = fileSystemService;
@@ -321,6 +325,12 @@ class ServiceRegistry {
     // Core ships no vector-store impl — sqlite and qdrant are opt-in packages
     // (flutter_gemma_rag_sqlite / flutter_gemma_rag_qdrant).
     _vectorStoreRepository = vectorStoreRepository ?? UnconfiguredVectorStore();
+
+    // Declare the filterable-metadata schema at registration, BEFORE the store
+    // is initialized, so it can promote the declared fields to typed storage
+    // columns (sqlite/vec0) or top-level payload keys (qdrant). Default empty
+    // schema is a no-op (filters stay a safe no-op; never throws).
+    _vectorStoreRepository.configure(filterSchema);
 
     // Initialize handlers with dependencies
     _networkHandler = _createNetworkSourceHandler(
@@ -397,6 +407,8 @@ class ServiceRegistry {
   /// - [webStorageMode]: Storage mode for web platform (default: WebStorageMode.cacheApi)
   ///   Note: This parameter only affects web platform, ignored on mobile
   /// - [vectorStoreRepository]: Optional custom repository (for testing)
+  /// - [filterSchema]: Declared filterable-metadata fields; applied to the
+  ///   vector store via `configure()` before its `initialize()` (default empty)
   /// - Services can be overridden for testing (dependency injection)
   ///
   /// Note: This is async because web platform requires SharedPreferences initialization.
@@ -410,6 +422,7 @@ class ServiceRegistry {
     ModelRepository? modelRepository,
     ProtectedFilesRegistry? protectedFilesRegistry,
     VectorStoreRepository? vectorStoreRepository,
+    FilterSchema filterSchema = const FilterSchema(),
   }) async {
     // Make idempotent - skip if already initialized
     if (_instance != null) {
@@ -437,6 +450,7 @@ class ServiceRegistry {
       modelRepository: modelRepository,
       protectedFilesRegistry: protectedFilesRegistry,
       vectorStoreRepository: vectorStoreRepository,
+      filterSchema: filterSchema,
     );
   }
 

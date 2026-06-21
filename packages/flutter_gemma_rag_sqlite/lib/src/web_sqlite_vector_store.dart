@@ -1,131 +1,172 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_rag_sqlite/src/hnsw_vector_index.dart';
-import 'package:flutter_gemma_rag_sqlite/src/vector_store_web_interop.dart';
-import 'dart:js_interop';
+import 'package:flutter_gemma_rag_sqlite/src/filter_to_vec0.dart';
+import 'package:sqlite3/wasm.dart';
 
-/// Web implementation of VectorStoreRepository using SQLite WASM + HNSW
+/// Web implementation of [VectorStoreRepository] backed by sqlite-vec (`vec0`)
+/// running in a custom `sqlite3.wasm` (the vector extension is statically
+/// linked in — see `tool/build_vec0_wasm.sh`).
 ///
-/// **Architecture**:
+/// **Architecture** (single engine, identical SQL dialect to the native arm):
 /// ```
-/// WebSqliteVectorStore (Dart)
-///         ↓ (HNSW for fast search)
-/// HnswVectorIndex (in-memory, O(log n))
-///         ↓ (JS Interop for persistence)
-/// vector_store_web.dart
-///         ↓ (wa-sqlite)
-/// sqlite_vector_store.js
-///         ↓ (WASM + OPFS)
-/// SQLite Database
+/// WebSqliteVectorStore (Dart, main isolate)
+///         ↓  package:sqlite3/wasm.dart  (CommonSqlite3 API)
+/// sqlite3.wasm  (sqlite-vec / vec0 statically linked)
+///         ↓  VFS
+/// OPFS → IndexedDB → in-memory  (first that works; persists across reload)
 /// ```
 ///
-/// **Design Principles**:
-/// - SQLite WASM = source of truth (persistence via OPFS)
-/// - HNSW = cache (fast search, rebuilt on initialize)
-/// - Hybrid search: HNSW candidates → exact similarity recalculation
+/// KNN runs inside SQLite — there is no Dart brute-force and no in-memory HNSW.
+/// `vec0` returns a `distance`; cosine **similarity = 1 - distance**, and the
+/// `threshold`/`topK` are applied against that, exactly like the native store.
 ///
-/// **State Management**:
-/// - [_isInitialized]: Tracks whether initialize() was called
-/// - [_store]: SQLiteVectorStore JS instance
-/// - [_hnswIndex]: In-memory HNSW index for O(log n) search
-///
-/// **Performance**:
-/// - OPFS storage: ~3-4x faster than IndexedDB
-/// - BLOB format: ~70% smaller than JSON
-/// - HNSW search: O(log n) vs O(n) brute-force
+/// The vec0 table is created **lazily** on the first [addDocument] (so the
+/// embedding dimension can be learned), or recovered from an existing table on
+/// [initialize].
 class WebSqliteVectorStore implements VectorStoreRepository {
-  SQLiteVectorStore? _store;
-  final HnswVectorIndex _hnswIndex = HnswVectorIndex();
+  static const String _tableName = 'vec_documents';
+
+  /// Where the custom wasm ships in the published package's web assets.
+  /// Resolved relative to the app's base href at runtime.
+  static const String _wasmUrl = 'rag/sqlite3.wasm';
+
+  /// The single logical database file the persistent VFS reserves. OPFS /
+  /// IndexedDB persist exactly one file; opening it is the simolus3-documented
+  /// persistent path.
+  static const String _dbFile = '/database';
+
+  WasmSqlite3? _sqlite3;
+  CommonDatabase? _db;
+  int? _detectedDimension;
   bool _isInitialized = false;
 
-  /// Minimum document count to use HNSW
-  /// Below this threshold, brute-force is fast enough
-  static const int _hnswThreshold = 100;
+  /// Declared filterable-metadata schema (via [configure]). Empty by default,
+  /// so callers that never declare a schema keep the historical behaviour
+  /// (filters are an ignored no-op).
+  FilterSchema _filterSchema = const FilterSchema();
 
-  /// Whether HNSW indexing is enabled
-  /// Can be toggled at runtime for performance testing
+  /// No-op since vector search moved into SQLite (`vec0` does exact KNN in C).
   @override
-  bool enableHnsw = true;
+  @Deprecated('No-op since vector search moved into SQLite; removed in 2.0')
+  bool get enableHnsw => false;
+
+  @override
+  @Deprecated('No-op since vector search moved into SQLite; removed in 2.0')
+  set enableHnsw(bool value) {}
 
   @override
   bool get isInitialized => _isInitialized;
 
   @override
+  FilterSchema get filterSchema => _filterSchema;
+
+  @override
+  void configure(FilterSchema schema) => _filterSchema = schema;
+
+  @override
   Future<void> initialize(String databasePath) async {
     try {
-      // Wait for ES module to load (may take time due to top-level await)
-      await _waitForSQLiteModule();
+      _sqlite3 = await WasmSqlite3.loadFromUrl(Uri.parse(_wasmUrl));
+      await _registerPersistentVfs(_sqlite3!, databasePath);
 
-      // Create JS instance with auto-dimension detection (null = auto-detect)
-      // Pass null as JSNumber? to constructor
-      const JSNumber? dimension = null;
-      _store = SQLiteVectorStore(dimension);
+      _db = _sqlite3!.open(_dbFile);
 
-      // Initialize wa-sqlite WASM + OPFS
-      await _store!.initialize(databasePath).toDart;
+      // Recover the dimension from an existing vec0 table (page reload).
+      _detectExistingTable();
 
       _isInitialized = true;
-
-      // Rebuild HNSW index from SQLite data
-      await _rebuildHnswIndex();
     } catch (e) {
-      throw VectorStoreException('Failed to initialize SQLite WASM', e);
+      throw VectorStoreException('Failed to initialize SQLite WASM (vec0)', e);
     }
   }
 
-  /// Rebuild HNSW index from SQLite data
+  /// Registers the best persistent VFS the current runtime supports and makes
+  /// it the default, so `open(_dbFile)` persists across reloads.
   ///
-  /// Called during initialize() to restore index after page reload
-  Future<void> _rebuildHnswIndex() async {
+  /// Preference order: OPFS (fastest, needs a dedicated worker context) →
+  /// IndexedDB (works on the main isolate, where Flutter web runs) →
+  /// in-memory (no persistence; last resort so the store still functions).
+  Future<void> _registerPersistentVfs(
+    WasmSqlite3 sqlite3,
+    String databasePath,
+  ) async {
+    // OPFS first — only available in a dedicated web worker; on the main
+    // isolate (the usual Flutter web context) it throws, so we fall through.
     try {
-      final documents = await _store!.getAllDocumentsWithEmbeddingsDart();
-
-      if (documents.isEmpty) {
-        _hnswIndex.clear();
-        return;
-      }
-
-      // Convert web types to HNSW types
-      final hnswDocs = documents
-          .map((doc) => DocumentEmbedding(id: doc.id, embedding: doc.embedding))
-          .toList();
-
-      _hnswIndex.rebuild(hnswDocs);
-
-      gemmaLog(
-        '[WebVectorStore] HNSW index rebuilt with ${documents.length} documents',
-      );
+      final opfs = await SimpleOpfsFileSystem.loadFromStorage(databasePath);
+      sqlite3.registerVirtualFileSystem(opfs, makeDefault: true);
+      gemmaLog('[WebVectorStore] Using OPFS VFS for persistence');
+      return;
     } catch (e) {
-      // Log but don't fail - fallback to brute-force search
-      gemmaLog('[WebVectorStore] Warning: Failed to rebuild HNSW index: $e');
-      _hnswIndex.clear();
+      gemmaLog('[WebVectorStore] OPFS VFS unavailable ($e); trying IndexedDB');
+    }
+
+    // IndexedDB — main-isolate-safe and persistent. The IndexedDB database name
+    // is derived from the caller's path so distinct stores stay isolated.
+    try {
+      final idb = await IndexedDbFileSystem.open(
+        dbName: 'flutter_gemma_rag_$databasePath',
+      );
+      sqlite3.registerVirtualFileSystem(idb, makeDefault: true);
+      gemmaLog('[WebVectorStore] Using IndexedDB VFS for persistence');
+      return;
+    } catch (e) {
+      gemmaLog(
+        '[WebVectorStore] IndexedDB VFS unavailable ($e); '
+        'falling back to in-memory (no persistence)',
+      );
+    }
+
+    // In-memory — no persistence, but keeps the store usable.
+    sqlite3.registerVirtualFileSystem(InMemoryFileSystem(), makeDefault: true);
+  }
+
+  /// Reads the embedding dimension back from an existing vec0 table, if any.
+  void _detectExistingTable() {
+    try {
+      final exists = _db!.select(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+        [_tableName],
+      );
+      if (exists.isEmpty) return;
+      final row = _db!.select('SELECT embedding FROM $_tableName LIMIT 1');
+      if (row.isNotEmpty) {
+        final blob = row.first['embedding'] as Uint8List;
+        _detectedDimension = blob.length ~/ 4; // float32 = 4 bytes
+      }
+    } catch (e) {
+      // A pre-vec0 (plain-BLOB) table or a corrupt slot — start fresh.
+      gemmaLog('[WebVectorStore] No reusable vec0 table found: $e');
     }
   }
 
-  /// Wait for SQLiteVectorStore ES module to finish loading
-  ///
-  /// ES modules with top-level await load asynchronously.
-  /// This polls until window.SQLiteVectorStore is available.
-  Future<void> _waitForSQLiteModule() async {
-    const maxAttempts = 50; // 5 seconds max
-    const delay = Duration(milliseconds: 100);
-
-    for (int i = 0; i < maxAttempts; i++) {
-      try {
-        _ensureSQLiteLoaded();
-        // If we get here without exception, module is loaded
-        return;
-      } catch (_) {
-        // Module not ready yet, wait and retry
-        await Future.delayed(delay);
-      }
-    }
-
-    throw StateError(
-      'SQLiteVectorStore module failed to load after ${maxAttempts * delay.inMilliseconds}ms. '
-      'Add <script type="module" src="sqlite_vector_store.js"></script> to index.html',
+  /// Builds the `vec0` virtual table for dimension [dimension] with one typed,
+  /// filterable column per declared [FilterSchema] field, plus auxiliary
+  /// (SELECT-only) `+content` / `+metadata` columns.
+  void _createTable(int dimension) {
+    final columns = <String>[
+      'id TEXT PRIMARY KEY',
+      'embedding float[$dimension]',
+      for (final field in _filterSchema.fields)
+        '${field.name} ${_columnType(field.type)}',
+      '+content TEXT',
+      '+metadata TEXT',
+    ];
+    _db!.execute(
+      'CREATE VIRTUAL TABLE IF NOT EXISTS $_tableName USING vec0(\n'
+      '  ${columns.join(',\n  ')}\n'
+      ')',
     );
   }
+
+  static String _columnType(FilterFieldType type) => switch (type) {
+    FilterFieldType.string => 'TEXT',
+    FilterFieldType.number => 'FLOAT',
+    FilterFieldType.bool => 'INTEGER',
+  };
 
   @override
   Future<void> addDocument({
@@ -134,39 +175,86 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     required List<double> embedding,
     String? metadata,
   }) async {
-    if (!_isInitialized || _store == null) {
+    if (!_isInitialized || _db == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
 
-    try {
-      // 1. Persist to SQLite WASM (source of truth)
-      await _store!.addDocumentDart(id, content, embedding, metadata);
+    // Learn the dimension on the first add, then create the vec0 table.
+    if (_detectedDimension == null) {
+      _detectedDimension = embedding.length;
+      _createTable(_detectedDimension!);
+    } else if (embedding.length != _detectedDimension) {
+      throw ArgumentError(
+        'Embedding dimension mismatch: expected $_detectedDimension, '
+        'got ${embedding.length}',
+      );
+    }
 
-      // 2. Add to HNSW index (cache)
-      try {
-        _hnswIndex.add(id, embedding);
-      } catch (e) {
-        // Log but don't fail - HNSW is optional optimization
-        gemmaLog('[WebVectorStore] Warning: Failed to add to HNSW: $e');
-      }
+    try {
+      final declared = _declaredValues(metadata);
+      final columns = <String>[
+        'id',
+        'embedding',
+        ...declared.keys,
+        'content',
+        'metadata',
+      ];
+      final placeholders = List.filled(columns.length, '?').join(', ');
+      final binds = <Object?>[
+        id,
+        _embeddingToBlob(embedding),
+        ...declared.values,
+        content,
+        metadata,
+      ];
+      _db!.execute(
+        'INSERT OR REPLACE INTO $_tableName (${columns.join(', ')}) '
+        'VALUES ($placeholders)',
+        binds,
+      );
     } catch (e) {
-      // Dimension mismatch errors from JS are rethrown as-is
-      // Other errors wrapped in VectorStoreException
-      if (e.toString().contains('dimension mismatch')) {
-        rethrow;
-      }
       throw VectorStoreException('Failed to add document', e);
     }
   }
 
+  /// Extracts declared filterable fields out of the raw [metadata] JSON into
+  /// the typed vec0 columns. Undeclared fields stay only in the `+metadata`
+  /// blob. Returns an empty map when no schema is configured or the metadata is
+  /// not a decodable JSON object.
+  Map<String, Object?> _declaredValues(String? metadata) {
+    if (_filterSchema.isEmpty || metadata == null || metadata.isEmpty) {
+      return const {};
+    }
+    Object? decoded;
+    try {
+      decoded = jsonDecode(metadata);
+    } catch (_) {
+      return const {};
+    }
+    if (decoded is! Map) return const {};
+
+    final values = <String, Object?>{};
+    for (final field in _filterSchema.fields) {
+      if (!decoded.containsKey(field.name)) continue;
+      final raw = decoded[field.name];
+      values[field.name] = switch (field.type) {
+        FilterFieldType.bool => (raw == true || raw == 1) ? 1 : 0,
+        _ => raw,
+      };
+    }
+    return values;
+  }
+
   @override
   Future<void> removeDocument({required String id}) async {
-    if (!_isInitialized || _store == null) {
+    if (!_isInitialized || _db == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
     try {
-      await _store!.removeDocumentDart(id);
-      _hnswIndex.remove(id);
+      // No-op when the table doesn't exist yet (nothing was ever added) or the
+      // id is absent — DELETE simply matches zero rows.
+      if (_detectedDimension == null) return;
+      _db!.execute('DELETE FROM $_tableName WHERE id = ?', [id]);
     } catch (e) {
       throw VectorStoreException('Failed to remove document', e);
     }
@@ -177,90 +265,72 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     required List<double> queryEmbedding,
     required int topK,
     double threshold = 0.0,
-    Filter? filter, // ignored on web (wa-sqlite has no payload filtering)
+    Filter? filter,
   }) async {
-    if (!_isInitialized || _store == null) {
+    if (!_isInitialized || _db == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
 
-    if (filter != null && !filter.isEmpty) {
-      gemmaLog(
-        '[WebVectorStore] Filter argument ignored on web (wa-sqlite has no payload filtering); '
-        'pass null filter to silence this log.',
+    // No table yet → no documents → empty result (never throws on filter).
+    if (_detectedDimension == null) return const [];
+
+    if (queryEmbedding.length != _detectedDimension) {
+      throw ArgumentError(
+        'Query dimension mismatch: expected $_detectedDimension, '
+        'got ${queryEmbedding.length}',
       );
     }
 
     try {
-      // Use HNSW if enabled and index has enough documents
-      if (enableHnsw && _hnswIndex.count >= _hnswThreshold) {
-        gemmaLog(
-          '[WebVectorStore] Using HNSW search (${_hnswIndex.count} docs)',
-        );
-        return await _searchWithHnsw(queryEmbedding, topK, threshold);
-      }
+      final translated = FilterToVec0.translate(filter, _filterSchema);
+      final whereExtra = translated.whereSql.isEmpty
+          ? ''
+          : ' AND ${translated.whereSql}';
 
-      // Fallback to brute-force for small datasets or when HNSW disabled
-      gemmaLog(
-        '[WebVectorStore] Using brute-force search (HNSW enabled: $enableHnsw, count: ${_hnswIndex.count})',
+      final rows = _db!.select(
+        'SELECT id, content, metadata, distance FROM $_tableName '
+        'WHERE embedding MATCH ? AND k = ?$whereExtra '
+        'ORDER BY distance',
+        [_embeddingToBlob(queryEmbedding), topK, ...translated.binds],
       );
-      return await _store!.searchSimilarDart(queryEmbedding, topK, threshold);
+
+      final results = <RetrievalResult>[];
+      for (final row in rows) {
+        final distance = (row['distance'] as num).toDouble();
+        final similarity = 1.0 - distance; // cosine: 1 = identical
+        if (similarity < threshold) continue;
+        results.add(
+          RetrievalResult(
+            id: row['id'] as String,
+            content: row['content'] as String? ?? '',
+            similarity: similarity,
+            metadata: row['metadata'] as String?,
+          ),
+        );
+      }
+      return results;
     } catch (e) {
       throw VectorStoreException('Search failed', e);
     }
   }
 
-  /// Search using HNSW index
-  ///
-  /// Strategy:
-  /// 1. HNSW search returns candidate IDs with pre-computed similarity
-  /// 2. Fetch full documents from SQLite WASM by IDs
-  /// 3. Combine document content with HNSW similarity scores
-  Future<List<RetrievalResult>> _searchWithHnsw(
-    List<double> queryEmbedding,
-    int topK,
-    double threshold,
-  ) async {
-    // 1. Get candidates from HNSW (already has exact similarity calculated)
-    final hnswResults = _hnswIndex.search(
-      queryEmbedding,
-      topK,
-      threshold: threshold,
-    );
-
-    if (hnswResults.isEmpty) {
-      return [];
-    }
-
-    // 2. Fetch full documents from SQLite WASM
-    final ids = hnswResults.map((r) => r.id).toList();
-    final documents = await _store!.getDocumentsByIdsDart(ids);
-
-    // 3. Build result map for fast lookup
-    final docMap = {for (var doc in documents) doc.id: doc};
-
-    // 4. Combine HNSW similarity with document content
-    // HNSW already calculated exact similarity, so we use it directly
-    return hnswResults
-        .where((r) => docMap.containsKey(r.id))
-        .map(
-          (r) => RetrievalResult(
-            id: r.id,
-            content: docMap[r.id]!.content,
-            similarity: r.similarity,
-            metadata: docMap[r.id]!.metadata,
-          ),
-        )
-        .toList();
-  }
-
   @override
   Future<VectorStoreStats> getStats() async {
-    if (!_isInitialized || _store == null) {
+    if (!_isInitialized || _db == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
 
     try {
-      return await _store!.getStatsDart();
+      final count = _detectedDimension == null
+          ? 0
+          : (_db!
+                    .select('SELECT COUNT(*) AS count FROM $_tableName')
+                    .first['count']
+                as int);
+      return VectorStoreStats(
+        documentCount: count,
+        vectorDimension: _detectedDimension ?? 0,
+      );
     } catch (e) {
       throw VectorStoreException('Failed to get stats', e);
     }
@@ -268,16 +338,17 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> clear() async {
-    if (!_isInitialized || _store == null) {
+    if (!_isInitialized || _db == null) {
       throw StateError('VectorStore not initialized. Call initialize() first.');
     }
 
     try {
-      // 1. Clear SQLite WASM
-      await _store!.clear().toDart;
-
-      // 2. Clear HNSW index
-      _hnswIndex.clear();
+      // Drop the table so a re-add can re-learn the dimension / re-apply a new
+      // schema (vec0 bakes both into the DDL).
+      if (_detectedDimension != null) {
+        _db!.execute('DROP TABLE IF EXISTS $_tableName');
+      }
+      _detectedDimension = null;
     } catch (e) {
       throw VectorStoreException('Failed to clear vector store', e);
     }
@@ -285,43 +356,24 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> close() async {
-    if (!_isInitialized || _store == null) {
-      return; // Idempotent: Safe to call when not initialized
-    }
-
+    if (!_isInitialized) return; // Idempotent.
     try {
-      await _store!.close().toDart;
-      _store = null;
-      _hnswIndex.clear();
+      _db?.close();
+    } finally {
+      _db = null;
+      _sqlite3 = null;
       _isInitialized = false;
-    } catch (e) {
-      // Best-effort cleanup: Even if close() fails,
-      // mark as uninitialized to prevent further operations
-      _store = null;
-      _hnswIndex.clear();
-      _isInitialized = false;
-      throw VectorStoreException('Failed to close vector store', e);
+      _detectedDimension = null;
     }
   }
 
-  // ========================================================================
-  // Private Helpers
-  // ========================================================================
+  // === BLOB encoding (float32 little-endian, identical to native + Kotlin/Swift)
 
-  /// Verify SQLiteVectorStore JS class is loaded
-  ///
-  /// Throws [StateError] if sqlite_vector_store.js not loaded
-  void _ensureSQLiteLoaded() {
-    // Try to create a test instance - will throw if JS not loaded
-    // This is the simplest way to check without unsafe JS interop
-    try {
-      const JSNumber? dimension = null;
-      final testInstance = SQLiteVectorStore(dimension);
-      // If we got here, module is loaded
-      // Ignore the test instance
-      testInstance; // suppress unused variable warning
-    } catch (e) {
-      throw StateError('SQLiteVectorStore not available: $e');
+  static Uint8List _embeddingToBlob(List<double> embedding) {
+    final buffer = ByteData(embedding.length * 4);
+    for (var i = 0; i < embedding.length; i++) {
+      buffer.setFloat32(i * 4, embedding[i].toDouble(), Endian.little);
     }
+    return buffer.buffer.asUint8List();
   }
 }

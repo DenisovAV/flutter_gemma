@@ -18,7 +18,7 @@ with the on-device model exactly as it would with any cloud provider.
 
 ### Add to pubspec.yaml
 
-```yaml
+```
 dependencies:
   genkit_flutter_gemma: ^0.4.0
   flutter_gemma: ^1.0.0
@@ -137,7 +137,7 @@ flutter_gemma and works with **any** pair of Genkit models.
 
 ### Add to pubspec.yaml
 
-```yaml
+```
 dependencies:
   genkit_hybrid: ^0.1.0
   genkit: any

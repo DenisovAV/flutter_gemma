@@ -219,3 +219,24 @@ const _checksums = {
 | Web WASM | OUT OF SCOPE | dart:ffi not available on Web; separate JS interop track |
 
 No platform is BLOCKED for embeddings-only usage. macOS x64 and Windows x64 have concerns (missing standalone v1.27.0 tarballs) but feasible workarounds exist.
+
+## Review follow-ups (carry into hook Task A2/C2 — do NOT skip)
+
+Two Important items from the S1 review that the hook implementer MUST resolve
+before the hook is ship-ready (not blockers for the spike, but load-bearing for A2/C2):
+
+1. **Mac Catalyst vs native macOS slice.** The CocoaPods `onnxruntime-c` xcframework's
+   `macos-arm64_x86_64` slice may be a Mac **Catalyst** framework (`macabi` archs in the
+   official build settings), NOT a native macOS dylib suitable for Flutter `dart:ffi`.
+   **Action in A2:** download the pod zip, inspect the `.xcframework` Info.plist +
+   `otool -l` the binary to confirm it is a native macOS dylib (LC_BUILD_VERSION platform
+   == MACOS, not MACCATALYST). If it is Catalyst-only, macOS x64 must come from another
+   source (e.g. build-from-source, or the universal2 tarball from an older release, or
+   accept arm64-only macOS for v1). Verify BEFORE wiring the hook's macOS path.
+
+2. **Two SHA256 values are unresolved placeholders.** Android (Maven ships SHA1 only) and
+   iOS/macOS (CocoaPods CDN ships no checksum). The `_checksums` map cannot ship with
+   `<COMPUTE_SHA256_FROM_DOWNLOAD>` entries — the project REQUIRES SHA256 verification.
+   **Action in A2:** download each artifact once, compute its SHA256, hardcode it in the
+   hook's `_checksums` map. Re-host-on-our-releases remains the fallback if Microsoft's
+   source URLs prove unstable (then we control the checksum file directly).

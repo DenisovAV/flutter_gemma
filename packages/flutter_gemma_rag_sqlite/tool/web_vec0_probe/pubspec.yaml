@@ -1,0 +1,15 @@
+# Standalone probe app for the web vec0 gate — NOT part of the workspace.
+# Driven by tool/verify_web_vec0.mjs. Compile with build_web_compilers, then
+# the .mjs serves build/ under COOP/COEP and asserts RESULT=PASS.
+name: web_vec0_probe
+description: Headless web probe that loads the custom sqlite3.wasm and runs a vec0 KNN.
+publish_to: none
+resolution: # intentionally NOT part of the pub workspace
+environment:
+  sdk: ^3.5.0
+dependencies:
+  sqlite3: ^3.3.0
+  web: ^1.0.0
+dev_dependencies:
+  build_runner: ^2.4.0
+  build_web_compilers: ^4.0.0

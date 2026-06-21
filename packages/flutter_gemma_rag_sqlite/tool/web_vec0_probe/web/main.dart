@@ -1,0 +1,67 @@
+// Minimal Dart web app for the web vec0 gate (driven by tool/verify_web_vec0.mjs).
+// Loads the custom sqlite3.wasm (sqlite-vec linked in), creates a vec0 table
+// with a TEXT primary key, inserts 3 vectors, runs a KNN MATCH, and logs
+// RESULT=PASS iff the nearest-two come back as the expected TEXT ids. This is
+// the web-arm twin of test/vec0_text_pk_test.dart.
+import 'dart:typed_data';
+import 'package:web/web.dart' as web;
+import 'package:sqlite3/wasm.dart';
+
+void _write(String s) {
+  web.console.log(s as dynamic);
+  final el = web.document.getElementById('out');
+  if (el != null) el.textContent = s;
+}
+
+Uint8List _f32(List<double> v) {
+  final b = ByteData(v.length * 4);
+  for (var i = 0; i < v.length; i++) {
+    b.setFloat32(i * 4, v[i], Endian.little);
+  }
+  return b.buffer.asUint8List();
+}
+
+Future<void> main() async {
+  try {
+    final sqlite3 = await WasmSqlite3.loadFromUrl(Uri.parse('sqlite3.wasm'));
+    sqlite3.registerVirtualFileSystem(InMemoryFileSystem(), makeDefault: true);
+    final db = sqlite3.open('test');
+    final ver = db.select('SELECT vec_version() AS v');
+    final buf = StringBuffer('vec_version=${ver.first['v']}\n');
+    db.execute(
+      'CREATE VIRTUAL TABLE vd USING vec0(id TEXT PRIMARY KEY, embedding float[4])',
+    );
+    final stmt = db.prepare('INSERT INTO vd(id, embedding) VALUES (?, ?)');
+    stmt.execute([
+      'alpha',
+      _f32([1, 0, 0, 0]),
+    ]);
+    stmt.execute([
+      'beta',
+      _f32([0, 1, 0, 0]),
+    ]);
+    stmt.execute([
+      'gamma',
+      _f32([0.9, 0.1, 0, 0]),
+    ]);
+    stmt.close();
+    final rows = db.select(
+      'SELECT id, distance FROM vd WHERE embedding MATCH ? AND k = 2 ORDER BY distance',
+      [
+        _f32([1, 0, 0, 0]),
+      ],
+    );
+    buf.write(
+      'KNN=${rows.map((r) => '${r['id']}:${r['distance']}').toList()}\n',
+    );
+    buf.write(
+      rows.first['id'] == 'alpha' && rows[1]['id'] == 'gamma'
+          ? 'RESULT=PASS'
+          : 'RESULT=FAIL',
+    );
+    db.close();
+    _write(buf.toString());
+  } catch (e, st) {
+    _write('RESULT=ERROR\n$e\n$st');
+  }
+}

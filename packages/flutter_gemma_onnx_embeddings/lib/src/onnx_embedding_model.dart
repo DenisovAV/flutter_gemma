@@ -90,6 +90,11 @@ class OnnxEmbeddingModel extends EmbeddingModel with CloseNotifier {
   static List<double> _meanPoolAndNormalize(List<List<double>> tokenEmbeddings) {
     assert(tokenEmbeddings.isNotEmpty, 'Token embeddings must not be empty');
 
+    // Mean-pool over ALL rows: the ORT session receives a dynamic-length
+    // `input_ids` tensor (no right-padding to a fixed sequence length), so every
+    // row here is a real token — no attention mask is needed to exclude padding.
+    // If a future model variant requires fixed-length padded input, this must be
+    // revisited to mask out padding rows before averaging.
     final seqLen = tokenEmbeddings.length;
     final hiddenSize = tokenEmbeddings.first.length;
 

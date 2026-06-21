@@ -3,7 +3,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/model_selection_screen.dart';
 import 'package:flutter_gemma_example/services/auth_token_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -28,7 +27,7 @@ class ChatScreenState extends State<ChatScreen> {
   bool _isStreaming = false; // Track streaming state
   String? _error;
   Color _backgroundColor = const Color(0xFF0b2351);
-  String _appTitle = 'Flutter Gemma Example'; // Track the current app title
+  late String _appTitle; // App bar title; tool calls can override after load
 
   // Toggle for sync/async mode
   bool _useSyncMode = false;
@@ -87,6 +86,7 @@ class ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _appTitle = widget.model.displayName;
     _initializeModel();
   }
 
@@ -339,26 +339,30 @@ class ChatScreenState extends State<ChatScreen> {
         backgroundColor: _backgroundColor,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute<void>(
-                builder: (context) => const ModelSelectionScreen(),
-              ),
-              (route) => false,
-            );
-          },
+          onPressed: () => Navigator.of(context).maybePop(),
+          tooltip: 'Back',
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _appTitle,
+              widget.model.displayName,
               style: const TextStyle(fontSize: 18),
               softWrap: true,
               overflow: TextOverflow.ellipsis,
               maxLines: 1,
             ),
+            if (_appTitle != widget.model.displayName)
+              Text(
+                _appTitle,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.normal,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             if (chat?.supportsImages == true)
               const Text(
                 'Image support enabled',

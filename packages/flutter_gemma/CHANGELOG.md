@@ -1,3 +1,8 @@
+## 1.0.3
+- Add `clearActiveInferenceIdentity`/`clearActiveEmbeddingIdentity` (non-breaking defaults on `ModelFileManager`).
+- Export `DownloadError`/`DownloadException` from `flutter_gemma.dart`.
+- Example: downloaded-models list screen with delete/copy-path/load and gated-model 401/403 dialog.
+
 ## 1.0.2
 - Add `maxOutputTokens` on `createSession`/`openSession`/`createChat`/`openChat` to cap generation length (#318).
 - Clarify `maxTokens` dartdoc: it's the context window (input + output), not reply length.

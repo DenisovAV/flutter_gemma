@@ -116,6 +116,12 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
       appBar: AppBar(
         title: const Text('Select a Model'),
         backgroundColor: const Color(0xFF0b2351),
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).maybePop(),
+          tooltip: 'Back',
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

@@ -31,6 +31,10 @@ export 'core/api/embedding_installation_builder.dart';
 // Export Web-specific types
 export 'core/domain/web_storage_mode.dart';
 
+// Download error types (401/403 gated models, etc.)
+export 'core/domain/download_error.dart';
+export 'core/domain/download_exception.dart';
+
 // Export Model Specs (needed for advanced use cases). These dart:io-free value
 // types live in their own library so the public API doesn't pull the mobile
 // implementation (and its dart:io) into the web/wasm graph.

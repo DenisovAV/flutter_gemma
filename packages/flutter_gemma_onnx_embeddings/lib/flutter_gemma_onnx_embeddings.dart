@@ -5,6 +5,10 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 
+import 'src/onnx_embedding_model.dart';
+import 'src/ort_client.dart';
+import 'src/sentencepiece_tokenizer_adapter.dart';
+
 /// ONNX Runtime–based embedding backend for flutter_gemma.
 ///
 /// Handles [EmbeddingModelSpec]s whose model source resolves to an `.onnx`
@@ -44,7 +48,17 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
   Future<EmbeddingModel> createModel(
     EmbeddingModelSpec spec,
     RuntimeConfig config,
-  ) {
-    throw UnimplementedError('Implemented in Task A3');
+  ) async {
+    final tokenizerPath = config.tokenizerPath;
+    if (tokenizerPath == null) {
+      throw StateError(
+        'OnnxEmbeddingBackend requires config.tokenizerPath (resolved by core '
+        'from the active embedding model).',
+      );
+    }
+    final ortClient = await FlutterOrtClient.create(config.modelPath);
+    final tokenizer =
+        await SentencePieceTokenizerAdapter.fromPath(tokenizerPath);
+    return OnnxEmbeddingModel(ortClient: ortClient, tokenizer: tokenizer);
   }
 }

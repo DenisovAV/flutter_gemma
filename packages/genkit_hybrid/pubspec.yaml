@@ -17,7 +17,7 @@ environment:
 resolution: workspace
 
 dependencies:
-  genkit: ^0.13.0
+  genkit: ^0.14.1
 
 dev_dependencies:
   test: ^1.25.0

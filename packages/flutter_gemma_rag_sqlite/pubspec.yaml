@@ -28,12 +28,11 @@ dependencies:
     sdk: flutter
   flutter_gemma: ^1.0.1
   sqlite3: ^3.3.0
-  # Native Assets hook deps — hook/build.dart fetches the per-platform
-  # sqlite-vec (vec0) loadable extension from a GitHub Release, SHA256-verifies
-  # it, and bundles it as a CodeAsset (resolved by DynamicLibrary.open).
+  # Native Assets hook deps — hook/build.dart registers the per-platform
+  # sqlite-vec (vec0) loadable extension (committed under native/sqlite_vec/
+  # prebuilt/, ~140 KB each) as a CodeAsset resolved by DynamicLibrary.open.
   hooks: ^2.0.0
   code_assets: ^1.2.0
-  crypto: ^3.0.6
 
 dev_dependencies:
   flutter_test:

@@ -77,8 +77,8 @@ This is the critical distinction: ORT is handled differently per platform.
 |---|---|---|---|
 | macOS arm64 | **NOT bundled** — `libonnxruntime.dylib` dlopened at runtime (bare name) | **YES** | See S1: `onnxruntime-osx-arm64-1.27.0.tgz` or `pod-archive-onnxruntime-c-1.27.0.zip` |
 | Windows x64 | **NOT bundled** — `onnxruntime.dll` loaded via `LoadLibraryExA` at runtime | **YES** | See S1: `onnxruntime-win-x64-1.26.0.zip` (CPU zip absent in v1.27.0) |
-| Linux x64 | **Statically linked** — ORT compiled into `libonnxruntime-genai.so` (183 MB) | **NO** | — |
-| Linux arm64 | **Statically linked** (same pattern as Linux x64) | **NO** | — |
+| Linux x64 | **NOT bundled** — `libonnxruntime.so` dlopened at runtime (same `_ORT_GENAI_USE_DLOPEN` path as macOS) | **YES** | See S1: `onnxruntime-linux-x64-1.27.0.tgz` |
+| Linux arm64 | **NOT bundled** — same dlopen pattern as Linux x64 | **YES** | See S1: `onnxruntime-linux-aarch64-1.27.0.tgz` |
 | Windows arm64 | **NOT bundled** (same pattern as Windows x64 — small DLL, LoadLibrary) | **YES** | See S1: `onnxruntime-win-arm64-1.27.0.zip` |
 
 **Evidence for macOS:** `otool -L libonnxruntime-genai.dylib` shows NO `libonnxruntime.dylib` entry —
@@ -91,37 +91,42 @@ DLL is 5.9 MB, confirming no static bundling.
 
 **Evidence for Linux:** `readelf -d libonnxruntime-genai.so` NEEDED list contains only system libs
 (`libdl.so.2`, `libpthread.so.0`, `libgcc_s.so.1`, `libstdc++.so.6`, `libc.so.6`, etc.) — no
-`libonnxruntime.so`. Uncompressed size is ~183 MB, consistent with static embedding of the full ORT stack.
+`libonnxruntime.so`. This is **consistent with runtime dlopen**, NOT static bundling. ORT-GenAI applies
+`_ORT_GENAI_USE_DLOPEN` on Android, Linux, AND macOS (per `CMakeLists.txt` ~line 181-182 and
+`src/models/onnxruntime_api.h`). On Linux, genai's `InitApi()` calls
+`LoadDynamicLibraryIfExists("libonnxruntime.so")` then `"libonnxruntime.so.1"` at runtime (dlopen), with
+a `GetCurrentModuleDir()`-based fallback that resolves a co-located `.so`. The large uncompressed size
+(~183 MB) reflects the LLVM/ORT-GenAI build itself — ORT is NOT statically compiled in.
 
 **ORT compatibility requirement:** `onnxruntime >= 1.26.0` (from PyPI `onnxruntime-genai 0.14.0`
 wheel metadata, `requires_dist` field).
 
 ### 2d. WHERE libonnxruntime.* must land (dynamic loading resolution)
 
-**macOS:** `libonnxruntime-genai.dylib` uses `dlopen("libonnxruntime.dylib", ...)` with a bare filename
-(no path component). On macOS, bare-name `dlopen` searches: `DYLD_LIBRARY_PATH`, `DYLD_FALLBACK_LIBRARY_PATH`,
-`/usr/local/lib`, `/usr/lib`. The `@rpath`-based search does NOT apply to bare-name dlopen.
-
-The hook must place `libonnxruntime.dylib` in the **same directory** as `libonnxruntime-genai.dylib` AND
-also output `libonnxruntime.1.27.0.dylib` (the versioned copy from the ORT tarball). Then, before
-returning from the Native Assets hook, call `install_name_tool` to add an `LC_RPATH` pointing to the
-output lib directory on `libonnxruntime-genai.dylib`. Alternatively, use
-`DYLD_LIBRARY_PATH=$(dirname libonnxruntime-genai.dylib)` at process launch (Flutter dev mode only).
+**macOS:** `libonnxruntime-genai.dylib` dlopens the bare string `"libonnxruntime.dylib"` from source (not
+an `LC_LOAD_DYLIB` entry). Its `LoadDynamicLibraryIfExists` has a `GetCurrentModuleDir()`-based fallback
+that resolves a co-located dylib automatically. **`install_name_tool` patching does NOT help** — the bare
+name comes from source code, not an ELF/Mach-O dependency entry, so `-change` would target nothing and
+`-add_rpath` does not affect bare-name `dlopen` paths.
 
 **Recommended hook action for macOS:**
-1. Extract both archives to the same `<build_output>/lib/` dir.
-2. Run `install_name_tool -add_rpath @loader_path /path/to/libonnxruntime-genai.dylib` after extraction.
-   This makes `dlopen("libonnxruntime.dylib")` resolve via the `@loader_path`-appended rpath. Note:
-   `dlopen` with a bare name does NOT use LC_RPATH by default on macOS — the hook may need to use
-   `dlopen("@rpath/libonnxruntime.dylib")` if possible, or simply ensure both dylibs are co-located
-   in `DYLD_FALLBACK_LIBRARY_PATH`. **Verify this with a runtime probe before wiring Phase C.**
+1. Extract both archives to the same `<build_output>/lib/` dir (co-locate `libonnxruntime.dylib` next to
+   `libonnxruntime-genai.dylib`).
+2. Genai's `GetCurrentModuleDir()` fallback in `LoadDynamicLibraryIfExists` resolves the co-located dylib
+   automatically — **NO `install_name_tool` needed**.
+3. Phase C should still confirm with a runtime probe that the co-located `.dylib` is found before
+   finalizing the hook.
 
 **Windows:** `LoadLibraryExA("onnxruntime.dll")` searches: the directory of the loading DLL, then
 `System32`, then `PATH`. Place `onnxruntime.dll` + `onnxruntime_providers_shared.dll` in the same
 directory as `onnxruntime-genai.dll`. This is the standard Windows DLL co-location pattern and works
 without any manifest changes.
 
-**Linux:** No second archive needed — ORT is already compiled in.
+**Linux:** `libonnxruntime-genai.so` dlopens `"libonnxruntime.so"` then `"libonnxruntime.so.1"` at
+runtime via the same `_ORT_GENAI_USE_DLOPEN` path used on macOS. Its `GetCurrentModuleDir()` fallback
+resolves a co-located `.so` automatically. Co-locate `libonnxruntime.so` (from the plain-ORT Linux bundle,
+per S1) next to `libonnxruntime-genai.so` — **same two-archive pattern as macOS**. No `rpath` patching
+needed.
 
 ### 2e. Native-Assets CodeAsset registration
 
@@ -140,7 +145,7 @@ buildOutput.assets.code.add(
   ),
 );
 
-// Plain ORT (macOS, Windows, Windows arm64 — NOT Linux)
+// Plain ORT (macOS, Windows, Linux — all desktop platforms that use dlopen)
 buildOutput.assets.code.add(
   CodeAsset(
     package: 'flutter_gemma_onnx',
@@ -153,7 +158,7 @@ buildOutput.assets.code.add(
 );
 ```
 
-On Linux, only the ORT-GenAI asset is registered (plain ORT is statically compiled in).
+On Linux, both ORT-GenAI and plain-ORT assets are registered (Linux uses dlopen, same as macOS).
 
 ---
 
@@ -263,9 +268,9 @@ No plain-ORT CodeAsset needed for iOS.
 |---|---|---|---|---|
 | Win x64 | `onnxruntime-genai-0.14.0-win-x64.zip` | `onnxruntime-win-x64-1.26.0.zip` (from S1) | No — LoadLibrary | Co-locate DLLs, 2 CodeAssets |
 | Win arm64 | `onnxruntime-genai-0.14.0-win-arm64.zip` | `onnxruntime-win-arm64-1.27.0.zip` (from S1) | No — LoadLibrary | Co-locate DLLs, 2 CodeAssets |
-| macOS arm64 | `onnxruntime-genai-0.14.0-osx-arm64.tar.gz` | `onnxruntime-osx-arm64-1.27.0.tgz` (from S1) | No — dlopen | Co-locate dylibs + install_name_tool, 2 CodeAssets |
-| Linux x64 | `onnxruntime-genai-0.14.0-linux-x64.tar.gz` | — (statically linked) | YES | 1 CodeAsset only |
-| Linux arm64 | `onnxruntime-genai-0.14.0-linux-arm64.tar.gz` | — (statically linked) | YES | 1 CodeAsset only |
+| macOS arm64 | `onnxruntime-genai-0.14.0-osx-arm64.tar.gz` | `onnxruntime-osx-arm64-1.27.0.tgz` (from S1) | No — dlopen | Co-locate dylibs (GetCurrentModuleDir fallback), 2 CodeAssets |
+| Linux x64 | `onnxruntime-genai-0.14.0-linux-x64.tar.gz` | `onnxruntime-linux-x64-1.27.0.tgz` (from S1) | No — dlopen | Co-locate .so files (GetCurrentModuleDir fallback), 2 CodeAssets |
+| Linux arm64 | `onnxruntime-genai-0.14.0-linux-arm64.tar.gz` | `onnxruntime-linux-aarch64-1.27.0.tgz` (from S1) | No — dlopen | Co-locate .so files (GetCurrentModuleDir fallback), 2 CodeAssets |
 | iOS (device + sim) | `onnxruntime-genai-ios-0.14.0.zip` | — (statically linked) | YES | xcframework CodeAssets |
 | Android | (not this spike — see AAR path) | — | TBD | separate spike |
 
@@ -298,8 +303,8 @@ const _ortChecksums = {
       '6ebe99b5564bf4d029b6e93eac9ff423682b6212eade769e9ca3f685eaf500b4',
   'onnxruntime-win-arm64-1.27.0.zip':
       'a32f2650575b3c20df462e337519fd1cc4105356130d11dba9771c6f374d952f',
-  // Linux: no plain-ORT needed (statically linked)
-  // iOS: no plain-ORT needed (statically linked)
+  // Linux: plain-ORT IS needed (dlopen, same as macOS) — SHA256 from S1
+  // iOS: no plain-ORT needed (statically linked into xcframework slices)
 };
 ```
 
@@ -307,12 +312,12 @@ const _ortChecksums = {
 
 ## 6. Open items for Phase C (hook implementation)
 
-1. **macOS dlopen resolution must be probed.** `libonnxruntime-genai.dylib` dlopens
-   `"libonnxruntime.dylib"` by bare name. `install_name_tool -add_rpath @loader_path` alone may not
-   be sufficient because bare-name `dlopen` on macOS does not walk `LC_RPATH`. The hook may need to
-   relink the dylib with `install_name_tool -change libonnxruntime.dylib @rpath/libonnxruntime.dylib`
-   (changing the embedded string in the genai dylib) or fall back to placing both dylibs in a directory
-   on `DYLD_FALLBACK_LIBRARY_PATH`. **Requires a runtime probe in Phase C before finalizing.**
+1. **macOS/Linux co-location resolution must be probed.** `libonnxruntime-genai.dylib` / `.so` dlopens
+   `"libonnxruntime.dylib"` / `"libonnxruntime.so"` by bare name, with a `GetCurrentModuleDir()`-based
+   fallback that should resolve a co-located library. Co-location (both archives extracted to the same
+   `<build_output>/lib/` dir) is the correct approach — **`install_name_tool` patching is NOT needed and
+   should NOT be used** (the bare name comes from source, not an LC_LOAD_DYLIB entry). Phase C must
+   confirm via a runtime probe that the co-located library is found before finalizing the hook.
 
 2. **macOS versioned dylib symlink.** The plain-ORT macOS tarball provides `lib/libonnxruntime.dylib`
    (symlink) and `lib/libonnxruntime.1.27.0.dylib` (versioned). Extract both; ensure the symlink is

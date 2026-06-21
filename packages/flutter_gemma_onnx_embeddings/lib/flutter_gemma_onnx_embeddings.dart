@@ -1,3 +1,4 @@
+import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
@@ -18,16 +19,25 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
   @override
   int get priority => 0;
 
-  /// Returns true when the model source path/URL ends with `.onnx` or `.ort`.
+  /// Returns true when the model source path resolves to an `.onnx` or `.ort`
+  /// file.
   ///
-  /// [EmbeddingModelSpec] stores the model as a [ModelSource] (not a raw
-  /// path string), so we probe via `encode()` — format `<kind>|<value>` —
-  /// which reliably ends with the filename extension for all source kinds
-  /// (network, asset, file, bundled).
+  /// Uses an exhaustive switch on the sealed [ModelSource] hierarchy so a new
+  /// subtype will cause a compile error here rather than silently falling
+  /// through.  For [NetworkSource] the URL path is extracted via [Uri.parse]
+  /// before checking the extension — this correctly handles signed/token URLs
+  /// such as `https://host/model.onnx?token=abc` where the raw URL string
+  /// would not end with `.onnx`.
   @override
   bool canHandle(EmbeddingModelSpec spec) {
-    final encoded = spec.modelSource.encode();
-    return encoded.endsWith('.onnx') || encoded.endsWith('.ort');
+    final source = spec.modelSource;
+    final String path = switch (source) {
+      NetworkSource(:final url) => Uri.parse(url).path,
+      AssetSource(:final path) => path,
+      FileSource(:final path) => path,
+      BundledSource(:final resourceName) => resourceName,
+    };
+    return path.endsWith('.onnx') || path.endsWith('.ort');
   }
 
   @override

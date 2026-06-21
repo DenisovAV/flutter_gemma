@@ -1,8 +1,8 @@
 name: flutter_gemma_onnx_embeddings
 description: "On-device text embeddings (EmbeddingGemma .onnx/.ort via ONNX Runtime) for flutter_gemma. Opt-in EmbeddingBackendProvider for on-device RAG."
 version: 0.1.0
-homepage: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_onnx_embeddings
-repository: https://github.com/DenisovAV/flutter_gemma
+homepage: https://fluttergemma.dev
+repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_onnx_embeddings
 issue_tracker: https://github.com/DenisovAV/flutter_gemma/issues
 topics: [embeddings, gemma, onnx, onnxruntime, rag, on-device]
 

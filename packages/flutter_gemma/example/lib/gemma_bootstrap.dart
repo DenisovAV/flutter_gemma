@@ -3,6 +3,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_gemma_onnx_embeddings/flutter_gemma_onnx_embeddings.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
@@ -14,7 +15,7 @@ import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 const kExampleInferenceEngines = [LiteRtLmEngine(), MediaPipeEngine()];
 
 /// The opt-in embedding backends the example registers. Single source of truth.
-const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];
+const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend(), OnnxEmbeddingBackend()];
 
 /// The RAG vector-store backends the example can switch between.
 enum RagBackend {

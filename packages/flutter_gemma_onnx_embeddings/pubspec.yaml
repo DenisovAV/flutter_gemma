@@ -12,6 +12,7 @@ platforms:
   macos:
   windows:
   linux:
+  web:
 
 resolution: workspace
 
@@ -23,7 +24,6 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.0.1
-  ffi: ^2.1.0
   flutter_onnxruntime: ^1.8.0
   dart_sentencepiece_tokenizer: ^1.3.0
 

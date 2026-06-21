@@ -26,9 +26,13 @@ class _FakeOrtClient implements OrtClient {
   int runCount = 0;
   bool closed = false;
 
+  /// The token IDs received in the most recent [runEmbedding] call.
+  List<int>? lastTokenIds;
+
   @override
   Future<List<List<double>>> runEmbedding(List<int> tokenIds) async {
     runCount++;
+    lastTokenIds = List<int>.from(tokenIds);
     return _fakeTokenEmbeddings;
   }
 
@@ -42,12 +46,16 @@ class _FakeOrtClient implements OrtClient {
 }
 
 // ---------------------------------------------------------------------------
-// Fake Tokenizer — always returns [1, 2, 3] ids regardless of input.
+// Fake Tokenizer — encodes each character as its 1-based position index so
+// that longer input strings produce longer token-ID sequences. This makes
+// TaskType prefix application observable: a prefixed string yields strictly
+// more token IDs than the bare text alone.
 // ---------------------------------------------------------------------------
 
 class _FakeTokenizer implements Tokenizer {
   @override
-  List<int> encode(String text) => [1, 2, 3];
+  List<int> encode(String text) =>
+      List<int>.generate(text.length, (i) => i + 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -175,25 +183,62 @@ void main() {
 
     // -----------------------------------------------------------------------
     // 6. TaskType prefix is prepended before tokenization
+    //
+    // _FakeTokenizer.encode returns one token ID per character, so a prefixed
+    // string produces strictly more token IDs than the bare text alone.
+    // We assert:
+    //   (a) ortClient was called (inference ran), and
+    //   (b) the token IDs sequence length equals (prefix + text).length,
+    //       proving the prefix was concatenated before tokenization.
     // -----------------------------------------------------------------------
 
     test('generateEmbedding with retrievalQuery prepends task prefix', () async {
-      // generateEmbedding() must succeed (the fake tokenizer ignores the text),
-      // but we verify the ortClient was called (i.e. inference ran).
+      const inputText = 'query text';
       await model.generateEmbedding(
-        'query text',
+        inputText,
         taskType: TaskType.retrievalQuery,
       );
+
       expect(fakeClient.runCount, equals(1));
+
+      final expectedLength =
+          (TaskType.retrievalQuery.prefix + inputText).length;
+      expect(
+        fakeClient.lastTokenIds,
+        isNotNull,
+        reason: 'lastTokenIds must be recorded after runEmbedding',
+      );
+      expect(
+        fakeClient.lastTokenIds!.length,
+        equals(expectedLength),
+        reason: 'token IDs length should equal (prefix + text).length when '
+            'prefix is prepended before tokenization',
+      );
     });
 
     test('generateEmbedding with retrievalDocument prepends document prefix',
         () async {
+      const inputText = 'document text';
       await model.generateEmbedding(
-        'document text',
+        inputText,
         taskType: TaskType.retrievalDocument,
       );
+
       expect(fakeClient.runCount, equals(1));
+
+      final expectedLength =
+          (TaskType.retrievalDocument.prefix + inputText).length;
+      expect(
+        fakeClient.lastTokenIds,
+        isNotNull,
+        reason: 'lastTokenIds must be recorded after runEmbedding',
+      );
+      expect(
+        fakeClient.lastTokenIds!.length,
+        equals(expectedLength),
+        reason: 'token IDs length should equal (prefix + text).length when '
+            'prefix is prepended before tokenization',
+      );
     });
   });
 }

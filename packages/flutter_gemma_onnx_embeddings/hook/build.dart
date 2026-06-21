@@ -79,7 +79,7 @@ String? _archiveName(String dirName) {
 List<String> _companions(String dirName) {
   return switch (dirName) {
     'linux_x86_64' || 'linux_arm64' => ['onnxruntime_providers_shared'],
-    'windows_x86_64' => ['onnxruntime_providers_shared'],
+    'windows_x86_64' || 'windows_arm64' => ['onnxruntime_providers_shared'],
     _ => const [],
   };
 }
@@ -393,14 +393,14 @@ Future<void> _extractZip(
 ) async {
   final rawDir = Directory('${flatDir.parent.path}/raw');
   rawDir.createSync();
-  final extract = await Process.run('unzip', [
-    '-q',
+  final extract = await Process.run('tar', [
+    '-xf',
     archiveFile.path,
-    '-d',
+    '-C',
     rawDir.path,
   ]);
   if (extract.exitCode != 0) {
-    throw Exception('unzip failed: ${extract.stderr}');
+    throw Exception('tar failed: ${extract.stderr}');
   }
 
   // Copy main DLL.
@@ -441,14 +441,14 @@ Future<void> _extractAar(
   final rawDir = Directory('${flatDir.parent.path}/raw');
   rawDir.createSync();
   // AAR is a zip.
-  final extract = await Process.run('unzip', [
-    '-q',
+  final extract = await Process.run('tar', [
+    '-xf',
     archiveFile.path,
-    '-d',
+    '-C',
     rawDir.path,
   ]);
   if (extract.exitCode != 0) {
-    throw Exception('unzip (AAR) failed: ${extract.stderr}');
+    throw Exception('tar (AAR) failed: ${extract.stderr}');
   }
 
   // The ABI subfolder depends on dirName. For now we only support arm64.

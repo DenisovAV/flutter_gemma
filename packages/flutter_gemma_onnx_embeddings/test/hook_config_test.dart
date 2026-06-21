@@ -55,15 +55,12 @@ void main() {
       );
     });
 
-    test('no checksum value is an unfilled placeholder for non-android entries',
-        () {
-      // The android AAR placeholder is accepted during development until the
-      // AAR download completes. All GitHub-sourced entries must be real SHA256.
-      final githubEntries = kOnnxOrtChecksums.entries
-          .where((e) => !e.key.contains('android') && !e.key.contains('pod'))
+    test('no checksum value is an unfilled placeholder', () {
+      final allEntries = kOnnxOrtChecksums.entries
+          .where((e) => !e.key.contains('pod'))
           .toList();
 
-      for (final entry in githubEntries) {
+      for (final entry in allEntries) {
         expect(
           entry.value,
           isNot(contains('<')),
@@ -83,6 +80,15 @@ void main() {
           reason: '${entry.key} checksum must be a 64-char hex SHA256',
         );
       }
+    });
+
+    test('android arm64 SHA256 matches known value', () {
+      const expected =
+          '09c0780ae8d734ef2774bdf498b624729a855e6f9a8e488a0e7398a4e7396032';
+      final key = kOnnxOrtChecksums.keys.firstWhere(
+        (k) => k.contains('android'),
+      );
+      expect(kOnnxOrtChecksums[key], equals(expected));
     });
 
     test('linux x64 SHA256 matches known value', () {

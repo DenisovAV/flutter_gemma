@@ -8,8 +8,10 @@ import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 
 /// Native-only RAG vector store backed by qdrant-edge (FFI). Implements
-/// flutter_gemma's [VectorStoreRepository]. ~75x faster search than the
-/// sqlite store. Web is unsupported (qdrant-edge can't compile to WASM).
+/// flutter_gemma's [VectorStoreRepository]. Its HNSW index makes it the fastest
+/// native option — roughly 5–11× faster search than the in-SQLite sqlite-vec
+/// store at 1k–10k docs (with identical top-K results). Web is unsupported
+/// (qdrant-edge can't compile to WASM); use flutter_gemma_rag_sqlite there.
 ///
 /// Public API parity with the existing contract:
 ///

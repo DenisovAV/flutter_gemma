@@ -89,13 +89,28 @@ build_android_arm64() {
   unzip -oq "$WORK/sqlite-amalg.zip" -d "$WORK"
   local hdr; hdr="$(dirname "$(find "$WORK" -name sqlite3ext.h | head -1)")"
 
+  # Loadable-extension mode: SQLITE_CORE must be UNDEFINED (not =0). The
+  # amalgamation gates `SQLITE_EXTENSION_INIT1` on `#ifndef SQLITE_CORE`, which
+  # tests *defined-ness*, so `-DSQLITE_CORE=0` would wrongly disable it and emit
+  # ~40 undefined `sqlite3_*` symbols that Android's strict linker can't resolve
+  # at dlopen ("cannot locate symbol sqlite3_free"). Leaving it undefined routes
+  # every sqlite call through the `sqlite3_api` pointer (zero undefined symbols).
   local out="$WORK/android_arm64"; mkdir -p "$out"
   "$cc" -O3 -fPIC -shared \
-    -DSQLITE_CORE=0 \
     -I "$SRC_DIR" -I "$hdr" \
     -Wl,-z,max-page-size=16384 \
     -Wl,--build-id=sha1 \
     -o "$out/libvec0.so" "$SRC_DIR/sqlite-vec.c"
+
+  # Guard: a loadable extension must have NO undefined sqlite3_* symbols, or
+  # Android dlopen fails resolving them. Catch a SQLITE_CORE regression here.
+  local nm
+  nm="$(ls "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin/llvm-nm 2>/dev/null | head -1)"
+  if [ -x "$nm" ]; then
+    local undef
+    undef="$("$nm" -D "$out/libvec0.so" 2>/dev/null | grep ' U ' | grep -ci sqlite || true)"
+    [ "$undef" = "0" ] || { echo "ERROR: android libvec0.so has $undef undefined sqlite3_* symbols (loadable mode broke)" >&2; exit 1; }
+  fi
 
   # Verify the 16 KB alignment actually landed before packing.
   python3 - "$out/libvec0.so" <<'PY'

@@ -343,6 +343,29 @@ void main() {
         expect(results.map((r) => r.id).toSet(), {'en2020', 'fr2020'});
       });
 
+      test('mustNot with TWO conditions excludes if EITHER matches', () async {
+        // Regression test for the AND/OR mustNot bug: a row must be excluded if
+        // it matches ANY mustNot condition (NOT (A OR B)), not only if it
+        // matches ALL of them (the old buggy NOT (A AND B)).
+        //   en2020: lang=en, year=2020 → matches neither → KEPT
+        //   fr2020: lang=fr          → matches first    → excluded
+        //   en1999: year=1999        → matches second   → excluded
+        await repo.initialize(dbPath);
+        await seed();
+        final results = await repo.searchSimilar(
+          queryEmbedding: [1.0, 0.0, 0.0, 0.0],
+          topK: 10,
+          filter: const Filter(
+            mustNot: [
+              FieldEquals(key: 'lang', value: 'fr'),
+              FieldRange(key: 'year', lte: 1999.0),
+            ],
+          ),
+        );
+        // With the bug this would return all three rows.
+        expect(results.map((r) => r.id).toSet(), {'en2020'});
+      });
+
       test('must + should + mustNot combine', () async {
         await repo.initialize(dbPath);
         await seed();

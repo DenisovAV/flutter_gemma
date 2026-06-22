@@ -1,3 +1,8 @@
+## 1.1.0
+- Add declared-column `Filter` support: `FilterSchema`/`FilterField`/`FilterFieldType` + `configure(FilterSchema)` on `VectorStoreRepository`.
+- Add optional `filterSchema:` to `FlutterGemma.initialize` (threaded to the vector store at registration).
+- Deprecate `enableHnsw` (no-op; vector search now runs inside the store engine).
+
 ## 1.0.3
 - Add `clearActiveInferenceIdentity`/`clearActiveEmbeddingIdentity` (non-breaking defaults on `ModelFileManager`).
 - Export `DownloadError`/`DownloadException` from `flutter_gemma.dart`.

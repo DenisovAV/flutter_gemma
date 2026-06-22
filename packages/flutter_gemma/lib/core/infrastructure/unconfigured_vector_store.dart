@@ -55,4 +55,14 @@ class UnconfiguredVectorStore implements VectorStoreRepository {
 
   @override
   Future<void> close() async {}
+
+  // configure() and filterSchema are safe no-ops on the sentinel: the registry
+  // calls configure() unconditionally at registration even when no RAG package
+  // is wired, so it must never throw. The actionable _fail() error fires only
+  // when an actual RAG operation (add/search/...) is attempted.
+  @override
+  FilterSchema get filterSchema => const FilterSchema();
+
+  @override
+  void configure(FilterSchema schema) {}
 }

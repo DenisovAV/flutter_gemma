@@ -9,14 +9,56 @@ Map<String, dynamic> _decode(String? json) {
   return jsonDecode(json!) as Map<String, dynamic>;
 }
 
+/// Schema declaring every field the tests filter on. Conditions on a field NOT
+/// in the schema are skipped (no-op), so all happy-path tests declare theirs.
+const _schema = FilterSchema(
+  fields: [
+    FilterField(name: 'lang', type: FilterFieldType.string),
+    FilterField(name: 'tag', type: FilterFieldType.string),
+    FilterField(name: 'price', type: FilterFieldType.number),
+    FilterField(name: 'archived', type: FilterFieldType.bool),
+    FilterField(name: 'k', type: FilterFieldType.number),
+  ],
+);
+
 void main() {
   group('FilterCodec.encode', () {
     test('null filter → null output', () {
-      expect(FilterCodec.encode(null), isNull);
+      expect(FilterCodec.encode(null, _schema), isNull);
     });
 
     test('empty filter → null output (skips the FFI filter branch)', () {
-      expect(FilterCodec.encode(const Filter()), isNull);
+      expect(FilterCodec.encode(const Filter(), _schema), isNull);
+    });
+
+    test('undeclared key → null output (no-op, same hits as filter:null)', () {
+      // Mirrors the sqlite-vec store: a condition on a field not in the schema
+      // is skipped rather than narrowing the search to zero.
+      expect(
+        FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'not_declared', value: 'x')],
+          ),
+          _schema,
+        ),
+        isNull,
+      );
+    });
+
+    test('declared + undeclared in one bucket → only declared survives', () {
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldEquals(key: 'lang', value: 'en'),
+              FieldEquals(key: 'not_declared', value: 'x'),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      expect(json['must'], hasLength(1));
+      expect(json['must'][0]['key'], 'lang');
     });
 
     test('FieldEquals encodes to match.value', () {
@@ -25,6 +67,7 @@ void main() {
           const Filter(
             must: [FieldEquals(key: 'lang', value: 'en')],
           ),
+          _schema,
         ),
       );
       expect(json, {
@@ -45,6 +88,7 @@ void main() {
               FieldMatchAny(key: 'tag', values: ['a', 'b', 'c']),
             ],
           ),
+          _schema,
         ),
       );
       expect(json, {
@@ -63,6 +107,7 @@ void main() {
       final both = _decode(
         FilterCodec.encode(
           const Filter(must: [FieldRange(key: 'price', gte: 10.0, lte: 100.0)]),
+          _schema,
         ),
       );
       expect(both['must'][0]['range'], {'gte': 10.0, 'lte': 100.0});
@@ -70,6 +115,7 @@ void main() {
       final gteOnly = _decode(
         FilterCodec.encode(
           const Filter(must: [FieldRange(key: 'price', gte: 10.0)]),
+          _schema,
         ),
       );
       expect(gteOnly['must'][0]['range'], {'gte': 10.0});
@@ -78,6 +124,7 @@ void main() {
       final lteOnly = _decode(
         FilterCodec.encode(
           const Filter(must: [FieldRange(key: 'price', lte: 100.0)]),
+          _schema,
         ),
       );
       expect(lteOnly['must'][0]['range'], {'lte': 100.0});
@@ -88,6 +135,7 @@ void main() {
       final json = _decode(
         FilterCodec.encode(
           const Filter(mustNot: [FieldEquals(key: 'archived', value: true)]),
+          _schema,
         ),
       );
       expect(json.keys, contains('must_not'));
@@ -104,6 +152,7 @@ void main() {
             ],
             mustNot: [FieldEquals(key: 'archived', value: true)],
           ),
+          _schema,
         ),
       );
       expect(json['must'], hasLength(2));
@@ -122,6 +171,7 @@ void main() {
             must: [FieldEquals(key: 'k', value: 1)],
             should: [],
           ),
+          _schema,
         ),
       );
       expect(json.keys, equals({'must'}));

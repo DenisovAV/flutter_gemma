@@ -2,7 +2,13 @@
 
 qdrant-edge on-device RAG vector store for [flutter_gemma](https://pub.dev/packages/flutter_gemma).
 Opt-in package implementing `VectorStoreRepository` via a Rust FFI shim
-(`qdrant-edge`) — ~75× faster search than the legacy sqlite + HNSW path.
+(`qdrant-edge`). qdrant's HNSW index makes it the fastest **native** RAG store —
+roughly **5–11× faster search** than the in-SQLite `sqlite-vec`/`vec0` store at
+1k–10k docs, and further ahead as the corpus grows (see
+[benchmark](https://github.com/DenisovAV/flutter_gemma/blob/main/docs/benchmarks/rag_sqlite_vec_vs_qdrant.md)).
+(The earlier "~75×" figure was against the now-deleted Dart brute-force store.)
+For web, or when exact KNN with identical results across platforms matters more
+than peak speed, use `flutter_gemma_rag_sqlite`.
 
 **Native only** (Android, iOS, macOS, Linux, Windows). For web, use
 [`flutter_gemma_rag_sqlite`](https://pub.dev/packages/flutter_gemma_rag_sqlite)

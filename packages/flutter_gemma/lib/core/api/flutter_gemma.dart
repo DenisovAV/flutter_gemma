@@ -12,6 +12,7 @@ import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
+import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
@@ -138,6 +139,13 @@ class FlutterGemma {
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
     VectorStoreRepository? vectorStore,
+    // Declares which metadata fields the configured [vectorStore] should make
+    // filterable. Threaded to the store via `configure()` at registration,
+    // BEFORE its `initialize()`, so it can promote the declared fields to typed
+    // storage columns (sqlite/vec0) or top-level payload keys (qdrant). The
+    // empty default keeps every store in its existing "filters are a safe
+    // no-op" mode.
+    FilterSchema filterSchema = const FilterSchema(),
   }) async {
     // Migration: enableWebCache takes precedence if provided (for backward compatibility)
     final effectiveStorageMode = enableWebCache != null
@@ -149,6 +157,7 @@ class FlutterGemma {
       maxDownloadRetries: maxDownloadRetries,
       webStorageMode: effectiveStorageMode,
       vectorStoreRepository: vectorStore,
+      filterSchema: filterSchema,
     );
 
     if (inferenceEngines.isNotEmpty) {

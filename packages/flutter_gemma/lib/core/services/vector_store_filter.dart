@@ -12,10 +12,12 @@
 /// All conditions reference fields inside a document's metadata JSON. The
 /// metadata schema is up to the caller — flutter_gemma does not impose one.
 ///
-/// On native platforms backed by qdrant-edge (`flutter_gemma_rag_qdrant`),
-/// filters are honored. On the web sqlite store (`flutter_gemma_rag_sqlite`,
-/// wa-sqlite) they are silently ignored: pass a filter expecting it to be a
-/// no-op rather than expecting it to throw.
+/// Backends honor filters over the fields a caller declares filterable via
+/// [FilterSchema]: qdrant-edge (`flutter_gemma_rag_qdrant`) promotes them to
+/// payload keys, and the sqlite-vec store (`flutter_gemma_rag_sqlite`) to
+/// typed `vec0` columns on both native and web. A condition on an undeclared
+/// field is a no-op, never an error — pass a filter expecting it to narrow or
+/// to be ignored, never to throw.
 ///
 /// Construction is intentionally verbose to keep the rule clear at the
 /// call site. Typical usage:
@@ -119,4 +121,54 @@ class FieldMatchAny extends Condition {
   final List<Object> values;
 
   const FieldMatchAny({required this.key, required this.values});
+}
+
+/// The storage type of a declared filterable metadata field.
+///
+/// Maps a [FilterField] onto the typed column / payload type the backend
+/// promotes it to, so that [Filter] predicates can be pushed down to the
+/// storage engine (vec0 typed metadata columns, qdrant top-level payload keys)
+/// instead of being evaluated in Dart.
+enum FilterFieldType { string, number, bool }
+
+/// A single metadata field a store is told to make filterable.
+///
+/// Declared up-front via [FilterSchema] (see [VectorStoreRepository.configure]).
+/// The [name] is the metadata JSON key, shared verbatim across backends so the
+/// same schema means the same namespace on qdrant and sqlite/vec0.
+class FilterField {
+  /// Metadata JSON key promoted to a filterable storage field.
+  final String name;
+
+  /// Storage type used when promoting and when binding [Filter] predicates.
+  final FilterFieldType type;
+
+  const FilterField({required this.name, required this.type});
+}
+
+/// The set of metadata fields a store should make filterable.
+///
+/// Passed once at registration through `FlutterGemma.initialize(filterSchema:)`
+/// and handed to the store via [VectorStoreRepository.configure] before
+/// [VectorStoreRepository.initialize]. An empty schema (the default) leaves
+/// every store in its existing "filters are a safe no-op" mode.
+class FilterSchema {
+  /// Declared filterable fields. Empty by default → no filterable columns.
+  final List<FilterField> fields;
+
+  const FilterSchema({this.fields = const []});
+
+  /// True when no field is declared (filtering stays a no-op).
+  bool get isEmpty => fields.isEmpty;
+
+  /// The declared field for [name], or null when [name] is not in the schema.
+  ///
+  /// Backends use this to skip undeclared keys (documented no-op, never a
+  /// throw) when translating a [Filter].
+  FilterField? fieldFor(String name) {
+    for (final field in fields) {
+      if (field.name == name) return field;
+    }
+    return null;
+  }
 }

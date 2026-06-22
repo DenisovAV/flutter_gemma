@@ -10,6 +10,15 @@ class QdrantVectorStore implements VectorStoreRepository {
   @override
   bool enableHnsw = true;
 
+  // qdrant-edge can't run on web, so there is nothing to make filterable —
+  // [configure] is a no-op and the schema stays empty. (`implements` does not
+  // inherit the abstract class's bodied defaults, so these must be declared.)
+  @override
+  FilterSchema get filterSchema => const FilterSchema();
+
+  @override
+  void configure(FilterSchema schema) {}
+
   @override
   Future<void> initialize(String databasePath) async =>
       throw UnimplementedError(

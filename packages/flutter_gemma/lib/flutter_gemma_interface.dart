@@ -114,10 +114,11 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   /// Search for similar documents.
   ///
-  /// [filter] is an optional payload predicate. Honored on every native
-  /// platform (qdrant-edge backend). Silently ignored on Web (the wa-sqlite
-  /// store has no payload filtering); passing a non-empty filter on Web
-  /// returns the same hits as `filter: null` and never throws.
+  /// [filter] is an optional payload predicate, honored over the fields
+  /// declared filterable via [FilterSchema] (qdrant-edge on native, sqlite-vec
+  /// `vec0` columns on native and web). A condition on an undeclared field is a
+  /// no-op: passing such a filter returns the same hits as `filter: null` and
+  /// never throws.
   Future<List<RetrievalResult>> searchSimilar({
     required String query,
     int topK = 5,
@@ -131,12 +132,11 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Clear all documents from vector store.
   Future<void> clearVectorStore();
 
-  /// Whether HNSW indexing is enabled for vector store.
+  /// Legacy no-op kept for source compatibility.
   ///
-  /// When true, search uses O(log n) HNSW algorithm for large datasets.
-  /// When false, always uses O(n) brute-force search.
-  ///
-  /// Can be toggled at runtime for performance testing.
+  /// Vector search now runs inside the store's engine (qdrant-edge, or
+  /// sqlite-vec/`vec0`), so there is no Dart-side HNSW to toggle. The get/set is
+  /// accepted but ignored. Scheduled for removal in 2.0.
   bool get enableHnsw;
   set enableHnsw(bool value);
 }

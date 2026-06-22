@@ -7,6 +7,11 @@ trash_*
 .env
 docs/*
 !docs/LEGACY_API.md
+# Published benchmark results — linked from package READMEs, so they must be in
+# the repo (the README URLs would 404 otherwise).
+!docs/benchmarks/
+docs/benchmarks/*
+!docs/benchmarks/rag_sqlite_vec_vs_qdrant.md
 .claude/settings.local.json
 
 # Backup files

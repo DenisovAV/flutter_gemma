@@ -136,7 +136,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.13.1-a` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). MTP (speculative decoding) support for Gemma 4 (#318 MTP crash fixed). (native-v0.13.1-a restores the NPU dispatch libs accidentally omitted from native-v0.13.1 — #155.)
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: all 6 packages `1.0.0` (core `flutter_gemma` + 5 opt-in siblings)
+- **Current Version**: core `flutter_gemma` `1.1.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm`/`flutter_gemma_mediapipe` `1.0.2`, `flutter_gemma_embeddings` `1.0.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -254,12 +254,14 @@ flutter analyze && dart format . && flutter test
 | `native/qdrant_edge/{qdrant_edge_ffi/,include/qdrant_edge.h,vendored/,build_local.sh}` | Rust cdylib + C header + vendored source + cross-build |
 | `hook/build.dart` | Native Assets hook — owns the qdrant_edge bundle |
 
-**`packages/flutter_gemma_rag_sqlite/` (web RAG via wa-sqlite; native via sqlite3 — `@Deprecated`, removal in 1.0):**
+**`packages/flutter_gemma_rag_sqlite/` (first-class SQLite vector store — in-SQLite `sqlite-vec`/`vec0` KNN on all 6 platforms):**
 
 | File | Purpose |
 |------|---------|
-| `lib/src/{sqlite_vector_store,web_sqlite_vector_store}.dart` | `SqliteVectorStore` (native) / `WebSqliteVectorStore` (web) |
-| `web/rag/sqlite_vector_store{,_worker}.js` | wa-sqlite loader + worker (web `<script>`, SRI-pinned) |
+| `lib/src/{sqlite_vector_store,web_sqlite_vector_store}.dart` | `SqliteVectorStore` (native, `package:sqlite3` FFI) / `WebSqliteVectorStore` (web, `package:sqlite3/wasm.dart`) — both on `vec0` |
+| `lib/src/filter_to_vec0.dart` | `Filter` DSL → vec0 declared-column SQL `WHERE` + binds (one dialect, both arms) |
+| `hook/build.dart` | Native Assets hook — fetches the per-platform `vec0` loadable extension |
+| `web/rag/sqlite3.wasm` | custom `sqlite3.wasm` with `sqlite-vec`/`vec0` statically linked (app copies to its web root) |
 
 ## Project Structure
 
@@ -276,7 +278,7 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
 │   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
 │   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
-│   └── flutter_gemma_rag_sqlite/    # web RAG (wa-sqlite) + native sqlite3 (@Deprecated)
+│   └── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
 └── docs/                            # design docs, testing, benchmarks
 ```
 

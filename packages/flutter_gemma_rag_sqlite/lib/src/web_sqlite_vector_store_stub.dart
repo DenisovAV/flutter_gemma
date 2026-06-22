@@ -66,5 +66,16 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   }
 
   @override
-  bool enableHnsw = true;
+  @Deprecated('No-op since vector search moved into SQLite; removed in 2.0')
+  bool get enableHnsw => false;
+
+  @override
+  @Deprecated('No-op since vector search moved into SQLite; removed in 2.0')
+  set enableHnsw(bool value) {}
+
+  @override
+  FilterSchema get filterSchema => const FilterSchema();
+
+  @override
+  void configure(FilterSchema schema) {}
 }

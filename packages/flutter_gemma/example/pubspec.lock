@@ -209,7 +209,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.1"
+    version: "1.1.0"
   flutter_gemma_embeddings:
     dependency: "direct main"
     description:
@@ -223,28 +223,28 @@ packages:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.0.1"
+    version: "1.0.2"
   flutter_gemma_mediapipe:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_mediapipe"
       relative: true
     source: path
-    version: "1.0.1"
+    version: "1.0.2"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_qdrant"
       relative: true
     source: path
-    version: "1.0.1"
+    version: "1.1.0"
   flutter_gemma_rag_sqlite:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_sqlite"
       relative: true
     source: path
-    version: "1.0.1"
+    version: "1.1.0"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -465,14 +465,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  local_hnsw:
-    dependency: transitive
-    description:
-      name: local_hnsw
-      sha256: "7fb0988e3f850121774d9dfe94068f843d87908d6b1e9ed5039710d8d9ae3f7a"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   logging:
     dependency: transitive
     description:

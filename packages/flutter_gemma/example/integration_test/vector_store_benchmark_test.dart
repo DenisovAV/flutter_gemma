@@ -270,6 +270,11 @@ void main() {
             const Filter(
               must: [FieldEquals(key: 'category', value: 'science')],
             ),
+            const FilterSchema(
+              fields: [
+                FilterField(name: 'category', type: FilterFieldType.string),
+              ],
+            ),
           );
           for (var i = 0; i < _searchSamples; i++) {
             final q = vectors[rng.nextInt(size)];

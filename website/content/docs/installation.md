@@ -21,8 +21,8 @@ dependencies:
 
   # Optional — text embeddings + on-device RAG:
   flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
-  flutter_gemma_rag_qdrant: latest_version   # RAG vector store (native: qdrant-edge)
-  flutter_gemma_rag_sqlite: latest_version   # RAG vector store (web: wa-sqlite; native: sqlite3)
+  flutter_gemma_rag_qdrant: latest_version   # RAG vector store (qdrant-edge; fastest on native)
+  flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec / vec0; all platforms, incl. web)
 ```
 
 **Pick by need:**
@@ -32,8 +32,8 @@ dependencies:
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
 | Generate text embeddings | `flutter_gemma_embeddings` |
-| On-device RAG on native (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
-| On-device RAG on web | `flutter_gemma_rag_sqlite` |
+| On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
+| On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
 
 Core registers **no** engine by itself — you wire the packages you added in
 `FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.
@@ -92,12 +92,14 @@ void main() {
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
-| `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | native / web RAG |
+| `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | sqlite-vec RAG (all platforms; `WebSqliteVectorStore()` on web) |
 
 Add only the engines you ship. Passing both `LiteRtLmEngine()` and
 `MediaPipeEngine()` lets one app run both formats — the registry routes each
-model to the engine that handles its file type. On web, choose
-`vectorStore: WebSqliteVectorStore()` (`flutter_gemma_rag_qdrant` is native-only).
+model to the engine that handles its file type. The `sqlite-vec` store runs on
+every platform — use `vectorStore: SqliteVectorStore()` on native and
+`WebSqliteVectorStore()` on web. `flutter_gemma_rag_qdrant` is native-only (and
+the fastest option there).
 
 **Common settings:**
 
@@ -276,8 +278,10 @@ window.litertLmReady = (async () => {
 </script>
 ```
 
-**`flutter_gemma_rag_sqlite`** (web RAG): add the wa-sqlite loader; see that
-package's README for the exact `<script>` + Subresource-Integrity hash.
+**`flutter_gemma_rag_sqlite`** (web RAG): add the sqlite-vec loader — a
+`sqlite3.wasm` with the `sqlite-vec` extension statically linked, loaded via
+`package:sqlite3/wasm.dart`. See that package's README for the exact `<script>` +
+Subresource-Integrity hash.
 
 <Info>
 **Model compatibility:** mobile `.task` models often don't work on web — use the

@@ -1,4 +1,5 @@
-/// SQLite + HNSW on-device RAG vector store for flutter_gemma.
+/// SQLite vector search (sqlite-vec / vec0) on-device RAG vector store for
+/// flutter_gemma.
 ///
 /// Opt-in package. Add it to pubspec.yaml and pass an instance to
 /// `FlutterGemma.initialize(vectorStore: ...)`:
@@ -11,7 +12,7 @@
 ///   vectorStore: kIsWeb ? WebSqliteVectorStore() : SqliteVectorStore(),
 /// );
 /// ```
-library flutter_gemma_rag_sqlite;
+library;
 
 export 'src/sqlite_vector_store_stub.dart'
     if (dart.library.ffi) 'src/sqlite_vector_store.dart';

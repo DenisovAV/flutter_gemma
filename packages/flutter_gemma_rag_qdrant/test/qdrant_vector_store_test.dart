@@ -136,30 +136,225 @@ void main() {
       expect(hits.first.metadata, equals(meta));
     });
 
-    test('searchSimilar honors a Filter on payload field', () async {
-      // Store metadata as the JSON string the existing contract specifies;
-      // qdrant filtering treats it as opaque text — to make this test
-      // meaningful we instead exercise the lower-level filter path by
-      // adding documents and verifying that an obviously non-matching
-      // filter narrows results to zero.
-      await repo.addDocument(
-        id: 'doc_only',
-        content: 'only',
-        embedding: const [1.0, 0.0, 0.0, 0.0],
-        metadata: '{"lang":"en"}',
-      );
+    test(
+      'Filter on an UNDECLARED field is a no-op (same hits as filter:null)',
+      () async {
+        // Contract (VectorStoreRepository.searchSimilar): a condition on a field
+        // not declared via configure(FilterSchema) must NOT narrow — it returns
+        // the same hits as filter:null, never throws. (Previously qdrant
+        // serialized it and narrowed to zero; now FilterCodec skips it.)
+        await repo.addDocument(
+          id: 'doc_only',
+          content: 'only',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: '{"lang":"en"}',
+        );
 
-      // Filter that cannot match any document the repo stored — should
-      // narrow to zero hits without throwing.
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 5,
+          filter: const Filter(
+            must: [FieldEquals(key: 'nonexistent_field', value: 'foo')],
+          ),
+        );
+        // No schema was configured → the undeclared condition is skipped → the
+        // stored document still comes back.
+        expect(hits, isNotEmpty);
+        expect(hits.first.id, 'doc_only');
+      },
+    );
+
+    test(
+      'configure + Filter on a declared metadata field actually narrows',
+      () async {
+        // The fix for the latent metadata-filter bug: when a schema is
+        // declared, addDocument promotes the declared field to a top-level
+        // payload key so FilterCodec's top-level predicates can match it.
+        repo.configure(
+          const FilterSchema(
+            fields: [FilterField(name: 'lang', type: FilterFieldType.string)],
+          ),
+        );
+        expect(repo.filterSchema.fields, hasLength(1));
+
+        await repo.addDocument(
+          id: 'doc_en',
+          content: 'english',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: '{"lang":"en"}',
+        );
+        await repo.addDocument(
+          id: 'doc_fr',
+          content: 'french',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: '{"lang":"fr"}',
+        );
+
+        // A filter on the DECLARED field matches only the english doc.
+        final en = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 5,
+          filter: const Filter(
+            must: [FieldEquals(key: 'lang', value: 'en')],
+          ),
+        );
+        expect(en.map((h) => h.id).toSet(), equals({'doc_en'}));
+        // Raw metadata blob still round-trips untouched.
+        expect(en.first.metadata, equals('{"lang":"en"}'));
+
+        // No filter → both docs come back (promotion is additive).
+        final all = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 5,
+        );
+        expect(all.map((h) => h.id).toSet(), equals({'doc_en', 'doc_fr'}));
+      },
+    );
+
+    test('mustNot with TWO conditions excludes if EITHER matches', () async {
+      // qdrant's must_not is a flat list (each entry independently excludes),
+      // so it has the correct "exclude if ANY matches" semantics by construction
+      // — unlike the sqlite SQL translator which had to be fixed. This pins it.
+      repo.configure(
+        const FilterSchema(
+          fields: [
+            FilterField(name: 'lang', type: FilterFieldType.string),
+            FilterField(name: 'archived', type: FilterFieldType.bool),
+          ],
+        ),
+      );
+      await repo.addDocument(
+        id: 'keep',
+        content: 'en active',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"lang":"en","archived":false}',
+      );
+      await repo.addDocument(
+        id: 'drop_lang',
+        content: 'fr active',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"lang":"fr","archived":false}',
+      );
+      await repo.addDocument(
+        id: 'drop_archived',
+        content: 'en archived',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"lang":"en","archived":true}',
+      );
       final hits = await repo.searchSimilar(
         queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
         topK: 5,
         filter: const Filter(
-          must: [FieldEquals(key: 'nonexistent_field', value: 'foo')],
+          mustNot: [
+            FieldEquals(key: 'lang', value: 'fr'),
+            FieldEquals(key: 'archived', value: true),
+          ],
         ),
       );
-      expect(hits, isEmpty);
+      // Only the doc matching NEITHER mustNot condition survives.
+      expect(hits.map((h) => h.id).toSet(), equals({'keep'}));
     });
+
+    test(
+      'addDocument with an existing id replaces (upsert, no duplicate)',
+      () async {
+        await repo.addDocument(
+          id: 'dup',
+          content: 'first',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+        );
+        await repo.addDocument(
+          id: 'dup',
+          content: 'second',
+          embedding: const [0.0, 1.0, 0.0, 0.0],
+        );
+        expect((await repo.getStats()).documentCount, equals(1));
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [0.0, 1.0, 0.0, 0.0],
+          topK: 5,
+        );
+        expect(hits, hasLength(1));
+        expect(hits.first.content, equals('second'));
+      },
+    );
+
+    test(
+      'undeclared-key Filter on a configured store is a safe no-op (no throw)',
+      () async {
+        repo.configure(
+          const FilterSchema(
+            fields: [FilterField(name: 'lang', type: FilterFieldType.string)],
+          ),
+        );
+        await repo.addDocument(
+          id: 'doc_only',
+          content: 'only',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: '{"lang":"en"}',
+        );
+        // Filtering on a key NOT in the schema is a no-op: the condition is
+        // skipped (never promoted, so it would otherwise match nothing), so the
+        // search returns the same hits as filter:null — never throws.
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 5,
+          filter: const Filter(
+            must: [FieldEquals(key: 'undeclared', value: 'x')],
+          ),
+        );
+        expect(hits, isNotEmpty);
+        expect(hits.first.id, 'doc_only');
+      },
+    );
+
+    test(
+      'malformed metadata JSON does not break addDocument (blob kept)',
+      () async {
+        repo.configure(
+          const FilterSchema(
+            fields: [FilterField(name: 'lang', type: FilterFieldType.string)],
+          ),
+        );
+        // Not valid JSON — promotion is skipped, the document still stores
+        // and the opaque blob still round-trips.
+        await repo.addDocument(
+          id: 'doc_bad',
+          content: 'bad meta',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: 'not json at all',
+        );
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 1,
+        );
+        expect(hits.first.id, equals('doc_bad'));
+        expect(hits.first.metadata, equals('not json at all'));
+      },
+    );
+
+    test(
+      'no schema → filter on any field is a no-op (not declared → skipped)',
+      () async {
+        // Without configure(), no field is declared, so EVERY condition is
+        // undeclared and skipped → the search runs unfiltered (same hits as
+        // filter:null), never narrowing to zero.
+        await repo.addDocument(
+          id: 'doc_plain',
+          content: 'plain',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: '{"lang":"en"}',
+        );
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 5,
+          filter: const Filter(
+            must: [FieldEquals(key: 'lang', value: 'en')],
+          ),
+        );
+        expect(hits, isNotEmpty);
+        expect(hits.first.id, 'doc_plain');
+      },
+    );
 
     test('initialize is idempotent — second call swaps the shard', () async {
       await repo.addDocument(

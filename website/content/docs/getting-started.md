@@ -36,7 +36,7 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`. See [Packages](/docs/packages).
 - **New `FlutterGemma.initialize(...)` registration** — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Installation](/docs/installation).
 - **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See [Migration](/docs/migration).
-- **Legacy sqlite + local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); web on wa-sqlite (`flutter_gemma_rag_sqlite`).
+- **Two on-device vector stores** — `flutter_gemma_rag_qdrant` (qdrant-edge, fastest on native) and `flutter_gemma_rag_sqlite` (in-SQLite KNN via the `sqlite-vec`/`vec0` extension, exact + portable across all six platforms, including Web). The legacy Dart brute-force + local_hnsw path was removed.
 
 See the [CHANGELOG](https://github.com/DenisovAV/flutter_gemma/blob/main/CHANGELOG.md) for the full release history.
 

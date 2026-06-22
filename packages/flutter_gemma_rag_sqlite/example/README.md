@@ -2,7 +2,8 @@
 
 `flutter_gemma_rag_sqlite` is an opt-in vector store for
 [`flutter_gemma`](https://pub.dev/packages/flutter_gemma) that works on every
-platform: native (`sqlite3` + HNSW via dart:ffi) and web (wa-sqlite WASM).
+platform: in-SQLite `sqlite-vec`/`vec0` KNN on native (`sqlite3` via dart:ffi)
+and web (`package:sqlite3/wasm` + a custom `sqlite3.wasm`).
 Register it once at startup, then use the unchanged RAG API on
 `FlutterGemmaPlugin.instance`.
 
@@ -40,9 +41,10 @@ Future<void> main() async {
 }
 ```
 
-On web, load the wa-sqlite engine from a `<script>` in `web/index.html` — see
-the [package README](https://pub.dev/packages/flutter_gemma_rag_sqlite) for the
-SRI-pinned tag setup. Native platforms need no setup (`sqlite3` bundles its own
-library). A full runnable app wiring every engine and RAG store together lives
+On web, the custom `sqlite3.wasm` (with `sqlite-vec` linked in) is served as a
+web asset — no CDN `<script>` is needed; see the
+[package README](https://pub.dev/packages/flutter_gemma_rag_sqlite) for the
+wasm wiring. Native platforms need no setup (`sqlite3` bundles its own library;
+the `vec0` extension is bundled via the package's Native Assets hook). A full runnable app wiring every engine and RAG store together lives
 in the
 [`flutter_gemma` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma/example).

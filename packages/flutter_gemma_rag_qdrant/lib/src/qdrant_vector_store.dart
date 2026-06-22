@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -7,8 +8,10 @@ import 'package:flutter_gemma_rag_qdrant/src/point_id_hasher.dart';
 import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 
 /// Native-only RAG vector store backed by qdrant-edge (FFI). Implements
-/// flutter_gemma's [VectorStoreRepository]. ~75x faster search than the
-/// sqlite store. Web is unsupported (qdrant-edge can't compile to WASM).
+/// flutter_gemma's [VectorStoreRepository]. Its HNSW index makes it the fastest
+/// native option — roughly 5–11× faster search than the in-SQLite sqlite-vec
+/// store at 1k–10k docs (with identical top-K results). Web is unsupported
+/// (qdrant-edge can't compile to WASM); use flutter_gemma_rag_sqlite there.
 ///
 /// Public API parity with the existing contract:
 ///
@@ -45,6 +48,13 @@ class QdrantVectorStore implements VectorStoreRepository {
   /// `enableHnsw` is part of the contract but a no-op for qdrant.
   bool _enableHnsw = true;
 
+  /// Declared filterable-metadata schema (via [configure]). Empty by default,
+  /// so callers that never declare a schema get byte-identical payloads. When
+  /// non-empty, [addDocument] promotes each declared field to a TOP-LEVEL
+  /// payload key (alongside the opaque [_metadataKey] blob) so qdrant's
+  /// [FilterCodec] — which already targets top-level keys — can match on them.
+  FilterSchema _filterSchema = const FilterSchema();
+
   /// Payload key under which we stash the original String id sent by the
   /// caller. qdrant point ids are UUID-hashed for storage; this lets
   /// [searchSimilar] reconstruct the original on the way out.
@@ -60,6 +70,12 @@ class QdrantVectorStore implements VectorStoreRepository {
 
   @override
   set enableHnsw(bool value) => _enableHnsw = value;
+
+  @override
+  FilterSchema get filterSchema => _filterSchema;
+
+  @override
+  void configure(FilterSchema schema) => _filterSchema = schema;
 
   @override
   Future<void> initialize(String databasePath) async {
@@ -136,6 +152,14 @@ class QdrantVectorStore implements VectorStoreRepository {
       _contentKey: content,
       if (metadata != null) _metadataKey: metadata,
     };
+    // Filter-field promotion: only when a schema is declared AND metadata is
+    // present. Without a schema this branch never runs, so existing callers
+    // get byte-identical payloads (the opaque blob under _metadataKey only).
+    // With a schema, expand each DECLARED field to a top-level payload key so
+    // FilterCodec's top-level-key predicates actually match.
+    if (!_filterSchema.isEmpty && metadata != null) {
+      _promoteFilterFields(payload, metadata);
+    }
     try {
       await c.upsert(
         id: PointIdHasher.hash(id),
@@ -144,6 +168,39 @@ class QdrantVectorStore implements VectorStoreRepository {
       );
     } on QdrantException catch (e) {
       throw VectorStoreException('addDocument failed for id=$id', e);
+    }
+  }
+
+  /// Expands the declared [FilterField]s out of the raw [metadata] JSON into
+  /// top-level [payload] keys (in addition to the opaque [_metadataKey] blob).
+  ///
+  /// Defensive by design — promotion must never break an `addDocument` that
+  /// would otherwise succeed:
+  /// * non-object or unparseable [metadata] → logged, left as the opaque blob;
+  /// * a declared field absent from the metadata → skipped (no key written),
+  ///   so a [Filter] on it matches nothing (documented no-op, never a throw).
+  void _promoteFilterFields(Map<String, dynamic> payload, String metadata) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(metadata);
+    } on FormatException catch (e) {
+      gemmaLog(
+        '[QdrantVectorStore] metadata is not valid JSON — filter fields not '
+        'promoted (round-trip blob kept): $e',
+      );
+      return;
+    }
+    if (decoded is! Map<String, dynamic>) {
+      gemmaLog(
+        '[QdrantVectorStore] metadata JSON is not an object — filter fields '
+        'not promoted (round-trip blob kept)',
+      );
+      return;
+    }
+    for (final field in _filterSchema.fields) {
+      if (decoded.containsKey(field.name)) {
+        payload[field.name] = decoded[field.name];
+      }
     }
   }
 
@@ -181,7 +238,7 @@ class QdrantVectorStore implements VectorStoreRepository {
         'match stored dimension $_dim',
       );
     }
-    final filterJson = FilterCodec.encode(filter);
+    final filterJson = FilterCodec.encode(filter, _filterSchema);
     final hits = await c.search(
       queryVector: queryEmbedding,
       topK: topK,

@@ -29,12 +29,12 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.0.3                 # core — always required
+  flutter_gemma: ^1.1.0                 # core — always required
   flutter_gemma_litertlm: ^1.0.2        # add if you run .litertlm models
   flutter_gemma_mediapipe: ^1.0.2       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^1.0.1      # add if you compute embeddings
-  flutter_gemma_rag_qdrant: ^1.0.1      # add for native on-device RAG
-  flutter_gemma_rag_sqlite: ^1.0.1      # add for web (or native sqlite) RAG
+  flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG (qdrant)
+  flutter_gemma_rag_sqlite: ^1.1.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -44,8 +44,8 @@ Pick by what you actually used in 0.16.x:
 | `.litertlm` models (Gemma 4, Qwen3, FastVLM, any desktop) | `flutter_gemma_litertlm` |
 | `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4, …) | `flutter_gemma_mediapipe` |
 | `generateEmbedding()` / `installEmbedder()` | `flutter_gemma_embeddings` |
-| RAG (`addDocument` / `searchSimilar`) on native | `flutter_gemma_rag_qdrant` |
-| RAG on web | `flutter_gemma_rag_sqlite` |
+| RAG (`addDocument` / `searchSimilar`), fastest on native | `flutter_gemma_rag_qdrant` |
+| RAG on web (or a portable store on any platform) | `flutter_gemma_rag_sqlite` |
 
 <Info>
 Not sure which format your models are? Desktop is always `.litertlm`
@@ -126,7 +126,7 @@ Native setup moved to the package that owns it:
 
 - **MediaPipe Gradle / Pod deps + the `@mediapipe/tasks-genai` web CDN** are now in `flutter_gemma_mediapipe` (bundled automatically on Android/iOS; add the CDN `<script>` for web).
 - **The `.litertlm` native library + the `@litert-lm/core` web CDN** are in `flutter_gemma_litertlm`.
-- **wa-sqlite web loader** is in `flutter_gemma_rag_sqlite`.
+- **The sqlite-vec web loader** (`sqlite3.wasm` with `sqlite-vec` statically linked) is in `flutter_gemma_rag_sqlite`.
 
 The iOS/Android entitlements and manifest entries still apply when you ship an
 inference engine. See the full [Installation guide](/docs/installation).

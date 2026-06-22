@@ -1,13 +1,24 @@
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Stub for SqliteVectorStore on web/WASM platforms.
-/// Web uses WebSqliteVectorStore (wa-sqlite) instead.
+/// Web uses WebSqliteVectorStore (package:sqlite3/wasm + vec0) instead.
 class SqliteVectorStore implements VectorStoreRepository {
   @override
   bool get isInitialized => false;
 
   @override
-  bool enableHnsw = true;
+  @Deprecated('No-op since vector search moved into SQLite; removed in 2.0')
+  bool get enableHnsw => false;
+
+  @override
+  @Deprecated('No-op since vector search moved into SQLite; removed in 2.0')
+  set enableHnsw(bool value) {}
+
+  @override
+  FilterSchema get filterSchema => const FilterSchema();
+
+  @override
+  void configure(FilterSchema schema) {}
 
   @override
   Future<void> initialize(String databasePath) async =>

@@ -17,6 +17,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:path_provider/path_provider.dart';
 
+// Declares every field these tests filter on, so FilterCodec.encode keeps them
+// (an undeclared key is now skipped as a no-op).
+const _schema = FilterSchema(
+  fields: [
+    FilterField(name: 'lang', type: FilterFieldType.string),
+    FilterField(name: 'price', type: FilterFieldType.number),
+    FilterField(name: 'type', type: FilterFieldType.string),
+  ],
+);
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -71,7 +81,7 @@ void main() {
     final hits = await client.search(
       queryVector: const [1.0, 0.0, 0.0, 0.0],
       topK: 100,
-      filterJson: FilterCodec.encode(filter),
+      filterJson: FilterCodec.encode(filter, _schema),
     );
     return hits.map((h) => h.id).toSet();
   }

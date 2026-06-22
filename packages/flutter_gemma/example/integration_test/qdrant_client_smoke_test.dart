@@ -98,6 +98,12 @@ void main() {
           FieldRange(key: 'price', gte: 200.0, lte: 1000.0),
         ],
       ),
+      const FilterSchema(
+        fields: [
+          FilterField(name: 'lang', type: FilterFieldType.string),
+          FilterField(name: 'price', type: FilterFieldType.number),
+        ],
+      ),
     );
     expect(filterJson, isNotNull);
 

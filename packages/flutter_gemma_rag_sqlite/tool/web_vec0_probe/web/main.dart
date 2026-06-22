@@ -54,11 +54,54 @@ Future<void> main() async {
     buf.write(
       'KNN=${rows.map((r) => '${r['id']}:${r['distance']}').toList()}\n',
     );
-    buf.write(
-      rows.first['id'] == 'alpha' && rows[1]['id'] == 'gamma'
-          ? 'RESULT=PASS'
-          : 'RESULT=FAIL',
+    final knnOk = rows.first['id'] == 'alpha' && rows[1]['id'] == 'gamma';
+
+    // --- #2: distance_metric=cosine → similarity = 1 - distance in [0,2] ---
+    // A cosine table must report distance 0 for an exact match. (An L2 table
+    // would too at unit vectors, so also check an orthogonal pair: cosine
+    // distance of [1,0,0,0] vs [0,1,0,0] is 1.0, not sqrt(2).)
+    db.execute(
+      'CREATE VIRTUAL TABLE vc USING '
+      'vec0(id TEXT PRIMARY KEY, embedding float[4] distance_metric=cosine)',
     );
+    final cs = db.prepare('INSERT INTO vc(id, embedding) VALUES (?, ?)');
+    cs.execute([
+      'a',
+      _f32([1, 0, 0, 0])
+    ]);
+    cs.execute([
+      'b',
+      _f32([0, 1, 0, 0])
+    ]);
+    cs.close();
+    final cos = db.select(
+      'SELECT id, distance FROM vc WHERE embedding MATCH ? AND k = 2 '
+      'ORDER BY distance',
+      [
+        _f32([1, 0, 0, 0])
+      ],
+    );
+    final exactDist = cos.first['distance'] as double;
+    final orthoDist = cos[1]['distance'] as double;
+    final cosineOk = exactDist.abs() < 1e-4 && (orthoDist - 1.0).abs() < 1e-4;
+    buf.write('COSINE exact=$exactDist ortho=$orthoDist ok=$cosineOk\n');
+
+    // --- #3: delete-then-insert upsert on a TEXT pk does not throw ---
+    var upsertOk = false;
+    try {
+      db.execute('DELETE FROM vc WHERE id = ?', ['a']);
+      db.execute('INSERT INTO vc(id, embedding) VALUES (?, ?)', [
+        'a',
+        _f32([0.5, 0.5, 0, 0]),
+      ]);
+      final n = db.select('SELECT count(*) AS c FROM vc').first['c'];
+      upsertOk = n == 2; // still 2 rows, 'a' replaced not duplicated
+    } catch (_) {
+      upsertOk = false;
+    }
+    buf.write('UPSERT ok=$upsertOk\n');
+
+    buf.write(knnOk && cosineOk && upsertOk ? 'RESULT=PASS' : 'RESULT=FAIL');
     db.close();
     _write(buf.toString());
   } catch (e, st) {

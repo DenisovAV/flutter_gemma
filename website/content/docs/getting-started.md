@@ -172,6 +172,33 @@ concurrent sessions can OOM. Cap the count with `maxConcurrentSessions:` on
 If you only ever have one conversation at a time, stick with the simpler
 `createSession()` / `createChat()` singleton API — you don't need this.
 
+## Managing Installed Models
+
+Use `uninstallModel()` to delete a model's files and metadata. When you remove
+the model that is currently **active**, also clear its persisted identity so it
+isn't auto-restored on the next app launch:
+
+```dart
+// Free in-memory handles first if the model is loaded.
+await model.close();
+
+// Delete the files + metadata.
+await FlutterGemma.uninstallModel('Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm');
+
+// Clear the persisted "active model" identity so it isn't auto-restored.
+await FlutterGemma.clearActiveInferenceIdentity();
+
+// For an embedder, pair uninstallModel() with:
+await FlutterGemma.clearActiveEmbeddingIdentity();
+```
+
+<Info>
+`clearActiveInferenceIdentity()` / `clearActiveEmbeddingIdentity()` wipe both the
+in-memory active spec and the persisted preference. Pair them with
+`uninstallModel()` only when the deleted model was the active one — otherwise it
+would be restored as active on the next launch.
+</Info>
+
 ## Message Types
 
 ```dart

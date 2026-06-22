@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/services/model_download_service.dart';
+import 'package:flutter_gemma_example/utils/gated_model_access_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'models/model.dart';
@@ -84,9 +85,19 @@ class _ModelDownloadScreenState extends State<ModelDownloadScreen> {
         needToDownload = false;
       });
     } catch (e) {
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('Failed to download the model.')),
-      );
+      if (!mounted) return;
+      if (isGatedAccessError(e)) {
+        await showGatedModelAccessDialog(
+          context: context,
+          modelUrl: widget.model.url,
+          licenseUrl: widget.model.licenseUrl,
+          error: e,
+        );
+      } else {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Failed to download the model.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {

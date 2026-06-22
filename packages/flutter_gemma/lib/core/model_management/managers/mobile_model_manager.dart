@@ -383,7 +383,7 @@ class MobileModelManager extends ModelFileManager {
       // Cleanup any partial files
       await ModelFileSystemManager.cleanupFailedDownload(spec);
 
-      if (e is ModelException) {
+      if (e is ModelException || e is DownloadException) {
         rethrow;
       } else {
         throw ModelDownloadException(
@@ -822,6 +822,40 @@ class MobileModelManager extends ModelFileManager {
     _activeInferenceModel = null;
     _activeEmbeddingModel = null;
     gemmaLog('Model cache cleared');
+  }
+
+  @override
+  Future<void> clearActiveInferenceIdentity() async {
+    await _ensureInitialized();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeInferenceModelType);
+      await prefs.remove(PreferencesKeys.activeInferenceFileType);
+      await prefs.remove(PreferencesKeys.activeInferenceFilename);
+      await prefs.remove(PreferencesKeys.activeInferenceSource);
+      _activeInferenceModel = null;
+    } catch (e) {
+      gemmaLog('[ModelManager] clearActiveInferenceIdentity failed: $e');
+      rethrow;
+    }
+    gemmaLog('Active inference identity cleared');
+  }
+
+  @override
+  Future<void> clearActiveEmbeddingIdentity() async {
+    await _ensureInitialized();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeEmbeddingFilename);
+      await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerFilename);
+      await prefs.remove(PreferencesKeys.activeEmbeddingSource);
+      await prefs.remove(PreferencesKeys.activeEmbeddingTokenizerSource);
+      _activeEmbeddingModel = null;
+    } catch (e) {
+      gemmaLog('[ModelManager] clearActiveEmbeddingIdentity failed: $e');
+      rethrow;
+    }
+    gemmaLog('Active embedding identity cleared');
   }
 
   // === Active Model Management ===

@@ -76,6 +76,30 @@ abstract class ModelFileManager {
   /// Clears current model cache/state
   Future<void> clearModelCache();
 
+  /// Clears the active inference identity (in-memory spec + persisted prefs).
+  ///
+  /// Has a default body (rather than being abstract) so adding it does not
+  /// break third-party [ModelFileManager] implementers at compile time — but
+  /// the default THROWS rather than silently succeeding: a "clear" that
+  /// quietly does nothing would leave a stale active identity persisted (a
+  /// silent failure). Implementers that persist active state must override it.
+  Future<void> clearActiveInferenceIdentity() async {
+    throw UnimplementedError(
+      'clearActiveInferenceIdentity is not implemented by this ModelFileManager',
+    );
+  }
+
+  /// Clears the active embedding identity (in-memory spec + persisted prefs).
+  ///
+  /// See [clearActiveInferenceIdentity]: default throws rather than silently
+  /// no-op'ing, so a non-overriding implementer fails loudly instead of
+  /// leaving a stale persisted identity.
+  Future<void> clearActiveEmbeddingIdentity() async {
+    throw UnimplementedError(
+      'clearActiveEmbeddingIdentity is not implemented by this ModelFileManager',
+    );
+  }
+
   /// Legacy API: Sets path to LoRA weights for current model
   @Deprecated('Use FlutterGemma.installModel().withLoraFromFile() instead')
   Future<void> setLoraWeightsPath(String path);

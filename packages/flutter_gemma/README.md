@@ -46,6 +46,7 @@ There is an example of using:
 - **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
 - **🔎 On-device RAG:** qdrant-edge vector store on native, wa-sqlite on Web. Payload-aware `Filter` (must / should / mustNot) for semantic search.
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
+- **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
 
 ## What's new in 1.0
@@ -694,6 +695,61 @@ concurrent sessions can OOM. Cap the count with `maxConcurrentSessions:` on
 `getActiveModel(...)` — `openSession()` throws `StateError` past the cap.
 Multi-session is most reliable on desktop and high-end mobile with small
 models (Gemma 3 1B / 270M).
+
+### Removing installed models
+
+Use `uninstallModel()` to delete a model's metadata and files. When you remove
+the model that is currently **active**, also clear its persisted identity so it
+isn't auto-restored on the next app launch:
+
+```dart
+// Free in-memory handles first if the model is loaded.
+await model.close();
+
+// Delete the files + metadata.
+await FlutterGemma.uninstallModel('Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm');
+
+// Clear the persisted "active model" identity so it isn't auto-restored.
+await FlutterGemma.clearActiveInferenceIdentity();
+// For an embedder, pair uninstallModel() with:
+await FlutterGemma.clearActiveEmbeddingIdentity();
+```
+
+`clearActiveInferenceIdentity()` / `clearActiveEmbeddingIdentity()` wipe both the
+in-memory active spec and the SharedPreferences entry. Pair them with
+`uninstallModel()` only when the deleted model was the active one — otherwise the
+deleted model would be restored as active on the next launch.
+
+### Handling download errors
+
+`installModel(...).install()` throws a public `DownloadException` carrying a
+sealed `DownloadError`, so you can react to gated HuggingFace models (HTTP
+401/403) without substring-matching error strings:
+
+```dart
+try {
+  await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+      .fromNetwork(url, token: hfToken)
+      .install();
+} on DownloadException catch (e) {
+  switch (e.error) {
+    case UnauthorizedError():   // 401 — missing/invalid token
+    case ForbiddenError():      // 403 — token lacks access to a gated model
+      showGatedModelDialog();
+    case NotFoundError():       // 404 — bad URL (use /resolve/main/, not /blob/main/)
+      showNotFoundDialog();
+    case RateLimitedError():    // 429
+    case ServerError():         // 5xx
+    case NetworkError():        // connectivity
+    case CanceledError():       // user canceled
+    case UnknownError():
+      showRetryDialog(e.error.toUserMessage());
+  }
+}
+```
+
+Each `DownloadError` exposes `toUserMessage()`, `toTitle()`, `isRetryable`, and
+`requiresUserAction` helpers for building UI.
 
 ## Installation Sources
 

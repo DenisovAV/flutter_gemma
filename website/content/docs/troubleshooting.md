@@ -14,6 +14,38 @@ glibc, Windows DXC, stale GPU shader cache) see
 - **Large downloads on Android (>500MB)** automatically use a foreground service (shows a notification) to bypass Android's 9-minute background execution limit. iOS uses native URLSession and needs no special handling. See [Models → downloads](/docs/models#android-foreground-service-large-downloads).
 - **Custom servers on Web** must enable CORS headers. HuggingFace is already configured correctly; for Firebase Storage see the [CORS configuration docs](https://firebase.google.com/docs/storage/web/download-files#cors_configuration).
 
+### Gated models / download errors (401, 403)
+
+`installModel(...).install()` throws a public `DownloadException` carrying a sealed `DownloadError`, so you can react to gated HuggingFace models (HTTP 401/403) by **type** instead of substring-matching error strings:
+
+```dart
+try {
+  await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+      .fromNetwork(url, token: hfToken)
+      .install();
+} on DownloadException catch (e) {
+  switch (e.error) {
+    case UnauthorizedError():   // 401 — missing/invalid HuggingFace token
+    case ForbiddenError():      // 403 — token lacks access to this gated model
+      showGatedModelDialog();
+    case NotFoundError():       // 404 — bad URL (use /resolve/main/, not /blob/main/)
+      showNotFoundDialog();
+    case RateLimitedError():    // 429
+    case ServerError():         // 5xx
+    case NetworkError():        // connectivity
+    case CanceledError():       // user canceled
+    case UnknownError():
+      showRetryDialog(e.error.toUserMessage());
+  }
+}
+```
+
+For a **gated** model (401/403): pass a valid `huggingFaceToken` to `FlutterGemma.initialize(...)` (or `token:` on `fromNetwork(...)`), open the model page on HuggingFace, accept its license, and request access. Each `DownloadError` also exposes `toUserMessage()`, `toTitle()`, `isRetryable`, and `requiresUserAction` for building UI.
+
+<Info>
+Auth errors (401/403/404) fail fast after one attempt — they are not retried. Only `NetworkError`, `ServerError`, and `RateLimitedError` are retryable (see `isRetryable`).
+</Info>
+
 ## Memory
 
 - **iOS:** ensure `Runner.entitlements` contains the memory entitlements and the Podfile sets `platform :ios, '16.0'`. See [Installation → iOS](/docs/installation#ios).

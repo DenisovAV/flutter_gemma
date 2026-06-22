@@ -1,10 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_gemma_example/model_selection_screen.dart';
+import 'package:flutter_gemma_example/downloaded_models_screen.dart';
 import 'package:flutter_gemma_example/embedding_models_screen.dart';
+import 'package:flutter_gemma_example/model_selection_screen.dart';
 import 'package:flutter_gemma_example/translate_models_screen.dart';
+import 'package:flutter_gemma_example/utils/installed_model_lookup.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _downloadCheckComplete = false;
+  bool _hasDownloadedModels = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshDownloadedVisibility();
+  }
+
+  Future<void> _refreshDownloadedVisibility() async {
+    final hasDownloaded = await hasDownloadedModels();
+    if (!mounted) return;
+    setState(() {
+      _hasDownloadedModels = hasDownloaded;
+      _downloadCheckComplete = true;
+    });
+  }
+
+  Future<void> _push(Widget screen) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(builder: (context) => screen),
+    );
+    await _refreshDownloadedVisibility();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,19 +73,37 @@ class HomeScreen extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 48),
+            if (_downloadCheckComplete && _hasDownloadedModels) ...[
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 12),
+                child: Text(
+                  'On this device',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white54,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+              _NavigationCard(
+                title: 'Downloaded Models',
+                subtitle:
+                    'View installed inference, translation, and embedding models',
+                icon: Icons.folder_open,
+                color: Colors.teal,
+                onTap: () => _push(const DownloadedModelsScreen()),
+              ),
+              const SizedBox(height: 32),
+              const Divider(color: Colors.white24, height: 1),
+              const SizedBox(height: 16),
+            ],
             _NavigationCard(
               title: 'Inference Models',
               subtitle: 'Browse and test all available Gemma models',
               icon: Icons.model_training,
               color: Colors.blue,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (context) => const ModelSelectionScreen(),
-                  ),
-                );
-              },
+              onTap: () => _push(const ModelSelectionScreen()),
             ),
             const SizedBox(height: 16),
             _NavigationCard(
@@ -60,14 +111,7 @@ class HomeScreen extends StatelessWidget {
               subtitle: 'On-device translation with TranslateGemma',
               icon: Icons.translate,
               color: Colors.orange,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (context) => const TranslateModelsScreen(),
-                  ),
-                );
-              },
+              onTap: () => _push(const TranslateModelsScreen()),
             ),
             const SizedBox(height: 16),
             _NavigationCard(
@@ -75,14 +119,7 @@ class HomeScreen extends StatelessWidget {
               subtitle: 'Download and test embedding models for RAG',
               icon: Icons.search,
               color: Colors.green,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (context) => const EmbeddingModelsScreen(),
-                  ),
-                );
-              },
+              onTap: () => _push(const EmbeddingModelsScreen()),
             ),
           ],
         ),

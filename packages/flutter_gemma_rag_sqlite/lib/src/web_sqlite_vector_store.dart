@@ -120,7 +120,17 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       );
     }
 
-    // In-memory — no persistence, but keeps the store usable.
+    // Last resort: in-memory — the store works but loses all documents on page
+    // reload. Logged explicitly (symmetric with the OPFS/IndexedDB branches) so
+    // the durability downgrade is at least visible in debug builds. NOTE:
+    // gemmaLog is stripped in release, so a production user in a restricted-
+    // storage context (private browsing, partitioned storage) gets a
+    // non-persistent store silently — surfacing this through a public
+    // persistence-mode API is tracked as a follow-up.
+    gemmaLog(
+      '[WebVectorStore] Neither OPFS nor IndexedDB available — using in-memory '
+      'storage. Documents will NOT persist across page reloads.',
+    );
     sqlite3.registerVirtualFileSystem(InMemoryFileSystem(), makeDefault: true);
   }
 
@@ -149,7 +159,10 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   void _createTable(int dimension) {
     final columns = <String>[
       'id TEXT PRIMARY KEY',
-      'embedding float[$dimension]',
+      // distance_metric=cosine so KNN `distance` is cosine distance in [0,2]
+      // and `similarity = 1 - distance` holds. Without it vec0 defaults to L2,
+      // breaking the similarity convention (matches the native store).
+      'embedding float[$dimension] distance_metric=cosine',
       for (final field in _filterSchema.fields)
         '${field.name} ${_columnType(field.type)}',
       '+content TEXT',
@@ -207,8 +220,13 @@ class WebSqliteVectorStore implements VectorStoreRepository {
         content,
         metadata,
       ];
+      // vec0 does NOT honor `INSERT OR REPLACE`/UPSERT conflict resolution on
+      // its declared TEXT primary key — a duplicate id raises a UNIQUE
+      // violation instead of replacing. Emulate upsert with delete-then-insert
+      // (matches the native store).
+      _db!.execute('DELETE FROM $_tableName WHERE id = ?', [id]);
       _db!.execute(
-        'INSERT OR REPLACE INTO $_tableName (${columns.join(', ')}) '
+        'INSERT INTO $_tableName (${columns.join(', ')}) '
         'VALUES ($placeholders)',
         binds,
       );

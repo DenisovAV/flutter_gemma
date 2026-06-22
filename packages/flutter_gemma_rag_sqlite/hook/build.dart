@@ -108,10 +108,17 @@ void main(List<String> args) async {
     );
     final srcFile = File.fromUri(srcUri);
     if (!srcFile.existsSync()) {
-      stderr.writeln(
-        'flutter_gemma: sqlite-vec prebuilt missing for $dirName at $srcUri',
+      // The target is supported (we passed the _supportedTargets check above),
+      // so a committed prebuilt MUST exist — its absence means our packaging is
+      // broken. Fail the build loudly here rather than register nothing and let
+      // the app crash at the first DynamicLibrary.open with an opaque dlopen
+      // error that doesn't point back to this hook.
+      throw StateError(
+        'flutter_gemma_rag_sqlite: sqlite-vec prebuilt missing for $dirName at '
+        '$srcUri. The package is supposed to ship it under '
+        'native/sqlite_vec/prebuilt/ — regenerate with '
+        'native/sqlite_vec/build_local.sh.',
       );
-      return;
     }
 
     // APPLE-ONLY staging (Xcode "Cycle inside Flutter Assemble"): copy the dylib

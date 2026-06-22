@@ -136,30 +136,33 @@ void main() {
       expect(hits.first.metadata, equals(meta));
     });
 
-    test('searchSimilar honors a Filter on payload field', () async {
-      // Store metadata as the JSON string the existing contract specifies;
-      // qdrant filtering treats it as opaque text — to make this test
-      // meaningful we instead exercise the lower-level filter path by
-      // adding documents and verifying that an obviously non-matching
-      // filter narrows results to zero.
-      await repo.addDocument(
-        id: 'doc_only',
-        content: 'only',
-        embedding: const [1.0, 0.0, 0.0, 0.0],
-        metadata: '{"lang":"en"}',
-      );
+    test(
+      'Filter on an UNDECLARED field is a no-op (same hits as filter:null)',
+      () async {
+        // Contract (VectorStoreRepository.searchSimilar): a condition on a field
+        // not declared via configure(FilterSchema) must NOT narrow — it returns
+        // the same hits as filter:null, never throws. (Previously qdrant
+        // serialized it and narrowed to zero; now FilterCodec skips it.)
+        await repo.addDocument(
+          id: 'doc_only',
+          content: 'only',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+          metadata: '{"lang":"en"}',
+        );
 
-      // Filter that cannot match any document the repo stored — should
-      // narrow to zero hits without throwing.
-      final hits = await repo.searchSimilar(
-        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
-        topK: 5,
-        filter: const Filter(
-          must: [FieldEquals(key: 'nonexistent_field', value: 'foo')],
-        ),
-      );
-      expect(hits, isEmpty);
-    });
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+          topK: 5,
+          filter: const Filter(
+            must: [FieldEquals(key: 'nonexistent_field', value: 'foo')],
+          ),
+        );
+        // No schema was configured → the undeclared condition is skipped → the
+        // stored document still comes back.
+        expect(hits, isNotEmpty);
+        expect(hits.first.id, 'doc_only');
+      },
+    );
 
     test(
       'configure + Filter on a declared metadata field actually narrows',
@@ -222,8 +225,9 @@ void main() {
           embedding: const [1.0, 0.0, 0.0, 0.0],
           metadata: '{"lang":"en"}',
         );
-        // Filtering on a key NOT in the schema (never promoted) matches
-        // nothing — narrows to zero, never throws.
+        // Filtering on a key NOT in the schema is a no-op: the condition is
+        // skipped (never promoted, so it would otherwise match nothing), so the
+        // search returns the same hits as filter:null — never throws.
         final hits = await repo.searchSimilar(
           queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
           topK: 5,
@@ -231,7 +235,8 @@ void main() {
             must: [FieldEquals(key: 'undeclared', value: 'x')],
           ),
         );
-        expect(hits, isEmpty);
+        expect(hits, isNotEmpty);
+        expect(hits.first.id, 'doc_only');
       },
     );
 
@@ -261,11 +266,11 @@ void main() {
     );
 
     test(
-      'no schema → payload unchanged: top-level filter still narrows to zero',
+      'no schema → filter on any field is a no-op (not declared → skipped)',
       () async {
-        // Without configure(), the declared-field promotion never runs, so a
-        // metadata field stays opaque and a top-level filter matches nothing —
-        // byte-identical to the pre-fix behavior.
+        // Without configure(), no field is declared, so EVERY condition is
+        // undeclared and skipped → the search runs unfiltered (same hits as
+        // filter:null), never narrowing to zero.
         await repo.addDocument(
           id: 'doc_plain',
           content: 'plain',
@@ -279,7 +284,8 @@ void main() {
             must: [FieldEquals(key: 'lang', value: 'en')],
           ),
         );
-        expect(hits, isEmpty);
+        expect(hits, isNotEmpty);
+        expect(hits.first.id, 'doc_plain');
       },
     );
 

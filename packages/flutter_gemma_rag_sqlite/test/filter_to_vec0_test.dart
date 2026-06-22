@@ -138,6 +138,17 @@ void main() {
       expect(out.whereSql, '');
       expect(out.binds, isEmpty);
     });
+
+    test('range over a non-numeric (TEXT) field → skipped (no-op)', () {
+      // `lang` is declared as a string column; a range over it would silently
+      // mis-filter, so it is treated as unsupported and skipped.
+      final out = FilterToVec0.translate(
+        const Filter(must: [FieldRange(key: 'lang', gte: 1.0)]),
+        _schema,
+      );
+      expect(out.whereSql, '');
+      expect(out.binds, isEmpty);
+    });
   });
 
   group('FieldMatchAny', () {
@@ -230,19 +241,24 @@ void main() {
       expect(out.binds, [1]);
     });
 
-    test('mustNot with multiple → AND-joined inside NOT', () {
-      final out = FilterToVec0.translate(
-        const Filter(
-          mustNot: [
-            FieldEquals(key: 'lang', value: 'en'),
-            FieldEquals(key: 'archived', value: true),
-          ],
-        ),
-        _schema,
-      );
-      expect(out.whereSql, 'NOT (lang = ? AND archived = ?)');
-      expect(out.binds, ['en', 1]);
-    });
+    test(
+      'mustNot with multiple → OR-joined inside NOT (exclude if ANY match)',
+      () {
+        final out = FilterToVec0.translate(
+          const Filter(
+            mustNot: [
+              FieldEquals(key: 'lang', value: 'en'),
+              FieldEquals(key: 'archived', value: true),
+            ],
+          ),
+          _schema,
+        );
+        // "no condition may match" → NOT (A OR B), so a row matching either is
+        // excluded (De Morgan: NOT A AND NOT B).
+        expect(out.whereSql, 'NOT (lang = ? OR archived = ?)');
+        expect(out.binds, ['en', 1]);
+      },
+    );
 
     test('must + should + mustNot combine, AND-joined, binds in order', () {
       final out = FilterToVec0.translate(

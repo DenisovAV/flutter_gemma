@@ -238,7 +238,7 @@ class QdrantVectorStore implements VectorStoreRepository {
         'match stored dimension $_dim',
       );
     }
-    final filterJson = FilterCodec.encode(filter);
+    final filterJson = FilterCodec.encode(filter, _filterSchema);
     final hits = await c.search(
       queryVector: queryEmbedding,
       topK: topK,

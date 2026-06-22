@@ -47,7 +47,10 @@ class FilterToVec0 {
     final shouldSql = _joinConditions(filter.should, schema, binds, ' OR ');
     if (shouldSql != null) groups.add('($shouldSql)');
 
-    final mustNotSql = _joinConditions(filter.mustNot, schema, binds, ' AND ');
+    // mustNot = "no condition may match" → exclude a row if it matches ANY of
+    // them, i.e. NOT (A OR B …). Joining with AND would give NOT (A AND B),
+    // which only excludes rows matching ALL conditions (De Morgan).
+    final mustNotSql = _joinConditions(filter.mustNot, schema, binds, ' OR ');
     if (mustNotSql != null) groups.add('NOT ($mustNotSql)');
 
     if (groups.isEmpty) {
@@ -92,7 +95,11 @@ class FilterToVec0 {
         return '$column = ?';
 
       case FieldRange(:final gte, :final lte):
-        // Range columns are always numeric (FLOAT) — bind as double.
+        // A range only makes sense over a numeric column. If the declared field
+        // is TEXT/BOOLEAN, treat the condition as unsupported and skip it (a
+        // documented no-op), rather than emitting a typed comparison that
+        // silently mis-filters.
+        if (field.type != FilterFieldType.number) return null;
         if (gte != null && lte != null) {
           binds.add(gte);
           binds.add(lte);

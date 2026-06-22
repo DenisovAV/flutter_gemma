@@ -25,21 +25,41 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 class FilterCodec {
   const FilterCodec._();
 
-  /// Encodes [filter] to a compact JSON string. Returns null for empty
-  /// filters (callers should skip the filter-aware FFI entry point).
-  static String? encode(Filter? filter) {
+  /// Encodes [filter] to a compact JSON string. Returns null for empty filters
+  /// AND for filters that, after dropping conditions on fields not declared in
+  /// [schema], have nothing left (callers should then skip the filter-aware FFI
+  /// entry point and run an unfiltered search).
+  ///
+  /// Conditions whose key is not in [schema] are SKIPPED — they were never
+  /// promoted to a top-level payload key (see [QdrantVectorStore.addDocument]),
+  /// so matching on them would silently narrow to zero. Skipping makes an
+  /// undeclared key a no-op (same hits as `filter: null`), honoring the
+  /// `VectorStoreRepository` contract and matching the sqlite-vec store.
+  static String? encode(Filter? filter, FilterSchema schema) {
     if (filter == null || filter.isEmpty) return null;
     final map = <String, Object>{};
-    if (filter.must != null && filter.must!.isNotEmpty) {
-      map['must'] = filter.must!.map(_encodeCondition).toList();
-    }
-    if (filter.should != null && filter.should!.isNotEmpty) {
-      map['should'] = filter.should!.map(_encodeCondition).toList();
-    }
-    if (filter.mustNot != null && filter.mustNot!.isNotEmpty) {
-      map['must_not'] = filter.mustNot!.map(_encodeCondition).toList();
-    }
+    final must = _encodeBucket(filter.must, schema);
+    if (must != null) map['must'] = must;
+    final should = _encodeBucket(filter.should, schema);
+    if (should != null) map['should'] = should;
+    final mustNot = _encodeBucket(filter.mustNot, schema);
+    if (mustNot != null) map['must_not'] = mustNot;
+    if (map.isEmpty) return null; // every condition was undeclared → no-op
     return jsonEncode(map);
+  }
+
+  /// Encodes one bucket, dropping conditions on undeclared fields. Returns null
+  /// when the bucket is empty or every condition was dropped.
+  static List<Map<String, Object>>? _encodeBucket(
+    List<Condition>? conditions,
+    FilterSchema schema,
+  ) {
+    if (conditions == null || conditions.isEmpty) return null;
+    final encoded = [
+      for (final c in conditions)
+        if (schema.fieldFor(c.key) != null) _encodeCondition(c),
+    ];
+    return encoded.isEmpty ? null : encoded;
   }
 
   static Map<String, Object> _encodeCondition(Condition c) {

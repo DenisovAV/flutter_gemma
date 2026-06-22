@@ -254,12 +254,14 @@ flutter analyze && dart format . && flutter test
 | `native/qdrant_edge/{qdrant_edge_ffi/,include/qdrant_edge.h,vendored/,build_local.sh}` | Rust cdylib + C header + vendored source + cross-build |
 | `hook/build.dart` | Native Assets hook — owns the qdrant_edge bundle |
 
-**`packages/flutter_gemma_rag_sqlite/` (web RAG via wa-sqlite; native via sqlite3 — `@Deprecated`, removal in 1.0):**
+**`packages/flutter_gemma_rag_sqlite/` (first-class SQLite vector store — in-SQLite `sqlite-vec`/`vec0` KNN on all 6 platforms):**
 
 | File | Purpose |
 |------|---------|
-| `lib/src/{sqlite_vector_store,web_sqlite_vector_store}.dart` | `SqliteVectorStore` (native) / `WebSqliteVectorStore` (web) |
-| `web/rag/sqlite_vector_store{,_worker}.js` | wa-sqlite loader + worker (web `<script>`, SRI-pinned) |
+| `lib/src/{sqlite_vector_store,web_sqlite_vector_store}.dart` | `SqliteVectorStore` (native, `package:sqlite3` FFI) / `WebSqliteVectorStore` (web, `package:sqlite3/wasm.dart`) — both on `vec0` |
+| `lib/src/filter_to_vec0.dart` | `Filter` DSL → vec0 declared-column SQL `WHERE` + binds (one dialect, both arms) |
+| `hook/build.dart` | Native Assets hook — fetches the per-platform `vec0` loadable extension |
+| `web/rag/sqlite3.wasm` | custom `sqlite3.wasm` with `sqlite-vec`/`vec0` statically linked (app copies to its web root) |
 
 ## Project Structure
 
@@ -276,7 +278,7 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
 │   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
 │   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
-│   └── flutter_gemma_rag_sqlite/    # web RAG (wa-sqlite) + native sqlite3 (@Deprecated)
+│   └── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
 └── docs/                            # design docs, testing, benchmarks
 ```
 

@@ -211,6 +211,73 @@ void main() {
       },
     );
 
+    test('mustNot with TWO conditions excludes if EITHER matches', () async {
+      // qdrant's must_not is a flat list (each entry independently excludes),
+      // so it has the correct "exclude if ANY matches" semantics by construction
+      // — unlike the sqlite SQL translator which had to be fixed. This pins it.
+      repo.configure(
+        const FilterSchema(
+          fields: [
+            FilterField(name: 'lang', type: FilterFieldType.string),
+            FilterField(name: 'archived', type: FilterFieldType.bool),
+          ],
+        ),
+      );
+      await repo.addDocument(
+        id: 'keep',
+        content: 'en active',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"lang":"en","archived":false}',
+      );
+      await repo.addDocument(
+        id: 'drop_lang',
+        content: 'fr active',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"lang":"fr","archived":false}',
+      );
+      await repo.addDocument(
+        id: 'drop_archived',
+        content: 'en archived',
+        embedding: const [1.0, 0.0, 0.0, 0.0],
+        metadata: '{"lang":"en","archived":true}',
+      );
+      final hits = await repo.searchSimilar(
+        queryEmbedding: const [1.0, 0.0, 0.0, 0.0],
+        topK: 5,
+        filter: const Filter(
+          mustNot: [
+            FieldEquals(key: 'lang', value: 'fr'),
+            FieldEquals(key: 'archived', value: true),
+          ],
+        ),
+      );
+      // Only the doc matching NEITHER mustNot condition survives.
+      expect(hits.map((h) => h.id).toSet(), equals({'keep'}));
+    });
+
+    test(
+      'addDocument with an existing id replaces (upsert, no duplicate)',
+      () async {
+        await repo.addDocument(
+          id: 'dup',
+          content: 'first',
+          embedding: const [1.0, 0.0, 0.0, 0.0],
+        );
+        await repo.addDocument(
+          id: 'dup',
+          content: 'second',
+          embedding: const [0.0, 1.0, 0.0, 0.0],
+        );
+        expect((await repo.getStats()).documentCount, equals(1));
+        final hits = await repo.searchSimilar(
+          queryEmbedding: const [0.0, 1.0, 0.0, 0.0],
+          topK: 5,
+        );
+        expect(hits, hasLength(1));
+        expect(hits.first.content, equals('second'));
+      },
+    );
+
     test(
       'undeclared-key Filter on a configured store is a safe no-op (no throw)',
       () async {

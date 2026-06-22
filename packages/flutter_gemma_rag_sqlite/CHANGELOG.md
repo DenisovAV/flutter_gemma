@@ -1,8 +1,9 @@
 ## 1.1.0
-- In-SQLite KNN on `sqlite-vec`/`vec0` (native + web); removed Dart brute-force and HNSW.
-- Declared-column `Filter` (must/should/mustNot) via `configure(FilterSchema)`; undeclared keys no-op.
-- Web rewritten on `package:sqlite3/wasm.dart` + custom `sqlite3.wasm`; wa-sqlite worker dropped.
-- `vec0` loadable bundled per-platform via Native Assets hook; `enableHnsw` is now a deprecated no-op.
+- Un-deprecated: first-class on-device vector store on all 6 platforms with in-SQLite KNN via `sqlite-vec`/`vec0`; removed Dart brute-force + HNSW.
+- Declared-column `Filter` (must/should/mustNot) via `configure(FilterSchema)`; undeclared keys no-op. Requires `flutter_gemma ^1.1.0`.
+- Web rewritten on `package:sqlite3/wasm.dart` + a custom `sqlite3.wasm` (vec0 statically linked); wa-sqlite worker dropped.
+- Per-platform `vec0` loadable bundled in-package via Native Assets; Android `.so` rebuilt 16 KB-aligned for Android 15 / Play targetSdk 35+ (#319).
+- `enableHnsw` is now a deprecated no-op (search runs in SQLite).
 
 ## 1.0.1
 - Point `homepage` to fluttergemma.dev. No code change.

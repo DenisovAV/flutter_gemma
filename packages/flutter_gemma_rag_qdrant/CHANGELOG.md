@@ -1,3 +1,8 @@
+## 1.1.0
+- Fix metadata filtering: declared `FilterSchema` fields are promoted to top-level payload keys, so `Filter` predicates actually match (previously narrowed to zero).
+- Implement `configure(FilterSchema)`; requires `flutter_gemma ^1.1.0`.
+- Correct the "~75×" search-speed claim to the re-measured ~5–11× vs the new in-SQLite vec0 store (was vs the deleted Dart brute-force path).
+
 ## 1.0.1
 - Point `homepage` to fluttergemma.dev. No code change.
 

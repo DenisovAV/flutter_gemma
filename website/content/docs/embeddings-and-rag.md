@@ -5,15 +5,18 @@ image: https://fluttergemma.dev/images/og-image.png
 ---
 
 flutter_gemma can generate vector embeddings from text (EmbeddingGemma / Gecko)
-and run on-device RAG with a vector store: **qdrant-edge** on native, **wa-sqlite**
-on Web. The same Dart API works on both, so your code is portable across
-platforms.
+and run on-device RAG with a vector store. Two stores are available, both with
+the same Dart API: **qdrant-edge** — the fastest store on native (HNSW
+approximate nearest-neighbour) — and **sqlite-vec** — a portable, exact store
+that runs on **all six platforms (Android, iOS, macOS, Linux, Windows, Web)**,
+and the only store that runs on Web. Your code is portable across both.
 
 ## Setup
 
 Embeddings need the `flutter_gemma_embeddings` package, and RAG needs a vector
-store package — `flutter_gemma_rag_qdrant` (native) or `flutter_gemma_rag_sqlite`
-(web). Register them in `FlutterGemma.initialize(...)`:
+store package — `flutter_gemma_rag_qdrant` (native, fastest) or
+`flutter_gemma_rag_sqlite` (sqlite-vec; all platforms, including Web). Register
+them in `FlutterGemma.initialize(...)`:
 
 ```dart
 FlutterGemma.initialize(
@@ -99,7 +102,7 @@ for (var i = 0; i < docs.length; i++) {
   );
 }
 
-// 4. Semantic search, with optional payload-aware Filter (native only)
+// 4. Semantic search, with optional payload-aware Filter
 final results = await FlutterGemmaPlugin.instance.searchSimilar(
   query: 'quantum entanglement',
   topK: 10,
@@ -119,19 +122,59 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
 - `FieldRange` — numeric range on a payload field.
 - `FieldMatchAny` — match against any value in a set.
 
-<Warning>
-On **Web**, the `filter` argument is silently ignored — wa-sqlite has no
-payload-filter support. Payload-aware `Filter` is native-only (qdrant-edge).
-</Warning>
+Both stores honor `Filter` on **all platforms**. On qdrant-edge the metadata
+fields are promoted to payload keys automatically. On sqlite-vec the filterable
+fields must be **declared up front** as columns (see below); a filter on an
+undeclared field is a no-op — it never throws.
+
+### Declaring filter columns (sqlite-vec)
+
+The sqlite-vec store filters over declared columns. Describe them with a
+`FilterSchema` of `FilterField`s, and pass it either to `initialize(...)`:
+
+```dart
+FlutterGemma.initialize(
+  vectorStore: SqliteVectorStore(),
+  filterSchema: const FilterSchema([
+    FilterField('category', FilterFieldType.text),
+    FilterField('lang', FilterFieldType.text),
+    FilterField('year', FilterFieldType.integer),
+  ]),
+);
+```
+
+…or at runtime via `configure(...)` on the `VectorStoreRepository`:
+
+```dart
+await store.configure(const FilterSchema([
+  FilterField('category', FilterFieldType.text),
+]));
+```
+
+A `Filter` over the declared fields is then applied inside the store; a filter
+referencing an **undeclared** field is silently ignored (no-op, never throws).
+`FilterSchema` is optional on qdrant-edge, which promotes any metadata field to a
+payload key automatically.
 
 ## Platform support
 
 | Feature | Android | iOS | Web | Desktop |
 |---|---|---|---|---|
 | Text Embeddings | ✅ | ✅ | ✅ | ✅ |
-| VectorStore (RAG) | ✅ qdrant-edge | ✅ qdrant-edge | ✅ wa-sqlite (WASM) | ✅ qdrant-edge |
-| Payload `Filter` | ✅ | ✅ | ❌ | ✅ |
+| VectorStore — qdrant-edge | ✅ | ✅ | ❌ | ✅ |
+| VectorStore — sqlite-vec | ✅ | ✅ | ✅ | ✅ |
+| Payload `Filter` | ✅ | ✅ | ✅ | ✅ |
 
-Benchmarks comparing qdrant-edge to the legacy sqlite + local_hnsw backend across
-5 platforms (5,000 documents, EmbeddingGemma 300M, 768-dim) are in the
+Both stores expose the identical Dart API, so you can swap one for the other by
+changing only the `vectorStore:` you register.
+
+**Which store?** `qdrant-edge` is the fastest **native** option — benchmarked
+~5–11× faster search than the `sqlite-vec` store at 1k–10k documents — using HNSW
+approximate nearest-neighbour. `sqlite-vec` is exact (brute-force KNN inside
+SQLite via the `vec0` extension), portable across all six platforms, and the only
+store that runs on Web. Pick qdrant-edge for native throughput; pick sqlite-vec
+for exact results or cross-platform / web reach.
+
+Benchmarks comparing the two stores across platforms (EmbeddingGemma 300M,
+768-dim) are in the
 [repo benchmarks](https://github.com/DenisovAV/flutter_gemma/blob/main/packages/flutter_gemma/example/integration_test/benchmarks/comparison.md).

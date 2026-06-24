@@ -1,3 +1,6 @@
+## 1.1.1
+- Declare `libvndksupport.so` for the Android GPU backend — fixes Mali GPU hard-freeze on Android 12+ (#324).
+
 ## 1.1.0
 - Add declared-column `Filter` support: `FilterSchema`/`FilterField`/`FilterFieldType` + `configure(FilterSchema)` on `VectorStoreRepository`.
 - Add optional `filterSchema:` to `FlutterGemma.initialize` (threaded to the vector store at registration).

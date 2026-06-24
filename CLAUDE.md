@@ -150,6 +150,11 @@ Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 
 ### Android
 ```xml
+<!-- libvndksupport.so is required for the GPU backend on Android 12+: the
+     v0.13.x OpenCL loader uses its android_load_sphal_library() to dlopen the
+     vendor OpenCL ICD. Without it OpenCL fails to load → WebGPU fallback →
+     hard-freeze on some Mali drivers (#324). -->
+<uses-native-library android:name="libvndksupport.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>

@@ -1,3 +1,6 @@
+## 1.1.2
+- Migrate Android module to Built-in Kotlin — apply KGP only on AGP < 9, ready for AGP 9+ (#323).
+
 ## 1.1.1
 - Declare `libvndksupport.so` for the Android GPU backend — fixes Mali GPU hard-freeze on Android 12+ (#324).
 

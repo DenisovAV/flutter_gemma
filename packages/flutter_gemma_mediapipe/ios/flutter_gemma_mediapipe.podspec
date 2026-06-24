@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma_mediapipe'
-  s.version          = '0.1.0'
+  s.version          = '1.0.3'
   s.summary          = 'MediaPipe GenAI (.task) inference backend for flutter_gemma on iOS.'
   s.description      = <<-DESC
 MediaPipe GenAI (`.task`) inference backend for the flutter_gemma plugin.

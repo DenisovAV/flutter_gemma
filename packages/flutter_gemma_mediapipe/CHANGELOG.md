@@ -1,3 +1,6 @@
+## 1.0.3
+- Migrate Android module to Built-in Kotlin — apply KGP only on AGP < 9, ready for AGP 9+ (#323).
+
 ## 1.0.2
 - Accept `maxOutputTokens` (session + chat) for interface parity; MediaPipe has no output cap, so it's logged + ignored (#318).
 

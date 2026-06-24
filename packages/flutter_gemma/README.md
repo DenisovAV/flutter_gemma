@@ -295,6 +295,11 @@ use_frameworks! :linkage => :static
 Add to 'AndroidManifest.xml' above tag `</application>`
 
 ```AndroidManifest.xml
+ <!-- Required for the GPU backend on Android 12+: the OpenCL loader uses
+      libvndksupport.so (android_load_sphal_library) to dlopen the vendor
+      OpenCL driver. Without it OpenCL can't load and the engine falls back to
+      WebGPU, which hard-freezes some Mali GPUs on the vision encoder (#324). -->
+ <uses-native-library android:name="libvndksupport.so" android:required="false"/>
  <uses-native-library
      android:name="libOpenCL.so"
      android:required="false"/>

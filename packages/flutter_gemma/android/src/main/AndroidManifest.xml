@@ -3,5 +3,13 @@
         <!-- Required for Qualcomm HTP dispatch: lets Bionic resolve libcdsprpc.so
              from the vendor partition when libLiteRtDispatch_Qualcomm.so is loaded. -->
         <uses-native-library android:name="libcdsprpc.so" android:required="false"/>
+        <!-- Required for the GPU backend on Android 12+: the LiteRT-LM OpenCL
+             loader (v0.13.x) uses libvndksupport.so's android_load_sphal_library()
+             to dlopen the vendor OpenCL ICD from the app's linker namespace.
+             Without it OpenCL fails to load and the engine falls back to WebGPU,
+             which hard-freezes some Mali GPU drivers compiling the vision
+             encoder (#324). Merged into every consumer app via manifest merger
+             so the GPU path works without each app re-declaring it. -->
+        <uses-native-library android:name="libvndksupport.so" android:required="false"/>
     </application>
 </manifest>

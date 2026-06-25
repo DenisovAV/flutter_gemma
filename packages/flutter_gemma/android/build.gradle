@@ -22,7 +22,15 @@ allprojects {
 }
 
 apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
+
+// Built-in Kotlin migration (#323). AGP 9 ships Kotlin built-in and rejects an
+// explicit kotlin-android apply; AGP 8.x still needs it. Apply KGP only on
+// AGP < 9 so we build on both and stop tripping Flutter's "plugin applies KGP"
+// deprecation warning on AGP 9+.
+def agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')[0] as int
+if (agpMajor < 9) {
+    apply plugin: 'kotlin-android'
+}
 
 android {
     if (project.android.hasProperty("namespace")) {
@@ -34,12 +42,6 @@ android {
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
-    }
-
-    kotlin {
-        compilerOptions {
-            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
-        }
     }
 
     sourceSets {
@@ -62,6 +64,24 @@ android {
                 outputs.upToDateWhen {false}
                 showStandardStreams = true
             }
+        }
+    }
+}
+
+// Set the Kotlin jvmTarget only once the kotlin-android plugin is actually
+// applied. On AGP < 9 we apply it above, so this runs and configures jvmTarget.
+// On AGP 9 the plugin isn't applied (built-in Kotlin handles compilation) and
+// the `kotlin {}` DSL isn't registered at the Project level for a library
+// subproject — a bare `kotlin {}` block there fails with "Could not find method
+// kotlin()". pluginManager.withPlugin defers the config so it's a no-op when KGP
+// isn't applied, instead of crashing configuration. On AGP 9 the explicit
+// jvmTarget is not lost: built-in Kotlin derives it from compileOptions
+// (sourceCompatibility/targetCompatibility VERSION_11 above), so the JVM 11
+// target is preserved by a different mechanism.
+pluginManager.withPlugin('kotlin-android') {
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
         }
     }
 }

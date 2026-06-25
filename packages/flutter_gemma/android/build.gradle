@@ -68,11 +68,18 @@ android {
     }
 }
 
-// Built-in Kotlin places compilerOptions in a root `kotlin {}` block (works on
-// both the AGP 8 KGP path and AGP 9 built-in path).
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+// Set the Kotlin jvmTarget only once the kotlin-android plugin is actually
+// applied. On AGP < 9 we apply it above, so this runs and configures jvmTarget.
+// On AGP 9 the plugin isn't applied (built-in Kotlin handles compilation) and
+// the `kotlin {}` DSL isn't registered at the Project level for a library
+// subproject — a bare `kotlin {}` block there fails with "Could not find method
+// kotlin()". pluginManager.withPlugin defers the config so it's a no-op when KGP
+// isn't applied, instead of crashing configuration.
+pluginManager.withPlugin('kotlin-android') {
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+        }
     }
 }
 

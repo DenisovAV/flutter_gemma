@@ -1,7 +1,5 @@
-## 1.1.1
-- Declare `libvndksupport.so` for the Android GPU backend — fixes Mali GPU hard-freeze on Android 12+ (#324).
-
 ## 1.1.0
+- Add optional `downloadUpdatesStream` and `fileSystemService` to `FlutterGemma.initialize()` for host apps that share a `background_downloader` broadcast hub or custom model storage paths (mobile only for the stream).
 - Add declared-column `Filter` support: `FilterSchema`/`FilterField`/`FilterFieldType` + `configure(FilterSchema)` on `VectorStoreRepository`.
 - Add optional `filterSchema:` to `FlutterGemma.initialize` (threaded to the vector store at registration).
 - Deprecate `enableHnsw` (no-op; vector search now runs inside the store engine).

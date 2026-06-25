@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
 import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/domain/web_storage_mode.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
@@ -146,6 +147,20 @@ class FlutterGemma {
     // empty default keeps every store in its existing "filters are a safe
     // no-op" mode.
     FilterSchema filterSchema = const FilterSchema(),
+
+    /// Optional host-provided broadcast of download task updates (mobile).
+    ///
+    /// On iOS/Android, events must be [TaskUpdate] values from
+    /// `package:background_downloader` — the same shape as
+    /// [FileDownloader.updates]. Ignored on web. When omitted,
+    /// [SmartDownloader] uses its internal broadcast wrapper.
+    Stream<Object>? downloadUpdatesStream,
+
+    /// Optional custom model file storage (e.g. outside Documents).
+    ///
+    /// [FileSystemService] is defined in core but not exported from the
+    /// public barrel; pass an implementation from your app or tests.
+    FileSystemService? fileSystemService,
   }) async {
     // Migration: enableWebCache takes precedence if provided (for backward compatibility)
     final effectiveStorageMode = enableWebCache != null
@@ -158,6 +173,8 @@ class FlutterGemma {
       webStorageMode: effectiveStorageMode,
       vectorStoreRepository: vectorStore,
       filterSchema: filterSchema,
+      downloadUpdatesStream: downloadUpdatesStream,
+      fileSystemService: fileSystemService,
     );
 
     if (inferenceEngines.isNotEmpty) {

@@ -74,7 +74,10 @@ android {
 // the `kotlin {}` DSL isn't registered at the Project level for a library
 // subproject — a bare `kotlin {}` block there fails with "Could not find method
 // kotlin()". pluginManager.withPlugin defers the config so it's a no-op when KGP
-// isn't applied, instead of crashing configuration.
+// isn't applied, instead of crashing configuration. On AGP 9 the explicit
+// jvmTarget is not lost: built-in Kotlin derives it from compileOptions
+// (sourceCompatibility/targetCompatibility VERSION_11 above), so the JVM 11
+// target is preserved by a different mechanism.
 pluginManager.withPlugin('kotlin-android') {
     kotlin {
         compilerOptions {

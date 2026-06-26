@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
@@ -79,9 +81,51 @@ class SmartDownloader {
 
   /// Get broadcast stream for FileDownloader updates
   /// Creates the broadcast stream once and reuses it for all downloads
+  /// Optional hub stream configured at init (e.g. host cache client forwarder).
+  static Stream<TaskUpdate>? _configuredDownloadUpdatesStream;
+
+  /// Memoized broadcast wrapper for [_configuredDownloadUpdatesStream].
+  static Stream<TaskUpdate>? _configuredBroadcastStream;
+
+  /// Registers a shared download-updates stream for all SmartDownloader
+  /// paths (new downloads and attach-to-existing).
+  ///
+  /// [stream] may be single- or broadcast; non-broadcast sources are
+  /// wrapped with [Stream.asBroadcastStream] so concurrent downloads can
+  /// each call [Stream.listen].
+  static void configureDownloadUpdatesStream(Stream<TaskUpdate>? stream) {
+    _configuredDownloadUpdatesStream = stream;
+    _configuredBroadcastStream = null;
+  }
+
+  /// Clears injected hub configuration (e.g. registry reset / dispose).
+  static void clearConfiguration() {
+    _configuredDownloadUpdatesStream = null;
+    _configuredBroadcastStream = null;
+    _broadcastStream = null;
+  }
+
+  @visibleForTesting
+  static void resetDownloadUpdatesStreamConfig() => clearConfiguration();
+
+  @visibleForTesting
+  static Stream<TaskUpdate> debugResolveUpdatesStream() =>
+      _resolveUpdatesStream();
+
   static Stream<TaskUpdate> _getUpdatesStream() {
     _broadcastStream ??= FileDownloader().updates.asBroadcastStream();
     return _broadcastStream!;
+  }
+
+  static Stream<TaskUpdate> _resolveUpdatesStream() {
+    final source = _configuredDownloadUpdatesStream;
+    if (source != null) {
+      _configuredBroadcastStream ??= source.isBroadcast
+          ? source
+          : source.asBroadcastStream();
+      return _configuredBroadcastStream!;
+    }
+    return _getUpdatesStream();
   }
 
   /// Downloads a file with smart retry logic and HTTP-aware error handling
@@ -207,6 +251,17 @@ class SmartDownloader {
             },
           );
         })
+        .catchError((Object e, StackTrace st) {
+          // If _ensureConfigured() or a synchronous failure in
+          // _downloadWithSmartRetry throws, surface it on the progress stream
+          // and close it — otherwise the caller's `await for` over
+          // progress.stream hangs forever (the silent-hang class this hub work
+          // exists to prevent).
+          if (!progress.isClosed) {
+            progress.addError(e, st);
+            progress.close();
+          }
+        })
         .whenComplete(() {
           // Clean up cancellation listener when download completes
           cancellationListener?.cancel();
@@ -267,42 +322,65 @@ class SmartDownloader {
         final completer = Completer<void>();
 
         // Attach listener to existing task
-        listener = _getUpdatesStream().listen((update) async {
-          if (update.task.taskId != taskId) return;
+        listener = _resolveUpdatesStream().listen(
+          (update) async {
+            if (update.task.taskId != taskId) return;
 
-          if (update is TaskProgressUpdate) {
-            final percents = (update.progress * 100).round();
-            gemmaLog('📊 Progress (existing): $percents%');
-            if (!progress.isClosed) {
-              progress.add(percents.clamp(0, 100));
-            }
-          } else if (update is TaskStatusUpdate) {
-            gemmaLog('📡 TaskStatusUpdate (existing): ${update.status}');
-            if (update.status == TaskStatus.complete) {
+            if (update is TaskProgressUpdate) {
+              final percents = (update.progress * 100).round();
+              gemmaLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
-                progress.add(100);
-                progress.close();
+                progress.add(percents.clamp(0, 100));
               }
-              await listener?.cancel();
-              completer.complete();
-            } else if (update.status == TaskStatus.failed ||
-                update.status == TaskStatus.canceled) {
-              // Existing task failed - let caller handle retry
-              if (!progress.isClosed) {
-                progress.addError(
-                  DownloadException(
-                    DownloadError.network(
-                      'Existing download failed: ${update.status}',
+            } else if (update is TaskStatusUpdate) {
+              gemmaLog('📡 TaskStatusUpdate (existing): ${update.status}');
+              if (update.status == TaskStatus.complete) {
+                if (!progress.isClosed) {
+                  progress.add(100);
+                  progress.close();
+                }
+                await listener?.cancel();
+                completer.complete();
+              } else if (update.status == TaskStatus.failed ||
+                  update.status == TaskStatus.canceled) {
+                // Existing task failed - let caller handle retry
+                if (!progress.isClosed) {
+                  progress.addError(
+                    DownloadException(
+                      DownloadError.network(
+                        'Existing download failed: ${update.status}',
+                      ),
                     ),
-                  ),
-                );
-                progress.close();
+                  );
+                  progress.close();
+                }
+                await listener?.cancel();
+                completer.complete();
               }
-              await listener?.cancel();
-              completer.complete();
             }
-          }
-        });
+          },
+          onError: (Object error, StackTrace stackTrace) async {
+            if (!progress.isClosed) {
+              progress.addError(error, stackTrace);
+              progress.close();
+            }
+            await listener?.cancel();
+            if (!completer.isCompleted) {
+              completer.completeError(error, stackTrace);
+            }
+          },
+          onDone: () {
+            if (!completer.isCompleted) {
+              completer.completeError(
+                StateError(
+                  'Download updates stream closed before task $taskId '
+                  'completed',
+                ),
+                StackTrace.current,
+              );
+            }
+          },
+        );
 
         onListenerCreated?.call(listener);
         onTaskCreated?.call(taskId);
@@ -356,129 +434,152 @@ class SmartDownloader {
 
       // Listen to broadcast stream to get full status info including HTTP code
       // Using broadcast stream allows multiple downloads and retries
-      listener = _getUpdatesStream().listen((update) async {
-        if (update.task.taskId != task.taskId) return;
+      listener = _resolveUpdatesStream().listen(
+        (update) async {
+          if (update.task.taskId != task.taskId) return;
 
-        gemmaLog(
-          '📡 Received update for task ${task.taskId}: ${update.runtimeType}',
-        );
-
-        if (update is TaskProgressUpdate) {
-          final percents = (update.progress * 100).round();
-          gemmaLog('📊 Progress: $percents%');
-          if (!progress.isClosed) {
-            progress.add(percents.clamp(0, 100));
-          }
-        } else if (update is TaskStatusUpdate) {
           gemmaLog(
-            '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
+            '📡 Received update for task ${task.taskId}: ${update.runtimeType}',
           );
 
-          switch (update.status) {
-            case TaskStatus.complete:
-              if (!progress.isClosed) {
-                progress.add(100);
-                progress.close();
-              }
-              await listener?.cancel();
-              completer.complete(); // ✅ Signal completion
-              break;
+          if (update is TaskProgressUpdate) {
+            final percents = (update.progress * 100).round();
+            gemmaLog('📊 Progress: $percents%');
+            if (!progress.isClosed) {
+              progress.add(percents.clamp(0, 100));
+            }
+          } else if (update is TaskStatusUpdate) {
+            gemmaLog(
+              '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
+            );
 
-            case TaskStatus.failed:
-              gemmaLog('🔴 SmartDownloader: TaskStatus.failed detected');
-              gemmaLog(
-                '🔴 HTTP Status Code from update: ${update.responseStatusCode}',
-              );
-              gemmaLog('🔴 Exception: ${update.exception}');
-              gemmaLog('🔴 Progress closed: ${progress.isClosed}');
-              gemmaLog('🔴 Current attempt: $currentAttempt');
-
-              // Try to get HTTP code from multiple sources
-              int? httpCode = update.responseStatusCode;
-
-              // If not in responseStatusCode, check exception
-              if (httpCode == null && update.exception != null) {
-                if (update.exception is TaskHttpException) {
-                  httpCode =
-                      (update.exception as TaskHttpException).httpResponseCode;
-                  gemmaLog(
-                    '🔴 HTTP Status Code from TaskHttpException: $httpCode',
-                  );
+            switch (update.status) {
+              case TaskStatus.complete:
+                if (!progress.isClosed) {
+                  progress.add(100);
+                  progress.close();
                 }
-              }
-
-              final resumePending = await _handleFailedDownload(
-                task: task,
-                downloader: downloader,
-                url: url,
-                targetPath: targetPath,
-                token: token,
-                maxRetries: maxRetries,
-                progress: progress,
-                currentAttempt: currentAttempt,
-                httpStatusCode: httpCode,
-                currentListener: listener,
-                cancelToken: cancelToken,
-                onListenerCreated: onListenerCreated,
-                onTaskCreated: onTaskCreated,
-              );
-
-              // Only cleanup if no resume is pending
-              // If resume was triggered, we need to keep listening for the result
-              if (!resumePending) {
                 await listener?.cancel();
-                completer.complete();
-              } else {
-                gemmaLog('🔄 Resume pending - keeping listener active');
-              }
-              break;
+                completer.complete(); // ✅ Signal completion
+                break;
 
-            case TaskStatus.canceled:
-              if (!progress.isClosed) {
-                progress.addError(
-                  const DownloadException(DownloadError.canceled()),
-                  StackTrace.current,
+              case TaskStatus.failed:
+                gemmaLog('🔴 SmartDownloader: TaskStatus.failed detected');
+                gemmaLog(
+                  '🔴 HTTP Status Code from update: ${update.responseStatusCode}',
                 );
-                progress.close();
-              }
-              await listener?.cancel();
-              completer.complete(); // ✅ Signal completion
-              break;
+                gemmaLog('🔴 Exception: ${update.exception}');
+                gemmaLog('🔴 Progress closed: ${progress.isClosed}');
+                gemmaLog('🔴 Current attempt: $currentAttempt');
 
-            case TaskStatus.notFound:
-              gemmaLog(
-                '🔴 SmartDownloader: TaskStatus.notFound detected (404)',
-              );
+                // Try to get HTTP code from multiple sources
+                int? httpCode = update.responseStatusCode;
 
-              // 404 is a non-retryable error - handle immediately
-              // Note: 404 always returns false (no resume), but using same pattern for consistency
-              final resumePending404 = await _handleFailedDownload(
-                task: task,
-                downloader: downloader,
-                url: url,
-                targetPath: targetPath,
-                token: token,
-                maxRetries: maxRetries,
-                progress: progress,
-                currentAttempt: currentAttempt,
-                httpStatusCode: 404,
-                currentListener: listener,
-                cancelToken: cancelToken,
-                onListenerCreated: onListenerCreated,
-                onTaskCreated: onTaskCreated,
-              );
+                // If not in responseStatusCode, check exception
+                if (httpCode == null && update.exception != null) {
+                  if (update.exception is TaskHttpException) {
+                    httpCode = (update.exception as TaskHttpException)
+                        .httpResponseCode;
+                    gemmaLog(
+                      '🔴 HTTP Status Code from TaskHttpException: $httpCode',
+                    );
+                  }
+                }
 
-              if (!resumePending404) {
+                final resumePending = await _handleFailedDownload(
+                  task: task,
+                  downloader: downloader,
+                  url: url,
+                  targetPath: targetPath,
+                  token: token,
+                  maxRetries: maxRetries,
+                  progress: progress,
+                  currentAttempt: currentAttempt,
+                  httpStatusCode: httpCode,
+                  currentListener: listener,
+                  cancelToken: cancelToken,
+                  onListenerCreated: onListenerCreated,
+                  onTaskCreated: onTaskCreated,
+                );
+
+                // Only cleanup if no resume is pending
+                // If resume was triggered, we need to keep listening for the result
+                if (!resumePending) {
+                  await listener?.cancel();
+                  completer.complete();
+                } else {
+                  gemmaLog('🔄 Resume pending - keeping listener active');
+                }
+                break;
+
+              case TaskStatus.canceled:
+                if (!progress.isClosed) {
+                  progress.addError(
+                    const DownloadException(DownloadError.canceled()),
+                    StackTrace.current,
+                  );
+                  progress.close();
+                }
                 await listener?.cancel();
-                completer.complete();
-              }
-              break;
+                completer.complete(); // ✅ Signal completion
+                break;
 
-            default:
-              break;
+              case TaskStatus.notFound:
+                gemmaLog(
+                  '🔴 SmartDownloader: TaskStatus.notFound detected (404)',
+                );
+
+                // 404 is a non-retryable error - handle immediately
+                // Note: 404 always returns false (no resume), but using same pattern for consistency
+                final resumePending404 = await _handleFailedDownload(
+                  task: task,
+                  downloader: downloader,
+                  url: url,
+                  targetPath: targetPath,
+                  token: token,
+                  maxRetries: maxRetries,
+                  progress: progress,
+                  currentAttempt: currentAttempt,
+                  httpStatusCode: 404,
+                  currentListener: listener,
+                  cancelToken: cancelToken,
+                  onListenerCreated: onListenerCreated,
+                  onTaskCreated: onTaskCreated,
+                );
+
+                if (!resumePending404) {
+                  await listener?.cancel();
+                  completer.complete();
+                }
+                break;
+
+              default:
+                break;
+            }
           }
-        }
-      });
+        },
+        onError: (Object error, StackTrace stackTrace) async {
+          if (!progress.isClosed) {
+            progress.addError(error, stackTrace);
+            progress.close();
+          }
+          await listener?.cancel();
+          if (!completer.isCompleted) {
+            completer.completeError(error, stackTrace);
+          }
+        },
+        onDone: () {
+          if (!completer.isCompleted) {
+            completer.completeError(
+              StateError(
+                'Download updates stream closed before task ${task.taskId} '
+                'completed',
+              ),
+              StackTrace.current,
+            );
+          }
+        },
+      );
 
       // Notify about new listener
       onListenerCreated?.call(listener);

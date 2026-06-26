@@ -29,6 +29,9 @@ import 'package:flutter_gemma/core/infrastructure/flutter_asset_loader_stub.dart
 import 'package:flutter_gemma/core/infrastructure/shared_preferences_model_repository.dart';
 import 'package:flutter_gemma/core/infrastructure/in_memory_model_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
+import 'package:flutter_gemma/core/di/download_hub/configure_download_updates_stream_mobile.dart'
+    if (dart.library.js_interop) 'package:flutter_gemma/core/di/download_hub/configure_download_updates_stream_stub.dart'
+    as download_hub;
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/infrastructure/unconfigured_vector_store.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart'
@@ -409,6 +412,9 @@ class ServiceRegistry {
   /// - [vectorStoreRepository]: Optional custom repository (for testing)
   /// - [filterSchema]: Declared filterable-metadata fields; applied to the
   ///   vector store via `configure()` before its `initialize()` (default empty)
+  /// - [downloadUpdatesStream]: Optional host download hub (mobile only).
+  ///   Events must be `background_downloader` [TaskUpdate] values. Ignored on
+  ///   web. Non-broadcast streams are wrapped internally.
   /// - Services can be overridden for testing (dependency injection)
   ///
   /// Note: This is async because web platform requires SharedPreferences initialization.
@@ -423,6 +429,7 @@ class ServiceRegistry {
     ProtectedFilesRegistry? protectedFilesRegistry,
     VectorStoreRepository? vectorStoreRepository,
     FilterSchema filterSchema = const FilterSchema(),
+    Stream<Object>? downloadUpdatesStream,
   }) async {
     // Make idempotent - skip if already initialized
     if (_instance != null) {
@@ -440,6 +447,8 @@ class ServiceRegistry {
       return;
     }
 
+    download_hub.configureDownloadUpdatesStream(downloadUpdatesStream);
+
     _instance = await _create(
       huggingFaceToken: huggingFaceToken,
       maxDownloadRetries: maxDownloadRetries,
@@ -456,6 +465,7 @@ class ServiceRegistry {
 
   /// Resets the singleton (primarily for testing)
   static void reset() {
+    download_hub.clearDownloadUpdatesStream();
     _instance = null;
   }
 
@@ -464,6 +474,7 @@ class ServiceRegistry {
   /// Should be called when shutting down the application.
   /// After calling dispose(), you must call initialize() again to use the registry.
   Future<void> dispose() async {
+    download_hub.clearDownloadUpdatesStream();
     // Close VectorStore database connection
     try {
       await _vectorStoreRepository.close();

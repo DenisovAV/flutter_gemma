@@ -10,8 +10,10 @@ import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
+import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -139,6 +141,13 @@ class FlutterGemma {
     // RAG package" error on first use).
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
+    // Opt-in agentic "skills" runtime, provided by the `flutter_gemma_agent`
+    // package (each executor `implements SkillExecutorProvider`). Core holds
+    // only this list + the probe-chain [SkillExecutorRegistry]; the concrete
+    // `SkillExecutor` / `SkillResult` types live in the agent package so core
+    // stays dependency-free (no webview_flutter / url_launcher). Empty default
+    // is a no-op — existing apps are unaffected.
+    List<SkillExecutorProvider> skillExecutors = const [],
     VectorStoreRepository? vectorStore,
     // Declares which metadata fields the configured [vectorStore] should make
     // filterable. Threaded to the store via `configure()` at registration,
@@ -182,6 +191,9 @@ class FlutterGemma {
     }
     if (embeddingBackends.isNotEmpty) {
       EmbeddingRegistry.instance.registerAll(embeddingBackends);
+    }
+    if (skillExecutors.isNotEmpty) {
+      SkillExecutorRegistry.instance.registerAll(skillExecutors);
     }
 
     // Single-flight model-manager init: restore the previously-active model

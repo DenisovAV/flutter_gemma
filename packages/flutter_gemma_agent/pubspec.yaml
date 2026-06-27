@@ -55,11 +55,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  # The L2 webview integration test (integration_test/js_skill_real_webview_test.dart)
-  # drives the JS executor against a real flutter_inappwebview on a device.
-  integration_test:
-    sdk: flutter
   flutter_lints: ^6.0.0
+  # The L2 webview integration test needs a host runner, so it lives in the
+  # example app (packages/flutter_gemma/example/integration_test/
+  # js_skill_real_webview_test.dart), run on a device per CLAUDE.md Rule 6 —
+  # not here (a plugin package has no runner to execute integration_test).
 
 flutter:
   # Bundled starter skills (ported verbatim from google-ai-edge/gallery,

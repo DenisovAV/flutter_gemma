@@ -100,7 +100,13 @@ class _InAppWebViewJsRuntime implements JsRuntime {
           await controller.loadData(
             data: inlineSkillHtml(html, js),
             mimeType: 'text/html',
-            baseUrl: WebUri('about:blank'),
+            // A SECURE-CONTEXT base URL (https) is required: skills use Web
+            // Crypto (crypto.subtle), which the browser exposes ONLY in a secure
+            // context. about:blank / file:// are insecure → crypto.subtle is
+            // undefined → hash skills fail. https://localhost is treated as a
+            // secure context by every WebView. (Gallery loads skills under
+            // https://appassets.androidplatform.net for the same reason.)
+            baseUrl: WebUri('https://localhost/'),
           );
         case UrlJsSource(:final url):
           await controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));

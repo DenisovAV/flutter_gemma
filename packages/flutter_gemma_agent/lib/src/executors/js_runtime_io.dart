@@ -42,12 +42,22 @@ class _InAppWebViewJsRuntime implements JsRuntime {
     _SkillAssetServer? server;
     var injected = false;
 
+    // The injected wrapper (waits for the skill global, calls it, posts the
+    // result back over the single handler). For ASSET skills the loopback server
+    // splices it into the entry HTML as a `<script>` — so it runs as part of the
+    // page, NOT via `evaluateJavascript`. The Windows arm's `evaluateJavascript`
+    // on a headless webview ACCESS-VIOLATION-crashes the plugin DLL
+    // (`flutter_inappwebview_windows_plugin.dll`, c0000005); serving the script
+    // avoids that native call entirely (the standalone probe, which embedded its
+    // JS in the page, ran fine on Windows for the same reason).
+    final injection = buildInjectionScript(dataJson, secret, web: false);
+
     // Resolve the URL the webview will navigate to, and (for asset skills) the
     // loopback server that serves the skill folder under it.
     final String pageUrl;
     switch (source) {
       case AssetJsSource(:final assetKey):
-        server = await _SkillAssetServer.start(assetKey);
+        server = await _SkillAssetServer.start(assetKey, injection);
         pageUrl = server.entryUrl;
       case UrlJsSource(:final url):
         pageUrl = url;
@@ -75,15 +85,15 @@ class _InAppWebViewJsRuntime implements JsRuntime {
       onConsoleMessage: (controller, consoleMessage) {
         debugPrint('JsSkillExecutor[js]: ${consoleMessage.message}');
       },
-      // Inject once the page has finished loading; the native arm passes
-      // web:false so the wrapper posts via callHandler.
+      // ASSET skills already carry the injected `<script>` (served by the
+      // loopback server), so nothing to do on load. URL skills (community,
+      // loaded directly) can't be rewritten, so inject via `evaluateJavascript`
+      // there — those are not the Windows-crash path (no headless asset load).
       onLoadStop: (controller, url) async {
-        if (injected) return;
+        if (server != null || injected) return;
         injected = true;
         try {
-          await controller.evaluateJavascript(
-            source: buildInjectionScript(dataJson, secret, web: false),
-          );
+          await controller.evaluateJavascript(source: injection);
         } catch (e) {
           if (!completer.isCompleted) {
             completer.complete(jsonEncode({'error': 'injection failed: $e'}));
@@ -139,7 +149,12 @@ class _InAppWebViewJsRuntime implements JsRuntime {
 /// ephemeral port; the secure-context "potentially trustworthy" origin is what
 /// makes `crypto.subtle` work.
 class _SkillAssetServer {
-  _SkillAssetServer._(this._server, this._assetDir, this._entryName);
+  _SkillAssetServer._(
+    this._server,
+    this._assetDir,
+    this._entryName,
+    this._injection,
+  );
 
   final HttpServer _server;
 
@@ -150,13 +165,20 @@ class _SkillAssetServer {
   /// The entry file name within [_assetDir], e.g. `index.html`.
   final String _entryName;
 
+  /// The JS wrapper spliced into the entry HTML as a trailing `<script>` so it
+  /// runs as part of the page (avoids the Windows `evaluateJavascript` crash).
+  final String _injection;
+
   /// `http://127.0.0.1:<port>` — the skill's secure origin.
   String get origin => 'http://127.0.0.1:${_server.port}';
 
   /// The full URL to load in the webview, e.g. `http://127.0.0.1:1234/index.html`.
   String get entryUrl => '$origin/$_entryName';
 
-  static Future<_SkillAssetServer> start(String htmlAssetKey) async {
+  static Future<_SkillAssetServer> start(
+    String htmlAssetKey,
+    String injection,
+  ) async {
     final slash = htmlAssetKey.lastIndexOf('/');
     final assetDir = slash == -1 ? '' : htmlAssetKey.substring(0, slash + 1);
     final entryName = slash == -1
@@ -168,7 +190,12 @@ class _SkillAssetServer {
       0,
       shared: false,
     );
-    final server = _SkillAssetServer._(httpServer, assetDir, entryName);
+    final server = _SkillAssetServer._(
+      httpServer,
+      assetDir,
+      entryName,
+      injection,
+    );
     httpServer.listen(server._handle);
     return server;
   }
@@ -186,6 +213,24 @@ class _SkillAssetServer {
       return;
     }
     final assetKey = '$_assetDir$path';
+
+    // The entry HTML gets the injected wrapper appended as a `<script>`, so the
+    // skill call runs as part of the page (no `evaluateJavascript`).
+    if (path == _entryName) {
+      try {
+        final html = await rootBundle.loadString(assetKey);
+        final body = '$html\n<script>$_injection</script>';
+        req.response
+          ..statusCode = HttpStatus.ok
+          ..headers.contentType = ContentType.html
+          ..write(body);
+      } catch (_) {
+        req.response.statusCode = HttpStatus.notFound;
+      }
+      await req.response.close();
+      return;
+    }
+
     try {
       final data = await rootBundle.load(assetKey);
       req.response

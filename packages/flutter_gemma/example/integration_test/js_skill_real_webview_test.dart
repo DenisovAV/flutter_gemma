@@ -100,8 +100,12 @@ bool skipNoHarnessWebview(String scenario) {
   if (platform.isWindows) {
     // ignore: avoid_print
     print(
-      '[$scenario] SKIP: HeadlessInAppWebView crashes under flutter test on '
-      'Windows (plugin×harness bug); mechanism verified via the standalone probe',
+      '[$scenario] SKIP: HeadlessInAppWebView (WebView2) crashes under flutter '
+      'test on Windows — WebView2 needs a real window/HWND that the headless '
+      'integration-test runner does not provide (access violation, fixed offset '
+      'across all Dart variants; the same code works as a flutter run app, and '
+      'the loopback secure-context is probe-proven on Windows WebView2). Like '
+      'web (Rule 6), this engine cannot be driven through flutter test.',
     );
     return true;
   }

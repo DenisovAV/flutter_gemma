@@ -92,17 +92,24 @@ class _InAppWebViewJsRuntime implements JsRuntime {
       },
       // Sandbox: allow loads of the skill's own origin/page; deny navigation
       // elsewhere so the foreign page cannot redirect off the loopback origin.
-      shouldOverrideUrlLoading: (controller, navigationAction) async {
-        final target = navigationAction.request.url?.toString();
-        if (!injected) {
-          if (target == null ||
-              target == pageUrl ||
-              (server != null && target.startsWith(server.origin))) {
-            return NavigationActionPolicy.ALLOW;
-          }
-        }
-        return NavigationActionPolicy.CANCEL;
-      },
+      // NOT wired on Windows: the Windows arm's shouldOverrideUrlLoading is
+      // undocumented and CRASHES the headless WebView2 (verified — L2 exit 79;
+      // the probe without this callback ran fine). On Windows the sandbox rests
+      // on the loopback server serving only the skill folder (path traversal
+      // blocked) + the single result handler being the only native bridge.
+      shouldOverrideUrlLoading: Platform.isWindows
+          ? null
+          : (controller, navigationAction) async {
+              final target = navigationAction.request.url?.toString();
+              if (!injected) {
+                if (target == null ||
+                    target == pageUrl ||
+                    (server != null && target.startsWith(server.origin))) {
+                  return NavigationActionPolicy.ALLOW;
+                }
+              }
+              return NavigationActionPolicy.CANCEL;
+            },
     );
 
     try {

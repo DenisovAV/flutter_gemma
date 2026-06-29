@@ -84,15 +84,28 @@ Skill _jsSkill(String name) => Skill(
   type: SkillType.js,
 );
 
-/// JS skills are unavailable on Linux, so the real-webview scenarios (S1–S5)
-/// cannot run there — they are covered instead by S6's ErrorResult assertion.
-/// Returns true (and the caller should `return`) when running on Linux.
-bool skipWhenLinux(String scenario) {
+/// The real-webview scenarios (S1–S5) can't run under `flutter test` on two
+/// platforms: Linux (no webview implementation at all) and Windows
+/// (`HeadlessInAppWebView` ACCESS-VIOLATION-crashes the plugin under the
+/// integration-test harness — proven by a minimal no-our-code test; the same
+/// code works as a `flutter run` app, and the loopback mechanism is probe-proven
+/// on Windows WebView2). Returns true (caller should `return`) on either, with a
+/// breadcrumb so the skip is visible — not a silent pass or a harness crash.
+bool skipNoHarnessWebview(String scenario) {
   if (platform.isLinux) {
     // ignore: avoid_print
     print('[$scenario] SKIP: JS skills are unavailable on Linux');
+    return true;
   }
-  return platform.isLinux;
+  if (platform.isWindows) {
+    // ignore: avoid_print
+    print(
+      '[$scenario] SKIP: HeadlessInAppWebView crashes under flutter test on '
+      'Windows (plugin×harness bug); mechanism verified via the standalone probe',
+    );
+    return true;
+  }
+  return false;
 }
 
 void main() {
@@ -108,7 +121,7 @@ void main() {
   // HTML (inlining its sibling index.js), runs crypto.subtle, and posts the
   // hash back over the single AiEdgeGallery handler.
   testWidgets('S1 calculate-hash real headless → SHA-1 reference', (t) async {
-    if (skipWhenLinux('S1')) return;
+    if (skipNoHarnessWebview('S1')) return;
     final exec = JsSkillExecutor(sourceFor: _assetSource.jsSkillSourceFor);
     final result = await exec.execute(
       _registry.get('calculate-hash')!,
@@ -121,7 +134,7 @@ void main() {
   // S2 — DOM skill: interactive-map returns a {webview:{url}} payload, which
   // parseJsResult turns into a WebviewResult the UI embeds inline.
   testWidgets('S2 interactive-map DOM → WebviewResult', (t) async {
-    if (skipWhenLinux('S2')) return;
+    if (skipNoHarnessWebview('S2')) return;
     final exec = JsSkillExecutor(sourceFor: _assetSource.jsSkillSourceFor);
     final result = await exec.execute(
       _registry.get('interactive-map')!,
@@ -138,7 +151,7 @@ void main() {
   // of ai_edge_gallery_get_result, NEVER interpolated as code or placed in the
   // prompt. The echo skill returns it, proving it arrived.
   testWidgets('S3 secret injected as JS arg (not in logs/prompt)', (t) async {
-    if (skipWhenLinux('S3')) return;
+    if (skipNoHarnessWebview('S3')) return;
     const secret = 'sk-integration-12345';
     final exec = JsSkillExecutor(
       sourceFor: (_) => JsSkillSource.url(_dataUrl(_echoSecretHtml)),
@@ -155,7 +168,7 @@ void main() {
   // S4 — timeout: a skill that never calls back must surface a clean ErrorResult
   // within the executor's (short, here) timeout rather than hanging the loop.
   testWidgets('S4 never-callback skill → clean timeout error', (t) async {
-    if (skipWhenLinux('S4')) return;
+    if (skipNoHarnessWebview('S4')) return;
     final exec = JsSkillExecutor(
       sourceFor: (_) => JsSkillSource.url(_dataUrl(_neverCallsBackHtml)),
       timeout: const Duration(seconds: 3),
@@ -170,7 +183,7 @@ void main() {
   // S5 — sandbox: a sub-navigation away from the loaded page is blocked, and the
   // skill still returns its result over the single bridge.
   testWidgets('S5 sub-navigation blocked, result still returned', (t) async {
-    if (skipWhenLinux('S5')) return;
+    if (skipNoHarnessWebview('S5')) return;
     final exec = JsSkillExecutor(
       sourceFor: (_) => JsSkillSource.url(_dataUrl(_subNavHtml)),
       timeout: const Duration(seconds: 10),

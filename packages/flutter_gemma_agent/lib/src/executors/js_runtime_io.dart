@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
@@ -14,10 +15,20 @@ import 'js_skill_executor.dart';
 JsRuntime createJsRuntime() => _InAppWebViewJsRuntime();
 
 /// Real [JsRuntime] backed by `flutter_inappwebview`'s [HeadlessInAppWebView].
-/// Configures the webview as a sandbox: JavaScript on, a single result handler
-/// as the only bridge, and a `shouldOverrideUrlLoading` policy that blocks any
-/// navigation away from the loaded page. The `flutter_inappwebview` import lives
-/// only here (the native arm); the web arm runs a `package:web` iframe instead.
+///
+/// Asset skills are served over a loopback HTTP server and loaded via
+/// `http://127.0.0.1:<port>/index.html`. `http://127.0.0.1` is a W3C
+/// "potentially trustworthy" SECURE CONTEXT, so the skill's `crypto.subtle`
+/// (Web Crypto) is defined and its sibling `index.js` loads via a relative URL
+/// from the real origin. This is the only mechanism that grants a secure
+/// context for local content on ALL native engines (WebView2 ignores
+/// `loadData`'s baseUrl; WKWebView's `loadFile` can't read sibling files) —
+/// verified on hardware across Windows/Android/macOS/iOS.
+///
+/// The webview is a sandbox: JavaScript on, a single result handler as the only
+/// native bridge, and a `shouldOverrideUrlLoading` policy that blocks navigation
+/// off the loopback origin. `flutter_inappwebview` is imported only here (the
+/// native arm); the web arm runs a `package:web` iframe instead.
 class _InAppWebViewJsRuntime implements JsRuntime {
   @override
   Future<String> run({
@@ -28,11 +39,19 @@ class _InAppWebViewJsRuntime implements JsRuntime {
   }) async {
     final completer = Completer<String>();
     HeadlessInAppWebView? headless;
-
-    // The initial page URL we allow (URL skills); asset skills load as inline
-    // HTML under about:blank, so there is no allowed remote URL.
-    final pageUrl = source is UrlJsSource ? source.url : null;
+    _SkillAssetServer? server;
     var injected = false;
+
+    // Resolve the URL the webview will navigate to, and (for asset skills) the
+    // loopback server that serves the skill folder under it.
+    final String pageUrl;
+    switch (source) {
+      case AssetJsSource(:final assetKey):
+        server = await _SkillAssetServer.start(assetKey);
+        pageUrl = server.entryUrl;
+      case UrlJsSource(:final url):
+        pageUrl = url;
+    }
 
     headless = HeadlessInAppWebView(
       initialSettings: InAppWebViewSettings(
@@ -71,12 +90,14 @@ class _InAppWebViewJsRuntime implements JsRuntime {
           }
         }
       },
-      // Sandbox: allow the initial requested page; deny every other navigation
-      // so the foreign page cannot redirect to file:// or another origin.
+      // Sandbox: allow loads of the skill's own origin/page; deny navigation
+      // elsewhere so the foreign page cannot redirect off the loopback origin.
       shouldOverrideUrlLoading: (controller, navigationAction) async {
         final target = navigationAction.request.url?.toString();
         if (!injected) {
-          if (pageUrl == null || target == pageUrl) {
+          if (target == null ||
+              target == pageUrl ||
+              (server != null && target.startsWith(server.origin))) {
             return NavigationActionPolicy.ALLOW;
           }
         }
@@ -90,27 +111,7 @@ class _InAppWebViewJsRuntime implements JsRuntime {
       if (controller == null) {
         throw StateError('headless webview controller unavailable');
       }
-
-      switch (source) {
-        case AssetJsSource(:final assetKey):
-          final html = await rootBundle.loadString(assetKey);
-          // Inline the sibling index.js (if the HTML references it) so iOS/macOS
-          // (allowingReadAccessTo: nil under loadData) can still run the skill.
-          final js = await _loadSiblingJs(assetKey, html);
-          await controller.loadData(
-            data: inlineSkillHtml(html, js),
-            mimeType: 'text/html',
-            // A SECURE-CONTEXT base URL (https) is required: skills use Web
-            // Crypto (crypto.subtle), which the browser exposes ONLY in a secure
-            // context. about:blank / file:// are insecure → crypto.subtle is
-            // undefined → hash skills fail. https://localhost is treated as a
-            // secure context by every WebView. (Gallery loads skills under
-            // https://appassets.androidplatform.net for the same reason.)
-            baseUrl: WebUri('https://localhost/'),
-          );
-        case UrlJsSource(:final url):
-          await controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
-      }
+      await controller.loadUrl(urlRequest: URLRequest(url: WebUri(pageUrl)));
 
       return await completer.future.timeout(
         timeout,
@@ -119,23 +120,92 @@ class _InAppWebViewJsRuntime implements JsRuntime {
       );
     } finally {
       await headless.dispose();
+      await server?.close();
     }
+  }
+}
+
+/// A loopback HTTP server that serves a single JS skill's bundled asset folder
+/// over `http://127.0.0.1:<port>/`. Files are read from [rootBundle] (the skill
+/// ships as Flutter assets, not as on-disk files), so a `GET /index.js` maps to
+/// the asset sibling of the skill's `index.html`. Bound to loopback only with an
+/// ephemeral port; the secure-context "potentially trustworthy" origin is what
+/// makes `crypto.subtle` work.
+class _SkillAssetServer {
+  _SkillAssetServer._(this._server, this._assetDir, this._entryName);
+
+  final HttpServer _server;
+
+  /// The bundled-asset directory prefix (with trailing slash) the skill lives
+  /// in, e.g. `assets/skills/calculate-hash/scripts/`.
+  final String _assetDir;
+
+  /// The entry file name within [_assetDir], e.g. `index.html`.
+  final String _entryName;
+
+  /// `http://127.0.0.1:<port>` — the skill's secure origin.
+  String get origin => 'http://127.0.0.1:${_server.port}';
+
+  /// The full URL to load in the webview, e.g. `http://127.0.0.1:1234/index.html`.
+  String get entryUrl => '$origin/$_entryName';
+
+  static Future<_SkillAssetServer> start(String htmlAssetKey) async {
+    final slash = htmlAssetKey.lastIndexOf('/');
+    final assetDir = slash == -1 ? '' : htmlAssetKey.substring(0, slash + 1);
+    final entryName = slash == -1
+        ? htmlAssetKey
+        : htmlAssetKey.substring(slash + 1);
+
+    final httpServer = await HttpServer.bind(
+      InternetAddress.loopbackIPv4,
+      0,
+      shared: false,
+    );
+    final server = _SkillAssetServer._(httpServer, assetDir, entryName);
+    httpServer.listen(server._handle);
+    return server;
   }
 
-  /// Reads the sibling `index.js` for an asset skill whose [html] references it.
-  /// Returns an empty string when the JS is already inline (no reference), so
-  /// [inlineSkillHtml] is a no-op.
-  Future<String> _loadSiblingJs(String htmlAssetKey, String html) async {
-    if (!html.contains('index.js')) return '';
-    final slash = htmlAssetKey.lastIndexOf('/');
-    final jsKey = slash == -1
-        ? 'index.js'
-        : '${htmlAssetKey.substring(0, slash + 1)}index.js';
-    try {
-      return await rootBundle.loadString(jsKey);
-    } catch (_) {
-      // No sibling JS bundled (or a cross-origin <script src>): leave as-is.
-      return '';
+  Future<void> _handle(HttpRequest req) async {
+    // Map the request path to a bundled asset under the skill's directory.
+    // Strip the leading slash and any query; default `/` to the entry file.
+    var path = req.uri.path;
+    if (path.startsWith('/')) path = path.substring(1);
+    if (path.isEmpty) path = _entryName;
+    // Block path traversal out of the skill directory.
+    if (path.contains('..')) {
+      req.response.statusCode = HttpStatus.forbidden;
+      await req.response.close();
+      return;
     }
+    final assetKey = '$_assetDir$path';
+    try {
+      final data = await rootBundle.load(assetKey);
+      req.response
+        ..statusCode = HttpStatus.ok
+        ..headers.contentType = _contentTypeFor(path)
+        ..add(data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes));
+    } catch (_) {
+      req.response.statusCode = HttpStatus.notFound;
+    }
+    await req.response.close();
   }
+
+  static ContentType _contentTypeFor(String path) {
+    final dot = path.lastIndexOf('.');
+    final ext = dot == -1 ? '' : path.substring(dot + 1).toLowerCase();
+    return switch (ext) {
+      'html' || 'htm' => ContentType.html,
+      'js' || 'mjs' => ContentType('text', 'javascript', charset: 'utf-8'),
+      'css' => ContentType('text', 'css', charset: 'utf-8'),
+      'json' => ContentType('application', 'json', charset: 'utf-8'),
+      'svg' => ContentType('image', 'svg+xml'),
+      'png' => ContentType('image', 'png'),
+      'jpg' || 'jpeg' => ContentType('image', 'jpeg'),
+      'wasm' => ContentType('application', 'wasm'),
+      _ => ContentType.binary,
+    };
+  }
+
+  Future<void> close() => _server.close(force: true);
 }

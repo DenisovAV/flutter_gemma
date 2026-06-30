@@ -110,6 +110,7 @@ void main() {
                     SidebarLink(text: 'Multimodal', href: '/docs/multimodal'),
                     SidebarLink(text: 'Function Calling', href: '/docs/function-calling'),
                     SidebarLink(text: 'Thinking Mode', href: '/docs/thinking-mode'),
+                    SidebarLink(text: 'Agent Skills', href: '/docs/agent'),
                     SidebarLink(text: 'Embeddings & RAG', href: '/docs/embeddings-and-rag'),
                   ],
                 ),

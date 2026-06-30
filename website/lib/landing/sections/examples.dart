@@ -68,6 +68,17 @@ class Examples extends StatelessComponent {
       ctaLabel: '▶ Try it live',
       ctaHref: '/try',
     ),
+    _Example(
+      id: 'agent',
+      title: 'On-device agent skills',
+      blurb:
+          'Give the model a set of SKILL.md skills and watch it pick and run '
+          'them through the tool-calling loop — text, JS, native intents, MCP.',
+      accent: Brand.blueLight,
+      videoBase: '/demos/agent',
+      ctaLabel: 'Learn more →',
+      ctaHref: '/docs/agent',
+    ),
   ];
 
   @override

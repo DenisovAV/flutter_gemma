@@ -114,6 +114,21 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
         title: const Text('Agent Skills'),
         backgroundColor: const Color(0xFF0b2351),
         foregroundColor: Colors.white,
+        actions: [
+          // The adaptive skill manager (bottom sheet on phones, side panel on
+          // wide windows). It toggles the live session registry, so enabling /
+          // disabling a skill takes effect on the agent's next turn.
+          if (_session != null)
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: 'Manage skills',
+              onPressed: () => SkillManagerView.showAdaptive(
+                context,
+                registry: _session!.registry,
+                secretStore: _session!.secretStore,
+              ),
+            ),
+        ],
       ),
       body: _session != null
           ? AgentChatView(

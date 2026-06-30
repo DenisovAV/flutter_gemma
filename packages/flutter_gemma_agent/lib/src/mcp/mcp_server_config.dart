@@ -8,6 +8,9 @@
 library;
 
 /// One tool exported by an MCP server (from the server's `tools/list` reply).
+///
+/// Reference type (not a value type): [copyWith] builds a new object, but
+/// equal-fielded instances are not `==`. Tools are matched by [name].
 class McpTool {
   const McpTool({
     required this.name,
@@ -60,6 +63,9 @@ class McpTool {
 /// Auth is the Gallery "request header" method (a single header name/value); the
 /// OAuth method is out of scope for this slice. Construct with [tools] empty and
 /// let [McpClient.connect] populate them, or pass cached tools for offline UI.
+///
+/// Reference type (not a value type): [copyWith] builds a new object, but
+/// equal-fielded instances are not `==`. Servers are identified by [url].
 class McpServerConfig {
   const McpServerConfig({
     required this.url,

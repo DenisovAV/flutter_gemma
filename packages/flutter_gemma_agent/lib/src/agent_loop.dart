@@ -64,6 +64,11 @@ class AgentLoop {
   /// order) — the same ordering rule as the engine/embedding registries.
   final List<SkillExecutor> _executors;
 
+  // This comparator is intentionally identical to the core EngineRegistry /
+  // SkillExecutorRegistry probe-chain sort (descending priority, then ascending
+  // registration index for a stable tie-break). It is duplicated rather than
+  // shared because those registries live in the core package and sort a
+  // different provider type; keep the three in sync if the rule ever changes.
   static List<SkillExecutor> _sortedByPriority(List<SkillExecutor> executors) {
     final indexed = executors.indexed.toList()
       ..sort((a, b) {
@@ -182,7 +187,13 @@ class AgentLoop {
     final skillName = _stringArg(call.args, 'skillName').trim();
     final skill = skillName.isEmpty ? null : registry.get(skillName);
 
-    yield ToolCallEvent(toolName: call.name, args: call.args, skill: skill);
+    // Expose an unmodifiable view so a UI consumer can't mutate the loop's own
+    // parsed call args through the event.
+    yield ToolCallEvent(
+      toolName: call.name,
+      args: Map.unmodifiable(call.args),
+      skill: skill,
+    );
 
     // Map the tool call to the (data) payload + skill the executor expects.
     final probe = skill ?? _syntheticSkillFor(call);

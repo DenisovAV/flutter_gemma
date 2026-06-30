@@ -9,8 +9,16 @@
 class SecretStore {
   final _secrets = <String, String>{};
 
-  /// Store (or replace) the secret for the skill named [skillName].
-  void set(String skillName, String secret) => _secrets[skillName] = secret;
+  /// Store (or replace) the secret for the skill named [skillName]. An empty
+  /// secret clears it instead of storing a blank — so [has], [get], and [set]
+  /// agree on "a stored secret is non-empty".
+  void set(String skillName, String secret) {
+    if (secret.isEmpty) {
+      _secrets.remove(skillName);
+    } else {
+      _secrets[skillName] = secret;
+    }
+  }
 
   /// The secret for [skillName], or null if none is set.
   String? get(String skillName) => _secrets[skillName];

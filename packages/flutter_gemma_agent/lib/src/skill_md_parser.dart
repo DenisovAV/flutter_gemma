@@ -182,7 +182,9 @@ SkillMetadata _parseMetadata(dynamic node) {
 /// Looks for an explicit script name in the body (e.g. `scriptName: "query.html"`
 /// or `script name: index.html`). Defaults to `index.html` when none is named.
 String _inferScriptName(String body) {
-  // Matches: scriptName: foo.html | script name: `foo.html` | script_name: foo
+  // Matches an explicit *.html script name only (e.g. scriptName: foo.html |
+  // script name: `foo.html` | script_name: foo.html); an extensionless name
+  // does not match and falls back to index.html below.
   final match = RegExp(
     r'''script[\s_]?name["`'\s:]+["`']?([A-Za-z0-9._-]+\.html)''',
     caseSensitive: false,

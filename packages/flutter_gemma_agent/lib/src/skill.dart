@@ -85,6 +85,11 @@ class SkillMetadata {
 ///
 /// Gallery-compatible: a SKILL.md from the google-ai-edge/gallery catalog parses
 /// into this model unmodified (see [parseSkillMd]).
+///
+/// Identity semantics: this is a reference type, not a value type — [copyWith]
+/// builds a new object, but two `Skill`s with the same fields are NOT `==`.
+/// Skills are tracked by [name] (a string key) in [SkillRegistry], never by
+/// object equality, so no value `==`/`hashCode` is defined.
 class Skill {
   const Skill({
     required this.name,

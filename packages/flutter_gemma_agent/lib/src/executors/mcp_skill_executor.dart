@@ -12,7 +12,11 @@ import '../mcp/mcp_server_config.dart';
 class McpPermissionRequest {
   const McpPermissionRequest({required this.toolName, required this.input});
 
+  /// The MCP tool the model wants to call.
   final String toolName;
+
+  /// The raw, model-supplied JSON-string argument (untrusted) — show it to the
+  /// user verbatim so they can review what the tool would receive.
   final String input;
 }
 

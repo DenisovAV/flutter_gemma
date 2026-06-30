@@ -13,9 +13,18 @@ void main() {
       expect(store.has('weather'), isTrue);
     });
 
-    test('empty secret is not considered "has"', () {
+    test('empty secret clears the entry (set/get/has all agree)', () {
       final store = SecretStore()..set('x', '');
       expect(store.has('x'), isFalse);
+      expect(store.get('x'), isNull);
+    });
+
+    test('setting an empty secret removes a previously stored one', () {
+      final store = SecretStore()..set('x', 'sk-1');
+      expect(store.has('x'), isTrue);
+      store.set('x', '');
+      expect(store.has('x'), isFalse);
+      expect(store.get('x'), isNull);
     });
 
     test('set replaces existing value', () {

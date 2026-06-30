@@ -38,6 +38,11 @@ abstract class SkillExecutor implements SkillExecutorProvider {
   /// Type-safe selection probe — whether this executor can run [skill]
   /// (typically a single [SkillType] check). Concrete executors override THIS;
   /// [canExecute] (the core `String` contract) is derived from it.
+  ///
+  /// IMPORTANT: an implementation must select on [Skill.type] ALONE. When the
+  /// core registry probes by type id (via [canExecute]), it passes a synthetic
+  /// type-only [Skill]; reading any other field (e.g. [Skill.name],
+  /// [Skill.metadata]) there throws. Selecting on the type is the contract.
   bool canExecuteSkill(Skill skill);
 
   /// Core [SkillExecutorProvider] contract: probe by the kebab-case type id

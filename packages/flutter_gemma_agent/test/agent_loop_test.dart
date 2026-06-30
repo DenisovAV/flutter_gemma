@@ -134,6 +134,11 @@ void main() {
         expect((events[0] as SkillLoadEvent).found, isTrue);
         expect(events[1], isA<ToolCallEvent>());
         expect((events[1] as ToolCallEvent).toolName, 'runSkill');
+        // The event's args are an unmodifiable view of the loop's parsed args.
+        expect(
+          () => (events[1] as ToolCallEvent).args['x'] = 1,
+          throwsUnsupportedError,
+        );
         expect(events[2], isA<ToolResultEvent>());
         expect(events.whereType<DoneEvent>().single.text, contains('abc123'));
 

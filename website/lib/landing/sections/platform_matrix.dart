@@ -54,7 +54,8 @@ class PlatformMatrix extends StatelessComponent {
           p(classes: 'matrix-note', [
             Component.text(
               'NPU support requires Intel LunarLake/PantherLake (Windows). '
-              'iOS GPU pending upstream libLiteRtMetalAccelerator.dylib.',
+              'iOS GPU runs on Metal on device; the Simulator is CPU-only '
+              '(256 MB Metal allocation cap).',
             ),
           ]),
         ]),

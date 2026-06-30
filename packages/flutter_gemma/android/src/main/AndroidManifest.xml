@@ -22,5 +22,15 @@
              encoder (#324). Merged into every consumer app via manifest merger
              so the GPU path works without each app re-declaring it. -->
         <uses-native-library android:name="libvndksupport.so" android:required="false"/>
+        <!-- libvndksupport.so only opens the door to the SP-HAL namespace; the
+             OpenCL ICD itself must ALSO be declared or the second hop
+             (android_load_sphal_library("libOpenCL.so")) is denied, OpenCL
+             still fails to load, and the Mali freeze persists (#324). Declare
+             the base loader name plus the two vendor-specific ICD names some
+             devices use. All required="false" — pure namespace declarations,
+             inert on devices that lack them, never block install. -->
+        <uses-native-library android:name="libOpenCL.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
+        <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
     </application>
 </manifest>

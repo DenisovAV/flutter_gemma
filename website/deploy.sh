@@ -23,6 +23,11 @@ for p in 5567 8080 8181 5467; do
 done
 
 echo "==> Building Jaspr site (SSG)…"
+# Wipe stale incremental build state first. A reused .dart_tool/build cache let
+# the static crawler snapshot `/` before the ContentApp route table registered,
+# producing a 3-byte `Ok` index.html (and zero docs routes) that then got
+# deployed. A clean rebuild is cheap and removes the failure mode entirely.
+rm -rf build/jaspr .dart_tool/build
 jaspr build --sitemap-domain "$DOMAIN"
 
 if [[ "${1:-}" != "--no-example" ]]; then

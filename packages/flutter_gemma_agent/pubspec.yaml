@@ -30,7 +30,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.1.2
+  # 1.2.0 introduced the skillExecutors: seam (SkillExecutorRegistry) this
+  # package builds on — must require it, not just ^1.1.2.
+  flutter_gemma: ^1.2.0
   # SKILL.md frontmatter is YAML; parsed with the standard yaml package.
   yaml: ^3.1.2
   # McpSkillExecutor calls MCP tools over Streamable HTTP (JSON-RPC over POST).

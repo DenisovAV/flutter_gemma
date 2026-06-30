@@ -45,6 +45,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | Generate text embeddings | `flutter_gemma_embeddings` |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
+| On-device agent skills the model runs itself (text / JS / native-intent / MCP) | `flutter_gemma_agent` |
 
 <Info>
 Desktop is served exclusively by `flutter_gemma_litertlm` and uses LiteRT-LM

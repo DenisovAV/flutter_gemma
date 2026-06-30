@@ -30,7 +30,8 @@ import 'main.server.options.dart';
 const String _landingDescription =
     'Run Gemma and other LLMs on-device in your Flutter app — '
     'Android, iOS, Web, and Desktop. Multimodal vision & audio, '
-    'function calling, thinking mode, GPU acceleration, embeddings, and RAG.';
+    'function calling, on-device agent skills, thinking mode, '
+    'GPU acceleration, embeddings, and RAG.';
 
 void main() {
   // Initializes the server environment with the generated default options.

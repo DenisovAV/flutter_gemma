@@ -36,6 +36,12 @@ const _features = [
     accent: Brand.blue,
   ),
   _FeatureData(
+    icon: '🤖',
+    title: 'Agent Skills',
+    desc: 'Give the model SKILL.md skills it runs itself — JS, native intents, MCP',
+    accent: Brand.blueLight,
+  ),
+  _FeatureData(
     icon: '🔍',
     title: 'On-device RAG',
     desc: 'qdrant-edge native vector store, wa-sqlite on web',
@@ -50,12 +56,12 @@ const _features = [
   _FeatureData(
     icon: '🔌',
     title: 'Modular',
-    desc: 'Core + 5 opt-in packages — ship only what you use',
+    desc: 'Core + 6 opt-in packages — ship only what you use',
     accent: Brand.green,
   ),
 ];
 
-/// 6-card feature grid.
+/// 7-card feature grid.
 class Features extends StatelessComponent {
   const Features({super.key});
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
@@ -57,10 +58,17 @@ class _WebIframeJsRuntime implements JsRuntime {
         // opaque-origin frame, which we cannot reach into post-load).
         final inlined = inlineSkillHtml(html, js);
         iframe.srcdoc = '$inlined<script>$injection</script>'.toJS;
+      case UrlJsSource(:final url) when url.startsWith('data:'):
+        // A `data:text/html` skill: decode the HTML and bake it into srcdoc with
+        // the injection appended (same as the asset path). A sandboxed iframe has
+        // an opaque origin the parent CANNOT reach into post-load, so loading via
+        // `src` + a later `contentWindow.eval` silently fails (cross-origin); the
+        // injection must be part of the document.
+        final html = _decodeDataUrlHtml(url);
+        iframe.srcdoc = '$html<script>$injection</script>'.toJS;
       case UrlJsSource(:final url):
-        // Remote skills: load the page, then inject after load. A cross-origin
-        // (or sandboxed) frame is unreachable from the parent, so the page must
-        // post back itself — the injection runs inside it via the load handler.
+        // Remote http(s) skills: load the page; a cross-origin/sandboxed frame is
+        // unreachable from the parent, so the page must post back itself.
         iframe.src = url;
     }
 
@@ -129,6 +137,19 @@ class _WebIframeJsRuntime implements JsRuntime {
       // No sibling JS bundled (or a cross-origin <script src>): leave as-is.
       return '';
     }
+  }
+
+  /// Decodes the HTML body of a `data:text/html[;base64],<payload>` URL so it can
+  /// be baked into `srcdoc` (percent-encoded and base64 forms both handled).
+  static String _decodeDataUrlHtml(String url) {
+    final comma = url.indexOf(',');
+    if (comma == -1) return '';
+    final meta = url.substring(0, comma);
+    final payload = url.substring(comma + 1);
+    if (meta.contains(';base64')) {
+      return utf8.decode(base64Decode(payload));
+    }
+    return Uri.decodeComponent(payload);
   }
 }
 

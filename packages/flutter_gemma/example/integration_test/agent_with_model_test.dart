@@ -164,7 +164,7 @@ void main() {
     testWidgets(
       'M1 model -> compute skill -> SHA in transcript',
       (t) async {
-        if (_skipJsOnLinux('M1')) return;
+        if (_skipJsNoHarnessWebview('M1')) return;
         final session = await _session(registry);
         try {
           final events = await _ask(session, 'Calculate the hash of hello');
@@ -192,7 +192,7 @@ void main() {
     testWidgets(
       'M2 model -> DOM skill -> WebviewResult',
       (t) async {
-        if (_skipJsOnLinux('M2')) return;
+        if (_skipJsNoHarnessWebview('M2')) return;
         final session = await _session(registry);
         try {
           final events = await _ask(session, 'Show Paris on interactive map');
@@ -241,7 +241,7 @@ void main() {
     testWidgets(
       'M4 lazy discovery -> loadSkill -> execute',
       (t) async {
-        if (_skipJsOnLinux('M4')) return;
+        if (_skipJsNoHarnessWebview('M4')) return;
         final session = await _session(registry);
         try {
           final events = await _ask(session, 'Calculate the hash of hello');
@@ -266,7 +266,7 @@ void main() {
     testWidgets(
       'M5 maxIterations gate -> MaxIterationsEvent',
       (t) async {
-        if (_skipJsOnLinux('M5')) return;
+        if (_skipJsNoHarnessWebview('M5')) return;
         final session = await _session(registry, maxIterations: 1);
         try {
           final events = await _ask(session, 'Calculate the hash of hello');
@@ -335,6 +335,16 @@ void main() {
         final mcpResult = await mcpExec.execute(mcpSkill, '{}');
         expect(mcpResult, isA<ErrorResult>());
 
+        // JS capability per platform. Windows can't run the webview under the
+        // test harness (HWND crash — see _skipJsNoHarnessWebview), so don't
+        // invoke it here; the MCP + native-intent assertions above are the
+        // platform-relevant part of M6 on Windows.
+        if (Platform.isWindows) {
+          debugPrint(
+            '[M6] SKIP JS leg on Windows (webview crashes under test)',
+          );
+          return;
+        }
         // JS: unavailable on Linux -> ErrorResult; open elsewhere.
         final jsResult = await jsExec.execute(
           registry.get('calculate-hash')!,
@@ -360,12 +370,23 @@ void main() {
   });
 }
 
-/// Skip the JS-dependent model scenarios on Linux (no webview there); print a
-/// breadcrumb so a skip is visible in the run log. Returns true when running on
-/// Linux (the caller should `return`). M6 covers the Linux JS path explicitly.
-bool _skipJsOnLinux(String scenario) {
+/// Skip the JS-dependent model scenarios where the webview can't run under
+/// `flutter test`: Linux (no webview implementation) and Windows
+/// (`HeadlessInAppWebView` / WebView2 needs a real window/HWND the headless
+/// integration-test runner doesn't provide — access-violation crash; the loopback
+/// mechanism is probe-proven on Windows WebView2, only the harness is
+/// incompatible — same gate as L2). Returns true (caller should `return`) on
+/// either, with a breadcrumb so the skip is visible.
+bool _skipJsNoHarnessWebview(String scenario) {
   if (Platform.isLinux) {
     debugPrint('[$scenario] SKIP on Linux: JS skills require a webview');
+    return true;
+  }
+  if (Platform.isWindows) {
+    debugPrint(
+      '[$scenario] SKIP on Windows: HeadlessInAppWebView (WebView2) crashes '
+      'under flutter test (needs an HWND); mechanism probe-proven',
+    );
     return true;
   }
   return false;

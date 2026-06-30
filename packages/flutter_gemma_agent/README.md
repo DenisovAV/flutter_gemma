@@ -5,12 +5,34 @@ On-device agentic **skills** for [flutter_gemma](https://pub.dev/packages/flutte
 This opt-in satellite package turns the inference core into an on-device agent:
 the model is given a set of *skills* (`SKILL.md`), decides which to invoke via
 flutter_gemma's existing function-calling, runs them, and feeds the results back
-— fully offline, on all six platforms.
+— fully offline.
 
 It is reverse-engineered from [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery)
 (Apache-2.0) and is **Gallery-compatible**: their `SKILL.md` catalog parses
 unmodified, and their JavaScript skills run as-is (the
 `window.ai_edge_gallery_get_result` contract is preserved).
+
+## Platform support
+
+| Skill type | Android | iOS | macOS | Windows | Web | Linux |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| **text-only** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **MCP** (Streamable HTTP) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **native-intent** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **JS** (webview) | ✅ | ✅ | ✅ | ✅¹ | ✅ | ❌² |
+
+¹ Windows JS skills need the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+(pre-installed on Windows 11; on Windows 10 ship the bootstrapper). See
+[Setup](#setup).
+² Linux has no embeddable webview, so JS skills return an `ErrorResult`
+(`isAvailable` is false). text / native-intent / MCP skills work on Linux.
+
+JS skills run in a headless, sandboxed webview. To grant a secure context (so
+skills using `crypto.subtle` and other secure-context Web APIs work), the
+package serves each skill's assets over a loopback HTTP server
+(`http://127.0.0.1`, a W3C "potentially trustworthy" origin) — one mechanism that
+works identically across all native engines (WebView2 / WKWebView / Android
+WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
 ## What's in the box
 
@@ -22,9 +44,9 @@ unmodified, and their JavaScript skills run as-is (the
   `SkillResult` (`TextResult` / `ImageResult` / `WidgetResult` / `WebviewResult`
   / `ErrorResult`).
 - Concrete executors: `TextSkillExecutor` (0 deps), `JsSkillExecutor`
-  (sandboxed `webview_flutter` — the only webview import), `NativeIntentExecutor`
-  (whitelisted OS intents behind user/OS confirm), `McpSkillExecutor` (MCP tools
-  over Streamable HTTP).
+  (sandboxed headless webview — `flutter_inappwebview` on native, a `package:web`
+  iframe on web), `NativeIntentExecutor` (whitelisted OS intents behind user/OS
+  confirm), `McpSkillExecutor` (MCP tools over Streamable HTTP).
 - `AgentLoop` + `AgentSession` — the orchestrator over flutter_gemma's existing
   function-calling, emitting a `Stream<AgentEvent>` (skill loads, tool calls,
   inline results, streamed text).
@@ -65,8 +87,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 
-// 1. Register the inference engine at app start (skill executors are passed to
-//    the AgentSession below, not to initialize).
+// 1. Register the inference engine at app start. (Skill executors can also be
+//    registered here via `skillExecutors:` — see "Registering executors" below;
+//    this example passes them to the AgentSession instead.)
 await FlutterGemma.initialize(
   inferenceEngines: [LiteRtLmEngine()],
 );
@@ -122,7 +145,52 @@ JS skills additionally ship `scripts/index.html` exposing
 (`{ result | image | webview | error }`). Secrets are injected as the JS
 `secret` argument and **never** placed in the model prompt.
 
+## Registering executors
+
+Two equivalent ways to wire executors:
+
+```dart
+// A) Pass them per session (shown in the Quick start above):
+AgentSession.fromModel(model, registry: registry, executors: [...]);
+
+// B) Register them globally once, then omit `executors:` — fromModel reads the
+//    core registry (mirrors how inference engines are registered):
+await FlutterGemma.initialize(
+  inferenceEngines: [LiteRtLmEngine()],
+  skillExecutors: [TextSkillExecutor(), JsSkillExecutor(sourceFor: ...), NativeIntentExecutor()],
+);
+final session = await AgentSession.fromModel(model, registry: registry);
+```
+
+## Setup
+
+Most skills need no platform setup. For the platform-specific bits:
+
+- **Windows** — JS skills require the
+  [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
+  (pre-installed on Windows 11; bundle the bootstrapper for Windows 10).
+- **iOS** — the `create-calendar-event` intent opens the calendar editor via
+  `add_2_calendar`, which needs a usage description in `ios/Runner/Info.plist`:
+  ```xml
+  <key>NSCalendarsUsageDescription</key>
+  <string>Create calendar events from the agent.</string>
+  ```
+  Local notifications (`schedule_notification`) prompt for permission at runtime.
+- **Android** — `flutter_local_notifications` requires core-library desugaring in
+  `android/app/build.gradle(.kts)`:
+  ```kotlin
+  android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
+  dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }
+  ```
+
+## Third-party attribution
+
+The bundled starter skills (`calculate-hash`, `qr-code`, `query-wikipedia`,
+`interactive-map`, `send-email`, `create-calendar-event`, `kitchen-adventure`)
+and the `SKILL.md` format are derived from
+[google-ai-edge/gallery](https://github.com/google-ai-edge/gallery), licensed
+under the [Apache License 2.0](https://github.com/google-ai-edge/gallery/blob/main/LICENSE).
+
 ## License
 
-This package is part of the flutter_gemma project. Bundled starter skills are
-derived from google-ai-edge/gallery (Apache-2.0).
+MIT — see [LICENSE](LICENSE). Bundled starter skills are Apache-2.0 (see above).

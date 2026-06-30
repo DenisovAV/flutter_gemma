@@ -1,3 +1,6 @@
+## 1.2.0
+- Add `skillExecutors:` to `FlutterGemma.initialize` + the `SkillExecutorProvider`/`SkillExecutorRegistry` seam for the new opt-in `flutter_gemma_agent` package.
+
 ## 1.1.2
 - Migrate Android module to Built-in Kotlin — apply KGP only on AGP < 9, ready for AGP 9+ (#323).
 - Add optional `downloadUpdatesStream`/`fileSystemService` injection to `FlutterGemma.initialize` (#342, thanks @hughesyadaddy).

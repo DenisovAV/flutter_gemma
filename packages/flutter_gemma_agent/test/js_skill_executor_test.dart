@@ -122,6 +122,21 @@ void main() {
       expect(r, isA<TextResult>());
       expect((r as TextResult).text, raw);
     });
+
+    test(
+      'declared-but-undecodable image with a caption → ErrorResult, not text',
+      () {
+        // Regression: a corrupt image alongside a result text must NOT silently
+        // drop the image and return the caption as a success.
+        final r = parseJsResult(
+          jsonEncode({
+            'result': 'here is your QR code',
+            'image': {'base64': '!!!not-base64!!!'},
+          }),
+        );
+        expect(r, isA<ErrorResult>());
+      },
+    );
   });
 
   group('buildInjectionScript', () {
@@ -176,6 +191,29 @@ void main() {
       // data is wrapped as a JSON string literal.
       expect(script, contains(jsonEncode('{"q":"x"}')));
     });
+
+    test(
+      'escapes </script> in data/secret so it cannot break out of the tag',
+      () {
+        // Regression: jsonEncode does NOT escape '/', so a model-supplied data
+        // value containing "</script>" would otherwise terminate the inline
+        // <script> the runtime arms wrap this output in, breaking out into the
+        // secure-context page that holds the secret.
+        for (final web in [false, true]) {
+          final script = buildInjectionScript(
+            '{"x":"</script><img src=x onerror=alert(1)>"}',
+            'sk-</script>-1',
+            web: web,
+          );
+          expect(
+            script,
+            isNot(contains('</script>')),
+            reason: 'no raw closing tag may survive (web: $web)',
+          );
+          expect(script, contains(r'<\/script'));
+        }
+      },
+    );
   });
 
   group('inlineSkillHtml', () {

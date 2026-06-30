@@ -160,7 +160,8 @@ String buildInjectionScript(
   final post = web
       ? "window.parent.postMessage({ handler: '$resultChannel', data: __x }, '*');"
       : "window.flutter_inappwebview.callHandler('$resultChannel', __x);";
-  return '''
+  final script =
+      '''
 (async function() {
   function __post(__x) { $post }
   try {
@@ -180,7 +181,22 @@ String buildInjectionScript(
   }
 })();
 ''';
+  // Both runtime arms wrap this output in an inline `<script>…</script>` (the
+  // loopback-served entry HTML on native, the iframe `srcdoc` on web). The
+  // jsonEncoded `safeData`/`safeSecret` literals can contain a literal
+  // `</script>` (jsonEncode does not escape `/`), which would terminate that
+  // inline tag early and let the rest parse as markup — a model-supplied `data`
+  // value could then break out into the secure-context page that holds the
+  // secret. Escape it here, at the single source, exactly like inlineSkillHtml
+  // does for the skill's own JS.
+  return _escapeForInlineScript(script);
 }
+
+/// Escapes any `</script` (case-insensitive) so the string is safe to embed in
+/// an inline `<script>…</script>` element without the HTML parser terminating
+/// the tag early. Mirrors the guard in [inlineSkillHtml].
+String _escapeForInlineScript(String js) =>
+    js.replaceAll(RegExp('</script', caseSensitive: false), r'<\/script');
 
 /// Splices [js] into [html] as an inline `<script>…</script>`, replacing the
 /// skill's `<script src="index.js"></script>` reference. Inline asset loading is
@@ -253,9 +269,15 @@ SkillResult parseJsResult(String raw) {
   }
 
   // Image: { base64: "data:<mime>;base64,...." } (full Data URI per Gallery).
+  // A declared-but-undecodable image must NOT fall through to the text branch —
+  // that would silently drop the image and report success with only the caption.
   if (image is Map) {
     final bytes = _decodeImage(_asNonEmptyString(image['base64']));
     if (bytes != null) return ImageResult(bytes);
+    return const ErrorResult(
+      'JsSkillExecutor: skill returned an "image" whose base64 was missing or '
+      'not decodable.',
+    );
   }
 
   // Webview: { url, iframe }.

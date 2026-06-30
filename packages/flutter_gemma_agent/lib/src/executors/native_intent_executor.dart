@@ -109,7 +109,17 @@ class NativeIntentExecutor extends SkillExecutor {
           params = innerParams;
         } else if (innerParams is String) {
           final reparsed = _decodeObject(innerParams);
-          if (reparsed != null) params = reparsed;
+          if (reparsed == null) {
+            // The inner "parameters" was a string but not valid JSON. Surface it
+            // instead of silently validating the outer wrapper map (which would
+            // produce a confusing "missing field" error, or worse, run the
+            // intent with the wrong parameters).
+            return ErrorResult(
+              'Invalid parameters for "$intent": "parameters" was a string but '
+              'not valid JSON: $innerParams',
+            );
+          }
+          params = reparsed;
         }
       }
     }

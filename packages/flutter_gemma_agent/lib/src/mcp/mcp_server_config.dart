@@ -97,7 +97,9 @@ class McpServerConfig {
   Map<String, String> get authHeaders {
     final n = headerName;
     final v = headerValue;
-    if (n == null || v == null || n.isEmpty) return const {};
+    // Both name AND value must be non-empty — an empty value would otherwise
+    // send a blank-valued header on every request.
+    if (n == null || v == null || n.isEmpty || v.isEmpty) return const {};
     return {n: v};
   }
 

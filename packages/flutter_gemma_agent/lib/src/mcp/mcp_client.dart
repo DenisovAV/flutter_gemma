@@ -127,7 +127,9 @@ class McpClient {
     return config.copyWith(
       name: serverName.isNotEmpty ? serverName : null,
       version: serverVersion.isNotEmpty ? serverVersion : null,
-      tools: _tools,
+      // Hand back an unmodifiable view so the returned config can't be mutated
+      // in place through its `tools` list (mirrors the `tools` getter).
+      tools: List.unmodifiable(_tools),
     );
   }
 
@@ -180,16 +182,39 @@ class McpClient {
 
   /// Join every `text` item in a `tools/call` result's `content` array (Gallery's
   /// `filterIsInstance<TextContent>().joinToString("\n")`).
+  ///
+  /// A spec-conforming result always carries a `content` list. We distinguish:
+  ///   * `content` missing or not a list → protocol violation ([McpException]);
+  ///   * `content` present but with no `text` items (only image/resource/audio)
+  ///     → a clear note rather than an empty success, so the model is never told
+  ///     "succeeded" with no output when the tool actually returned something.
   McpToolResult _extractToolResult(Map<String, dynamic> result) {
     final isError = result['isError'] == true;
     final content = result['content'];
+    if (content is! List) {
+      throw McpException(
+        'MCP tool result is missing a "content" array (got: '
+        '${content.runtimeType}).',
+      );
+    }
     final buffer = <String>[];
-    if (content is List) {
-      for (final item in content) {
-        if (item is Map && item['type'] == 'text') {
-          buffer.add('${item['text'] ?? ''}');
-        }
+    final otherTypes = <String>{};
+    for (final item in content) {
+      if (item is Map && item['type'] == 'text') {
+        buffer.add('${item['text'] ?? ''}');
+      } else if (item is Map && item['type'] is String) {
+        otherTypes.add(item['type'] as String);
       }
+    }
+    if (buffer.isEmpty && otherTypes.isNotEmpty && !isError) {
+      // The tool ran and returned content this client can't render yet — surface
+      // that instead of an empty (silently-"succeeded") result.
+      return McpToolResult(
+        text:
+            'MCP tool returned only non-text content '
+            '(${otherTypes.join(', ')}), which this client cannot render yet.',
+        isError: true,
+      );
     }
     return McpToolResult(text: buffer.join('\n'), isError: isError);
   }
@@ -263,25 +288,43 @@ class McpClient {
     if (raw.trim().isEmpty) {
       throw McpException('MCP "$method" returned an empty body.');
     }
-    final decoded = jsonDecode(raw);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (e) {
+      // Keep the MCP-layer invariant that every failure is an McpException, so
+      // the executor's `on McpException` mapping always applies (an unguarded
+      // FormatException would otherwise escape to the loop's generic catch as an
+      // opaque "Unexpected character" message).
+      throw McpException('MCP "$method" returned a non-JSON body: $e');
+    }
     if (decoded is! Map) {
       throw McpException('MCP "$method" returned a non-object JSON-RPC body.');
     }
     return Map<String, dynamic>.from(decoded);
   }
 
-  /// Pull the JSON payload out of an SSE stream: the concatenation of the `data:`
-  /// lines of the LAST event (the one carrying the JSON-RPC response).
+  /// Pull the JSON payload out of an SSE stream: the `data:` lines of the LAST
+  /// event (the one carrying the JSON-RPC response). A Streamable-HTTP MCP server
+  /// may legally emit progress/notification events BEFORE the response in the
+  /// same stream, so we must keep only the last event — concatenating all of
+  /// them yields multiple JSON objects that `jsonDecode` then rejects. A single
+  /// event may itself span multiple `data:` lines (joined with `\n`).
   String _extractSseJson(String body) {
-    final dataLines = <String>[];
+    final current = <String>[];
+    var last = <String>[];
     for (final line in const LineSplitter().convert(body)) {
       if (line.startsWith('data:')) {
-        dataLines.add(line.substring(5).trimLeft());
-      } else if (line.isEmpty && dataLines.isNotEmpty) {
-        // Event boundary: keep the latest complete event's data.
+        current.add(line.substring(5).trimLeft());
+      } else if (line.isEmpty && current.isNotEmpty) {
+        // Event boundary: this event is complete; it becomes the latest one.
+        last = List.of(current);
+        current.clear();
       }
     }
-    return dataLines.join('\n');
+    // A trailing event with no blank line after it is still the last event.
+    final lastEvent = current.isNotEmpty ? current : last;
+    return lastEvent.join('\n');
   }
 
   Map<String, String> _headers() {

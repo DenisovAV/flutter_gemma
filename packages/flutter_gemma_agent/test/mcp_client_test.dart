@@ -245,5 +245,105 @@ void main() {
       expect(result.isError, isTrue);
       expect(result.text, 'city is required');
     });
+
+    test('SSE with a pre-response event uses the LAST event, not all', () async {
+      // Regression: a progress/notification SSE frame before the JSON-RPC
+      // response must not be concatenated with it (which made jsonDecode throw).
+      final responseJson = jsonEncode({
+        'jsonrpc': '2.0',
+        'id': 1,
+        'result': {
+          'content': [
+            {'type': 'text', 'text': 'Sunny in Seattle'},
+          ],
+        },
+      });
+      final progressJson = jsonEncode({
+        'jsonrpc': '2.0',
+        'method': 'notifications/progress',
+        'params': {'progress': 1},
+      });
+      final sseClient = MockClient((request) async {
+        return http.Response(
+          'event: message\ndata: $progressJson\n\n'
+          'event: message\ndata: $responseJson\n\n',
+          200,
+          headers: {'content-type': 'text/event-stream'},
+        );
+      });
+      final client = McpClient(config: config, httpClient: sseClient);
+
+      final result = await client.callTool('get_weather', const {});
+      expect(result.isError, isFalse);
+      expect(result.text, 'Sunny in Seattle');
+    });
+
+    test('non-text-only content is surfaced as an error, not empty success', () {
+      // Regression M3: a tool that returns only image/resource content must not
+      // report an empty success — the output would silently vanish.
+      final imageOnlyClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 1,
+            'result': {
+              'content': [
+                {'type': 'image', 'data': 'iVBOR…', 'mimeType': 'image/png'},
+              ],
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final client = McpClient(config: config, httpClient: imageOnlyClient);
+
+      return client.callTool('make_chart', const {}).then((result) {
+        expect(result.isError, isTrue);
+        expect(result.text, contains('non-text content'));
+      });
+    });
+
+    test('a result with no content array is a protocol-violation error', () {
+      // Regression M4: missing/non-list content must be an McpException, not an
+      // empty success indistinguishable from a tool that returned nothing.
+      final noContentClient = MockClient((request) async {
+        return http.Response(
+          jsonEncode({
+            'jsonrpc': '2.0',
+            'id': 1,
+            'result': {'isError': false},
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final client = McpClient(config: config, httpClient: noContentClient);
+
+      return expectLater(
+        () => client.callTool('get_weather', const {}),
+        throwsA(isA<McpException>()),
+      );
+    });
+
+    test(
+      'a non-JSON 2xx body throws an McpException (not a FormatException)',
+      () {
+        // Regression L4: keep the all-failures-are-McpException invariant.
+        final badJsonClient = MockClient((request) async {
+          return http.Response(
+            '<html>gateway error</html>',
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        });
+        final client = McpClient(config: config, httpClient: badJsonClient);
+
+        return expectLater(
+          () => client.callTool('get_weather', const {}),
+          throwsA(isA<McpException>()),
+        );
+      },
+    );
   });
 }

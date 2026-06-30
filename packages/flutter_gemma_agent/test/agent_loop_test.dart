@@ -241,7 +241,7 @@ void main() {
 
   group('AgentLoop — loadSkill lookup', () {
     test(
-      'unknown skill name reports not-found and feeds "Skill not found"',
+      'unknown skill name emits an error event and feeds a failed status',
       () async {
         final registry = SkillRegistry(); // empty
         final chat = _FakeAgentChat([
@@ -254,9 +254,16 @@ void main() {
 
         final load = events.whereType<SkillLoadEvent>().single;
         expect(load.found, isFalse);
+        // The miss must surface as a real error event, not be fed into the
+        // skill_instructions field as if it were content.
+        final error = events.whereType<AgentErrorEvent>().single;
+        expect(error.message, contains('not found'));
         final fed = chat.toolResponses.single;
         expect(fed.toolName, 'loadSkill');
-        expect(fed.text, contains('Skill not found'));
+        expect(fed.text, contains('failed'));
+        expect(fed.text, contains('not found'));
+        // Must NOT be fed as if it were real instructions.
+        expect(fed.text, isNot(contains('skill_instructions')));
         expect(events.last, isA<DoneEvent>());
       },
     );

@@ -42,87 +42,93 @@ class _InAppWebViewJsRuntime implements JsRuntime {
     _SkillAssetServer? server;
     var injected = false;
 
-    // The injected wrapper (waits for the skill global, calls it, posts the
-    // result back over the single handler). For ASSET skills the loopback server
-    // splices it into the entry HTML as a `<script>` — so it runs as part of the
-    // page, NOT via `evaluateJavascript`. The Windows arm's `evaluateJavascript`
-    // on a headless webview ACCESS-VIOLATION-crashes the plugin DLL
-    // (`flutter_inappwebview_windows_plugin.dll`, c0000005); serving the script
-    // avoids that native call entirely (the standalone probe, which embedded its
-    // JS in the page, ran fine on Windows for the same reason).
-    final injection = buildInjectionScript(dataJson, secret, web: false);
-
-    // Resolve the URL the webview will navigate to, and (for asset skills) the
-    // loopback server that serves the skill folder under it.
-    final String pageUrl;
-    switch (source) {
-      case AssetJsSource(:final assetKey):
-        server = await _SkillAssetServer.start(assetKey, injection);
-        pageUrl = server.entryUrl;
-      case UrlJsSource(:final url):
-        pageUrl = url;
-    }
-
-    headless = HeadlessInAppWebView(
-      initialSettings: InAppWebViewSettings(
-        javaScriptEnabled: true,
-        supportZoom: false,
-        transparentBackground: true,
-      ),
-      // The controller is only valid from onWebViewCreated onward — register the
-      // single result handler here (the documented-safe moment).
-      onWebViewCreated: (controller) {
-        controller.addJavaScriptHandler(
-          handlerName: resultChannel,
-          callback: (args) {
-            final message = args.isNotEmpty ? args.first?.toString() ?? '' : '';
-            if (!completer.isCompleted) completer.complete(message);
-            return null;
-          },
-        );
-      },
-      // Surface page console output to the host log (diagnostics only).
-      onConsoleMessage: (controller, consoleMessage) {
-        debugPrint('JsSkillExecutor[js]: ${consoleMessage.message}');
-      },
-      // ASSET skills already carry the injected `<script>` (served by the
-      // loopback server), so nothing to do on load. URL skills (community,
-      // loaded directly) can't be rewritten, so inject via `evaluateJavascript`
-      // there — those are not the Windows-crash path (no headless asset load).
-      onLoadStop: (controller, url) async {
-        if (server != null || injected) return;
-        injected = true;
-        try {
-          await controller.evaluateJavascript(source: injection);
-        } catch (e) {
-          if (!completer.isCompleted) {
-            completer.complete(jsonEncode({'error': 'injection failed: $e'}));
-          }
-        }
-      },
-      // Sandbox: allow loads of the skill's own origin/page; deny navigation
-      // elsewhere so the foreign page cannot redirect off the loopback origin.
-      // NOT wired on Windows: the Windows arm's shouldOverrideUrlLoading is
-      // undocumented and CRASHES the headless WebView2 (verified — L2 exit 79;
-      // the probe without this callback ran fine). On Windows the sandbox rests
-      // on the loopback server serving only the skill folder (path traversal
-      // blocked) + the single result handler being the only native bridge.
-      shouldOverrideUrlLoading: Platform.isWindows
-          ? null
-          : (controller, navigationAction) async {
-              final target = navigationAction.request.url?.toString();
-              if (!injected) {
-                if (target == null ||
-                    target == pageUrl ||
-                    (server != null && target.startsWith(server.origin))) {
-                  return NavigationActionPolicy.ALLOW;
-                }
-              }
-              return NavigationActionPolicy.CANCEL;
-            },
-    );
-
+    // Everything that allocates a resource (the loopback server, the headless
+    // webview) lives inside this try so the finally below always tears them
+    // down — even if HeadlessInAppWebView construction or the server bind throws
+    // before `headless.run()`.
     try {
+      // The injected wrapper (waits for the skill global, calls it, posts the
+      // result back over the single handler). For ASSET skills the loopback server
+      // splices it into the entry HTML as a `<script>` — so it runs as part of the
+      // page, NOT via `evaluateJavascript`. The Windows arm's `evaluateJavascript`
+      // on a headless webview ACCESS-VIOLATION-crashes the plugin DLL
+      // (`flutter_inappwebview_windows_plugin.dll`, c0000005); serving the script
+      // avoids that native call entirely (the standalone probe, which embedded its
+      // JS in the page, ran fine on Windows for the same reason).
+      final injection = buildInjectionScript(dataJson, secret, web: false);
+
+      // Resolve the URL the webview will navigate to, and (for asset skills) the
+      // loopback server that serves the skill folder under it.
+      final String pageUrl;
+      switch (source) {
+        case AssetJsSource(:final assetKey):
+          server = await _SkillAssetServer.start(assetKey, injection);
+          pageUrl = server.entryUrl;
+        case UrlJsSource(:final url):
+          pageUrl = url;
+      }
+
+      headless = HeadlessInAppWebView(
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          supportZoom: false,
+          transparentBackground: true,
+        ),
+        // The controller is only valid from onWebViewCreated onward — register the
+        // single result handler here (the documented-safe moment).
+        onWebViewCreated: (controller) {
+          controller.addJavaScriptHandler(
+            handlerName: resultChannel,
+            callback: (args) {
+              final message = args.isNotEmpty
+                  ? args.first?.toString() ?? ''
+                  : '';
+              if (!completer.isCompleted) completer.complete(message);
+              return null;
+            },
+          );
+        },
+        // Surface page console output to the host log (diagnostics only).
+        onConsoleMessage: (controller, consoleMessage) {
+          debugPrint('JsSkillExecutor[js]: ${consoleMessage.message}');
+        },
+        // ASSET skills already carry the injected `<script>` (served by the
+        // loopback server), so nothing to do on load. URL skills (community,
+        // loaded directly) can't be rewritten, so inject via `evaluateJavascript`
+        // there — those are not the Windows-crash path (no headless asset load).
+        onLoadStop: (controller, url) async {
+          if (server != null || injected) return;
+          injected = true;
+          try {
+            await controller.evaluateJavascript(source: injection);
+          } catch (e) {
+            if (!completer.isCompleted) {
+              completer.complete(jsonEncode({'error': 'injection failed: $e'}));
+            }
+          }
+        },
+        // Sandbox: allow loads of the skill's own origin/page; deny navigation
+        // elsewhere so the foreign page cannot redirect off the loopback origin.
+        // NOT wired on Windows: the Windows arm's shouldOverrideUrlLoading is
+        // undocumented and CRASHES the headless WebView2 (verified — L2 exit 79;
+        // the probe without this callback ran fine). On Windows the sandbox rests
+        // on the loopback server serving only the skill folder (path traversal
+        // blocked) + the single result handler being the only native bridge.
+        shouldOverrideUrlLoading: Platform.isWindows
+            ? null
+            : (controller, navigationAction) async {
+                final target = navigationAction.request.url?.toString();
+                if (!injected) {
+                  if (target == null ||
+                      target == pageUrl ||
+                      (server != null && target.startsWith(server.origin))) {
+                    return NavigationActionPolicy.ALLOW;
+                  }
+                }
+                return NavigationActionPolicy.CANCEL;
+              },
+      );
+
       await headless.run();
       final controller = headless.webViewController;
       if (controller == null) {
@@ -136,7 +142,7 @@ class _InAppWebViewJsRuntime implements JsRuntime {
             throw TimeoutException('JS skill did not respond', timeout),
       );
     } finally {
-      await headless.dispose();
+      await headless?.dispose();
       await server?.close();
     }
   }

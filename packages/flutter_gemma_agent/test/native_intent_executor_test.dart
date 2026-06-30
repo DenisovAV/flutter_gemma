@@ -163,6 +163,32 @@ void main() {
       },
     );
 
+    test(
+      'inline parameters string that is not valid JSON returns ErrorResult',
+      () async {
+        // Regression M5: a malformed inner "parameters" string must surface an
+        // error, not silently validate the outer wrapper map.
+        var handlerRan = false;
+        final executor = NativeIntentExecutor(
+          handlers: {
+            'send_email': (_) async {
+              handlerRan = true;
+              return const TextResult('queued');
+            },
+          },
+        );
+
+        final result = await executor.execute(
+          _intentSkill('runIntent'),
+          '{"intent": "send_email", "parameters": "{not valid json"}',
+        );
+
+        expect(result, isA<ErrorResult>());
+        expect((result as ErrorResult).message, contains('not valid JSON'));
+        expect(handlerRan, isFalse);
+      },
+    );
+
     test('non-JSON-object data returns ErrorResult', () async {
       final executor = NativeIntentExecutor();
       final result = await executor.handleIntent('send_email', 'not json');

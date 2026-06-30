@@ -151,9 +151,16 @@ class AgentLoop {
     yield SkillLoadEvent(skillName, found: skill != null);
 
     if (skill == null) {
+      // Mirror the unknown-tool path: surface a real error event and a
+      // `status: failed` marker, rather than feeding "Skill not found" into the
+      // same `skill_instructions` field real instructions occupy (which the
+      // model would read as content and could act on as if a skill loaded).
+      final message = 'Skill "$skillName" not found.';
+      yield AgentErrorEvent(message, toolName: call.name);
       await _feedBack(chat, call.name, {
         'skill_name': skillName,
-        'skill_instructions': 'Skill not found',
+        'error': message,
+        'status': 'failed',
       });
       return;
     }

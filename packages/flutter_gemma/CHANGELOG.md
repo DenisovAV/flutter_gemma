@@ -1,3 +1,6 @@
+## 1.1.3
+- Declare `libOpenCL.so` (+ `-car`/`-pixel` ICDs) in the plugin manifest — completes the #324 Mali GPU fix (1.1.1 only opened the SP-HAL door).
+
 ## 1.1.2
 - Migrate Android module to Built-in Kotlin — apply KGP only on AGP < 9, ready for AGP 9+ (#323).
 - Add optional `downloadUpdatesStream`/`fileSystemService` injection to `FlutterGemma.initialize` (#342, thanks @hughesyadaddy).

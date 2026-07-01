@@ -109,7 +109,13 @@ class NavBarState extends State<NavBar> {
       gap: Gap.all(0.6.rem),
       textDecoration: TextDecoration.none,
     ),
-    css('.navbar-logo').styles(
+    // Scoped under `.landing-root` ON PURPOSE: the landing reset
+    // `.landing-root img { height: auto; max-width: 100% }` (landing_page.dart)
+    // is specificity (0,1,1) and OUTRANKS a bare `.navbar-logo` (0,1,0),
+    // silently overriding `height: 2.2rem` with `height: auto` — so the logo
+    // rendered at its full intrinsic size, a giant logo filling the header.
+    // `.landing-root .navbar-logo` is (0,2,0), which wins and restores 2.2rem.
+    css('.landing-root .navbar-logo').styles(
       height: 2.2.rem,
       width: Unit.auto,
       display: Display.block,

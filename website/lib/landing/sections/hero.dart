@@ -86,7 +86,14 @@ class Hero extends StatelessComponent {
     ),
     // Oversized, faint logo watermark anchored to the lower-left empty area,
     // clear of the phone mock on the right.
-    css('.hero-watermark').styles(
+    //
+    // Selector is scoped under `.landing-root` ON PURPOSE: the landing reset
+    // `.landing-root img { max-width: 100% }` (landing_page.dart) has
+    // specificity (0,1,1), which OUTRANKS a bare `.hero-watermark` (0,1,0) and
+    // silently overrode `max-width: 55%` — so the watermark rendered at its full
+    // `width: 760px`, a giant logo crashing into the hero copy. `.landing-root
+    // .hero-watermark` is (0,2,0), which wins, restoring the 55%/opacity cap.
+    css('.landing-root .hero-watermark').styles(
       position: Position.absolute(top: 8.percent, left: 12.percent),
       width: 760.px,
       maxWidth: 55.percent,

@@ -80,4 +80,5 @@ flutter:
     - assets/skills/interactive-map/scripts/
     - assets/skills/send-email/
     - assets/skills/create-calendar-event/
+    - assets/skills/get-current-time/
     - assets/skills/kitchen-adventure/

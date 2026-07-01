@@ -21,6 +21,7 @@ const List<String> bundledSkillNames = [
   'interactive-map',
   'send-email',
   'create-calendar-event',
+  'get-current-time',
   'kitchen-adventure',
 ];
 

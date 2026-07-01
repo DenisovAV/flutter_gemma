@@ -341,6 +341,51 @@ void main() {
         contains('after begin_time'),
       );
     });
+
+    test('ISO begin_time without end_time passes (end defaults to +1h)', () {
+      // Regression: small models often omit end_time; it must not be required.
+      expect(
+        validateIntentParams('create_calendar_event', {
+          'title': 'Standup',
+          'begin_time': '2026-06-26T09:00:00',
+        }),
+        isNull,
+      );
+    });
+
+    test('relative form (day_offset/hour) passes without any ISO string', () {
+      // The preferred shape for small models — integers only, no ISO to botch.
+      expect(
+        validateIntentParams('create_calendar_event', {
+          'title': 'Lunch',
+          'day_offset': 1,
+          'hour': 12,
+          'minute': 0,
+          'duration_minutes': 90,
+        }),
+        isNull,
+      );
+    });
+
+    test('relative form with only title + hour passes (rest defaults)', () {
+      expect(
+        validateIntentParams('create_calendar_event', {
+          'title': 'Focus',
+          'hour': 15,
+        }),
+        isNull,
+      );
+    });
+
+    test('relative form rejects an out-of-range hour', () {
+      expect(
+        validateIntentParams('create_calendar_event', {
+          'title': 'X',
+          'hour': 25,
+        }),
+        contains('hour'),
+      );
+    });
   });
 
   group('validateIntentParams — read_calendar_events', () {

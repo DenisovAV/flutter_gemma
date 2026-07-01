@@ -216,8 +216,7 @@ class NativeIntentExecutor extends SkillExecutor {
   ) async {
     final title = params['title'] as String;
     final description = (params['description'] as String?) ?? '';
-    final begin = DateTime.parse(params['begin_time'] as String);
-    final end = DateTime.parse(params['end_time'] as String);
+    final (begin, end) = _calendarTimes(params);
 
     final isMobile =
         !kIsWeb &&
@@ -242,6 +241,41 @@ class NativeIntentExecutor extends SkillExecutor {
       '&dates=${fmt(begin)}/${fmt(end)}',
     );
     return _launch(uri, 'calendar');
+  }
+
+  /// Resolve a calendar event's (begin, end) from either of two shapes:
+  ///
+  ///  * **relative** (preferred — small models can't reliably emit ISO-8601):
+  ///    `day_offset` (0 = today, 1 = tomorrow, …), `hour`, `minute` (default 0),
+  ///    `duration_minutes` (default 60). The executor does the date math, so the
+  ///    model only supplies integers — no year arithmetic, no string formatting.
+  ///  * **absolute** (Gallery-compatible): explicit ISO-8601 `begin_time` /
+  ///    `end_time`. Used when present; if `end_time` is missing it defaults to
+  ///    one hour after `begin_time`.
+  static (DateTime, DateTime) _calendarTimes(Map<String, dynamic> params) {
+    final beginRaw = params['begin_time'];
+    if (beginRaw is String && beginRaw.trim().isNotEmpty) {
+      final begin = DateTime.parse(beginRaw);
+      final endRaw = params['end_time'];
+      final end = (endRaw is String && endRaw.trim().isNotEmpty)
+          ? DateTime.parse(endRaw)
+          : begin.add(const Duration(hours: 1));
+      return (begin, end);
+    }
+    // Relative form.
+    final now = DateTime.now();
+    final offset = (params['day_offset'] as num?)?.toInt() ?? 0;
+    final hour = (params['hour'] as num?)?.toInt() ?? 9;
+    final minute = (params['minute'] as num?)?.toInt() ?? 0;
+    final duration = (params['duration_minutes'] as num?)?.toInt() ?? 60;
+    final begin = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    ).add(Duration(days: offset));
+    return (begin, begin.add(Duration(minutes: duration)));
   }
 
   /// `read_calendar_events` → reading the device calendar needs a
@@ -413,23 +447,38 @@ String? validateIntentParams(String intent, Map<String, dynamic> params) {
       return _ensureOptionalStrings(params, ['sms_body']);
 
     case NativeIntentExecutor.createCalendarEvent:
-      final missing = _requireStrings(params, [
-        'title',
-        'begin_time',
-        'end_time',
-      ]);
-      if (missing != null) return missing;
-      final begin = DateTime.tryParse(params['begin_time'] as String);
-      if (begin == null) {
-        return 'begin_time "${params['begin_time']}" is not an ISO-8601 '
-            'date-time.';
-      }
-      final end = DateTime.tryParse(params['end_time'] as String);
-      if (end == null) {
-        return 'end_time "${params['end_time']}" is not an ISO-8601 date-time.';
-      }
-      if (!end.isAfter(begin)) {
-        return 'end_time must be after begin_time.';
+      final titleMissing = _requireStrings(params, ['title']);
+      if (titleMissing != null) return titleMissing;
+      final beginRaw = params['begin_time'];
+      final hasIso = beginRaw is String && beginRaw.trim().isNotEmpty;
+      if (hasIso) {
+        // Absolute (Gallery) form: ISO begin_time; end_time optional (defaults
+        // to +1h in the handler).
+        final begin = DateTime.tryParse(beginRaw);
+        if (begin == null) {
+          return 'begin_time "$beginRaw" is not an ISO-8601 date-time.';
+        }
+        final endRaw = params['end_time'];
+        if (endRaw is String && endRaw.trim().isNotEmpty) {
+          final end = DateTime.tryParse(endRaw);
+          if (end == null) {
+            return 'end_time "$endRaw" is not an ISO-8601 date-time.';
+          }
+          if (!end.isAfter(begin)) {
+            return 'end_time must be after begin_time.';
+          }
+        }
+      } else {
+        // Relative form: validate the integer fields' ranges (all optional; the
+        // handler defaults day_offset=0, hour=9, minute=0, duration=60).
+        final hourErr = _optionalIntInRange(params, 'hour', 0, 23);
+        if (hourErr != null) return hourErr;
+        final minErr = _optionalIntInRange(params, 'minute', 0, 59);
+        if (minErr != null) return minErr;
+        final offErr = _optionalIntInRange(params, 'day_offset', 0, 3650);
+        if (offErr != null) return offErr;
+        final durErr = _optionalIntInRange(params, 'duration_minutes', 1, 1440);
+        if (durErr != null) return durErr;
       }
       return _ensureOptionalStrings(params, ['description']);
 

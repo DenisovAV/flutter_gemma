@@ -6,17 +6,22 @@ description: Create a calendar event.
 # Create calendar event
 
 ## Instructions
-To schedule an event, you must follow these exact steps:
-1. First, call the `run_intent` tool with `intent` as `get_current_date_and_time` and `parameters` as `{}` to get the user's local date, time, and the current day of the week.
-2. Before creating the event, you must explicitly calculate the exact date in your response. Write out:
-    - Today's exact date and day of the week.
-    - The target day or relative time requested by the user (e.g., "tomorrow", "this Friday").
-    - The exact number of days you need to add to today's date.
-    - The final calculated dates, ensuring you correctly roll over to the next month or year if the added days exceed the days in the current month.
-3. Once you have calculated the correct dates, call the `run_intent` tool with the following exact parameters:
-    - `intent`: create_calendar_event
-    - `parameters`: A JSON string with the following fields:
-        - `title`: the title of the event. String.
-        - `description`: the description of the event. String.
-        - `begin_time`: the start time of the event in YYYY-MM-DDTHH:MM:SS format. String.
-        - `end_time`: the end time of the event in YYYY-MM-DDTHH:MM:SS format. String.
+
+Call the `run_intent` tool with the following exact parameters:
+
+- intent: create_calendar_event
+- parameters: A JSON string with the following fields:
+  - title: the title of the event. String.
+  - description: an optional description of the event. String.
+  - day_offset: how many days from today the event is. Integer. 0 means today,
+    1 means tomorrow, 2 means the day after tomorrow, and so on.
+  - hour: the start hour in 24-hour time (0–23). Integer.
+  - minute: the start minute (0–59). Integer. Defaults to 0.
+  - duration_minutes: how long the event lasts, in minutes. Integer. Defaults to 60.
+
+Do NOT compute calendar dates yourself — just pass `day_offset` (0 for today,
+1 for tomorrow, …) with the `hour` and `minute`. The app converts them into the
+exact date and time.
+
+Example — "schedule lunch tomorrow at noon for 90 minutes":
+`{ "title": "Lunch", "day_offset": 1, "hour": 12, "minute": 0, "duration_minutes": 90 }`

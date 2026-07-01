@@ -62,6 +62,19 @@ void main() {
       expect(reg.get('missing'), isNull);
     });
 
+    test('get tolerates snake_case / casing the model echoes back', () {
+      // Small on-device models often call loadSkill with `calculate_hash` or
+      // `Calculate-Hash` for the kebab-case `calculate-hash` — get() must still
+      // resolve them (regression: was reported as "skill not found").
+      final reg = SkillRegistry()..add(calculateHash);
+
+      expect(reg.get('calculate_hash'), calculateHash);
+      expect(reg.get('Calculate-Hash'), calculateHash);
+      expect(reg.get('  calculate_hash  '), calculateHash);
+      // A genuinely different name still misses.
+      expect(reg.get('send-email'), isNull);
+    });
+
     test('adding same name replaces and preserves selection toggling', () {
       final reg = SkillRegistry()..add(calculateHash, selected: true);
       final replaced = calculateHash.copyWith(

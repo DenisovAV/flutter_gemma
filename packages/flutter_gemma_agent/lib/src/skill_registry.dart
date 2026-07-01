@@ -48,7 +48,25 @@ class SkillRegistry {
   bool isSelected(String name) => _selected.contains(name);
 
   /// Look up a skill by name; null if unknown.
-  Skill? get(String name) => _skills[name];
+  ///
+  /// Exact match first, then a normalized fallback: small on-device models
+  /// often echo a kebab-case skill id back as snake_case or with different
+  /// casing (e.g. `interactive_map` for `interactive-map`) when they call
+  /// `loadSkill`. Rather than fail those, we retry on a normalized key
+  /// (lowercased, `_`→`-`) so a predictable model distortion doesn't read as
+  /// "skill not found".
+  Skill? get(String name) {
+    final exact = _skills[name];
+    if (exact != null) return exact;
+    final wanted = _normalizeName(name);
+    for (final skill in _skills.values) {
+      if (_normalizeName(skill.name) == wanted) return skill;
+    }
+    return null;
+  }
+
+  static String _normalizeName(String name) =>
+      name.trim().toLowerCase().replaceAll('_', '-');
 
   /// All known skills (selected or not), in insertion order.
   List<Skill> get all => List.unmodifiable(_skills.values);

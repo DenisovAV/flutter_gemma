@@ -22,7 +22,7 @@ limitations under the License.
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Code Generator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
     <div id="qrcode-container" style="display: none;"></div>
@@ -37,6 +37,19 @@ limitations under the License.
         const shape = params.shape || 'square';
 
         if (!url) throw new Error("URL is required.");
+
+        // The QRCode library is loaded from a CDN <script>. Our injected wrapper
+        // calls this function as soon as it is defined (it is inline, so it is
+        // ready immediately) — which can be BEFORE the CDN script has finished
+        // loading, leaving `QRCode` undefined ("Can't find variable: QRCode").
+        // Wait for it (up to ~5s) before using it.
+        await (async () => {
+            for (let i = 0; i < 100; i++) {
+                if (typeof QRCode !== 'undefined') return;
+                await new Promise(r => setTimeout(r, 50));
+            }
+            throw new Error("QR library failed to load (no network?).");
+        })();
 
         const container = document.getElementById('qrcode-container');
         container.innerHTML = '';

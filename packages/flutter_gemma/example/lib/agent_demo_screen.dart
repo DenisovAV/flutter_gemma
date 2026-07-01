@@ -16,19 +16,17 @@ import 'package:flutter_gemma_example/universal_download_screen.dart';
 /// executors (text / JS / native-intent) were registered globally in
 /// `bootstrapGemma` via `FlutterGemma.initialize(skillExecutors: …)`.
 class AgentDemoScreen extends StatefulWidget {
-  /// When true the model is already installed (the download screen handed
-  /// control back here) — skip the intro and build the session straight away.
-  const AgentDemoScreen({super.key, this.modelReady = false});
-
-  final bool modelReady;
+  const AgentDemoScreen({super.key});
 
   @override
   State<AgentDemoScreen> createState() => _AgentDemoScreenState();
 }
 
 class _AgentDemoScreenState extends State<AgentDemoScreen> {
-  // Gemma 4 E2B is the recommended agent model (multi-step tool calling).
-  static const _model = Model.gemma4_E2B_litertlm;
+  /// The models suitable for the agent loop (curated `agentic: true`).
+  static final _agentModels = Model.values.where((m) => m.agentic).toList();
+
+  Model _model = _agentModels.first;
 
   AgentSession? _session;
   bool _loading = false;
@@ -36,32 +34,27 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
   String _status = '';
 
   @override
-  void initState() {
-    super.initState();
-    // Arriving from the download screen: the model is installed, build now.
-    if (widget.modelReady) _buildSession();
-  }
-
-  @override
   void dispose() {
     _session?.close();
     super.dispose();
   }
 
-  /// Open the shared download screen; on Continue it comes back here ready.
-  void _openDownloadScreen() {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+  /// Open the shared download screen for the selected model. On Continue it
+  /// pops back to THIS screen (keeping a single AgentDemoScreen in the stack, so
+  /// the back button returns to Home — not to a stale intro), and we build the
+  /// session in place.
+  Future<void> _openDownloadScreen() async {
+    final ready = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => UniversalDownloadScreen(
           model: _model,
-          onReady: (ctx) => Navigator.of(ctx).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => const AgentDemoScreen(modelReady: true),
-            ),
-          ),
+          onReady: (ctx) => Navigator.of(ctx).pop(true),
         ),
       ),
     );
+    if (ready == true && mounted) {
+      await _buildSession();
+    }
   }
 
   /// The model is installed — load it, load the skills, build the session.
@@ -213,6 +206,43 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          // Model picker — only the curated agentic models (multi-step tool
+          // calling). E2B is the small default; E4B is more reliable but larger.
+          if (_agentModels.length > 1) ...[
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 6),
+              child: Text(
+                'Model',
+                style: TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1a3a5c),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButton<Model>(
+                value: _model,
+                isExpanded: true,
+                underline: const SizedBox.shrink(),
+                dropdownColor: const Color(0xFF1a3a5c),
+                iconEnabledColor: Colors.white70,
+                style: const TextStyle(color: Colors.white),
+                items: [
+                  for (final m in _agentModels)
+                    DropdownMenuItem<Model>(
+                      value: m,
+                      child: Text('${m.displayName}  ·  ${m.size}'),
+                    ),
+                ],
+                onChanged: (m) {
+                  if (m != null) setState(() => _model = m);
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           ElevatedButton.icon(
             onPressed: _openDownloadScreen,
             icon: const Icon(Icons.play_arrow),

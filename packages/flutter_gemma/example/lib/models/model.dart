@@ -45,6 +45,7 @@ enum Model implements InferenceModelInterface {
     maxNumImages: 4,
     isThinking: true,
     supportsFunctionCalls: true,
+    agentic: true,
   ),
   gemma4_E4B(
     baseUrl:
@@ -70,6 +71,7 @@ enum Model implements InferenceModelInterface {
     maxNumImages: 4,
     isThinking: true,
     supportsFunctionCalls: true,
+    agentic: true,
   ),
 
   // Gemma 3 Nano models (Multimodal + Function Calls)
@@ -641,6 +643,13 @@ enum Model implements InferenceModelInterface {
   @override
   final bool supportsFunctionCalls;
   final bool isThinking;
+
+  /// Whether this model is a good fit for the Agent Skills demo — it must do
+  /// multi-step tool calling reliably, which is more demanding than plain
+  /// function calling. Curated (not every `supportsFunctionCalls` model
+  /// qualifies) and used to populate the agent screen's model picker.
+  final bool agentic;
+
   final ModelFileType fileType;
   final bool? foregroundDownload;
 
@@ -685,6 +694,7 @@ enum Model implements InferenceModelInterface {
     this.maxNumImages,
     this.supportsFunctionCalls = false,
     this.isThinking = false,
+    this.agentic = false,
     this.fileType = ModelFileType.task,
     this.foregroundDownload,
   });

@@ -3,19 +3,24 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
-import 'package:flutter_gemma_example/services/auth_token_service.dart';
+import 'package:flutter_gemma_example/universal_download_screen.dart';
 
 /// Demonstrates `flutter_gemma_agent`: the bundled starter skills (ported from
 /// google-ai-edge/gallery, Apache-2.0) driving a Gemma 4 model through the
 /// agentic tool-calling loop.
 ///
-/// It installs/loads a function-calling-capable model, loads the bundled
-/// SKILL.md skills via [AssetSkillSource], registers the executors (text / JS /
-/// native-intent), and mounts [AgentChatView] over an [AgentSession]. The JS
-/// executor is wired to the bundled skills' HTML through
-/// [AssetSkillSource.jsSkillSourceFor].
+/// Downloading is delegated to the shared [UniversalDownloadScreen] (info card +
+/// token/license + a real progress bar), reused via its `onReady` callback. Once
+/// the model is installed, this screen loads the bundled SKILL.md skills via
+/// [AssetSkillSource] and mounts [AgentChatView] over an [AgentSession]; the
+/// executors (text / JS / native-intent) were registered globally in
+/// `bootstrapGemma` via `FlutterGemma.initialize(skillExecutors: …)`.
 class AgentDemoScreen extends StatefulWidget {
-  const AgentDemoScreen({super.key});
+  /// When true the model is already installed (the download screen handed
+  /// control back here) — skip the intro and build the session straight away.
+  const AgentDemoScreen({super.key, this.modelReady = false});
+
+  final bool modelReady;
 
   @override
   State<AgentDemoScreen> createState() => _AgentDemoScreenState();
@@ -31,56 +36,58 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
   String _status = '';
 
   @override
+  void initState() {
+    super.initState();
+    // Arriving from the download screen: the model is installed, build now.
+    if (widget.modelReady) _buildSession();
+  }
+
+  @override
   void dispose() {
     _session?.close();
     super.dispose();
   }
 
-  Future<void> _start() async {
+  /// Open the shared download screen; on Continue it comes back here ready.
+  void _openDownloadScreen() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => UniversalDownloadScreen(
+          model: _model,
+          onReady: (ctx) => Navigator.of(ctx).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => const AgentDemoScreen(modelReady: true),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The model is installed — load it, load the skills, build the session.
+  Future<void> _buildSession() async {
     setState(() {
       _loading = true;
       _error = null;
-      _status = 'Installing ${_model.displayName}…';
+      _status = 'Loading model…';
     });
 
     try {
-      // 1. Install + load a function-calling-capable model.
-      final installer = FlutterGemma.installModel(
-        modelType: _model.modelType,
-        fileType: _model.fileType,
-      );
-      if (_model.localModel) {
-        await installer.fromAsset(_model.url).install();
-      } else {
-        final token = _model.needsAuth
-            ? await AuthTokenService.loadToken()
-            : null;
-        await installer.fromNetwork(_model.url, token: token).install();
-      }
-
-      setState(() => _status = 'Loading model…');
       final model = await FlutterGemma.getActiveModel(
         maxTokens: _model.maxTokens,
         preferredBackend: _model.preferredBackend,
       );
 
-      // 2. Load the bundled starter skills and select them all.
       setState(() => _status = 'Loading skills…');
       final skills = await AssetSkillSource().load();
       final registry = SkillRegistry()..addAll(skills, selected: true);
 
-      // 3. Build the agent session. No `executors:` here: the text / JS /
-      // native-intent executors were registered globally in `bootstrapGemma`
-      // via `FlutterGemma.initialize(skillExecutors: …)`, so `fromModel` reads
-      // them from the core registry (the recommended path).
-      //
-      // To override the global registry for one session, pass an explicit list:
-      //   final assetSource = AssetSkillSource();
-      //   executors: [
-      //     TextSkillExecutor(),
-      //     JsSkillExecutor(sourceFor: assetSource.jsSkillSourceFor),
-      //     NativeIntentExecutor(),
-      //   ],
+      // No `executors:` here: the text / JS / native-intent executors were
+      // registered globally in `bootstrapGemma` via
+      // `FlutterGemma.initialize(skillExecutors: …)`, so `fromModel` reads them
+      // from the core registry (the recommended path). To override for one
+      // session, pass an explicit list:
+      //   executors: [TextSkillExecutor(), JsSkillExecutor(sourceFor: …), …]
       final session = await AgentSession.fromModel(
         model,
         registry: registry,
@@ -179,8 +186,9 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
                 Text(
                   'Loads the bundled starter skills (calculate-hash, qr-code, '
                   'query-wikipedia, interactive-map, send-email, '
-                  'create-calendar-event, kitchen-adventure) and lets '
-                  '${_model.displayName} call them through the tool-calling loop.',
+                  'create-calendar-event, get-current-time, kitchen-adventure) '
+                  'and lets ${_model.displayName} call them through the '
+                  'tool-calling loop.',
                   style: const TextStyle(color: Colors.white70),
                   textAlign: TextAlign.center,
                 ),
@@ -206,7 +214,7 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: _start,
+            onPressed: _openDownloadScreen,
             icon: const Icon(Icons.play_arrow),
             label: const Text('Start agent'),
             style: ElevatedButton.styleFrom(

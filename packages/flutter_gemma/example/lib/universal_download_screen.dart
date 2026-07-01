@@ -18,10 +18,18 @@ class UniversalDownloadScreen extends StatefulWidget {
   final BaseModel model;
   final PreferredBackend? selectedBackend;
 
+  /// Called when the model is ready (already installed, or just downloaded) and
+  /// the user taps Continue. When provided, it REPLACES the built-in navigation
+  /// to ChatScreen / EmbeddingTestScreen / TranslateScreen — the caller decides
+  /// what to show next (e.g. the agent demo builds its session in place). The
+  /// `context` is this screen's, so the callback can pushReplacement onto it.
+  final void Function(BuildContext context)? onReady;
+
   const UniversalDownloadScreen({
     super.key,
     required this.model,
     this.selectedBackend,
+    this.onReady,
   });
 
   @override
@@ -497,6 +505,11 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   void _proceedToNextScreen() async {
+    // A caller-supplied onReady replaces the built-in per-kind navigation.
+    if (widget.onReady != null) {
+      widget.onReady!(context);
+      return;
+    }
     switch (widget.model.kind) {
       case ModelKind.embedding:
         Navigator.push(

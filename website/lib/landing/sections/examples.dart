@@ -153,14 +153,16 @@ class Examples extends StatelessComponent {
     css('.examples-grid').styles(
       display: Display.grid,
       gridTemplate: GridTemplate(
+        // Narrower min so all four demos fit on one row on a wide screen
+        // (auto-fit still wraps them to fewer columns on smaller viewports).
         columns: GridTracks([
           GridTrack.repeat(
             TrackRepeat.autoFit,
-            [GridTrack(TrackSize.minmax(TrackSize(280.px), TrackSize.fr(1)))],
+            [GridTrack(TrackSize.minmax(TrackSize(220.px), TrackSize.fr(1)))],
           ),
         ]),
       ),
-      gap: Gap.all(2.rem),
+      gap: Gap.all(1.5.rem),
       width: 100.percent,
     ),
     css('.example-card').styles(
@@ -175,7 +177,7 @@ class Examples extends StatelessComponent {
     // Phone frame
     css('.example-phone').styles(
       position: Position.relative(),
-      width: 240.px,
+      width: 190.px,
       radius: BorderRadius.circular(1.75.rem),
       overflow: Overflow.hidden,
       border: Border.all(color: Color('rgba(255,255,255,0.18)'), width: 3.px),

@@ -50,6 +50,23 @@ void main() {
       expect(w.iframe, isTrue);
     });
 
+    test('webview refuses non-http(s) URLs (javascript:/data:)', () {
+      // A model-supplied javascript: or data: URL must NOT become a live
+      // WebviewResult that executes in the in-tree webview.
+      for (final url in [
+        'javascript:alert(1)',
+        'data:text/html,<script>alert(1)</script>',
+        'file:///etc/passwd',
+      ]) {
+        final r = parseJsResult(
+          jsonEncode({
+            'webview': {'url': url, 'iframe': true},
+          }),
+        );
+        expect(r, isA<ErrorResult>(), reason: url);
+      }
+    });
+
     test('webview defaults iframe to true when absent', () {
       final r = parseJsResult(
         jsonEncode({

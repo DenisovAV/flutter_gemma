@@ -268,13 +268,11 @@ class NativeIntentExecutor extends SkillExecutor {
     final hour = (params['hour'] as num?)?.toInt() ?? 9;
     final minute = (params['minute'] as num?)?.toInt() ?? 0;
     final duration = (params['duration_minutes'] as num?)?.toInt() ?? 60;
-    final begin = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      hour,
-      minute,
-    ).add(Duration(days: offset));
+    // Put the offset in the day component so the constructor normalizes to the
+    // requested wall-clock time on the target day. Using .add(Duration(days:))
+    // instead would add an absolute 24h per day, drifting the hour by ±1 across
+    // a DST transition. (The day field overflows into month/year correctly.)
+    final begin = DateTime(now.year, now.month, now.day + offset, hour, minute);
     return (begin, begin.add(Duration(minutes: duration)));
   }
 
@@ -451,6 +449,12 @@ String? validateIntentParams(String intent, Map<String, dynamic> params) {
       if (titleMissing != null) return titleMissing;
       final beginRaw = params['begin_time'];
       final hasIso = beginRaw is String && beginRaw.trim().isNotEmpty;
+      // A begin_time that is PRESENT but not a valid non-empty ISO string is an
+      // error — don't silently fall through to the relative form (which would
+      // create a default 9am-today event the caller never asked for).
+      if (!hasIso && params.containsKey('begin_time')) {
+        return 'begin_time must be a non-empty ISO-8601 string when provided.';
+      }
       if (hasIso) {
         // Absolute (Gallery) form: ISO begin_time; end_time optional (defaults
         // to +1h in the handler).

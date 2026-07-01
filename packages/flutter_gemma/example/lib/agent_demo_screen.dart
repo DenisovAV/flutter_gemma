@@ -23,8 +23,14 @@ class AgentDemoScreen extends StatefulWidget {
 }
 
 class _AgentDemoScreenState extends State<AgentDemoScreen> {
-  /// The models suitable for the agent loop (curated `agentic: true`).
-  static final _agentModels = Model.values.where((m) => m.agentic).toList();
+  /// The models suitable for the agent loop (curated `agentic: true`), falling
+  /// back to any function-calling model so the screen never crashes on an empty
+  /// filter (e.g. if the flags are ever removed).
+  static final _agentModels = () {
+    final agentic = Model.values.where((m) => m.agentic).toList();
+    if (agentic.isNotEmpty) return agentic;
+    return Model.values.where((m) => m.supportsFunctionCalls).toList();
+  }();
 
   Model _model = _agentModels.first;
 
@@ -70,6 +76,7 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
         maxTokens: _model.maxTokens,
         preferredBackend: _model.preferredBackend,
       );
+      if (!mounted) return;
 
       setState(() => _status = 'Loading skills…');
       final skills = await AssetSkillSource().load();

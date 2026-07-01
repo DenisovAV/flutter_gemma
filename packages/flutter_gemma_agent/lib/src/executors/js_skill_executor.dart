@@ -284,6 +284,14 @@ SkillResult parseJsResult(String raw) {
   if (webview is Map) {
     final url = _asNonEmptyString(webview['url']);
     if (url != null) {
+      // Only http/https may be embedded. A model-supplied `javascript:` or
+      // `data:text/html,…` URL would otherwise execute in the in-tree webview.
+      final uri = Uri.tryParse(url);
+      if (uri == null || !(uri.isScheme('https') || uri.isScheme('http'))) {
+        return ErrorResult(
+          'JsSkillExecutor: refusing to open a non-http(s) webview URL.',
+        );
+      }
       final iframe = webview['iframe'];
       return WebviewResult(url, iframe: iframe is bool ? iframe : true);
     }

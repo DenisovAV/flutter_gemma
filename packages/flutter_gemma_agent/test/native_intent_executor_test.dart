@@ -386,6 +386,25 @@ void main() {
         contains('hour'),
       );
     });
+
+    test('present-but-invalid begin_time errors (no silent 9am default)', () {
+      // Regression: a begin_time that is present but not a valid ISO string must
+      // NOT silently fall into the relative form (a default 9am-today event).
+      expect(
+        validateIntentParams('create_calendar_event', {
+          'title': 'X',
+          'begin_time': 12345, // a number, not a string
+        }),
+        contains('begin_time'),
+      );
+      expect(
+        validateIntentParams('create_calendar_event', {
+          'title': 'X',
+          'begin_time': '', // empty string
+        }),
+        contains('begin_time'),
+      );
+    });
   });
 
   group('validateIntentParams — read_calendar_events', () {

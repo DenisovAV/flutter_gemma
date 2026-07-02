@@ -12,6 +12,7 @@ import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 import 'package:flutter_gemma_example/translate_screen.dart';
 import 'package:flutter_gemma_example/utils/gated_model_access_dialog.dart';
+import 'package:flutter_gemma_example/utils/storage_quota_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UniversalDownloadScreen extends StatefulWidget {
@@ -204,6 +205,8 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         licenseUrl: widget.model.licenseUrl,
         error: error,
       );
+    } else if (isStorageQuotaError(error)) {
+      await showStorageFullDialog(context);
     } else {
       _showErrorDialog(error.toString());
     }

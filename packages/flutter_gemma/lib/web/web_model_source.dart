@@ -73,6 +73,12 @@ class WebModelSourceResolver {
   /// throws on `loraPath`).
   Future<({WebModelSource model, String? loraPath})>
   resolveActiveInferenceModel() async {
+    // A resolver built via `forActiveModel()` holds a FRESH WebModelManager
+    // whose active identity is rehydrated from prefs asynchronously. Without
+    // this await, `activeInferenceModel` is read before the restore completes
+    // and reports null even though a model was just installed ("No active
+    // inference model set" on createChat). `ensureInitialized` is idempotent.
+    await _modelManager.ensureInitialized();
     final active = _modelManager.activeInferenceModel;
     if (active == null) {
       throw StateError(

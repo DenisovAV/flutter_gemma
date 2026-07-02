@@ -134,8 +134,19 @@ class AgentLoop {
       case AgentToolNames.runMcp:
         yield* _runExecutor(chat, call);
       default:
-        // Unknown tool — feed an error back so the model can correct itself.
-        final message = 'Unknown tool "${call.name}".';
+        // Unknown tool. Small models (notably the web decoder) sometimes call
+        // a skill by name as if it were a tool — e.g. `calculate-hash{...}` —
+        // skipping the two-stage `loadSkill` then `run_*`. We must NOT execute
+        // it directly (that would bypass the skill's instructions, which say
+        // WHICH executor to use). Instead, mirror Gallery's
+        // `guardMissingEntityWithSkillFallback`: if the name is a known skill,
+        // hint the model to load it so it can self-correct on the next turn.
+        final isKnownSkill = registry.get(call.name) != null;
+        final message = isKnownSkill
+            ? '"${call.name}" is a skill, not a tool. '
+                  'Call ${AgentToolNames.loadSkill}(skillName: "${call.name}") '
+                  'first, then follow its instructions.'
+            : 'Unknown tool "${call.name}".';
         yield AgentErrorEvent(message, toolName: call.name);
         await _feedBack(chat, call.name, {
           'error': message,

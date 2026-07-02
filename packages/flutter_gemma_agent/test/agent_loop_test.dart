@@ -325,6 +325,60 @@ void main() {
     });
   });
 
+  group('AgentLoop — direct skill-name call guard', () {
+    // Small models (esp. on the web decoder) sometimes call a skill by name as
+    // if it were a tool — e.g. `calculate-hash{text:...}` — instead of the
+    // two-stage `loadSkill` then `run_js`. That skips the skill's instructions
+    // (which say WHICH executor to use), so we must NOT run it directly. Mirror
+    // Gallery's `guardMissingEntityWithSkillFallback`: when the unknown tool is
+    // a known skill, feed back a hint that steers the model to loadSkill.
+    test(
+      'calling a known skill directly hints the model to load it as a skill',
+      () async {
+        final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+        final chat = _FakeAgentChat([
+          const FunctionCallResponse(
+            name: 'calculate-hash',
+            args: {'text': 'hello'},
+          ),
+          const TextResponse('ok'),
+        ]);
+
+        final loop = AgentLoop(registry: registry, executors: const []);
+        final events = await loop.run(chat, 'hash hello').toList();
+
+        // Must NOT execute directly (contract stays two-stage).
+        final error = events.whereType<AgentErrorEvent>().single;
+        expect(error.toolName, 'calculate-hash');
+        final fed = chat.toolResponses.single;
+        expect(fed.text, contains('failed'));
+        // The hint must name loadSkill so the model can self-correct.
+        expect(fed.text, contains('loadSkill'));
+        expect(fed.text, contains('calculate-hash'));
+        expect(events.last, isA<DoneEvent>());
+      },
+    );
+
+    test(
+      'an unknown tool that is NOT a skill just reports unknown tool',
+      () async {
+        final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+        final chat = _FakeAgentChat([
+          const FunctionCallResponse(name: 'totally-made-up', args: {}),
+          const TextResponse('ok'),
+        ]);
+
+        final loop = AgentLoop(registry: registry, executors: const []);
+        final events = await loop.run(chat, 'do x').toList();
+
+        final fed = chat.toolResponses.single;
+        expect(fed.text, contains('failed'));
+        expect(fed.text, isNot(contains('loadSkill')));
+        expect(events.last, isA<DoneEvent>());
+      },
+    );
+  });
+
   group('AgentLoop — secrets', () {
     test(
       'require-secret skill gets its secret injected, never in the prompt',

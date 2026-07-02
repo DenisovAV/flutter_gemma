@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
@@ -15,6 +16,19 @@ const kExampleInferenceEngines = [LiteRtLmEngine(), MediaPipeEngine()];
 
 /// The opt-in embedding backends the example registers. Single source of truth.
 const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];
+
+/// The agentic skill executors the example registers (text / JS / native
+/// intent). Registered through `FlutterGemma.initialize(skillExecutors: …)` —
+/// the recommended global path — so any [AgentSession.fromModel] built without
+/// an explicit `executors:` list picks them up from the core registry. The JS
+/// executor resolves each bundled skill's HTML via [AssetSkillSource]; MCP is
+/// omitted (no server configured in the demo). The demo screen shows the
+/// alternative explicit-list path in a comment.
+final kExampleSkillExecutors = <SkillExecutor>[
+  TextSkillExecutor(),
+  JsSkillExecutor(sourceFor: AssetSkillSource().jsSkillSourceFor),
+  NativeIntentExecutor(),
+];
 
 /// The RAG vector-store backends the example can switch between.
 enum RagBackend {
@@ -62,6 +76,7 @@ Future<void> bootstrapGemma({required RagBackend ragBackend}) {
     webStorageMode: WebStorageMode.streaming,
     inferenceEngines: kExampleInferenceEngines,
     embeddingBackends: kExampleEmbeddingBackends,
+    skillExecutors: kExampleSkillExecutors,
     vectorStore: vectorStoreFor(ragBackend),
   );
 }

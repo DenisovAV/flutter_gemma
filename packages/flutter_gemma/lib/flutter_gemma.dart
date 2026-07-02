@@ -6,6 +6,10 @@ export 'model_file_manager_interface.dart';
 // ignored on Web.
 export 'core/services/vector_store_filter.dart';
 export 'core/services/vector_store_repository.dart'; // VectorStoreRepository + VectorStoreException for opt-in RAG packages
+// Agentic skill-executor seam — the opt-in flutter_gemma_agent package's
+// SkillExecutor implements this contract and is registered/resolved here.
+export 'core/registry/skill_executor_provider.dart'; // SkillExecutorProvider contract
+export 'core/registry/skill_executor_registry.dart'; // SkillExecutorRegistry (fromModel reads it)
 export 'core/domain/platform_types.dart'; // PreferredBackend + RAG value types
 export 'core/message.dart';
 export 'core/model.dart'; // Export ModelType and other model-related classes

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_gemma_example/agent_demo_screen.dart';
 import 'package:flutter_gemma_example/downloaded_models_screen.dart';
 import 'package:flutter_gemma_example/embedding_models_screen.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
@@ -121,6 +123,16 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.green,
               onTap: () => _push(const EmbeddingModelsScreen()),
             ),
+            const SizedBox(height: 16),
+            _NavigationCard(
+              title: 'Agent Skills',
+              subtitle: kIsWeb
+                  ? 'On-device agent (Android / iOS / desktop — not on web yet)'
+                  : 'On-device agent with bundled SKILL.md skills',
+              icon: Icons.auto_awesome,
+              color: Colors.purple,
+              onTap: () => _push(const AgentDemoScreen()),
+            ),
           ],
         ),
       ),
@@ -160,7 +172,7 @@ class _NavigationCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: Colors.blue, size: 24),
+                child: Icon(icon, color: color, size: 24),
               ),
               const SizedBox(width: 16),
               Expanded(

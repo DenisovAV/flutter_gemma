@@ -78,7 +78,8 @@ Map<String, Object?> _softwareApplicationSchema() => {
   'description':
       'A Flutter plugin to run Gemma and other LLMs on-device — '
       'Android, iOS, Web, and Desktop. Multimodal vision & audio, '
-      'function calling, thinking mode, GPU acceleration, embeddings, and RAG.',
+      'function calling, on-device agent skills, thinking mode, '
+      'GPU acceleration, embeddings, and RAG.',
   'url': kSiteOrigin,
   'applicationCategory': 'DeveloperApplication',
   'operatingSystem': 'Android, iOS, Web, macOS, Windows, Linux',

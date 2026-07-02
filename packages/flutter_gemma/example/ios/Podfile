@@ -41,6 +41,13 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # Force every pod target's minimum iOS to 16.0. The generated
+    # Flutter.podspec still declares 13.0, which conflicts with SPM plugins that
+    # require 14+ (e.g. background_downloader) — surfaces as "requires minimum
+    # platform version 14.0 … but this target supports 13.0" under `flutter run`.
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.0'
+    end
   end
 
   # As of flutter_gemma 0.14.1, the upstream LiteRT-LM dlopen path is patched

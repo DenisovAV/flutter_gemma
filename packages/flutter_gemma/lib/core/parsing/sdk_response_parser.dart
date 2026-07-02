@@ -44,7 +44,47 @@ class SdkResponseParser {
       }
       _harvestCalls(json, result);
     }
+    // Web fallback: `@litert-lm/core` (0.12.1 / 0.14.0) does NOT convert Gemma 4
+    // `<|tool_call>call:NAME{...}<tool_call|>` tokens into structured
+    // `tool_calls` JSON — they stay as raw text (verified with Gemma 4 E4B on
+    // web). Native (C++ liblitert_lm) does convert, so this only fires when the
+    // structured pass found nothing but raw tokens are present.
+    if (result.isEmpty && jsonStr.contains(_rawToolCallOpen)) {
+      _harvestRawTokenCalls(jsonStr, result);
+    }
     return result;
+  }
+
+  static const _rawToolCallOpen = '<|tool_call>';
+
+  /// Parse the raw Gemma 4 tool-call token stream the web SDK leaves untouched:
+  /// `<|tool_call>call:NAME{key:<|"|>value<|"|>,...}<tool_call|>`. The closing
+  /// `<tool_call|>` may be cut off by the stop token, so it's optional. Values
+  /// are wrapped in `<|"|>...<|"|>` escape tokens (stripped here).
+  static void _harvestRawTokenCalls(
+    String text,
+    List<FunctionCallResponse> out,
+  ) {
+    final callRegex = RegExp(
+      r'<\|tool_call>call:([\w-]+)\{(.*?)\}(?:<tool_call\|>|$)',
+      dotAll: true,
+    );
+    // The `<|"|>` escape may arrive raw or JSON-escaped as `<|\"|>` (web
+    // stringifies the Message object, so the quote inside the content string
+    // gets a backslash). Accept an optional backslash before the quote.
+    final paramRegex = RegExp(
+      r'([\w-]+):<\|\\?"\|>(.*?)<\|\\?"\|>',
+      dotAll: true,
+    );
+    for (final match in callRegex.allMatches(text)) {
+      final name = match.group(1)!;
+      final paramsStr = match.group(2)!;
+      final args = <String, dynamic>{};
+      for (final p in paramRegex.allMatches(paramsStr)) {
+        args[p.group(1)!] = p.group(2)!;
+      }
+      out.add(FunctionCallResponse(name: name, args: args));
+    }
   }
 
   /// Split a string that may be one JSON object or a concatenation of multiple
@@ -113,8 +153,11 @@ class SdkResponseParser {
       }
     }
 
-    final content = json['content'] as List<dynamic>?;
-    if (content != null) {
+    // `content` is a List for the multimodal tool_call shape, but a plain
+    // String on the web path (a stringified Message) — guard the cast so the
+    // raw-token fallback downstream still gets a chance to run.
+    final content = json['content'];
+    if (content is List<dynamic>) {
       for (final item in content) {
         if (item is Map<String, dynamic> && item['type'] == 'tool_call') {
           addFromCallObject(item['tool_call']);

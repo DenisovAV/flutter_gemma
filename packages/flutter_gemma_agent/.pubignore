@@ -1,0 +1,23 @@
+# Files and directories to exclude from the pub.dev package.
+# NOTE: assets/ is intentionally NOT excluded — the bundled SKILL.md skills
+# (assets/skills/**) are runtime resources shipped to consumers.
+
+# Tests + fixtures (not needed by consumers)
+test/
+
+# Tooling / editor / CI
+docs/
+.github/
+.idea/
+.vscode/
+.claude/
+
+# Markdown except the two pub.dev surfaces
+**/*.md
+!README.md
+!CHANGELOG.md
+
+# Build artifacts
+build/
+coverage/
+devtools_options.yaml

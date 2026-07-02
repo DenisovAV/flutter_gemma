@@ -16,16 +16,18 @@ bool get _isDesktop {
 enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
-  // Gemma 4 models (Next-gen multimodal: text + image + audio).
-  // Web variant ships a separate `-web.task` (MediaPipe) build; the
-  // `gemma4_E2B_web_litertlm` / `gemma4_E4B_web_litertlm` entries below
-  // expose the parallel `-web.litertlm` build for the @litert-lm/core
-  // path (0.16.2+).
-  gemma4_E2B(
+  // Gemma 4 (Next-gen multimodal: text + image + audio) — LiteRT-LM builds are
+  // the primary entries (litertlm everywhere incl. web -web.litertlm). The
+  // web-only MediaPipe (.task) twins live further down as *_web.
+
+  // Gemma 4 E2B LiteRT-LM. On web, uses the `-web.litertlm` build optimised for
+  // WebGPU/WASM via @litert-lm/core (0.16.2+). Text-only on web; full
+  // multimodal on native.
+  gemma4_E2B_litertlm(
     baseUrl:
         'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
     webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm',
     desktopUrl:
         'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
     filename: 'gemma-4-E2B-it.litertlm',
@@ -45,12 +47,15 @@ enum Model implements InferenceModelInterface {
     maxNumImages: 4,
     isThinking: true,
     supportsFunctionCalls: true,
+    agentic: true,
   ),
-  gemma4_E4B(
+
+  // Gemma 4 E4B LiteRT-LM.
+  gemma4_E4B_litertlm(
     baseUrl:
         'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
     webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
     desktopUrl:
         'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
     filename: 'gemma-4-E4B-it.litertlm',
@@ -70,23 +75,126 @@ enum Model implements InferenceModelInterface {
     maxNumImages: 4,
     isThinking: true,
     supportsFunctionCalls: true,
+    agentic: true,
   ),
 
-  // Gemma 3 Nano models (Multimodal + Function Calls)
+  // Gemma 4 E2B compiled for Intel NPU (Windows only, PreferredBackend.npu).
+  // Chip-specific builds — pick the one matching the silicon:
+  //   _LNL = Lunar Lake, _PTL = Panther Lake.
+  // The plugin auto-configures the NPU dispatch dir on Windows; the bundled
+  // LiteRtDispatch.dll + OpenVino + TBB ship in the same native tarball.
+  // Source: https://ai.google.dev/edge/litert/next/litert_lm_npu#intel
+  gemma4_E2B_intel_LNL(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
+    filename: 'gemma-4-E2B-it_intel_LNL.litertlm',
+    displayName: 'Gemma 4 E2B IT (Intel NPU - Lunar Lake)',
+    size: '2.96GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.npu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
+  gemma4_E2B_intel_PTL(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
+    filename: 'gemma-4-E2B-it_intel_PTL.litertlm',
+    displayName: 'Gemma 4 E2B IT (Intel NPU - Panther Lake)',
+    size: '2.95GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.npu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
+  // Gemma 4 E2B/E4B — WEB-ONLY MediaPipe (.task) builds, right below their
+  // LiteRT-LM twins. HuggingFace only ships a `-web.task` for Gemma 4 (no
+  // mobile/desktop .task — those are .litertlm only, see the *_litertlm
+  // entries above). So these run on web only, through the MediaPipe
+  // `@mediapipe/tasks-genai` path. fileType is `task` to match the file —
+  // mixing it with `litertlm` routed the .task blob into the LiteRT-LM engine
+  // and failed with "Invalid magic number".
+  gemma4_E2B_web(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
+    filename: 'gemma-4-E2B-it-web.task',
+    displayName: 'Gemma 4 E2B IT (Web/MediaPipe)',
+    size: '2.0GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.task,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: false, // .task has no audio encoder
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+    supportsFunctionCalls: true,
+  ),
+  gemma4_E4B_web(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
+    filename: 'gemma-4-E4B-it-web.task',
+    displayName: 'Gemma 4 E4B IT (Web/MediaPipe)',
+    size: '3.0GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.task,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: false, // .task has no audio encoder
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+    supportsFunctionCalls: true,
+  ),
+
+  // Gemma 3 Nano models (Multimodal + Function Calls).
+  // These are the MOBILE MediaPipe (.task) builds — HuggingFace only ships a
+  // mobile .task for Gemma 3n (no -web.task; web/desktop are .litertlm only).
+  // So keep them mobile-only with fileType task; web/desktop users take the
+  // *_litertlm entries below (litertlm everywhere). Mixing a .litertlm web/
+  // desktop URL under fileType task routed the blob into the wrong engine.
   gemma3n_2B(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
-    webUrl:
-        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4-Web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.task',
-    displayName: 'Gemma 3 Nano E2B IT',
+    displayName: 'Gemma 3 Nano E2B IT (MediaPipe)',
     size: '3.1GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview',
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.task,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
@@ -101,17 +209,14 @@ enum Model implements InferenceModelInterface {
   gemma3n_4B(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task',
-    webUrl:
-        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4-Web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.task',
-    displayName: 'Gemma 3 Nano E4B IT',
+    displayName: 'Gemma 3 Nano E4B IT (MediaPipe)',
     size: '6.5GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview',
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.task,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
@@ -169,106 +274,6 @@ enum Model implements InferenceModelInterface {
 
   // === LiteRT-LM ENGINE MODELS (for testing parity with MediaPipe) ===
 
-  // Gemma 4 E2B LiteRT-LM (same model as gemma4_E2B, different engine).
-  // On web, uses the `-web.litertlm` build optimised for WebGPU/WASM via
-  // @litert-lm/core (0.16.2+). Text-only on web; full multimodal on native.
-  gemma4_E2B_litertlm(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
-    webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
-    filename: 'gemma-4-E2B-it.litertlm',
-    displayName: 'Gemma 4 E2B IT (LiteRT-LM)',
-    size: '2.4GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    supportImage: true,
-    supportAudio: true,
-    maxTokens: 4096,
-    maxNumImages: 4,
-    isThinking: true,
-  ),
-
-  // Gemma 4 E2B compiled for Intel NPU (Windows only, PreferredBackend.npu).
-  // Chip-specific builds — pick the one matching the silicon:
-  //   _LNL = Lunar Lake, _PTL = Panther Lake.
-  // The plugin auto-configures the NPU dispatch dir on Windows; the bundled
-  // LiteRtDispatch.dll + OpenVino + TBB ship in the same native tarball.
-  // Source: https://ai.google.dev/edge/litert/next/litert_lm_npu#intel
-  gemma4_E2B_intel_LNL(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
-    filename: 'gemma-4-E2B-it_intel_LNL.litertlm',
-    displayName: 'Gemma 4 E2B IT (Intel NPU - Lunar Lake)',
-    size: '2.96GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.npu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    maxTokens: 4096,
-    isThinking: true,
-  ),
-
-  gemma4_E2B_intel_PTL(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
-    filename: 'gemma-4-E2B-it_intel_PTL.litertlm',
-    displayName: 'Gemma 4 E2B IT (Intel NPU - Panther Lake)',
-    size: '2.95GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.npu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    maxTokens: 4096,
-    isThinking: true,
-  ),
-
-  // Gemma 4 E4B LiteRT-LM (same model as gemma4_E4B, different engine)
-  gemma4_E4B_litertlm(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
-    webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
-    filename: 'gemma-4-E4B-it.litertlm',
-    displayName: 'Gemma 4 E4B IT (LiteRT-LM)',
-    size: '4.3GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    supportImage: true,
-    supportAudio: true,
-    maxTokens: 4096,
-    maxNumImages: 4,
-    isThinking: true,
-  ),
-
   // Gemma 3 Nano E2B LiteRT-LM (same model, different engine).
   // Web uses the `-Web.litertlm` build that `gemma3n_2B` already pointed at
   // via `webUrl` (was loaded through MediaPipe before 0.16.2; now LiteRT-LM
@@ -281,7 +286,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.litertlm',
-    displayName: 'Gemma 3 Nano E2B IT (LiteRT-LM)',
+    displayName: 'Gemma 3 Nano E2B IT',
     size: '3.1GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm',
     needsAuth: true,
@@ -307,7 +312,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.litertlm',
-    displayName: 'Gemma 3 Nano E4B IT (LiteRT-LM)',
+    displayName: 'Gemma 3 Nano E4B IT',
     size: '6.5GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm',
     needsAuth: true,
@@ -532,7 +537,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
     filename: 'functiongemma-270M-it.litertlm',
-    displayName: 'FunctionGemma 270M IT (LiteRT-LM)',
+    displayName: 'FunctionGemma 270M IT',
     size: '284MB',
     licenseUrl: 'https://huggingface.co/google/functiongemma-270m-it',
     needsAuth: false,
@@ -546,19 +551,21 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: true,
   ),
 
-  // FunctionGemma 270M IT (Base model converted to .task)
+  // FunctionGemma 270M IT — MOBILE MediaPipe (.task) build. The litertlm build
+  // is the functionGemma_270M_litertlm entry above (litertlm everywhere). Keep
+  // this .task entry mobile-only: a .litertlm desktopUrl under fileType task
+  // routed the blob into the wrong engine.
   functionGemma_270M(
     baseUrl:
         'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task',
-    desktopUrl:
-        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
     filename: 'functiongemma-270M-it.task',
-    displayName: 'FunctionGemma 270M IT',
+    displayName: 'FunctionGemma 270M IT (MediaPipe)',
     size: '284MB',
     licenseUrl: 'https://huggingface.co/google/functiongemma-270m-it',
     needsAuth: false,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.functionGemma,
+    fileType: ModelFileType.task,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
@@ -631,9 +638,24 @@ enum Model implements InferenceModelInterface {
   final int topK;
   @override
   final double topP;
+  // Raw capability flags from the enum literal. The public [supportImage] /
+  // [supportAudio] getters below suppress these on web for .litertlm models,
+  // where @litert-lm/core@0.12.1 does not expose the Vision/AudioExecutor
+  // config yet — so image/audio inputs are silently dropped. Advertising them
+  // in the UI would offer a picker that produces no result. Native and web
+  // MediaPipe (.task) keep the declared value.
+  final bool _supportImageRaw;
+  final bool _supportAudioRaw;
+
   @override
-  final bool supportImage;
-  final bool supportAudio;
+  bool get supportImage =>
+      _webLitertlmMultimodalBlocked ? false : _supportImageRaw;
+
+  bool get supportAudio =>
+      _webLitertlmMultimodalBlocked ? false : _supportAudioRaw;
+
+  bool get _webLitertlmMultimodalBlocked =>
+      kIsWeb && fileType == ModelFileType.litertlm;
   @override
   final int maxTokens;
   @override
@@ -641,6 +663,13 @@ enum Model implements InferenceModelInterface {
   @override
   final bool supportsFunctionCalls;
   final bool isThinking;
+
+  /// Whether this model is a good fit for the Agent Skills demo — it must do
+  /// multi-step tool calling reliably, which is more demanding than plain
+  /// function calling. Curated (not every `supportsFunctionCalls` model
+  /// qualifies) and used to populate the agent screen's model picker.
+  final bool agentic;
+
   final ModelFileType fileType;
   final bool? foregroundDownload;
 
@@ -679,15 +708,17 @@ enum Model implements InferenceModelInterface {
     required this.temperature,
     required this.topK,
     required this.topP,
-    this.supportImage = false,
-    this.supportAudio = false,
+    bool supportImage = false,
+    bool supportAudio = false,
     this.maxTokens = 1024,
     this.maxNumImages,
     this.supportsFunctionCalls = false,
     this.isThinking = false,
+    this.agentic = false,
     this.fileType = ModelFileType.task,
     this.foregroundDownload,
-  });
+  }) : _supportImageRaw = supportImage,
+       _supportAudioRaw = supportAudio;
 
   // BaseModel interface implementation
   @override

@@ -16,21 +16,23 @@ bool get _isDesktop {
 enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
-  // Gemma 3 Nano models (Multimodal + Function Calls)
+  // Gemma 3 Nano models (Multimodal + Function Calls).
+  // These are the MOBILE MediaPipe (.task) builds — HuggingFace only ships a
+  // mobile .task for Gemma 3n (no -web.task; web/desktop are .litertlm only).
+  // So keep them mobile-only with fileType task; web/desktop users take the
+  // *_litertlm entries below (litertlm everywhere). Mixing a .litertlm web/
+  // desktop URL under fileType task routed the blob into the wrong engine.
   gemma3n_2B(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview/resolve/main/gemma-3n-E2B-it-int4.task',
-    webUrl:
-        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4-Web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.task',
-    displayName: 'Gemma 3 Nano E2B IT',
+    displayName: 'Gemma 3 Nano E2B IT (MediaPipe)',
     size: '3.1GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-preview',
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.task,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
@@ -45,17 +47,14 @@ enum Model implements InferenceModelInterface {
   gemma3n_4B(
     baseUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview/resolve/main/gemma-3n-E4B-it-int4.task',
-    webUrl:
-        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4-Web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.task',
-    displayName: 'Gemma 3 Nano E4B IT',
+    displayName: 'Gemma 3 Nano E4B IT (MediaPipe)',
     size: '6.5GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E4B-it-litert-preview',
     needsAuth: true,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.gemmaIt,
+    fileType: ModelFileType.task,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,
@@ -124,7 +123,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
     filename: 'gemma-4-E2B-it.litertlm',
-    displayName: 'Gemma 4 E2B IT (LiteRT-LM)',
+    displayName: 'Gemma 4 E2B IT',
     size: '2.4GB',
     licenseUrl: '',
     needsAuth: false,
@@ -198,7 +197,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
     filename: 'gemma-4-E4B-it.litertlm',
-    displayName: 'Gemma 4 E4B IT (LiteRT-LM)',
+    displayName: 'Gemma 4 E4B IT',
     size: '4.3GB',
     licenseUrl: '',
     needsAuth: false,
@@ -229,7 +228,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
     filename: 'gemma-3n-E2B-it-int4.litertlm',
-    displayName: 'Gemma 3 Nano E2B IT (LiteRT-LM)',
+    displayName: 'Gemma 3 Nano E2B IT',
     size: '3.1GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm',
     needsAuth: true,
@@ -255,7 +254,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm/resolve/main/gemma-3n-E4B-it-int4.litertlm',
     filename: 'gemma-3n-E4B-it-int4.litertlm',
-    displayName: 'Gemma 3 Nano E4B IT (LiteRT-LM)',
+    displayName: 'Gemma 3 Nano E4B IT',
     size: '6.5GB',
     licenseUrl: 'https://huggingface.co/google/gemma-3n-E4B-it-litert-lm',
     needsAuth: true,
@@ -533,7 +532,7 @@ enum Model implements InferenceModelInterface {
     desktopUrl:
         'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
     filename: 'functiongemma-270M-it.litertlm',
-    displayName: 'FunctionGemma 270M IT (LiteRT-LM)',
+    displayName: 'FunctionGemma 270M IT',
     size: '284MB',
     licenseUrl: 'https://huggingface.co/google/functiongemma-270m-it',
     needsAuth: false,
@@ -547,19 +546,21 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: true,
   ),
 
-  // FunctionGemma 270M IT (Base model converted to .task)
+  // FunctionGemma 270M IT — MOBILE MediaPipe (.task) build. The litertlm build
+  // is the functionGemma_270M_litertlm entry above (litertlm everywhere). Keep
+  // this .task entry mobile-only: a .litertlm desktopUrl under fileType task
+  // routed the blob into the wrong engine.
   functionGemma_270M(
     baseUrl:
         'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task',
-    desktopUrl:
-        'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm',
     filename: 'functiongemma-270M-it.task',
-    displayName: 'FunctionGemma 270M IT',
+    displayName: 'FunctionGemma 270M IT (MediaPipe)',
     size: '284MB',
     licenseUrl: 'https://huggingface.co/google/functiongemma-270m-it',
     needsAuth: false,
     preferredBackend: PreferredBackend.gpu,
     modelType: ModelType.functionGemma,
+    fileType: ModelFileType.task,
     temperature: 1.0,
     topK: 64,
     topP: 0.95,

@@ -110,7 +110,7 @@ Seven starter skills ship as package assets and cover all four mechanisms:
 
 ## SKILL.md format
 
-```yaml
+```
 ---
 name: kebab-case-id
 description: One-line summary the model uses to pick the skill.
@@ -153,13 +153,13 @@ Most skills need no platform setup. For the platform-specific bits:
   (pre-installed on Windows 11; bundle the bootstrapper for Windows 10).
 - **iOS** — the `create-calendar-event` intent needs a usage description in
   `ios/Runner/Info.plist`:
-  ```xml
+  ```
   <key>NSCalendarsUsageDescription</key>
   <string>Create calendar events from the agent.</string>
   ```
 - **Android** — `schedule_notification` requires core-library desugaring in
   `android/app/build.gradle(.kts)`:
-  ```kotlin
+  ```
   android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
   dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4") }
   ```

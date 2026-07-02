@@ -323,18 +323,43 @@ Update each `^X.Y.Z` for the core packages (`flutter_gemma`, `flutter_gemma_lite
 
 **You do NOT run a manual deploy.** `.github/workflows/firebase-hosting-merge.yml` auto-deploys to Firebase Hosting (`aichat-c0c27`, target `fluttergemma`, https://fluttergemma.dev → live channel) on every push to `main` that touches `website/**` or `packages/flutter_gemma/example/**`. So:
 
+0. **PRE-MERGE (do this on the branch, before merging):** build the Jaspr SSG
+   locally to catch a build-time crash BEFORE it takes down the live deploy. The
+   CI job runs the exact same `jaspr build`, so if it fails locally it will fail
+   in CI — but locally you fix it in a branch instead of leaving `main` deployed
+   from the old commit.
+   ```bash
+   cd website && jaspr build    # must end with "Completed building project"; NO "[ERROR]"
+   ```
+   The most common breakage is a **code fence in a `.md` doc with a language the
+   highlighter can't parse.** `syntax_highlight_lite` (via `jaspr_content`) only
+   ships a **Dart** grammar — a ```` ```yaml ````/```` ```xml ````/```` ```kotlin ````/```` ```bash ````
+   fence throws `Null check operator used on a null value` in `Highlighter` and
+   **fails the whole SSG build → the site stays stuck on the previous version.**
+   Every existing doc uses only ```` ```dart ````; for any other language use a
+   **plain fence** (```` ``` ```` with no language tag). Grep before you merge:
+   ```bash
+   grep -rhoE '```[a-z]+' website/content/docs/*.md | sort | uniq -c   # expect: only ```dart
+   ```
 1. Commit the `website/` changes (same author rule, no AI attribution) on your release branch / PR.
 2. When the PR merges to `main`, the workflow builds the Jaspr SSG + the Flutter web example (`/try`) and deploys automatically.
-3. Verify the run + spot-check the live page:
+3. **VERIFY THE MERGE DEPLOY ACTUALLY SUCCEEDED — do NOT assume merge == deployed.**
+   The run failing on the "Build Jaspr site (SSG)" step is silent: pub.dev shows
+   the new package, but fluttergemma.dev still serves the OLD build. Check the
+   run **conclusion**, not just that it triggered:
    ```bash
-   gh run list --workflow firebase-hosting-merge.yml --limit 3
-   # then open https://fluttergemma.dev/docs/... and confirm the change is live
+   gh run list --workflow firebase-hosting-merge.yml --limit 3   # newest must say "success", not "failure"
+   # if failure: gh run view <id> --log-failed | grep -iE 'error|Null check|Highlighter'
+   # then open https://fluttergemma.dev/docs/... and confirm the NEW change is live
    ```
+   If the deploy failed, the fix is another PR (main is a protected branch — you
+   CANNOT push a hotfix directly; branch + PR + merge, same as any change).
 
 A manual `./deploy.sh` exists in `website/` for local one-off deploys (it does the same build + `firebase deploy`), but the merge workflow is the normal path — don't run it by hand unless the workflow is broken. The site is NOT on pub.dev; `dart pub publish` never touches it — only this workflow (or `deploy.sh`) does.
 
 ## Common gotchas
 
+- **Website SSG build fails silently on a non-Dart code fence** — a ```` ```yaml ````/```` ```xml ````/```` ```kotlin ```` fence in any `website/content/docs/*.md` crashes the Jaspr highlighter (Dart-only grammar) → the merge deploy fails → fluttergemma.dev stays on the OLD build while pub.dev shows the new package. Always `jaspr build` the site locally on the branch before merge, use plain fences for non-Dart, and after merge confirm the `firebase-hosting-merge.yml` run says **success** (Step 12c). main is protected — a website hotfix is a new PR, not a direct push.
 - **`native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
 - **iOS dylib must be built from commit `5e0d86b`** (post-v0.10.2). v0.10.2 tag predates `libLiteRtMetalAccelerator.dylib` → ABI mismatch → EXC_BAD_ACCESS in `litert_lm_engine_create` on iPhone GPU. `build_ios.sh` defaults to it; do not override unless you know what you're doing.
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.

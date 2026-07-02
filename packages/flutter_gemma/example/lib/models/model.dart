@@ -124,6 +124,60 @@ enum Model implements InferenceModelInterface {
     isThinking: true,
   ),
 
+  // Gemma 4 E2B/E4B — WEB-ONLY MediaPipe (.task) builds, right below their
+  // LiteRT-LM twins. HuggingFace only ships a `-web.task` for Gemma 4 (no
+  // mobile/desktop .task — those are .litertlm only, see the *_litertlm
+  // entries above). So these run on web only, through the MediaPipe
+  // `@mediapipe/tasks-genai` path. fileType is `task` to match the file —
+  // mixing it with `litertlm` routed the .task blob into the LiteRT-LM engine
+  // and failed with "Invalid magic number".
+  gemma4_E2B_web(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
+    filename: 'gemma-4-E2B-it-web.task',
+    displayName: 'Gemma 4 E2B IT (Web/MediaPipe)',
+    size: '2.0GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.task,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: false, // .task has no audio encoder
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+    supportsFunctionCalls: true,
+  ),
+  gemma4_E4B_web(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
+    filename: 'gemma-4-E4B-it-web.task',
+    displayName: 'Gemma 4 E4B IT (Web/MediaPipe)',
+    size: '3.0GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.task,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: false, // .task has no audio encoder
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+    supportsFunctionCalls: true,
+  ),
+
   // Gemma 3 Nano models (Multimodal + Function Calls).
   // These are the MOBILE MediaPipe (.task) builds — HuggingFace only ships a
   // mobile .task for Gemma 3n (no -web.task; web/desktop are .litertlm only).
@@ -327,59 +381,6 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: false,
     supportImage: true,
     supportAudio: true,
-  ),
-
-  // Gemma 4 E2B/E4B — WEB-ONLY MediaPipe (.task) builds. HuggingFace only
-  // ships a `-web.task` for Gemma 4 (no mobile/desktop .task exists — those
-  // are .litertlm only, see the *_litertlm entries above). So these run on
-  // web only, through the MediaPipe `@mediapipe/tasks-genai` path. fileType
-  // is `task` to match the file — mixing it with `litertlm` routed the .task
-  // blob into the LiteRT-LM engine and failed with "Invalid magic number".
-  gemma4_E2B_web(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
-    webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task',
-    filename: 'gemma-4-E2B-it-web.task',
-    displayName: 'Gemma 4 E2B IT (Web/MediaPipe)',
-    size: '2.0GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.task,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    supportImage: true,
-    supportAudio: false, // .task has no audio encoder
-    maxTokens: 4096,
-    maxNumImages: 4,
-    isThinking: true,
-    supportsFunctionCalls: true,
-  ),
-  gemma4_E4B_web(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
-    webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task',
-    filename: 'gemma-4-E4B-it-web.task',
-    displayName: 'Gemma 4 E4B IT (Web/MediaPipe)',
-    size: '3.0GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.task,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    supportImage: true,
-    supportAudio: false, // .task has no audio encoder
-    maxTokens: 4096,
-    maxNumImages: 4,
-    isThinking: true,
-    supportsFunctionCalls: true,
   ),
 
   // === OTHER MODELS ===
@@ -637,9 +638,24 @@ enum Model implements InferenceModelInterface {
   final int topK;
   @override
   final double topP;
+  // Raw capability flags from the enum literal. The public [supportImage] /
+  // [supportAudio] getters below suppress these on web for .litertlm models,
+  // where @litert-lm/core@0.12.1 does not expose the Vision/AudioExecutor
+  // config yet — so image/audio inputs are silently dropped. Advertising them
+  // in the UI would offer a picker that produces no result. Native and web
+  // MediaPipe (.task) keep the declared value.
+  final bool _supportImageRaw;
+  final bool _supportAudioRaw;
+
   @override
-  final bool supportImage;
-  final bool supportAudio;
+  bool get supportImage =>
+      _webLitertlmMultimodalBlocked ? false : _supportImageRaw;
+
+  bool get supportAudio =>
+      _webLitertlmMultimodalBlocked ? false : _supportAudioRaw;
+
+  bool get _webLitertlmMultimodalBlocked =>
+      kIsWeb && fileType == ModelFileType.litertlm;
   @override
   final int maxTokens;
   @override
@@ -692,8 +708,8 @@ enum Model implements InferenceModelInterface {
     required this.temperature,
     required this.topK,
     required this.topP,
-    this.supportImage = false,
-    this.supportAudio = false,
+    bool supportImage = false,
+    bool supportAudio = false,
     this.maxTokens = 1024,
     this.maxNumImages,
     this.supportsFunctionCalls = false,
@@ -701,7 +717,8 @@ enum Model implements InferenceModelInterface {
     this.agentic = false,
     this.fileType = ModelFileType.task,
     this.foregroundDownload,
-  });
+  }) : _supportImageRaw = supportImage,
+       _supportAudioRaw = supportAudio;
 
   // BaseModel interface implementation
   @override

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
@@ -212,6 +213,34 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
               ],
             ),
           ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'On web the agent is experimental: the browser LLM runtime '
+                      'does not reliably emit tool calls yet, so skills may not '
+                      'run. Use Android, iOS, or desktop for the full agent.',
+                      style: TextStyle(
+                        color: Colors.orangeAccent,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 24),
           // Model picker — only the curated agentic models (multi-step tool
           // calling). E2B is the small default; E4B is more reliable but larger.

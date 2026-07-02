@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma_example/agent_demo_screen.dart';
 import 'package:flutter_gemma_example/downloaded_models_screen.dart';
@@ -125,7 +126,9 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 16),
             _NavigationCard(
               title: 'Agent Skills',
-              subtitle: 'On-device agent with bundled SKILL.md skills',
+              subtitle: kIsWeb
+                  ? 'On-device agent (mobile/desktop — web is experimental)'
+                  : 'On-device agent with bundled SKILL.md skills',
               icon: Icons.auto_awesome,
               color: Colors.purple,
               onTap: () => _push(const AgentDemoScreen()),

@@ -44,6 +44,15 @@ serves each skill's assets over a loopback HTTP server (`http://127.0.0.1`, a W3
 WebView2 / WKWebView / Android WebView, verified on hardware. On the web the skill
 runs in a sandboxed `<iframe>`.
 
+> **Web is experimental.** The columns above describe where each skill *type*
+> can execute once invoked. The agent loop itself depends on the model emitting
+> tool calls, and the current browser LLM runtimes do not do this reliably yet:
+> the LiteRT-LM web runtime (`@litert-lm/core`) doesn't consistently emit the
+> tool-call tokens, and the MediaPipe web runtime returns plain text with no
+> tool-call parsing. So on the web the model often replies in prose instead of
+> invoking a skill. The agent is verified end-to-end on **Android, iOS, macOS,
+> and Windows** — use those for real agent runs; treat web as a preview.
+
 ## Quick start
 
 ```dart

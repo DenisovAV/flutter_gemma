@@ -218,6 +218,22 @@ class AgentLoop {
     final skillName = _stringArg(call.args, 'skillName').trim();
     final skill = skillName.isEmpty ? null : registry.get(skillName);
 
+    // `run_js` (runSkill) targets a specific skill, so it MUST carry skillName.
+    // The web decoder sometimes loads a skill then calls run_js without it; we
+    // must NOT guess (synthesizing a skill named after the tool asked for
+    // `assets/skills/runSkill/...` → 404). Feed back a hint so the model
+    // re-issues the call with skillName — the same error-feedback strategy as
+    // the direct-skill-call guard. Intent/MCP calls legitimately omit skillName.
+    if (call.name == AgentToolNames.runSkill && skill == null) {
+      final message = skillName.isEmpty
+          ? 'run_js requires a "skillName" argument naming the skill to run '
+                '(the one you just loaded). Call it again with skillName set.'
+          : 'Skill "$skillName" not found. Pass a valid skillName to run_js.';
+      yield AgentErrorEvent(message, toolName: call.name);
+      await _feedBack(chat, call.name, {'error': message, 'status': 'failed'});
+      return;
+    }
+
     // Expose an unmodifiable view so a UI consumer can't mutate the loop's own
     // parsed call args through the event.
     yield ToolCallEvent(

@@ -459,6 +459,51 @@ void main() {
     });
   });
 
+  group('AgentLoop — run_js without skillName is guided, not guessed', () {
+    // The web decoder loads a skill (loadSkill "calculate-hash") then calls
+    // run_js WITHOUT repeating skillName in the args. We must NOT guess/execute
+    // a synthetic skill named after the tool ("runSkill" → 404). Instead, feed
+    // back a clear error naming skillName so the model self-corrects — the same
+    // error-feedback strategy as the direct-skill-call guard.
+    test(
+      'run_js with no skillName feeds back a skillName hint and does not execute',
+      () async {
+        final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+        final executor = _FakeExecutor(
+          SkillType.js,
+          result: const TextResult('hash=abc123'),
+        );
+        final chat = _FakeAgentChat([
+          _loadSkill('calculate-hash'),
+          // run_js with NO skillName / toolName arg — just the data.
+          const FunctionCallResponse(
+            name: 'run_js',
+            args: {'scriptName': 'index.html', 'data': '{"text":"hi"}'},
+          ),
+          const TextResponse('sorry, I need the skill name'),
+        ]);
+
+        final loop = AgentLoop(registry: registry, executors: [executor]);
+        final events = await loop.run(chat, 'hash of hi').toList();
+
+        // The executor must NOT run — we didn't guess a skill.
+        expect(executor.calls, isEmpty);
+        // A real error event hinting skillName.
+        final error = events.whereType<AgentErrorEvent>().single;
+        expect(error.message, contains('skillName'));
+        // Two tool responses fed back: loadSkill (instructions) + the run call
+        // (error). The alias already normalized run_js -> runSkill in dispatch.
+        final fed = chat.toolResponses.last;
+        expect(fed.toolName, 'runSkill');
+        expect(fed.text, contains('failed'));
+        expect(fed.text, contains('skillName'));
+        // Must NOT have tried a synthetic `runSkill` asset path.
+        expect(fed.text, isNot(contains('runSkill')));
+        expect(events.last, isA<DoneEvent>());
+      },
+    );
+  });
+
   group('AgentLoop — secrets', () {
     test(
       'require-secret skill gets its secret injected, never in the prompt',

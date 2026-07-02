@@ -379,6 +379,86 @@ void main() {
     );
   });
 
+  group('AgentLoop — SKILL.md tool-name aliases (web)', () {
+    // The bundled SKILL.md files (verbatim from Gallery) tell the model to
+    // "Call the `run_js` / `run_intent` tool", but the tool DECLARATIONS are
+    // named runSkill / runIntent / runMcp. Native decoders take the name from
+    // the structured declaration (runSkill — works); the web decoder follows
+    // the SKILL.md text literally and calls `run_js`, which the switch didn't
+    // know → "unknown tool run_js". Accept the SKILL.md spelling as an alias.
+    test('run_js is dispatched to the JS executor (like runSkill)', () async {
+      final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+      final executor = _FakeExecutor(
+        SkillType.js,
+        result: const TextResult('hash=abc123'),
+      );
+      final chat = _FakeAgentChat([
+        _loadSkill('calculate-hash'),
+        // The model uses the SKILL.md spelling `run_js`, not `runSkill`.
+        const FunctionCallResponse(
+          name: 'run_js',
+          args: {
+            'skillName': 'calculate-hash',
+            'scriptName': 'index.html',
+            'data': '{"text":"hi"}',
+          },
+        ),
+        const TextResponse('The hash is abc123.'),
+      ]);
+
+      final loop = AgentLoop(registry: registry, executors: [executor]);
+      final events = await loop.run(chat, 'hash of hi').toList();
+
+      // It must run the JS executor, NOT fall through to "unknown tool".
+      expect(executor.calls, hasLength(1));
+      expect(executor.calls.single.dataJson, '{"text":"hi"}');
+      expect(events.whereType<ToolResultEvent>(), isNotEmpty);
+      expect(
+        events.whereType<AgentErrorEvent>().where(
+          (e) => e.message.contains('Unknown tool'),
+        ),
+        isEmpty,
+      );
+      expect(events.whereType<DoneEvent>().single.text, contains('abc123'));
+    });
+
+    test('run_intent is dispatched to the intent executor', () async {
+      final registry = SkillRegistry()
+        ..add(
+          Skill(
+            name: 'open-map',
+            description: 'Open a map.',
+            instructions: 'Call the `run_intent` tool.',
+            type: SkillType.intent,
+          ),
+          selected: true,
+        );
+      final executor = _FakeExecutor(
+        SkillType.intent,
+        result: const TextResult('opened'),
+      );
+      final chat = _FakeAgentChat([
+        _loadSkill('open-map'),
+        const FunctionCallResponse(
+          name: 'run_intent',
+          args: {'skillName': 'open-map', 'parameters': '{}'},
+        ),
+        const TextResponse('done'),
+      ]);
+
+      final loop = AgentLoop(registry: registry, executors: [executor]);
+      final events = await loop.run(chat, 'open map').toList();
+
+      expect(executor.calls, hasLength(1));
+      expect(
+        events.whereType<AgentErrorEvent>().where(
+          (e) => e.message.contains('Unknown tool'),
+        ),
+        isEmpty,
+      );
+    });
+  });
+
   group('AgentLoop — secrets', () {
     test(
       'require-secret skill gets its secret injected, never in the prompt',

@@ -122,10 +122,30 @@ class AgentLoop {
 
   /// Execute one [call] and feed its result back to [chat], emitting the
   /// matching progress events.
+  /// The bundled SKILL.md files (verbatim from Gallery) instruct the model to
+  /// "Call the `run_js` / `run_intent` tool", while the tool DECLARATIONS are
+  /// named [AgentToolNames.runSkill] / `runIntent` / `runMcp`. Native decoders
+  /// take the name from the structured declaration; the web decoder follows the
+  /// SKILL.md text literally and calls `run_js`. Accept the SKILL.md spelling as
+  /// an alias so both paths dispatch to the same executor.
+  static const _toolNameAliases = <String, String>{
+    'run_js': AgentToolNames.runSkill,
+    'run_intent': AgentToolNames.runIntent,
+    'run_mcp': AgentToolNames.runMcp,
+    'load_skill': AgentToolNames.loadSkill,
+  };
+
   Stream<AgentEvent> _dispatch(
     InferenceChat chat,
-    FunctionCallResponse call,
+    FunctionCallResponse originalCall,
   ) async* {
+    // Normalize a SKILL.md tool-name spelling to the canonical declared name
+    // (e.g. `run_js` -> `runSkill`). A native call already uses the canonical
+    // name, so the alias map leaves it untouched.
+    final canonical = _toolNameAliases[originalCall.name];
+    final call = canonical == null
+        ? originalCall
+        : FunctionCallResponse(name: canonical, args: originalCall.args);
     switch (call.name) {
       case AgentToolNames.loadSkill:
         yield* _loadSkill(chat, call);

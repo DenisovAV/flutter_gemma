@@ -12,16 +12,25 @@ import 'package:flutter_gemma_example/services/model_download_service.dart';
 import 'package:flutter_gemma_example/services/embedding_download_service.dart';
 import 'package:flutter_gemma_example/translate_screen.dart';
 import 'package:flutter_gemma_example/utils/gated_model_access_dialog.dart';
+import 'package:flutter_gemma_example/utils/storage_quota_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class UniversalDownloadScreen extends StatefulWidget {
   final BaseModel model;
   final PreferredBackend? selectedBackend;
 
+  /// Called when the model is ready (already installed, or just downloaded) and
+  /// the user taps Continue. When provided, it REPLACES the built-in navigation
+  /// to ChatScreen / EmbeddingTestScreen / TranslateScreen — the caller decides
+  /// what to show next (e.g. the agent demo builds its session in place). The
+  /// `context` is this screen's, so the callback can pushReplacement onto it.
+  final void Function(BuildContext context)? onReady;
+
   const UniversalDownloadScreen({
     super.key,
     required this.model,
     this.selectedBackend,
+    this.onReady,
   });
 
   @override
@@ -196,6 +205,8 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
         licenseUrl: widget.model.licenseUrl,
         error: error,
       );
+    } else if (isStorageQuotaError(error)) {
+      await showStorageFullDialog(context);
     } else {
       _showErrorDialog(error.toString());
     }
@@ -497,6 +508,11 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   void _proceedToNextScreen() async {
+    // A caller-supplied onReady replaces the built-in per-kind navigation.
+    if (widget.onReady != null) {
+      widget.onReady!(context);
+      return;
+    }
     switch (widget.model.kind) {
       case ModelKind.embedding:
         Navigator.push(

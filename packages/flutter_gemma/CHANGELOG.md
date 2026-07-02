@@ -1,5 +1,8 @@
-## 1.1.3
-- Declare `libOpenCL.so` (+ `-car`/`-pixel` ICDs) in the plugin manifest — completes the #324 Mali GPU fix (1.1.1 only opened the SP-HAL door).
+## 1.2.0
+- Add `skillExecutors:` to `FlutterGemma.initialize` + the `SkillExecutorProvider`/`SkillExecutorRegistry` seam for the new opt-in `flutter_gemma_agent` package.
+- Declare `libOpenCL.so` (+ `-car`/`-pixel` ICDs) in the plugin manifest — completes the #324 Mali GPU fix (#349; 1.1.1 only opened the SP-HAL door).
+- Fix web "No active inference model set" right after install — await the model manager's rehydrate before reading the active model.
+- Fix web Gemma 4 tool-calling — parse the raw `<|tool_call>` tokens the browser runtime leaves unconverted, and guard a crash when the SDK returns `content` as a String.
 
 ## 1.1.2
 - Migrate Android module to Built-in Kotlin — apply KGP only on AGP < 9, ready for AGP 9+ (#323).

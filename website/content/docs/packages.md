@@ -9,7 +9,7 @@ As of **1.0**, the monolithic `flutter_gemma` plugin is split into a small
 ships only the native weight it actually uses. All packages live in one monorepo
 (a Dart pub workspace) and the opt-in packages depend on core one-directionally.
 
-## The six packages
+## The packages
 
 | Package | What it does | Platforms |
 |---|---|---|
@@ -19,6 +19,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma_embeddings`** | Text embeddings (EmbeddingGemma / Gecko) via LiteRT C API. | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, native Rust FFI). Fastest on native. | Native (no Web) |
 | **`flutter_gemma_rag_sqlite`** | On-device RAG vector store — in-SQLite KNN via the `sqlite-vec` (`vec0`) extension. Exact + portable. | All (incl. Web) |
+| **`flutter_gemma_agent`** | On-device [agent skills](/docs/agent) — SKILL.md catalog + tool-calling loop (text / JS / native-intent / MCP). | All (JS: no Linux) |
 
 ## How it works
 
@@ -44,6 +45,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | Generate text embeddings | `flutter_gemma_embeddings` |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
+| On-device agent skills the model runs itself (text / JS / native-intent / MCP) | `flutter_gemma_agent` |
 
 <Info>
 Desktop is served exclusively by `flutter_gemma_litertlm` and uses LiteRT-LM

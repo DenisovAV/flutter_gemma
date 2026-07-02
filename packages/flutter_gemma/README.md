@@ -55,6 +55,7 @@ There is an example of using:
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/flutter_gemma/assets/architecture_1.0.png" alt="flutter_gemma 1.0 modular architecture: a small core plus opt-in Inference / Embeddings / RAG families, each extensible with your own module">
 </p>
 
+- 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
 - 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
 - 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
 - ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.

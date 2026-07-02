@@ -13,6 +13,7 @@ workspace:
   - packages/flutter_gemma_litertlm
   - packages/flutter_gemma_embeddings
   - packages/flutter_gemma_mediapipe
+  - packages/flutter_gemma_agent
   - packages/genkit_flutter_gemma
   - packages/genkit_hybrid
 

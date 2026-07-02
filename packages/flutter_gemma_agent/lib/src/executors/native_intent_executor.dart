@@ -373,11 +373,16 @@ class NativeIntentExecutor extends SkillExecutor {
         .join('&');
   }
 
-  /// `yyyyMMddTHHmmss` (local) for a Google Calendar template URL.
+  /// `yyyyMMddTHHmmssZ` (UTC) for a Google Calendar template URL. The template's
+  /// `dates=` param treats a bare `yyyyMMddTHHmmss` (no `Z`) as UTC, so emitting
+  /// local wall-clock components there shifts the event by the local offset
+  /// (a UTC+3 user's 09:00 becomes 12:00). Convert to UTC and append `Z` so
+  /// Google renders the correct local time.
   static String _googleCalendarStamp(DateTime d) {
+    final u = d.toUtc();
     String p(int v) => v.toString().padLeft(2, '0');
-    return '${d.year}${p(d.month)}${p(d.day)}T'
-        '${p(d.hour)}${p(d.minute)}${p(d.second)}';
+    return '${u.year}${p(u.month)}${p(u.day)}T'
+        '${p(u.hour)}${p(u.minute)}${p(u.second)}Z';
   }
 
   /// The next [DateTime] matching the given time-of-day. If an explicit date

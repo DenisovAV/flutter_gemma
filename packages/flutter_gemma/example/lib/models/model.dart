@@ -153,6 +153,7 @@ enum Model implements InferenceModelInterface {
     maxNumImages: 4,
     isThinking: true,
     supportsFunctionCalls: true,
+    agentic: true, // MediaPipe web decoder — try for tool-calling vs litertlm
   ),
   gemma4_E4B_web(
     baseUrl:
@@ -176,6 +177,7 @@ enum Model implements InferenceModelInterface {
     maxNumImages: 4,
     isThinking: true,
     supportsFunctionCalls: true,
+    agentic: true, // MediaPipe web decoder — try for tool-calling vs litertlm
   ),
 
   // Gemma 3 Nano models (Multimodal + Function Calls).

@@ -16,6 +16,114 @@ bool get _isDesktop {
 enum Model implements InferenceModelInterface {
   // === GEMMA MODELS (Top Priority) ===
 
+  // Gemma 4 (Next-gen multimodal: text + image + audio) — LiteRT-LM builds are
+  // the primary entries (litertlm everywhere incl. web -web.litertlm). The
+  // web-only MediaPipe (.task) twins live further down as *_web.
+
+  // Gemma 4 E2B LiteRT-LM. On web, uses the `-web.litertlm` build optimised for
+  // WebGPU/WASM via @litert-lm/core (0.16.2+). Text-only on web; full
+  // multimodal on native.
+  gemma4_E2B_litertlm(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+    filename: 'gemma-4-E2B-it.litertlm',
+    displayName: 'Gemma 4 E2B IT',
+    size: '2.4GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: true,
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+    supportsFunctionCalls: true,
+    agentic: true,
+  ),
+
+  // Gemma 4 E4B LiteRT-LM.
+  gemma4_E4B_litertlm(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
+    webUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
+    filename: 'gemma-4-E4B-it.litertlm',
+    displayName: 'Gemma 4 E4B IT',
+    size: '4.3GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    supportImage: true,
+    supportAudio: true,
+    maxTokens: 4096,
+    maxNumImages: 4,
+    isThinking: true,
+    supportsFunctionCalls: true,
+    agentic: true,
+  ),
+
+  // Gemma 4 E2B compiled for Intel NPU (Windows only, PreferredBackend.npu).
+  // Chip-specific builds — pick the one matching the silicon:
+  //   _LNL = Lunar Lake, _PTL = Panther Lake.
+  // The plugin auto-configures the NPU dispatch dir on Windows; the bundled
+  // LiteRtDispatch.dll + OpenVino + TBB ship in the same native tarball.
+  // Source: https://ai.google.dev/edge/litert/next/litert_lm_npu#intel
+  gemma4_E2B_intel_LNL(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
+    filename: 'gemma-4-E2B-it_intel_LNL.litertlm',
+    displayName: 'Gemma 4 E2B IT (Intel NPU - Lunar Lake)',
+    size: '2.96GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.npu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
+  gemma4_E2B_intel_PTL(
+    baseUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
+    filename: 'gemma-4-E2B-it_intel_PTL.litertlm',
+    displayName: 'Gemma 4 E2B IT (Intel NPU - Panther Lake)',
+    size: '2.95GB',
+    licenseUrl: '',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.npu,
+    modelType: ModelType.gemma4,
+    fileType: ModelFileType.litertlm,
+    temperature: 1.0,
+    topK: 64,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
   // Gemma 3 Nano models (Multimodal + Function Calls).
   // These are the MOBILE MediaPipe (.task) builds — HuggingFace only ships a
   // mobile .task for Gemma 3n (no -web.task; web/desktop are .litertlm only).
@@ -111,110 +219,6 @@ enum Model implements InferenceModelInterface {
   ),
 
   // === LiteRT-LM ENGINE MODELS (for testing parity with MediaPipe) ===
-
-  // Gemma 4 E2B LiteRT-LM (same model as gemma4_E2B, different engine).
-  // On web, uses the `-web.litertlm` build optimised for WebGPU/WASM via
-  // @litert-lm/core (0.16.2+). Text-only on web; full multimodal on native.
-  gemma4_E2B_litertlm(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
-    webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
-    filename: 'gemma-4-E2B-it.litertlm',
-    displayName: 'Gemma 4 E2B IT',
-    size: '2.4GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    supportImage: true,
-    supportAudio: true,
-    maxTokens: 4096,
-    maxNumImages: 4,
-    isThinking: true,
-    supportsFunctionCalls: true,
-    agentic: true,
-  ),
-
-  // Gemma 4 E2B compiled for Intel NPU (Windows only, PreferredBackend.npu).
-  // Chip-specific builds — pick the one matching the silicon:
-  //   _LNL = Lunar Lake, _PTL = Panther Lake.
-  // The plugin auto-configures the NPU dispatch dir on Windows; the bundled
-  // LiteRtDispatch.dll + OpenVino + TBB ship in the same native tarball.
-  // Source: https://ai.google.dev/edge/litert/next/litert_lm_npu#intel
-  gemma4_E2B_intel_LNL(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_LNL.litertlm',
-    filename: 'gemma-4-E2B-it_intel_LNL.litertlm',
-    displayName: 'Gemma 4 E2B IT (Intel NPU - Lunar Lake)',
-    size: '2.96GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.npu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    maxTokens: 4096,
-    isThinking: true,
-  ),
-
-  gemma4_E2B_intel_PTL(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it_intel_PTL.litertlm',
-    filename: 'gemma-4-E2B-it_intel_PTL.litertlm',
-    displayName: 'Gemma 4 E2B IT (Intel NPU - Panther Lake)',
-    size: '2.95GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.npu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    maxTokens: 4096,
-    isThinking: true,
-  ),
-
-  // Gemma 4 E4B LiteRT-LM (same model as gemma4_E4B, different engine)
-  gemma4_E4B_litertlm(
-    baseUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
-    webUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.litertlm',
-    desktopUrl:
-        'https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm',
-    filename: 'gemma-4-E4B-it.litertlm',
-    displayName: 'Gemma 4 E4B IT',
-    size: '4.3GB',
-    licenseUrl: '',
-    needsAuth: false,
-    preferredBackend: PreferredBackend.gpu,
-    modelType: ModelType.gemma4,
-    fileType: ModelFileType.litertlm,
-    temperature: 1.0,
-    topK: 64,
-    topP: 0.95,
-    supportImage: true,
-    supportAudio: true,
-    maxTokens: 4096,
-    maxNumImages: 4,
-    isThinking: true,
-    supportsFunctionCalls: true,
-    agentic: true,
-  ),
 
   // Gemma 3 Nano E2B LiteRT-LM (same model, different engine).
   // Web uses the `-Web.litertlm` build that `gemma3n_2B` already pointed at

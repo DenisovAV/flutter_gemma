@@ -127,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _NavigationCard(
               title: 'Agent Skills',
               subtitle: kIsWeb
-                  ? 'On-device agent (mobile/desktop — web is experimental)'
+                  ? 'On-device agent (Android / iOS / desktop — not on web yet)'
                   : 'On-device agent with bundled SKILL.md skills',
               icon: Icons.auto_awesome,
               color: Colors.purple,

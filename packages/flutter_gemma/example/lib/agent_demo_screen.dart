@@ -218,33 +218,33 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
+                color: Colors.redAccent.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: Colors.redAccent.withValues(alpha: 0.4),
+                ),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.warning_amber, color: Colors.orange, size: 20),
+                  Icon(Icons.block, color: Colors.redAccent, size: 20),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'On web the agent is experimental: the browser LLM runtime '
-                      'does not reliably emit tool calls yet, so skills may not '
-                      'run. Use Android, iOS, or desktop for the full agent.',
-                      style: TextStyle(
-                        color: Colors.orangeAccent,
-                        fontSize: 12,
-                      ),
+                      'The agent is not supported on web yet. The browser LLM '
+                      'runtime does not reliably emit tool calls, so skills '
+                      'don\'t run end-to-end. Use Android, iOS, macOS, or '
+                      'Windows for the agent.',
+                      style: TextStyle(color: Colors.redAccent, fontSize: 12),
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 8),
           ],
           const SizedBox(height: 24),
-          // Model picker — only the curated agentic models (multi-step tool
-          // calling). E2B is the small default; E4B is more reliable but larger.
-          if (_agentModels.length > 1) ...[
+          // Model picker + Start button — hidden on web (agent unsupported).
+          if (!kIsWeb && _agentModels.length > 1) ...[
             const Padding(
               padding: EdgeInsets.only(left: 4, bottom: 6),
               child: Text(
@@ -279,16 +279,17 @@ class _AgentDemoScreenState extends State<AgentDemoScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          ElevatedButton.icon(
-            onPressed: _openDownloadScreen,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('Start agent'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purpleAccent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+          if (!kIsWeb)
+            ElevatedButton.icon(
+              onPressed: _openDownloadScreen,
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Start agent'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purpleAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
             ),
-          ),
         ],
       ),
     );

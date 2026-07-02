@@ -34,14 +34,13 @@ package serves each skill's assets over a loopback HTTP server
 works identically across all native engines (WebView2 / WKWebView / Android
 WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
-> **Web is experimental.** The table shows where each skill *type* runs once
-> invoked. The agent loop needs the model to emit tool calls, and today's
-> browser LLM runtimes don't do this reliably — the LiteRT-LM web runtime
-> (`@litert-lm/core`) doesn't consistently emit tool-call tokens, and the
-> MediaPipe web runtime returns plain text with no tool-call parsing. So on web
-> the model often replies in prose instead of invoking a skill. The agent is
-> verified end-to-end on **Android, iOS, macOS, and Windows** — use those for
-> real runs; treat web as a preview.
+> **Web is not supported yet.** The table shows where each skill *type* runs
+> once invoked, but the agent loop needs the model to reliably emit well-formed
+> tool calls, and today's browser LLM runtimes don't — the LiteRT-LM web runtime
+> (`@litert-lm/core`) doesn't consistently emit the tool-call tokens, and the
+> small models miss required arguments or produce malformed JSON, so skills
+> don't run end-to-end. The agent is verified on **Android, iOS, macOS, and
+> Windows** — use those.
 
 ## What's in the box
 

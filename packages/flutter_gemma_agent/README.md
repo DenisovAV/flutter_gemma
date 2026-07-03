@@ -16,16 +16,18 @@ unmodified, and their JavaScript skills run as-is (the
 
 | Skill type | Android | iOS | macOS | Windows | Web | Linux |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| **text-only** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **MCP** (Streamable HTTP) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **native-intent** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **JS** (webview) | ✅ | ✅ | ✅ | ✅¹ | ✅ | ❌² |
+| **text-only** | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **MCP** (Streamable HTTP) | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **native-intent** | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **JS** (webview) | ✅ | ✅ | ✅ | ✅¹ | ❌³ | ❌² |
 
 ¹ Windows JS skills need the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 (pre-installed on Windows 11; on Windows 10 ship the bootstrapper). See
 [Setup](#setup).
 ² Linux has no embeddable webview, so JS skills return an `ErrorResult`
 (`isAvailable` is false). text / native-intent / MCP skills work on Linux.
+³ The agent is not supported on Web yet — the browser LLM runtimes don't
+reliably emit tool calls, so the agent loop is disabled there (see the note below).
 
 JS skills run in a headless, sandboxed webview. To grant a secure context (so
 skills using `crypto.subtle` and other secure-context Web APIs work), the
@@ -66,7 +68,8 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
 ## Bundled starter skills
 
-Seven starter skills ship as package assets and cover all four mechanisms:
+Eight starter skills ship as package assets, spanning the JS, native-intent, and
+text-only mechanisms (write your own `SKILL.md` for MCP):
 
 | Skill | Type | What it does |
 |---|---|---|
@@ -76,6 +79,7 @@ Seven starter skills ship as package assets and cover all four mechanisms:
 | `interactive-map` | JS (webview) | Show a location on an embedded map |
 | `send-email` | intent | Open the OS mail composer |
 | `create-calendar-event` | intent | Open the calendar event editor |
+| `get-current-time` | intent | Report the current local date and time |
 | `kitchen-adventure` | text-only | A text-adventure dungeon-master persona |
 
 Load them with `AssetSkillSource` and wire the JS executor to their bundled HTML:
@@ -194,8 +198,8 @@ Most skills need no platform setup. For the platform-specific bits:
 ## Third-party attribution
 
 The bundled starter skills (`calculate-hash`, `qr-code`, `query-wikipedia`,
-`interactive-map`, `send-email`, `create-calendar-event`, `kitchen-adventure`)
-and the `SKILL.md` format are derived from
+`interactive-map`, `send-email`, `create-calendar-event`, `get-current-time`,
+`kitchen-adventure`) and the `SKILL.md` format are derived from
 [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery), licensed
 under the [Apache License 2.0](https://github.com/google-ai-edge/gallery/blob/main/LICENSE).
 

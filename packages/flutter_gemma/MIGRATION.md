@@ -123,7 +123,7 @@ Native setup moved to the package that owns it:
   `<script>` for web — see the main README).
 - **The `.litertlm` native library + the `@litert-lm/core` web CDN** are in
   `flutter_gemma_litertlm`.
-- **wa-sqlite web loader** is in `flutter_gemma_rag_sqlite`.
+- **The custom `sqlite3.wasm` (with `sqlite-vec`/`vec0` linked in)** ships as a web asset in `flutter_gemma_rag_sqlite`.
 
 The iOS/Android entitlements and manifest entries from the main README still
 apply when you ship an inference engine. See the

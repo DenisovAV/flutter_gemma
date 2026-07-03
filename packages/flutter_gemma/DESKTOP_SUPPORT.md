@@ -28,7 +28,8 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 │   ┌──────────────────────────────────────────────┐ │
 │   │  FlutterGemmaDesktop (lib/desktop/)           │ │
 │   │           ↓                                    │ │
-│   │  LiteRtLmFfiClient (lib/core/ffi/)            │ │
+│   │  LiteRtLmFfiClient                            │ │
+│   │  (flutter_gemma_litertlm/lib/src/ffi/)        │ │
 │   │           ↓ dart:ffi                           │ │
 │   │  ───────────────────────────────────           │ │
 │   │  libLiteRtLm.{dylib,dll,so}                    │ │
@@ -41,7 +42,7 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 ```
 
 **Native libraries** are fetched at build time by `hook/build.dart` from the
-GitHub release `native-v0.10.2-b`, SHA256-verified, and bundled by Flutter
+GitHub release `native-v0.13.1-a`, SHA256-verified, and bundled by Flutter
 [Native Assets](https://docs.flutter.dev/development/platform-integration/c-interop)
 into the application bundle. End-users only need to add a small
 `post_install` snippet to their **macOS** `Podfile` so the bundled
@@ -79,8 +80,8 @@ For mobile platforms see the main [README](README.md).
 
 ## Requirements
 
-- **Flutter** ≥ 3.24.0
-- **Dart SDK** ≥ 3.6.0
+- **Flutter** ≥ 3.44.0
+- **Dart SDK** ≥ 3.12.0
 - **macOS**: 10.14+, Apple Silicon (arm64)
 - **Windows**: 10/11 64-bit, [Microsoft Visual C++ Redistributable 2019+](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 - **Linux**: glibc ≥ 2.34, libstdc++ ≥ 6.0.30 (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 9+)
@@ -95,19 +96,21 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^0.14.0
+  flutter_gemma: ^1.2.0            # core
+  flutter_gemma_litertlm: ^1.0.2   # .litertlm engine — required on desktop
 ```
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/core/model.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 Future<void> chat() async {
-  await FlutterGemma.initialize();
+  // Register the LiteRT-LM engine (desktop is .litertlm only).
+  FlutterGemma.initialize(inferenceEngines: const [LiteRtLmEngine()]);
 
   // Install model (downloads on first run, cached after).
   await FlutterGemma.installModel(
-    modelType: ModelType.gemmaIt,
+    modelType: ModelType.gemma4,
     fileType: ModelFileType.litertlm,
   ).fromNetwork(
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
@@ -494,5 +497,5 @@ all platform-agnostic. See `lib/flutter_gemma_interface.dart` and the
 [example app](example/) for usage patterns.
 
 For native debugging on iOS / Linux, see comments in
-`lib/core/ffi/litert_lm_client.dart` (search for `stream_proxy_redirect_stderr`
+`flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` (search for `stream_proxy_redirect_stderr`
 and `_dumpNativeLog`).

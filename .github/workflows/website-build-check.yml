@@ -1,0 +1,41 @@
+# Build the fluttergemma.dev website on every PR that touches it — no deploy.
+# Catches SSG / web-build breakage (e.g. a non-Dart code fence that crashes the
+# Jaspr highlighter, or a dart2js API drift in the /try example) BEFORE merge,
+# instead of only discovering it when the merge deploy fails and the live site
+# is left on the previous build.
+name: Website build check (PR)
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'packages/flutter_gemma/example/**'
+      - '.github/workflows/website-build-check.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter (bundles Dart)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+
+      - name: Install Jaspr CLI
+        run: dart pub global activate jaspr_cli
+
+      - name: Build Jaspr site (SSG)
+        working-directory: website
+        run: |
+          export PATH="$HOME/.pub-cache/bin:$PATH"
+          dart pub get
+          jaspr build --sitemap-domain "https://fluttergemma.dev"
+
+      - name: Build Flutter web example (live demo at /try)
+        working-directory: packages/flutter_gemma/example
+        run: |
+          flutter pub get
+          flutter build web --release --base-href /try/

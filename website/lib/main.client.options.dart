@@ -8,8 +8,6 @@ import 'package:jaspr/client.dart';
 
 import 'package:fluttergemma_website/components/clicker.dart'
     deferred as _clicker;
-import 'package:fluttergemma_website/landing/sections/nav_bar.dart'
-    deferred as _nav_bar;
 import 'package:jaspr_content/components/_internal/code_block_copy_button.dart'
     deferred as _code_block_copy_button;
 import 'package:jaspr_content/components/_internal/zoomable_image.dart'
@@ -42,10 +40,6 @@ ClientOptions get defaultClientOptions => ClientOptions(
     'clicker': ClientLoader(
       (p) => _clicker.Clicker(),
       loader: _clicker.loadLibrary,
-    ),
-    'nav_bar': ClientLoader(
-      (p) => _nav_bar.NavBar(),
-      loader: _nav_bar.loadLibrary,
     ),
     'jaspr_content:code_block_copy_button': ClientLoader(
       (p) => _code_block_copy_button.CodeBlockCopyButton(),

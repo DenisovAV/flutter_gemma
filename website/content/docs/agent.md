@@ -27,15 +27,17 @@ execution mechanisms:
 
 | Skill type | What it does | Android | iOS | macOS | Windows | Web | Linux |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|
-| **text-only** | A persona / instruction the model follows directly | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **MCP** | Calls remote MCP tools over Streamable HTTP | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **native-intent** | Opens an OS surface (mail, SMS, calendar, notification) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **JS** | Runs the skill's JavaScript in a sandboxed headless webview | ✅ | ✅ | ✅ | ✅¹ | ✅ | ❌² |
+| **text-only** | A persona / instruction the model follows directly | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **MCP** | Calls remote MCP tools over Streamable HTTP | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **native-intent** | Opens an OS surface (mail, SMS, calendar, notification) | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **JS** | Runs the skill's JavaScript in a sandboxed headless webview | ✅ | ✅ | ✅ | ✅¹ | ❌³ | ❌² |
 
 ¹ Windows JS skills need the
 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 (pre-installed on Windows 11). ² Linux has no embeddable webview, so JS skills
 return an `ErrorResult`; text / native-intent / MCP skills work on Linux.
+³ The agent is not supported on Web yet — the browser LLM runtimes don't reliably
+emit tool calls, so the agent loop is disabled there (see the note below).
 
 JS skills run in a headless, sandboxed webview. To grant a secure context (so
 skills using `crypto.subtle` and other secure-context Web APIs work), the package
@@ -96,7 +98,8 @@ The package also ships an adaptive UI: `AgentChatView`, `SkillManagerView`,
 
 ## Bundled starter skills
 
-Seven starter skills ship as package assets and cover all four mechanisms:
+Eight starter skills ship as package assets, spanning the JS, native-intent, and
+text-only mechanisms (write your own `SKILL.md` for MCP):
 
 | Skill | Type | What it does |
 |---|---|---|
@@ -106,6 +109,7 @@ Seven starter skills ship as package assets and cover all four mechanisms:
 | `interactive-map` | JS (webview) | Show a location on an embedded map |
 | `send-email` | intent | Open the OS mail composer |
 | `create-calendar-event` | intent | Open the calendar event editor |
+| `get-current-time` | intent | Report the current local date and time |
 | `kitchen-adventure` | text-only | A text-adventure dungeon-master persona |
 
 ## SKILL.md format

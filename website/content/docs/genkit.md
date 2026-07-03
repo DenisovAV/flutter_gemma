@@ -140,7 +140,7 @@ flutter_gemma and works with **any** pair of Genkit models.
 ```
 dependencies:
   genkit_hybrid: ^0.1.0
-  genkit: ^0.14.0
+  genkit: ^0.14.1
 ```
 
 ### Basic usage

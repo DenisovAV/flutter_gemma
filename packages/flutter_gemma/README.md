@@ -29,25 +29,29 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
+- **🧩 Modular Packages:** A small `flutter_gemma` core plus opt-in packages — add only the engine (`.litertlm` / `.task`), embeddings, RAG, or agent code your app ships. Register them via one `FlutterGemma.initialize(...)` call. See [MIGRATION.md](MIGRATION.md).
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
-- **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, and FastVLM vision models
-- **🎙️ Audio Input:** Record and send audio messages with Gemma3n E2B/E4B models (Android, iOS device, Desktop)
+- **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, and FastVLM vision models (all platforms incl. Web)
+- **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
-- **🧠 Thinking Mode:** View the reasoning process of DeepSeek and Gemma 4 models with thinking blocks
+- **🤖 On-device Agent Skills:** Opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) — give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through the function-calling loop, fully offline. Gallery-compatible. Android, iOS, macOS, Windows (Web not supported yet).
+- **🧠 Thinking Mode:** View the reasoning process of Gemma 4, DeepSeek R1, and Qwen3 models with thinking blocks
 - **🛑 Stop Generation:** Cancel text generation mid-process on Android, iOS, Web, and Desktop
-- **⚙️ Backend Switching:** Choose between CPU and GPU backends for each model individually in the example app 
-- **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI
-- **📊 Model Sorting:** Sort models alphabetically, by size, or use default order in the example app 
+- **⚡ Backend Switching:** Choose between CPU, GPU, and NPU backends per model — CPU/GPU on Android/iOS/Desktop, GPU on Web
+- **⚙️ NPU Acceleration:** Hardware NPU inference for `.litertlm` models on Qualcomm Snapdragon (Android) and Intel LunarLake/PantherLake (Windows)
+- **🔍 Advanced Model Filtering:** Filter models by features (Multimodal, Function Calls, Thinking) with expandable UI (example app)
+- **📊 Model Sorting:** Sort models alphabetically, by size, or use default order (example app)
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **📥 Enhanced Downloads:** Smart retry logic with exponential backoff for reliable model downloads
 - **🔧 Download Reliability:** Automatic restart logic for interrupted downloads (resume not supported by HuggingFace CDN)
 - **📱 Android Foreground Service:** Large downloads (>500MB) automatically use foreground service to bypass 9-minute timeout
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
-- **📊 Text Embeddings:** Generate vector embeddings from text using EmbeddingGemma and Gecko models
-- **🔎 On-device RAG:** qdrant-edge vector store on native, wa-sqlite on Web. Payload-aware `Filter` (must / should / mustNot) for semantic search.
+- **📊 Text Embeddings:** Generate 768-dim vector embeddings with EmbeddingGemma or Gecko (all native platforms + Web) via the unified LiteRT C API
+- **🔎 On-device RAG:** Two vector-store backends — `flutter_gemma_rag_qdrant` (qdrant-edge, native) and `flutter_gemma_rag_sqlite` (in-SQLite `sqlite-vec`/`vec0` KNN on all six platforms incl. Web). Payload-aware `Filter` (must / should / mustNot) for semantic search.
+- **🧩 Genkit Integration:** Use flutter_gemma through [Genkit](https://pub.dev/packages/genkit) via [`genkit_flutter_gemma`](https://pub.dev/packages/genkit_flutter_gemma), and route between on-device and cloud models with [`genkit_hybrid`](https://pub.dev/packages/genkit_hybrid).
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
-- **💾 Web Persistent Caching:** Models persist across browser restarts using Cache API (Web only)
+- **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
 ## What's new in 1.0
 
@@ -59,7 +63,7 @@ There is an example of using:
 - 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
 - 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
 - ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.
-- 🧹 **Legacy sqlite+local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); web on wa-sqlite (`flutter_gemma_rag_sqlite`).
+- 🧹 **Legacy sqlite+local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); the portable store is in-SQLite `sqlite-vec`/`vec0` on all six platforms incl. Web (`flutter_gemma_rag_sqlite`).
 - 🧩 **Genkit integration** — use flutter_gemma through [Genkit](https://pub.dev/packages/genkit) via [`genkit_flutter_gemma`](https://pub.dev/packages/genkit_flutter_gemma), and route between on-device and cloud models with [`genkit_hybrid`](https://pub.dev/packages/genkit_hybrid). See [docs](https://fluttergemma.dev/docs/genkit).
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
@@ -172,7 +176,10 @@ model formats and features you need.
       # Optional — text embeddings + on-device RAG:
       flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
       flutter_gemma_rag_qdrant: latest_version   # RAG vector store (native: qdrant-edge)
-      flutter_gemma_rag_sqlite: latest_version   # RAG vector store (web: wa-sqlite; native: sqlite3)
+      flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec/vec0; all six platforms incl. web)
+
+      # Optional — on-device agent skills:
+      flutter_gemma_agent: latest_version        # SKILL.md skills (text / JS / native-intent / MCP) via tool-calling
     ```
 
     **Pick by need:**
@@ -182,8 +189,9 @@ model formats and features you need.
     | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
     | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
     | Generate text embeddings | `flutter_gemma_embeddings` |
-    | On-device RAG on native (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
-    | On-device RAG on web | `flutter_gemma_rag_sqlite` |
+    | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
+    | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_gemma_rag_sqlite` |
+    | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_gemma_agent` |
 
     Core registers **no** engine by itself — you wire the packages you added in
     `FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).
@@ -354,8 +362,9 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
   </script>
 ```
 
-* **`flutter_gemma_rag_sqlite`** (web RAG) — add the wa-sqlite loader; see that
-  package's README for the exact `<script>` + Subresource-Integrity hash.
+* **`flutter_gemma_rag_sqlite`** (web RAG) — copy the package's custom
+  `sqlite3.wasm` (with `sqlite-vec`/`vec0` statically linked) into your app's web
+  root. No CDN `<script>` needed; see that package's README for the exact path.
 
 > **Model compatibility:** mobile `.task` models often don't work on web — use
 > the `-web.task` (MediaPipe) or `.litertlm` (LiteRT-LM) web variant. Check the
@@ -1515,7 +1524,7 @@ All embedding models generate **768-dimensional vectors**. The numbers in names 
 
 ## 🔎 On-device RAG / Vector Store
 
-Native platforms (Android, iOS, macOS, Linux, Windows) use qdrant-edge as the default vector store since 0.16. Web stays on wa-sqlite (qdrant-edge can't target WASM yet). Same Dart API on both — code is portable across platforms.
+Two vector-store packages implement the same Dart API: `flutter_gemma_rag_qdrant` (qdrant-edge, native — fastest on Android/iOS/desktop) and `flutter_gemma_rag_sqlite` (in-SQLite `sqlite-vec`/`vec0` KNN, portable across all six platforms incl. Web, since qdrant-edge can't target WASM). Code is the same on both.
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -1560,7 +1569,7 @@ for (var i = 0; i < docs.length; i++) {
   );
 }
 
-// 4. Semantic search, with optional payload-aware Filter (native only)
+// 4. Semantic search, with optional payload-aware Filter (all backends + platforms)
 final results = await FlutterGemmaPlugin.instance.searchSimilar(
   query: 'quantum entanglement',
   topK: 10,
@@ -1572,7 +1581,7 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
 );
 ```
 
-`Filter` supports `must` / `should` / `mustNot` lists of `FieldEquals`, `FieldRange`, `FieldMatchAny` conditions. On Web the `filter` argument is silently ignored — wa-sqlite has no payload-filter support.
+`Filter` supports `must` / `should` / `mustNot` lists of `FieldEquals`, `FieldRange`, `FieldMatchAny` conditions. Both backends honor it: qdrant-edge natively, and the `sqlite-vec`/`vec0` store on all platforms incl. Web (one `Filter` → vec0 declared-column `WHERE`). Filterable fields must be declared as vec0 columns.
 
 **Benchmarks** comparing qdrant-edge to the legacy sqlite + local_hnsw backend across 5 platforms (5 000 documents, EmbeddingGemma 300M, 768-dim): see [example/integration_test/benchmarks/comparison.md](example/integration_test/benchmarks/comparison.md).
 
@@ -1617,7 +1626,7 @@ Function calling is currently supported by the following models:
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
 | **LoRA Support** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | LiteRT-LM limitation |
 | **Text Embeddings** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | EmbeddingGemma, Gecko |
-| **VectorStore (RAG)** | ✅ qdrant-edge | ✅ qdrant-edge | ✅ wa-sqlite (WASM) | ✅ qdrant-edge | Semantic search + payload `Filter` (native) |
+| **VectorStore (RAG)** | ✅ qdrant-edge / vec0 | ✅ qdrant-edge / vec0 | ✅ vec0 (WASM) | ✅ qdrant-edge / vec0 | Semantic search + payload `Filter` (all platforms) |
 | **File Downloads** | ✅ Background | ✅ Background | ✅ In-memory | ✅ Background | Platform-specific |
 | **Asset Loading** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Flutter assets N/A |
 | **Bundled Resources** | ✅ Full | ✅ Full | ✅ Full | ❌ Not supported | Native bundles only |
@@ -1770,7 +1779,7 @@ The full and complete example you can find in `example` folder
 ## **🛟 Troubleshooting**
 
 **Multimodal Issues:**
-- Ensure you're using a multimodal model (Gemma3n E2B/E4B)
+- Ensure you're using a multimodal model (Gemma 4 E2B/E4B, Gemma3n E2B/E4B, or FastVLM)
 - Set `supportImage: true` when creating model and chat
 - Check device memory - multimodal models require more RAM
 

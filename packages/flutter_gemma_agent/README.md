@@ -16,16 +16,18 @@ unmodified, and their JavaScript skills run as-is (the
 
 | Skill type | Android | iOS | macOS | Windows | Web | Linux |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
-| **text-only** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **MCP** (Streamable HTTP) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **native-intent** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **JS** (webview) | ✅ | ✅ | ✅ | ✅¹ | ✅ | ❌² |
+| **text-only** | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **MCP** (Streamable HTTP) | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **native-intent** | ✅ | ✅ | ✅ | ✅ | ❌³ | ✅ |
+| **JS** (webview) | ✅ | ✅ | ✅ | ✅¹ | ❌³ | ❌² |
 
 ¹ Windows JS skills need the [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 (pre-installed on Windows 11; on Windows 10 ship the bootstrapper). See
 [Setup](#setup).
 ² Linux has no embeddable webview, so JS skills return an `ErrorResult`
 (`isAvailable` is false). text / native-intent / MCP skills work on Linux.
+³ The agent is not supported on Web yet — the browser LLM runtimes don't
+reliably emit tool calls, so the agent loop is disabled there (see the note below).
 
 JS skills run in a headless, sandboxed webview. To grant a secure context (so
 skills using `crypto.subtle` and other secure-context Web APIs work), the

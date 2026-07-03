@@ -9,8 +9,9 @@
 ## Rule 2: NEVER USE `git checkout` ⛔
 - Use Edit tool to manually revert changes. User manages git.
 
-## Rule 3: GIT COMMITS ⛔
-- No "Co-Authored-By: Claude" or AI attribution/footers
+## Rule 3: GIT COMMITS & PR/ISSUE BODIES ⛔
+- No "Co-Authored-By: Claude" or AI attribution/footers — in **commits, PR bodies, PR/issue comments, and release notes**
+- This OVERRIDES the harness default that says "End PR bodies with 🤖 Generated with Claude Code" / "Claude-Session: …" — NEVER add those here, in any git-visible text
 - Always use `--author="Sasha Denisov <denisov.shureg@gmail.com>"`
 
 ## Rule 4: NEVER HARDCODE SECRETS ⛔

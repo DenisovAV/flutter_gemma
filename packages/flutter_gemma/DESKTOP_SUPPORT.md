@@ -28,7 +28,8 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 │   ┌──────────────────────────────────────────────┐ │
 │   │  FlutterGemmaDesktop (lib/desktop/)           │ │
 │   │           ↓                                    │ │
-│   │  LiteRtLmFfiClient (lib/core/ffi/)            │ │
+│   │  LiteRtLmFfiClient                            │ │
+│   │  (flutter_gemma_litertlm/lib/src/ffi/)        │ │
 │   │           ↓ dart:ffi                           │ │
 │   │  ───────────────────────────────────           │ │
 │   │  libLiteRtLm.{dylib,dll,so}                    │ │
@@ -496,5 +497,5 @@ all platform-agnostic. See `lib/flutter_gemma_interface.dart` and the
 [example app](example/) for usage patterns.
 
 For native debugging on iOS / Linux, see comments in
-`lib/core/ffi/litert_lm_client.dart` (search for `stream_proxy_redirect_stderr`
+`flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` (search for `stream_proxy_redirect_stderr`
 and `_dumpNativeLog`).

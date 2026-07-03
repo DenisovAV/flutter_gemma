@@ -68,7 +68,8 @@ WebView), verified on hardware. On web the skill runs in a sandboxed `<iframe>`.
 
 ## Bundled starter skills
 
-Seven starter skills ship as package assets and cover all four mechanisms:
+Eight starter skills ship as package assets, spanning the JS, native-intent, and
+text-only mechanisms (write your own `SKILL.md` for MCP):
 
 | Skill | Type | What it does |
 |---|---|---|
@@ -78,6 +79,7 @@ Seven starter skills ship as package assets and cover all four mechanisms:
 | `interactive-map` | JS (webview) | Show a location on an embedded map |
 | `send-email` | intent | Open the OS mail composer |
 | `create-calendar-event` | intent | Open the calendar event editor |
+| `get-current-time` | intent | Report the current local date and time |
 | `kitchen-adventure` | text-only | A text-adventure dungeon-master persona |
 
 Load them with `AssetSkillSource` and wire the JS executor to their bundled HTML:
@@ -196,8 +198,8 @@ Most skills need no platform setup. For the platform-specific bits:
 ## Third-party attribution
 
 The bundled starter skills (`calculate-hash`, `qr-code`, `query-wikipedia`,
-`interactive-map`, `send-email`, `create-calendar-event`, `kitchen-adventure`)
-and the `SKILL.md` format are derived from
+`interactive-map`, `send-email`, `create-calendar-event`, `get-current-time`,
+`kitchen-adventure`) and the `SKILL.md` format are derived from
 [google-ai-edge/gallery](https://github.com/google-ai-edge/gallery), licensed
 under the [Apache License 2.0](https://github.com/google-ai-edge/gallery/blob/main/LICENSE).
 

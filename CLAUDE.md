@@ -58,7 +58,7 @@
 | Gemma 3 1B | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | FastVLM 0.5B | ❌ | ❌ | ✅ vision | Desktop (`.litertlm`) |
-| FunctionGemma 270M | ✅ | ❌ | ❌ | Android, iOS, Desktop |
+| FunctionGemma 270M | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | Phi-4 Mini | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | DeepSeek R1 | ✅ | ✅ | ❌ | Android, iOS |
 | Qwen3 0.6B | ✅ | ✅ ² | ❌ | Android, iOS, Web, Desktop |

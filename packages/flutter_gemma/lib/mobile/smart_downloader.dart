@@ -308,7 +308,16 @@ class SmartDownloader {
     CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
     void Function(String taskId)? onTaskCreated, // ← ADD: Callback for task ID
+    int resumeAttempt = 0,
   }) async {
+    // Mutable so the SAME listener can bump it across successive resume
+    // rounds for this task (#355): a resume keeps this listener active, and
+    // the next `TaskStatus.failed` for it must see a higher resumeAttempt so
+    // decideFailedDownloadAction() eventually falls through to retry/giveUp
+    // instead of resuming forever. A fresh retry recurses into a NEW call of
+    // this method with a fresh `resumeAttempt: 0` scope — it must NOT reuse
+    // this local.
+    var localResumeAttempt = resumeAttempt;
     // Check cancellation before starting
     try {
       cancelToken?.throwIfCancelled();
@@ -527,6 +536,7 @@ class SmartDownloader {
                   cancelToken: cancelToken,
                   onListenerCreated: onListenerCreated,
                   onTaskCreated: onTaskCreated,
+                  resumeAttempt: localResumeAttempt,
                 );
 
                 // Only cleanup if no resume is pending
@@ -535,7 +545,14 @@ class SmartDownloader {
                   await listener?.cancel();
                   completer.complete();
                 } else {
-                  gemmaLog('🔄 Resume pending - keeping listener active');
+                  // Same listener stays active — bump the counter so the
+                  // NEXT failed event for this task (if the resume itself
+                  // fails again) sees an incremented resumeAttempt (#355).
+                  localResumeAttempt++;
+                  gemmaLog(
+                    '🔄 Resume pending - keeping listener active '
+                    '(resumeAttempt now $localResumeAttempt)',
+                  );
                 }
                 break;
 
@@ -572,11 +589,14 @@ class SmartDownloader {
                   cancelToken: cancelToken,
                   onListenerCreated: onListenerCreated,
                   onTaskCreated: onTaskCreated,
+                  resumeAttempt: localResumeAttempt,
                 );
 
                 if (!resumePending404) {
                   await listener?.cancel();
                   completer.complete();
+                } else {
+                  localResumeAttempt++;
                 }
                 break;
 
@@ -697,6 +717,7 @@ class SmartDownloader {
     CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
     void Function(String taskId)? onTaskCreated,
+    required int resumeAttempt,
   }) async {
     gemmaLog('🟡 _handleFailedDownload called');
     gemmaLog('🟡 httpStatusCode: $httpStatusCode');
@@ -746,24 +767,45 @@ class SmartDownloader {
       }
     }
 
-    // First, try to resume if possible (for transient errors only)
+    // Decide resume vs retry vs give-up. Resume is CAPPED (#355): the old code
+    // resumed unconditionally whenever canResume, so a repeatedly-failing
+    // resume (HF weak-ETag) or a silently-dead task looped/hung forever.
+    bool canResume = false;
     try {
-      final canResume = await downloader.taskCanResume(task);
-      if (canResume) {
-        gemmaLog('🔄 Attempting to resume task ${task.taskId}...');
-        await downloader.resume(task);
-        gemmaLog('🔄 Resume triggered, waiting for status update...');
-        // Resume triggered - let event loop handle the result
-        // If resume succeeds → TaskStatus.complete will fire
-        // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and retry logic runs
-        return true; // ✅ Resume pending - caller should keep listener active!
-      }
+      canResume = await downloader.taskCanResume(task);
     } catch (e) {
-      gemmaLog('⚠️ Resume failed with exception: $e');
-      // Fall through to retry logic below
+      gemmaLog('⚠️ taskCanResume threw: $e — treating as not resumable');
     }
 
-    // If resume failed or not possible, try full retry (only for transient errors)
+    final action = decideFailedDownloadAction(
+      canResume: canResume,
+      resumeAttempt: resumeAttempt,
+      currentAttempt: currentAttempt,
+      maxRetries: maxRetries,
+      maxResumeAttempts: kMaxResumeAttempts,
+    );
+
+    if (action == ResumeAction.resume) {
+      gemmaLog(
+        '🔄 Resuming task ${task.taskId} '
+        '(resume attempt ${resumeAttempt + 1}/$kMaxResumeAttempts)...',
+      );
+      try {
+        await downloader.resume(task);
+        gemmaLog('🔄 Resume triggered, waiting for status update...');
+      } catch (e) {
+        gemmaLog('⚠️ resume() threw: $e — will retry on next failure event');
+      }
+      // Resume triggered - let event loop handle the result
+      // If resume succeeds → TaskStatus.complete will fire
+      // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and
+      // the SAME listener re-enters this method with resumeAttempt + 1
+      // (threaded by the caller in _downloadWithSmartRetry).
+      _armResumeWatchdog(taskId: task.taskId);
+      return true; // ✅ Resume pending - caller should keep listener active!
+    }
+    // action == retry or giveUp → fall through to the retry/give-up logic
+    // below, which is already correctly capped on currentAttempt < maxRetries.
     if (currentAttempt < maxRetries) {
       // Exponential backoff
       await Future.delayed(Duration(seconds: currentAttempt * 2));
@@ -808,6 +850,13 @@ class SmartDownloader {
       return false; // Gave up, no resume pending
     }
   }
+
+  /// Placeholder for the resume watchdog (#355 part 3): arms a timeout that
+  /// force-fails a resume that never produces a status update (a silently
+  /// dead task would otherwise hang the listener forever even though the
+  /// resume-attempt cap bounds *retries*). Intentionally a no-op for now —
+  /// fleshed out in the next task.
+  static void _armResumeWatchdog({required String taskId}) {}
 
   /// Checks if a URL is from HuggingFace CDN
   ///

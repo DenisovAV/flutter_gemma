@@ -58,4 +58,33 @@ void main() {
       );
     });
   });
+
+  group('resume-attempt sequencing', () {
+    test(
+      'three consecutive resumable failures then a retry (the #355 sequence)',
+      () {
+        // Simulate the loop's decisions with an incrementing resumeAttempt.
+        final actions = <ResumeAction>[];
+        var resumeAttempt = 0;
+        for (var i = 0; i < 4; i++) {
+          final a = decideFailedDownloadAction(
+            canResume: true,
+            resumeAttempt: resumeAttempt,
+            currentAttempt: 0,
+            maxRetries: 10,
+            maxResumeAttempts: kMaxResumeAttempts,
+          );
+          actions.add(a);
+          if (a == ResumeAction.resume) resumeAttempt++;
+        }
+        // 3 resumes (0,1,2), then the 4th (resumeAttempt==3) falls through to retry.
+        expect(actions, [
+          ResumeAction.resume,
+          ResumeAction.resume,
+          ResumeAction.resume,
+          ResumeAction.retry,
+        ]);
+      },
+    );
+  });
 }

@@ -7,6 +7,33 @@ import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
+/// Decision for a failed download: whether to resume, do a fresh retry, or give
+/// up. Extracted so the resume-attempt cap (#355) is unit-testable.
+enum ResumeAction { resume, retry, giveUp }
+
+@visibleForTesting
+const int kMaxResumeAttempts = 3;
+
+/// Pure decision for [_handleFailedDownload]. Resume is only chosen while under
+/// [maxResumeAttempts] — the old code resumed unconditionally whenever
+/// `canResume`, which let a repeatedly-failing resume loop forever (#355).
+@visibleForTesting
+ResumeAction decideFailedDownloadAction({
+  required bool canResume,
+  required int resumeAttempt,
+  required int currentAttempt,
+  required int maxRetries,
+  required int maxResumeAttempts,
+}) {
+  if (canResume && resumeAttempt < maxResumeAttempts) {
+    return ResumeAction.resume;
+  }
+  if (currentAttempt < maxRetries) {
+    return ResumeAction.retry;
+  }
+  return ResumeAction.giveUp;
+}
+
 /// Smart downloader with HTTP-aware retry logic
 ///
 /// Features:

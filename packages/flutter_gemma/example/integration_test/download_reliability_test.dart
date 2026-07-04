@@ -18,6 +18,7 @@
 //
 // See DOWNLOAD_TESTING.md for manual slow-network repro of issue #192.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -25,6 +26,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/mobile/smart_downloader.dart';
+import 'package:path_provider/path_provider.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
 // Small public model — 284 MB, no auth token required.
@@ -310,6 +313,52 @@ void main() {
       },
       skip: !Platform.isAndroid,
       timeout: const Timeout(Duration(minutes: 15)),
+    );
+  });
+
+  // ─────────────────────────────────────────────
+  // Group D: resume lifecycle terminates (#355)
+  // A real small-model download must resolve — its progress stream must
+  // CLOSE (done or error) — within a bounded time. On the pre-fix code a
+  // resume-loop could hang here forever.
+  // ─────────────────────────────────────────────
+  group('resume lifecycle terminates (#355)', () {
+    testWidgets(
+      'a real small download completes or errors, never hangs',
+      (tester) async {
+        const token = String.fromEnvironment('HUGGINGFACE_TOKEN');
+        // A small, resumable model (~135MB) so the test is fast on FTL.
+        const url =
+            'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_multi-prefill-seq_q8_ekv1280.task';
+        final dir = (await getTemporaryDirectory()).path;
+        final target = '$dir/smoke_smollm.task';
+
+        final done = Completer<String>();
+        final sub =
+            SmartDownloader.downloadWithProgress(
+              url: url,
+              targetPath: target,
+              token: token.isEmpty ? null : token,
+            ).listen(
+              (_) {},
+              onError: (e) =>
+                  done.isCompleted ? null : done.complete('error: $e'),
+              onDone: () => done.isCompleted ? null : done.complete('done'),
+            );
+
+        // Bounded wait: the stream MUST terminate (done or error). A hang = FAIL.
+        final outcome = await done.future.timeout(
+          const Duration(minutes: 8),
+          onTimeout: () => 'HUNG',
+        );
+        await sub.cancel();
+        expect(
+          outcome,
+          isNot('HUNG'),
+          reason: 'install stream must terminate, not hang (#355)',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 10)),
     );
   });
 }

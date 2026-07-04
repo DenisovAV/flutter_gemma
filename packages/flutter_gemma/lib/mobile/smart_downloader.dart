@@ -383,14 +383,14 @@ class SmartDownloader {
             if (update is TaskProgressUpdate) {
               // A live event means the task is not dead — cancel any pending
               // resume watchdog so a normally-progressing task never false-fires (#355).
-              _cancelResumeWatchdog();
+              _cancelResumeWatchdog(update.task.taskId);
               final percents = (update.progress * 100).round();
               gemmaLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
                 progress.add(percents.clamp(0, 100));
               }
             } else if (update is TaskStatusUpdate) {
-              _cancelResumeWatchdog();
+              _cancelResumeWatchdog(update.task.taskId);
               gemmaLog('📡 TaskStatusUpdate (existing): ${update.status}');
               if (update.status == TaskStatus.complete) {
                 if (!progress.isClosed) {
@@ -503,14 +503,14 @@ class SmartDownloader {
           if (update is TaskProgressUpdate) {
             // A live event means the task is not dead — cancel any pending
             // resume watchdog so a normally-progressing task never false-fires (#355).
-            _cancelResumeWatchdog();
+            _cancelResumeWatchdog(update.task.taskId);
             final percents = (update.progress * 100).round();
             gemmaLog('📊 Progress: $percents%');
             if (!progress.isClosed) {
               progress.add(percents.clamp(0, 100));
             }
           } else if (update is TaskStatusUpdate) {
-            _cancelResumeWatchdog();
+            _cancelResumeWatchdog(update.task.taskId);
             gemmaLog(
               '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
             );
@@ -885,7 +885,11 @@ class SmartDownloader {
     }
   }
 
-  static Timer? _resumeWatchdog;
+  /// Keyed by taskId (#355 follow-up): SmartDownloader supports CONCURRENT
+  /// downloads, so a single shared `Timer?` field would let one task's
+  /// arm/cancel clobber another's watchdog. Each in-flight task gets its own
+  /// entry.
+  static final Map<String, Timer> _resumeWatchdogs = {};
 
   /// Arms the resume watchdog (#355 part 3): if no progress/status update
   /// arrives for [taskId] within [kResumeWatchdog], the task is presumed
@@ -896,11 +900,12 @@ class SmartDownloader {
     required StreamController<int> progress,
     required StreamSubscription? listener,
   }) {
-    _resumeWatchdog?.cancel();
-    _resumeWatchdog = armResumeWatchdog(
+    _resumeWatchdogs.remove(taskId)?.cancel();
+    _resumeWatchdogs[taskId] = armResumeWatchdog(
       progress: progress,
       onTimeout: () {
         gemmaLog('⏱️ Resume watchdog fired for $taskId — closing as failed');
+        _resumeWatchdogs.remove(taskId);
         if (!progress.isClosed) {
           progress.addError(
             const DownloadException(
@@ -915,11 +920,12 @@ class SmartDownloader {
     );
   }
 
-  /// Cancels a pending resume watchdog — called the moment any subsequent
-  /// progress/status event arrives for the task, proving it's not dead.
-  static void _cancelResumeWatchdog() {
-    _resumeWatchdog?.cancel();
-    _resumeWatchdog = null;
+  /// Cancels a pending resume watchdog for [taskId] — called the moment any
+  /// subsequent progress/status event arrives for that task, proving it's not
+  /// dead. Only ever touches this task's own entry, so concurrent downloads
+  /// can't cancel each other's watchdog.
+  static void _cancelResumeWatchdog(String taskId) {
+    _resumeWatchdogs.remove(taskId)?.cancel();
   }
 
   /// Checks if a URL is from HuggingFace CDN

@@ -128,4 +128,94 @@ void main() {
       },
     );
   });
+
+  group('per-taskId watchdog isolation (concurrent downloads, #355 follow-up)', () {
+    // SmartDownloader keys its real watchdogs by taskId in a
+    // `Map<String, Timer>` (see `_resumeWatchdogs` in smart_downloader.dart) so
+    // that two concurrent downloads never clobber each other's timer. That map
+    // and its arm/cancel wrappers are private, so this test reconstructs the
+    // exact same arm/cancel/fire-removes-entry shape with the public
+    // `armResumeWatchdog` factory + a local map, to prove the pattern is sound
+    // for concurrent taskIds without needing a fake-downloader harness.
+    Timer arm(
+      Map<String, Timer> watchdogs,
+      String taskId,
+      StreamController<int> progress,
+      void Function() onTimeout,
+    ) {
+      watchdogs.remove(taskId)?.cancel();
+      final timer = armResumeWatchdog(
+        progress: progress,
+        onTimeout: () {
+          watchdogs.remove(taskId);
+          onTimeout();
+        },
+      );
+      watchdogs[taskId] = timer;
+      return timer;
+    }
+
+    void cancel(Map<String, Timer> watchdogs, String taskId) {
+      watchdogs.remove(taskId)?.cancel();
+    }
+
+    test('cancelling task A watchdog does not cancel task B watchdog', () {
+      fakeAsync((async) {
+        final watchdogs = <String, Timer>{};
+        var firedA = false;
+        var firedB = false;
+
+        arm(watchdogs, 'taskA', StreamController<int>(), () => firedA = true);
+        arm(watchdogs, 'taskB', StreamController<int>(), () => firedB = true);
+        expect(watchdogs.keys, containsAll(<String>['taskA', 'taskB']));
+
+        // A live progress event for task A cancels ONLY task A's watchdog.
+        cancel(watchdogs, 'taskA');
+        expect(watchdogs.containsKey('taskA'), isFalse);
+        expect(watchdogs.containsKey('taskB'), isTrue);
+
+        async.elapse(const Duration(seconds: 90));
+        // Task A was genuinely fine (cancelled) — never fires.
+        expect(firedA, isFalse);
+        // Task B was never cancelled — it was silently dead, so it fires.
+        expect(firedB, isTrue);
+      });
+    });
+
+    test('re-arming task A does not touch task B\'s timer', () {
+      fakeAsync((async) {
+        final watchdogs = <String, Timer>{};
+        var firedA = false;
+        var firedB = false;
+
+        arm(watchdogs, 'taskA', StreamController<int>(), () => firedA = true);
+        arm(watchdogs, 'taskB', StreamController<int>(), () => firedB = true);
+
+        async.elapse(const Duration(seconds: 30));
+        // Task A fails again and re-arms its OWN watchdog (fresh 90s window).
+        arm(watchdogs, 'taskA', StreamController<int>(), () => firedA = true);
+
+        async.elapse(const Duration(seconds: 60));
+        // Task B's original timer (armed at t=0) fires at t=90.
+        expect(firedB, isTrue);
+        // Task A's re-armed timer (armed at t=30) hasn't reached 90s yet.
+        expect(firedA, isFalse);
+
+        async.elapse(const Duration(seconds: 30));
+        expect(firedA, isTrue);
+      });
+    });
+
+    test('firing removes only that taskId\'s entry from the map (no leak)', () {
+      fakeAsync((async) {
+        final watchdogs = <String, Timer>{};
+        arm(watchdogs, 'taskA', StreamController<int>(), () {});
+        arm(watchdogs, 'taskB', StreamController<int>(), () {});
+
+        async.elapse(const Duration(seconds: 90));
+        // Both fired and self-removed — map must be empty, not leaking.
+        expect(watchdogs, isEmpty);
+      });
+    });
+  });
 }

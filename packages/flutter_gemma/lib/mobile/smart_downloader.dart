@@ -260,6 +260,10 @@ class SmartDownloader {
           } catch (e) {
             gemmaLog('⚠️ Failed to cancel task: $e');
           }
+          // Also clear any pending resume watchdog so a cancelled download
+          // doesn't leave a Timer holding the (now-closed) progress stream
+          // alive for up to 90s.
+          _cancelResumeWatchdog(currentTaskId!);
         }
 
         if (!progress.isClosed) {

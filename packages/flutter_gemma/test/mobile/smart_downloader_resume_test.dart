@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 
@@ -84,6 +87,44 @@ void main() {
           ResumeAction.resume,
           ResumeAction.retry,
         ]);
+      },
+    );
+  });
+
+  group('armResumeWatchdog', () {
+    test('fires onTimeout after the watchdog duration when not cancelled', () {
+      fakeAsync((async) {
+        var fired = false;
+        armResumeWatchdog(
+          progress: StreamController<int>(),
+          onTimeout: () => fired = true,
+          timeout: const Duration(seconds: 90),
+        );
+        async.elapse(const Duration(seconds: 89));
+        expect(fired, isFalse);
+        async.elapse(const Duration(seconds: 2));
+        expect(
+          fired,
+          isTrue,
+        ); // hung task → watchdog fires → stream would close
+      });
+    });
+
+    test(
+      'does not fire if cancelled before the timeout (resume succeeded)',
+      () {
+        fakeAsync((async) {
+          var fired = false;
+          final t = armResumeWatchdog(
+            progress: StreamController<int>(),
+            onTimeout: () => fired = true,
+            timeout: const Duration(seconds: 90),
+          );
+          async.elapse(const Duration(seconds: 30));
+          t.cancel(); // a progress/complete event arrived → cancel the watchdog
+          async.elapse(const Duration(seconds: 120));
+          expect(fired, isFalse);
+        });
       },
     );
   });

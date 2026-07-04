@@ -14,6 +14,24 @@ enum ResumeAction { resume, retry, giveUp }
 @visibleForTesting
 const int kMaxResumeAttempts = 3;
 
+/// Watchdog window after a resume: if no progress/terminal event arrives within
+/// this, the task is presumed silently dead (#355) and the stream is closed.
+@visibleForTesting
+const Duration kResumeWatchdog = Duration(seconds: 90);
+
+/// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
+/// The download loop cancels it when the next progress/status event arrives, and
+/// wires [onTimeout] to close [progress] with a network error + cancel the
+/// listener, so a silently-dead post-resume task can never hang forever.
+@visibleForTesting
+Timer armResumeWatchdog({
+  required StreamController<int> progress,
+  required void Function() onTimeout,
+  Duration timeout = kResumeWatchdog,
+}) {
+  return Timer(timeout, onTimeout);
+}
+
 /// Pure decision for [_handleFailedDownload]. Resume is only chosen while under
 /// [maxResumeAttempts] — the old code resumed unconditionally whenever
 /// `canResume`, which let a repeatedly-failing resume loop forever (#355).
@@ -363,12 +381,16 @@ class SmartDownloader {
             if (update.task.taskId != taskId) return;
 
             if (update is TaskProgressUpdate) {
+              // A live event means the task is not dead — cancel any pending
+              // resume watchdog so a normally-progressing task never false-fires (#355).
+              _cancelResumeWatchdog();
               final percents = (update.progress * 100).round();
               gemmaLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
                 progress.add(percents.clamp(0, 100));
               }
             } else if (update is TaskStatusUpdate) {
+              _cancelResumeWatchdog();
               gemmaLog('📡 TaskStatusUpdate (existing): ${update.status}');
               if (update.status == TaskStatus.complete) {
                 if (!progress.isClosed) {
@@ -479,12 +501,16 @@ class SmartDownloader {
           );
 
           if (update is TaskProgressUpdate) {
+            // A live event means the task is not dead — cancel any pending
+            // resume watchdog so a normally-progressing task never false-fires (#355).
+            _cancelResumeWatchdog();
             final percents = (update.progress * 100).round();
             gemmaLog('📊 Progress: $percents%');
             if (!progress.isClosed) {
               progress.add(percents.clamp(0, 100));
             }
           } else if (update is TaskStatusUpdate) {
+            _cancelResumeWatchdog();
             gemmaLog(
               '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
             );
@@ -798,7 +824,11 @@ class SmartDownloader {
         // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and
         // the SAME listener re-enters this method with resumeAttempt + 1
         // (threaded by the caller in _downloadWithSmartRetry).
-        _armResumeWatchdog(taskId: task.taskId);
+        _armResumeWatchdog(
+          taskId: task.taskId,
+          progress: progress,
+          listener: currentListener,
+        );
         return true; // ✅ Resume pending - caller should keep listener active!
       } catch (e) {
         gemmaLog('⚠️ resume() threw: $e — falling through to retry/give-up');
@@ -855,12 +885,42 @@ class SmartDownloader {
     }
   }
 
-  /// Placeholder for the resume watchdog (#355 part 3): arms a timeout that
-  /// force-fails a resume that never produces a status update (a silently
-  /// dead task would otherwise hang the listener forever even though the
-  /// resume-attempt cap bounds *retries*). Intentionally a no-op for now —
-  /// fleshed out in the next task.
-  static void _armResumeWatchdog({required String taskId}) {}
+  static Timer? _resumeWatchdog;
+
+  /// Arms the resume watchdog (#355 part 3): if no progress/status update
+  /// arrives for [taskId] within [kResumeWatchdog], the task is presumed
+  /// silently dead and [progress] is force-closed with a network error so the
+  /// caller's `await for` over the stream can never hang forever.
+  static void _armResumeWatchdog({
+    required String taskId,
+    required StreamController<int> progress,
+    required StreamSubscription? listener,
+  }) {
+    _resumeWatchdog?.cancel();
+    _resumeWatchdog = armResumeWatchdog(
+      progress: progress,
+      onTimeout: () {
+        gemmaLog('⏱️ Resume watchdog fired for $taskId — closing as failed');
+        if (!progress.isClosed) {
+          progress.addError(
+            const DownloadException(
+              DownloadError.network('Download resume timed out (no progress)'),
+            ),
+            StackTrace.current,
+          );
+          progress.close();
+        }
+        listener?.cancel();
+      },
+    );
+  }
+
+  /// Cancels a pending resume watchdog — called the moment any subsequent
+  /// progress/status event arrives for the task, proving it's not dead.
+  static void _cancelResumeWatchdog() {
+    _resumeWatchdog?.cancel();
+    _resumeWatchdog = null;
+  }
 
   /// Checks if a URL is from HuggingFace CDN
   ///

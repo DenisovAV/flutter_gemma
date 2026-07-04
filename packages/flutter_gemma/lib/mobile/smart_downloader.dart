@@ -793,16 +793,20 @@ class SmartDownloader {
       try {
         await downloader.resume(task);
         gemmaLog('🔄 Resume triggered, waiting for status update...');
+        // Resume was accepted - let event loop handle the result.
+        // If resume succeeds → TaskStatus.complete will fire.
+        // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and
+        // the SAME listener re-enters this method with resumeAttempt + 1
+        // (threaded by the caller in _downloadWithSmartRetry).
+        _armResumeWatchdog(taskId: task.taskId);
+        return true; // ✅ Resume pending - caller should keep listener active!
       } catch (e) {
-        gemmaLog('⚠️ resume() threw: $e — will retry on next failure event');
+        gemmaLog('⚠️ resume() threw: $e — falling through to retry/give-up');
+        // resume() was never accepted, so no status event will ever arrive
+        // for it — do NOT arm the watchdog or return true here, that would
+        // leave the listener waiting forever. Fall through to the bounded
+        // retry/give-up logic below instead.
       }
-      // Resume triggered - let event loop handle the result
-      // If resume succeeds → TaskStatus.complete will fire
-      // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and
-      // the SAME listener re-enters this method with resumeAttempt + 1
-      // (threaded by the caller in _downloadWithSmartRetry).
-      _armResumeWatchdog(taskId: task.taskId);
-      return true; // ✅ Resume pending - caller should keep listener active!
     }
     // action == retry or giveUp → fall through to the retry/give-up logic
     // below, which is already correctly capped on currentAttempt < maxRetries.

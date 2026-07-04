@@ -129,6 +129,138 @@ void main() {
     );
   });
 
+  group('resume-counter race window (#357 review, FIX 2)', () {
+    // Reproduces the shape of the fix in _downloadWithSmartRetry's listener:
+    // capture-and-increment `localResumeAttempt` SYNCHRONOUSLY before an
+    // await, rather than after it resolves. This proves two "concurrent"
+    // failed events (modeled here as two overlapping async decisions racing
+    // against the same counter) see DIFFERENT resumeAttempt values, whereas
+    // the old post-await-increment shape would let both read the same stale
+    // value.
+    Future<int> handleFailedDownloadStub({
+      required bool resumeWillHappen,
+      required Duration awaitDelay,
+    }) async {
+      // Simulates _handleFailedDownload's internal await (e.g. taskCanResume
+      // + downloader.resume/backoff) without depending on the real plugin.
+      await Future<void>.delayed(awaitDelay);
+      return resumeWillHappen ? 1 : 0; // arbitrary "work done" marker
+    }
+
+    test(
+      'two overlapping failed events see different resumeAttempt values',
+      () async {
+        var localResumeAttempt = 0;
+        final seenAttempts = <int>[];
+
+        Future<void> onFailedEvent(Duration awaitDelay) async {
+          // FIX 2 shape: capture + increment BEFORE the await.
+          final attemptForThisRound = localResumeAttempt;
+          localResumeAttempt++;
+          seenAttempts.add(attemptForThisRound);
+
+          final resumePending =
+              await handleFailedDownloadStub(
+                resumeWillHappen: true,
+                awaitDelay: awaitDelay,
+              ) ==
+              1;
+
+          if (!resumePending) {
+            localResumeAttempt--; // give the slot back
+          }
+        }
+
+        // Fire two "failed" events back-to-back without awaiting the first
+        // before starting the second — this is what a broadcast stream's
+        // non-serialized onData handlers can do.
+        final f1 = onFailedEvent(const Duration(milliseconds: 20));
+        final f2 = onFailedEvent(const Duration(milliseconds: 5));
+        await Future.wait([f1, f2]);
+
+        // Both events must have captured DIFFERENT resumeAttempt values
+        // (0 and 1, in dispatch order) even though f2's await resolved first.
+        expect(seenAttempts, [0, 1]);
+        expect(localResumeAttempt, 2); // both resumed → both consumed a slot
+      },
+    );
+
+    test(
+      'a non-resuming failure gives its slot back (does not consume budget)',
+      () async {
+        var localResumeAttempt = 0;
+
+        final attemptForThisRound = localResumeAttempt;
+        localResumeAttempt++;
+
+        final resumePending =
+            await handleFailedDownloadStub(
+              resumeWillHappen: false,
+              awaitDelay: const Duration(milliseconds: 1),
+            ) ==
+            1;
+
+        if (!resumePending) {
+          localResumeAttempt--;
+        }
+
+        expect(attemptForThisRound, 0);
+        expect(resumePending, isFalse);
+        // Slot given back — a subsequent real resume still starts at 0.
+        expect(localResumeAttempt, 0);
+      },
+    );
+  });
+
+  group('watchdog completer settlement (#357 review, FIX 3)', () {
+    test(
+      'watchdog fire calls onSettle so a waiting completer is not leaked',
+      () {
+        fakeAsync((async) {
+          final completer = Completer<void>();
+          var cancellationListenerCancelled = false;
+          // Mirrors downloadWithProgress's
+          // `.whenComplete(() => cancellationListener?.cancel())`.
+          completer.future.whenComplete(() {
+            cancellationListenerCancelled = true;
+          });
+
+          // Mirrors _armResumeWatchdog composing onTimeout with onSettle.
+          armResumeWatchdog(
+            progress: StreamController<int>(),
+            onTimeout: () {
+              if (!completer.isCompleted) completer.complete();
+            },
+            timeout: const Duration(seconds: 90),
+          );
+
+          expect(cancellationListenerCancelled, isFalse);
+          async.elapse(const Duration(seconds: 90));
+          // Flush the completer's async .whenComplete callback.
+          async.flushMicrotasks();
+
+          expect(completer.isCompleted, isTrue);
+          expect(cancellationListenerCancelled, isTrue);
+        });
+      },
+    );
+
+    test('onSettle guards against double-complete', () {
+      fakeAsync((async) {
+        final completer = Completer<void>();
+        void onSettle() {
+          if (!completer.isCompleted) completer.complete();
+        }
+
+        // Simulate the watchdog firing AND a terminal status update racing
+        // in — both try to settle the same completer.
+        onSettle();
+        expect(() => onSettle(), returnsNormally);
+        expect(completer.isCompleted, isTrue);
+      });
+    });
+  });
+
   group('per-taskId watchdog isolation (concurrent downloads, #355 follow-up)', () {
     // SmartDownloader keys its real watchdogs by taskId in a
     // `Map<String, Timer>` (see `_resumeWatchdogs` in smart_downloader.dart) so

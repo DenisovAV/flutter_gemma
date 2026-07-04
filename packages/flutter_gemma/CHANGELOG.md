@@ -1,3 +1,6 @@
+## 1.2.1
+- Fix SmartDownloader resume-loop hang — cap resume attempts + arm a watchdog timer (#355).
+
 ## 1.2.0
 - Add `skillExecutors:` to `FlutterGemma.initialize` + the `SkillExecutorProvider`/`SkillExecutorRegistry` seam for the new opt-in `flutter_gemma_agent` package.
 - Declare `libOpenCL.so` (+ `-car`/`-pixel` ICDs) in the plugin manifest — completes the #324 Mali GPU fix (#349; 1.1.1 only opened the SP-HAL door).

@@ -1,6 +1,6 @@
 name: flutter_gemma
 description: "Run Gemma and other LLMs on-device in Flutter (Android, iOS, Web, Desktop). Multimodal vision/audio, function calling, thinking mode, GPU, embeddings, RAG."
-version: 1.2.0
+version: 1.2.1
 resolution: workspace
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma

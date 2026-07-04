@@ -552,6 +552,19 @@ class SmartDownloader {
                   }
                 }
 
+                // Capture-and-increment SYNCHRONOUSLY (before the await) rather
+                // than after it returns (#357 review): a broadcast stream's
+                // onData handlers don't serialize, so a second `failed`/
+                // `notFound` event for this task could interleave with this
+                // await and read the stale (pre-increment) counter. Bumping it
+                // here — before yielding control — guarantees two concurrent
+                // failed events for this task always see DIFFERENT
+                // resumeAttempt values. If the call turns out NOT to have
+                // triggered a resume, give the slot back so a non-resume
+                // failure never consumes budget it didn't use.
+                final attemptForThisRound = localResumeAttempt;
+                localResumeAttempt++;
+
                 final resumePending = await _handleFailedDownload(
                   task: task,
                   downloader: downloader,
@@ -566,19 +579,24 @@ class SmartDownloader {
                   cancelToken: cancelToken,
                   onListenerCreated: onListenerCreated,
                   onTaskCreated: onTaskCreated,
-                  resumeAttempt: localResumeAttempt,
+                  resumeAttempt: attemptForThisRound,
+                  onSettle: () {
+                    // Watchdog fire is a terminal outcome for this round —
+                    // settle the completer so the outer
+                    // `.whenComplete(() => cancellationListener?.cancel())`
+                    // in downloadWithProgress runs (#357 review fix: was
+                    // never called before, leaking the subscription).
+                    if (!completer.isCompleted) completer.complete();
+                  },
                 );
 
                 // Only cleanup if no resume is pending
                 // If resume was triggered, we need to keep listening for the result
                 if (!resumePending) {
+                  localResumeAttempt--; // give the slot back — not consumed
                   await listener?.cancel();
                   completer.complete();
                 } else {
-                  // Same listener stays active — bump the counter so the
-                  // NEXT failed event for this task (if the resume itself
-                  // fails again) sees an incremented resumeAttempt (#355).
-                  localResumeAttempt++;
                   gemmaLog(
                     '🔄 Resume pending - keeping listener active '
                     '(resumeAttempt now $localResumeAttempt)',
@@ -605,6 +623,13 @@ class SmartDownloader {
 
                 // 404 is a non-retryable error - handle immediately
                 // Note: 404 always returns false (no resume), but using same pattern for consistency
+                //
+                // Same synchronous capture-and-increment as the `failed` case
+                // above (#357 review) — closes the race window where a second
+                // concurrent event could read a stale counter mid-await.
+                final attemptForThisRound404 = localResumeAttempt;
+                localResumeAttempt++;
+
                 final resumePending404 = await _handleFailedDownload(
                   task: task,
                   downloader: downloader,
@@ -619,14 +644,20 @@ class SmartDownloader {
                   cancelToken: cancelToken,
                   onListenerCreated: onListenerCreated,
                   onTaskCreated: onTaskCreated,
-                  resumeAttempt: localResumeAttempt,
+                  resumeAttempt: attemptForThisRound404,
+                  onSettle: () {
+                    // 404 never resumes (checked earlier in
+                    // _handleFailedDownload), so the watchdog is never armed
+                    // on this path — kept for consistency with the `failed`
+                    // case above in case that ever changes.
+                    if (!completer.isCompleted) completer.complete();
+                  },
                 );
 
                 if (!resumePending404) {
+                  localResumeAttempt--; // give the slot back — not consumed
                   await listener?.cancel();
                   completer.complete();
-                } else {
-                  localResumeAttempt++;
                 }
                 break;
 
@@ -701,6 +732,7 @@ class SmartDownloader {
           return;
         }
 
+        // resumeAttempt intentionally omitted → resets to 0 for a fresh retry
         return _downloadWithSmartRetry(
           url: url,
           targetPath: targetPath,
@@ -748,6 +780,7 @@ class SmartDownloader {
     void Function(StreamSubscription)? onListenerCreated,
     void Function(String taskId)? onTaskCreated,
     required int resumeAttempt,
+    void Function()? onSettle,
   }) async {
     gemmaLog('🟡 _handleFailedDownload called');
     gemmaLog('🟡 httpStatusCode: $httpStatusCode');
@@ -818,6 +851,7 @@ class SmartDownloader {
     if (action == ResumeAction.resume) {
       gemmaLog(
         '🔄 Resuming task ${task.taskId} '
+        // +1: human-readable 1-indexed; the cap comparison is 0-indexed
         '(resume attempt ${resumeAttempt + 1}/$kMaxResumeAttempts)...',
       );
       try {
@@ -832,6 +866,7 @@ class SmartDownloader {
           taskId: task.taskId,
           progress: progress,
           listener: currentListener,
+          onSettle: onSettle,
         );
         return true; // ✅ Resume pending - caller should keep listener active!
       } catch (e) {
@@ -860,6 +895,7 @@ class SmartDownloader {
       }
 
       // Start fresh retry - new listener will be created
+      // resumeAttempt intentionally omitted → resets to 0 for a fresh retry
       await _downloadWithSmartRetry(
         url: url,
         targetPath: targetPath,
@@ -899,10 +935,21 @@ class SmartDownloader {
   /// arrives for [taskId] within [kResumeWatchdog], the task is presumed
   /// silently dead and [progress] is force-closed with a network error so the
   /// caller's `await for` over the stream can never hang forever.
+  ///
+  /// [onSettle] (#357 review): the `_downloadWithSmartRetry` listener that
+  /// armed this watchdog is awaiting its own `Completer<void>` and cancels
+  /// `cancellationListener` in a `.whenComplete()` once that completer
+  /// settles. A watchdog firing IS a terminal outcome for that round — it
+  /// force-closes [progress] and cancels [listener] — but without also
+  /// completing the completer, that `.whenComplete()` never runs and the
+  /// cancellation subscription leaks. [onSettle] lets the caller pass its
+  /// completer-completion so a watchdog fire settles the same way any other
+  /// terminal status update does.
   static void _armResumeWatchdog({
     required String taskId,
     required StreamController<int> progress,
     required StreamSubscription? listener,
+    void Function()? onSettle,
   }) {
     _resumeWatchdogs.remove(taskId)?.cancel();
     _resumeWatchdogs[taskId] = armResumeWatchdog(
@@ -920,6 +967,7 @@ class SmartDownloader {
           progress.close();
         }
         listener?.cancel();
+        onSettle?.call();
       },
     );
   }

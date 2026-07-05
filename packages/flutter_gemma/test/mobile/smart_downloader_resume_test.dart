@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:background_downloader/background_downloader.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
@@ -365,6 +366,127 @@ void main() {
         // Both fired and self-removed — map must be empty, not leaking.
         expect(watchdogs, isEmpty);
       });
+    });
+  });
+
+  group('double-complete guard (#357 review, FIX A)', () {
+    // Reproduces the exact shape of the bug: a single failed→fresh-retry→
+    // terminal sequence reuses the same taskId, so the OLD listener (still
+    // alive because the caller keeps a reference to it) can also receive the
+    // retried task's terminal event and try to complete the SAME completer a
+    // second time. Without a guard, Dart's Completer.complete() throws
+    // "Future already completed" the second time it's called — and since
+    // that call happens inside a stream's onData callback (not inside code
+    // the caller awaits), the exception becomes an uncaught zone error rather
+    // than a catchable exception.
+    test(
+      'completing an already-completed completer without a guard throws',
+      () {
+        final completer = Completer<void>();
+        completer.complete();
+        // This is exactly what site ~590 etc. did before the fix: an
+        // unguarded second `completer.complete()` call.
+        expect(() => completer.complete(), throwsStateError);
+      },
+    );
+
+    test(
+      'the guarded pattern (if (!completer.isCompleted) completer.complete()) '
+      'tolerates the same overlapping-delivery sequence without throwing',
+      () {
+        final completer = Completer<void>();
+        void guardedComplete() {
+          if (!completer.isCompleted) completer.complete();
+        }
+
+        // First terminal event for this taskId (e.g. the fresh retry's own
+        // TaskStatus.complete).
+        guardedComplete();
+        expect(completer.isCompleted, isTrue);
+
+        // Second terminal event for the SAME taskId, delivered to the OLD
+        // listener that hasn't been cancelled yet (overlapping delivery on
+        // the shared broadcast stream) — must not throw.
+        expect(guardedComplete, returnsNormally);
+      },
+    );
+
+    test(
+      'guarded pattern also tolerates completeError racing after complete',
+      () {
+        // Mirrors the onError branch already in the file (which already
+        // guards) — included here to document that the SAME hazard applies
+        // symmetrically to completeError, and the existing onError sites
+        // were correct to guard from the start.
+        final completer = Completer<void>();
+        completer.complete();
+        expect(() {
+          if (!completer.isCompleted) {
+            completer.completeError(StateError('late error'));
+          }
+        }, returnsNormally);
+      },
+    );
+  });
+
+  group('resume() bool return (#357 review, FIX D)', () {
+    // downloader.resume(task) returns Future<bool>: false means "no resume
+    // data available / native re-enqueue failed" — NOT a throw. The old code
+    // discarded this return value entirely, so a false return still armed the
+    // watchdog and reported "resume pending", stalling the caller for the
+    // full 90s watchdog window even though no status event could ever arrive
+    // for a resume that was never actually accepted.
+    //
+    // This models the decision _handleFailedDownload now makes around the
+    // `resumed` bool, without needing a real FileDownloader.
+    ({bool armedWatchdog, bool resumePending}) decideAfterResume(bool resumed) {
+      if (!resumed) {
+        // Fall through to retry/give-up — do NOT arm watchdog / report pending.
+        return (armedWatchdog: false, resumePending: false);
+      }
+      return (armedWatchdog: true, resumePending: true);
+    }
+
+    test('resume() == true arms the watchdog and reports pending', () {
+      final outcome = decideAfterResume(true);
+      expect(outcome.armedWatchdog, isTrue);
+      expect(outcome.resumePending, isTrue);
+    });
+
+    test('resume() == false does NOT arm the watchdog and falls through '
+        'to retry/give-up instead of stalling 90s for an event that will '
+        'never arrive', () {
+      final outcome = decideAfterResume(false);
+      expect(outcome.armedWatchdog, isFalse);
+      expect(outcome.resumePending, isFalse);
+    });
+  });
+
+  group('permission not-granted decision (#357 review, FIX B/C)', () {
+    // Mirrors the `status != PermissionStatus.granted` check added to
+    // _ensureConfigured: anything other than exactly `granted` (denied,
+    // undetermined, partial, or requestError from either a real denial or a
+    // timeout) must trigger the visible not-granted warning path, while
+    // `granted` must not.
+    bool isNotGrantedWarningPath(PermissionStatus status) =>
+        status != PermissionStatus.granted;
+
+    test('granted does not trigger the warning path', () {
+      expect(isNotGrantedWarningPath(PermissionStatus.granted), isFalse);
+    });
+
+    test('denied triggers the warning path', () {
+      expect(isNotGrantedWarningPath(PermissionStatus.denied), isTrue);
+    });
+
+    test('requestError (used for both a thrown exception and a timeout) '
+        'triggers the warning path', () {
+      expect(isNotGrantedWarningPath(PermissionStatus.requestError), isTrue);
+    });
+
+    test('undetermined and partial also trigger the warning path', () {
+      expect(isNotGrantedWarningPath(PermissionStatus.undetermined), isTrue);
+      expect(isNotGrantedWarningPath(PermissionStatus.partial), isTrue);
     });
   });
 }

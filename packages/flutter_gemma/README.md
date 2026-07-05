@@ -1083,6 +1083,8 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 
 **Note:** Foreground downloads (`foreground: true`) show a progress notification and request the `POST_NOTIFICATIONS` runtime permission automatically before the download starts. On Android 13+ the permission must ALSO be granted at runtime for the foreground service itself to activate — a manifest declaration alone is not enough. The host app must still declare `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` in `AndroidManifest.xml`; flutter_gemma requests the runtime grant for you.
 
+**Note:** If the user denies `POST_NOTIFICATIONS` (or the request times out/errors), foreground mode does not activate and the download silently falls back to background — the download still proceeds, just without the Doze/battery-optimization exemption. Host apps with long/large downloads should pre-request `POST_NOTIFICATIONS` before starting one.
+
 **Required on Android 14+ (API 34+): host app manifest setup.** `background_downloader`'s foreground path runs through WorkManager's shared `SystemForegroundService`. On API 34+, `startForeground()` throws `IllegalArgumentException: foregroundServiceType ... is not a subset of ...` unless the host app declares a matching `FOREGROUND_SERVICE_DATA_SYNC` permission **and** overrides that service's `foregroundServiceType` in its own `AndroidManifest.xml`. This is host-app responsibility — flutter_gemma does not add `FOREGROUND_SERVICE_DATA_SYNC` for you, since it's a Play-sensitive permission that shouldn't be imposed on every consumer. Add to your app's `AndroidManifest.xml`:
 
 ```xml

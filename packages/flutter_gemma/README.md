@@ -1055,7 +1055,7 @@ await FlutterGemma.installModel(
 
 **Android Foreground Service (Large Downloads):**
 
-Android has a 9-minute background execution limit. For large models (>500MB), you can use foreground service mode which shows a notification but bypasses this timeout:
+Android has a 9-minute background execution limit. For large models (>500MB), you can use foreground service mode, which shows a notification and exempts the download from battery-optimization kills (note: it does not raise WorkManager's own 9-minute task timeout — see `DOWNLOAD_TESTING.md`):
 
 ```dart
 // Auto-detect based on file size (>500MB = foreground) - DEFAULT
@@ -1076,10 +1076,12 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 
 **Foreground Parameter:**
 - `null` (default): Auto-detect based on file size. Files >500MB use foreground service.
-- `true`: Always use foreground service (shows notification, no timeout)
-- `false`: Never use foreground service (subject to 9-minute timeout)
+- `true`: Always use foreground service (shows notification)
+- `false`: Never use foreground service
 
 **Note:** iOS uses native URLSession which handles long downloads automatically - no foreground service needed.
+
+**Note:** Foreground downloads show a progress notification. On Android 13+ the host app must declare `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` in `AndroidManifest.xml` for it to appear.
 
 **Cancelling Downloads:**
 

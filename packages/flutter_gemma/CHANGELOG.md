@@ -1,5 +1,6 @@
 ## 1.2.1
 - Fix SmartDownloader resume-loop hang — cap resume attempts + arm a watchdog timer (#355).
+- Fix foreground downloads on Android — configure a running notification so the service actually activates (#356).
 
 ## 1.2.0
 - Add `skillExecutors:` to `FlutterGemma.initialize` + the `SkillExecutorProvider`/`SkillExecutorRegistry` seam for the new opt-in `flutter_gemma_agent` package.

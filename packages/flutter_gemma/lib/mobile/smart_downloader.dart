@@ -32,6 +32,20 @@ Timer armResumeWatchdog({
   return Timer(timeout, onTimeout);
 }
 
+/// Whether [_ensureConfigured] should register a running [TaskNotification]
+/// for the given [foreground] setting (#356). Extracted as a pure function so
+/// the decision is unit-testable without a `FileDownloader` seam: on Android,
+/// `background_downloader` only calls `WorkManager.setForeground()` — the
+/// thing that actually activates the foreground service — when a `running`
+/// notification is configured. Setting `Config.runInForeground` alone is a
+/// no-op without it. A notification is needed for `foreground: true` (always)
+/// and for the auto-detect branch (`foreground == null`, since a large file
+/// can still trigger foreground at runtime); `foreground: false` never needs
+/// one.
+@visibleForTesting
+bool shouldConfigureForegroundNotification(bool? foreground) =>
+    foreground != false;
+
 /// Pure decision for [_handleFailedDownload]. Resume is only chosen while under
 /// [maxResumeAttempts] — the old code resumed unconditionally whenever
 /// `canResume`, which let a repeatedly-failing resume loop forever (#355).
@@ -105,6 +119,20 @@ class SmartDownloader {
       );
       gemmaLog(
         '📲 SmartDownloader: Configured for AUTO foreground (>${_foregroundThresholdMB}MB)',
+      );
+    }
+
+    // #356: `Config.runInForeground`/`runInForegroundIfFileLargerThan` alone
+    // never activates Android's real foreground service — the plugin only
+    // calls `WorkManager.setForeground()` once a `running` notification is
+    // configured. Without this, `foreground: true` was a no-op: no
+    // notification, no setForeground() call, no Doze/battery-optimization
+    // exemption. This does NOT touch WorkManager's separate 9-minute
+    // `TaskRunner` timeout (#192) — that limit is unrelated and unchanged.
+    if (shouldConfigureForegroundNotification(foreground)) {
+      downloader.configureNotification(
+        running: const TaskNotification('Downloading model', '{filename}'),
+        progressBar: true,
       );
     }
 

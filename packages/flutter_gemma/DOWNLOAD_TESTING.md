@@ -15,6 +15,11 @@ Manual testing guide for large model downloads, including reproduction of issue 
 process due to battery optimization. On slow connections (< 2 Mbps), downloading a 2.6 GB
 model takes > 9 minutes → `TaskConnectionException: Task timed out`.
 
+(#356: `SmartDownloader` now calls `configureNotification` so the foreground service actually
+activates when requested — previously `foreground: true` set the config flag but never
+registered a notification, so `setForeground()` was never called. This fixes the service
+activating at all; it does not change the 9-minute `TaskRunner` limit described above.)
+
 ### Why `allowPause` doesn't help
 
 HuggingFace CDN returns **weak ETags** (`W/"..."`). `background_downloader` refuses to resume

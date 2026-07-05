@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Required on Android 13+ (API 33) to show the foreground-download
+         notification (#356); without it, the notification is silently
+         suppressed but the foreground service itself still activates. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Permission for audio recording (Gemma 3n E4B audio input) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />

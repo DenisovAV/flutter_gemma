@@ -5,6 +5,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 
 void main() {
+  group('shouldConfigureForegroundNotification (#356)', () {
+    test('foreground: true requires a notification', () {
+      expect(shouldConfigureForegroundNotification(true), isTrue);
+    });
+
+    test('foreground: null (auto-detect) requires a notification — a large '
+        'file can still trigger foreground at runtime', () {
+      expect(shouldConfigureForegroundNotification(null), isTrue);
+    });
+
+    test('foreground: false does not need a notification', () {
+      expect(shouldConfigureForegroundNotification(false), isFalse);
+    });
+  });
+
   group('decideFailedDownloadAction', () {
     test('resumes while under the resume-attempt cap', () {
       expect(

@@ -20,7 +20,13 @@ foreground service actually activates — previously `foreground: true` set the 
 never registered a notification, so `setForeground()` was never called. #357 review: on
 Android 13+ (API 33) a notification alone is still not enough — `setForeground()` is only
 reached if `POST_NOTIFICATIONS` is granted at RUNTIME, so `SmartDownloader` now also requests
-that permission automatically before a foreground download. Neither fix changes the 9-minute
+that permission automatically before a foreground download. Layer 3: on Android 14+ (API 34+),
+`setForeground()` additionally throws `IllegalArgumentException: foregroundServiceType ... is
+not a subset of ...` unless the HOST APP declares `FOREGROUND_SERVICE_DATA_SYNC` and a
+`tools:node="merge"` override of `foregroundServiceType="dataSync"` on WorkManager's
+`SystemForegroundService` in its own manifest — see the README's Foreground Service section
+and `example/android/app/src/main/AndroidManifest.xml`. This is host-app responsibility, not
+something flutter_gemma adds automatically. None of these fixes change the 9-minute
 `TaskRunner` limit described above.)
 
 ### Why `allowPause` doesn't help

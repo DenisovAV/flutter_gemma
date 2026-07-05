@@ -7,6 +7,76 @@ import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
+/// Decision for a failed download: whether to resume, do a fresh retry, or give
+/// up. Extracted so the resume-attempt cap (#355) is unit-testable.
+enum ResumeAction { resume, retry, giveUp }
+
+@visibleForTesting
+const int kMaxResumeAttempts = 3;
+
+/// Watchdog window after a resume: if no progress/terminal event arrives within
+/// this, the task is presumed silently dead (#355) and the stream is closed.
+@visibleForTesting
+const Duration kResumeWatchdog = Duration(seconds: 90);
+
+/// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
+/// The download loop cancels it when the next progress/status event arrives, and
+/// wires [onTimeout] to close [progress] with a network error + cancel the
+/// listener, so a silently-dead post-resume task can never hang forever.
+@visibleForTesting
+Timer armResumeWatchdog({
+  required StreamController<int> progress,
+  required void Function() onTimeout,
+  Duration timeout = kResumeWatchdog,
+}) {
+  return Timer(timeout, onTimeout);
+}
+
+/// Whether [_ensureConfigured] should register a running [TaskNotification]
+/// for the given [foreground] setting (#356). Extracted as a pure function so
+/// the decision is unit-testable without a `FileDownloader` seam: on Android,
+/// `background_downloader` only calls `WorkManager.setForeground()` — the
+/// thing that actually activates the foreground service — when a `running`
+/// notification is configured. Setting `Config.runInForeground` alone is a
+/// no-op without it.
+///
+/// Scoped to the EXPLICIT `foreground: true` flag only (#357 review). The
+/// notification, once configured, is global: `background_downloader`'s
+/// `Notifications.kt` shows it for every task in the `running` state,
+/// including ones that are NOT running in foreground
+/// (`displayNotification`'s `else` branch calls `notify()` unconditionally
+/// when `runInForeground` is false for that task). Returning true for the
+/// auto-detect branch (`foreground == null`) would therefore show a
+/// "Downloading model" notification on EVERY download — including small
+/// ones well under the 500MB foreground threshold, where none showed before.
+/// Trade-off: an auto-detected LARGE file (>500MB, which DOES run in
+/// foreground) won't get a notification unless the caller passes
+/// `foreground: true` explicitly. That's accepted in order to avoid the
+/// spurious notification on the much more common small-download path.
+@visibleForTesting
+bool shouldConfigureForegroundNotification(bool? foreground) =>
+    foreground == true;
+
+/// Pure decision for [_handleFailedDownload]. Resume is only chosen while under
+/// [maxResumeAttempts] — the old code resumed unconditionally whenever
+/// `canResume`, which let a repeatedly-failing resume loop forever (#355).
+@visibleForTesting
+ResumeAction decideFailedDownloadAction({
+  required bool canResume,
+  required int resumeAttempt,
+  required int currentAttempt,
+  required int maxRetries,
+  required int maxResumeAttempts,
+}) {
+  if (canResume && resumeAttempt < maxResumeAttempts) {
+    return ResumeAction.resume;
+  }
+  if (currentAttempt < maxRetries) {
+    return ResumeAction.retry;
+  }
+  return ResumeAction.giveUp;
+}
+
 /// Smart downloader with HTTP-aware retry logic
 ///
 /// Features:
@@ -61,6 +131,72 @@ class SmartDownloader {
       gemmaLog(
         '📲 SmartDownloader: Configured for AUTO foreground (>${_foregroundThresholdMB}MB)',
       );
+    }
+
+    // #356: `Config.runInForeground`/`runInForegroundIfFileLargerThan` alone
+    // never activates Android's real foreground service — the plugin only
+    // calls `WorkManager.setForeground()` once a `running` notification is
+    // configured. Without this, `foreground: true` was a no-op: no
+    // notification, no setForeground() call, no Doze/battery-optimization
+    // exemption. This does NOT touch WorkManager's separate 9-minute
+    // `TaskRunner` timeout (#192) — that limit is unrelated and unchanged.
+    //
+    // Scoped to `foreground == true` only (#357 review) — see
+    // shouldConfigureForegroundNotification's doc comment for why the
+    // auto-detect (`null`) branch is intentionally excluded.
+    if (shouldConfigureForegroundNotification(foreground)) {
+      downloader.configureNotification(
+        running: const TaskNotification('Downloading model', '{filename}'),
+        progressBar: true,
+      );
+
+      // #357 review (Bug 2): on Android 13+ (API 33), background_downloader's
+      // `displayNotification()` bails out BEFORE calling `setForeground()` if
+      // `POST_NOTIFICATIONS` isn't granted at RUNTIME — declaring it in the
+      // manifest alone is necessary but not sufficient, so the foreground
+      // service would silently fail to activate. Request it proactively here
+      // so a foreground download actually gets the exemption it asked for.
+      // Best-effort: don't block/fail the download on a denial, just log it.
+      // This is a no-op that resolves to `granted` on platforms/versions that
+      // don't need the permission (e.g. desktop, pre-Android-13).
+      //
+      // #357 review round 2 (Bug C): the native permission callback can, in
+      // principle, never arrive (app backgrounded mid-dialog, config change),
+      // which would hang this await forever and block the WHOLE download from
+      // starting. A 10s timeout guarantees this always resolves; `requestError`
+      // is treated the same as any other not-granted status below (Bug B).
+      PermissionStatus status;
+      try {
+        status = await downloader.permissions
+            .request(PermissionType.notifications)
+            .timeout(
+              const Duration(seconds: 10),
+              onTimeout: () => PermissionStatus.requestError,
+            );
+      } catch (e) {
+        // Distinguishable from a normal denial (#357 review minor): this is an
+        // unexpected throw from the request call itself, not a user decision.
+        gemmaLog(
+          '❌ SmartDownloader: POST_NOTIFICATIONS request threw (not a denial): $e',
+        );
+        status = PermissionStatus.requestError;
+      }
+
+      gemmaLog('📲 SmartDownloader: POST_NOTIFICATIONS request → $status');
+
+      // #357 review (Bug B): `gemmaLog` is a no-op in release builds
+      // (`if (!kDebugMode) return`), so the line above gives ZERO signal in
+      // release when the permission is denied. Without POST_NOTIFICATIONS,
+      // the foreground service never activates (see the comment above) and a
+      // long background download may be killed by the OS — surface that as a
+      // clearly distinguishable warning rather than silently degrading.
+      if (status != PermissionStatus.granted) {
+        gemmaLog(
+          '⚠️ SmartDownloader: POST_NOTIFICATIONS not granted ($status) — '
+          'foreground service will NOT activate; a long background download '
+          'may be killed. Have the host app pre-request POST_NOTIFICATIONS.',
+        );
+      }
     }
 
     _isConfigured = true;
@@ -215,6 +351,10 @@ class SmartDownloader {
           } catch (e) {
             gemmaLog('⚠️ Failed to cancel task: $e');
           }
+          // Also clear any pending resume watchdog so a cancelled download
+          // doesn't leave a Timer holding the (now-closed) progress stream
+          // alive for up to 90s.
+          _cancelResumeWatchdog(currentTaskId!);
         }
 
         if (!progress.isClosed) {
@@ -281,7 +421,16 @@ class SmartDownloader {
     CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
     void Function(String taskId)? onTaskCreated, // ← ADD: Callback for task ID
+    int resumeAttempt = 0,
   }) async {
+    // Mutable so the SAME listener can bump it across successive resume
+    // rounds for this task (#355): a resume keeps this listener active, and
+    // the next `TaskStatus.failed` for it must see a higher resumeAttempt so
+    // decideFailedDownloadAction() eventually falls through to retry/giveUp
+    // instead of resuming forever. A fresh retry recurses into a NEW call of
+    // this method with a fresh `resumeAttempt: 0` scope — it must NOT reuse
+    // this local.
+    var localResumeAttempt = resumeAttempt;
     // Check cancellation before starting
     try {
       cancelToken?.throwIfCancelled();
@@ -327,12 +476,16 @@ class SmartDownloader {
             if (update.task.taskId != taskId) return;
 
             if (update is TaskProgressUpdate) {
+              // A live event means the task is not dead — cancel any pending
+              // resume watchdog so a normally-progressing task never false-fires (#355).
+              _cancelResumeWatchdog(update.task.taskId);
               final percents = (update.progress * 100).round();
               gemmaLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
                 progress.add(percents.clamp(0, 100));
               }
             } else if (update is TaskStatusUpdate) {
+              _cancelResumeWatchdog(update.task.taskId);
               gemmaLog('📡 TaskStatusUpdate (existing): ${update.status}');
               if (update.status == TaskStatus.complete) {
                 if (!progress.isClosed) {
@@ -340,7 +493,10 @@ class SmartDownloader {
                   progress.close();
                 }
                 await listener?.cancel();
-                completer.complete();
+                // Not verified reachable for double-complete on the reattach
+                // path (unlike the fresh-task listener above), but guarded
+                // anyway for hygiene/consistency (#357 review, Bug A).
+                if (!completer.isCompleted) completer.complete();
               } else if (update.status == TaskStatus.failed ||
                   update.status == TaskStatus.canceled) {
                 // Existing task failed - let caller handle retry
@@ -355,7 +511,7 @@ class SmartDownloader {
                   progress.close();
                 }
                 await listener?.cancel();
-                completer.complete();
+                if (!completer.isCompleted) completer.complete();
               }
             }
           },
@@ -384,6 +540,24 @@ class SmartDownloader {
 
         onListenerCreated?.call(listener);
         onTaskCreated?.call(taskId);
+
+        // #357 review (Bug E): arm the resume watchdog here too. `retries: 0`
+        // means an `existingTask` reattach is effectively always a persisted
+        // PAUSED task (paused multi-GB downloads surviving an app restart are
+        // a common path) — without a watchdog, a reattached task that goes
+        // completely silent (no event ever arrives) hangs at
+        // `await completer.future` below forever. The listener above already
+        // calls `_cancelResumeWatchdog` on every real
+        // TaskProgressUpdate/TaskStatusUpdate, so a live task disarms this
+        // immediately; only a truly silent one lets it fire.
+        _armResumeWatchdog(
+          taskId: taskId,
+          progress: progress,
+          listener: listener,
+          onSettle: () {
+            if (!completer.isCompleted) completer.complete();
+          },
+        );
 
         await completer.future;
         return;
@@ -443,12 +617,16 @@ class SmartDownloader {
           );
 
           if (update is TaskProgressUpdate) {
+            // A live event means the task is not dead — cancel any pending
+            // resume watchdog so a normally-progressing task never false-fires (#355).
+            _cancelResumeWatchdog(update.task.taskId);
             final percents = (update.progress * 100).round();
             gemmaLog('📊 Progress: $percents%');
             if (!progress.isClosed) {
               progress.add(percents.clamp(0, 100));
             }
           } else if (update is TaskStatusUpdate) {
+            _cancelResumeWatchdog(update.task.taskId);
             gemmaLog(
               '📡 TaskStatusUpdate: ${update.status}, HTTP: ${update.responseStatusCode}',
             );
@@ -460,7 +638,12 @@ class SmartDownloader {
                   progress.close();
                 }
                 await listener?.cancel();
-                completer.complete(); // ✅ Signal completion
+                // #357 review (Bug A): guarded against double-complete — a
+                // fresh retry reuses the same taskId, so this listener can
+                // still be alive when the retried task's terminal event also
+                // lands on the shared broadcast stream, completing the same
+                // completer twice (uncaught zone error) without this guard.
+                if (!completer.isCompleted) completer.complete();
                 break;
 
               case TaskStatus.failed:
@@ -486,6 +669,19 @@ class SmartDownloader {
                   }
                 }
 
+                // Capture-and-increment SYNCHRONOUSLY (before the await) rather
+                // than after it returns (#357 review): a broadcast stream's
+                // onData handlers don't serialize, so a second `failed`/
+                // `notFound` event for this task could interleave with this
+                // await and read the stale (pre-increment) counter. Bumping it
+                // here — before yielding control — guarantees two concurrent
+                // failed events for this task always see DIFFERENT
+                // resumeAttempt values. If the call turns out NOT to have
+                // triggered a resume, give the slot back so a non-resume
+                // failure never consumes budget it didn't use.
+                final attemptForThisRound = localResumeAttempt;
+                localResumeAttempt++;
+
                 final resumePending = await _handleFailedDownload(
                   task: task,
                   downloader: downloader,
@@ -500,15 +696,28 @@ class SmartDownloader {
                   cancelToken: cancelToken,
                   onListenerCreated: onListenerCreated,
                   onTaskCreated: onTaskCreated,
+                  resumeAttempt: attemptForThisRound,
+                  onSettle: () {
+                    // Watchdog fire is a terminal outcome for this round —
+                    // settle the completer so the outer
+                    // `.whenComplete(() => cancellationListener?.cancel())`
+                    // in downloadWithProgress runs (#357 review fix: was
+                    // never called before, leaking the subscription).
+                    if (!completer.isCompleted) completer.complete();
+                  },
                 );
 
                 // Only cleanup if no resume is pending
                 // If resume was triggered, we need to keep listening for the result
                 if (!resumePending) {
+                  localResumeAttempt--; // give the slot back — not consumed
                   await listener?.cancel();
-                  completer.complete();
+                  if (!completer.isCompleted) completer.complete();
                 } else {
-                  gemmaLog('🔄 Resume pending - keeping listener active');
+                  gemmaLog(
+                    '🔄 Resume pending - keeping listener active '
+                    '(resumeAttempt now $localResumeAttempt)',
+                  );
                 }
                 break;
 
@@ -521,7 +730,7 @@ class SmartDownloader {
                   progress.close();
                 }
                 await listener?.cancel();
-                completer.complete(); // ✅ Signal completion
+                if (!completer.isCompleted) completer.complete();
                 break;
 
               case TaskStatus.notFound:
@@ -531,6 +740,13 @@ class SmartDownloader {
 
                 // 404 is a non-retryable error - handle immediately
                 // Note: 404 always returns false (no resume), but using same pattern for consistency
+                //
+                // Same synchronous capture-and-increment as the `failed` case
+                // above (#357 review) — closes the race window where a second
+                // concurrent event could read a stale counter mid-await.
+                final attemptForThisRound404 = localResumeAttempt;
+                localResumeAttempt++;
+
                 final resumePending404 = await _handleFailedDownload(
                   task: task,
                   downloader: downloader,
@@ -545,11 +761,20 @@ class SmartDownloader {
                   cancelToken: cancelToken,
                   onListenerCreated: onListenerCreated,
                   onTaskCreated: onTaskCreated,
+                  resumeAttempt: attemptForThisRound404,
+                  onSettle: () {
+                    // 404 never resumes (checked earlier in
+                    // _handleFailedDownload), so the watchdog is never armed
+                    // on this path — kept for consistency with the `failed`
+                    // case above in case that ever changes.
+                    if (!completer.isCompleted) completer.complete();
+                  },
                 );
 
                 if (!resumePending404) {
+                  localResumeAttempt--; // give the slot back — not consumed
                   await listener?.cancel();
-                  completer.complete();
+                  if (!completer.isCompleted) completer.complete();
                 }
                 break;
 
@@ -624,6 +849,7 @@ class SmartDownloader {
           return;
         }
 
+        // resumeAttempt intentionally omitted → resets to 0 for a fresh retry
         return _downloadWithSmartRetry(
           url: url,
           targetPath: targetPath,
@@ -670,6 +896,8 @@ class SmartDownloader {
     CancelToken? cancelToken,
     void Function(StreamSubscription)? onListenerCreated,
     void Function(String taskId)? onTaskCreated,
+    required int resumeAttempt,
+    void Function()? onSettle,
   }) async {
     gemmaLog('🟡 _handleFailedDownload called');
     gemmaLog('🟡 httpStatusCode: $httpStatusCode');
@@ -719,24 +947,72 @@ class SmartDownloader {
       }
     }
 
-    // First, try to resume if possible (for transient errors only)
+    // Decide resume vs retry vs give-up. Resume is CAPPED (#355): the old code
+    // resumed unconditionally whenever canResume, so a repeatedly-failing
+    // resume (HF weak-ETag) or a silently-dead task looped/hung forever.
+    bool canResume = false;
     try {
-      final canResume = await downloader.taskCanResume(task);
-      if (canResume) {
-        gemmaLog('🔄 Attempting to resume task ${task.taskId}...');
-        await downloader.resume(task);
-        gemmaLog('🔄 Resume triggered, waiting for status update...');
-        // Resume triggered - let event loop handle the result
-        // If resume succeeds → TaskStatus.complete will fire
-        // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and retry logic runs
-        return true; // ✅ Resume pending - caller should keep listener active!
-      }
+      canResume = await downloader.taskCanResume(task);
     } catch (e) {
-      gemmaLog('⚠️ Resume failed with exception: $e');
-      // Fall through to retry logic below
+      // ❌ (not ⚠️): an unexpected throw, distinct from a normal
+      // canResume=false decision (#357 review minor).
+      gemmaLog('❌ taskCanResume threw: $e — treating as not resumable');
     }
 
-    // If resume failed or not possible, try full retry (only for transient errors)
+    final action = decideFailedDownloadAction(
+      canResume: canResume,
+      resumeAttempt: resumeAttempt,
+      currentAttempt: currentAttempt,
+      maxRetries: maxRetries,
+      maxResumeAttempts: kMaxResumeAttempts,
+    );
+
+    if (action == ResumeAction.resume) {
+      gemmaLog(
+        '🔄 Resuming task ${task.taskId} '
+        // +1: human-readable 1-indexed; the cap comparison is 0-indexed
+        '(resume attempt ${resumeAttempt + 1}/$kMaxResumeAttempts)...',
+      );
+      try {
+        // #357 review (Bug D): `resume()` returns Future<bool> — `false` means
+        // no resume data was available / the native re-enqueue failed. That's
+        // NOT a throw, so it fell through the old code unnoticed: the watchdog
+        // got armed and this returned true anyway, and since no status event
+        // will ever arrive for a resume that was never actually accepted, the
+        // caller stalled for the full 90s watchdog window for nothing.
+        final resumed = await downloader.resume(task);
+        if (!resumed) {
+          gemmaLog(
+            '⚠️ resume() returned false (no resume data / enqueue failed) — '
+            'falling through to retry/give-up',
+          );
+          // Fall through to the bounded retry/give-up logic below — do NOT
+          // arm the watchdog or return true.
+        } else {
+          gemmaLog('🔄 Resume triggered, waiting for status update...');
+          // Resume was accepted - let event loop handle the result.
+          // If resume succeeds → TaskStatus.complete will fire.
+          // If resume fails (e.g., weak ETag) → TaskStatus.failed will fire and
+          // the SAME listener re-enters this method with resumeAttempt + 1
+          // (threaded by the caller in _downloadWithSmartRetry).
+          _armResumeWatchdog(
+            taskId: task.taskId,
+            progress: progress,
+            listener: currentListener,
+            onSettle: onSettle,
+          );
+          return true; // ✅ Resume pending - caller should keep listener active!
+        }
+      } catch (e) {
+        gemmaLog('⚠️ resume() threw: $e — falling through to retry/give-up');
+        // resume() was never accepted, so no status event will ever arrive
+        // for it — do NOT arm the watchdog or return true here, that would
+        // leave the listener waiting forever. Fall through to the bounded
+        // retry/give-up logic below instead.
+      }
+    }
+    // action == retry or giveUp → fall through to the retry/give-up logic
+    // below, which is already correctly capped on currentAttempt < maxRetries.
     if (currentAttempt < maxRetries) {
       // Exponential backoff
       await Future.delayed(Duration(seconds: currentAttempt * 2));
@@ -753,6 +1029,7 @@ class SmartDownloader {
       }
 
       // Start fresh retry - new listener will be created
+      // resumeAttempt intentionally omitted → resets to 0 for a fresh retry
       await _downloadWithSmartRetry(
         url: url,
         targetPath: targetPath,
@@ -780,6 +1057,61 @@ class SmartDownloader {
       }
       return false; // Gave up, no resume pending
     }
+  }
+
+  /// Keyed by taskId (#355 follow-up): SmartDownloader supports CONCURRENT
+  /// downloads, so a single shared `Timer?` field would let one task's
+  /// arm/cancel clobber another's watchdog. Each in-flight task gets its own
+  /// entry.
+  static final Map<String, Timer> _resumeWatchdogs = {};
+
+  /// Arms the resume watchdog (#355 part 3): if no progress/status update
+  /// arrives for [taskId] within [kResumeWatchdog], the task is presumed
+  /// silently dead and [progress] is force-closed with a network error so the
+  /// caller's `await for` over the stream can never hang forever.
+  ///
+  /// [onSettle] (#357 review): the `_downloadWithSmartRetry` listener that
+  /// armed this watchdog is awaiting its own `Completer<void>` and cancels
+  /// `cancellationListener` in a `.whenComplete()` once that completer
+  /// settles. A watchdog firing IS a terminal outcome for that round — it
+  /// force-closes [progress] and cancels [listener] — but without also
+  /// completing the completer, that `.whenComplete()` never runs and the
+  /// cancellation subscription leaks. [onSettle] lets the caller pass its
+  /// completer-completion so a watchdog fire settles the same way any other
+  /// terminal status update does.
+  static void _armResumeWatchdog({
+    required String taskId,
+    required StreamController<int> progress,
+    required StreamSubscription? listener,
+    void Function()? onSettle,
+  }) {
+    _resumeWatchdogs.remove(taskId)?.cancel();
+    _resumeWatchdogs[taskId] = armResumeWatchdog(
+      progress: progress,
+      onTimeout: () {
+        gemmaLog('⏱️ Resume watchdog fired for $taskId — closing as failed');
+        _resumeWatchdogs.remove(taskId);
+        if (!progress.isClosed) {
+          progress.addError(
+            const DownloadException(
+              DownloadError.network('Download resume timed out (no progress)'),
+            ),
+            StackTrace.current,
+          );
+          progress.close();
+        }
+        listener?.cancel();
+        onSettle?.call();
+      },
+    );
+  }
+
+  /// Cancels a pending resume watchdog for [taskId] — called the moment any
+  /// subsequent progress/status event arrives for that task, proving it's not
+  /// dead. Only ever touches this task's own entry, so concurrent downloads
+  /// can't cancel each other's watchdog.
+  static void _cancelResumeWatchdog(String taskId) {
+    _resumeWatchdogs.remove(taskId)?.cancel();
   }
 
   /// Checks if a URL is from HuggingFace CDN

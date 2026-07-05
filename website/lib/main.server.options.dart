@@ -60,7 +60,6 @@ ServerOptions get defaultServerOptions => ServerOptions(
   clientId: 'main.client.dart.js',
   clients: {
     _clicker.Clicker: ClientTarget<_clicker.Clicker>('clicker'),
-    _nav_bar.NavBar: ClientTarget<_nav_bar.NavBar>('nav_bar'),
     _code_block_copy_button.CodeBlockCopyButton:
         ClientTarget<_code_block_copy_button.CodeBlockCopyButton>(
           'jaspr_content:code_block_copy_button',
@@ -89,7 +88,7 @@ ServerOptions get defaultServerOptions => ServerOptions(
     ..._features.Features.styles,
     ..._hero.Hero.styles,
     ..._models_gallery.ModelsGallery.styles,
-    ..._nav_bar.NavBarState.styles,
+    ..._nav_bar.NavBar.styles,
     ..._platform_matrix.PlatformMatrix.styles,
     ..._quick_start.QuickStart.styles,
     ..._site_footer.SiteFooter.styles,

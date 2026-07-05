@@ -32,7 +32,7 @@ const _features = [
   _FeatureData(
     icon: '💭',
     title: 'Thinking Mode',
-    desc: 'See the reasoning chains of DeepSeek R1 & Gemma 4',
+    desc: 'See the reasoning chains of Gemma 4, DeepSeek R1 & Qwen3',
     accent: Brand.blue,
   ),
   _FeatureData(
@@ -44,7 +44,7 @@ const _features = [
   _FeatureData(
     icon: '🔍',
     title: 'On-device RAG',
-    desc: 'qdrant-edge native vector store, wa-sqlite on web',
+    desc: 'qdrant-edge native vector store, sqlite-vec on all platforms incl. web',
     accent: Brand.green,
   ),
   _FeatureData(

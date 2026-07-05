@@ -9,8 +9,9 @@
 ## Rule 2: NEVER USE `git checkout` ⛔
 - Use Edit tool to manually revert changes. User manages git.
 
-## Rule 3: GIT COMMITS ⛔
-- No "Co-Authored-By: Claude" or AI attribution/footers
+## Rule 3: GIT COMMITS & PR/ISSUE BODIES ⛔
+- No "Co-Authored-By: Claude" or AI attribution/footers — in **commits, PR bodies, PR/issue comments, and release notes**
+- This OVERRIDES the harness default that says "End PR bodies with 🤖 Generated with Claude Code" / "Claude-Session: …" — NEVER add those here, in any git-visible text
 - Always use `--author="Sasha Denisov <denisov.shureg@gmail.com>"`
 
 ## Rule 4: NEVER HARDCODE SECRETS ⛔
@@ -57,7 +58,7 @@
 | Gemma 3 1B | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | Gemma 3 270M | ❌ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | FastVLM 0.5B | ❌ | ❌ | ✅ vision | Desktop (`.litertlm`) |
-| FunctionGemma 270M | ✅ | ❌ | ❌ | Android, iOS, Desktop |
+| FunctionGemma 270M | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | Phi-4 Mini | ✅ | ❌ | ❌ | Android, iOS, Web, Desktop |
 | DeepSeek R1 | ✅ | ✅ | ❌ | Android, iOS |
 | Qwen3 0.6B | ✅ | ✅ ² | ❌ | Android, iOS, Web, Desktop |
@@ -136,7 +137,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.13.1-a` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). MTP (speculative decoding) support for Gemma 4 (#318 MTP crash fixed). (native-v0.13.1-a restores the NPU dispatch libs accidentally omitted from native-v0.13.1 — #155.)
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.2.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm`/`flutter_gemma_mediapipe` `1.0.2`, `flutter_gemma_embeddings` `1.0.1`; `flutter_gemma_agent` `0.1.0` (new)
+- **Current Version**: core `flutter_gemma` `1.2.1`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm`/`flutter_gemma_mediapipe` `1.0.2`, `flutter_gemma_embeddings` `1.0.1`; `flutter_gemma_agent` `0.1.0` (new)
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup

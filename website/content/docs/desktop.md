@@ -21,7 +21,8 @@ Desktop is served exclusively by the **`flutter_gemma_litertlm`** package; see
 │   ┌──────────────────────────────────────────────┐ │
 │   │  FlutterGemmaDesktop (lib/desktop/)           │ │
 │   │           ↓                                    │ │
-│   │  LiteRtLmFfiClient (lib/core/ffi/)            │ │
+│   │  LiteRtLmFfiClient                            │ │
+│   │  (flutter_gemma_litertlm/lib/src/ffi/)        │ │
 │   │           ↓ dart:ffi                           │ │
 │   │  ───────────────────────────────────           │ │
 │   │  libLiteRtLm.{dylib,dll,so}                    │ │

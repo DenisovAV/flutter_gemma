@@ -1,3 +1,10 @@
+## 1.2.1
+- Fix SmartDownloader resume-loop hang — cap resume attempts + arm a watchdog timer (#355).
+- Fix foreground downloads on Android — configure a running notification so the service actually activates (#356).
+- Scope foreground notification to explicit flag + auto-request `POST_NOTIFICATIONS` at runtime (#356).
+- Document Android 14+ manifest requirement: host app needs `FOREGROUND_SERVICE_DATA_SYNC` + service merge (#356).
+- Guard double-complete, add permission timeout, check `resume()`'s bool, arm reattach watchdog (#355 #356).
+
 ## 1.2.0
 - Add `skillExecutors:` to `FlutterGemma.initialize` + the `SkillExecutorProvider`/`SkillExecutorRegistry` seam for the new opt-in `flutter_gemma_agent` package.
 - Declare `libOpenCL.so` (+ `-car`/`-pixel` ICDs) in the plugin manifest — completes the #324 Mali GPU fix (#349; 1.1.1 only opened the SP-HAL door).

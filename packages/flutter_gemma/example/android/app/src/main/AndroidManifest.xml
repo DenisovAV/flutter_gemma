@@ -5,9 +5,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Required on Android 13+ (API 33) to show the foreground-download
-         notification (#356); without it, the notification is silently
-         suppressed but the foreground service itself still activates. -->
+    <!-- Required on Android 13+ (API 33) for foreground downloads (#356,
+         #357 review): without a RUNTIME grant of this permission, the
+         foreground service does NOT activate at all (background_downloader's
+         displayNotification() bails out before calling setForeground() when
+         it isn't granted) — declaring it here is necessary but not
+         sufficient. flutter_gemma now requests it at runtime automatically
+         before starting a foreground download. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Permission for audio recording (Gemma 3n E4B audio input) -->

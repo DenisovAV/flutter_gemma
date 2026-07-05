@@ -15,10 +15,13 @@ Manual testing guide for large model downloads, including reproduction of issue 
 process due to battery optimization. On slow connections (< 2 Mbps), downloading a 2.6 GB
 model takes > 9 minutes → `TaskConnectionException: Task timed out`.
 
-(#356: `SmartDownloader` now calls `configureNotification` so the foreground service actually
-activates when requested — previously `foreground: true` set the config flag but never
-registered a notification, so `setForeground()` was never called. This fixes the service
-activating at all; it does not change the 9-minute `TaskRunner` limit described above.)
+(#356: `SmartDownloader` now calls `configureNotification` when `foreground: true` so the
+foreground service actually activates — previously `foreground: true` set the config flag but
+never registered a notification, so `setForeground()` was never called. #357 review: on
+Android 13+ (API 33) a notification alone is still not enough — `setForeground()` is only
+reached if `POST_NOTIFICATIONS` is granted at RUNTIME, so `SmartDownloader` now also requests
+that permission automatically before a foreground download. Neither fix changes the 9-minute
+`TaskRunner` limit described above.)
 
 ### Why `allowPause` doesn't help
 

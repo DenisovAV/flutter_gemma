@@ -38,13 +38,24 @@ Timer armResumeWatchdog({
 /// `background_downloader` only calls `WorkManager.setForeground()` — the
 /// thing that actually activates the foreground service — when a `running`
 /// notification is configured. Setting `Config.runInForeground` alone is a
-/// no-op without it. A notification is needed for `foreground: true` (always)
-/// and for the auto-detect branch (`foreground == null`, since a large file
-/// can still trigger foreground at runtime); `foreground: false` never needs
-/// one.
+/// no-op without it.
+///
+/// Scoped to the EXPLICIT `foreground: true` flag only (#357 review). The
+/// notification, once configured, is global: `background_downloader`'s
+/// `Notifications.kt` shows it for every task in the `running` state,
+/// including ones that are NOT running in foreground
+/// (`displayNotification`'s `else` branch calls `notify()` unconditionally
+/// when `runInForeground` is false for that task). Returning true for the
+/// auto-detect branch (`foreground == null`) would therefore show a
+/// "Downloading model" notification on EVERY download — including small
+/// ones well under the 500MB foreground threshold, where none showed before.
+/// Trade-off: an auto-detected LARGE file (>500MB, which DOES run in
+/// foreground) won't get a notification unless the caller passes
+/// `foreground: true` explicitly. That's accepted in order to avoid the
+/// spurious notification on the much more common small-download path.
 @visibleForTesting
 bool shouldConfigureForegroundNotification(bool? foreground) =>
-    foreground != false;
+    foreground == true;
 
 /// Pure decision for [_handleFailedDownload]. Resume is only chosen while under
 /// [maxResumeAttempts] — the old code resumed unconditionally whenever
@@ -129,11 +140,33 @@ class SmartDownloader {
     // notification, no setForeground() call, no Doze/battery-optimization
     // exemption. This does NOT touch WorkManager's separate 9-minute
     // `TaskRunner` timeout (#192) — that limit is unrelated and unchanged.
+    //
+    // Scoped to `foreground == true` only (#357 review) — see
+    // shouldConfigureForegroundNotification's doc comment for why the
+    // auto-detect (`null`) branch is intentionally excluded.
     if (shouldConfigureForegroundNotification(foreground)) {
       downloader.configureNotification(
         running: const TaskNotification('Downloading model', '{filename}'),
         progressBar: true,
       );
+
+      // #357 review (Bug 2): on Android 13+ (API 33), background_downloader's
+      // `displayNotification()` bails out BEFORE calling `setForeground()` if
+      // `POST_NOTIFICATIONS` isn't granted at RUNTIME — declaring it in the
+      // manifest alone is necessary but not sufficient, so the foreground
+      // service would silently fail to activate. Request it proactively here
+      // so a foreground download actually gets the exemption it asked for.
+      // Best-effort: don't block/fail the download on a denial, just log it.
+      // This is a no-op that resolves to `granted` on platforms/versions that
+      // don't need the permission (e.g. desktop, pre-Android-13).
+      try {
+        final status = await downloader.permissions.request(
+          PermissionType.notifications,
+        );
+        gemmaLog('📲 SmartDownloader: POST_NOTIFICATIONS request → $status');
+      } catch (e) {
+        gemmaLog('⚠️ SmartDownloader: POST_NOTIFICATIONS request failed: $e');
+      }
     }
 
     _isConfigured = true;

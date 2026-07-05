@@ -5,14 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 
 void main() {
-  group('shouldConfigureForegroundNotification (#356)', () {
+  group('shouldConfigureForegroundNotification (#356, #357 review)', () {
     test('foreground: true requires a notification', () {
       expect(shouldConfigureForegroundNotification(true), isTrue);
     });
 
-    test('foreground: null (auto-detect) requires a notification — a large '
-        'file can still trigger foreground at runtime', () {
-      expect(shouldConfigureForegroundNotification(null), isTrue);
+    test('foreground: null (auto-detect) does NOT configure a notification — '
+        'it would otherwise show for every non-foreground download too '
+        '(background_downloader shows the running notification regardless '
+        'of runInForeground)', () {
+      expect(shouldConfigureForegroundNotification(null), isFalse);
     });
 
     test('foreground: false does not need a notification', () {

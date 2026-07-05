@@ -1075,13 +1075,13 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 ```
 
 **Foreground Parameter:**
-- `null` (default): Auto-detect based on file size. Files >500MB use foreground service.
+- `null` (default): Auto-detect based on file size. Files >500MB use foreground service (no notification — pass `foreground: true` explicitly if you want one).
 - `true`: Always use foreground service (shows notification)
 - `false`: Never use foreground service
 
 **Note:** iOS uses native URLSession which handles long downloads automatically - no foreground service needed.
 
-**Note:** Foreground downloads show a progress notification. On Android 13+ the host app must declare `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` in `AndroidManifest.xml` for it to appear.
+**Note:** Foreground downloads (`foreground: true`) show a progress notification and request the `POST_NOTIFICATIONS` runtime permission automatically before the download starts. On Android 13+ the permission must ALSO be granted at runtime for the foreground service itself to activate — a manifest declaration alone is not enough. The host app must still declare `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />` in `AndroidManifest.xml`; flutter_gemma requests the runtime grant for you.
 
 **Cancelling Downloads:**
 

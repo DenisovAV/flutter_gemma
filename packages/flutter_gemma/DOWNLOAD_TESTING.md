@@ -15,6 +15,20 @@ Manual testing guide for large model downloads, including reproduction of issue 
 process due to battery optimization. On slow connections (< 2 Mbps), downloading a 2.6 GB
 model takes > 9 minutes → `TaskConnectionException: Task timed out`.
 
+(#356: `SmartDownloader` now calls `configureNotification` when `foreground: true` so the
+foreground service actually activates — previously `foreground: true` set the config flag but
+never registered a notification, so `setForeground()` was never called. #357 review: on
+Android 13+ (API 33) a notification alone is still not enough — `setForeground()` is only
+reached if `POST_NOTIFICATIONS` is granted at RUNTIME, so `SmartDownloader` now also requests
+that permission automatically before a foreground download. Layer 3: on Android 14+ (API 34+),
+`setForeground()` additionally throws `IllegalArgumentException: foregroundServiceType ... is
+not a subset of ...` unless the HOST APP declares `FOREGROUND_SERVICE_DATA_SYNC` and a
+`tools:node="merge"` override of `foregroundServiceType="dataSync"` on WorkManager's
+`SystemForegroundService` in its own manifest — see the README's Foreground Service section
+and `example/android/app/src/main/AndroidManifest.xml`. This is host-app responsibility, not
+something flutter_gemma adds automatically. None of these fixes change the 9-minute
+`TaskRunner` limit described above.)
+
 ### Why `allowPause` doesn't help
 
 HuggingFace CDN returns **weak ETags** (`W/"..."`). `background_downloader` refuses to resume

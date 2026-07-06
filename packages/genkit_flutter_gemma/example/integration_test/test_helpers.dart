@@ -78,16 +78,14 @@ class TestModelConfig {
   static const litertlmConfig = TestModelConfig(
     url: _litertlmUrl,
     filename: 'functiongemma-270M-it.litertlm',
-    fileType: ModelFileType.task,
+    fileType: ModelFileType.litertlm,
   );
 
   /// All engine configs to test on current platform.
   /// Android gets both engines, others get one.
   static List<({TestModelConfig config, String label})>
-      allForCurrentPlatform() {
-    final configs = [
-      (config: forCurrentPlatform(), label: 'default engine'),
-    ];
+  allForCurrentPlatform() {
+    final configs = [(config: forCurrentPlatform(), label: 'default engine')];
     if (!kIsWeb && Platform.isAndroid) {
       configs.add((config: litertlmConfig, label: 'LiteRT-LM'));
     }
@@ -109,16 +107,16 @@ Future<void> ensureModelInstalled([TestModelConfig? config]) async {
 
 /// Force install a specific model config (always installs, even if another model is active).
 Future<void> forceInstallModel(TestModelConfig config) async {
-  debugPrint(
-      '[Test] Installing model: ${config.filename} from ${config.url}');
+  debugPrint('[Test] Installing model: ${config.filename} from ${config.url}');
 
   await FlutterGemma.installModel(
-    modelType: ModelType.functionGemma,
-    fileType: config.fileType,
-  )
+        modelType: ModelType.functionGemma,
+        fileType: config.fileType,
+      )
       .fromNetwork(config.url)
       .withProgress(
-          (progress) => debugPrint('[Test] Download progress: $progress%'))
+        (progress) => debugPrint('[Test] Download progress: $progress%'),
+      )
       .install();
 
   debugPrint('[Test] Model installed successfully');
@@ -130,35 +128,39 @@ Future<void> forceInstallModel(TestModelConfig config) async {
 Genkit createTestGenkit([TestModelConfig? config]) {
   config ??= TestModelConfig.forCurrentPlatform();
 
-  return Genkit(plugins: [
-    GenkitFlutterGemmaPlugin(models: [
-      FlutterGemmaModelConfig(
-        name: kTestModelName,
-        modelType: ModelType.functionGemma,
-        fileType: config.fileType,
+  return Genkit(
+    plugins: [
+      GenkitFlutterGemmaPlugin(
+        models: [
+          FlutterGemmaModelConfig(
+            name: kTestModelName,
+            modelType: ModelType.functionGemma,
+            fileType: config.fileType,
+          ),
+        ],
       ),
-    ]),
-  ]);
+    ],
+  );
 }
 
 /// Creates a [Genkit] instance with both model and embedder configured.
 Genkit createTestGenkitWithEmbedder([TestModelConfig? config]) {
   config ??= TestModelConfig.forCurrentPlatform();
 
-  return Genkit(plugins: [
-    GenkitFlutterGemmaPlugin(
-      models: [
-        FlutterGemmaModelConfig(
-          name: kTestModelName,
-          modelType: ModelType.functionGemma,
-          fileType: config.fileType,
-        ),
-      ],
-      embedders: [
-        FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m'),
-      ],
-    ),
-  ]);
+  return Genkit(
+    plugins: [
+      GenkitFlutterGemmaPlugin(
+        models: [
+          FlutterGemmaModelConfig(
+            name: kTestModelName,
+            modelType: ModelType.functionGemma,
+            fileType: config.fileType,
+          ),
+        ],
+        embedders: [FlutterGemmaEmbedderConfig(name: 'embedding-gemma-300m')],
+      ),
+    ],
+  );
 }
 
 /// Convenience [ModelRef] for the test model.

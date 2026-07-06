@@ -70,6 +70,7 @@ class AppState extends ChangeNotifier {
     _useStreaming = value;
     notifyListeners();
   }
+
   String currentStreamText = '';
 
   // Embeddings
@@ -118,11 +119,17 @@ class AppState extends ChangeNotifier {
     final embedders = <FlutterGemmaEmbedderConfig>[];
 
     if (inferenceInstalled) {
-      models.add(FlutterGemmaModelConfig(
-        name: _modelName,
-        modelType: gemma.ModelType.gemmaIt,
-        fileType: _isDesktop ? ModelFileType.task : ModelFileType.task,
-      ));
+      models.add(
+        FlutterGemmaModelConfig(
+          name: _modelName,
+          modelType: gemma.ModelType.gemmaIt,
+          // Desktop downloads the .litertlm model (see inferenceUrl above) and so
+          // MUST declare ModelFileType.litertlm — otherwise the engine registry
+          // routes the .litertlm file to the MediaPipe (.task) engine, which
+          // can't load it. Mobile/web download the .task model → MediaPipe.
+          fileType: _isDesktop ? ModelFileType.litertlm : ModelFileType.task,
+        ),
+      );
     }
     if (embedderInstalled) {
       embedders.add(FlutterGemmaEmbedderConfig(name: _embedderName));
@@ -130,12 +137,9 @@ class AppState extends ChangeNotifier {
 
     if (models.isEmpty && embedders.isEmpty) return;
 
-    _ai = Genkit(plugins: [
-      GenkitFlutterGemmaPlugin(
-        models: models,
-        embedders: embedders,
-      ),
-    ]);
+    _ai = Genkit(
+      plugins: [GenkitFlutterGemmaPlugin(models: models, embedders: embedders)],
+    );
   }
 
   void reinitializeGenkit() {
@@ -152,15 +156,13 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await FlutterGemma.installModel(
-        modelType: gemma.ModelType.gemmaIt,
-      )
-          .fromNetwork(inferenceUrl,
-              token: hfToken.isNotEmpty ? hfToken : null)
+      await FlutterGemma.installModel(modelType: gemma.ModelType.gemmaIt)
+          .fromNetwork(inferenceUrl, token: hfToken.isNotEmpty ? hfToken : null)
           .withProgress((progress) {
-        inferenceProgress = progress;
-        notifyListeners();
-      }).install();
+            inferenceProgress = progress;
+            notifyListeners();
+          })
+          .install();
 
       inferenceInstalled = true;
       _createGenkit();
@@ -238,10 +240,7 @@ class AppState extends ChangeNotifier {
           }
         }
 
-        chatMessages.add(ChatMessage(
-          text: currentStreamText,
-          isUser: false,
-        ));
+        chatMessages.add(ChatMessage(text: currentStreamText, isUser: false));
       } else {
         final response = await _ai!.generate(
           model: modelRef,
@@ -249,17 +248,11 @@ class AppState extends ChangeNotifier {
           config: FlutterGemmaModelOptions(maxTokens: maxTokens),
         );
 
-        chatMessages.add(ChatMessage(
-          text: response.text,
-          isUser: false,
-        ));
+        chatMessages.add(ChatMessage(text: response.text, isUser: false));
       }
     } catch (e, stack) {
       _logError('AppState.sendMessage', e, stack);
-      chatMessages.add(ChatMessage(
-        text: 'Error: $e',
-        isUser: false,
-      ));
+      chatMessages.add(ChatMessage(text: 'Error: $e', isUser: false));
     } finally {
       isGenerating = false;
       currentStreamText = '';
@@ -282,8 +275,9 @@ class AppState extends ChangeNotifier {
     try {
       final embeddings = await _ai!.embed(
         embedder: embedderRef,
-        documents:
-            texts.map((t) => DocumentData(content: [TextPart(text: t)])).toList(),
+        documents: texts
+            .map((t) => DocumentData(content: [TextPart(text: t)]))
+            .toList(),
       );
 
       final queryEmb = embeddings[0].embedding;
@@ -345,7 +339,8 @@ class AppState extends ChangeNotifier {
           buffer.writeln(part.text);
         } else if (part.isToolRequest) {
           buffer.writeln(
-              'Tool call: ${part.toolRequest!.name}(${part.toolRequest!.input})');
+            'Tool call: ${part.toolRequest!.name}(${part.toolRequest!.input})',
+          );
         }
       }
       lastToolResult = buffer.toString().trim();

@@ -1,3 +1,7 @@
+## 0.4.3
+
+- Fix example: declare `ModelFileType.litertlm` for `.litertlm` models (desktop was declaring `.task`, routing them to MediaPipe). Adds a fileType-consistency test.
+
 ## 0.4.2
 
 - Bump `genkit` to `^0.14.1` and `schemantic` to `^0.2.0`. No API or behavioral changes; tests green against the new versions.

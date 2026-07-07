@@ -7,13 +7,13 @@ import android.util.Log
 
 import io.flutter.plugin.common.EventChannel
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.common.GenAiException
@@ -342,6 +342,11 @@ internal class BuiltInAiServiceImpl(
             "sessionId" to sessionId,
           )
         )
+      } catch (e: CancellationException) {
+        // Cooperative cancellation from stopGeneration — not an error. Let it
+        // propagate; stopGeneration's own {done:true} post is the single
+        // completion signal on the stop path.
+        throw e
       } catch (e: Exception) {
         // Surface as a TAGGED DATA error (not an EventChannel error, which
         // would hit every session and drop the sessionId).

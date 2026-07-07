@@ -43,6 +43,7 @@
 
 ### Core Principles
 - **1.0 six-package split** (monorepo, Dart pub workspace): core `flutter_gemma` (no engine) + opt-in `flutter_gemma_litertlm` (.litertlm FFI), `flutter_gemma_embeddings` (LiteRT embeddings), `flutter_gemma_mediapipe` (.task), `flutter_gemma_rag_qdrant` (native RAG), `flutter_gemma_rag_sqlite` (web RAG). Packages → core (one-directional). Engines/backends register via `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`; core registers none by default.
+- **`flutter_gemma_builtin_ai`** (new, opt-in): OS built-in AI engine — Gemini Nano via ML Kit GenAI/AICore (Android) and Apple Foundation Models (iOS/macOS). Registers via `inferenceEngines: [BuiltInAiEngine()]`; models use `ModelFileType.builtIn` (core has no file to install — the OS owns the weights).
 - **Probe-chain registry**: `EngineRegistry`/`EmbeddingRegistry` select a provider by `canHandle(spec)` + `priority` (descending priority, ascending registration index). Engines are pure factories; core owns singleton lifecycle via `CloseNotifier`/`addCloseListener`.
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
@@ -137,7 +138,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.13.1-a` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). MTP (speculative decoding) support for Gemma 4 (#318 MTP crash fixed). (native-v0.13.1-a restores the NPU dispatch libs accidentally omitted from native-v0.13.1 — #155.)
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.2.3`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.0.4`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.1`; `flutter_gemma_agent` `0.1.0` (new)
+- **Current Version**: core `flutter_gemma` `1.3.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.0.4`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.1`; `flutter_gemma_agent` `0.1.0`, `flutter_gemma_builtin_ai` `0.1.0` (new)
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -160,6 +161,8 @@ Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 <uses-native-library android:name="libOpenCL-car.so" android:required="false"/>
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
+
+- **`flutter_gemma_builtin_ai` requires `minSdk 26`** (ML Kit GenAI / AICore floor) — apps using that package must raise their `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails (`uses-sdk:minSdkVersion` conflict).
 
 ### Web
 ```html
@@ -269,6 +272,19 @@ flutter analyze && dart format . && flutter test
 | `hook/build.dart` | Native Assets hook — fetches the per-platform `vec0` loadable extension |
 | `web/rag/sqlite3.wasm` | custom `sqlite3.wasm` with `sqlite-vec`/`vec0` statically linked (app copies to its web root) |
 
+**`packages/flutter_gemma_builtin_ai/` (OS built-in AI; Gemini Nano on Android, Apple Foundation Models on iOS/macOS; no web/desktop):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/builtin_ai_engine.dart` | `BuiltInAiEngine` (InferenceEngineProvider; `canHandle` matches `ModelFileType.builtIn`) |
+| `lib/src/builtin_ai_model.dart` | `BuiltInAiModel` (InferenceModel; session factory over the pigeon service) |
+| `lib/src/builtin_ai_session.dart` | `BuiltInAiSession` (InferenceModelSession; tagged event-channel demux by `sessionId`) |
+| `lib/src/availability.dart` | `BuiltInAi` (availability probe + `ensureReady`), `BuiltInAiAvailability`, `BuiltInAiUnavailableException` |
+| `lib/src/builtin_ai_models.dart` | `BuiltInAiModels.geminiNano` / `.appleFoundationModels` ready-made `InferenceModelSpec`s |
+| `lib/pigeon.g.dart` | Generated pigeon (`BuiltInAiService` HostApi) — **DO NOT EDIT MANUALLY**; regenerate from `pigeon.dart` |
+| `android/src/.../` | Android ML Kit GenAI (AICore) native layer; declares `minSdk 26` |
+| `darwin/Classes/` (shared iOS+macOS source via `sharedDarwinSource: true`) | Apple Foundation Models native layer |
+
 ## Project Structure
 
 ```
@@ -284,7 +300,8 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_embeddings/    # LiteRT embeddings (shares libLiteRtLm; isolate worker)
 │   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
 │   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
-│   └── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
+│   ├── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
+│   └── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
 └── docs/                            # design docs, testing, benchmarks
 ```
 

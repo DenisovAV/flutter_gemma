@@ -1,2 +1,2 @@
 ## 0.1.0
-- Initial package skeleton; engine implementation lands in later releases.
+- Initial release: Gemini Nano (Android) + Apple Foundation Models (iOS/macOS) engine

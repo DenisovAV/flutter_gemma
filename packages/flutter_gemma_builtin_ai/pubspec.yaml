@@ -14,8 +14,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # TODO(task-10): tighten to ^1.3.0 when core bumps (builtIn support lands in core 1.3.0)
-  flutter_gemma: ^1.2.0
+  flutter_gemma: ^1.3.0
   plugin_platform_interface: ^2.0.2
   meta: ^1.15.0
 

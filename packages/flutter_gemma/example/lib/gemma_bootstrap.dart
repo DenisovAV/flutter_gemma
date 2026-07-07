@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
+import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
@@ -12,7 +13,11 @@ import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 /// drift. The example ships both formats (`.litertlm` + `.task`). The element
 /// type (`InferenceEngineProvider`) is inferred from the concrete engines, so
 /// the example needn't import the internal provider interface.
-const kExampleInferenceEngines = [LiteRtLmEngine(), MediaPipeEngine()];
+const kExampleInferenceEngines = [
+  LiteRtLmEngine(),
+  MediaPipeEngine(),
+  BuiltInAiEngine(),
+];
 
 /// The opt-in embedding backends the example registers. Single source of truth.
 const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];

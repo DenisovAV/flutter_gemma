@@ -129,10 +129,15 @@ extension GenAiChat on InferenceChat {
           await stage();
           sub = generateChatResponseAsync().listen(
             (r) => controller.add(chatMessageFromChunk(r)),
-            onError: (Object e, StackTrace s) {
+            onError: (Object e, StackTrace s) async {
               controller.addError(e, s);
-              release();
-              controller.close();
+              await sub?.cancel();
+              try {
+                await stopGeneration();
+              } finally {
+                release();
+                await controller.close();
+              }
             },
             onDone: () {
               release();

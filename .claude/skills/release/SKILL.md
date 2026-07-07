@@ -52,6 +52,9 @@ Three independent dimensions — answer each:
 git diff <last-tag> -- lib/ hook/ pubspec.yaml ios/flutter_gemma.podspec android/ web/
 ```
 If yes → bump pub plugin version, publish to pub.dev. Always true for a release.
+Then **run 1f** for every satellite whose copy of the touched code is stale — a
+fix is not "done" until every duplicate across all 6 packages is patched or
+shown N/A.
 
 ### 1b. Native dylibs changed (any platform)?
 ```bash
@@ -70,6 +73,43 @@ Every release touches the site. At minimum the package versions hardcoded in its
 git diff <last-tag> -- packages/flutter_gemma/lib/flutter_gemma_interface.dart packages/flutter_gemma/lib/core
 ```
 If the public `InferenceModel` / `InferenceChat` / `EmbeddingModel` / `Message` / `ModelResponse` / enum surface changed, the Genkit integration packages (`genkit_flutter_gemma`, `genkit_hybrid`) likely no longer compile or are missing the new features. **Run the `upgrade-genkit` skill** before publishing — it realigns converters + the test fakes (which must match upstream signatures) and bumps those packages. They release in lockstep with the monorepo, so don't ship a core change that leaves them broken.
+
+### 1f. Did a fix touch shared code duplicated across satellites? → propagate it to ALL packages
+The monorepo split means the SAME logic is often copy-pasted into multiple
+packages' `android/build.gradle`, `hook/build.dart`, iOS podspecs, or FFI stubs.
+A core-only fix that leaves a copy stale ships a **HALF-fix** — and because each
+satellite publishes independently, the stale copy reaches users under its own
+version number.
+
+> **Regression #360 (what this rule prevents):** the AGP-9 Kotlin guard
+> `if (agpMajor < 9)` was fixed in `flutter_gemma/android/build.gradle`, but the
+> byte-identical guard in `flutter_gemma_mediapipe/android/build.gradle` was
+> missed. mediapipe `1.0.3` shipped to pub.dev still broken, so every `.task`
+> user on AGP 9 kept hitting the crash the core fix was supposed to close.
+
+**Before finalizing, grep the pattern you changed across ALL packages** and
+confirm every copy is patched (or provably N/A):
+```bash
+grep -rn "<the exact pattern you changed>" packages/
+# e.g. for the #360 guard:
+grep -rn "agpMajor < 9" packages/*/android/build.gradle
+```
+Shared-code hotspots to sweep, per fix type:
+- **Android Gradle** — `packages/*/android/build.gradle` (only `flutter_gemma` +
+  `flutter_gemma_mediapipe` have one): `kotlin-android` guard, `compileSdk`,
+  `minSdkVersion`, `kotlin_version`, AGP classpath.
+- **Native hook** — `packages/*/hook/build.dart`: `_nativeVersion`, `_checksums`,
+  `_cacheDir` cache-busting, `stage()` Apple-only guard.
+- **iOS podspecs** — `packages/*/ios/*.podspec`: `s.version`, min-iOS, dep pins,
+  `vtool` minos on any bundled dylib.
+- **FFI / web stubs** — `lib/**/*_stub.dart`: conditional-import signatures that
+  `analyze`/`test` can't catch (web stub drift).
+
+Every affected satellite gets its **own** version bump + CHANGELOG entry +
+publish. **This makes it a MULTI-package release** — before touching any
+version, list every package you will publish (e.g. "publishing `flutter_gemma`
+1.2.2 AND `flutter_gemma_mediapipe` 1.0.4"), and run the whole of Steps 2/8/9/10
+for each one.
 
 ## Step 2: Bump versions
 

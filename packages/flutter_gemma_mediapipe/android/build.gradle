@@ -23,12 +23,16 @@ allprojects {
 
 apply plugin: 'com.android.library'
 
-// Built-in Kotlin migration (#323). AGP 9 ships Kotlin built-in and rejects an
-// explicit kotlin-android apply; AGP 8.x still needs it. Apply KGP only on
-// AGP < 9 so we build on both and stop tripping Flutter's "plugin applies KGP"
-// deprecation warning on AGP 9+.
+// Built-in Kotlin migration (#323), fixed for #360. AGP 9's built-in Kotlin is
+// opt-in (android.builtInKotlin=true); Flutter's AGP-9 tooling sets it to `false`
+// by default so KGP-based plugins keep building (flutter/flutter#183910). The old
+// check keyed on the AGP *version* alone, so on AGP 9 with the flag false/unset
+// NEITHER KGP nor built-in Kotlin compiled the plugin's .kt — the MediaPipe plugin
+// class was never emitted and the app's GeneratedPluginRegistrant failed (#360).
+// Apply KGP when AGP < 9 OR built-in Kotlin is not explicitly enabled.
 def agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')[0] as int
-if (agpMajor < 9) {
+def builtInKotlinOn = project.findProperty('android.builtInKotlin') == 'true'
+if (agpMajor < 9 || !builtInKotlinOn) {
     apply plugin: 'kotlin-android'
 }
 

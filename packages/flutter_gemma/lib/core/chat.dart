@@ -8,6 +8,7 @@ import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:mutex/mutex.dart';
 
 import 'model.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -30,6 +31,10 @@ class InferenceChat {
   final ToolChoice toolChoice; // Tool calling mode
   late InferenceModelSession session;
   final List<Tool> tools;
+
+  /// Serializes genai_primitives sendMessage/generateContent calls so
+  /// concurrent turns can't interleave staging into the shared session buffer.
+  final Mutex genaiLock = Mutex();
 
   final List<Message> _fullHistory = [];
   final List<Message> _prefixes =

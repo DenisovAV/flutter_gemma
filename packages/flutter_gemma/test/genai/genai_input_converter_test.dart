@@ -84,4 +84,30 @@ void main() {
     final msg = ChatMessage(role: ChatMessageRole.user, parts: const []);
     expect(() => messagesFromChatMessage(msg), throwsA(isA<ArgumentError>()));
   });
+
+  test('tool call in a user-role message throws', () async {
+    final msg = ChatMessage(
+      role: ChatMessageRole.user,
+      parts: [
+        ToolPart.call(callId: '1', toolName: 'calc', arguments: {'a': 1}),
+      ],
+    );
+    expect(
+      () => messagesFromChatMessage(msg),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
+
+  test('non-media DataPart mime throws', () async {
+    final msg = ChatMessage(
+      role: ChatMessageRole.user,
+      parts: [
+        DataPart(Uint8List.fromList([1, 2]), mimeType: 'application/pdf'),
+      ],
+    );
+    expect(
+      () => messagesFromChatMessage(msg),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
 }

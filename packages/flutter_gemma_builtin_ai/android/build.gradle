@@ -1,0 +1,98 @@
+group 'dev.flutterberlin.flutter_gemma_builtin_ai'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    ext.kotlin_version = '2.3.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.9.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+
+// Built-in Kotlin migration (#323), fixed for #360. AGP 9's built-in Kotlin is
+// opt-in (android.builtInKotlin=true); Flutter's AGP-9 tooling sets it to `false`
+// by default so KGP-based plugins keep building (flutter/flutter#183910). The old
+// check keyed on the AGP *version* alone, so on AGP 9 with the flag false/unset
+// NEITHER KGP nor built-in Kotlin compiled the plugin's .kt — the MediaPipe plugin
+// class was never emitted and the app's GeneratedPluginRegistrant failed (#360).
+// Apply KGP when AGP < 9 OR built-in Kotlin is not explicitly enabled.
+def agpMajor = com.android.Version.ANDROID_GRADLE_PLUGIN_VERSION.tokenize('.')[0] as int
+def builtInKotlinOn = project.findProperty('android.builtInKotlin') == 'true'
+if (agpMajor < 9 || !builtInKotlinOn) {
+    apply plugin: 'kotlin-android'
+}
+
+android {
+    if (project.android.hasProperty("namespace")) {
+        namespace 'dev.flutterberlin.flutter_gemma_builtin_ai'
+    }
+
+    compileSdk 36
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+        test.java.srcDirs += 'src/test/kotlin'
+    }
+
+    defaultConfig {
+        minSdkVersion 26
+        targetSdk = 36
+        consumerProguardFiles 'consumer-proguard-rules.pro'
+    }
+
+    testOptions {
+        unitTests.all {
+            useJUnitPlatform()
+
+            testLogging {
+                events "passed", "skipped", "failed", "standardOut", "standardError"
+                outputs.upToDateWhen {false}
+                showStandardStreams = true
+            }
+        }
+    }
+}
+
+// Set the Kotlin jvmTarget only once the kotlin-android plugin is actually
+// applied. On AGP < 9 we apply it above, so this runs and configures jvmTarget.
+// On AGP 9 the plugin isn't applied (built-in Kotlin handles compilation) and
+// the `kotlin {}` DSL isn't registered at the Project level for a library
+// subproject — a bare `kotlin {}` block there fails with "Could not find method
+// kotlin()". pluginManager.withPlugin defers the config so it's a no-op when KGP
+// isn't applied, instead of crashing configuration. On AGP 9 the explicit
+// jvmTarget is not lost: built-in Kotlin derives it from compileOptions
+// (sourceCompatibility/targetCompatibility VERSION_11 above), so the JVM 11
+// target is preserved by a different mechanism.
+pluginManager.withPlugin('kotlin-android') {
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+        }
+    }
+}
+
+dependencies {
+    // ML Kit GenAI Prompt API (Gemini Nano via AICore) — bundled by this opt-in package.
+    implementation 'com.google.mlkit:genai-prompt:1.0.0-beta2'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    implementation 'androidx.core:core-ktx:1.12.0'
+}

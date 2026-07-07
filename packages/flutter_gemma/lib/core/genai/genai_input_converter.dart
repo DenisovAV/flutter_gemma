@@ -109,3 +109,32 @@ void _routeMedia(
     throw UnsupportedError('Unsupported DataPart mime "$mime".');
   }
 }
+
+/// Throws if any message needs a capability the chat wasn't built with,
+/// so the engine never silently drops image/audio/tool content.
+void assertMessagesFitChat(
+  List<Message> messages, {
+  required bool supportImage,
+  required bool supportAudio,
+  required bool supportsFunctionCalls,
+}) {
+  for (final m in messages) {
+    if (m.hasImage && !supportImage) {
+      throw UnsupportedError(
+        'This chat was created without image support; recreate it with a vision model.',
+      );
+    }
+    if (m.hasAudio && !supportAudio) {
+      throw UnsupportedError(
+        'This chat was created without audio support; recreate it with an audio model.',
+      );
+    }
+    if ((m.type == MessageType.toolResponse ||
+            m.type == MessageType.toolCall) &&
+        !supportsFunctionCalls) {
+      throw UnsupportedError(
+        'This chat was created without function-call support (tools were not passed to createChat).',
+      );
+    }
+  }
+}

@@ -212,15 +212,22 @@ public class BuiltInAiServiceImpl: NSObject, BuiltInAiService, FlutterStreamHand
   }
 
   func closeSession(sessionId: Int64, completion: @escaping (Result<Void, Error>) -> Void) {
+    sessionsLock.lock()
+    let removed = sessions.removeValue(forKey: sessionId)
+    sessionsLock.unlock()
     if #available(iOS 26.0, macOS 26.0, *) {
-      sessionsLock.lock()
-      let state = sessions.removeValue(forKey: sessionId) as? SessionState
-      sessionsLock.unlock()
-      state?.task?.cancel()
-    } else {
-      sessionsLock.lock()
-      sessions.removeValue(forKey: sessionId)
-      sessionsLock.unlock()
+      (removed as? SessionState)?.task?.cancel()
+    }
+    // If a generation stream was still active, emit a tagged completion so a
+    // consumer awaiting getResponseAsync() closes cleanly instead of hanging —
+    // closing a session mid-stream must terminate that stream, same as
+    // stopGeneration does (the task cancel alone is silent to Dart).
+    if removed != nil {
+      postEvent([
+        "partialResult": "",
+        "done": true,
+        "sessionId": sessionId,
+      ])
     }
     completion(.success(()))
   }

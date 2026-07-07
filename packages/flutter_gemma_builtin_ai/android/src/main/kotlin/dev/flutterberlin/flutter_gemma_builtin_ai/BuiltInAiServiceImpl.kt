@@ -23,6 +23,7 @@ import com.google.mlkit.genai.prompt.GenerativeModel
 import com.google.mlkit.genai.prompt.generateContentRequest
 import com.google.mlkit.genai.prompt.ImagePart
 import com.google.mlkit.genai.prompt.TextPart
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Backs the pigeon [BuiltInAiService] with the ML Kit GenAI Prompt API
@@ -143,6 +144,15 @@ internal class BuiltInAiServiceImpl(
 
   override fun downloadFeature(callback: (Result<Unit>) -> Unit) {
     scope.launch {
+      // The pigeon reply must fire exactly once. Guard so a terminal status,
+      // the post-collect fallback, and the catch are mutually exclusive: some
+      // download flows end WITHOUT a terminal DownloadCompleted/Failed (e.g.
+      // the feature is already present and the flow just finishes) — without
+      // the fallback the Dart future would hang until ensureReady's timeout.
+      val replied = AtomicBoolean(false)
+      fun reply(result: Result<Unit>) {
+        if (replied.compareAndSet(false, true)) callback(result)
+      }
       try {
         client().download().collect { status ->
           when (status) {
@@ -163,16 +173,19 @@ internal class BuiltInAiServiceImpl(
             }
             is DownloadStatus.DownloadCompleted -> {
               Log.d(TAG, "Gemini Nano download complete")
-              callback(Result.success(Unit))
+              reply(Result.success(Unit))
             }
             is DownloadStatus.DownloadFailed -> {
               Log.e(TAG, "Gemini Nano download failed: ${status.e.message}")
-              callback(Result.failure(status.e))
+              reply(Result.failure(status.e))
             }
           }
         }
+        // Flow ended without a terminal status — treat as success; Dart's
+        // ensureReady poll confirms readiness via checkAvailability.
+        reply(Result.success(Unit))
       } catch (e: Exception) {
-        callback(Result.failure(e))
+        reply(Result.failure(e))
       }
     }
   }
@@ -240,8 +253,22 @@ internal class BuiltInAiServiceImpl(
 
   override fun closeSession(sessionId: Long, callback: (Result<Unit>) -> Unit) {
     try {
-      synchronized(sessionsLock) {
-        sessions.remove(sessionId)?.job?.cancel()
+      val removed = synchronized(sessionsLock) {
+        sessions.remove(sessionId)
+      }
+      removed?.job?.cancel()
+      // If a generation stream was still active, emit a tagged completion so a
+      // consumer awaiting getResponseAsync() closes cleanly instead of hanging —
+      // closing a session mid-stream must terminate that stream, same as
+      // stopGeneration does (the job cancel alone is silent to Dart).
+      if (removed != null) {
+        postEvent(
+          mapOf(
+            "partialResult" to "",
+            "done" to true,
+            "sessionId" to sessionId,
+          )
+        )
       }
       callback(Result.success(Unit))
     } catch (e: Exception) {

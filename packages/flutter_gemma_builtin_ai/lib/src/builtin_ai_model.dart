@@ -188,10 +188,16 @@ class BuiltInAiModel extends InferenceModel with CloseNotifier {
   Future<void> close() async {
     if (_isClosed) return;
     _isClosed = true;
-    await _session?.close();
-    _session = null;
-    onClose();
-    fireCloseListeners();
-    await service.closeModel();
+    // Guarantee the native model is released and core's singleton bookkeeping
+    // is reset even if the session's native close throws — otherwise a phantom
+    // model would linger in the registry with the OS resource leaked.
+    try {
+      await _session?.close();
+    } finally {
+      _session = null;
+      onClose();
+      fireCloseListeners();
+      await service.closeModel();
+    }
   }
 }

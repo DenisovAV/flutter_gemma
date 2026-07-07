@@ -153,13 +153,20 @@ class BuiltInAiSession extends InferenceModelSession {
     _assertNotClosed();
     try {
       return await service.countTokens(text);
-    } on PlatformException {
-      // Host doesn't expose a tokenizer — fall back to a rough char heuristic.
+    } on PlatformException catch (e) {
+      // `channel-error` / `null-error` are pigeon infrastructure failures — the
+      // native plugin isn't registered or the platform has no implementation.
+      // Those are wiring bugs, not a missing tokenizer, so surface them instead
+      // of masking a misconfigured engine as a plausible-looking token count.
+      if (e.code == 'channel-error' || e.code == 'null-error') rethrow;
+      // Otherwise the host reported it can't tokenize (e.g. Apple FM on
+      // iOS 26.0–26.3, or a per-call host failure) — fall back to a rough
+      // char heuristic so token budgeting never hard-fails.
       if (!_tokenFallbackWarned) {
         _tokenFallbackWarned = true;
         gemmaLog(
-          '[BuiltInAI] countTokens is unavailable on this host; falling back '
-          'to a (text.length / 4) estimate. Token counts are approximate.',
+          '[BuiltInAI] countTokens is unavailable on this host (${e.code}); '
+          'falling back to a (text.length / 4) estimate. Counts are approximate.',
         );
       }
       return (text.length / 4).ceil();

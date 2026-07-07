@@ -131,20 +131,33 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     final completer = _initCompleter = Completer<InferenceModel>();
 
     try {
-      // Verify model is installed
-      final isInstalled = await _modelManager.isModelInstalled(activeModel);
-      if (!isInstalled) {
-        throw Exception('Active model is no longer installed');
-      }
+      final specForGates = activeModel as InferenceModelSpec;
+      final isBuiltIn = specForGates.fileType == ModelFileType.builtIn;
 
-      // Get model file path
-      final modelFilePaths = await _modelManager.getModelFilePaths(activeModel);
-      if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        throw Exception('Model file paths not found');
-      }
+      String modelPath = '';
+      if (!isBuiltIn) {
+        // Verify model is installed
+        final isInstalled = await _modelManager.isModelInstalled(activeModel);
+        if (!isInstalled) {
+          throw Exception('Active model is no longer installed');
+        }
 
-      final modelPath = modelFilePaths.values.first;
-      gemmaLog('[FlutterGemmaDesktop] Using model: $modelPath');
+        // Get model file path
+        final modelFilePaths = await _modelManager.getModelFilePaths(
+          activeModel,
+        );
+        if (modelFilePaths == null || modelFilePaths.isEmpty) {
+          throw Exception('Model file paths not found');
+        }
+
+        modelPath = modelFilePaths.values.first;
+        gemmaLog('[FlutterGemmaDesktop] Using model: $modelPath');
+      } else {
+        gemmaLog(
+          '[FlutterGemmaDesktop] Built-in model ${specForGates.name}: '
+          'skipping file/installed checks (no on-disk file)',
+        );
+      }
 
       // Core resolves the model path + owns the singleton lifecycle, then
       // dispatches construction polymorphically through the EngineRegistry.
@@ -153,7 +166,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // empty (or no engine canHandle the spec), the findFor==null StateError
       // below fires. Desktop is litertlm-only; a `.task` request would simply
       // find no matching engine.
-      final spec = activeModel as InferenceModelSpec;
+      final spec = specForGates;
       final config = RuntimeConfig(
         maxTokens: maxTokens,
         modelPath: modelPath,

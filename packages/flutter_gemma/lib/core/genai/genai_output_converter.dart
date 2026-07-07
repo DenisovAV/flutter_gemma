@@ -1,8 +1,4 @@
 import 'package:genai_primitives/genai_primitives.dart';
-// FinishStatus is a public field type on ChatMessage but genai_primitives
-// 0.2.3 doesn't re-export it from the top-level barrel (package gap).
-// ignore: implementation_imports
-import 'package:genai_primitives/src/finish_status.dart' show FinishStatus;
 
 import '../model_response.dart';
 
@@ -32,7 +28,6 @@ ChatMessage chatMessageFromParts({
   String? text,
   List<FunctionCallResponse> calls = const [],
   String? thinking,
-  FinishStatus? finishStatus,
   Map<String, Object?> metadata = const {},
 }) {
   final parts = <StandardPart>[];
@@ -52,6 +47,5 @@ ChatMessage chatMessageFromParts({
     role: ChatMessageRole.model,
     parts: parts,
     metadata: metadata,
-    finishStatus: finishStatus,
   );
 }

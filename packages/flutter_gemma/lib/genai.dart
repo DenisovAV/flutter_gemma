@@ -6,3 +6,8 @@
 library;
 
 export 'package:genai_primitives/genai_primitives.dart';
+export 'core/genai/genai_chat_extension.dart' show GenAiChat;
+export 'core/genai/genai_input_converter.dart'
+    show messagesFromChatMessage, messagesFromChatMessages;
+export 'core/genai/genai_output_converter.dart'
+    show chatMessageFromChunk, chatMessageFromParts;

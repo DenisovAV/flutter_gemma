@@ -8,13 +8,24 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  // When true, a `downloadable` model triggers an on-device feature download and
+  // waits. Default OFF so CI / Firebase Test Lab (fresh devices where the AICore
+  // model is never pre-downloaded and the download queue may never grant a slot)
+  // skips cleanly instead of hanging until a timeout. Run on a device that has
+  // Gemini Nano / Apple Intelligence already downloaded, or pass
+  // --dart-define=BUILTIN_AI_ALLOW_DOWNLOAD=true to exercise real generation.
+  const allowDownload =
+      bool.fromEnvironment('BUILTIN_AI_ALLOW_DOWNLOAD', defaultValue: false);
+
   late bool available;
 
   setUpAll(() async {
     await FlutterGemma.initialize(inferenceEngines: const [BuiltInAiEngine()]);
     final status = await BuiltInAi.availability();
     available = status == BuiltInAiAvailability.available;
-    if (!available && status == BuiltInAiAvailability.downloadable) {
+    if (!available &&
+        allowDownload &&
+        status == BuiltInAiAvailability.downloadable) {
       try {
         await BuiltInAi.ensureReady(timeout: const Duration(minutes: 8));
         available = true;

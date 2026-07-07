@@ -160,7 +160,21 @@ abstract final class BuiltInAi {
 
     try {
       if (kickOff) {
-        await builtInAiService.downloadFeature();
+        // Fire-and-forget: the OS routes the AICore feature download through a
+        // system-managed queue that can sit silent for minutes-to-hours (or, on
+        // a freshly-provisioned/CI device, never get a scheduler slot at all).
+        // The ML Kit `download()` Flow gives NO terminal-emission guarantee, so
+        // AWAITING it can hang indefinitely. We therefore never block on it —
+        // the sole readiness signal is availability polling below, and the whole
+        // wait is bounded by [timeout]. (A silent failure inside the kick-off is
+        // surfaced by the poll loop / timeout, not lost.)
+        unawaited(
+          builtInAiService.downloadFeature().catchError((Object _) {
+            // Swallow here — poll() observes the real availability outcome and
+            // the timeout bounds the wait; a kick-off error must not escape the
+            // fire-and-forget and crash the isolate.
+          }),
+        );
       }
       unawaited(poll());
       await ready.future.timeout(

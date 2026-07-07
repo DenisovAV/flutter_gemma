@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_builtin_ai/pigeon.g.dart';
@@ -113,5 +115,26 @@ void main() {
     await BuiltInAi.ensureReady();
     expect(downloadCalled, isTrue);
     expect(checkCount, greaterThanOrEqualTo(2));
+  });
+
+  // Regression for the Firebase Test Lab hang: on a fresh device the AICore
+  // download queue may never grant a slot, so the native downloadFeature() Flow
+  // emits nothing and its pigeon reply never arrives, while checkAvailability
+  // stays `downloadable`. ensureReady must be bounded by its own timeout and
+  // throw TimeoutException — NOT block forever on the download call.
+  test('ensureReady times out (does not hang) when download never completes '
+      'and availability never flips', () async {
+    // downloadFeature that NEVER replies — simulates the stuck AICore queue.
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(
+          '$_prefix.downloadFeature',
+          (ByteData? message) => Completer<ByteData?>().future, // never completes
+        );
+    _mockHost('checkAvailability', (_) => [AvailabilityStatus.downloadable]);
+
+    await expectLater(
+      BuiltInAi.ensureReady(timeout: const Duration(milliseconds: 300)),
+      throwsA(isA<TimeoutException>()),
+    );
   });
 }

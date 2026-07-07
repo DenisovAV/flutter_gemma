@@ -248,7 +248,8 @@ public class BuiltInAiServiceImpl: NSObject, BuiltInAiService, FlutterStreamHand
     // iOS 27 / macOS 27. This plugin builds against the iOS 26 / macOS 26 SDK,
     // where the `Attachment` type is not present, so the multimodal branch
     // cannot be compiled here. We therefore reject image input on every OS this
-    // SDK targets. Dart maps `IMAGE_UNSUPPORTED_OS` to `UnsupportedError`.
+    // SDK targets. This surfaces on the Dart side as a `PlatformException` with
+    // code `IMAGE_UNSUPPORTED_OS` (image support is deferred to an OS-27 SDK build).
     completion(
       .failure(
         PigeonError(

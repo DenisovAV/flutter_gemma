@@ -1,3 +1,6 @@
+## 1.0.4
+- Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).
+
 ## 1.0.3
 - Migrate Android module to Built-in Kotlin — apply KGP only on AGP < 9, ready for AGP 9+ (#323).
 

@@ -5,6 +5,7 @@ import 'package:flutter_gemma/core/chat.dart';
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/tool.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show InferenceModel, InferenceModelSession;
 import 'package:flutter_gemma/core/domain/platform_types.dart'
@@ -12,6 +13,23 @@ import 'package:flutter_gemma/core/domain/platform_types.dart'
 
 import '../pigeon.g.dart';
 import 'builtin_ai_session.dart';
+
+/// One-time guard so requesting thinking mode logs a single warning rather than
+/// spamming one per session/chat. Built-in OS models expose no thinking control,
+/// so the flag is accepted (for API parity) and ignored.
+bool _thinkingUnsupportedWarned = false;
+
+@visibleForTesting
+void resetThinkingUnsupportedWarning() => _thinkingUnsupportedWarned = false;
+
+void _warnThinkingIgnoredOnce() {
+  if (_thinkingUnsupportedWarned) return;
+  _thinkingUnsupportedWarned = true;
+  gemmaLog(
+    '[BuiltInAI] Thinking mode is not supported by built-in OS models '
+    '(Gemini Nano / Apple Foundation Models); the flag is ignored.',
+  );
+}
 
 /// A loaded OS built-in model (Gemini Nano / Apple Foundation Models).
 ///
@@ -79,6 +97,7 @@ class BuiltInAiModel extends InferenceModel with CloseNotifier {
     if (enableAudioModality == true) {
       throw UnsupportedError('Audio is not supported by built-in OS models');
     }
+    if (enableThinking) _warnThinkingIgnoredOnce();
 
     // Fresh native session with a clean context; close any prior singleton.
     if (_session case final previous?) {

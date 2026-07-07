@@ -236,6 +236,13 @@ public class BuiltInAiServiceImpl: NSObject, BuiltInAiService, FlutterStreamHand
       completion(.failure(sessionMissingError(sessionId)))
       return
     }
+    // Normal multi-turn relies on the native LanguageModelSession retaining its
+    // own transcript, so each turn appends only the current message. LIMITATION
+    // (v1): on a context-overflow recreate, core replays the whole history via
+    // addQueryChunk, and this concatenation folds prior user+assistant turns
+    // into one prompt with no role/turn structure (the iOS 26 API exposes no
+    // Transcript seeding). Acceptable degradation after overflow; revisit when a
+    // transcript-seeding init ships. See spec §10 roadmap.
     state.pendingText += text
     completion(.success(()))
   }

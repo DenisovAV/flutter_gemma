@@ -1,3 +1,6 @@
+## 1.2.2
+- Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).
+
 ## 1.2.1
 - Fix SmartDownloader resume-loop hang — cap resume attempts + arm a watchdog timer (#355).
 - Fix foreground downloads on Android — configure a running notification so the service actually activates (#356).

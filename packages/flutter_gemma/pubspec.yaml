@@ -33,6 +33,8 @@ dependencies:
   hooks: ^2.0.0
   code_assets: ^1.2.0
   crypto: ^3.0.6
+  genai_primitives: ^0.2.3
+  http: ^1.6.0
   # Annotations (@immutable, @visibleForTesting) used across core, e.g. chat.dart.
   meta: ^1.15.0
   # Serializes native LiteRT-LM conversation calls across concurrent

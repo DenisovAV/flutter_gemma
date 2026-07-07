@@ -137,4 +137,28 @@ void main() {
       throwsA(isA<TimeoutException>()),
     );
   });
+
+  // Regression for the Firebase Test Lab hang (root cause): on a device whose OS
+  // AI stack is not initialized (AICore with no Phenotype metadata), the native
+  // checkStatus() call never returns. availability() must be bounded and resolve
+  // to unavailableOther so a caller that gates on it can skip cleanly — observed
+  // as a 9-minute hang in setUpAll before this bound existed.
+  test('availability() resolves to unavailableOther when the native probe '
+      'never returns (does not hang)', () async {
+    final originalTimeout = BuiltInAi.debugProbeTimeout;
+    BuiltInAi.debugProbeTimeout = const Duration(milliseconds: 200);
+    addTearDown(() => BuiltInAi.debugProbeTimeout = originalTimeout);
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMessageHandler(
+          '$_prefix.checkAvailability',
+          (ByteData? message) => Completer<ByteData?>().future, // never completes
+        );
+
+    final result = await BuiltInAi.availability().timeout(
+      const Duration(seconds: 2),
+      onTimeout: () => fail('availability() hung past its probe bound'),
+    );
+    expect(result, BuiltInAiAvailability.unavailableOther);
+  });
 }

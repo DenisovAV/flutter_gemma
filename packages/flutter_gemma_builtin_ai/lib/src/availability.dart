@@ -59,10 +59,29 @@ class BuiltInAiUnavailableException implements Exception {
 
 /// App-facing entry point for probing and preparing the OS built-in model.
 abstract final class BuiltInAi {
+  /// How long to wait for the native availability probe before treating the
+  /// host as unavailable. On a device where the OS AI stack is not initialized
+  /// (e.g. a freshly-provisioned / CI device where Android AICore has no
+  /// Phenotype metadata yet), the native `checkStatus()` call can block
+  /// indefinitely instead of returning a status. Bounding it keeps
+  /// [availability] — and therefore any caller that gates on it — from hanging.
+  /// Overridable only for tests via [debugProbeTimeout].
+  static Duration debugProbeTimeout = const Duration(seconds: 20);
+
   /// Current availability of the OS built-in model.
+  ///
+  /// Never hangs: if the native probe does not return within
+  /// [debugProbeTimeout] (a stuck/uninitialized OS AI stack), this resolves to
+  /// [BuiltInAiAvailability.unavailableOther] so callers can degrade or skip.
   static Future<BuiltInAiAvailability> availability() async {
-    final status = await builtInAiService.checkAvailability();
-    return mapAvailability(status);
+    try {
+      final status = await builtInAiService
+          .checkAvailability()
+          .timeout(debugProbeTimeout);
+      return mapAvailability(status);
+    } on TimeoutException {
+      return BuiltInAiAvailability.unavailableOther;
+    }
   }
 
   /// Ensures the OS model is ready to use, downloading the feature if the OS

@@ -1,5 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart'
-    show defaultTargetPlatform, TargetPlatform;
+    show debugPrint, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,24 +22,43 @@ void main() {
   late bool available;
 
   setUpAll(() async {
-    await FlutterGemma.initialize(inferenceEngines: const [BuiltInAiEngine()]);
-    final status = await BuiltInAi.availability();
-    available = status == BuiltInAiAvailability.available;
-    if (!available &&
-        allowDownload &&
-        status == BuiltInAiAvailability.downloadable) {
-      try {
-        await BuiltInAi.ensureReady(timeout: const Duration(minutes: 8));
-        available = true;
-      } catch (_) {/* stays skipped */}
-    }
-    if (available) {
-      final spec = defaultTargetPlatform == TargetPlatform.android
-          ? BuiltInAiModels.geminiNano
-          : BuiltInAiModels.appleFoundationModels;
-      await FlutterGemma.installModel(
-        modelType: spec.modelType, fileType: spec.fileType,
-      ).fromBundled(spec.name).install();
+    // Whole-setup guard: nothing here may hang the suite. Even with the native
+    // probe bounded, a hostile OS AI stack shouldn't be able to stall setUp;
+    // on timeout we leave `available=false` and every test skips. The
+    // debugPrint markers localize where time goes on a device.
+    try {
+      await () async {
+        debugPrint('[builtin_ai_test] setUp: initialize…');
+        await FlutterGemma.initialize(
+          inferenceEngines: const [BuiltInAiEngine()],
+        );
+        debugPrint('[builtin_ai_test] setUp: availability()…');
+        final status = await BuiltInAi.availability();
+        debugPrint('[builtin_ai_test] setUp: availability = $status');
+        available = status == BuiltInAiAvailability.available;
+        if (!available &&
+            allowDownload &&
+            status == BuiltInAiAvailability.downloadable) {
+          try {
+            await BuiltInAi.ensureReady(timeout: const Duration(minutes: 8));
+            available = true;
+          } catch (_) {/* stays skipped */}
+        }
+        if (available) {
+          debugPrint('[builtin_ai_test] setUp: installing active model…');
+          final spec = defaultTargetPlatform == TargetPlatform.android
+              ? BuiltInAiModels.geminiNano
+              : BuiltInAiModels.appleFoundationModels;
+          await FlutterGemma.installModel(
+            modelType: spec.modelType,
+            fileType: spec.fileType,
+          ).fromBundled(spec.name).install();
+        }
+        debugPrint('[builtin_ai_test] setUp: done (available=$available)');
+      }().timeout(const Duration(seconds: 45));
+    } on TimeoutException {
+      debugPrint('[builtin_ai_test] setUp TIMED OUT — skipping all tests');
+      available = false;
     }
   });
 

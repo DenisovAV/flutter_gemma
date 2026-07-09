@@ -122,7 +122,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
           : null;
 
       final beforeConv = sessionSw.elapsedMilliseconds;
-      final handle = ffiClient.createConversationHandle(
+      final handle = await ffiClient.createConversationHandle(
         systemMessage: systemInstruction,
         toolsJson: toolsJson,
         temperature: temperature,

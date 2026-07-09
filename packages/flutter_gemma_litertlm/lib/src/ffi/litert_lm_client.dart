@@ -173,6 +173,55 @@ class LiteRtLmConversationHandle implements ConversationHandle {
   }
 }
 
+/// Opens the LiteRT-LM shared library for the current platform.
+///
+/// Top-level so it can be called from a spawned isolate, which cannot capture
+/// `this` or any other non-const closure state.
+DynamicLibrary _openLiteRtLmLibrary() {
+  if (Platform.isIOS) {
+    return DynamicLibrary.open(
+      '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm',
+    );
+  }
+  if (Platform.isMacOS) {
+    return DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
+  }
+  if (Platform.isLinux || Platform.isAndroid) {
+    return DynamicLibrary.open('libLiteRtLm.so');
+  }
+  return DynamicLibrary.open('LiteRtLm.dll');
+}
+
+/// Calls native `litert_lm_conversation_create` on a spawned isolate.
+///
+/// For multimodal models this compiles the vision encoder's OpenCL kernels
+/// (`clBuildProgram`), which costs ~8s on a mid-range mobile GPU. Recent
+/// Flutter runs the Dart UI thread on Android's platform thread, so calling
+/// this inline blocks input dispatch and the OS raises an
+/// "Input dispatching timed out" ANR.
+///
+/// Native pointers are process-wide, so the conversation can be built on any
+/// isolate and used from this one. This mirrors what `litert_lm_engine_create`
+/// already does.
+Future<int> _createConversationOffMainIsolate({
+  required int engineAddr,
+  required int configAddr,
+}) {
+  final isolateLogLevel = gemmaLogLevel;
+  return Isolate.run(() {
+    gemmaLogLevel = isolateLogLevel;
+    final create = _openLiteRtLmLibrary()
+        .lookupFunction<
+          Pointer Function(Pointer, Pointer),
+          Pointer Function(Pointer, Pointer)
+        >('litert_lm_conversation_create');
+    return create(
+      Pointer.fromAddress(engineAddr),
+      Pointer.fromAddress(configAddr),
+    ).address;
+  });
+}
+
 /// High-level Dart wrapper around the LiteRT-LM C API.
 ///
 /// Provides a clean async interface over the native C functions,
@@ -686,7 +735,7 @@ class LiteRtLmFfiClient {
   /// session multiplexer to replay a session's history into a fresh
   /// conversation. When null the conversation starts empty (legacy
   /// behaviour).
-  LiteRtLmConversationHandle createConversationHandle({
+  Future<LiteRtLmConversationHandle> createConversationHandle({
     String? systemMessage,
     String? toolsJson,
     String? messagesJson,
@@ -695,8 +744,8 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     int? maxOutputTokens,
-  }) {
-    final conv = _createRawConversation(
+  }) async {
+    final conv = await _createRawConversation(
       systemMessage: systemMessage,
       toolsJson: toolsJson,
       messagesJson: messagesJson,
@@ -719,7 +768,7 @@ class LiteRtLmFfiClient {
   /// ([startVirtualTurn]) which owns the pointer's lifecycle directly and
   /// does not register a handle. Lock-free — callers that need
   /// serialization (the multiplexer) hold [_nativeMutex] around it.
-  Pointer<LiteRtLmConversation> _createRawConversation({
+  Future<Pointer<LiteRtLmConversation>> _createRawConversation({
     String? systemMessage,
     String? toolsJson,
     String? messagesJson,
@@ -728,7 +777,7 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     int? maxOutputTokens,
-  }) {
+  }) async {
     _assertInitialized();
     final b = _bindings!;
 
@@ -820,7 +869,12 @@ class LiteRtLmFfiClient {
       );
     }
 
-    final conv = b.litert_lm_conversation_create(_engine!, convConfig);
+    final conv = Pointer<LiteRtLmConversation>.fromAddress(
+      await _createConversationOffMainIsolate(
+        engineAddr: _engine!.address,
+        configAddr: convConfig.address,
+      ),
+    );
 
     b.litert_lm_conversation_config_delete(convConfig);
 
@@ -836,16 +890,16 @@ class LiteRtLmFfiClient {
   /// conversation (if any) and opens a fresh one stored in [_legacyHandle].
   /// Kept for backward compat — new code should use
   /// [createConversationHandle] and own the handle directly.
-  void createConversation({
+  Future<void> createConversation({
     String? systemMessage,
     String? toolsJson,
     double temperature = 0.8,
     int topK = 40,
     double? topP,
     int seed = 1,
-  }) {
+  }) async {
     _legacyHandle?.close();
-    _legacyHandle = createConversationHandle(
+    _legacyHandle = await createConversationHandle(
       systemMessage: systemMessage,
       toolsJson: toolsJson,
       temperature: temperature,
@@ -1093,7 +1147,7 @@ class LiteRtLmFfiClient {
           final historyJson = history.isEmpty
               ? null
               : buildHistoryJson(history);
-          _virtualConv = _createRawConversation(
+          _virtualConv = await _createRawConversation(
             systemMessage: systemMessage,
             toolsJson: toolsJson,
             messagesJson: historyJson,

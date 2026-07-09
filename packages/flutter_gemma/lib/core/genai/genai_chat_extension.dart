@@ -115,6 +115,14 @@ extension GenAiChat on InferenceChat {
     late StreamController<ChatMessage> controller;
     StreamSubscription<ModelResponse>? sub;
     var released = false;
+    // Set by onCancel. onListen's async body awaits `stage()` BEFORE `sub` is
+    // assigned, so a subscriber that cancels in that window triggers onCancel
+    // while onListen is still suspended (sub == null → onCancel's sub?.cancel()
+    // is a no-op). Without this flag, onListen would resume and start generation
+    // on a chat whose lock onCancel already released — running a second turn
+    // concurrently and leaking an un-cancellable subscription. onListen checks
+    // this flag after `stage()` and bails before attaching the subscription.
+    var cancelled = false;
     void release() {
       if (!released) {
         released = true;
@@ -127,6 +135,13 @@ extension GenAiChat on InferenceChat {
         await genaiLock.acquire();
         try {
           await stage();
+          if (cancelled) {
+            // Cancelled during stage(): onCancel already released the lock and
+            // called stopGeneration. Do NOT attach a subscription (it would be
+            // un-cancellable and would drive generation on an unlocked chat).
+            await controller.close();
+            return;
+          }
           sub = generateChatResponseAsync().listen(
             (r) => controller.add(chatMessageFromChunk(r)),
             onError: (Object e, StackTrace s) async {
@@ -151,6 +166,7 @@ extension GenAiChat on InferenceChat {
         }
       },
       onCancel: () async {
+        cancelled = true;
         await sub?.cancel();
         try {
           await stopGeneration();

@@ -351,6 +351,7 @@ void main() {
     final text = reply.parts.whereType<TextPart>().map((p) => p.text).join();
     expect(text, isNotEmpty);
     print('[genai generateContent multi-turn] $text');
+    await chat.session.close();
   });
 
   testWidgets('sendMessage — multi-turn history retained', (tester) async {

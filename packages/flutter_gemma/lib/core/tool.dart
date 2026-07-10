@@ -17,7 +17,7 @@ enum ToolChoice {
 
   /// Model must respond with a function call.
   ///
-  /// Not supported by [ModelType.functionGemma]: its prompt format has no way
+  /// Not supported by FunctionGemma: its prompt format has no way
   /// to express the constraint, so it behaves as [auto] and logs a warning.
   required,
 

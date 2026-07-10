@@ -415,6 +415,13 @@ class InferenceChat {
               funcBuffer = token;
               shouldAddToBuffer =
                   false; // Don't add to main buffer while we determine if it's JSON
+            } else if (modelType == ModelType.functionGemma &&
+                token.trim() == functionGemmaEndCall) {
+              // The call's closing brace already completed the buffer, so this
+              // trailing tag belongs to no call. It is markup, not text —
+              // emitting it would show `<end_function_call>` to the user and
+              // write it into chat history.
+              shouldAddToBuffer = false;
             } else {
               // Normal text token - emit immediately
               if (kDebugMode) {
@@ -744,58 +751,27 @@ class InferenceChat {
         'description:$functionGemmaEscape${tool.description}$functionGemmaEscape',
       );
 
-      // Access properties from JSON Schema structure (following Google's FunctionGemma format)
-      final properties = tool.parameters['properties'] as Map<String, dynamic>?;
-      final required = tool.parameters['required'] as List<dynamic>?;
-      if (properties != null && properties.isNotEmpty) {
-        toolsPrompt.write(',parameters:{properties:{');
-        final paramEntries = <String>[];
-        properties.forEach((name, schema) {
-          if (schema is Map<String, dynamic>) {
-            final type = (schema['type'] as String?)?.toUpperCase() ?? 'STRING';
-            final desc = schema['description'];
-            final enumValues = schema['enum'] as List<dynamic>?;
+      // The template gates `parameters` on the parameters map itself, and emits
+      // `type` independently of `properties`. So a no-argument tool still gets
+      // `parameters:{type:<escape>OBJECT<escape>}` — gating on `properties`
+      // dropped the whole block for `get_time`-style tools.
+      if (tool.parameters.isNotEmpty) {
+        final properties =
+            tool.parameters['properties'] as Map<String, dynamic>?;
+        final required = tool.parameters['required'] as List<dynamic>?;
 
-            final parts = <String>[];
-            if (desc != null) {
-              parts.add(
-                'description:$functionGemmaEscape$desc$functionGemmaEscape',
-              );
-            }
-            if (enumValues != null && enumValues.isNotEmpty) {
-              // Validate enum values don't contain FunctionGemma special tokens
-              for (final v in enumValues) {
-                final str = v.toString();
-                if (str.contains('<escape>') ||
-                    str.contains('<start_') ||
-                    str.contains('<end_')) {
-                  throw ArgumentError(
-                    'Enum value "$str" contains FunctionGemma special tokens',
-                  );
-                }
-              }
-              final enumStr = enumValues
-                  .map((v) => '$functionGemmaEscape$v$functionGemmaEscape')
-                  .join(',');
-              parts.add('enum:[$enumStr]');
-            }
-            parts.add('type:$functionGemmaEscape$type$functionGemmaEscape');
-
-            paramEntries.add('$name:{${parts.join(',')}}');
-          }
-        });
-        toolsPrompt.write(paramEntries.join(','));
-        toolsPrompt.write('}');
-        // Add required array if present
-        if (required != null && required.isNotEmpty) {
-          final requiredStr = required
-              .map((r) => '$functionGemmaEscape$r$functionGemmaEscape')
-              .join(',');
-          toolsPrompt.write(',required:[$requiredStr]');
+        final parts = <String>[];
+        if (properties != null && properties.isNotEmpty) {
+          parts.add(
+            'properties:{${_formatFunctionGemmaProperties(properties, tool.name)}}',
+          );
         }
-        toolsPrompt.write(
-          ',type:${functionGemmaEscape}OBJECT$functionGemmaEscape}',
-        );
+        if (required != null && required.isNotEmpty) {
+          parts.add('required:[${_formatFunctionGemmaRequired(required)}]');
+        }
+        parts.add('type:${functionGemmaEscape}OBJECT$functionGemmaEscape');
+
+        toolsPrompt.write(',parameters:{${parts.join(',')}}');
       }
 
       toolsPrompt.writeln('}$functionGemmaEndDecl');
@@ -803,6 +779,254 @@ class InferenceChat {
 
     toolsPrompt.write('$endTurn\n');
     return toolsPrompt.toString();
+  }
+
+  // The helpers below mirror FunctionGemma's own `chat_template.jinja`
+  // (`format_function_declaration` / `format_argument`). The template is the
+  // spec — the model was trained on what it renders, so any divergence here
+  // feeds the model a declaration shape it has never seen.
+
+  /// Property names the template reserves for structure. It skips any property
+  /// that collides with one, so we skip it too rather than emit a declaration
+  /// the model cannot parse.
+  static const _functionGemmaStructuralKeys = {
+    'description',
+    'type',
+    'properties',
+    'required',
+    'nullable',
+  };
+
+  /// Python's `str.lower()`, which Jinja's `dictsort` folds keys with. Dart maps
+  /// `İ` (U+0130) to a plain `i`; Python appends a combining dot, which sorts
+  /// after it.
+  String _pythonFold(String key) => key.replaceAll('İ', 'i̇').toLowerCase();
+
+  /// Jinja's `dictsort`, which defaults to `case_sensitive=False`. A plain
+  /// `.sort()` would put `Beta` before `alpha`; the template does the reverse.
+  ///
+  /// Jinja's sort is stable, Dart's `List.sort` is not (it drops to an unstable
+  /// quicksort past 32 elements), so ties like `Foo`/`foo` are broken by
+  /// insertion order explicitly.
+  List<String> _dictsort(Iterable<String> keys) {
+    final indexed = keys.toList().indexed.toList();
+    indexed.sort((a, b) {
+      final byKey = _pythonFold(a.$2).compareTo(_pythonFold(b.$2));
+      return byKey != 0 ? byKey : a.$1.compareTo(b.$1);
+    });
+    return [for (final entry in indexed) entry.$2];
+  }
+
+  /// Jinja renders a bare `{{ value }}` through Python's `str()`, so booleans
+  /// capitalise, `null` becomes `None`, and floats follow Python's notation.
+  String _pythonScalar(dynamic value) {
+    if (value is bool) return value ? 'True' : 'False';
+    if (value is double) return _pythonDouble(value);
+    if (value == null) return 'None';
+    return '$value';
+  }
+
+  /// The template's `format_argument` macro: strings are escape-wrapped,
+  /// booleans and numbers stay bare, lists and maps recurse.
+  String _formatFunctionGemmaArgument(dynamic value, {bool escapeKeys = true}) {
+    if (value is String) {
+      return '$functionGemmaEscape$value$functionGemmaEscape';
+    }
+    if (value is bool) return value ? 'true' : 'false';
+    if (value is List) {
+      final items = value.map(
+        (v) => _formatFunctionGemmaArgument(v, escapeKeys: escapeKeys),
+      );
+      return '[${items.join(',')}]';
+    }
+    if (value is Map) {
+      final entries = _dictsort(value.keys.map((k) => '$k')).map((key) {
+        final renderedKey = escapeKeys
+            ? '$functionGemmaEscape$key$functionGemmaEscape'
+            : key;
+        final rendered = _formatFunctionGemmaArgument(
+          value[key],
+          escapeKeys: escapeKeys,
+        );
+        return '$renderedKey:$rendered';
+      });
+      return '{${entries.join(',')}}';
+    }
+    // Numbers and `None` fall through the macro's `{{ value }}` branch.
+    return _pythonScalar(value);
+  }
+
+  /// Python's `str(float)`. The template is Jinja, so every number in the prompt
+  /// was formatted by Python. Both languages print the shortest round-trip
+  /// digits, but they switch to exponent notation at different magnitudes:
+  /// Python below `1e-4` and from `1e16`, Dart below `1e-6` and from `1e21`.
+  String _pythonDouble(double value) {
+    if (value.isNaN) return 'nan';
+    if (value.isInfinite) return value.isNegative ? '-inf' : 'inf';
+
+    final magnitude = value.abs();
+    if (magnitude == 0 || (magnitude >= 1e-4 && magnitude < 1e16)) {
+      return value.toString();
+    }
+
+    // Dart writes `1e-5`, Python pads the exponent to two digits: `1e-05`.
+    final exponential = value.toStringAsExponential();
+    final parts = RegExp(r'^(.*)e([+-])(\d+)$').firstMatch(exponential);
+    if (parts == null) return exponential;
+    return '${parts.group(1)}e${parts.group(2)}${parts.group(3)!.padLeft(2, '0')}';
+  }
+
+  String _formatFunctionGemmaRequired(List<dynamic> required) => required
+      .map((r) => '$functionGemmaEscape${_pythonScalar(r)}$functionGemmaEscape')
+      .join(',');
+
+  /// The declaration must name one concrete type per property. `properties` and
+  /// `items` imply their type in JSON Schema — reading them is inference, not a
+  /// guess. Anything else is unknowable, and guessing STRING would make the
+  /// model quote numbers back at us, so say so instead.
+  String _inferFunctionGemmaType(
+    Map<String, dynamic> schema,
+    String toolName,
+    String propertyName,
+  ) {
+    if (schema.containsKey('properties')) return 'OBJECT';
+    if (schema.containsKey('items')) return 'ARRAY';
+    throw ArgumentError(
+      'FunctionGemma requires an explicit type for property "$propertyName" '
+      'of tool "$toolName". '
+      'Declare one of: string, number, integer, boolean, array, object.',
+    );
+  }
+
+  String _formatFunctionGemmaProperties(
+    Map<String, dynamic> properties,
+    String toolName,
+  ) {
+    final entries = <String>[];
+
+    for (final name in _dictsort(properties.keys)) {
+      if (_functionGemmaStructuralKeys.contains(name)) continue;
+      final schema = properties[name];
+      if (schema is! Map<String, dynamic>) continue;
+
+      final rawType = schema['type'];
+      if (rawType is List) {
+        // The template renders a union as a Python list repr the model has
+        // never seen.
+        throw ArgumentError(
+          'FunctionGemma does not support union types (property "$name" of '
+          'tool "$toolName" declares type: $rawType). '
+          'Declare a single type and mark it nullable: true.',
+        );
+      }
+      if (rawType != null && rawType is! String) {
+        throw ArgumentError(
+          'FunctionGemma property "$name" of tool "$toolName" declares a '
+          'non-string type: $rawType.',
+        );
+      }
+
+      final type =
+          (rawType as String?)?.toUpperCase() ??
+          _inferFunctionGemmaType(schema, toolName, name);
+
+      final description = schema['description'];
+      final property = StringBuffer(
+        '$name:{description:$functionGemmaEscape'
+        // An explicit null renders empty here, not as Python's `None`.
+        '${description == null ? '' : _pythonScalar(description)}'
+        '$functionGemmaEscape',
+      );
+
+      // Validate before the type check: an enum on a NUMBER property is dropped
+      // by the template, but a poisoned value is still a caller bug worth naming.
+      final enumValues = schema['enum'] as List<dynamic>?;
+      if (enumValues != null && enumValues.isNotEmpty) {
+        _assertNoSpecialTokens(enumValues);
+      }
+
+      switch (type) {
+        case 'STRING':
+          if (enumValues != null && enumValues.isNotEmpty) {
+            property.write(',enum:${_formatFunctionGemmaArgument(enumValues)}');
+          }
+        case 'OBJECT':
+          final nested = schema['properties'];
+          property.write(',properties:{');
+          if (nested is Map<String, dynamic>) {
+            property.write(_formatFunctionGemmaProperties(nested, toolName));
+          }
+          property.write('}');
+          final nestedRequired = schema['required'] as List<dynamic>?;
+          if (nestedRequired != null && nestedRequired.isNotEmpty) {
+            property.write(
+              ',required:[${_formatFunctionGemmaRequired(nestedRequired)}]',
+            );
+          }
+        case 'ARRAY':
+          final items = schema['items'];
+          if (items is Map<String, dynamic> && items.isNotEmpty) {
+            property.write(
+              ',items:{${_formatFunctionGemmaItems(items, toolName)}}',
+            );
+          }
+      }
+
+      property.write(',type:$functionGemmaEscape$type$functionGemmaEscape}');
+      entries.add(property.toString());
+    }
+
+    return entries.join(',');
+  }
+
+  String _formatFunctionGemmaItems(
+    Map<String, dynamic> items,
+    String toolName,
+  ) {
+    final parts = <String>[];
+
+    for (final key in _dictsort(items.keys)) {
+      final value = items[key];
+      if (value == null) continue;
+
+      switch (key) {
+        case 'properties':
+          final nested = value is Map<String, dynamic>
+              ? _formatFunctionGemmaProperties(value, toolName)
+              : '';
+          parts.add('properties:{$nested}');
+        case 'required':
+          // No emptiness guard here, unlike the object level: the template
+          // guards `required` on a property but not inside `items`, so an
+          // empty list still renders as `required:[]`.
+          if (value is List<dynamic>) {
+            parts.add('required:[${_formatFunctionGemmaRequired(value)}]');
+          }
+        case 'type':
+          // An array's element type may itself be a union, e.g. ['string','number'].
+          final upper = value is List
+              ? value.map((v) => '$v'.toUpperCase()).toList()
+              : '$value'.toUpperCase();
+          parts.add('type:${_formatFunctionGemmaArgument(upper)}');
+        default:
+          parts.add('$key:${_formatFunctionGemmaArgument(value)}');
+      }
+    }
+
+    return parts.join(',');
+  }
+
+  void _assertNoSpecialTokens(List<dynamic> enumValues) {
+    for (final value in enumValues) {
+      final str = value.toString();
+      if (str.contains(functionGemmaEscape) ||
+          str.contains('<start_') ||
+          str.contains('<end_')) {
+        throw ArgumentError(
+          'Enum value "$str" contains FunctionGemma special tokens',
+        );
+      }
+    }
   }
 }
 

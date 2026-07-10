@@ -28,46 +28,72 @@ class FunctionGemmaCallFormat extends FunctionCallFormat {
   bool isFunctionCallComplete(String buffer) {
     final clean = buffer.trim();
     if (clean.isEmpty) return false;
+    if (!clean.contains(functionGemmaStartCall)) return false;
 
-    // Complete if has end tag OR if has start tag and ends with }
-    // (stop_token may cut off <end_function_call>)
-    return (clean.contains(functionGemmaStartCall) &&
-            clean.contains(functionGemmaEndCall)) ||
-        (clean.contains(functionGemmaStartCall) && clean.endsWith('}'));
+    // The end tag means the model stopped, even if the body never balanced —
+    // chat.dart then emits the buffer as text. Otherwise the call is finished
+    // only once its own brace closes; a stop token may have cut the tag off.
+    return clean.contains(functionGemmaEndCall) || _findCallBody(clean) != null;
   }
 
   @override
   FunctionCallResponse? parse(String text) {
     if (text.trim().isEmpty) return null;
 
-    // First try with end tag
-    var regex = RegExp(
-      r'<start_function_call>call:(\w+)\{(.*?)\}<end_function_call>',
-      multiLine: true,
-      dotAll: true,
-    );
-    var match = regex.firstMatch(text);
+    final call = _findCallBody(text);
+    if (call == null) return null;
 
-    // If not found, try without end tag (stop_token may cut it off)
-    if (match == null) {
-      regex = RegExp(
-        r'<start_function_call>call:(\w+)\{(.*?)\}',
-        multiLine: true,
-        dotAll: true,
+    return FunctionCallResponse(name: call.$1, args: _parseParams(call.$2));
+  }
+}
+
+/// Locates `call:NAME{...}` and returns the name plus its balanced body, or
+/// `null` while the call is still arriving.
+///
+/// A regex cannot delimit the body. `}` is not a terminator: it closes a nested
+/// object, or sits inside an escaped string value. So `<escape>…<escape>` spans
+/// are opaque here and brace depth — not the first `}` — ends the call. The
+/// `<end_function_call>` tag is optional; a stop token often eats it.
+(String, String)? _findCallBody(String text) {
+  const callPrefix = 'call:';
+
+  final startIndex = text.indexOf(functionGemmaStartCall);
+  if (startIndex == -1) return null;
+
+  var i = startIndex + functionGemmaStartCall.length;
+  if (!text.startsWith(callPrefix, i)) return null;
+  i += callPrefix.length;
+
+  final name = _readKey(text, i);
+  if (name == null) return null;
+  i = name.$2;
+
+  if (i >= text.length || text[i] != '{') return null;
+  final open = i;
+  var depth = 0;
+
+  while (i < text.length) {
+    if (text.startsWith(functionGemmaEscape, i)) {
+      final close = text.indexOf(
+        functionGemmaEscape,
+        i + functionGemmaEscape.length,
       );
-      match = regex.firstMatch(text);
+      if (close == -1) return null; // string value still streaming
+      i = close + functionGemmaEscape.length;
+      continue;
     }
 
-    if (match == null) return null;
-
-    final functionName = match.group(1)!;
-    final paramsStr = match.group(2)!;
-
-    return FunctionCallResponse(
-      name: functionName,
-      args: _parseParams(paramsStr),
-    );
+    final char = text[i];
+    if (char == '{') {
+      depth++;
+    } else if (char == '}') {
+      depth--;
+      if (depth == 0) return (name.$1, text.substring(open + 1, i));
+    }
+    i++;
   }
+
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,11 +138,18 @@ int _skipWhitespace(String src, int i) {
   return (src.substring(start, i), i);
 }
 
+/// The only numeric shapes Python's `str()` — and so the template — can render.
+/// Dart's `int.tryParse`/`double.tryParse` also accept `0x1f`, `+5`, `007`,
+/// `Infinity` and `NaN`; reading those as numbers invents a type the model
+/// never meant.
+final _bareNumber = RegExp(r'^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][-+]?\d+)?$');
+
 /// Classifies a bare (unescaped) token exactly as the template's `else` branch
 /// would have rendered it. Unrecognised tokens survive as Strings.
 dynamic _classifyBareToken(String token) {
   if (token == 'true') return true;
   if (token == 'false') return false;
+  if (!_bareNumber.hasMatch(token)) return token;
   return int.tryParse(token) ?? double.tryParse(token) ?? token;
 }
 

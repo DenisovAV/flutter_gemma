@@ -238,6 +238,118 @@ void main() {
 
       expect(result.args['weird'], equals('100abc'));
     });
+
+    test('bare tokens the template cannot emit stay Strings', () {
+      // Dart's int/double.tryParse accept forms Python's `str()` never renders.
+      // Treating them as numbers would invent a type the model never meant.
+      final result = parseCall(
+        '<start_function_call>call:f{hex:0x1f,plus:+5,padded:007,'
+        'inf:Infinity,nan:NaN}<end_function_call>',
+      );
+
+      expect(result.args['hex'], equals('0x1f'));
+      expect(result.args['plus'], equals('+5'));
+      expect(result.args['padded'], equals('007'));
+      expect(result.args['inf'], equals('Infinity'));
+      expect(result.args['nan'], equals('NaN'));
+    });
+
+    test('scientific notation still parses as double', () {
+      // `str(1e-05)` in Python is `1e-05` — the template really can emit this.
+      final result = parseCall(
+        '<start_function_call>call:f{small:1e-05,big:1e+20}<end_function_call>',
+      );
+
+      expect(result.args['small'], equals(1e-05));
+      expect(result.args['big'], equals(1e+20));
+    });
+  });
+
+  // `chat.dart` appends one token at a time to a buffer and asks
+  // `isFunctionCallComplete` after each one, parsing the first buffer that says
+  // yes. So completeness must not fire on a `}` that closes a nested object or
+  // sits inside an escaped string — everything after it is lost and leaks to the
+  // user as plain text. These tests walk the buffer the way chat.dart does
+  // instead of handing `parse()` a whole call, which is what hid the bug.
+  group('FunctionGemma streaming completion gate (#366)', () {
+    bool complete(String buffer) => FunctionCallParser.isFunctionCallComplete(
+      buffer,
+      modelType: ModelType.functionGemma,
+    );
+
+    /// The first prefix `chat.dart` would accept as a finished call.
+    String? firstCompletePrefix(String full) {
+      for (var i = 1; i <= full.length; i++) {
+        final prefix = full.substring(0, i);
+        if (complete(prefix)) return prefix;
+      }
+      return null;
+    }
+
+    test('does not complete on the brace closing a nested object', () {
+      expect(complete('<start_function_call>call:f{a:{x:1}'), isFalse);
+    });
+
+    test('does not complete on a brace inside an escaped string', () {
+      expect(
+        complete('<start_function_call>call:f{msg:<escape>a}b<escape>'),
+        isFalse,
+      );
+    });
+
+    test('completes once the call\'s own brace closes', () {
+      expect(complete('<start_function_call>call:f{a:{x:1},b:2}'), isTrue);
+      expect(
+        complete('<start_function_call>call:f{msg:<escape>a}b<escape>}'),
+        isTrue,
+      );
+    });
+
+    test('streamed nested-object call keeps every argument', () {
+      const full =
+          '<start_function_call>call:f{a:{x:1},b:2}<end_function_call>';
+      final buffer = firstCompletePrefix(full);
+      expect(buffer, isNotNull);
+
+      final result = FunctionCallParser.parse(
+        buffer!,
+        modelType: ModelType.functionGemma,
+      );
+      expect(result, isNotNull);
+      expect(result!.args['a'], equals({'x': 1}));
+      expect(result.args['b'], equals(2), reason: 'b must not be dropped');
+    });
+
+    test('streamed call with a brace inside a string keeps every argument', () {
+      const full =
+          '<start_function_call>call:f{msg:<escape>a}b<escape>,x:1}<end_function_call>';
+      final buffer = firstCompletePrefix(full);
+      expect(buffer, isNotNull);
+
+      final result = FunctionCallParser.parse(
+        buffer!,
+        modelType: ModelType.functionGemma,
+      );
+      expect(result, isNotNull);
+      expect(result!.args['msg'], equals('a}b'));
+      expect(result.args['x'], equals(1), reason: 'x must not be dropped');
+    });
+
+    test('parses a nested call whose end tag was cut off by a stop token', () {
+      final result = FunctionCallParser.parse(
+        '<start_function_call>call:f{a:{x:1},b:2}',
+        modelType: ModelType.functionGemma,
+      );
+
+      expect(result, isNotNull);
+      expect(
+        result!.args,
+        equals({
+          'a': {'x': 1},
+          'b': 2,
+        }),
+      );
+    });
   });
 
   group('JSON Parser (existing models)', () {

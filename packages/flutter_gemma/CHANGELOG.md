@@ -10,6 +10,7 @@
 - Render numbers, booleans and `None` the way the template's Python does (#367).
 - Parse a bare `None` argument as null instead of the string `"None"` (#366).
 - Refuse a FunctionGemma call whose body cannot be parsed in full (#366).
+- Sort properties in the FunctionGemma fine-tuning colab to match the runtime (#367).
 
 ## 1.2.2
 - Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).

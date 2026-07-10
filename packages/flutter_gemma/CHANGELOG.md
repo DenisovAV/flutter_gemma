@@ -1,3 +1,10 @@
+## 1.2.3
+- Fix FunctionGemma parser dropping array, number, boolean and object arguments (#366).
+- Fix FunctionGemma streaming truncating a tool call at the first `}` (#366).
+- Fix FunctionGemma tools prompt to match the model's `chat_template` (#367).
+- Reject union-typed properties with a clear error instead of a raw `_TypeError` (#367).
+- Emit `parameters:{type:OBJECT}` for no-argument FunctionGemma tools (#367).
+
 ## 1.2.2
 - Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).
 

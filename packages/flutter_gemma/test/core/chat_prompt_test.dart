@@ -458,6 +458,107 @@ void main() {
     });
   });
 
+  // Edge cases the template handles and we did not. Same oracle as above.
+  group('FunctionGemma Tools Prompt - edge cases', () {
+    String promptForParameters(
+      Map<String, dynamic> parameters, {
+      String name = 't',
+    }) {
+      final chat = InferenceChat(
+        sessionCreator: null,
+        maxTokens: 1024,
+        modelType: ModelType.functionGemma,
+        supportsFunctionCalls: true,
+        tools: [Tool(name: name, description: 'd', parameters: parameters)],
+      );
+      return chat.createToolsPrompt();
+    }
+
+    test('rejects a union-typed property with an actionable error', () {
+      expect(
+        () => promptForParameters({
+          'type': 'object',
+          'properties': {
+            'x': {
+              'type': ['string', 'null'],
+              'description': 'u',
+            },
+          },
+        }),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message.toString(),
+            'message',
+            allOf(contains('union'), contains('nullable')),
+          ),
+        ),
+      );
+    });
+
+    test('emits a parameters block for a no-argument tool', () {
+      expect(
+        promptForParameters({
+          'type': 'object',
+          'properties': <String, dynamic>{},
+        }, name: 'get_time'),
+        contains(
+          'declaration:get_time{description:<escape>d<escape>,'
+          'parameters:{type:<escape>OBJECT<escape>}}',
+        ),
+      );
+    });
+
+    test('emits required even when the tool declares no properties', () {
+      expect(
+        promptForParameters({
+          'type': 'object',
+          'required': ['a'],
+        }),
+        contains(
+          'parameters:{required:[<escape>a<escape>],type:<escape>OBJECT<escape>}}',
+        ),
+      );
+    });
+
+    test('omits the parameters block when parameters are empty', () {
+      final prompt = promptForParameters(<String, dynamic>{});
+      expect(prompt, contains('declaration:t{description:<escape>d<escape>}'));
+      expect(prompt, isNot(contains('parameters')));
+    });
+
+    test('sorts stably above Dart\'s 32-element insertion-sort threshold', () {
+      // Jinja's `sorted` is stable; Dart's `List.sort` switches to an unstable
+      // quicksort past 32 elements. Case-insensitive ties must keep insertion
+      // order, so `K07` (inserted first) stays ahead of `k07`.
+      final properties = <String, dynamic>{
+        for (var i = 0; i < 20; i++)
+          'K${i.toString().padLeft(2, '0')}': {
+            'type': 'string',
+            'description': 'u',
+          },
+        for (var i = 0; i < 20; i++)
+          'k${i.toString().padLeft(2, '0')}': {
+            'type': 'string',
+            'description': 'l',
+          },
+      };
+
+      final prompt = promptForParameters({
+        'type': 'object',
+        'properties': properties,
+      });
+
+      for (var i = 0; i < 20; i++) {
+        final n = i.toString().padLeft(2, '0');
+        expect(
+          prompt.indexOf('K$n:{'),
+          lessThan(prompt.indexOf('k$n:{')),
+          reason: 'tie K$n/k$n must keep insertion order',
+        );
+      }
+    });
+  });
+
   group('JSON Tools Prompt (other models)', () {
     test('includes enum in JSON format for non-FunctionGemma models', () {
       final chat = InferenceChat(

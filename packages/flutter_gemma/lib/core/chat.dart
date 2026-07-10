@@ -744,22 +744,27 @@ class InferenceChat {
         'description:$functionGemmaEscape${tool.description}$functionGemmaEscape',
       );
 
-      // Access properties from JSON Schema structure (following Google's FunctionGemma format)
-      final properties = tool.parameters['properties'] as Map<String, dynamic>?;
-      final required = tool.parameters['required'] as List<dynamic>?;
-      if (properties != null && properties.isNotEmpty) {
-        toolsPrompt.write(',parameters:{properties:{');
-        toolsPrompt.write(_formatFunctionGemmaProperties(properties));
-        toolsPrompt.write('}');
-        // Add required array if present
-        if (required != null && required.isNotEmpty) {
-          toolsPrompt.write(
-            ',required:[${_formatFunctionGemmaRequired(required)}]',
+      // The template gates `parameters` on the parameters map itself, and emits
+      // `type` independently of `properties`. So a no-argument tool still gets
+      // `parameters:{type:<escape>OBJECT<escape>}` — gating on `properties`
+      // dropped the whole block for `get_time`-style tools.
+      if (tool.parameters.isNotEmpty) {
+        final properties =
+            tool.parameters['properties'] as Map<String, dynamic>?;
+        final required = tool.parameters['required'] as List<dynamic>?;
+
+        final parts = <String>[];
+        if (properties != null && properties.isNotEmpty) {
+          parts.add(
+            'properties:{${_formatFunctionGemmaProperties(properties)}}',
           );
         }
-        toolsPrompt.write(
-          ',type:${functionGemmaEscape}OBJECT$functionGemmaEscape}',
-        );
+        if (required != null && required.isNotEmpty) {
+          parts.add('required:[${_formatFunctionGemmaRequired(required)}]');
+        }
+        parts.add('type:${functionGemmaEscape}OBJECT$functionGemmaEscape');
+
+        toolsPrompt.write(',parameters:{${parts.join(',')}}');
       }
 
       toolsPrompt.writeln('}$functionGemmaEndDecl');
@@ -787,8 +792,18 @@ class InferenceChat {
 
   /// Jinja's `dictsort`, which defaults to `case_sensitive=False`. A plain
   /// `.sort()` would put `Beta` before `alpha`; the template does the reverse.
-  List<String> _dictsort(Iterable<String> keys) =>
-      keys.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  ///
+  /// Jinja's sort is stable, Dart's `List.sort` is not (it drops to an unstable
+  /// quicksort past 32 elements), so ties like `Foo`/`foo` are broken by
+  /// insertion order explicitly.
+  List<String> _dictsort(Iterable<String> keys) {
+    final indexed = keys.toList().indexed.toList();
+    indexed.sort((a, b) {
+      final byKey = a.$2.toLowerCase().compareTo(b.$2.toLowerCase());
+      return byKey != 0 ? byKey : a.$1.compareTo(b.$1);
+    });
+    return [for (final entry in indexed) entry.$2];
+  }
 
   /// The template's `format_argument` macro: strings are escape-wrapped,
   /// booleans and numbers stay bare, lists and maps recurse.
@@ -831,7 +846,19 @@ class InferenceChat {
       final schema = properties[name];
       if (schema is! Map<String, dynamic>) continue;
 
-      final type = (schema['type'] as String?)?.toUpperCase() ?? 'STRING';
+      // JSON Schema allows `type: ['string','null']`, but the template renders
+      // it as a Python list repr the model has never seen. Refuse it by name
+      // instead of letting the cast blow up with a bare _TypeError.
+      final rawType = schema['type'];
+      if (rawType != null && rawType is! String) {
+        throw ArgumentError(
+          'FunctionGemma does not support union types '
+          '(property "$name" declares type: $rawType). '
+          'Declare a single type and mark it nullable: true.',
+        );
+      }
+
+      final type = (rawType as String?)?.toUpperCase() ?? 'STRING';
       final property = StringBuffer(
         '$name:{description:$functionGemmaEscape'
         '${schema['description'] ?? ''}$functionGemmaEscape',

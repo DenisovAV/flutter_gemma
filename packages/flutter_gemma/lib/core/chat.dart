@@ -838,7 +838,28 @@ class InferenceChat {
       });
       return '{${entries.join(',')}}';
     }
+    if (value is double) return _pythonDouble(value);
     return '$value';
+  }
+
+  /// Python's `str(float)`. The template is Jinja, so every number in the prompt
+  /// was formatted by Python. Both languages print the shortest round-trip
+  /// digits, but they switch to exponent notation at different magnitudes:
+  /// Python below `1e-4` and from `1e16`, Dart below `1e-6` and from `1e21`.
+  String _pythonDouble(double value) {
+    if (value.isNaN) return 'nan';
+    if (value.isInfinite) return value.isNegative ? '-inf' : 'inf';
+
+    final magnitude = value.abs();
+    if (magnitude == 0 || (magnitude >= 1e-4 && magnitude < 1e16)) {
+      return value.toString();
+    }
+
+    // Dart writes `1e-5`, Python pads the exponent to two digits: `1e-05`.
+    final exponential = value.toStringAsExponential();
+    final parts = RegExp(r'^(.*)e([+-])(\d+)$').firstMatch(exponential);
+    if (parts == null) return exponential;
+    return '${parts.group(1)}e${parts.group(2)}${parts.group(3)!.padLeft(2, '0')}';
   }
 
   String _formatFunctionGemmaRequired(List<dynamic> required) => required
@@ -853,11 +874,18 @@ class InferenceChat {
       final schema = properties[name];
       if (schema is! Map<String, dynamic>) continue;
 
-      // JSON Schema allows `type: ['string','null']`, but the template renders
-      // it as a Python list repr the model has never seen. Refuse it by name
-      // instead of letting the cast blow up with a bare _TypeError.
+      // A FunctionGemma declaration must name one concrete type per property.
+      // Guessing STRING for a missing type makes the model quote a number back
+      // at us; a union type renders as a Python list repr the model has never
+      // seen. Both are wrong quietly, so refuse both loudly.
       final rawType = schema['type'];
-      if (rawType != null && rawType is! String) {
+      if (rawType == null) {
+        throw ArgumentError(
+          'FunctionGemma requires an explicit type for property "$name". '
+          'Declare one of: string, number, integer, boolean, array, object.',
+        );
+      }
+      if (rawType is! String) {
         throw ArgumentError(
           'FunctionGemma does not support union types '
           '(property "$name" declares type: $rawType). '
@@ -865,7 +893,7 @@ class InferenceChat {
         );
       }
 
-      final type = (rawType as String?)?.toUpperCase() ?? 'STRING';
+      final type = rawType.toUpperCase();
       final property = StringBuffer(
         '$name:{description:$functionGemmaEscape'
         '${schema['description'] ?? ''}$functionGemmaEscape',

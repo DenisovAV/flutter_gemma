@@ -109,6 +109,20 @@ void main() {
     expect(responses.whereType<TextResponse>(), isEmpty);
   });
 
+  test('a call cut off mid-body degrades to text, never to a bogus call', () {
+    // The brace never closes, so the gate never fires and the end-of-stream
+    // handler must surface what the model produced rather than swallow it.
+    return streamTokens(['<start_function_call>', 'call:f{a:1,b:']).then((
+      responses,
+    ) {
+      expect(responses.whereType<FunctionCallResponse>(), isEmpty);
+      expect(
+        responses.whereType<TextResponse>().map((r) => r.token).join(),
+        equals('<start_function_call>call:f{a:1,b:'),
+      );
+    });
+  });
+
   test('call whose end tag a stop token ate is still parsed', () async {
     final responses = await streamTokens([
       '<start_function_call>',

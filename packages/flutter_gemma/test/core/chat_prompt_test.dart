@@ -526,6 +526,45 @@ void main() {
       expect(prompt, isNot(contains('parameters')));
     });
 
+    test('rejects a property with no type instead of guessing STRING', () {
+      // Guessing STRING makes the model return `<escape>5<escape>` for a
+      // parameter the developer meant as a number, and the tool then receives
+      // "5". A silent wrong type is worse than a loud error.
+      expect(
+        () => promptForParameters({
+          'type': 'object',
+          'properties': {
+            'x': {'description': 'no type here'},
+          },
+        }),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message.toString(),
+            'message',
+            allOf(contains('"x"'), contains('type')),
+          ),
+        ),
+      );
+    });
+
+    test('renders doubles the way Python does, as the template would', () {
+      // The template is Jinja: numbers reach the prompt through Python's
+      // `str()`. Dart switches to exponent notation at different magnitudes.
+      expect(
+        promptForParameters({
+          'type': 'object',
+          'properties': {
+            'e': {
+              'type': 'string',
+              'description': 'x',
+              'enum': [1.0, 1e16, 1e-5, 0.1, 1e21],
+            },
+          },
+        }),
+        contains('enum:[1.0,1e+16,1e-05,0.1,1e+21]'),
+      );
+    });
+
     test('keeps an empty required inside items, unlike at the object level', () {
       // The template guards empty `required` at the object level but not inside
       // `items`, so the two are not symmetric. Mirroring the object guard into
@@ -594,6 +633,82 @@ void main() {
           reason: 'tie K$n/k$n must keep insertion order',
         );
       }
+    });
+  });
+
+  // Four places where the template renders something a model cannot use, and we
+  // deliberately do not follow it. Pinned so nobody "restores parity" later.
+  group('FunctionGemma Tools Prompt - deliberate divergences', () {
+    String promptForParameters(Map<String, dynamic> parameters) {
+      final chat = InferenceChat(
+        sessionCreator: null,
+        maxTokens: 1024,
+        modelType: ModelType.functionGemma,
+        supportsFunctionCalls: true,
+        tools: [Tool(name: 't', description: 'd', parameters: parameters)],
+      );
+      return chat.createToolsPrompt();
+    }
+
+    test('an explicit null description renders empty, not the word None', () {
+      // Jinja prints Python's `None` for a null description.
+      expect(
+        promptForParameters({
+          'type': 'object',
+          'properties': {
+            'x': {'type': 'string', 'description': null},
+          },
+        }),
+        contains(
+          'x:{description:<escape><escape>,type:<escape>STRING<escape>}',
+        ),
+      );
+    });
+
+    test('parameters without a type still close the block properly', () {
+      // The template leaves `parameters:{` unclosed with a trailing comma here.
+      expect(
+        promptForParameters({
+          'properties': {
+            'x': {'type': 'string', 'description': 'x'},
+          },
+        }),
+        contains(',type:<escape>OBJECT<escape>}}'),
+      );
+    });
+
+    test('a stray key on an object property is not promoted to a property', () {
+      // The template falls back to iterating the schema itself when it has no
+      // `properties`, which turns `additionalProperties` into a fake parameter.
+      final prompt = promptForParameters({
+        'type': 'object',
+        'properties': {
+          'o': {
+            'type': 'object',
+            'description': 'x',
+            'additionalProperties': false,
+          },
+        },
+      });
+
+      expect(
+        prompt,
+        contains('o:{description:<escape>x<escape>,properties:{}'),
+      );
+      expect(prompt, isNot(contains('additionalProperties')));
+    });
+
+    test('a non-map property schema is skipped, not rendered degenerate', () {
+      final prompt = promptForParameters({
+        'type': 'object',
+        'properties': {
+          'bad': true,
+          'ok': {'type': 'string', 'description': 'y'},
+        },
+      });
+
+      expect(prompt, isNot(contains('bad')));
+      expect(prompt, contains('properties:{ok:'));
     });
   });
 

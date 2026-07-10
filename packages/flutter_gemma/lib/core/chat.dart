@@ -904,7 +904,14 @@ class InferenceChat {
   ) {
     final entries = <String>[];
 
-    for (final name in _dictsort(properties.keys)) {
+    // NOT `_dictsort`: the template sorts, but a tool's properties reach the
+    // model in the order the app declared them, and every model fine-tuned
+    // before 1.2.3 — including via our own colab — learned that order. On the
+    // base model, sorting changed nothing measurable (device A/B on 12 prompts:
+    // same hits, same misses). Fidelity to the template is not worth breaking
+    // existing fine-tunes. `items` keys and map arguments still dictsort: they
+    // are new in 1.2.3 and no prompt ever depended on them.
+    for (final name in properties.keys) {
       if (_functionGemmaStructuralKeys.contains(name)) continue;
       final schema = properties[name];
       if (schema is! Map<String, dynamic>) continue;

@@ -287,30 +287,17 @@ void main() {
       return chat.createToolsPrompt();
     }
 
-    test('sorts properties alphabetically, not in schema order', () {
+    test('preserves the declared property order', () {
+      // The template dictsorts, but reordering an existing tool's properties
+      // changes the prompt for every model fine-tuned before 1.2.3 — our own
+      // colab trained schema order. On the base model the order made no
+      // measurable difference (device A/B), so declared order wins.
       final prompt = promptFor({
         'zebra': {'type': 'string', 'description': 'z'},
         'apple': {'type': 'string', 'description': 'a'},
       });
 
-      expect(
-        prompt,
-        contains(
-          'declaration:t{description:<escape>d<escape>,parameters:{properties:{'
-          'apple:{description:<escape>a<escape>,type:<escape>STRING<escape>},'
-          'zebra:{description:<escape>z<escape>,type:<escape>STRING<escape>}},'
-          'type:<escape>OBJECT<escape>}}',
-        ),
-      );
-    });
-
-    test('sorts case-insensitively, matching Jinja dictsort', () {
-      final prompt = promptFor({
-        'Beta': {'type': 'string', 'description': 'b'},
-        'alpha': {'type': 'string', 'description': 'a'},
-      });
-
-      expect(prompt.indexOf('alpha:'), lessThan(prompt.indexOf('Beta:')));
+      expect(prompt.indexOf('zebra:{'), lessThan(prompt.indexOf('apple:{')));
     });
 
     test('renders items for an array property', () {
@@ -344,7 +331,7 @@ void main() {
       );
     });
 
-    test('recurses into an object property with sorted nested properties', () {
+    test('recurses into an object property, keeping declared order', () {
       final prompt = promptFor({
         'o': {
           'type': 'object',
@@ -361,8 +348,8 @@ void main() {
         prompt,
         contains(
           'o:{description:<escape>obj<escape>,properties:{'
-          'a:{description:<escape>A<escape>,type:<escape>STRING<escape>},'
-          'b:{description:<escape>B<escape>,type:<escape>STRING<escape>}},'
+          'b:{description:<escape>B<escape>,type:<escape>STRING<escape>},'
+          'a:{description:<escape>A<escape>,type:<escape>STRING<escape>}},'
           'required:[<escape>a<escape>],type:<escape>OBJECT<escape>}',
         ),
       );
@@ -645,22 +632,6 @@ void main() {
       );
     });
 
-    test('folds the Turkish dotted I the way Python lower() does', () {
-      // Dart maps `İ` to `i`; Python maps it to `i` + a combining dot, which
-      // sorts after a plain `i`.
-      final prompt = promptForParameters({
-        'type': 'object',
-        'properties': {
-          'İ': {'type': 'string', 'description': 'a'},
-          'i': {'type': 'string', 'description': 'b'},
-          'I': {'type': 'string', 'description': 'c'},
-        },
-      });
-
-      expect(prompt.indexOf('i:{'), lessThan(prompt.indexOf('I:{')));
-      expect(prompt.indexOf('I:{'), lessThan(prompt.indexOf('İ:{')));
-    });
-
     test('rejects a property with no type instead of guessing STRING', () {
       // Guessing STRING makes the model return `<escape>5<escape>` for a
       // parameter the developer meant as a number, and the tool then receives
@@ -738,10 +709,9 @@ void main() {
       );
     });
 
-    test('sorts stably above Dart\'s 32-element insertion-sort threshold', () {
-      // Jinja's `sorted` is stable; Dart's `List.sort` switches to an unstable
-      // quicksort past 32 elements. Case-insensitive ties must keep insertion
-      // order, so `K07` (inserted first) stays ahead of `k07`.
+    test('keeps declared order for many properties', () {
+      // No sort at all, so `K07` (declared first) stays ahead of `k07` however
+      // many properties there are.
       final properties = <String, dynamic>{
         for (var i = 0; i < 20; i++)
           'K${i.toString().padLeft(2, '0')}': {

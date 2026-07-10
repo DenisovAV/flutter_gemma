@@ -736,6 +736,17 @@ class InferenceChat {
   }
 
   String _createFunctionGemmaToolsPrompt() {
+    if (toolChoice == ToolChoice.required) {
+      // The model's chat_template renders a developer turn of declarations plus
+      // an optional system text. Nothing in the format expresses "you must call
+      // a function", so honouring `required` would mean inventing tokens the
+      // model was never trained on. Say so rather than ignore it.
+      gemmaLog(
+        'WARNING: ToolChoice.required is not supported by FunctionGemma — its '
+        'prompt format cannot express it. Behaving as ToolChoice.auto.',
+      );
+    }
+
     final toolsPrompt = StringBuffer();
 
     // FunctionGemma requires developer turn for tools definition

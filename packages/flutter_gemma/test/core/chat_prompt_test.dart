@@ -833,6 +833,36 @@ void main() {
       expect(prompt, isNot(contains('additionalProperties')));
     });
 
+    test('ToolChoice.required is a no-op, and stays one', () {
+      // The template's developer turn carries declarations and an optional
+      // system text — there is no slot for "you must call a function". The
+      // encoder logs this instead of pretending to honour it.
+      String promptFor(ToolChoice choice) => InferenceChat(
+        sessionCreator: null,
+        maxTokens: 1024,
+        modelType: ModelType.functionGemma,
+        supportsFunctionCalls: true,
+        toolChoice: choice,
+        tools: [
+          const Tool(
+            name: 't',
+            description: 'd',
+            parameters: {
+              'type': 'object',
+              'properties': {
+                'x': {'type': 'string', 'description': 'x'},
+              },
+            },
+          ),
+        ],
+      ).createToolsPrompt();
+
+      expect(
+        promptFor(ToolChoice.required),
+        equals(promptFor(ToolChoice.auto)),
+      );
+    });
+
     test('a non-map property schema is skipped, not rendered degenerate', () {
       final prompt = promptForParameters({
         'type': 'object',

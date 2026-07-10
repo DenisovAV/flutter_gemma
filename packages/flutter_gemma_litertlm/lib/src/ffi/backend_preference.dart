@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_gemma/core/domain/platform_types.dart';
@@ -76,7 +77,11 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
   required T Function() createClient,
   required Future<void> Function(T client, PreferredBackend backend)
   initializeClient,
-  required void Function(T client) shutdownClient,
+  // FutureOr: LiteRtLmFfiClient.shutdown() is async (it waits for in-flight
+  // conversation creates before engine_delete); test fakes tear down
+  // synchronously. Awaiting covers both, so a failed backend is fully released
+  // before the next one allocates an engine.
+  required FutureOr<void> Function(T client) shutdownClient,
 }) async {
   final attempts = <BackendInitAttemptFailure>[];
   final backends = ffiBackendFallbackOrder(preferredBackend);
@@ -98,7 +103,7 @@ Future<({T client, PreferredBackend activeBackend})> initializeFfiRuntime<T>({
           stackTrace: stackTrace,
         ),
       );
-      shutdownClient(client);
+      await shutdownClient(client);
       developer.log(
         '$logTag ${ffiBackendWireName(backend)} backend failed: $error',
         name: 'flutter_gemma',

@@ -808,87 +808,11 @@ class InferenceChat {
     'nullable',
   };
 
-  /// Python's `str.lower()`, which Jinja's `dictsort` folds keys with. Dart maps
-  /// `İ` (U+0130) to a plain `i`; Python appends a combining dot, which sorts
-  /// after it.
-  String _pythonFold(String key) => key.replaceAll('İ', 'i̇').toLowerCase();
-
-  /// Jinja's `dictsort`, which defaults to `case_sensitive=False`. A plain
-  /// `.sort()` would put `Beta` before `alpha`; the template does the reverse.
-  ///
-  /// Jinja's sort is stable, Dart's `List.sort` is not (it drops to an unstable
-  /// quicksort past 32 elements), so ties like `Foo`/`foo` are broken by
-  /// insertion order explicitly.
-  List<String> _dictsort(Iterable<String> keys) {
-    final indexed = keys.toList().indexed.toList();
-    indexed.sort((a, b) {
-      final byKey = _pythonFold(a.$2).compareTo(_pythonFold(b.$2));
-      return byKey != 0 ? byKey : a.$1.compareTo(b.$1);
-    });
-    return [for (final entry in indexed) entry.$2];
-  }
-
-  /// Jinja renders a bare `{{ value }}` through Python's `str()`, so booleans
-  /// capitalise, `null` becomes `None`, and floats follow Python's notation.
-  String _pythonScalar(dynamic value) {
-    if (value is bool) return value ? 'True' : 'False';
-    if (value is double) return _pythonDouble(value);
-    if (value == null) return 'None';
-    return '$value';
-  }
-
-  /// The template's `format_argument` macro: strings are escape-wrapped,
-  /// booleans and numbers stay bare, lists and maps recurse.
-  String _formatFunctionGemmaArgument(dynamic value, {bool escapeKeys = true}) {
-    if (value is String) {
-      return '$functionGemmaEscape$value$functionGemmaEscape';
-    }
-    if (value is bool) return value ? 'true' : 'false';
-    if (value is List) {
-      final items = value.map(
-        (v) => _formatFunctionGemmaArgument(v, escapeKeys: escapeKeys),
-      );
-      return '[${items.join(',')}]';
-    }
-    if (value is Map) {
-      final entries = _dictsort(value.keys.map((k) => '$k')).map((key) {
-        final renderedKey = escapeKeys
-            ? '$functionGemmaEscape$key$functionGemmaEscape'
-            : key;
-        final rendered = _formatFunctionGemmaArgument(
-          value[key],
-          escapeKeys: escapeKeys,
-        );
-        return '$renderedKey:$rendered';
-      });
-      return '{${entries.join(',')}}';
-    }
-    // Numbers and `None` fall through the macro's `{{ value }}` branch.
-    return _pythonScalar(value);
-  }
-
-  /// Python's `str(float)`. The template is Jinja, so every number in the prompt
-  /// was formatted by Python. Both languages print the shortest round-trip
-  /// digits, but they switch to exponent notation at different magnitudes:
-  /// Python below `1e-4` and from `1e16`, Dart below `1e-6` and from `1e21`.
-  String _pythonDouble(double value) {
-    if (value.isNaN) return 'nan';
-    if (value.isInfinite) return value.isNegative ? '-inf' : 'inf';
-
-    final magnitude = value.abs();
-    if (magnitude == 0 || (magnitude >= 1e-4 && magnitude < 1e16)) {
-      return value.toString();
-    }
-
-    // Dart writes `1e-5`, Python pads the exponent to two digits: `1e-05`.
-    final exponential = value.toStringAsExponential();
-    final parts = RegExp(r'^(.*)e([+-])(\d+)$').firstMatch(exponential);
-    if (parts == null) return exponential;
-    return '${parts.group(1)}e${parts.group(2)}${parts.group(3)!.padLeft(2, '0')}';
-  }
-
   String _formatFunctionGemmaRequired(List<dynamic> required) => required
-      .map((r) => '$functionGemmaEscape${_pythonScalar(r)}$functionGemmaEscape')
+      .map(
+        (r) =>
+            '$functionGemmaEscape${functionGemmaScalar(r)}$functionGemmaEscape',
+      )
       .join(',');
 
   /// The declaration must name one concrete type per property. `properties` and
@@ -915,7 +839,7 @@ class InferenceChat {
   ) {
     final entries = <String>[];
 
-    for (final name in _dictsort(properties.keys)) {
+    for (final name in functionGemmaDictsort(properties.keys)) {
       if (_functionGemmaStructuralKeys.contains(name)) continue;
       final schema = properties[name];
       if (schema is! Map<String, dynamic>) continue;
@@ -945,7 +869,7 @@ class InferenceChat {
       final property = StringBuffer(
         '$name:{description:$functionGemmaEscape'
         // An explicit null renders empty here, not as Python's `None`.
-        '${description == null ? '' : _pythonScalar(description)}'
+        '${description == null ? '' : functionGemmaScalar(description)}'
         '$functionGemmaEscape',
       );
 
@@ -959,7 +883,7 @@ class InferenceChat {
       switch (type) {
         case 'STRING':
           if (enumValues != null && enumValues.isNotEmpty) {
-            property.write(',enum:${_formatFunctionGemmaArgument(enumValues)}');
+            property.write(',enum:${functionGemmaArgument(enumValues)}');
           }
         case 'OBJECT':
           final nested = schema['properties'];
@@ -996,7 +920,7 @@ class InferenceChat {
   ) {
     final parts = <String>[];
 
-    for (final key in _dictsort(items.keys)) {
+    for (final key in functionGemmaDictsort(items.keys)) {
       final value = items[key];
       if (value == null) continue;
 
@@ -1018,9 +942,9 @@ class InferenceChat {
           final upper = value is List
               ? value.map((v) => '$v'.toUpperCase()).toList()
               : '$value'.toUpperCase();
-          parts.add('type:${_formatFunctionGemmaArgument(upper)}');
+          parts.add('type:${functionGemmaArgument(upper)}');
         default:
-          parts.add('$key:${_formatFunctionGemmaArgument(value)}');
+          parts.add('$key:${functionGemmaArgument(value)}');
       }
     }
 

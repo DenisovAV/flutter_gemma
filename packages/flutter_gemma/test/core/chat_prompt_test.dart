@@ -526,6 +526,44 @@ void main() {
       expect(prompt, isNot(contains('parameters')));
     });
 
+    test('keeps an empty required inside items, unlike at the object level', () {
+      // The template guards empty `required` at the object level but not inside
+      // `items`, so the two are not symmetric. Mirroring the object guard into
+      // items silently dropped `required:[]`.
+      expect(
+        promptForParameters({
+          'type': 'object',
+          'properties': {
+            'a': {
+              'type': 'array',
+              'description': 'x',
+              'items': {'type': 'string', 'required': <String>[]},
+            },
+          },
+        }),
+        contains('items:{required:[],type:<escape>STRING<escape>}'),
+      );
+    });
+
+    test('drops an empty required at the object level', () {
+      expect(
+        promptForParameters({
+          'type': 'object',
+          'properties': {
+            'o': {
+              'type': 'object',
+              'description': 'x',
+              'properties': {
+                'y': {'type': 'string', 'description': 'y'},
+              },
+              'required': <String>[],
+            },
+          },
+        }),
+        isNot(contains('required:[]')),
+      );
+    });
+
     test('sorts stably above Dart\'s 32-element insertion-sort threshold', () {
       // Jinja's `sorted` is stable; Dart's `List.sort` switches to an unstable
       // quicksort past 32 elements. Case-insensitive ties must keep insertion

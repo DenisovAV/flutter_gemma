@@ -4,6 +4,8 @@
 - Fix FunctionGemma tools prompt to match the model's `chat_template` (#367).
 - Reject union-typed properties with a clear error instead of a raw `_TypeError` (#367).
 - Emit `parameters:{type:OBJECT}` for no-argument FunctionGemma tools (#367).
+- Keep an empty `required:[]` inside FunctionGemma `items`, as the template does (#367).
+- Stop `<end_function_call>` leaking into FunctionGemma chat text and history (#366).
 
 ## 1.2.2
 - Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).

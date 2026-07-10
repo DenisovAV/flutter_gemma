@@ -415,6 +415,13 @@ class InferenceChat {
               funcBuffer = token;
               shouldAddToBuffer =
                   false; // Don't add to main buffer while we determine if it's JSON
+            } else if (modelType == ModelType.functionGemma &&
+                token.trim() == functionGemmaEndCall) {
+              // The call's closing brace already completed the buffer, so this
+              // trailing tag belongs to no call. It is markup, not text —
+              // emitting it would show `<end_function_call>` to the user and
+              // write it into chat history.
+              shouldAddToBuffer = false;
             } else {
               // Normal text token - emit immediately
               if (kDebugMode) {
@@ -917,7 +924,10 @@ class InferenceChat {
               : '';
           parts.add('properties:{$nested}');
         case 'required':
-          if (value is List<dynamic> && value.isNotEmpty) {
+          // No emptiness guard here, unlike the object level: the template
+          // guards `required` on a property but not inside `items`, so an
+          // empty list still renders as `required:[]`.
+          if (value is List<dynamic>) {
             parts.add('required:[${_formatFunctionGemmaRequired(value)}]');
           }
         case 'type':

@@ -6,8 +6,10 @@
 - Emit `parameters:{type:OBJECT}` for no-argument FunctionGemma tools (#367).
 - Keep an empty `required:[]` inside FunctionGemma `items`, as the template does (#367).
 - Stop `<end_function_call>` leaking into FunctionGemma chat text and history (#366).
-- Require an explicit `type` on FunctionGemma properties instead of guessing `STRING` (#367).
-- Render doubles as the template's Python does — `1e+16`, `1e-05` (#367).
+- Infer a FunctionGemma property type from `properties`/`items`, else require it (#367).
+- Render numbers, booleans and `None` the way the template's Python does (#367).
+- Parse a bare `None` argument as null instead of the string `"None"` (#366).
+- Refuse a FunctionGemma call whose body cannot be parsed in full (#366).
 
 ## 1.2.2
 - Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).

@@ -254,6 +254,33 @@ void main() {
       expect(result.args['nan'], equals('NaN'));
     });
 
+    test('bare None parses as null, not the string "None"', () {
+      // Python's None renders bare; a real "None" string arrives escaped, so
+      // the mapping is collision-free.
+      final result = parseCall(
+        '<start_function_call>call:f{z:None,s:<escape>None<escape>,'
+        'xs:[None,1]}<end_function_call>',
+      );
+
+      expect(result.args.containsKey('z'), isTrue);
+      expect(result.args['z'], isNull);
+      expect(result.args['s'], equals('None'));
+      expect(result.args['xs'], equals([null, 1]));
+    });
+
+    test('a body it cannot fully consume yields no call at all', () {
+      // The template does not escape `<escape>` inside a string value, so a
+      // value containing the sentinel is ambiguous on the wire. Parsing what we
+      // can and dropping the rest would fire the tool with corrupted arguments.
+      final result = FunctionCallParser.parse(
+        '<start_function_call>call:f{x:<escape>a<escape>b<escape>c<escape>,y:1}'
+        '<end_function_call>',
+        modelType: ModelType.functionGemma,
+      );
+
+      expect(result, isNull);
+    });
+
     test('scientific notation still parses as double', () {
       // `str(1e-05)` in Python is `1e-05` — the template really can emit this.
       final result = parseCall(

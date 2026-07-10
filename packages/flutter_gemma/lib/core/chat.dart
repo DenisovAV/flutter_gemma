@@ -763,7 +763,7 @@ class InferenceChat {
         final parts = <String>[];
         if (properties != null && properties.isNotEmpty) {
           parts.add(
-            'properties:{${_formatFunctionGemmaProperties(properties)}}',
+            'properties:{${_formatFunctionGemmaProperties(properties, tool.name)}}',
           );
         }
         if (required != null && required.isNotEmpty) {
@@ -797,6 +797,11 @@ class InferenceChat {
     'nullable',
   };
 
+  /// Python's `str.lower()`, which Jinja's `dictsort` folds keys with. Dart maps
+  /// `İ` (U+0130) to a plain `i`; Python appends a combining dot, which sorts
+  /// after it.
+  String _pythonFold(String key) => key.replaceAll('İ', 'i̇').toLowerCase();
+
   /// Jinja's `dictsort`, which defaults to `case_sensitive=False`. A plain
   /// `.sort()` would put `Beta` before `alpha`; the template does the reverse.
   ///
@@ -806,10 +811,19 @@ class InferenceChat {
   List<String> _dictsort(Iterable<String> keys) {
     final indexed = keys.toList().indexed.toList();
     indexed.sort((a, b) {
-      final byKey = a.$2.toLowerCase().compareTo(b.$2.toLowerCase());
+      final byKey = _pythonFold(a.$2).compareTo(_pythonFold(b.$2));
       return byKey != 0 ? byKey : a.$1.compareTo(b.$1);
     });
     return [for (final entry in indexed) entry.$2];
+  }
+
+  /// Jinja renders a bare `{{ value }}` through Python's `str()`, so booleans
+  /// capitalise, `null` becomes `None`, and floats follow Python's notation.
+  String _pythonScalar(dynamic value) {
+    if (value is bool) return value ? 'True' : 'False';
+    if (value is double) return _pythonDouble(value);
+    if (value == null) return 'None';
+    return '$value';
   }
 
   /// The template's `format_argument` macro: strings are escape-wrapped,
@@ -838,8 +852,8 @@ class InferenceChat {
       });
       return '{${entries.join(',')}}';
     }
-    if (value is double) return _pythonDouble(value);
-    return '$value';
+    // Numbers and `None` fall through the macro's `{{ value }}` branch.
+    return _pythonScalar(value);
   }
 
   /// Python's `str(float)`. The template is Jinja, so every number in the prompt
@@ -863,10 +877,31 @@ class InferenceChat {
   }
 
   String _formatFunctionGemmaRequired(List<dynamic> required) => required
-      .map((r) => '$functionGemmaEscape$r$functionGemmaEscape')
+      .map((r) => '$functionGemmaEscape${_pythonScalar(r)}$functionGemmaEscape')
       .join(',');
 
-  String _formatFunctionGemmaProperties(Map<String, dynamic> properties) {
+  /// The declaration must name one concrete type per property. `properties` and
+  /// `items` imply their type in JSON Schema — reading them is inference, not a
+  /// guess. Anything else is unknowable, and guessing STRING would make the
+  /// model quote numbers back at us, so say so instead.
+  String _inferFunctionGemmaType(
+    Map<String, dynamic> schema,
+    String toolName,
+    String propertyName,
+  ) {
+    if (schema.containsKey('properties')) return 'OBJECT';
+    if (schema.containsKey('items')) return 'ARRAY';
+    throw ArgumentError(
+      'FunctionGemma requires an explicit type for property "$propertyName" '
+      'of tool "$toolName". '
+      'Declare one of: string, number, integer, boolean, array, object.',
+    );
+  }
+
+  String _formatFunctionGemmaProperties(
+    Map<String, dynamic> properties,
+    String toolName,
+  ) {
     final entries = <String>[];
 
     for (final name in _dictsort(properties.keys)) {
@@ -874,29 +909,33 @@ class InferenceChat {
       final schema = properties[name];
       if (schema is! Map<String, dynamic>) continue;
 
-      // A FunctionGemma declaration must name one concrete type per property.
-      // Guessing STRING for a missing type makes the model quote a number back
-      // at us; a union type renders as a Python list repr the model has never
-      // seen. Both are wrong quietly, so refuse both loudly.
       final rawType = schema['type'];
-      if (rawType == null) {
+      if (rawType is List) {
+        // The template renders a union as a Python list repr the model has
+        // never seen.
         throw ArgumentError(
-          'FunctionGemma requires an explicit type for property "$name". '
-          'Declare one of: string, number, integer, boolean, array, object.',
-        );
-      }
-      if (rawType is! String) {
-        throw ArgumentError(
-          'FunctionGemma does not support union types '
-          '(property "$name" declares type: $rawType). '
+          'FunctionGemma does not support union types (property "$name" of '
+          'tool "$toolName" declares type: $rawType). '
           'Declare a single type and mark it nullable: true.',
         );
       }
+      if (rawType != null && rawType is! String) {
+        throw ArgumentError(
+          'FunctionGemma property "$name" of tool "$toolName" declares a '
+          'non-string type: $rawType.',
+        );
+      }
 
-      final type = rawType.toUpperCase();
+      final type =
+          (rawType as String?)?.toUpperCase() ??
+          _inferFunctionGemmaType(schema, toolName, name);
+
+      final description = schema['description'];
       final property = StringBuffer(
         '$name:{description:$functionGemmaEscape'
-        '${schema['description'] ?? ''}$functionGemmaEscape',
+        // An explicit null renders empty here, not as Python's `None`.
+        '${description == null ? '' : _pythonScalar(description)}'
+        '$functionGemmaEscape',
       );
 
       // Validate before the type check: an enum on a NUMBER property is dropped
@@ -915,7 +954,7 @@ class InferenceChat {
           final nested = schema['properties'];
           property.write(',properties:{');
           if (nested is Map<String, dynamic>) {
-            property.write(_formatFunctionGemmaProperties(nested));
+            property.write(_formatFunctionGemmaProperties(nested, toolName));
           }
           property.write('}');
           final nestedRequired = schema['required'] as List<dynamic>?;
@@ -927,7 +966,9 @@ class InferenceChat {
         case 'ARRAY':
           final items = schema['items'];
           if (items is Map<String, dynamic> && items.isNotEmpty) {
-            property.write(',items:{${_formatFunctionGemmaItems(items)}}');
+            property.write(
+              ',items:{${_formatFunctionGemmaItems(items, toolName)}}',
+            );
           }
       }
 
@@ -938,7 +979,10 @@ class InferenceChat {
     return entries.join(',');
   }
 
-  String _formatFunctionGemmaItems(Map<String, dynamic> items) {
+  String _formatFunctionGemmaItems(
+    Map<String, dynamic> items,
+    String toolName,
+  ) {
     final parts = <String>[];
 
     for (final key in _dictsort(items.keys)) {
@@ -948,7 +992,7 @@ class InferenceChat {
       switch (key) {
         case 'properties':
           final nested = value is Map<String, dynamic>
-              ? _formatFunctionGemmaProperties(value)
+              ? _formatFunctionGemmaProperties(value, toolName)
               : '';
           parts.add('properties:{$nested}');
         case 'required':

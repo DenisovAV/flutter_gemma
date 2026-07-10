@@ -43,7 +43,10 @@ class FunctionGemmaCallFormat extends FunctionCallFormat {
     final call = _findCallBody(text);
     if (call == null) return null;
 
-    return FunctionCallResponse(name: call.$1, args: _parseParams(call.$2));
+    final args = _parseParams(call.$2);
+    if (args == null) return null;
+
+    return FunctionCallResponse(name: call.$1, args: args);
   }
 }
 
@@ -149,12 +152,16 @@ final _bareNumber = RegExp(r'^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][-+]?\d+)?$');
 dynamic _classifyBareToken(String token) {
   if (token == 'true') return true;
   if (token == 'false') return false;
+  // Python's `None`. A real "None" string arrives escape-wrapped, so nothing
+  // collides.
+  if (token == 'None') return null;
   if (!_bareNumber.hasMatch(token)) return token;
   return int.tryParse(token) ?? double.tryParse(token) ?? token;
 }
 
-/// Parses one value starting at [i]; returns the value and the next index.
-(dynamic, int) _parseValue(String src, int i) {
+/// Parses one value starting at [i]; returns the value and the next index, or
+/// `null` when the value is malformed.
+(dynamic, int)? _parseValue(String src, int i) {
   i = _skipWhitespace(src, i);
   if (i >= src.length) return ('', i);
 
@@ -163,7 +170,7 @@ dynamic _classifyBareToken(String token) {
   if (src.startsWith(functionGemmaEscape, i)) {
     final start = i + functionGemmaEscape.length;
     final end = src.indexOf(functionGemmaEscape, start);
-    if (end == -1) return (src.substring(start), src.length);
+    if (end == -1) return null; // the string never closes
     return (src.substring(start, end), end + functionGemmaEscape.length);
   }
 
@@ -171,41 +178,43 @@ dynamic _classifyBareToken(String token) {
     final list = <dynamic>[];
     i = _skipWhitespace(src, i + 1);
     if (i < src.length && src[i] == ']') return (list, i + 1);
-    while (i < src.length) {
-      final (value, next) = _parseValue(src, i);
-      list.add(value);
-      i = _skipWhitespace(src, next);
-      if (i < src.length && src[i] == ',') {
+    while (true) {
+      final parsed = _parseValue(src, i);
+      if (parsed == null) return null;
+      list.add(parsed.$1);
+      i = _skipWhitespace(src, parsed.$2);
+      if (i >= src.length) return null;
+      if (src[i] == ',') {
         i++;
         continue;
       }
-      if (i < src.length && src[i] == ']') return (list, i + 1);
-      break;
+      if (src[i] == ']') return (list, i + 1);
+      return null;
     }
-    return (list, i);
   }
 
   if (src[i] == '{') {
     final map = <String, dynamic>{};
     i = _skipWhitespace(src, i + 1);
     if (i < src.length && src[i] == '}') return (map, i + 1);
-    while (i < src.length) {
+    while (true) {
       i = _skipWhitespace(src, i);
       final key = _readKey(src, i);
-      if (key == null) break;
+      if (key == null) return null;
       i = _skipWhitespace(src, key.$2);
-      if (i >= src.length || src[i] != ':') break;
-      final (value, next) = _parseValue(src, i + 1);
-      map[key.$1] = value;
-      i = _skipWhitespace(src, next);
-      if (i < src.length && src[i] == ',') {
+      if (i >= src.length || src[i] != ':') return null;
+      final parsed = _parseValue(src, i + 1);
+      if (parsed == null) return null;
+      map[key.$1] = parsed.$1;
+      i = _skipWhitespace(src, parsed.$2);
+      if (i >= src.length) return null;
+      if (src[i] == ',') {
         i++;
         continue;
       }
-      if (i < src.length && src[i] == '}') return (map, i + 1);
-      break;
+      if (src[i] == '}') return (map, i + 1);
+      return null;
     }
-    return (map, i);
   }
 
   final start = i;
@@ -215,20 +224,33 @@ dynamic _classifyBareToken(String token) {
   return (_classifyBareToken(src.substring(start, i).trim()), i);
 }
 
-/// Parses the `{...}` body of a function call into typed arguments.
-Map<String, dynamic> _parseParams(String src) {
+/// Parses the `{...}` body of a function call into typed arguments, or returns
+/// `null` when the body does not parse in full.
+///
+/// The template does not escape `<escape>` occurrences inside a string value, so
+/// a value containing the sentinel is genuinely ambiguous on the wire. Keeping
+/// the arguments we managed to read would fire the tool with a truncated string
+/// and silently drop everything after it. Refuse the whole call instead —
+/// `chat.dart` then surfaces the raw text, and the failure is visible.
+Map<String, dynamic>? _parseParams(String src) {
   final params = <String, dynamic>{};
   var i = 0;
-  while (i < src.length) {
+  while (true) {
     i = _skipWhitespace(src, i);
+    if (i >= src.length) return params;
+
     final key = _readKey(src, i);
-    if (key == null) break;
+    if (key == null) return null;
     i = _skipWhitespace(src, key.$2);
-    if (i >= src.length || src[i] != ':') break;
-    final (value, next) = _parseValue(src, i + 1);
-    params[key.$1] = value;
-    i = _skipWhitespace(src, next);
-    if (i < src.length && src[i] == ',') i++;
+    if (i >= src.length || src[i] != ':') return null;
+
+    final parsed = _parseValue(src, i + 1);
+    if (parsed == null) return null;
+    params[key.$1] = parsed.$1;
+
+    i = _skipWhitespace(src, parsed.$2);
+    if (i >= src.length) return params;
+    if (src[i] != ',') return null;
+    i++;
   }
-  return params;
 }

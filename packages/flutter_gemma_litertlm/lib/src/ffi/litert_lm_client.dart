@@ -776,15 +776,25 @@ class LiteRtLmFfiClient {
     // can clear _handles between the create and the add, leaving a live
     // conversation on a deleted engine that nothing will ever close.
     return _guardCreate(() async {
-      final conv = await _createRawConversation(
-        systemMessage: systemMessage,
-        toolsJson: toolsJson,
-        messagesJson: messagesJson,
-        temperature: temperature,
-        topK: topK,
-        topP: topP,
-        seed: seed,
-        maxOutputTokens: maxOutputTokens,
+      // Serialize the native create against generation and any other create on
+      // this engine. The engine is non-reentrant and holds one live
+      // conversation at a time (#966); the virtual path and generation already
+      // hold _nativeMutex, but this path did not — and once the create runs on
+      // a spawned isolate it can race them on the shared engine pointer.
+      // `protect` releases on every path (_createRawConversation can throw).
+      // Only the native create is guarded; handle registration below is
+      // pure-Dart bookkeeping and must stay inside _guardCreate, not the mutex.
+      final conv = await _nativeMutex.protect(
+        () => _createRawConversation(
+          systemMessage: systemMessage,
+          toolsJson: toolsJson,
+          messagesJson: messagesJson,
+          temperature: temperature,
+          topK: topK,
+          topP: topP,
+          seed: seed,
+          maxOutputTokens: maxOutputTokens,
+        ),
       );
       gemmaLog('[LiteRtLmFfi] Conversation created');
       final handle = LiteRtLmConversationHandle._(this, conv);
@@ -1219,6 +1229,12 @@ class LiteRtLmFfiClient {
             _virtualConv = conv;
             _virtualActiveToken = conversationToken;
           });
+        }
+        // _guardCreate above yields the event loop, so a shutdown() queued
+        // behind us can delete _virtualConv before we get here. Surface it as a
+        // clean "closed" error instead of a Null-check-operator crash.
+        if (_isShuttingDown || _virtualConv == null) {
+          throw StateError('Client is shutting down; conversation was closed');
         }
         inner =
             _doSendMessageStreamRawOn(

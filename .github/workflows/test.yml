@@ -139,13 +139,24 @@ jobs:
       # build); the second incremental build is where a stale-stamped phase
       # would ship an unpatched LiteRtLm (#368). Both must leave the embedded
       # binary referencing the framework-form companion, not the raw dylib.
+      # CI has no signing identity; disable Xcode code-signing via the
+      # FLUTTER_XCODE_* passthrough. The staging phase re-signs the patched
+      # binary ad-hoc (`codesign --sign -`) itself, so this doesn't affect it.
       - name: Build example macOS (clean)
         working-directory: packages/flutter_gemma/example
         run: flutter build macos --debug
+        env:
+          FLUTTER_XCODE_CODE_SIGNING_ALLOWED: 'NO'
+          FLUTTER_XCODE_CODE_SIGNING_REQUIRED: 'NO'
+          FLUTTER_XCODE_CODE_SIGN_IDENTITY: ''
 
       - name: Build example macOS (incremental)
         working-directory: packages/flutter_gemma/example
         run: flutter build macos --debug
+        env:
+          FLUTTER_XCODE_CODE_SIGNING_ALLOWED: 'NO'
+          FLUTTER_XCODE_CODE_SIGNING_REQUIRED: 'NO'
+          FLUTTER_XCODE_CODE_SIGN_IDENTITY: ''
 
       - name: Assert LiteRtLm links the framework-form companion, not the raw dylib
         working-directory: packages/flutter_gemma/example

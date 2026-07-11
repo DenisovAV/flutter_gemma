@@ -11,6 +11,9 @@
 - Render numbers, booleans and `None` the way the template's Python does (#367).
 - Parse a bare `None` argument as null instead of the string `"None"` (#366).
 - Refuse a FunctionGemma call whose body cannot be parsed in full (#366).
+- Warn instead of silently ignoring `ToolChoice.required` on FunctionGemma (#367).
+- Send FunctionGemma tool results as the template does, not as `result:{json}` (#367).
+- Stop opening a second model turn after a FunctionGemma tool response (#367).
 
 ## 1.2.2
 - Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).

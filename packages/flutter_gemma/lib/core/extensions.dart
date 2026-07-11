@@ -1,8 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
+import 'package:flutter_gemma/core/parsing/function_gemma_wire.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
+// The FunctionGemma tokens live with the wire format they belong to.
+export 'package:flutter_gemma/core/parsing/function_gemma_wire.dart';
 
 const userPrefix = "user";
 const modelPrefix = "model";
@@ -26,15 +32,6 @@ const llamaInstEnd = "[/INST]";
 // Hammer tokens (using general format for now - need more research)
 const hammerUser = "User:";
 const hammerAssistant = "Assistant:";
-
-// FunctionGemma special tokens
-const functionGemmaStartCall = '<start_function_call>';
-const functionGemmaEndCall = '<end_function_call>';
-const functionGemmaStartDecl = '<start_function_declaration>';
-const functionGemmaEndDecl = '<end_function_declaration>';
-const functionGemmaStartResp = '<start_function_response>';
-const functionGemmaEndResp = '<end_function_response>';
-const functionGemmaEscape = '<escape>';
 
 /// The three chat-prompt formatting modes the engine-dispatch decision selects.
 ///
@@ -203,11 +200,12 @@ extension MessageExtension on Message {
       return text;
     }
 
-    // Handle tool response - NO user turn, goes directly after function call
-    // Per FunctionGemma docs: <end_function_call><start_function_response>...
+    // A tool response continues the model's own turn: the template renders
+    // call -> response -> answer inside one `<start_of_turn>model`. Opening a
+    // second one nested a header the model never saw. Verified on device: the
+    // engine still generates without it.
     if (type == MessageType.toolResponse) {
-      final content = _formatFunctionGemmaContent();
-      return '$content\n$startTurn$modelPrefix\n';
+      return _formatFunctionGemmaContent();
     }
 
     if (isUser) {
@@ -218,10 +216,18 @@ extension MessageExtension on Message {
   }
 
   String _formatFunctionGemmaContent() {
-    // Format tool response in FunctionGemma format
     if (type == MessageType.toolResponse && toolName != null) {
+      // The template splays the response map into its own dictsorted
+      // `key:value` pairs. The old `result:<escape>{json}<escape>` wrapper was
+      // invented here: that key appears nowhere in the model's chat_template.
+      Object? response;
+      try {
+        response = jsonDecode(text);
+      } on FormatException {
+        response = text;
+      }
       return '$functionGemmaStartResp'
-          'response:$toolName{result:$functionGemmaEscape$text$functionGemmaEscape}'
+          'response:$toolName{${functionGemmaResponseBody(response)}}'
           '$functionGemmaEndResp';
     }
     return text;

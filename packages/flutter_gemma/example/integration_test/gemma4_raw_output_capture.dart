@@ -68,7 +68,7 @@ void main() {
         },
       ]);
 
-      ffi.createConversation(
+      await ffi.createConversation(
         toolsJson: tools,
         temperature: 0.6,
         topK: 40,
@@ -139,7 +139,7 @@ void main() {
         maxTokens: 2048,
         cacheDir: cacheDir.path,
       );
-      ffi.createConversation(temperature: 0.6, topK: 40, seed: 42);
+      await ffi.createConversation(temperature: 0.6, topK: 40, seed: 42);
 
       final messageJson = LiteRtLmFfiClient.buildMessageJson(
         'What is the capital of France?',

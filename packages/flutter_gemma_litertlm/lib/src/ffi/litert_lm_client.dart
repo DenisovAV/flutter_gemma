@@ -173,6 +173,55 @@ class LiteRtLmConversationHandle implements ConversationHandle {
   }
 }
 
+/// Opens the LiteRT-LM shared library for the current platform.
+///
+/// Top-level so it can be called from a spawned isolate, which cannot capture
+/// `this` or any other non-const closure state.
+DynamicLibrary _openLiteRtLmLibrary() {
+  if (Platform.isIOS) {
+    return DynamicLibrary.open(
+      '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm',
+    );
+  }
+  if (Platform.isMacOS) {
+    return DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
+  }
+  if (Platform.isLinux || Platform.isAndroid) {
+    return DynamicLibrary.open('libLiteRtLm.so');
+  }
+  return DynamicLibrary.open('LiteRtLm.dll');
+}
+
+/// Calls native `litert_lm_conversation_create` on a spawned isolate.
+///
+/// For multimodal models this compiles the vision encoder's OpenCL kernels
+/// (`clBuildProgram`), which costs ~8s on a mid-range mobile GPU. Recent
+/// Flutter runs the Dart UI thread on Android's platform thread, so calling
+/// this inline blocks input dispatch and the OS raises an
+/// "Input dispatching timed out" ANR.
+///
+/// Native pointers are process-wide, so the conversation can be built on any
+/// isolate and used from this one. This mirrors what `litert_lm_engine_create`
+/// already does.
+Future<int> _createConversationOffMainIsolate({
+  required int engineAddr,
+  required int configAddr,
+}) {
+  final isolateLogLevel = gemmaLogLevel;
+  return Isolate.run(() {
+    gemmaLogLevel = isolateLogLevel;
+    final create = _openLiteRtLmLibrary()
+        .lookupFunction<
+          Pointer Function(Pointer, Pointer),
+          Pointer Function(Pointer, Pointer)
+        >('litert_lm_conversation_create');
+    return create(
+      Pointer.fromAddress(engineAddr),
+      Pointer.fromAddress(configAddr),
+    ).address;
+  });
+}
+
 /// High-level Dart wrapper around the LiteRT-LM C API.
 ///
 /// Provides a clean async interface over the native C functions,
@@ -195,6 +244,41 @@ class LiteRtLmFfiClient {
   bool _isInitialized = false;
   String? _nativeLogPath;
   String? _backend;
+
+  /// Conversation creates currently suspended across an `await`.
+  ///
+  /// `litert_lm_conversation_create` runs on a spawned isolate, so the calling
+  /// isolate's event loop is free for the duration — long enough for [shutdown]
+  /// to run `litert_lm_engine_delete` while native code is still dereferencing
+  /// the engine pointer. [shutdown] waits for this to reach zero, and creates
+  /// re-check [_isShuttingDown] before publishing anything.
+  int _createsInFlight = 0;
+  Completer<void>? _createsQuiescent;
+  bool _isShuttingDown = false;
+
+  void _enterCreate() => _createsInFlight++;
+
+  void _exitCreate() {
+    if (--_createsInFlight == 0) {
+      _createsQuiescent?.complete();
+      _createsQuiescent = null;
+    }
+  }
+
+  /// Runs [body] while [shutdown] is held off. Everything the create publishes
+  /// (the conversation pointer, its handle) must happen inside [body];
+  /// [shutdown] may proceed the moment it returns.
+  Future<T> _guardCreate<T>(Future<T> Function() body) async {
+    if (_isShuttingDown) {
+      throw StateError('Client is shutting down; cannot create a conversation');
+    }
+    _enterCreate();
+    try {
+      return await body();
+    } finally {
+      _exitCreate();
+    }
+  }
 
   /// All live conversation handles created on this client. Closed in bulk
   /// by [shutdown]. Each handle removes itself on its own [close].
@@ -605,15 +689,7 @@ class LiteRtLmFfiClient {
       final engineAddr = await Isolate.run(() {
         gemmaLogLevel = isolateLogLevel;
         final isolateSw = Stopwatch()..start();
-        final lib = Platform.isIOS
-            ? DynamicLibrary.open(
-                '@executable_path/Frameworks/LiteRtLm.framework/LiteRtLm',
-              )
-            : Platform.isMacOS
-            ? DynamicLibrary.open('LiteRtLm.framework/LiteRtLm')
-            : (Platform.isLinux || Platform.isAndroid)
-            ? DynamicLibrary.open('libLiteRtLm.so')
-            : DynamicLibrary.open('LiteRtLm.dll');
+        final lib = _openLiteRtLmLibrary();
         gemmaLog(
           '[LiteRtLmFfi/perf]   isolate: DynamicLibrary.open: ${isolateSw.elapsedMilliseconds}ms',
           level: GemmaLogLevel.verbose,
@@ -686,7 +762,7 @@ class LiteRtLmFfiClient {
   /// session multiplexer to replay a session's history into a fresh
   /// conversation. When null the conversation starts empty (legacy
   /// behaviour).
-  LiteRtLmConversationHandle createConversationHandle({
+  Future<LiteRtLmConversationHandle> createConversationHandle({
     String? systemMessage,
     String? toolsJson,
     String? messagesJson,
@@ -696,20 +772,25 @@ class LiteRtLmFfiClient {
     int seed = 1,
     int? maxOutputTokens,
   }) {
-    final conv = _createRawConversation(
-      systemMessage: systemMessage,
-      toolsJson: toolsJson,
-      messagesJson: messagesJson,
-      temperature: temperature,
-      topK: topK,
-      topP: topP,
-      seed: seed,
-      maxOutputTokens: maxOutputTokens,
-    );
-    gemmaLog('[LiteRtLmFfi] Conversation created');
-    final handle = LiteRtLmConversationHandle._(this, conv);
-    _handles.add(handle);
-    return handle;
+    // The handle must be registered before the guard lifts: otherwise shutdown()
+    // can clear _handles between the create and the add, leaving a live
+    // conversation on a deleted engine that nothing will ever close.
+    return _guardCreate(() async {
+      final conv = await _createRawConversation(
+        systemMessage: systemMessage,
+        toolsJson: toolsJson,
+        messagesJson: messagesJson,
+        temperature: temperature,
+        topK: topK,
+        topP: topP,
+        seed: seed,
+        maxOutputTokens: maxOutputTokens,
+      );
+      gemmaLog('[LiteRtLmFfi] Conversation created');
+      final handle = LiteRtLmConversationHandle._(this, conv);
+      _handles.add(handle);
+      return handle;
+    });
   }
 
   /// Create a raw native conversation pointer with the given config.
@@ -719,7 +800,7 @@ class LiteRtLmFfiClient {
   /// ([startVirtualTurn]) which owns the pointer's lifecycle directly and
   /// does not register a handle. Lock-free — callers that need
   /// serialization (the multiplexer) hold [_nativeMutex] around it.
-  Pointer<LiteRtLmConversation> _createRawConversation({
+  Future<Pointer<LiteRtLmConversation>> _createRawConversation({
     String? systemMessage,
     String? toolsJson,
     String? messagesJson,
@@ -728,7 +809,7 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     int? maxOutputTokens,
-  }) {
+  }) async {
     _assertInitialized();
     final b = _bindings!;
 
@@ -820,9 +901,29 @@ class LiteRtLmFfiClient {
       );
     }
 
-    final conv = b.litert_lm_conversation_create(_engine!, convConfig);
+    final Pointer<LiteRtLmConversation> conv;
+    try {
+      conv = Pointer<LiteRtLmConversation>.fromAddress(
+        await _createConversationOffMainIsolate(
+          engineAddr: _engine!.address,
+          configAddr: convConfig.address,
+        ),
+      );
 
-    b.litert_lm_conversation_config_delete(convConfig);
+      // The await above yielded the event loop for the whole native round trip.
+      // _guardCreate keeps shutdown() from deleting the engine meanwhile, but a
+      // shutdown may now be queued behind us — in which case this conversation
+      // must not escape. The engine is still alive here, so deleting is safe.
+      if (_isShuttingDown || _engine == null) {
+        if (conv != nullptr) _deleteConversation(conv);
+        throw StateError('Client shut down while creating a conversation');
+      }
+    } finally {
+      // Isolate.run can throw (isolate spawn failure under memory pressure,
+      // dlopen/lookupFunction failure in the fresh isolate). Without this the
+      // config leaks on that path.
+      b.litert_lm_conversation_config_delete(convConfig);
+    }
 
     if (conv == nullptr) {
       _dumpNativeLog();
@@ -836,16 +937,16 @@ class LiteRtLmFfiClient {
   /// conversation (if any) and opens a fresh one stored in [_legacyHandle].
   /// Kept for backward compat — new code should use
   /// [createConversationHandle] and own the handle directly.
-  void createConversation({
+  Future<void> createConversation({
     String? systemMessage,
     String? toolsJson,
     double temperature = 0.8,
     int topK = 40,
     double? topP,
     int seed = 1,
-  }) {
+  }) async {
     _legacyHandle?.close();
-    _legacyHandle = createConversationHandle(
+    final handle = await createConversationHandle(
       systemMessage: systemMessage,
       toolsJson: toolsJson,
       temperature: temperature,
@@ -853,6 +954,13 @@ class LiteRtLmFfiClient {
       topP: topP,
       seed: seed,
     );
+    // A shutdown that landed while we were suspended already closed this handle
+    // (it was registered in _handles inside the guard). Publishing it would
+    // leave a closed conversation reachable on a torn-down client.
+    if (handle.isClosed) {
+      throw StateError('Client shut down while creating a conversation');
+    }
+    _legacyHandle = handle;
   }
 
   /// Build the JSON message for the Conversation API.
@@ -1093,17 +1201,24 @@ class LiteRtLmFfiClient {
           final historyJson = history.isEmpty
               ? null
               : buildHistoryJson(history);
-          _virtualConv = _createRawConversation(
-            systemMessage: systemMessage,
-            toolsJson: toolsJson,
-            messagesJson: historyJson,
-            temperature: temperature,
-            topK: topK,
-            topP: topP,
-            seed: seed,
-            maxOutputTokens: maxOutputTokens,
-          );
-          _virtualActiveToken = conversationToken;
+          // Both fields are published inside the guard body: assigning them in
+          // the await's continuation would let shutdown() delete the engine
+          // first, leaving _virtualConv pointing at a conversation whose engine
+          // is gone — which releaseAndCleanup() would then try to delete.
+          await _guardCreate(() async {
+            final conv = await _createRawConversation(
+              systemMessage: systemMessage,
+              toolsJson: toolsJson,
+              messagesJson: historyJson,
+              temperature: temperature,
+              topK: topK,
+              topP: topP,
+              seed: seed,
+              maxOutputTokens: maxOutputTokens,
+            );
+            _virtualConv = conv;
+            _virtualActiveToken = conversationToken;
+          });
         }
         inner =
             _doSendMessageStreamRawOn(
@@ -1402,7 +1517,23 @@ class LiteRtLmFfiClient {
 
   /// Shutdown the engine and release all resources. Closes every live
   /// conversation handle first (legacy + any opened directly).
-  void shutdown() {
+  ///
+  /// Waits for any conversation create suspended inside [_guardCreate]. Since
+  /// `litert_lm_conversation_create` runs on a spawned isolate, deleting the
+  /// engine while one is in flight frees the engine out from under native code
+  /// that is still dereferencing it.
+  ///
+  /// Consequently this never completes if the native create itself hangs. That
+  /// is deliberate — the alternative is tearing down the engine underneath it —
+  /// but it means [FfiInferenceModel.close] inherits the hang. There is no
+  /// timeout escape hatch.
+  Future<void> shutdown() async {
+    _isShuttingDown = true;
+    if (_createsInFlight > 0) {
+      _createsQuiescent ??= Completer<void>();
+      await _createsQuiescent!.future;
+    }
+
     // Copy because close() mutates _handles.
     for (final h in _handles.toList()) {
       h.close();
@@ -1426,6 +1557,7 @@ class LiteRtLmFfiClient {
 
     _isInitialized = false;
     _backend = null;
+    _isShuttingDown = false;
   }
 
   /// Get session metrics from the given conversation including token usage.

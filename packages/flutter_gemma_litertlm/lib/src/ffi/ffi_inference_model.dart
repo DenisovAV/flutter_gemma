@@ -122,7 +122,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
           : null;
 
       final beforeConv = sessionSw.elapsedMilliseconds;
-      final handle = ffiClient.createConversationHandle(
+      final handle = await ffiClient.createConversationHandle(
         systemMessage: systemInstruction,
         toolsJson: toolsJson,
         temperature: temperature,
@@ -134,6 +134,14 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       gemmaLog(
         '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms',
       );
+
+      // createConversationHandle now suspends across an isolate round trip, so
+      // close() can have run while we were away. Without this the caller gets a
+      // working-looking session whose conversation belongs to a dead engine.
+      if (_isClosed) {
+        handle.close();
+        throw StateError('Model was closed while creating a session');
+      }
 
       late final FfiInferenceModelSession session;
       session = FfiInferenceModelSession(
@@ -309,7 +317,9 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
       }
       _openSessions.clear();
     } finally {
-      ffiClient.shutdown();
+      // Awaited: shutdown() defers engine_delete until any conversation create
+      // suspended on its spawned isolate has finished.
+      await ffiClient.shutdown();
       onClose(); // legacy hook (engine passes a no-op)
       fireCloseListeners(); // core's singleton-reset, registered via addCloseListener
     }

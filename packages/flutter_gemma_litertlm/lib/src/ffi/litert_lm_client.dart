@@ -167,6 +167,14 @@ class LiteRtLmConversationHandle implements ConversationHandle {
   @override
   void close() {
     if (_conversation == null) return;
+    // Cancel any in-flight native decode before deleting: conversation_delete
+    // blocks in ~SessionBasic → ThreadPool::WaitUntilDone until the generation
+    // drains naturally, which under GPU throttle is tens of seconds and ANRs
+    // the platform thread (#364). Cancelling first collapses the drain to
+    // milliseconds. `_cancelOn` is lock-free so it can interrupt a generation
+    // that holds `_nativeMutex`. The virtual-session path already does this in
+    // `releaseVirtualConversation`; this brings the single-session path in line.
+    _client._cancelOn(_conversation!);
     _client._deleteConversation(_conversation!);
     _conversation = null;
     _client._handles.remove(this);
@@ -1173,6 +1181,11 @@ class LiteRtLmFfiClient {
     final controller = StreamController<String>();
     var mutexHeld = false;
     StreamSubscription<String>? inner;
+    // Set by onCancel. If the consumer cancels while onListen is still awaiting
+    // the mutex or the conversation create, `inner` is null so the cancel can't
+    // reach it — and onListen would otherwise resume and start a generation
+    // nobody is listening to. onListen checks this before starting the turn.
+    var cancelledByConsumer = false;
 
     Future<void> releaseAndCleanup() async {
       _virtualTurnInFlight = false;
@@ -1236,6 +1249,14 @@ class LiteRtLmFfiClient {
         if (_isShuttingDown || _virtualConv == null) {
           throw StateError('Client is shutting down; conversation was closed');
         }
+        // A cancel that landed during the mutex wait or the create above left
+        // `inner` null, so it never reached native. Don't start an orphan turn
+        // for a consumer that is already gone — release and close instead.
+        if (cancelledByConsumer) {
+          await releaseAndCleanup();
+          if (!controller.isClosed) await controller.close();
+          return;
+        }
         inner =
             _doSendMessageStreamRawOn(
               _virtualConv!,
@@ -1260,6 +1281,14 @@ class LiteRtLmFfiClient {
     // Fires when the consumer cancels / abandons the stream — guarantees the
     // mutex is released even if generation never completed.
     controller.onCancel = () async {
+      cancelledByConsumer = true;
+      // Cancel the live native turn explicitly. `inner?.cancel()` alone only
+      // reaches native transitively, and only once `inner` exists; a cancel
+      // that arrives during the mutex wait or create would otherwise never stop
+      // the native decode. `cancelVirtualTurn` is lock-free and a no-op unless
+      // this token owns the currently-live conversation, so it is safe here and
+      // safe to double-cancel with `inner.cancel()` (idempotent natively).
+      cancelVirtualTurn(conversationToken);
       await inner?.cancel();
       await releaseAndCleanup();
     };

@@ -81,6 +81,17 @@ post_install do |installer|
       # dependency graph instead of treating it as "runs every build" with
       # no outputs (the other half of the cycle warning). The script
       # `touch`es this file at the end.
+      #
+      # Declare the embedded LiteRtLm binary as an input so the stamp
+      # invalidates whenever the always-out-of-date Flutter `embed` phase
+      # re-copies the raw, unpatched binary over our patched one. Without an
+      # input the phase is cached after the first build and never re-applies
+      # its install_name patch, so the second incremental build ships an
+      # unpatched LiteRtLm that fails dlopen at runtime — #368, a regression
+      # the #300 cycle fix introduced when it added the output stamp.
+      phase.input_paths = [
+        '$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm',
+      ]
       phase.output_paths = ['$(DERIVED_FILE_DIR)/flutter_gemma_litertlm_macos.stamp']
       phase.shell_script = <<~SHELL
         set -e

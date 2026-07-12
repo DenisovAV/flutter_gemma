@@ -421,6 +421,7 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/Contents/Frameworks/LiteRtLm.framework/Versions/A/LiteRtLm",
 			);
 			name = "[flutter_gemma] Setup LiteRT-LM macOS";
 			outputFileListPaths = (

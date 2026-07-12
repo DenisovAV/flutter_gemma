@@ -43,15 +43,26 @@ void main() {
     );
   });
 
-  test('ThinkingPart throws', () async {
+  test('a ThinkingPart is stripped, sibling parts are kept', () async {
+    // Gemma strips prior-turn thoughts from history; feeding a returned model
+    // turn (which carries its ThinkingPart) back must not throw — drop the
+    // thought, keep the answer. See genai_output_converter emitting ThinkingPart.
+    final msg = ChatMessage(
+      role: ChatMessageRole.model,
+      parts: [const ThinkingPart('secret reasoning'), TextPart('final answer')],
+    );
+    final out = await messagesFromChatMessage(msg);
+    expect(out, hasLength(1));
+    expect(out.single.text, 'final answer');
+    expect(out.single.isUser, isFalse);
+  });
+
+  test('a pure-thought model turn yields no staged Message', () async {
     final msg = ChatMessage(
       role: ChatMessageRole.model,
       parts: [const ThinkingPart('t')],
     );
-    expect(
-      () => messagesFromChatMessage(msg),
-      throwsA(isA<UnsupportedError>()),
-    );
+    expect(await messagesFromChatMessage(msg), isEmpty);
   });
 
   test('tool result → Message.toolResponse', () async {

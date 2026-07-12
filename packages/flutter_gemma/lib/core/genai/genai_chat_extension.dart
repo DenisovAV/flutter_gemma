@@ -112,7 +112,7 @@ extension GenAiChat on InferenceChat {
   /// Wrap the generate stream, mapping each event to a ChatMessage and holding
   /// the chat mutex until a terminal event (done/error/cancel).
   Stream<ChatMessage> _lockedStream(Future<void> Function() stage) {
-    late StreamController<ChatMessage> controller;
+    late final StreamController<ChatMessage> controller;
     StreamSubscription<ModelResponse>? sub;
     var released = false;
     // Set by onCancel. onListen's async body awaits `stage()` BEFORE `sub` is

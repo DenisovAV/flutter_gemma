@@ -20,7 +20,7 @@ Future<Uint8List> readLinkBytes(Uri uri, {http.Client? httpClient}) async {
       final client = httpClient ?? http.Client();
       try {
         final resp = await client.get(uri);
-        if (resp.statusCode != 200) {
+        if (resp.statusCode < 200 || resp.statusCode >= 300) {
           throw http.ClientException('HTTP ${resp.statusCode} for $uri', uri);
         }
         return resp.bodyBytes;

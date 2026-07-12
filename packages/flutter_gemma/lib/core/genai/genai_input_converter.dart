@@ -10,6 +10,9 @@ import 'link_reader.dart';
 /// Converts a genai_primitives [ChatMessage] into flutter_gemma [Message]s.
 ///
 /// One ChatMessage may yield >1 Message (tool results become sibling messages).
+/// The text/media parts collapse into a single [Message] emitted FIRST, then
+/// one sibling [Message] per tool result in part order. A [ThinkingPart] is
+/// stripped (thoughts aren't fed back as history).
 /// Async because LinkPart resolution may need I/O. Throws — never silently drops.
 Future<List<Message>> messagesFromChatMessage(
   ChatMessage message, {
@@ -26,20 +29,17 @@ Future<List<Message>> messagesFromChatMessage(
   }
   final isUser = message.role == ChatMessageRole.user;
 
-  final textBuffer = StringBuffer();
   final images = <Uint8List>[];
   Uint8List? audio;
   final messages = <Message>[];
 
   for (final part in parts) {
     switch (part) {
-      case TextPart(:final text):
-        textBuffer.write(text);
       case DataPart(:final bytes, :final mimeType):
-        _routeMedia(bytes, mimeType, images, () => audio, (v) => audio = v);
+        audio = _routeMedia(bytes, mimeType, images, audio);
       case LinkPart(:final url, :final mimeType):
         final bytes = await readLinkBytes(url, httpClient: httpClient);
-        _routeMedia(bytes, mimeType, images, () => audio, (v) => audio = v);
+        audio = _routeMedia(bytes, mimeType, images, audio);
       case ToolPart(kind: ToolPartKind.result, :final toolName, :final result):
         final resp = result is Map<String, dynamic>
             ? result
@@ -56,19 +56,22 @@ Future<List<Message>> messagesFromChatMessage(
             text: jsonEncode({'name': toolName, 'parameters': arguments ?? {}}),
           ),
         );
+      case TextPart():
       case ThinkingPart():
-        throw UnsupportedError(
-          'ThinkingPart is model output (streamed), not input.',
-        );
+      // TextPart text is read from `message.text` after the loop. A ThinkingPart
+      // is stripped from history: Gemma re-feeds the answer, not the reasoning
+      // (see the thinking docs' thought-stripping), and a model turn returned by
+      // the output converter carries its ThinkingPart, so dropping it here lets
+      // that turn round-trip back in as history. Both are no-ops in this loop.
     }
   }
 
-  final hasText = textBuffer.isNotEmpty;
-  if (hasText || images.isNotEmpty || audio != null) {
+  final text = message.text;
+  if (text.isNotEmpty || images.isNotEmpty || audio != null) {
     messages.insert(
       0,
       Message(
-        text: textBuffer.toString(),
+        text: text,
         isUser: isUser,
         images: images,
         imageBytes: images.isNotEmpty ? images.first : null,
@@ -79,6 +82,8 @@ Future<List<Message>> messagesFromChatMessage(
   return messages;
 }
 
+/// Converts a list of [ChatMessage]s to flutter_gemma [Message]s in order,
+/// concatenating each message's expansion (see [messagesFromChatMessage]).
 Future<List<Message>> messagesFromChatMessages(
   List<ChatMessage> messages, {
   http.Client? httpClient,
@@ -90,24 +95,27 @@ Future<List<Message>> messagesFromChatMessages(
   return out;
 }
 
-void _routeMedia(
+/// Adds an image part to [images], or returns audio bytes as the message audio.
+/// Returns the audio value the caller should keep: [current] for an image,
+/// the new bytes for an audio part. Throws on a second audio or a non-media mime.
+Uint8List? _routeMedia(
   Uint8List bytes,
   String? mimeType,
   List<Uint8List> images,
-  Uint8List? Function() getAudio,
-  void Function(Uint8List) setAudio,
+  Uint8List? current,
 ) {
   final mime = mimeType ?? '';
   if (mime.startsWith('image/')) {
     images.add(bytes);
-  } else if (mime.startsWith('audio/')) {
-    if (getAudio() != null) {
+    return current;
+  }
+  if (mime.startsWith('audio/')) {
+    if (current != null) {
       throw UnsupportedError('Only one audio part per message is supported.');
     }
-    setAudio(bytes);
-  } else {
-    throw UnsupportedError('Unsupported DataPart mime "$mime".');
+    return bytes;
   }
+  throw UnsupportedError('Unsupported DataPart mime "$mime".');
 }
 
 /// Throws if any message needs a capability the chat wasn't built with,

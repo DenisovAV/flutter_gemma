@@ -11,9 +11,11 @@ import 'link_reader.dart';
 ///
 /// One ChatMessage may yield >1 Message (tool results become sibling messages).
 /// The text/media parts collapse into a single [Message] emitted FIRST, then
-/// one sibling [Message] per tool result in part order. A [ThinkingPart] is
-/// stripped (thoughts aren't fed back as history).
-/// Async because LinkPart resolution may need I/O. Throws — never silently drops.
+/// one sibling [Message] per tool result in part order. A [ThinkingPart] on a
+/// model turn is stripped by design (thoughts aren't fed back as history), so a
+/// thought-only model turn yields no Message; a [ThinkingPart] on a user turn is
+/// misuse and throws. Async because LinkPart resolution may need I/O. Other
+/// unsupported content throws rather than being silently dropped.
 Future<List<Message>> messagesFromChatMessage(
   ChatMessage message, {
   http.Client? httpClient,
@@ -56,13 +58,18 @@ Future<List<Message>> messagesFromChatMessage(
             text: jsonEncode({'name': toolName, 'parameters': arguments ?? {}}),
           ),
         );
-      case TextPart():
       case ThinkingPart():
-      // TextPart text is read from `message.text` after the loop. A ThinkingPart
-      // is stripped from history: Gemma re-feeds the answer, not the reasoning
-      // (see the thinking docs' thought-stripping), and a model turn returned by
-      // the output converter carries its ThinkingPart, so dropping it here lets
-      // that turn round-trip back in as history. Both are no-ops in this loop.
+        // A model turn's thought is stripped from history: Gemma re-feeds the
+        // answer, not the reasoning (see the thinking docs' thought-stripping),
+        // so a model turn returned by the output converter round-trips back in.
+        // A user-role thought is misuse — thoughts are model output, fail loud.
+        if (isUser) {
+          throw UnsupportedError(
+            'A ThinkingPart is model output, not user input.',
+          );
+        }
+      case TextPart():
+      // No-op: TextPart text is read from `message.text` after the loop.
     }
   }
 

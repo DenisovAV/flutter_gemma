@@ -43,7 +43,7 @@ void main() {
     );
   });
 
-  test('a ThinkingPart is stripped, sibling parts are kept', () async {
+  test('a model-turn ThinkingPart is stripped, sibling parts are kept', () async {
     // Gemma strips prior-turn thoughts from history; feeding a returned model
     // turn (which carries its ThinkingPart) back must not throw — drop the
     // thought, keep the answer. See genai_output_converter emitting ThinkingPart.
@@ -63,6 +63,19 @@ void main() {
       parts: [const ThinkingPart('t')],
     );
     expect(await messagesFromChatMessage(msg), isEmpty);
+  });
+
+  test('a user-role ThinkingPart throws (thoughts are model output)', () async {
+    // Stripping is only right for a returned model turn's history. A user
+    // constructing a thought is misuse — fail loud, don't stage nothing.
+    final msg = ChatMessage(
+      role: ChatMessageRole.user,
+      parts: [const ThinkingPart('t'), TextPart('hi')],
+    );
+    expect(
+      () => messagesFromChatMessage(msg),
+      throwsA(isA<UnsupportedError>()),
+    );
   });
 
   test('tool result → Message.toolResponse', () async {

@@ -1,5 +1,5 @@
 ## 1.2.3
-- Cancel native `.litertlm` decoding before tearing a session down — avoids a multi-second platform-thread stall / ANR while `conversation_delete` drains an abandoned generation (#364, #373).
+- Cancel native `.litertlm` decoding before session teardown to avoid an ANR (#364, #373).
 - Fix FunctionGemma parser dropping array, number, boolean and object arguments (#366).
 - Fix FunctionGemma streaming truncating a tool call at the first `}` (#366).
 - Fix FunctionGemma tools prompt to match the model's `chat_template` (#367).

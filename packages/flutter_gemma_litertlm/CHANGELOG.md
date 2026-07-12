@@ -1,3 +1,8 @@
+## 1.0.3
+- Create the native conversation off the main isolate to avoid ANRs on multimodal models (#365).
+- Serialize native conversation create on the engine mutex to prevent a heap-corrupting race (#372).
+- Cancel native decode before tearing a conversation down to avoid a multi-second ANR (#364, #373).
+
 ## 1.0.2
 - Clamp `maxTokens` up to 1024 (min context for .litertlm) to fix the DYNAMIC_UPDATE_SLICE crash (#318).
 - Honor `maxOutputTokens` (session + chat) via native `set_max_output_tokens`; skipped on NPU.

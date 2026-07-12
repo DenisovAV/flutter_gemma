@@ -1,3 +1,7 @@
+## 1.3.0
+- Add genai_primitives support via `package:flutter_gemma/genai.dart` — use `ChatMessage` with `InferenceChat` (#181).
+- New `sendMessage`/`generateContent` (+ streams) covering text, vision, audio, thinking, and tool calls (#181).
+
 ## 1.2.3
 - Cancel native `.litertlm` decoding before session teardown to avoid an ANR (#364, #373).
 - Re-run macOS companion staging on incremental builds so LiteRtLm stays patched (#368).

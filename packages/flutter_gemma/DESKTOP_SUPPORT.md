@@ -96,7 +96,7 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.2.3            # core
+  flutter_gemma: ^1.3.0            # core
   flutter_gemma_litertlm: ^1.0.3   # .litertlm engine — required on desktop
 ```
 

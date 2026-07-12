@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../chat.dart';
 import '../model_response.dart';
+import '../utils/gemma_log.dart';
 import 'genai_input_converter.dart';
 import 'genai_output_converter.dart';
 
@@ -111,48 +112,83 @@ extension GenAiChat on InferenceChat {
 
   /// Wrap the generate stream, mapping each event to a ChatMessage and holding
   /// the chat mutex until a terminal event (done/error/cancel).
+  ///
+  /// The lock is owned by `onListen` (the flow that acquired it). `onCancel`
+  /// only *signals* cancellation and tears down when generation is actually
+  /// running; while we are still queued on `acquire()` or inside `stage()`,
+  /// `onListen` releases when it observes the flag. `release()` is guarded on
+  /// `lockHeld` so it can never free a lock this invocation doesn't hold — the
+  /// `package:mutex` mutex is ownership-blind, so an unguarded release from
+  /// `onCancel` could otherwise free another turn's critical section.
   Stream<ChatMessage> _lockedStream(Future<void> Function() stage) {
     late final StreamController<ChatMessage> controller;
     StreamSubscription<ModelResponse>? sub;
     var released = false;
-    // Set by onCancel. onListen's async body awaits `stage()` BEFORE `sub` is
-    // assigned, so a subscriber that cancels in that window triggers onCancel
-    // while onListen is still suspended (sub == null → onCancel's sub?.cancel()
-    // is a no-op). Without this flag, onListen would resume and start generation
-    // on a chat whose lock onCancel already released — running a second turn
-    // concurrently and leaking an un-cancellable subscription. onListen checks
-    // this flag after `stage()` and bails before attaching the subscription.
     var cancelled = false;
+    var lockHeld = false; // true once THIS invocation's acquire() has resolved
+    var generating = false; // true once the generate subscription is attached
+
     void release() {
-      if (!released) {
+      if (!released && lockHeld) {
         released = true;
         genaiLock.release();
+      }
+    }
+
+    Future<void> stopSafely() async {
+      try {
+        await stopGeneration();
+      } catch (e, s) {
+        gemmaLog(
+          'WARNING: genai stopGeneration during teardown failed: $e\n$s',
+        );
       }
     }
 
     controller = StreamController<ChatMessage>(
       onListen: () async {
         await genaiLock.acquire();
+        lockHeld = true;
+        // Cancelled while queued on acquire(): we now own the lock — release it
+        // and bail without staging or generating.
+        if (cancelled) {
+          release();
+          await controller.close();
+          return;
+        }
         try {
           await stage();
+          // Cancelled during stage(): we still hold the lock (onCancel does not
+          // release while onListen owns it) and stage() has finished mutating
+          // shared state, so releasing here can't let a second turn interleave.
+          // No generation started, so nothing to stop.
           if (cancelled) {
-            // Cancelled during stage(): onCancel already released the lock and
-            // called stopGeneration. Do NOT attach a subscription (it would be
-            // un-cancellable and would drive generation on an unlocked chat).
+            release();
             await controller.close();
             return;
           }
+          generating = true;
           sub = generateChatResponseAsync().listen(
-            (r) => controller.add(chatMessageFromChunk(r)),
+            (r) {
+              // A throw in the mapping would escape to the Zone and never
+              // release the lock — funnel it into the same cleanup.
+              try {
+                controller.add(chatMessageFromChunk(r));
+              } catch (e, s) {
+                controller.addError(e, s);
+                sub?.cancel();
+                stopSafely().whenComplete(() {
+                  release();
+                  controller.close();
+                });
+              }
+            },
             onError: (Object e, StackTrace s) async {
               controller.addError(e, s);
               await sub?.cancel();
-              try {
-                await stopGeneration();
-              } finally {
-                release();
-                await controller.close();
-              }
+              await stopSafely();
+              release();
+              await controller.close();
             },
             onDone: () {
               release();
@@ -167,10 +203,13 @@ extension GenAiChat on InferenceChat {
       },
       onCancel: () async {
         cancelled = true;
-        await sub?.cancel();
-        try {
-          await stopGeneration();
-        } finally {
+        // Only tear down here once generation is running. While queued on
+        // acquire() or inside stage(), onListen owns the lock and releases it
+        // when it sees `cancelled`; releasing here would free a lock we don't
+        // hold yet, or free it mid-stage and let a second turn interleave.
+        if (generating) {
+          await sub?.cancel();
+          await stopSafely();
           release();
         }
       },

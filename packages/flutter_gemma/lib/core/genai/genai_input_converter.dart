@@ -43,6 +43,11 @@ Future<List<Message>> messagesFromChatMessage(
         final bytes = await readLinkBytes(url, httpClient: httpClient);
         audio = _routeMedia(bytes, mimeType, images, audio);
       case ToolPart(kind: ToolPartKind.result, :final toolName, :final result):
+        if (!isUser) {
+          throw UnsupportedError(
+            'A tool result is caller input, not model output.',
+          );
+        }
         final resp = result is Map<String, dynamic>
             ? result
             : {'result': result};

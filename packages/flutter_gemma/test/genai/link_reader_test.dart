@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_gemma/core/genai/link_reader.dart';
@@ -41,6 +42,37 @@ void main() {
         httpClient: client,
       ),
       throwsA(isA<http.ClientException>()),
+    );
+  });
+
+  test(
+    'throws on an empty 2xx body (blank media, not silently accepted)',
+    () async {
+      final client = MockClient(
+        (_) async => http.Response.bytes(Uint8List(0), 200),
+      );
+      expect(
+        () => readLinkBytes(
+          Uri.parse('https://example.com/empty.png'),
+          httpClient: client,
+        ),
+        throwsA(isA<http.ClientException>()),
+      );
+    },
+  );
+
+  test('times out a hung server instead of holding forever', () async {
+    final client = MockClient((_) async {
+      await Future<void>.delayed(const Duration(seconds: 5));
+      return http.Response.bytes(Uint8List.fromList([1]), 200);
+    });
+    expect(
+      () => readLinkBytes(
+        Uri.parse('https://example.com/slow.png'),
+        httpClient: client,
+        timeout: const Duration(milliseconds: 50),
+      ),
+      throwsA(isA<TimeoutException>()),
     );
   });
 }

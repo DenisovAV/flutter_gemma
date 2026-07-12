@@ -8,6 +8,7 @@ import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
+import 'package:meta/meta.dart' show internal;
 import 'package:mutex/mutex.dart';
 
 import 'model.dart';
@@ -34,6 +35,10 @@ class InferenceChat {
 
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
+  ///
+  /// Internal to the `package:flutter_gemma/genai.dart` extension — not part of
+  /// the public API. External `acquire()`/`release()` would deadlock the chat.
+  @internal
   final Mutex genaiLock = Mutex();
 
   final List<Message> _fullHistory = [];

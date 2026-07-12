@@ -23,7 +23,14 @@ ChatMessage chatMessageFromChunk(ModelResponse chunk) {
 }
 
 /// Coalesce a whole model turn into one [ChatMessage].
-/// Order: ThinkingPart → (ToolPart.call… OR TextPart). Tool calls suppress text.
+///
+/// Parts follow generation order: ThinkingPart → TextPart → ToolPart.call…. A
+/// preamble ("Let me check…") that accompanies a tool call is kept, not dropped
+/// — matching what [chatMessageFromChunk] emits on the streaming path.
+///
+/// `callId` mirrors `toolName`: flutter_gemma's tool protocol is name-keyed
+/// ([FunctionCallResponse] carries no independent id), so parallel calls to the
+/// same tool share a callId and callId is ignored when a result is fed back in.
 ChatMessage chatMessageFromParts({
   String? text,
   List<FunctionCallResponse> calls = const [],
@@ -34,14 +41,13 @@ ChatMessage chatMessageFromParts({
   if (thinking != null && thinking.isNotEmpty) {
     parts.add(ThinkingPart(thinking));
   }
-  if (calls.isNotEmpty) {
-    for (final c in calls) {
-      parts.add(
-        ToolPart.call(callId: c.name, toolName: c.name, arguments: c.args),
-      );
-    }
-  } else if (text != null && text.isNotEmpty) {
+  if (text != null && text.isNotEmpty) {
     parts.add(TextPart(text));
+  }
+  for (final c in calls) {
+    parts.add(
+      ToolPart.call(callId: c.name, toolName: c.name, arguments: c.args),
+    );
   }
   return ChatMessage(
     role: ChatMessageRole.model,

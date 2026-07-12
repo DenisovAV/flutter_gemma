@@ -90,6 +90,21 @@ void main() {
     expect(out.single.toolName, 'calc');
   });
 
+  test('a tool result on a model-role message throws', () async {
+    // A tool result is caller/user input, not model output — mirror the
+    // tool-call-on-user guard rather than silently accepting it.
+    final msg = ChatMessage(
+      role: ChatMessageRole.model,
+      parts: [
+        ToolPart.result(callId: '1', toolName: 'calc', result: {'v': 7}),
+      ],
+    );
+    expect(
+      () => messagesFromChatMessage(msg),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
+
   test('second audio DataPart throws', () async {
     final msg = ChatMessage(
       role: ChatMessageRole.user,

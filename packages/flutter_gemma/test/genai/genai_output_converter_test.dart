@@ -30,12 +30,18 @@ void main() {
     expect(m.parts.whereType<TextPart>().single.text, 'answer');
   });
 
-  test('coalesced: tool calls suppress text', () {
+  test('coalesced: preamble text is kept alongside tool calls', () {
+    // The batch fold must not silently drop a "Let me check…" preamble when a
+    // tool call is present — the streaming path keeps it, so both must agree.
     final m = chatMessageFromParts(
-      text: 'ignored',
+      text: 'let me check',
       calls: const [FunctionCallResponse(name: 'f', args: {})],
     );
+    expect(m.parts.whereType<TextPart>().single.text, 'let me check');
     expect(m.parts.whereType<ToolPart>(), hasLength(1));
-    expect(m.parts.whereType<TextPart>(), isEmpty);
+    // Order follows generation: text precedes the tool call.
+    final textAt = m.parts.indexWhere((p) => p is TextPart);
+    final callAt = m.parts.indexWhere((p) => p is ToolPart);
+    expect(textAt, lessThan(callAt));
   });
 }

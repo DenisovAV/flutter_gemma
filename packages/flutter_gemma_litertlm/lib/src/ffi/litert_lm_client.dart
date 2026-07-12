@@ -1286,9 +1286,16 @@ class LiteRtLmFfiClient {
       // reaches native transitively, and only once `inner` exists; a cancel
       // that arrives during the mutex wait or create would otherwise never stop
       // the native decode. `cancelVirtualTurn` is lock-free and a no-op unless
-      // this token owns the currently-live conversation, so it is safe here and
-      // safe to double-cancel with `inner.cancel()` (idempotent natively).
-      cancelVirtualTurn(conversationToken);
+      // this token owns the currently-live conversation.
+      //
+      // Guard on `mutexHeld`: onCancel also fires as implicit teardown after a
+      // stream completes normally (Dart delivers `done` by cancelling the
+      // subscription). On that path the inner stream's onDone has already run
+      // `releaseAndCleanup()`, which clears `mutexHeld` synchronously — so
+      // `mutexHeld` is false here and we skip cancelling a just-finished, about-
+      // to-be-reused `_virtualConv`. A genuine mid-flight cancel still holds the
+      // mutex, so `mutexHeld` is true and the cancel fires.
+      if (mutexHeld) cancelVirtualTurn(conversationToken);
       await inner?.cancel();
       await releaseAndCleanup();
     };

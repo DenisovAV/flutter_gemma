@@ -442,12 +442,16 @@ abstract class InferenceModelSession {
 
   /// Streams generated tokens.
   ///
-  /// To stop generating early, either `cancel()` the [StreamSubscription] or
-  /// call [stopGeneration]. On the `.litertlm` FFI path both reach the native
-  /// engine and stop it decoding. Silently *abandoning* the stream (dropping
-  /// the subscription without cancelling, so it is only GC'd) cannot be
-  /// intercepted — the accelerator keeps decoding the whole turn for output no
-  /// one consumes, wasting compute and delaying the next turn's teardown.
+  /// To stop generating early, prefer [stopGeneration] — it reaches the native
+  /// engine and stops it decoding on every engine. `cancel()`ing the
+  /// [StreamSubscription] also stops native decoding on the `.litertlm` FFI
+  /// engine, but on other engines it only detaches the Dart side while native
+  /// keeps decoding, so [stopGeneration] is the portable choice.
+  ///
+  /// Silently *abandoning* the stream (dropping the subscription without
+  /// cancelling, so it is only GC'd) cannot be intercepted on any engine — the
+  /// accelerator keeps decoding the whole turn for output no one consumes,
+  /// wasting compute and delaying the next turn's teardown.
   Stream<String> getResponseAsync();
 
   Future<int> sizeInTokens(String text);

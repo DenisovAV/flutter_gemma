@@ -118,6 +118,7 @@ void main() {
                 SidebarGroup(
                   title: 'Integrations',
                   links: [
+                    SidebarLink(text: 'genai_primitives', href: '/docs/genai'),
                     SidebarLink(text: 'Genkit', href: '/docs/genkit'),
                   ],
                 ),

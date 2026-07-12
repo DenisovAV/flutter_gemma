@@ -440,12 +440,27 @@ class SessionMetrics {
 abstract class InferenceModelSession {
   Future<String> getResponse();
 
+  /// Streams generated tokens.
+  ///
+  /// To stop generating early, prefer [stopGeneration] — it reaches the native
+  /// engine and stops it decoding on every engine. `cancel()`ing the
+  /// [StreamSubscription] also stops native decoding on the `.litertlm` FFI
+  /// engine, but on other engines it only detaches the Dart side while native
+  /// keeps decoding, so [stopGeneration] is the portable choice.
+  ///
+  /// Silently *abandoning* the stream (dropping the subscription without
+  /// cancelling, so it is only GC'd) cannot be intercepted on any engine — the
+  /// accelerator keeps decoding the whole turn for output no one consumes,
+  /// wasting compute and delaying the next turn's teardown.
   Stream<String> getResponseAsync();
 
   Future<int> sizeInTokens(String text);
 
   Future<void> addQueryChunk(Message message);
 
+  /// Stops the current generation, cancelling native decoding on the
+  /// `.litertlm` FFI path. Call this (or `cancel()` the response subscription)
+  /// whenever a streamed response is superseded or no longer needed.
   Future<void> stopGeneration();
 
   /// Get session metrics including token usage and performance stats.

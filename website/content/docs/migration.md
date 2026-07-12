@@ -30,7 +30,7 @@ dependencies:
 ```
 dependencies:
   flutter_gemma: ^1.2.3                 # core — always required
-  flutter_gemma_litertlm: ^1.0.3        # add if you run .litertlm models
+  flutter_gemma_litertlm: ^1.0.4        # add if you run .litertlm models
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^1.0.1      # add if you compute embeddings
   flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG (qdrant)

@@ -292,6 +292,24 @@ class LiteRtLmFfiClient {
   /// by [shutdown]. Each handle removes itself on its own [close].
   final Set<LiteRtLmConversationHandle> _handles = {};
 
+  /// Every conversation pointer currently alive (minted by
+  /// [_createRawConversation], removed by [_deleteConversation]). [_cancelOn]
+  /// consults this before dereferencing a pointer: a raw-stream or virtual-turn
+  /// onCancel can fire after model/handle/engine teardown already freed the
+  /// conversation, and cancelling a dangling pointer is a use-after-free SIGSEGV
+  /// in native `Conversation::CancelProcess` (#379). A freed conversation is not
+  /// in this set, so the late cancel no-ops.
+  final Set<Pointer<LiteRtLmConversation>> _liveConvs = {};
+
+  /// Test seam for the #379 registry — see cancel_after_delete_test.dart.
+  @visibleForTesting
+  Set<Pointer<LiteRtLmConversation>> get liveConversationsForTest => _liveConvs;
+
+  /// Test seam: drive the real [_deleteConversation] without a native binding.
+  @visibleForTesting
+  void deleteConversationForTest(Pointer<LiteRtLmConversation> conv) =>
+      _deleteConversation(conv);
+
   /// Backing handle for the legacy single-conversation API
   /// ([createConversation] / [closeConversation] / [chat] / etc.). Kept so
   /// existing single-session call sites work unchanged while the new
@@ -948,6 +966,7 @@ class LiteRtLmFfiClient {
       throw Exception('Failed to create conversation');
     }
 
+    _liveConvs.add(conv); // #379: track liveness so late cancels can't UAF
     return conv;
   }
 
@@ -1541,6 +1560,11 @@ class LiteRtLmFfiClient {
 
   /// Cancel ongoing generation on the given conversation.
   void _cancelOn(Pointer<LiteRtLmConversation> conv) {
+    // #379: never cancel a conversation that has already been freed. The
+    // raw-stream and virtual-turn onCancel hooks can fire after model/handle/
+    // engine teardown deleted the conversation; dereferencing the dangling
+    // pointer is a use-after-free SIGSEGV in native Conversation::CancelProcess.
+    if (!_liveConvs.contains(conv)) return;
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_cancel_process(conv);
       gemmaLog('[LiteRtLmFfi] Generation cancelled');
@@ -1555,6 +1579,9 @@ class LiteRtLmFfiClient {
   /// Delete a conversation pointer. Called by
   /// [LiteRtLmConversationHandle.close].
   void _deleteConversation(Pointer<LiteRtLmConversation> conv) {
+    // Drop liveness first so any onCancel that races this teardown no-ops in
+    // [_cancelOn] rather than dereferencing the pointer we are about to free.
+    _liveConvs.remove(conv);
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_delete(conv);
       gemmaLog('[LiteRtLmFfi] Conversation closed');

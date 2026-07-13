@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart'
-    show debugPrint, defaultTargetPlatform, TargetPlatform;
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,19 +22,15 @@ void main() {
   late bool available;
 
   setUpAll(() async {
-    // Whole-setup guard: nothing here may hang the suite. Even with the native
-    // probe bounded, a hostile OS AI stack shouldn't be able to stall setUp;
-    // on timeout we leave `available=false` and every test skips. The
-    // debugPrint markers localize where time goes on a device.
+    // Whole-setup guard: nothing here may hang the suite. If any probe stalls
+    // on a device with no usable OS AI stack, the timeout leaves
+    // `available=false` and every test skips instead of hanging to the deadline.
     try {
       await () async {
-        debugPrint('[builtin_ai_test] setUp: initialize…');
         await FlutterGemma.initialize(
           inferenceEngines: const [BuiltInAiEngine()],
         );
-        debugPrint('[builtin_ai_test] setUp: availability()…');
         final status = await BuiltInAi.availability();
-        debugPrint('[builtin_ai_test] setUp: availability = $status');
         available = status == BuiltInAiAvailability.available;
         if (!available &&
             allowDownload &&
@@ -45,7 +41,6 @@ void main() {
           } catch (_) {/* stays skipped */}
         }
         if (available) {
-          debugPrint('[builtin_ai_test] setUp: installing active model…');
           final spec = defaultTargetPlatform == TargetPlatform.android
               ? BuiltInAiModels.geminiNano
               : BuiltInAiModels.appleFoundationModels;
@@ -54,10 +49,8 @@ void main() {
             fileType: spec.fileType,
           ).fromBundled(spec.name).install();
         }
-        debugPrint('[builtin_ai_test] setUp: done (available=$available)');
       }().timeout(const Duration(seconds: 45));
     } on TimeoutException {
-      debugPrint('[builtin_ai_test] setUp TIMED OUT — skipping all tests');
       available = false;
     }
   });

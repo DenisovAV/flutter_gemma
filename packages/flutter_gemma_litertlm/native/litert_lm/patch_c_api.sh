@@ -64,6 +64,8 @@ EXPORTS
   litert_lm_engine_settings_set_activation_data_type
   litert_lm_engine_settings_set_cache_dir
   litert_lm_engine_settings_set_enable_speculative_decoding
+  litert_lm_engine_settings_set_gpu_context_low_priority
+  litert_lm_engine_settings_set_kernel_batch_size
   litert_lm_engine_settings_set_litert_dispatch_lib_dir
   litert_lm_engine_settings_set_max_num_images
   litert_lm_engine_settings_set_max_num_tokens
@@ -278,6 +280,66 @@ void litert_lm_engine_settings_set_use_hw_masking_for_npu(\
   echo "  OK: Added set_use_hw_masking_for_npu impl to c/engine.cc"
 else
   echo "  SKIP: c/engine.cc already has set_use_hw_masking_for_npu"
+fi
+
+# ── 4c. Add GPU smooth-UI knobs — gpu_context_low_priority + kernel_batch_size ──
+# #364: on Android/OpenCL a GPU prefill monopolizes the Adreno GPU and starves
+# the Flutter raster/compositor thread (repro'd on S23 Ultra: raster p95
+# 6.8ms->123ms during a ~2s prefill). AdvancedSettings.gpu_context_low_priority
+# lowers the inference GPU context priority (SetPriority(kLow)); hint_kernel_batch_size
+# adds periodic GPU flushes so the compositor gets scheduling windows. Both are
+# consumed at a0afb5a in llm_executor_settings_utils.cc:210-223 but the upstream
+# C API doesn't expose them. Mirror the upstream set_enable_speculative_decoding
+# idiom (engine.cc:500-509).
+if ! grep -q "set_gpu_context_low_priority" "$DIR/c/engine.h"; then
+  sed -i.bak '/Creates a LiteRT LM Engine from the given settings/i\
+// Lowers the GPU inference context priority (OpenCL kLow) so on-device GPU\
+// prefill/decode does not starve the host UI compositor (#364). GPU-only;\
+// a no-op on backends whose delegate ignores context priority.\
+LITERT_LM_C_API_EXPORT\
+void litert_lm_engine_settings_set_gpu_context_low_priority(\
+    LiteRtLmEngineSettings* settings, bool value);\
+\
+// Hints a GPU kernel batch size so the delegate periodically flushes, giving\
+// the UI compositor scheduling windows during long GPU work (#364).\
+LITERT_LM_C_API_EXPORT\
+void litert_lm_engine_settings_set_kernel_batch_size(\
+    LiteRtLmEngineSettings* settings, int kernel_batch_size);\
+' "$DIR/c/engine.h"
+  rm -f "$DIR/c/engine.h.bak"
+  echo "  OK: Added GPU smooth-UI knob setters to c/engine.h"
+else
+  echo "  SKIP: c/engine.h already has set_gpu_context_low_priority"
+fi
+
+if ! grep -q "set_gpu_context_low_priority" "$DIR/c/engine.cc"; then
+  sed -i.bak '/void litert_lm_engine_settings_set_activation_data_type/i\
+void litert_lm_engine_settings_set_gpu_context_low_priority(\
+    LiteRtLmEngineSettings* settings, bool value) {\
+  if (settings \&\& settings->settings) {\
+    auto\& main_settings = settings->settings->GetMutableMainExecutorSettings();\
+    auto advanced_settings = main_settings.GetAdvancedSettings().value_or(\
+        litert::lm::AdvancedSettings());\
+    advanced_settings.gpu_context_low_priority = value;\
+    main_settings.SetAdvancedSettings(advanced_settings);\
+  }\
+}\
+\
+void litert_lm_engine_settings_set_kernel_batch_size(\
+    LiteRtLmEngineSettings* settings, int kernel_batch_size) {\
+  if (settings \&\& settings->settings) {\
+    auto\& main_settings = settings->settings->GetMutableMainExecutorSettings();\
+    auto advanced_settings = main_settings.GetAdvancedSettings().value_or(\
+        litert::lm::AdvancedSettings());\
+    advanced_settings.hint_kernel_batch_size = kernel_batch_size;\
+    main_settings.SetAdvancedSettings(advanced_settings);\
+  }\
+}\
+' "$DIR/c/engine.cc"
+  rm -f "$DIR/c/engine.cc.bak"
+  echo "  OK: Added GPU smooth-UI knob impls to c/engine.cc"
+else
+  echo "  SKIP: c/engine.cc already has set_gpu_context_low_priority"
 fi
 
 # ── 5. Patch litert_lm_conversation_config_create to 6-arg signature ──

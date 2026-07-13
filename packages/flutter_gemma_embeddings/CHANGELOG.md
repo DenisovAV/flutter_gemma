@@ -1,3 +1,6 @@
+## 1.0.2
+- Realign the shared LiteRT-LM native bundle to native-v0.13.1-b (#364). No API change.
+
 ## 1.0.1
 - Rebuild on native-v0.13.1-a (shares the LiteRT-LM native bundle; restores NPU dispatch libs, #155). No embeddings API change.
 - Point `homepage` to fluttergemma.dev. No code change.

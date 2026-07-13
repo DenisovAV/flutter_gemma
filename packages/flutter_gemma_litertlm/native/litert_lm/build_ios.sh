@@ -49,7 +49,7 @@ fi
 # This is the first public LiteRT-LM commit where libLiteRtLm rebuilt from
 # source has matching ABI with the prebuilt accelerators. v0.11.0 itself
 # is broken — see the WARNING above and the upstream issue we filed.
-DEFAULT_REF="ffed38adbc33509480b5340e5173638bc20a68ff"
+DEFAULT_REF="a0afb5a56acd106b23a2b2385b8469834dc268c0"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"

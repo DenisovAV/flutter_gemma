@@ -1,3 +1,6 @@
+## 1.1.0
+- Smooth UI during Android GPU prefill — flush the OpenCL queue every 2 ops (#364).
+
 ## 1.0.4
 - Guard native cancel against a freed conversation — fixes a use-after-free SIGSEGV on close-mid-stream (#379).
 

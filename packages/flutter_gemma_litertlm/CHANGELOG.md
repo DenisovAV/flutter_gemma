@@ -1,3 +1,6 @@
+## 1.0.4
+- Guard native cancel against a freed conversation — fixes a use-after-free SIGSEGV on close-mid-stream (#379).
+
 ## 1.0.3
 - Create the native conversation off the main isolate to avoid ANRs on multimodal models (#365).
 - Serialize native conversation create on the engine mutex to prevent a heap-corrupting race (#372).

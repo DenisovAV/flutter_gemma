@@ -23,7 +23,7 @@ dependencies:
   genkit_flutter_gemma: ^0.4.3
   flutter_gemma: ^1.2.3
   # Add the inference engine(s) you need:
-  flutter_gemma_litertlm: ^1.0.3   # .litertlm models (mobile + desktop)
+  flutter_gemma_litertlm: ^1.0.4   # .litertlm models (mobile + desktop)
   flutter_gemma_mediapipe: ^1.0.4  # .task / .bin models (mobile + web)
   # Optional — for embeddings:
   flutter_gemma_embeddings: ^1.0.1

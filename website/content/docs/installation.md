@@ -18,6 +18,7 @@ dependencies:
   # Inference engines — add at least one:
   flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
   flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
+  flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
 
   # Optional — text embeddings + on-device RAG:
   flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
@@ -31,6 +32,7 @@ dependencies:
 |---|---|
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
+| Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
 | Generate text embeddings | `flutter_gemma_embeddings` |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
@@ -56,6 +58,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
@@ -67,6 +70,7 @@ void main() {
     inferenceEngines: const [
       LiteRtLmEngine(),     // flutter_gemma_litertlm  — .litertlm models
       MediaPipeEngine(),    // flutter_gemma_mediapipe — .task / .bin models
+      BuiltInAiEngine(),    // flutter_gemma_builtin_ai — Gemini Nano / Apple FM
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [

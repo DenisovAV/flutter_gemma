@@ -1620,9 +1620,14 @@ class LiteRtLmFfiClient {
     _handles.clear();
     _legacyHandle = null;
 
-    // Tear down the shared virtual-session conversation too.
+    // Tear down the shared virtual-session conversation too. Cancel any
+    // in-flight virtual turn first: like handle.close(), an uncancelled
+    // conversation_delete blocks in ~SessionBasic → ThreadPool::WaitUntilDone
+    // draining the live generation (the #364 ANR). Safe post-#379 — vc is still
+    // in _liveConvs here, so _cancelOn reaches native rather than no-oping.
     final vc = _virtualConv;
     if (vc != null) {
+      _cancelOn(vc);
       _deleteConversation(vc);
       _virtualConv = null;
       _virtualActiveToken = null;

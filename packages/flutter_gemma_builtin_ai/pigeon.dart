@@ -18,7 +18,8 @@ enum AvailabilityStatus {
       'android/src/main/kotlin/dev/flutterberlin/flutter_gemma_builtin_ai/PigeonInterface.g.kt',
   kotlinOptions:
       KotlinOptions(package: 'dev.flutterberlin.flutter_gemma_builtin_ai'),
-  swiftOut: 'darwin/Classes/PigeonInterface.g.swift',
+  swiftOut:
+      'darwin/flutter_gemma_builtin_ai/Sources/flutter_gemma_builtin_ai/PigeonInterface.g.swift',
   swiftOptions: SwiftOptions(),
   dartPackageName: 'flutter_gemma_builtin_ai',
 ))

@@ -20,7 +20,7 @@ builds from iOS 16 / macOS 10.15.
   s.license          = { :file => '../../flutter_gemma/LICENSE' }
   s.author           = { 'Flutter Berlin' => 'flutter@flutterberlin.dev' }
   s.source           = { :path => '.' }
-  s.source_files     = 'Classes/**/*'
+  s.source_files     = 'flutter_gemma_builtin_ai/Sources/flutter_gemma_builtin_ai/**/*'
   s.ios.dependency 'Flutter'
   s.osx.dependency 'FlutterMacOS'
   s.ios.deployment_target = '16.0'

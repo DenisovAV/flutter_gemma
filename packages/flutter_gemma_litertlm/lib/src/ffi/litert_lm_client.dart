@@ -299,11 +299,27 @@ class LiteRtLmFfiClient {
   /// conversation, and cancelling a dangling pointer is a use-after-free SIGSEGV
   /// in native `Conversation::CancelProcess` (#379). A freed conversation is not
   /// in this set, so the late cancel no-ops.
+  ///
+  /// ABA note — this is keyed on the raw pointer *address*, so it DOWNGRADES,
+  /// not eliminates, the hazard: if the allocator re-mints a conversation at a
+  /// just-freed address, a stale `_cancelOn` for the old one would cancel the
+  /// NEW one (a wrong-target cancel, not a UAF). That window stays closed today
+  /// only because every create and every raw-stream cancel is serialized under
+  /// [_nativeMutex], and internal consumers use `await for` (no deferred
+  /// `subscription.cancel()`). Keep that discipline. A generation-keyed map
+  /// (`Map<Pointer,int>`, id captured per onCancel) would make it structural.
   final Set<Pointer<LiteRtLmConversation>> _liveConvs = {};
 
-  /// Test seam for the #379 registry — see cancel_after_delete_test.dart.
+  /// Test seam (read-only): is this conversation currently tracked as live?
   @visibleForTesting
-  Set<Pointer<LiteRtLmConversation>> get liveConversationsForTest => _liveConvs;
+  bool isConversationLiveForTest(Pointer<LiteRtLmConversation> conv) =>
+      _liveConvs.contains(conv);
+
+  /// Test seam: seed a live conversation without a native engine — mirrors the
+  /// registration [_createRawConversation] performs.
+  @visibleForTesting
+  void registerLiveForTest(Pointer<LiteRtLmConversation> conv) =>
+      _liveConvs.add(conv);
 
   /// Test seam: drive the real [_deleteConversation] without a native binding.
   @visibleForTesting
@@ -1564,6 +1580,7 @@ class LiteRtLmFfiClient {
     // raw-stream and virtual-turn onCancel hooks can fire after model/handle/
     // engine teardown deleted the conversation; dereferencing the dangling
     // pointer is a use-after-free SIGSEGV in native Conversation::CancelProcess.
+    // (Address-keyed — see the _liveConvs ABA note for the residual it leaves.)
     if (!_liveConvs.contains(conv)) return;
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_cancel_process(conv);
@@ -1638,6 +1655,10 @@ class LiteRtLmFfiClient {
       _engine = null;
       gemmaLog('[LiteRtLmFfi] Engine deleted');
     }
+    // engine_delete bulk-frees every remaining conversation at once; the
+    // handle/virtual drains above already emptied the registry, but clear it so
+    // no address can linger as a dangling "live" entry after a bulk free.
+    _liveConvs.clear();
 
     _isInitialized = false;
     _backend = null;

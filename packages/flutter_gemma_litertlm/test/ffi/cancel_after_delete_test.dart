@@ -17,14 +17,14 @@ void main() {
       final conv = Pointer<LiteRtLmConversation>.fromAddress(0xC0FFEE);
 
       // Simulate a live conversation (what _createRawConversation registers).
-      client.liveConversationsForTest.add(conv);
-      expect(client.liveConversationsForTest.contains(conv), isTrue);
+      client.registerLiveForTest(conv);
+      expect(client.isConversationLiveForTest(conv), isTrue);
 
       // Model/handle teardown deletes it.
       client.deleteConversationForTest(conv);
 
       expect(
-        client.liveConversationsForTest.contains(conv),
+        client.isConversationLiveForTest(conv),
         isFalse,
         reason: 'a late cancel now finds the conv dead and no-ops (no UAF)',
       );

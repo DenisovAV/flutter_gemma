@@ -1,5 +1,5 @@
 ## 1.0.4
-- Guard native cancel against a freed conversation to fix a use-after-free SIGSEGV when the model is closed mid-stream (#379).
+- Guard native cancel against a freed conversation — fixes a use-after-free SIGSEGV on close-mid-stream (#379).
 
 ## 1.0.3
 - Create the native conversation off the main isolate to avoid ANRs on multimodal models (#365).

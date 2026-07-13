@@ -714,6 +714,30 @@ class LiteRtLmFfiClient {
         gemmaLog('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
 
+      // #364: on Android, flush the OpenCL command queue every N ops during a
+      // GPU prefill so it doesn't starve the Flutter raster/compositor thread.
+      // By default LiteRT-LM's OpenCL backend dispatches the ENTIRE graph as one
+      // uninterruptible batch (gpu_backend_opencl_litert.cc: "dispatch all
+      // kernels in one batch" when kernel_batch_size<=0), so a ~2s prefill
+      // freezes the compositor (repro'd on Adreno S23 Ultra: raster p95
+      // 6.8ms->123ms). A positive hint_kernel_batch_size inserts a clFlush every
+      // N ops, giving the display work interleave points. Upstream auto-applies
+      // 4 for "generic" models to ensure smooth UI, but recognized Gemma types
+      // aren't generic (engine_settings.cc gates the default on has_generic_model)
+      // so gemma4/3/3n get NO flush unless we set it. Measured on dm3q: kb=4
+      // (upstream value) still janks (p95 63ms), kb=2 is flat (p95 7.3ms ~=
+      // baseline) with no TTFT cost, so 2 — not 4. NOT gpu_context_low_priority:
+      // it only reorders cross-context submission (no Adreno preemption of a
+      // running dispatch) and measured strictly worse (jank + TTFT both up).
+      // Gated to Android: Metal (iOS/macOS) doesn't starve the compositor, and
+      // the setter symbol only ships in the Android native rebuild.
+      if (Platform.isAndroid && backend == 'gpu') {
+        b.litert_lm_engine_settings_set_kernel_batch_size(settings, 2);
+        gemmaLog(
+          '[LiteRtLmFfi] Android GPU: hint_kernel_batch_size=2 (#364 smooth UI)',
+        );
+      }
+
       // Create engine in a background isolate to avoid blocking UI.
       // Pass settings pointer as int address (Pointer can't cross isolates).
       gemmaLog(

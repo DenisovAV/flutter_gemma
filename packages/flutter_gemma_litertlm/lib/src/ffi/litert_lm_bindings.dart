@@ -546,6 +546,50 @@ class LiteRtLmBindings {
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
           >();
 
+  void litert_lm_engine_settings_set_gpu_context_low_priority(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    bool value,
+  ) {
+    return _litert_lm_engine_settings_set_gpu_context_low_priority(
+      settings,
+      value,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_gpu_context_low_priorityPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Bool)
+        >
+      >('litert_lm_engine_settings_set_gpu_context_low_priority');
+  late final _litert_lm_engine_settings_set_gpu_context_low_priority =
+      _litert_lm_engine_settings_set_gpu_context_low_priorityPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
+          >();
+
+  void litert_lm_engine_settings_set_kernel_batch_size(
+    ffi.Pointer<LiteRtLmEngineSettings> settings,
+    int kernel_batch_size,
+  ) {
+    return _litert_lm_engine_settings_set_kernel_batch_size(
+      settings,
+      kernel_batch_size,
+    );
+  }
+
+  late final _litert_lm_engine_settings_set_kernel_batch_sizePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
+        >
+      >('litert_lm_engine_settings_set_kernel_batch_size');
+  late final _litert_lm_engine_settings_set_kernel_batch_size =
+      _litert_lm_engine_settings_set_kernel_batch_sizePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
+          >();
+
   void litert_lm_engine_settings_set_cache_dir(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
     ffi.Pointer<ffi.Char> cache_dir,

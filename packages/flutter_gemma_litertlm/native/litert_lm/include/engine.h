@@ -381,6 +381,20 @@ void litert_lm_engine_settings_set_enable_speculative_decoding(
 LITERT_LM_C_API_EXPORT
 void litert_lm_engine_settings_set_use_hw_masking_for_npu(
     LiteRtLmEngineSettings* settings, bool value);
+
+// Lowers the GPU inference context priority (OpenCL kLow) so on-device GPU
+// prefill/decode does not starve the host UI compositor (#364). GPU-only;
+// a no-op on backends whose delegate ignores context priority.
+LITERT_LM_C_API_EXPORT
+void litert_lm_engine_settings_set_gpu_context_low_priority(
+    LiteRtLmEngineSettings* settings, bool value);
+
+// Hints a GPU kernel batch size so the delegate periodically flushes, giving
+// the UI compositor scheduling windows during long GPU work (#364).
+LITERT_LM_C_API_EXPORT
+void litert_lm_engine_settings_set_kernel_batch_size(
+    LiteRtLmEngineSettings* settings, int kernel_batch_size);
+
 // Creates a LiteRT LM Engine from the given settings. The caller is responsible
 // for destroying the engine using `litert_lm_engine_delete`.
 //

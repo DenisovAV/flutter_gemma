@@ -1,3 +1,6 @@
+## 1.3.0
+- Add ModelFileType.builtIn for OS system models (Gemini Nano / Apple FM)
+
 ## 1.2.3
 - Cancel native `.litertlm` decoding before session teardown to avoid an ANR (#364, #373).
 - Re-run macOS companion staging on incremental builds so LiteRtLm stays patched (#368).

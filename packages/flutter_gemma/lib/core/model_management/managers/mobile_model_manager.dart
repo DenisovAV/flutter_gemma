@@ -63,6 +63,19 @@ class MobileModelManager extends ModelFileManager {
       return;
     }
 
+    if (fileType == ModelFileType.builtIn) {
+      // Built-in OS models have no file at getTargetPath. Reconstruct the
+      // inert bundled-source carrier persisted at install time.
+      _activeInferenceModel = InferenceModelSpec(
+        name: filename,
+        modelSource: BundledSource(filename),
+        modelType: modelType,
+        fileType: fileType,
+      );
+      gemmaLog('[ModelManager] restored active built-in model: $filename');
+      return;
+    }
+
     final filePath = await ServiceRegistry.instance.fileSystemService
         .getTargetPath(filename);
     if (!File(filePath).existsSync()) {

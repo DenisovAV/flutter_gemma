@@ -113,39 +113,49 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
     final completer = _initCompleter = Completer<InferenceModel>();
 
-    // Verify the active model is still installed
-    final isModelInstalled = await manager.isModelInstalled(activeModel);
-    if (!isModelInstalled) {
-      completer.completeError(
-        Exception(
-          'Active model is no longer installed. Use the `modelManager` to load the model first',
-        ),
+    final specForGates = activeModel as InferenceModelSpec;
+    final isBuiltIn = specForGates.fileType == ModelFileType.builtIn;
+
+    String modelPath = '';
+    if (!isBuiltIn) {
+      // Verify the active model is still installed
+      final isModelInstalled = await manager.isModelInstalled(activeModel);
+      if (!isModelInstalled) {
+        completer.completeError(
+          Exception(
+            'Active model is no longer installed. Use the `modelManager` to load the model first',
+          ),
+        );
+        return completer.future;
+      }
+
+      // Get the actual model file path through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        completer.completeError(
+          Exception(
+            'Model file paths not found. Use the `modelManager` to load the model first',
+          ),
+        );
+        return completer.future;
+      }
+
+      modelPath = modelFilePaths.values.first;
+      final modelFile = File(modelPath);
+
+      if (!await modelFile.exists()) {
+        completer.completeError(
+          Exception('Model file not found at path: ${modelFile.path}'),
+        );
+        return completer.future;
+      }
+
+      gemmaLog('Using unified model file: $modelPath');
+    } else {
+      gemmaLog(
+        'Built-in model ${specForGates.name}: skipping file/installed checks (no on-disk file)',
       );
-      return completer.future;
     }
-
-    // Get the actual model file path through unified system
-    final modelFilePaths = await manager.getModelFilePaths(activeModel);
-    if (modelFilePaths == null || modelFilePaths.isEmpty) {
-      completer.completeError(
-        Exception(
-          'Model file paths not found. Use the `modelManager` to load the model first',
-        ),
-      );
-      return completer.future;
-    }
-
-    final modelPath = modelFilePaths.values.first;
-    final modelFile = File(modelPath);
-
-    if (!await modelFile.exists()) {
-      completer.completeError(
-        Exception('Model file not found at path: ${modelFile.path}'),
-      );
-      return completer.future;
-    }
-
-    gemmaLog('Using unified model file: $modelPath');
 
     try {
       // Engine selection routes ENTIRELY through [EngineRegistry] (probe-chain).
@@ -156,7 +166,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // model path (preamble above) + owns the singleton lifecycle centrally
       // (track + reset on close); the selected engine builds the model.
 
-      final spec = activeModel as InferenceModelSpec;
+      final spec = specForGates;
       final config = RuntimeConfig(
         maxTokens: maxTokens,
         modelPath: modelPath,

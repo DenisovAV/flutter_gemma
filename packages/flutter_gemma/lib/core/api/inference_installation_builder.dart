@@ -171,6 +171,29 @@ class InferenceInstallationBuilder {
       );
     }
 
+    // Built-in OS models: no file to install. Validate constraints, build the
+    // spec, and persist the active identity without touching SourceHandlers
+    // or ServiceRegistry (native side owns the model — nothing to download).
+    if (_fileType == ModelFileType.builtIn) {
+      if (_loraSource != null) {
+        throw ArgumentError(
+          'LoRA is not supported for built-in OS models (ModelFileType.builtIn).',
+        );
+      }
+      final filename = _extractFilename(_modelSource!);
+      final spec = InferenceModelSpec(
+        name: FileNameUtils.getBaseName(filename),
+        modelSource: _modelSource!,
+        replacePolicy: ModelReplacePolicy.keep,
+        modelType: _modelType,
+        fileType: _fileType,
+      );
+      final manager = FlutterGemmaPlugin.instance.modelManager;
+      manager.setActiveModel(spec);
+      gemmaLog('✅ Built-in model set as active: ${spec.name}');
+      return InferenceInstallation(spec: spec);
+    }
+
     // Create spec
     final filename = _extractFilename(_modelSource!);
     final spec = InferenceModelSpec(

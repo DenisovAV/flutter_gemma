@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_example/chat_widget.dart';
 import 'package:flutter_gemma_example/loading_widget.dart';
 import 'package:flutter_gemma_example/models/model.dart';
@@ -116,8 +117,15 @@ class ChatScreenState extends State<ChatScreen> {
         fileType: widget.model.fileType,
       );
 
-      // Choose source based on localModel flag
-      if (widget.model.localModel) {
+      // Choose source based on the model kind. Built-in OS models (Gemini Nano
+      // / Apple Foundation Models) have no file: register the bundled identity
+      // so the built-in engine resolves, then make sure the OS model is ready
+      // (the download screen normally does this first, but ChatScreen is also
+      // reachable directly, so guard here too).
+      if (widget.model.isBuiltIn) {
+        await installer.fromBundled(widget.model.filename).install();
+        await BuiltInAi.ensureReady();
+      } else if (widget.model.localModel) {
         await installer.fromAsset(widget.model.url).install();
       } else {
         // Load token if model needs authentication

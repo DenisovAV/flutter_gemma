@@ -76,6 +76,11 @@ _ChatFormatMode _chatFormatModeFor(
     return iosManual ? _ChatFormatMode.manual : _ChatFormatMode.raw;
   }
 
+  // Built-in OS models (Gemini Nano / Apple FM) — native SDK owns templates.
+  if (fileType == ModelFileType.builtIn) {
+    return _ChatFormatMode.raw;
+  }
+
   // .bin/.tflite files - always manual formatting based on model type.
   return _ChatFormatMode.manual;
 }
@@ -511,6 +516,11 @@ class ModelThinkingFilter {
 
     // For .task files, minimal cleaning - MediaPipe handles formatting
     if (fileType == ModelFileType.task) {
+      return cleaned.trim();
+    }
+
+    // Built-in OS models return clean text - trim only.
+    if (fileType == ModelFileType.builtIn) {
       return cleaned.trim();
     }
 

@@ -16,6 +16,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma`** | Core — registry, contracts, model management, sessions, chat. No engine on its own. **Always required.** | All |
 | **`flutter_gemma_litertlm`** | `.litertlm` inference via `dart:ffi` (LiteRT-LM C API). Owns the shared native library. | Mobile + Desktop + Web |
 | **`flutter_gemma_mediapipe`** | `.task` / `.bin` inference via MediaPipe. | Mobile + Web |
+| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore) + Apple Foundation Models (iOS 26+/macOS). No model file to bundle or download. | Android + iOS + macOS |
 | **`flutter_gemma_embeddings`** | Text embeddings (EmbeddingGemma / Gecko) via LiteRT C API. | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, native Rust FFI). Fastest on native. | Native (no Web) |
 | **`flutter_gemma_rag_sqlite`** | On-device RAG vector store — in-SQLite KNN via the `sqlite-vec` (`vec0`) extension. Exact + portable. | All (incl. Web) |
@@ -42,6 +43,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 |---|---|
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
+| Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
 | Generate text embeddings | `flutter_gemma_embeddings` |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |

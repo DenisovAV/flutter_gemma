@@ -11,7 +11,14 @@ let package = Package(
     .macOS("10.15"),
   ],
   products: [
-    .library(name: "flutter-gemma-builtin-ai", targets: ["flutter_gemma_builtin_ai"])
+    // type: .static — Flutter's generated plugin package is static; without it
+    // SPM links a .dylib (embedding/codesign + App Store validation pain).
+    // Matches the core flutter_gemma package's manifests.
+    .library(
+      name: "flutter-gemma-builtin-ai",
+      type: .static,
+      targets: ["flutter_gemma_builtin_ai"]
+    )
   ],
   dependencies: [
     // Flutter's SPM integration vends a single FlutterFramework package for

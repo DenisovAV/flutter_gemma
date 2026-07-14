@@ -2,10 +2,11 @@
 # To learn more about a Podspec see http://guides.cocoapods.org/syntax/podspec.html.
 # Run `pod lib lint flutter_gemma_builtin_ai.podspec` to validate before publishing.
 #
-# Single shared Darwin source set (darwin/Classes/**) drives BOTH the iOS and
-# macOS plugins via Flutter's `sharedDarwinSource: true` (declared in
-# pubspec.yaml). One podspec, one Classes directory — the `s.ios.*` / `s.osx.*`
-# scoping picks the right Flutter dependency and deployment target per platform.
+# Single shared Darwin source set (darwin/flutter_gemma_builtin_ai/Sources/**)
+# drives BOTH the iOS and macOS plugins via Flutter's `sharedDarwinSource: true`
+# (declared in pubspec.yaml). CocoaPods and Swift Package Manager both read that
+# same Sources/ tree; the `s.ios.*` / `s.osx.*` scoping picks the right Flutter
+# dependency and deployment target per platform.
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma_builtin_ai'

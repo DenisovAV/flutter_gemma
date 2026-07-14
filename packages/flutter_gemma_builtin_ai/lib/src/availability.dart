@@ -75,9 +75,9 @@ abstract final class BuiltInAi {
   /// [BuiltInAiAvailability.unavailableOther] so callers can degrade or skip.
   static Future<BuiltInAiAvailability> availability() async {
     try {
-      final status = await builtInAiService
-          .checkAvailability()
-          .timeout(debugProbeTimeout);
+      final status = await builtInAiService.checkAvailability().timeout(
+        debugProbeTimeout,
+      );
       return mapAvailability(status);
     } on TimeoutException {
       return BuiltInAiAvailability.unavailableOther;
@@ -130,6 +130,9 @@ abstract final class BuiltInAi {
   }) async {
     final ready = Completer<void>();
     StreamSubscription<Object?>? sub;
+    // Set in `finally` (after the outer timeout/return) so the fire-and-forget
+    // poll loop below stops instead of spinning forever once we've given up.
+    var done = false;
 
     // Surface download progress; the terminal signal (availability flipping to
     // `available`) comes from polling below, not from the event stream, so a
@@ -151,29 +154,35 @@ abstract final class BuiltInAi {
 
     Future<void> poll() async {
       // Poll availability until the model is ready or a terminal failure lands.
-      while (!ready.isCompleted) {
-        final status = await availability();
-        switch (status) {
-          case BuiltInAiAvailability.available:
-            if (!ready.isCompleted) ready.complete();
-            return;
-          case BuiltInAiAvailability.downloadable:
-          case BuiltInAiAvailability.downloading:
-            await Future<void>.delayed(const Duration(milliseconds: 200));
-          case BuiltInAiAvailability.unavailableDeviceUnsupported:
-          case BuiltInAiAvailability.unavailableOsTooOld:
-          case BuiltInAiAvailability.unavailableDisabled:
-          case BuiltInAiAvailability.unavailableOther:
-            if (!ready.isCompleted) {
-              ready.completeError(
-                BuiltInAiUnavailableException(
-                  status,
-                  'Built-in AI became unavailable during download: $status',
-                ),
-              );
-            }
-            return;
+      // Guarded so an unexpected error (e.g. a native PlatformException from the
+      // probe) completes `ready` instead of escaping as an unhandled async error.
+      try {
+        while (!done && !ready.isCompleted) {
+          final status = await availability();
+          switch (status) {
+            case BuiltInAiAvailability.available:
+              if (!ready.isCompleted) ready.complete();
+              return;
+            case BuiltInAiAvailability.downloadable:
+            case BuiltInAiAvailability.downloading:
+              await Future<void>.delayed(const Duration(milliseconds: 200));
+            case BuiltInAiAvailability.unavailableDeviceUnsupported:
+            case BuiltInAiAvailability.unavailableOsTooOld:
+            case BuiltInAiAvailability.unavailableDisabled:
+            case BuiltInAiAvailability.unavailableOther:
+              if (!ready.isCompleted) {
+                ready.completeError(
+                  BuiltInAiUnavailableException(
+                    status,
+                    'Built-in AI became unavailable during download: $status',
+                  ),
+                );
+              }
+              return;
+          }
         }
+      } catch (e, st) {
+        if (!ready.isCompleted) ready.completeError(e, st);
       }
     }
 
@@ -204,6 +213,9 @@ abstract final class BuiltInAi {
         ),
       );
     } finally {
+      // Stop the fire-and-forget poll loop (it exits at its next check) and
+      // release the progress subscription — nothing may outlive this call.
+      done = true;
       await sub?.cancel();
     }
   }

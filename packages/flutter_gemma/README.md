@@ -57,13 +57,20 @@ There is an example of using:
 
 - 🧠 **System OS models** — new opt-in [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai): run **Gemini Nano** (Android / AICore) and **Apple Foundation Models** (iOS 26+/macOS) with no model file to bundle or download — register `BuiltInAiEngine()` and the OS owns the weights.
 
+## What's new in 1.2
+
+- 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
+
+## What's new in 1.1
+
+- 🔎 **Declared-column RAG filters** — `FilterSchema` / `FilterField` + `configure(FilterSchema)` on `VectorStoreRepository`, threaded through `FlutterGemma.initialize(filterSchema: …)`; vector search now runs inside the store engine (`enableHnsw` deprecated as a no-op).
+
 ## What's new in 1.0
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/flutter_gemma/assets/architecture_1.0.png" alt="flutter_gemma 1.0 modular architecture: a small core plus opt-in Inference / Embeddings / RAG families, each extensible with your own module">
 </p>
 
-- 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
 - 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_builtin_ai` (system OS models), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
 - 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
 - ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.

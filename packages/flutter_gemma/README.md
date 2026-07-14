@@ -53,6 +53,10 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
+## What's new in 1.3
+
+- 🧠 **System OS models** — new opt-in [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai): run **Gemini Nano** (Android / AICore) and **Apple Foundation Models** (iOS 26+/macOS) with no model file to bundle or download — register `BuiltInAiEngine()` and the OS owns the weights.
+
 ## What's new in 1.0
 
 <p align="center">
@@ -60,7 +64,6 @@ There is an example of using:
 </p>
 
 - 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
-- 🧠 **System OS models** — new opt-in [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai): run **Gemini Nano** (Android / AICore) and **Apple Foundation Models** (iOS 26+/macOS) with no model file to bundle or download — register `BuiltInAiEngine()` and the OS owns the weights.
 - 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_builtin_ai` (system OS models), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
 - 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
 - ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.

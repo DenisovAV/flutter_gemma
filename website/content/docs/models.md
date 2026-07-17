@@ -27,6 +27,18 @@ Both formats have **identical behavior** — chat templates are handled internal
 
 Both formats require **manual chat template formatting** in your code.
 
+### Type 3: System OS models (no file)
+
+- **Gemini Nano** (Android, via AICore / ML Kit GenAI) and **Apple Foundation
+  Models** (iOS 26+/macOS) are **built into the OS** — there is no model file to
+  bundle or download; the OS owns the weights.
+- Add [`flutter_gemma_builtin_ai`](/docs/packages) and register `BuiltInAiEngine()`.
+  Use `ModelFileType.builtIn` (the engine's `BuiltInAiModels.geminiNano` /
+  `.appleFoundationModels` specs set it for you). Chat templates are handled by
+  the OS runtime. Availability is device-gated — probe with `BuiltInAi.availability()`
+  / `BuiltInAi.ensureReady()` before use (Gemini Nano needs Pixel 9+/Galaxy S25+;
+  Apple FM needs Apple Intelligence enabled on iPhone 15 Pro+/M-series).
+
 <Info>
 The plugin automatically detects the file extension and applies the appropriate
 formatting. When specifying `ModelFileType` in code: use `ModelFileType.task` for

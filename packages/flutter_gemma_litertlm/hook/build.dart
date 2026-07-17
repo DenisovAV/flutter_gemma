@@ -148,7 +148,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.13.1-a',
+  version: '0.13.1-b',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -167,6 +167,13 @@ const _litertlmBundle = _NativeBundle(
   // Only android_arm64 + windows_x86_64 checksums changed vs 0.13.1; the other
   // 5 platforms are byte-identical. 16KB page alignment preserved (the ARM64
   // QNN libs are 16KB-aligned; the *Skel.so are DSP6 blobs, 16KB N/A).
+  // 0.13.1-b: android_arm64 ONLY re-diffed vs -a — libLiteRtLm.so + the 7 other
+  // LiteRt libs rebuilt from the SAME commit a0afb5a with two added C-API
+  // setters (litert_lm_engine_settings_set_kernel_batch_size /
+  // set_gpu_context_low_priority) exposing the GPU smooth-UI knobs for #364; the
+  // 11 Qualcomm/QNN NPU libs are carried over byte-identical from -a so NPU is
+  // unaffected. The other 6 platforms are byte-identical copies re-uploaded
+  // under the -b tag (their checksums below are unchanged from -a).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
         '2c84bdacd4f367a631270a6b3f8ff87e2d11aa019d8e898a2361f40591667024',
@@ -181,7 +188,7 @@ const _litertlmBundle = _NativeBundle(
     'litertlm-ios_sim_arm64.tar.gz':
         '08724bafac9381a9fde8658ce5a1137f1f5b966d82dd63e32b2e201d617c0b9d',
     'litertlm-android_arm64.tar.gz':
-        '2705a86f1130f205882551f19352c11a022caf67377d43284d7957c52d3cebf7',
+        '1d53054e1032ee84b0f0d244beeefe7ff75c8c4374577ace5b4c1e4e52594507',
   },
   companions: [
     'GemmaModelConstraintProvider',

@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/embedding_test_screen.dart';
 import 'package:flutter_gemma_example/models/base_model.dart';
@@ -53,6 +54,13 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   String _token = '';
   final TextEditingController _tokenController = TextEditingController();
 
+  /// True for OS built-in models (Gemini Nano / Apple Foundation Models). The OS
+  /// owns the weights, so there is no file to download: instead of the network
+  /// download service we do an instant bundled install + [BuiltInAi.ensureReady]
+  /// and surface [BuiltInAiUnavailableException.message] in the error UI.
+  bool get _isBuiltIn =>
+      widget.model is Model && (widget.model as Model).isBuiltIn;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +69,8 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   void _initializeServices() {
+    // Built-in models use no download service — the OS owns the weights.
+    if (_isBuiltIn) return;
     switch (widget.model.kind) {
       case ModelKind.embedding:
         _embeddingDownloadService = EmbeddingModelDownloadService(
@@ -92,6 +102,12 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Future<void> _initialize() async {
+    // Built-in models have no token and no file to check for — the "install"
+    // is an OS availability probe done on demand via [_installBuiltIn].
+    if (_isBuiltIn) {
+      setState(() => needToDownload = true);
+      return;
+    }
     if (widget.model.kind == ModelKind.embedding) {
       _token = await _embeddingDownloadService!.loadToken() ?? '';
     } else {
@@ -114,6 +130,42 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
     setState(() {
       needToDownload = !exists;
     });
+  }
+
+  /// Built-in OS model "install": no file download — register the bundled
+  /// identity so [FlutterGemma.getActiveModel] resolves the built-in engine,
+  /// then ask the OS to make the model ready ([BuiltInAi.ensureReady], which
+  /// downloads the feature if the OS reports it as downloadable). Availability
+  /// failures come back as [BuiltInAiUnavailableException]; surface the message
+  /// in the existing error UI.
+  Future<void> _installBuiltIn() async {
+    final model = widget.model as Model;
+    setState(() {
+      needToDownload = true;
+      _progress = 0.0;
+    });
+    try {
+      await FlutterGemma.installModel(
+        modelType: model.modelType,
+        fileType: ModelFileType.builtIn,
+      ).fromBundled(model.filename).install();
+      await BuiltInAi.ensureReady(
+        onProgress: (p) => setState(() => _progress = p.toDouble()),
+      );
+      setState(() {
+        needToDownload = false;
+        _progress = 100.0;
+      });
+    } on BuiltInAiUnavailableException catch (e) {
+      if (mounted) _showErrorDialog(e.message);
+      setState(() {
+        needToDownload = true;
+        _progress = 0.0;
+      });
+    } catch (e) {
+      await _handleDownloadError(e);
+      if (mounted) setState(() => _progress = 0.0);
+    }
   }
 
   Future<void> _saveToken(String token) async {
@@ -452,21 +504,30 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
   }
 
   Widget _buildActionButtons() {
+    // Built-in models: the primary action is "Enable" (an OS availability
+    // probe + optional feature download), not a file download, and there is no
+    // deletable file so the Delete button is suppressed.
+    final onPrimary = needToDownload
+        ? (_isBuiltIn ? _installBuiltIn : _downloadModel)
+        : _proceedToNextScreen;
+    final primaryLabel = needToDownload
+        ? (_isBuiltIn ? 'Enable' : 'Download')
+        : 'Continue';
     return Row(
       children: [
         Expanded(
           child: ElevatedButton(
-            onPressed: needToDownload ? _downloadModel : _proceedToNextScreen,
+            onPressed: onPrimary,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1a4a7c),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
-            child: Text(needToDownload ? 'Download' : 'Continue'),
+            child: Text(primaryLabel),
           ),
         ),
         const SizedBox(width: 12),
-        if (!needToDownload)
+        if (!needToDownload && !_isBuiltIn)
           ElevatedButton(
             onPressed: _deleteModel,
             style: ElevatedButton.styleFrom(

@@ -292,6 +292,40 @@ class LiteRtLmFfiClient {
   /// by [shutdown]. Each handle removes itself on its own [close].
   final Set<LiteRtLmConversationHandle> _handles = {};
 
+  /// Every conversation pointer currently alive (minted by
+  /// [_createRawConversation], removed by [_deleteConversation]). [_cancelOn]
+  /// consults this before dereferencing a pointer: a raw-stream or virtual-turn
+  /// onCancel can fire after model/handle/engine teardown already freed the
+  /// conversation, and cancelling a dangling pointer is a use-after-free SIGSEGV
+  /// in native `Conversation::CancelProcess` (#379). A freed conversation is not
+  /// in this set, so the late cancel no-ops.
+  ///
+  /// ABA note — this is keyed on the raw pointer *address*, so it DOWNGRADES,
+  /// not eliminates, the hazard: if the allocator re-mints a conversation at a
+  /// just-freed address, a stale `_cancelOn` for the old one would cancel the
+  /// NEW one (a wrong-target cancel, not a UAF). That window stays closed today
+  /// only because every create and every raw-stream cancel is serialized under
+  /// [_nativeMutex], and internal consumers use `await for` (no deferred
+  /// `subscription.cancel()`). Keep that discipline. A generation-keyed map
+  /// (`Map<Pointer,int>`, id captured per onCancel) would make it structural.
+  final Set<Pointer<LiteRtLmConversation>> _liveConvs = {};
+
+  /// Test seam (read-only): is this conversation currently tracked as live?
+  @visibleForTesting
+  bool isConversationLiveForTest(Pointer<LiteRtLmConversation> conv) =>
+      _liveConvs.contains(conv);
+
+  /// Test seam: seed a live conversation without a native engine — mirrors the
+  /// registration [_createRawConversation] performs.
+  @visibleForTesting
+  void registerLiveForTest(Pointer<LiteRtLmConversation> conv) =>
+      _liveConvs.add(conv);
+
+  /// Test seam: drive the real [_deleteConversation] without a native binding.
+  @visibleForTesting
+  void deleteConversationForTest(Pointer<LiteRtLmConversation> conv) =>
+      _deleteConversation(conv);
+
   /// Backing handle for the legacy single-conversation API
   /// ([createConversation] / [closeConversation] / [chat] / etc.). Kept so
   /// existing single-session call sites work unchanged while the new
@@ -680,6 +714,30 @@ class LiteRtLmFfiClient {
         gemmaLog('[LiteRtLmFfi] NPU Android: dispatch_lib_dir=$nativeLibDir');
       }
 
+      // #364: on Android, flush the OpenCL command queue every N ops during a
+      // GPU prefill so it doesn't starve the Flutter raster/compositor thread.
+      // By default LiteRT-LM's OpenCL backend dispatches the ENTIRE graph as one
+      // uninterruptible batch (gpu_backend_opencl_litert.cc: "dispatch all
+      // kernels in one batch" when kernel_batch_size<=0), so a ~2s prefill
+      // freezes the compositor (repro'd on Adreno S23 Ultra: raster p95
+      // 6.8ms->123ms). A positive hint_kernel_batch_size inserts a clFlush every
+      // N ops, giving the display work interleave points. Upstream auto-applies
+      // 4 for "generic" models to ensure smooth UI, but recognized Gemma types
+      // aren't generic (engine_settings.cc gates the default on has_generic_model)
+      // so gemma4/3/3n get NO flush unless we set it. Measured on dm3q: kb=4
+      // (upstream value) still janks (p95 63ms), kb=2 is flat (p95 7.3ms ~=
+      // baseline) with no TTFT cost, so 2 — not 4. NOT gpu_context_low_priority:
+      // it only reorders cross-context submission (no Adreno preemption of a
+      // running dispatch) and measured strictly worse (jank + TTFT both up).
+      // Gated to Android: Metal (iOS/macOS) doesn't starve the compositor, and
+      // the setter symbol only ships in the Android native rebuild.
+      if (Platform.isAndroid && backend == 'gpu') {
+        b.litert_lm_engine_settings_set_kernel_batch_size(settings, 2);
+        gemmaLog(
+          '[LiteRtLmFfi] Android GPU: hint_kernel_batch_size=2 (#364 smooth UI)',
+        );
+      }
+
       // Create engine in a background isolate to avoid blocking UI.
       // Pass settings pointer as int address (Pointer can't cross isolates).
       gemmaLog(
@@ -948,6 +1006,7 @@ class LiteRtLmFfiClient {
       throw Exception('Failed to create conversation');
     }
 
+    _liveConvs.add(conv); // #379: track liveness so late cancels can't UAF
     return conv;
   }
 
@@ -1541,6 +1600,12 @@ class LiteRtLmFfiClient {
 
   /// Cancel ongoing generation on the given conversation.
   void _cancelOn(Pointer<LiteRtLmConversation> conv) {
+    // #379: never cancel a conversation that has already been freed. The
+    // raw-stream and virtual-turn onCancel hooks can fire after model/handle/
+    // engine teardown deleted the conversation; dereferencing the dangling
+    // pointer is a use-after-free SIGSEGV in native Conversation::CancelProcess.
+    // (Address-keyed — see the _liveConvs ABA note for the residual it leaves.)
+    if (!_liveConvs.contains(conv)) return;
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_cancel_process(conv);
       gemmaLog('[LiteRtLmFfi] Generation cancelled');
@@ -1555,6 +1620,9 @@ class LiteRtLmFfiClient {
   /// Delete a conversation pointer. Called by
   /// [LiteRtLmConversationHandle.close].
   void _deleteConversation(Pointer<LiteRtLmConversation> conv) {
+    // Drop liveness first so any onCancel that races this teardown no-ops in
+    // [_cancelOn] rather than dereferencing the pointer we are about to free.
+    _liveConvs.remove(conv);
     if (_bindings != null) {
       _bindings!.litert_lm_conversation_delete(conv);
       gemmaLog('[LiteRtLmFfi] Conversation closed');
@@ -1593,9 +1661,14 @@ class LiteRtLmFfiClient {
     _handles.clear();
     _legacyHandle = null;
 
-    // Tear down the shared virtual-session conversation too.
+    // Tear down the shared virtual-session conversation too. Cancel any
+    // in-flight virtual turn first: like handle.close(), an uncancelled
+    // conversation_delete blocks in ~SessionBasic → ThreadPool::WaitUntilDone
+    // draining the live generation (the #364 ANR). Safe post-#379 — vc is still
+    // in _liveConvs here, so _cancelOn reaches native rather than no-oping.
     final vc = _virtualConv;
     if (vc != null) {
+      _cancelOn(vc);
       _deleteConversation(vc);
       _virtualConv = null;
       _virtualActiveToken = null;
@@ -1606,6 +1679,10 @@ class LiteRtLmFfiClient {
       _engine = null;
       gemmaLog('[LiteRtLmFfi] Engine deleted');
     }
+    // engine_delete bulk-frees every remaining conversation at once; the
+    // handle/virtual drains above already emptied the registry, but clear it so
+    // no address can linger as a dangling "live" entry after a bulk free.
+    _liveConvs.clear();
 
     _isInitialized = false;
     _backend = null;

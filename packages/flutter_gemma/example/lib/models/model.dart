@@ -609,6 +609,51 @@ enum Model implements InferenceModelInterface {
     topP: 0.95,
     maxTokens: 1024,
     supportsFunctionCalls: true,
+  ),
+
+  // === BUILT-IN OS AI MODELS ===
+  // OS-owned system models via flutter_gemma_builtin_ai. fileType builtIn makes
+  // core's install pipeline skip the (nonexistent) file — the OS owns the
+  // weights, so there is no download. `baseUrl` carries the docs URL only (never
+  // fetched). `localModel: true` keeps them visible on all platforms and out of
+  // the web/network filters; model_selection_screen.dart platform-filters them
+  // so geminiNano shows only on Android and appleFoundationModels only on
+  // iOS/macOS. `size: 'system'`.
+  geminiNano(
+    baseUrl: 'https://developers.google.com/ml-kit/genai/prompt/android',
+    filename: 'gemini-nano',
+    displayName: 'Gemini Nano (Built-in, Android)',
+    size: 'system',
+    licenseUrl: 'https://developers.google.com/ml-kit/genai',
+    needsAuth: false,
+    localModel: true,
+    preferredBackend: PreferredBackend.cpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.builtIn,
+    temperature: 0.2,
+    topK: 16,
+    topP: 0.95,
+    supportImage: true,
+    maxTokens: 4096,
+    supportsFunctionCalls: true,
+  ),
+  appleFoundationModels(
+    baseUrl: 'https://developer.apple.com/documentation/foundationmodels',
+    filename: 'apple-foundation-models',
+    displayName: 'Apple Foundation Models (Built-in, iOS/macOS)',
+    size: 'system',
+    licenseUrl: 'https://developer.apple.com/documentation/foundationmodels',
+    needsAuth: false,
+    localModel: true,
+    preferredBackend: PreferredBackend.cpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.builtIn,
+    temperature: 0.2,
+    topK: 16,
+    topP: 0.95,
+    supportImage: true,
+    maxTokens: 4096,
+    supportsFunctionCalls: true,
   );
 
   // Define fields for the enum
@@ -691,6 +736,12 @@ enum Model implements InferenceModelInterface {
   bool get supportsDesktop =>
       (desktopUrl != null && desktopUrl!.isNotEmpty) ||
       baseUrl.endsWith('.litertlm');
+
+  /// Whether this is an OS built-in model (Gemini Nano / Apple Foundation
+  /// Models). The OS owns the weights — there is no file to download; the
+  /// download screen short-circuits to an instant bundled install +
+  /// `BuiltInAi.ensureReady`.
+  bool get isBuiltIn => fileType == ModelFileType.builtIn;
 
   // Constructor for the enum
   const Model({

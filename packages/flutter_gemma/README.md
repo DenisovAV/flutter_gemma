@@ -53,14 +53,25 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
+## What's new in 1.3
+
+- 🧠 **System OS models** — new opt-in [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai): run **Gemini Nano** (Android / AICore) and **Apple Foundation Models** (iOS 26+/macOS) with no model file to bundle or download — register `BuiltInAiEngine()` and the OS owns the weights.
+
+## What's new in 1.2
+
+- 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
+
+## What's new in 1.1
+
+- 🔎 **Declared-column RAG filters** — `FilterSchema` / `FilterField` + `configure(FilterSchema)` on `VectorStoreRepository`, threaded through `FlutterGemma.initialize(filterSchema: …)`; vector search now runs inside the store engine (`enableHnsw` deprecated as a no-op).
+
 ## What's new in 1.0
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/flutter_gemma/assets/architecture_1.0.png" alt="flutter_gemma 1.0 modular architecture: a small core plus opt-in Inference / Embeddings / RAG families, each extensible with your own module">
 </p>
 
-- 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
-- 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
+- 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_builtin_ai` (system OS models), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
 - 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
 - ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.
 - 🧹 **Legacy sqlite+local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); the portable store is in-SQLite `sqlite-vec`/`vec0` on all six platforms incl. Web (`flutter_gemma_rag_sqlite`).
@@ -172,6 +183,7 @@ model formats and features you need.
       # Inference engines — add at least one:
       flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
+      flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
 
       # Optional — text embeddings + on-device RAG:
       flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
@@ -846,6 +858,7 @@ void main() {
     inferenceEngines: const [
       LiteRtLmEngine(),     // flutter_gemma_litertlm  — .litertlm models
       MediaPipeEngine(),    // flutter_gemma_mediapipe — .task / .bin models
+      BuiltInAiEngine(),    // flutter_gemma_builtin_ai — Gemini Nano / Apple FM
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
@@ -869,6 +882,7 @@ void main() {
 |---|---|---|
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
+| `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
 | `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | native / web RAG |

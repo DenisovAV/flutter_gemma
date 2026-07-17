@@ -4,6 +4,7 @@ import 'package:flutter_gemma/core/domain/platform_types.dart';
 import 'package:flutter_gemma_example/chat_screen.dart';
 import 'package:flutter_gemma_example/model_download_screen.dart';
 import 'package:flutter_gemma_example/models/model.dart';
+import 'package:flutter_gemma_example/universal_download_screen.dart';
 
 bool get _isDesktop =>
     !kIsWeb &&
@@ -93,6 +94,25 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   Widget build(BuildContext context) {
     // Show all models on all platforms
     var models = Model.values.toList();
+
+    // Platform-filter the OS built-in models: Gemini Nano is Android-only (ML
+    // Kit GenAI / AICore), Apple Foundation Models are iOS/macOS-only. Both
+    // carry localModel: true (so they escape the web/network filters and stay
+    // visible), so gate them here on defaultTargetPlatform. Web never shows
+    // either (no built-in AI host on web).
+    models = models.where((model) {
+      if (!model.isBuiltIn) return true;
+      if (kIsWeb) return false;
+      final platform = defaultTargetPlatform;
+      if (model == Model.geminiNano) {
+        return platform == TargetPlatform.android;
+      }
+      if (model == Model.appleFoundationModels) {
+        return platform == TargetPlatform.iOS ||
+            platform == TargetPlatform.macOS;
+      }
+      return true;
+    }).toList();
 
     // On desktop, only show models with desktopUrl (litertlm format required)
     if (_isDesktop) {
@@ -482,8 +502,23 @@ class _ModelCardState extends State<ModelCard> {
             ),
             trailing: Icon(Icons.arrow_forward_ios, color: Colors.grey[400]),
             onTap: () {
-              // Local models don't need download screen - go directly to chat
-              if (widget.model.localModel) {
+              // Built-in OS models: route through the download screen so its
+              // builtIn short-circuit runs (instant bundled install +
+              // BuiltInAi.ensureReady), surfacing availability errors before
+              // chat. They carry localModel: true, so this branch must precede
+              // the localModel one below.
+              if (widget.model.isBuiltIn) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (context) => UniversalDownloadScreen(
+                      model: widget.model,
+                      selectedBackend: selectedBackend,
+                    ),
+                  ),
+                );
+              } else if (widget.model.localModel) {
+                // Local models don't need download screen - go directly to chat
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(

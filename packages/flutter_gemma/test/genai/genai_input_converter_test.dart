@@ -149,4 +149,17 @@ void main() {
       throwsA(isA<UnsupportedError>()),
     );
   });
+
+  test('LinkPart throws — inference layer does not fetch URLs', () async {
+    // The on-device model needs bytes; resolving links (network/file I/O) is a
+    // caller/agent-layer concern, not core inference. Must throw, not fetch.
+    final msg = ChatMessage(
+      role: ChatMessageRole.user,
+      parts: [LinkPart(Uri.parse('https://example.com/cat.png'))],
+    );
+    expect(
+      () => messagesFromChatMessage(msg),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
 }

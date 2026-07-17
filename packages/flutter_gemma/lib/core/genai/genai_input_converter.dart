@@ -2,10 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:genai_primitives/genai_primitives.dart';
-import 'package:http/http.dart' as http;
 
 import '../message.dart';
-import 'link_reader.dart';
 
 /// Converts a genai_primitives [ChatMessage] into flutter_gemma [Message]s.
 ///
@@ -14,12 +12,11 @@ import 'link_reader.dart';
 /// one sibling [Message] per tool result in part order. A [ThinkingPart] on a
 /// model turn is stripped by design (thoughts aren't fed back as history), so a
 /// thought-only model turn yields no Message; a [ThinkingPart] on a user turn is
-/// misuse and throws. Async because LinkPart resolution may need I/O. Other
-/// unsupported content throws rather than being silently dropped.
-Future<List<Message>> messagesFromChatMessage(
-  ChatMessage message, {
-  http.Client? httpClient,
-}) async {
+/// misuse and throws. A [LinkPart] also throws: this inference layer does not
+/// fetch URLs or read files — resolve links to bytes caller-side and pass a
+/// [DataPart]. Other unsupported content throws rather than being silently
+/// dropped.
+Future<List<Message>> messagesFromChatMessage(ChatMessage message) async {
   if (message.role == ChatMessageRole.system) {
     throw ArgumentError(
       'System messages are not input — set them via createChat(systemInstruction:).',
@@ -39,9 +36,13 @@ Future<List<Message>> messagesFromChatMessage(
     switch (part) {
       case DataPart(:final bytes, :final mimeType):
         audio = _routeMedia(bytes, mimeType, images, audio);
-      case LinkPart(:final url, :final mimeType):
-        final bytes = await readLinkBytes(url, httpClient: httpClient);
-        audio = _routeMedia(bytes, mimeType, images, audio);
+      case LinkPart():
+        throw UnsupportedError(
+          'LinkPart is not resolved by flutter_gemma: an on-device model needs '
+          'the media bytes, and this inference layer does not fetch URLs or read '
+          'files. Resolve the link yourself and pass a DataPart with the bytes. '
+          '(For URL/web content behind a permission gate, use flutter_gemma_agent.)',
+        );
       case ToolPart(kind: ToolPartKind.result, :final toolName, :final result):
         if (!isUser) {
           throw UnsupportedError(
@@ -97,12 +98,11 @@ Future<List<Message>> messagesFromChatMessage(
 /// Converts a list of [ChatMessage]s to flutter_gemma [Message]s in order,
 /// concatenating each message's expansion (see [messagesFromChatMessage]).
 Future<List<Message>> messagesFromChatMessages(
-  List<ChatMessage> messages, {
-  http.Client? httpClient,
-}) async {
+  List<ChatMessage> messages,
+) async {
   final out = <Message>[];
   for (final m in messages) {
-    out.addAll(await messagesFromChatMessage(m, httpClient: httpClient));
+    out.addAll(await messagesFromChatMessage(m));
   }
   return out;
 }

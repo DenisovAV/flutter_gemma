@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:genai_primitives/genai_primitives.dart';
-import 'package:http/http.dart' as http;
 
 import '../chat.dart';
 import '../model_response.dart';
@@ -23,58 +22,40 @@ void rejectModelRole(ChatMessage message) {
 extension GenAiChat on InferenceChat {
   /// Send one turn; returns the model turn as a role:model [ChatMessage]
   /// (text + tool calls + thinking as parts).
-  Future<ChatMessage> sendMessage(
-    ChatMessage message, {
-    http.Client? httpClient,
-  }) {
+  Future<ChatMessage> sendMessage(ChatMessage message) {
     rejectModelRole(message);
     return genaiLock.protect(() async {
-      await _stage([message], httpClient: httpClient);
+      await _stage([message]);
       return _foldToChatMessage();
     });
   }
 
   /// Streaming variant — partial role:model ChatMessages, one per delta.
-  Stream<ChatMessage> sendMessageStream(
-    ChatMessage message, {
-    http.Client? httpClient,
-  }) {
+  Stream<ChatMessage> sendMessageStream(ChatMessage message) {
     rejectModelRole(message);
     return _lockedStream(() async {
-      await _stage([message], httpClient: httpClient);
+      await _stage([message]);
     });
   }
 
   /// STATEFUL batch: stage the whole list into THIS chat, then generate once.
-  Future<ChatMessage> generateContent(
-    List<ChatMessage> prompt, {
-    http.Client? httpClient,
-  }) {
+  Future<ChatMessage> generateContent(List<ChatMessage> prompt) {
     return genaiLock.protect(() async {
-      await _stage(prompt, httpClient: httpClient);
+      await _stage(prompt);
       return _foldToChatMessage();
     });
   }
 
-  Stream<ChatMessage> generateContentStream(
-    List<ChatMessage> prompt, {
-    http.Client? httpClient,
-  }) {
+  Stream<ChatMessage> generateContentStream(List<ChatMessage> prompt) {
     return _lockedStream(() async {
-      await _stage(prompt, httpClient: httpClient);
+      await _stage(prompt);
     });
   }
 
   // --- internals ---
 
-  Future<void> _stage(
-    List<ChatMessage> prompt, {
-    http.Client? httpClient,
-  }) async {
-    final messages = await messagesFromChatMessages(
-      prompt,
-      httpClient: httpClient,
-    );
+  Future<void> _stage(List<ChatMessage> prompt) async {
+    final messages = await messagesFromChatMessages(prompt);
     assertMessagesFitChat(
       messages,
       supportImage: supportImage,
@@ -203,11 +184,21 @@ extension GenAiChat on InferenceChat {
       },
       onCancel: () async {
         cancelled = true;
-        // Only tear down here once generation is running. While queued on
-        // acquire() or inside stage(), onListen owns the lock and releases it
-        // when it sees `cancelled`; releasing here would free a lock we don't
-        // hold yet, or free it mid-stage and let a second turn interleave.
-        if (generating) {
+        // Only tear down here once generation is running AND the turn hasn't
+        // already completed. Dart fires onCancel even after a normal `done`
+        // (closing the controller cancels the consumer subscription), and
+        // `generating` is never reset — so guarding on `generating` alone would
+        // issue a spurious stopGeneration() on the SHARED session after every
+        // successful stream, which (because onDone releases the lock first) can
+        // land on the NEXT queued turn and truncate it. `released` is set by
+        // onDone/onError before close(), so `!released` skips that late fire
+        // while a genuine mid-flight cancel (released still false) still tears
+        // down. Mirrors the FFI client's `mutexHeld` guard.
+        //
+        // While queued on acquire() or inside stage(), onListen owns the lock
+        // and releases it when it sees `cancelled`; releasing here would free a
+        // lock we don't hold yet, or free it mid-stage and let a turn interleave.
+        if (generating && !released) {
           await sub?.cancel();
           await stopSafely();
           release();

@@ -110,8 +110,44 @@ void main() {
 
       expect(chunks.map(_text).toList(), ['a', 'b']);
       expect(chat.genaiLock.isLocked, isFalse, reason: 'lock released on done');
+      // Regression: Dart fires onCancel after a normal `done` too; the teardown
+      // there must NOT issue a stopGeneration() on the shared session. With the
+      // pre-fix `if (generating)` guard this was 1.
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(
+        chat.stopGenerationCalls,
+        0,
+        reason: 'no spurious stopGeneration after a successful stream',
+      );
     },
   );
+
+  test('a turn completing does not stop the next back-to-back turn', () async {
+    // The race the spurious post-done onCancel opens: turn A's onDone releases
+    // the lock, turn B acquires and starts generating on the shared session,
+    // THEN A's late onCancel fires stopGeneration() — landing on B.
+    final chat = _FakeChat();
+
+    // Turn A: drive to completion.
+    final aDone = Completer<void>();
+    chat
+        .sendMessageStream(ChatMessage.user('A'))
+        .listen((_) {}, onDone: aDone.complete);
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await chat.lastGen!.close();
+    await aDone.future;
+
+    // Turn B: start immediately, keep it live (do not close).
+    chat.sendMessageStream(ChatMessage.user('B')).listen((_) {});
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    chat.lastGen!.add(const TextResponse('b')); // B is generating
+
+    expect(
+      chat.stopGenerationCalls,
+      0,
+      reason: "A's post-completion onCancel must not stop turn B",
+    );
+  });
 
   test(
     'error mid-stream forwards it, stops generation, releases the lock',

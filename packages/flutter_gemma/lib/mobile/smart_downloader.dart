@@ -494,6 +494,15 @@ class SmartDownloader {
           '🔵 Task $taskId already in progress, attaching to existing...',
         );
 
+        // A paused/killed-mid-download task emits nothing until resumed. The
+        // attach path used to only listen → the watchdog fired → a permanent
+        // wedge (#383/R1). Resume it so it actually makes progress.
+        if (existingTask is DownloadTask &&
+            await downloader.taskCanResume(existingTask)) {
+          gemmaLog('🔵 Existing task $taskId is resumable — resuming');
+          await downloader.resume(existingTask);
+        }
+
         // Create completer to wait for existing task completion
         final completer = Completer<void>();
 
@@ -835,6 +844,11 @@ class SmartDownloader {
       gemmaLog('🔵 Enqueueing task ${task.taskId}...');
       final result = await downloader.enqueue(task);
       gemmaLog('🔵 Enqueue result: $result');
+      if (!result) {
+        throw const DownloadException(
+          DownloadError.network('enqueue() returned false'),
+        );
+      }
 
       // Notify about task ID for cancellation
       onTaskCreated?.call(task.taskId); // ← ADD: Notify task created
@@ -1112,8 +1126,24 @@ class SmartDownloader {
     _resumeWatchdogs[taskId] = armResumeWatchdog(
       progress: progress,
       onTimeout: () {
-        gemmaLog('⏱️ Resume watchdog fired for $taskId — closing as failed');
+        gemmaLog(
+          '⏱️ Resume watchdog fired for $taskId — cancelling + closing as failed',
+        );
         _resumeWatchdogs.remove(taskId);
+        // Cancel the presumed-dead native task and purge its persisted state so
+        // task/metadata/temp don't leak (#383/#4). Fire-and-forget: settling the
+        // install as failed must not wait on native cancellation.
+        final downloader = FileDownloader();
+        unawaited(() async {
+          try {
+            await downloader.cancelTaskWithId(taskId);
+            // ignore: invalid_use_of_visible_for_testing_member
+            final storage = downloader.database.storage;
+            await storage.removeResumeData(taskId);
+            await storage.removePausedTask(taskId);
+            await downloader.database.deleteRecordWithId(taskId);
+          } catch (_) {}
+        }());
         if (!progress.isClosed) {
           progress.addError(
             const DownloadException(

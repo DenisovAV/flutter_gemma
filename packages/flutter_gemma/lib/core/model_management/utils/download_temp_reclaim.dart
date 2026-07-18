@@ -90,3 +90,31 @@ Future<int> sweepOrphanedDownloadTemps(
   }
   return reclaimed;
 }
+
+/// Outcome of reconciling one persisted resume record against the current
+/// task-ID scheme during reclaim (#383/R2).
+enum ReclaimDecision { keep, purge, skip }
+
+/// Decide what to do with a group-scoped resume record whose temp is [tempAge] old.
+///
+/// - [taskId] == [expectedId] → current-scheme record → `keep` (protect its temp).
+/// - [isNativeRunning] → WorkManager is actively writing this temp → `keep`.
+/// - otherwise it is a legacy/foreign-scheme record: `purge` if the temp is older
+///   than [minAge], else `skip` (a just-rescheduled killed task may be about to
+///   resume it — the same 10-min guard the blanket sweep uses).
+ReclaimDecision reconcileResumeRecord({
+  required String taskId,
+  required String expectedId,
+  required bool isNativeRunning,
+  required Duration tempAge,
+  Duration minAge = kDownloadTempMinReclaimAge,
+}) {
+  if (taskId == expectedId) return ReclaimDecision.keep;
+  if (isNativeRunning) return ReclaimDecision.keep;
+  if (tempAge < minAge) return ReclaimDecision.skip;
+  return ReclaimDecision.purge;
+}
+
+/// Whether [basename] is a `background_downloader` partial temp file (#383/#3).
+bool isDownloadFragmentName(String basename) =>
+    basename.startsWith(kDownloadTempPrefix);

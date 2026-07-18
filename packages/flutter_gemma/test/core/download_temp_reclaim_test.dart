@@ -81,4 +81,93 @@ void main() {
       );
     });
   });
+
+  group('reconcileResumeRecord (#383/R2)', () {
+    const old = Duration(minutes: 30);
+    const fresh = Duration(minutes: 2);
+
+    test('current-scheme record (taskId == expectedId) → keep', () {
+      expect(
+        reconcileResumeRecord(
+          taskId: 'abc',
+          expectedId: 'abc',
+          isNativeRunning: false,
+          tempAge: old,
+        ),
+        ReclaimDecision.keep,
+      );
+    });
+
+    test(
+      'current-scheme id with a FRESH temp still → keep (precedence guard)',
+      () {
+        // taskId == expectedId must win over the tempAge < minAge → skip branch;
+        // this pins the branch ORDER so a future reorder can't misclassify a valid
+        // current-scheme record as skip.
+        expect(
+          reconcileResumeRecord(
+            taskId: 'abc',
+            expectedId: 'abc',
+            isNativeRunning: false,
+            tempAge: fresh,
+          ),
+          ReclaimDecision.keep,
+        );
+      },
+    );
+
+    test(
+      'legacy record that WorkManager is running → keep (do not corrupt a live write)',
+      () {
+        expect(
+          reconcileResumeRecord(
+            taskId: 'legacy',
+            expectedId: 'sha',
+            isNativeRunning: true,
+            tempAge: old,
+          ),
+          ReclaimDecision.keep,
+        );
+      },
+    );
+
+    test('legacy, not running, old temp → purge', () {
+      expect(
+        reconcileResumeRecord(
+          taskId: 'legacy',
+          expectedId: 'sha',
+          isNativeRunning: false,
+          tempAge: old,
+        ),
+        ReclaimDecision.purge,
+      );
+    });
+
+    test(
+      'legacy, not running, FRESH temp → skip (rescheduleKilledTasks race guard)',
+      () {
+        expect(
+          reconcileResumeRecord(
+            taskId: 'legacy',
+            expectedId: 'sha',
+            isNativeRunning: false,
+            tempAge: fresh,
+          ),
+          ReclaimDecision.skip,
+        );
+      },
+    );
+  });
+
+  group('isDownloadFragmentName (#383/#3)', () {
+    test('a background_downloader temp basename → true', () {
+      expect(
+        isDownloadFragmentName('com.bbflight.background_downloader1234'),
+        isTrue,
+      );
+    });
+    test('a model file → false', () {
+      expect(isDownloadFragmentName('gemma-4-E2B-it.litertlm'), isFalse);
+    });
+  });
 }

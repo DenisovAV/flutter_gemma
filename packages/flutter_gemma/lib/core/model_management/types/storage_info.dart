@@ -6,18 +6,22 @@ class OrphanedFileInfo {
   final String path;
   final int sizeBytes;
   final DateTime? lastModified;
+  final bool isDownloadFragment;
 
   const OrphanedFileInfo({
     required this.filename,
     required this.path,
     required this.sizeBytes,
     this.lastModified,
+    this.isDownloadFragment = false,
   });
 
   double get sizeMB => sizeBytes / (1024 * 1024);
 
   @override
-  String toString() => '$filename (${sizeMB.toStringAsFixed(2)} MB)';
+  String toString() =>
+      '$filename${isDownloadFragment ? ' [download fragment]' : ''} '
+      '(${sizeMB.toStringAsFixed(2)} MB)';
 }
 
 /// Storage statistics

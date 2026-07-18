@@ -163,16 +163,20 @@ class ModelFileSystemManager {
           final name = path.basename(entity.path);
           if (!isDownloadFragmentName(name)) continue;
           if (keep.contains(entity.path)) continue;
-          final stat = await entity.stat();
-          orphaned.add(
-            OrphanedFileInfo(
-              filename: name,
-              path: entity.path,
-              sizeBytes: stat.size,
-              lastModified: stat.modified,
-              isDownloadFragment: true,
-            ),
-          );
+          try {
+            final stat = await entity.stat();
+            orphaned.add(
+              OrphanedFileInfo(
+                filename: name,
+                path: entity.path,
+                sizeBytes: stat.size,
+                lastModified: stat.modified,
+                isDownloadFragment: true,
+              ),
+            );
+          } catch (_) {
+            continue; // vanished mid-scan (e.g. a concurrent reclaim)
+          }
         }
       } catch (e) {
         gemmaLog('Fragment scan failed (non-fatal): $e');

@@ -40,6 +40,10 @@ class StorageStats {
       orphanedFiles.fold(0, (sum, f) => sum + f.sizeBytes);
 
   double get totalSizeMB => totalSizeBytes / (1024 * 1024);
+
+  /// Download fragments (`background_downloader` partial temps, #383) live
+  /// out-of-tree in `applicationSupport`/`filesDir`, outside the model dir
+  /// that [totalSizeMB] scans — so this can exceed [totalSizeMB].
   double get orphanedSizeMB => orphanedFilesSize / (1024 * 1024);
 
   @override

@@ -184,8 +184,16 @@ void main() {
         reason: 'a background_downloader* file must be flagged as a fragment',
       );
 
+      // Protect every non-fragment orphaned file already surfaced above so a
+      // persistent device's real installed models (with no active download
+      // task) can never be swept by this test — only the synthetic fragment
+      // (and any other real fragments) are fair game for cleanup (#383).
+      final protectedFiles = orphaned
+          .where((o) => !o.isDownloadFragment)
+          .map((o) => o.filename)
+          .toList();
       final deleted = await ModelFileSystemManager.cleanupOrphanedFiles(
-        protectedFiles: const [],
+        protectedFiles: protectedFiles,
       );
       print('[reclaim] cleanupOrphanedFiles deleted $deleted file(s)');
       expect(

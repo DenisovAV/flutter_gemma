@@ -84,41 +84,46 @@ class MobileModelManager extends ModelFileManager {
       final keep = <String>{};
       for (final r in resumeData) {
         if (r.task.group != SmartDownloader.downloadGroup) continue;
-        final expectedId = computeTaskId(
-          r.task.baseDirectory,
-          r.task.directory,
-          r.task.filename,
-        );
-        Duration tempAge;
         try {
-          tempAge = DateTime.now().difference(
-            await File(r.tempFilepath).lastModified(),
+          final expectedId = computeTaskId(
+            r.task.baseDirectory,
+            r.task.directory,
+            r.task.filename,
           );
-        } catch (_) {
-          tempAge =
-              kDownloadTempMinReclaimAge; // treat unknown mtime as eligible-old
-        }
-        final decision = reconcileResumeRecord(
-          taskId: r.task.taskId,
-          expectedId: expectedId,
-          isNativeRunning: nativeRunningIds.contains(r.task.taskId),
-          tempAge: tempAge,
-        );
-        switch (decision) {
-          case ReclaimDecision.keep:
-            keep.add(r.tempFilepath);
-          case ReclaimDecision.skip:
-            break;
-          case ReclaimDecision.purge:
-            try {
-              await File(r.tempFilepath).delete();
-            } catch (_) {}
-            await storage.removeResumeData(r.task.taskId);
-            await storage.removePausedTask(r.task.taskId);
-            await downloader.database.deleteRecordWithId(r.task.taskId);
-            gemmaLog(
-              'Reclaimed legacy download record ${r.task.taskId} (#383)',
+          Duration tempAge;
+          try {
+            tempAge = DateTime.now().difference(
+              await File(r.tempFilepath).lastModified(),
             );
+          } catch (_) {
+            tempAge =
+                kDownloadTempMinReclaimAge; // treat unknown mtime as eligible-old
+          }
+          final decision = reconcileResumeRecord(
+            taskId: r.task.taskId,
+            expectedId: expectedId,
+            isNativeRunning: nativeRunningIds.contains(r.task.taskId),
+            tempAge: tempAge,
+          );
+          switch (decision) {
+            case ReclaimDecision.keep:
+              keep.add(r.tempFilepath);
+            case ReclaimDecision.skip:
+              break;
+            case ReclaimDecision.purge:
+              try {
+                await File(r.tempFilepath).delete();
+              } catch (_) {}
+              await storage.removeResumeData(r.task.taskId);
+              await storage.removePausedTask(r.task.taskId);
+              await downloader.database.deleteRecordWithId(r.task.taskId);
+              gemmaLog(
+                'Reclaimed legacy download record ${r.task.taskId} (#383)',
+              );
+          }
+        } catch (e) {
+          gemmaLog('Reclaim: skipped record ${r.task.taskId} ($e) (#383)');
+          continue;
         }
       }
 

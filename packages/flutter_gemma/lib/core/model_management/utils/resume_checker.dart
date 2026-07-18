@@ -93,7 +93,7 @@ class ResumeChecker {
       // 3. Check if we have a tracked task for this file in FileDownloader
       // First check active tasks
       final allTasks = await _downloader.allTasks(
-        group: 'flutter_gemma_downloads',
+        group: SmartDownloader.downloadGroup,
         includeTasksWaitingToRetry: true,
       );
 

@@ -185,7 +185,7 @@ class ModelFileSystemManager {
 
       // Check active tasks
       final allTasks = await downloader.allTasks(
-        group: 'smart_downloads',
+        group: SmartDownloader.downloadGroup,
         includeTasksWaitingToRetry: true,
       );
 

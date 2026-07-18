@@ -1,3 +1,6 @@
+## 1.3.1
+- Reclaim orphaned background_downloader temp files leaking in Android filesDir (#383).
+
 ## 1.3.0
 - Add ModelFileType.builtIn for OS system models (Gemini Nano / Apple FM)
 

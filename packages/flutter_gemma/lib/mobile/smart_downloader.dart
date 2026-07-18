@@ -90,7 +90,12 @@ ResumeAction decideFailedDownloadAction({
 /// - Auto-detects resume support based on server (HuggingFace = no resume)
 /// - Android foreground service for large files (>500MB by default)
 class SmartDownloader {
-  static const String _downloadGroup = 'smart_downloads';
+  /// The background_downloader task group ALL model downloads run under.
+  /// Single source of truth — cleanup / resume code that queries or resets
+  /// tasks must use this exact group, or it operates on an empty set and
+  /// silently no-ops (this is what caused the #383 leak amplifier: three call
+  /// sites used the stale literal `'flutter_gemma_downloads'`).
+  static const String downloadGroup = 'smart_downloads';
   static const int _foregroundThresholdMB = 500;
 
   // Track if FileDownloader has been configured
@@ -578,7 +583,7 @@ class SmartDownloader {
       final task = DownloadTask(
         taskId: taskId,
         url: url,
-        group: _downloadGroup,
+        group: downloadGroup,
         headers: token != null
             ? {
                 'Authorization': 'Bearer $token',

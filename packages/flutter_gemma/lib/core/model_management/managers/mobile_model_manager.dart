@@ -29,6 +29,87 @@ class MobileModelManager extends ModelFileManager {
         'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st',
       );
     }
+    // Reclaim multi-GB download temp files orphaned by failed / cancelled /
+    // process-killed downloads (#383). Fire-and-forget: it must never block or
+    // fail app startup, and it self-delays past WorkManager rescheduling before
+    // reading the "no active downloads" gate.
+    unawaited(_reclaimOrphanedDownloadTemps());
+  }
+
+  /// Deletes orphaned `background_downloader` partial temp files left in the
+  /// Android persistent internal dir (`filesDir`) by downloads that failed,
+  /// were cancelled, or died with the process (#383).
+  ///
+  /// background_downloader streams a large-file download into a randomly-named
+  /// temp `filesDir/com.bbflight.background_downloader<rand>` and only moves it
+  /// to the model path on success. On a resumable failure it deliberately KEEPS
+  /// the partial; a fresh retry or a process-kill/WorkManager-restart then
+  /// allocates a NEW temp and orphans the old one — filesDir is never reclaimed
+  /// by the OS, so multi-GB partials accumulate forever.
+  ///
+  /// This runs only when it is SAFE: a live/queued download's temp path is not
+  /// visible from Dart, so the sweep bails if any task is active, skips temps
+  /// touched recently (a just-(re)started download), and preserves temps a
+  /// valid pending resume would reuse.
+  Future<void> _reclaimOrphanedDownloadTemps() async {
+    // Temp-file lifecycle + `filesDir` location are Android-specific; on iOS the
+    // resume data is opaque (not a temp path) and the leak doesn't apply.
+    if (!Platform.isAndroid) return;
+    try {
+      // Let WorkManager finish re-registering any process-killed download so
+      // the active-tasks gate below reflects reality (avoids racing — and then
+      // deleting — a just-restarted download's temp on cold start).
+      await Future<void>.delayed(const Duration(seconds: 5));
+
+      final downloader = FileDownloader();
+      // Pull resume data the OS stored in native SharedPreferences while the app
+      // was dead into the Dart store, so a killed-mid-download partial becomes a
+      // tracked resumable (and is protected by the keep-set below) instead of
+      // being mistaken for an orphan.
+      await downloader.resumeFromBackground();
+
+      // A running or queued download's temp lives only in the native worker's
+      // memory — invisible here. Deleting during any active download can unlink
+      // a live temp and fail its final move. Only sweep when nothing is active.
+      final active = await downloader.allTasks(allGroups: true);
+      if (active.isNotEmpty) {
+        // Log the skip so a stuck/zombie task record blocking reclaim on every
+        // launch is diagnosable from a log dump instead of being a silent no-op
+        // (the invisibility that made the original #383 leak hard to find).
+        gemmaLog(
+          'Download-temp reclaim skipped: ${active.length} active task(s) (#383)',
+        );
+        return;
+      }
+
+      // Temp paths a valid pending resume would append to — must be read AFTER
+      // resumeFromBackground() so restart-resumable partials are preserved.
+      // `database.storage` is the live PersistentStorage the downloader already
+      // uses; reading it here (rather than spinning up a second
+      // LocalStorePersistentStorage isolate on the same on-disk store) avoids a
+      // concurrent-access conflict. The getter is marked @visibleForTesting —
+      // advisory only; it's a stable `get storage => _storage`, and its removal
+      // would fail at compile time, never silently.
+      // ignore: invalid_use_of_visible_for_testing_member
+      final resumeData = await downloader.database.storage
+          .retrieveAllResumeData();
+      final keep = resumeData.map((r) => r.tempFilepath).toSet();
+
+      // background_downloader writes large-file partials into applicationSupport,
+      // which on Android is context.filesDir (path_provider maps
+      // getApplicationSupportDirectory() → getFilesDir()).
+      final dir = await getApplicationSupportDirectory();
+      final reclaimed = await sweepOrphanedDownloadTemps(dir, keepPaths: keep);
+      // Log unconditionally: reclaimed == 0 must be a distinct, greppable event
+      // so "swept, nothing to do" is never confused with "reclaim never applied"
+      // or "matched candidates but every delete failed" (all left a real leak).
+      gemmaLog(
+        'Download-temp reclaim: kept ${keep.length}, reclaimed $reclaimed (#383)',
+      );
+    } catch (e, st) {
+      // Reclaim is best-effort housekeeping; never surface it to the caller.
+      gemmaLog('Orphaned download-temp reclaim failed (non-fatal): $e\n$st');
+    }
   }
 
   /// Rehydrate `_activeInferenceModel` from the identity that
@@ -260,7 +341,7 @@ class MobileModelManager extends ModelFileManager {
 
       // Reset background_downloader tasks
       try {
-        await downloader.reset(group: 'flutter_gemma_downloads');
+        await downloader.reset(group: SmartDownloader.downloadGroup);
       } catch (e) {
         gemmaLog('Failed to reset background_downloader tasks: $e');
       }
@@ -588,7 +669,7 @@ class MobileModelManager extends ModelFileManager {
 
       // 3. Background_downloader cleanup
       final downloader = FileDownloader();
-      await downloader.reset(group: 'flutter_gemma_downloads');
+      await downloader.reset(group: SmartDownloader.downloadGroup);
 
       gemmaLog('UnifiedModelManager: Cleanup completed');
     } catch (e) {

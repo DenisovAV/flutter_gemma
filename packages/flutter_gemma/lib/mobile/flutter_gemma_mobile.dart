@@ -5,14 +5,17 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'; // MethodChannel — used by file_system_manager.dart part
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
+import 'smart_downloader.dart'; // SmartDownloader.downloadGroup — single source of truth for the task group
 
 import '../flutter_gemma.dart';
 import '../core/di/service_registry.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
+import '../core/model_management/utils/download_temp_reclaim.dart';
 import '../core/utils/file_name_utils.dart';
 import '../core/registry/engine_registry.dart';
 import '../core/registry/embedding_registry.dart';

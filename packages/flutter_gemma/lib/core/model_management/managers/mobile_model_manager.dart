@@ -60,54 +60,81 @@ class MobileModelManager extends ModelFileManager {
       // the active-tasks gate below reflects reality (avoids racing — and then
       // deleting — a just-restarted download's temp on cold start).
       await Future<void>.delayed(const Duration(seconds: 5));
-
       final downloader = FileDownloader();
-      // Pull resume data the OS stored in native SharedPreferences while the app
-      // was dead into the Dart store, so a killed-mid-download partial becomes a
-      // tracked resumable (and is protected by the keep-set below) instead of
-      // being mistaken for an orphan.
       await downloader.resumeFromBackground();
 
-      // A running or queued download's temp lives only in the native worker's
-      // memory — invisible here. Deleting during any active download can unlink
-      // a live temp and fail its final move. Only sweep when nothing is active.
-      final active = await downloader.allTasks(allGroups: true);
-      if (active.isNotEmpty) {
-        // Log the skip so a stuck/zombie task record blocking reclaim on every
-        // launch is diagnosable from a log dump instead of being a silent no-op
-        // (the invisibility that made the original #383 leak hard to find).
+      // Narrow the blanket gate to GENUINELY-RUNNING native tasks. A legacy
+      // record re-materialized by resumeFromBackground() shows up as a *paused*
+      // task; gating on "any active task" would let one stale paused record wedge
+      // reclaim forever — exactly the R2 upgrade-mid-download scenario (#383).
+      // ignore: invalid_use_of_visible_for_testing_member
+      final storage = downloader.database.storage;
+      final pausedIds = (await storage.retrieveAllPausedTasks())
+          .map((t) => t.taskId)
+          .toSet();
+      final allIds = (await downloader.allTasks(
+        allGroups: true,
+      )).map((t) => t.taskId).toSet();
+      final nativeRunningIds = allIds.difference(pausedIds);
+
+      // Reconcile every group-scoped resume record against the current scheme,
+      // BEFORE the blanket sweep. Purge legacy records (temp + resume/paused/db
+      // state); keep current-scheme and still-running temps.
+      final resumeData = await storage.retrieveAllResumeData();
+      final keep = <String>{};
+      for (final r in resumeData) {
+        if (r.task.group != SmartDownloader.downloadGroup) continue;
+        final expectedId = computeTaskId(
+          r.task.baseDirectory,
+          r.task.directory,
+          r.task.filename,
+        );
+        Duration tempAge;
+        try {
+          tempAge = DateTime.now().difference(
+            await File(r.tempFilepath).lastModified(),
+          );
+        } catch (_) {
+          tempAge =
+              kDownloadTempMinReclaimAge; // treat unknown mtime as eligible-old
+        }
+        final decision = reconcileResumeRecord(
+          taskId: r.task.taskId,
+          expectedId: expectedId,
+          isNativeRunning: nativeRunningIds.contains(r.task.taskId),
+          tempAge: tempAge,
+        );
+        switch (decision) {
+          case ReclaimDecision.keep:
+            keep.add(r.tempFilepath);
+          case ReclaimDecision.skip:
+            break;
+          case ReclaimDecision.purge:
+            try {
+              await File(r.tempFilepath).delete();
+            } catch (_) {}
+            await storage.removeResumeData(r.task.taskId);
+            await storage.removePausedTask(r.task.taskId);
+            await downloader.database.deleteRecordWithId(r.task.taskId);
+            gemmaLog(
+              'Reclaimed legacy download record ${r.task.taskId} (#383)',
+            );
+        }
+      }
+
+      // Blanket filesystem sweep only when nothing is actively writing a temp.
+      if (nativeRunningIds.isNotEmpty) {
         gemmaLog(
-          'Download-temp reclaim skipped: ${active.length} active task(s) (#383)',
+          'Download-temp sweep skipped: ${nativeRunningIds.length} running task(s) (#383)',
         );
         return;
       }
-
-      // Temp paths a valid pending resume would append to — must be read AFTER
-      // resumeFromBackground() so restart-resumable partials are preserved.
-      // `database.storage` is the live PersistentStorage the downloader already
-      // uses; reading it here (rather than spinning up a second
-      // LocalStorePersistentStorage isolate on the same on-disk store) avoids a
-      // concurrent-access conflict. The getter is marked @visibleForTesting —
-      // advisory only; it's a stable `get storage => _storage`, and its removal
-      // would fail at compile time, never silently.
-      // ignore: invalid_use_of_visible_for_testing_member
-      final resumeData = await downloader.database.storage
-          .retrieveAllResumeData();
-      final keep = resumeData.map((r) => r.tempFilepath).toSet();
-
-      // background_downloader writes large-file partials into applicationSupport,
-      // which on Android is context.filesDir (path_provider maps
-      // getApplicationSupportDirectory() → getFilesDir()).
       final dir = await getApplicationSupportDirectory();
       final reclaimed = await sweepOrphanedDownloadTemps(dir, keepPaths: keep);
-      // Log unconditionally: reclaimed == 0 must be a distinct, greppable event
-      // so "swept, nothing to do" is never confused with "reclaim never applied"
-      // or "matched candidates but every delete failed" (all left a real leak).
       gemmaLog(
         'Download-temp reclaim: kept ${keep.length}, reclaimed $reclaimed (#383)',
       );
     } catch (e, st) {
-      // Reclaim is best-effort housekeeping; never surface it to the caller.
       gemmaLog('Orphaned download-temp reclaim failed (non-fatal): $e\n$st');
     }
   }

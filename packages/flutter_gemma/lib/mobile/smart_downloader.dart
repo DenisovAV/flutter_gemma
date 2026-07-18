@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
@@ -18,6 +20,18 @@ const int kMaxResumeAttempts = 3;
 /// this, the task is presumed silently dead (#355) and the stream is closed.
 @visibleForTesting
 const Duration kResumeWatchdog = Duration(seconds: 90);
+
+/// Deterministic background_downloader task ID for a model download (#383/#2).
+///
+/// Derived only from the stable `Task.split` identity — NOT the url (so a rotated
+/// signed URL still maps to the same partial) and NOT the absolute path (so an iOS
+/// app-container UUID change on every update doesn't churn the id). `Object.hashCode`
+/// is not a spec-stable key across runs/SDKs; sha256 of the triple is.
+///
+/// Not `@visibleForTesting`: it is a real internal API used in production by both
+/// the download path and the reclaim reconciliation (`mobile_model_manager`).
+String computeTaskId(BaseDirectory base, String directory, String filename) =>
+    sha256.convert(utf8.encode('${base.name}|$directory|$filename')).toString();
 
 /// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
 /// The download loop cancels it when the next progress/status event arrives, and
@@ -447,22 +461,30 @@ class SmartDownloader {
       return;
     }
 
-    // Generate deterministic taskId based on URL + targetPath
-    // This prevents duplicate downloads of the same file
-    final taskId =
-        '${url.hashCode.toUnsigned(32).toRadixString(16)}_${targetPath.hashCode.toUnsigned(32).toRadixString(16)}';
+    // taskId + task location come from the same stable split triple; compute
+    // inside the try so a path_provider failure routes to the retry/backoff
+    // catch below rather than escaping the retry loop.
+    late final String taskId;
+    late final BaseDirectory baseDirectory;
+    late final String directory;
+    late final String filename;
 
     gemmaLog(
       '🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries',
     );
     gemmaLog('🔵 URL: $url');
     gemmaLog('🔵 Target: $targetPath');
-    gemmaLog('🔵 TaskId: $taskId');
 
     // Declare listener outside try block so it's accessible in catch
     StreamSubscription? listener;
 
     try {
+      (baseDirectory, directory, filename) = await Task.split(
+        filePath: targetPath,
+      );
+      taskId = computeTaskId(baseDirectory, directory, filename);
+      gemmaLog('🔵 TaskId: $taskId');
+
       final downloader = FileDownloader();
 
       // Check if task already exists (e.g., after app restart or sleep/wake)
@@ -567,10 +589,6 @@ class SmartDownloader {
         await completer.future;
         return;
       }
-
-      final (baseDirectory, directory, filename) = await Task.split(
-        filePath: targetPath,
-      );
 
       // Auto-detect allowPause based on URL
       // HuggingFace uses weak ETags - resume not reliable

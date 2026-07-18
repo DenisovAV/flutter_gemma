@@ -366,6 +366,25 @@ class MobileModelManager extends ModelFileManager {
         gemmaLog('Cleaned up $cleanedCount tasks of type ${type.name}');
       }
 
+      // Cancel only THIS type's tasks (deletes their paused temps) before the
+      // group reset; cancelling the whole group here would abort an unrelated
+      // model type's in-flight download (#383/#5).
+      try {
+        final groupTasks = await downloader.allTasks(
+          group: SmartDownloader.downloadGroup,
+          includeTasksWaitingToRetry: true,
+        );
+        final ofType = groupTasks
+            .where((t) => _detectModelType(t.filename) == type)
+            .map((t) => t.taskId)
+            .toList();
+        if (ofType.isNotEmpty) {
+          await downloader.cancelTasksWithIds(ofType);
+        }
+      } catch (e) {
+        gemmaLog('Failed to cancel ${type.name} tasks before reset: $e');
+      }
+
       // Reset background_downloader tasks
       try {
         await downloader.reset(group: SmartDownloader.downloadGroup);
@@ -688,15 +707,24 @@ class MobileModelManager extends ModelFileManager {
       // 1. Get protected files from ModelRepository
       final protectedFiles = await _getAllProtectedFiles();
 
-      // 2. Enhanced file system cleanup
+      final downloader = FileDownloader();
+      // 2. Cancel every task in the group FIRST — cancellation deletes paused
+      //    temp files (reset() only clears records), so this must precede both
+      //    reset and the fragment sweep (#383/#5).
+      final groupTasks = await downloader.allTasks(
+        group: SmartDownloader.downloadGroup,
+        includeTasksWaitingToRetry: true,
+      );
+      await downloader.cancelTasksWithIds(
+        groupTasks.map((t) => t.taskId).toList(),
+      );
+      // 3. Reset residual records.
+      await downloader.reset(group: SmartDownloader.downloadGroup);
+      // 4. Filesystem cleanup last — now only truly-orphaned fragments remain.
       await ModelFileSystemManager.cleanupOrphanedFiles(
         protectedFiles: protectedFiles,
         enableResumeDetection: true,
       );
-
-      // 3. Background_downloader cleanup
-      final downloader = FileDownloader();
-      await downloader.reset(group: SmartDownloader.downloadGroup);
 
       gemmaLog('UnifiedModelManager: Cleanup completed');
     } catch (e) {

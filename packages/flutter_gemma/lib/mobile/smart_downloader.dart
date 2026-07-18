@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma/core/domain/download_error.dart';
@@ -18,6 +20,18 @@ const int kMaxResumeAttempts = 3;
 /// this, the task is presumed silently dead (#355) and the stream is closed.
 @visibleForTesting
 const Duration kResumeWatchdog = Duration(seconds: 90);
+
+/// Deterministic background_downloader task ID for a model download (#383/#2).
+///
+/// Derived only from the stable `Task.split` identity — NOT the url (so a rotated
+/// signed URL still maps to the same partial) and NOT the absolute path (so an iOS
+/// app-container UUID change on every update doesn't churn the id). `Object.hashCode`
+/// is not a spec-stable key across runs/SDKs; sha256 of the triple is.
+///
+/// Not `@visibleForTesting`: it is a real internal API used in production by both
+/// the download path and the reclaim reconciliation (`mobile_model_manager`).
+String computeTaskId(BaseDirectory base, String directory, String filename) =>
+    sha256.convert(utf8.encode('${base.name}|$directory|$filename')).toString();
 
 /// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
 /// The download loop cancels it when the next progress/status event arrives, and
@@ -90,7 +104,12 @@ ResumeAction decideFailedDownloadAction({
 /// - Auto-detects resume support based on server (HuggingFace = no resume)
 /// - Android foreground service for large files (>500MB by default)
 class SmartDownloader {
-  static const String _downloadGroup = 'smart_downloads';
+  /// The background_downloader task group ALL model downloads run under.
+  /// Single source of truth — cleanup / resume code that queries or resets
+  /// tasks must use this exact group, or it operates on an empty set and
+  /// silently no-ops (this is what caused the #383 leak amplifier: three call
+  /// sites used the stale literal `'flutter_gemma_downloads'`).
+  static const String downloadGroup = 'smart_downloads';
   static const int _foregroundThresholdMB = 500;
 
   // Track if FileDownloader has been configured
@@ -442,22 +461,30 @@ class SmartDownloader {
       return;
     }
 
-    // Generate deterministic taskId based on URL + targetPath
-    // This prevents duplicate downloads of the same file
-    final taskId =
-        '${url.hashCode.toUnsigned(32).toRadixString(16)}_${targetPath.hashCode.toUnsigned(32).toRadixString(16)}';
+    // taskId + task location come from the same stable split triple; compute
+    // inside the try so a path_provider failure routes to the retry/backoff
+    // catch below rather than escaping the retry loop.
+    late final String taskId;
+    late final BaseDirectory baseDirectory;
+    late final String directory;
+    late final String filename;
 
     gemmaLog(
       '🔵 _downloadWithSmartRetry called - attempt $currentAttempt/$maxRetries',
     );
     gemmaLog('🔵 URL: $url');
     gemmaLog('🔵 Target: $targetPath');
-    gemmaLog('🔵 TaskId: $taskId');
 
     // Declare listener outside try block so it's accessible in catch
     StreamSubscription? listener;
 
     try {
+      (baseDirectory, directory, filename) = await Task.split(
+        filePath: targetPath,
+      );
+      taskId = computeTaskId(baseDirectory, directory, filename);
+      gemmaLog('🔵 TaskId: $taskId');
+
       final downloader = FileDownloader();
 
       // Check if task already exists (e.g., after app restart or sleep/wake)
@@ -466,6 +493,15 @@ class SmartDownloader {
         gemmaLog(
           '🔵 Task $taskId already in progress, attaching to existing...',
         );
+
+        // A paused/killed-mid-download task emits nothing until resumed. The
+        // attach path used to only listen → the watchdog fired → a permanent
+        // wedge (#383/R1). Resume it so it actually makes progress.
+        if (existingTask is DownloadTask &&
+            await downloader.taskCanResume(existingTask)) {
+          gemmaLog('🔵 Existing task $taskId is resumable — resuming');
+          await downloader.resume(existingTask);
+        }
 
         // Create completer to wait for existing task completion
         final completer = Completer<void>();
@@ -563,10 +599,6 @@ class SmartDownloader {
         return;
       }
 
-      final (baseDirectory, directory, filename) = await Task.split(
-        filePath: targetPath,
-      );
-
       // Auto-detect allowPause based on URL
       // HuggingFace uses weak ETags - resume not reliable
       // Other servers (GCS, Kaggle, custom) - resume usually works
@@ -578,7 +610,7 @@ class SmartDownloader {
       final task = DownloadTask(
         taskId: taskId,
         url: url,
-        group: _downloadGroup,
+        group: downloadGroup,
         headers: token != null
             ? {
                 'Authorization': 'Bearer $token',
@@ -812,6 +844,11 @@ class SmartDownloader {
       gemmaLog('🔵 Enqueueing task ${task.taskId}...');
       final result = await downloader.enqueue(task);
       gemmaLog('🔵 Enqueue result: $result');
+      if (!result) {
+        throw const DownloadException(
+          DownloadError.network('enqueue() returned false'),
+        );
+      }
 
       // Notify about task ID for cancellation
       onTaskCreated?.call(task.taskId); // ← ADD: Notify task created
@@ -1089,8 +1126,24 @@ class SmartDownloader {
     _resumeWatchdogs[taskId] = armResumeWatchdog(
       progress: progress,
       onTimeout: () {
-        gemmaLog('⏱️ Resume watchdog fired for $taskId — closing as failed');
+        gemmaLog(
+          '⏱️ Resume watchdog fired for $taskId — cancelling + closing as failed',
+        );
         _resumeWatchdogs.remove(taskId);
+        // Cancel the presumed-dead native task and purge its persisted state so
+        // task/metadata/temp don't leak (#383/#4). Fire-and-forget: settling the
+        // install as failed must not wait on native cancellation.
+        final downloader = FileDownloader();
+        unawaited(() async {
+          try {
+            await downloader.cancelTaskWithId(taskId);
+            // ignore: invalid_use_of_visible_for_testing_member
+            final storage = downloader.database.storage;
+            await storage.removeResumeData(taskId);
+            await storage.removePausedTask(taskId);
+            await downloader.database.deleteRecordWithId(taskId);
+          } catch (_) {}
+        }());
         if (!progress.isClosed) {
           progress.addError(
             const DownloadException(

@@ -29,6 +29,119 @@ class MobileModelManager extends ModelFileManager {
         'UnifiedModelManager: active-model restore failed, starting with no active model: $e\n$st',
       );
     }
+    // Reclaim multi-GB download temp files orphaned by failed / cancelled /
+    // process-killed downloads (#383). Fire-and-forget: it must never block or
+    // fail app startup, and it self-delays past WorkManager rescheduling before
+    // reading the "no active downloads" gate.
+    unawaited(_reclaimOrphanedDownloadTemps());
+  }
+
+  /// Deletes orphaned `background_downloader` partial temp files left in the
+  /// Android persistent internal dir (`filesDir`) by downloads that failed,
+  /// were cancelled, or died with the process (#383).
+  ///
+  /// background_downloader streams a large-file download into a randomly-named
+  /// temp `filesDir/com.bbflight.background_downloader<rand>` and only moves it
+  /// to the model path on success. On a resumable failure it deliberately KEEPS
+  /// the partial; a fresh retry or a process-kill/WorkManager-restart then
+  /// allocates a NEW temp and orphans the old one — filesDir is never reclaimed
+  /// by the OS, so multi-GB partials accumulate forever.
+  ///
+  /// This runs only when it is SAFE: a live/queued download's temp path is not
+  /// visible from Dart, so the sweep bails if any task is active, skips temps
+  /// touched recently (a just-(re)started download), and preserves temps a
+  /// valid pending resume would reuse.
+  Future<void> _reclaimOrphanedDownloadTemps() async {
+    // Temp-file lifecycle + `filesDir` location are Android-specific; on iOS the
+    // resume data is opaque (not a temp path) and the leak doesn't apply.
+    if (!Platform.isAndroid) return;
+    try {
+      // Let WorkManager finish re-registering any process-killed download so
+      // the active-tasks gate below reflects reality (avoids racing — and then
+      // deleting — a just-restarted download's temp on cold start).
+      await Future<void>.delayed(const Duration(seconds: 5));
+      final downloader = FileDownloader();
+      await downloader.resumeFromBackground();
+
+      // Narrow the blanket gate to GENUINELY-RUNNING native tasks. A legacy
+      // record re-materialized by resumeFromBackground() shows up as a *paused*
+      // task; gating on "any active task" would let one stale paused record wedge
+      // reclaim forever — exactly the R2 upgrade-mid-download scenario (#383).
+      // ignore: invalid_use_of_visible_for_testing_member
+      final storage = downloader.database.storage;
+      final pausedIds = (await storage.retrieveAllPausedTasks())
+          .map((t) => t.taskId)
+          .toSet();
+      final allIds = (await downloader.allTasks(
+        allGroups: true,
+      )).map((t) => t.taskId).toSet();
+      final nativeRunningIds = allIds.difference(pausedIds);
+
+      // Reconcile every group-scoped resume record against the current scheme,
+      // BEFORE the blanket sweep. Purge legacy records (temp + resume/paused/db
+      // state); keep current-scheme and still-running temps.
+      final resumeData = await storage.retrieveAllResumeData();
+      final keep = <String>{};
+      for (final r in resumeData) {
+        if (r.task.group != SmartDownloader.downloadGroup) continue;
+        try {
+          final expectedId = computeTaskId(
+            r.task.baseDirectory,
+            r.task.directory,
+            r.task.filename,
+          );
+          Duration tempAge;
+          try {
+            tempAge = DateTime.now().difference(
+              await File(r.tempFilepath).lastModified(),
+            );
+          } catch (_) {
+            tempAge =
+                kDownloadTempMinReclaimAge; // treat unknown mtime as eligible-old
+          }
+          final decision = reconcileResumeRecord(
+            taskId: r.task.taskId,
+            expectedId: expectedId,
+            isNativeRunning: nativeRunningIds.contains(r.task.taskId),
+            tempAge: tempAge,
+          );
+          switch (decision) {
+            case ReclaimDecision.keep:
+              keep.add(r.tempFilepath);
+            case ReclaimDecision.skip:
+              break;
+            case ReclaimDecision.purge:
+              try {
+                await File(r.tempFilepath).delete();
+              } catch (_) {}
+              await storage.removeResumeData(r.task.taskId);
+              await storage.removePausedTask(r.task.taskId);
+              await downloader.database.deleteRecordWithId(r.task.taskId);
+              gemmaLog(
+                'Reclaimed legacy download record ${r.task.taskId} (#383)',
+              );
+          }
+        } catch (e) {
+          gemmaLog('Reclaim: skipped record ${r.task.taskId} ($e) (#383)');
+          continue;
+        }
+      }
+
+      // Blanket filesystem sweep only when nothing is actively writing a temp.
+      if (nativeRunningIds.isNotEmpty) {
+        gemmaLog(
+          'Download-temp sweep skipped: ${nativeRunningIds.length} running task(s) (#383)',
+        );
+        return;
+      }
+      final dir = await getApplicationSupportDirectory();
+      final reclaimed = await sweepOrphanedDownloadTemps(dir, keepPaths: keep);
+      gemmaLog(
+        'Download-temp reclaim: kept ${keep.length}, reclaimed $reclaimed (#383)',
+      );
+    } catch (e, st) {
+      gemmaLog('Orphaned download-temp reclaim failed (non-fatal): $e\n$st');
+    }
   }
 
   /// Rehydrate `_activeInferenceModel` from the identity that
@@ -258,9 +371,28 @@ class MobileModelManager extends ModelFileManager {
         gemmaLog('Cleaned up $cleanedCount tasks of type ${type.name}');
       }
 
+      // Cancel only THIS type's tasks (deletes their paused temps) before the
+      // group reset; cancelling the whole group here would abort an unrelated
+      // model type's in-flight download (#383/#5).
+      try {
+        final groupTasks = await downloader.allTasks(
+          group: SmartDownloader.downloadGroup,
+          includeTasksWaitingToRetry: true,
+        );
+        final ofType = groupTasks
+            .where((t) => _detectModelType(t.filename) == type)
+            .map((t) => t.taskId)
+            .toList();
+        if (ofType.isNotEmpty) {
+          await downloader.cancelTasksWithIds(ofType);
+        }
+      } catch (e) {
+        gemmaLog('Failed to cancel ${type.name} tasks before reset: $e');
+      }
+
       // Reset background_downloader tasks
       try {
-        await downloader.reset(group: 'flutter_gemma_downloads');
+        await downloader.reset(group: SmartDownloader.downloadGroup);
       } catch (e) {
         gemmaLog('Failed to reset background_downloader tasks: $e');
       }
@@ -580,15 +712,24 @@ class MobileModelManager extends ModelFileManager {
       // 1. Get protected files from ModelRepository
       final protectedFiles = await _getAllProtectedFiles();
 
-      // 2. Enhanced file system cleanup
+      final downloader = FileDownloader();
+      // 2. Cancel every task in the group FIRST — cancellation deletes paused
+      //    temp files (reset() only clears records), so this must precede both
+      //    reset and the fragment sweep (#383/#5).
+      final groupTasks = await downloader.allTasks(
+        group: SmartDownloader.downloadGroup,
+        includeTasksWaitingToRetry: true,
+      );
+      await downloader.cancelTasksWithIds(
+        groupTasks.map((t) => t.taskId).toList(),
+      );
+      // 3. Reset residual records.
+      await downloader.reset(group: SmartDownloader.downloadGroup);
+      // 4. Filesystem cleanup last — now only truly-orphaned fragments remain.
       await ModelFileSystemManager.cleanupOrphanedFiles(
         protectedFiles: protectedFiles,
         enableResumeDetection: true,
       );
-
-      // 3. Background_downloader cleanup
-      final downloader = FileDownloader();
-      await downloader.reset(group: 'flutter_gemma_downloads');
 
       gemmaLog('UnifiedModelManager: Cleanup completed');
     } catch (e) {

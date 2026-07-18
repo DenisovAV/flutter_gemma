@@ -144,6 +144,45 @@ class ModelFileSystemManager {
       );
     }
 
+    // Downloader partial temps are extensionless and live in applicationSupport
+    // (Android filesDir), outside the model dir — invisible to the loop above
+    // (#383/#3, #6). Scan for them so getOrphanedFiles/cleanupStorage can report
+    // and delete them. Android-only: iOS uses opaque URLSession resume data with
+    // no filesDir temp. A live/resumable temp is spared via the resume keep-set;
+    // explicit cleanup additionally cancels all group tasks first (#383/#5).
+    if (Platform.isAndroid) {
+      try {
+        final downloader = FileDownloader();
+        // ignore: invalid_use_of_visible_for_testing_member
+        final keep = (await downloader.database.storage.retrieveAllResumeData())
+            .map((r) => r.tempFilepath)
+            .toSet();
+        final supportDir = await getApplicationSupportDirectory();
+        for (final entity in supportDir.listSync(followLinks: false)) {
+          if (entity is! File) continue;
+          final name = path.basename(entity.path);
+          if (!isDownloadFragmentName(name)) continue;
+          if (keep.contains(entity.path)) continue;
+          try {
+            final stat = await entity.stat();
+            orphaned.add(
+              OrphanedFileInfo(
+                filename: name,
+                path: entity.path,
+                sizeBytes: stat.size,
+                lastModified: stat.modified,
+                isDownloadFragment: true,
+              ),
+            );
+          } catch (_) {
+            continue; // vanished mid-scan (e.g. a concurrent reclaim)
+          }
+        }
+      } catch (e) {
+        gemmaLog('Fragment scan failed (non-fatal): $e');
+      }
+    }
+
     return orphaned;
   }
 
@@ -185,7 +224,7 @@ class ModelFileSystemManager {
 
       // Check active tasks
       final allTasks = await downloader.allTasks(
-        group: 'smart_downloads',
+        group: SmartDownloader.downloadGroup,
         includeTasksWaitingToRetry: true,
       );
 

@@ -1,3 +1,10 @@
+## 1.3.1
+- Fix multi-GB background_downloader temp-file leak on Android (#383).
+- Deterministic download task IDs (sha256 of path triple) — stable across restarts and signed-URL rotation (#383).
+- getOrphanedFiles()/cleanupStorage() now surface and delete orphaned downloader fragments (#383).
+- Cancel tasks before reset in cleanup so paused temp files are deleted (#383).
+- Resume watchdog cancels the dead native task instead of leaking it (#383).
+
 ## 1.3.0
 - Add ModelFileType.builtIn for OS system models (Gemini Nano / Apple FM)
 

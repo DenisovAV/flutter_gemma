@@ -117,49 +117,23 @@ class LiteRtLmBindings {
       _litert_lm_session_config_deletePtr
           .asFunction<void Function(ffi.Pointer<LiteRtLmSessionConfig>)>();
 
-  ffi.Pointer<LiteRtLmConversationConfig> litert_lm_conversation_config_create(
-    ffi.Pointer<LiteRtLmEngine> engine,
-    ffi.Pointer<LiteRtLmSessionConfig> session_config,
-    ffi.Pointer<ffi.Char> system_message_json,
-    ffi.Pointer<ffi.Char> tools_json,
-    ffi.Pointer<ffi.Char> messages_json,
-    bool enable_constrained_decoding,
-  ) {
-    return _litert_lm_conversation_config_create(
-      engine,
-      session_config,
-      system_message_json,
-      tools_json,
-      messages_json,
-      enable_constrained_decoding,
-    );
+  // No-arg as of LiteRT-LM v0.14.0 (was a 6-arg overload taking engine +
+  // session_config + system/tools/messages JSON + enable_constrained_decoding
+  // directly, added by our now-deleted native/litert_lm/patch_c_api.sh
+  // patch). Build the config via this create() plus the
+  // litert_lm_conversation_config_set_* setter chain below.
+  ffi.Pointer<LiteRtLmConversationConfig>
+  litert_lm_conversation_config_create() {
+    return _litert_lm_conversation_config_create();
   }
 
   late final _litert_lm_conversation_config_createPtr =
       _lookup<
-        ffi.NativeFunction<
-          ffi.Pointer<LiteRtLmConversationConfig> Function(
-            ffi.Pointer<LiteRtLmEngine>,
-            ffi.Pointer<LiteRtLmSessionConfig>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Pointer<ffi.Char>,
-            ffi.Bool,
-          )
-        >
+        ffi.NativeFunction<ffi.Pointer<LiteRtLmConversationConfig> Function()>
       >('litert_lm_conversation_config_create');
   late final _litert_lm_conversation_config_create =
       _litert_lm_conversation_config_createPtr
-          .asFunction<
-            ffi.Pointer<LiteRtLmConversationConfig> Function(
-              ffi.Pointer<LiteRtLmEngine>,
-              ffi.Pointer<LiteRtLmSessionConfig>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Char>,
-              bool,
-            )
-          >();
+          .asFunction<ffi.Pointer<LiteRtLmConversationConfig> Function()>();
 
   void litert_lm_conversation_config_set_session_config(
     ffi.Pointer<LiteRtLmConversationConfig> config,
@@ -1946,6 +1920,108 @@ class LiteRtLmBindings {
               ffi.Pointer<LiteRtLmEngine>,
             )
           >();
+
+  ffi.Pointer<LiteRtLmSamplerParams> litert_lm_sampler_params_create(int type) {
+    return _litert_lm_sampler_params_create(type);
+  }
+
+  late final _litert_lm_sampler_params_createPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Pointer<LiteRtLmSamplerParams> Function(ffi.Int32)
+        >
+      >('litert_lm_sampler_params_create');
+  late final _litert_lm_sampler_params_create =
+      _litert_lm_sampler_params_createPtr
+          .asFunction<ffi.Pointer<LiteRtLmSamplerParams> Function(int)>();
+
+  void litert_lm_sampler_params_delete(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+  ) {
+    return _litert_lm_sampler_params_delete(params);
+  }
+
+  late final _litert_lm_sampler_params_deletePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>)
+        >
+      >('litert_lm_sampler_params_delete');
+  late final _litert_lm_sampler_params_delete =
+      _litert_lm_sampler_params_deletePtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmSamplerParams>)>();
+
+  void litert_lm_sampler_params_set_top_k(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    int top_k,
+  ) {
+    return _litert_lm_sampler_params_set_top_k(params, top_k);
+  }
+
+  late final _litert_lm_sampler_params_set_top_kPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Int32)
+        >
+      >('litert_lm_sampler_params_set_top_k');
+  late final _litert_lm_sampler_params_set_top_k =
+      _litert_lm_sampler_params_set_top_kPtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmSamplerParams>, int)>();
+
+  void litert_lm_sampler_params_set_top_p(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    double top_p,
+  ) {
+    return _litert_lm_sampler_params_set_top_p(params, top_p);
+  }
+
+  late final _litert_lm_sampler_params_set_top_pPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Float)
+        >
+      >('litert_lm_sampler_params_set_top_p');
+  late final _litert_lm_sampler_params_set_top_p =
+      _litert_lm_sampler_params_set_top_pPtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSamplerParams>, double)
+          >();
+
+  void litert_lm_sampler_params_set_temperature(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    double temperature,
+  ) {
+    return _litert_lm_sampler_params_set_temperature(params, temperature);
+  }
+
+  late final _litert_lm_sampler_params_set_temperaturePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Float)
+        >
+      >('litert_lm_sampler_params_set_temperature');
+  late final _litert_lm_sampler_params_set_temperature =
+      _litert_lm_sampler_params_set_temperaturePtr
+          .asFunction<
+            void Function(ffi.Pointer<LiteRtLmSamplerParams>, double)
+          >();
+
+  void litert_lm_sampler_params_set_seed(
+    ffi.Pointer<LiteRtLmSamplerParams> params,
+    int seed,
+  ) {
+    return _litert_lm_sampler_params_set_seed(params, seed);
+  }
+
+  late final _litert_lm_sampler_params_set_seedPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<LiteRtLmSamplerParams>, ffi.Int32)
+        >
+      >('litert_lm_sampler_params_set_seed');
+  late final _litert_lm_sampler_params_set_seed =
+      _litert_lm_sampler_params_set_seedPtr
+          .asFunction<void Function(ffi.Pointer<LiteRtLmSamplerParams>, int)>();
 }
 
 final class LiteRtLmEngine extends ffi.Opaque {}
@@ -2010,24 +2086,11 @@ enum LiteRtLmSamplerType {
   };
 }
 
-final class LiteRtLmSamplerParams extends ffi.Struct {
-  @ffi.UnsignedInt()
-  external int typeAsInt;
-
-  LiteRtLmSamplerType get type => LiteRtLmSamplerType.fromValue(typeAsInt);
-
-  @ffi.Int32()
-  external int top_k;
-
-  @ffi.Float()
-  external double top_p;
-
-  @ffi.Float()
-  external double temperature;
-
-  @ffi.Int32()
-  external int seed;
-}
+// Opaque as of LiteRT-LM v0.14.0 (was a transparent struct with
+// typeAsInt/top_k/top_p/temperature/seed fields). Build via
+// litert_lm_sampler_params_create + the litert_lm_sampler_params_set_*
+// setters; fields can no longer be poked directly.
+final class LiteRtLmSamplerParams extends ffi.Opaque {}
 
 enum LiteRtLmInputDataType {
   kLiteRtLmInputDataTypeText(0),

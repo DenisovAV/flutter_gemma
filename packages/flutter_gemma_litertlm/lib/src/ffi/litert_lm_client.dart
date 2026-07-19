@@ -895,10 +895,12 @@ class LiteRtLmFfiClient {
     // falls back to its baked-in defaults (typically greedy), making
     // every call ignore stochastic decoding requests.
     //
-    // This requires a patched libLiteRtLm.{so,dylib,dll} where
-    // litert_lm_conversation_config_create accepts the 6-arg overload
-    // and applies session_config via the upstream setter chain. See
-    // native/litert_lm/patch_c_api.sh ("PATCH: 6-arg overload").
+    // LiteRT-LM v0.14.0: litert_lm_conversation_config_create() takes no
+    // arguments — session_config, system message, tools, and messages are
+    // attached afterwards via the litert_lm_conversation_config_set_*
+    // setter chain built below. This is now real upstream API; the old
+    // 6-arg overload from the now-deleted
+    // native/litert_lm/patch_c_api.sh ("PATCH: 6-arg overload") is gone.
     final sessionConfig = b.litert_lm_session_config_create();
 
     // NPU executor on LiteRT-LM only supports internal greedy sampling — any
@@ -906,22 +908,25 @@ class LiteRtLmFfiClient {
     // upstream. Skip the setter chain in that case; CPU/GPU paths are
     // unaffected.
     if (_backend != 'npu') {
-      final samplerParams = calloc<LiteRtLmSamplerParams>();
       // Upstream LiteRT-LM (commit 5e0d86b) only implements TopP sampling at
       // engine level — sampler type 1 (TopK) and 3 (Greedy) are rejected with
       // "UNIMPLEMENTED: Sampler type: N not implemented yet." Use TopP (=2)
       // unconditionally and pass top_k as a hint; native respects both fields
       // even though it's gated by the type tag.
-      samplerParams.ref.typeAsInt = 2; // always TopP
-      samplerParams.ref.top_k = topK;
-      samplerParams.ref.top_p = topP ?? 0.95;
-      samplerParams.ref.temperature = temperature;
-      samplerParams.ref.seed = seed;
+      //
+      // v0.14.0: LiteRtLmSamplerParams is opaque — built via
+      // litert_lm_sampler_params_create + the _set_* setters instead of
+      // writing struct fields directly.
+      final samplerParams = b.litert_lm_sampler_params_create(2); // always TopP
+      b.litert_lm_sampler_params_set_top_k(samplerParams, topK);
+      b.litert_lm_sampler_params_set_top_p(samplerParams, topP ?? 0.95);
+      b.litert_lm_sampler_params_set_temperature(samplerParams, temperature);
+      b.litert_lm_sampler_params_set_seed(samplerParams, seed);
       b.litert_lm_session_config_set_sampler_params(
         sessionConfig,
         samplerParams,
       );
-      calloc.free(samplerParams);
+      b.litert_lm_sampler_params_delete(samplerParams);
     } else {
       gemmaLog(
         '[LiteRtLmFfi] NPU backend — sampler params '
@@ -954,15 +959,35 @@ class LiteRtLmFfiClient {
     final toolsPtr = toolsJson?.toNativeUtf8();
     final messagesPtr = messagesJson?.toNativeUtf8();
 
+    // v0.14.0: no-arg create + setter chain (engine is no longer an
+    // argument — session_config carries everything the native side needs).
     final Pointer<LiteRtLmConversationConfig> convConfig = b
-        .litert_lm_conversation_config_create(
-          _engine!,
-          sessionConfig,
-          systemPtr?.cast() ?? nullptr,
-          toolsPtr?.cast() ?? nullptr,
-          messagesPtr?.cast() ?? nullptr,
-          toolsJson != null,
+        .litert_lm_conversation_config_create();
+    if (convConfig != nullptr) {
+      b.litert_lm_conversation_config_set_session_config(
+        convConfig,
+        sessionConfig,
+      );
+      if (systemPtr != null) {
+        b.litert_lm_conversation_config_set_system_message(
+          convConfig,
+          systemPtr.cast(),
         );
+      }
+      if (toolsPtr != null) {
+        b.litert_lm_conversation_config_set_tools(convConfig, toolsPtr.cast());
+        b.litert_lm_conversation_config_set_enable_constrained_decoding(
+          convConfig,
+          true,
+        );
+      }
+      if (messagesPtr != null) {
+        b.litert_lm_conversation_config_set_messages(
+          convConfig,
+          messagesPtr.cast(),
+        );
+      }
+    }
 
     b.litert_lm_session_config_delete(sessionConfig);
     if (systemPtr != null) calloc.free(systemPtr);

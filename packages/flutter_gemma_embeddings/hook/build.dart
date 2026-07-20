@@ -148,7 +148,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.13.1-b',
+  version: '0.14.0',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -198,6 +198,7 @@ const _litertlmBundle = _NativeBundle(
     'LiteRtTopKOpenClSampler', // Android OpenCL GPU sampler — honors seed
     'LiteRtTopKWebGpuSampler', // Linux/Windows GPU sampler
     'LiteRt', // Linux/Windows core runtime
+    'webgpu_dawn', // Linux/Windows Dawn WebGPU (split to a shared lib in v0.14.0)
   ],
   // On macOS, skip the upstream Apple companion dylibs from Native Assets
   // bundling (#247). The three dylibs Google ships in
@@ -228,6 +229,7 @@ const _litertlmBundle = _NativeBundle(
     'libLiteRt',
     'libLiteRtTopKWebGpuSampler',
     'libLiteRtWebGpuAccelerator',
+    'libwebgpu_dawn', // lib-prefixed for the accelerator's PE import (v0.14.0)
     // DXC runtime
     'dxil',
     'dxcompiler',

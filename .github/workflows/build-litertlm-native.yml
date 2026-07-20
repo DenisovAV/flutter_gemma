@@ -67,6 +67,7 @@ jobs:
           # separate libwebgpu_dawn.so. Set $ORIGIN rpath so each lib resolves its
           # flat-layout siblings from its own directory at dlopen time.
           sudo apt-get update -qq && sudo apt-get install -y -qq patchelf
+          chmod u+w artifacts/*.so   # git-lfs prebuilt .so are read-only; patchelf edits in place
           for f in artifacts/*.so; do patchelf --set-rpath '$ORIGIN' "$f"; done
           ls -lh artifacts/
 
@@ -120,6 +121,7 @@ jobs:
           # separate libwebgpu_dawn.so. Set $ORIGIN rpath so each lib resolves its
           # flat-layout siblings from its own directory at dlopen time.
           sudo apt-get update -qq && sudo apt-get install -y -qq patchelf
+          chmod u+w artifacts/*.so   # git-lfs prebuilt .so are read-only; patchelf edits in place
           for f in artifacts/*.so; do patchelf --set-rpath '$ORIGIN' "$f"; done
           ls -lh artifacts/
 

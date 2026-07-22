@@ -26,7 +26,7 @@ import 'package:flutter_gemma/web/web_image_format.dart';
 import 'litert_lm_web.dart';
 
 /// Web `.litertlm` inference via the upstream `@litert-lm/core` early-preview
-/// JS API (LiteRT-LM v0.12.0+ on web through WebGPU/WASM).
+/// JS API (LiteRT-LM v0.14.0 on web through WebGPU/WASM).
 ///
 /// Mirrors [FfiInferenceModel] (mobile/desktop) for the same C API but maps
 /// it onto the JS surface: `Engine.create` → `engine.createConversation` →
@@ -204,7 +204,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
       );
     }
 
-    // Vision/audio modality on web @litert-lm/core@0.12.1 requires a
+    // Vision/audio modality on web @litert-lm/core@0.14.0 requires a
     // dedicated Vision/AudioExecutor to be loaded at Engine.create() time.
     // The WASM runtime asserts "Vision executor should not be null, please
     // TryLoadingVisionExecutor() first.", but the TypeScript-level
@@ -221,7 +221,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
       if (kDebugMode) {
         gemmaLog(
           '[LiteRtLmWebInferenceModel] Warning: vision/audio modality '
-          'is requested but @litert-lm/core@0.12.1 does not expose the '
+          'is requested but @litert-lm/core@0.14.0 does not expose the '
           'Vision/AudioExecutor config in its TypeScript API — image/audio '
           'inputs are dropped on web until upstream extends EngineSettings. '
           'Track: https://github.com/google-ai-edge/LiteRT-LM',
@@ -308,7 +308,7 @@ class LiteRtLmWebInferenceModel extends InferenceModel with CloseNotifier {
         'before opening a new one.',
       );
     }
-    // Vision/audio still blocked upstream (@litert-lm/core@0.12.1) — see the
+    // Vision/audio still blocked upstream (@litert-lm/core@0.14.0) — see the
     // detailed comment in createSession. Force-disable here too.
     if ((enableVisionModality == true || enableAudioModality == true) &&
         kDebugMode) {

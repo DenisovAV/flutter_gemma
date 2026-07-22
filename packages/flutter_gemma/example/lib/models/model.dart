@@ -503,6 +503,116 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: false,
   ),
 
+  // ── litert-community additions (v0.14.0 model-coverage testing) ──
+
+  // SmolLM3-3B — modern multilingual small LLM with a reasoning mode.
+  smolLM3_3B(
+    baseUrl:
+        'https://huggingface.co/litert-community/SmolLM3-3B/resolve/main/SmolLM3-3B_q4_block32_ekv4096.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/SmolLM3-3B/resolve/main/SmolLM3-3B_q4_block32_ekv4096.litertlm',
+    filename: 'SmolLM3-3B_q4_block32_ekv4096.litertlm',
+    displayName: 'SmolLM3 3B',
+    size: '2.0GB',
+    licenseUrl: 'https://huggingface.co/litert-community/SmolLM3-3B',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
+  // Qwen2-VL-2B — vision-language model (image + text).
+  qwen2VL_2B(
+    baseUrl:
+        'https://huggingface.co/litert-community/Qwen2-VL-2B/resolve/main/Qwen2-VL-2B.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/Qwen2-VL-2B/resolve/main/Qwen2-VL-2B.litertlm',
+    filename: 'Qwen2-VL-2B.litertlm',
+    displayName: 'Qwen2-VL 2B (Vision)',
+    size: '1.8GB',
+    licenseUrl: 'https://huggingface.co/litert-community/Qwen2-VL-2B',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+    supportImage: true,
+    maxNumImages: 4,
+  ),
+
+  // Phi-4-mini-reasoning — Phi-4 Mini tuned for step-by-step reasoning.
+  phi4MiniReasoning(
+    baseUrl:
+        'https://huggingface.co/litert-community/Phi-4-mini-reasoning/resolve/main/model.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/Phi-4-mini-reasoning/resolve/main/model.litertlm',
+    filename: 'Phi-4-mini-reasoning.litertlm',
+    displayName: 'Phi-4 Mini Reasoning',
+    size: '2.8GB',
+    licenseUrl: 'https://huggingface.co/litert-community/Phi-4-mini-reasoning',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+    isThinking: true,
+  ),
+
+  // SmolVLM2-500M — compact vision-language model (image + text).
+  smolVLM2_500M(
+    baseUrl:
+        'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/SmolVLM2-500M.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/SmolVLM2-500M/resolve/main/SmolVLM2-500M.litertlm',
+    filename: 'SmolVLM2-500M.litertlm',
+    displayName: 'SmolVLM2 500M (Vision)',
+    size: '0.36GB',
+    licenseUrl: 'https://huggingface.co/litert-community/SmolVLM2-500M',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+    supportImage: true,
+    maxNumImages: 1,
+  ),
+
+  // LLaVA-OneVision-0.5B — compact vision-language model (image + text).
+  llavaOneVision_0_5B(
+    baseUrl:
+        'https://huggingface.co/litert-community/LLaVA-OneVision-0.5B/resolve/main/LLaVA-OneVision-0.5B.litertlm',
+    desktopUrl:
+        'https://huggingface.co/litert-community/LLaVA-OneVision-0.5B/resolve/main/LLaVA-OneVision-0.5B.litertlm',
+    filename: 'LLaVA-OneVision-0.5B.litertlm',
+    displayName: 'LLaVA-OneVision 0.5B (Vision)',
+    size: '0.83GB',
+    licenseUrl: 'https://huggingface.co/litert-community/LLaVA-OneVision-0.5B',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.general,
+    fileType: ModelFileType.litertlm,
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 4096,
+    supportImage: true,
+    maxNumImages: 1,
+  ),
+
   // Phi-4 Mini Instruct
   phi4_mini(
     baseUrl:
@@ -685,7 +795,7 @@ enum Model implements InferenceModelInterface {
   final double topP;
   // Raw capability flags from the enum literal. The public [supportImage] /
   // [supportAudio] getters below suppress these on web for .litertlm models,
-  // where @litert-lm/core@0.12.1 does not expose the Vision/AudioExecutor
+  // where @litert-lm/core@0.14.0 does not expose the Vision/AudioExecutor
   // config yet — so image/audio inputs are silently dropped. Advertising them
   // in the UI would offer a picker that produces no result. Native and web
   // MediaPipe (.task) keep the declared value.

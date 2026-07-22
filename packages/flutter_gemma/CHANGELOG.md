@@ -1,3 +1,7 @@
+## 1.3.2
+- Docs: add community models to the README model list (SmolLM3-3B, Phi-4-mini-reasoning, Qwen2-VL, SmolVLM2, LLaVA-OneVision).
+- Docs: bump web `@litert-lm/core` setup snippet to 0.14.0.
+
 ## 1.3.1
 - Fix multi-GB background_downloader temp-file leak on Android (#383).
 - Deterministic download task IDs (sha256 of path triple) — stable across restarts and signed-URL rotation (#383).

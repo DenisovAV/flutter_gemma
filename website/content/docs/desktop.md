@@ -192,6 +192,11 @@ post_install do |installer|
 </dict>
 </plist>
 EOF
+          # Re-sign the framework binary: install_name_tool invalidated its
+          # code signature, and unlike LiteRtLm these companion frameworks are
+          # not re-signed by Xcode — an unsigned/modified page trips CODESIGNING
+          # "Invalid Page" at dlopen. Ad-hoc sign like LiteRtLm below.
+          codesign --force --sign - "${fw_dir}/Versions/A/${base}" 2>/dev/null || true
         done
         LITERTLM="${FRAMEWORKS}/LiteRtLm.framework/Versions/A/LiteRtLm"
         if [ -f "${LITERTLM}" ]; then

@@ -10,9 +10,11 @@ import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
+import 'package:flutter_gemma/core/registry/stt_registry.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
@@ -141,6 +143,7 @@ class FlutterGemma {
     // RAG package" error on first use).
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
+    List<SttBackendProvider> sttBackends = const [],
     // Opt-in agentic "skills" runtime, provided by the `flutter_gemma_agent`
     // package (each executor `implements SkillExecutorProvider`). Core holds
     // only this list + the probe-chain [SkillExecutorRegistry]; the concrete
@@ -191,6 +194,9 @@ class FlutterGemma {
     }
     if (embeddingBackends.isNotEmpty) {
       EmbeddingRegistry.instance.registerAll(embeddingBackends);
+    }
+    if (sttBackends.isNotEmpty) {
+      SttRegistry.instance.registerAll(sttBackends);
     }
     if (skillExecutors.isNotEmpty) {
       SkillExecutorRegistry.instance.registerAll(skillExecutors);

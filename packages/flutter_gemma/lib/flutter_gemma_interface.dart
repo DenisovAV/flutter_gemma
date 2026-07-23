@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/tool.dart';
@@ -533,5 +534,18 @@ abstract class EmbeddingModel {
   void addCloseListener(void Function() listener);
 
   /// Close the embedding model and release resources.
+  Future<void> close();
+}
+
+/// Represents a speech-to-text model instance.
+abstract class SpeechRecognizer {
+  /// Transcribe 16 kHz mono 16-bit little-endian PCM. Batch (fixed-window)
+  /// for now; streaming is a follow-on.
+  Future<String> transcribe(Uint8List pcm16kMono);
+
+  /// See [InferenceModel.addCloseListener].
+  void addCloseListener(void Function() listener);
+
+  /// Close the STT model and release resources.
   Future<void> close();
 }

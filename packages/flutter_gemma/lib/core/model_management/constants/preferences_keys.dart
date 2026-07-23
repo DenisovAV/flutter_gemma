@@ -37,6 +37,12 @@ class PreferencesKeys {
   /// Legacy: Single tokenizer filename
   static const String embeddingTokenizerFile = 'embedding_tokenizer_file';
 
+  /// Legacy: Single STT model filename
+  static const String sttModelFile = 'stt_model_file';
+
+  /// Legacy: Single STT tokenizer filename
+  static const String sttTokenizerFile = 'stt_tokenizer_file';
+
   // ============================================================================
   // Active model identity (for auto-restore after app restart, #227)
   // ============================================================================

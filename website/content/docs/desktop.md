@@ -29,6 +29,7 @@ Desktop is served exclusively by the **`flutter_gemma_litertlm`** package; see
 │   │  + libLiteRt.{dylib,dll,so}                    │ │
 │   │  + libLiteRtMetalAccelerator.dylib (macOS)     │ │
 │   │  + libLiteRtWebGpuAccelerator.{dll,so}         │ │
+│   │  + libwebgpu_dawn.{dll,so} (Linux/Windows GPU) │ │
 │   │  + dxil.dll + dxcompiler.dll (Windows GPU)     │ │
 │   └──────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────┘
@@ -54,10 +55,18 @@ models.
 |---|---|---|---|---|---|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC. ⚠️ Discrete GPU regressed — see below |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
+
+<Warning>
+**Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete
+GPUs** crash in the upstream WebGPU/Dawn stack
+([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
+use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
+macOS/Linux GPU and Windows CPU/NPU are unaffected.
+</Warning>
 
 ## Requirements
 
@@ -112,9 +121,10 @@ For the high-level chat API with history + thinking + tool calling, use
 
 Native libs are fetched and bundled automatically via Native Assets. The **only
 manual step** is adding a `post_install` block to your app's `macos/Podfile` so
-the bundled companion `.framework`s get matching `lib*.dylib` symlinks
-(LiteRT-LM's `gpu_registry` calls `dlopen("libLiteRtMetalAccelerator.dylib")` by
-basename and won't find a bare framework binary on its own). Without it,
+the upstream companion dylibs get wrapped into `.framework` bundles (and
+re-signed) inside `Contents/Frameworks/`, and `LiteRtLm.dylib`'s `LC_LOAD_DYLIB`
+reference is re-pointed at the new framework path (LiteRT-LM's `gpu_registry`
+resolves the Metal accelerator through that framework). Without it,
 `engine_create` returns null on `PreferredBackend.gpu` and the model silently
 falls back to CPU.
 
@@ -237,6 +247,7 @@ includes:
 
 - `LiteRtLm.dll`, `LiteRt.dll`, `libGemmaModelConstraintProvider.dll`
 - `libLiteRtWebGpuAccelerator.dll`, `libLiteRtTopKWebGpuSampler.dll`
+- `webgpu_dawn.dll` (Dawn WebGPU backend — split into a shared lib in LiteRT-LM v0.14.0; the accelerator DLL imports it, so GPU fails without it)
 - `dxil.dll` + `dxcompiler.dll` (DirectX Shader Compiler runtime — required for WebGPU/DX12 shader compilation; from [microsoft/DirectXShaderCompiler v1.9.2602](https://github.com/microsoft/DirectXShaderCompiler/releases/tag/v1.9.2602))
 
 `StreamProxy.dll` exposes a `LoadLibraryExA(LOAD_WITH_ALTERED_SEARCH_PATH)` helper
@@ -256,6 +267,7 @@ The bundle includes:
 
 - `libLiteRtLm.so`, `libLiteRt.so`, `libGemmaModelConstraintProvider.so`
 - `libLiteRtWebGpuAccelerator.so`, `libLiteRtTopKWebGpuSampler.so`, `libStreamProxy.so`
+- `libwebgpu_dawn.so` (Dawn WebGPU backend — split into a shared lib in LiteRT-LM v0.14.0; the accelerator loads it via `$ORIGIN` rpath, so GPU fails without it)
 
 `libStreamProxy.so` exposes `stream_proxy_load_global` (an `RTLD_GLOBAL`
 `dlopen`). The plugin uses it to pre-load `libLiteRt.so` before `libLiteRtLm.so`
@@ -328,6 +340,13 @@ swap works. To swap models at runtime, call `model.close()` first, then
 
 ## Known limitations
 
+### Windows discrete GPU crashes (litertlm 1.2.0 / LiteRT-LM v0.14.0)
+
+Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack on
+`PreferredBackend.gpu` ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)).
+Use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
+macOS/Linux GPU and Windows CPU/NPU are unaffected.
+
 ### Per-token sampler runs on CPU on all desktop platforms
 
 When `preferredBackend: PreferredBackend.gpu`, the **forward pass** (prefill +
@@ -338,13 +357,17 @@ full LLM generation, which is dominated by the forward pass.
 - **macOS, Windows** — upstream `libLiteRtTopKMetalSampler` / `libLiteRtTopKWebGpuSampler` ship with incomplete C ABI exports (3 of 7 functions); the factory falls back to the CPU chain. ([#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990), [#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073))
 - **Linux** — the prebuilt sampler `.so` holds a process-static `wgpu::Instance` that any second `engine_create` rejects. Since runtime model swap matters more than the few ms saved, the plugin doesn't preload it and lets the factory fall back to CPU.
 
-### `randomSeed` / `temperature` / `topK` / `topP` on GPU
+### `randomSeed` / `temperature` / `topK` / `topP`
 
-Sampler params are honored on CPU and GPU on all platforms that ship the patched
-`libLiteRtLm` build (macOS, iOS, Linux, Windows, Android). This required a
-two-layer downstream patch to upstream LiteRT-LM applied at build time (offered
-upstream as [#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) /
-[PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081)).
+As of litertlm 1.2.0 (LiteRT-LM **v0.14.0**), per-session sampler params
+(seed / temperature / topK / topP) are honored **natively** by the upstream
+runtime through its opaque session config — no downstream patch. Each session
+carries its own sampler params, so two sessions with different seeds produce
+independent, seed-reproducible output. Verified on CPU and GPU across macOS,
+iOS, Linux, Windows (CPU/NPU), and Android. (Earlier releases needed a build-time
+patch offered upstream as [#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) /
+[PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081); v0.14.0 lands the native
+session-config sampler, so that patch is no longer applied.)
 
 ### Audio modality requires LiteRT-LM models
 
@@ -381,6 +404,14 @@ Symptom: `engine_create` returns null with no Dart-side error, app silently fall
 back to CPU. Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`
 (Native Assets bundles them). If present but still failing, check the user has the
 VS 2019+ Visual C++ Runtime.
+
+<Warning>
+On a Windows **discrete GPU** with litertlm 1.2.0 / LiteRT-LM v0.14.0, GPU also
+crashes in the upstream WebGPU/Dawn stack
+([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
+use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. See
+[Known limitations](#known-limitations).
+</Warning>
 
 ### Model file not found
 

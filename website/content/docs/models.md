@@ -4,9 +4,10 @@ description: Supported models, file formats, capabilities, ModelType reference, 
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
-flutter_gemma supports Gemma 4, Gemma3n, FastVLM, Gemma 3, FunctionGemma, Qwen3,
-Qwen 2.5, Phi-4, DeepSeek R1, SmolLM and more. Desktop platforms (macOS, Windows,
-Linux) require the `.litertlm` model format.
+flutter_gemma supports Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2,
+LLaVA-OneVision, Gemma 3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4 (incl. Phi-4 Mini
+Reasoning), DeepSeek R1, SmolLM, SmolLM3 and more. Desktop platforms (macOS,
+Windows, Linux) require the `.litertlm` model format.
 
 ## Model file types
 
@@ -68,7 +69,11 @@ single-allocation cap.
 | **Gemma 4 E4B** | Next-gen multimodal chat — text, image, audio | ✅ | ✅ | ✅ | Multilingual | 4.3GB |
 | **Gemma3n** | On-device multimodal chat and image analysis | ✅ | ❌ | ✅ | Multilingual | 3-6GB |
 | **FastVLM 0.5B** | Fast vision-language inference | ❌ | ❌ | ✅ | Multilingual | 0.5GB |
+| **Qwen2-VL 2B** | Vision-language chat (image + text) | ❌ | ❌ | ✅ | Multilingual | 1.8GB |
+| **SmolVLM2 500M** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.36GB |
+| **LLaVA-OneVision 0.5B** | Compact vision-language model | ❌ | ❌ | ✅ | Multilingual | 0.83GB |
 | **Phi-4 Mini** | Advanced reasoning and instruction following | ✅ | ❌ | ❌ | Multilingual | 3.9GB |
+| **Phi-4 Mini Reasoning** | Step-by-step reasoning | ❌ | ✅ | ❌ | Multilingual | 2.8GB |
 | **DeepSeek R1** | High-performance reasoning and code generation | ✅ | ✅ | ❌ | Multilingual | 1.7GB |
 | **Qwen3 0.6B** | Compact multilingual chat with function calling | ✅ | ✅ | ❌ | Multilingual | 586MB |
 | **Qwen 2.5** | Strong multilingual chat and instruction following | ✅ | ❌ | ❌ | Multilingual | 0.5-1.6GB |
@@ -76,6 +81,7 @@ single-allocation cap.
 | **Gemma 3 270M** | Ideal for fine-tuning (LoRA) for specific tasks | ❌ | ❌ | ❌ | Multilingual | 0.3GB |
 | **FunctionGemma 270M** | Specialized for function calling on-device | ✅ | ❌ | ❌ | Multilingual | 284MB |
 | **SmolLM 135M** | Ultra-compact, resource-constrained devices | ❌ | ❌ | ❌ | English | 135MB |
+| **SmolLM3 3B** | Multilingual small LLM with reasoning mode | ❌ | ✅ | ❌ | Multilingual | 2.0GB |
 | **TranslateGemma 4B** † | Single-shot 55-language translation | ❌ | ❌ | ❌ | 55 languages | 2-4GB |
 
 <Warning>
@@ -104,7 +110,7 @@ When installing models, specify the correct `ModelType`:
 | **Qwen 3** | `ModelType.qwen3` | Qwen3 0.6B |
 | **FunctionGemma** | `ModelType.functionGemma` | FunctionGemma 270M IT |
 | **Phi** | `ModelType.phi` | Phi-4 Mini |
-| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M |
+| **General** | `ModelType.general` | FastVLM 0.5B, SmolLM 135M, SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B |
 
 <Info>
 Gemma 4 uses `ModelType.gemma4` so its native tool-call tokens are routed through
@@ -137,6 +143,9 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 | [Gemma3n E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) | 3.1GB | ✅ | ✅ | ✅ |
 | [Gemma3n E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) | 6.5GB | ✅ | ✅ | ✅ |
 | [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B) | 0.5GB | ✅ | ❌ | ❌ |
+| [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B) | 1.8GB | ✅ | ✅ | ❌ |
+| [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M) | 0.36GB | ✅ | ✅ | ❌ |
+| [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B) | 0.83GB | ✅ | ✅ | ❌ |
 | [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT) | 0.5GB | ✅ | ✅ | ✅ |
 | [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) | 0.3GB | ✅ | ✅ | ✅ |
 | [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it) | 284MB | ✅ | ✅ | ✅ |
@@ -144,7 +153,9 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 | [Qwen 2.5 1.5B](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct) | 1.6GB | ✅ | ✅ | ❌ |
 | [Qwen 2.5 0.5B](https://huggingface.co/litert-community/Qwen2.5-0.5B-Instruct) | 0.5GB | ❌ | ✅ | ❌ |
 | [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct) | 135MB | ❌ | ✅ | ❌ |
+| [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B) | 2.0GB | ✅ | ✅ | ❌ |
 | [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct) | 3.9GB | ✅ | ✅ | ✅ |
+| [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning) | 2.8GB | ✅ | ✅ | ❌ |
 | [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B) | 1.7GB | ❌ | ✅ | ❌ |
 
 ## Installation sources

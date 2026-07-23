@@ -55,6 +55,8 @@ There is an example of using:
 
 ## What's new in 1.3
 
+- ⚙️ **LiteRT-LM v0.14.0 runtime** ([`flutter_gemma_litertlm`](https://pub.dev/packages/flutter_gemma_litertlm) 1.2.0) — native per-session sampler params (seed / temperature / topK / topP now honored per session) and a fix for GPU garbage output on some Android GPUs (#214). ⚠️ Known upstream regression: Windows **discrete GPUs** crash in the WebGPU/Dawn stack — use `PreferredBackend.cpu` or `.npu` on Windows (LiteRT-LM #2957).
+- 🧪 **5 new community models** — SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B.
 - 🧠 **System OS models** — new opt-in [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai): run **Gemini Nano** (Android / AICore) and **Apple Foundation Models** (iOS 26+/macOS) with no model file to bundle or download — register `BuiltInAiEngine()` and the OS owns the weights.
 
 ## What's new in 1.2
@@ -407,12 +409,14 @@ Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platform
 |----------|-------------|------------------|--------|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ Ready |
 | macOS | x86_64 (Intel) | - | ❌ Not Supported |
-| Windows | x86_64 | DirectX 12 | ✅ Ready |
+| Windows | x86_64 | DirectX 12 | ✅ Ready ² |
 | Windows | arm64 | - | ❌ Not Supported |
 | Linux | x86_64 | Vulkan | ✅ Ready ¹ |
 | Linux | arm64 | Vulkan | ✅ Ready ¹ |
 
 > ¹ Linux GPU requires a proper vendor Vulkan driver (NVIDIA / AMD / Intel). Mesa's `llvmpipe` software fallback is not sufficient for Gemma 4 — its hardcoded 128 MB `maxStorageBufferRange` is below the model's per-buffer requirement. Install the vendor driver (e.g. `nvidia-driver-535-server` on Ubuntu) before running on GPU.
+>
+> ² **Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected.
 
 **macOS Setup:**
 
@@ -1676,9 +1680,9 @@ Function calling is currently supported by the following models:
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
-| **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
+| **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
-| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Metal/WebGPU/Vulkan/DX12 |
+| **GPU Acceleration** | ✅ Full | ✅ Full | ✅ Full | ✅ Full ² | Metal/WebGPU/Vulkan/DX12 |
 | **NPU Acceleration** | ✅ Full | ❌ Not supported | ❌ Not supported | ✅ Windows | Android (.litertlm) + Windows Intel LunarLake/PantherLake |
 | **CPU Backend** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | MediaPipe limitation |
 | **Streaming Responses** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Real-time generation |
@@ -1696,6 +1700,11 @@ Function calling is currently supported by the following models:
 > the newer **web `.litertlm`** path (`@litert-lm/core`) is an early-preview
 > subset (text-only; vision/audio/thinking not verified). See
 > [Web `.litertlm` support & limitations](#web-litertlm-support--limitations).
+>
+> ² **Desktop GPU on Windows:** discrete GPUs crash in the upstream WebGPU/Dawn
+> stack as of litertlm 1.2.0 / LiteRT-LM v0.14.0 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957))
+> — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
+> macOS/Linux GPU and Windows CPU/NPU are unaffected.
 
 ### Web Platform Specifics
 
@@ -1826,7 +1835,7 @@ The full and complete example you can find in `example` folder
 
 * **Model Size:** Larger models (such as 7b and 7b-it) might be too resource-intensive for on-device inference.
 * **Function Calling Support:** Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen3, Qwen 2.5, and Phi-4 models support function calling. Other models will ignore tools and show a warning. See [Model Function Calling Support](#%EF%B8%8F-model-function-calling-support).
-* **Thinking Mode:** Gemma 4, DeepSeek, and Qwen3 models support thinking mode. Enable with `isThinking: true` on the matching `ModelType`.
+* **Thinking Mode:** Gemma 4, DeepSeek, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models support thinking mode. Enable with `isThinking: true` on the matching `ModelType`.
 * **Multimodal Models:** Gemma3n models with vision support require more memory and are recommended for devices with 8GB+ RAM.
 * **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements` and minimum iOS 16.0.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.
@@ -1837,7 +1846,7 @@ The full and complete example you can find in `example` folder
 ## **🛟 Troubleshooting**
 
 **Multimodal Issues:**
-- Ensure you're using a multimodal model (Gemma 4 E2B/E4B, Gemma3n E2B/E4B, or FastVLM)
+- Ensure you're using a multimodal model (Gemma 4 E2B/E4B, Gemma3n E2B/E4B, FastVLM, Qwen2-VL, SmolVLM2, or LLaVA-OneVision)
 - Set `supportImage: true` when creating model and chat
 - Check device memory - multimodal models require more RAM
 

@@ -119,6 +119,17 @@ For full vision / audio / thinking / function calling on web today, use MediaPip
 executor surface.
 </Info>
 
+## Windows desktop GPU crashes
+
+<Warning>
+**Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete
+GPUs** crash in the upstream WebGPU/Dawn stack
+([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
+use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
+macOS/Linux GPU and Windows CPU/NPU are unaffected. See [Desktop → Known
+limitations](/docs/desktop#known-limitations).
+</Warning>
+
 ## Desktop storage locations
 
 Desktop builds store downloaded models **outside** the user's `Documents/` folder

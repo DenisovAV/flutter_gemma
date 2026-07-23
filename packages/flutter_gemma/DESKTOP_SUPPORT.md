@@ -2,7 +2,7 @@
 
 Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and Linux**.
 
-> **0.14.0 architecture**: desktop platforms now run LiteRT-LM **directly via `dart:ffi`**. The previous Kotlin/JVM gRPC server (`litertlm-server.jar` + Azul Zulu JRE) is gone — no Java required, no separate process, no IPC overhead. Engine startup is ~2 s instead of ~10–15 s.
+> **FFI architecture**: desktop platforms run LiteRT-LM **directly via `dart:ffi`**. The previous Kotlin/JVM gRPC server (`litertlm-server.jar` + Azul Zulu JRE) is gone — no Java required, no separate process, no IPC overhead. Engine startup is ~2 s instead of ~10–15 s.
 
 ---
 
@@ -36,18 +36,19 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 │   │  + libLiteRt.{dylib,dll,so}                    │ │
 │   │  + libLiteRtMetalAccelerator.dylib (macOS)     │ │
 │   │  + libLiteRtWebGpuAccelerator.{dll,so}         │ │
+│   │  + libwebgpu_dawn.{dll,so} (Linux/Windows GPU) │ │
 │   │  + dxil.dll + dxcompiler.dll (Windows GPU)     │ │
 │   └──────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────┘
 ```
 
 **Native libraries** are fetched at build time by `hook/build.dart` from the
-GitHub release `native-v0.13.1-a`, SHA256-verified, and bundled by Flutter
+GitHub release `native-v0.14.0`, SHA256-verified, and bundled by Flutter
 [Native Assets](https://docs.flutter.dev/development/platform-integration/c-interop)
 into the application bundle. End-users only need to add a small
-`post_install` snippet to their **macOS** `Podfile` so the bundled
-companion `.framework`s get matching `lib*.dylib` symlinks for LiteRT-LM's
-`gpu_registry` to find them by basename — see
+`post_install` snippet to their **macOS** `Podfile` so the upstream companion
+dylibs get wrapped into `.framework` bundles (and re-signed) inside the app's
+`Contents/Frameworks/` for LiteRT-LM's `gpu_registry` to find them — see
 [macOS setup in the README](README.md#macos-setup) for the exact block.
 Linux and Windows are fully self-contained (no manual setup).
 
@@ -69,10 +70,12 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 |----------|--------------|-------------|--------|-------|-------|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC. ⚠️ Discrete GPU regressed — see below |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
+
+> ⚠️ **Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected. See [Known Limitations](#known-limitations).
 
 For mobile platforms see the main [README](README.md).
 
@@ -148,10 +151,11 @@ For the high-level chat API with history + thinking + tool calling, use
 
 Native libs are fetched and bundled automatically via Native Assets. The
 **only manual step** is adding a `post_install` block to your app's
-`macos/Podfile` so the bundled companion `.framework`s get matching
-`lib*.dylib` symlinks (LiteRT-LM's `gpu_registry` calls
-`dlopen("libLiteRtMetalAccelerator.dylib")` by basename and won't find a
-bare framework binary on its own). See the
+`macos/Podfile` so the upstream companion dylibs get wrapped into
+`.framework` bundles (and re-signed) inside `Contents/Frameworks/`, and
+`LiteRtLm.dylib`'s `LC_LOAD_DYLIB` reference is re-pointed at the new
+framework path (LiteRT-LM's `gpu_registry` resolves the Metal accelerator
+through that framework). See the
 [macOS setup snippet in the README](README.md#macos-setup) for the exact
 block. Without it `engine_create` returns null on `PreferredBackend.gpu`
 and the model silently falls back to CPU.
@@ -181,6 +185,7 @@ includes:
 
 - `LiteRtLm.dll`, `LiteRt.dll`, `libGemmaModelConstraintProvider.dll`
 - `libLiteRtWebGpuAccelerator.dll`, `libLiteRtTopKWebGpuSampler.dll`
+- `webgpu_dawn.dll` (Dawn WebGPU backend — split into a shared lib in LiteRT-LM v0.14.0; the accelerator DLL imports it, so GPU fails without it)
 - `dxil.dll` + `dxcompiler.dll` (DirectX Shader Compiler runtime — required for WebGPU/DX12 shader compilation; sourced from
   [microsoft/DirectXShaderCompiler v1.9.2602](https://github.com/microsoft/DirectXShaderCompiler/releases/tag/v1.9.2602))
 
@@ -203,6 +208,7 @@ The bundle includes:
 
 - `libLiteRtLm.so`, `libLiteRt.so`, `libGemmaModelConstraintProvider.so`
 - `libLiteRtWebGpuAccelerator.so`, `libLiteRtTopKWebGpuSampler.so`, `libStreamProxy.so`
+- `libwebgpu_dawn.so` (Dawn WebGPU backend — split into a shared lib in LiteRT-LM v0.14.0; the accelerator loads it via `$ORIGIN` rpath, so GPU fails without it)
 
 `libStreamProxy.so` is a tiny helper that exposes `stream_proxy_load_global`
 (an `RTLD_GLOBAL` `dlopen`). The plugin uses it to pre-load `libLiteRt.so`
@@ -263,7 +269,7 @@ engine with different settings results in conflicts in the GPU stack
 (notably a `wgpu::Instance already set` from the WebGpu sampler binary on
 Linux/Windows).
 
-Since 0.14.0 the plugin avoids this by:
+The plugin avoids this by:
 
 1. Reusing the same `InferenceModel` whenever requested params match (built-in singleton in `FlutterGemmaDesktop.createModel`).
 2. Disabling GPU sampler preload on Linux so the upstream sampler factory falls back to a CPU sampler — eliminates the `wgpu::Instance` conflict and re-enables runtime model swap on Linux GPU.
@@ -281,6 +287,13 @@ Same as switching model — close, then reopen with the new `preferredBackend`.
 ---
 
 ## Known Limitations
+
+### Windows discrete GPU crashes (litertlm 1.2.0 / LiteRT-LM v0.14.0)
+
+Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack on
+`PreferredBackend.gpu` ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)).
+Use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
+macOS/Linux GPU and Windows CPU/NPU are unaffected.
 
 ### Per-token sampler runs on CPU on all desktop platforms
 
@@ -308,115 +321,24 @@ Why this is the case:
 Once upstream lands the missing exports / a wgpu reset API, the plugin will
 re-enable GPU sampling on the affected platforms.
 
-### `randomSeed` / `temperature` / `topK` / `topP` honoring on GPU
+### `randomSeed` / `temperature` / `topK` / `topP` honoring
 
-**Status as of 0.14.0**: works on CPU and GPU on all platforms that ship
-the patched `libLiteRtLm` build (macOS, iOS, Linux, Windows, Android).
+As of litertlm 1.2.0 (LiteRT-LM **v0.14.0**), per-session sampler params
+(seed / temperature / topK / topP) are honored **natively** by the upstream
+runtime through its opaque session config — no downstream patch. Each session
+carries its own sampler params, so two sessions with different seeds produce
+independent, seed-reproducible output. Verified on CPU and GPU across macOS,
+iOS, Linux, Windows (CPU/NPU), and Android.
 
-This required a **two-layer downstream patch** to upstream LiteRT-LM
-5e0d86b applied at build time via `native/litert_lm/patch_c_api.sh`. The
-patch is open-sourceable and we plan to send it upstream as a PR once it
-has been validated in the wild.
+> Earlier releases (≤ litertlm 1.1.0) needed a build-time downstream patch
+> (`native/litert_lm/patch_c_api.sh`, offered upstream as
+> [#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) /
+> [PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081)) because the
+> stock executor hardcoded sampler params on the GPU/NPU path. v0.14.0 lands the
+> native session-config sampler, so that patch is no longer applied.
 
-#### Why it didn't work on stock upstream
-
-Tracing the GPU sampler path in upstream commit 5e0d86b:
-
-1. **Executor hardcodes sampler params on the GPU path.**
-   `runtime/executor/llm_litert_compiled_model_executor.cc:1271-1279` builds
-   `proto::SamplerParameters` from constants (`type=TOP_P, k=1, p=0.0,
-   temperature=1.0, seed=0`) inside `InitializeSampler()` and passes that
-   to `CreateSampler(GPU, ...)`. `SessionConfig::GetSamplerParams()` is
-   never read by the executor.
-
-2. **`runtime/framework/resource_management/resource_manager.cc` would
-   thread params through but is dead code in OSS.** Its `BUILD` file ships
-   only license + visibility — no `cc_library` targets. The same file
-   forgets `set_seed()` during proto conversion (lines 536-562 set type,
-   k, p, temperature only).
-
-3. **GPU sampler dlopen fails on every platform**, so the factory falls
-   through to `CreateCpuSampler(sampler_params)` at `sampler_factory.cc:735`
-   — but `sampler_params` here is the hardcoded one from (1), not the
-   session config.
-
-4. **`TopPSampler::UpdateConfig` ignores seed**. `top_p_cpu_sampler.cc:168`
-   only mutates `k_/p_/temperature_/batch_size_`. The `std::default_random_engine`
-   is left as-is, so two consecutive `UpdateConfig(seed=42)` and
-   `UpdateConfig(seed=99)` produce different but seed-disconnected outputs.
-
-5. **`session_basic.cc:108` only feeds session params to the sampler when
-   `sampler_backend == Backend::CPU`**. The `GPU` and `NPU` branches
-   delegate sampler creation to the executor, which then hardcodes (1).
-
-So upstream is structurally seed-deaf on GPU end-to-end. Confirmation:
-upstream's own commit `7ef9fee` ("Add SamplerConfig support to the Python
-API and CLI") that closed [#1992](https://github.com/google-ai-edge/LiteRT-LM/issues/1992)
-touched only `python/` files — zero changes to `runtime/executor/`,
-`runtime/core/`, `runtime/components/`, or `c/`. **Upstream's own Python
-SamplerConfig is also seed-deaf on GPU.**
-
-#### What our patch does
-
-`native/litert_lm/patch_c_api.sh` extends the upstream source with four
-edits applied at build time, then runs `bazelisk build` to produce a
-patched `libLiteRtLm.{so,dylib,dll}` (the same patch is also offered
-upstream as
-[google-ai-edge/LiteRT-LM#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080)
-and [PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081)):
-
-- **Section 6** — `runtime/executor/llm_executor_base.h`: add
-  ```cpp
-  virtual absl::Status SetPendingSamplerParams(
-      const proto::SamplerParameters& sampler_params) {
-    return absl::UnimplementedError(...);
-  }
-  ```
-  Defaulted body so executors that don't override (e.g. NPU) keep upstream
-  behavior — the new virtual is opt-in per executor.
-
-- **Section 7** — `runtime/executor/llm_litert_compiled_model_executor.h`:
-  add the override declaration plus a member field
-  `std::optional<proto::SamplerParameters> pending_sampler_params_;`.
-
-- **Section 8** — `runtime/executor/llm_litert_compiled_model_executor.cc`:
-  - Replace the hardcoded `SamplerParameters` block in `InitializeSampler`
-    with a `pending_sampler_params_.value_or(hardcoded_defaults)` read,
-    backfilling proto-zero fields so callers that pass an empty proto
-    don't get pathological values (e.g. `temperature=0`).
-  - Add the `SetPendingSamplerParams` definition. **Crucially, it does
-    `sampler_.reset()` unconditionally** instead of relying on
-    `Sampler::UpdateConfig`, because the upstream CPU sampler's
-    `UpdateConfig` ignores the seed (bug #4 above) and the GPU sampler
-    libs may not export `UpdateConfig` at all (bug #1990). Recreate-on-set
-    is the only reliable way to honor a fresh seed across sessions.
-
-- **Section 9** — `runtime/core/session_basic.cc`: invert the existing
-  GPU/NPU else-if to actively call `executor->SetPendingSamplerParams(
-  session_config.GetSamplerParams())` before the executor's first
-  `InitializeSampler`. `Unimplemented` returns from the base class are
-  silently ignored so unmodified executors keep working.
-
-The patch is a strict superset of upstream behavior — callers that don't
-push session sampler params see no change.
-
-#### Validation matrix (0.14.0)
-
-| Platform | CPU honors seed | GPU honors seed (Strategy D) |
-|---|---|---|
-| macOS | ✅ | ✅ (verified Apr 27, regression_bugs_test.dart) |
-| iOS (iPhone 16 Pro device) | ✅ | ✅ (validated after iOS rebuild) |
-| Linux T4 / L4 VM | ✅ | ✅ (CPU sampler fallback path; UpdateConfig export confirmed) |
-| Windows T4 VM | ✅ | ✅ (CPU sampler fallback) |
-| Android Pixel 8 | ✅ | ✅ (UpdateConfig export confirmed in `libLiteRtTopKOpenClSampler.so`) |
-
-#### Tracking
-
-- [google-ai-edge/LiteRT-LM #1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990) — Metal sampler missing prebuilt
-- [google-ai-edge/LiteRT-LM #2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073) — WebGpu sampler exports 3/7 functions
-- [google-ai-edge/LiteRT-LM #1992](https://github.com/google-ai-edge/LiteRT-LM/issues/1992) (closed) — Python parity, fix didn't reach executor
-- [google-ai-edge/LiteRT-LM #2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) — bug report we filed (executor + `session_basic.cc:108` together drop GPU/NPU sampler params)
-- [google-ai-edge/LiteRT-LM PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081) — our proposed fix (Strategy D — `LlmExecutor::SetPendingSamplerParams` virtual + override on `LlmLiteRtCompiledModelExecutorBase` + `session_basic.cc` push). Reproducer: `flutter test integration_test/regression_bugs_test.dart` on any platform, `randomSeed=42` vs `randomSeed=99` at `temperature=1.0` on `PreferredBackend.gpu`.
+Reproducer: `flutter test integration_test/regression_bugs_test.dart` on any
+platform — `randomSeed=42` vs `randomSeed=99` at `temperature=1.0`.
 
 ### Audio modality requires LiteRT-LM models
 
@@ -445,7 +367,7 @@ your distribution's log facility.
 
 ### `glibc 2.38 not found` on Linux
 
-The 0.14.0 bundle is built against glibc 2.34 (Ubuntu 22.04 toolchain). If
+The current bundle is built against glibc 2.34 (Ubuntu 22.04 toolchain). If
 you see this error on a stock Ubuntu 22.04 system you're hitting a stale
 local binary in `native/litert_lm/prebuilt/linux_x86_64/`. Clear it:
 

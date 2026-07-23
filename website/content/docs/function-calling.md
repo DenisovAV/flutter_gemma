@@ -24,7 +24,12 @@ and then continue the conversation with the result.
 
 - **Gemma 3 270M** — text generation only.
 - **SmolLM 135M** — text generation only.
+- **SmolLM3 3B** — text generation with reasoning, no function calling.
+- **Phi-4 Mini Reasoning** — reasoning model, no function calling.
 - **FastVLM 0.5B** — vision model, no function calling.
+- **Qwen2-VL 2B** — vision model, no function calling.
+- **SmolVLM2 500M** — vision model, no function calling.
+- **LLaVA-OneVision 0.5B** — vision model, no function calling.
 
 <Info>
 When you pass tools to an unsupported model, the plugin logs a warning and

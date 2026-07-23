@@ -275,6 +275,13 @@ packages:
       relative: true
     source: path
     version: "1.1.0"
+  flutter_gemma_speech:
+    dependency: "direct main"
+    description:
+      path: "../../flutter_gemma_speech"
+      relative: true
+    source: path
+    version: "0.1.0"
   flutter_inappwebview:
     dependency: transitive
     description:

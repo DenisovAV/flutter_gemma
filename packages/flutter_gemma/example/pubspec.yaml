@@ -30,6 +30,8 @@ dependencies:
     path: ../../flutter_gemma_litertlm
   flutter_gemma_embeddings:
     path: ../../flutter_gemma_embeddings
+  flutter_gemma_speech:
+    path: ../../flutter_gemma_speech
   flutter_gemma_mediapipe:
     path: ../../flutter_gemma_mediapipe
   flutter_gemma_agent:

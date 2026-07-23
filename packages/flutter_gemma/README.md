@@ -31,7 +31,7 @@ There is an example of using:
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
 - **🧩 Modular Packages:** A small `flutter_gemma` core plus opt-in packages — add only the engine (`.litertlm` / `.task`), embeddings, RAG, or agent code your app ships. Register them via one `FlutterGemma.initialize(...)` call. See [MIGRATION.md](MIGRATION.md).
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
-- **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; the `.litertlm`-only VLMs on Android, iOS, and Desktop)
+- **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; Qwen2-VL / SmolVLM2 / LLaVA-OneVision on Android, iOS, and Desktop; FastVLM on Desktop)
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🤖 On-device Agent Skills:** Opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) — give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through the function-calling loop, fully offline. Gallery-compatible. Android, iOS, macOS, Windows (Web not supported yet).
@@ -1536,9 +1536,9 @@ chat.generateChatResponseAsync().listen((response) {
 | [Gemma3n E2B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview) | 3.1GB | ✅ | ✅ | ✅ |
 | [Gemma3n E4B](https://huggingface.co/google/gemma-3n-E4B-it-litert-preview) | 6.5GB | ✅ | ✅ | ✅ |
 | [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B) | 0.5GB | ✅ | ❌ | ❌ |
-| [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B) | 1.8GB | ✅ | ❌ | ❌ |
-| [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M) | 0.36GB | ✅ | ❌ | ❌ |
-| [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B) | 0.83GB | ✅ | ❌ | ❌ |
+| [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B) | 1.8GB | ✅ | ✅ | ❌ |
+| [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M) | 0.36GB | ✅ | ✅ | ❌ |
+| [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B) | 0.83GB | ✅ | ✅ | ❌ |
 | [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT) | 0.5GB | ✅ | ✅ | ✅ |
 | [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it) | 0.3GB | ✅ | ✅ | ✅ |
 | [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it) | 284MB | ✅ | ✅ | ❌ |

@@ -1,4 +1,4 @@
-/// InternVL3.5-500M multimodal (vision) smoke — a second, non-Qwen VLM on the
+/// InternVL3.5-1B multimodal (vision) smoke — a second, non-Qwen VLM on the
 /// v0.14.0 runtime. Installs from the network in the test body (macOS sandbox
 /// can't read the external Documents path). Run with `--timeout none`.
 library;

@@ -48,7 +48,7 @@
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
 - **Engine selection by file extension** (via `canHandle`): `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time via each package's `hook/build.dart` (Native Assets) from GitHub release `native-v0.12.0-a`. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time via each package's `hook/build.dart` (Native Assets) from GitHub release `native-v0.14.0`. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
 
 ### Supported Models
 
@@ -136,7 +136,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **Dart SDK**: `>=3.12.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.13.1-a` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). MTP (speculative decoding) support for Gemma 4 (#318 MTP crash fixed). (native-v0.13.1-a restores the NPU dispatch libs accidentally omitted from native-v0.13.1 — #155.)
+- **LiteRT-LM**: native libs from `native-v0.14.0` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). v0.14.0: native per-session sampler (opaque session-config) + #214 GPU output-garbage fix; Dawn split static→dynamic (Linux/Windows bundle `libwebgpu_dawn`). Windows discrete GPU (WebGPU/Dawn) regressed upstream — use CPU/NPU on Windows (LiteRT-LM #2957).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
 - **Current Version**: core `flutter_gemma` `1.3.2`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.2.0`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.3`; `flutter_gemma_agent` `0.1.0`, `flutter_gemma_builtin_ai` `0.1.0`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
@@ -175,7 +175,7 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by each package's `hook/build.dart` from `native-v0.12.0-a` GitHub release; SHA256-verified, bundled via Native Assets
+- Native libs fetched at build time by each package's `hook/build.dart` from `native-v0.14.0` GitHub release; SHA256-verified, bundled via Native Assets
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 - Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)

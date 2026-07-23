@@ -7,7 +7,7 @@
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/flutter_gemma)
 
-**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B).
+**The plugin supports not only Gemma, but also other models. Here's the full list of supported models:** [Gemma 4 E2B/E4B](https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm), [Gemma3n E2B/E4B](https://huggingface.co/google/gemma-3n-E2B-it-litert-preview), [FastVLM 0.5B](https://huggingface.co/litert-community/FastVLM-0.5B), [Gemma-3 1B](https://huggingface.co/litert-community/Gemma3-1B-IT), [Gemma 3 270M](https://huggingface.co/litert-community/gemma-3-270m-it), [FunctionGemma 270M](https://huggingface.co/sasha-denisov/function-gemma-270M-it), [Qwen3 0.6B](https://huggingface.co/litert-community/Qwen3-0.6B), [Qwen 2.5](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct), [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct), [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B), [SmolLM 135M](https://huggingface.co/litert-community/SmolLM-135M-Instruct), [SmolLM3 3B](https://huggingface.co/litert-community/SmolLM3-3B), [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning), [Qwen2-VL 2B](https://huggingface.co/litert-community/Qwen2-VL-2B), [SmolVLM2 500M](https://huggingface.co/litert-community/SmolVLM2-500M), [LLaVA-OneVision 0.5B](https://huggingface.co/litert-community/LLaVA-OneVision-0.5B), [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) (CPU-only).
 
 *Note: The flutter_gemma plugin supports Gemma 4 and Gemma3n (with **multimodal vision and audio support**), FastVLM, Qwen2-VL, SmolVLM2 and LLaVA-OneVision (vision), Gemma-3, FunctionGemma, Qwen3, Qwen 2.5, Phi-4 (incl. Phi-4 Mini Reasoning), DeepSeek R1, SmolLM and SmolLM3. Desktop platforms (macOS, Windows, Linux) require `.litertlm` model format.
 
@@ -1029,7 +1029,7 @@ await FlutterGemma.installModel(
 - ✅ **EmbeddingGemma** - `litert-community/` requires access
 
 **Public models (no auth needed):**
-- ❌ **DeepSeek, Qwen3, Qwen 2.5, SmolLM, Phi-4, FastVLM** - Public repos
+- ❌ **DeepSeek, Qwen3, Qwen 2.5, SmolLM, SmolLM3, Phi-4, FastVLM, Qwen2-VL, SmolVLM2, LLaVA-OneVision** - Public repos
 
 **Get your token:** https://huggingface.co/settings/tokens
 
@@ -1554,6 +1554,9 @@ chat.generateChatResponseAsync().listen((response) {
 | [Phi-4 Mini](https://huggingface.co/litert-community/Phi-4-mini-instruct) | 3.9GB | ✅ | ✅ | ✅ |
 | [Phi-4 Mini Reasoning](https://huggingface.co/litert-community/Phi-4-mini-reasoning) | 2.8GB | ✅ | ✅ | ❌ |
 | [DeepSeek R1](https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B) | 1.7GB | ❌ | ✅ | ❌ |
+| [TranslateGemma 4B](https://huggingface.co/google/translategemma-4b-it) † | 2-4GB | ❌ | ✅ | ❌ |
+
+† **TranslateGemma is CPU-only** and ships only as a community MediaPipe `.task` bundle ([`barakplasma/translategemma-4b-it-android-task-quantized`](https://huggingface.co/barakplasma/translategemma-4b-it-android-task-quantized)) — there's no desktop `.litertlm` build, and its float32 `EMBEDDING_LOOKUP` layout crashes the LiteRT GPU partitioner on Metal/WebGPU, so it does not run on Desktop or Web. See the [Model Capabilities](#model-capabilities) note for details.
 
 ### 📊 Text Embedding Models
 

@@ -47,6 +47,12 @@ Pick by what you actually used in 0.16.x:
 > You can add **both** engine packages and let the registry route each model by
 > its file type.
 
+> **New opt-in packages since 1.2/1.3** (not migration targets from the 0.16.x
+> monolith — they add new capabilities): `flutter_gemma_agent` (on-device agent
+> skills — SKILL.md + tool-calling loop) and `flutter_gemma_builtin_ai` (OS
+> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS).
+> Add either only if you want that feature — see the README **Features** list.
+
 ## 2. main.dart — the one new call
 
 **Before (0.16.x):** engines were bundled into core; `initialize()` was optional.

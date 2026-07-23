@@ -123,7 +123,7 @@ class EmbeddingCore {
       final modelPtr = calloc<LiteRtModel>();
       try {
         bindings
-            .createModelFromFile(pathC, modelPtr)
+            .createModelFromFile(environment, pathC, modelPtr)
             .check('LiteRtCreateModelFromFile($modelPath)');
       } finally {
         calloc.free(pathC);

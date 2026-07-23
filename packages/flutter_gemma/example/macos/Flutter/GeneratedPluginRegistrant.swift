@@ -8,6 +8,7 @@ import Foundation
 import audio_session
 import file_selector_macos
 import flutter_gemma
+import flutter_gemma_builtin_ai
 import flutter_inappwebview_macos
 import flutter_local_notifications
 import just_audio
@@ -20,6 +21,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   AudioSessionPlugin.register(with: registry.registrar(forPlugin: "AudioSessionPlugin"))
   FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))
   FlutterGemmaPlugin.register(with: registry.registrar(forPlugin: "FlutterGemmaPlugin"))
+  FlutterGemmaBuiltInAiPlugin.register(with: registry.registrar(forPlugin: "FlutterGemmaBuiltInAiPlugin"))
   InAppWebViewFlutterPlugin.register(with: registry.registrar(forPlugin: "InAppWebViewFlutterPlugin"))
   FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   JustAudioPlugin.register(with: registry.registrar(forPlugin: "JustAudioPlugin"))

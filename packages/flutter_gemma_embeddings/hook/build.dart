@@ -148,7 +148,7 @@ class _NativeBundle {
 /// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.13.1-b',
+  version: '0.14.0',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -174,19 +174,19 @@ const _litertlmBundle = _NativeBundle(
   // the cross-package guard throws on a version skew.
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '2c84bdacd4f367a631270a6b3f8ff87e2d11aa019d8e898a2361f40591667024',
+        '98df14ffbf8d5f14ec78f05794101077d11f0d149c25d00032a9a8e1f075e8b1',
     'litertlm-linux_arm64.tar.gz':
-        '79ec60b99076e53bd51e1be4bedeb45abb8d724d1bb45c8acc5c171cc4cde7bd',
+        '875c491a4a95713c575b98c26088ff6d8f484a0b360466f6db2f42e515ae9521',
     'litertlm-windows_x86_64.tar.gz':
-        'ba2cf8bf67c2dbf8e9faca01585bf5be463c870c6c69ae071fb0157676e399d1',
+        'e86ec6924e5886d164e3cc6a40ede9e5b750c2b6b952a85bd86a08c1f5a9a05e',
     'litertlm-macos_arm64.tar.gz':
-        '59d7f73d1cb4077ad82fefb0a8d2a506d8c89d61487a7981816dbffe8a3cbe2d',
+        'c7fbcb8a977ac92f0a7ce19430f810eed6938a4d8324381d7f4ee4c0763073e8',
     'litertlm-ios_arm64.tar.gz':
-        'dce231a0c624e0f7e0287eb5e28a78d895f7af5dc0fa7399f89443ce54a5f44f',
+        '174304237a400131fa673f7cfd90e05633feb7b54f08a13090ac86ae1510bff9',
     'litertlm-ios_sim_arm64.tar.gz':
-        '08724bafac9381a9fde8658ce5a1137f1f5b966d82dd63e32b2e201d617c0b9d',
+        'ee619c2bfcb58f08c5f370ff34ceae39d85579619a6490b8e0372cfa04b033e7',
     'litertlm-android_arm64.tar.gz':
-        '1d53054e1032ee84b0f0d244beeefe7ff75c8c4374577ace5b4c1e4e52594507',
+        'b583d49e199fe4dfdc09f44f1b4629565d784c05d33d2b109614e158da1be8bf',
   },
   companions: [
     'GemmaModelConstraintProvider',
@@ -198,6 +198,7 @@ const _litertlmBundle = _NativeBundle(
     'LiteRtTopKOpenClSampler', // Android OpenCL GPU sampler — honors seed
     'LiteRtTopKWebGpuSampler', // Linux/Windows GPU sampler
     'LiteRt', // Linux/Windows core runtime
+    'webgpu_dawn', // Linux/Windows Dawn WebGPU (split to a shared lib in v0.14.0)
   ],
   // On macOS, skip the upstream Apple companion dylibs from Native Assets
   // bundling (#247). The three dylibs Google ships in
@@ -228,6 +229,7 @@ const _litertlmBundle = _NativeBundle(
     'libLiteRt',
     'libLiteRtTopKWebGpuSampler',
     'libLiteRtWebGpuAccelerator',
+    'libwebgpu_dawn', // lib-prefixed for the accelerator's PE import (v0.14.0)
     // DXC runtime
     'dxil',
     'dxcompiler',

@@ -275,7 +275,7 @@ deferred, so Dart must await `window.litertLmReady` before any static interop:
 ```
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.12.1/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();

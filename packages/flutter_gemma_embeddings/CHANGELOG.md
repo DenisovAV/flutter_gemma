@@ -1,3 +1,6 @@
+## 1.0.3
+- Migrate to LiteRT v0.14.0 3-arg `LiteRtCreateModelFromFile` (adds `LiteRtEnvironment`); native-v0.14.0.
+
 ## 1.0.2
 - Realign the shared LiteRT-LM native bundle to native-v0.13.1-b (#364). No API change.
 

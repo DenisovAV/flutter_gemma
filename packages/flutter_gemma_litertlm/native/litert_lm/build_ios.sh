@@ -49,14 +49,14 @@ fi
 # This is the first public LiteRT-LM commit where libLiteRtLm rebuilt from
 # source has matching ABI with the prebuilt accelerators. v0.11.0 itself
 # is broken — see the WARNING above and the upstream issue we filed.
-DEFAULT_REF="a0afb5a56acd106b23a2b2385b8469834dc268c0"
+DEFAULT_REF="80f301ff9a3b02c2c1e7be2dd1a567752f7b51b6"
 TARGET_REF="${VERSION:-$DEFAULT_REF}"
 echo "Checking out $TARGET_REF..."
 git checkout -f "$TARGET_REF"
 echo "Building from: $(git log --oneline -1)"
 
 # 3. Ensure shared library target exists
-if ! grep -q "linkshared" c/BUILD; then
+if ! grep -q '"libLiteRtLm.dylib"' c/BUILD; then
   echo "Adding shared library target to c/BUILD..."
   cat >> c/BUILD << 'BUILDEOF'
 

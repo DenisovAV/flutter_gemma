@@ -23,7 +23,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="a0afb5a56acd106b23a2b2385b8469834dc268c0"
+DEFAULT_REF="80f301ff9a3b02c2c1e7be2dd1a567752f7b51b6"
 VERSION="${1:-}"
 
 # Resolve Android NDK — prefer ANDROID_NDK_HOME env, else newest under
@@ -68,7 +68,7 @@ git checkout -f "$TARGET_REF"
 echo "Building from: $(git log --oneline -1)"
 
 # 3. Ensure cc_binary(linkshared=True) target exists in c/BUILD
-if ! grep -q "linkshared" c/BUILD; then
+if ! grep -q '"libLiteRtLm.dylib"' c/BUILD; then
   cat >> c/BUILD << 'BUILDEOF'
 
 cc_binary(

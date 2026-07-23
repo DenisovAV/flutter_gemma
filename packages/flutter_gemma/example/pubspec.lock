@@ -246,7 +246,7 @@ packages:
       path: "../../flutter_gemma_embeddings"
       relative: true
     source: path
-    version: "1.0.3"
+    version: "1.0.4"
   flutter_gemma_litertlm:
     dependency: "direct main"
     description:

@@ -26,8 +26,14 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:ffi/ffi.dart';
+// Direct file import (not the package barrel): this file is native-only —
+// never reached on web — so it always needs the real FFI bindings. Going
+// through `package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart`'s
+// `if (dart.library.ffi)` conditional export is for cross-platform consumers
+// that must also compile on web; `flutter analyze` resolves that conditional
+// to the (empty) web stub, so importing the concrete file sidesteps it.
+import 'package:flutter_gemma_litertlm/src/ffi/litert_bindings.dart';
 
-import 'litert_bindings.dart';
 import 'litert_embedding_worker.dart' show EmbeddingBackend;
 
 /// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the

@@ -93,6 +93,20 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     PreferredBackend? preferredBackend,
   });
 
+  /// Creates and returns a new [SpeechRecognizer] instance.
+  ///
+  /// Modern API: If paths are not provided, uses the active STT model set via
+  /// `FlutterGemma.installStt()` or `modelManager.setActiveModel()`.
+  ///
+  /// [modelPath] — path to the STT model file (optional if active model set).
+  /// [tokenizerPath] — path to the tokenizer file (optional if active model set).
+  /// [preferredBackend] — backend preference (e.g., CPU, GPU).
+  Future<SpeechRecognizer> createSttModel({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  });
+
   /// === RAG functionality ===
 
   /// Initialize vector store database.

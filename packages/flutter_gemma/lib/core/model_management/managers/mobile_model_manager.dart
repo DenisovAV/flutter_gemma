@@ -19,6 +19,7 @@ class MobileModelManager extends ModelFileManager {
     try {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
+      await _restoreActiveSttModel();
       gemmaLog('UnifiedModelManager initialized successfully');
     } catch (e, st) {
       // Restoring the previously-active model is best-effort. A failure here
@@ -238,6 +239,52 @@ class MobileModelManager extends ModelFileManager {
       tokenizerSource: FileSource(tokenizerPath),
     );
     gemmaLog('[ModelManager] restored active embedding model: $modelFilename');
+  }
+
+  /// Mirror of [_restoreActiveEmbeddingModel] for the STT pair
+  /// (model + tokenizer). The model is SELECTABLE, so [SttModelType] is also
+  /// persisted/restored (unlike embeddings, which have no type dimension).
+  Future<void> _restoreActiveSttModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modelFilename = prefs.getString(PreferencesKeys.activeSttFilename);
+    final tokenizerFilename = prefs.getString(
+      PreferencesKeys.activeSttTokenizerFilename,
+    );
+    final sttModelTypeName = prefs.getString(
+      PreferencesKeys.activeSttModelType,
+    );
+
+    if (modelFilename == null ||
+        tokenizerFilename == null ||
+        sttModelTypeName == null) {
+      return;
+    }
+
+    final SttModelType sttModelType;
+    try {
+      sttModelType = SttModelType.values.byName(sttModelTypeName);
+    } catch (e) {
+      gemmaLog(
+        '[ModelManager] active STT restore: unknown SttModelType ($sttModelTypeName) — skipping',
+      );
+      return;
+    }
+
+    final fs = ServiceRegistry.instance.fileSystemService;
+    final modelPath = await fs.getTargetPath(modelFilename);
+    final tokenizerPath = await fs.getTargetPath(tokenizerFilename);
+    if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
+      gemmaLog('[ModelManager] active STT restore: file missing — skipping');
+      return;
+    }
+
+    _activeSttModel = SttModelSpec(
+      name: modelFilename,
+      modelSource: FileSource(modelPath),
+      tokenizerSource: FileSource(tokenizerPath),
+      sttModelType: sttModelType,
+    );
+    gemmaLog('[ModelManager] restored active STT model: $modelFilename');
   }
 
   /// Internal method for ModelSpec-based operations
@@ -1012,10 +1059,29 @@ class MobileModelManager extends ModelFileManager {
     gemmaLog('Active embedding identity cleared');
   }
 
+  @override
+  Future<void> clearActiveSttIdentity() async {
+    await _ensureInitialized();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeSttFilename);
+      await prefs.remove(PreferencesKeys.activeSttTokenizerFilename);
+      await prefs.remove(PreferencesKeys.activeSttModelType);
+      await prefs.remove(PreferencesKeys.activeSttSource);
+      await prefs.remove(PreferencesKeys.activeSttTokenizerSource);
+      _activeSttModel = null;
+    } catch (e) {
+      gemmaLog('[ModelManager] clearActiveSttIdentity failed: $e');
+      rethrow;
+    }
+    gemmaLog('Active STT identity cleared');
+  }
+
   // === Active Model Management ===
 
   ModelSpec? _activeInferenceModel;
   ModelSpec? _activeEmbeddingModel;
+  ModelSpec? _activeSttModel;
 
   /// Gets the currently active inference model specification
   @override
@@ -1024,6 +1090,10 @@ class MobileModelManager extends ModelFileManager {
   /// Gets the currently active embedding model specification
   @override
   ModelSpec? get activeEmbeddingModel => _activeEmbeddingModel;
+
+  /// Gets the currently active STT model specification
+  @override
+  ModelSpec? get activeSttModel => _activeSttModel;
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
@@ -1047,6 +1117,10 @@ class MobileModelManager extends ModelFileManager {
       _activeEmbeddingModel = spec;
       gemmaLog('✅ Set active embedding model: ${spec.name}');
       unawaited(_persistActiveEmbeddingIdentity(spec));
+    } else if (spec is SttModelSpec) {
+      _activeSttModel = spec;
+      gemmaLog('✅ Set active STT model: ${spec.name}');
+      unawaited(_persistActiveSttIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }
@@ -1105,6 +1179,40 @@ class MobileModelManager extends ModelFileManager {
       );
     } catch (e) {
       gemmaLog('[ModelManager] persistActiveEmbeddingIdentity failed: $e');
+    }
+  }
+
+  Future<void> _persistActiveSttIdentity(SttModelSpec spec) async {
+    try {
+      final modelFile = spec.files.firstWhere(
+        (f) => f.prefsKey == PreferencesKeys.sttModelFile,
+      );
+      final tokenizerFile = spec.files.firstWhere(
+        (f) => f.prefsKey == PreferencesKeys.sttTokenizerFile,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        PreferencesKeys.activeSttFilename,
+        modelFile.filename,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttTokenizerFilename,
+        tokenizerFile.filename,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttModelType,
+        spec.sttModelType.name,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttSource,
+        spec.modelSource.encode(),
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttTokenizerSource,
+        spec.tokenizerSource.encode(),
+      );
+    } catch (e) {
+      gemmaLog('[ModelManager] persistActiveSttIdentity failed: $e');
     }
   }
 

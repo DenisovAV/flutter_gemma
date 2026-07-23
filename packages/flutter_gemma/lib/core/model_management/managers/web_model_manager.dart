@@ -44,6 +44,7 @@ class WebModelManager extends ModelFileManager {
     try {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
+      await _restoreActiveSttModel();
       gemmaLog('WebModelManager initialized');
     } catch (e, st) {
       // Best-effort restore: a failure must not abort app startup — start with
@@ -167,6 +168,66 @@ class WebModelManager extends ModelFileManager {
     gemmaLog(
       '[WebModelManager] restored active embedding model: $modelFilename',
     );
+  }
+
+  /// Mirror of [_restoreActiveEmbeddingModel] for the STT pair
+  /// (model + tokenizer). The model is SELECTABLE, so [SttModelType] is also
+  /// persisted/restored (unlike embeddings, which have no type dimension).
+  Future<void> _restoreActiveSttModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modelFilename = prefs.getString(PreferencesKeys.activeSttFilename);
+    final tokenizerFilename = prefs.getString(
+      PreferencesKeys.activeSttTokenizerFilename,
+    );
+    final sttModelTypeName = prefs.getString(
+      PreferencesKeys.activeSttModelType,
+    );
+    final modelSourceEncoded = prefs.getString(PreferencesKeys.activeSttSource);
+    final tokenizerSourceEncoded = prefs.getString(
+      PreferencesKeys.activeSttTokenizerSource,
+    );
+
+    if (modelFilename == null ||
+        tokenizerFilename == null ||
+        sttModelTypeName == null ||
+        modelSourceEncoded == null ||
+        tokenizerSourceEncoded == null) {
+      return;
+    }
+
+    final SttModelType sttModelType;
+    try {
+      sttModelType = SttModelType.values.byName(sttModelTypeName);
+    } catch (e) {
+      gemmaLog(
+        '[WebModelManager] active STT restore: unknown SttModelType ($sttModelTypeName) — skipping',
+      );
+      return;
+    }
+
+    final modelSource = ModelSource.tryDecode(modelSourceEncoded);
+    final tokenizerSource = ModelSource.tryDecode(tokenizerSourceEncoded);
+    if (modelSource == null || tokenizerSource == null) {
+      gemmaLog(
+        '[WebModelManager] active STT restore: malformed source — skipping',
+      );
+      return;
+    }
+
+    final repo = ServiceRegistry.instance.modelRepository;
+    if (!await repo.isInstalled(modelFilename) ||
+        !await repo.isInstalled(tokenizerFilename)) {
+      gemmaLog('[WebModelManager] active STT restore: file missing — skipping');
+      return;
+    }
+
+    _activeSttModel = SttModelSpec(
+      name: modelFilename,
+      modelSource: modelSource,
+      tokenizerSource: tokenizerSource,
+      sttModelType: sttModelType,
+    );
+    gemmaLog('[WebModelManager] restored active STT model: $modelFilename');
   }
 
   /// Checks if a model is installed
@@ -644,6 +705,7 @@ class WebModelManager extends ModelFileManager {
   // Active models (modern API)
   ModelSpec? _activeInferenceModel;
   ModelSpec? _activeEmbeddingModel;
+  ModelSpec? _activeSttModel;
 
   /// Gets the currently active inference model specification
   @override
@@ -652,6 +714,10 @@ class WebModelManager extends ModelFileManager {
   /// Gets the currently active embedding model specification
   @override
   ModelSpec? get activeEmbeddingModel => _activeEmbeddingModel;
+
+  /// Gets the currently active STT model specification
+  @override
+  ModelSpec? get activeSttModel => _activeSttModel;
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
@@ -850,6 +916,24 @@ class WebModelManager extends ModelFileManager {
     gemmaLog('WebModelManager: active embedding identity cleared');
   }
 
+  @override
+  Future<void> clearActiveSttIdentity() async {
+    await _ensureInitialized();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeSttFilename);
+      await prefs.remove(PreferencesKeys.activeSttTokenizerFilename);
+      await prefs.remove(PreferencesKeys.activeSttModelType);
+      await prefs.remove(PreferencesKeys.activeSttSource);
+      await prefs.remove(PreferencesKeys.activeSttTokenizerSource);
+      _activeSttModel = null;
+    } catch (e) {
+      gemmaLog('[WebModelManager] clearActiveSttIdentity failed: $e');
+      rethrow;
+    }
+    gemmaLog('WebModelManager: active STT identity cleared');
+  }
+
   // === Legacy LoRA Management Methods Implementation ===
 
   @override
@@ -934,6 +1018,10 @@ class WebModelManager extends ModelFileManager {
       _activeEmbeddingModel = spec;
       gemmaLog('✅ Set active embedding model: ${spec.name}');
       unawaited(_persistActiveEmbeddingIdentity(spec));
+    } else if (spec is SttModelSpec) {
+      _activeSttModel = spec;
+      gemmaLog('✅ Set active STT model: ${spec.name}');
+      unawaited(_persistActiveSttIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }
@@ -992,6 +1080,40 @@ class WebModelManager extends ModelFileManager {
       );
     } catch (e) {
       gemmaLog('[WebModelManager] persistActiveEmbeddingIdentity failed: $e');
+    }
+  }
+
+  Future<void> _persistActiveSttIdentity(SttModelSpec spec) async {
+    try {
+      final modelFile = spec.files.firstWhere(
+        (f) => f.prefsKey == PreferencesKeys.sttModelFile,
+      );
+      final tokenizerFile = spec.files.firstWhere(
+        (f) => f.prefsKey == PreferencesKeys.sttTokenizerFile,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        PreferencesKeys.activeSttFilename,
+        modelFile.filename,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttTokenizerFilename,
+        tokenizerFile.filename,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttModelType,
+        spec.sttModelType.name,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttSource,
+        spec.modelSource.encode(),
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttTokenizerSource,
+        spec.tokenizerSource.encode(),
+      );
+    } catch (e) {
+      gemmaLog('[WebModelManager] persistActiveSttIdentity failed: $e');
     }
   }
 

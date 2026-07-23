@@ -20,6 +20,8 @@ import '../core/utils/file_name_utils.dart';
 import '../core/registry/engine_registry.dart';
 import '../core/registry/embedding_registry.dart';
 import '../core/registry/embedding_backend_provider.dart';
+import '../core/registry/stt_registry.dart';
+import '../core/registry/stt_backend_provider.dart';
 import '../core/registry/runtime_config.dart';
 import '../core/model_management/model_specs.dart';
 // Re-export the spec value types so existing importers of this library (tests,
@@ -47,6 +49,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   EmbeddingModel? _initializedEmbeddingModel;
   EmbeddingModelSpec?
   _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
+
+  Completer<SpeechRecognizer>? _initSttCompleter;
+  SpeechRecognizer? _initializedSttModel;
+  SttModelSpec?
+  _lastActiveSttSpec; // Track which spec was used to create _initializedSttModel
 
   // Made public for example app integration
   late final MobileModelManager _unifiedManager = MobileModelManager();
@@ -373,6 +380,169 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initEmbeddingCompleter = null;
       _initializedEmbeddingModel = null;
       _lastActiveEmbeddingSpec = null;
+      completer.completeError(e, st);
+      Error.throwWithStackTrace(e, st);
+    }
+  }
+
+  @override
+  Future<SpeechRecognizer> createSttModel({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
+    // Modern API: Use active STT model if paths not provided
+    if (modelPath == null || tokenizerPath == null) {
+      final manager = _unifiedManager;
+      final activeModel = manager.activeSttModel;
+
+      // No active STT model - user must set one first
+      if (activeModel == null) {
+        throw StateError(
+          'No active STT model set. Use `FlutterGemma.installStt()` or `modelManager.setActiveModel()` to set a model first',
+        );
+      }
+
+      // Get the actual model file paths through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw StateError(
+          'STT model file paths not found. Use the `modelManager` to load the model first',
+        );
+      }
+
+      // Extract model and tokenizer paths from spec
+      final activeModelPath = modelFilePaths[PreferencesKeys.sttModelFile];
+      final activeTokenizerPath =
+          modelFilePaths[PreferencesKeys.sttTokenizerFile];
+
+      if (activeModelPath == null || activeTokenizerPath == null) {
+        throw StateError(
+          'Could not find model or tokenizer path in active STT model',
+        );
+      }
+
+      // Check if singleton exists and matches the active model
+      if (_initSttCompleter != null &&
+          _initializedSttModel != null &&
+          _lastActiveSttSpec != null) {
+        final currentSpec = _lastActiveSttSpec!;
+        final requestedSpec = activeModel as SttModelSpec;
+
+        if (currentSpec.name != requestedSpec.name) {
+          // Active model changed - close old model and create new one
+          gemmaLog(
+            '⚠️  Active STT model changed: ${currentSpec.name} → ${requestedSpec.name}',
+          );
+          gemmaLog('🔄 Closing old STT model and creating new one...');
+          await _initializedSttModel?.close();
+          // close-listener will reset _initializedSttModel and _initSttCompleter
+          _lastActiveSttSpec = null;
+        } else {
+          // Same model - return existing singleton
+          gemmaLog(
+            'ℹ️  Reusing existing STT model instance for ${requestedSpec.name}',
+          );
+          return _initSttCompleter!.future;
+        }
+      }
+
+      modelPath = activeModelPath;
+      tokenizerPath = activeTokenizerPath;
+
+      gemmaLog('Using active STT model: $modelPath, tokenizer: $tokenizerPath');
+    } else {
+      // Legacy API with explicit paths - check if singleton exists
+      if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
+        gemmaLog('ℹ️  Reusing existing STT model instance (Legacy API)');
+        return completer.future;
+      }
+    }
+
+    final completer = _initSttCompleter = Completer<SpeechRecognizer>();
+
+    // Verify the active model is still installed (for Modern API path)
+    final manager = _unifiedManager;
+    final activeModel = manager.activeSttModel;
+
+    if (activeModel != null) {
+      final isModelInstalled = await manager.isModelInstalled(activeModel);
+      if (!isModelInstalled) {
+        completer.completeError(
+          Exception(
+            'Active STT model is no longer installed. Use the `modelManager` to load the model first',
+          ),
+        );
+        return completer.future;
+      }
+    }
+
+    try {
+      // Dispatches construction through the SttRegistry (probe-chain, mirrors
+      // EmbeddingRegistry). The backend reads spec.sttModelType to select its
+      // runtime profile, and ONLY config.modelPath/config.tokenizerPath for
+      // path resolution — it ignores the spec arg for path resolution (see
+      // LiteRtSttBackend.createModel).
+      final activeSpec =
+          activeModel as SttModelSpec?; // null on legacy explicit-paths
+      final SttBackendProvider? backend = activeSpec != null
+          ? SttRegistry.instance.findFor(activeSpec)
+          : (SttRegistry.instance.registered.isNotEmpty
+                ? SttRegistry.instance.registered.first
+                : null);
+      if (backend == null) {
+        throw StateError(
+          'No STT backend registered. Add flutter_gemma_speech to '
+          'pubspec.yaml and pass it in sttBackends: of '
+          'FlutterGemma.initialize(...). Registered backends: '
+          '${SttRegistry.instance.registered.map((b) => b.name).join(", ")}.',
+        );
+      }
+      // modelPath/tokenizerPath are non-null here (resolved in the preamble or
+      // passed by the legacy API). maxTokens is unused by STT.
+      final sttConfig = RuntimeConfig(
+        maxTokens: 0,
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      );
+      // The backend's createModel(spec, config) signature requires a non-null
+      // spec, but it resolves paths exclusively from config. On the legacy
+      // explicit-paths path there is no active spec, so synthesize one from the
+      // resolved file paths (FileSource, mobile/desktop only — web swaps in its
+      // own plugin) purely to satisfy the signature. sttModelType defaults to
+      // moonshine — the only shipped profile — for this legacy-path fallback.
+      final specForBackend =
+          activeSpec ??
+          SttModelSpec(
+            name: 'legacy:${path.basename(modelPath)}',
+            modelSource: ModelSource.file(modelPath),
+            tokenizerSource: ModelSource.file(tokenizerPath),
+            sttModelType: SttModelType.moonshine,
+          );
+      final model = await backend.createModel(specForBackend, sttConfig);
+
+      // Core owns the singleton lifecycle: track it + reset on close. The
+      // package-built model fires this via CloseNotifier (addCloseListener).
+      _initializedSttModel = model;
+      model.addCloseListener(() {
+        _initializedSttModel = null;
+        _initSttCompleter = null;
+        _lastActiveSttSpec = null;
+      });
+
+      // Save the spec that was used to create this model (Modern API path only)
+      if (activeSpec != null) {
+        _lastActiveSttSpec = activeSpec;
+      }
+
+      completer.complete(model);
+      return model;
+    } catch (e, st) {
+      // FIX #170: Reset state to allow retry with different model
+      _initSttCompleter = null;
+      _initializedSttModel = null;
+      _lastActiveSttSpec = null;
       completer.completeError(e, st);
       Error.throwWithStackTrace(e, st);
     }

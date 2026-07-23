@@ -88,6 +88,28 @@ class PreferencesKeys {
       'active_embedding_tokenizer_source';
 
   // ============================================================================
+  // Active STT model identity (mirrors the active embedding identity keys)
+  // ============================================================================
+
+  /// Filename of the currently active STT model.
+  static const String activeSttFilename = 'active_stt_filename';
+
+  /// Filename of the currently active STT tokenizer.
+  static const String activeSttTokenizerFilename =
+      'active_stt_tokenizer_filename';
+
+  /// `SttModelType.name` of the currently active STT model — required to
+  /// rehydrate [SttModelSpec.sttModelType] on restore (the model is
+  /// SELECTABLE, so the type is not inferable from the filename alone).
+  static const String activeSttModelType = 'active_stt_model_type';
+
+  /// Same encoding as [activeInferenceSource], for the STT model.
+  static const String activeSttSource = 'active_stt_source';
+
+  /// Same encoding as [activeInferenceSource], for the STT tokenizer.
+  static const String activeSttTokenizerSource = 'active_stt_tokenizer_source';
+
+  // ============================================================================
   // Path mappings (dynamic keys with filename)
   // ============================================================================
 

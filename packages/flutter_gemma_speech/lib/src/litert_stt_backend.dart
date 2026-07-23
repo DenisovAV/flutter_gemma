@@ -4,6 +4,8 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show SpeechRecognizer;
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show SttModelSpec;
+import 'litert/litert_speech_recognizer.dart';
+import 'model/stt_model_profile.dart';
 
 /// LiteRT C API STT backend. Sole `.tflite` STT backend — the *model* is
 /// selected by [SttModelSpec.sttModelType] (mirrors [InferenceModelSpec.modelType]),
@@ -36,12 +38,13 @@ class LiteRtSttBackend implements SttBackendProvider {
       );
     }
     // spec.sttModelType (e.g. SttModelType.moonshine) selects the runtime
-    // profile — this backend never hardcodes a model. The pipeline that
-    // consumes it (SttModelProfile.forType + LiteRtSpeechRecognizer.create)
-    // lands in the next task; this is the backend skeleton only.
-    throw UnimplementedError(
-      'LiteRtSttBackend: the STT pipeline for ${spec.sttModelType} is not '
-      'wired yet (lands with SttModelProfile/LiteRtSpeechRecognizer).',
+    // profile — this backend never hardcodes a model.
+    return LiteRtSpeechRecognizer.create(
+      profile: SttModelProfile.forType(spec.sttModelType),
+      modelPath: config.modelPath,
+      tokenizerPath: tokenizerPath,
+      preferredBackend: config.preferredBackend,
+      onClose: () {},
     );
   }
 }

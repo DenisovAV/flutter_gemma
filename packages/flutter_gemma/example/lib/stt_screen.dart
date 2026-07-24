@@ -90,6 +90,7 @@ class _SttScreenState extends State<SttScreen> {
 
   Future<void> _transcribe(Uint8List pcm16kMono) async {
     if (_recognizer == null) return;
+    if (!mounted) return; // callers await audio decode/IO before reaching here
     setState(() {
       _isTranscribing = true;
       _transcribeError = null;
@@ -141,6 +142,8 @@ class _SttScreenState extends State<SttScreen> {
 
     if (!kIsWeb && (platformIsAndroid || platformIsIOS)) {
       final status = await Permission.microphone.request();
+      if (!mounted)
+        return; // a permission dialog is a classic navigate-away gap
       if (!status.isGranted) {
         scaffoldMessenger.showSnackBar(
           const SnackBar(
@@ -173,6 +176,7 @@ class _SttScreenState extends State<SttScreen> {
         path: kIsWeb ? '' : '$systemTempPath/stt_recording.wav',
       );
 
+      if (!mounted) return;
       setState(() {
         _isRecording = true;
         _recordingDuration = Duration.zero;
@@ -200,6 +204,7 @@ class _SttScreenState extends State<SttScreen> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     try {
       final path = await _audioRecorder.stop();
+      if (!mounted) return;
       setState(() => _isRecording = false);
       if (path == null) return;
 
@@ -221,6 +226,7 @@ class _SttScreenState extends State<SttScreen> {
       );
       await _transcribe(pcm);
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isRecording = false);
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Failed to save recording: $e')),

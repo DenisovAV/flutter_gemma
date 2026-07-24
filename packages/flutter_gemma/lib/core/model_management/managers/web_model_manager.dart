@@ -366,14 +366,14 @@ class WebModelManager extends ModelFileManager {
     // Get all installed models from repository
     final allInstalled = await repository.listInstalled();
 
-    // Filter by type
-    final filtered = allInstalled.where((m) {
-      if (type == ModelManagementType.inference) {
-        return m.type == repo.ModelType.inference;
-      } else {
-        return m.type == repo.ModelType.embedding;
-      }
-    }).toList();
+    // Filter by type (exhaustive — a new ModelManagementType value must be
+    // mapped here, not silently bucketed into embedding).
+    final wantType = switch (type) {
+      ModelManagementType.inference => repo.ModelType.inference,
+      ModelManagementType.embedding => repo.ModelType.embedding,
+      ModelManagementType.stt => repo.ModelType.stt,
+    };
+    final filtered = allInstalled.where((m) => m.type == wantType).toList();
 
     // Return filenames
     return filtered.map((m) => m.id).toList();
@@ -394,11 +394,12 @@ class WebModelManager extends ModelFileManager {
     // Get all installed models from repository
     final allInstalled = await repository.listInstalled();
 
-    if (type == ModelManagementType.inference) {
-      return allInstalled.any((m) => m.type == repo.ModelType.inference);
-    } else {
-      return allInstalled.any((m) => m.type == repo.ModelType.embedding);
-    }
+    final wantType = switch (type) {
+      ModelManagementType.inference => repo.ModelType.inference,
+      ModelManagementType.embedding => repo.ModelType.embedding,
+      ModelManagementType.stt => repo.ModelType.stt,
+    };
+    return allInstalled.any((m) => m.type == wantType);
   }
 
   @override

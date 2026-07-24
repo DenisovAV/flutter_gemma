@@ -708,10 +708,14 @@ class MobileModelManager extends ModelFileManager {
       final registry = ServiceRegistry.instance;
       final repository = registry.modelRepository;
 
-      // Convert ModelManagementType to repo.ModelType
-      final modelType = type == ModelManagementType.inference
-          ? repo.ModelType.inference
-          : repo.ModelType.embedding;
+      // Convert ModelManagementType to repo.ModelType (exhaustive — a new
+      // ModelManagementType value must be mapped here, not silently bucketed
+      // into embedding).
+      final modelType = switch (type) {
+        ModelManagementType.inference => repo.ModelType.inference,
+        ModelManagementType.embedding => repo.ModelType.embedding,
+        ModelManagementType.stt => repo.ModelType.stt,
+      };
 
       // Get all installed models and filter by type
       final allModels = await repository.listInstalled();

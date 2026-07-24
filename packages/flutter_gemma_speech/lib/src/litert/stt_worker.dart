@@ -129,28 +129,30 @@ class SttWorker {
       }
     });
 
-    final isolate = await Isolate.spawn(
-      _workerEntry,
-      _WorkerInit(
-        replyTo: fromWorker.sendPort,
-        modelPath: modelPath,
-        tokenizerPath: tokenizerPath,
-        profile: profile,
-        backend: backend,
-        logLevel: gemmaLogLevel,
-      ),
-      // onExit posts `null` to fromWorker so we never wait on a dead isolate.
-      onExit: fromWorker.sendPort,
-      debugName: 'litert-stt-worker',
-    );
-
+    // Wrap BOTH the spawn and the ready-wait: if Isolate.spawn itself throws
+    // (e.g. resource exhaustion) fromWorker/sub would otherwise leak.
+    Isolate? isolate;
     final _Ready ready;
     try {
+      isolate = await Isolate.spawn(
+        _workerEntry,
+        _WorkerInit(
+          replyTo: fromWorker.sendPort,
+          modelPath: modelPath,
+          tokenizerPath: tokenizerPath,
+          profile: profile,
+          backend: backend,
+          logLevel: gemmaLogLevel,
+        ),
+        // onExit posts `null` to fromWorker so we never wait on a dead isolate.
+        onExit: fromWorker.sendPort,
+        debugName: 'litert-stt-worker',
+      );
       ready = await readyCompleter.future;
     } catch (_) {
       await sub.cancel();
       fromWorker.close();
-      isolate.kill(priority: Isolate.immediate);
+      isolate?.kill(priority: Isolate.immediate);
       rethrow;
     }
 

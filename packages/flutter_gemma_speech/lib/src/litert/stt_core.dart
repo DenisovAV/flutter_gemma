@@ -581,6 +581,12 @@ class SttCore {
 
         generated.add(bestId);
         if (shouldStopDecoding(bestId, generated.length, maxTokens)) {
+          if (bestId != sttDecodeEosId && generated.length >= maxTokens) {
+            gemmaLog(
+              '[SttCore] decode hit the $maxTokens-token cap without EOS — '
+              'transcript may be truncated.',
+            );
+          }
           return generated;
         }
       }

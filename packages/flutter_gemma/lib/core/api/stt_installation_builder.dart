@@ -239,11 +239,13 @@ class SttInstallationBuilder {
   }
 
   String _extractFilename(ModelSource source) {
+    // Note: `path` refers to package:path; bind the source's own path field to
+    // `p` so it does not shadow the import inside these arms.
     return switch (source) {
       NetworkSource(:final url) => path.basename(Uri.parse(url).path),
-      AssetSource(:final path) => path.split(RegExp(r'[/\\]')).last,
+      AssetSource(path: final p) => p.split(RegExp(r'[/\\]')).last,
       BundledSource(:final resourceName) => resourceName,
-      FileSource(:final path) => path.split(RegExp(r'[/\\]')).last,
+      FileSource(path: final p) => p.split(RegExp(r'[/\\]')).last,
     };
   }
 }

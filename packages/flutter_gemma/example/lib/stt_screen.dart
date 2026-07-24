@@ -36,6 +36,11 @@ class _SttScreenState extends State<SttScreen> {
 
   final AudioRecorder _audioRecorder = AudioRecorder();
   bool _isRecording = false;
+  // Reentrancy guards for the async gap BEFORE _isRecording/_isTranscribing
+  // flip true (a rapid double-tap during permission/IO would otherwise start
+  // two overlapping operations). Not UI state — plain guards.
+  bool _startingRecording = false;
+  bool _startingTranscribe = false;
   Duration _recordingDuration = Duration.zero;
   Timer? _recordingTimer;
   static const _maxRecordingDuration = Duration(seconds: 5);
@@ -113,6 +118,8 @@ class _SttScreenState extends State<SttScreen> {
   }
 
   Future<void> _transcribeBundledClip() async {
+    if (_isTranscribing || _startingTranscribe) return; // guard the load gap
+    _startingTranscribe = true;
     try {
       final data = await rootBundle.load('assets/test/test_audio.wav');
       final wavBytes = data.buffer.asUint8List();
@@ -126,6 +133,8 @@ class _SttScreenState extends State<SttScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _transcribeError = e.toString());
+    } finally {
+      _startingTranscribe = false;
     }
   }
 
@@ -133,7 +142,13 @@ class _SttScreenState extends State<SttScreen> {
     if (_isRecording) {
       await _stopRecordingAndTranscribe();
     } else {
-      await _startRecording();
+      if (_startingRecording) return; // guard the start-up async gap
+      _startingRecording = true;
+      try {
+        await _startRecording();
+      } finally {
+        _startingRecording = false;
+      }
     }
   }
 

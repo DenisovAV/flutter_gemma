@@ -282,6 +282,10 @@ class SttCore {
     final outAlloc = allocAligned(frames * dim * 4);
     final outBufPtr = calloc<LiteRtTensorBuffer>();
     var outBufCreated = false;
+    // On success outAlloc.raw is intentionally kept alive (it backs
+    // decode_args_0); on ANY throw before the return it must be freed here or
+    // it leaks native heap permanently (~frames*dim*4 bytes per failed encode).
+    var returning = false;
 
     try {
       final inHost = inAlloc.aligned.cast<Float>();
@@ -315,8 +319,14 @@ class SttCore {
           .runCompiledModel(_compiledModel, 0, 1, inBufPtr, 1, outBufPtr)
           .check('LiteRtRunCompiledModel(encode)');
 
-      // Lock(Read) triggers the device→host sync on GPU/NPU; on CPU the
-      // locked pointer is the same host memory (already written in place).
+      // Lock(Read) triggers the device→host sync on GPU/NPU. Read the hidden
+      // state THROUGH the locked pointer: on GPU/NPU the accelerator writes
+      // into device memory and Lock(Read) exposes a host-accessible copy that
+      // may NOT be outAlloc — copying from lockedPtr into outAlloc (which
+      // backs decode_args_0) guarantees the hidden state is materialized.
+      // On CPU lockedPtr is the same host memory (a no-op self-copy, skipped).
+      // Without this the host buffer stays zero on GPU → decode runs on zeros
+      // → silent empty transcript. Mirrors litert_embedding_core.dart.
       final lockedPtr = calloc<Pointer<Void>>();
       try {
         _bindings
@@ -326,11 +336,21 @@ class SttCore {
               kLiteRtTensorBufferLockModeRead,
             )
             .check('LiteRtLockTensorBuffer(encode out)');
-        _bindings.unlockTensorBuffer(outBufPtr.value);
+        final locked = lockedPtr.value.cast<Float>();
+        final dst = outAlloc.aligned.cast<Float>();
+        if (locked.address != dst.address) {
+          for (var i = 0; i < frames * dim; i++) {
+            dst[i] = locked[i];
+          }
+        }
+        _bindings
+            .unlockTensorBuffer(outBufPtr.value)
+            .check('LiteRtUnlockTensorBuffer(encode out)');
       } finally {
         calloc.free(lockedPtr);
       }
 
+      returning = true;
       return _EncoderOutput(outAlloc, frames, dim);
     } finally {
       if (inBufCreated) _bindings.destroyTensorBuffer(inBufPtr.value);
@@ -341,6 +361,7 @@ class SttCore {
       calloc.free(inBufPtr);
       calloc.free(outBufPtr);
       calloc.free(inAlloc.raw);
+      if (!returning) calloc.free(outAlloc.raw);
       inType.free();
       outType.free();
     }
@@ -353,26 +374,10 @@ class SttCore {
   List<int> _decodeLoop(_EncoderOutput hidden) {
     final maxTokens = _profile.maxDecodeTokens;
 
-    final hiddenType = LiteRtRankedTensorTypeView.calloc()
-      ..elementType = kLiteRtElementTypeFloat32
-      ..rank = 3
-      ..setDimension(0, 1)
-      ..setDimension(1, hidden.frames)
-      ..setDimension(2, hidden.dim);
-    final hiddenBufPtr = calloc<LiteRtTensorBuffer>();
-    _bindings
-        .createTensorBufferFromHostMemory(
-          hiddenType.pointer,
-          hidden.alloc.aligned.cast(),
-          hidden.frames * hidden.dim * 4,
-          nullptr,
-          hiddenBufPtr,
-        )
-        .check('CreateTensorBufferFromHostMemory(decode hidden)');
-    hiddenType.free();
-
     // Discover the decode output vocab size (dimension 2 of
-    // f32[1, maxTokens, vocab]) — generic over the profile.
+    // f32[1, maxTokens, vocab]) — generic over the profile. Done BEFORE
+    // creating the hidden TensorBuffer so a failure here leaks no native
+    // handle (the buffer + its destroy-in-finally are set up only after this).
     final outLayout = LiteRtLayoutView.calloc();
     int vocabSize;
     try {
@@ -394,6 +399,27 @@ class SttCore {
     } finally {
       outLayout.free();
     }
+
+    // decode_args_0: the encoder hidden state, wrapped once and reused every
+    // step. Created after vocab discovery so it is always covered by the
+    // try/finally below that destroys it.
+    final hiddenType = LiteRtRankedTensorTypeView.calloc()
+      ..elementType = kLiteRtElementTypeFloat32
+      ..rank = 3
+      ..setDimension(0, 1)
+      ..setDimension(1, hidden.frames)
+      ..setDimension(2, hidden.dim);
+    final hiddenBufPtr = calloc<LiteRtTensorBuffer>();
+    _bindings
+        .createTensorBufferFromHostMemory(
+          hiddenType.pointer,
+          hidden.alloc.aligned.cast(),
+          hidden.frames * hidden.dim * 4,
+          nullptr,
+          hiddenBufPtr,
+        )
+        .check('CreateTensorBufferFromHostMemory(decode hidden)');
+    hiddenType.free();
 
     final tokensAlloc = allocAligned(maxTokens * 4);
     final maskAlloc = allocAligned(maxTokens * maxTokens * 4);
@@ -450,6 +476,7 @@ class SttCore {
         final outBufPtr = calloc<LiteRtTensorBuffer>();
         var tokCreated = false, maskCreated = false, outCreated = false;
         int bestId;
+        var nanLogit = false;
 
         try {
           _bindings
@@ -515,10 +542,20 @@ class SttCore {
             final logits = lockedPtr.value.cast<Float>().asTypedList(
               maxTokens * vocabSize,
             );
-            bestId = argmax(
-              logits.sublist(row * vocabSize, (row + 1) * vocabSize),
+            final rowLogits = logits.sublist(
+              row * vocabSize,
+              (row + 1) * vocabSize,
             );
-            _bindings.unlockTensorBuffer(outBufPtr.value);
+            bestId = argmax(rowLogits);
+            // A NaN top logit means the backend produced invalid output (e.g.
+            // a GPU/accelerator failure, cf. #214). argmax then collapses to
+            // id 0 (<unk>), which detokenizes to '' and would be returned as a
+            // "successful" empty transcript indistinguishable from a silent
+            // clip. Flag it here and fail loudly after cleanup instead.
+            nanLogit = rowLogits[bestId].isNaN;
+            _bindings
+                .unlockTensorBuffer(outBufPtr.value)
+                .check('LiteRtUnlockTensorBuffer(decode out)');
           } finally {
             calloc.free(lockedPtr);
           }
@@ -532,6 +569,14 @@ class SttCore {
           tokType.free();
           maskType.free();
           outType.free();
+        }
+
+        if (nanLogit) {
+          throw StateError(
+            'STT decode produced NaN logits at step $len — the model backend '
+            'returned invalid output; transcription aborted rather than '
+            'silently returning an empty result.',
+          );
         }
 
         generated.add(bestId);

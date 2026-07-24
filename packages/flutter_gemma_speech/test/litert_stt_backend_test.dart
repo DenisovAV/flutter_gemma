@@ -28,10 +28,22 @@ void main() {
   );
 
   test(
-    'createModel reads spec.sttModelType (does not hardcode moonshine)',
+    'createModel reads spec.sttModelType: unimplemented families throw '
+    'UnimplementedError naming the type (does not hardcode moonshine)',
     () async {
       const b = LiteRtSttBackend();
-      for (final type in SttModelType.values) {
+      // moonshine is the one implemented profile; calling createModel for it
+      // resolves SttModelProfile.forType and spawns the real native pipeline
+      // (covered end-to-end elsewhere — profile resolution in
+      // stt_pipeline_test, on-device transcription in the example gate). Here
+      // we prove the backend surfaces the SELECTED type off the spec by
+      // checking the still-unimplemented families throw UnimplementedError
+      // naming their own type — a hardcoded-moonshine backend could not.
+      final unimplemented = SttModelType.values.where(
+        (t) => t != SttModelType.moonshine,
+      );
+      expect(unimplemented, isNotEmpty, reason: 'need a follow-on family');
+      for (final type in unimplemented) {
         final spec = SttModelSpec(
           name: 'test-$type',
           modelSource: NetworkSource('https://example.com/model.tflite'),
@@ -44,9 +56,6 @@ void main() {
           tokenizerPath: '/tmp/tokenizer.json',
         );
 
-        // The pipeline (SttModelProfile/LiteRtSpeechRecognizer) isn't wired
-        // until the next task; the skeleton surfaces the selected type in the
-        // thrown error, proving the backend reads it off the spec.
         await expectLater(
           () => b.createModel(spec, config),
           throwsA(
@@ -56,6 +65,7 @@ void main() {
               contains(type.toString()),
             ),
           ),
+          reason: '$type is a follow-on profile and must throw naming its type',
         );
       }
     },

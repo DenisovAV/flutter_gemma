@@ -436,7 +436,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           );
           gemmaLog('🔄 Closing old STT model and creating new one...');
           await _initializedSttModel?.close();
-          // close-listener will reset _initializedSttModel and _initSttCompleter
+          // Reset explicitly (mirror the desktop shell) instead of relying on
+          // the async close-listener, so the in-progress guard below cannot
+          // return the completer that is being torn down.
+          _initSttCompleter = null;
+          _initializedSttModel = null;
           _lastActiveSttSpec = null;
         } else {
           // Same model - return existing singleton
@@ -457,6 +461,15 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         gemmaLog('ℹ️  Reusing existing STT model instance (Legacy API)');
         return completer.future;
       }
+    }
+
+    // In-progress guard (Modern-API path): a concurrent createSttModel() during
+    // the initial load — completer set but the model not yet published to
+    // _initializedSttModel — must return the existing completer, not fall
+    // through and spawn a SECOND SttWorker/native model. Mirrors the desktop
+    // shell (which the Modern-API branch above otherwise lacked).
+    if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
+      return completer.future;
     }
 
     final completer = _initSttCompleter = Completer<SpeechRecognizer>();

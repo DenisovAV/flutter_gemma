@@ -5,10 +5,10 @@ Gecko / EmbeddingGemma `.tflite` models via the LiteRT C API + `dart:ffi`. Opt-i
 package — add it only if you compute embeddings (e.g. for on-device RAG).
 Android, iOS, macOS, Linux, Windows, Web.
 
-This package is **autonomous**: it does not depend on `flutter_gemma_litertlm`, so
-you can use embeddings without pulling in the `.litertlm` inference engine. When
-both packages are present they share one native library (`libLiteRtLm`), bundled
-once (see Troubleshooting).
+This package is thin logic that depends on **`flutter_gemma_litertlm`** — the full
+LiteRT engine, which owns the shared native library (`libLiteRtLm`) and exposes
+the LiteRt interpreter FFI. You get the native library transitively; there is no
+separate embeddings build hook.
 
 ## Usage
 
@@ -44,7 +44,7 @@ hash so a CDN compromise cannot inject code:
 > `openssl dgst -sha384 -binary web/litert_embeddings.js | openssl base64 -A`
 
 Native platforms need no setup — the LiteRT native library is bundled at build
-time by the package's Native-Assets hook.
+time by `flutter_gemma_litertlm`'s Native-Assets hook (a transitive dependency).
 
 ## Platforms
 
@@ -54,19 +54,18 @@ time by the package's Native-Assets hook.
 | macOS / Linux / Windows | ✅ FFI |
 | Web | ✅ via LiteRT.js (CDN) |
 
-The native library is fetched at build time by `hook/build.dart` (Native Assets)
-from a SHA256-verified GitHub release — no manual setup on native platforms.
+The native library is fetched at build time by `flutter_gemma_litertlm`'s
+`hook/build.dart` (Native Assets), a transitive dependency, from a
+SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
-### `dlopen` / "library not found" (`libLiteRtLm`) after removing `flutter_gemma_litertlm`
+### `dlopen` / "library not found" (`libLiteRtLm`)
 
-`flutter_gemma_embeddings` and `flutter_gemma_litertlm` share one native library
-(`libLiteRtLm`), bundled exactly once by whichever package's build hook ran
-first ("the owner"). If you **had both packages, then removed the owner** and
-rebuilt **without** a clean, a stale ownership marker in the shared cache can
-leave the library unbundled, surfacing as an opaque `dlopen` "no such file" on
-the first embedding call. Fix:
+`flutter_gemma_litertlm` is the sole owner of the shared native library and
+bundles it via its build hook. A stale Native-Assets cache after a native
+version bump can leave the library unbundled, surfacing as an opaque `dlopen`
+"no such file" on the first embedding call. Fix with a clean rebuild:
 
 ```bash
 flutter clean
@@ -74,9 +73,3 @@ rm -rf ~/Library/Caches/flutter_gemma/native        # macOS / Linux
 # Windows: rmdir /s "%LOCALAPPDATA%\flutter_gemma\native"  (path may vary)
 flutter pub get
 ```
-
-This is a known limitation of Dart's Native Assets build hooks: a hook is
-sandboxed and cannot detect which sibling packages are present in the current
-build, so it cannot recompute the registrant per-build (see
-[dart-lang/native#190](https://github.com/dart-lang/native/issues/190)). It only
-triggers in the narrow remove-the-owner-without-clean case.

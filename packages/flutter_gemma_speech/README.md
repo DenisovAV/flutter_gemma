@@ -9,9 +9,11 @@ native bundle and exposes the LiteRt interpreter FFI (`LiteRtBindings`) used her
 
 ## Status
 
-This is the package scaffold. `LiteRtSttBackend` implements `SttBackendProvider`
-(`canHandle` always `true` — the *model* is selected via `SttModelSpec.sttModelType`,
-not the backend) but its transcription pipeline is not wired yet.
+STT works end-to-end for **moonshine-tiny** (raw-PCM seq2seq). `LiteRtSttBackend`
+implements `SttBackendProvider` (`canHandle` always `true` — the *model* is
+selected via `SttModelSpec.sttModelType`, not the backend) and drives a generic
+`SttModelProfile`-based pipeline; `whisper`/`parakeet` (log-mel) profiles and
+TTS/voice are follow-ons.
 
 ## Usage
 

@@ -1,2 +1,2 @@
 ## 0.1.0
-- Scaffold the package: `LiteRtSttBackend` (native FFI arm + web stub), not yet wired to a pipeline.
+- feat: on-device STT (moonshine-tiny) via `LiteRtSttBackend` + a generic, selectable `SttModelProfile` pipeline (encode → greedy decode → HF detokenize) on the shared LiteRT engine.

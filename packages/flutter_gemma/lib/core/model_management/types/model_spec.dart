@@ -1,7 +1,7 @@
 part of '../model_specs.dart';
 
 /// Base enumeration for different model management types
-enum ModelManagementType { inference, embedding }
+enum ModelManagementType { inference, embedding, stt }
 
 // ModelReplacePolicy is defined in model_specs.dart (this part's library).
 

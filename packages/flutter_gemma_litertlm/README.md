@@ -62,14 +62,13 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
-### `dlopen` / "library not found" (`libLiteRtLm`) after removing `flutter_gemma_embeddings`
+### `dlopen` / "library not found" (`libLiteRtLm`)
 
-`flutter_gemma_litertlm` and `flutter_gemma_embeddings` share one native library
-(`libLiteRtLm`), bundled exactly once by whichever package's build hook ran
-first ("the owner"). If you **had both packages, then removed the owner** and
-rebuilt **without** a clean, a stale ownership marker in the shared cache can
-leave the library unbundled, surfacing as an opaque `dlopen` "no such file" on
-the first inference. Fix:
+`flutter_gemma_litertlm` is the sole owner of the shared native library
+(`libLiteRtLm`) and bundles it via its build hook; `flutter_gemma_embeddings` and
+`flutter_gemma_speech` get it transitively. A stale Native-Assets cache after a
+native version bump can leave the library unbundled, surfacing as an opaque
+`dlopen` "no such file" on the first inference. Fix with a clean rebuild:
 
 ```bash
 flutter clean
@@ -77,9 +76,3 @@ rm -rf ~/Library/Caches/flutter_gemma/native        # macOS / Linux
 # Windows: rmdir /s "%LOCALAPPDATA%\flutter_gemma\native"  (path may vary)
 flutter pub get
 ```
-
-This is a known limitation of Dart's Native Assets build hooks: a hook is
-sandboxed and cannot detect which sibling packages are present in the current
-build, so it cannot recompute the registrant per-build (see
-[dart-lang/native#190](https://github.com/dart-lang/native/issues/190)). It only
-triggers in the narrow remove-the-owner-without-clean case.

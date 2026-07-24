@@ -1,3 +1,6 @@
+## 1.4.0
+- feat: on-device STT contracts (SpeechRecognizer, SttModelSpec/SttModelType, SttBackendProvider/SttRegistry, installStt/getActiveStt) + LiteRT engine consolidation into flutter_gemma_litertlm.
+
 ## 1.3.2
 - Docs: add community models to the README model list (SmolLM3-3B, Phi-4-mini-reasoning, Qwen2-VL, SmolVLM2, LLaVA-OneVision).
 - Docs: bump web `@litert-lm/core` setup snippet to 0.14.0.

@@ -1,3 +1,6 @@
+## 1.0.4
+- internal: run on the flutter_gemma_litertlm LiteRT engine (no API change).
+
 ## 1.0.3
 - Migrate to LiteRT v0.14.0 3-arg `LiteRtCreateModelFromFile` (adds `LiteRtEnvironment`); native-v0.14.0.
 

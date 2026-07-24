@@ -8,6 +8,15 @@ When you use `flutter_gemma` to generate embeddings on web, the plugin needs Jav
 
 **This build step is ONLY for web embeddings.** Mobile platforms (Android/iOS) work out of the box.
 
+> **Source of truth for the runtime JS:** this `web/rag/` toolchain vendors its
+> own copies of the LiteRT/TensorFlow/SentencePiece runtimes for bundling
+> convenience, but the packages now own that JS: the LiteRT interpreter engine
+> JS (`litert.js`, `tensorflow.js`) ships from `flutter_gemma_litertlm`'s
+> `web/` directory, and the embedding-specific JS (`litert_embeddings.js`,
+> `sentencepiece.js`) ships from `flutter_gemma_embeddings`'s `web/`
+> directory. Core (`flutter_gemma`) has no engine JS anymore — it only keeps
+> the storage helpers (`cache_api.js`, `opfs_helper.js`) and this RAG build.
+
 ---
 
 ## 🚀 Quick Start (For Flutter Developers)

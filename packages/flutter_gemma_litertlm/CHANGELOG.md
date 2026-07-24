@@ -1,3 +1,6 @@
+## 1.3.0
+- Also expose the LiteRt interpreter (`LiteRtBindings`) for embeddings/speech; own web `litert.js`.
+
 ## 1.2.0
 - Migrate FFI to LiteRT-LM v0.14.0 — native per-session sampler (opaque session-config); native-v0.14.0.
 - Fix #214 GPU output garbage via the v0.14.0 runtime — verified on Xclipse.

@@ -56,14 +56,9 @@ class NetworkSourceHandler implements SourceHandler {
 
     // A download that reports success but leaves no file at targetPath means the
     // downloader wrote elsewhere (see the background_downloader BaseDirectory
-    // note in smart_downloader.dart). Fail loudly instead of saving a 0-byte
-    // "installed" record that isModelInstalled()/validateModelFiles then rejects.
-    if (sizeBytes <= 0) {
-      throw StateError(
-        'Download reported success but no file was found at "$targetPath". '
-        'The model was not installed.',
-      );
-    }
+    // note in smart_downloader.dart). Fail loudly instead of saving a broken
+    // "installed" record.
+    assertInstalledFilePresent(sizeBytes, targetPath);
 
     // Save metadata to repository
     final modelInfo = ModelInfo(
@@ -110,14 +105,9 @@ class NetworkSourceHandler implements SourceHandler {
 
     // A download that reports success but leaves no file at targetPath means the
     // downloader wrote elsewhere (see the background_downloader BaseDirectory
-    // note in smart_downloader.dart). Fail loudly instead of saving a 0-byte
-    // "installed" record that isModelInstalled()/validateModelFiles then rejects.
-    if (sizeBytes <= 0) {
-      throw StateError(
-        'Download reported success but no file was found at "$targetPath". '
-        'The model was not installed.',
-      );
-    }
+    // note in smart_downloader.dart). Fail loudly instead of saving a broken
+    // "installed" record.
+    assertInstalledFilePresent(sizeBytes, targetPath);
 
     // Save metadata to repository
     final modelInfo = ModelInfo(

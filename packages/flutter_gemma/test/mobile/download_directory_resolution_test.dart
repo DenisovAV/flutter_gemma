@@ -52,5 +52,36 @@ void main() {
 
       expect(dir, 'flutter_gemma');
     });
+
+    // Host-independent reproduction of the exact Windows landing bug via an
+    // explicit Windows path Context. Task.split/filePath switch on dart:io
+    // `Platform.isWindows` (not `defaultTargetPlatform`), so the bug can't be
+    // reproduced on a POSIX CI host by overriding the target platform — a
+    // windows `p.Context` can. This is the test that actually fails if the fix
+    // (the absolute-directory branch) is reverted.
+    test('Windows root-fallback lands at the ABSOLUTE target; the raw split dir '
+        r'would land $CWD-relative', () {
+      final win = p.Context(style: p.Style.windows);
+      const target = r'C:\Users\me\AppData\Local\flutter_gemma\model.bin';
+      // What Task.split yields on Windows: root base + drive-stripped directory.
+      final strippedDir = win.relative(win.dirname(target), from: r'C:\');
+      final filename = win.basename(target);
+      // background_downloader reconstructs a root task as
+      // join(baseDirectoryPath(root), directory, filename); on Windows the root
+      // base is '' — so a relative `directory` lands $CWD-relative.
+      String landing(String dir) => win.join('', dir, filename);
+
+      // Pre-fix wiring (raw split dir) → relative landing = the bug.
+      expect(win.isAbsolute(landing(strippedDir)), isFalse);
+
+      // The fix feeds the absolute dirname → lands exactly at the target.
+      final fixed = resolveDownloadDirectory(
+        BaseDirectory.root,
+        strippedDir,
+        target,
+        context: win,
+      );
+      expect(win.canonicalize(landing(fixed)), win.canonicalize(target));
+    });
   });
 }

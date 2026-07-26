@@ -48,16 +48,29 @@ String computeTaskId(BaseDirectory base, String directory, String filename) =>
 /// file lands in the wrong place while getReadTargetPath / validateModelFiles
 /// look at the absolute path — `install()` "succeeds" but `isModelInstalled()`
 /// stays false. Return the ABSOLUTE directory for the root case so the file
-/// lands at [targetPath]. Non-root bases keep [splitDirectory] so the taskId
-/// stays stable (mobile absolute paths churn a container UUID; see
-/// [computeTaskId]).
+/// lands at [targetPath].
+///
+/// Non-root (recognized-base) targets keep [splitDirectory] verbatim — that
+/// value is stored on the [DownloadTask], and the reclaim path
+/// (`mobile_model_manager`) RE-derives a task id from `DownloadTask.directory`
+/// via [computeTaskId]; keeping it the relative, container-UUID-independent
+/// split value is what keeps that recompute matching. (The task's own stored
+/// `taskId` is derived from the split triple regardless of this function.) The
+/// root case's absolute directory would make that recompute diverge, but it
+/// never reaches it: the reclaim is Android-only and Android always resolves to
+/// a recognized base, so it never takes the root fallback.
+///
+/// [context] is injected only by tests so Windows path semantics can be
+/// exercised on a POSIX CI host; production uses the host [p.context] (Windows
+/// on the affected platform), so `dirname` uses the correct separators.
 @visibleForTesting
 String resolveDownloadDirectory(
   BaseDirectory baseDirectory,
   String splitDirectory,
-  String targetPath,
-) => baseDirectory == BaseDirectory.root
-    ? p.dirname(targetPath)
+  String targetPath, {
+  p.Context? context,
+}) => baseDirectory == BaseDirectory.root
+    ? (context ?? p.context).dirname(targetPath)
     : splitDirectory;
 
 /// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
@@ -512,11 +525,10 @@ class SmartDownloader {
       taskId = computeTaskId(baseDirectory, directory, filename);
       gemmaLog('🔵 TaskId: $taskId');
 
-      // Feed the task the directory background_downloader will actually write
-      // into. `taskId` above stays derived from the stable split triple, so
-      // resume/reclaim identity (mobile_model_manager) is unaffected; only the
-      // write location is corrected for the root-fallback case (Windows
-      // %LOCALAPPDATA%). See [resolveDownloadDirectory].
+      // Directory background_downloader will actually write into — corrected
+      // for the root-fallback case (Windows %LOCALAPPDATA%). The stored `taskId`
+      // above is unchanged; see [resolveDownloadDirectory] for the taskId /
+      // reclaim invariants.
       final downloadDirectory = resolveDownloadDirectory(
         baseDirectory,
         directory,

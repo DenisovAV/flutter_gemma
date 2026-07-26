@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_gemma/core/domain/download_error.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
@@ -32,6 +33,32 @@ const Duration kResumeWatchdog = Duration(seconds: 90);
 /// the download path and the reclaim reconciliation (`mobile_model_manager`).
 String computeTaskId(BaseDirectory base, String directory, String filename) =>
     sha256.convert(utf8.encode('${base.name}|$directory|$filename')).toString();
+
+/// Directory to hand background_downloader so the download lands exactly at
+/// [targetPath].
+///
+/// [Task.split] maps an absolute path onto background_downloader's BaseDirectory
+/// model, but a target NOT under one of its recognized bases falls back to
+/// [BaseDirectory.root] with the drive/root STRIPPED from [splitDirectory]. The
+/// case that bites us is Windows' `%LOCALAPPDATA%\flutter_gemma`: LocalAppData is
+/// not a background_downloader base (path_provider maps applicationSupport →
+/// Roaming, applicationDocuments → Documents), so split returns root +
+/// `Users\..\AppData\Local\flutter_gemma`. On Windows the root base resolves to
+/// `''` (not the drive), so the reconstructed filePath is `$CWD`-relative and the
+/// file lands in the wrong place while getReadTargetPath / validateModelFiles
+/// look at the absolute path — `install()` "succeeds" but `isModelInstalled()`
+/// stays false. Return the ABSOLUTE directory for the root case so the file
+/// lands at [targetPath]. Non-root bases keep [splitDirectory] so the taskId
+/// stays stable (mobile absolute paths churn a container UUID; see
+/// [computeTaskId]).
+@visibleForTesting
+String resolveDownloadDirectory(
+  BaseDirectory baseDirectory,
+  String splitDirectory,
+  String targetPath,
+) => baseDirectory == BaseDirectory.root
+    ? p.dirname(targetPath)
+    : splitDirectory;
 
 /// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
 /// The download loop cancels it when the next progress/status event arrives, and
@@ -485,6 +512,17 @@ class SmartDownloader {
       taskId = computeTaskId(baseDirectory, directory, filename);
       gemmaLog('🔵 TaskId: $taskId');
 
+      // Feed the task the directory background_downloader will actually write
+      // into. `taskId` above stays derived from the stable split triple, so
+      // resume/reclaim identity (mobile_model_manager) is unaffected; only the
+      // write location is corrected for the root-fallback case (Windows
+      // %LOCALAPPDATA%). See [resolveDownloadDirectory].
+      final downloadDirectory = resolveDownloadDirectory(
+        baseDirectory,
+        directory,
+        targetPath,
+      );
+
       final downloader = FileDownloader();
 
       // Check if task already exists (e.g., after app restart or sleep/wake)
@@ -625,7 +663,7 @@ class SmartDownloader {
                 'Pragma': 'no-cache',
               },
         baseDirectory: baseDirectory,
-        directory: directory,
+        directory: downloadDirectory,
         filename: filename,
         requiresWiFi: false,
         allowPause:

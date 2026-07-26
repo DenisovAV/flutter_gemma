@@ -100,6 +100,17 @@ abstract class ModelFileManager {
     );
   }
 
+  /// Clears the active STT identity (in-memory spec + persisted prefs).
+  ///
+  /// See [clearActiveInferenceIdentity]: default throws rather than silently
+  /// no-op'ing, so a non-overriding implementer fails loudly instead of
+  /// leaving a stale persisted identity.
+  Future<void> clearActiveSttIdentity() async {
+    throw UnimplementedError(
+      'clearActiveSttIdentity is not implemented by this ModelFileManager',
+    );
+  }
+
   /// Legacy API: Sets path to LoRA weights for current model
   @Deprecated('Use FlutterGemma.installModel().withLoraFromFile() instead')
   Future<void> setLoraWeightsPath(String path);
@@ -126,4 +137,7 @@ abstract class ModelFileManager {
 
   /// Gets the currently active embedding model specification
   ModelSpec? get activeEmbeddingModel;
+
+  /// Gets the currently active STT model specification
+  ModelSpec? get activeSttModel;
 }

@@ -45,6 +45,14 @@ class SiteFooter extends StatelessComponent {
                 ]),
                 li([
                   a(
+                    href: 'https://pub.dev/packages/flutter_gemma_builtin_ai',
+                    classes: 'footer-link',
+                    attributes: {'target': '_blank', 'rel': 'noopener'},
+                    [Component.text('flutter_gemma_builtin_ai')],
+                  ),
+                ]),
+                li([
+                  a(
                     href: 'https://pub.dev/packages/flutter_gemma_embeddings',
                     classes: 'footer-link',
                     attributes: {'target': '_blank', 'rel': 'noopener'},
@@ -73,6 +81,14 @@ class SiteFooter extends StatelessComponent {
                     classes: 'footer-link',
                     attributes: {'target': '_blank', 'rel': 'noopener'},
                     [Component.text('flutter_gemma_agent')],
+                  ),
+                ]),
+                li([
+                  a(
+                    href: 'https://pub.dev/packages/flutter_gemma_speech',
+                    classes: 'footer-link',
+                    attributes: {'target': '_blank', 'rel': 'noopener'},
+                    [Component.text('flutter_gemma_speech')],
                   ),
                 ]),
                 li([
@@ -114,6 +130,9 @@ class SiteFooter extends StatelessComponent {
                 ]),
                 li([
                   a(href: '/docs/agent', classes: 'footer-link', [Component.text('Agent Skills')]),
+                ]),
+                li([
+                  a(href: '/docs/speech', classes: 'footer-link', [Component.text('Speech-to-Text')]),
                 ]),
                 li([
                   a(href: '/docs/embeddings-and-rag', classes: 'footer-link', [Component.text('Embeddings & RAG')]),

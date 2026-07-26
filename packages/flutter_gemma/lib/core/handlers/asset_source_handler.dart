@@ -66,6 +66,7 @@ class AssetSourceHandler implements SourceHandler {
     }
 
     final sizeBytes = await fileSystem.getFileSize(targetPath);
+    assertInstalledFilePresent(sizeBytes, targetPath);
 
     final modelInfo = ModelInfo(
       id: filename,
@@ -113,6 +114,7 @@ class AssetSourceHandler implements SourceHandler {
     }
 
     final sizeBytes = await fileSystem.getFileSize(targetPath);
+    assertInstalledFilePresent(sizeBytes, targetPath);
 
     final modelInfo = ModelInfo(
       id: filename,

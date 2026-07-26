@@ -10,10 +10,9 @@ import 'litert_web_embeddings.dart';
 class WebEmbeddingModel extends EmbeddingModel with CloseNotifier {
   WebEmbeddingModel({
     required this.onClose,
-    String? modelPath,
-    String? tokenizerPath,
-  }) : _modelPath = modelPath,
-       _tokenizerPath = tokenizerPath;
+    this._modelPath,
+    this._tokenizerPath,
+  });
 
   final VoidCallback onClose;
   final String? _modelPath;

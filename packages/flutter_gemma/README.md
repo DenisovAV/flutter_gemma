@@ -29,10 +29,11 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
-- **🧩 Modular Packages:** A small `flutter_gemma` core plus opt-in packages — add only the engine (`.litertlm` / `.task`), embeddings, RAG, or agent code your app ships. Register them via one `FlutterGemma.initialize(...)` call. See [MIGRATION.md](MIGRATION.md).
+- **🧩 Modular Packages:** A small `flutter_gemma` core plus opt-in packages — add only the engine (`.litertlm` / `.task`), embeddings, RAG, agent, or speech code your app ships. Register them via one `FlutterGemma.initialize(...)` call. See [MIGRATION.md](MIGRATION.md).
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; Qwen2-VL / SmolVLM2 / LLaVA-OneVision on Android, iOS, and Desktop; FastVLM on Desktop)
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
+- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine today; Whisper / Parakeet profiles are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🤖 On-device Agent Skills:** Opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) — give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through the function-calling loop, fully offline. Gallery-compatible. Android, iOS, macOS, Windows (Web not supported yet).
 - **🧠 Thinking Mode:** View the reasoning process of Gemma 4, DeepSeek R1, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models with thinking blocks
@@ -52,6 +53,10 @@ There is an example of using:
 - **🔧 Unified Model Management:** Single system for managing both inference and embedding models with automatic validation
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
+
+## What's new in 1.4
+
+- 🎤 **On-device Speech-to-Text** — new opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech): transcribe audio fully offline through the LiteRT C API + `dart:ffi`. You pick the ASR model via `SttModelType` (a profile-driven, model-agnostic pipeline) — **moonshine** works end-to-end today, Whisper / Parakeet are follow-on profiles. Register `LiteRtSttBackend()`, then `installStt()…ofType(SttModelType.moonshine).install()` → `getActiveStt()` → `transcribe(pcm)`. Android, iOS, macOS, Windows, Linux (Web is a follow-on). See [docs](https://fluttergemma.dev/docs/speech).
 
 ## What's new in 1.3
 
@@ -199,6 +204,9 @@ model formats and features you need.
 
       # Optional — on-device agent skills:
       flutter_gemma_agent: latest_version        # SKILL.md skills (text / JS / native-intent / MCP) via tool-calling
+
+      # Optional — on-device speech-to-text:
+      flutter_gemma_speech: latest_version       # transcribe audio (selectable ASR, moonshine today; native only)
     ```
 
     **Pick by need:**
@@ -211,6 +219,7 @@ model formats and features you need.
     | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
     | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_gemma_rag_sqlite` |
     | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_gemma_agent` |
+    | Transcribe audio on-device (speech-to-text) | `flutter_gemma_speech` |
 
     Core registers **no** engine by itself — you wire the packages you added in
     `FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).
@@ -416,7 +425,7 @@ Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platform
 
 > ¹ Linux GPU requires a proper vendor Vulkan driver (NVIDIA / AMD / Intel). Mesa's `llvmpipe` software fallback is not sufficient for Gemma 4 — its hardcoded 128 MB `maxStorageBufferRange` is below the model's per-buffer requirement. Install the vendor driver (e.g. `nvidia-driver-535-server` on Ubuntu) before running on GPU.
 >
-> ² **Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected.
+> ² **Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected.
 
 **macOS Setup:**
 
@@ -898,6 +907,7 @@ void main() {
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
+| `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
 | `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | native / web RAG |
 
@@ -1679,6 +1689,7 @@ Function calling is currently supported by the following models:
 | **Text Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | All models supported |
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
+| **Speech-to-Text** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (moonshine ASR); native only, arm64 on Android |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |
@@ -1702,7 +1713,7 @@ Function calling is currently supported by the following models:
 > [Web `.litertlm` support & limitations](#web-litertlm-support--limitations).
 >
 > ² **Desktop GPU on Windows:** discrete GPUs crash in the upstream WebGPU/Dawn
-> stack as of litertlm 1.2.0 / LiteRT-LM v0.14.0 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957))
+> stack as of litertlm 1.2.0+ / LiteRT-LM v0.14.0 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957))
 > — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
 > macOS/Linux GPU and Windows CPU/NPU are unaffected.
 

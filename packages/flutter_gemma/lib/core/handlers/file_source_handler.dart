@@ -55,6 +55,7 @@ class FileSourceHandler implements SourceHandler {
 
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(source.path);
+    assertInstalledFilePresent(sizeBytes, source.path);
 
     // Save metadata to repository
     final modelInfo = ModelInfo(
@@ -102,6 +103,7 @@ class FileSourceHandler implements SourceHandler {
 
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(source.path);
+    assertInstalledFilePresent(sizeBytes, source.path);
 
     // Save metadata to repository
     final modelInfo = ModelInfo(

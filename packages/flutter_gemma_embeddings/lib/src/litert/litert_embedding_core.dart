@@ -26,8 +26,16 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:ffi/ffi.dart';
+// Public, native-only bindings library (not the package barrel): this file
+// is native-only — never reached on web — so it always needs the real FFI
+// bindings. Going through `package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart`'s
+// `if (dart.library.ffi)` conditional export is for cross-platform consumers
+// that must also compile on web; `flutter analyze` resolves that conditional
+// to the (empty) web stub, so importing the concrete file would appear
+// undefined during analysis. `litert_bindings.dart` is litertlm's
+// unconditional public export of the same bindings for native-only leaves.
+import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
-import 'litert_bindings.dart';
 import 'litert_embedding_worker.dart' show EmbeddingBackend;
 
 /// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the
@@ -50,19 +58,15 @@ int _acceleratorFor(EmbeddingBackend backend) {
 /// FFI handles it holds are owned by the isolate that called [load].
 class EmbeddingCore {
   EmbeddingCore._({
-    required LiteRtBindings bindings,
-    required LiteRtEnvironment environment,
-    required LiteRtModel model,
-    required LiteRtOptions options,
-    required LiteRtCompiledModel compiledModel,
+    required this._bindings,
+    required this._environment,
+    required this._model,
+    required this._options,
+    required this._compiledModel,
     required this.tokenizer,
     required this.inputSequenceLength,
     required this.outputDimension,
-  }) : _bindings = bindings,
-       _environment = environment,
-       _model = model,
-       _options = options,
-       _compiledModel = compiledModel;
+  });
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;

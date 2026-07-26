@@ -7,6 +7,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
+import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 
 /// The opt-in inference engines the example registers. Single source of truth —
 /// used by [bootstrapGemma] and by the diagnostics screen so the two never
@@ -21,6 +22,9 @@ const kExampleInferenceEngines = [
 
 /// The opt-in embedding backends the example registers. Single source of truth.
 const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];
+
+/// The opt-in STT backends the example registers. Single source of truth.
+const kExampleSttBackends = [LiteRtSttBackend()];
 
 /// The agentic skill executors the example registers (text / JS / native
 /// intent). Registered through `FlutterGemma.initialize(skillExecutors: …)` —
@@ -81,6 +85,7 @@ Future<void> bootstrapGemma({required RagBackend ragBackend}) {
     webStorageMode: WebStorageMode.streaming,
     inferenceEngines: kExampleInferenceEngines,
     embeddingBackends: kExampleEmbeddingBackends,
+    sttBackends: kExampleSttBackends,
     skillExecutors: kExampleSkillExecutors,
     vectorStore: vectorStoreFor(ragBackend),
   );

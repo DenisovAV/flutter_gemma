@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:background_downloader/background_downloader.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_gemma/core/domain/download_error.dart';
 import 'package:flutter_gemma/core/domain/download_exception.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
@@ -32,6 +33,45 @@ const Duration kResumeWatchdog = Duration(seconds: 90);
 /// the download path and the reclaim reconciliation (`mobile_model_manager`).
 String computeTaskId(BaseDirectory base, String directory, String filename) =>
     sha256.convert(utf8.encode('${base.name}|$directory|$filename')).toString();
+
+/// Directory to hand background_downloader so the download lands exactly at
+/// [targetPath].
+///
+/// [Task.split] maps an absolute path onto background_downloader's BaseDirectory
+/// model, but a target NOT under one of its recognized bases falls back to
+/// [BaseDirectory.root] with the drive/root STRIPPED from [splitDirectory]. The
+/// case that bites us is Windows' `%LOCALAPPDATA%\flutter_gemma`: LocalAppData is
+/// not a background_downloader base (path_provider maps applicationSupport →
+/// Roaming, applicationDocuments → Documents), so split returns root +
+/// `Users\..\AppData\Local\flutter_gemma`. On Windows the root base resolves to
+/// `''` (not the drive), so the reconstructed filePath is `$CWD`-relative and the
+/// file lands in the wrong place while getReadTargetPath / validateModelFiles
+/// look at the absolute path — `install()` "succeeds" but `isModelInstalled()`
+/// stays false. Return the ABSOLUTE directory for the root case so the file
+/// lands at [targetPath].
+///
+/// Non-root (recognized-base) targets keep [splitDirectory] verbatim — that
+/// value is stored on the [DownloadTask], and the reclaim path
+/// (`mobile_model_manager`) RE-derives a task id from `DownloadTask.directory`
+/// via [computeTaskId]; keeping it the relative, container-UUID-independent
+/// split value is what keeps that recompute matching. (The task's own stored
+/// `taskId` is derived from the split triple regardless of this function.) The
+/// root case's absolute directory would make that recompute diverge, but it
+/// never reaches it: the reclaim is Android-only and Android always resolves to
+/// a recognized base, so it never takes the root fallback.
+///
+/// [context] is injected only by tests so Windows path semantics can be
+/// exercised on a POSIX CI host; production uses the host [p.context] (Windows
+/// on the affected platform), so `dirname` uses the correct separators.
+@visibleForTesting
+String resolveDownloadDirectory(
+  BaseDirectory baseDirectory,
+  String splitDirectory,
+  String targetPath, {
+  p.Context? context,
+}) => baseDirectory == BaseDirectory.root
+    ? (context ?? p.context).dirname(targetPath)
+    : splitDirectory;
 
 /// Returns a [Timer] that fires [onTimeout] after [timeout] unless cancelled.
 /// The download loop cancels it when the next progress/status event arrives, and
@@ -485,6 +525,16 @@ class SmartDownloader {
       taskId = computeTaskId(baseDirectory, directory, filename);
       gemmaLog('🔵 TaskId: $taskId');
 
+      // Directory background_downloader will actually write into — corrected
+      // for the root-fallback case (Windows %LOCALAPPDATA%). The stored `taskId`
+      // above is unchanged; see [resolveDownloadDirectory] for the taskId /
+      // reclaim invariants.
+      final downloadDirectory = resolveDownloadDirectory(
+        baseDirectory,
+        directory,
+        targetPath,
+      );
+
       final downloader = FileDownloader();
 
       // Check if task already exists (e.g., after app restart or sleep/wake)
@@ -625,7 +675,7 @@ class SmartDownloader {
                 'Pragma': 'no-cache',
               },
         baseDirectory: baseDirectory,
-        directory: directory,
+        directory: downloadDirectory,
         filename: filename,
         requiresWiFi: false,
         allowPause:

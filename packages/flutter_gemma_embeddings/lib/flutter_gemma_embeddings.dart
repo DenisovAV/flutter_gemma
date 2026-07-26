@@ -11,7 +11,7 @@
 ///   embeddingBackends: [LiteRtEmbeddingBackend()],
 /// );
 /// ```
-library flutter_gemma_embeddings;
+library;
 
 export 'src/litert_embedding_backend_stub.dart'
     if (dart.library.ffi) 'src/litert_embedding_backend.dart';

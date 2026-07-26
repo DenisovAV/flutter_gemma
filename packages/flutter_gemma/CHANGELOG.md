@@ -1,3 +1,8 @@
+## 1.4.0
+- feat: on-device speech-to-text — new opt-in `flutter_gemma_speech` runs a selectable ASR model (moonshine today) on all native platforms via `installStt()`/`getActiveStt()`/`transcribe()`.
+- feat: STT contracts (SpeechRecognizer, SttModelSpec/SttModelType, SttBackendProvider/SttRegistry) + LiteRT engine consolidation into flutter_gemma_litertlm.
+- fix: Windows fresh downloads landed in a `$PWD`-relative dir, not `%LOCALAPPDATA%` — model installed but not found at load.
+
 ## 1.3.2
 - Docs: add community models to the README model list (SmolLM3-3B, Phi-4-mini-reasoning, Qwen2-VL, SmolVLM2, LLaVA-OneVision).
 - Docs: bump web `@litert-lm/core` setup snippet to 0.14.0.

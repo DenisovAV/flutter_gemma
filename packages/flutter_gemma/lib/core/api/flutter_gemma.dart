@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
 import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
+import 'package:flutter_gemma/core/api/stt_installation_builder.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
@@ -10,9 +11,11 @@ import 'package:flutter_gemma/core/infrastructure/web_download_service_stub.dart
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
+import 'package:flutter_gemma/core/registry/stt_registry.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
@@ -141,6 +144,7 @@ class FlutterGemma {
     // RAG package" error on first use).
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
+    List<SttBackendProvider> sttBackends = const [],
     // Opt-in agentic "skills" runtime, provided by the `flutter_gemma_agent`
     // package (each executor `implements SkillExecutorProvider`). Core holds
     // only this list + the probe-chain [SkillExecutorRegistry]; the concrete
@@ -191,6 +195,9 @@ class FlutterGemma {
     }
     if (embeddingBackends.isNotEmpty) {
       EmbeddingRegistry.instance.registerAll(embeddingBackends);
+    }
+    if (sttBackends.isNotEmpty) {
+      SttRegistry.instance.registerAll(sttBackends);
     }
     if (skillExecutors.isNotEmpty) {
       SkillExecutorRegistry.instance.registerAll(skillExecutors);
@@ -256,6 +263,26 @@ class FlutterGemma {
   /// ```
   static EmbeddingInstallationBuilder installEmbedder() {
     return EmbeddingInstallationBuilder();
+  }
+
+  /// Start building an STT (speech-to-text) model installation
+  ///
+  /// Returns a type-safe builder for installing STT models (requires model +
+  /// tokenizer + [SttInstallationBuilder.ofType]). The model will be
+  /// automatically set as the active STT model after installation.
+  ///
+  /// Example:
+  /// ```dart
+  /// await FlutterGemma.installStt()
+  ///   .modelFromNetwork('https://example.com/model.tflite', token: 'hf_...')
+  ///   .tokenizerFromNetwork('https://example.com/tokenizer.json', token: 'hf_...')
+  ///   .ofType(SttModelType.moonshine)
+  ///   .withModelProgress((p) => print('Model: $p%'))
+  ///   .withTokenizerProgress((p) => print('Tokenizer: $p%'))
+  ///   .install();
+  /// ```
+  static SttInstallationBuilder installStt() {
+    return SttInstallationBuilder();
   }
 
   /// Check if a model is installed
@@ -439,6 +466,62 @@ class FlutterGemma {
     return manager.activeEmbeddingModel is EmbeddingModelSpec;
   }
 
+  /// Get the active STT model as a ready-to-use [SpeechRecognizer]
+  ///
+  /// Returns a [SpeechRecognizer] configured with runtime parameters. The
+  /// model and tokenizer paths come from the active [SttModelSpec].
+  ///
+  /// Runtime parameters:
+  /// - [preferredBackend]: CPU or GPU preference (optional)
+  ///
+  /// Throws:
+  /// - [StateError] if no active STT model is set
+  ///
+  /// Example:
+  /// ```dart
+  /// // Install STT model first
+  /// await FlutterGemma.installStt()
+  ///   .modelFromNetwork('https://example.com/model.tflite')
+  ///   .tokenizerFromNetwork('https://example.com/tokenizer.json')
+  ///   .ofType(SttModelType.moonshine)
+  ///   .install();
+  ///
+  /// // Create with default backend
+  /// final recognizer = await FlutterGemma.getActiveStt();
+  /// ```
+  static Future<SpeechRecognizer> getActiveStt({
+    PreferredBackend? preferredBackend,
+  }) async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final activeSpec = manager.activeSttModel;
+
+    if (activeSpec == null) {
+      throw StateError(
+        'No active STT model set. Use FlutterGemma.installStt() first.',
+      );
+    }
+
+    if (activeSpec is! SttModelSpec) {
+      throw StateError(
+        'Active model is not an SttModelSpec. '
+        'Expected SttModelSpec, got ${activeSpec.runtimeType}',
+      );
+    }
+
+    // Create SpeechRecognizer using active spec (paths resolved automatically)
+    return await FlutterGemmaPlugin.instance.createSttModel(
+      preferredBackend: preferredBackend,
+    );
+  }
+
+  /// Check if there's an active STT model
+  ///
+  /// Returns true if an STT model has been installed and set as active.
+  static bool hasActiveStt() {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    return manager.activeSttModel is SttModelSpec;
+  }
+
   /// Clears the active inference identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveInferenceIdentity() =>
       FlutterGemmaPlugin.instance.modelManager.clearActiveInferenceIdentity();
@@ -446,6 +529,10 @@ class FlutterGemma {
   /// Clears the active embedding identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveEmbeddingIdentity() =>
       FlutterGemmaPlugin.instance.modelManager.clearActiveEmbeddingIdentity();
+
+  /// Clears the active STT identity (in-memory spec + persisted prefs).
+  static Future<void> clearActiveSttIdentity() =>
+      FlutterGemmaPlugin.instance.modelManager.clearActiveSttIdentity();
 
   /// Uninstall a model
   ///

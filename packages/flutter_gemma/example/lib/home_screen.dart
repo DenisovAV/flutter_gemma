@@ -4,6 +4,7 @@ import 'package:flutter_gemma_example/agent_demo_screen.dart';
 import 'package:flutter_gemma_example/downloaded_models_screen.dart';
 import 'package:flutter_gemma_example/embedding_models_screen.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
+import 'package:flutter_gemma_example/stt_models_screen.dart';
 import 'package:flutter_gemma_example/translate_models_screen.dart';
 import 'package:flutter_gemma_example/utils/installed_model_lookup.dart';
 
@@ -122,6 +123,14 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.search,
               color: Colors.green,
               onTap: () => _push(const EmbeddingModelsScreen()),
+            ),
+            const SizedBox(height: 16),
+            _NavigationCard(
+              title: 'Speech-to-Text',
+              subtitle: 'On-device transcription with Moonshine',
+              icon: Icons.mic,
+              color: Colors.pink,
+              onTap: () => _push(const SttModelsScreen()),
             ),
             const SizedBox(height: 16),
             _NavigationCard(

@@ -187,6 +187,56 @@ void main() {
         ),
       ).called(1);
     });
+
+    test(
+      'install throws and does NOT save metadata when no file landed at '
+      'targetPath (0 bytes) — the Windows mis-landing silent failure',
+      () async {
+        final source = NetworkSource('https://example.com/model.bin');
+        const targetPath = '/data/model.bin';
+        when(
+          () => mockFileSystem.getWriteTargetPath(any()),
+        ).thenAnswer((_) async => targetPath);
+        when(
+          () => mockDownloadService.download(
+            any(),
+            any(),
+            token: any(named: 'token'),
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockFileSystem.getFileSize(any()),
+        ).thenAnswer((_) async => 0);
+        when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+        await expectLater(handler.install(source), throwsA(isA<StateError>()));
+        verifyNever(() => mockRepository.saveModel(any()));
+      },
+    );
+
+    test('installWithProgress throws and does NOT save metadata when no file '
+        'landed at targetPath (0 bytes)', () async {
+      final source = NetworkSource('https://example.com/model.bin');
+      const targetPath = '/data/model.bin';
+      when(
+        () => mockFileSystem.getWriteTargetPath(any()),
+      ).thenAnswer((_) async => targetPath);
+      when(
+        () => mockDownloadService.downloadWithProgress(
+          any(),
+          any(),
+          token: any(named: 'token'),
+        ),
+      ).thenAnswer((_) => Stream<int>.value(100));
+      when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => 0);
+      when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+      await expectLater(
+        handler.installWithProgress(source).toList(),
+        throwsA(isA<StateError>()),
+      );
+      verifyNever(() => mockRepository.saveModel(any()));
+    });
   });
 
   group('AssetSourceHandler', () {
@@ -314,6 +364,27 @@ void main() {
       verify(
         () => mockAssetLoader.loadAsset('assets/models/test.bin'),
       ).called(2);
+    });
+
+    test('install throws and does NOT save metadata when the copied asset is '
+        '0 bytes', () async {
+      final source = AssetSource('models/test.bin');
+      const targetPath = '/data/model.bin';
+      final assetData = Uint8List.fromList([1, 2, 3, 4]);
+      when(
+        () => mockAssetLoader.loadAsset(any()),
+      ).thenAnswer((_) async => assetData);
+      when(
+        () => mockFileSystem.getWriteTargetPath(any()),
+      ).thenAnswer((_) async => targetPath);
+      when(
+        () => mockFileSystem.writeFile(any(), any()),
+      ).thenAnswer((_) async {});
+      when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => 0);
+      when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+      await expectLater(handler.install(source), throwsA(isA<StateError>()));
+      verifyNever(() => mockRepository.saveModel(any()));
     });
   });
 
@@ -548,6 +619,26 @@ void main() {
       verify(
         () => mockRegistry.registerExternalPath(any(), source.path),
       ).called(1);
+    });
+
+    test('install throws and does NOT save metadata when the external file is '
+        'present but 0 bytes', () async {
+      final source = FileSource('/tmp/external/model.bin');
+      when(
+        () => mockFileSystem.fileExists(any()),
+      ).thenAnswer((_) async => true);
+      when(
+        () => mockFileSystem.registerExternalFile(any(), any()),
+      ).thenAnswer((_) async {});
+      when(() => mockRegistry.protect(any())).thenAnswer((_) async {});
+      when(
+        () => mockRegistry.registerExternalPath(any(), any()),
+      ).thenAnswer((_) async {});
+      when(() => mockFileSystem.getFileSize(any())).thenAnswer((_) async => 0);
+      when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+      await expectLater(handler.install(source), throwsA(isA<StateError>()));
+      verifyNever(() => mockRepository.saveModel(any()));
     });
   });
 

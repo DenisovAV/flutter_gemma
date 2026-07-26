@@ -592,6 +592,9 @@ Future<void> _processBundle({
   // THROW happens before any fetch/wipe on a skew.
   _guardAndCheckPresent(bundle);
 
+  // Sole owner of libLiteRtLm now; the single-registrant marker is vestigial
+  // (cache-dedup only).
+  //
   // Single-registrant: only the bundle's owner (the first hook to write the
   // marker) registers the shared CodeAssets. A non-owner package sharing the
   // same bundle (e.g. embeddings sharing litertlm's libLiteRtLm) ensures the

@@ -7,6 +7,8 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
+import 'package:flutter_gemma/core/registry/stt_registry.dart';
+import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
@@ -39,6 +41,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
 
   InferenceModel? _initializedModel;
   EmbeddingModel? _initializedEmbeddingModel;
+  SpeechRecognizer? _initializedSttModel;
 
   /// Last resolved embedding paths — replaces the previous package-type
   /// downcast (`_initializedEmbeddingModel as WebEmbeddingModel`) now that the
@@ -46,6 +49,9 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   /// desktop `_lastInferenceParams` pattern: core owns lifecycle + change
   /// detection without depending on the package's concrete model type.
   ({String? modelPath, String? tokenizerPath})? _lastEmbeddingPaths;
+
+  /// Same pattern as [_lastEmbeddingPaths], for the STT model.
+  ({String? modelPath, String? tokenizerPath})? _lastSttPaths;
 
   @override
   Future<InferenceModel> createModel({
@@ -256,6 +262,132 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     model.addCloseListener(() {
       _initializedEmbeddingModel = null;
       _lastEmbeddingPaths = null;
+    });
+    return model;
+  }
+
+  // === SpeechRecognizer Methods - Web Implementation ===
+
+  @override
+  Future<SpeechRecognizer> createSttModel({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
+    // Modern API: Use active STT model if paths not provided
+    if (modelPath == null || tokenizerPath == null) {
+      final manager = modelManager as WebModelManager;
+      final activeModel = manager.activeSttModel;
+
+      // No active STT model - user must set one first
+      if (activeModel == null) {
+        throw StateError(
+          'No active STT model set. Use `FlutterGemma.installStt()` or `modelManager.setActiveModel()` to set a model first',
+        );
+      }
+
+      // Get the actual model file paths through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw StateError(
+          'STT model file paths not found. Use the `modelManager` to load the model first',
+        );
+      }
+
+      // Extract model and tokenizer paths from spec
+      final activeModelPath = modelFilePaths[PreferencesKeys.sttModelFile];
+      final activeTokenizerPath =
+          modelFilePaths[PreferencesKeys.sttTokenizerFile];
+
+      if (activeModelPath == null || activeTokenizerPath == null) {
+        throw StateError(
+          'Could not find model or tokenizer path in active STT model',
+        );
+      }
+
+      modelPath = activeModelPath;
+      tokenizerPath = activeTokenizerPath;
+
+      if (kDebugMode) {
+        gemmaLog(
+          'Using active STT model: $modelPath, tokenizer: $tokenizerPath',
+        );
+      }
+    }
+
+    // Check if model already exists with different parameters. Core can no
+    // longer downcast to the package's concrete STT model type, so it
+    // compares against the last resolved paths it cached itself (mirrors
+    // _lastEmbeddingPaths).
+    if (_initializedSttModel != null) {
+      final p = _lastSttPaths;
+      final modelChanged =
+          p == null ||
+          p.modelPath != modelPath ||
+          p.tokenizerPath != tokenizerPath;
+
+      if (modelChanged) {
+        if (kDebugMode) {
+          gemmaLog(
+            '[FlutterGemmaWeb] STT model paths changed, closing existing model',
+          );
+        }
+        await _initializedSttModel?.close();
+        _initializedSttModel = null;
+        _lastSttPaths = null;
+      }
+    }
+
+    if (_initializedSttModel != null) {
+      return _initializedSttModel!;
+    }
+
+    // Dispatches construction through the SttRegistry (probe-chain, mirrors
+    // EmbeddingRegistry). The backend reads spec.sttModelType to select its
+    // runtime profile, and ONLY config.modelPath/config.tokenizerPath for
+    // path resolution.
+    final activeStt = (modelManager as WebModelManager).activeSttModel;
+    final SttBackendProvider? backend = activeStt is SttModelSpec
+        ? SttRegistry.instance.findFor(activeStt)
+        : (SttRegistry.instance.registered.isNotEmpty
+              ? SttRegistry.instance.registered.first
+              : null);
+    if (backend == null) {
+      throw StateError(
+        'No STT backend registered. Add flutter_gemma_speech to '
+        'pubspec.yaml and pass it in sttBackends: of '
+        'FlutterGemma.initialize(...). Registered backends: '
+        '${SttRegistry.instance.registered.map((b) => b.name).join(", ")}.',
+      );
+    }
+    // modelPath/tokenizerPath are non-null here (resolved in the preamble or
+    // passed by the caller). maxTokens is unused by STT.
+    final sttConfig = RuntimeConfig(
+      maxTokens: 0,
+      modelPath: modelPath,
+      tokenizerPath: tokenizerPath,
+      preferredBackend: preferredBackend,
+    );
+    // The backend's createModel(spec, config) requires a non-null spec but
+    // resolves paths exclusively from config; synthesize one from the resolved
+    // file paths when there's no active SttModelSpec. sttModelType defaults to
+    // moonshine — the only shipped profile — for this legacy-path fallback.
+    final model = await backend.createModel(
+      activeStt is SttModelSpec
+          ? activeStt
+          : SttModelSpec(
+              name: 'web-active-stt',
+              modelSource: ModelSource.file(modelPath),
+              tokenizerSource: ModelSource.file(tokenizerPath),
+              sttModelType: SttModelType.moonshine,
+            ),
+      sttConfig,
+    );
+    _initializedSttModel = model;
+    _lastSttPaths = (modelPath: modelPath, tokenizerPath: tokenizerPath);
+    model.addCloseListener(() {
+      _initializedSttModel = null;
+      _lastSttPaths = null;
     });
     return model;
   }

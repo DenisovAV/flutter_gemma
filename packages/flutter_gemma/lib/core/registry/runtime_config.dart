@@ -37,8 +37,9 @@ class RuntimeConfig {
   /// Hence there is no non-empty assert on it.
   final String modelPath;
 
-  /// Resolved on-disk path to the tokenizer. Embedding backends only; null for
-  /// inference. The spec carries source *identities* (network/asset/file); core
+  /// Resolved on-disk path to the tokenizer. Used by embedding and STT
+  /// backends; null for inference. The spec carries source *identities*
+  /// (network/asset/file); core
   /// resolves them to on-disk paths via the model manager and passes the
   /// resolved tokenizer path here (install-vs-runtime separation).
   final String? tokenizerPath;

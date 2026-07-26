@@ -82,3 +82,25 @@ abstract interface class SourceHandler {
   /// Only NetworkSource typically supports resume
   bool supportsResume(ModelSource source);
 }
+
+/// Fail loudly when an install "succeeded" but no usable file landed at
+/// [targetPath].
+///
+/// [FileSystemService.getFileSize] returns 0 for a missing file (and for a
+/// genuine 0-byte file), so a non-positive [sizeBytes] means there is no
+/// installable model. Throwing here prevents persisting a broken "installed"
+/// record that `isModelInstalled()` / `validateModelFiles` then rejects — the
+/// silent failure the Windows download-path fix closed on the network path.
+///
+/// NOTE: intentionally NOT used by `BundledSourceHandler` — a bundled native
+/// resource (Android APK asset, iOS bundle) is not a stat-able filesystem file,
+/// so `getFileSize` can legitimately return 0 there without the resource being
+/// absent.
+void assertInstalledFilePresent(int sizeBytes, String targetPath) {
+  if (sizeBytes <= 0) {
+    throw StateError(
+      'Install reported success but no usable file (0 bytes) was found at '
+      '"$targetPath". The model was not installed.',
+    );
+  }
+}

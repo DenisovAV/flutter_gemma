@@ -24,6 +24,9 @@ dependencies:
   flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
   flutter_gemma_rag_qdrant: latest_version   # RAG vector store (qdrant-edge; fastest on native)
   flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec / vec0; all platforms, incl. web)
+
+  # Optional — on-device speech-to-text:
+  flutter_gemma_speech: latest_version       # transcribe audio (selectable ASR, moonshine today; native only)
 ```
 
 **Pick by need:**
@@ -36,6 +39,7 @@ dependencies:
 | Generate text embeddings | `flutter_gemma_embeddings` |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
+| Transcribe audio on-device (speech-to-text) | `flutter_gemma_speech` |
 
 Core registers **no** engine by itself — you wire the packages you added in
 `FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.
@@ -60,6 +64,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 void main() {
@@ -75,6 +80,10 @@ void main() {
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
       LiteRtEmbeddingBackend(), // flutter_gemma_embeddings
+    ],
+    // Optional — on-device speech-to-text:
+    sttBackends: const [
+      LiteRtSttBackend(), // flutter_gemma_speech
     ],
     // Optional — RAG vector store (pick one; native here):
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
@@ -95,6 +104,7 @@ void main() {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
+| `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
 | `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | sqlite-vec RAG (all platforms; `WebSqliteVectorStore()` on web) |
 
@@ -234,6 +244,7 @@ generation) is **`arm64-v8a` only**:
 | Text inference (`.task` / `.bin`) | ✅ | ✅ | ✅ |
 | `.litertlm` (FFI) | ✅ | ❌ | ❌ |
 | Embedding (LiteRT FFI) | ✅ | ❌ | ❌ |
+| Speech-to-text (LiteRT FFI) | ✅ | ❌ | ❌ |
 | Image generation (vision) | ✅ | ❌ | ❌ |
 
 If your app uses only the arm64-only features, restrict the build to arm64 so the
@@ -248,7 +259,8 @@ android {
 ```
 
 <Warning>
-`.litertlm` models on Android require **minSdk 30** — `libLiteRtLm.so` depends on
+Anything backed by `libLiteRtLm.so` on Android — `.litertlm` inference,
+embeddings, and speech-to-text — requires **minSdk 30**: the library depends on
 API 30+ Bionic syscalls (`pthread_cond_clockwait`, `sem_clockwait`) that cannot
 be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 </Warning>

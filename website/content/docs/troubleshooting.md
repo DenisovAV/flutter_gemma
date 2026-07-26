@@ -122,7 +122,7 @@ executor surface.
 ## Windows desktop GPU crashes
 
 <Warning>
-**Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete
+**Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete
 GPUs** crash in the upstream WebGPU/Dawn stack
 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
 use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
@@ -142,6 +142,14 @@ to avoid OneDrive / iCloud / Domain-Roaming sync corrupting FFI mmap of large
 
 Models installed by older 0.14.x / 0.15.0 builds that still live under
 `Documents/` keep working via a fallback read.
+
+On Windows, flutter_gemma **before 1.4.0** could write a *fresh* download to a
+`$CWD`-relative path (`<cwd>\Users\…\AppData\Local\flutter_gemma\`) instead of the
+absolute `%LOCALAPPDATA%\flutter_gemma\`, because `%LOCALAPPDATA%` is not one of
+`background_downloader`'s base directories. The model then reported "installed"
+but failed to load with *"model file paths not found"*. **Fixed in 1.4.0** — it
+affected every fresh inference / embedding / STT download on Windows, so upgrade
+if you hit it.
 
 ## Multimodal
 

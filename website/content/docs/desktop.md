@@ -61,7 +61,7 @@ models.
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
 
 <Warning>
-**Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete
+**Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete
 GPUs** crash in the upstream WebGPU/Dawn stack
 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
 use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
@@ -340,7 +340,7 @@ swap works. To swap models at runtime, call `model.close()` first, then
 
 ## Known limitations
 
-### Windows discrete GPU crashes (litertlm 1.2.0 / LiteRT-LM v0.14.0)
+### Windows discrete GPU crashes (litertlm 1.2.0+ / LiteRT-LM v0.14.0)
 
 Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack on
 `PreferredBackend.gpu` ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)).
@@ -406,7 +406,7 @@ back to CPU. Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`
 VS 2019+ Visual C++ Runtime.
 
 <Warning>
-On a Windows **discrete GPU** with litertlm 1.2.0 / LiteRT-LM v0.14.0, GPU also
+On a Windows **discrete GPU** with litertlm 1.2.0+ / LiteRT-LM v0.14.0, GPU also
 crashes in the upstream WebGPU/Dawn stack
 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
 use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. See

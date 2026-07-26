@@ -34,7 +34,7 @@ hash so a CDN compromise cannot inject code:
 
 ```html
 <script type="module"
-        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/web/litert_embeddings.js"
+        src="https://cdn.jsdelivr.net/gh/DenisovAV/flutter_gemma@<tag>/packages/flutter_gemma_embeddings/web/litert_embeddings.js"
         integrity="sha384-<hash>"
         crossorigin="anonymous"></script>
 ```

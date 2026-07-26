@@ -42,6 +42,12 @@ const _features = [
     accent: Brand.blueLight,
   ),
   _FeatureData(
+    icon: '🎤',
+    title: 'Speech-to-Text',
+    desc: 'Transcribe audio on-device — selectable ASR model, LiteRT C API, fully offline',
+    accent: Brand.green,
+  ),
+  _FeatureData(
     icon: '🔍',
     title: 'On-device RAG',
     desc: 'qdrant-edge native vector store, sqlite-vec on all platforms incl. web',
@@ -56,12 +62,12 @@ const _features = [
   _FeatureData(
     icon: '🔌',
     title: 'Modular',
-    desc: 'Core + 6 opt-in packages — ship only what you use',
+    desc: 'Core + 8 opt-in packages — ship only what you use',
     accent: Brand.green,
   ),
 ];
 
-/// 7-card feature grid.
+/// 8-card feature grid.
 class Features extends StatelessComponent {
   const Features({super.key});
 

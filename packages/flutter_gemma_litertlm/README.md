@@ -4,8 +4,10 @@ LiteRT-LM (`.litertlm`) on-device inference engine for [flutter_gemma](https://p
 via `dart:ffi`. Opt-in package — add it only if you run `.litertlm` models.
 Android, iOS, macOS, Linux, Windows.
 
-This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`); it is
-also shared by [flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings).
+This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`) and
+exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by the
+capability packages [flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings)
+and [flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech).
 
 ## Usage
 

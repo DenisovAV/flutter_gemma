@@ -75,7 +75,7 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
 
-> ⚠️ **Known regression (litertlm 1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected. See [Known Limitations](#known-limitations).
+> ⚠️ **Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected. See [Known Limitations](#known-limitations).
 
 For mobile platforms see the main [README](README.md).
 
@@ -99,8 +99,8 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.3.2            # core
-  flutter_gemma_litertlm: ^1.2.0   # .litertlm engine — required on desktop
+  flutter_gemma: ^1.4.0            # core
+  flutter_gemma_litertlm: ^1.3.0   # .litertlm engine — required on desktop
 ```
 
 ```dart
@@ -288,7 +288,7 @@ Same as switching model — close, then reopen with the new `preferredBackend`.
 
 ## Known Limitations
 
-### Windows discrete GPU crashes (litertlm 1.2.0 / LiteRT-LM v0.14.0)
+### Windows discrete GPU crashes (litertlm 1.2.0+ / LiteRT-LM v0.14.0)
 
 Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack on
 `PreferredBackend.gpu` ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)).

@@ -111,6 +111,17 @@ abstract class ModelFileManager {
     );
   }
 
+  /// Clears the active TTS identity (in-memory spec + persisted prefs).
+  ///
+  /// See [clearActiveInferenceIdentity]: default throws rather than silently
+  /// no-op'ing, so a non-overriding implementer fails loudly instead of
+  /// leaving a stale persisted identity.
+  Future<void> clearActiveTtsIdentity() async {
+    throw UnimplementedError(
+      'clearActiveTtsIdentity is not implemented by this ModelFileManager',
+    );
+  }
+
   /// Legacy API: Sets path to LoRA weights for current model
   @Deprecated('Use FlutterGemma.installModel().withLoraFromFile() instead')
   Future<void> setLoraWeightsPath(String path);
@@ -140,4 +151,7 @@ abstract class ModelFileManager {
 
   /// Gets the currently active STT model specification
   ModelSpec? get activeSttModel;
+
+  /// Gets the currently active TTS model specification.
+  ModelSpec? get activeTtsModel;
 }

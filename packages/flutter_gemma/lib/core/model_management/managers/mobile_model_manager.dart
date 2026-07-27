@@ -20,6 +20,7 @@ class MobileModelManager extends ModelFileManager {
       await _restoreActiveInferenceModel();
       await _restoreActiveEmbeddingModel();
       await _restoreActiveSttModel();
+      await _restoreActiveTtsModel();
       gemmaLog('UnifiedModelManager initialized successfully');
     } catch (e, st) {
       // Restoring the previously-active model is best-effort. A failure here
@@ -285,6 +286,46 @@ class MobileModelManager extends ModelFileManager {
       sttModelType: sttModelType,
     );
     gemmaLog('[ModelManager] restored active STT model: $modelFilename');
+  }
+
+  /// Mirror of [_restoreActiveSttModel] for TTS. The bundle files are
+  /// re-derived from [TtsModelType.manifest]; each is resolved to its local
+  /// path and required to exist.
+  Future<void> _restoreActiveTtsModel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString(PreferencesKeys.activeTtsName);
+    final typeName = prefs.getString(PreferencesKeys.activeTtsModelType);
+    if (name == null || typeName == null) return;
+
+    final TtsModelType ttsModelType;
+    try {
+      ttsModelType = TtsModelType.values.byName(typeName);
+    } catch (e) {
+      gemmaLog(
+        '[ModelManager] active TTS restore: unknown TtsModelType ($typeName) — skipping',
+      );
+      return;
+    }
+
+    final fs = ServiceRegistry.instance.fileSystemService;
+    final paths = <String, String>{};
+    for (final fn in ttsModelType.manifest) {
+      final p = await fs.getTargetPath(fn);
+      if (!File(p).existsSync()) {
+        gemmaLog(
+          '[ModelManager] active TTS restore: file missing ($fn) — skipping',
+        );
+        return;
+      }
+      paths[fn] = p;
+    }
+
+    _activeTtsModel = TtsModelSpec.fromManifest(
+      name: name,
+      ttsModelType: ttsModelType,
+      sourceFor: (fn) => FileSource(paths[fn]!),
+    );
+    gemmaLog('[ModelManager] restored active TTS model: $name');
   }
 
   /// Internal method for ModelSpec-based operations
@@ -1082,11 +1123,27 @@ class MobileModelManager extends ModelFileManager {
     gemmaLog('Active STT identity cleared');
   }
 
+  @override
+  Future<void> clearActiveTtsIdentity() async {
+    await _ensureInitialized();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(PreferencesKeys.activeTtsName);
+      await prefs.remove(PreferencesKeys.activeTtsModelType);
+      _activeTtsModel = null;
+    } catch (e) {
+      gemmaLog('[ModelManager] clearActiveTtsIdentity failed: $e');
+      rethrow;
+    }
+    gemmaLog('Active TTS identity cleared');
+  }
+
   // === Active Model Management ===
 
   ModelSpec? _activeInferenceModel;
   ModelSpec? _activeEmbeddingModel;
   ModelSpec? _activeSttModel;
+  ModelSpec? _activeTtsModel;
 
   /// Gets the currently active inference model specification
   @override
@@ -1099,6 +1156,10 @@ class MobileModelManager extends ModelFileManager {
   /// Gets the currently active STT model specification
   @override
   ModelSpec? get activeSttModel => _activeSttModel;
+
+  /// Gets the currently active TTS model specification
+  @override
+  ModelSpec? get activeTtsModel => _activeTtsModel;
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
@@ -1126,6 +1187,10 @@ class MobileModelManager extends ModelFileManager {
       _activeSttModel = spec;
       gemmaLog('✅ Set active STT model: ${spec.name}');
       unawaited(_persistActiveSttIdentity(spec));
+    } else if (spec is TtsModelSpec) {
+      _activeTtsModel = spec;
+      gemmaLog('✅ Set active TTS model: ${spec.name}');
+      unawaited(_persistActiveTtsIdentity(spec));
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }
@@ -1218,6 +1283,19 @@ class MobileModelManager extends ModelFileManager {
       );
     } catch (e) {
       gemmaLog('[ModelManager] persistActiveSttIdentity failed: $e');
+    }
+  }
+
+  Future<void> _persistActiveTtsIdentity(TtsModelSpec spec) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(PreferencesKeys.activeTtsName, spec.name);
+      await prefs.setString(
+        PreferencesKeys.activeTtsModelType,
+        spec.ttsModelType.name,
+      );
+    } catch (e) {
+      gemmaLog('[ModelManager] persistActiveTtsIdentity failed: $e');
     }
   }
 

@@ -110,6 +110,18 @@ class PreferencesKeys {
   static const String activeSttTokenizerSource = 'active_stt_tokenizer_source';
 
   // ============================================================================
+  // Active TTS model identity (simplified vs. STT: the manifest re-derives the
+  // bundle filenames on restore, so only name + type need persisting)
+  // ============================================================================
+
+  /// Filename-independent identity of the active TTS model: its display name.
+  static const String activeTtsName = 'active_tts_name';
+
+  /// `TtsModelType.name` of the active TTS model — the manifest re-derives the
+  /// bundle filenames on restore, so only name + type need persisting.
+  static const String activeTtsModelType = 'active_tts_model_type';
+
+  // ============================================================================
   // Path mappings (dynamic keys with filename)
   // ============================================================================
 

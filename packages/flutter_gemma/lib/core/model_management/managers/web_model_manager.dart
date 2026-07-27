@@ -9,6 +9,10 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
+// TtsModelSpec is not (yet) re-exported from the public flutter_gemma.dart
+// barrel (mirrors tts_registry.dart / tts_backend_provider.dart, which import
+// it the same way).
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 
@@ -709,6 +713,7 @@ class WebModelManager extends ModelFileManager {
   ModelSpec? _activeInferenceModel;
   ModelSpec? _activeEmbeddingModel;
   ModelSpec? _activeSttModel;
+  ModelSpec? _activeTtsModel;
 
   /// Gets the currently active inference model specification
   @override
@@ -721,6 +726,10 @@ class WebModelManager extends ModelFileManager {
   /// Gets the currently active STT model specification
   @override
   ModelSpec? get activeSttModel => _activeSttModel;
+
+  /// Gets the currently active TTS model specification
+  @override
+  ModelSpec? get activeTtsModel => _activeTtsModel;
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
@@ -937,6 +946,13 @@ class WebModelManager extends ModelFileManager {
     gemmaLog('WebModelManager: active STT identity cleared');
   }
 
+  @override
+  Future<void> clearActiveTtsIdentity() async {
+    // TTS is native-only; web keeps only the in-memory reference (no prefs).
+    _activeTtsModel = null;
+    gemmaLog('WebModelManager: active TTS identity cleared (in-memory only)');
+  }
+
   // === Legacy LoRA Management Methods Implementation ===
 
   @override
@@ -1025,6 +1041,11 @@ class WebModelManager extends ModelFileManager {
       _activeSttModel = spec;
       gemmaLog('✅ Set active STT model: ${spec.name}');
       unawaited(_persistActiveSttIdentity(spec));
+    } else if (spec is TtsModelSpec) {
+      // TTS is native-only; on web we keep the in-memory reference so the API
+      // doesn't throw, but do not persist/restore (its backend is a stub).
+      _activeTtsModel = spec;
+      gemmaLog('✅ Set active TTS model (web, in-memory only): ${spec.name}');
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }

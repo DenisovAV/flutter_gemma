@@ -563,3 +563,23 @@ abstract class SpeechRecognizer {
   /// Close the STT model and release resources.
   Future<void> close();
 }
+
+/// Represents a text-to-speech model instance.
+///
+/// Sibling of [SpeechRecognizer]. Note [sampleRate] is an intentional
+/// divergence: STT consumes caller-supplied audio, TTS produces it, so the
+/// caller must be told the rate to play it or wrap it in WAV.
+abstract class SpeechSynthesizer {
+  /// Synthesize [text] to 16-bit little-endian mono PCM at [sampleRate].
+  /// Batch (full text → full audio) for now; streaming is a follow-on.
+  Future<Uint8List> synthesize(String text);
+
+  /// Output sample rate, Hz.
+  int get sampleRate;
+
+  /// See [InferenceModel.addCloseListener].
+  void addCloseListener(void Function() listener);
+
+  /// Close the TTS model and release resources.
+  Future<void> close();
+}

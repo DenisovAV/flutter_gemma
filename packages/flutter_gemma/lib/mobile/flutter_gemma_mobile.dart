@@ -587,14 +587,14 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       artifactPaths: filePaths,
       preferredBackend: preferredBackend,
     );
-    final backend =
-        TtsRegistry.instance.findFor(activeModel) ??
-        (TtsRegistry.instance.registered.isNotEmpty
-            ? TtsRegistry.instance.registered.first
-            : null);
+    final backend = TtsRegistry.instance.findFor(activeModel);
     if (backend == null) {
       throw StateError(
-        'No TTS backend registered. Pass ttsBackends: to FlutterGemma.initialize().',
+        TtsRegistry.instance.hasAny
+            ? 'No registered TTS backend can handle this model '
+                  '(${activeModel.ttsModelType}). Registered: '
+                  '${TtsRegistry.instance.registered.map((b) => b.name).join(", ")}.'
+            : 'No TTS backend registered. Pass ttsBackends: to FlutterGemma.initialize().',
       );
     }
     gemmaLog(

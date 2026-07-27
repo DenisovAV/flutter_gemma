@@ -43,6 +43,26 @@ void main() {
     },
   );
 
+  test('minimumSizeBytes: small aux files get a 1 KB floor, .tflite graphs '
+      'keep the validator default (null)', () {
+    final spec = TtsModelSpec.fromManifest(
+      name: 'matcha',
+      ttsModelType: TtsModelType.matcha,
+      sourceFor: (fn) => ModelSource.network('https://x/$fn'),
+    );
+    final byName = {for (final f in spec.files) f.filename: f};
+
+    expect(byName['emb.bin']!.minimumSizeBytes, 1024);
+    expect(byName['g2p_dict.txt.gz']!.minimumSizeBytes, 1024);
+    expect(byName['config.json']!.minimumSizeBytes, 1024);
+    expect(byName['g2p_meta.json']!.minimumSizeBytes, 1024);
+
+    expect(byName['matcha_textenc_fp16.tflite']!.minimumSizeBytes, isNull);
+    expect(byName['matcha_decoder_fp16.tflite']!.minimumSizeBytes, isNull);
+    expect(byName['matcha_vocoder_fp16.tflite']!.minimumSizeBytes, isNull);
+    expect(byName['dp_g2p_matcha_fp16.tflite']!.minimumSizeBytes, isNull);
+  });
+
   test('value equality', () {
     ModelSource src(String fn) => ModelSource.network('https://x/$fn');
     final a = TtsModelSpec.fromManifest(

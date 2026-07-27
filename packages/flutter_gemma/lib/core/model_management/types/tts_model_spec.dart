@@ -46,6 +46,15 @@ class TtsBundleFile extends ModelFile {
   String get prefsKey => _filename;
   @override
   bool get isRequired => true;
+
+  @override
+  int? get minimumSizeBytes {
+    // TTS bundles legitimately include small aux files (emb.bin ~137 KB,
+    // config/meta json, gzipped dict). Give those a 1 KB floor; the large
+    // .tflite graphs return null and keep the validator's 1 MB default.
+    const smallBundleExts = {'.bin', '.gz', '.json'};
+    return smallBundleExts.contains(extension) ? 1024 : null;
+  }
 }
 
 /// Specification for a TTS model — a SELECTABLE bundle. [ttsModelType] carries

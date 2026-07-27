@@ -361,7 +361,7 @@ class ModelFileSystemManager {
         }
       } else {
         // Standard file validation
-        final minSize = getMinimumSize(file.extension);
+        final minSize = file.minimumSizeBytes ?? getMinimumSize(file.extension);
 
         if (!await isFileValid(filePath, minSizeBytes: minSize)) {
           gemmaLog('Model file validation failed: ${file.filename}');

@@ -9,10 +9,6 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/infrastructure/web_file_system_service.dart';
 import 'package:flutter_gemma/core/infrastructure/web_download_service.dart';
 import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
-// TtsModelSpec is not (yet) re-exported from the public flutter_gemma.dart
-// barrel (mirrors tts_registry.dart / tts_backend_provider.dart, which import
-// it the same way).
-import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 

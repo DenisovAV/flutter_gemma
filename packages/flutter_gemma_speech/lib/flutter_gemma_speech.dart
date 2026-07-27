@@ -1,8 +1,9 @@
-/// On-device speech for flutter_gemma (STT now; TTS/voice later), via the
+/// On-device speech-to-text and text-to-speech for flutter_gemma, via the
 /// LiteRT C API + `dart:ffi`.
 ///
-/// Opt-in. Add to pubspec.yaml and pass an instance to
-/// `FlutterGemma.initialize(sttBackends: [LiteRtSttBackend()])`.
+/// Opt-in. Add to pubspec.yaml and pass instances to
+/// `FlutterGemma.initialize(sttBackends: [LiteRtSttBackend()], ttsBackends:
+/// [LiteRtTtsBackend()])`.
 ///
 /// ```dart
 /// import 'package:flutter_gemma/flutter_gemma.dart';
@@ -10,9 +11,12 @@
 ///
 /// await FlutterGemma.initialize(
 ///   sttBackends: [LiteRtSttBackend()],
+///   ttsBackends: [LiteRtTtsBackend()],
 /// );
 /// ```
 library;
 
 export 'src/litert_stt_backend_stub.dart'
     if (dart.library.ffi) 'src/litert_stt_backend.dart';
+export 'src/litert_tts_backend_stub.dart'
+    if (dart.library.ffi) 'src/litert_tts_backend.dart';

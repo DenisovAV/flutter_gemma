@@ -19,12 +19,18 @@ import '../core/registry/embedding_registry.dart';
 import '../core/registry/embedding_backend_provider.dart';
 import '../core/registry/stt_registry.dart';
 import '../core/registry/stt_backend_provider.dart';
+import '../core/registry/tts_registry.dart';
 import '../core/registry/runtime_config.dart';
 
 // Model spec types come from the dart:io-free specs library; the manager
 // implementation comes from the mobile library (desktop reuses it).
 import '../core/model_management/model_specs.dart'
-    show EmbeddingModelSpec, InferenceModelSpec, SttModelSpec, SttModelType;
+    show
+        EmbeddingModelSpec,
+        InferenceModelSpec,
+        SttModelSpec,
+        SttModelType,
+        TtsModelSpec;
 import '../mobile/flutter_gemma_mobile.dart' show MobileModelManager;
 
 import '../core/model_management/constants/preferences_keys.dart';
@@ -477,6 +483,46 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       _lastActiveSttModelName = null;
       rethrow;
     }
+  }
+
+  @override
+  Future<SpeechSynthesizer> createTtsModel({
+    PreferredBackend? preferredBackend,
+  }) async {
+    final activeModel = _modelManager.activeTtsModel;
+    if (activeModel is! TtsModelSpec) {
+      throw StateError(
+        'No active TTS model set. Use FlutterGemma.installTts() first.',
+      );
+    }
+    final filePaths = await _modelManager.getModelFilePaths(activeModel);
+    if (filePaths == null || filePaths.isEmpty) {
+      throw StateError(
+        'Active TTS model files not found on disk. Reinstall via installTts().',
+      );
+    }
+    final config = RuntimeConfig(
+      maxTokens: 0,
+      modelPath: filePaths
+          .values
+          .first, // representative; TTS backend uses artifactPaths
+      artifactPaths: filePaths,
+      preferredBackend: preferredBackend,
+    );
+    final backend =
+        TtsRegistry.instance.findFor(activeModel) ??
+        (TtsRegistry.instance.registered.isNotEmpty
+            ? TtsRegistry.instance.registered.first
+            : null);
+    if (backend == null) {
+      throw StateError(
+        'No TTS backend registered. Pass ttsBackends: to FlutterGemma.initialize().',
+      );
+    }
+    gemmaLog(
+      'Using active TTS model: ${activeModel.name} (${filePaths.length} files)',
+    );
+    return backend.createModel(activeModel, config);
   }
 
   // === RAG Methods ===

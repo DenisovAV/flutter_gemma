@@ -107,6 +107,14 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     PreferredBackend? preferredBackend,
   });
 
+  /// Creates and returns a new [SpeechSynthesizer] for the active TTS model.
+  ///
+  /// Uses the active TTS model set via `FlutterGemma.installTts()` /
+  /// `modelManager.setActiveModel()`. Native-only — throws on web.
+  Future<SpeechSynthesizer> createTtsModel({
+    PreferredBackend? preferredBackend,
+  });
+
   /// === RAG functionality ===
 
   /// Initialize vector store database.

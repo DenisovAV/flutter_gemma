@@ -16,6 +16,7 @@ class RuntimeConfig {
     this.enableSpeculativeDecoding,
     this.maxConcurrentSessions,
     this.loraRanks,
+    this.artifactPaths,
   }) : assert(maxTokens >= 0, 'maxTokens must not be negative'),
        assert(
          maxNumImages == null || maxNumImages >= 0,
@@ -55,4 +56,9 @@ class RuntimeConfig {
   /// `supportedLoraRanks`. Carried in the config so the (cached) default-engine
   /// build closure reads it per call instead of capturing a stale local.
   final List<int>? loraRanks;
+
+  /// filename → on-disk path for a multi-file model bundle (TTS). The bundle
+  /// backend resolves each graph/dictionary/embedding file by name from this
+  /// map. Null for single-file models (inference/embedding/STT).
+  final Map<String, String>? artifactPaths;
 }

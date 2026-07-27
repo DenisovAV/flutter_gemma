@@ -715,6 +715,7 @@ class MobileModelManager extends ModelFileManager {
         ModelManagementType.inference => repo.ModelType.inference,
         ModelManagementType.embedding => repo.ModelType.embedding,
         ModelManagementType.stt => repo.ModelType.stt,
+        ModelManagementType.tts => repo.ModelType.tts,
       };
 
       // Get all installed models and filter by type

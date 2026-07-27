@@ -372,6 +372,7 @@ class WebModelManager extends ModelFileManager {
       ModelManagementType.inference => repo.ModelType.inference,
       ModelManagementType.embedding => repo.ModelType.embedding,
       ModelManagementType.stt => repo.ModelType.stt,
+      ModelManagementType.tts => repo.ModelType.tts,
     };
     final filtered = allInstalled.where((m) => m.type == wantType).toList();
 
@@ -398,6 +399,7 @@ class WebModelManager extends ModelFileManager {
       ModelManagementType.inference => repo.ModelType.inference,
       ModelManagementType.embedding => repo.ModelType.embedding,
       ModelManagementType.stt => repo.ModelType.stt,
+      ModelManagementType.tts => repo.ModelType.tts,
     };
     return allInstalled.any((m) => m.type == wantType);
   }

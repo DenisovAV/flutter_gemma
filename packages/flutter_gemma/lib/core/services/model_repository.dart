@@ -95,4 +95,4 @@ class ModelInfo {
 }
 
 /// Type of model
-enum ModelType { inference, embedding, stt }
+enum ModelType { inference, embedding, stt, tts }

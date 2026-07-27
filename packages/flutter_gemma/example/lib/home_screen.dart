@@ -6,6 +6,7 @@ import 'package:flutter_gemma_example/embedding_models_screen.dart';
 import 'package:flutter_gemma_example/model_selection_screen.dart';
 import 'package:flutter_gemma_example/stt_models_screen.dart';
 import 'package:flutter_gemma_example/translate_models_screen.dart';
+import 'package:flutter_gemma_example/tts_screen.dart';
 import 'package:flutter_gemma_example/utils/installed_model_lookup.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -131,6 +132,14 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.mic,
               color: Colors.pink,
               onTap: () => _push(const SttModelsScreen()),
+            ),
+            const SizedBox(height: 16),
+            _NavigationCard(
+              title: 'Text-to-Speech',
+              subtitle: 'On-device speech synthesis with Matcha-TTS',
+              icon: Icons.volume_up,
+              color: Colors.deepPurple,
+              onTap: () => _push(const TtsScreen()),
             ),
             const SizedBox(height: 16),
             _NavigationCard(

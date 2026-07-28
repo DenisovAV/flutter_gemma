@@ -84,7 +84,7 @@ class DownloadedModelLoader {
 
     await FlutterGemma.getActiveModel(
       maxTokens: model.maxTokens,
-      preferredBackend: PreferredBackend.cpu,
+      preferredBackend: model.preferredBackend,
     );
   }
 

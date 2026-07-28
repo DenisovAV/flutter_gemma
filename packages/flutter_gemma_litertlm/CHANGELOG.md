@@ -1,3 +1,6 @@
+## 1.3.1
+- Clearer engine-create error for GPU-only `.litertlm` models run on CPU (#390).
+
 ## 1.3.0
 - Also expose the LiteRt interpreter (`LiteRtBindings`) for embeddings/speech; own web `litert.js`.
 

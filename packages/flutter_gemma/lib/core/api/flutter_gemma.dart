@@ -614,6 +614,10 @@ class FlutterGemma {
   static Future<void> clearActiveSttIdentity() =>
       FlutterGemmaPlugin.instance.modelManager.clearActiveSttIdentity();
 
+  /// Clears the active TTS identity (in-memory spec + persisted prefs).
+  static Future<void> clearActiveTtsIdentity() =>
+      FlutterGemmaPlugin.instance.modelManager.clearActiveTtsIdentity();
+
   /// Uninstall a model
   ///
   /// Removes model metadata and files (if not protected).

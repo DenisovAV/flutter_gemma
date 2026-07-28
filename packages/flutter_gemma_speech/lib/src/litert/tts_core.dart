@@ -579,6 +579,12 @@ class TtsCore {
       view.setAll(0, data);
     }
     final bufPtr = calloc<LiteRtTensorBuffer>();
+    // On success alloc.raw is handed off to the caller inside the returned
+    // _TensorHandle — _runGraph frees it once the tensor buffer is destroyed
+    // (tts_core.dart:556-563). On ANY throw before the return it must be
+    // freed here or it leaks native heap permanently (~bytes per failed
+    // call) — mirrors SttCore._encode's `returning` flag (stt_core.dart:288).
+    var returning = false;
     try {
       _bindings
           .createTensorBufferFromHostMemory(
@@ -589,10 +595,12 @@ class TtsCore {
             bufPtr,
           )
           .check('CreateTensorBufferFromHostMemory(shape=$shape)');
+      returning = true;
       return _TensorHandle(alloc.raw, bufPtr.value);
     } finally {
       calloc.free(bufPtr);
       type.free();
+      if (!returning) calloc.free(alloc.raw);
     }
   }
 

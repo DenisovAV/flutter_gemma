@@ -76,6 +76,12 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   SpeechRecognizer? _initializedSttModel;
   String? _lastActiveSttModelName;
 
+  // TTS model
+  Completer<SpeechSynthesizer>? _initTtsCompleter;
+  SpeechSynthesizer? _initializedTtsModel;
+  TtsModelSpec?
+  _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
+
   @override
   ModelFileManager get modelManager => _modelManager;
 
@@ -495,34 +501,89 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         'No active TTS model set. Use FlutterGemma.installTts() first.',
       );
     }
-    final filePaths = await _modelManager.getModelFilePaths(activeModel);
-    if (filePaths == null || filePaths.isEmpty) {
-      throw StateError(
-        'Active TTS model files not found on disk. Reinstall via installTts().',
-      );
+
+    // Check if singleton exists and matches the active model
+    if (_initTtsCompleter != null &&
+        _initializedTtsModel != null &&
+        _lastActiveTtsSpec != null) {
+      if (_lastActiveTtsSpec!.name != activeModel.name) {
+        // Active model changed - close old model and create new one
+        await _initializedTtsModel?.close();
+        _initTtsCompleter = null;
+        _initializedTtsModel = null;
+        _lastActiveTtsSpec = null;
+      } else {
+        // Same model - return existing singleton
+        return _initTtsCompleter!.future;
+      }
     }
-    final config = RuntimeConfig(
-      maxTokens: 0,
-      modelPath: filePaths
-          .values
-          .first, // representative; TTS backend uses artifactPaths
-      artifactPaths: filePaths,
-      preferredBackend: preferredBackend,
-    );
-    final backend = TtsRegistry.instance.findFor(activeModel);
-    if (backend == null) {
-      throw StateError(
-        TtsRegistry.instance.hasAny
-            ? 'No registered TTS backend can handle this model '
-                  '(${activeModel.ttsModelType}). Registered: '
-                  '${TtsRegistry.instance.registered.map((b) => b.name).join(", ")}.'
-            : 'No TTS backend registered. Pass ttsBackends: to FlutterGemma.initialize().',
-      );
+
+    // Return existing if initialization in progress
+    if (_initTtsCompleter case Completer<SpeechSynthesizer> completer) {
+      return completer.future;
     }
-    gemmaLog(
-      'Using active TTS model: ${activeModel.name} (${filePaths.length} files)',
-    );
-    return backend.createModel(activeModel, config);
+
+    final completer = _initTtsCompleter = Completer<SpeechSynthesizer>();
+
+    try {
+      final filePaths = await _modelManager.getModelFilePaths(activeModel);
+      if (filePaths == null || filePaths.isEmpty) {
+        throw StateError(
+          'Active TTS model files not found on disk. Reinstall via installTts().',
+        );
+      }
+      final config = RuntimeConfig(
+        maxTokens: 0,
+        modelPath: filePaths
+            .values
+            .first, // representative; TTS backend uses artifactPaths
+        artifactPaths: filePaths,
+        preferredBackend: preferredBackend,
+      );
+      final backend = TtsRegistry.instance.findFor(activeModel);
+      if (backend == null) {
+        throw StateError(
+          TtsRegistry.instance.hasAny
+              ? 'No registered TTS backend can handle this model '
+                    '(${activeModel.ttsModelType}). Registered: '
+                    '${TtsRegistry.instance.registered.map((b) => b.name).join(", ")}.'
+              : 'No TTS backend registered. Pass ttsBackends: to FlutterGemma.initialize().',
+        );
+      }
+      gemmaLog(
+        'Using active TTS model: ${activeModel.name} (${filePaths.length} files)',
+      );
+      final synth = await backend.createModel(activeModel, config);
+
+      // Core owns the singleton lifecycle: track it + reset on close. The
+      // package-built model fires this via CloseNotifier (addCloseListener).
+      _initializedTtsModel = synth;
+      _lastActiveTtsSpec = activeModel;
+      synth.addCloseListener(() {
+        // Only reset if this close-listener still belongs to the current
+        // singleton — a newer model may already have replaced it (the
+        // model-changed branch above resets the fields synchronously).
+        if (identical(_initializedTtsModel, synth)) {
+          _initializedTtsModel = null;
+          _initTtsCompleter = null;
+          _lastActiveTtsSpec = null;
+        }
+      });
+
+      completer.complete(synth);
+      return synth;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      _initTtsCompleter = null;
+      _initializedTtsModel = null;
+      _lastActiveTtsSpec = null;
+      // Return the completer's future (rather than a bare rethrow) so there
+      // is exactly one Future in flight for this call — an unheeded
+      // `completer.future` (left behind whenever no concurrent caller
+      // grabbed a reference to it first) would otherwise surface as an
+      // unhandled async error.
+      return completer.future;
+    }
   }
 
   // === RAG Methods ===

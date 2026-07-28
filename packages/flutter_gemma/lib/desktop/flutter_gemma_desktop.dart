@@ -231,7 +231,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       _initializedModel = null;
       _lastActiveInferenceSpec = null;
       _lastInferenceParams = null;
-      rethrow;
+      // Return the error-completed completer future (not rethrow) so exactly one
+      // Future is in flight — a bare rethrow orphans completer.future. See #394.
+      return completer.future;
     }
   }
 
@@ -361,7 +363,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       _initEmbeddingCompleter = null;
       _initializedEmbeddingModel = null;
       _lastActiveEmbeddingModelName = null;
-      rethrow;
+      // Return the error-completed completer future (not rethrow) so exactly one
+      // Future is in flight — a bare rethrow orphans completer.future. See #394.
+      return completer.future;
     }
   }
 
@@ -487,7 +491,9 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       _initSttCompleter = null;
       _initializedSttModel = null;
       _lastActiveSttModelName = null;
-      rethrow;
+      // Return the error-completed completer future (not rethrow) so exactly one
+      // Future is in flight — a bare rethrow orphans completer.future. See #394.
+      return completer.future;
     }
   }
 

@@ -223,7 +223,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initializedModel = null;
       _lastActiveInferenceSpec = null;
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+      // Return the error-completed completer future (not a separate throw) so
+      // exactly one Future is in flight — a bare throw would orphan
+      // completer.future (no listener in the single-caller path) → spurious
+      // unhandled-async. Mirrors createTtsModel. See #394.
+      return completer.future;
     }
   }
 
@@ -387,7 +391,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initializedEmbeddingModel = null;
       _lastActiveEmbeddingSpec = null;
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+      // Return the error-completed completer future (not a separate throw) so
+      // exactly one Future is in flight — a bare throw would orphan
+      // completer.future (no listener in the single-caller path) → spurious
+      // unhandled-async. Mirrors createTtsModel. See #394.
+      return completer.future;
     }
   }
 
@@ -563,7 +571,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initializedSttModel = null;
       _lastActiveSttSpec = null;
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+      // Return the error-completed completer future (not a separate throw) so
+      // exactly one Future is in flight — a bare throw would orphan
+      // completer.future (no listener in the single-caller path) → spurious
+      // unhandled-async. Mirrors createTtsModel. See #394.
+      return completer.future;
     }
   }
 

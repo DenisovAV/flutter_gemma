@@ -393,6 +393,28 @@ class LiteRtLmFfiClient {
     }
   }
 
+  /// Extracts the first `section_backend_constraint` value from the native SDK
+  /// log without truncating it (unlike [_dumpNativeLog]) — the value is the
+  /// lowercase wire backend name (`gpu`/`cpu`/`npu`). Lets an opaque
+  /// engine_create failure become an actionable "this model needs a specific
+  /// backend" error — e.g. Gemma 4 12B is GPU-only. Returns null when the log
+  /// is unavailable (release / Android / Windows, where stderr isn't wired) or
+  /// the model declares no constraint.
+  String? _backendConstraintFromNativeLog() {
+    final p = _nativeLogPath;
+    if (p == null) return null;
+    try {
+      final f = File(p);
+      if (!f.existsSync()) return null;
+      final match = RegExp(
+        r'section_backend_constraint:\s*(\w+)',
+      ).firstMatch(f.readAsStringSync());
+      return match?.group(1);
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool get isInitialized => _isInitialized;
 
   /// Path to the redirected native stderr log (LiteRT-LM absl/glog output).
@@ -789,7 +811,21 @@ class LiteRtLmFfiClient {
       b.litert_lm_engine_settings_delete(settings);
 
       if (_engine == null || _engine == nullptr) {
+        // Read the model's backend constraint BEFORE _dumpNativeLog() truncates
+        // the log. A GPU-only model (e.g. Gemma 4 12B, whose decoder section
+        // declares `section_backend_constraint: gpu`) fails engine_create on the
+        // CPU backend with an otherwise opaque null — turn that into an
+        // actionable error instead of the misleading "model may be invalid".
+        final constraint = _backendConstraintFromNativeLog();
         _dumpNativeLog();
+        if (constraint != null && constraint != backend) {
+          throw Exception(
+            'This .litertlm model requires the "$constraint" backend — it '
+            'declares section_backend_constraint: $constraint, but the '
+            '"$backend" backend was requested. Use PreferredBackend.$constraint '
+            '(or omit preferredBackend to try GPU first).',
+          );
+        }
         throw Exception(
           'Failed to create engine. Model may be invalid: $modelPath',
         );

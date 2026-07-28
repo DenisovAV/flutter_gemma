@@ -12,6 +12,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
+
 /// Output of the text frontend — exactly what the Matcha text-encoder graph
 /// consumes.
 class TtsFrontendInput {
@@ -124,8 +126,19 @@ class TtsTextFrontend {
     // --- IPA chars -> symbol ids ---
     final pids = <int>[];
     for (final rune in ipa.runes) {
-      final id = symbolToId[String.fromCharCode(rune)];
-      if (id != null) pids.add(id);
+      final ch = String.fromCharCode(rune);
+      final id = symbolToId[ch];
+      if (id != null) {
+        pids.add(id);
+      } else {
+        gemmaLog('⚠️  TtsTextFrontend: dropping unmapped IPA symbol "$ch"');
+      }
+    }
+    if (pids.isEmpty) {
+      throw StateError(
+        'TtsTextFrontend: no symbols mapped for "$text" — cannot synthesize '
+        '(all IPA characters were outside the symbol table).',
+      );
     }
 
     // --- blank-interspersed ids[maxText] + tmask[maxText] ---

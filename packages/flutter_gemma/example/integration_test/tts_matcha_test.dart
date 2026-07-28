@@ -40,7 +40,10 @@ void main() {
         final pcm = await synth.synthesize('Hello world.');
 
         final golden = await rootBundle.load('assets/test/tts_golden.pcm');
-        final goldenBytes = golden.buffer.asUint8List();
+        final goldenBytes = golden.buffer.asUint8List(
+          golden.offsetInBytes,
+          golden.lengthInBytes,
+        );
 
         final samples = Int16List.sublistView(pcm);
         var sumSquares = 0.0;

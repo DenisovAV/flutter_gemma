@@ -507,11 +507,16 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _initializedTtsModel != null &&
         _lastActiveTtsSpec != null) {
       if (_lastActiveTtsSpec!.name != activeModel.name) {
-        // Active model changed - close old model and create new one
-        await _initializedTtsModel?.close();
+        // Active model changed - close old model and create new one.
+        // Reset the singleton fields BEFORE awaiting close() so a concurrent
+        // createTtsModel() can't pass the guard mid-close and spawn a duplicate
+        // worker (which would then be orphaned → native leak). Capture the old
+        // model first, then close it after the reset.
+        final old = _initializedTtsModel;
         _initTtsCompleter = null;
         _initializedTtsModel = null;
         _lastActiveTtsSpec = null;
+        await old?.close();
       } else {
         // Same model - return existing singleton
         return _initTtsCompleter!.future;

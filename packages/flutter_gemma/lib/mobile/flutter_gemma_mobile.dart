@@ -589,13 +589,16 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           '⚠️  Active TTS model changed: ${_lastActiveTtsSpec!.name} → ${activeModel.name}',
         );
         gemmaLog('🔄 Closing old TTS model and creating new one...');
-        await _initializedTtsModel?.close();
-        // Reset explicitly (mirror the desktop shell) instead of relying on
-        // the async close-listener, so the in-progress guard below cannot
-        // return the completer that is being torn down.
+        // Reset the singleton fields BEFORE awaiting close() so a concurrent
+        // createTtsModel() that interleaves during the await cannot pass the
+        // "all three non-null" guard and spawn a duplicate worker (which would
+        // then be orphaned → native leak). Capture the old model first, then
+        // close it after the reset.
+        final old = _initializedTtsModel;
         _initTtsCompleter = null;
         _initializedTtsModel = null;
         _lastActiveTtsSpec = null;
+        await old?.close();
       } else {
         // Same model - return existing singleton
         gemmaLog(

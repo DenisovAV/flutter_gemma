@@ -185,14 +185,14 @@ class TtsWorker {
         completer.complete(msg.pcm!);
       }
     } else if (msg is _CloseAck) {
-      _closeAck?.complete();
+      if (_closeAck?.isCompleted == false) _closeAck?.complete();
     } else if (msg == null) {
       // onExit: the worker isolate died. If this is part of a normal close,
       // the ack path already handled it; otherwise it's an unexpected crash
       // — fail every in-flight request rather than leave callers hanging.
       _failAllPending('TTS worker isolate exited unexpectedly');
       _closed = true;
-      _closeAck?.complete();
+      if (_closeAck?.isCompleted == false) _closeAck?.complete();
     }
   }
 
@@ -230,6 +230,9 @@ class TtsWorker {
       await _closeAck!.future.timeout(const Duration(seconds: 5));
     } catch (_) {
       // Timed out or errored — fall through to a forced kill below.
+      gemmaLog(
+        '⚠️  TtsWorker.close(): native teardown ack timed out — forcing kill',
+      );
     }
     _fromWorker.close();
     _isolate.kill(priority: Isolate.beforeNextEvent);

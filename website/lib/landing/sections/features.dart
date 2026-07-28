@@ -43,8 +43,8 @@ const _features = [
   ),
   _FeatureData(
     icon: '🎤',
-    title: 'Speech-to-Text',
-    desc: 'Transcribe audio on-device — selectable ASR model, LiteRT C API, fully offline',
+    title: 'Speech (STT + TTS)',
+    desc: 'Transcribe audio and synthesize speech on-device — selectable models, LiteRT C API, fully offline',
     accent: Brand.green,
   ),
   _FeatureData(

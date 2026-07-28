@@ -132,7 +132,7 @@ class SiteFooter extends StatelessComponent {
                   a(href: '/docs/agent', classes: 'footer-link', [Component.text('Agent Skills')]),
                 ]),
                 li([
-                  a(href: '/docs/speech', classes: 'footer-link', [Component.text('Speech-to-Text')]),
+                  a(href: '/docs/speech', classes: 'footer-link', [Component.text('Speech')]),
                 ]),
                 li([
                   a(href: '/docs/embeddings-and-rag', classes: 'footer-link', [Component.text('Embeddings & RAG')]),

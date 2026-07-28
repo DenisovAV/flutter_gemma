@@ -225,7 +225,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.4.0"
+    version: "1.4.1"
   flutter_gemma_agent:
     dependency: "direct main"
     description:
@@ -281,7 +281,7 @@ packages:
       path: "../../flutter_gemma_speech"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.2.0"
   flutter_inappwebview:
     dependency: transitive
     description:

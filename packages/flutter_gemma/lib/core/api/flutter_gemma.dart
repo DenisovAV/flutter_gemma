@@ -602,6 +602,37 @@ class FlutterGemma {
     return manager.activeTtsModel is TtsModelSpec;
   }
 
+  /// The active inference model's identity (its [InferenceModelSpec]), or null
+  /// if none is set. Cheap synchronous read — does NOT load the engine (use
+  /// [getActiveModel] for that). `hasActiveModel() == (activeModelSpec != null)`.
+  static InferenceModelSpec? get activeModelSpec {
+    final spec = FlutterGemmaPlugin.instance.modelManager.activeInferenceModel;
+    return spec is InferenceModelSpec ? spec : null;
+  }
+
+  /// The active embedding model's identity ([EmbeddingModelSpec]), or null.
+  static EmbeddingModelSpec? get activeEmbedderSpec {
+    final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
+    return spec is EmbeddingModelSpec ? spec : null;
+  }
+
+  /// The active STT model's identity ([SttModelSpec]), or null.
+  static SttModelSpec? get activeSttSpec {
+    final spec = FlutterGemmaPlugin.instance.modelManager.activeSttModel;
+    return spec is SttModelSpec ? spec : null;
+  }
+
+  /// The active TTS model's identity ([TtsModelSpec]), or null.
+  static TtsModelSpec? get activeTtsSpec {
+    final spec = FlutterGemmaPlugin.instance.modelManager.activeTtsModel;
+    return spec is TtsModelSpec ? spec : null;
+  }
+
+  /// Absolute on-device read path for an installed model file, keyed by
+  /// filename. On web this resolves to a URL/OPFS handle, not a filesystem path.
+  static Future<String> getModelPath(String modelId) =>
+      ServiceRegistry.instance.fileSystemService.getReadTargetPath(modelId);
+
   /// Clears the active inference identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveInferenceIdentity() =>
       FlutterGemmaPlugin.instance.modelManager.clearActiveInferenceIdentity();
@@ -644,6 +675,22 @@ class FlutterGemma {
       await fileSystem.deleteFile(targetPath);
     }
   }
+
+  /// Delete orphaned files and stale metadata left by interrupted installs.
+  static Future<void> performCleanup() =>
+      FlutterGemmaPlugin.instance.modelManager.performCleanup();
+
+  /// Current on-device storage usage across installed models.
+  static Future<StorageStats> getStorageInfo() =>
+      FlutterGemmaPlugin.instance.modelManager.getStorageInfo();
+
+  /// Files on disk that have no matching installed-model metadata.
+  static Future<List<OrphanedFileInfo>> getOrphanedFiles() =>
+      FlutterGemmaPlugin.instance.modelManager.getOrphanedFiles();
+
+  /// Delete orphaned files; returns the number of files removed.
+  static Future<int> cleanupStorage() =>
+      FlutterGemmaPlugin.instance.modelManager.cleanupStorage();
 
   /// Check if OPFS streaming mode is supported by the current browser
   ///

@@ -671,9 +671,39 @@ class FlutterGemma {
 
     // Delete files (if not external/protected)
     if (modelInfo.source is! FileSource) {
-      final targetPath = await fileSystem.getTargetPath(modelId);
+      final targetPath = await fileSystem.getReadTargetPath(modelId);
       await fileSystem.deleteFile(targetPath);
     }
+  }
+
+  /// Uninstall the active embedding model — deletes ALL its files (model +
+  /// tokenizer) and clears the active-embedder identity. No-op if none active.
+  static Future<void> uninstallEmbedder() async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final spec = manager.activeEmbeddingModel;
+    if (spec == null) return;
+    await manager.deleteModel(spec);
+    await manager.clearActiveEmbeddingIdentity();
+  }
+
+  /// Uninstall the active STT model — deletes all its files and clears the
+  /// active-STT identity. No-op if none active.
+  static Future<void> uninstallStt() async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final spec = manager.activeSttModel;
+    if (spec == null) return;
+    await manager.deleteModel(spec);
+    await manager.clearActiveSttIdentity();
+  }
+
+  /// Uninstall the active TTS model — deletes all its files and clears the
+  /// active-TTS identity. No-op if none active.
+  static Future<void> uninstallTts() async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final spec = manager.activeTtsModel;
+    if (spec == null) return;
+    await manager.deleteModel(spec);
+    await manager.clearActiveTtsIdentity();
   }
 
   /// Delete orphaned files and stale metadata left by interrupted installs.

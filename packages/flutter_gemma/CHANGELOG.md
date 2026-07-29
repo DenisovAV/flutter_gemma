@@ -1,3 +1,11 @@
+## 1.5.0
+- Add facade identity getters `activeModelSpec`/`activeEmbedderSpec`/`activeSttSpec`/`activeTtsSpec` + `getModelPath`.
+- Add facade storage `getStorageInfo`/`getOrphanedFiles`/`cleanupStorage`/`performCleanup`.
+- Add `FlutterGemma.rag` namespace (add/search/removeDocument/stats/clear); plumb `removeDocument` (#390 audit).
+- Add `uninstallEmbedder`/`uninstallStt`/`uninstallTts` (delete all files); route `uninstallModel` off the deprecated path.
+- Export `ModelSource` + `FileSystemService` from the barrel (required public parameter types).
+- Document `FlutterGemmaPlugin` as the low-level SPI tier; `FlutterGemma` facade is the canonical entry.
+
 ## 1.4.1
 - feat: on-device text-to-speech — selectable TTS model (Matcha today) via `installTts()`/`getActiveTts()`/`synthesize()`, raw PCM output.
 - feat: core TTS contracts (SpeechSynthesizer, TtsModelType, TtsBackendProvider/TtsRegistry, ModelManagementType.tts) + `RuntimeConfig.artifactPaths`.

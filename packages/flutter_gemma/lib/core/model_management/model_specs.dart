@@ -17,6 +17,7 @@ part 'types/model_spec.dart';
 part 'types/inference_model_spec.dart';
 part 'types/embedding_model_spec.dart';
 part 'types/stt_model_spec.dart';
+part 'types/tts_model_spec.dart';
 part 'types/storage_info.dart';
 part 'exceptions/model_exceptions.dart';
 

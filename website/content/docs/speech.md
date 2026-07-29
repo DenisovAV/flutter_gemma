@@ -1,16 +1,18 @@
 ---
-title: Speech-to-Text
-description: On-device speech-to-text for flutter_gemma — transcribe audio fully offline with moonshine-tiny via the LiteRT C API and dart:ffi.
+title: Speech
+description: On-device speech for flutter_gemma — transcribe audio and synthesize speech fully offline (moonshine-tiny STT + Matcha TTS) via the LiteRT C API and dart:ffi.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
 `flutter_gemma_speech` is an opt-in satellite package that adds **on-device
-speech-to-text** to flutter_gemma. It runs a **selectable** ASR model locally
-through the LiteRT C API + `dart:ffi` — no cloud, no streaming a mic to a server.
-You choose the model with `SttModelType` and a profile-driven, model-agnostic
-pipeline resolves the matching runtime, so it isn't tied to one model.
-**moonshine** (a raw-PCM seq2seq model) works end-to-end today; Whisper /
-Parakeet (log-mel) profiles and text-to-speech are follow-ons.
+speech** — speech-to-text and text-to-speech — to flutter_gemma. It runs
+**selectable** models locally through the LiteRT C API + `dart:ffi` — no cloud,
+no streaming a mic to a server.
+You choose the model with `SttModelType` / `TtsModelType` and a profile-driven,
+model-agnostic pipeline resolves the matching runtime, so it isn't tied to one
+model. **moonshine** (a raw-PCM seq2seq STT model) and **Matcha** (TTS) work
+end-to-end today; Whisper / Parakeet STT profiles and kokoro / supertonic TTS
+voices are follow-ons.
 
 <Info>
 Speech is a separate package so apps that don't need it don't ship the model or
@@ -28,8 +30,8 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.4.0
-  flutter_gemma_speech: ^0.1.0
+  flutter_gemma: ^1.4.1
+  flutter_gemma_speech: ^0.2.0
 ```
 
 ## Register the backend
@@ -85,6 +87,34 @@ models pass a token to `initialize(huggingFaceToken: ...)` or per source
 from a WAV file, skip the 44-byte header and pass the data chunk; if you capture
 from a recorder, configure it for 16 kHz / mono / 16-bit PCM.
 
+## Text-to-speech (Matcha)
+
+TTS is opt-in the same way: pass `LiteRtTtsBackend()` to `initialize()`, then
+install a voice and synthesize. **Matcha** (`litert-community/Matcha-TTS`) runs a
+3-graph LiteRT pipeline (text-encoder → CFM decoder → HiFi-GAN vocoder) fully
+on-device and returns 16-bit PCM at 22050 Hz.
+
+```dart
+await FlutterGemma.initialize(
+  ttsBackends: const [LiteRtTtsBackend()],
+);
+
+// One-time install of the Matcha bundle (downloads to the app's local storage).
+await FlutterGemma.installTts()
+    .fromNetwork('https://huggingface.co/litert-community/Matcha-TTS/resolve/main/')
+    .ofType(TtsModelType.matcha)
+    .install();
+
+final synth = await FlutterGemma.getActiveTts();
+final pcm = await synth.synthesize('Hello world.'); // Uint8List, 16-bit PCM
+// Wrap with a 44-byte WAV header (synth.sampleRate == 22050, mono) to play it.
+await synth.close();
+```
+
+The Matcha repo is public, so no HuggingFace token is required. Synthesis is
+deterministic on a given arch — byte-identical on arm64, with imperceptible
+low-float-bit divergence on x86_64.
+
 ## Platform support
 
 | Platform | Support |
@@ -102,11 +132,12 @@ requires **minSdk 30** — see
 
 ## Model support
 
-| Model | Input | Status |
-|---|---|---|
-| **moonshine-tiny** | raw PCM (seq2seq) | ✅ end-to-end |
-| Whisper | log-mel | 🚧 profile follow-on |
-| Parakeet | log-mel | 🚧 profile follow-on |
+| Model | Task | Input | Status |
+|---|---|---|---|
+| **moonshine-tiny** | STT | raw PCM (seq2seq) | ✅ end-to-end |
+| **Matcha** | TTS | text (Glow-TTS + CFM) | ✅ end-to-end |
+| Whisper / Parakeet | STT | log-mel | 🚧 profile follow-on |
+| kokoro / supertonic | TTS | text | 🚧 voice follow-on |
 
-The pipeline is profile-driven (`SttModelProfile.forType(...)`), so adding a new
-model family is a new profile rather than a new backend.
+Both pipelines are profile-driven (`SttModelProfile` / `TtsModelProfile`), so
+adding a new model family is a new profile rather than a new backend.

@@ -1,3 +1,8 @@
+## 1.4.1
+- feat: on-device text-to-speech — selectable TTS model (Matcha today) via `installTts()`/`getActiveTts()`/`synthesize()`, raw PCM output.
+- feat: core TTS contracts (SpeechSynthesizer, TtsModelType, TtsBackendProvider/TtsRegistry, ModelManagementType.tts) + `RuntimeConfig.artifactPaths`.
+- fix: model-load failure no longer emits a spurious unhandled-async (orphaned completer in createStt/createModel/createEmbedding, #394).
+
 ## 1.4.0
 - feat: on-device speech-to-text — new opt-in `flutter_gemma_speech` runs a selectable ASR model (moonshine today) on all native platforms via `installStt()`/`getActiveStt()`/`transcribe()`.
 - feat: STT contracts (SpeechRecognizer, SttModelSpec/SttModelType, SttBackendProvider/SttRegistry) + LiteRT engine consolidation into flutter_gemma_litertlm.

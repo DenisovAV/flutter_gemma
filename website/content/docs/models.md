@@ -247,17 +247,25 @@ try {
 `CancelToken` cancels all files in multi-file downloads (e.g. embedding model +
 tokenizer), works on mobile + web, and throws `DownloadCancelledException`.
 
-## Speech-to-text models
+## Speech models
 
-On-device ASR via the opt-in [`flutter_gemma_speech`](/docs/speech) package — a
-selectable, profile-driven pipeline (you pick the model with `SttModelType`).
-**moonshine-tiny** works end-to-end today (raw-PCM seq2seq); Whisper / Parakeet
-profiles are follow-ons. Native only (no Web). See [Speech-to-Text](/docs/speech)
-for usage.
+On-device speech via the opt-in [`flutter_gemma_speech`](/docs/speech) package —
+selectable, profile-driven pipelines (you pick the model with `SttModelType` /
+`TtsModelType`). **moonshine-tiny** (STT) and **Matcha** (TTS) work end-to-end
+today; Whisper / Parakeet STT profiles and kokoro / supertonic TTS voices are
+follow-ons. Native only (no Web). See [Speech](/docs/speech) for usage.
+
+**Speech-to-text**
 
 | Model | Input | Size | Status | Auth |
 |---|---|---|---|---|
 | **[moonshine-tiny](https://huggingface.co/litert-community/moonshine-tiny)** | raw 16 kHz PCM | ~104 MB | ✅ end-to-end | ❌ |
+
+**Text-to-speech**
+
+| Model | Output | Size | Status | Auth |
+|---|---|---|---|---|
+| **[Matcha](https://huggingface.co/litert-community/Matcha-TTS)** | 16-bit PCM @ 22050 Hz | ~90 MB | ✅ end-to-end | ❌ |
 
 ## Text embedding models
 

@@ -57,6 +57,7 @@ There is an example of using:
 ## What's new in 1.4
 
 - 🎤 **On-device Speech-to-Text** — new opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech): transcribe audio fully offline through the LiteRT C API + `dart:ffi`. You pick the ASR model via `SttModelType` (a profile-driven, model-agnostic pipeline) — **moonshine** works end-to-end today, Whisper / Parakeet are follow-on profiles. Register `LiteRtSttBackend()`, then `installStt()…ofType(SttModelType.moonshine).install()` → `getActiveStt()` → `transcribe(pcm)`. Android, iOS, macOS, Windows, Linux (Web is a follow-on). See [docs](https://fluttergemma.dev/docs/speech).
+- 🔊 **On-device Text-to-Speech** (1.4.1) — [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) now also synthesizes speech: register `LiteRtTtsBackend()`, `installTts()…ofType(TtsModelType.matcha).install()` → `getActiveTts()` → `synthesize(text)` returns 16-bit PCM. **Matcha** runs a 3-graph LiteRT pipeline (encoder → CFM decoder → HiFi-GAN vocoder) on all five native platforms; kokoro / supertonic are follow-ons. See [docs](https://fluttergemma.dev/docs/speech).
 
 ## What's new in 1.3
 

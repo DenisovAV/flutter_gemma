@@ -393,6 +393,15 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   }
 
   @override
+  Future<SpeechSynthesizer> createTtsModel({
+    PreferredBackend? preferredBackend,
+  }) async {
+    throw UnsupportedError(
+      'On-device TTS is not supported on web (flutter_gemma_speech TTS is native-only).',
+    );
+  }
+
+  @override
   Future<void> initializeVectorStore(String databasePath) async {
     await ServiceRegistry.instance.vectorStoreRepository.initialize(
       databasePath,

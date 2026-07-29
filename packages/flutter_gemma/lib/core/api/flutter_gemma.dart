@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/api/inference_installation_builder.dart';
 import 'package:flutter_gemma/core/api/embedding_installation_builder.dart';
 import 'package:flutter_gemma/core/api/stt_installation_builder.dart';
+import 'package:flutter_gemma/core/api/tts_installation_builder.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/services/file_system_service.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
@@ -12,10 +13,12 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/stt_registry.dart';
+import 'package:flutter_gemma/core/registry/tts_registry.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_registry.dart';
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/stt_backend_provider.dart';
+import 'package:flutter_gemma/core/registry/tts_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/skill_executor_provider.dart';
 import 'package:flutter_gemma/core/services/vector_store_repository.dart';
 import 'package:flutter_gemma/core/services/vector_store_filter.dart';
@@ -145,6 +148,7 @@ class FlutterGemma {
     List<InferenceEngineProvider> inferenceEngines = const [],
     List<EmbeddingBackendProvider> embeddingBackends = const [],
     List<SttBackendProvider> sttBackends = const [],
+    List<TtsBackendProvider> ttsBackends = const [],
     // Opt-in agentic "skills" runtime, provided by the `flutter_gemma_agent`
     // package (each executor `implements SkillExecutorProvider`). Core holds
     // only this list + the probe-chain [SkillExecutorRegistry]; the concrete
@@ -198,6 +202,9 @@ class FlutterGemma {
     }
     if (sttBackends.isNotEmpty) {
       SttRegistry.instance.registerAll(sttBackends);
+    }
+    if (ttsBackends.isNotEmpty) {
+      TtsRegistry.instance.registerAll(ttsBackends);
     }
     if (skillExecutors.isNotEmpty) {
       SkillExecutorRegistry.instance.registerAll(skillExecutors);
@@ -283,6 +290,24 @@ class FlutterGemma {
   /// ```
   static SttInstallationBuilder installStt() {
     return SttInstallationBuilder();
+  }
+
+  /// Start building a TTS (text-to-speech) model installation
+  ///
+  /// Returns a type-safe builder for installing TTS models (a bundle of
+  /// files, see [TtsInstallationBuilder.ofType]). The model will be
+  /// automatically set as the active TTS model after installation.
+  ///
+  /// Example:
+  /// ```dart
+  /// await FlutterGemma.installTts()
+  ///   .fromNetwork('https://example.com/matcha/', token: 'hf_...')
+  ///   .ofType(TtsModelType.matcha)
+  ///   .withProgress((p) => print('$p%'))
+  ///   .install();
+  /// ```
+  static TtsInstallationBuilder installTts() {
+    return TtsInstallationBuilder();
   }
 
   /// Check if a model is installed
@@ -522,6 +547,61 @@ class FlutterGemma {
     return manager.activeSttModel is SttModelSpec;
   }
 
+  /// Get the active TTS model as a ready-to-use [SpeechSynthesizer]
+  ///
+  /// Returns a [SpeechSynthesizer] configured with runtime parameters. The
+  /// bundle paths come from the active [TtsModelSpec].
+  ///
+  /// Runtime parameters:
+  /// - [preferredBackend]: CPU or GPU preference (optional)
+  ///
+  /// Throws:
+  /// - [StateError] if no active TTS model is set
+  ///
+  /// Example:
+  /// ```dart
+  /// // Install TTS model first
+  /// await FlutterGemma.installTts()
+  ///   .fromNetwork('https://example.com/matcha/')
+  ///   .ofType(TtsModelType.matcha)
+  ///   .install();
+  ///
+  /// // Create with default backend
+  /// final synthesizer = await FlutterGemma.getActiveTts();
+  /// ```
+  static Future<SpeechSynthesizer> getActiveTts({
+    PreferredBackend? preferredBackend,
+  }) async {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    final activeSpec = manager.activeTtsModel;
+
+    if (activeSpec == null) {
+      throw StateError(
+        'No active TTS model set. Use FlutterGemma.installTts() first.',
+      );
+    }
+
+    if (activeSpec is! TtsModelSpec) {
+      throw StateError(
+        'Active model is not a TtsModelSpec. '
+        'Expected TtsModelSpec, got ${activeSpec.runtimeType}',
+      );
+    }
+
+    // Create SpeechSynthesizer using active spec (paths resolved automatically)
+    return await FlutterGemmaPlugin.instance.createTtsModel(
+      preferredBackend: preferredBackend,
+    );
+  }
+
+  /// Check if there's an active TTS model
+  ///
+  /// Returns true if a TTS model has been installed and set as active.
+  static bool hasActiveTts() {
+    final manager = FlutterGemmaPlugin.instance.modelManager;
+    return manager.activeTtsModel is TtsModelSpec;
+  }
+
   /// Clears the active inference identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveInferenceIdentity() =>
       FlutterGemmaPlugin.instance.modelManager.clearActiveInferenceIdentity();
@@ -533,6 +613,10 @@ class FlutterGemma {
   /// Clears the active STT identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveSttIdentity() =>
       FlutterGemmaPlugin.instance.modelManager.clearActiveSttIdentity();
+
+  /// Clears the active TTS identity (in-memory spec + persisted prefs).
+  static Future<void> clearActiveTtsIdentity() =>
+      FlutterGemmaPlugin.instance.modelManager.clearActiveTtsIdentity();
 
   /// Uninstall a model
   ///

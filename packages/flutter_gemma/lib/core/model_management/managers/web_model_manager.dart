@@ -372,6 +372,7 @@ class WebModelManager extends ModelFileManager {
       ModelManagementType.inference => repo.ModelType.inference,
       ModelManagementType.embedding => repo.ModelType.embedding,
       ModelManagementType.stt => repo.ModelType.stt,
+      ModelManagementType.tts => repo.ModelType.tts,
     };
     final filtered = allInstalled.where((m) => m.type == wantType).toList();
 
@@ -398,6 +399,7 @@ class WebModelManager extends ModelFileManager {
       ModelManagementType.inference => repo.ModelType.inference,
       ModelManagementType.embedding => repo.ModelType.embedding,
       ModelManagementType.stt => repo.ModelType.stt,
+      ModelManagementType.tts => repo.ModelType.tts,
     };
     return allInstalled.any((m) => m.type == wantType);
   }
@@ -707,6 +709,7 @@ class WebModelManager extends ModelFileManager {
   ModelSpec? _activeInferenceModel;
   ModelSpec? _activeEmbeddingModel;
   ModelSpec? _activeSttModel;
+  ModelSpec? _activeTtsModel;
 
   /// Gets the currently active inference model specification
   @override
@@ -719,6 +722,10 @@ class WebModelManager extends ModelFileManager {
   /// Gets the currently active STT model specification
   @override
   ModelSpec? get activeSttModel => _activeSttModel;
+
+  /// Gets the currently active TTS model specification
+  @override
+  ModelSpec? get activeTtsModel => _activeTtsModel;
 
   /// Gets the currently active model specification (backward compatibility)
   @Deprecated('Use activeInferenceModel or activeEmbeddingModel instead')
@@ -935,6 +942,13 @@ class WebModelManager extends ModelFileManager {
     gemmaLog('WebModelManager: active STT identity cleared');
   }
 
+  @override
+  Future<void> clearActiveTtsIdentity() async {
+    // TTS is native-only; web keeps only the in-memory reference (no prefs).
+    _activeTtsModel = null;
+    gemmaLog('WebModelManager: active TTS identity cleared (in-memory only)');
+  }
+
   // === Legacy LoRA Management Methods Implementation ===
 
   @override
@@ -1023,6 +1037,11 @@ class WebModelManager extends ModelFileManager {
       _activeSttModel = spec;
       gemmaLog('✅ Set active STT model: ${spec.name}');
       unawaited(_persistActiveSttIdentity(spec));
+    } else if (spec is TtsModelSpec) {
+      // TTS is native-only; on web we keep the in-memory reference so the API
+      // doesn't throw, but do not persist/restore (its backend is a stub).
+      _activeTtsModel = spec;
+      gemmaLog('✅ Set active TTS model (web, in-memory only): ${spec.name}');
     } else {
       throw ArgumentError('Unknown ModelSpec type: ${spec.runtimeType}');
     }

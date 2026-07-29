@@ -1,7 +1,7 @@
 part of '../model_specs.dart';
 
 /// Base enumeration for different model management types
-enum ModelManagementType { inference, embedding, stt }
+enum ModelManagementType { inference, embedding, stt, tts }
 
 // ModelReplacePolicy is defined in model_specs.dart (this part's library).
 
@@ -25,6 +25,12 @@ abstract class ModelFile {
     if (lastDot == -1) return '';
     return filename.substring(lastDot); // Returns '.model', '.tflite', etc.
   }
+
+  /// Optional per-file minimum size (bytes) for the download-corruption check.
+  /// Null → the validator falls back to the extension heuristic
+  /// (`FileNameUtils.getMinimumSize`). Override for files whose real size is
+  /// legitimately below the 1 MB default (e.g. a small embedding blob).
+  int? get minimumSizeBytes => null;
 }
 
 /// Base specification for any model (inference or embedding)

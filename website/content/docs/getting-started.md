@@ -23,7 +23,7 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n models (Android, iOS device, Desktop).
 - **Function Calling:** Let models call external functions and integrate with other services. See [Function Calling](/docs/function-calling).
 - **Agent Skills:** Give the model a catalog of `SKILL.md` skills it picks and runs itself — text, JS, native intents, or MCP tools. See [Agent Skills](/docs/agent).
-- **Speech-to-Text:** Transcribe audio on-device with a selectable ASR model (moonshine today) via `flutter_gemma_speech`. See [Speech-to-Text](/docs/speech).
+- **Speech (STT + TTS):** Transcribe audio and synthesize speech on-device via `flutter_gemma_speech` — moonshine STT + Matcha TTS today. See [Speech](/docs/speech).
 - **Thinking Mode:** View the reasoning process of DeepSeek, Gemma 4, and Qwen3 models. See [Thinking Mode](/docs/thinking-mode).
 - **Stop Generation:** Cancel text generation mid-process on Android, iOS, Web, and Desktop.
 - **Backend Switching:** Choose between CPU and GPU backends for each model individually.

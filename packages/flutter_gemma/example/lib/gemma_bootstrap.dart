@@ -26,6 +26,9 @@ const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];
 /// The opt-in STT backends the example registers. Single source of truth.
 const kExampleSttBackends = [LiteRtSttBackend()];
 
+/// The opt-in TTS backends the example registers. Single source of truth.
+const kExampleTtsBackends = [LiteRtTtsBackend()];
+
 /// The agentic skill executors the example registers (text / JS / native
 /// intent). Registered through `FlutterGemma.initialize(skillExecutors: …)` —
 /// the recommended global path — so any [AgentSession.fromModel] built without
@@ -86,6 +89,7 @@ Future<void> bootstrapGemma({required RagBackend ragBackend}) {
     inferenceEngines: kExampleInferenceEngines,
     embeddingBackends: kExampleEmbeddingBackends,
     sttBackends: kExampleSttBackends,
+    ttsBackends: kExampleTtsBackends,
     skillExecutors: kExampleSkillExecutors,
     vectorStore: vectorStoreFor(ragBackend),
   );

@@ -722,6 +722,21 @@ class FlutterGemma {
   static Future<int> cleanupStorage() =>
       FlutterGemmaPlugin.instance.modelManager.cleanupStorage();
 
+  /// Retrieval-augmented-generation (vector store) operations, namespaced.
+  ///
+  /// Opt-in: requires a RAG package (`flutter_gemma_rag_qdrant` /
+  /// `flutter_gemma_rag_sqlite`) registered via
+  /// `FlutterGemma.initialize(vectorStore: ...)`. Without one, every call
+  /// throws a clear "add a RAG package" error.
+  ///
+  /// ```dart
+  /// await FlutterGemma.rag.initialize('rag.db');
+  /// await FlutterGemma.rag.addDocument(id: '1', content: 'hello');
+  /// final hits = await FlutterGemma.rag.searchSimilar(query: 'hi');
+  /// await FlutterGemma.rag.removeDocument(id: '1');
+  /// ```
+  static const GemmaRag rag = GemmaRag._();
+
   /// Check if OPFS streaming mode is supported by the current browser
   ///
   /// Returns true on web if OPFS is available, false otherwise.
@@ -801,4 +816,66 @@ class FlutterGemma {
     }
     ServiceRegistry.reset();
   }
+}
+
+/// RAG (retrieval-augmented generation) operations, reached via
+/// [FlutterGemma.rag]. Thin delegator over the vector store; opt-in (see
+/// [FlutterGemma.rag]). Kept as an instance (not bare statics) so apps/tests
+/// can wrap or fake it.
+class GemmaRag {
+  const GemmaRag._();
+
+  /// Initialize the vector store database.
+  Future<void> initialize(String databasePath) =>
+      FlutterGemmaPlugin.instance.initializeVectorStore(databasePath);
+
+  /// Add a document; its embedding is computed automatically (needs an active
+  /// embedding model).
+  Future<void> addDocument({
+    required String id,
+    required String content,
+    String? metadata,
+  }) => FlutterGemmaPlugin.instance.addDocument(
+    id: id,
+    content: content,
+    metadata: metadata,
+  );
+
+  /// Add a document with a precomputed embedding.
+  Future<void> addDocumentWithEmbedding({
+    required String id,
+    required String content,
+    required List<double> embedding,
+    String? metadata,
+  }) => FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+    id: id,
+    content: content,
+    embedding: embedding,
+    metadata: metadata,
+  );
+
+  /// Search for similar documents. [filter] constrains by declared payload
+  /// fields (see [FlutterGemmaPlugin.searchSimilar]).
+  Future<List<RetrievalResult>> searchSimilar({
+    required String query,
+    int topK = 5,
+    double threshold = 0.0,
+    Filter? filter,
+  }) => FlutterGemmaPlugin.instance.searchSimilar(
+    query: query,
+    topK: topK,
+    threshold: threshold,
+    filter: filter,
+  );
+
+  /// Remove a single document by ID. No-op if absent.
+  Future<void> removeDocument({required String id}) =>
+      FlutterGemmaPlugin.instance.removeDocument(id: id);
+
+  /// Vector store statistics.
+  Future<VectorStoreStats> stats() =>
+      FlutterGemmaPlugin.instance.getVectorStoreStats();
+
+  /// Remove all documents from the vector store.
+  Future<void> clear() => FlutterGemmaPlugin.instance.clearVectorStore();
 }

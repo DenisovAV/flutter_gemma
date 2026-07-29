@@ -155,6 +155,9 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// Clear all documents from vector store.
   Future<void> clearVectorStore();
 
+  /// Remove a single document from the vector store by ID. No-op if absent.
+  Future<void> removeDocument({required String id});
+
   /// Legacy no-op kept for source compatibility.
   ///
   /// Vector search now runs inside the store's engine (qdrant-edge, or

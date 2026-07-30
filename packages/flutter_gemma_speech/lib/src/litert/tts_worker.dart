@@ -257,6 +257,11 @@ Future<void> _workerEntry(_WorkerInit init) async {
   final TtsCore core;
   final TtsTextFrontend frontend;
   final TtsTextNormalizer normalizer;
+  // Tracks the core once TtsCore.load succeeds, purely so the catch block
+  // below can free it if a LATER step (frontend or normalizer) throws —
+  // otherwise a fully-loaded native core (4 compiled graphs + environment)
+  // would be abandoned: isolate exit does not free FFI/native allocations.
+  TtsCore? loadedCore;
   try {
     // Core loads first: the frontend needs `core.neuralG2p` (the dp_g2p
     // graph) to resolve out-of-vocabulary words that aren't in the
@@ -267,6 +272,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
       artifactPaths: init.artifactPaths,
       backend: init.backend,
     );
+    loadedCore = core;
     frontend = await TtsTextFrontend.load(
       init.profile,
       init.artifactPaths,
@@ -280,6 +286,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
     // isolate exit.
     normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
   } catch (e, st) {
+    loadedCore?.dispose();
     gemmaLog('[TtsWorker] load failed: $e\n$st');
     init.replyTo.send('TTS worker failed to load: $e');
     return;

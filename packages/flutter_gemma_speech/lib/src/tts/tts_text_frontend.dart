@@ -9,8 +9,8 @@ import 'matcha_text_frontend.dart';
 import 'tts_frontend_input.dart';
 
 /// Resolves an out-of-dictionary word to its IPA transcription via a neural
-/// G2P model (`TtsCore.neuralG2p`, Task 7). Wired into the worker in Task 11
-/// — until then frontends built without a resolver still throw on OOV.
+/// G2P model (`TtsCore.neuralG2p`, Task 7), wired in by the worker (Task 11).
+/// A frontend built without a resolver still throws on OOV.
 typedef NeuralG2pResolver = String Function(String word);
 
 /// text -> `TtsCore`-ready frontend input, dispatched by

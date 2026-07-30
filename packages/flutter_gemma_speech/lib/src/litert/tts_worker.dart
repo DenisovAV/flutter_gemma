@@ -248,11 +248,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
   final TtsTextFrontend frontend;
   final TtsCore core;
   try {
-    frontend = await TtsTextFrontend.load(
-      configPath: init.artifactPaths[init.profile.configFile]!,
-      dictPath: init.artifactPaths[init.profile.dictFile]!,
-      embeddingPath: init.artifactPaths[init.profile.embeddingFile]!,
-    );
+    frontend = await TtsTextFrontend.load(init.profile, init.artifactPaths);
     core = await TtsCore.load(
       profile: init.profile,
       artifactPaths: init.artifactPaths,

@@ -15,9 +15,12 @@ import 'dart:typed_data';
 import '../model/tts_model_profile.dart';
 import 'tts_frontend_input.dart';
 import 'tts_text_frontend.dart';
+import 'tts_text_normalizer.dart';
 
-/// Pure-Dart Matcha-TTS text frontend: dictionary G2P + blank-intersperse +
-/// host-side embedding gather. No neural fallback — OOV words throw.
+/// Pure-Dart Matcha-TTS text frontend: text normalizer (tagged tokens) +
+/// dictionary G2P + optional neural fallback + blank-intersperse +
+/// host-side embedding gather. OOV words throw when no neural resolver is
+/// wired.
 class MatchaTextFrontend implements TtsTextFrontend {
   /// Pure constructor from already-parsed data (unit-testable, no file I/O).
   MatchaTextFrontend({
@@ -102,53 +105,62 @@ class MatchaTextFrontend implements TtsTextFrontend {
     );
   }
 
-  /// text -> frontend input. Throws [StateError] on an OOV word (this
-  /// frontend is dictionary-only; the neural `dp_g2p` fallback needs FFI and
-  /// belongs to `TtsCore`).
+  /// text -> frontend input. G2P is dictionary-first: OOV words route
+  /// through [neuralG2p] when wired, else throw [StateError].
   @override
   MatchaFrontendInput encode(String text) {
-    // --- G2P: text -> IPA (dictionary path only) ---
-    final hasTrailingPeriod = text.endsWith('.');
-    final core = hasTrailingPeriod ? text.substring(0, text.length - 1) : text;
-    final words = core.trim().split(RegExp(r'\s+'));
-    final ipaParts = <String>[];
-    for (final w in words) {
-      final wordIpa = dictionary[w.toLowerCase()];
-      if (wordIpa == null) {
-        throw StateError(
-          'OOV word "$w" — neural dp_g2p fallback not yet wired '
-          '(dictionary-only frontend)',
-        );
+    // --- normalize: text -> tagged tokens (words + preserved symbols) ---
+    final normalizer = TtsTextNormalizer.forLocale(
+      locale,
+      symbolToId.keys.toSet(),
+    );
+    final tokens = normalizer.normalize(text);
+
+    // --- G2P: tokens -> IPA (dictionary first, neural fallback, else throw) ---
+    final ipa = StringBuffer();
+    for (final tok in tokens) {
+      if (tok is SymbolToken) {
+        ipa.write(tok.symbol);
+      } else if (tok is WordToken) {
+        final hit = dictionary[tok.word];
+        if (hit != null) {
+          ipa.write(hit);
+        } else if (neuralG2p != null) {
+          ipa.write(neuralG2p!(tok.word));
+        } else {
+          throw StateError(
+            'MatchaTextFrontend: OOV word "${tok.word}" and no neural '
+            'resolver wired.',
+          );
+        }
       }
-      ipaParts.add(wordIpa);
     }
-    final ipa = ipaParts.join(' ') + (hasTrailingPeriod ? '.' : '');
 
     // --- IPA chars -> symbol ids ---
     final pids = <int>[];
-    for (final rune in ipa.runes) {
+    for (final rune in ipa.toString().runes) {
       final ch = String.fromCharCode(rune);
       final id = symbolToId[ch];
       if (id != null) {
         pids.add(id);
       } else {
         throw StateError(
-          'TtsTextFrontend: IPA symbol "$ch" (U+${rune.toRadixString(16)}) '
+          'MatchaTextFrontend: IPA symbol "$ch" (U+${rune.toRadixString(16)}) '
           'is not in the 178-symbol table — cannot synthesize "$text".',
         );
       }
     }
     if (pids.isEmpty) {
       throw StateError(
-        'TtsTextFrontend: no symbols mapped for "$text" — cannot synthesize '
-        '(all IPA characters were outside the symbol table).',
+        'MatchaTextFrontend: no symbols mapped for "$text" — cannot '
+        'synthesize (all IPA characters were outside the symbol table).',
       );
     }
 
     final realLen = 2 * pids.length + 1;
     if (realLen > maxText) {
       throw StateError(
-        'TtsTextFrontend: chunk needs $realLen slots > MAX_TEXT $maxText '
+        'MatchaTextFrontend: chunk needs $realLen slots > MAX_TEXT $maxText '
         '(chunk before encode). Text: "$text".',
       );
     }

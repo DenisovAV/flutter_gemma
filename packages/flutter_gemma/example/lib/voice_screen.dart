@@ -125,6 +125,10 @@ class _VoiceScreenState extends State<VoiceScreen> {
         tokenBuffer: 256,
         tools: const [],
         modelType: _llmModel.modelType,
+        maxOutputTokens: 128,
+        systemInstruction:
+            'Reply concisely in one or two short sentences; your reply will '
+            'be spoken aloud.',
       );
 
       final session = VoiceSession.fromChat(

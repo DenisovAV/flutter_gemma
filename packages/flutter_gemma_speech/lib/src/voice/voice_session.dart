@@ -164,7 +164,13 @@ class VoiceSession {
     final drained = _replyDrained;
     final done = _turnDone;
     try {
-      await responder.stop();
+      await responder.stop().timeout(drainTimeout);
+    } on TimeoutException {
+      gemmaLog(
+        'VoiceSession: responder.stop() did not resolve within '
+        '${drainTimeout.inSeconds}s during barge-in; proceeding to drain.',
+        level: GemmaLogLevel.info,
+      );
     } catch (e) {
       gemmaLog(
         'VoiceSession: responder.stop() threw during barge-in: $e',

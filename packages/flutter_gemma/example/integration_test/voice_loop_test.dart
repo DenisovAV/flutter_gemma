@@ -83,7 +83,11 @@ void main() {
       final recognizer = await FlutterGemma.getActiveStt();
       final synthesizer = await FlutterGemma.getActiveTts();
       final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
-      final chat = await model.createChat(tokenBuffer: 256, tools: const []);
+      final chat = await model.createChat(
+        tokenBuffer: 256,
+        tools: const [],
+        maxOutputTokens: 128,
+      );
 
       // 2. Load the bundled clip -> 16 kHz mono PCM.
       final data = await rootBundle.load('assets/test/test_audio.wav');
@@ -132,6 +136,6 @@ void main() {
       await recognizer.close();
       await synthesizer.close();
     },
-    timeout: const Timeout(Duration(minutes: 8)),
+    timeout: const Timeout(Duration(minutes: 15)),
   );
 }

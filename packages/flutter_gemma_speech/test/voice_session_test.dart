@@ -267,6 +267,31 @@ void main() {
     },
   );
 
+  test('a stop() that never resolves does not wedge interrupt(): '
+      'timeout(drainTimeout) still arms the drain timer', () {
+    fakeAsync((async) {
+      final ctrl = StreamController<String>();
+      final responder = VoiceResponder(
+        respond: (_) => ctrl.stream, // never ends
+        stop: () => Completer<void>().future, // never resolves
+      );
+      final session = VoiceSession.custom(
+        recognizer: _FakeRecognizer('hi'),
+        responder: responder,
+        synthesizer: _FakeSynth(),
+      );
+      final events = <VoiceEvent>[];
+      session.runTurn(_pcm()).listen(events.add);
+      async.flushMicrotasks();
+      ctrl.add('x');
+      async.flushMicrotasks();
+      session.interrupt();
+      async.elapse(VoiceSession.drainTimeout * 2 + const Duration(seconds: 1));
+
+      expect(events.last, isA<VoiceTurnInterruptedEvent>());
+    });
+  });
+
   test(
     'a stage failure becomes a stream error (no terminal event after)',
     () async {

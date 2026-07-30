@@ -53,7 +53,7 @@ recorded PCM and streams back `VoiceEvent`s.
 final recognizer = await FlutterGemma.getActiveStt();
 final synthesizer = await FlutterGemma.getActiveTts();
 final chat = await (await FlutterGemma.getActiveModel(maxTokens: 1024))
-    .createChat(tokenBuffer: 256); // no tools
+    .createChat(tokenBuffer: 256, maxOutputTokens: 128); // no tools, short replies
 
 final session = VoiceSession.fromChat(
   recognizer: recognizer, chat: chat, synthesizer: synthesizer);

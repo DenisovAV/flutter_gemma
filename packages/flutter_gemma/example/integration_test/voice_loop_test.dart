@@ -10,6 +10,8 @@
 // Run: cd packages/flutter_gemma/example && \
 //   flutter test integration_test/voice_loop_test.dart -d <device> \
 //     --dart-define=HF_TOKEN=$HF_TOKEN
+import 'dart:io';
+
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/utils/audio_converter.dart';
@@ -17,6 +19,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:path_provider/path_provider.dart';
 
 // ── STT: moonshine-tiny — same URLs as stt_moonshine_test.dart. Public repos,
 // token is optional there but harmless to pass. ──
@@ -39,6 +42,19 @@ const _ttsModelUrl =
     'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
 
 const _hfToken = String.fromEnvironment('HF_TOKEN');
+
+/// On desktop, prefer a locally-staged model file (no network, no token) — the
+/// convention the other desktop integration tests use. Stage a Gemma 3 1B IT
+/// `.litertlm` into the app's documents dir as `gemma3-1b-it-int4.litertlm`.
+/// Returns null when no staged file is present (iOS / CI → network install).
+Future<String?> _stagedLlmPath() async {
+  if (!(Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
+    return null;
+  }
+  final docs = await getApplicationDocumentsDirectory();
+  final path = '${docs.path}/gemma3-1b-it-int4.litertlm';
+  return File(path).existsSync() ? path : null;
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -68,12 +84,25 @@ void main() {
           .ofType(SttModelType.moonshine)
           .install();
 
-      await FlutterGemma.installModel(
-            modelType: ModelType.gemmaIt,
-            fileType: ModelFileType.litertlm,
-          )
-          .fromNetwork(_llmModelUrl, token: _hfToken.isEmpty ? null : _hfToken)
-          .install();
+      // Desktop: install the LLM from a locally-staged .litertlm (no network,
+      // no token) — the convention used by the other desktop integration tests
+      // (litertlm_ffi_test.dart / active_model_restore_test.dart). iOS / CI
+      // without a staged file fall back to the network install.
+      final llm = FlutterGemma.installModel(
+        modelType: ModelType.gemmaIt,
+        fileType: ModelFileType.litertlm,
+      );
+      final llmLocalPath = await _stagedLlmPath();
+      if (llmLocalPath != null) {
+        await llm.fromFile(llmLocalPath).install();
+      } else {
+        await llm
+            .fromNetwork(
+              _llmModelUrl,
+              token: _hfToken.isEmpty ? null : _hfToken,
+            )
+            .install();
+      }
 
       await FlutterGemma.installTts()
           .fromNetwork(_ttsModelUrl)

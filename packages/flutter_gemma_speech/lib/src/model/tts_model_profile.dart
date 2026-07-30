@@ -41,6 +41,7 @@ class TtsModelProfile {
       decoderFile = 'matcha_decoder_fp16.tflite',
       vocoderFile = 'matcha_vocoder_fp16.tflite',
       g2pFile = 'dp_g2p_matcha_fp16.tflite',
+      g2pMetaFile = 'g2p_meta.json',
       configFile = 'config.json',
       dictFile = 'g2p_dict.txt.gz',
       embeddingFile = 'emb.bin',
@@ -62,6 +63,11 @@ class TtsModelProfile {
 
   /// Grapheme-to-phoneme model file.
   final String g2pFile;
+
+  /// Neural G2P side-car: `char2idx`/`idx2ph` vocab + framing params
+  /// (`char_repeats`/`start`/`end`/`MAXT`/`n_phonemes`) that `TtsCore` needs
+  /// to run [g2pFile] and decode its output into IPA (`TtsCore.neuralG2p`).
+  final String g2pMetaFile;
 
   /// Bundle config file carrying the numeric synthesis params (read by
   /// `TtsCore`, not this profile).

@@ -1,9 +1,9 @@
 // Synchronous, isolate-agnostic native core for Matcha-TTS on-device
 // synthesis.
 //
-// Owns the LiteRT C API handles (one environment + 3 compiled graphs:
-// text-encoder, CFM decoder, HiFi-GAN vocoder) for a `matchaCfm` pipeline.
-// `synthesize()` runs the blocking forward passes + host-side ODE math
+// Owns the LiteRT C API handles (one environment + 4 compiled graphs:
+// text-encoder, CFM decoder, HiFi-GAN vocoder, dp_g2p) for a `matchaCfm`
+// pipeline. `synthesize()` runs the blocking forward passes + host-side ODE math
 // synchronously on the calling thread — like `SttCore.transcribe`, it is
 // meant to be driven from a background isolate so the UI isolate stays free.
 //
@@ -27,9 +27,10 @@
 //
 // Generic over [TtsModelProfile] — only `TtsPipelineKind.matchaCfm` is
 // implemented; kokoro/supertonic profiles are documented follow-ons. The
-// `dp_g2p` graph is intentionally NOT loaded here — it's the neural OOV
-// fallback, and the dictionary-only `TtsTextFrontend` (Task 2.2) covers the
-// golden path; loading it is a Phase-2 residual.
+// `dp_g2p` graph IS loaded here (4th compiled graph) and exposed via
+// `TtsCore.neuralG2p` — it's the neural OOV fallback used when a word is
+// missing from the dictionary; the dictionary-only path stays the golden
+// path via `TtsTextFrontend` (Task 2.2).
 //
 // Determinism: the Euler CFM decoder's initial noise is drawn from a FIXED
 // seed ([ttsCfmSeed]) via Box-Muller ([nextGaussian]), so [TtsCore.synthesize]
@@ -59,6 +60,7 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../model/tts_model_profile.dart';
+import '../tts/neural_g2p_decode.dart';
 import '../tts/tts_frontend_input.dart';
 
 /// The Euler CFM decoder's fixed Gaussian-noise seed. Fixed (not
@@ -213,6 +215,7 @@ class TtsCore {
     required this._textEncoder,
     required this._decoder,
     required this._vocoder,
+    required this._dpG2p,
     required this._nFeats,
     required this._nChannels,
     required this._maxText,
@@ -223,6 +226,13 @@ class TtsCore {
     required this._nTimesteps,
     required this._melStd,
     required this._melMean,
+    required this._g2pChar2idx,
+    required this._g2pIdx2ph,
+    required this._g2pCharRepeats,
+    required this._g2pStart,
+    required this._g2pEnd,
+    required this._g2pMaxT,
+    required this._g2pNPhonemes,
   });
 
   final LiteRtBindings _bindings;
@@ -230,6 +240,7 @@ class TtsCore {
   final _LoadedGraph _textEncoder;
   final _LoadedGraph _decoder;
   final _LoadedGraph _vocoder;
+  final _LoadedGraph _dpG2p;
 
   final int _nFeats;
   final int _nChannels;
@@ -242,12 +253,22 @@ class TtsCore {
   final double _melStd;
   final double _melMean;
 
+  // Neural G2P (dp_g2p) vocab + framing params, read from `g2p_meta.json` at
+  // load time so `neuralG2p` can stay synchronous (no file I/O per word).
+  final Map<String, int> _g2pChar2idx;
+  final Map<int, String> _g2pIdx2ph;
+  final int _g2pCharRepeats;
+  final int _g2pStart;
+  final int _g2pEnd;
+  final int _g2pMaxT;
+  final int _g2pNPhonemes;
+
   bool _disposed = false;
 
-  /// Loads `config.json` and compiles the 3 Matcha graphs (text-encoder,
-  /// decoder, vocoder) for [backend]. Heavy — call once, from a background
-  /// isolate. [artifactPaths] is filename -> on-disk-path for the model
-  /// bundle (from `RuntimeConfig.artifactPaths`).
+  /// Loads `config.json` + `g2p_meta.json` and compiles the 4 Matcha graphs
+  /// (text-encoder, decoder, vocoder, dp_g2p) for [backend]. Heavy — call
+  /// once, from a background isolate. [artifactPaths] is filename ->
+  /// on-disk-path for the model bundle (from `RuntimeConfig.artifactPaths`).
   static Future<TtsCore> load({
     required TtsModelProfile profile,
     required Map<String, String> artifactPaths,
@@ -317,11 +338,31 @@ class TtsCore {
       );
       loadedGraphs.add(vocoder);
 
-      // dp_g2p (profile.g2pFile) is intentionally NOT loaded — it's the
-      // neural OOV fallback; the dictionary-only TtsTextFrontend (Task 2.2)
-      // covers the golden path. Loading it is a documented Phase-2 residual.
+      final dpG2p = _loadGraph(
+        bindings,
+        environment,
+        _artifactPath(artifactPaths, profile.g2pFile),
+        accelerator,
+      );
+      loadedGraphs.add(dpG2p);
 
-      gemmaLog('[TtsCore] loaded: backend=$backend, 3 graphs compiled');
+      final g2pMetaPath = _artifactPath(artifactPaths, profile.g2pMetaFile);
+      final g2pMeta =
+          jsonDecode(await File(g2pMetaPath).readAsString())
+              as Map<String, dynamic>;
+      final g2pChar2idx = (g2pMeta['char2idx'] as Map<String, dynamic>).map(
+        (k, v) => MapEntry(k, (v as num).toInt()),
+      );
+      final g2pIdx2ph = (g2pMeta['idx2ph'] as Map<String, dynamic>).map(
+        (k, v) => MapEntry(int.parse(k), v as String),
+      );
+      final g2pCharRepeats = (g2pMeta['char_repeats'] as num).toInt();
+      final g2pStart = (g2pMeta['start'] as num).toInt();
+      final g2pEnd = (g2pMeta['end'] as num).toInt();
+      final g2pMaxT = (g2pMeta['MAXT'] as num).toInt();
+      final g2pNPhonemes = (g2pMeta['n_phonemes'] as num).toInt();
+
+      gemmaLog('[TtsCore] loaded: backend=$backend, 4 graphs compiled');
 
       return TtsCore._(
         bindings: bindings,
@@ -329,6 +370,7 @@ class TtsCore {
         textEncoder: textEncoder,
         decoder: decoder,
         vocoder: vocoder,
+        dpG2p: dpG2p,
         nFeats: nFeats,
         nChannels: nChannels,
         maxText: maxText,
@@ -339,6 +381,13 @@ class TtsCore {
         nTimesteps: nTimesteps,
         melStd: melStd,
         melMean: melMean,
+        g2pChar2idx: g2pChar2idx,
+        g2pIdx2ph: g2pIdx2ph,
+        g2pCharRepeats: g2pCharRepeats,
+        g2pStart: g2pStart,
+        g2pEnd: g2pEnd,
+        g2pMaxT: g2pMaxT,
+        g2pNPhonemes: g2pNPhonemes,
       );
     } catch (_) {
       for (final graph in loadedGraphs) {
@@ -353,6 +402,50 @@ class TtsCore {
 
   /// Output sample rate (Hz), read from `config.json`.
   int get sampleRate => _sampleRate;
+
+  /// Runs [word] through the neural dp_g2p graph — the OOV fallback for
+  /// words missing from the pronunciation dictionary — and returns its IPA
+  /// phoneme string. Synchronous (no file I/O; `g2p_meta.json` was already
+  /// parsed in [load]), so it's safe to call per-word from the frontend (the
+  /// `NeuralG2pResolver` adapter is `core.neuralG2p`). Framing/decoding is
+  /// [encodeG2pInput]/[decodeG2pOutput] (Task 6) — this method only runs the
+  /// native forward pass and picks the per-position argmax over the
+  /// `n_phonemes`-wide logits.
+  String neuralG2p(String word) {
+    if (_disposed) {
+      throw StateError('TtsCore is disposed');
+    }
+    final x = encodeG2pInput(
+      word,
+      _g2pChar2idx,
+      charRepeats: _g2pCharRepeats,
+      start: _g2pStart,
+      end: _g2pEnd,
+      maxT: _g2pMaxT,
+    );
+    final logits = _runGraph(
+      _dpG2p.compiledModel,
+      [
+        ([1, _g2pMaxT], x),
+      ],
+      [
+        [1, _g2pMaxT, _g2pNPhonemes],
+      ],
+    )[0];
+    final argmax = List<int>.generate(_g2pMaxT, (t) {
+      var best = 0;
+      var bestV = logits[t * _g2pNPhonemes];
+      for (var p = 1; p < _g2pNPhonemes; p++) {
+        final v = logits[t * _g2pNPhonemes + p];
+        if (v > bestV) {
+          bestV = v;
+          best = p;
+        }
+      }
+      return best;
+    });
+    return decodeG2pOutput(argmax, _g2pIdx2ph, end: _g2pEnd);
+  }
 
   /// Runs the full Matcha forward pass for a prepared frontend [input]:
   /// text-encoder -> host duration + Glow-TTS length regulator -> N-step
@@ -612,12 +705,12 @@ class TtsCore {
     }
   }
 
-  /// Destroys all 3 compiled graphs' handles + the shared environment.
-  /// Mirrors `SttCore.dispose`, x3.
+  /// Destroys all 4 compiled graphs' handles + the shared environment.
+  /// Mirrors `SttCore.dispose`, x4.
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final graph in [_textEncoder, _decoder, _vocoder]) {
+    for (final graph in [_textEncoder, _decoder, _vocoder, _dpG2p]) {
       _bindings.destroyCompiledModel(graph.compiledModel);
       _bindings.destroyOptions(graph.options);
       _bindings.destroyModel(graph.model);

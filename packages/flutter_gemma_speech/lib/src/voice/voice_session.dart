@@ -2,8 +2,16 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart'
-    show SpeechRecognizer, SpeechSynthesizer, GemmaLogLevel;
+    show
+        InferenceChat,
+        Message,
+        ModelResponse,
+        SpeechRecognizer,
+        SpeechSynthesizer,
+        TextResponse,
+        GemmaLogLevel;
 import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
+import 'package:meta/meta.dart' show visibleForTesting;
 
 import 'voice_event.dart';
 import 'voice_responder.dart';
@@ -19,6 +27,57 @@ class VoiceSession {
     required this.responder,
     required this.synthesizer,
   });
+
+  /// Multi-turn conversational voice. Recommended default. Create the chat via
+  /// `getActiveModel().createChat(...)` with a short `maxOutputTokens` and a
+  /// "reply concisely, this will be spoken aloud" system instruction.
+  ///
+  /// PRECONDITION: `chat.tools` MUST be empty — a tools-chat emits
+  /// FunctionCallResponse items this text-only path would silently swallow,
+  /// stranding a dangling tool call that poisons history. Route tool use to
+  /// [VoiceSession.custom] + `AgentLoop`. Enforced with a real throw (asserts
+  /// are stripped in release — §12 B4).
+  factory VoiceSession.fromChat({
+    required SpeechRecognizer recognizer,
+    required InferenceChat chat,
+    required SpeechSynthesizer synthesizer,
+  }) {
+    if (chat.tools.isNotEmpty) {
+      throw ArgumentError.value(
+        chat,
+        'chat',
+        'VoiceSession.fromChat requires chat.tools.isEmpty; '
+            'route tool use to VoiceSession.custom + AgentLoop.',
+      );
+    }
+    return VoiceSession.custom(
+      recognizer: recognizer,
+      responder: VoiceResponder(
+        respond: (userText) => _chatRespond(chat, userText),
+        stop: chat.stopGeneration,
+      ),
+      synthesizer: synthesizer,
+    );
+  }
+
+  static Stream<String> _chatRespond(
+    InferenceChat chat,
+    String userText,
+  ) async* {
+    await chat.addQueryChunk(Message(text: userText, isUser: true));
+    yield* textTokensOf(chat.generateChatResponseAsync());
+  }
+
+  /// Keep only [TextResponse] tokens from a chat response stream. Thinking and
+  /// function-call parsing already happened inside the chat, so this neither
+  /// double-filters nor drops (§12 note). Exposed for testing the mapping
+  /// without a real InferenceChat.
+  @visibleForTesting
+  static Stream<String> textTokensOf(Stream<ModelResponse> responses) async* {
+    await for (final r in responses) {
+      if (r is TextResponse) yield r.token;
+    }
+  }
 
   final SpeechRecognizer recognizer;
   final VoiceResponder responder;

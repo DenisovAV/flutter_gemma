@@ -35,6 +35,7 @@ There is an example of using:
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
 - **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine today; Whisper / Parakeet profiles are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
 - **🔊 On-device Text-to-Speech:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — synthesize speech fully offline with a selectable model (Matcha today; kokoro / supertonic are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
+- **🗣️ On-device Voice Loop:** `VoiceSession` in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) chains STT → LLM → TTS into one push-to-talk turn with barge-in — the full on-device speech-to-speech pipeline. `VoiceSession.fromChat(recognizer:, chat:, synthesizer:)` streams `VoiceEvent`s from recorded PCM (native only).
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🤖 On-device Agent Skills:** Opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) — give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through the function-calling loop, fully offline. Gallery-compatible. Android, iOS, macOS, Windows (Web not supported yet).
 - **🧠 Thinking Mode:** View the reasoning process of Gemma 4, DeepSeek R1, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models with thinking blocks
@@ -59,6 +60,7 @@ There is an example of using:
 
 - 🎤 **On-device Speech-to-Text** — new opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech): transcribe audio fully offline through the LiteRT C API + `dart:ffi`. You pick the ASR model via `SttModelType` (a profile-driven, model-agnostic pipeline) — **moonshine** works end-to-end today, Whisper / Parakeet are follow-on profiles. Register `LiteRtSttBackend()`, then `installStt()…ofType(SttModelType.moonshine).install()` → `getActiveStt()` → `transcribe(pcm)`. Android, iOS, macOS, Windows, Linux (Web is a follow-on). See [docs](https://fluttergemma.dev/docs/speech).
 - 🔊 **On-device Text-to-Speech** (1.4.1) — [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) now also synthesizes speech: register `LiteRtTtsBackend()`, `installTts()…ofType(TtsModelType.matcha).install()` → `getActiveTts()` → `synthesize(text)` returns 16-bit PCM. **Matcha** runs a 3-graph LiteRT pipeline (encoder → CFM decoder → HiFi-GAN vocoder) on all five native platforms; kokoro / supertonic are follow-ons. See [docs](https://fluttergemma.dev/docs/speech).
+- 🗣️ **On-device Voice Loop** (speech 0.3.0) — [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) now ties STT + TTS into a full **speech-to-speech** loop: `VoiceSession.fromChat(recognizer:, chat:, synthesizer:)` runs transcribe → chat reply → synthesize as one push-to-talk turn (`runTurn(pcm)` → `Stream<VoiceEvent>`), barge-in via `interrupt()`. The app owns mic + player. See [docs](https://fluttergemma.dev/docs/speech).
 
 ## What's new in 1.3
 
@@ -207,8 +209,8 @@ model formats and features you need.
       # Optional — on-device agent skills:
       flutter_gemma_agent: latest_version        # SKILL.md skills (text / JS / native-intent / MCP) via tool-calling
 
-      # Optional — on-device speech-to-text:
-      flutter_gemma_speech: latest_version       # transcribe audio (selectable ASR, moonshine today; native only)
+      # Optional — on-device speech (STT + TTS + voice loop):
+      flutter_gemma_speech: latest_version       # speech: STT + TTS + push-to-talk voice loop (native only)
     ```
 
     **Pick by need:**
@@ -221,7 +223,7 @@ model formats and features you need.
     | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
     | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_gemma_rag_sqlite` |
     | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_gemma_agent` |
-    | Transcribe audio on-device (speech-to-text) | `flutter_gemma_speech` |
+    | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 
     Core registers **no** engine by itself — you wire the packages you added in
     `FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).
@@ -910,6 +912,7 @@ void main() {
 | `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
+| `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
 | `vectorStore: SqliteVectorStore()` / `WebSqliteVectorStore()` | `flutter_gemma_rag_sqlite` | native / web RAG |
 

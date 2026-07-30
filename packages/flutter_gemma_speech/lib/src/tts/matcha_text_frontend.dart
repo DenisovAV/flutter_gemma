@@ -114,34 +114,26 @@ class MatchaTextFrontend implements TtsTextFrontend {
     );
   }
 
-  /// text -> frontend input. G2P is dictionary-first: OOV words route
-  /// through [neuralG2p] when wired, else throw [StateError].
-  @override
-  MatchaFrontendInput encode(String text) {
-    // --- normalize: text -> tagged tokens (words + preserved symbols) ---
-    final tokens = _normalizer.normalize(text);
-
-    // --- G2P: tokens -> IPA (dictionary first, neural fallback, else throw) ---
+  /// IPA symbol-ids for ONE normalized token (empty for a non-speech token).
+  /// [text] is the whole chunk/clause [tok] came from — kept only to name it
+  /// in the unmapped-IPA-symbol error below.
+  List<int> _tokenPids(Object tok, String text) {
     final ipa = StringBuffer();
-    for (final tok in tokens) {
-      if (tok is SymbolToken) {
-        ipa.write(tok.symbol);
-      } else if (tok is WordToken) {
-        final hit = dictionary[tok.word];
-        if (hit != null) {
-          ipa.write(hit);
-        } else if (neuralG2p != null) {
-          ipa.write(neuralG2p!(tok.word));
-        } else {
-          throw StateError(
-            'MatchaTextFrontend: OOV word "${tok.word}" and no neural '
-            'resolver wired.',
-          );
-        }
+    if (tok is SymbolToken) {
+      ipa.write(tok.symbol);
+    } else if (tok is WordToken) {
+      final hit = dictionary[tok.word];
+      if (hit != null) {
+        ipa.write(hit);
+      } else if (neuralG2p != null) {
+        ipa.write(neuralG2p!(tok.word));
+      } else {
+        throw StateError(
+          'MatchaTextFrontend: OOV word "${tok.word}" and no neural '
+          'resolver wired.',
+        );
       }
     }
-
-    // --- IPA chars -> symbol ids ---
     final pids = <int>[];
     for (final rune in ipa.toString().runes) {
       final ch = String.fromCharCode(rune);
@@ -155,34 +147,24 @@ class MatchaTextFrontend implements TtsTextFrontend {
         );
       }
     }
+    return pids;
+  }
+
+  /// Build the padded/masked/gathered input from a fitting [pids] list.
+  /// Caller guarantees `2*pids.length+1 <= maxText`. Empty pids -> empty input.
+  MatchaFrontendInput _buildInput(List<int> pids) {
     if (pids.isEmpty) {
-      // Non-speech clause (e.g. a lone emoji or a symbol outside the
-      // model's table): a defined empty input, not a fail-loud error — the
-      // worker's `realLen <= 1` guard skips it and moves on to the next
-      // clause instead of erroring the whole synthesis request.
       return MatchaFrontendInput(Float32List(0), Float32List(0), 0);
     }
-
     final realLen = 2 * pids.length + 1;
-    if (realLen > maxText) {
-      throw StateError(
-        'MatchaTextFrontend: chunk needs $realLen slots > MAX_TEXT $maxText '
-        '(chunk before encode). Text: "$text".',
-      );
-    }
-
-    // --- blank-interspersed ids[maxText] + tmask[maxText] ---
     final ids = List<int>.filled(maxText, 0);
     for (var i = 0; i < pids.length; i++) {
-      final pos = 1 + 2 * i;
-      ids[pos] = pids[i];
+      ids[1 + 2 * i] = pids[i];
     }
     final textMask = Float32List(maxText);
     for (var t = 0; t < maxText; t++) {
       textMask[t] = t < realLen ? 1.0 : 0.0;
     }
-
-    // --- host emb.bin gather -> [maxText * nChannels] ---
     final symbolEmbeddings = Float32List(maxText * nChannels);
     for (var t = 0; t < maxText; t++) {
       final srcBase = ids[t] * nChannels;
@@ -191,7 +173,68 @@ class MatchaTextFrontend implements TtsTextFrontend {
         symbolEmbeddings[dstBase + c] = embeddingTable[srcBase + c];
       }
     }
-
     return MatchaFrontendInput(symbolEmbeddings, textMask, realLen);
+  }
+
+  /// text -> frontend input. G2P is dictionary-first: OOV words route
+  /// through [neuralG2p] when wired, else throw [StateError].
+  @override
+  MatchaFrontendInput encode(String text) {
+    final tokens = _normalizer.normalize(text);
+    final pids = <int>[];
+    for (final tok in tokens) {
+      pids.addAll(_tokenPids(tok, text));
+    }
+    if (pids.isEmpty) {
+      // Non-speech clause (e.g. a lone emoji or a symbol outside the
+      // model's table): a defined empty input, not a fail-loud error — the
+      // worker's `realLen <= 1` guard skips it and moves on to the next
+      // clause instead of erroring the whole synthesis request.
+      return MatchaFrontendInput(Float32List(0), Float32List(0), 0);
+    }
+    final realLen = 2 * pids.length + 1;
+    if (realLen > maxText) {
+      throw StateError(
+        'MatchaTextFrontend: chunk needs $realLen slots > MAX_TEXT $maxText '
+        '(chunk before encode). Text: "$text".',
+      );
+    }
+    return _buildInput(pids);
+  }
+
+  /// text -> one or more inputs, each within MAX_TEXT. Splits an over-long
+  /// chunk at WORD boundaries (never mid-word — that would break G2P). For
+  /// text that already fits, returns a single input equal to [encode]
+  /// (golden-safe). A single token whose phonemes alone exceed the budget is
+  /// unsplittable and still fails loud (a >127-phoneme word is a genuine
+  /// limit, not silent loss).
+  @override
+  List<MatchaFrontendInput> encodeChunks(String text) {
+    final tokens = _normalizer.normalize(text);
+    final maxPids = (maxText - 1) ~/ 2; // 127 for maxText = 256
+    final result = <MatchaFrontendInput>[];
+    final current = <int>[];
+    for (final tok in tokens) {
+      final tokPids = _tokenPids(tok, text);
+      if (tokPids.isEmpty) continue; // non-speech token
+      if (tokPids.length > maxPids) {
+        throw StateError(
+          'MatchaTextFrontend: a single token needs '
+          '${2 * tokPids.length + 1} slots > MAX_TEXT $maxText and cannot be '
+          'split at a word boundary. Text: "$text".',
+        );
+      }
+      if (current.length + tokPids.length > maxPids) {
+        result.add(_buildInput(List.of(current)));
+        current.clear();
+      }
+      current.addAll(tokPids);
+    }
+    if (current.isNotEmpty) result.add(_buildInput(List.of(current)));
+    if (result.isEmpty) {
+      // all-non-speech chunk -> one empty input (worker skips via realLen<=1).
+      return [MatchaFrontendInput(Float32List(0), Float32List(0), 0)];
+    }
+    return result;
   }
 }

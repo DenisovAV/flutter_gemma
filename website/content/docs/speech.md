@@ -31,7 +31,7 @@ inference.
 ```
 dependencies:
   flutter_gemma: ^1.4.1
-  flutter_gemma_speech: ^0.2.0
+  flutter_gemma_speech: ^0.3.0
 ```
 
 ## Register the backend
@@ -114,6 +114,39 @@ await synth.close();
 The Matcha repo is public, so no HuggingFace token is required. Synthesis is
 deterministic on a given arch — byte-identical on arm64, with imperceptible
 low-float-bit divergence on x86_64.
+
+## Voice loop
+
+`VoiceSession` chains STT → LLM → TTS into one push-to-talk turn — transcribe,
+generate a chat reply, synthesize it — streamed back as `VoiceEvent`s. Build
+one with `VoiceSession.fromChat`, which wraps an `InferenceChat` (it must have
+no tools — route tool use through `VoiceSession.custom` + `AgentLoop` instead).
+
+```dart
+final recognizer = await FlutterGemma.getActiveStt();
+final synthesizer = await FlutterGemma.getActiveTts();
+final chat = await (await FlutterGemma.getActiveModel(maxTokens: 1024))
+    .createChat(tokenBuffer: 256, maxOutputTokens: 128); // no tools, short replies
+
+final session = VoiceSession.fromChat(
+  recognizer: recognizer, chat: chat, synthesizer: synthesizer);
+
+await for (final event in session.runTurn(pcm16kMono)) {
+  switch (event) {
+    case VoiceTranscriptEvent(:final text): /* show */
+    case VoiceReplyTextEvent(:final chunk): /* stream */
+    case VoiceReplyAudioEvent(:final pcm, :final sampleRate): /* play */
+    case VoiceTurnInterruptedEvent(): /* stop player */
+    case VoiceTurnCompleteEvent(): case VoiceErrorEvent(): break;
+  }
+}
+```
+
+`VoiceSession` owns no microphone or player — the app captures and plays PCM
+itself, same as the STT/TTS sections above. For barge-in, call
+`await session.interrupt()` while a turn is in flight: it stops generation,
+bounded-drains the reply stream, and the turn ends with a
+`VoiceTurnInterruptedEvent` instead of `VoiceTurnCompleteEvent`.
 
 ## Platform support
 

@@ -30,6 +30,13 @@ enum SttDecodeType {
   ctc,
 }
 
+/// Batch (whole-utterance) vs streaming (incremental) transcription.
+///
+/// A property of the exported artifact, NOT the algorithm family: parakeet's
+/// `_stateful` CTC export streams, its stateless export does not — same
+/// [SttDecodeType], different [SttModelProfile.modes]. (Design spec §5.)
+enum SttMode { batch, streaming }
+
 /// Runtime descriptor for one STT model family — everything `SttCore` needs
 /// to run a model that it does not auto-detect from the compiled model's
 /// tensor layouts at load time.
@@ -42,7 +49,8 @@ class SttModelProfile {
       sampleRate = 16000,
       windowSamples = 80000,
       decodeType = SttDecodeType.seq2seq,
-      maxDecodeTokens = 64;
+      maxDecodeTokens = 64,
+      modes = const {SttMode.batch};
 
   /// How audio is fed to the encoder.
   final SttInputType inputType;
@@ -58,6 +66,15 @@ class SttModelProfile {
 
   /// Max autoregressive decode steps before forcing a stop (moonshine: 64).
   final int maxDecodeTokens;
+
+  /// Which transcription modes this model's exported artifact supports.
+  /// moonshine: {batch}. Future parakeet stateful export: {batch, streaming}.
+  /// Declarative capability data (design spec §5) — v1 has no consumer yet;
+  /// the streaming gate lands with the streaming phase.
+  final Set<SttMode> modes;
+
+  /// True if this model can drive a streaming (incremental) transcription.
+  bool get supportsStreaming => modes.contains(SttMode.streaming);
 
   /// Resolve the runtime profile for [t]. Only [SttModelType.moonshine] is
   /// implemented; whisper/parakeet need a log-mel frontend and are

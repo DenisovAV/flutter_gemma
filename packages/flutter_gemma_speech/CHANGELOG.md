@@ -1,5 +1,7 @@
 ## 0.3.0
-- feat: robust TTS text frontend — punctuation-as-symbols, numbers/acronyms, neural OOV G2P, clause chunking; fail-loud on overflow.
+- Add VoiceSession — on-device push-to-talk voice loop (STT → LLM → TTS) with barge-in.
+- feat: robust TTS text frontend — punctuation-as-symbols, numbers/acronyms, neural OOV G2P, clause chunking.
+- fix: model-agnostic TTS chunking — word-boundary + duration-aware split so long replies fit MAX_TEXT/MAX_MEL.
 
 ## 0.2.0
 - Add on-device TTS (Matcha): installTts/getActiveTts, selectable model, PCM output.

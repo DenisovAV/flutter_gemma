@@ -53,6 +53,7 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:meta/meta.dart' show visibleForTesting;
 // Public, native-only bindings library (not the package barrel) — see the
 // equivalent comment in `stt_core.dart`/`litert_embedding_core.dart` for why
 // this import (not the `if (dart.library.ffi)` barrel) is correct in a
@@ -448,19 +449,30 @@ class TtsCore {
   }
 
   /// Runs the full Matcha forward pass for a prepared frontend [input]:
-  /// text-encoder -> host duration + Glow-TTS length regulator -> N-step
-  /// Euler CFM decoder -> mel denorm -> HiFi-GAN vocoder -> 16-bit PCM.
-  /// Verbatim port of `matcha_synth.dart:518-635`'s math; every graph run
-  /// goes through [_runGraph] instead of that script's raw-`dlopen`
-  /// `runGraph`. Returns 16-bit little-endian mono PCM with NO WAV header
-  /// (length `ylen * hop * 2` bytes) — the example's `pcmToWav` adds a
-  /// header in Phase 3.
+  /// text-encoder -> host duration + Glow-TTS length regulator -> partition
+  /// into MAX_MEL-sized windows -> per-window N-step Euler CFM decoder ->
+  /// mel denorm -> HiFi-GAN vocoder -> 16-bit PCM, concatenated across
+  /// windows. Verbatim port of `matcha_synth.dart:518-635`'s math for the
+  /// single-window case; every graph run goes through [_runGraph] instead of
+  /// that script's raw-`dlopen` `runGraph`. Returns 16-bit little-endian
+  /// mono PCM with NO WAV header — the example's `pcmToWav` adds a header in
+  /// Phase 3.
+  ///
+  /// When the predicted duration fits one window (`rawYlen <= _maxMel`, the
+  /// common case), this is byte-identical to the pre-chunking implementation
+  /// — see [_decodeWindow]. When it doesn't, the phoneme run is split into
+  /// contiguous windows (see [planMelWindows]) that are decoded + vocoded
+  /// independently and concatenated with no inter-window silence, so
+  /// arbitrarily long text no longer throws `predicted N mel frames >
+  /// MAX_MEL`.
   ///
   /// [seed] seeds the CFM decoder's initial Gaussian noise (defaults to
   /// [ttsCfmSeed], the golden-reproducible value). The worker's clause
   /// chunker passes `ttsCfmSeed + i` per clause so a single-clause input —
   /// e.g. the `'Hello world.'` golden — still synthesizes with
   /// `seed == ttsCfmSeed`, byte-identical to before this parameter existed.
+  /// Multi-window synthesis within a single [synthesize] call uses
+  /// `seed + windowIndex` per window.
   Uint8List synthesize(MatchaFrontendInput input, {int seed = ttsCfmSeed}) {
     if (_disposed) {
       throw StateError('TtsCore is disposed');
@@ -489,26 +501,85 @@ class TtsCore {
       w[t] =
           (math.exp(logw[t]) * input.textMask[t]).ceilToDouble() * _lengthScale;
     }
-    final cum = Float64List(_maxText);
-    var running = 0.0;
-    for (var t = 0; t < _maxText; t++) {
-      running += w[t];
-      cum[t] = running;
-    }
-    final rawYlen = cum[_maxText - 1];
-    if (rawYlen.ceil() > _maxMel) {
-      throw StateError(
-        'TtsCore: predicted ${rawYlen.ceil()} mel frames > MAX_MEL $_maxMel '
-        '(~${(_maxMel * _hop / _sampleRate).toStringAsFixed(1)}s cap). '
-        'Chunk the text into shorter clauses.',
-      );
-    }
-    final ylen = rawYlen.clamp(1.0, _maxMel.toDouble()).toInt();
 
+    // real phoneme count = highest t with textMask!=0, +1 (mask zeroes
+    // padding past the real slot run; w is 0 there too since
+    // textMask[t]==0 zeroes the exp(logw) term).
+    var realCount = 0;
+    for (var t = 0; t < _maxText; t++) {
+      if (input.textMask[t] != 0.0) realCount = t + 1;
+    }
+
+    final windows = planMelWindows(w, realCount, _maxMel);
+    if (windows.isEmpty) {
+      // No speech frames -> empty PCM. In practice the worker skips
+      // realLen<=1 inputs before they reach here; kept safe regardless.
+      return Uint8List(0);
+    }
+    if (windows.length == 1) {
+      // Single window: byte-identical to the pre-chunking implementation
+      // (see the equivalence note on [_decodeWindow]).
+      final (s, e) = windows.first;
+      return _decodeWindow(mu, w, s, e, seed);
+    }
+    // Multi-window: decode each window (distinct seed per window) and
+    // concat PCM with NO inter-window silence — they are one continuous
+    // utterance; the worker adds silence only BETWEEN clauses.
+    final segs = <Uint8List>[];
+    for (var i = 0; i < windows.length; i++) {
+      final (s, e) = windows[i];
+      segs.add(_decodeWindow(mu, w, s, e, seed + i));
+    }
+    final total = segs.fold<int>(0, (a, b) => a + b.length);
+    final out = Uint8List(total);
+    var off = 0;
+    for (final seg in segs) {
+      out.setRange(off, off + seg.length, seg);
+      off += seg.length;
+    }
+    return out;
+  }
+
+  /// Decode ONE window: the contiguous phoneme range `[pStart, pEnd)` of
+  /// [mu] (feat-major `[_nFeats*_maxText]`) whose per-phoneme durations are
+  /// [w]. The window's summed duration MUST already be `<= _maxMel` (caller
+  /// guarantees, via [planMelWindows]). Returns 16-bit LE mono PCM
+  /// (`winFrames*_hop*2` bytes).
+  ///
+  /// Byte-identical to the pre-chunking `synthesize` tail when called with
+  /// `pStart=0, pEnd=realPhonemeCount, seed=the original seed` (single
+  /// window): `localCum` then equals the old global `cum` over the real
+  /// phonemes (w is 0 past `realCount`, so `localCum.last == cum[realCount -
+  /// 1] == cum[_maxText - 1]`), so `winFrames` equals the old `ylen`, `muY`
+  /// (via `searchSortedRight` on the identical cumulative array) is
+  /// identical, and the seed-fixed noise draw, Euler loop, mel denorm,
+  /// vocoder call, and PCM quantization are all unchanged.
+  Uint8List _decodeWindow(
+    Float32List mu,
+    Float64List w,
+    int pStart,
+    int pEnd,
+    int seed,
+  ) {
+    // Local cumulative durations for this window's phonemes (relative to the
+    // window start), so muY-expansion and winFrames are window-local. For the
+    // single full window (pStart=0), localCum == the old global `cum`.
+    final localCum = Float64List(pEnd - pStart);
+    var running = 0.0;
+    for (var p = pStart; p < pEnd; p++) {
+      running += w[p];
+      localCum[p - pStart] = running;
+    }
+    final rawWin = localCum.isEmpty ? 0.0 : localCum[localCum.length - 1];
+    final winFrames = rawWin.clamp(1.0, _maxMel.toDouble()).toInt();
+
+    // muY[_nFeats*_maxMel] + ymask[_maxMel] — gather mu at the phoneme each
+    // window-local output frame maps to (searchSorted on the LOCAL cum, then
+    // offset by pStart). Identical to today for the single-window case.
     final muY = Float32List(_nFeats * _maxMel);
     final ymask = Float32List(_maxMel);
-    for (var t = 0; t < ylen; t++) {
-      var idx = searchSortedRight(cum, t.toDouble());
+    for (var t = 0; t < winFrames; t++) {
+      var idx = pStart + searchSortedRight(localCum, t.toDouble());
       if (idx > _maxText - 1) idx = _maxText - 1;
       for (var f = 0; f < _nFeats; f++) {
         muY[f * _maxMel + t] = mu[f * _maxText + idx];
@@ -516,25 +587,22 @@ class TtsCore {
       ymask[t] = 1.0;
     }
 
-    // --- Euler CFM ODE loop, seed-fixed Gaussian noise so synthesize() is
-    // byte-reproducible run-to-run (the Phase-3 golden depends on the
-    // default `seed == ttsCfmSeed`). ---
+    // Euler CFM ODE — seed-fixed Gaussian noise (byte-reproducible).
     final rnd = math.Random(seed);
     final x = Float32List(_nFeats * _maxMel);
     for (var f = 0; f < _nFeats; f++) {
-      for (var t = 0; t < ylen; t++) {
+      for (var t = 0; t < winFrames; t++) {
         x[f * _maxMel + t] = nextGaussian(rnd);
       }
     }
-
     for (var k = 0; k < _nTimesteps; k++) {
       final tEmb = tSin(k / _nTimesteps);
       final decOut = _runGraph(
         _decoder.compiledModel,
         [
-          ([1, _nFeats, _maxMel], x), // x / z_t
+          ([1, _nFeats, _maxMel], x),
           ([1, _nFeats, _maxMel], muY),
-          ([1, 160], tEmb), // sinusoidal timestep embed
+          ([1, 160], tEmb),
           ([1, 1, _maxMel], ymask),
         ],
         [
@@ -547,15 +615,15 @@ class TtsCore {
       }
     }
 
-    // --- mel denorm ---
+    // mel denorm
     final mel = Float32List(_nFeats * _maxMel);
     for (var f = 0; f < _nFeats; f++) {
-      for (var t = 0; t < ylen; t++) {
+      for (var t = 0; t < winFrames; t++) {
         mel[f * _maxMel + t] = x[f * _maxMel + t] * _melStd + _melMean;
       }
     }
 
-    // --- vocoder: mel[1,nFeats,maxMel] -> wav[1,1,maxMel*hop] ---
+    // vocoder -> wav -> 16-bit LE PCM
     final vocOut = _runGraph(
       _vocoder.compiledModel,
       [
@@ -566,9 +634,7 @@ class TtsCore {
       ],
     );
     final wav = vocOut[0];
-    final numSamples = ylen * _hop;
-
-    // --- clip[-1,1] -> 16-bit LE mono PCM, NO WAV header. ---
+    final numSamples = winFrames * _hop;
     final pcm = Uint8List(numSamples * 2);
     final pcmView = ByteData.sublistView(pcm);
     for (var i = 0; i < numSamples; i++) {
@@ -581,6 +647,42 @@ class TtsCore {
       pcmView.setInt16(i * 2, q, Endian.little);
     }
     return pcm;
+  }
+
+  /// Partition phoneme indices `[0, realCount)` into contiguous windows whose
+  /// summed durations [w] each fit [maxMel]. Greedy: extend a window until
+  /// the next phoneme would overflow, then start a new one. Returns window
+  /// boundaries as `[start, end)` index pairs.
+  ///
+  /// Throws if a SINGLE phoneme's duration alone exceeds [maxMel] (one
+  /// phoneme longer than the decoder window is genuinely unsynthesizable —
+  /// fail loud).
+  @visibleForTesting
+  static List<(int, int)> planMelWindows(
+    Float64List w,
+    int realCount,
+    int maxMel,
+  ) {
+    final windows = <(int, int)>[];
+    var start = 0;
+    var acc = 0.0;
+    for (var p = 0; p < realCount; p++) {
+      final d = w[p];
+      if (d > maxMel) {
+        throw StateError(
+          'TtsCore: a single phoneme needs ${d.ceil()} mel frames > MAX_MEL '
+          '$maxMel and cannot be split.',
+        );
+      }
+      if (p > start && acc + d > maxMel) {
+        windows.add((start, p));
+        start = p;
+        acc = 0.0;
+      }
+      acc += d;
+    }
+    if (start < realCount) windows.add((start, realCount));
+    return windows;
   }
 
   /// Generic multi-input/multi-output f32 forward pass over one compiled

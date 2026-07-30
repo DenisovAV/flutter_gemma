@@ -1,3 +1,6 @@
+## 0.4.0
+- Add VoiceSession — on-device push-to-talk voice loop (STT → LLM → TTS) with barge-in.
+
 ## 0.3.0
 - feat: robust TTS text frontend — punctuation-as-symbols, numbers/acronyms, neural OOV G2P, clause chunking; fail-loud on overflow.
 

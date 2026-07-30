@@ -1,8 +1,9 @@
 # flutter_gemma_speech
 
-On-device speech for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — STT
-and TTS today, a voice loop later — via the LiteRT C API + `dart:ffi`. Opt-in
-package: add it only if your app needs speech-to-text or text-to-speech.
+On-device speech for [flutter_gemma](https://pub.dev/packages/flutter_gemma) — STT,
+TTS, and a `VoiceSession` voice loop — via the LiteRT C API + `dart:ffi`. Opt-in
+package: add it only if your app needs speech-to-text, text-to-speech, or a
+push-to-talk voice loop.
 
 This package depends on `flutter_gemma_litertlm`, which owns the shared `libLiteRtLm`
 native bundle and exposes the LiteRt interpreter FFI (`LiteRtBindings`) used here.
@@ -40,6 +41,38 @@ final pcm = await synth.synthesize('Hello world.'); // Uint8List, 16-bit PCM
 print(synth.sampleRate); // 22050
 await synth.close();
 ```
+
+## Voice loop
+
+`VoiceSession` chains STT → LLM → TTS into one push-to-talk turn with barge-in.
+`VoiceSession.fromChat` wraps an `InferenceChat` (which must have no tools —
+route tool use to `VoiceSession.custom` + `AgentLoop` instead); `runTurn` takes
+recorded PCM and streams back `VoiceEvent`s.
+
+```dart
+final recognizer = await FlutterGemma.getActiveStt();
+final synthesizer = await FlutterGemma.getActiveTts();
+final chat = await (await FlutterGemma.getActiveModel(maxTokens: 1024))
+    .createChat(tokenBuffer: 256); // no tools
+
+final session = VoiceSession.fromChat(
+  recognizer: recognizer, chat: chat, synthesizer: synthesizer);
+
+await for (final event in session.runTurn(pcm16kMono)) {
+  switch (event) {
+    case VoiceTranscriptEvent(:final text): /* show */
+    case VoiceReplyTextEvent(:final chunk): /* stream */
+    case VoiceReplyAudioEvent(:final pcm, :final sampleRate): /* play */
+    case VoiceTurnInterruptedEvent(): /* stop player */
+    case VoiceTurnCompleteEvent(): case VoiceErrorEvent(): break;
+  }
+}
+// Barge-in: await session.interrupt();
+```
+
+`VoiceSession` owns no microphone or player — the app captures PCM
+(`package:record`) and plays the reply (`pcmToWav` + `package:just_audio`),
+exactly as the example `stt_screen`/`tts_screen` do.
 
 ## Platforms
 

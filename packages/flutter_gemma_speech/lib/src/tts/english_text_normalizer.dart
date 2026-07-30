@@ -52,6 +52,11 @@ class EnglishTextNormalizer implements TtsTextNormalizer {
       // year: two pairs
       return '${_below100(n ~/ 100)} ${_below100(n % 100)}'.trim();
     }
+    if (n >= 1000000) {
+      // Beyond standard word expansion: spell out digit-by-digit rather than
+      // overflow _below1000000's internal 0-999 assumptions (RangeError).
+      return digits.split('').map((d) => _ones[int.parse(d)]).join(' ');
+    }
     return _below1000000(n);
   }
 

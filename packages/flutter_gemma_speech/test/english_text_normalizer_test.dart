@@ -45,4 +45,12 @@ void main() {
     }).normalize('**Save**').whereType<WordToken>().map((x) => x.word).join();
     expect(w, 'save');
   });
+  test('large number (>=1M) is digit-spelled, not a RangeError crash', () {
+    final w = EnglishTextNormalizer({' '})
+        .normalize('2,000,000 users')
+        .whereType<WordToken>()
+        .map((x) => x.word)
+        .join(' ');
+    expect(w, 'two zero zero zero zero zero zero users');
+  });
 }

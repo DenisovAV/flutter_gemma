@@ -1,6 +1,6 @@
 // Long-lived background isolate that owns the entire Matcha-TTS pipeline:
 // both the text frontend (dictionary G2P + host embedding gather, Task 2.2)
-// and the native LiteRT core (3 compiled graphs + the CFM/vocoder forward
+// and the native LiteRT core (4 compiled graphs + the CFM/vocoder forward
 // passes, Task 2.3). The forward passes are blocking synchronous FFI calls;
 // running them (and the frontend's dictionary lookups + 275k-entry load)
 // here keeps the UI isolate's event loop free. Direct analog of
@@ -254,19 +254,31 @@ class TtsWorker {
 Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
   gemmaLogLevel = init.logLevel;
-  final TtsTextFrontend frontend;
   final TtsCore core;
-  // splitClauses only reads punctuation, so an empty symbol set is fine —
-  // the normalizer is built purely to reuse the locale-selected clause
-  // splitter, not to normalize/encode text (that stays `frontend.encode`).
-  final normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
+  final TtsTextFrontend frontend;
+  final TtsTextNormalizer normalizer;
   try {
-    frontend = await TtsTextFrontend.load(init.profile, init.artifactPaths);
+    // Core loads first: the frontend needs `core.neuralG2p` (the dp_g2p
+    // graph) to resolve out-of-vocabulary words that aren't in the
+    // dictionary. Loading order doesn't affect output — only which OOV
+    // words the frontend can resolve without throwing.
     core = await TtsCore.load(
       profile: init.profile,
       artifactPaths: init.artifactPaths,
       backend: init.backend,
     );
+    frontend = await TtsTextFrontend.load(
+      init.profile,
+      init.artifactPaths,
+      neuralG2p: core.neuralG2p,
+    );
+    // splitClauses only reads punctuation, so an empty symbol set is fine —
+    // the normalizer is built purely to reuse the locale-selected clause
+    // splitter, not to normalize/encode text (that stays `frontend.encode`).
+    // Built inside the try so a future non-`en` locale's UnimplementedError
+    // surfaces as a descriptive load-failure reply instead of a bare
+    // isolate exit.
+    normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
   } catch (e, st) {
     gemmaLog('[TtsWorker] load failed: $e\n$st');
     init.replyTo.send('TTS worker failed to load: $e');

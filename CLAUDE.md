@@ -301,7 +301,11 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
 │   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
 │   ├── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
-│   └── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
+│   ├── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
+│   ├── flutter_gemma_speech/        # opt-in on-device STT (moonshine) + TTS (Matcha) via LiteRT C API (shares libLiteRtLm)
+│   ├── flutter_gemma_agent/         # opt-in on-device agent skills (SKILL.md: text/JS/native-intent/MCP) over the function-calling loop
+│   ├── genkit_flutter_gemma/        # Firebase Genkit integration (flutter_gemma runtime + converters)
+│   └── genkit_hybrid/               # Genkit hybrid on-device + cloud helpers
 └── docs/                            # design docs, testing, benchmarks
 ```
 

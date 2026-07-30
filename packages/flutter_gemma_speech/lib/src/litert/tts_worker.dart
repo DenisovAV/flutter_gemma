@@ -14,12 +14,18 @@
 // symbols). Each request splits `text` into clauses so the CFM decoder's
 // `MAX_MEL` cap (and its perceptual quality — the model was trained on
 // clause-length utterances) doesn't get exceeded by long replies: every
-// clause is `frontend.encode`d and `core.synthesize`d with its own CFM seed
-// (`ttsCfmSeed + clauseIndex`, so a single-clause request's seed is
-// unchanged), and the resulting PCM segments are spliced with a short
-// inter-clause silence (`concatPcmWithSilence`, `tts_chunk.dart`). Only
-// `TtsCore` holds native handles, so only `core.dispose()` runs in the
-// teardown `finally`.
+// clause is `frontend.encodeChunks`d (itself possibly >1 sub-chunk, for a
+// clause too long to fit MAX_TEXT at a word boundary) and each resulting
+// input is `core.synthesize`d with its own CFM seed (`ttsCfmSeed +
+// clauseIndex`, so a single-clause single-chunk request's seed is
+// unchanged). ALL resulting PCM segments — across clauses AND across a
+// clause's own sub-chunks — are spliced with the same short silence gap
+// (`concatPcmWithSilence`, `tts_chunk.dart`): the inter-clause gap is the
+// intended pause, while an inter-sub-chunk gap (only for a pathological
+// over-long clause, a MAX_TEXT split) is an acceptable ~0.12 s mid-sentence
+// pause — unlike the MAX_MEL split inside `TtsCore.synthesize`, which is
+// seamless (`TtsCore.concatSegments`, no silence). Only `TtsCore` holds
+// native handles, so only `core.dispose()` runs in the teardown `finally`.
 //
 // Only sendable values cross the port: file paths + profile + backend
 // (setup), a `String` (request), and a `Uint8List` of 16-bit PCM samples

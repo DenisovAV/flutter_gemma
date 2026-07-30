@@ -145,4 +145,36 @@ void main() {
       expect(windows, isEmpty);
     });
   });
+
+  // TtsCore.concatSegments is the pure helper the multi-window branch of
+  // synthesize() delegates to (extracted so it's unit-testable without
+  // native): back-to-back concat, NO inter-segment silence (unlike the
+  // worker's clause-level concatPcmWithSilence).
+  group('concatSegments', () {
+    test('output length equals the sum of the segment lengths', () {
+      final segs = [
+        Uint8List.fromList([1, 2, 3]),
+        Uint8List.fromList([4, 5]),
+        Uint8List.fromList([6]),
+      ];
+      expect(TtsCore.concatSegments(segs).length, 6);
+    });
+
+    test('bytes are laid down in order with no gap', () {
+      final segs = [
+        Uint8List.fromList([1, 2]),
+        Uint8List.fromList([3, 4, 5]),
+      ];
+      expect(TtsCore.concatSegments(segs), [1, 2, 3, 4, 5]);
+    });
+
+    test('empty list -> empty output', () {
+      expect(TtsCore.concatSegments(<Uint8List>[]), isEmpty);
+    });
+
+    test('single segment -> that segment\'s bytes, unchanged', () {
+      final seg = Uint8List.fromList([7, 8, 9]);
+      expect(TtsCore.concatSegments([seg]), [7, 8, 9]);
+    });
+  });
 }

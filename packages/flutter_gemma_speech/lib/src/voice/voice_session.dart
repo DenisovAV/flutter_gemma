@@ -22,11 +22,18 @@ import 'voice_responder.dart';
 /// design spec (`2026-07-29-voice-loop-design.md`) for the full contract.
 class VoiceSession {
   /// General constructor — any LLM behind a [VoiceResponder].
+  // The initializer list (not `this._recognizer` initializing formals) is
+  // intentional: it lets the constructor keep PUBLIC named params
+  // (`recognizer:`/`responder:`/`synthesizer:`) while the backing fields are
+  // PRIVATE — an initializing formal would force the param name to match the
+  // (private) field name, breaking the public constructor API.
   VoiceSession.custom({
-    required this.recognizer,
-    required this.responder,
-    required this.synthesizer,
-  });
+    required SpeechRecognizer recognizer,
+    required VoiceResponder responder,
+    required SpeechSynthesizer synthesizer,
+  }) : _recognizer = recognizer, // ignore: prefer_initializing_formals
+       _responder = responder, // ignore: prefer_initializing_formals
+       _synthesizer = synthesizer; // ignore: prefer_initializing_formals
 
   /// Multi-turn conversational voice. Recommended default. Create the chat via
   /// `getActiveModel().createChat(...)` with a short `maxOutputTokens` and a
@@ -37,6 +44,11 @@ class VoiceSession {
   /// stranding a dangling tool call that poisons history. Route tool use to
   /// [VoiceSession.custom] + `AgentLoop`. Enforced with a real throw (asserts
   /// are stripped in release — §12 B4).
+  ///
+  /// NOTE: the `chat.tools.isEmpty` guard reads the (mutable, aliased) list
+  /// once at construction — the requirement is lifetime-wide, not one-shot:
+  /// mutating `chat.tools` after construction re-enters the unsupported state
+  /// without this constructor catching it again.
   factory VoiceSession.fromChat({
     required SpeechRecognizer recognizer,
     required InferenceChat chat,
@@ -79,14 +91,15 @@ class VoiceSession {
     }
   }
 
-  final SpeechRecognizer recognizer;
-  final VoiceResponder responder;
-  final SpeechSynthesizer synthesizer;
+  final SpeechRecognizer _recognizer;
+  final VoiceResponder _responder;
+  final SpeechSynthesizer _synthesizer;
 
   /// Max time interrupt() waits for the LLM reply stream to drain after stop()
   /// before force-terminating the turn and detaching the (still-running)
   /// subscription (§12 B1). The subscription is never cancelled — the chat
   /// epilogue (token accounting + rotation + history append) must run.
+  @visibleForTesting
   static const Duration drainTimeout = Duration(seconds: 5);
 
   // ---- Per-turn state (null/reset between turns) ----
@@ -104,8 +117,12 @@ class VoiceSession {
   // interrupt() must proceed (different controller), not silently no-op.
   StreamController<VoiceEvent>? _interruptingController;
 
-  /// Sample rate of emitted reply audio (delegates to [synthesizer]).
-  int get replySampleRate => synthesizer.sampleRate;
+  /// Sample rate of emitted reply audio (delegates to the synthesizer).
+  int get replySampleRate => _synthesizer.sampleRate;
+
+  /// True while a turn is in flight (a second [runTurn] would throw
+  /// StateError, and [interrupt] is a genuine no-op only when this is false).
+  bool get isTurnInFlight => _activeController != null;
 
   /// Run one push-to-talk turn on a recorded utterance (16 kHz mono 16-bit LE
   /// PCM — same contract as [SpeechRecognizer.transcribe]).
@@ -164,7 +181,7 @@ class VoiceSession {
     final drained = _replyDrained;
     final done = _turnDone;
     try {
-      await responder.stop().timeout(drainTimeout);
+      await _responder.stop().timeout(drainTimeout);
     } on TimeoutException {
       gemmaLog(
         'VoiceSession: responder.stop() did not resolve within '
@@ -213,7 +230,7 @@ class VoiceSession {
 
     try {
       // ---- STT ----
-      final transcript = await recognizer.transcribe(pcm);
+      final transcript = await _recognizer.transcribe(pcm);
       controller.add(VoiceTranscriptEvent(transcript, isFinal: true));
       if (_interruptRequested) {
         finish(
@@ -235,7 +252,7 @@ class VoiceSession {
       _replyDrained = drained;
       Object? replyError;
       StackTrace? replyStack;
-      final sub = responder
+      final sub = _responder
           .respond(transcript)
           .listen(
             (token) {
@@ -246,6 +263,17 @@ class VoiceSession {
             onError: (Object e, StackTrace st) {
               replyError = e;
               replyStack = st;
+              if (drained.isCompleted) {
+                // The bounded drain already force-completed (barge-in
+                // detach, R1) — this generation is no longer observed by
+                // anyone. Log so a genuinely-fatal detached error isn't a
+                // fully silent swallow.
+                gemmaLog(
+                  'VoiceSession: detached LLM stream errored after '
+                  'barge-in: $e',
+                  level: GemmaLogLevel.info,
+                );
+              }
               if (!drained.isCompleted) drained.complete();
             },
             onDone: () {
@@ -285,7 +313,7 @@ class VoiceSession {
       }
 
       // ---- TTS ----
-      final pcmOut = await synthesizer.synthesize(replyText);
+      final pcmOut = await _synthesizer.synthesize(replyText);
       if (_interruptRequested) {
         // Barge-in landed during (uncancellable) synthesis → suppress audio.
         finish(
@@ -299,7 +327,7 @@ class VoiceSession {
       controller.add(
         VoiceReplyAudioEvent(
           pcmOut,
-          sampleRate: synthesizer.sampleRate,
+          sampleRate: _synthesizer.sampleRate,
           isFinal: true,
         ),
       );
@@ -309,6 +337,14 @@ class VoiceSession {
       if (!controller.isClosed) {
         controller.addError(e, st);
         _teardown(controller);
+      } else {
+        // Unreachable today (every earlier return path already tears down
+        // the controller before this catch could fire), but a trap for a
+        // future refactor: log instead of a fully-silent swallow.
+        gemmaLog(
+          'VoiceSession: stage error after turn teardown (dropped): $e',
+          level: GemmaLogLevel.info,
+        );
       }
     }
   }

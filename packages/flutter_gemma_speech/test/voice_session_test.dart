@@ -199,6 +199,28 @@ void main() {
     expect(events.last, isA<VoiceTurnInterruptedEvent>());
   });
 
+  test('interrupt before any reply token: VoiceTurnInterruptedEvent carries '
+      'an empty partialReplyText', () async {
+    final r = _FakeResponder();
+    final session = VoiceSession.custom(
+      recognizer: _FakeRecognizer('hi'),
+      responder: r.build(),
+      synthesizer: _FakeSynth(),
+    );
+    final events = <VoiceEvent>[];
+    session.runTurn(_pcm()).listen(events.add);
+    // interrupt() lands immediately — before transcribe() even resolves,
+    // so the driver picks it up at the pre-LLM checkpoint (§ the
+    // `if (_interruptRequested)` right after the transcript event) and
+    // responder.respond() is never called.
+    await session.interrupt();
+
+    expect(r.respondCalls, 0);
+    final terminal = events.last as VoiceTurnInterruptedEvent;
+    expect(terminal.transcript, 'hi');
+    expect(terminal.partialReplyText, isEmpty);
+  });
+
   test('interrupt when idle is a no-op (does not call stop)', () async {
     final r = _FakeResponder();
     final session = VoiceSession.custom(
@@ -461,6 +483,36 @@ void main() {
       });
     },
   );
+
+  test('same-turn concurrent interrupt(): a second interrupt() on the SAME '
+      'in-flight turn is a true no-op — stop() called once, both futures '
+      'resolve, exactly one terminal event', () async {
+    final r = _FakeResponder();
+    final session = VoiceSession.custom(
+      recognizer: _FakeRecognizer('hi'),
+      responder: r.build(),
+      synthesizer: _FakeSynth(),
+    );
+    final events = <VoiceEvent>[];
+    session.runTurn(_pcm()).listen(events.add);
+    await Future<void>.delayed(Duration.zero);
+    r.ctrl.add('tok');
+    await Future<void>.delayed(Duration.zero);
+
+    // Two interrupt() calls on the SAME in-flight turn, neither awaited
+    // before the other starts: #1 is the real barge-in (calls stop());
+    // #2 must see `identical(_interruptingController, controller)` and
+    // take the true no-op branch (just await the shared terminal) instead
+    // of re-calling stop() or re-arming the drain timer.
+    final f1 = session.interrupt();
+    final f2 = session.interrupt();
+    await Future.wait([f1, f2]); // both must resolve without rethrowing
+
+    expect(r.stopCalls, 1); // #2 must NOT re-call stop()
+    expect(events.whereType<VoiceTurnInterruptedEvent>(), hasLength(1));
+    final terminal = events.last as VoiceTurnInterruptedEvent;
+    expect(terminal.partialReplyText, 'tok');
+  });
 }
 
 class _ThrowingRecognizer implements SpeechRecognizer {

@@ -3,6 +3,13 @@ import 'dart:typed_data';
 /// One event in a voice turn. Sealed — the vocabulary is designed to cover the
 /// streaming/barge-in endgame; later phases emit MORE of these events, never
 /// new subtypes. (Design spec §4.1.)
+///
+/// NOTE: this grammar assumes turns are SERIALIZED — one turn's events (up to
+/// its terminal, [VoiceTurnCompleteEvent] or [VoiceTurnInterruptedEvent])
+/// fully precede the next turn's events. That's why no `turnId` correlation
+/// field exists in v1: a future full-duplex phase (concurrent/overlapping
+/// turns) must either preserve strict serialization or add a `turnId` to
+/// disambiguate which turn an event belongs to.
 sealed class VoiceEvent {
   const VoiceEvent();
 }

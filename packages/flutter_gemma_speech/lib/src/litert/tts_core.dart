@@ -524,12 +524,20 @@ class TtsCore {
     }
     // Multi-window: decode each window (distinct seed per window) and
     // concat PCM with NO inter-window silence — they are one continuous
-    // utterance; the worker adds silence only BETWEEN clauses.
+    // utterance; the worker's clause/sub-chunk splicing is the only place
+    // that adds silence (see the note in `tts_worker.dart`).
     final segs = <Uint8List>[];
     for (var i = 0; i < windows.length; i++) {
       final (s, e) = windows[i];
       segs.add(_decodeWindow(mu, w, s, e, seed + i));
     }
+    return concatSegments(segs);
+  }
+
+  /// Concatenate PCM segments back-to-back with NO gap/silence (multi-window
+  /// output of one [synthesize] call is a single continuous utterance).
+  @visibleForTesting
+  static Uint8List concatSegments(List<Uint8List> segs) {
     final total = segs.fold<int>(0, (a, b) => a + b.length);
     final out = Uint8List(total);
     var off = 0;

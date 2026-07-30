@@ -131,5 +131,19 @@ void main() {
         throwsA(isA<StateError>()),
       );
     });
+
+    test('all-non-speech input returns a list of ONE empty input, not an '
+        'empty list (the worker\'s realLen <= 1 skip depends on a non-empty '
+        'list to iterate)', () {
+      // '👍' maps to zero tokens in this tiny symbol table (same fixture
+      // as the encode() non-speech test above) -> every per-token pids
+      // list is empty -> encodeChunks' `result` stays empty -> the
+      // all-non-speech fallback must kick in.
+      final chunks = fe().encodeChunks('👍');
+      expect(chunks, hasLength(1));
+      expect(chunks.single.realLen, 0);
+      expect(chunks.single.symbolEmbeddings, isEmpty);
+      expect(chunks.single.textMask, isEmpty);
+    });
   });
 }

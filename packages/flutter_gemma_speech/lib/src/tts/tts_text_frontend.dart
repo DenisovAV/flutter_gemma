@@ -12,8 +12,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/core/utils/gemma_log.dart';
-
 import 'tts_frontend_input.dart';
 
 /// Pure-Dart Matcha-TTS text frontend: dictionary G2P + blank-intersperse +
@@ -116,7 +114,10 @@ class TtsTextFrontend {
       if (id != null) {
         pids.add(id);
       } else {
-        gemmaLog('⚠️  TtsTextFrontend: dropping unmapped IPA symbol "$ch"');
+        throw StateError(
+          'TtsTextFrontend: IPA symbol "$ch" (U+${rune.toRadixString(16)}) '
+          'is not in the 178-symbol table — cannot synthesize "$text".',
+        );
       }
     }
     if (pids.isEmpty) {
@@ -126,13 +127,20 @@ class TtsTextFrontend {
       );
     }
 
+    final realLen = 2 * pids.length + 1;
+    if (realLen > maxText) {
+      throw StateError(
+        'TtsTextFrontend: chunk needs $realLen slots > MAX_TEXT $maxText '
+        '(chunk before encode). Text: "$text".',
+      );
+    }
+
     // --- blank-interspersed ids[maxText] + tmask[maxText] ---
     final ids = List<int>.filled(maxText, 0);
     for (var i = 0; i < pids.length; i++) {
       final pos = 1 + 2 * i;
-      if (pos < maxText) ids[pos] = pids[i];
+      ids[pos] = pids[i];
     }
-    final realLen = 2 * pids.length + 1;
     final textMask = Float32List(maxText);
     for (var t = 0; t < maxText; t++) {
       textMask[t] = t < realLen ? 1.0 : 0.0;

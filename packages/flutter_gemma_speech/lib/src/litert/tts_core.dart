@@ -396,7 +396,15 @@ class TtsCore {
       running += w[t];
       cum[t] = running;
     }
-    final ylen = cum[_maxText - 1].clamp(1.0, _maxMel.toDouble()).toInt();
+    final rawYlen = cum[_maxText - 1];
+    if (rawYlen.ceil() > _maxMel) {
+      throw StateError(
+        'TtsCore: predicted ${rawYlen.ceil()} mel frames > MAX_MEL $_maxMel '
+        '(~${(_maxMel * _hop / _sampleRate).toStringAsFixed(1)}s cap). '
+        'Chunk the text into shorter clauses.',
+      );
+    }
+    final ylen = rawYlen.clamp(1.0, _maxMel.toDouble()).toInt();
 
     final muY = Float32List(_nFeats * _maxMel);
     final ymask = Float32List(_maxMel);

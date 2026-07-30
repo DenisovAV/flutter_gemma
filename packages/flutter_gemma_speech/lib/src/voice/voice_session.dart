@@ -38,8 +38,12 @@ class VoiceSession {
   _replyDrained; // completes when the LLM stream ends or times out
   Timer? _drainTimer;
   bool _drainForced = false; // true if the bounded-drain timeout fired
-  bool _interruptInFlight =
-      false; // true while a call to interrupt() is running
+  // The controller of the turn a concurrent interrupt() is currently in
+  // flight for. Turn-scoped (not a session-wide bool, N1): interrupt() for
+  // turn A can be parked on a slow responder.stop() when A completes
+  // naturally and the caller starts + barges in on turn B — that second
+  // interrupt() must proceed (different controller), not silently no-op.
+  StreamController<VoiceEvent>? _interruptingController;
 
   /// Sample rate of emitted reply audio (delegates to [synthesizer]).
   int get replySampleRate => synthesizer.sampleRate;
@@ -75,55 +79,61 @@ class VoiceSession {
   }
 
   /// Barge-in. Idempotent (a genuine no-op when idle, and a concurrent second
-  /// call while one is already running neither re-calls `stop()` nor re-arms
-  /// the drain timer — it just awaits the same terminal via [_interruptInFlight]).
-  /// Sets the interrupt flag, calls responder.stop() (caught if it throws),
-  /// bounded-drains the reply stream, then awaits the driver's terminal. Never
-  /// writes to the controller (§12 B3).
+  /// call targeting the SAME in-flight turn neither re-calls `stop()` nor
+  /// re-arms the drain timer — it just awaits that turn's terminal via
+  /// [_interruptingController]). A second call that targets a DIFFERENT
+  /// (later) turn proceeds normally — see N1. Sets the interrupt flag, calls
+  /// responder.stop() (caught if it throws), bounded-drains the reply stream,
+  /// then awaits the driver's terminal. Never writes to the controller (§12 B3).
   Future<void> interrupt() async {
     final controller = _activeController;
     if (controller == null) return; // idle
-    if (_interruptInFlight) {
-      // Concurrent second call: true no-op, just await the in-flight terminal.
+    if (identical(_interruptingController, controller)) {
+      // Concurrent interrupt() of the SAME turn: true no-op, just await the
+      // in-flight terminal.
       final done = _turnDone;
       if (done != null) await done.future;
       return;
     }
-    _interruptInFlight = true;
+    _interruptingController = controller;
+    _interruptRequested = true;
+    // Capture BEFORE the await responder.stop() below (F1): if the current
+    // turn completes naturally while stop() is in flight and the caller
+    // immediately starts turn B, reading _replyDrained/_turnDone AFTER the
+    // await would attach this drain timer / await to turn B instead of
+    // turn A, force-completing B's un-interrupted drain 5s later.
+    final drained = _replyDrained;
+    final done = _turnDone;
     try {
-      _interruptRequested = true;
-      // Capture BEFORE the await responder.stop() below (F1): if the current
-      // turn completes naturally while stop() is in flight and the caller
-      // immediately starts turn B, reading _replyDrained/_turnDone AFTER the
-      // await would attach this drain timer / await to turn B instead of
-      // turn A, force-completing B's un-interrupted drain 5s later.
-      final drained = _replyDrained;
-      final done = _turnDone;
-      try {
-        await responder.stop();
-      } catch (e) {
-        gemmaLog(
-          'VoiceSession: responder.stop() threw during barge-in: $e',
-          level: GemmaLogLevel.info,
-        );
-      }
-      // Bounded drain: give the reply stream drainTimeout to end, else force it.
-      if (drained != null && !drained.isCompleted) {
-        _drainTimer = Timer(drainTimeout, () {
-          if (!drained.isCompleted) {
-            _drainForced = true;
-            gemmaLog(
-              'VoiceSession: barge-in drain exceeded ${drainTimeout.inSeconds}s; '
-              'detaching LLM stream (generation finishes in background).',
-              level: GemmaLogLevel.info,
-            );
-            drained.complete();
-          }
-        });
-      }
+      await responder.stop();
+    } catch (e) {
+      gemmaLog(
+        'VoiceSession: responder.stop() threw during barge-in: $e',
+        level: GemmaLogLevel.info,
+      );
+    }
+    // Bounded drain: give the reply stream drainTimeout to end, else force it.
+    if (drained != null && !drained.isCompleted) {
+      _drainTimer = Timer(drainTimeout, () {
+        if (!drained.isCompleted) {
+          _drainForced = true;
+          gemmaLog(
+            'VoiceSession: barge-in drain exceeded ${drainTimeout.inSeconds}s; '
+            'detaching LLM stream (generation finishes in background).',
+            level: GemmaLogLevel.info,
+          );
+          drained.complete();
+        }
+      });
+    }
+    try {
       if (done != null) await done.future;
     } finally {
-      _interruptInFlight = false;
+      // Only clear if THIS interrupt still owns the marker — a later turn's
+      // interrupt() may have overwritten it; leave that one intact (N1).
+      if (identical(_interruptingController, controller)) {
+        _interruptingController = null;
+      }
     }
   }
 

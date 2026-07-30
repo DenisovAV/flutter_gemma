@@ -367,6 +367,75 @@ void main() {
       expect(events.whereType<VoiceTurnCompleteEvent>(), isEmpty);
     },
   );
+
+  test(
+    'N1: interrupt for turn A parked on a slow stop() does not block barge-in on turn B',
+    () {
+      fakeAsync((async) {
+        // Turn A never reaches the LLM stage below (its interrupt() lands at
+        // the transcript checkpoint, before responder.respond() is ever
+        // called) — only turn B consumes a reply stream.
+        final ctrlB = StreamController<String>();
+        var respondCalls = 0;
+        var stopCalls = 0;
+        final stopAGate = Completer<void>();
+        final responder = VoiceResponder(
+          respond: (_) {
+            respondCalls++;
+            return ctrlB.stream;
+          },
+          stop: () async {
+            stopCalls++;
+            if (stopCalls == 1) {
+              await stopAGate.future; // turn A's stop(): parks indefinitely
+            }
+            // Turn B's stop() (2nd call): resolves immediately and does NOT
+            // close ctrlB — the bounded drain below forces turn B's terminal.
+          },
+        );
+        final session = VoiceSession.custom(
+          recognizer: _FakeRecognizer('hi'),
+          responder: responder,
+          synthesizer: _FakeSynth(),
+        );
+
+        // ---- Turn A: interrupt() called immediately, parks on the slow
+        // stop(). Turn A picks up the interrupt at the earliest checkpoint
+        // (right after transcribe(), before ever calling responder.respond())
+        // and reaches its terminal while interrupt#1 is STILL parked.
+        final eventsA = <VoiceEvent>[];
+        session.runTurn(_pcm()).listen(eventsA.add);
+        session.interrupt(); // interrupt#1 — parks on stopAGate
+        async.flushMicrotasks();
+        expect(stopCalls, 1);
+        expect(eventsA.last, isA<VoiceTurnInterruptedEvent>());
+        expect(respondCalls, 0); // never reached the LLM stage for A
+
+        // ---- Turn B starts + barges in while interrupt#1 is still parked ----
+        final eventsB = <VoiceEvent>[];
+        session.runTurn(_pcm()).listen(eventsB.add);
+        async.flushMicrotasks();
+        ctrlB.add('partial-b');
+        async.flushMicrotasks();
+
+        session.interrupt(); // interrupt#2 — must target turn B, not no-op
+        async.flushMicrotasks();
+        // N1: stop() really called again for B — the barge-in was not
+        // silently swallowed by a session-scoped in-flight guard.
+        expect(stopCalls, 2);
+
+        // Force turn B's bounded drain (ctrlB never closes).
+        async.elapse(VoiceSession.drainTimeout + const Duration(seconds: 1));
+        expect(eventsB.last, isA<VoiceTurnInterruptedEvent>());
+        final itB = eventsB.last as VoiceTurnInterruptedEvent;
+        expect(itB.partialReplyText, 'partial-b');
+
+        // Release interrupt#1 so it can settle without leaking timers.
+        stopAGate.complete();
+        async.flushMicrotasks();
+      });
+    },
+  );
 }
 
 class _ThrowingRecognizer implements SpeechRecognizer {

@@ -49,8 +49,15 @@ class EnglishTextNormalizer implements TtsTextNormalizer {
       return digits.split('').map((d) => _ones[int.parse(d)]).join(' ');
     }
     if (digits.length == 4 && n >= 1100 && n <= 9999) {
-      // year: two pairs
-      return '${_below100(n ~/ 100)} ${_below100(n % 100)}'.trim();
+      // year: two pairs, e.g. 2023 -> "twenty twenty three". The last two
+      // digits need special-casing: a round pair (2000) reads as a plain
+      // number ("two thousand"), and 01-09 (2005) needs the "oh" that a
+      // naive _below100(5) -> "five" would drop ("twenty oh five").
+      final firstPair = n ~/ 100;
+      final lastPair = n % 100;
+      if (lastPair == 0) return _below1000000(n);
+      if (lastPair <= 9) return '${_below100(firstPair)} oh ${_ones[lastPair]}';
+      return '${_below100(firstPair)} ${_below100(lastPair)}'.trim();
     }
     if (n >= 1000000) {
       // Beyond standard word expansion: spell out digit-by-digit rather than

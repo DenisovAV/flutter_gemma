@@ -151,10 +151,11 @@ class MatchaTextFrontend implements TtsTextFrontend {
       }
     }
     if (pids.isEmpty) {
-      throw StateError(
-        'MatchaTextFrontend: no symbols mapped for "$text" — cannot '
-        'synthesize (all IPA characters were outside the symbol table).',
-      );
+      // Non-speech clause (e.g. a lone emoji or a symbol outside the
+      // model's table): a defined empty input, not a fail-loud error — the
+      // worker's `realLen <= 1` guard skips it and moves on to the next
+      // clause instead of erroring the whole synthesis request.
+      return MatchaFrontendInput(Float32List(0), Float32List(0), 0);
     }
 
     final realLen = 2 * pids.length + 1;

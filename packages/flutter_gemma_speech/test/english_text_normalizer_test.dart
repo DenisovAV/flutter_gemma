@@ -33,6 +33,19 @@ void main() {
     }).normalize('2023').whereType<WordToken>().map((x) => x.word).join(' ');
     expect(w, 'twenty twenty three');
   });
+  test('year 2005 keeps the "oh" (not "twenty five")', () {
+    final w = EnglishTextNormalizer({
+      ' ',
+    }).normalize('2005').whereType<WordToken>().map((x) => x.word).join(' ');
+    expect(w, contains('oh'));
+    expect(w, 'twenty oh five');
+  });
+  test('year 2000 reads as a plain number, not "twenty zero"', () {
+    final w = EnglishTextNormalizer({
+      ' ',
+    }).normalize('2000').whereType<WordToken>().map((x) => x.word).join(' ');
+    expect(w, 'two thousand');
+  });
   test('acronym GPU spells out', () {
     final w = EnglishTextNormalizer({
       ' ',

@@ -43,4 +43,20 @@ void main() {
   test('OOV word with no resolver throws', () {
     expect(() => fe().encode('zz'), throwsA(isA<StateError>()));
   });
+
+  test(
+    'non-speech chunk (no symbols mapped) returns empty input, not a throw',
+    () {
+      // '👍' is not a letter, not whitespace, and not in the tiny symbol
+      // table, so the normalizer drops it entirely -> zero tokens -> zero
+      // pids. encode() must return a defined empty MatchaFrontendInput
+      // (realLen 0) instead of throwing, so the worker's `realLen <= 1`
+      // guard can skip this clause without erroring the whole request.
+      final o = fe().encode('👍');
+      expect(o, isA<MatchaFrontendInput>());
+      expect(o.realLen, 0);
+      expect(o.symbolEmbeddings, isEmpty);
+      expect(o.textMask, isEmpty);
+    },
+  );
 }

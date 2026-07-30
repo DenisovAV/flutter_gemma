@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter_gemma_speech/src/tts/tts_frontend_input.dart';
 import 'package:flutter_gemma_speech/src/tts/tts_text_frontend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -20,6 +21,7 @@ void main() {
 
   test('encode blank-intersperses ids, builds mask + gathered embeddings', () {
     final out = frontend.encode('ab.'); // "ab" + trailing '.'
+    expect(out, isA<MatchaFrontendInput>());
     // IPA = "ab." -> symbol ids [1,2,3]; realLen = 2*3+1 = 7
     expect(out.realLen, 7);
     // ids: [0,1,0,2,0,3,0,0] (blank-interspersed, positions 1,3,5)

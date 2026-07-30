@@ -59,7 +59,7 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../model/tts_model_profile.dart';
-import '../tts/tts_text_frontend.dart';
+import '../tts/tts_frontend_input.dart';
 
 /// The Euler CFM decoder's fixed Gaussian-noise seed. Fixed (not
 /// time-derived) so [TtsCore.synthesize] is byte-reproducible run-to-run —
@@ -362,7 +362,7 @@ class TtsCore {
   /// `runGraph`. Returns 16-bit little-endian mono PCM with NO WAV header
   /// (length `ylen * hop * 2` bytes) — the example's `pcmToWav` adds a
   /// header in Phase 3.
-  Uint8List synthesize(TtsFrontendInput input) {
+  Uint8List synthesize(MatchaFrontendInput input) {
     if (_disposed) {
       throw StateError('TtsCore is disposed');
     }

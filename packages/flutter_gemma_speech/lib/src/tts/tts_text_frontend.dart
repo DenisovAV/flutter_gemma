@@ -14,22 +14,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
-/// Output of the text frontend — exactly what the Matcha text-encoder graph
-/// consumes.
-class TtsFrontendInput {
-  TtsFrontendInput(this.symbolEmbeddings, this.textMask, this.realLen);
-
-  /// Row-major [maxText * nChannels] symbol embeddings (host-gathered from
-  /// emb.bin), feeds the encoder's `args_0` reshaped to [1, maxText,
-  /// nChannels].
-  final Float32List symbolEmbeddings;
-
-  /// [maxText] text mask (1.0 for t < realLen else 0.0), feeds `args_1`.
-  final Float32List textMask;
-
-  /// 2 * (#phoneme symbols) + 1 — the real (blank-interspersed) length.
-  final int realLen;
-}
+import 'tts_frontend_input.dart';
 
 /// Pure-Dart Matcha-TTS text frontend: dictionary G2P + blank-intersperse +
 /// host-side embedding gather. No neural fallback — OOV words throw.
@@ -105,7 +90,7 @@ class TtsTextFrontend {
   /// text -> frontend input. Throws [StateError] on an OOV word (this
   /// frontend is dictionary-only; the neural `dp_g2p` fallback needs FFI and
   /// belongs to `TtsCore`).
-  TtsFrontendInput encode(String text) {
+  MatchaFrontendInput encode(String text) {
     // --- G2P: text -> IPA (dictionary path only) ---
     final hasTrailingPeriod = text.endsWith('.');
     final core = hasTrailingPeriod ? text.substring(0, text.length - 1) : text;
@@ -163,6 +148,6 @@ class TtsTextFrontend {
       }
     }
 
-    return TtsFrontendInput(symbolEmbeddings, textMask, realLen);
+    return MatchaFrontendInput(symbolEmbeddings, textMask, realLen);
   }
 }

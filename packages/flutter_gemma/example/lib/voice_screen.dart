@@ -39,6 +39,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
   SpeechRecognizer? _recognizer;
   SpeechSynthesizer? _synth;
+  InferenceChat? _chat;
   VoiceSession? _session;
 
   bool _isInitializing = true;
@@ -75,6 +76,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
     _player.dispose();
     _recognizer?.close();
     _synth?.close();
+    _chat?.close();
     super.dispose();
   }
 
@@ -135,6 +137,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
       setState(() {
         _recognizer = recognizer;
         _synth = synth;
+        _chat = chat;
         _session = session;
         _isInitializing = false;
       });
@@ -202,11 +205,16 @@ class _VoiceScreenState extends State<VoiceScreen> {
     await _player.play();
   }
 
-  /// Barge-in: stop the in-flight turn (the player is stopped by the
-  /// resulting [VoiceTurnInterruptedEvent] handled in [_runTurn]). Idempotent
+  /// Barge-in: stop the in-flight turn (the player is also stopped by the
+  /// resulting [VoiceTurnInterruptedEvent] handled in [_runTurn], for the
+  /// mid-generation case). `interrupt()` is a documented no-op once the reply
+  /// has already reached playback (v1 emits its one final audio event +
+  /// Complete before playback finishes), so stop the player explicitly here
+  /// too — that's what actually cuts the audio during that case. Idempotent
   /// — a no-op when no turn is running.
   Future<void> _bargeIn() async {
     await _session?.interrupt();
+    await _player.stop();
   }
 
   Future<void> _runBundledClip() async {

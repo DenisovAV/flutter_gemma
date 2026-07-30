@@ -10,6 +10,14 @@ void main() {
   // tts_text_frontend_test.dart) so a multi-word chunk round-trips through
   // the normalizer's SymbolToken(' ') without hitting the fail-loud
   // unmapped-symbol throw.
+  // Distinguishable per-slot values (0, 1, 2, ...) rather than an all-zero
+  // table, so a comparison over symbolEmbeddings actually pins pid values/
+  // order instead of trivially matching two all-zero arrays regardless of
+  // which phoneme-ids were gathered.
+  final embeddingTable = Float32List.fromList([
+    for (var i = 0; i < 5 * 2; i++) i.toDouble(),
+  ]);
+
   MatchaTextFrontend fe({
     NeuralG2pResolver? g2p,
     Map<String, String>? dictionary,
@@ -17,7 +25,7 @@ void main() {
   }) => MatchaTextFrontend(
     symbolToId: {'_': 0, ' ': 1, '.': 2, 'a': 3, 'b': 4},
     dictionary: dictionary ?? {'ab': 'ab'},
-    embeddingTable: Float32List(5 * 2),
+    embeddingTable: embeddingTable,
     nChannels: 2,
     maxText: maxText,
     neuralG2p: g2p,

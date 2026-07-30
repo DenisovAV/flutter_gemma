@@ -115,7 +115,9 @@ class MatchaTextFrontend implements TtsTextFrontend {
   }
 
   /// IPA symbol-ids for ONE normalized token (empty for a non-speech token).
-  List<int> _tokenPids(Object tok) {
+  /// [text] is the whole chunk/clause [tok] came from — kept only to name it
+  /// in the unmapped-IPA-symbol error below.
+  List<int> _tokenPids(Object tok, String text) {
     final ipa = StringBuffer();
     if (tok is SymbolToken) {
       ipa.write(tok.symbol);
@@ -141,7 +143,7 @@ class MatchaTextFrontend implements TtsTextFrontend {
       } else {
         throw StateError(
           'MatchaTextFrontend: IPA symbol "$ch" (U+${rune.toRadixString(16)}) '
-          'is not in the 178-symbol table.',
+          'is not in the 178-symbol table — cannot synthesize "$text".',
         );
       }
     }
@@ -181,7 +183,7 @@ class MatchaTextFrontend implements TtsTextFrontend {
     final tokens = _normalizer.normalize(text);
     final pids = <int>[];
     for (final tok in tokens) {
-      pids.addAll(_tokenPids(tok));
+      pids.addAll(_tokenPids(tok, text));
     }
     if (pids.isEmpty) {
       // Non-speech clause (e.g. a lone emoji or a symbol outside the
@@ -213,7 +215,7 @@ class MatchaTextFrontend implements TtsTextFrontend {
     final result = <MatchaFrontendInput>[];
     final current = <int>[];
     for (final tok in tokens) {
-      final tokPids = _tokenPids(tok);
+      final tokPids = _tokenPids(tok, text);
       if (tokPids.isEmpty) continue; // non-speech token
       if (tokPids.length > maxPids) {
         throw StateError(

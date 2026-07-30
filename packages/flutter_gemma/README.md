@@ -34,6 +34,7 @@ There is an example of using:
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; Qwen2-VL / SmolVLM2 / LLaVA-OneVision on Android, iOS, and Desktop; FastVLM on Desktop)
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
 - **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine today; Whisper / Parakeet profiles are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
+- **🔊 On-device Text-to-Speech:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — synthesize speech fully offline with a selectable model (Matcha today; kokoro / supertonic are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🤖 On-device Agent Skills:** Opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) — give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through the function-calling loop, fully offline. Gallery-compatible. Android, iOS, macOS, Windows (Web not supported yet).
 - **🧠 Thinking Mode:** View the reasoning process of Gemma 4, DeepSeek R1, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models with thinking blocks
@@ -1694,6 +1695,7 @@ Function calling is currently supported by the following models:
 | **Image Input (Multimodal)** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Verified on macOS Metal and Linux Vulkan (Gemma 4 + Gemma 3n) |
 | **Audio Input** | ✅ Full | ✅ Full ¹ | ❌ Not supported | ✅ `.litertlm` only | Gemma3n E2B/E4B + Gemma 4; iOS device-only; Desktop via FFI |
 | **Speech-to-Text** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (moonshine ASR); native only, arm64 on Android |
+| **Text-to-Speech** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | `flutter_gemma_speech` (Matcha); native only, arm64 on Android |
 | **Function Calling** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Gemma 4 native (SDK chat template) |
 | **Thinking Mode** | ✅ Full | ✅ Full | ❌ Not supported | ✅ Full | Gemma 4 / DeepSeek / Qwen3 / SmolLM3 / Phi-4 Mini Reasoning; not available on Web yet (MediaPipe `.task` web has no `extraContext`; `.litertlm` web is not verified) |
 | **Stop Generation** | ✅ Full | ✅ Full | ✅ Full | ✅ Full | Cancel mid-process |

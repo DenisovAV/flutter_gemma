@@ -10,9 +10,16 @@
 //
 // Unlike `SttWorker` (which owns only `SttCore`, tokenizer included inside
 // the core), this worker owns TWO objects: `TtsTextFrontend` and `TtsCore`.
-// Setup loads both; each request runs `frontend.encode(text)` then
-// `core.synthesize(input)`. Only `TtsCore` holds native handles, so only
-// `core.dispose()` runs in the teardown `finally`.
+// Setup loads both plus a `TtsTextNormalizer` (for `splitClauses`, needs no
+// symbols). Each request splits `text` into clauses so the CFM decoder's
+// `MAX_MEL` cap (and its perceptual quality — the model was trained on
+// clause-length utterances) doesn't get exceeded by long replies: every
+// clause is `frontend.encode`d and `core.synthesize`d with its own CFM seed
+// (`ttsCfmSeed + clauseIndex`, so a single-clause request's seed is
+// unchanged), and the resulting PCM segments are spliced with a short
+// inter-clause silence (`concatPcmWithSilence`, `tts_chunk.dart`). Only
+// `TtsCore` holds native handles, so only `core.dispose()` runs in the
+// teardown `finally`.
 //
 // Only sendable values cross the port: file paths + profile + backend
 // (setup), a `String` (request), and a `Uint8List` of 16-bit PCM samples
@@ -28,6 +35,8 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import '../model/tts_model_profile.dart';
 import '../tts/tts_text_frontend.dart';
+import '../tts/tts_text_normalizer.dart';
+import 'tts_chunk.dart';
 import 'tts_core.dart';
 
 /// Handshake payload the worker sends back once the frontend + native model
@@ -247,6 +256,10 @@ Future<void> _workerEntry(_WorkerInit init) async {
   gemmaLogLevel = init.logLevel;
   final TtsTextFrontend frontend;
   final TtsCore core;
+  // splitClauses only reads punctuation, so an empty symbol set is fine —
+  // the normalizer is built purely to reuse the locale-selected clause
+  // splitter, not to normalize/encode text (that stays `frontend.encode`).
+  final normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
   try {
     frontend = await TtsTextFrontend.load(init.profile, init.artifactPaths);
     core = await TtsCore.load(
@@ -267,8 +280,20 @@ Future<void> _workerEntry(_WorkerInit init) async {
     await for (final msg in commandPort) {
       if (msg is _SynthRequest) {
         try {
-          final input = frontend.encode(msg.text);
-          final pcm = core.synthesize(input);
+          final clauses = normalizer.splitClauses(msg.text);
+          final units = clauses.isEmpty ? <String>[msg.text] : clauses;
+          final segs = <Uint8List>[];
+          for (var i = 0; i < units.length; i++) {
+            final input = frontend.encode(units[i]);
+            if (input.realLen <= 1) continue; // empty chunk → no audio.
+            segs.add(core.synthesize(input, seed: ttsCfmSeed + i));
+          }
+          final pcm = segs.isEmpty
+              ? Uint8List(0)
+              : concatPcmWithSilence(
+                  segs,
+                  silenceSamples: (core.sampleRate * 0.12).round(),
+                );
           init.replyTo.send(_SynthReply(msg.id, pcm, null));
         } catch (e) {
           init.replyTo.send(_SynthReply(msg.id, null, e.toString()));

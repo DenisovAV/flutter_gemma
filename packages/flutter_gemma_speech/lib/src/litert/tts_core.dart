@@ -39,7 +39,7 @@
 //
 // Leak-safety: buffer create/lock/read/unlock/destroy mirrors
 // `litert_embedding_core.dart`'s forward-pass pattern; `load`'s partial-
-// failure cleanup mirrors `SttCore.load`, generalized to 3 compiled graphs
+// failure cleanup mirrors `SttCore.load`, generalized to 4 compiled graphs
 // (a failure loading e.g. the decoder frees the already-loaded text-encoder
 // + the shared environment before rethrowing).
 
@@ -146,10 +146,10 @@ class _LoadedGraph {
 
 /// Loads + compiles one `.tflite` graph at [path], mirroring the
 /// model/options/compiled sequence `SttCore.load` runs for its single model
-/// — generalized so [TtsCore.load] can call it 3 times (text-encoder,
-/// decoder, vocoder). On any failure partway through, frees whatever handles
-/// it already created for THIS graph before rethrowing; the caller is
-/// responsible for freeing any earlier, already-succeeded graphs + the
+/// — generalized so [TtsCore.load] can call it 4 times (text-encoder,
+/// decoder, vocoder, dp_g2p). On any failure partway through, frees whatever
+/// handles it already created for THIS graph before rethrowing; the caller
+/// is responsible for freeing any earlier, already-succeeded graphs + the
 /// shared environment.
 _LoadedGraph _loadGraph(
   LiteRtBindings bindings,
@@ -303,7 +303,7 @@ class TtsCore {
     // the decoder graph fails to compile after the text-encoder already
     // loaded) frees everything already allocated instead of leaking it — the
     // LiteRT native heap is process-global and is NOT reclaimed by the
-    // isolate dying. Mirrors `SttCore.load`, generalized to 3 graphs.
+    // isolate dying. Mirrors `SttCore.load`, generalized to 4 graphs.
     LiteRtEnvironment? environment;
     final loadedGraphs = <_LoadedGraph>[];
     try {
@@ -455,7 +455,13 @@ class TtsCore {
   /// `runGraph`. Returns 16-bit little-endian mono PCM with NO WAV header
   /// (length `ylen * hop * 2` bytes) — the example's `pcmToWav` adds a
   /// header in Phase 3.
-  Uint8List synthesize(MatchaFrontendInput input) {
+  ///
+  /// [seed] seeds the CFM decoder's initial Gaussian noise (defaults to
+  /// [ttsCfmSeed], the golden-reproducible value). The worker's clause
+  /// chunker passes `ttsCfmSeed + i` per clause so a single-clause input —
+  /// e.g. the `'Hello world.'` golden — still synthesizes with
+  /// `seed == ttsCfmSeed`, byte-identical to before this parameter existed.
+  Uint8List synthesize(MatchaFrontendInput input, {int seed = ttsCfmSeed}) {
     if (_disposed) {
       throw StateError('TtsCore is disposed');
     }
@@ -510,10 +516,10 @@ class TtsCore {
       ymask[t] = 1.0;
     }
 
-    // --- Euler CFM ODE loop, ttsCfmSeed-fixed Gaussian noise so
-    // synthesize() is byte-reproducible run-to-run (the Phase-3 golden
-    // depends on this). ---
-    final rnd = math.Random(ttsCfmSeed);
+    // --- Euler CFM ODE loop, seed-fixed Gaussian noise so synthesize() is
+    // byte-reproducible run-to-run (the Phase-3 golden depends on the
+    // default `seed == ttsCfmSeed`). ---
+    final rnd = math.Random(seed);
     final x = Float32List(_nFeats * _maxMel);
     for (var f = 0; f < _nFeats; f++) {
       for (var t = 0; t < ylen; t++) {

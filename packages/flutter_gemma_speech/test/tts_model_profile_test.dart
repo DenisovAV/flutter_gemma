@@ -26,4 +26,14 @@ void main() {
       );
     }
   });
+
+  test(
+    'matcha profile declares phonemeSymbols + dictionaryPlusNeural + en_us',
+    () {
+      const p = TtsModelProfile.matcha();
+      expect(p.representation, TextRepresentation.phonemeSymbols);
+      expect(p.g2p, G2pStrategy.dictionaryPlusNeural);
+      expect(p.locale, 'en_us');
+    },
+  );
 }

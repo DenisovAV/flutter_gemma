@@ -303,9 +303,10 @@ Future<void> _workerEntry(_WorkerInit init) async {
           final units = clauses.isEmpty ? <String>[msg.text] : clauses;
           final segs = <Uint8List>[];
           for (var i = 0; i < units.length; i++) {
-            final input = frontend.encode(units[i]);
-            if (input.realLen <= 1) continue; // empty chunk → no audio.
-            segs.add(core.synthesize(input, seed: ttsCfmSeed + i));
+            for (final input in frontend.encodeChunks(units[i])) {
+              if (input.realLen <= 1) continue; // empty chunk → no audio.
+              segs.add(core.synthesize(input, seed: ttsCfmSeed + i));
+            }
           }
           final pcm = segs.isEmpty
               ? Uint8List(0)

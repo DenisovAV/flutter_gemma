@@ -19,6 +19,10 @@ abstract class TtsTextFrontend {
   /// text -> frontend input (symbol embeddings + mask + real length).
   MatchaFrontendInput encode(String chunk);
 
+  /// text -> one or more inputs, each within the model's MAX_TEXT budget
+  /// (over-long chunks are word-boundary split). See [MatchaTextFrontend].
+  List<MatchaFrontendInput> encodeChunks(String chunk);
+
   /// Load the frontend for [profile], resolving artifact paths from
   /// [paths] (keyed by the profile's file-role names, e.g.
   /// `paths[profile.configFile]`).

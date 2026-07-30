@@ -232,6 +232,12 @@ void main() {
     () {
       fakeAsync((async) {
         final ctrl = StreamController<String>();
+        // F2: track whether the reply subscription gets cancelled — R1's
+        // detach-not-cancel branch must leave it running.
+        var cancelled = false;
+        ctrl.onCancel = () {
+          cancelled = true;
+        };
         final responder = VoiceResponder(
           respond: (_) => ctrl.stream,
           stop: () async {}, // does NOT close the stream
@@ -249,6 +255,14 @@ void main() {
         session.interrupt();
         async.elapse(VoiceSession.drainTimeout + const Duration(seconds: 1));
         expect(events.last, isA<VoiceTurnInterruptedEvent>());
+        expect(cancelled, isFalse); // R1: detach, never cancel
+
+        // isClosed guard: a token delivered after detach must not be
+        // forwarded into the already-torn-down turn.
+        final countAfter = events.length;
+        ctrl.add('late');
+        async.flushMicrotasks();
+        expect(events.length, countAfter);
       });
     },
   );
@@ -267,6 +281,90 @@ void main() {
         caught = e;
       });
       expect(caught, isA<StateError>());
+    },
+  );
+
+  test(
+    'reply stream error is turn-fatal: stream error surfaces, no terminal event follows',
+    () async {
+      final r = _FakeResponder();
+      final session = VoiceSession.custom(
+        recognizer: _FakeRecognizer('hi'),
+        responder: r.build(),
+        synthesizer: _FakeSynth(),
+      );
+      final events = <VoiceEvent>[];
+      Object? caught;
+      final streamDone = Completer<void>();
+      session
+          .runTurn(_pcm())
+          .listen(
+            events.add,
+            onError: (Object e) {
+              caught = e;
+              if (!streamDone.isCompleted) streamDone.complete();
+            },
+            onDone: () {
+              if (!streamDone.isCompleted) streamDone.complete();
+            },
+          );
+      await Future<void>.delayed(Duration.zero);
+      r.ctrl.addError(StateError('llm boom'));
+      await streamDone.future;
+
+      expect(caught, isA<StateError>());
+      expect(events.whereType<VoiceTurnInterruptedEvent>(), isEmpty);
+      expect(events.whereType<VoiceTurnCompleteEvent>(), isEmpty);
+    },
+  );
+
+  test(
+    'interrupt then reply stream errors: error wins, interrupt completes without rethrowing',
+    () async {
+      final ctrl = StreamController<String>();
+      var stopCalls = 0;
+      final responder = VoiceResponder(
+        respond: (_) => ctrl.stream,
+        stop: () async {
+          stopCalls++;
+          // Does NOT close/error the stream itself — the test triggers the
+          // failure separately below, while the bounded drain is pending.
+        },
+      );
+      final session = VoiceSession.custom(
+        recognizer: _FakeRecognizer('hi'),
+        responder: responder,
+        synthesizer: _FakeSynth(),
+      );
+      final events = <VoiceEvent>[];
+      Object? caught;
+      final streamDone = Completer<void>();
+      session
+          .runTurn(_pcm())
+          .listen(
+            events.add,
+            onError: (Object e) {
+              caught = e;
+              if (!streamDone.isCompleted) streamDone.complete();
+            },
+            onDone: () {
+              if (!streamDone.isCompleted) streamDone.complete();
+            },
+          );
+      await Future<void>.delayed(Duration.zero);
+      ctrl.add('par');
+      await Future<void>.delayed(Duration.zero);
+
+      final interruptFut = session.interrupt(); // stop() + bounded drain
+      await Future<void>.delayed(Duration.zero); // let stop() resolve
+      ctrl.addError(StateError('llm boom')); // reply stream fails mid-drain
+      await interruptFut; // must complete without rethrowing
+      await streamDone.future;
+
+      expect(stopCalls, 1);
+      expect(caught, isA<StateError>());
+      expect(events.whereType<VoiceTurnInterruptedEvent>(), isEmpty);
+      expect(events.whereType<VoiceTurnCompleteEvent>(), isEmpty);
     },
   );
 }

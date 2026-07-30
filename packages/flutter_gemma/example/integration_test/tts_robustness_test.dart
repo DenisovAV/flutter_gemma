@@ -185,4 +185,39 @@ void main() {
     },
     timeout: const Timeout(Duration(minutes: 10)),
   );
+
+  testWidgets(
+    'non-speech clause: "Sounds good! 👍" skips the emoji clause and still speaks the rest',
+    (_) async {
+      await FlutterGemma.initialize(ttsBackends: const [LiteRtTtsBackend()]);
+
+      await FlutterGemma.installTts()
+          .fromNetwork(_modelUrl)
+          .ofType(TtsModelType.matcha)
+          .install();
+
+      final synth = await FlutterGemma.getActiveTts();
+
+      try {
+        // The "👍" clause maps to zero symbols; the fix skips it instead of
+        // erroring the whole request, so "Sounds good!" still synthesizes.
+        final pcm = await synth.synthesize('Sounds good! 👍');
+        final rms = _rms(pcm);
+
+        debugPrint(
+          'TTS-ROBUST<<<case=non_speech_clause bytes=${pcm.length} rms=${rms.toStringAsFixed(4)}>>>',
+        );
+
+        expect(pcm.isNotEmpty, isTrue, reason: 'PCM output was empty');
+        expect(
+          rms,
+          greaterThan(0.02),
+          reason: 'RMS too close to silence: $rms',
+        );
+      } finally {
+        await synth.close();
+      }
+    },
+    timeout: const Timeout(Duration(minutes: 10)),
+  );
 }

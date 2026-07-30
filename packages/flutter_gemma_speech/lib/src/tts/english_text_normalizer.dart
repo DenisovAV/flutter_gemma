@@ -30,7 +30,11 @@ class EnglishTextNormalizer implements TtsTextNormalizer {
   String _preclean(String text) {
     var s = text;
     s = s.replaceAll(RegExp(r'https?://\S+'), ' '); // URLs
-    s = s.replaceAll(RegExp(r'`{1,3}[^`]*`{1,3}'), ' '); // inline/fenced code
+    // inline/fenced code: strip the backtick delimiters but KEEP the inner
+    // text — LLM replies commonly wrap speakable values/words/commands in
+    // backticks (e.g. "The answer is `42`."), and dropping the content
+    // silently loses it (#PR-panel).
+    s = s.replaceAllMapped(RegExp(r'`{1,3}([^`]*)`{1,3}'), (m) => ' ${m[1]} ');
     s = s.replaceAll(RegExp(r'[*_#>~|]'), ' '); // markdown punctuation
     s = s.replaceAllMapped(
       RegExp(r'\b\d[\d,]*\b'), // numbers

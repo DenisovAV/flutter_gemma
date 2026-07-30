@@ -66,4 +66,16 @@ void main() {
         .join(' ');
     expect(w, 'two zero zero zero zero zero zero users');
   });
+  test('backtick-wrapped content is kept, not deleted', () {
+    final w = EnglishTextNormalizer({' '})
+        .normalize('the `answer` is `42`')
+        .whereType<WordToken>()
+        .map((x) => x.word)
+        .toList();
+    // Inner content survives: "answer" stays a word, and "42" expands to
+    // its number words instead of vanishing.
+    expect(w, contains('answer'));
+    expect(w, isNot(contains('')));
+    expect(w, ['the', 'answer', 'is', 'forty', 'two']);
+  });
 }

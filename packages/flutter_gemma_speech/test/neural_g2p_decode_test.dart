@@ -54,4 +54,19 @@ void main() {
     final idx2ph = {2: '<end>', 20: 't', 59: '͡', 45: 'ʃ'};
     expect(decodeG2pOutput([20, 59, 45, 2], idx2ph), 'tʃ');
   });
+  test('decode throws StateError on argmax id missing from idx2ph (fail-loud, '
+      'not a silent blank)', () {
+    // idx2ph is missing an entry for id 99, which appears in argmax.
+    final idx2ph = {1: '<en_us>', 2: '<end>', 10: 'h'};
+    final argmax = [1, 10, 99, 2];
+    expect(() => decodeG2pOutput(argmax, idx2ph), throwsA(isA<StateError>()));
+  });
+  test('encode throws StateError when framed ids exceed maxT', () {
+    // charRepeats=3 default: 1 (start) + 3*len(word) + 1 (end) must be <=
+    // maxT. Use a tiny maxT so a short word already overflows it.
+    expect(
+      () => encodeG2pInput('hi', char2idx, maxT: 4),
+      throwsA(isA<StateError>()),
+    );
+  });
 }

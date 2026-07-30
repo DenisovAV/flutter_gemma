@@ -21,8 +21,14 @@ Float32List encodeG2pInput(
     }
   }
   ids.add(end);
+  if (ids.length > maxT) {
+    throw StateError(
+      'neural G2P encode: word "$word" frames to ${ids.length} ids '
+      '> maxT $maxT',
+    );
+  }
   final out = Float32List(maxT);
-  for (var i = 0; i < ids.length && i < maxT; i++) {
+  for (var i = 0; i < ids.length; i++) {
     out[i] = ids[i].toDouble();
   }
   return out;
@@ -42,7 +48,13 @@ String decodeG2pOutput(
   for (var i = 0; i < stop; i++) {
     final id = argmax[i];
     if (id != prev) {
-      final ph = idx2ph[id] ?? '';
+      final ph = idx2ph[id];
+      if (ph == null) {
+        throw StateError(
+          'neural G2P decode: argmax id $id has no idx2ph entry '
+          '(n_phonemes/idx2ph mismatch in g2p_meta.json)',
+        );
+      }
       if (!specials.contains(ph) && ph != '_' && !lossy.contains(ph)) {
         sb.write(ph);
       }

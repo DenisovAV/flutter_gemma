@@ -55,6 +55,15 @@ class MatchaTextFrontend implements TtsTextFrontend {
   /// worker); null until then, so OOV words still throw.
   final NeuralG2pResolver? neuralG2p;
 
+  /// Normalizer for [locale]/[symbolToId], built once at construction —
+  /// [locale] and [symbolToId] are fixed for the lifetime of the frontend,
+  /// so rebuilding a ~178-element symbol set on every [encode] call (once
+  /// per clause per request) is wasted work.
+  late final TtsTextNormalizer _normalizer = TtsTextNormalizer.forLocale(
+    locale,
+    symbolToId.keys.toSet(),
+  );
+
   /// Parse the real Matcha bundle files: `config.json` (symbols +
   /// n_channels + MAX_TEXT), `g2p_dict.txt.gz` (gzipped word -> IPA
   /// dictionary), `emb.bin` (little-endian f32 phoneme embedding table).
@@ -110,11 +119,7 @@ class MatchaTextFrontend implements TtsTextFrontend {
   @override
   MatchaFrontendInput encode(String text) {
     // --- normalize: text -> tagged tokens (words + preserved symbols) ---
-    final normalizer = TtsTextNormalizer.forLocale(
-      locale,
-      symbolToId.keys.toSet(),
-    );
-    final tokens = normalizer.normalize(text);
+    final tokens = _normalizer.normalize(text);
 
     // --- G2P: tokens -> IPA (dictionary first, neural fallback, else throw) ---
     final ipa = StringBuffer();

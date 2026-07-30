@@ -6,13 +6,70 @@ export 'tts_text_normalizer.dart';
 /// English impl of [TtsTextNormalizer], PRESERVING punctuation as model
 /// symbols. [symbols] is the model's symbol set (config.json `symbols`) — only
 /// marks the model knows survive as SymbolToken; the rest are dropped as
-/// non-speech (logged). Numbers/acronyms/markdown handled in Task 5.
+/// non-speech. Numbers/years/acronyms are expanded to words and markdown/URLs
+/// are stripped by [_preclean] before tokenization.
 class EnglishTextNormalizer implements TtsTextNormalizer {
   const EnglishTextNormalizer(this.symbols);
   final Set<String> symbols;
 
+  static final _letter = RegExp(r'[A-Za-z]');
+  static final _whitespace = RegExp(r'\s');
+
+  static const _ones = [
+    'zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight',
+    'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
+    'sixteen', 'seventeen', 'eighteen', 'nineteen', //
+  ];
+  static const _tens = [
+    '', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy',
+    'eighty', 'ninety', //
+  ];
+
+  /// Strips markdown/URLs and expands numbers/years/acronyms to words, ahead
+  /// of the rune loop below. No-op on already-clean text.
+  String _preclean(String text) {
+    var s = text;
+    s = s.replaceAll(RegExp(r'https?://\S+'), ' '); // URLs
+    s = s.replaceAll(RegExp(r'`{1,3}[^`]*`{1,3}'), ' '); // inline/fenced code
+    s = s.replaceAll(RegExp(r'[*_#>~|]'), ' '); // markdown punctuation
+    s = s.replaceAllMapped(
+      RegExp(r'\b\d[\d,]*\b'), // numbers
+      (m) => ' ${_numberToWords(m[0]!.replaceAll(',', ''))} ',
+    );
+    s = s.replaceAllMapped(
+      RegExp(r'\b[A-Z]{2,}\b'), // ALL-CAPS acronyms
+      (m) => ' ${m[0]!.split('').join(' ')} ',
+    );
+    return s;
+  }
+
+  String _numberToWords(String digits) {
+    final n = int.tryParse(digits);
+    if (n == null) {
+      return digits.split('').map((d) => _ones[int.parse(d)]).join(' ');
+    }
+    if (digits.length == 4 && n >= 1100 && n <= 9999) {
+      // year: two pairs
+      return '${_below100(n ~/ 100)} ${_below100(n % 100)}'.trim();
+    }
+    return _below1000000(n);
+  }
+
+  String _below100(int n) => n < 20
+      ? _ones[n]
+      : '${_tens[n ~/ 10]}${n % 10 == 0 ? '' : ' ${_ones[n % 10]}'}';
+
+  String _below1000(int n) => n < 100
+      ? _below100(n)
+      : '${_ones[n ~/ 100]} hundred${n % 100 == 0 ? '' : ' ${_below100(n % 100)}'}';
+
+  String _below1000000(int n) => n < 1000
+      ? _below1000(n)
+      : '${_below1000(n ~/ 1000)} thousand${n % 1000 == 0 ? '' : ' ${_below1000(n % 1000)}'}';
+
   @override
   List<NormToken> normalize(String text) {
+    text = _preclean(text);
     final out = <NormToken>[];
     final buf = StringBuffer();
     void flushWord() {
@@ -24,9 +81,9 @@ class EnglishTextNormalizer implements TtsTextNormalizer {
 
     for (final rune in text.runes) {
       final ch = String.fromCharCode(rune);
-      if (RegExp(r'[A-Za-z]').hasMatch(ch)) {
+      if (_letter.hasMatch(ch)) {
         buf.write(ch);
-      } else if (ch == ' ' || RegExp(r'\s').hasMatch(ch)) {
+      } else if (ch == ' ' || _whitespace.hasMatch(ch)) {
         flushWord();
         if (out.isNotEmpty && out.last is! SymbolToken) {
           out.add(const SymbolToken(' '));
@@ -34,7 +91,7 @@ class EnglishTextNormalizer implements TtsTextNormalizer {
       } else {
         flushWord();
         if (symbols.contains(ch)) out.add(SymbolToken(ch));
-        // else: non-speech char (Task 5 handles numbers/markdown); drop here.
+        // else: non-speech char; drop.
       }
     }
     flushWord();

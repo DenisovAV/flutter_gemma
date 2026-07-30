@@ -23,4 +23,26 @@ void main() {
   test('splitClauses splits on sentence + clause boundaries', () {
     expect(n.splitClauses('One, two. Three'), ['One,', 'two.', 'Three']);
   });
+  test('integer expands to words', () {
+    final t = EnglishTextNormalizer({' '}).normalize('3 cats');
+    expect((t.first as WordToken).word, 'three');
+  });
+  test('year expands', () {
+    final w = EnglishTextNormalizer({
+      ' ',
+    }).normalize('2023').whereType<WordToken>().map((x) => x.word).join(' ');
+    expect(w, 'twenty twenty three');
+  });
+  test('acronym GPU spells out', () {
+    final w = EnglishTextNormalizer({
+      ' ',
+    }).normalize('GPU').whereType<WordToken>().map((x) => x.word).join(' ');
+    expect(w, 'g p u');
+  });
+  test('markdown bold stripped to inner word', () {
+    final w = EnglishTextNormalizer({
+      ' ',
+    }).normalize('**Save**').whereType<WordToken>().map((x) => x.word).join();
+    expect(w, 'save');
+  });
 }

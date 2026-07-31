@@ -27,6 +27,7 @@ class ChatScreenState extends State<ChatScreen> {
   bool _isInitializing = false; // Protection against concurrent initialization
   bool _isStreaming = false; // Track streaming state
   String? _error;
+  int? _downloadPercent;
   Color _backgroundColor = const Color(0xFF0b2351);
   late String _appTitle; // App bar title; tool calls can override after load
 
@@ -123,10 +124,18 @@ class ChatScreenState extends State<ChatScreen> {
       // (the download screen normally does this first, but ChatScreen is also
       // reachable directly, so guard here too).
       if (widget.model.isBuiltIn) {
-        await installer.fromBundled(widget.model.filename).install();
+        await installer.fromBundled(widget.model.filename).withProgress((
+          percent,
+        ) {
+          if (!mounted) return;
+          setState(() => _downloadPercent = percent);
+        }).install();
         await BuiltInAi.ensureReady();
       } else if (widget.model.localModel) {
-        await installer.fromAsset(widget.model.url).install();
+        await installer.fromAsset(widget.model.url).withProgress((percent) {
+          if (!mounted) return;
+          setState(() => _downloadPercent = percent);
+        }).install();
       } else {
         // Load token if model needs authentication
         String? token;
@@ -137,7 +146,13 @@ class ChatScreenState extends State<ChatScreen> {
           );
         }
 
-        await installer.fromNetwork(widget.model.url, token: token).install();
+        await installer
+            .fromNetwork(widget.model.url, token: token)
+            .withProgress((percent) {
+              if (!mounted) return;
+              setState(() => _downloadPercent = percent);
+            })
+            .install();
       }
 
       debugPrint('[ChatScreen] Step 1: Model installed ✅');
@@ -450,7 +465,13 @@ class ChatScreenState extends State<ChatScreen> {
                     ),
                   ],
                 )
-              : const LoadingWidget(message: 'Initializing model'),
+              : LoadingWidget(
+                  message: 'Initializing model',
+                  progress:
+                      (_downloadPercent != null && _downloadPercent! < 100)
+                      ? _downloadPercent
+                      : null,
+                ),
         ],
       ),
     );

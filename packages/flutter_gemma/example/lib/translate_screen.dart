@@ -34,6 +34,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
   String? _error;
   InferenceModel? _inference;
   TranslateRunner? _runner;
+  int? _downloadPercent;
 
   String _src = 'en';
   String _dst = 'fr';
@@ -79,7 +80,10 @@ class _TranslateScreenState extends State<TranslateScreen> {
       await FlutterGemma.installModel(
         modelType: widget.model.modelType,
         fileType: widget.model.fileType,
-      ).fromNetwork(widget.model.url, token: token).install();
+      ).fromNetwork(widget.model.url, token: token).withProgress((percent) {
+        if (!mounted) return;
+        setState(() => _downloadPercent = percent);
+      }).install();
 
       if (kDebugMode) {
         debugPrint('[TranslateScreen] Model installed, getting active…');
@@ -175,8 +179,12 @@ class _TranslateScreenState extends State<TranslateScreen> {
       body: !_isModelInitialized
           ? (_error != null
                 ? _buildErrorState(_error!)
-                : const LoadingWidget(
+                : LoadingWidget(
                     message: 'Initializing translation model',
+                    progress:
+                        (_downloadPercent != null && _downloadPercent! < 100)
+                        ? _downloadPercent
+                        : null,
                   ))
           : Padding(
               padding: const EdgeInsets.all(16),

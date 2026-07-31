@@ -46,9 +46,18 @@ const _hfToken = String.fromEnvironment('HF_TOKEN');
 /// On desktop, prefer a locally-staged model file (no network, no token) — the
 /// convention the other desktop integration tests use. Stage a Gemma 3 1B IT
 /// `.litertlm` into the app's documents dir as `gemma3-1b-it-int4.litertlm`.
-/// Returns null when no staged file is present (iOS / CI → network install).
+/// Returns null when no staged file is present (CI → network install).
 Future<String?> _stagedLlmPath() async {
-  if (!(Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
+  // Android (Firebase Test Lab): the model is pushed to the device via
+  // `--other-files /data/local/tmp/flutter_gemma_test/...` — no network/token.
+  if (Platform.isAndroid) {
+    const p = '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm';
+    return File(p).existsSync() ? p : null;
+  }
+  if (!(Platform.isMacOS ||
+      Platform.isLinux ||
+      Platform.isWindows ||
+      Platform.isIOS)) {
     return null;
   }
   final docs = await getApplicationDocumentsDirectory();

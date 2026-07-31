@@ -25,6 +25,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
   bool _isGenerating = false;
   String? _errorMessage;
   EmbeddingModel? _embeddingModel;
+  int? _downloadPercent;
 
   @override
   void initState() {
@@ -84,6 +85,16 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
         case ModelSourceType.bundled:
           builder = builder.tokenizerFromBundled(widget.model.tokenizerUrl);
       }
+
+      builder = builder
+          .withModelProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
+          .withTokenizerProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          });
 
       await builder.install();
 
@@ -162,6 +173,11 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                 ),
               ),
             ),
+
+            if (_embeddingModel == null && _downloadPercent != null) ...[
+              const SizedBox(height: 16),
+              _buildDownloadProgressCard(),
+            ],
 
             const SizedBox(height: 24),
 
@@ -303,6 +319,39 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
                     ],
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadProgressCard() {
+    final percent = _downloadPercent!;
+    final showPercent = percent < 100;
+    return Card(
+      color: const Color(0xFF1a3a5c),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.blue,
+                value: showPercent ? percent / 100.0 : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                showPercent
+                    ? 'Downloading model… $percent%'
+                    : 'Installing model…',
+                style: const TextStyle(color: Colors.white60),
               ),
             ),
           ],

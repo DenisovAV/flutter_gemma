@@ -29,6 +29,7 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
   EmbeddingModel? _embeddingModel;
   bool _isGenerating = false;
   String? _errorMessage;
+  int? _downloadPercent;
 
   // Embeddings
   List<double>? _queryEmbedding;
@@ -88,6 +89,14 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       await FlutterGemma.installEmbedder()
           .modelFromNetwork(widget.model.url, token: token)
           .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
+          .withModelProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
+          .withTokenizerProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
           .install();
 
       if (kDebugMode) {
@@ -307,6 +316,11 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
               ),
             ),
 
+            if (_embeddingModel == null && _downloadPercent != null) ...[
+              const SizedBox(height: 16),
+              _buildDownloadProgressCard(),
+            ],
+
             const SizedBox(height: 24),
 
             // Test sentences
@@ -496,6 +510,39 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadProgressCard() {
+    final percent = _downloadPercent!;
+    final showPercent = percent < 100;
+    return Card(
+      color: const Color(0xFF1a3a5c),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.blue,
+                value: showPercent ? percent / 100.0 : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                showPercent
+                    ? 'Downloading model… $percent%'
+                    : 'Installing model…',
+                style: const TextStyle(color: Colors.white60),
+              ),
+            ),
           ],
         ),
       ),

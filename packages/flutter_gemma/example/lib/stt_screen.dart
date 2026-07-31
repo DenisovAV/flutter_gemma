@@ -29,6 +29,7 @@ class _SttScreenState extends State<SttScreen> {
   SpeechRecognizer? _recognizer;
   bool _isInitializing = true;
   String? _initError;
+  int? _downloadPercent;
 
   bool _isTranscribing = false;
   String? _transcript;
@@ -72,6 +73,14 @@ class _SttScreenState extends State<SttScreen> {
           .modelFromNetwork(widget.model.modelUrl, token: token)
           .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
           .ofType(widget.model.sttModelType)
+          .withModelProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
+          .withTokenizerProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
           .install();
 
       final recognizer = await FlutterGemma.getActiveStt();
@@ -324,16 +333,23 @@ class _SttScreenState extends State<SttScreen> {
   }
 
   Widget _buildInitializingState() {
-    return const Center(
+    final percent = _downloadPercent;
+    final showPercent = percent != null && percent < 100;
+    return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 32.0),
+        padding: const EdgeInsets.symmetric(vertical: 32.0),
         child: Column(
           children: [
-            CircularProgressIndicator(color: Colors.blue),
-            SizedBox(height: 16),
+            CircularProgressIndicator(
+              color: Colors.blue,
+              value: showPercent ? percent / 100.0 : null,
+            ),
+            const SizedBox(height: 16),
             Text(
-              'Installing model and preparing recognizer…',
-              style: TextStyle(color: Colors.white60),
+              showPercent
+                  ? 'Downloading model… $percent%'
+                  : 'Installing model and preparing recognizer…',
+              style: const TextStyle(color: Colors.white60),
             ),
           ],
         ),

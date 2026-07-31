@@ -46,11 +46,11 @@ register their providers in `FlutterGemma.initialize()`.
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
-  genkit_flutter_gemma: ^0.4.0
-  flutter_gemma: ^1.0.0
-  flutter_gemma_litertlm: ^1.0.0   # only the engines/backends you actually use
-  flutter_gemma_mediapipe: ^1.0.0
-  flutter_gemma_embeddings: ^1.0.0
+  genkit_flutter_gemma: ^0.4.3
+  flutter_gemma: ^1.4.1
+  flutter_gemma_litertlm: ^1.3.1   # only the engines/backends you actually use
+  flutter_gemma_mediapipe: ^1.0.4
+  flutter_gemma_embeddings: ^1.0.4
 ```
 
 ```dart

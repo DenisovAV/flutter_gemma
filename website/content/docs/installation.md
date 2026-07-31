@@ -26,7 +26,7 @@ dependencies:
   flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec / vec0; all platforms, incl. web)
 
   # Optional — on-device speech (STT + TTS):
-  flutter_gemma_speech: latest_version       # transcribe audio + synthesize speech (moonshine + Matcha today; native only)
+  flutter_gemma_speech: latest_version       # transcribe audio + synthesize speech (moonshine + Matcha today; native only) + voice loop
 ```
 
 **Pick by need:**
@@ -39,7 +39,7 @@ dependencies:
 | Generate text embeddings | `flutter_gemma_embeddings` |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
-| Transcribe audio or synthesize speech on-device (STT + TTS) | `flutter_gemma_speech` |
+| Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 
 Core registers **no** engine by itself — you wire the packages you added in
 `FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.

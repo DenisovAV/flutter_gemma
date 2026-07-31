@@ -254,6 +254,8 @@ selectable, profile-driven pipelines (you pick the model with `SttModelType` /
 `TtsModelType`). **moonshine-tiny** (STT) and **Matcha** (TTS) work end-to-end
 today; Whisper / Parakeet STT profiles and kokoro / supertonic TTS voices are
 follow-ons. Native only (no Web). See [Speech](/docs/speech) for usage.
+A `VoiceSession` also chains STT → LLM → TTS into a push-to-talk voice loop —
+see [Speech](/docs/speech).
 
 **Speech-to-text**
 

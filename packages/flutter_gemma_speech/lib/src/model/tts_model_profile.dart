@@ -22,6 +22,12 @@ enum TtsPipelineKind {
   matchaCfm,
 }
 
+/// How text becomes the model's encoder input.
+enum TextRepresentation { phonemeSymbols, subwordTokens, rawChars }
+
+/// For phonemeSymbols models only: how graphemes become phonemes.
+enum G2pStrategy { dictionary, dictionaryPlusNeural, neuralOnly, none }
+
 /// Runtime descriptor for one TTS model family — the pipeline kind plus the
 /// role of each file in the model bundle. `TtsCore` needs this to know which
 /// `.tflite` to load for which stage; it does not auto-detect roles from the
@@ -35,9 +41,13 @@ class TtsModelProfile {
       decoderFile = 'matcha_decoder_fp16.tflite',
       vocoderFile = 'matcha_vocoder_fp16.tflite',
       g2pFile = 'dp_g2p_matcha_fp16.tflite',
+      g2pMetaFile = 'g2p_meta.json',
       configFile = 'config.json',
       dictFile = 'g2p_dict.txt.gz',
-      embeddingFile = 'emb.bin';
+      embeddingFile = 'emb.bin',
+      representation = TextRepresentation.phonemeSymbols,
+      g2p = G2pStrategy.dictionaryPlusNeural,
+      locale = 'en_us';
 
   /// Which end-to-end synthesis pipeline this profile drives.
   final TtsPipelineKind pipeline;
@@ -54,6 +64,11 @@ class TtsModelProfile {
   /// Grapheme-to-phoneme model file.
   final String g2pFile;
 
+  /// Neural G2P side-car: `char2idx`/`idx2ph` vocab + framing params
+  /// (`char_repeats`/`start`/`end`/`MAXT`/`n_phonemes`) that `TtsCore` needs
+  /// to run [g2pFile] and decode its output into IPA (`TtsCore.neuralG2p`).
+  final String g2pMetaFile;
+
   /// Bundle config file carrying the numeric synthesis params (read by
   /// `TtsCore`, not this profile).
   final String configFile;
@@ -63,6 +78,16 @@ class TtsModelProfile {
 
   /// Speaker/style embedding file.
   final String embeddingFile;
+
+  /// How text becomes the model's encoder input.
+  final TextRepresentation representation;
+
+  /// For phonemeSymbols models only: how graphemes become phonemes. Null for
+  /// token models.
+  final G2pStrategy? g2p;
+
+  /// Selects the `TtsTextNormalizer` (Task 4); matcha → `'en_us'`.
+  final String locale;
 
   /// Resolve the runtime profile for [t]. Only [TtsModelType.matcha] is
   /// wired; kokoro/supertonic are follow-ons and throw (fail-loud — never

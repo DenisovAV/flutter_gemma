@@ -138,7 +138,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.14.0` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). v0.14.0: native per-session sampler (opaque session-config) + #214 GPU output-garbage fix; Dawn split static→dynamic (Linux/Windows bundle `libwebgpu_dawn`). Windows discrete GPU (WebGPU/Dawn) regressed upstream — use CPU/NPU on Windows (LiteRT-LM #2957).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.5.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.3.1`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.4`, `flutter_gemma_speech` `0.2.0`; `flutter_gemma_agent` `0.1.0`, `flutter_gemma_builtin_ai` `0.1.0`
+- **Current Version**: core `flutter_gemma` `1.5.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.3.1`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.4`, `flutter_gemma_speech` `0.3.0`; `flutter_gemma_agent` `0.1.0`, `flutter_gemma_builtin_ai` `0.1.0`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -301,7 +301,11 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_mediapipe/     # .task MediaPipe (own pigeon + Kotlin + Swift + web JS)
 │   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
 │   ├── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
-│   └── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
+│   ├── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
+│   ├── flutter_gemma_speech/        # opt-in on-device STT (moonshine) + TTS (Matcha) via LiteRT C API (shares libLiteRtLm)
+│   ├── flutter_gemma_agent/         # opt-in on-device agent skills (SKILL.md: text/JS/native-intent/MCP) over the function-calling loop
+│   ├── genkit_flutter_gemma/        # Firebase Genkit integration (flutter_gemma runtime + converters)
+│   └── genkit_hybrid/               # Genkit hybrid on-device + cloud helpers
 └── docs/                            # design docs, testing, benchmarks
 ```
 

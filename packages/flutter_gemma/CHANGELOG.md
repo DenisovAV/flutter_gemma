@@ -6,6 +6,9 @@
 - Export `ModelSource` + `FileSystemService` from the barrel (required public parameter types).
 - Document `FlutterGemmaPlugin` as the low-level SPI tier; `FlutterGemma` facade is the canonical entry.
 
+## 1.4.2
+- docs: document the on-device voice loop (VoiceSession, STT → LLM → TTS) shipped in flutter_gemma_speech 0.3.0.
+
 ## 1.4.1
 - feat: on-device text-to-speech — selectable TTS model (Matcha today) via `installTts()`/`getActiveTts()`/`synthesize()`, raw PCM output.
 - feat: core TTS contracts (SpeechSynthesizer, TtsModelType, TtsBackendProvider/TtsRegistry, ModelManagementType.tts) + `RuntimeConfig.artifactPaths`.

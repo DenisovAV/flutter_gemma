@@ -1,6 +1,6 @@
 // Long-lived background isolate that owns the entire Matcha-TTS pipeline:
 // both the text frontend (dictionary G2P + host embedding gather, Task 2.2)
-// and the native LiteRT core (3 compiled graphs + the CFM/vocoder forward
+// and the native LiteRT core (4 compiled graphs + the CFM/vocoder forward
 // passes, Task 2.3). The forward passes are blocking synchronous FFI calls;
 // running them (and the frontend's dictionary lookups + 275k-entry load)
 // here keeps the UI isolate's event loop free. Direct analog of
@@ -10,9 +10,22 @@
 //
 // Unlike `SttWorker` (which owns only `SttCore`, tokenizer included inside
 // the core), this worker owns TWO objects: `TtsTextFrontend` and `TtsCore`.
-// Setup loads both; each request runs `frontend.encode(text)` then
-// `core.synthesize(input)`. Only `TtsCore` holds native handles, so only
-// `core.dispose()` runs in the teardown `finally`.
+// Setup loads both plus a `TtsTextNormalizer` (for `splitClauses`, needs no
+// symbols). Each request splits `text` into clauses so the CFM decoder's
+// `MAX_MEL` cap (and its perceptual quality — the model was trained on
+// clause-length utterances) doesn't get exceeded by long replies: every
+// clause is `frontend.encodeChunks`d (itself possibly >1 sub-chunk, for a
+// clause too long to fit MAX_TEXT at a word boundary) and each resulting
+// input is `core.synthesize`d with its own CFM seed (`ttsCfmSeed +
+// clauseIndex`, so a single-clause single-chunk request's seed is
+// unchanged). ALL resulting PCM segments — across clauses AND across a
+// clause's own sub-chunks — are spliced with the same short silence gap
+// (`concatPcmWithSilence`, `tts_chunk.dart`): the inter-clause gap is the
+// intended pause, while an inter-sub-chunk gap (only for a pathological
+// over-long clause, a MAX_TEXT split) is an acceptable ~0.12 s mid-sentence
+// pause — unlike the MAX_MEL split inside `TtsCore.synthesize`, which is
+// seamless (`TtsCore.concatSegments`, no silence). Only `TtsCore` holds
+// native handles, so only `core.dispose()` runs in the teardown `finally`.
 //
 // Only sendable values cross the port: file paths + profile + backend
 // (setup), a `String` (request), and a `Uint8List` of 16-bit PCM samples
@@ -28,6 +41,8 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import '../model/tts_model_profile.dart';
 import '../tts/tts_text_frontend.dart';
+import '../tts/tts_text_normalizer.dart';
+import 'tts_chunk.dart';
 import 'tts_core.dart';
 
 /// Handshake payload the worker sends back once the frontend + native model
@@ -245,20 +260,39 @@ class TtsWorker {
 Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
   gemmaLogLevel = init.logLevel;
-  final TtsTextFrontend frontend;
   final TtsCore core;
+  final TtsTextFrontend frontend;
+  final TtsTextNormalizer normalizer;
+  // Tracks the core once TtsCore.load succeeds, purely so the catch block
+  // below can free it if a LATER step (frontend or normalizer) throws —
+  // otherwise a fully-loaded native core (4 compiled graphs + environment)
+  // would be abandoned: isolate exit does not free FFI/native allocations.
+  TtsCore? loadedCore;
   try {
-    frontend = await TtsTextFrontend.load(
-      configPath: init.artifactPaths[init.profile.configFile]!,
-      dictPath: init.artifactPaths[init.profile.dictFile]!,
-      embeddingPath: init.artifactPaths[init.profile.embeddingFile]!,
-    );
+    // Core loads first: the frontend needs `core.neuralG2p` (the dp_g2p
+    // graph) to resolve out-of-vocabulary words that aren't in the
+    // dictionary. Loading order doesn't affect output — only which OOV
+    // words the frontend can resolve without throwing.
     core = await TtsCore.load(
       profile: init.profile,
       artifactPaths: init.artifactPaths,
       backend: init.backend,
     );
+    loadedCore = core;
+    frontend = await TtsTextFrontend.load(
+      init.profile,
+      init.artifactPaths,
+      neuralG2p: core.neuralG2p,
+    );
+    // splitClauses only reads punctuation, so an empty symbol set is fine —
+    // the normalizer is built purely to reuse the locale-selected clause
+    // splitter, not to normalize/encode text (that stays `frontend.encode`).
+    // Built inside the try so a future non-`en` locale's UnimplementedError
+    // surfaces as a descriptive load-failure reply instead of a bare
+    // isolate exit.
+    normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
   } catch (e, st) {
+    loadedCore?.dispose();
     gemmaLog('[TtsWorker] load failed: $e\n$st');
     init.replyTo.send('TTS worker failed to load: $e');
     return;
@@ -271,8 +305,21 @@ Future<void> _workerEntry(_WorkerInit init) async {
     await for (final msg in commandPort) {
       if (msg is _SynthRequest) {
         try {
-          final input = frontend.encode(msg.text);
-          final pcm = core.synthesize(input);
+          final clauses = normalizer.splitClauses(msg.text);
+          final units = clauses.isEmpty ? <String>[msg.text] : clauses;
+          final segs = <Uint8List>[];
+          for (var i = 0; i < units.length; i++) {
+            for (final input in frontend.encodeChunks(units[i])) {
+              if (input.realLen <= 1) continue; // empty chunk → no audio.
+              segs.add(core.synthesize(input, seed: ttsCfmSeed + i));
+            }
+          }
+          final pcm = segs.isEmpty
+              ? Uint8List(0)
+              : concatPcmWithSilence(
+                  segs,
+                  silenceSamples: (core.sampleRate * 0.12).round(),
+                );
           init.replyTo.send(_SynthReply(msg.id, pcm, null));
         } catch (e) {
           init.replyTo.send(_SynthReply(msg.id, null, e.toString()));

@@ -1,5 +1,6 @@
 ## 0.4.0
 - feat: on-device Whisper-tiny STT (English-only) — log-mel frontend + GPT-2 BPE decode.
+- feat: on-device Parakeet-CTC STT (desktop) — NeMo mel frontend + greedy CTC decode.
 
 ## 0.3.0
 - Add VoiceSession — on-device push-to-talk voice loop (STT → LLM → TTS) with barge-in.

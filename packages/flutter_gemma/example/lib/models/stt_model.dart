@@ -15,9 +15,9 @@ import 'package:flutter_gemma/flutter_gemma.dart' show SttModelType;
 /// SttModelType selects the profile, not the quantization); [isSupported]
 /// on each int8 entry reflects on-device verification of int8 op-coverage
 /// on the f32-proven `SttCore` path (see `stt_int8_test.dart`).
-/// [parakeetCtc] is listed for completeness but [isSupported] is false: it
-/// needs a CTC decode path that hasn't landed yet (a documented follow-on;
-/// it reuses whisper's log-mel frontend).
+/// [parakeetCtc] runs the third family — a CTC model with its own NeMo mel
+/// frontend + greedy CTC decode (device-verified, see `parakeet_ctc_test.dart`).
+/// Desktop-only: 2.35 GB f32, no small/int8 export.
 enum SttModel {
   moonshineTiny(
     modelUrl:
@@ -48,12 +48,13 @@ enum SttModel {
         'https://huggingface.co/litert-community/parakeet-ctc-0.6b/resolve/main/parakeet_ctc_0.6b_5s_f32.tflite',
     tokenizerUrl:
         'https://huggingface.co/nvidia/parakeet-ctc-0.6b/resolve/main/tokenizer.json',
-    displayName: 'Parakeet CTC 0.6B',
+    displayName: 'Parakeet CTC 0.6B (desktop)',
     size: '2.35GB',
     sttModelType: SttModelType.parakeet,
     needsAuth: false,
-    isSupported: false,
-    unsupportedReason: 'Needs a CTC decode path (follow-on, not shipped yet)',
+    // Desktop-only: 2.35 GB f32 (no small/int8 export) — highest-quality of the
+    // three STT families. Runs the CTC path (NeMo mel + greedy CTC decode).
+    isSupported: true,
   ),
 
   moonshineTinyInt8(
@@ -131,6 +132,10 @@ enum SttModel {
     required this.sttModelType,
     required this.needsAuth,
     this.isSupported = true,
+    // Every catalog entry is currently supported, so no value is passed today;
+    // the field is retained for `stt_models_screen`'s disabled-entry rendering
+    // and for future unsupported models.
+    // ignore: unused_element_parameter
     this.unsupportedReason,
   });
 }

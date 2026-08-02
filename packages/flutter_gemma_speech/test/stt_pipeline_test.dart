@@ -70,15 +70,18 @@ void main() {
 
   group('shouldStopDecoding', () {
     test('stops on EOS regardless of length', () {
-      expect(shouldStopDecoding(sttDecodeEosId, 5, 64), isTrue);
+      expect(
+        shouldStopDecoding(sttDecodeEosId, 5, 64, eosId: sttDecodeEosId),
+        isTrue,
+      );
     });
 
     test('stops when maxDecodeTokens is reached even without EOS', () {
-      expect(shouldStopDecoding(7, 64, 64), isTrue);
+      expect(shouldStopDecoding(7, 64, 64, eosId: sttDecodeEosId), isTrue);
     });
 
     test('continues otherwise', () {
-      expect(shouldStopDecoding(7, 5, 64), isFalse);
+      expect(shouldStopDecoding(7, 5, 64, eosId: sttDecodeEosId), isFalse);
     });
   });
 }

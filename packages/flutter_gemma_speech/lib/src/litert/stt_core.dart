@@ -81,16 +81,16 @@ int argmax(Float32List values) {
   return bestIndex;
 }
 
-/// Whether the greedy decode loop should stop: EOS was just generated, or
-/// [generatedLength] has reached [maxDecodeTokens]. Pure — mirrors the
+/// Whether the greedy decode loop should stop: [eosId] was just generated,
+/// or [generatedLength] has reached [maxDecodeTokens]. Pure — mirrors the
 /// verified recipe's stop condition without touching native state.
 bool shouldStopDecoding(
   int lastGeneratedId,
   int generatedLength,
-  int maxDecodeTokens,
-) {
-  return lastGeneratedId == sttDecodeEosId ||
-      generatedLength >= maxDecodeTokens;
+  int maxDecodeTokens, {
+  required int eosId,
+}) {
+  return lastGeneratedId == eosId || generatedLength >= maxDecodeTokens;
 }
 
 /// Write `decode_args_2`'s `[1,1,maxTokens,maxTokens]` mask into
@@ -171,11 +171,19 @@ class SttCore {
     required this._tokenizer,
     required this._profile,
     Float32List? melFilters,
-    // Not `this._melFilters`: an initializing formal for a still-unwired
-    // private field trips `unused_element_parameter` (no call site passes
-    // it until Task 4.4) — worse than this info-level suggestion.
+    List<int>? decoderPromptIds,
+    int? eosId,
+    ResolvedSuppression? resolvedSuppression,
+    // Not `this._melFilters`/`this._resolvedSuppression`: an initializing
+    // formal for a parameter no call site passes yet (Task 4.4 wires every
+    // real caller) trips `unused_element_parameter` — worse than this
+    // info-level suggestion.
     // ignore: prefer_initializing_formals
-  }) : _melFilters = melFilters;
+  }) : _melFilters = melFilters,
+       _decoderPromptIds = decoderPromptIds ?? const [sttDecodeBosId],
+       _eosId = eosId ?? sttDecodeEosId,
+       // ignore: prefer_initializing_formals
+       _resolvedSuppression = resolvedSuppression;
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
@@ -191,6 +199,20 @@ class SttCore {
   /// then this is always `null` (no `logMel` profile reaches `_encode`
   /// because `load()` still gates on `rawPcm`+`seq2seq`).
   final Float32List? _melFilters;
+
+  /// Resolved decoder seed sequence (moonshine: `[1]`; whisper: the 4
+  /// forced-English-transcription ids). Defaults to moonshine's hardcoded
+  /// single BOS so this compiles standalone; Task 4.4 passes the real
+  /// resolved ids from `load()` for every call site.
+  final List<int> _decoderPromptIds;
+
+  /// Resolved stop token id (moonshine: 2; whisper: resolved
+  /// `<|endoftext|>`). Defaults to moonshine's hardcoded EOS.
+  final int _eosId;
+
+  /// Resolved logit suppression, applied every decode step before argmax.
+  /// `null` = no suppression (moonshine, unchanged).
+  final ResolvedSuppression? _resolvedSuppression;
 
   bool _disposed = false;
 
@@ -516,9 +538,11 @@ class SttCore {
 
     try {
       final tokensHost = tokensAlloc.aligned.cast<Int32>();
-      final maskHost = maskAlloc.aligned.cast<Float>();
+      final maskHost = maskAlloc.aligned.cast<Float>().asTypedList(
+        maxTokens * maxTokens,
+      );
 
-      final generated = <int>[sttDecodeBosId];
+      final generated = List<int>.from(_decoderPromptIds);
       while (true) {
         final len = generated.length;
 
@@ -528,18 +552,17 @@ class SttCore {
           tokensHost[i] = i < len ? generated[i] : 0;
         }
 
-        // decode_args_2: f32[1,1,maxTokens,maxTokens] — mask convention C
-        // (verified recipe): padding-only additive mask, identical across
-        // every query row — NO causal triangle. Do not change this to a
-        // causal mask (convention A) or a multiplicative mask (B) — both
-        // produced worse or garbage output; see the recipe's "What NOT to
-        // do".
-        for (var r = 0; r < maxTokens; r++) {
-          final rowBase = r * maxTokens;
-          for (var j = 0; j < maxTokens; j++) {
-            maskHost[rowBase + j] = j < len ? 0.0 : -1e9;
-          }
-        }
+        // decode_args_2: f32[1,1,maxTokens,maxTokens] — mask convention per
+        // `_profile.decoderMaskConvention` (moonshine: `paddingOnly`,
+        // verified recipe convention C; whisper: `causal`, per the Phase 0
+        // spike). Do not change moonshine's convention — see the recipe's
+        // "What NOT to do".
+        writeDecoderMask(
+          maskHost,
+          maxTokens: maxTokens,
+          len: len,
+          convention: _profile.decoderMaskConvention,
+        );
 
         final tokType = LiteRtRankedTensorTypeView.calloc()
           ..elementType = kLiteRtElementTypeInt32
@@ -635,6 +658,11 @@ class SttCore {
               row * vocabSize,
               (row + 1) * vocabSize,
             );
+            applySuppression(
+              rowLogits,
+              step: len - _decoderPromptIds.length,
+              suppression: _resolvedSuppression,
+            );
             bestId = argmax(rowLogits);
             // A NaN top logit means the backend produced invalid output (e.g.
             // a GPU/accelerator failure, cf. #214). argmax then collapses to
@@ -669,7 +697,12 @@ class SttCore {
         }
 
         generated.add(bestId);
-        if (shouldStopDecoding(bestId, generated.length, maxTokens)) {
+        if (shouldStopDecoding(
+          bestId,
+          generated.length,
+          maxTokens,
+          eosId: _eosId,
+        )) {
           if (bestId != sttDecodeEosId && generated.length >= maxTokens) {
             gemmaLog(
               '[SttCore] decode hit the $maxTokens-token cap without EOS — '

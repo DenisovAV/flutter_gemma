@@ -109,7 +109,11 @@ class TtsInstallationBuilder {
       } else {
         gemmaLog('📥 Installing TTS bundle file: ${file.filename}...');
         final handler = handlerRegistry.getHandler(file.source);
-        await handler!.install(file.source, cancelToken: _cancelToken);
+        await handler!.install(
+          file.source,
+          cancelToken: _cancelToken,
+          targetFilename: file.filename,
+        );
       }
       done++;
       _onProgress?.call(((done / files.length) * 100).round());

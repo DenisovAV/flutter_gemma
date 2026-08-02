@@ -1,8 +1,8 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:path/path.dart' as path;
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Fluent builder for inference model installation
@@ -180,9 +180,9 @@ class InferenceInstallationBuilder {
           'LoRA is not supported for built-in OS models (ModelFileType.builtIn).',
         );
       }
-      final filename = _extractFilename(_modelSource!);
+      final modelFile = InferenceModelFile.fromSource(_modelSource!);
       final spec = InferenceModelSpec(
-        name: FileNameUtils.getBaseName(filename),
+        name: FileNameUtils.getBaseName(modelFile.filename),
         modelSource: _modelSource!,
         replacePolicy: ModelReplacePolicy.keep,
         modelType: _modelType,
@@ -195,9 +195,9 @@ class InferenceInstallationBuilder {
     }
 
     // Create spec
-    final filename = _extractFilename(_modelSource!);
+    final modelFile = InferenceModelFile.fromSource(_modelSource!);
     final spec = InferenceModelSpec(
-      name: FileNameUtils.getBaseName(filename),
+      name: FileNameUtils.getBaseName(modelFile.filename),
       modelSource: _modelSource!,
       loraSource: _loraSource,
       replacePolicy: ModelReplacePolicy.keep,
@@ -208,11 +208,20 @@ class InferenceInstallationBuilder {
     final registry = ServiceRegistry.instance;
     final repository = registry.modelRepository;
 
+    // spec.files is [modelFile, loraFile?] in that fixed order (see
+    // InferenceModelSpec.files) — reuse the ALREADY-namespaced identity
+    // instead of recomputing a basename, so the isInstalled check and the
+    // download target always agree.
+    final files = spec.files;
+    final namespacedModelFilename = files[0].filename;
+
     // Check if model is already installed
-    final isInstalled = await repository.isInstalled(filename);
+    final isInstalled = await repository.isInstalled(namespacedModelFilename);
 
     if (isInstalled) {
-      gemmaLog('ℹ️  Model already installed: $filename (skipping download)');
+      gemmaLog(
+        'ℹ️  Model already installed: $namespacedModelFilename (skipping download)',
+      );
     } else {
       // Install model file
       final handlerRegistry = registry.sourceHandlerRegistry;
@@ -221,17 +230,27 @@ class InferenceInstallationBuilder {
         await for (final progress in handler!.installWithProgress(
           _modelSource!,
           cancelToken: _cancelToken,
+          targetFilename: namespacedModelFilename,
         )) {
           _onProgress!(progress);
         }
       } else {
-        await handler!.install(_modelSource!, cancelToken: _cancelToken);
+        await handler!.install(
+          _modelSource!,
+          cancelToken: _cancelToken,
+          targetFilename: namespacedModelFilename,
+        );
       }
 
       // Install LoRA if provided
       if (_loraSource != null) {
+        final namespacedLoraFilename = files[1].filename;
         final loraHandler = handlerRegistry.getHandler(_loraSource!);
-        await loraHandler!.install(_loraSource!, cancelToken: _cancelToken);
+        await loraHandler!.install(
+          _loraSource!,
+          cancelToken: _cancelToken,
+          targetFilename: namespacedLoraFilename,
+        );
       }
     }
 
@@ -242,15 +261,6 @@ class InferenceInstallationBuilder {
     gemmaLog('✅ Inference model installed and set as active: ${spec.name}');
 
     return InferenceInstallation(spec: spec);
-  }
-
-  String _extractFilename(ModelSource source) {
-    return switch (source) {
-      NetworkSource(:final url) => path.basename(Uri.parse(url).path),
-      AssetSource(:final path) => path.split(RegExp(r'[/\\]')).last,
-      BundledSource(:final resourceName) => resourceName,
-      FileSource(:final path) => path.split(RegExp(r'[/\\]')).last,
-    };
   }
 }
 

@@ -51,4 +51,40 @@ void main() {
       expect(power[0], greaterThan(power[1] * 100));
     });
   });
+
+  group('stftFrames', () {
+    test('produces exactly melFrames windows of length nFft', () {
+      final pcm = Float32List(16000); // 1 s @ 16 kHz
+      for (var i = 0; i < pcm.length; i++) {
+        pcm[i] = math.sin(2 * math.pi * 440.0 * i / 16000);
+      }
+      final frames = stftFrames(pcm, nFft: 400, hopLength: 160, melFrames: 100);
+      expect(frames.length, 100);
+      for (final f in frames) {
+        expect(f.length, 400);
+      }
+    });
+
+    test(
+      'first frame is centered on sample 0 via reflect padding (not zero padding)',
+      () {
+        // A short DC clip: reflect-padding a constant signal reproduces the
+        // same constant (unlike zero-padding, which would introduce an edge
+        // discontinuity) -- the first NFT/2 samples of frame 0 mirror-image the
+        // clip's own start, so for a constant signal frame 0 is uniformly 1.0
+        // pre-window.
+        final pcm = Float32List(16000)..fillRange(0, 16000, 1.0);
+        final frames = stftFrames(pcm, nFft: 400, hopLength: 160, melFrames: 1);
+        final windowed = frames[0];
+        // frames[0] is already Hann-windowed (per stftFrames' contract), and
+        // the periodic Hann window is exactly zero at index 0 regardless of
+        // padding strategy, so index 0 can't discriminate reflect- vs
+        // zero-padding. Index 100 sits inside the reflect-padded prefix
+        // (indices 0..199) away from that edge zero: a zero-padded
+        // implementation would show 0.0 there, while reflect-padding mirrors
+        // the clip's own 1.0s into that region.
+        expect(windowed[100], isNot(0.0));
+      },
+    );
+  });
 }

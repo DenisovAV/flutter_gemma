@@ -43,3 +43,45 @@ Float32List powerSpectrum(Float32List windowedFrame, int nFft) {
   }
   return power;
 }
+
+int _reflectIndex(int i, int n) {
+  if (i < 0) return -i;
+  if (i >= n) return 2 * (n - 1) - i;
+  return i;
+}
+
+/// Reflect-pads [x] by [padAmount] samples on both sides (numpy/torch
+/// 'reflect' mode: mirrors around the edge sample without repeating it).
+/// Safe for a single reflection as long as `padAmount < x.length`, which
+/// holds for every profile this frontend supports (`nFft/2=200 << 480000`).
+Float32List _reflectPad(Float32List x, int padAmount) {
+  final n = x.length;
+  final out = Float32List(n + 2 * padAmount);
+  for (var i = -padAmount; i < n + padAmount; i++) {
+    out[i + padAmount] = x[_reflectIndex(i, n)];
+  }
+  return out;
+}
+
+/// Frame [paddedPcm] into exactly [melFrames] Hann-windowed windows of
+/// length [nFft], hopping by [hopLength], center-aligned via reflect
+/// padding of `nFft~/2` on both sides (matches `torch.stft(..., center=
+/// True)`, which whisper's log-mel export uses). `torch.stft` yields
+/// `1 + paddedPcm.length/hopLength` frames; whisper's export drops the
+/// LAST one (`stft[..., :-1]`) to land exactly on [melFrames] — this
+/// function returns only the kept [melFrames], already windowed.
+List<Float32List> stftFrames(
+  Float32List paddedPcm, {
+  required int nFft,
+  required int hopLength,
+  required int melFrames,
+}) {
+  final padded = _reflectPad(paddedPcm, nFft ~/ 2);
+  final frames = <Float32List>[];
+  for (var f = 0; f < melFrames; f++) {
+    final base = f * hopLength;
+    final raw = Float32List.sublistView(padded, base, base + nFft);
+    frames.add(applyHannWindow(raw));
+  }
+  return frames;
+}

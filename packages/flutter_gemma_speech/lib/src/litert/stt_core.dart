@@ -7,18 +7,23 @@
 // so the UI isolate stays free, mirroring `litert_embedding_core.dart`
 // (#299).
 //
-// Generic over [SttModelProfile] — NOT model-specific. Only the
-// `rawPcm`+`seq2seq` arm (moonshine-tiny) is implemented; it is a VERBATIM
-// port of the verified recipe in
+// Generic over [SttModelProfile] — NOT model-specific. `seq2seq` decode is
+// implemented for both the `rawPcm` (moonshine-tiny) and `logMel` (whisper)
+// input types; `ctc` still throws `UnimplementedError` (needs a follow-on
+// decode loop — see the design spec). The `rawPcm`+`paddingOnly` path is a
+// VERBATIM port of the verified recipe in
 // `docs/superpowers/notes/stt-transcript-recipe.md`:
 //   - mask convention C (padding-only additive mask: 0.0 if j<len else
 //     -1e9, applied identically to every query row — NO causal triangle);
 //   - decoder start token BOS=1;
 //   - argmax taken at tensor row `len - 1` (the position just written);
 //   - stop at EOS=2 or `profile.maxDecodeTokens`.
-// `logMel`/`ctc` profiles throw `UnimplementedError` (follow-on — needs a
-// mel/DSP frontend). Do NOT "improve" the mask into a causal triangle — the
-// recipe found that degrades output; see the note's "What NOT to do".
+// Do NOT "improve" moonshine's mask into a causal triangle — the recipe
+// found that degrades output; see the note's "What NOT to do". `load()`
+// parses `tokenizer.json` once and resolves every profile's named special
+// tokens (`SttTokenRef`) through `resolveSttSpecialTokens` before
+// constructing the core — moonshine's tokens are fixed ids and resolve
+// byte-identically regardless of tokenizer content.
 //
 // Buffer create/lock/write/run/read/unlock sequence mirrors
 // `litert_embedding_core.dart`'s forward-pass pattern, generalized to the
@@ -28,7 +33,9 @@
 // this is what keeps the core generic instead of hardcoding moonshine's
 // `[1,207,288]`/`32768`.
 
+import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
@@ -42,12 +49,11 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../model/stt_model_profile.dart';
-import '../tokenizer/sentence_piece_tokenizer.dart';
-import '../tokenizer/stt_special_tokens.dart' show ResolvedSuppression;
+import '../tokenizer/stt_special_tokens.dart'
+    show ResolvedSuppression, SttSpecialTokenResolver;
+import '../tokenizer/stt_tokenizer.dart' show SttTokenizer;
 import 'log_mel_frontend.dart' show computeLogMelSpectrogram;
-// `loadMelFilterAsset` is wired into `load()` in Task 4.4 — no consumer of
-// it exists in this file yet (see `_melFilters`'s doc comment below), so its
-// import is added there rather than here to keep `flutter analyze` clean.
+import 'mel_filter_assets.dart' show loadMelFilterAsset;
 
 /// Decoder start token (`<s>`), verified working on the first try — see the
 /// recipe's "Mask convention that worked" section.
@@ -138,6 +144,38 @@ void applySuppression(
   }
 }
 
+/// [SttCore.load]'s name→id resolution result: the decoder's seed prompt
+/// ids, its stop token id, and its (optional) resolved suppression.
+typedef SttResolvedTokens = ({
+  List<int> decoderPromptIds,
+  int eosId,
+  ResolvedSuppression? suppression,
+});
+
+/// Resolve [profile]'s [SttTokenRef]s (`decoderPromptTokens`, `eosToken`,
+/// `suppressTokens`) against [tokenizerJson] (an already-parsed
+/// `tokenizer.json` document) via [SttSpecialTokenResolver]. Pure — no I/O,
+/// no native calls — so `load()`'s name→id step is unit-testable directly.
+/// Moonshine's refs are `SttTokenRef.id` (fixed) and resolve
+/// byte-identically regardless of [tokenizerJson]'s content; whisper's are
+/// `SttTokenRef.name` and resolve from `tokenizerJson`'s `model.vocab`/
+/// `added_tokens`. An unresolvable name throws the [StateError]
+/// `SttSpecialTokenResolver.resolve` raises, naming it — no silent fallback
+/// (Global Constraints).
+SttResolvedTokens resolveSttSpecialTokens(
+  SttModelProfile profile,
+  Map<String, dynamic> tokenizerJson,
+) {
+  final resolver = SttSpecialTokenResolver(tokenizerJson);
+  return (
+    decoderPromptIds: [
+      for (final ref in profile.decoderPromptTokens) ref.resolve(resolver),
+    ],
+    eosId: profile.eosToken.resolve(resolver),
+    suppression: profile.suppressTokens?.resolve(resolver),
+  );
+}
+
 int _acceleratorFor(PreferredBackend? backend) {
   switch (backend) {
     case PreferredBackend.gpu:
@@ -170,44 +208,37 @@ class SttCore {
     required this._compiledModel,
     required this._tokenizer,
     required this._profile,
-    Float32List? melFilters,
+    this._melFilters,
     List<int>? decoderPromptIds,
     int? eosId,
-    ResolvedSuppression? resolvedSuppression,
-    // Not `this._melFilters`/`this._resolvedSuppression`: an initializing
-    // formal for a parameter no call site passes yet (Task 4.4 wires every
-    // real caller) trips `unused_element_parameter` — worse than this
-    // info-level suggestion.
-    // ignore: prefer_initializing_formals
-  }) : _melFilters = melFilters,
-       _decoderPromptIds = decoderPromptIds ?? const [sttDecodeBosId],
-       _eosId = eosId ?? sttDecodeEosId,
-       // ignore: prefer_initializing_formals
-       _resolvedSuppression = resolvedSuppression;
+    this._resolvedSuppression,
+  }) : _decoderPromptIds = decoderPromptIds ?? const [sttDecodeBosId],
+       _eosId = eosId ?? sttDecodeEosId;
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
   final LiteRtModel _model;
   final LiteRtOptions _options;
   final LiteRtCompiledModel _compiledModel;
-  final SentencePieceTokenizer _tokenizer;
+  final SttTokenizer _tokenizer;
   final SttModelProfile _profile;
 
   /// Bundled mel filterbank matrix (`loadMelFilterAsset`), non-null for
-  /// `logMel` profiles. `null` for `rawPcm` (moonshine) profiles — `_encode`
-  /// never reads it on that path. Wired from `load()` in Task 4.4; until
-  /// then this is always `null` (no `logMel` profile reaches `_encode`
-  /// because `load()` still gates on `rawPcm`+`seq2seq`).
+  /// `logMel` profiles (whisper). `null` for `rawPcm` (moonshine) profiles —
+  /// `_encode` never reads it on that path. Loaded once in `load()` from
+  /// `profile.melFilterAsset`.
   final Float32List? _melFilters;
 
   /// Resolved decoder seed sequence (moonshine: `[1]`; whisper: the 4
-  /// forced-English-transcription ids). Defaults to moonshine's hardcoded
-  /// single BOS so this compiles standalone; Task 4.4 passes the real
-  /// resolved ids from `load()` for every call site.
+  /// forced-English-transcription ids), resolved once in `load()` via
+  /// `resolveSttSpecialTokens`. Defaults to moonshine's hardcoded single BOS
+  /// so this compiles standalone; every real call site passes the resolved
+  /// ids.
   final List<int> _decoderPromptIds;
 
   /// Resolved stop token id (moonshine: 2; whisper: resolved
-  /// `<|endoftext|>`). Defaults to moonshine's hardcoded EOS.
+  /// `<|endoftext|>`), resolved once in `load()`. Defaults to moonshine's
+  /// hardcoded EOS.
   final int _eosId;
 
   /// Resolved logit suppression, applied every decode step before argmax.
@@ -224,16 +255,32 @@ class SttCore {
     required SttModelProfile profile,
     PreferredBackend? backend,
   }) async {
-    if (profile.inputType != SttInputType.rawPcm ||
-        profile.decodeType != SttDecodeType.seq2seq) {
+    if (profile.decodeType != SttDecodeType.seq2seq) {
       throw UnimplementedError(
-        'SttCore: only rawPcm+seq2seq profiles are implemented '
-        '(logMel/ctc are follow-ons; see the design spec).',
+        'SttCore: only seq2seq decode is implemented '
+        '(ctc is a follow-on; see the design spec).',
+      );
+    }
+    if (profile.inputType != SttInputType.rawPcm &&
+        profile.inputType != SttInputType.logMel) {
+      throw UnimplementedError(
+        'SttCore: unsupported inputType ${profile.inputType} '
+        '(see the design spec).',
       );
     }
 
     final bindings = LiteRtBindings.open();
-    final tokenizer = await SentencePieceTokenizer.fromFile(tokenizerPath);
+    final tokenizerText = await File(tokenizerPath).readAsString();
+    final tokenizerJson = jsonDecode(tokenizerText) as Map<String, dynamic>;
+    final resolved = resolveSttSpecialTokens(profile, tokenizerJson);
+    final tokenizer = SttTokenizer.forProfileKind(
+      profile.tokenizerKind,
+      tokenizerJson,
+      eosId: resolved.eosId,
+    );
+    final melFilters = profile.melFilterAsset != null
+        ? loadMelFilterAsset(profile.melFilterAsset!)
+        : null;
 
     // Track native handles as they are created so a failure partway through
     // frees everything already allocated instead of leaking it — the LiteRT
@@ -288,6 +335,10 @@ class SttCore {
         compiledModel: compiled,
         tokenizer: tokenizer,
         profile: profile,
+        melFilters: melFilters,
+        decoderPromptIds: resolved.decoderPromptIds,
+        eosId: resolved.eosId,
+        resolvedSuppression: resolved.suppression,
       );
     } catch (_) {
       if (compiled != null) bindings.destroyCompiledModel(compiled);
@@ -333,6 +384,17 @@ class SttCore {
         inDim0 = windowedPcm.length;
         inDim1 = 0;
       case SttInputType.logMel:
+        // `computeLogMelSpectrogram` always emits `melFirst` (`[nMels,
+        // melFrames]`, whisper's contract) — a future `frameFirst` profile
+        // (parakeet) needs a transposed feed and must fail loud here rather
+        // than silently feeding the encoder a mis-ordered tensor.
+        if (_profile.melAxisOrder != SttMelAxisOrder.melFirst) {
+          throw UnimplementedError(
+            'SttCore: logMel with melAxisOrder=${_profile.melAxisOrder} is '
+            'not implemented (only melFirst/whisper is wired) — see the '
+            'design spec.',
+          );
+        }
         encoderInput = computeLogMelSpectrogram(
           windowedPcm,
           nFft: _profile.nFft!,
@@ -703,7 +765,7 @@ class SttCore {
           maxTokens,
           eosId: _eosId,
         )) {
-          if (bestId != sttDecodeEosId && generated.length >= maxTokens) {
+          if (bestId != _eosId && generated.length >= maxTokens) {
             gemmaLog(
               '[SttCore] decode hit the $maxTokens-token cap without EOS — '
               'transcript may be truncated.',

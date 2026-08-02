@@ -83,5 +83,10 @@ void main() {
     test('continues otherwise', () {
       expect(shouldStopDecoding(7, 5, 64, eosId: sttDecodeEosId), isFalse);
     });
+
+    test('honors a non-default eosId (e.g. whisper\'s resolved EOS)', () {
+      expect(shouldStopDecoding(7, 5, 64, eosId: 7), isTrue);
+      expect(shouldStopDecoding(2, 5, 64, eosId: 7), isFalse);
+    });
   });
 }

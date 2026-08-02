@@ -3,7 +3,6 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/registry/engine_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_registry.dart';
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
@@ -489,6 +488,11 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<void> clearVectorStore() async {
     await ServiceRegistry.instance.vectorStoreRepository.clear();
+  }
+
+  @override
+  Future<void> removeDocument({required String id}) async {
+    await ServiceRegistry.instance.vectorStoreRepository.removeDocument(id: id);
   }
 
   @override

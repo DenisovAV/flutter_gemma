@@ -30,7 +30,7 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.4.1
+  flutter_gemma: ^1.5.0
   flutter_gemma_speech: ^0.3.0
 ```
 

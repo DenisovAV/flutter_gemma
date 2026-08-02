@@ -1,6 +1,12 @@
 export 'flutter_gemma_interface.dart';
 export 'model_file_manager_interface.dart';
 
+// Public parameter types that exported APIs require — previously forced
+// consumers into deep `core/` imports.
+export 'core/domain/model_source.dart'; // ModelSource sealed type — required by InferenceModelSpec / withLora / deleteModel
+export 'core/services/file_system_service.dart'
+    show FileSystemService; // custom-storage hook accepted by initialize()
+
 // Vector store filter DSL — passed to searchSimilar to constrain results
 // by payload. Honored on every native platform (qdrant-edge); silently
 // ignored on Web.

@@ -53,7 +53,7 @@ await FlutterGemma.installEmbedder()
 ### Generate embeddings
 
 ```dart
-final embedder = FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
+final embedder = await FlutterGemma.getActiveEmbedder();
 final embeddings = await embedder.generateEmbeddings(
   docs.map((d) => d.content).toList(),
   taskType: TaskType.retrievalDocument,
@@ -69,17 +69,22 @@ doesn't block the UI thread.
 
 ## On-device RAG / vector store
 
+All RAG operations live on the `FlutterGemma.rag` namespace — the canonical
+entry point. (The store is opt-in: register a `vectorStore:` in
+`FlutterGemma.initialize(...)`, or every `rag` call throws a clear "add a RAG
+package" error.)
+
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 // 1. Install an embedding model (any of Gecko / EmbeddingGemma) — see above.
 
 // 2. Initialize the vector store (one shard per database path)
-await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store');
+await FlutterGemma.rag.initialize('rag_store');
 
-// 3. Add documents — let the plugin compute embeddings for you
+// 3. Add documents — let flutter_gemma compute embeddings for you
 for (final doc in docs) {
-  await FlutterGemmaPlugin.instance.addDocument(
+  await FlutterGemma.rag.addDocument(
     id: doc.id,
     content: doc.content,
     metadata: '{"category":"science","lang":"en"}',
@@ -88,13 +93,13 @@ for (final doc in docs) {
 
 // 3b. Or batch-embed yourself and feed pre-computed vectors via
 //     addDocumentWithEmbedding(...) for higher throughput.
-final embedder = FlutterGemmaPlugin.instance.initializedEmbeddingModel!;
+final embedder = await FlutterGemma.getActiveEmbedder();
 final embeddings = await embedder.generateEmbeddings(
   docs.map((d) => d.content).toList(),
   taskType: TaskType.retrievalDocument,
 );
 for (var i = 0; i < docs.length; i++) {
-  await FlutterGemmaPlugin.instance.addDocumentWithEmbedding(
+  await FlutterGemma.rag.addDocumentWithEmbedding(
     id: docs[i].id,
     content: docs[i].content,
     embedding: embeddings[i],
@@ -103,7 +108,7 @@ for (var i = 0; i < docs.length; i++) {
 }
 
 // 4. Semantic search, with optional payload-aware Filter
-final results = await FlutterGemmaPlugin.instance.searchSimilar(
+final results = await FlutterGemma.rag.searchSimilar(
   query: 'quantum entanglement',
   topK: 10,
   threshold: 0.0,
@@ -112,6 +117,12 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
     mustNot: [FieldEquals(key: 'lang', value: 'fr')],
   ),
 );
+
+// 5. Maintain the store: remove one document (no-op if the id is absent),
+//    read stats, or clear everything.
+await FlutterGemma.rag.removeDocument(id: 'doc-42');
+final stats = await FlutterGemma.rag.stats();
+await FlutterGemma.rag.clear();
 ```
 
 ## The Filter API

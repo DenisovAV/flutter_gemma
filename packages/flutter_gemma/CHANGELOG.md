@@ -1,6 +1,12 @@
 ## 1.5.0
 - Add genai_primitives support via `package:flutter_gemma/genai.dart` — use `ChatMessage` with `InferenceChat` (#181).
 - New `sendMessage`/`generateContent` (+ streams) covering text, vision, audio, thinking, and tool calls (#181).
+- Add facade identity getters `activeModelSpec`/`activeEmbedderSpec`/`activeSttSpec`/`activeTtsSpec` + `getModelPath`.
+- Add facade storage `getStorageInfo`/`getOrphanedFiles`/`cleanupStorage`/`performCleanup` — surface real errors, not success-shaped defaults.
+- Add `FlutterGemma.rag` namespace (add/search/removeDocument/stats/clear); plumb `removeDocument` (#390 audit).
+- Add `uninstallEmbedder`/`uninstallStt`/`uninstallTts` (delete all files); route `uninstallModel` off the deprecated path.
+- Export `ModelSource` + `FileSystemService` from the barrel (required public parameter types).
+- Document `FlutterGemmaPlugin` as the low-level SPI tier; `FlutterGemma` facade is the canonical entry.
 
 ## 1.4.2
 - docs: document the on-device voice loop (VoiceSession, STT → LLM → TTS) shipped in flutter_gemma_speech 0.3.0.

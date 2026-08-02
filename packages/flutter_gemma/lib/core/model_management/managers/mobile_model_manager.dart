@@ -827,7 +827,7 @@ class MobileModelManager extends ModelFileManager {
       gemmaLog('UnifiedModelManager: Cleanup completed');
     } catch (e) {
       gemmaLog('UnifiedModelManager: Cleanup failed: $e');
-      // Don't rethrow - cleanup failures should not break the app
+      rethrow;
     }
   }
 
@@ -1416,15 +1416,12 @@ class MobileModelManager extends ModelFileManager {
   Future<List<OrphanedFileInfo>> getOrphanedFiles() async {
     await _ensureInitialized();
 
-    try {
-      final protectedFiles = await _getProtectedFiles();
-      return await ModelFileSystemManager.getOrphanedFiles(
-        protectedFiles: protectedFiles,
-      );
-    } catch (e) {
-      gemmaLog('UnifiedModelManager: Failed to get orphaned files: $e');
-      return [];
-    }
+    // Propagate real errors instead of returning an empty list: a failed scan
+    // must not read as "no orphans" (which hides reclaimable multi-GB files).
+    final protectedFiles = await _getProtectedFiles();
+    return ModelFileSystemManager.getOrphanedFiles(
+      protectedFiles: protectedFiles,
+    );
   }
 
   /// Get storage statistics with orphaned file information
@@ -1432,19 +1429,12 @@ class MobileModelManager extends ModelFileManager {
   Future<StorageStats> getStorageInfo() async {
     await _ensureInitialized();
 
-    try {
-      final protectedFiles = await _getProtectedFiles();
-      return await ModelFileSystemManager.getStorageInfo(
-        protectedFiles: protectedFiles,
-      );
-    } catch (e) {
-      gemmaLog('UnifiedModelManager: Failed to get storage info: $e');
-      return const StorageStats(
-        totalFiles: 0,
-        totalSizeBytes: 0,
-        orphanedFiles: [],
-      );
-    }
+    // Propagate real errors instead of laundering them into all-zero stats:
+    // a scan failure must be distinguishable from "nothing installed" (0/0).
+    final protectedFiles = await _getProtectedFiles();
+    return ModelFileSystemManager.getStorageInfo(
+      protectedFiles: protectedFiles,
+    );
   }
 
   /// Clean up orphaned files
@@ -1458,19 +1448,17 @@ class MobileModelManager extends ModelFileManager {
 
     gemmaLog('UnifiedModelManager: Cleaning up storage (explicit user call)');
 
-    try {
-      final protectedFiles = await _getProtectedFiles();
-      final deletedCount = await ModelFileSystemManager.cleanupOrphanedFiles(
-        protectedFiles: protectedFiles,
-        enableResumeDetection: true,
-      );
+    // Propagate real errors instead of returning 0: this is a destructive op,
+    // and a mid-sweep failure that already deleted some files must not report
+    // as "0 removed" (indistinguishable from "nothing to clean").
+    final protectedFiles = await _getProtectedFiles();
+    final deletedCount = await ModelFileSystemManager.cleanupOrphanedFiles(
+      protectedFiles: protectedFiles,
+      enableResumeDetection: true,
+    );
 
-      gemmaLog('UnifiedModelManager: Cleaned up $deletedCount orphaned files');
-      return deletedCount;
-    } catch (e) {
-      gemmaLog('UnifiedModelManager: Failed to cleanup storage: $e');
-      return 0;
-    }
+    gemmaLog('UnifiedModelManager: Cleaned up $deletedCount orphaned files');
+    return deletedCount;
   }
 
   /// Get list of files that should NOT be deleted

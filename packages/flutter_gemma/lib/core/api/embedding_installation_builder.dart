@@ -1,5 +1,4 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
-import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';

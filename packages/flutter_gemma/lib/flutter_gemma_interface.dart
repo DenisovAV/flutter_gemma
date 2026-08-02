@@ -19,7 +19,18 @@ import 'flutter_gemma_default.dart'
 
 const supportedLoraRanks = [4, 8, 16];
 
-/// Interface for the FlutterGemma plugin.
+/// Low-level platform-interface tier (the federated-plugin SPI) for
+/// flutter_gemma. It hosts the abstract runtime types (`InferenceModel`,
+/// `InferenceModelSession`, `InferenceChat`, `EmbeddingModel`,
+/// `SpeechRecognizer`, `SpeechSynthesizer`, …) and the platform-dispatch
+/// singleton [instance].
+///
+/// **App code should use the `FlutterGemma` static facade instead** — it is the
+/// canonical, complete entry point (install / run / introspect / uninstall /
+/// storage, plus RAG via `FlutterGemma.rag`). `FlutterGemmaPlugin.instance` is
+/// retained for engine authors, the federated-plugin mock seam, and backward
+/// compatibility; every consumer-facing operation here is also exposed on the
+/// facade.
 abstract class FlutterGemmaPlugin extends PlatformInterface {
   FlutterGemmaPlugin() : super(token: _token);
 
@@ -154,6 +165,9 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
 
   /// Clear all documents from vector store.
   Future<void> clearVectorStore();
+
+  /// Remove a single document from the vector store by ID. No-op if absent.
+  Future<void> removeDocument({required String id});
 
   /// Legacy no-op kept for source compatibility.
   ///

@@ -251,5 +251,66 @@ void main() {
         expect(FileNameUtils.isFileValid('config.json', 1023), false);
       });
     });
+
+    group('namespaced', () {
+      test('prefixes basename with modelId using a double underscore', () {
+        expect(
+          FileNameUtils.namespaced('moonshine-tiny', 'tokenizer.json'),
+          'moonshine-tiny__tokenizer.json',
+        );
+      });
+
+      test(
+        'different modelIds produce different filenames for the same basename',
+        () {
+          final moonshine = FileNameUtils.namespaced(
+            'moonshine-tiny',
+            'tokenizer.json',
+          );
+          final whisper = FileNameUtils.namespaced(
+            'whisper-tiny',
+            'tokenizer.json',
+          );
+          expect(moonshine, isNot(equals(whisper)));
+        },
+      );
+
+      test(
+        'is idempotent: re-namespacing an already-namespaced basename is a no-op',
+        () {
+          // Restoring an active model on mobile reconstructs a ModelFile from
+          // a FileSource that already points at a namespaced on-disk path
+          // (see MobileModelManager._restoreActiveEmbeddingModel /
+          // _restoreActiveSttModel / _restoreActiveTtsModel). When that
+          // reconstructed ModelFile's basename is re-namespaced, it must NOT
+          // be double-prefixed.
+          final once = FileNameUtils.namespaced(
+            'Gecko_64_quant',
+            'sentencepiece.model',
+          );
+          final twice = FileNameUtils.namespaced('Gecko_64_quant', once);
+          expect(twice, once);
+          expect(twice, 'Gecko_64_quant__sentencepiece.model');
+        },
+      );
+
+      test(
+        'does not treat a DIFFERENT modelId prefix as already-namespaced',
+        () {
+          // A basename already namespaced for a different model must still
+          // get THIS model's own prefix applied — no false-positive
+          // idempotency match against an unrelated prefix.
+          final other = FileNameUtils.namespaced(
+            'embeddingGemma1024',
+            'sentencepiece.model',
+          );
+          final result = FileNameUtils.namespaced('Gecko_64_quant', other);
+          expect(
+            result,
+            'Gecko_64_quant__embeddingGemma1024__sentencepiece.model',
+          );
+        },
+      );
+    });
   });
 }

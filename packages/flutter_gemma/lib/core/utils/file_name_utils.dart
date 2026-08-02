@@ -164,4 +164,34 @@ class FileNameUtils {
     final minSize = getMinimumSize(extension);
     return fileSize >= minSize;
   }
+
+  /// Prefixes [basename] with the owning model's [modelId] so a companion
+  /// file (a tokenizer, an aux bundle member) never collides on disk or in
+  /// the install-identity cache key with the SAME basename belonging to a
+  /// DIFFERENT model (e.g. moonshine's and whisper's tokenizers are both
+  /// literally named `tokenizer.json`; embeddinggemma's and Gecko's
+  /// tokenizers are both literally named `sentencepiece.model`).
+  ///
+  /// [modelId] is the owning model's own stable identity — in practice the
+  /// model's own (already-unique) weight-file basename without extension,
+  /// e.g. `FileNameUtils.getBaseName(modelFile.filename)`.
+  ///
+  /// Uses a double-underscore separator (`__`) to avoid ambiguity with
+  /// underscores that already appear inside real model ids (e.g.
+  /// `moonshine_tiny_5s_f32`).
+  ///
+  /// Idempotent: if [basename] is already namespaced under this EXACT
+  /// [modelId], it is returned unchanged instead of being double-prefixed
+  /// (`modelId__modelId__basename`). This matters because the active-model
+  /// restore path on mobile reconstructs `ModelFile`s from a `FileSource`
+  /// that already points at a namespaced on-disk path (see
+  /// `MobileModelManager._restoreActiveEmbeddingModel` /
+  /// `_restoreActiveSttModel` / `_restoreActiveTtsModel`); when that
+  /// reconstructed file's `.files` getter re-derives its basename and calls
+  /// this method again, it must be a no-op.
+  static String namespaced(String modelId, String basename) {
+    final prefix = '${modelId}__';
+    if (basename.startsWith(prefix)) return basename;
+    return '$prefix$basename';
+  }
 }

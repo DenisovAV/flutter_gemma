@@ -44,6 +44,10 @@ import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 import '../model/stt_model_profile.dart';
 import '../tokenizer/sentence_piece_tokenizer.dart';
 import '../tokenizer/stt_special_tokens.dart' show ResolvedSuppression;
+import 'log_mel_frontend.dart' show computeLogMelSpectrogram;
+// `loadMelFilterAsset` is wired into `load()` in Task 4.4 — no consumer of
+// it exists in this file yet (see `_melFilters`'s doc comment below), so its
+// import is added there rather than here to keep `flutter analyze` clean.
 
 /// Decoder start token (`<s>`), verified working on the first try — see the
 /// recipe's "Mask convention that worked" section.
@@ -166,7 +170,12 @@ class SttCore {
     required this._compiledModel,
     required this._tokenizer,
     required this._profile,
-  });
+    Float32List? melFilters,
+    // Not `this._melFilters`: an initializing formal for a still-unwired
+    // private field trips `unused_element_parameter` (no call site passes
+    // it until Task 4.4) — worse than this info-level suggestion.
+    // ignore: prefer_initializing_formals
+  }) : _melFilters = melFilters;
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
@@ -175,6 +184,13 @@ class SttCore {
   final LiteRtCompiledModel _compiledModel;
   final SentencePieceTokenizer _tokenizer;
   final SttModelProfile _profile;
+
+  /// Bundled mel filterbank matrix (`loadMelFilterAsset`), non-null for
+  /// `logMel` profiles. `null` for `rawPcm` (moonshine) profiles — `_encode`
+  /// never reads it on that path. Wired from `load()` in Task 4.4; until
+  /// then this is always `null` (no `logMel` profile reaches `_encode`
+  /// because `load()` still gates on `rawPcm`+`seq2seq`).
+  final Float32List? _melFilters;
 
   bool _disposed = false;
 
@@ -278,14 +294,36 @@ class SttCore {
     }
   }
 
-  /// Run the encoder (signature index 0): `f32[1, windowSamples]` →
-  /// `f32[1, frames, dim]`. `frames`/`dim` are auto-detected from the
-  /// compiled model's output tensor layout — generic over the profile, no
-  /// hardcoded moonshine dimensions. The returned allocation's raw memory
-  /// (the encoder hidden state) is kept alive by the caller: it becomes
-  /// `decode_args_0`'s backing store for every decode step.
-  _EncoderOutput _encode(Float32List samples) {
-    final windowSamples = samples.length;
+  /// Run the encoder (signature index 0). `rawPcm` (moonshine): `f32[1,
+  /// windowSamples]`, UNCHANGED — byte-exact. `logMel` (whisper): runs the
+  /// log-mel frontend first and feeds `f32[1, nMels, melFrames]`.
+  /// `frames`/`dim` (the encoder's OUTPUT layout) are still auto-detected
+  /// from the compiled model.
+  _EncoderOutput _encode(Float32List windowedPcm) {
+    final Float32List encoderInput;
+    final int inRank;
+    final int inDim0;
+    final int inDim1;
+    switch (_profile.inputType) {
+      case SttInputType.rawPcm:
+        encoderInput = windowedPcm;
+        inRank = 2;
+        inDim0 = windowedPcm.length;
+        inDim1 = 0;
+      case SttInputType.logMel:
+        encoderInput = computeLogMelSpectrogram(
+          windowedPcm,
+          nFft: _profile.nFft!,
+          hopLength: _profile.hopLength!,
+          nMels: _profile.nMels!,
+          melFrames: _profile.melFrames!,
+          melFilters: _melFilters!,
+          normalization: _profile.melNormalization,
+        );
+        inRank = 3;
+        inDim0 = _profile.nMels!;
+        inDim1 = _profile.melFrames!;
+    }
 
     final outLayout = LiteRtLayoutView.calloc();
     int frames, dim;
@@ -312,10 +350,15 @@ class SttCore {
 
     final inType = LiteRtRankedTensorTypeView.calloc()
       ..elementType = kLiteRtElementTypeFloat32
-      ..rank = 2
-      ..setDimension(0, 1)
-      ..setDimension(1, windowSamples);
-    final inAlloc = allocAligned(windowSamples * 4);
+      ..rank = inRank
+      ..setDimension(0, 1);
+    if (inRank == 2) {
+      inType.setDimension(1, inDim0);
+    } else {
+      inType.setDimension(1, inDim0);
+      inType.setDimension(2, inDim1);
+    }
+    final inAlloc = allocAligned(encoderInput.length * 4);
     final inBufPtr = calloc<LiteRtTensorBuffer>();
     var inBufCreated = false;
 
@@ -335,15 +378,15 @@ class SttCore {
 
     try {
       final inHost = inAlloc.aligned.cast<Float>();
-      for (var i = 0; i < windowSamples; i++) {
-        inHost[i] = samples[i];
+      for (var i = 0; i < encoderInput.length; i++) {
+        inHost[i] = encoderInput[i];
       }
 
       _bindings
           .createTensorBufferFromHostMemory(
             inType.pointer,
             inAlloc.aligned.cast(),
-            windowSamples * 4,
+            encoderInput.length * 4,
             nullptr,
             inBufPtr,
           )

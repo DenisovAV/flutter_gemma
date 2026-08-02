@@ -1,4 +1,5 @@
 import 'package:flutter_gemma_speech/src/tokenizer/gpt2_byte_level_bpe_tokenizer.dart';
+import 'package:flutter_gemma_speech/src/tokenizer/parakeet_bpe_tokenizer.dart';
 import 'package:flutter_gemma_speech/src/tokenizer/sentence_piece_tokenizer.dart';
 import 'package:flutter_gemma_speech/src/tokenizer/stt_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,20 @@ void main() {
       }, eosId: 50);
       expect(t, isA<Gpt2ByteLevelBpeTokenizer>());
       expect(t.decode([0, 50, 999]), 'Hi');
+    },
+  );
+
+  test(
+    'forProfileKind(parakeetBpe) builds a ParakeetBpeTokenizer (no eosId needed)',
+    () {
+      final t = SttTokenizer.forProfileKind(SttTokenizerKind.parakeetBpe, {
+        'model': {
+          'type': 'BPE',
+          'vocab': {'▁hi': 5},
+        },
+      });
+      expect(t, isA<ParakeetBpeTokenizer>());
+      expect(t.decode([5]), 'hi');
     },
   );
 }

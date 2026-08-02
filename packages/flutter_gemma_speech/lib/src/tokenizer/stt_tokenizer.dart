@@ -6,12 +6,13 @@
 library;
 
 import 'gpt2_byte_level_bpe_tokenizer.dart';
+import 'parakeet_bpe_tokenizer.dart';
 import 'sentence_piece_tokenizer.dart';
 
 /// Which decode-tokenizer family a profile uses. Lives here (not in
 /// stt_model_profile.dart) so the profile can reference it without this
 /// file depending back on the profile -- Phase 3 imports this enum.
-enum SttTokenizerKind { sentencePiece, gpt2ByteLevelBpe }
+enum SttTokenizerKind { sentencePiece, gpt2ByteLevelBpe, parakeetBpe }
 
 abstract interface class SttTokenizer {
   /// Turn a generated id sequence into text. Implementations stop at their
@@ -22,17 +23,25 @@ abstract interface class SttTokenizer {
   /// document [tokenizerJson]. [eosId] is the ALREADY-RESOLVED EOS id
   /// (resolved once by the caller via `SttSpecialTokenResolver`, so every
   /// family's decode loop and detokenizer agree on the same id).
+  ///
+  /// [eosId] is required for `gpt2ByteLevelBpe` (whisper always resolves
+  /// one) and unused/optional for `sentencePiece`/`parakeetBpe` (moonshine
+  /// resolves its own fixed EOS internally; parakeet's CTC decode has no
+  /// EOS concept at all).
   static SttTokenizer forProfileKind(
     SttTokenizerKind kind,
     Map<String, dynamic> tokenizerJson, {
-    required int eosId,
+    int? eosId,
   }) => switch (kind) {
     SttTokenizerKind.sentencePiece => SentencePieceTokenizer.fromJson(
       tokenizerJson,
     ),
     SttTokenizerKind.gpt2ByteLevelBpe => Gpt2ByteLevelBpeTokenizer.fromJson(
       tokenizerJson,
-      eosId: eosId,
+      eosId: eosId!,
+    ),
+    SttTokenizerKind.parakeetBpe => ParakeetBpeTokenizer.fromJson(
+      tokenizerJson,
     ),
   };
 }

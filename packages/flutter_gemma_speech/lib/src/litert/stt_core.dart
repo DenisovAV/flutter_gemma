@@ -99,6 +99,35 @@ bool shouldStopDecoding(
   return lastGeneratedId == eosId || generatedLength >= maxDecodeTokens;
 }
 
+/// Greedy CTC decode: argmax each of [numFrames] frames over [numClasses]
+/// logits (row-major `[numFrames, numClasses]`), collapse consecutive
+/// duplicate ids (standard CTC collapse -- a run of the same id, however
+/// long, becomes one), then drop every occurrence of [blankId] from the
+/// collapsed sequence. No beam search, no language model -- plain greedy,
+/// per the verified recipe
+/// (docs/superpowers/notes/parakeet-ctc-spike-findings.md "CTC greedy
+/// decode (verified recipe)"). Pure -- no native calls.
+List<int> ctcGreedyDecode(
+  Float32List logits, {
+  required int blankId,
+  required int numFrames,
+  required int numClasses,
+}) {
+  final perFrameIds = <int>[];
+  for (var f = 0; f < numFrames; f++) {
+    final row = logits.sublist(f * numClasses, (f + 1) * numClasses);
+    perFrameIds.add(argmax(row));
+  }
+  final collapsed = <int>[];
+  for (var i = 0; i < perFrameIds.length; i++) {
+    if (i == 0 || perFrameIds[i] != perFrameIds[i - 1]) {
+      collapsed.add(perFrameIds[i]);
+    }
+  }
+  collapsed.removeWhere((id) => id == blankId);
+  return collapsed;
+}
+
 /// Write `decode_args_2`'s `[1,1,maxTokens,maxTokens]` mask into
 /// [maskHost] (already the right length, `maxTokens*maxTokens`) per
 /// [convention]. `paddingOnly` is moonshine's verified convention C

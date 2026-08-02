@@ -1,0 +1,62 @@
+import 'dart:typed_data';
+
+import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
+    show ctcGreedyDecode;
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('ctcGreedyDecode', () {
+    test('collapses consecutive duplicates, then drops the blank id', () {
+      // 4 frames, 5 classes, blankId=4.
+      // frame0 argmax=2, frame1 argmax=2 (dup), frame2 argmax=4 (blank),
+      // frame3 argmax=1. Collapse: [2,2,4,1] -> [2,4,1]. Drop blank(4): [2,1].
+      final logits = Float32List.fromList([
+        0.1, 0.2, 0.9, 0.1, 0.05, // frame0 -> 2
+        0.05, 0.1, 0.95, 0.2, 0.1, // frame1 -> 2 (dup)
+        0.1, 0.1, 0.1, 0.1, 0.9, // frame2 -> 4 (blank)
+        0.1, 0.8, 0.2, 0.1, 0.05, // frame3 -> 1
+      ]);
+      final ids = ctcGreedyDecode(
+        logits,
+        blankId: 4,
+        numFrames: 4,
+        numClasses: 5,
+      );
+      expect(ids, [2, 1]);
+    });
+
+    test('all-blank frames collapse to an empty list', () {
+      final logits = Float32List.fromList([
+        0.1, 0.1, 0.9, // frame0 -> 2 (blank)
+        0.1, 0.1, 0.9, // frame1 -> 2 (blank, dup, collapses first anyway)
+      ]);
+      final ids = ctcGreedyDecode(
+        logits,
+        blankId: 2,
+        numFrames: 2,
+        numClasses: 3,
+      );
+      expect(ids, isEmpty);
+    });
+
+    test(
+      'non-adjacent repeats are NOT merged (collapse is adjacency-only)',
+      () {
+        // frame0 -> 1, frame1 -> 2, frame2 -> 1. No blanks. Collapse only
+        // removes ADJACENT duplicates, so [1,2,1] survives unchanged.
+        final logits = Float32List.fromList([
+          0.1, 0.9, 0.1, // frame0 -> 1
+          0.1, 0.1, 0.9, // frame1 -> 2
+          0.1, 0.9, 0.1, // frame2 -> 1
+        ]);
+        final ids = ctcGreedyDecode(
+          logits,
+          blankId: 99, // never fires
+          numFrames: 3,
+          numClasses: 3,
+        );
+        expect(ids, [1, 2, 1]);
+      },
+    );
+  });
+}

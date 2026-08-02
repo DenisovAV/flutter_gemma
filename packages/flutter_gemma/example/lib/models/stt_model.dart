@@ -65,12 +65,10 @@ enum SttModel {
     size: '28MB',
     sttModelType: SttModelType.moonshine,
     needsAuth: false,
-    isSupported: false,
-    unsupportedReason:
-        'On-device transcript diverges materially from the f32 baseline '
-        '(produces unrelated content beyond incidental common-word overlap) '
-        '-- looks like int8 accuracy collapse on the raw-PCM profile, not '
-        'yet safe to expose (see stt_int8_test.dart)',
+    // Selectable, but int8 accuracy is materially lower than the f32 moonshine
+    // (encoder cosine ~0.83 vs f32 on-device) — the tiny model doesn't quantize
+    // cleanly. Kept enabled for comparison; expect degraded transcripts.
+    isSupported: true,
   ),
 
   whisperTinyInt8(

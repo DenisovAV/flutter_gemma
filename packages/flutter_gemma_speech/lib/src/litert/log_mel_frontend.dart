@@ -153,5 +153,71 @@ Float32List computeLogMelSpectrogram(
   return _applyNormalization(mel, normalization);
 }
 
+/// Symmetric (periodic=False) Hann window of length [n]: `w[i] = 0.5 -
+/// 0.5*cos(2*pi*i/(n-1))` -- matches `numpy.hanning(n)` /
+/// `torch.hann_window(n, periodic=False)`. Distinct from [applyHannWindow]
+/// (whisper's periodic=True convention, `.../n` not `.../(n-1)`) -- NeMo/
+/// parakeet's frontend uses this symmetric variant.
+Float32List hannWindowSymmetric(int n) {
+  final w = Float32List(n);
+  for (var i = 0; i < n; i++) {
+    w[i] = 0.5 - 0.5 * math.cos(2 * math.pi * i / (n - 1));
+  }
+  return w;
+}
+
+/// Pre-emphasis `y[n] = x[n] - preemphasis*x[n-1]` (`y[0] = x[0]`, i.e. an
+/// implicit `x[-1] = 0`) -- NeMo's `AudioToMelSpectrogramPreprocessor`
+/// default `preemph=0.97`. Applied to the RAW pcm, before reflect-padding
+/// or framing.
+Float32List applyPreemphasis(Float32List x, double preemphasis) {
+  final y = Float32List(x.length);
+  if (x.isEmpty) return y;
+  y[0] = x[0];
+  for (var n = 1; n < x.length; n++) {
+    y[n] = x[n] - preemphasis * x[n - 1];
+  }
+  return y;
+}
+
+/// Centers [window] (length `<= nFft`) into a zero-padded buffer of length
+/// [nFft]: `(nFft - window.length) ~/ 2` zeros on each side -- NeMo/
+/// `torch.stft`'s `win_length < n_fft` convention (whisper's `win_length ==
+/// n_fft`, so it never needs this).
+Float32List centerWindowInBuffer(Float32List window, int nFft) {
+  final left = (nFft - window.length) ~/ 2;
+  final out = Float32List(nFft);
+  out.setRange(left, left + window.length, window);
+  return out;
+}
+
+/// Frame [paddedPcm] (ALREADY preemphasized) into exactly [melFrames]
+/// nFft-length windows, hopping by [hopLength], center-aligned via
+/// reflect-padding of `nFft~/2` on both sides (same centering convention as
+/// [stftFrames]) -- but each frame is multiplied by [centeredWindow] (see
+/// [centerWindowInBuffer]), a `winLength`-sample window zero-padded to
+/// `nFft` samples, rather than a window covering the whole frame. This is
+/// NeMo/parakeet's `win_length != n_fft` STFT convention.
+List<Float32List> nemoStftFrames(
+  Float32List paddedPcm, {
+  required int nFft,
+  required int hopLength,
+  required int melFrames,
+  required Float32List centeredWindow,
+}) {
+  final padded = _reflectPad(paddedPcm, nFft ~/ 2);
+  final frames = <Float32List>[];
+  for (var f = 0; f < melFrames; f++) {
+    final base = f * hopLength;
+    final raw = Float32List.sublistView(padded, base, base + nFft);
+    final windowed = Float32List(nFft);
+    for (var i = 0; i < nFft; i++) {
+      windowed[i] = raw[i] * centeredWindow[i];
+    }
+    frames.add(windowed);
+  }
+  return frames;
+}
+
 /// How a profile's log-mel output is normalized (see [computeLogMelSpectrogram]).
 enum SttMelNormalization { none, whisper }

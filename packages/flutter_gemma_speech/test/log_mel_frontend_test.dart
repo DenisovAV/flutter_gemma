@@ -146,4 +146,99 @@ void main() {
       );
     },
   );
+
+  group(
+    'hannWindowSymmetric (periodic=False, distinct from applyHannWindow)',
+    () {
+      test('endpoints are exactly zero; symmetric peak near the midpoint', () {
+        final w = hannWindowSymmetric(400);
+        expect(w.length, 400);
+        expect(w[0], 0.0);
+        expect(w[399], 0.0);
+        expect(w[199], closeTo(0.9999845014267927, 1e-6));
+        expect(w[200], closeTo(0.9999845014267927, 1e-6));
+      });
+    },
+  );
+
+  group('applyPreemphasis', () {
+    test('y[0]=x[0]; y[n]=x[n]-0.97*x[n-1] otherwise', () {
+      final x = Float32List.fromList([1.0, 2.0, 4.0, 8.0, 16.0]);
+      final y = applyPreemphasis(x, 0.97);
+      expect(y.length, 5);
+      expect(y[0], closeTo(1.0, 1e-4));
+      expect(y[1], closeTo(1.03, 1e-4));
+      expect(y[2], closeTo(2.06, 1e-4));
+      expect(y[3], closeTo(4.12, 1e-4));
+      expect(y[4], closeTo(8.24, 1e-4));
+    });
+
+    test('empty input returns empty output', () {
+      expect(applyPreemphasis(Float32List(0), 0.97), isEmpty);
+    });
+  });
+
+  group('centerWindowInBuffer', () {
+    test(
+      'centers a 400-sample window into a 512-sample buffer: 56 zeros each side',
+      () {
+        final w400 = hannWindowSymmetric(400);
+        final centered = centerWindowInBuffer(w400, 512);
+        expect(centered.length, 512);
+        // True zero-padding region (outside the window's own [56,455] extent,
+        // which itself happens to be zero at its own two edges, 56 and 455 --
+        // so these indices are chosen just OUTSIDE that coincidental overlap).
+        expect(centered[55], 0.0);
+        expect(centered[456], 0.0);
+        // A definitively nonzero, mid-window sample, offset by the 56-zero pad.
+        expect(centered[56 + 199], closeTo(0.9999845014267927, 1e-6));
+      },
+    );
+  });
+
+  group('nemoStftFrames', () {
+    test('produces exactly melFrames windows of length nFft', () {
+      final pcm = Float32List(16000); // 1 s @ 16 kHz
+      for (var i = 0; i < pcm.length; i++) {
+        pcm[i] = math.sin(2 * math.pi * 440.0 * i / 16000);
+      }
+      final centeredWindow = centerWindowInBuffer(
+        hannWindowSymmetric(400),
+        512,
+      );
+      final frames = nemoStftFrames(
+        pcm,
+        nFft: 512,
+        hopLength: 160,
+        melFrames: 100,
+        centeredWindow: centeredWindow,
+      );
+      expect(frames.length, 100);
+      for (final f in frames) {
+        expect(f.length, 512);
+      }
+    });
+
+    test('first frame is centered via reflect padding (not zero padding)', () {
+      // A constant DC clip: reflect-padding preserves the constant all the way
+      // through the padded prefix; zero-padding would show a 0.0 there
+      // instead. Index 100 sits inside the true reflect-padded prefix
+      // (padAmt=nFft/2=256) AND inside the centered window's nonzero span
+      // (local index 100-56=44, strictly inside the open interval where the
+      // periodic=False Hann window is nonzero) -- discriminating the two.
+      final pcm = Float32List(16000)..fillRange(0, 16000, 1.0);
+      final centeredWindow = centerWindowInBuffer(
+        hannWindowSymmetric(400),
+        512,
+      );
+      final frames = nemoStftFrames(
+        pcm,
+        nFft: 512,
+        hopLength: 160,
+        melFrames: 1,
+        centeredWindow: centeredWindow,
+      );
+      expect(frames[0][100], isNot(0.0));
+    });
+  });
 }

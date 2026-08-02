@@ -43,6 +43,7 @@ import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../model/stt_model_profile.dart';
 import '../tokenizer/sentence_piece_tokenizer.dart';
+import '../tokenizer/stt_special_tokens.dart' show ResolvedSuppression;
 
 /// Decoder start token (`<s>`), verified working on the first try — see the
 /// recipe's "Mask convention that worked" section.
@@ -86,6 +87,51 @@ bool shouldStopDecoding(
 ) {
   return lastGeneratedId == sttDecodeEosId ||
       generatedLength >= maxDecodeTokens;
+}
+
+/// Write `decode_args_2`'s `[1,1,maxTokens,maxTokens]` mask into
+/// [maskHost] (already the right length, `maxTokens*maxTokens`) per
+/// [convention]. `paddingOnly` is moonshine's verified convention C
+/// (docs/superpowers/notes/stt-transcript-recipe.md): every row is
+/// identical, valid iff `j<len`. `causal` additionally requires `j<=r`.
+void writeDecoderMask(
+  Float32List maskHost, {
+  required int maxTokens,
+  required int len,
+  required SttDecoderMaskConvention convention,
+}) {
+  for (var r = 0; r < maxTokens; r++) {
+    final rowBase = r * maxTokens;
+    for (var j = 0; j < maxTokens; j++) {
+      final valid = switch (convention) {
+        SttDecoderMaskConvention.paddingOnly => j < len,
+        SttDecoderMaskConvention.causal => j <= r && j < len,
+      };
+      maskHost[rowBase + j] = valid ? 0.0 : -1e9;
+    }
+  }
+}
+
+/// Force [suppression]'s blocked ids to `-inf` in [logitsRow] (a per-step
+/// COPY of the decode output's argmax row — mutating it does not touch the
+/// native tensor buffer) before argmax is taken. `null` suppression is a
+/// no-op (moonshine, unchanged). [step] is `0` on the first decode call
+/// after the seed prompt (`len == decoderPromptIds.length`), incrementing
+/// thereafter.
+void applySuppression(
+  Float32List logitsRow, {
+  required int step,
+  required ResolvedSuppression? suppression,
+}) {
+  if (suppression == null) return;
+  for (var id = suppression.suppressAboveId + 1; id < logitsRow.length; id++) {
+    logitsRow[id] = double.negativeInfinity;
+  }
+  if (step == 0) {
+    for (final id in suppression.suppressAtStepZeroIds) {
+      if (id < logitsRow.length) logitsRow[id] = double.negativeInfinity;
+    }
+  }
 }
 
 int _acceleratorFor(PreferredBackend? backend) {

@@ -112,6 +112,7 @@ void main() {
                     SidebarLink(text: 'Function Calling', href: '/docs/function-calling'),
                     SidebarLink(text: 'Thinking Mode', href: '/docs/thinking-mode'),
                     SidebarLink(text: 'Agent Skills', href: '/docs/agent'),
+                    SidebarLink(text: 'Speech', href: '/docs/speech'),
                     SidebarLink(text: 'Embeddings & RAG', href: '/docs/embeddings-and-rag'),
                   ],
                 ),

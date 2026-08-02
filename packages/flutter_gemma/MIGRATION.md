@@ -24,12 +24,12 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_gemma: ^1.0.0                 # core — always required
-  flutter_gemma_litertlm: ^1.0.0        # add if you run .litertlm models
-  flutter_gemma_mediapipe: ^1.0.0       # add if you run .task / .bin models
-  flutter_gemma_embeddings: ^1.0.0      # add if you compute embeddings
-  flutter_gemma_rag_qdrant: ^1.0.0      # add for native on-device RAG
-  flutter_gemma_rag_sqlite: ^1.0.0      # add for web (or native sqlite) RAG
+  flutter_gemma: ^1.4.1                 # core — always required
+  flutter_gemma_litertlm: ^1.3.1        # add if you run .litertlm models
+  flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
+  flutter_gemma_embeddings: ^1.0.4      # add if you compute embeddings
+  flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG
+  flutter_gemma_rag_sqlite: ^1.1.0      # add for web (or native sqlite) RAG
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -46,6 +46,12 @@ Pick by what you actually used in 0.16.x:
 > (`flutter_gemma_litertlm`). On mobile/web check the file extension you install.
 > You can add **both** engine packages and let the registry route each model by
 > its file type.
+
+> **New opt-in packages since 1.2/1.3** (not migration targets from the 0.16.x
+> monolith — they add new capabilities): `flutter_gemma_agent` (on-device agent
+> skills — SKILL.md + tool-calling loop) and `flutter_gemma_builtin_ai` (OS
+> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS).
+> Add either only if you want that feature — see the README **Features** list.
 
 ## 2. main.dart — the one new call
 

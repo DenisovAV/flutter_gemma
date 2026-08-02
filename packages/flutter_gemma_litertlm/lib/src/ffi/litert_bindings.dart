@@ -318,10 +318,13 @@ class LiteRtBindings {
 
   // Model.
 
+  // LiteRT (622f1f3c / LiteRT-LM v0.14.0) added a leading LiteRtEnvironment
+  // parameter to LiteRtCreateModelFromFile. Calling the old 2-arg form against
+  // the new lib read `filename` as `environment` → status=500 on every load.
   late final createModelFromFile = _lib
       .lookupFunction<
-        Int32 Function(Pointer<Utf8>, Pointer<LiteRtModel>),
-        int Function(Pointer<Utf8>, Pointer<LiteRtModel>)
+        Int32 Function(LiteRtEnvironment, Pointer<Utf8>, Pointer<LiteRtModel>),
+        int Function(LiteRtEnvironment, Pointer<Utf8>, Pointer<LiteRtModel>)
       >('LiteRtCreateModelFromFile');
 
   late final destroyModel = _lib

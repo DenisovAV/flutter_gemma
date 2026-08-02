@@ -11,6 +11,6 @@
 * AgentChatView: chat widget over the AgentEvent stream with a collapsible progress panel + inline image/webview/widget results.
 * Adaptive SkillManagerView + McpManagerView (bottom sheet on narrow, side panel on wide).
 * SecretEditorDialog, McpToolCallPermissionDialog, SkillTesterView, and the add-skill security disclaimer.
-* Bundled 7 starter skills (Gallery, Apache-2.0): JS/intent/text covering all four mechanisms.
+* Bundled 8 starter skills (Gallery, Apache-2.0): JS/intent/text covering all four mechanisms.
 * AssetSkillSource: load bundled SKILL.md skills + wire JsSkillExecutor to their bundled HTML.
 * Verified on Android, iOS, macOS, and Windows; the agent is not supported on web yet (browser LLM runtimes don't reliably emit tool calls).

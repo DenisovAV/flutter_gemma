@@ -1,6 +1,30 @@
-## 1.3.1
+## 1.5.0
 - Add genai_primitives support via `package:flutter_gemma/genai.dart` — use `ChatMessage` with `InferenceChat` (#181).
 - New `sendMessage`/`generateContent` (+ streams) covering text, vision, audio, thinking, and tool calls (#181).
+
+## 1.4.2
+- docs: document the on-device voice loop (VoiceSession, STT → LLM → TTS) shipped in flutter_gemma_speech 0.3.0.
+
+## 1.4.1
+- feat: on-device text-to-speech — selectable TTS model (Matcha today) via `installTts()`/`getActiveTts()`/`synthesize()`, raw PCM output.
+- feat: core TTS contracts (SpeechSynthesizer, TtsModelType, TtsBackendProvider/TtsRegistry, ModelManagementType.tts) + `RuntimeConfig.artifactPaths`.
+- fix: model-load failure no longer emits a spurious unhandled-async (orphaned completer in createStt/createModel/createEmbedding, #394).
+
+## 1.4.0
+- feat: on-device speech-to-text — new opt-in `flutter_gemma_speech` runs a selectable ASR model (moonshine today) on all native platforms via `installStt()`/`getActiveStt()`/`transcribe()`.
+- feat: STT contracts (SpeechRecognizer, SttModelSpec/SttModelType, SttBackendProvider/SttRegistry) + LiteRT engine consolidation into flutter_gemma_litertlm.
+- fix: Windows fresh downloads landed in a `$PWD`-relative dir, not `%LOCALAPPDATA%` — model installed but not found at load.
+
+## 1.3.2
+- Docs: add community models to the README model list (SmolLM3-3B, Phi-4-mini-reasoning, Qwen2-VL, SmolVLM2, LLaVA-OneVision).
+- Docs: bump web `@litert-lm/core` setup snippet to 0.14.0.
+
+## 1.3.1
+- Fix multi-GB background_downloader temp-file leak on Android (#383).
+- Deterministic download task IDs (sha256 of path triple) — stable across restarts and signed-URL rotation (#383).
+- getOrphanedFiles()/cleanupStorage() now surface and delete orphaned downloader fragments (#383).
+- Cancel tasks before reset in cleanup so paused temp files are deleted (#383).
+- Resume watchdog cancels the dead native task instead of leaking it (#383).
 
 ## 1.3.0
 - Add ModelFileType.builtIn for OS system models (Gemini Nano / Apple FM)

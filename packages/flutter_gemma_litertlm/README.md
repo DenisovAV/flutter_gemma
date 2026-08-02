@@ -4,8 +4,10 @@ LiteRT-LM (`.litertlm`) on-device inference engine for [flutter_gemma](https://p
 via `dart:ffi`. Opt-in package — add it only if you run `.litertlm` models.
 Android, iOS, macOS, Linux, Windows.
 
-This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`); it is
-also shared by [flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings).
+This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`) and
+exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by the
+capability packages [flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings)
+and [flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech).
 
 ## Usage
 
@@ -32,7 +34,7 @@ assign window globals and module scripts are deferred, so Dart awaits
 ```html
 <script type="module">
 window.litertLmReady = (async () => {
-  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.12.1/+esm');
+  const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
   window.Engine = m.Engine;
   return m.Engine;
 })();
@@ -47,22 +49,28 @@ Native platforms need no web setup.
 |----------|---------|
 | Android  | ✅ FFI (GPU via OpenCL, NPU via `.litertlm` on Qualcomm) |
 | iOS      | ✅ FFI (GPU via Metal on device; CPU on simulator) |
-| macOS / Linux / Windows | ✅ FFI (GPU via Metal / Vulkan / DX12; Intel NPU on Windows) |
+| macOS / Linux | ✅ FFI (GPU via Metal / Vulkan) |
+| Windows  | ✅ FFI (CPU + Intel NPU; ⚠️ discrete GPU regressed — see below) |
 | Web      | ✅ via `@litert-lm/core` (CDN, early preview) |
+
+> ⚠️ **Known regression (1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete GPUs**
+> crash in the upstream WebGPU/Dawn stack
+> ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
+> use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
+> macOS/Linux GPU and Windows CPU/NPU are unaffected.
 
 The native library is fetched at build time by `hook/build.dart` (Native Assets)
 from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
-### `dlopen` / "library not found" (`libLiteRtLm`) after removing `flutter_gemma_embeddings`
+### `dlopen` / "library not found" (`libLiteRtLm`)
 
-`flutter_gemma_litertlm` and `flutter_gemma_embeddings` share one native library
-(`libLiteRtLm`), bundled exactly once by whichever package's build hook ran
-first ("the owner"). If you **had both packages, then removed the owner** and
-rebuilt **without** a clean, a stale ownership marker in the shared cache can
-leave the library unbundled, surfacing as an opaque `dlopen` "no such file" on
-the first inference. Fix:
+`flutter_gemma_litertlm` is the sole owner of the shared native library
+(`libLiteRtLm`) and bundles it via its build hook; `flutter_gemma_embeddings` and
+`flutter_gemma_speech` get it transitively. A stale Native-Assets cache after a
+native version bump can leave the library unbundled, surfacing as an opaque
+`dlopen` "no such file" on the first inference. Fix with a clean rebuild:
 
 ```bash
 flutter clean
@@ -70,9 +78,3 @@ rm -rf ~/Library/Caches/flutter_gemma/native        # macOS / Linux
 # Windows: rmdir /s "%LOCALAPPDATA%\flutter_gemma\native"  (path may vary)
 flutter pub get
 ```
-
-This is a known limitation of Dart's Native Assets build hooks: a hook is
-sandboxed and cannot detect which sibling packages are present in the current
-build, so it cannot recompute the registrant per-build (see
-[dart-lang/native#190](https://github.com/dart-lang/native/issues/190)). It only
-triggers in the narrow remove-the-owner-without-clean case.

@@ -28,7 +28,10 @@ jobs:
           cache: true
 
       - name: Install Jaspr CLI
-        run: dart pub global activate jaspr_cli
+        # Pin to 0.23.1 — jaspr_cli 0.23.2 fails with "Failed to start build
+        # daemon, port file is missing" (build-daemon regression). Matches the
+        # `jaspr: ^0.23.1` pin in website/pubspec.yaml. Bump deliberately.
+        run: dart pub global activate jaspr_cli 0.23.1
 
       - name: Build Jaspr site (SSG)
         working-directory: website

@@ -54,6 +54,12 @@ class NetworkSourceHandler implements SourceHandler {
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(targetPath);
 
+    // A download that reports success but leaves no file at targetPath means the
+    // downloader wrote elsewhere (see the background_downloader BaseDirectory
+    // note in smart_downloader.dart). Fail loudly instead of saving a broken
+    // "installed" record.
+    assertInstalledFilePresent(sizeBytes, targetPath);
+
     // Save metadata to repository
     final modelInfo = ModelInfo(
       id: filename,
@@ -96,6 +102,12 @@ class NetworkSourceHandler implements SourceHandler {
 
     // Get file size for metadata
     final sizeBytes = await fileSystem.getFileSize(targetPath);
+
+    // A download that reports success but leaves no file at targetPath means the
+    // downloader wrote elsewhere (see the background_downloader BaseDirectory
+    // note in smart_downloader.dart). Fail loudly instead of saving a broken
+    // "installed" record.
+    assertInstalledFilePresent(sizeBytes, targetPath);
 
     // Save metadata to repository
     final modelInfo = ModelInfo(

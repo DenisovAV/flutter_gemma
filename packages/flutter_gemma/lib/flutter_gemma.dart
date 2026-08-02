@@ -31,6 +31,8 @@ export 'core/multimodal_image_handler.dart';
 export 'core/api/flutter_gemma.dart';
 export 'core/api/inference_installation_builder.dart';
 export 'core/api/embedding_installation_builder.dart';
+export 'core/api/stt_installation_builder.dart';
+export 'core/api/tts_installation_builder.dart';
 
 // Export Web-specific types
 export 'core/domain/web_storage_mode.dart';
@@ -47,6 +49,10 @@ export 'core/model_management/model_specs.dart'
         // Model specifications
         InferenceModelSpec,
         EmbeddingModelSpec,
+        SttModelSpec,
+        SttModelType,
+        TtsModelSpec,
+        TtsModelType,
         ModelSpec,
         ModelFile,
         // Download progress

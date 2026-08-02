@@ -5,18 +5,24 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart'; // MethodChannel — used by file_system_manager.dart part
 import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:background_downloader/background_downloader.dart';
+import 'smart_downloader.dart'; // SmartDownloader.downloadGroup — single source of truth for the task group
 
 import '../flutter_gemma.dart';
 import '../core/di/service_registry.dart';
 import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
+import '../core/model_management/utils/download_temp_reclaim.dart';
 import '../core/utils/file_name_utils.dart';
 import '../core/registry/engine_registry.dart';
 import '../core/registry/embedding_registry.dart';
 import '../core/registry/embedding_backend_provider.dart';
+import '../core/registry/stt_registry.dart';
+import '../core/registry/stt_backend_provider.dart';
+import '../core/registry/tts_registry.dart';
 import '../core/registry/runtime_config.dart';
 import '../core/model_management/model_specs.dart';
 // Re-export the spec value types so existing importers of this library (tests,
@@ -44,6 +50,16 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   EmbeddingModel? _initializedEmbeddingModel;
   EmbeddingModelSpec?
   _lastActiveEmbeddingSpec; // Track which spec was used to create _initializedEmbeddingModel
+
+  Completer<SpeechRecognizer>? _initSttCompleter;
+  SpeechRecognizer? _initializedSttModel;
+  SttModelSpec?
+  _lastActiveSttSpec; // Track which spec was used to create _initializedSttModel
+
+  Completer<SpeechSynthesizer>? _initTtsCompleter;
+  SpeechSynthesizer? _initializedTtsModel;
+  TtsModelSpec?
+  _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
 
   // Made public for example app integration
   late final MobileModelManager _unifiedManager = MobileModelManager();
@@ -207,7 +223,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initializedModel = null;
       _lastActiveInferenceSpec = null;
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+      // Return the error-completed completer future (not a separate throw) so
+      // exactly one Future is in flight — a bare throw would orphan
+      // completer.future (no listener in the single-caller path) → spurious
+      // unhandled-async. Mirrors createTtsModel. See #394.
+      return completer.future;
     }
   }
 
@@ -371,7 +391,304 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initializedEmbeddingModel = null;
       _lastActiveEmbeddingSpec = null;
       completer.completeError(e, st);
-      Error.throwWithStackTrace(e, st);
+      // Return the error-completed completer future (not a separate throw) so
+      // exactly one Future is in flight — a bare throw would orphan
+      // completer.future (no listener in the single-caller path) → spurious
+      // unhandled-async. Mirrors createTtsModel. See #394.
+      return completer.future;
+    }
+  }
+
+  @override
+  Future<SpeechRecognizer> createSttModel({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  }) async {
+    // Modern API: Use active STT model if paths not provided
+    if (modelPath == null || tokenizerPath == null) {
+      final manager = _unifiedManager;
+      final activeModel = manager.activeSttModel;
+
+      // No active STT model - user must set one first
+      if (activeModel == null) {
+        throw StateError(
+          'No active STT model set. Use `FlutterGemma.installStt()` or `modelManager.setActiveModel()` to set a model first',
+        );
+      }
+
+      // Get the actual model file paths through unified system
+      final modelFilePaths = await manager.getModelFilePaths(activeModel);
+      if (modelFilePaths == null || modelFilePaths.isEmpty) {
+        throw StateError(
+          'STT model file paths not found. Use the `modelManager` to load the model first',
+        );
+      }
+
+      // Extract model and tokenizer paths from spec
+      final activeModelPath = modelFilePaths[PreferencesKeys.sttModelFile];
+      final activeTokenizerPath =
+          modelFilePaths[PreferencesKeys.sttTokenizerFile];
+
+      if (activeModelPath == null || activeTokenizerPath == null) {
+        throw StateError(
+          'Could not find model or tokenizer path in active STT model',
+        );
+      }
+
+      // Check if singleton exists and matches the active model
+      if (_initSttCompleter != null &&
+          _initializedSttModel != null &&
+          _lastActiveSttSpec != null) {
+        final currentSpec = _lastActiveSttSpec!;
+        final requestedSpec = activeModel as SttModelSpec;
+
+        if (currentSpec.name != requestedSpec.name) {
+          // Active model changed - close old model and create new one
+          gemmaLog(
+            '⚠️  Active STT model changed: ${currentSpec.name} → ${requestedSpec.name}',
+          );
+          gemmaLog('🔄 Closing old STT model and creating new one...');
+          await _initializedSttModel?.close();
+          // Reset explicitly (mirror the desktop shell) instead of relying on
+          // the async close-listener, so the in-progress guard below cannot
+          // return the completer that is being torn down.
+          _initSttCompleter = null;
+          _initializedSttModel = null;
+          _lastActiveSttSpec = null;
+        } else {
+          // Same model - return existing singleton
+          gemmaLog(
+            'ℹ️  Reusing existing STT model instance for ${requestedSpec.name}',
+          );
+          return _initSttCompleter!.future;
+        }
+      }
+
+      modelPath = activeModelPath;
+      tokenizerPath = activeTokenizerPath;
+
+      gemmaLog('Using active STT model: $modelPath, tokenizer: $tokenizerPath');
+    } else {
+      // Legacy API with explicit paths - check if singleton exists
+      if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
+        gemmaLog('ℹ️  Reusing existing STT model instance (Legacy API)');
+        return completer.future;
+      }
+    }
+
+    // In-progress guard (Modern-API path): a concurrent createSttModel() during
+    // the initial load — completer set but the model not yet published to
+    // _initializedSttModel — must return the existing completer, not fall
+    // through and spawn a SECOND SttWorker/native model. Mirrors the desktop
+    // shell (which the Modern-API branch above otherwise lacked).
+    if (_initSttCompleter case Completer<SpeechRecognizer> completer) {
+      return completer.future;
+    }
+
+    final completer = _initSttCompleter = Completer<SpeechRecognizer>();
+
+    // Verify the active model is still installed (for Modern API path)
+    final manager = _unifiedManager;
+    final activeModel = manager.activeSttModel;
+
+    if (activeModel != null) {
+      final isModelInstalled = await manager.isModelInstalled(activeModel);
+      if (!isModelInstalled) {
+        completer.completeError(
+          Exception(
+            'Active STT model is no longer installed. Use the `modelManager` to load the model first',
+          ),
+        );
+        return completer.future;
+      }
+    }
+
+    try {
+      // Dispatches construction through the SttRegistry (probe-chain, mirrors
+      // EmbeddingRegistry). The backend reads spec.sttModelType to select its
+      // runtime profile, and ONLY config.modelPath/config.tokenizerPath for
+      // path resolution — it ignores the spec arg for path resolution (see
+      // LiteRtSttBackend.createModel).
+      final activeSpec =
+          activeModel as SttModelSpec?; // null on legacy explicit-paths
+      final SttBackendProvider? backend = activeSpec != null
+          ? SttRegistry.instance.findFor(activeSpec)
+          : (SttRegistry.instance.registered.isNotEmpty
+                ? SttRegistry.instance.registered.first
+                : null);
+      if (backend == null) {
+        throw StateError(
+          'No STT backend registered. Add flutter_gemma_speech to '
+          'pubspec.yaml and pass it in sttBackends: of '
+          'FlutterGemma.initialize(...). Registered backends: '
+          '${SttRegistry.instance.registered.map((b) => b.name).join(", ")}.',
+        );
+      }
+      // modelPath/tokenizerPath are non-null here (resolved in the preamble or
+      // passed by the legacy API). maxTokens is unused by STT.
+      final sttConfig = RuntimeConfig(
+        maxTokens: 0,
+        modelPath: modelPath,
+        tokenizerPath: tokenizerPath,
+        preferredBackend: preferredBackend,
+      );
+      // The backend's createModel(spec, config) signature requires a non-null
+      // spec, but it resolves paths exclusively from config. On the legacy
+      // explicit-paths path there is no active spec, so synthesize one from the
+      // resolved file paths (FileSource, mobile/desktop only — web swaps in its
+      // own plugin) purely to satisfy the signature. sttModelType defaults to
+      // moonshine — the only shipped profile — for this legacy-path fallback.
+      final specForBackend =
+          activeSpec ??
+          SttModelSpec(
+            name: 'legacy:${path.basename(modelPath)}',
+            modelSource: ModelSource.file(modelPath),
+            tokenizerSource: ModelSource.file(tokenizerPath),
+            sttModelType: SttModelType.moonshine,
+          );
+      final model = await backend.createModel(specForBackend, sttConfig);
+
+      // Core owns the singleton lifecycle: track it + reset on close. The
+      // package-built model fires this via CloseNotifier (addCloseListener).
+      _initializedSttModel = model;
+      model.addCloseListener(() {
+        _initializedSttModel = null;
+        _initSttCompleter = null;
+        _lastActiveSttSpec = null;
+      });
+
+      // Save the spec that was used to create this model (Modern API path only)
+      if (activeSpec != null) {
+        _lastActiveSttSpec = activeSpec;
+      }
+
+      completer.complete(model);
+      return model;
+    } catch (e, st) {
+      // FIX #170: Reset state to allow retry with different model
+      _initSttCompleter = null;
+      _initializedSttModel = null;
+      _lastActiveSttSpec = null;
+      completer.completeError(e, st);
+      // Return the error-completed completer future (not a separate throw) so
+      // exactly one Future is in flight — a bare throw would orphan
+      // completer.future (no listener in the single-caller path) → spurious
+      // unhandled-async. Mirrors createTtsModel. See #394.
+      return completer.future;
+    }
+  }
+
+  @override
+  Future<SpeechSynthesizer> createTtsModel({
+    PreferredBackend? preferredBackend,
+  }) async {
+    final manager = _unifiedManager;
+    final activeModel = manager.activeTtsModel;
+    if (activeModel is! TtsModelSpec) {
+      throw StateError(
+        'No active TTS model set. Use FlutterGemma.installTts() first.',
+      );
+    }
+
+    // Check if singleton exists and matches the active model
+    if (_initTtsCompleter != null &&
+        _initializedTtsModel != null &&
+        _lastActiveTtsSpec != null) {
+      if (_lastActiveTtsSpec!.name != activeModel.name) {
+        // Active model changed - close old model and create new one
+        gemmaLog(
+          '⚠️  Active TTS model changed: ${_lastActiveTtsSpec!.name} → ${activeModel.name}',
+        );
+        gemmaLog('🔄 Closing old TTS model and creating new one...');
+        // Reset the singleton fields BEFORE awaiting close() so a concurrent
+        // createTtsModel() that interleaves during the await cannot pass the
+        // "all three non-null" guard and spawn a duplicate worker (which would
+        // then be orphaned → native leak). Capture the old model first, then
+        // close it after the reset.
+        final old = _initializedTtsModel;
+        _initTtsCompleter = null;
+        _initializedTtsModel = null;
+        _lastActiveTtsSpec = null;
+        await old?.close();
+      } else {
+        // Same model - return existing singleton
+        gemmaLog(
+          'ℹ️  Reusing existing TTS model instance for ${activeModel.name}',
+        );
+        return _initTtsCompleter!.future;
+      }
+    }
+
+    // In-progress guard: a concurrent createTtsModel() during the initial
+    // load — completer set but the model not yet published to
+    // _initializedTtsModel — must return the existing completer, not fall
+    // through and spawn a SECOND TtsWorker/native model.
+    if (_initTtsCompleter case Completer<SpeechSynthesizer> completer) {
+      return completer.future;
+    }
+
+    final completer = _initTtsCompleter = Completer<SpeechSynthesizer>();
+
+    try {
+      final filePaths = await manager.getModelFilePaths(activeModel);
+      if (filePaths == null || filePaths.isEmpty) {
+        throw StateError(
+          'Active TTS model files not found on disk. Reinstall via installTts().',
+        );
+      }
+      final config = RuntimeConfig(
+        maxTokens: 0,
+        modelPath: filePaths
+            .values
+            .first, // representative; TTS backend uses artifactPaths
+        artifactPaths: filePaths,
+        preferredBackend: preferredBackend,
+      );
+      final backend = TtsRegistry.instance.findFor(activeModel);
+      if (backend == null) {
+        throw StateError(
+          TtsRegistry.instance.hasAny
+              ? 'No registered TTS backend can handle this model '
+                    '(${activeModel.ttsModelType}). Registered: '
+                    '${TtsRegistry.instance.registered.map((b) => b.name).join(", ")}.'
+              : 'No TTS backend registered. Pass ttsBackends: to FlutterGemma.initialize().',
+        );
+      }
+      gemmaLog(
+        'Using active TTS model: ${activeModel.name} (${filePaths.length} files)',
+      );
+      final synth = await backend.createModel(activeModel, config);
+
+      // Core owns the singleton lifecycle: track it + reset on close. The
+      // package-built model fires this via CloseNotifier (addCloseListener).
+      _initializedTtsModel = synth;
+      _lastActiveTtsSpec = activeModel;
+      synth.addCloseListener(() {
+        // Only reset if this close-listener still belongs to the current
+        // singleton — a newer model may already have replaced it (the
+        // model-changed branch above resets the fields synchronously).
+        if (identical(_initializedTtsModel, synth)) {
+          _initializedTtsModel = null;
+          _initTtsCompleter = null;
+          _lastActiveTtsSpec = null;
+        }
+      });
+
+      completer.complete(synth);
+      return synth;
+    } catch (e, st) {
+      _initTtsCompleter = null;
+      _initializedTtsModel = null;
+      _lastActiveTtsSpec = null;
+      // Complete the completer and return its future (rather than
+      // rethrowing separately) so there is exactly one Future in flight for
+      // this call — a second, unheeded `completer.future` (as a bare
+      // rethrow would leave behind whenever no concurrent caller grabbed a
+      // reference to it first) would otherwise surface as an unhandled
+      // async error.
+      completer.completeError(e, st);
+      return completer.future;
     }
   }
 

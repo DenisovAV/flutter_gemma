@@ -34,8 +34,8 @@ If you experience or witness unacceptable behavior, please open an issue or cont
 ### Prerequisites
 
 **Required:**
-- Flutter **3.24.0** or higher
-- Dart **3.4.0** or higher
+- Flutter **3.44.0** or higher
+- Dart **3.12.0** or higher
 - Platform-specific toolchains:
   - **Android**: Android Studio / Android SDK
   - **iOS**: Xcode 14+, CocoaPods 1.11+
@@ -256,8 +256,8 @@ If you're working on desktop support:
 
 2. **Understand the architecture:**
    - Since 0.14.0 desktop runs LiteRT-LM directly via `dart:ffi` against the C API. No JVM/JRE/gRPC.
-   - Shared FFI client lives in `lib/core/ffi/litert_lm_client.dart` (used by all five platforms)
-   - Native libs are downloaded by `hook/build.dart` at build time from the `native-v0.10.2-b` GitHub release; SHA256-verified and bundled by Native Assets
+   - The FFI client lives in `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` (used by all five platforms)
+   - Native libs are downloaded by each package's `hook/build.dart` at build time from the `native-v0.14.0` GitHub release; SHA256-verified and bundled by Native Assets
 
 3. **Test your changes:**
    - Test on macOS (Apple Silicon) and/or Windows x64 / Linux x86_64

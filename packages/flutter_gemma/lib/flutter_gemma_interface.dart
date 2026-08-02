@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/lifecycle/close_notifier.dart';
 import 'package:flutter_gemma/core/tool.dart';
@@ -89,6 +90,28 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   Future<EmbeddingModel> createEmbeddingModel({
     String? modelPath,
     String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  });
+
+  /// Creates and returns a new [SpeechRecognizer] instance.
+  ///
+  /// Modern API: If paths are not provided, uses the active STT model set via
+  /// `FlutterGemma.installStt()` or `modelManager.setActiveModel()`.
+  ///
+  /// [modelPath] — path to the STT model file (optional if active model set).
+  /// [tokenizerPath] — path to the tokenizer file (optional if active model set).
+  /// [preferredBackend] — backend preference (e.g., CPU, GPU).
+  Future<SpeechRecognizer> createSttModel({
+    String? modelPath,
+    String? tokenizerPath,
+    PreferredBackend? preferredBackend,
+  });
+
+  /// Creates and returns a new [SpeechSynthesizer] for the active TTS model.
+  ///
+  /// Uses the active TTS model set via `FlutterGemma.installTts()` /
+  /// `modelManager.setActiveModel()`. Native-only — throws on web.
+  Future<SpeechSynthesizer> createTtsModel({
     PreferredBackend? preferredBackend,
   });
 
@@ -533,5 +556,38 @@ abstract class EmbeddingModel {
   void addCloseListener(void Function() listener);
 
   /// Close the embedding model and release resources.
+  Future<void> close();
+}
+
+/// Represents a speech-to-text model instance.
+abstract class SpeechRecognizer {
+  /// Transcribe 16 kHz mono 16-bit little-endian PCM. Batch (fixed-window)
+  /// for now; streaming is a follow-on.
+  Future<String> transcribe(Uint8List pcm16kMono);
+
+  /// See [InferenceModel.addCloseListener].
+  void addCloseListener(void Function() listener);
+
+  /// Close the STT model and release resources.
+  Future<void> close();
+}
+
+/// Represents a text-to-speech model instance.
+///
+/// Sibling of [SpeechRecognizer]. Note [sampleRate] is an intentional
+/// divergence: STT consumes caller-supplied audio, TTS produces it, so the
+/// caller must be told the rate to play it or wrap it in WAV.
+abstract class SpeechSynthesizer {
+  /// Synthesize [text] to 16-bit little-endian mono PCM at [sampleRate].
+  /// Batch (full text → full audio) for now; streaming is a follow-on.
+  Future<Uint8List> synthesize(String text);
+
+  /// Output sample rate, Hz.
+  int get sampleRate;
+
+  /// See [InferenceModel.addCloseListener].
+  void addCloseListener(void Function() listener);
+
+  /// Close the TTS model and release resources.
   Future<void> close();
 }

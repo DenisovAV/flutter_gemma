@@ -37,6 +37,12 @@ class PreferencesKeys {
   /// Legacy: Single tokenizer filename
   static const String embeddingTokenizerFile = 'embedding_tokenizer_file';
 
+  /// Legacy: Single STT model filename
+  static const String sttModelFile = 'stt_model_file';
+
+  /// Legacy: Single STT tokenizer filename
+  static const String sttTokenizerFile = 'stt_tokenizer_file';
+
   // ============================================================================
   // Active model identity (for auto-restore after app restart, #227)
   // ============================================================================
@@ -80,6 +86,40 @@ class PreferencesKeys {
   /// Same encoding as [activeInferenceSource], for the embedding tokenizer.
   static const String activeEmbeddingTokenizerSource =
       'active_embedding_tokenizer_source';
+
+  // ============================================================================
+  // Active STT model identity (mirrors the active embedding identity keys)
+  // ============================================================================
+
+  /// Filename of the currently active STT model.
+  static const String activeSttFilename = 'active_stt_filename';
+
+  /// Filename of the currently active STT tokenizer.
+  static const String activeSttTokenizerFilename =
+      'active_stt_tokenizer_filename';
+
+  /// `SttModelType.name` of the currently active STT model — required to
+  /// rehydrate [SttModelSpec.sttModelType] on restore (the model is
+  /// SELECTABLE, so the type is not inferable from the filename alone).
+  static const String activeSttModelType = 'active_stt_model_type';
+
+  /// Same encoding as [activeInferenceSource], for the STT model.
+  static const String activeSttSource = 'active_stt_source';
+
+  /// Same encoding as [activeInferenceSource], for the STT tokenizer.
+  static const String activeSttTokenizerSource = 'active_stt_tokenizer_source';
+
+  // ============================================================================
+  // Active TTS model identity (simplified vs. STT: the manifest re-derives the
+  // bundle filenames on restore, so only name + type need persisting)
+  // ============================================================================
+
+  /// Filename-independent identity of the active TTS model: its display name.
+  static const String activeTtsName = 'active_tts_name';
+
+  /// `TtsModelType.name` of the active TTS model — the manifest re-derives the
+  /// bundle filenames on restore, so only name + type need persisting.
+  static const String activeTtsModelType = 'active_tts_model_type';
 
   // ============================================================================
   // Path mappings (dynamic keys with filename)

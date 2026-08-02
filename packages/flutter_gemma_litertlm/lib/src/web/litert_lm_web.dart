@@ -4,7 +4,7 @@ library litert_lm_web;
 import 'dart:js_interop';
 
 /// JS interop for the upstream `@litert-lm/core` early-preview API
-/// (LiteRT-LM v0.12.0 Web JavaScript surface).
+/// (LiteRT-LM v0.14.0 Web JavaScript surface).
 ///
 /// The CDN script in `example/web/index.html` must expose `Engine` on
 /// the global scope (`window.Engine`) because `dart:js_interop` static

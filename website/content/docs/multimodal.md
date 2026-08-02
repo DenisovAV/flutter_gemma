@@ -1,6 +1,6 @@
 ---
 title: Multimodal
-description: Send image and audio input to vision/audio models like Gemma 4, Gemma3n, and FastVLM.
+description: Send image and audio input to vision/audio models like Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
@@ -10,9 +10,11 @@ devices with 8GB+ RAM.
 
 ## Vision (image input)
 
-Vision is supported by **Gemma 4 E2B/E4B**, **Gemma3n E2B/E4B**, and **FastVLM
-0.5B** (desktop). On all four platforms (Android, iOS, Web, Desktop) image input
-is supported — verified on macOS Metal and Linux Vulkan with Gemma 4 + Gemma 3n.
+Vision is supported by **Gemma 4 E2B/E4B**, **Gemma3n E2B/E4B**, **FastVLM 0.5B**
+(desktop), and the community models **Qwen2-VL 2B**, **SmolVLM2 500M**, and
+**LLaVA-OneVision 0.5B** (Android, iOS, Desktop). Gemma 4 / Gemma3n vision runs on
+all four platforms (Android, iOS, Web, Desktop) — verified on macOS Metal and
+Linux Vulkan.
 
 ### Enabling vision
 
@@ -95,7 +97,7 @@ matrix.
 
 ## Troubleshooting multimodal
 
-- Ensure you're using a multimodal model (Gemma 4, Gemma3n E2B/E4B, FastVLM).
+- Ensure you're using a multimodal model (Gemma 4, Gemma3n E2B/E4B, FastVLM, Qwen2-VL, SmolVLM2, LLaVA-OneVision).
 - Set `supportImage: true` when creating the model (and `supportAudio: true` for audio).
 - Check device memory — multimodal models require more RAM.
 - Use the GPU backend for better performance.

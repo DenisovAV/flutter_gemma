@@ -600,7 +600,9 @@ class _UniversalDownloadScreenState extends State<UniversalDownloadScreen> {
           MaterialPageRoute<void>(
             builder: (context) => ChatScreen(
               model: widget.model as Model,
-              selectedBackend: widget.selectedBackend ?? PreferredBackend.cpu,
+              selectedBackend:
+                  widget.selectedBackend ??
+                  (widget.model as Model).preferredBackend,
             ),
           ),
         );

@@ -63,6 +63,12 @@ jobs:
           cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
           cp /tmp/libStreamProxy.so artifacts/
           cp /tmp/LiteRT-LM/prebuilt/linux_x86_64/*.so artifacts/ 2>/dev/null || true
+          # v0.14.0 Dawn split — libLiteRtWebGpuAccelerator.so now hard-links the
+          # separate libwebgpu_dawn.so. Set $ORIGIN rpath so each lib resolves its
+          # flat-layout siblings from its own directory at dlopen time.
+          sudo apt-get update -qq && sudo apt-get install -y -qq patchelf
+          chmod u+w artifacts/*.so   # git-lfs prebuilt .so are read-only; patchelf edits in place
+          for f in artifacts/*.so; do patchelf --set-rpath '$ORIGIN' "$f"; done
           ls -lh artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -111,6 +117,12 @@ jobs:
           cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
           cp /tmp/libStreamProxy.so artifacts/
           cp /tmp/LiteRT-LM/prebuilt/linux_arm64/*.so artifacts/ 2>/dev/null || true
+          # v0.14.0 Dawn split — libLiteRtWebGpuAccelerator.so now hard-links the
+          # separate libwebgpu_dawn.so. Set $ORIGIN rpath so each lib resolves its
+          # flat-layout siblings from its own directory at dlopen time.
+          sudo apt-get update -qq && sudo apt-get install -y -qq patchelf
+          chmod u+w artifacts/*.so   # git-lfs prebuilt .so are read-only; patchelf edits in place
+          for f in artifacts/*.so; do patchelf --set-rpath '$ORIGIN' "$f"; done
           ls -lh artifacts/
 
       - uses: actions/upload-artifact@v4
@@ -193,7 +205,7 @@ jobs:
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
-          foreach ($base in @('libGemmaModelConstraintProvider','libLiteRt','libLiteRtTopKWebGpuSampler','libLiteRtWebGpuAccelerator')) {
+          foreach ($base in @('libGemmaModelConstraintProvider','libLiteRt','libLiteRtTopKWebGpuSampler','libLiteRtWebGpuAccelerator','libwebgpu_dawn')) {
             $src = "$prebuilt\$base.dll"
             if (Test-Path $src) {
               # Keep original name for PE imports

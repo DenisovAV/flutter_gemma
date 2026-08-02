@@ -61,10 +61,10 @@ packages:
     dependency: transitive
     description:
       name: background_downloader
-      sha256: aceacec2b2a72ec3a8862ab5895fcbbc71ab33765f3619d57963f3110dd268e3
+      sha256: d27fcaf94f738032f1e6db098230799bf31ae7bf184f173fc9a752fcdae75c0e
       url: "https://pub.dev"
     source: hosted
-    version: "9.5.5"
+    version: "9.5.6"
   boolean_selector:
     dependency: transitive
     description:

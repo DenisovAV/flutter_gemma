@@ -1,6 +1,6 @@
 ---
 title: Thinking Mode
-description: View the reasoning process of DeepSeek, Gemma 4, and Qwen3 models with thinking blocks.
+description: View the reasoning process of DeepSeek, Gemma 4, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models with thinking blocks.
 image: https://fluttergemma.dev/images/og-image.png
 ---
 
@@ -13,6 +13,8 @@ answer.
 - **Gemma 4** (E2B, E4B)
 - **DeepSeek R1**
 - **Qwen3 0.6B** — generates thinking by default; tags are stripped when `isThinking: false`.
+- **SmolLM3 3B** — multilingual small LLM with a reasoning mode.
+- **Phi-4 Mini Reasoning** — Phi-4 Mini tuned for step-by-step reasoning.
 
 Enable it with `isThinking: true` on the matching `ModelType`.
 

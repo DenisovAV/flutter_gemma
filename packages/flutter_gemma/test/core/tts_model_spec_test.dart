@@ -94,6 +94,27 @@ void main() {
     expect(configFile.prefsKey, 'config.json');
   });
 
+  test('restore-safe: reconstructing from FileSource paths whose basenames are '
+      'ALREADY namespaced (as MobileModelManager._restoreActiveTtsModel does '
+      "on relaunch) must not re-namespace .filename, and must denamespace "
+      ".prefsKey back to the plain manifest name", () {
+    final spec = TtsModelSpec.fromManifest(
+      name: 'matcha',
+      ttsModelType: TtsModelType.matcha,
+      sourceFor: (fn) =>
+          FileSource('/docs/${FileNameUtils.namespaced('matcha', fn)}'),
+    );
+    final configFile = spec.files.firstWhere(
+      (f) => f.prefsKey == 'config.json',
+    );
+    // No double-prefix (matcha__matcha__config.json).
+    expect(configFile.filename, 'matcha__config.json');
+    // prefsKey stays plain so flutter_gemma_speech's
+    // paths[profile.configFile] lookup (keyed by 'config.json') still
+    // resolves — this is the regression guard for the restore path.
+    expect(configFile.prefsKey, 'config.json');
+  });
+
   test('two different ttsModelTypes namespace the same generic basename '
       'distinctly (the latent config.json/emb.bin collision)', () {
     final matcha = TtsModelSpec.fromManifest(

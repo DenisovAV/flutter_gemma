@@ -17,6 +17,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
+    show MobileModelManager;
 
 // FileSourceHandler enforces a minimum size per extension (1MB for model
 // files, 1KB for small/config extensions like .json) to catch truncated
@@ -176,6 +178,39 @@ void main() {
       );
       expect(File(path.join(storageDir, 'config.json')).existsSync(), isFalse);
     });
+  });
+
+  group('Task 5: restore-on-launch reads the namespaced identity', () {
+    test(
+      'MobileModelManager restores the active TTS model with the correct '
+      'namespaced filenames after install (simulating an app relaunch)',
+      () async {
+        final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
+        await ServiceRegistry.initialize(downloadService: fixtureDownload);
+
+        await FlutterGemma.installTts()
+            .fromNetwork('https://example.com/matcha/')
+            .ofType(TtsModelType.matcha)
+            .install();
+
+        // A fresh manager instance has never restored anything yet — this
+        // exercises _restoreActiveTtsModel from a cold start, exactly like
+        // a real app relaunch.
+        final freshManager = MobileModelManager();
+        await freshManager.initialize();
+
+        final restored = freshManager.activeTtsModel;
+        expect(restored, isNotNull);
+        expect(restored!.type, ModelManagementType.tts);
+        // The restored spec's OWN .files getter must reproduce the SAME
+        // namespaced filenames as install time — no double-prefix
+        // (matcha__matcha__config.json) and no missing prefix (config.json).
+        final configFile = restored.files.firstWhere(
+          (f) => f.prefsKey == 'config.json',
+        );
+        expect(configFile.filename, 'matcha__config.json');
+      },
+    );
   });
 }
 

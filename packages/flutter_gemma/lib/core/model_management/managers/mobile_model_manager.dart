@@ -290,7 +290,12 @@ class MobileModelManager extends ModelFileManager {
 
   /// Mirror of [_restoreActiveSttModel] for TTS. The bundle files are
   /// re-derived from [TtsModelType.manifest]; each is resolved to its local
-  /// path and required to exist.
+  /// path (namespaced by [FileNameUtils.namespaced] — TTS restore does not
+  /// persist per-file filenames the way Inference/Embedding/STT do, since
+  /// _persistActiveTtsIdentity only stores `name` + `ttsModelType`, so the
+  /// namespaced on-disk filename must be re-derived here, matching exactly
+  /// what TtsBundleFile.fromSource computes at install time) and required
+  /// to exist.
   Future<void> _restoreActiveTtsModel() async {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(PreferencesKeys.activeTtsName);
@@ -310,10 +315,11 @@ class MobileModelManager extends ModelFileManager {
     final fs = ServiceRegistry.instance.fileSystemService;
     final paths = <String, String>{};
     for (final fn in ttsModelType.manifest) {
-      final p = await fs.getTargetPath(fn);
+      final namespacedFn = FileNameUtils.namespaced(ttsModelType.name, fn);
+      final p = await fs.getTargetPath(namespacedFn);
       if (!File(p).existsSync()) {
         gemmaLog(
-          '[ModelManager] active TTS restore: file missing ($fn) — skipping',
+          '[ModelManager] active TTS restore: file missing ($namespacedFn) — skipping',
         );
         return;
       }

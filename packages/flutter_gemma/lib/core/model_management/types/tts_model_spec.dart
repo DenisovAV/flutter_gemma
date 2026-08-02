@@ -49,11 +49,26 @@ class TtsBundleFile extends ModelFile {
 
   /// Creates TtsBundleFile from ModelSource, namespaced by [modelId] — in
   /// practice the owning [TtsModelType]'s name (matcha/kokoro/supertonic).
+  ///
+  /// The source's extracted basename is NOT restore-safe by itself:
+  /// `MobileModelManager._restoreActiveTtsModel` reconstructs the spec from
+  /// a `FileSource` whose path basename is already the NAMESPACED on-disk
+  /// name (`matcha__config.json`), so the extracted basename may be plain
+  /// (fresh install, e.g. NetworkSource) OR already namespaced (restore).
+  /// Denamespacing here — symmetric to `FileNameUtils.namespaced`'s
+  /// idempotent ADD — keeps `_plainFilename` (and therefore [prefsKey])
+  /// ALWAYS the plain manifest basename either way, so
+  /// `flutter_gemma_speech`'s `paths[profile.configFile]` lookup (keyed by
+  /// the plain name) never breaks on restore.
   factory TtsBundleFile.fromSource(
     ModelSource source, {
     required String modelId,
   }) {
-    final plain = InferenceModelFile._extractFilenameFromSource(source);
+    final extracted = InferenceModelFile._extractFilenameFromSource(source);
+    final prefix = '${modelId}__';
+    final plain = extracted.startsWith(prefix)
+        ? extracted.substring(prefix.length)
+        : extracted;
     final filename = FileNameUtils.namespaced(modelId, plain);
     return TtsBundleFile(
       source: source,

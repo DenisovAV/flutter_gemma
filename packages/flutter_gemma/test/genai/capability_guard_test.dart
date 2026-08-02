@@ -42,6 +42,36 @@ void main() {
     );
   });
 
+  test('a tool call on a non-function-call chat throws', () {
+    // The guard's third branch (named for tools) — an unguarded tool call/result
+    // would be silently dropped by an engine built without function support.
+    final msgs = [Message.toolCall(text: '{"name":"calc","parameters":{}}')];
+    expect(
+      () => assertMessagesFitChat(
+        msgs,
+        supportImage: true,
+        supportAudio: true,
+        supportsFunctionCalls: false,
+      ),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
+
+  test('a tool response on a non-function-call chat throws', () {
+    final msgs = [
+      Message.toolResponse(toolName: 'calc', response: {'v': 7}),
+    ];
+    expect(
+      () => assertMessagesFitChat(
+        msgs,
+        supportImage: true,
+        supportAudio: true,
+        supportsFunctionCalls: false,
+      ),
+      throwsA(isA<UnsupportedError>()),
+    );
+  });
+
   test('capable chat passes', () {
     final msgs = [Message(text: 'x', isUser: true)];
     assertMessagesFitChat(

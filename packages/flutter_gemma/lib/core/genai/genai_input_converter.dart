@@ -92,6 +92,16 @@ Future<List<Message>> messagesFromChatMessage(ChatMessage message) async {
       ),
     );
   }
+  // A user turn that reduces to zero staged Messages (e.g. a lone empty
+  // TextPart) would otherwise stage nothing and generate on stale context —
+  // fail loud instead. A model turn legitimately reduces to [] (a thought-only
+  // turn strips its ThinkingPart), so only guard user input.
+  if (isUser && messages.isEmpty) {
+    throw ArgumentError(
+      'ChatMessage reduced to no staged content — a user turn needs text, '
+      'media, or a tool result.',
+    );
+  }
   return messages;
 }
 

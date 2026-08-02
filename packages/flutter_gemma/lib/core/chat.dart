@@ -8,7 +8,6 @@ import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/parsing/sdk_response_parser.dart';
 import 'package:flutter_gemma/core/tool.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
-import 'package:meta/meta.dart' show internal;
 import 'package:mutex/mutex.dart';
 
 import 'model.dart';

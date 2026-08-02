@@ -24,6 +24,23 @@ void main() {
     expect(tp.toolName, 'calc');
   });
 
+  test('ParallelFunctionCallResponse chunk → one ToolPart.call per call', () {
+    // A Gemma 4 parallel-call turn must not collapse to the first call — every
+    // call maps to its own ToolPart.call, in order.
+    final m = chatMessageFromChunk(
+      const ParallelFunctionCallResponse(
+        calls: [
+          FunctionCallResponse(name: 'f', args: {'a': 1}),
+          FunctionCallResponse(name: 'g', args: {'b': 2}),
+        ],
+      ),
+    );
+    final calls = m.parts.whereType<ToolPart>().toList();
+    expect(calls, hasLength(2));
+    expect(calls.map((t) => t.toolName), ['f', 'g']);
+    expect(calls.every((t) => t.kind == ToolPartKind.call), isTrue);
+  });
+
   test('coalesced: thinking + text order', () {
     final m = chatMessageFromParts(text: 'answer', thinking: 'think');
     expect(m.parts.first, isA<ThinkingPart>());

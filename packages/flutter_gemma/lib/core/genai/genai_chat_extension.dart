@@ -150,18 +150,23 @@ extension GenAiChat on InferenceChat {
           }
           generating = true;
           sub = generateChatResponseAsync().listen(
-            (r) {
+            (r) async {
               // A throw in the mapping would escape to the Zone and never
-              // release the lock — funnel it into the same cleanup.
+              // release the lock — funnel it through the SAME awaited teardown
+              // as onError (forward → cancel → stop → release → close). Ordering
+              // matters: releasing before stopGeneration() settles could let a
+              // stray native stop overlap the next turn's staging (the class of
+              // the original onCancel double-fire). chatMessageFromChunk is a
+              // total switch today, so this is defensive — but kept symmetric so
+              // a future throwing mapper can't regress into that overlap.
               try {
                 controller.add(chatMessageFromChunk(r));
               } catch (e, s) {
                 controller.addError(e, s);
-                sub?.cancel();
-                stopSafely().whenComplete(() {
-                  release();
-                  controller.close();
-                });
+                await sub?.cancel();
+                await stopSafely();
+                release();
+                await controller.close();
               }
             },
             onError: (Object e, StackTrace s) async {

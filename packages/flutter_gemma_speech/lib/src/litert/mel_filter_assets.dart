@@ -13,6 +13,7 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'mel_filters/nemo_mel_80.g.dart';
 import 'mel_filters/whisper_mel_80.g.dart';
 
 /// Resolve a bundled mel filterbank matrix by [assetName] (the value of
@@ -23,6 +24,8 @@ Float32List loadMelFilterAsset(String assetName) {
   switch (assetName) {
     case 'whisper_mel_80':
       return base64Decode(whisperMel80Base64).buffer.asFloat32List();
+    case 'nemo_mel_80':
+      return base64Decode(nemoMel80Base64).buffer.asFloat32List();
     default:
       throw StateError('loadMelFilterAsset: unknown asset "$assetName"');
   }

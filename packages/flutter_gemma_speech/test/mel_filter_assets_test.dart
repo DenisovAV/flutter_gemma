@@ -25,4 +25,15 @@ void main() {
       ),
     );
   });
+
+  test('loadMelFilterAsset("nemo_mel_80") returns an [80,257] matrix', () {
+    final m = loadMelFilterAsset('nemo_mel_80');
+    expect(m.length, 80 * 257);
+    // Mel filterbank weights are non-negative triangular weights; a
+    // structural sanity check (not a numeric golden — that's Task 1.3's
+    // end-to-end computeNemoLogMel golden, which validates the
+    // STFT+matmul+log+norm pipeline against a Python reference).
+    expect(m.any((v) => v > 0), isTrue);
+    expect(m.every((v) => v >= 0), isTrue);
+  });
 }

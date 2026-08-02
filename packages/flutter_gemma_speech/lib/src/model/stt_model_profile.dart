@@ -156,6 +156,36 @@ class SttModelProfile {
       decoderMaskConvention = SttDecoderMaskConvention.causal,
       blankId = null;
 
+  /// parakeet-ctc-0.6b: NeMo log-mel in (5 s window, frame-first), single-
+  /// pass greedy CTC decode (no decoder subgraph). Verified end-to-end in
+  /// docs/superpowers/notes/parakeet-ctc-spike-findings.md (Python oracle +
+  /// on-device Dart, byte-identical). Desktop-only (2.35 GB f32) -- the
+  /// example catalog gates it accordingly (a documentation note, not a
+  /// runtime check -- see stt_model.dart).
+  const SttModelProfile.parakeet()
+    : inputType = SttInputType.logMel,
+      sampleRate = 16000,
+      windowSamples = 80000, // 5 s @ 16 kHz
+      nMels = 80,
+      nFft = 512,
+      hopLength = 160,
+      melFrames = 500,
+      winLength = 400,
+      preemphasis = 0.97,
+      melAxisOrder = SttMelAxisOrder.frameFirst,
+      melNormalization = SttMelNormalization.nemo,
+      melFilterAsset = 'nemo_mel_80',
+      decodeType = SttDecodeType.ctc,
+      maxDecodeTokens = 0, // unused by ctc -- no per-step decode loop
+      modes = const {SttMode.batch},
+      decoderPromptTokens = const [], // ctc has no seed prompt
+      eosToken = null, // ctc has no stop token -- single-pass, not a loop
+      suppressTokens = null, // no logit suppression
+      tokenizerKind = SttTokenizerKind.parakeetBpe,
+      // unused by ctc (no per-step decode loop reads this).
+      decoderMaskConvention = SttDecoderMaskConvention.paddingOnly,
+      blankId = 1024;
+
   /// How audio is fed to the encoder.
   final SttInputType inputType;
 
@@ -238,13 +268,10 @@ class SttModelProfile {
   /// True if this model can drive a streaming (incremental) transcription.
   bool get supportsStreaming => modes.contains(SttMode.streaming);
 
-  /// Resolve the runtime profile for [t]. `parakeet` needs CTC decode and
-  /// is a documented follow-on (see the design spec's "Out of scope").
+  /// Resolve the runtime profile for [t].
   factory SttModelProfile.forType(SttModelType t) => switch (t) {
     SttModelType.moonshine => const SttModelProfile.moonshine(),
     SttModelType.whisper => const SttModelProfile.whisper(),
-    SttModelType.parakeet => throw UnimplementedError(
-      'STT profile for $t is a follow-on (needs CTC decode; see the design spec)',
-    ),
+    SttModelType.parakeet => const SttModelProfile.parakeet(),
   };
 }

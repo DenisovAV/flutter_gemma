@@ -86,6 +86,35 @@ void main() {
     });
   });
 
+  group('SttModelProfile.parakeet', () {
+    test('carries the verified NeMo I/O contract values', () {
+      const p = SttModelProfile.parakeet();
+      expect(p.inputType, SttInputType.logMel);
+      expect(p.sampleRate, 16000);
+      expect(p.windowSamples, 80000);
+      expect(p.nMels, 80);
+      expect(p.nFft, 512);
+      expect(p.hopLength, 160);
+      expect(p.melFrames, 500);
+      expect(p.winLength, 400);
+      expect(p.preemphasis, 0.97);
+      expect(p.melAxisOrder, SttMelAxisOrder.frameFirst);
+      expect(p.melNormalization, SttMelNormalization.nemo);
+      expect(p.melFilterAsset, 'nemo_mel_80');
+      expect(p.decodeType, SttDecodeType.ctc);
+      expect(p.modes, {SttMode.batch});
+      expect(p.tokenizerKind, SttTokenizerKind.parakeetBpe);
+      expect(p.blankId, 1024);
+    });
+
+    test('no seed prompt, no eos, no suppression (ctc is single-pass)', () {
+      const p = SttModelProfile.parakeet();
+      expect(p.decoderPromptTokens, isEmpty);
+      expect(p.eosToken, isNull);
+      expect(p.suppressTokens, isNull);
+    });
+  });
+
   group('SttModelProfile.forType', () {
     test('moonshine', () {
       expect(
@@ -100,11 +129,10 @@ void main() {
       expect(profile.tokenizerKind, SttTokenizerKind.gpt2ByteLevelBpe);
     });
 
-    test('parakeet is a documented follow-on (throws)', () {
-      expect(
-        () => SttModelProfile.forType(SttModelType.parakeet),
-        throwsUnimplementedError,
-      );
+    test('parakeet resolves to the ctc log-mel profile (no longer throws)', () {
+      final profile = SttModelProfile.forType(SttModelType.parakeet);
+      expect(profile.decodeType, SttDecodeType.ctc);
+      expect(profile.tokenizerKind, SttTokenizerKind.parakeetBpe);
     });
   });
 }

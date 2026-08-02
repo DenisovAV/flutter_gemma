@@ -68,10 +68,14 @@ void main() {
 
     test('builtIn install with LoRA throws ArgumentError', () async {
       expect(
-        () => FlutterGemma.installModel(
-          modelType: ModelType.general,
-          fileType: ModelFileType.builtIn,
-        ).fromBundled('gemini-nano').withLora(ModelSource.file('/tmp/l.bin')).install(),
+        () =>
+            FlutterGemma.installModel(
+                  modelType: ModelType.general,
+                  fileType: ModelFileType.builtIn,
+                )
+                .fromBundled('gemini-nano')
+                .withLora(ModelSource.file('/tmp/l.bin'))
+                .install(),
         throwsArgumentError,
       );
     });

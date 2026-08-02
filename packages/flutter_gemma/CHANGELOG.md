@@ -1,3 +1,7 @@
+## 1.5.0
+- Add genai_primitives support via `package:flutter_gemma/genai.dart` — use `ChatMessage` with `InferenceChat` (#181).
+- New `sendMessage`/`generateContent` (+ streams) covering text, vision, audio, thinking, and tool calls (#181).
+
 ## 1.4.2
 - docs: document the on-device voice loop (VoiceSession, STT → LLM → TTS) shipped in flutter_gemma_speech 0.3.0.
 

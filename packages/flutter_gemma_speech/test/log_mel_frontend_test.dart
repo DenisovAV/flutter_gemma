@@ -241,4 +241,55 @@ void main() {
       expect(frames[0][100], isNot(0.0));
     });
   });
+
+  group('computeNemoLogMel (golden vs Python NeMo-recipe reference)', () {
+    test(
+      'matches the Python reference within tolerance for a 1s 440Hz tone',
+      () {
+        final fixtureText = File(
+          'test/fixtures/nemo_log_mel_golden_1s_440hz.json',
+        ).readAsStringSync();
+        final fixture = jsonDecode(fixtureText) as Map<String, dynamic>;
+        final sampleRate = fixture['sampleRate'] as int;
+        final n = fixture['samples'] as int;
+        final toneHz = (fixture['toneHz'] as num).toDouble();
+        final amplitude = (fixture['toneAmplitude'] as num).toDouble();
+        final expected = (fixture['frameFirstFlat'] as List)
+            .map((v) => (v as num).toDouble())
+            .toList();
+
+        final pcm = Float32List(n);
+        for (var i = 0; i < n; i++) {
+          pcm[i] = amplitude * math.sin(2 * math.pi * toneHz * i / sampleRate);
+        }
+
+        final melFilters = loadMelFilterAsset('nemo_mel_80');
+        final actual = computeNemoLogMel(
+          pcm,
+          nFft: fixture['nFft'] as int,
+          winLength: fixture['winLength'] as int,
+          hopLength: fixture['hopLength'] as int,
+          preemphasis: (fixture['preemphasis'] as num).toDouble(),
+          nMels: fixture['nMels'] as int,
+          melFrames: fixture['melFrames'] as int,
+          melFilters: melFilters,
+        );
+
+        expect(actual.length, expected.length);
+        var maxAbsDiff = 0.0;
+        for (var i = 0; i < actual.length; i++) {
+          final diff = (actual[i] - expected[i]).abs();
+          if (diff > maxAbsDiff) maxAbsDiff = diff;
+        }
+        // Direct DFT (Dart) vs numpy's FFT (Python reference) + float32 vs
+        // float64 accumulation over 257 bins/mel, then divided by a per-bin std
+        // in the z-score step (which can amplify small numerator differences
+        // when std is small) -- 5e-2 is generous enough to tolerate
+        // implementation-level float noise while still catching a genuinely
+        // wrong STFT/filterbank/preemphasis/log/normalization (which would be
+        // off by >> 5e-2, given the z-scored range here is roughly [-10,10]).
+        expect(maxAbsDiff, lessThan(5e-2), reason: 'max abs diff: $maxAbsDiff');
+      },
+    );
+  });
 }

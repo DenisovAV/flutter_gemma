@@ -219,5 +219,90 @@ List<Float32List> nemoStftFrames(
   return frames;
 }
 
+/// Full NeMo/parakeet log-mel pipeline: preemphasis -> centered-window STFT
+/// (via [nemoStftFrames]) -> power spectrum -> Slaney mel filterbank matmul
+/// -> natural log (`ln(mel + 2^-24)`) -> FULL-WINDOW per-mel-bin z-score
+/// (mean/std computed over ALL [melFrames], including any silence padding
+/// -- NOT masked to the valid-audio length; see the design spec's Risk #5.
+/// The masked/valid-length variant is a documented follow-on). Returns
+/// row-major `[melFrames, nMels]` (FRAME-FIRST -- opposite layout from
+/// [computeLogMelSpectrogram]'s melFirst, per parakeet's `[1,500,80]`
+/// encoder input contract).
+Float32List computeNemoLogMel(
+  Float32List paddedPcm, {
+  required int nFft,
+  required int winLength,
+  required int hopLength,
+  required double preemphasis,
+  required int nMels,
+  required int melFrames,
+  required Float32List melFilters,
+}) {
+  final nBins = nFft ~/ 2 + 1;
+  final pre = applyPreemphasis(paddedPcm, preemphasis);
+  final centeredWindow = centerWindowInBuffer(
+    hannWindowSymmetric(winLength),
+    nFft,
+  );
+  final frames = nemoStftFrames(
+    pre,
+    nFft: nFft,
+    hopLength: hopLength,
+    melFrames: melFrames,
+    centeredWindow: centeredWindow,
+  );
+
+  final mel = Float32List(melFrames * nMels); // [frame, mel] (frameFirst)
+  for (var f = 0; f < melFrames; f++) {
+    final power = powerSpectrum(frames[f], nFft);
+    for (var m = 0; m < nMels; m++) {
+      final filterBase = m * nBins;
+      var sum = 0.0;
+      for (var b = 0; b < nBins; b++) {
+        sum += melFilters[filterBase + b] * power[b];
+      }
+      mel[f * nMels + m] = sum;
+    }
+  }
+
+  const logZeroGuard = 1.0 / 16777216.0; // 2^-24, NeMo's log_zero_guard_value
+  final logMel = Float32List(mel.length);
+  for (var i = 0; i < mel.length; i++) {
+    logMel[i] = math.log(mel[i] + logZeroGuard);
+  }
+
+  // Full-window per-mel-bin z-score: mean/std over ALL melFrames (including
+  // silence padding), population std (ddof=0), floored at 1e-5.
+  final mean = Float64List(nMels);
+  for (var f = 0; f < melFrames; f++) {
+    for (var m = 0; m < nMels; m++) {
+      mean[m] += logMel[f * nMels + m];
+    }
+  }
+  for (var m = 0; m < nMels; m++) {
+    mean[m] /= melFrames;
+  }
+  final std = Float64List(nMels);
+  for (var f = 0; f < melFrames; f++) {
+    for (var m = 0; m < nMels; m++) {
+      final d = logMel[f * nMels + m] - mean[m];
+      std[m] += d * d;
+    }
+  }
+  for (var m = 0; m < nMels; m++) {
+    final s = math.sqrt(std[m] / melFrames);
+    std[m] = s < 1e-5 ? 1e-5 : s;
+  }
+
+  final normalized = Float32List(mel.length);
+  for (var f = 0; f < melFrames; f++) {
+    for (var m = 0; m < nMels; m++) {
+      final idx = f * nMels + m;
+      normalized[idx] = (logMel[idx] - mean[m]) / std[m];
+    }
+  }
+  return normalized;
+}
+
 /// How a profile's log-mel output is normalized (see [computeLogMelSpectrogram]).
-enum SttMelNormalization { none, whisper }
+enum SttMelNormalization { none, whisper, nemo }

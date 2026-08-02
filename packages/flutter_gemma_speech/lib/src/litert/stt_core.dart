@@ -42,7 +42,7 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../model/stt_model_profile.dart';
-import '../tokenizer/hf_tokenizer.dart';
+import '../tokenizer/sentence_piece_tokenizer.dart';
 
 /// Decoder start token (`<s>`), verified working on the first try — see the
 /// recipe's "Mask convention that worked" section.
@@ -127,7 +127,7 @@ class SttCore {
   final LiteRtModel _model;
   final LiteRtOptions _options;
   final LiteRtCompiledModel _compiledModel;
-  final HfTokenizer _tokenizer;
+  final SentencePieceTokenizer _tokenizer;
   final SttModelProfile _profile;
 
   bool _disposed = false;
@@ -149,7 +149,7 @@ class SttCore {
     }
 
     final bindings = LiteRtBindings.open();
-    final tokenizer = await HfTokenizer.fromFile(tokenizerPath);
+    final tokenizer = await SentencePieceTokenizer.fromFile(tokenizerPath);
 
     // Track native handles as they are created so a failure partway through
     // frees everything already allocated instead of leaking it — the LiteRT
@@ -226,7 +226,7 @@ class SttCore {
     final hidden = _encode(windowed);
     try {
       final ids = _decodeLoop(hidden);
-      return _tokenizer.detokenize(ids);
+      return _tokenizer.decode(ids);
     } finally {
       calloc.free(hidden.alloc.raw);
     }

@@ -10,9 +10,14 @@ import 'package:flutter_gemma/flutter_gemma.dart' show SttModelType;
 /// the log-mel families), not a new screen or a new backend/recognizer class.
 ///
 /// [moonshineTiny] (raw PCM) and [whisperTiny] (log-mel frontend, English-only)
-/// have shipped `SttModelProfile`s. [parakeetCtc] is listed for completeness
-/// but [isSupported] is false: it needs a CTC decode path that hasn't landed
-/// yet (a documented follow-on; it reuses whisper's log-mel frontend).
+/// have shipped `SttModelProfile`s. [moonshineTinyInt8], [whisperTinyInt8]
+/// and [whisperBaseInt8] reuse those same profiles (zero engine code — the
+/// SttModelType selects the profile, not the quantization); [isSupported]
+/// on each int8 entry reflects on-device verification of int8 op-coverage
+/// on the f32-proven `SttCore` path (see `stt_int8_test.dart`).
+/// [parakeetCtc] is listed for completeness but [isSupported] is false: it
+/// needs a CTC decode path that hasn't landed yet (a documented follow-on;
+/// it reuses whisper's log-mel frontend).
 enum SttModel {
   moonshineTiny(
     modelUrl:
@@ -49,6 +54,47 @@ enum SttModel {
     needsAuth: false,
     isSupported: false,
     unsupportedReason: 'Needs a CTC decode path (follow-on, not shipped yet)',
+  ),
+
+  moonshineTinyInt8(
+    modelUrl:
+        'https://huggingface.co/litert-community/moonshine-tiny/resolve/main/moonshine_tiny_5s_i8.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/UsefulSensors/moonshine/resolve/main/ctranslate2/tiny/tokenizer.json',
+    displayName: 'Moonshine Tiny (int8)',
+    size: '28MB',
+    sttModelType: SttModelType.moonshine,
+    needsAuth: false,
+    isSupported: false,
+    unsupportedReason:
+        'On-device transcript diverges materially from the f32 baseline '
+        '(produces unrelated content beyond incidental common-word overlap) '
+        '-- looks like int8 accuracy collapse on the raw-PCM profile, not '
+        'yet safe to expose (see stt_int8_test.dart)',
+  ),
+
+  whisperTinyInt8(
+    modelUrl:
+        'https://huggingface.co/litert-community/whisper-tiny/resolve/main/whisper_tiny_30s_i8.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/openai/whisper-tiny/resolve/main/tokenizer.json',
+    displayName: 'Whisper Tiny (int8)',
+    size: '39MB',
+    sttModelType: SttModelType.whisper,
+    needsAuth: false,
+    isSupported: true,
+  ),
+
+  whisperBaseInt8(
+    modelUrl:
+        'https://huggingface.co/litert-community/whisper-base/resolve/main/whisper_base_30s_i8.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/openai/whisper-base/resolve/main/tokenizer.json',
+    displayName: 'Whisper Base (int8)',
+    size: '73MB',
+    sttModelType: SttModelType.whisper,
+    needsAuth: false,
+    isSupported: true,
   );
 
   /// STT model (`.tflite`) download URL.

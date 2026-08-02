@@ -120,6 +120,44 @@ void main() {
       verify(() => mockRepository.saveModel(any())).called(1);
     });
 
+    test(
+      'install honors targetFilename override for write path and ModelInfo.id',
+      () async {
+        final source = NetworkSource('https://example.com/model.bin');
+        const targetPath = '/data/moonshine-tiny__model.bin';
+
+        when(
+          () => mockFileSystem.getWriteTargetPath('moonshine-tiny__model.bin'),
+        ).thenAnswer((_) async => targetPath);
+        when(
+          () => mockDownloadService.download(
+            any(),
+            any(),
+            token: any(named: 'token'),
+            cancelToken: any(named: 'cancelToken'),
+          ),
+        ).thenAnswer((_) async {});
+        when(
+          () => mockFileSystem.getFileSize(targetPath),
+        ).thenAnswer((_) async => 2048);
+        when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+        await handler.install(
+          source,
+          targetFilename: 'moonshine-tiny__model.bin',
+        );
+
+        verify(
+          () => mockFileSystem.getWriteTargetPath('moonshine-tiny__model.bin'),
+        ).called(1);
+        final captured = verify(
+          () => mockRepository.saveModel(captureAny()),
+        ).captured;
+        final savedInfo = captured.single as ModelInfo;
+        expect(savedInfo.id, 'moonshine-tiny__model.bin');
+      },
+    );
+
     test('installWithProgress tracks download progress', () async {
       final source = NetworkSource('https://example.com/model.bin');
       const targetPath = '/data/model.bin';

@@ -31,12 +31,16 @@ class AssetSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is AssetSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }
 
-    final filename = path.basename(source.path);
+    final filename = targetFilename ?? path.basename(source.path);
     // ignore: deprecated_member_use_from_same_package
     final targetPath = await fileSystem.getWriteTargetPath(filename);
 
@@ -84,12 +88,13 @@ class AssetSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
     }
 
-    final filename = path.basename(source.path);
+    final filename = targetFilename ?? path.basename(source.path);
     // ignore: deprecated_member_use_from_same_package
     final targetPath = await fileSystem.getWriteTargetPath(filename);
 

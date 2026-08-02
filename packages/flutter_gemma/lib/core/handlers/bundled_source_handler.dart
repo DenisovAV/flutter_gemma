@@ -13,6 +13,15 @@ import 'package:flutter_gemma/core/services/model_repository.dart';
 /// - Web: /assets/{resourceName}
 /// - No copying required (uses native path directly)
 /// - Single-step progress (resources already available)
+///
+/// NOTE on [targetFilename]: a bundled resource is compiled into the app at
+/// a fixed [BundledSource.resourceName] — this handler cannot rename the
+/// physical asset at runtime. `targetFilename` only namespaces the
+/// repository identity key (`ModelInfo.id`); it does not affect
+/// `getBundledResourcePath`. Bundled companions are not among today's
+/// exposed collisions (network installs are); this closes the repository-key
+/// ambiguity for future bundled companions without claiming to fix an
+/// on-disk collision this handler structurally cannot fix.
 class BundledSourceHandler implements SourceHandler {
   final FileSystemService fileSystem;
   final ModelRepository repository;
@@ -23,7 +32,11 @@ class BundledSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is BundledSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     // Bundled resources are instant, no cancellation needed
     if (source is! BundledSource) {
       throw ArgumentError('BundledSourceHandler only supports BundledSource');
@@ -40,7 +53,7 @@ class BundledSourceHandler implements SourceHandler {
 
     // Save metadata to repository
     final modelInfo = ModelInfo(
-      id: source.resourceName,
+      id: targetFilename ?? source.resourceName,
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
@@ -55,6 +68,7 @@ class BundledSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     // Same as above - bundled resources are instant
     if (source is! BundledSource) {
@@ -74,7 +88,7 @@ class BundledSourceHandler implements SourceHandler {
 
     // Save metadata to repository
     final modelInfo = ModelInfo(
-      id: source.resourceName,
+      id: targetFilename ?? source.resourceName,
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,

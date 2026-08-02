@@ -31,13 +31,25 @@ abstract interface class SourceHandler {
   /// Parameters:
   /// - [source]: The model source to install from
   /// - [cancelToken]: Optional token for cancelling the installation
+  /// - [targetFilename]: Optional override for the installed file's
+  ///   identity (write-target basename, `ModelInfo.id`, and — on web — the
+  ///   registration/cache key). Defaults to null, which reproduces today's
+  ///   behavior: the basename is derived from [source] (URL path segment /
+  ///   asset path / bundled resource name / file path). Passed by the four
+  ///   `*InstallationBuilder`s so a companion file's on-disk identity can be
+  ///   namespaced by its owning model (see
+  ///   `docs/superpowers/specs/2026-08-02-install-identity-namespacing-design.md`).
   ///
   /// Throws:
   /// - [UnsupportedError] if this handler doesn't support the source type
   /// - [ArgumentError] if the source is invalid
   /// - [DownloadCancelledException] if cancelled via cancelToken
   /// - Platform-specific exceptions for download/file errors
-  Future<void> install(ModelSource source, {CancelToken? cancelToken});
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  });
 
   /// Installs the model with progress tracking
   ///
@@ -46,6 +58,7 @@ abstract interface class SourceHandler {
   /// Parameters:
   /// - [source]: The model source to install from
   /// - [cancelToken]: Optional token for cancelling the installation
+  /// - [targetFilename]: See [install].
   ///
   /// Note: Some sources may not support true progress:
   /// - AssetSource: simulates progress (copy is instant)
@@ -75,6 +88,7 @@ abstract interface class SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   });
 
   /// Checks if this source supports resume after interruption

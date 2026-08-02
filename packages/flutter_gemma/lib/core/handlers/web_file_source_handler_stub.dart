@@ -17,7 +17,11 @@ class WebFileSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => false;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) {
     throw UnsupportedError(
       'WebFileSourceHandler is only available on web platform',
     );
@@ -27,6 +31,7 @@ class WebFileSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) {
     throw UnsupportedError(
       'WebFileSourceHandler is only available on web platform',

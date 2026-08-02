@@ -37,7 +37,11 @@ class WebFileSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is FileSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     // Web file registration is instant, no cancellation needed
     if (source is! FileSource) {
       throw ArgumentError('WebFileSourceHandler only supports FileSource');
@@ -47,7 +51,7 @@ class WebFileSourceHandler implements SourceHandler {
     final validatedUrl = _validateAndNormalizePath(source.path);
 
     // Generate filename from path
-    final filename = path.basename(source.path);
+    final filename = targetFilename ?? path.basename(source.path);
 
     // Register URL with WebFileSystemService
     // This allows MediaPipe to look up the URL via getUrl()
@@ -71,6 +75,7 @@ class WebFileSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     // Same as above - web file registration is instant
     if (source is! FileSource) {
@@ -87,7 +92,7 @@ class WebFileSourceHandler implements SourceHandler {
     final validatedUrl = _validateAndNormalizePath(source.path);
 
     // Generate filename from path
-    final filename = path.basename(source.path);
+    final filename = targetFilename ?? path.basename(source.path);
 
     // Register URL with WebFileSystemService
     fileSystem.registerUrl(filename, validatedUrl);

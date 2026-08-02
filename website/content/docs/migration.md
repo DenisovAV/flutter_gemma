@@ -29,7 +29,7 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.4.1                 # core — always required
+  flutter_gemma: ^1.5.0                 # core — always required
   flutter_gemma_litertlm: ^1.3.1        # add if you run .litertlm models
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^1.0.4      # add if you compute embeddings
@@ -116,8 +116,9 @@ await FlutterGemma.installEmbedder()
     .modelFromNetwork(modelUrl, token: token)
     .tokenizerFromNetwork(tokenizerUrl, token: token)
     .install();
-await FlutterGemmaPlugin.instance.addDocument(/* ... */);
-final hits = await FlutterGemmaPlugin.instance.searchSimilar(query, topK: 5);
+await FlutterGemma.rag.initialize('rag_store');
+await FlutterGemma.rag.addDocument(/* ... */);
+final hits = await FlutterGemma.rag.searchSimilar(query: query, topK: 5);
 ```
 
 ## What you'll see if you forget step 2

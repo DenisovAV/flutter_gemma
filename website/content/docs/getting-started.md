@@ -33,6 +33,11 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 - **Text Embeddings & RAG:** Generate vector embeddings (EmbeddingGemma, Gecko) and run on-device RAG. See [Embeddings & RAG](/docs/embeddings-and-rag).
 - **Web Persistent Caching:** Models persist across browser restarts using the Cache API (Web only).
 
+## What's new in 1.5
+
+- **genai_primitives support** — drive an on-device chat with the Flutter team's standard `ChatMessage` types via `package:flutter_gemma/genai.dart` (`sendMessage`/`generateContent` + streams, covering text, vision, audio, thinking, and tool calls). See [genai_primitives](/docs/genai).
+- **`FlutterGemma` is the one canonical entry point.** RAG moved onto the `FlutterGemma.rag.*` namespace (`initialize`/`addDocument`/`addDocumentWithEmbedding`/`searchSimilar`/`removeDocument`/`stats`/`clear`), and the facade gained model introspection (`activeModelSpec`/`activeEmbedderSpec`/`activeSttSpec`/`activeTtsSpec`, `getModelPath`), storage helpers (`getStorageInfo`/`getOrphanedFiles`/`cleanupStorage`/`performCleanup`), and per-modality uninstallers (`uninstallEmbedder`/`uninstallStt`/`uninstallTts`). `FlutterGemmaPlugin.instance` is now a documented low-level SPI tier — app code shouldn't need it.
+
 ## What's new in 1.0
 
 - **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`. See [Packages](/docs/packages).
@@ -176,9 +181,20 @@ If you only ever have one conversation at a time, stick with the simpler
 
 ## Managing Installed Models
 
-Use `uninstallModel()` to delete a model's files and metadata. When you remove
-the model that is currently **active**, also clear its persisted identity so it
-isn't auto-restored on the next app launch:
+### Uninstalling
+
+For the **active** embedder / STT / TTS model, one call deletes every file it
+owns (e.g. an embedder's model *and* tokenizer) and clears its persisted
+identity so it isn't auto-restored on the next launch:
+
+```dart
+await FlutterGemma.uninstallEmbedder(); // deletes model + tokenizer, clears identity
+await FlutterGemma.uninstallStt();
+await FlutterGemma.uninstallTts();
+```
+
+To delete an inference model, or any model by filename, use `uninstallModel()`
+and clear the active inference identity if you removed the active one:
 
 ```dart
 // Free in-memory handles first if the model is loaded.
@@ -189,17 +205,41 @@ await FlutterGemma.uninstallModel('Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.lit
 
 // Clear the persisted "active model" identity so it isn't auto-restored.
 await FlutterGemma.clearActiveInferenceIdentity();
-
-// For an embedder, pair uninstallModel() with:
-await FlutterGemma.clearActiveEmbeddingIdentity();
 ```
 
 <Info>
-`clearActiveInferenceIdentity()` / `clearActiveEmbeddingIdentity()` wipe both the
-in-memory active spec and the persisted preference. Pair them with
-`uninstallModel()` only when the deleted model was the active one — otherwise it
-would be restored as active on the next launch.
+`clearActiveInferenceIdentity()` wipes both the in-memory active spec and the
+persisted preference. Pair it with `uninstallModel()` only when the deleted model
+was the active one. The `uninstallEmbedder/Stt/Tts` helpers already clear the
+identity for you.
 </Info>
+
+### Inspecting what's active
+
+Cheap, synchronous getters return the active model's **identity** (its spec)
+without loading the engine — use these to render UI, not `getActiveModel()`
+(which loads the runtime). Each is typed to its modality:
+
+```dart
+final InferenceModelSpec? model = FlutterGemma.activeModelSpec;
+final EmbeddingModelSpec? embedder = FlutterGemma.activeEmbedderSpec;
+final SttModelSpec? stt = FlutterGemma.activeSttSpec;
+final TtsModelSpec? tts = FlutterGemma.activeTtsSpec;
+
+// Absolute on-device path of an installed file (a URL/OPFS handle on web):
+final path = await FlutterGemma.getModelPath('Gemma3-1B-IT_..._ekv4096.litertlm');
+```
+
+### Storage & cleanup
+
+Inspect on-device usage and reclaim space left by interrupted downloads:
+
+```dart
+final info = await FlutterGemma.getStorageInfo();      // StorageStats: files + bytes
+final orphans = await FlutterGemma.getOrphanedFiles();  // fragments with no metadata
+final removed = await FlutterGemma.cleanupStorage();    // delete orphans, returns count
+await FlutterGemma.performCleanup();                    // cancel stale tasks + sweep
+```
 
 ## Message Types
 

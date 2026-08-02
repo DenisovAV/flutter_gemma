@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -50,7 +51,7 @@ void main() {
       ttsModelType: TtsModelType.matcha,
       sourceFor: (fn) => ModelSource.network('https://x/$fn'),
     );
-    final byName = {for (final f in spec.files) f.filename: f};
+    final byName = {for (final f in spec.files) f.prefsKey: f};
 
     expect(byName['emb.bin']!.minimumSizeBytes, 1024);
     expect(byName['g2p_dict.txt.gz']!.minimumSizeBytes, 1024);
@@ -77,5 +78,40 @@ void main() {
     );
     expect(a, equals(b));
     expect(a.hashCode, b.hashCode);
+  });
+
+  test('filename is namespaced by ttsModelType; prefsKey stays the plain '
+      'manifest name (flutter_gemma_speech TtsModelProfile contract)', () {
+    final spec = TtsModelSpec.fromManifest(
+      name: 'matcha',
+      ttsModelType: TtsModelType.matcha,
+      sourceFor: (fn) => ModelSource.network('https://x/$fn'),
+    );
+    final configFile = spec.files.firstWhere(
+      (f) => f.prefsKey == 'config.json',
+    );
+    expect(configFile.filename, 'matcha__config.json');
+    expect(configFile.prefsKey, 'config.json');
+  });
+
+  test('two different ttsModelTypes namespace the same generic basename '
+      'distinctly (the latent config.json/emb.bin collision)', () {
+    final matcha = TtsModelSpec.fromManifest(
+      name: 'matcha',
+      ttsModelType: TtsModelType.matcha,
+      sourceFor: (fn) => ModelSource.network('https://x/$fn'),
+    );
+    final matchaConfig = matcha.files.firstWhere(
+      (f) => f.prefsKey == 'config.json',
+    );
+    expect(matchaConfig.filename, 'matcha__config.json');
+    // kokoro/supertonic throw from .manifest today (UnimplementedError) —
+    // this asserts the NAMESPACING MECHANISM would disambiguate a
+    // matching filename, using the modelId directly rather than
+    // requiring a wired kokoro manifest.
+    expect(
+      FileNameUtils.namespaced(TtsModelType.kokoro.name, 'config.json'),
+      isNot(equals(matchaConfig.filename)),
+    );
   });
 }

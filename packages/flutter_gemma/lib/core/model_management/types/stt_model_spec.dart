@@ -43,9 +43,17 @@ class SttTokenizerFile extends ModelFile {
     : _source = source,
       _filename = filename;
 
-  /// Creates SttTokenizerFile from ModelSource
-  factory SttTokenizerFile.fromSource(ModelSource source) {
-    final filename = InferenceModelFile._extractFilenameFromSource(source);
+  /// Creates SttTokenizerFile from ModelSource, namespaced by [modelId]
+  /// (the owning SttModelSpec's own model-file basename, without
+  /// extension) — this is what keeps moonshine's, whisper's, and
+  /// parakeet's tokenizers distinct even though all three are literally
+  /// named `tokenizer.json`.
+  factory SttTokenizerFile.fromSource(
+    ModelSource source, {
+    required String modelId,
+  }) {
+    final basename = InferenceModelFile._extractFilenameFromSource(source);
+    final filename = FileNameUtils.namespaced(modelId, basename);
     return SttTokenizerFile(source: source, filename: filename);
   }
 
@@ -97,10 +105,14 @@ class SttModelSpec extends ModelSpec {
   ModelReplacePolicy get replacePolicy => _replacePolicy;
 
   @override
-  List<ModelFile> get files => [
-    SttModelFile.fromSource(_modelSource),
-    SttTokenizerFile.fromSource(_tokenizerSource),
-  ];
+  List<ModelFile> get files {
+    final modelFile = SttModelFile.fromSource(_modelSource);
+    final modelId = FileNameUtils.getBaseName(modelFile.filename);
+    return [
+      modelFile,
+      SttTokenizerFile.fromSource(_tokenizerSource, modelId: modelId),
+    ];
+  }
 
   /// Modern type-safe getters
   ModelSource get modelSource => _modelSource;

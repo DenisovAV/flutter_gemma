@@ -25,25 +25,48 @@ extension TtsModelTypeManifest on TtsModelType {
   };
 }
 
-/// One file of a TTS model bundle. Keyed by its own [filename] so a bundle of
-/// N files gets N distinct [prefsKey]s (mirrors how the manager maps
-/// `filePaths[file.prefsKey] = path`).
+/// One file of a TTS model bundle. [filename] is namespaced by the owning
+/// [TtsModelType] (every bundle member — including the `.tflite` graphs —
+/// since a TTS bundle has no single distinguished "model" file the way
+/// Inference/Embedding/STT specs do). [prefsKey] stays the PLAIN manifest
+/// basename — NOT the namespaced [filename] — because
+/// `flutter_gemma_speech`'s `TtsModelProfile` (e.g. `configFile =
+/// 'config.json'`) and `TtsCore`/`MatchaTextFrontend` look bundle paths up
+/// by that plain name (`paths[profile.configFile]`); decoupling keeps that
+/// cross-package contract intact while the on-disk/repository identity is
+/// namespaced.
 class TtsBundleFile extends ModelFile {
   final ModelSource _source;
   final String _filename;
-  TtsBundleFile({required ModelSource source, required String filename})
-    : _source = source,
-      _filename = filename;
-  factory TtsBundleFile.fromSource(ModelSource source) {
-    final filename = InferenceModelFile._extractFilenameFromSource(source);
-    return TtsBundleFile(source: source, filename: filename);
+  final String _plainFilename;
+  TtsBundleFile({
+    required ModelSource source,
+    required String filename,
+    required String plainFilename,
+  }) : _source = source,
+       _filename = filename,
+       _plainFilename = plainFilename;
+
+  /// Creates TtsBundleFile from ModelSource, namespaced by [modelId] — in
+  /// practice the owning [TtsModelType]'s name (matcha/kokoro/supertonic).
+  factory TtsBundleFile.fromSource(
+    ModelSource source, {
+    required String modelId,
+  }) {
+    final plain = InferenceModelFile._extractFilenameFromSource(source);
+    final filename = FileNameUtils.namespaced(modelId, plain);
+    return TtsBundleFile(
+      source: source,
+      filename: filename,
+      plainFilename: plain,
+    );
   }
   @override
   ModelSource get source => _source;
   @override
   String get filename => _filename;
   @override
-  String get prefsKey => _filename;
+  String get prefsKey => _plainFilename;
   @override
   bool get isRequired => true;
 
@@ -99,7 +122,8 @@ class TtsModelSpec extends ModelSpec {
   ModelReplacePolicy get replacePolicy => _replacePolicy;
   @override
   List<ModelFile> get files => [
-    for (final s in _sources) TtsBundleFile.fromSource(s),
+    for (final s in _sources)
+      TtsBundleFile.fromSource(s, modelId: _ttsModelType.name),
   ];
   List<ModelSource> get sources => List.unmodifiable(_sources);
   TtsModelType get ttsModelType => _ttsModelType;

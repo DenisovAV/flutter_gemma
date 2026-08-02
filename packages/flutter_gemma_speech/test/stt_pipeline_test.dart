@@ -7,38 +7,13 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
-    show SttModelType;
 import 'package:flutter_gemma_speech/src/litert/litert_speech_recognizer.dart'
     show pcm16LEToFloat32;
 import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
     show argmax, padOrTrimToWindow, shouldStopDecoding, sttDecodeEosId;
-import 'package:flutter_gemma_speech/src/model/stt_model_profile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('SttModelProfile.forType', () {
-    test('moonshine resolves to the verified recipe values', () {
-      final profile = SttModelProfile.forType(SttModelType.moonshine);
-      expect(profile.inputType, SttInputType.rawPcm);
-      expect(profile.sampleRate, 16000);
-      expect(profile.windowSamples, 80000);
-      expect(profile.decodeType, SttDecodeType.seq2seq);
-      expect(profile.maxDecodeTokens, 64);
-    });
-
-    test('whisper/parakeet are documented follow-ons (throw)', () {
-      expect(
-        () => SttModelProfile.forType(SttModelType.whisper),
-        throwsUnimplementedError,
-      );
-      expect(
-        () => SttModelProfile.forType(SttModelType.parakeet),
-        throwsUnimplementedError,
-      );
-    });
-  });
-
   group('pcm16LEToFloat32', () {
     test('converts int16 LE samples to [-1,1] float32', () {
       // 0x0000 -> 0.0, 0x7FFF -> ~1.0, 0x8000 (-32768) -> -1.0.

@@ -39,8 +39,13 @@ void main() {
       // we prove the backend surfaces the SELECTED type off the spec by
       // checking the still-unimplemented families throw UnimplementedError
       // naming their own type — a hardcoded-moonshine backend could not.
+      // whisper's profile is implemented as of Phase 3 (this plan); only
+      // parakeet (needs CTC decode) still throws at the profile level.
+      // SttCore itself doesn't support whisper until Phase 4 lands, but
+      // that's exercised by the on-device gate (whisper_tiny_test.dart),
+      // not this backend-level unit test.
       final unimplemented = SttModelType.values.where(
-        (t) => t != SttModelType.moonshine,
+        (t) => t != SttModelType.moonshine && t != SttModelType.whisper,
       );
       expect(unimplemented, isNotEmpty, reason: 'need a follow-on family');
       for (final type in unimplemented) {

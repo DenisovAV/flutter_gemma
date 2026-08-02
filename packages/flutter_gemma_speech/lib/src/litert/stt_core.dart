@@ -177,7 +177,7 @@ void applySuppression(
 /// ids, its stop token id, and its (optional) resolved suppression.
 typedef SttResolvedTokens = ({
   List<int> decoderPromptIds,
-  int eosId,
+  int? eosId,
   ResolvedSuppression? suppression,
 });
 
@@ -200,7 +200,7 @@ SttResolvedTokens resolveSttSpecialTokens(
     decoderPromptIds: [
       for (final ref in profile.decoderPromptTokens) ref.resolve(resolver),
     ],
-    eosId: profile.eosToken.resolve(resolver),
+    eosId: profile.eosToken?.resolve(resolver),
     suppression: profile.suppressTokens?.resolve(resolver),
   );
 }
@@ -284,10 +284,11 @@ class SttCore {
     required SttModelProfile profile,
     PreferredBackend? backend,
   }) async {
-    if (profile.decodeType != SttDecodeType.seq2seq) {
+    if (profile.decodeType != SttDecodeType.seq2seq &&
+        profile.decodeType != SttDecodeType.ctc) {
       throw UnimplementedError(
-        'SttCore: only seq2seq decode is implemented '
-        '(ctc is a follow-on; see the design spec).',
+        'SttCore: unsupported decodeType ${profile.decodeType} '
+        '(see the design spec).',
       );
     }
     if (profile.inputType != SttInputType.rawPcm &&
@@ -389,7 +390,10 @@ class SttCore {
     final windowed = padOrTrimToWindow(samples, _profile.windowSamples);
     final hidden = _encode(windowed);
     try {
-      final ids = _decodeLoop(hidden);
+      final ids = switch (_profile.decodeType) {
+        SttDecodeType.seq2seq => _decodeLoop(hidden),
+        SttDecodeType.ctc => _ctcDecode(hidden),
+      };
       return _tokenizer.decode(ids);
     } finally {
       calloc.free(hidden.alloc.raw);
@@ -820,6 +824,24 @@ class SttCore {
       calloc.free(maskAlloc.raw);
       calloc.free(decodeOutAlloc.raw);
     }
+  }
+
+  /// Single-pass greedy CTC decode (parakeet): the encoder's OWN output
+  /// tensor IS the CTC logits (no decoder subgraph, no growing token
+  /// sequence, no mask, no per-step loop). `hidden.frames`/`hidden.dim`
+  /// (already auto-detected in `_encode` from the compiled model's output
+  /// tensor layout, per the design spec's fix #4) ARE the CTC frame count
+  /// (63) and class count (1025), read at runtime -- never hardcoded.
+  List<int> _ctcDecode(_EncoderOutput hidden) {
+    final logits = hidden.alloc.aligned.cast<Float>().asTypedList(
+      hidden.frames * hidden.dim,
+    );
+    return ctcGreedyDecode(
+      logits,
+      blankId: _profile.blankId!,
+      numFrames: hidden.frames,
+      numClasses: hidden.dim,
+    );
   }
 
   void dispose() {

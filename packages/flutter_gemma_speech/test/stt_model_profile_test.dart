@@ -28,6 +28,7 @@ void main() {
       expect(p.melFilterAsset, isNull);
       expect(p.winLength, isNull);
       expect(p.preemphasis, isNull);
+      expect(p.blankId, isNull);
       expect(p.decoderPromptTokens, [const SttTokenRef.id(1)]);
       expect(p.eosToken, const SttTokenRef.id(2));
       expect(p.suppressTokens, isNull);
@@ -51,6 +52,7 @@ void main() {
       expect(p.melFilterAsset, 'whisper_mel_80');
       expect(p.winLength, isNull);
       expect(p.preemphasis, isNull);
+      expect(p.blankId, isNull);
       expect(p.decodeType, SttDecodeType.seq2seq);
       expect(p.maxDecodeTokens, 128);
       expect(p.modes, {SttMode.batch});

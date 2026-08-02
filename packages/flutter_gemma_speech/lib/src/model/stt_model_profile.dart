@@ -112,7 +112,8 @@ class SttModelProfile {
       eosToken = const SttTokenRef.id(2),
       suppressTokens = null,
       tokenizerKind = SttTokenizerKind.sentencePiece,
-      decoderMaskConvention = SttDecoderMaskConvention.paddingOnly;
+      decoderMaskConvention = SttDecoderMaskConvention.paddingOnly,
+      blankId = null;
 
   /// whisper-tiny: log-mel in (30 s window), seq2seq decode capped at 128
   /// tokens, GPT-2 byte-level BPE vocab. Forced English-only prompt +
@@ -152,7 +153,8 @@ class SttModelProfile {
         ],
       ),
       tokenizerKind = SttTokenizerKind.gpt2ByteLevelBpe,
-      decoderMaskConvention = SttDecoderMaskConvention.causal;
+      decoderMaskConvention = SttDecoderMaskConvention.causal,
+      blankId = null;
 
   /// How audio is fed to the encoder.
   final SttInputType inputType;
@@ -214,8 +216,9 @@ class SttModelProfile {
   final List<SttTokenRef> decoderPromptTokens;
 
   /// Stop-decoding token (moonshine: fixed EOS id 2; whisper: resolved
-  /// `<|endoftext|>`).
-  final SttTokenRef eosToken;
+  /// `<|endoftext|>`). `null` for `ctc` profiles (parakeet) -- CTC is a
+  /// single pass, not an autoregressive loop, so there is no stop token.
+  final SttTokenRef? eosToken;
 
   /// Logit suppression applied every decode step before argmax. `null` =
   /// none (moonshine, unchanged).
@@ -226,6 +229,11 @@ class SttModelProfile {
 
   /// Which `decode_args_2` mask formula `SttCore._decodeLoop` uses.
   final SttDecoderMaskConvention decoderMaskConvention;
+
+  /// CTC blank class id (parakeet: 1024 = vocab_size, the last output
+  /// class). `null` for `seq2seq` profiles (moonshine, whisper), which have
+  /// no blank concept.
+  final int? blankId;
 
   /// True if this model can drive a streaming (incremental) transcription.
   bool get supportsStreaming => modes.contains(SttMode.streaming);

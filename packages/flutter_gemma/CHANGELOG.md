@@ -1,6 +1,6 @@
 ## 1.5.0
 - Add facade identity getters `activeModelSpec`/`activeEmbedderSpec`/`activeSttSpec`/`activeTtsSpec` + `getModelPath`.
-- Add facade storage `getStorageInfo`/`getOrphanedFiles`/`cleanupStorage`/`performCleanup`.
+- Add facade storage `getStorageInfo`/`getOrphanedFiles`/`cleanupStorage`/`performCleanup` — surface real errors, not success-shaped defaults.
 - Add `FlutterGemma.rag` namespace (add/search/removeDocument/stats/clear); plumb `removeDocument` (#390 audit).
 - Add `uninstallEmbedder`/`uninstallStt`/`uninstallTts` (delete all files); route `uninstallModel` off the deprecated path.
 - Export `ModelSource` + `FileSystemService` from the barrel (required public parameter types).

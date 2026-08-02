@@ -607,31 +607,61 @@ class FlutterGemma {
   /// [getActiveModel] for that). `hasActiveModel() == (activeModelSpec != null)`.
   static InferenceModelSpec? get activeModelSpec {
     final spec = FlutterGemmaPlugin.instance.modelManager.activeInferenceModel;
-    return spec is InferenceModelSpec ? spec : null;
+    if (spec == null || spec is InferenceModelSpec) {
+      return spec as InferenceModelSpec?;
+    }
+    gemmaLog(
+      'activeModelSpec: active inference slot holds a ${spec.runtimeType}, '
+      'not an InferenceModelSpec — returning null (invariant violation).',
+    );
+    return null;
   }
 
   /// The active embedding model's identity ([EmbeddingModelSpec]), or null.
   static EmbeddingModelSpec? get activeEmbedderSpec {
     final spec = FlutterGemmaPlugin.instance.modelManager.activeEmbeddingModel;
-    return spec is EmbeddingModelSpec ? spec : null;
+    if (spec == null || spec is EmbeddingModelSpec) {
+      return spec as EmbeddingModelSpec?;
+    }
+    gemmaLog(
+      'activeEmbedderSpec: active embedding slot holds a ${spec.runtimeType}, '
+      'not an EmbeddingModelSpec — returning null (invariant violation).',
+    );
+    return null;
   }
 
   /// The active STT model's identity ([SttModelSpec]), or null.
   static SttModelSpec? get activeSttSpec {
     final spec = FlutterGemmaPlugin.instance.modelManager.activeSttModel;
-    return spec is SttModelSpec ? spec : null;
+    if (spec == null || spec is SttModelSpec) {
+      return spec as SttModelSpec?;
+    }
+    gemmaLog(
+      'activeSttSpec: active STT slot holds a ${spec.runtimeType}, '
+      'not an SttModelSpec — returning null (invariant violation).',
+    );
+    return null;
   }
 
   /// The active TTS model's identity ([TtsModelSpec]), or null.
   static TtsModelSpec? get activeTtsSpec {
     final spec = FlutterGemmaPlugin.instance.modelManager.activeTtsModel;
-    return spec is TtsModelSpec ? spec : null;
+    if (spec == null || spec is TtsModelSpec) {
+      return spec as TtsModelSpec?;
+    }
+    gemmaLog(
+      'activeTtsSpec: active TTS slot holds a ${spec.runtimeType}, '
+      'not an TtsModelSpec — returning null (invariant violation).',
+    );
+    return null;
   }
 
-  /// Absolute on-device read path for an installed model file, keyed by
-  /// filename. On web this resolves to a URL/OPFS handle, not a filesystem path.
-  static Future<String> getModelPath(String modelId) =>
-      ServiceRegistry.instance.fileSystemService.getReadTargetPath(modelId);
+  /// Absolute on-device read path for an installed model file, keyed by its
+  /// [fileName] (the file's basename, e.g. `gemma-4-E2B-it.litertlm`). On web
+  /// this resolves to a URL/OPFS handle, not a filesystem path. The path is
+  /// computed, not stat-ed — it is returned even if nothing is installed there.
+  static Future<String> getModelPath(String fileName) =>
+      ServiceRegistry.instance.fileSystemService.getReadTargetPath(fileName);
 
   /// Clears the active inference identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveInferenceIdentity() =>
@@ -666,14 +696,16 @@ class FlutterGemma {
       throw Exception('Model not found: $modelId');
     }
 
-    // Delete metadata
-    await repository.deleteModel(modelId);
-
-    // Delete files (if not external/protected)
+    // Delete files first (if not external/protected) so a file-delete failure
+    // leaves the metadata intact and the uninstall retryable — mirrors the
+    // safe order used by uninstallEmbedder/Stt/Tts (delete then clear).
     if (modelInfo.source is! FileSource) {
       final targetPath = await fileSystem.getReadTargetPath(modelId);
       await fileSystem.deleteFile(targetPath);
     }
+
+    // Delete metadata last.
+    await repository.deleteModel(modelId);
   }
 
   /// Uninstall the active embedding model — deletes ALL its files (model +
@@ -819,9 +851,11 @@ class FlutterGemma {
 }
 
 /// RAG (retrieval-augmented generation) operations, reached via
-/// [FlutterGemma.rag]. Thin delegator over the vector store; opt-in (see
-/// [FlutterGemma.rag]). Kept as an instance (not bare statics) so apps/tests
-/// can wrap or fake it.
+/// [FlutterGemma.rag]. Thin, stateless delegator over the vector store;
+/// opt-in (see [FlutterGemma.rag]). Modelled as a single const instance
+/// purely to give the operations a `rag.` namespace on the facade — it holds
+/// no state and is not itself a test seam. To fake RAG in tests, substitute
+/// [FlutterGemmaPlugin.instance] (which every method here delegates to).
 class GemmaRag {
   const GemmaRag._();
 
@@ -868,7 +902,11 @@ class GemmaRag {
     filter: filter,
   );
 
-  /// Remove a single document by ID. No-op if absent.
+  /// Remove a single document by ID. No-op if the ID is absent.
+  ///
+  /// Call after [initialize]. Before the store is initialized, behavior is
+  /// backend-specific (the SQLite store throws a `StateError`; the Qdrant
+  /// store logs and no-ops) — don't rely on either.
   Future<void> removeDocument({required String id}) =>
       FlutterGemmaPlugin.instance.removeDocument(id: id);
 

@@ -58,5 +58,26 @@ void main() {
         expect(ids, [1, 2, 1]);
       },
     );
+
+    test('a blank between two equal ids preserves both (collapse BEFORE '
+        'blank-drop, not after)', () {
+      // frame0 -> 1, frame1 -> 2 (blank), frame2 -> 1. Collapse first sees
+      // no adjacent duplicates ([1,2,1] unchanged, per the previous test),
+      // THEN blank(2) is dropped: [1,1]. The wrong ordering (drop blanks
+      // first, collapse second) would instead see [1,1] pre-collapse and
+      // wrongly merge them into a single [1].
+      final logits = Float32List.fromList([
+        0.1, 0.9, 0.1, // frame0 -> 1
+        0.1, 0.1, 0.9, // frame1 -> 2 (blank)
+        0.1, 0.9, 0.1, // frame2 -> 1
+      ]);
+      final ids = ctcGreedyDecode(
+        logits,
+        blankId: 2,
+        numFrames: 3,
+        numClasses: 3,
+      );
+      expect(ids, [1, 1]);
+    });
   });
 }

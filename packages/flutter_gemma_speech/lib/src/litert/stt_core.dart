@@ -52,7 +52,7 @@ import '../model/stt_model_profile.dart';
 import '../tokenizer/stt_special_tokens.dart'
     show ResolvedSuppression, SttSpecialTokenResolver;
 import '../tokenizer/stt_tokenizer.dart' show SttTokenizer;
-import 'log_mel_frontend.dart' show computeLogMelSpectrogram;
+import 'log_mel_frontend.dart' show computeLogMelSpectrogram, computeNemoLogMel;
 import 'mel_filter_assets.dart' show loadMelFilterAsset;
 
 /// Decoder start token (`<s>`), verified working on the first try — see the
@@ -413,29 +413,39 @@ class SttCore {
         inDim0 = windowedPcm.length;
         inDim1 = 0;
       case SttInputType.logMel:
-        // `computeLogMelSpectrogram` always emits `melFirst` (`[nMels,
-        // melFrames]`, whisper's contract) — a future `frameFirst` profile
-        // (parakeet) needs a transposed feed and must fail loud here rather
-        // than silently feeding the encoder a mis-ordered tensor.
-        if (_profile.melAxisOrder != SttMelAxisOrder.melFirst) {
-          throw UnimplementedError(
-            'SttCore: logMel with melAxisOrder=${_profile.melAxisOrder} is '
-            'not implemented (only melFirst/whisper is wired) — see the '
-            'design spec.',
-          );
+        switch (_profile.melAxisOrder!) {
+          case SttMelAxisOrder.melFirst:
+            // whisper: `[nMels, melFrames]`.
+            encoderInput = computeLogMelSpectrogram(
+              windowedPcm,
+              nFft: _profile.nFft!,
+              hopLength: _profile.hopLength!,
+              nMels: _profile.nMels!,
+              melFrames: _profile.melFrames!,
+              melFilters: _melFilters!,
+              normalization: _profile.melNormalization,
+            );
+            inDim0 = _profile.nMels!;
+            inDim1 = _profile.melFrames!;
+          case SttMelAxisOrder.frameFirst:
+            // parakeet: `[melFrames, nMels]` -- NeMo's frontend, distinct
+            // params (winLength, preemphasis, Slaney filterbank, natural
+            // log + full-window per-feature z-score), see
+            // computeNemoLogMel's doc comment.
+            encoderInput = computeNemoLogMel(
+              windowedPcm,
+              nFft: _profile.nFft!,
+              winLength: _profile.winLength!,
+              hopLength: _profile.hopLength!,
+              preemphasis: _profile.preemphasis!,
+              nMels: _profile.nMels!,
+              melFrames: _profile.melFrames!,
+              melFilters: _melFilters!,
+            );
+            inDim0 = _profile.melFrames!;
+            inDim1 = _profile.nMels!;
         }
-        encoderInput = computeLogMelSpectrogram(
-          windowedPcm,
-          nFft: _profile.nFft!,
-          hopLength: _profile.hopLength!,
-          nMels: _profile.nMels!,
-          melFrames: _profile.melFrames!,
-          melFilters: _melFilters!,
-          normalization: _profile.melNormalization,
-        );
         inRank = 3;
-        inDim0 = _profile.nMels!;
-        inDim1 = _profile.melFrames!;
     }
 
     final outLayout = LiteRtLayoutView.calloc();

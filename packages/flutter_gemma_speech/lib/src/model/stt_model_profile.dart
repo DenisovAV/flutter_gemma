@@ -103,6 +103,8 @@ class SttModelProfile {
       melAxisOrder = null,
       melNormalization = SttMelNormalization.none,
       melFilterAsset = null,
+      winLength = null,
+      preemphasis = null,
       decodeType = SttDecodeType.seq2seq,
       maxDecodeTokens = 64,
       modes = const {SttMode.batch},
@@ -130,6 +132,8 @@ class SttModelProfile {
       melAxisOrder = SttMelAxisOrder.melFirst,
       melNormalization = SttMelNormalization.whisper,
       melFilterAsset = 'whisper_mel_80',
+      winLength = null,
+      preemphasis = null,
       decodeType = SttDecodeType.seq2seq,
       maxDecodeTokens = 128,
       modes = const {SttMode.batch},
@@ -181,6 +185,16 @@ class SttModelProfile {
   /// Name of the bundled mel filterbank matrix to load (whisper:
   /// 'whisper_mel_80', see `mel_filter_assets.dart`). `null` for `rawPcm`.
   final String? melFilterAsset;
+
+  /// STFT window length, when narrower than [nFft] (parakeet: 400, `nFft`
+  /// 512 -- the Hann window is centered/zero-padded into the larger FFT
+  /// buffer). `null` when `winLength == nFft` (whisper) or for `rawPcm`.
+  final int? winLength;
+
+  /// Pre-emphasis coefficient applied to raw PCM before framing (parakeet:
+  /// 0.97, NeMo's default). `null` when the family applies none
+  /// (moonshine, whisper).
+  final double? preemphasis;
 
   /// How token ids are produced from encoder output.
   final SttDecodeType decodeType;

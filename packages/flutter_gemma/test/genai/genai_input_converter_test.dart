@@ -78,6 +78,40 @@ void main() {
     );
   });
 
+  test('model-role tool call → Message.toolCall (round-trip)', () async {
+    // The valid path generateContent relies on: the output converter emits a
+    // model turn carrying a ToolPart.call, which must stage back as a
+    // Message.toolCall whose JSON carries name + parameters.
+    final msg = ChatMessage(
+      role: ChatMessageRole.model,
+      parts: [
+        ToolPart.call(callId: 'calc', toolName: 'calc', arguments: {'a': 1}),
+      ],
+    );
+    final out = await messagesFromChatMessage(msg);
+    expect(out.single.type, MessageType.toolCall);
+    expect(out.single.text, contains('calc'));
+    expect(out.single.text, contains('"parameters"'));
+  });
+
+  test('single audio DataPart → Message with audioBytes set', () async {
+    final bytes = Uint8List.fromList([1, 2, 3]);
+    final msg = ChatMessage(
+      role: ChatMessageRole.user,
+      parts: [DataPart(bytes, mimeType: 'audio/wav')],
+    );
+    final out = await messagesFromChatMessage(msg);
+    expect(out.single.audioBytes, bytes);
+    expect(out.single.images, isEmpty);
+  });
+
+  test('a user turn that stages nothing (lone empty TextPart) throws', () async {
+    // Passes the parts.isEmpty guard but reduces to zero staged content — must
+    // fail loud rather than silently generate on stale context.
+    final msg = ChatMessage(role: ChatMessageRole.user, parts: [TextPart('')]);
+    expect(() => messagesFromChatMessage(msg), throwsA(isA<ArgumentError>()));
+  });
+
   test('tool result → Message.toolResponse', () async {
     final msg = ChatMessage(
       role: ChatMessageRole.user,

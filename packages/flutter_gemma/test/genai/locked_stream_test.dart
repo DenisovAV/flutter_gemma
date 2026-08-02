@@ -11,6 +11,7 @@ class _FakeChat extends InferenceChat {
   _FakeChat() : super(sessionCreator: null, maxTokens: 1024);
 
   Duration stageDelay = Duration.zero;
+  bool throwOnStage = false;
   final staged = <String>[];
   int stopGenerationCalls = 0;
   StreamController<ModelResponse>? lastGen;
@@ -22,6 +23,7 @@ class _FakeChat extends InferenceChat {
     bool prefix = false,
   ]) async {
     if (stageDelay > Duration.zero) await Future<void>.delayed(stageDelay);
+    if (throwOnStage) throw StateError('stage boom');
     staged.add(message.text);
   }
 
@@ -186,5 +188,27 @@ void main() {
     await sub.cancel();
     expect(chat.stopGenerationCalls, greaterThan(0));
     expect(chat.genaiLock.isLocked, isFalse, reason: 'lock released on cancel');
+  });
+
+  test('stage() throwing forwards the error and releases the lock', () async {
+    // The load-bearing pre-generation failure path (an image on a non-vision
+    // chat, a LinkPart, a second audio part all throw in _stage). The lock
+    // release there is hand-rolled — if it leaked, every future turn would
+    // deadlock forever on acquire() with no error surfaced.
+    final chat = _FakeChat()..throwOnStage = true;
+    Object? err;
+    final done = Completer<void>();
+    chat
+        .sendMessageStream(ChatMessage.user('hi'))
+        .listen((_) {}, onError: (Object e) => err = e, onDone: done.complete);
+    await done.future;
+
+    expect(err, isA<StateError>(), reason: 'stage error reaches the consumer');
+    expect(chat.staged, isEmpty, reason: 'stage threw before staging anything');
+    expect(
+      chat.genaiLock.isLocked,
+      isFalse,
+      reason: 'lock released on a stage() throw (no silent deadlock)',
+    );
   });
 }

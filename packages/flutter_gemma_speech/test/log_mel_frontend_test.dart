@@ -1,7 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter_gemma_speech/src/litert/log_mel_frontend.dart';
+import 'package:flutter_gemma_speech/src/litert/mel_filter_assets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 int _argmaxOf(List<double> values) {
@@ -87,4 +90,60 @@ void main() {
       },
     );
   });
+
+  group(
+    'computeLogMelSpectrogram (golden vs Python openai-whisper reference)',
+    () {
+      test(
+        'matches the Python reference within tolerance for a 1s 440Hz tone',
+        () {
+          final fixtureText = File(
+            'test/fixtures/log_mel_golden_1s_440hz.json',
+          ).readAsStringSync();
+          final fixture = jsonDecode(fixtureText) as Map<String, dynamic>;
+          final sampleRate = fixture['sampleRate'] as int;
+          final n = fixture['samples'] as int;
+          final toneHz = (fixture['toneHz'] as num).toDouble();
+          final amplitude = (fixture['toneAmplitude'] as num).toDouble();
+          final expected = (fixture['melFirstFlat'] as List)
+              .map((v) => (v as num).toDouble())
+              .toList();
+
+          final pcm = Float32List(n);
+          for (var i = 0; i < n; i++) {
+            pcm[i] =
+                amplitude * math.sin(2 * math.pi * toneHz * i / sampleRate);
+          }
+
+          final melFilters = loadMelFilterAsset('whisper_mel_80');
+          final actual = computeLogMelSpectrogram(
+            pcm,
+            nFft: fixture['nFft'] as int,
+            hopLength: fixture['hopLength'] as int,
+            nMels: fixture['nMels'] as int,
+            melFrames: fixture['melFrames'] as int,
+            melFilters: melFilters,
+            normalization: SttMelNormalization.whisper,
+          );
+
+          expect(actual.length, expected.length);
+          var maxAbsDiff = 0.0;
+          for (var i = 0; i < actual.length; i++) {
+            final diff = (actual[i] - expected[i]).abs();
+            if (diff > maxAbsDiff) maxAbsDiff = diff;
+          }
+          // Direct DFT vs torch's FFT + float32 vs float64 accumulation over 400
+          // terms/bin; normalized values are roughly in [-1, ~1] after whisper's
+          // (x+4)/4 scaling, so 1e-2 absolute is generous enough to tolerate
+          // implementation-level float noise while still catching a genuinely
+          // wrong STFT/filterbank/normalization (which would be off by >> 1e-2).
+          expect(
+            maxAbsDiff,
+            lessThan(1e-2),
+            reason: 'max abs diff: $maxAbsDiff',
+          );
+        },
+      );
+    },
+  );
 }

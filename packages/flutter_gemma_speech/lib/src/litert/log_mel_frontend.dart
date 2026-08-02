@@ -85,3 +85,73 @@ List<Float32List> stftFrames(
   }
   return frames;
 }
+
+/// Whisper's log/normalize step: `log10(max(mel,1e-10))`, floor at
+/// `max-8`, then `(x+4)/4`. `SttMelNormalization.none` is a passthrough
+/// (reserved for a future family that needs no normalization).
+Float32List _applyNormalization(
+  Float32List mel,
+  SttMelNormalization normalization,
+) {
+  if (normalization == SttMelNormalization.none) return mel;
+  final log10Mel = Float32List(mel.length);
+  var maxLog = double.negativeInfinity;
+  for (var i = 0; i < mel.length; i++) {
+    final clamped = mel[i] < 1e-10 ? 1e-10 : mel[i];
+    final v = math.log(clamped) / math.ln10;
+    log10Mel[i] = v;
+    if (v > maxLog) maxLog = v;
+  }
+  final floor = maxLog - 8.0;
+  for (var i = 0; i < log10Mel.length; i++) {
+    final v = log10Mel[i] < floor ? floor : log10Mel[i];
+    log10Mel[i] = (v + 4.0) / 4.0;
+  }
+  return log10Mel;
+}
+
+/// Full log-mel pipeline: STFT (via [stftFrames]) -> power spectrum ->
+/// mel filterbank matmul -> normalize. Returns row-major `[nMels,
+/// melFrames]` (melFirst — whisper's `[1,80,3000]` encoder input layout).
+/// Every size comes from the caller (the profile), not a whisper constant.
+Float32List computeLogMelSpectrogram(
+  Float32List paddedPcm, {
+  required int nFft,
+  required int hopLength,
+  required int nMels,
+  required int melFrames,
+  required Float32List melFilters,
+  required SttMelNormalization normalization,
+}) {
+  final nBins = nFft ~/ 2 + 1;
+  final frames = stftFrames(
+    paddedPcm,
+    nFft: nFft,
+    hopLength: hopLength,
+    melFrames: melFrames,
+  );
+
+  final power = Float32List(melFrames * nBins); // [frame, bin]
+  for (var f = 0; f < melFrames; f++) {
+    final p = powerSpectrum(frames[f], nFft);
+    power.setRange(f * nBins, f * nBins + nBins, p);
+  }
+
+  final mel = Float32List(nMels * melFrames); // [mel, frame] (melFirst)
+  for (var m = 0; m < nMels; m++) {
+    final filterBase = m * nBins;
+    for (var f = 0; f < melFrames; f++) {
+      var sum = 0.0;
+      final frameBase = f * nBins;
+      for (var b = 0; b < nBins; b++) {
+        sum += melFilters[filterBase + b] * power[frameBase + b];
+      }
+      mel[m * melFrames + f] = sum;
+    }
+  }
+
+  return _applyNormalization(mel, normalization);
+}
+
+/// How a profile's log-mel output is normalized (see [computeLogMelSpectrogram]).
+enum SttMelNormalization { none, whisper }

@@ -48,6 +48,10 @@ class MockFileSystemService implements FileSystemService {
 
   @override
   Future<void> writeFile(String path, List<int> data) async {}
+
+  @override
+  Future<bool> adoptLegacyFile(String oldFilename, String newFilename) async =>
+      false;
 }
 
 class MockDownloadService implements DownloadService {

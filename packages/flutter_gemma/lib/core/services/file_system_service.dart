@@ -94,4 +94,23 @@ abstract interface class FileSystemService {
   ///
   /// Throws [UnsupportedError] on Web (no local file system).
   Future<String> getModelStorageDirectory();
+
+  /// Migration-only (install-identity-namespacing, 2026-08-02): if a file
+  /// already exists on disk under [oldFilename] (the pre-refactor flat
+  /// name) and nothing exists yet under [newFilename] (the namespaced
+  /// identity), renames it in place and returns true — the caller should
+  /// treat this as "already installed" and persist repository metadata
+  /// under [newFilename] instead of re-downloading. Returns false when
+  /// there is nothing to adopt: no old file, [newFilename] already exists,
+  /// or `oldFilename == newFilename` (nothing changed identity, so there is
+  /// nothing to migrate).
+  ///
+  /// SAFE ONLY for files whose OLD basename is unique across the whole
+  /// model catalog (the big model weights, e.g. a TTS bundle's `.tflite`
+  /// graphs) — callers must NEVER invoke this for a colliding-basename
+  /// companion file (`tokenizer.json`, `sentencepiece.model`): the old flat
+  /// name carries no type marker, so blindly adopting it could resurrect
+  /// the exact collision this refactor fixes. See
+  /// `docs/superpowers/specs/2026-08-02-install-identity-namespacing-design.md`.
+  Future<bool> adoptLegacyFile(String oldFilename, String newFilename);
 }

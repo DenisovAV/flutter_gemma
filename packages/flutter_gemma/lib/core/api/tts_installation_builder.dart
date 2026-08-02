@@ -1,6 +1,8 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Fluent builder for TTS (text-to-speech) model installation.
@@ -98,14 +100,38 @@ class TtsInstallationBuilder {
 
     final registry = ServiceRegistry.instance;
     final repository = registry.modelRepository;
+    final fileSystem = registry.fileSystemService;
     final handlerRegistry = registry.sourceHandlerRegistry;
 
+    final manifest = ttsModelType.manifest;
     final files = spec.files;
     var done = 0;
-    for (final file in files) {
+    for (var i = 0; i < files.length; i++) {
       _cancelToken?.throwIfCancelled();
+      final file = files[i];
+      final legacyBasename = manifest[i];
+
       if (await repository.isInstalled(file.filename)) {
         gemmaLog('ℹ️  TTS bundle file already installed: ${file.filename}');
+      } else if (await fileSystem.adoptLegacyFile(
+        legacyBasename,
+        file.filename,
+      )) {
+        gemmaLog(
+          '♻️  Adopted legacy TTS bundle file: $legacyBasename -> ${file.filename}',
+        );
+        final newPath = await fileSystem.getWriteTargetPath(file.filename);
+        final sizeBytes = await fileSystem.getFileSize(newPath);
+        await repository.saveModel(
+          repo.ModelInfo(
+            id: file.filename,
+            source: file.source,
+            installedAt: DateTime.now(),
+            sizeBytes: sizeBytes,
+            type: repo.ModelType.tts,
+            hasLoraWeights: false,
+          ),
+        );
       } else {
         gemmaLog('📥 Installing TTS bundle file: ${file.filename}...');
         final handler = handlerRegistry.getHandler(file.source);

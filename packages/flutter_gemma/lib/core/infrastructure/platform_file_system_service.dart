@@ -178,6 +178,22 @@ class PlatformFileSystemService implements FileSystemService {
     // The actual tracking is done in ProtectedFilesRegistry.registerExternalPath()
   }
 
+  @override
+  Future<bool> adoptLegacyFile(String oldFilename, String newFilename) async {
+    if (oldFilename == newFilename) return false;
+    final newPath = await getWriteTargetPath(newFilename);
+    if (await File(newPath).exists()) return false;
+    final oldPath = await getWriteTargetPath(oldFilename);
+    final oldFile = File(oldPath);
+    if (!await oldFile.exists()) return false;
+    await oldFile.rename(newPath);
+    gemmaLog(
+      '[flutter_gemma] Migrated legacy install "$oldFilename" -> '
+      '"$newFilename" (install-identity-namespacing)',
+    );
+    return true;
+  }
+
   /// Gets the model storage directory with caching.
   ///
   /// Mobile (Android, iOS): app's Documents — sandboxed, never cloud-synced.

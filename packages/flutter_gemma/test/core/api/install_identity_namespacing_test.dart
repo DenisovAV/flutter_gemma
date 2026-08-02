@@ -212,6 +212,103 @@ void main() {
       },
     );
   });
+
+  group('Task 6: migration fallback-probe (unique-basename files only)', () {
+    test(
+      'an old flat TTS bundle file is adopted in place — no re-download',
+      () async {
+        final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
+        await ServiceRegistry.initialize(downloadService: fixtureDownload);
+
+        // Resolve the storage dir via the same FileSystemService the
+        // builder/adopt probe use rather than hardcoding fakeDocuments.path
+        // — on desktop hosts (this test typically runs as a native VM test)
+        // writes land under ApplicationSupport/flutter_gemma/, not
+        // Documents; on mobile they land directly under Documents.
+        final storageDir = await ServiceRegistry.instance.fileSystemService
+            .getModelStorageDirectory();
+
+        // Pre-seed ONE bundle member at its OLD, pre-refactor flat path —
+        // simulating a matcha install from before this refactor shipped.
+        final oldPath = path.join(storageDir, 'matcha_textenc_fp16.tflite');
+        await File(oldPath).writeAsBytes([7, 7, 7, 7]);
+
+        await FlutterGemma.installTts()
+            .fromNetwork('https://example.com/matcha/')
+            .ofType(TtsModelType.matcha)
+            .install();
+
+        // Adopted in place: old path gone, new namespaced path holds the
+        // ORIGINAL bytes (proves it was renamed, not re-downloaded — a
+        // re-download would have overwritten it with _fakeCompanionBytes).
+        expect(await File(oldPath).exists(), isFalse);
+        final newPath = path.join(
+          storageDir,
+          'matcha__matcha_textenc_fp16.tflite',
+        );
+        expect(await File(newPath).readAsBytes(), [7, 7, 7, 7]);
+        expect(
+          fixtureDownload.requestedTargetPaths.contains(newPath),
+          isFalse,
+          reason: 'the adopted file must not have been (re-)downloaded',
+        );
+
+        // Every OTHER bundle member (no old file seeded) was downloaded
+        // normally under its namespaced name.
+        final otherPath = path.join(storageDir, 'matcha__config.json');
+        expect(
+          fixtureDownload.requestedTargetPaths.contains(otherPath),
+          isTrue,
+        );
+
+        final repository = ServiceRegistry.instance.modelRepository;
+        expect(
+          await repository.isInstalled('matcha__matcha_textenc_fp16.tflite'),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'a colliding companion (tokenizer) NEVER triggers migration — it always '
+      'installs fresh under the namespaced key (the mis-adoption guard)',
+      () async {
+        await ServiceRegistry.initialize();
+
+        // Pre-seed an old flat tokenizer.json at the REAL storage location
+        // (see storageDir note above) — this must be IGNORED, not adopted,
+        // because a plain tokenizer.json on disk could belong to ANY
+        // previously-installed STT/embedding model.
+        final storageDir = await ServiceRegistry.instance.fileSystemService
+            .getModelStorageDirectory();
+        final oldTokenizerPath = path.join(storageDir, 'tokenizer.json');
+        await File(oldTokenizerPath).writeAsBytes([9, 9, 9]);
+
+        final modelFile = File(
+          path.join(sourceDir.path, 'moonshine_tiny_5s_f32.tflite'),
+        );
+        await modelFile.writeAsBytes(_fakeModelBytes);
+        final tokenizerFile = File(path.join(sourceDir.path, 'tokenizer.json'));
+        await tokenizerFile.writeAsBytes(_fakeCompanionBytes);
+
+        await FlutterGemma.installStt()
+            .modelFromFile(modelFile.path)
+            .tokenizerFromFile(tokenizerFile.path)
+            .ofType(SttModelType.moonshine)
+            .install();
+
+        // The stale flat file is untouched — proof no migration/adoption
+        // logic ever ran against it.
+        expect(await File(oldTokenizerPath).readAsBytes(), [9, 9, 9]);
+
+        final repository = ServiceRegistry.instance.modelRepository;
+        expect(
+          await repository.isInstalled('moonshine_tiny_5s_f32__tokenizer.json'),
+          isTrue,
+        );
+      },
+    );
+  });
 }
 
 /// PathProviderPlatform stub that returns fixed, distinct paths for

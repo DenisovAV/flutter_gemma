@@ -309,6 +309,126 @@ void main() {
       },
     );
   });
+
+  group('Task 7: coexistence — the actual bug, end to end', () {
+    test('installing moonshine THEN whisper keeps two distinct tokenizer '
+        'files + two true isInstalled keys; neither silently reuses the '
+        "other's file", () async {
+      await ServiceRegistry.initialize();
+      final repository = ServiceRegistry.instance.modelRepository;
+
+      final moonshineModel = File(
+        path.join(sourceDir.path, 'moonshine_tiny_5s_f32.tflite'),
+      );
+      await moonshineModel.writeAsBytes(_fakeModelBytes);
+      final moonshineTokenizer = File(
+        path.join(sourceDir.path, 'moonshine_tokenizer.json'),
+      );
+      await moonshineTokenizer.writeAsBytes(
+        Uint8List.fromList(List.filled(2048, 1)),
+      );
+
+      await FlutterGemma.installStt()
+          .modelFromFile(moonshineModel.path)
+          .tokenizerFromFile(moonshineTokenizer.path)
+          .ofType(SttModelType.moonshine)
+          .install();
+
+      final whisperDir = await Directory.systemTemp.createTemp(
+        'flutter_gemma_whisper_src_',
+      );
+      addTearDown(() => whisperDir.delete(recursive: true));
+      final whisperModel = File(
+        path.join(whisperDir.path, 'whisper_tiny_30s_f32.tflite'),
+      );
+      await whisperModel.writeAsBytes(_fakeModelBytes);
+      // Both catalogs literally name this file 'tokenizer.json' — see
+      // example/lib/models/stt_model.dart.
+      final whisperTokenizer = File(
+        path.join(whisperDir.path, 'tokenizer.json'),
+      );
+      await whisperTokenizer.writeAsBytes(
+        Uint8List.fromList(List.filled(2048, 2)),
+      );
+
+      await FlutterGemma.installStt()
+          .modelFromFile(whisperModel.path)
+          .tokenizerFromFile(whisperTokenizer.path)
+          .ofType(SttModelType.whisper)
+          .install();
+
+      expect(
+        await repository.isInstalled(
+          'moonshine_tiny_5s_f32__moonshine_tokenizer.json',
+        ),
+        isTrue,
+      );
+      expect(
+        await repository.isInstalled('whisper_tiny_30s_f32__tokenizer.json'),
+        isTrue,
+      );
+    });
+
+    test(
+      'installing embeddinggemma THEN Gecko keeps two distinct tokenizer '
+      'files despite BOTH being sentencepiece.model AND BOTH '
+      'ModelManagementType.embedding (the per-broad-type-would-fail case)',
+      () async {
+        await ServiceRegistry.initialize();
+        final repository = ServiceRegistry.instance.modelRepository;
+
+        final gemmaModel = File(
+          path.join(
+            sourceDir.path,
+            'embeddinggemma-300M_seq1024_mixed-precision.tflite',
+          ),
+        );
+        await gemmaModel.writeAsBytes(_fakeModelBytes);
+        final gemmaTokenizer = File(
+          path.join(sourceDir.path, 'sentencepiece.model'),
+        );
+        await gemmaTokenizer.writeAsBytes(
+          Uint8List.fromList(List.filled(2048, 3)),
+        );
+
+        await FlutterGemma.installEmbedder()
+            .modelFromFile(gemmaModel.path)
+            .tokenizerFromFile(gemmaTokenizer.path)
+            .install();
+
+        final geckoDir = await Directory.systemTemp.createTemp(
+          'flutter_gemma_gecko_src_',
+        );
+        addTearDown(() => geckoDir.delete(recursive: true));
+        final geckoModel = File(
+          path.join(geckoDir.path, 'Gecko_64_quant.tflite'),
+        );
+        await geckoModel.writeAsBytes(_fakeModelBytes);
+        final geckoTokenizer = File(
+          path.join(geckoDir.path, 'sentencepiece.model'),
+        );
+        await geckoTokenizer.writeAsBytes(
+          Uint8List.fromList(List.filled(2048, 4)),
+        );
+
+        await FlutterGemma.installEmbedder()
+            .modelFromFile(geckoModel.path)
+            .tokenizerFromFile(geckoTokenizer.path)
+            .install();
+
+        expect(
+          await repository.isInstalled(
+            'embeddinggemma-300M_seq1024_mixed-precision__sentencepiece.model',
+          ),
+          isTrue,
+        );
+        expect(
+          await repository.isInstalled('Gecko_64_quant__sentencepiece.model'),
+          isTrue,
+        );
+      },
+    );
+  });
 }
 
 /// PathProviderPlatform stub that returns fixed, distinct paths for

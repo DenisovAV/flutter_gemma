@@ -1,3 +1,6 @@
+## 1.5.1
+- fix: namespace companion install files (tokenizers, TTS bundle aux) per model, fixing STT/embedding tokenizer collisions.
+
 ## 1.4.2
 - docs: document the on-device voice loop (VoiceSession, STT → LLM → TTS) shipped in flutter_gemma_speech 0.3.0.
 

@@ -9,11 +9,10 @@ import 'package:flutter_gemma/flutter_gemma.dart' show SttModelType;
 /// new family later is a new catalog entry (+ a profile + a mel frontend for
 /// the log-mel families), not a new screen or a new backend/recognizer class.
 ///
-/// Only [moonshineTiny] has a shipped `SttModelProfile` (raw PCM, no mel
-/// frontend — see `docs/superpowers/notes/stt-transcript-recipe.md`).
-/// [whisperTiny] and [parakeetCtc] are listed for completeness but
-/// [isSupported] is false: both need a log-mel frontend that hasn't landed
-/// yet (a documented follow-on, out of scope for this plan).
+/// [moonshineTiny] (raw PCM) and [whisperTiny] (log-mel frontend, English-only)
+/// have shipped `SttModelProfile`s. [parakeetCtc] is listed for completeness
+/// but [isSupported] is false: it needs a CTC decode path that hasn't landed
+/// yet (a documented follow-on; it reuses whisper's log-mel frontend).
 enum SttModel {
   moonshineTiny(
     modelUrl:
@@ -36,8 +35,7 @@ enum SttModel {
     size: '151MB',
     sttModelType: SttModelType.whisper,
     needsAuth: false,
-    isSupported: false,
-    unsupportedReason: 'Needs a log-mel frontend (follow-on, not shipped yet)',
+    isSupported: true,
   ),
 
   parakeetCtc(
@@ -50,7 +48,7 @@ enum SttModel {
     sttModelType: SttModelType.parakeet,
     needsAuth: false,
     isSupported: false,
-    unsupportedReason: 'Needs a log-mel frontend (follow-on, not shipped yet)',
+    unsupportedReason: 'Needs a CTC decode path (follow-on, not shipped yet)',
   );
 
   /// STT model (`.tflite`) download URL.

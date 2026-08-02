@@ -51,25 +51,28 @@ void main() {
   });
 
   group('builtIn restore-after-restart', () {
-    test('builtIn active model survives restart without a file on disk', () async {
-      SharedPreferences.setMockInitialValues({
-        'active_inference_model_type': 'general',
-        'active_inference_file_type': 'builtIn',
-        'active_inference_filename': 'gemini-nano',
-        'active_inference_source': 'bundled|gemini-nano',
-      });
+    test(
+      'builtIn active model survives restart without a file on disk',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'active_inference_model_type': 'general',
+          'active_inference_file_type': 'builtIn',
+          'active_inference_filename': 'gemini-nano',
+          'active_inference_source': 'bundled|gemini-nano',
+        });
 
-      // Simulate app restart: ServiceRegistry boots fresh, then the model
-      // manager restores the previously-active model identity from prefs.
-      await ServiceRegistry.initialize();
-      final manager = FlutterGemmaPlugin.instance.modelManager;
-      await manager.ensureInitialized();
+        // Simulate app restart: ServiceRegistry boots fresh, then the model
+        // manager restores the previously-active model identity from prefs.
+        await ServiceRegistry.initialize();
+        final manager = FlutterGemmaPlugin.instance.modelManager;
+        await manager.ensureInitialized();
 
-      final spec = manager.activeInferenceModel as InferenceModelSpec;
-      expect(spec.fileType, ModelFileType.builtIn);
-      expect(spec.modelSource, BundledSource('gemini-nano'));
-      expect(spec.name, 'gemini-nano');
-    });
+        final spec = manager.activeInferenceModel as InferenceModelSpec;
+        expect(spec.fileType, ModelFileType.builtIn);
+        expect(spec.modelSource, BundledSource('gemini-nano'));
+        expect(spec.name, 'gemini-nano');
+      },
+    );
   });
 }
 

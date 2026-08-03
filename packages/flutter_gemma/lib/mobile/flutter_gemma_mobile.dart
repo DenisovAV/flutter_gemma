@@ -12,7 +12,6 @@ import 'smart_downloader.dart'; // SmartDownloader.downloadGroup — single sour
 
 import '../flutter_gemma.dart';
 import '../core/di/service_registry.dart';
-import '../core/domain/model_source.dart';
 import '../core/services/model_repository.dart' as repo;
 import '../core/model_management/constants/preferences_keys.dart';
 import '../core/model_management/utils/download_temp_reclaim.dart';
@@ -784,6 +783,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   @override
   Future<void> clearVectorStore() async {
     await ServiceRegistry.instance.vectorStoreRepository.clear();
+  }
+
+  @override
+  Future<void> removeDocument({required String id}) async {
+    await ServiceRegistry.instance.vectorStoreRepository.removeDocument(id: id);
   }
 
   @override

@@ -686,6 +686,11 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   }
 
   @override
+  Future<void> removeDocument({required String id}) async {
+    await ServiceRegistry.instance.vectorStoreRepository.removeDocument(id: id);
+  }
+
+  @override
   bool get enableHnsw =>
       ServiceRegistry.instance.vectorStoreRepository.enableHnsw;
 

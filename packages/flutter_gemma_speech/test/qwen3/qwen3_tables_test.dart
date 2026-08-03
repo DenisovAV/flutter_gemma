@@ -99,7 +99,7 @@ void main() {
     },
   );
 
-  test('codecEmbRow / mtpEmbRow return 1024-d rows without OOB', () {
+  test('codecEmbRow / mtpEmbRow return 1024-d rows without OOB', () async {
     if (!Directory(tablesDir).existsSync()) {
       markTestSkipped(
         'Qwen3-TTS model tables not found at $tablesDir — set '
@@ -108,33 +108,32 @@ void main() {
       return;
     }
 
-    Qwen3Tables.load(
+    final t = await Qwen3Tables.load(
       codecEmbPath: '$tablesDir/codec_embedding_fp32.npy',
       mtpEmbPath: '$tablesDir/mtp_embeddings_fp16.npy',
       textEmbPath: '$tablesDir/text_embedding_fp16.npy',
       projectionNpzPath: '$tablesDir/text_projection_fp32.npz',
-    ).then((t) {
-      try {
-        final codecRow = t.codecEmbRow(0);
-        expect(codecRow.length, 1024);
-        expect(codecRow.every((v) => v.isFinite), isTrue);
+    );
+    try {
+      final codecRow = t.codecEmbRow(0);
+      expect(codecRow.length, 1024);
+      expect(codecRow.every((v) => v.isFinite), isTrue);
 
-        final lastCodecRow = t.codecEmbRow(3071);
-        expect(lastCodecRow.length, 1024);
+      final lastCodecRow = t.codecEmbRow(3071);
+      expect(lastCodecRow.length, 1024);
 
-        final mtpRow = t.mtpEmbRow(0, 0);
-        expect(mtpRow.length, 1024);
-        expect(mtpRow.every((v) => v.isFinite), isTrue);
+      final mtpRow = t.mtpEmbRow(0, 0);
+      expect(mtpRow.length, 1024);
+      expect(mtpRow.every((v) => v.isFinite), isTrue);
 
-        final lastMtpRow = t.mtpEmbRow(14, 2047);
-        expect(lastMtpRow.length, 1024);
-      } finally {
-        t.dispose();
-      }
-    });
+      final lastMtpRow = t.mtpEmbRow(14, 2047);
+      expect(lastMtpRow.length, 1024);
+    } finally {
+      t.dispose();
+    }
   });
 
-  test('projectText SiLU MLP shape: [n*2048] -> [n*1024]', () {
+  test('projectText SiLU MLP shape: [n*2048] -> [n*1024]', () async {
     if (!Directory(tablesDir).existsSync()) {
       markTestSkipped(
         'Qwen3-TTS model tables not found at $tablesDir — set '
@@ -143,24 +142,23 @@ void main() {
       return;
     }
 
-    Qwen3Tables.load(
+    final t = await Qwen3Tables.load(
       codecEmbPath: '$tablesDir/codec_embedding_fp32.npy',
       mtpEmbPath: '$tablesDir/mtp_embeddings_fp16.npy',
       textEmbPath: '$tablesDir/text_embedding_fp16.npy',
       projectionNpzPath: '$tablesDir/text_projection_fp32.npz',
-    ).then((t) {
-      try {
-        final rows = Float32List(3 * 2048);
-        final rng = math.Random(7);
-        for (var i = 0; i < rows.length; i++) {
-          rows[i] = rng.nextDouble() * 2 - 1;
-        }
-        final out = t.projectText(rows);
-        expect(out.length, 3 * 1024);
-        expect(out.every((v) => v.isFinite), isTrue);
-      } finally {
-        t.dispose();
+    );
+    try {
+      final rows = Float32List(3 * 2048);
+      final rng = math.Random(7);
+      for (var i = 0; i < rows.length; i++) {
+        rows[i] = rng.nextDouble() * 2 - 1;
       }
-    });
+      final out = t.projectText(rows);
+      expect(out.length, 3 * 1024);
+      expect(out.every((v) => v.isFinite), isTrue);
+    } finally {
+      t.dispose();
+    }
   });
 }

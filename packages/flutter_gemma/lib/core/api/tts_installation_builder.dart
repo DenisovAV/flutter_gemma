@@ -87,8 +87,15 @@ class TtsInstallationBuilder {
       );
     }
 
-    String joinUrl(String base, String fn) =>
-        base.endsWith('/') ? '$base$fn' : '$base/$fn';
+    // Most bundle members are fetched from `baseUrl/<plain filename>`, but a
+    // few (e.g. qwen3's embedding tables + demo voice) live under a
+    // subdirectory on the origin server even though their INSTALLED
+    // identity is the plain basename — see
+    // `TtsModelTypeManifest.urlSuffixFor`'s doc for why that split is safe.
+    String joinUrl(String base, String fn) {
+      final suffix = ttsModelType.urlSuffixFor(fn);
+      return base.endsWith('/') ? '$base$suffix' : '$base/$suffix';
+    }
 
     final spec = TtsModelSpec.fromManifest(
       name: _name ?? ttsModelType.name,

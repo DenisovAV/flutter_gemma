@@ -1,9 +1,10 @@
 part of '../model_specs.dart';
 
 /// Text-to-speech model families supported by the pluggable TTS backends.
-/// Only [matcha] has a shipped [TtsModelProfile]/pipeline (`flutter_gemma_speech`);
-/// [kokoro]/[supertonic] are documented follow-ons (fail-loud until wired).
-enum TtsModelType { matcha, supertonic, kokoro }
+/// [matcha] and [qwen3] have shipped [TtsModelProfile]/pipelines
+/// (`flutter_gemma_speech`); [kokoro]/[supertonic] are documented follow-ons
+/// (fail-loud until wired).
+enum TtsModelType { matcha, supertonic, kokoro, qwen3 }
 
 /// The filenames a given TTS model needs, installed together as a bundle from
 /// one source. Fail-loud for unwired families.
@@ -19,10 +20,62 @@ extension TtsModelTypeManifest on TtsModelType {
       'config.json',
       'g2p_meta.json',
     ],
+    // litert-community/Qwen3-TTS-12Hz-0.6B-Base on HuggingFace. Entries are
+    // PLAIN basenames — deliberately NOT the `tables/`/`voices/` subpaths
+    // those 5 files actually live under on the HF repo (see [urlSuffixFor]).
+    // This is load-bearing, not a simplification: [TtsBundleFile.fromSource]
+    // derives a file's installed identity (== [TtsBundleFile.prefsKey] ==
+    // the `artifactPaths` key `Qwen3TtsCore.load`/`Qwen3Tables.load` read)
+    // from the LAST path segment of its source, and
+    // `MobileModelManager._restoreActiveTtsModel` independently re-derives
+    // the SAME namespaced on-disk path directly from this raw manifest
+    // string (`FileNameUtils.namespaced(modelId, fn)`) — if an entry here
+    // contained a `/`, those two derivations would silently diverge (fresh
+    // install writes the URL-extracted flat basename; restore would look for
+    // a namespaced path with an embedded subdirectory) and active-model
+    // restore would fail to find the file after every relaunch. No
+    // `config.json` — Qwen3's sampling params (top_k=50, temperature=0.9,
+    // repetition_penalty=1.05, max_frames=512) are recipe constants threaded
+    // as Dart defaults, not model-file-driven.
+    TtsModelType.qwen3 => const [
+      'talker_int4.tflite',
+      'mtp_fp32.tflite',
+      'codec_decoder_fp32.tflite',
+      'tokenizer.json',
+      'text_embedding_fp16.npy',
+      'text_projection_fp32.npz',
+      'codec_embedding_fp32.npy',
+      'mtp_embeddings_fp16.npy',
+      'demo_speaker.npy',
+    ],
     _ => throw UnimplementedError(
-      'TTS manifest for $this is a follow-on (only matcha is wired)',
+      'TTS manifest for $this is a follow-on (only matcha/qwen3 are wired)',
     ),
   };
+
+  /// The URL path segment a bundle member is actually fetched from under the
+  /// model's `resolve/main/` base — usually just [plainFilename] itself, but
+  /// [TtsModelType.qwen3]'s 4 embedding-table members and its 1 demo-voice
+  /// member live in the HF repo's `tables/`/`voices/` subdirectories even
+  /// though (per [manifest]'s doc) their INSTALLED identity is the bare
+  /// basename. Safe to add a directory prefix here: it changes ONLY where
+  /// [TtsInstallationBuilder] fetches the bytes from, never the on-disk
+  /// filename/prefsKey (which [TtsBundleFile.fromSource] derives from the
+  /// LAST path segment of the resulting URL — a `tables/` prefix earlier in
+  /// the path is dropped exactly like the plain-basename manifest entry
+  /// intends). A no-op (identity) for every other [TtsModelType].
+  String urlSuffixFor(String plainFilename) {
+    if (this != TtsModelType.qwen3) return plainFilename;
+    const tableFiles = {
+      'text_embedding_fp16.npy',
+      'text_projection_fp32.npz',
+      'codec_embedding_fp32.npy',
+      'mtp_embeddings_fp16.npy',
+    };
+    if (tableFiles.contains(plainFilename)) return 'tables/$plainFilename';
+    if (plainFilename == 'demo_speaker.npy') return 'voices/$plainFilename';
+    return plainFilename;
+  }
 }
 
 /// One file of a TTS model bundle. [filename] is namespaced by the owning
@@ -88,9 +141,12 @@ class TtsBundleFile extends ModelFile {
   @override
   int? get minimumSizeBytes {
     // TTS bundles legitimately include small aux files (emb.bin ~137 KB,
-    // config/meta json, gzipped dict). Give those a 1 KB floor; the large
-    // .tflite graphs return null and keep the validator's 1 MB default.
-    const smallBundleExts = {'.bin', '.gz', '.json'};
+    // config/meta json, gzipped dict, qwen3's demo_speaker.npy x-vector
+    // ~4 KB). Give those a 1 KB floor; the large .tflite graphs return null
+    // and keep the validator's 1 MB default. .npy/.npz also cover qwen3's
+    // larger embedding tables — a looser floor for those is accepted so the
+    // one genuinely small .npy (demo_speaker.npy) isn't rejected.
+    const smallBundleExts = {'.bin', '.gz', '.json', '.npy', '.npz'};
     return smallBundleExts.contains(extension) ? 1024 : null;
   }
 }

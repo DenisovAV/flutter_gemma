@@ -1,3 +1,11 @@
+## 0.2.0
+
+* Attach an image to an agent turn: `AgentSession.ask(..., imageBytes:)` / `AgentLoop.run(..., imageBytes:)`.
+* Throw instead of silently dropping an image when the chat has no image support.
+* MCP protocol version bumped to 2025-11-25.
+* MCP: verify the server's negotiated revision and send the `MCP-Protocol-Version` header.
+* MCP: surface a rejected `notifications/initialized` instead of swallowing it.
+
 ## 0.1.0
 
 * Initial pure-Dart foundation: Skill model + SKILL.md parser (Gallery-compatible).

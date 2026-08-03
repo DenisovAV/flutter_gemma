@@ -48,8 +48,8 @@ class McpClient {
     required this.config,
     http.Client? httpClient,
     this.clientName = 'flutter_gemma_agent',
-    this.clientVersion = '0.1.0',
-    this.protocolVersion = '2025-06-18',
+    this.clientVersion = '0.2.0',
+    this.protocolVersion = '2025-11-25',
   }) : _ownsClient = httpClient == null,
        _http = httpClient ?? http.Client(),
        // Seed from any cached tools on the config so a client constructed for
@@ -66,7 +66,19 @@ class McpClient {
   final String clientVersion;
 
   /// The MCP `protocolVersion` advertised in the initialize handshake.
+  ///
+  /// Defaults to `2025-11-25`. The `2026-07-28` revision (a stateless core,
+  /// with no handshake and no `Mcp-Session-Id`) is final, but this client is
+  /// built on the initialize handshake plus `Mcp-Session-Id`, so it does not
+  /// speak it yet. Override only when the servers you talk to negotiate the
+  /// revision you pass — [connect] rejects a server that answers with a
+  /// different one.
   final String protocolVersion;
+
+  /// The revision the server echoed in the initialize result. Null until
+  /// [connect] runs. Sent as `MCP-Protocol-Version` on every later request.
+  String? get negotiatedProtocolVersion => _negotiatedProtocolVersion;
+  String? _negotiatedProtocolVersion;
 
   final http.Client _http;
   final bool _ownsClient;
@@ -108,6 +120,27 @@ class McpClient {
       'capabilities': <String, dynamic>{},
       'clientInfo': {'name': clientName, 'version': clientVersion},
     }, captureSession: true);
+
+    // The spec requires the server to echo the revision it agreed to. Left
+    // unread, a server that negotiates down looks identical to one that
+    // accepted — and the mismatch resurfaces later as an opaque tools/call
+    // error pointing at the wrong step.
+    final negotiated = '${initResult['protocolVersion'] ?? ''}';
+    if (negotiated.isEmpty) {
+      throw McpException(
+        'MCP "initialize" result from ${config.url} omitted "protocolVersion", '
+        'which the spec requires.',
+      );
+    }
+    if (negotiated != protocolVersion) {
+      throw McpException(
+        'MCP server ${config.url} negotiated protocol "$negotiated", but this '
+        'client speaks "$protocolVersion" and implements no other revision. '
+        'Pass McpClient(protocolVersion: "$negotiated") once you have verified '
+        'compatibility.',
+      );
+    }
+    _negotiatedProtocolVersion = negotiated;
 
     final serverInfo = initResult['serverInfo'];
     final serverName = serverInfo is Map ? '${serverInfo['name'] ?? ''}' : '';
@@ -268,13 +301,29 @@ class McpClient {
     return Map<String, dynamic>.from(result);
   }
 
-  /// Send a fire-and-forget JSON-RPC notification (no `id`, no result expected).
+  /// Send a JSON-RPC notification (no `id`, no result expected).
+  ///
+  /// Not fire-and-forget: `notifications/initialized` is spec-mandatory before
+  /// normal operation, and a server that rejected it may legitimately refuse
+  /// the `tools/list` that follows. Swallowing the rejection here would send
+  /// the debugger to the wrong step.
   Future<void> _notify(String method) async {
     final body = jsonEncode({'jsonrpc': '2.0', 'method': method});
+    final http.Response response;
     try {
-      await _http.post(Uri.parse(config.url), headers: _headers(), body: body);
-    } catch (_) {
-      // Notifications are best-effort; a failure here is non-fatal.
+      response = await _http.post(
+        Uri.parse(config.url),
+        headers: _headers(),
+        body: body,
+      );
+    } catch (e) {
+      throw McpException('MCP notification "$method" failed to send: $e');
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw McpException(
+        'MCP notification "$method" was rejected with HTTP '
+        '${response.statusCode}: ${response.body}',
+      );
     }
   }
 
@@ -331,6 +380,10 @@ class McpClient {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json, text/event-stream',
+      // Required on every request after initialize. Without it a stateless
+      // server MUST assume 2025-03-26, so advertising a newer revision in the
+      // handshake alone changes nothing on the wire.
+      'MCP-Protocol-Version': ?_negotiatedProtocolVersion,
       'Mcp-Session-Id': ?_sessionId,
       ...config.authHeaders,
     };

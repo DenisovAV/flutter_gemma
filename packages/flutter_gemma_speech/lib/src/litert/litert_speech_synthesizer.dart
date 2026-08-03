@@ -41,19 +41,23 @@ class LiteRtSpeechSynthesizer extends SpeechSynthesizer with CloseNotifier {
   /// [artifactPaths] maps each of [profile]'s bundle filenames (config,
   /// dict, embedding, and the `.tflite` graphs) to their resolved on-disk
   /// paths. [preferredBackend] selects the LiteRT hardware accelerator
-  /// (defaults to CPU).
+  /// (defaults to CPU). [language] is Qwen3-only (ignored by Matcha) — see
+  /// `TtsWorker.spawn`'s doc; defaults to `'english'`. Task 5.4 surfaces a
+  /// real language picker end to end.
   ///
   /// Caller owns the returned instance and must call [close] when done.
   static Future<LiteRtSpeechSynthesizer> create({
     required TtsModelProfile profile,
     required Map<String, String> artifactPaths,
     PreferredBackend? preferredBackend,
+    String language = 'english',
     VoidCallback? onClose,
   }) async {
     final worker = await TtsWorker.spawn(
       profile: profile,
       artifactPaths: artifactPaths,
       backend: preferredBackend,
+      language: language,
     );
     return LiteRtSpeechSynthesizer._(worker, onClose ?? () {});
   }

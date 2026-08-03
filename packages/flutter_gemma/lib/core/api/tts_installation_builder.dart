@@ -104,19 +104,42 @@ class TtsInstallationBuilder {
     final handlerRegistry = registry.sourceHandlerRegistry;
 
     final manifest = ttsModelType.manifest;
+    // Only a bundle basename that is UNIQUE across the ENTIRE TTS catalog is
+    // safe to adopt from a pre-refactor flat install: a shared basename (e.g. a
+    // generic `config.json`) carries no type marker, so blindly adopting it
+    // could hand THIS model another TTS model's file — the exact collision the
+    // namespacing refactor fixes (see FileSystemService.adoptLegacyFile's
+    // contract). Today matcha is the only type, so every basename is unique;
+    // this guard keeps the adoption correct the moment a second TTS model
+    // shares a basename (that basename then falls through to a fresh download).
+    final catalogBasenameCounts = <String, int>{};
+    for (final type in TtsModelType.values) {
+      final List<String> typeManifest;
+      try {
+        typeManifest = type.manifest;
+      } on UnimplementedError {
+        // A not-yet-wired TTS type has no installed files, so it can't own a
+        // colliding plain file — skip it rather than let its manifest getter
+        // throw.
+        continue;
+      }
+      for (final fn in typeManifest) {
+        catalogBasenameCounts[fn] = (catalogBasenameCounts[fn] ?? 0) + 1;
+      }
+    }
+
     final files = spec.files;
     var done = 0;
     for (var i = 0; i < files.length; i++) {
       _cancelToken?.throwIfCancelled();
       final file = files[i];
       final legacyBasename = manifest[i];
+      final adoptable = (catalogBasenameCounts[legacyBasename] ?? 0) == 1;
 
       if (await repository.isInstalled(file.filename)) {
         gemmaLog('ℹ️  TTS bundle file already installed: ${file.filename}');
-      } else if (await fileSystem.adoptLegacyFile(
-        legacyBasename,
-        file.filename,
-      )) {
+      } else if (adoptable &&
+          await fileSystem.adoptLegacyFile(legacyBasename, file.filename)) {
         gemmaLog(
           '♻️  Adopted legacy TTS bundle file: $legacyBasename -> ${file.filename}',
         );

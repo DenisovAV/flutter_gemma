@@ -15,7 +15,10 @@ import 'package:path_provider_platform_interface/path_provider_platform_interfac
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/domain/model_source.dart';
+import 'package:flutter_gemma/core/model_management/constants/preferences_keys.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/mobile/flutter_gemma_mobile.dart'
     show MobileModelManager;
@@ -428,6 +431,202 @@ void main() {
         );
       },
     );
+  });
+
+  group('C1 regression: restore-on-launch migrates a pre-refactor plain-named '
+      'tokenizer so createStt/Embedding does not break on upgrade', () {
+    test('STT: a pre-refactor moonshine install (plain tokenizer.json) is '
+        'migrated to the namespaced identity on restore, and the restored '
+        'active spec resolves (getModelFilePaths non-null)', () async {
+      await ServiceRegistry.initialize();
+      final fs = ServiceRegistry.instance.fileSystemService;
+      final repository = ServiceRegistry.instance.modelRepository;
+
+      const modelName = 'moonshine_tiny_5s_f32.tflite';
+      const plainTokenizer = 'tokenizer.json';
+      const namespacedTokenizer = 'moonshine_tiny_5s_f32__tokenizer.json';
+
+      // Seed PRE-REFACTOR on-disk + repo + prefs state: model + tokenizer both
+      // written under their PLAIN names, repo keyed PLAIN, active prefs PLAIN —
+      // exactly what a pre-namespacing install left behind. The model weight
+      // was never namespaced, so only the tokenizer is a migration candidate.
+      final modelPath = await fs.getWriteTargetPath(modelName);
+      final plainTokenizerPath = await fs.getWriteTargetPath(plainTokenizer);
+      await File(modelPath).writeAsBytes(_fakeModelBytes);
+      await File(plainTokenizerPath).writeAsBytes(_fakeCompanionBytes);
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: modelName,
+          source: ModelSource.file(modelPath),
+          installedAt: DateTime(2026),
+          sizeBytes: _fakeModelBytes.length,
+          type: repo.ModelType.stt,
+          hasLoraWeights: false,
+        ),
+      );
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: plainTokenizer,
+          source: ModelSource.file(plainTokenizerPath),
+          installedAt: DateTime(2026),
+          sizeBytes: _fakeCompanionBytes.length,
+          type: repo.ModelType.stt,
+          hasLoraWeights: false,
+        ),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(PreferencesKeys.activeSttFilename, modelName);
+      await prefs.setString(
+        PreferencesKeys.activeSttTokenizerFilename,
+        plainTokenizer,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttModelType,
+        SttModelType.moonshine.name,
+      );
+
+      // Cold relaunch: a fresh manager restores + migrates.
+      final manager = MobileModelManager();
+      await manager.initialize();
+
+      // Repo re-keyed plain -> namespaced (no-clobber, old key removed).
+      expect(await repository.isInstalled(namespacedTokenizer), isTrue);
+      expect(await repository.isInstalled(plainTokenizer), isFalse);
+      // File renamed on disk (adopted, not re-downloaded — bytes preserved).
+      final namespacedPath = await fs.getWriteTargetPath(namespacedTokenizer);
+      expect(File(namespacedPath).existsSync(), isTrue);
+      expect(File(plainTokenizerPath).existsSync(), isFalse);
+      // Persisted active filename updated so the next launch is a no-op.
+      expect(
+        prefs.getString(PreferencesKeys.activeSttTokenizerFilename),
+        namespacedTokenizer,
+      );
+
+      // THE fix: the restored active model now resolves instead of throwing.
+      final active = manager.activeSttModel;
+      expect(active, isNotNull);
+      final paths = await manager.getModelFilePaths(active!);
+      expect(
+        paths,
+        isNotNull,
+        reason:
+            'pre-C1 this returned null -> createSttModel threw StateError on '
+            'first launch after upgrade',
+      );
+    });
+
+    test('Embedding: a pre-refactor install (plain sentencepiece.model) is '
+        'migrated to the namespaced identity on restore', () async {
+      await ServiceRegistry.initialize();
+      final fs = ServiceRegistry.instance.fileSystemService;
+      final repository = ServiceRegistry.instance.modelRepository;
+
+      const modelName = 'embeddinggemma-300M_seq1024_mixed-precision.tflite';
+      const plainTokenizer = 'sentencepiece.model';
+      const namespacedTokenizer =
+          'embeddinggemma-300M_seq1024_mixed-precision__sentencepiece.model';
+
+      final modelPath = await fs.getWriteTargetPath(modelName);
+      final plainTokenizerPath = await fs.getWriteTargetPath(plainTokenizer);
+      await File(modelPath).writeAsBytes(_fakeModelBytes);
+      await File(plainTokenizerPath).writeAsBytes(_fakeCompanionBytes);
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: modelName,
+          source: ModelSource.file(modelPath),
+          installedAt: DateTime(2026),
+          sizeBytes: _fakeModelBytes.length,
+          type: repo.ModelType.embedding,
+          hasLoraWeights: false,
+        ),
+      );
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: plainTokenizer,
+          source: ModelSource.file(plainTokenizerPath),
+          installedAt: DateTime(2026),
+          sizeBytes: _fakeCompanionBytes.length,
+          type: repo.ModelType.embedding,
+          hasLoraWeights: false,
+        ),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(PreferencesKeys.activeEmbeddingFilename, modelName);
+      await prefs.setString(
+        PreferencesKeys.activeEmbeddingTokenizerFilename,
+        plainTokenizer,
+      );
+
+      final manager = MobileModelManager();
+      await manager.initialize();
+
+      expect(await repository.isInstalled(namespacedTokenizer), isTrue);
+      expect(await repository.isInstalled(plainTokenizer), isFalse);
+      final active = manager.activeEmbeddingModel;
+      expect(active, isNotNull);
+      final paths = await manager.getModelFilePaths(active!);
+      expect(paths, isNotNull);
+    });
+
+    test('idempotent: a post-refactor install (already-namespaced tokenizer) '
+        'restores without any migration', () async {
+      await ServiceRegistry.initialize();
+      final fs = ServiceRegistry.instance.fileSystemService;
+      final repository = ServiceRegistry.instance.modelRepository;
+
+      const modelName = 'moonshine_tiny_5s_f32.tflite';
+      const namespacedTokenizer = 'moonshine_tiny_5s_f32__tokenizer.json';
+
+      final modelPath = await fs.getWriteTargetPath(modelName);
+      final tokenizerPath = await fs.getWriteTargetPath(namespacedTokenizer);
+      await File(modelPath).writeAsBytes(_fakeModelBytes);
+      await File(tokenizerPath).writeAsBytes(_fakeCompanionBytes);
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: modelName,
+          source: ModelSource.file(modelPath),
+          installedAt: DateTime(2026),
+          sizeBytes: _fakeModelBytes.length,
+          type: repo.ModelType.stt,
+          hasLoraWeights: false,
+        ),
+      );
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: namespacedTokenizer,
+          source: ModelSource.file(tokenizerPath),
+          installedAt: DateTime(2026),
+          sizeBytes: _fakeCompanionBytes.length,
+          type: repo.ModelType.stt,
+          hasLoraWeights: false,
+        ),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(PreferencesKeys.activeSttFilename, modelName);
+      await prefs.setString(
+        PreferencesKeys.activeSttTokenizerFilename,
+        namespacedTokenizer,
+      );
+      await prefs.setString(
+        PreferencesKeys.activeSttModelType,
+        SttModelType.moonshine.name,
+      );
+
+      final manager = MobileModelManager();
+      await manager.initialize();
+
+      // The already-namespaced key survives; no double-prefix key appears.
+      expect(await repository.isInstalled(namespacedTokenizer), isTrue);
+      expect(
+        await repository.isInstalled(
+          'moonshine_tiny_5s_f32__moonshine_tiny_5s_f32__tokenizer.json',
+        ),
+        isFalse,
+      );
+      expect(File(tokenizerPath).existsSync(), isTrue);
+      final paths = await manager.getModelFilePaths(manager.activeSttModel!);
+      expect(paths, isNotNull);
+    });
   });
 }
 

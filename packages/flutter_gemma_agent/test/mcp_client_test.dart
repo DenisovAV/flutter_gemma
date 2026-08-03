@@ -109,6 +109,21 @@ void main() {
   const config = McpServerConfig(url: 'https://example.com/mcp');
 
   group('McpClient.connect', () {
+    // The advertised revision is the one thing an audience of spec authors can
+    // check live, so it is pinned by a test rather than left to drift.
+    test('advertises the current protocol revision by default', () async {
+      final server = _FakeMcpServer();
+      final client = McpClient(config: config, httpClient: server.client);
+
+      expect(client.protocolVersion, '2025-11-25');
+
+      await client.connect();
+
+      final initialize = server.requests.first;
+      expect(initialize.method, 'initialize');
+      expect(initialize.body['params']['protocolVersion'], '2025-11-25');
+    });
+
     test('runs initialize → notifications/initialized → tools/list', () async {
       final server = _FakeMcpServer();
       final client = McpClient(config: config, httpClient: server.client);

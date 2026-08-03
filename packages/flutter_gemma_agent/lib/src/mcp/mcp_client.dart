@@ -49,7 +49,7 @@ class McpClient {
     http.Client? httpClient,
     this.clientName = 'flutter_gemma_agent',
     this.clientVersion = '0.1.0',
-    this.protocolVersion = '2025-06-18',
+    this.protocolVersion = '2025-11-25',
   }) : _ownsClient = httpClient == null,
        _http = httpClient ?? http.Client(),
        // Seed from any cached tools on the config so a client constructed for
@@ -66,6 +66,12 @@ class McpClient {
   final String clientVersion;
 
   /// The MCP `protocolVersion` advertised in the initialize handshake.
+  ///
+  /// Defaults to `2025-11-25`, the current revision. The `2026-07-28` revision
+  /// (a stateless core, no `Mcp-Session-Id`) becomes final on that date, but
+  /// SDKs adopt it at their own pace — advertise it only once the servers you
+  /// talk to actually negotiate it, or initialization will fail against a
+  /// server still on the current revision.
   final String protocolVersion;
 
   final http.Client _http;

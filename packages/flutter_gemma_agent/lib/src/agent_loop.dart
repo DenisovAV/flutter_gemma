@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
         FunctionCallResponse,
@@ -82,8 +84,26 @@ class AgentLoop {
   /// Drive one agent turn for [userMessage] against [chat], emitting progress
   /// [AgentEvent]s. The [chat] must already have been created with [agentTools]
   /// and the skill discovery injected into its system prompt.
-  Stream<AgentEvent> run(InferenceChat chat, String userMessage) async* {
-    await chat.addQueryChunk(Message(text: userMessage, isUser: true));
+  ///
+  /// Pass [imageBytes] to attach a photo to the turn — the model then sees the
+  /// image alongside [userMessage] and can call skills based on what it saw.
+  /// Requires a multimodal model and a [chat] created with `supportImage: true`
+  /// (see [AgentSession.fromModel]); without that the image is ignored
+  /// downstream.
+  Stream<AgentEvent> run(
+    InferenceChat chat,
+    String userMessage, {
+    Uint8List? imageBytes,
+  }) async* {
+    await chat.addQueryChunk(
+      imageBytes == null
+          ? Message(text: userMessage, isUser: true)
+          : Message.withImage(
+              text: userMessage,
+              imageBytes: imageBytes,
+              isUser: true,
+            ),
+    );
 
     for (var iteration = 0; iteration < maxIterations; iteration++) {
       final ModelResponse response = await chat.generateChatResponse();

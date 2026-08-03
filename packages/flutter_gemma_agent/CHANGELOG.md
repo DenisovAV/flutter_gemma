@@ -1,3 +1,8 @@
+## 0.2.0
+
+* Attach an image to an agent turn: `AgentSession.ask(..., imageBytes:)` / `AgentLoop.run(..., imageBytes:)`.
+* MCP protocol version bumped to 2025-11-25.
+
 ## 0.1.0
 
 * Initial pure-Dart foundation: Skill model + SKILL.md parser (Gallery-compatible).

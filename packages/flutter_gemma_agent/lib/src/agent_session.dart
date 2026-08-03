@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
         InferenceChat,
@@ -165,7 +167,12 @@ class AgentSession {
   /// Drive one agent turn for [userMessage], emitting progress [AgentEvent]s
   /// (skill loads, tool calls + their image/webview/widget results, streamed
   /// final text, and a terminal [DoneEvent] / [MaxIterationsEvent]).
-  Stream<AgentEvent> ask(String userMessage) => _loop.run(chat, userMessage);
+  ///
+  /// Pass [imageBytes] to attach a photo to the turn. The session must have been
+  /// built with `supportImage: true` (see [fromModel]) and back a multimodal
+  /// model, otherwise the image never reaches the model.
+  Stream<AgentEvent> ask(String userMessage, {Uint8List? imageBytes}) =>
+      _loop.run(chat, userMessage, imageBytes: imageBytes);
 
   /// Close the underlying chat session.
   Future<void> close() => chat.close();

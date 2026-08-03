@@ -619,4 +619,50 @@ void main() {
       expect(executor.calls.single.secret, 'sk-shared-9');
     });
   });
+
+  group('AgentLoop — image input', () {
+    test('sends an image message when imageBytes is given', () async {
+      final chat = _FakeAgentChat([const TextResponse('a printed card')]);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+      final bytes = Uint8List.fromList([1, 2, 3]);
+
+      await loop.run(chat, 'what is this?', imageBytes: bytes).toList();
+
+      final message = chat.received.single;
+      expect(message.hasImage, isTrue);
+      expect(message.imageBytes, bytes);
+      expect(message.text, 'what is this?');
+      expect(message.isUser, isTrue);
+    });
+
+    test('sends a text-only message when imageBytes is omitted', () async {
+      final chat = _FakeAgentChat([const TextResponse('hi')]);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+
+      await loop.run(chat, 'hello').toList();
+
+      expect(chat.received.single.hasImage, isFalse);
+      expect(chat.received.single.text, 'hello');
+    });
+
+    test('AgentSession.ask forwards imageBytes to the loop', () async {
+      final chat = _FakeAgentChat([const TextResponse('ok')]);
+      final session = AgentSession(
+        chat: chat,
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+      final bytes = Uint8List.fromList([9, 9]);
+
+      await session.ask('read this', imageBytes: bytes).toList();
+
+      expect(chat.received.single.imageBytes, bytes);
+    });
+  });
 }

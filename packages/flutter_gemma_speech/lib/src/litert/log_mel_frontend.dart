@@ -93,7 +93,22 @@ Float32List _applyNormalization(
   Float32List mel,
   SttMelNormalization normalization,
 ) {
-  if (normalization == SttMelNormalization.none) return mel;
+  switch (normalization) {
+    case SttMelNormalization.none:
+      return mel;
+    case SttMelNormalization.nemo:
+      // NeMo's per-mel-bin z-score is applied inline by computeNemoLogMel,
+      // never here. Reaching this means a profile was misconfigured to run the
+      // whisper-style frontend with nemo normalization — fail loud rather than
+      // silently applying whisper's log10 affine (which would produce a
+      // plausible-but-wrong spectrogram).
+      throw ArgumentError(
+        'SttMelNormalization.nemo must be applied via computeNemoLogMel, not '
+        'the whisper log-mel frontend (computeLogMelSpectrogram).',
+      );
+    case SttMelNormalization.whisper:
+      break; // whisper log10 path below
+  }
   final log10Mel = Float32List(mel.length);
   var maxLog = double.negativeInfinity;
   for (var i = 0; i < mel.length; i++) {
@@ -272,7 +287,20 @@ Float32List computeNemoLogMel(
   }
 
   // Full-window per-mel-bin z-score: mean/std over ALL melFrames (including
-  // silence padding), population std (ddof=0), floored at 1e-5.
+  // silence padding), floored at 1e-5.
+  //
+  // Uses the Bessel-corrected SAMPLE std (ddof=1, divide by N-1) — matching
+  // NVIDIA/NeMo's `normalize_batch`, whose source literally comments "Subtract
+  // 1 in the denominator to correct for the bias". The committed golden fixture
+  // is regenerated with the SAME ddof=1 by an INDEPENDENT numpy reference
+  // (test/fixtures/gen_nemo_log_mel_golden.py — it reuses the bundled Slaney
+  // matrix but computes the z-score via numpy's own std), so the golden test
+  // genuinely verifies this convention instead of encoding it. The N vs N-1
+  // choice is a uniform sqrt(N/(N-1)) per-bin scale (~0.1% at melFrames=500),
+  // so it never flips a per-frame CTC argmax — but ddof=1 is the correct
+  // reference algorithm. `math.max(1, melFrames - 1)` guards the degenerate
+  // single-frame case (ddof=1 is undefined for N=1); production melFrames is
+  // 100/500.
   final mean = Float64List(nMels);
   for (var f = 0; f < melFrames; f++) {
     for (var m = 0; m < nMels; m++) {
@@ -289,8 +317,9 @@ Float32List computeNemoLogMel(
       std[m] += d * d;
     }
   }
+  final ddofDenom = math.max(1, melFrames - 1);
   for (var m = 0; m < nMels; m++) {
-    final s = math.sqrt(std[m] / melFrames);
+    final s = math.sqrt(std[m] / ddofDenom);
     std[m] = s < 1e-5 ? 1e-5 : s;
   }
 

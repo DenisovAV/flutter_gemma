@@ -90,6 +90,12 @@ class SentencePieceTokenizer implements SttTokenizer {
       if (id == eosId) break;
       if (id == unkId || id == bosId || id >= baseVocabSize) continue;
       final piece = _idToPiece[id];
+      // An id in [0, baseVocabSize) with no vocab piece is dropped rather than
+      // thrown on: detokenization must stay robust to a stray/garbled id from
+      // the model (a decode-time output artifact, not a config error) — unlike
+      // the FAIL-LOUD special-token *resolution* in stt_special_tokens.dart,
+      // which throws on a MISSING configured token because that IS a config
+      // error. A dense HF vocab has no such gaps in practice.
       if (piece == null) continue;
 
       final byteFallback = _byteFallbackPattern.firstMatch(piece);

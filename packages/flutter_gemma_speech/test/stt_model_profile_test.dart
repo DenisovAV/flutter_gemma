@@ -57,6 +57,12 @@ void main() {
       expect(p.maxDecodeTokens, 128);
       expect(p.modes, {SttMode.batch});
       expect(p.tokenizerKind, SttTokenizerKind.gpt2ByteLevelBpe);
+      // Pin the Phase-0 spike finding: whisper's decoder is genuinely causal
+      // (unlike moonshine's paddingOnly export). A silent flip to paddingOnly
+      // would break decode masking with no other test signal — surfacing only
+      // as soft on-device transcription drift. Do NOT relax without re-running
+      // docs/superpowers/notes/whisper-stt-spike-findings.md.
+      expect(p.decoderMaskConvention, SttDecoderMaskConvention.causal);
     });
 
     test('forced English prompt, resolved by name (not hardcoded id)', () {
@@ -105,6 +111,9 @@ void main() {
       expect(p.modes, {SttMode.batch});
       expect(p.tokenizerKind, SttTokenizerKind.parakeetBpe);
       expect(p.blankId, 1024);
+      // ctc reads no decoder mask, but pin the declared value so a refactor
+      // that repurposes the field can't silently change parakeet's contract.
+      expect(p.decoderMaskConvention, SttDecoderMaskConvention.paddingOnly);
     });
 
     test('no seed prompt, no eos, no suppression (ctc is single-pass)', () {

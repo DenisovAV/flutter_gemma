@@ -79,5 +79,21 @@ void main() {
       );
       expect(ids, [1, 1]);
     });
+
+    test('a NaN winning logit fails loud instead of emitting a garbled id', () {
+      // A corrupted frame (GPU/NPU accelerator failure, cf. #214): the winning
+      // logit is NaN. `argmax`'s `>` comparison is NaN-blind, so without the
+      // guard this frame would silently contribute a plausible-but-wrong id and
+      // the whole transcript would be returned as "successful" garbage. The
+      // guard must throw instead — matching the seq2seq _decodeLoop NaN check.
+      final logits = Float32List.fromList([
+        double.nan, 0.2, 0.1, // frame0 -> argmax 0, whose logit is NaN
+        0.1, 0.9, 0.1, // frame1 -> 1
+      ]);
+      expect(
+        () => ctcGreedyDecode(logits, blankId: 2, numFrames: 2, numClasses: 3),
+        throwsStateError,
+      );
+    });
   });
 }

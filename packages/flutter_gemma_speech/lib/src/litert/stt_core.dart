@@ -8,9 +8,11 @@
 // (#299).
 //
 // Generic over [SttModelProfile] — NOT model-specific. `seq2seq` decode is
-// implemented for both the `rawPcm` (moonshine-tiny) and `logMel` (whisper)
-// input types; `ctc` still throws `UnimplementedError` (needs a follow-on
-// decode loop — see the design spec). The `rawPcm`+`paddingOnly` path is a
+// implemented for the `rawPcm` (moonshine-tiny) and `logMel` (whisper) input
+// types; `ctc` decode is implemented for the `logMel`+`frameFirst` (parakeet)
+// path. The `transcribe`/`_encode` dispatch switches are exhaustive over the
+// decode/input/axis enums, so a new family value is a COMPILE error until
+// wired — no runtime capability guard needed. The `rawPcm`+`paddingOnly` path is a
 // VERBATIM port of the verified recipe in
 // `docs/superpowers/notes/stt-transcript-recipe.md`:
 //   - mask convention C (padding-only additive mask: 0.0 if j<len else
@@ -116,7 +118,21 @@ List<int> ctcGreedyDecode(
   final perFrameIds = <int>[];
   for (var f = 0; f < numFrames; f++) {
     final row = logits.sublist(f * numClasses, (f + 1) * numClasses);
-    perFrameIds.add(argmax(row));
+    final id = argmax(row);
+    // A NaN winning logit means the backend produced invalid output (e.g. a
+    // GPU/NPU accelerator failure, cf. #214 and the seq2seq `_decodeLoop`
+    // guard). `argmax`'s `>` comparison is NaN-blind, so a corrupted frame
+    // otherwise yields a plausible-but-wrong id and the whole CTC transcript
+    // is returned as a "successful" garbled result indistinguishable from a
+    // real one. Fail loudly here instead — matching the seq2seq path.
+    if (row[id].isNaN) {
+      throw StateError(
+        'STT CTC decode produced NaN logits at frame $f — the model backend '
+        'returned invalid output; transcription aborted rather than silently '
+        'returning a garbled result.',
+      );
+    }
+    perFrameIds.add(id);
   }
   final collapsed = <int>[];
   for (var i = 0; i < perFrameIds.length; i++) {
@@ -268,6 +284,13 @@ class SttCore {
   /// Resolved stop token id (moonshine: 2; whisper: resolved
   /// `<|endoftext|>`), resolved once in `load()`. Defaults to moonshine's
   /// hardcoded EOS.
+  ///
+  /// Read ONLY by the `seq2seq` `_decodeLoop`. A `ctc` profile (parakeet) has
+  /// a null `eosToken`, so the `?? sttDecodeEosId` fallback in the constructor
+  /// leaves this at moonshine's EOS=2 — inert, because `_ctcDecode` is a
+  /// single pass and never reads `_eosId`. A FUTURE seq2seq family with a null
+  /// `eosToken` would silently inherit EOS=2 here; such a family must set a
+  /// real `eosToken` (the seq2seq stop condition depends on it).
   final int _eosId;
 
   /// Resolved logit suppression, applied every decode step before argmax.
@@ -284,21 +307,11 @@ class SttCore {
     required SttModelProfile profile,
     PreferredBackend? backend,
   }) async {
-    if (profile.decodeType != SttDecodeType.seq2seq &&
-        profile.decodeType != SttDecodeType.ctc) {
-      throw UnimplementedError(
-        'SttCore: unsupported decodeType ${profile.decodeType} '
-        '(see the design spec).',
-      );
-    }
-    if (profile.inputType != SttInputType.rawPcm &&
-        profile.inputType != SttInputType.logMel) {
-      throw UnimplementedError(
-        'SttCore: unsupported inputType ${profile.inputType} '
-        '(see the design spec).',
-      );
-    }
-
+    // No capability guard here: `transcribe`'s decodeType switch and
+    // `_encode`'s inputType/melAxisOrder switches are exhaustive (no default
+    // arm), so an unwired enum value is a compile error, not a runtime
+    // surprise — a stronger guarantee than the vacuous `!= a && != b` checks
+    // this replaced (both enums are now fully implemented).
     final bindings = LiteRtBindings.open();
     final tokenizerText = await File(tokenizerPath).readAsString();
     final tokenizerJson = jsonDecode(tokenizerText) as Map<String, dynamic>;

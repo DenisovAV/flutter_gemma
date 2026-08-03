@@ -18,7 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// [InferenceChat] (mirrors the genkit `FakeInferenceChat` pattern) so no real
 /// session is created.
 class _FakeAgentChat extends InferenceChat {
-  _FakeAgentChat(this._responses)
+  _FakeAgentChat(this._responses, {super.supportImage})
     : super(sessionCreator: null, maxTokens: 1024);
 
   final List<ModelResponse> _responses;
@@ -622,7 +622,9 @@ void main() {
 
   group('AgentLoop — image input', () {
     test('sends an image message when imageBytes is given', () async {
-      final chat = _FakeAgentChat([const TextResponse('a printed card')]);
+      final chat = _FakeAgentChat([
+        const TextResponse('a printed card'),
+      ], supportImage: true);
       final loop = AgentLoop(
         registry: SkillRegistry(),
         executors: [_FakeExecutor(SkillType.textOnly)],
@@ -651,8 +653,46 @@ void main() {
       expect(chat.received.single.text, 'hello');
     });
 
+    test('throws when the chat was built without image support', () async {
+      // The engines disagree on this case — FFI/mobile drop the image and
+      // answer text-only, web MediaPipe throws. Fail here so the behaviour is
+      // identical everywhere.
+      final chat = _FakeAgentChat([const TextResponse('never reached')]);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+
+      expect(
+        () => loop
+            .run(chat, 'what is this?', imageBytes: Uint8List.fromList([1]))
+            .toList(),
+        throwsArgumentError,
+      );
+      expect(chat.received, isEmpty);
+    });
+
+    test('throws on empty imageBytes', () async {
+      final chat = _FakeAgentChat([
+        const TextResponse('never reached'),
+      ], supportImage: true);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+
+      expect(
+        () =>
+            loop.run(chat, 'what is this?', imageBytes: Uint8List(0)).toList(),
+        throwsArgumentError,
+      );
+      expect(chat.received, isEmpty);
+    });
+
     test('AgentSession.ask forwards imageBytes to the loop', () async {
-      final chat = _FakeAgentChat([const TextResponse('ok')]);
+      final chat = _FakeAgentChat([
+        const TextResponse('ok'),
+      ], supportImage: true);
       final session = AgentSession(
         chat: chat,
         registry: SkillRegistry(),

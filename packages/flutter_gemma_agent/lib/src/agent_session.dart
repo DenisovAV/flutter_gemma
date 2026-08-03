@@ -168,9 +168,10 @@ class AgentSession {
   /// (skill loads, tool calls + their image/webview/widget results, streamed
   /// final text, and a terminal [DoneEvent] / [MaxIterationsEvent]).
   ///
-  /// Pass [imageBytes] to attach a photo to the turn. The session must have been
-  /// built with `supportImage: true` (see [fromModel]) and back a multimodal
-  /// model, otherwise the image never reaches the model.
+  /// Pass [imageBytes] to attach a photo to the turn. The session must have
+  /// been built with `supportImage: true` (see [fromModel]) and back a
+  /// multimodal model; otherwise the returned stream fails with an
+  /// [ArgumentError] rather than quietly answering as if there were no image.
   Stream<AgentEvent> ask(String userMessage, {Uint8List? imageBytes}) =>
       _loop.run(chat, userMessage, imageBytes: imageBytes);
 

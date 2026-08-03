@@ -87,14 +87,38 @@ class AgentLoop {
   ///
   /// Pass [imageBytes] to attach a photo to the turn — the model then sees the
   /// image alongside [userMessage] and can call skills based on what it saw.
-  /// Requires a multimodal model and a [chat] created with `supportImage: true`
-  /// (see [AgentSession.fromModel]); without that the image is ignored
-  /// downstream.
+  ///
+  /// PRECONDITION: [chat] must have been created with `supportImage: true`
+  /// (see [AgentSession.fromModel]) and be backed by a multimodal model.
+  /// Enforced with a real throw, because the engines below do NOT agree on
+  /// what an unsupported image means: the FFI, mobile-MediaPipe and built-in-AI
+  /// sessions drop it silently and answer text-only, while web MediaPipe throws
+  /// `ArgumentError`. A silent drop is the worse half — the model returns a
+  /// confident answer to a photo it never saw, and nothing in the event stream
+  /// says so. Throwing here makes the failure identical on every platform.
   Stream<AgentEvent> run(
     InferenceChat chat,
     String userMessage, {
     Uint8List? imageBytes,
   }) async* {
+    if (imageBytes != null) {
+      if (!chat.supportsImages) {
+        throw ArgumentError.value(
+          chat,
+          'chat',
+          'AgentLoop.run(imageBytes:) requires a chat created with '
+              'supportImage: true, backed by a multimodal model. Without it '
+              'the engine drops the image and the model answers text-only.',
+        );
+      }
+      if (imageBytes.isEmpty) {
+        throw ArgumentError.value(
+          imageBytes,
+          'imageBytes',
+          'imageBytes must not be empty.',
+        );
+      }
+    }
     await chat.addQueryChunk(
       imageBytes == null
           ? Message(text: userMessage, isUser: true)

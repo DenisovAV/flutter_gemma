@@ -31,6 +31,11 @@ class _SttScreenState extends State<SttScreen> {
   String? _initError;
   int? _downloadPercent;
 
+  /// Which file the percentage refers to. The model and the tokenizer are
+  /// downloaded sequentially into the same counter, so without this the bar
+  /// runs 0→100→0 and the label lies during the second phase.
+  String _downloadStage = 'model';
+
   bool _isTranscribing = false;
   String? _transcript;
   String? _transcribeError;
@@ -75,11 +80,17 @@ class _SttScreenState extends State<SttScreen> {
           .ofType(widget.model.sttModelType)
           .withModelProgress((percent) {
             if (!mounted) return;
-            setState(() => _downloadPercent = percent);
+            setState(() {
+              _downloadStage = 'model';
+              _downloadPercent = percent;
+            });
           })
           .withTokenizerProgress((percent) {
             if (!mounted) return;
-            setState(() => _downloadPercent = percent);
+            setState(() {
+              _downloadStage = 'tokenizer';
+              _downloadPercent = percent;
+            });
           })
           .install();
 
@@ -347,7 +358,7 @@ class _SttScreenState extends State<SttScreen> {
             const SizedBox(height: 16),
             Text(
               showPercent
-                  ? 'Downloading model… $percent%'
+                  ? 'Downloading $_downloadStage… $percent%'
                   : 'Installing model and preparing recognizer…',
               style: const TextStyle(color: Colors.white60),
             ),

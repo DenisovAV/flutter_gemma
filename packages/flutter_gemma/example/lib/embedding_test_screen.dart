@@ -27,6 +27,11 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
   EmbeddingModel? _embeddingModel;
   int? _downloadPercent;
 
+  /// Which file the percentage refers to. The model and the tokenizer are
+  /// downloaded sequentially into the same counter, so without this the bar
+  /// runs 0→100→0 and the label lies during the second phase.
+  String _downloadStage = 'model';
+
   @override
   void initState() {
     super.initState();
@@ -89,11 +94,17 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       builder = builder
           .withModelProgress((percent) {
             if (!mounted) return;
-            setState(() => _downloadPercent = percent);
+            setState(() {
+              _downloadStage = 'model';
+              _downloadPercent = percent;
+            });
           })
           .withTokenizerProgress((percent) {
             if (!mounted) return;
-            setState(() => _downloadPercent = percent);
+            setState(() {
+              _downloadStage = 'tokenizer';
+              _downloadPercent = percent;
+            });
           });
 
       await builder.install();
@@ -119,11 +130,15 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
       if (kDebugMode) {
         debugPrint('✅ Embedding model created on test screen (Modern API)');
       }
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('⚠️ Could not create embedding model: $e');
-      }
-      // Don't set error state here - let user try to generate and see the error
+    } catch (e, st) {
+      debugPrint('[EmbeddingTestScreen] ❌ install/init failed: $e\n$st');
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Failed to install the embedding model: $e';
+        // Without this the progress card stays on screen forever, claiming a
+        // download that already died.
+        _downloadPercent = null;
+      });
     }
   }
 
@@ -174,7 +189,9 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
               ),
             ),
 
-            if (_embeddingModel == null && _downloadPercent != null) ...[
+            if (_embeddingModel == null &&
+                _downloadPercent != null &&
+                _errorMessage == null) ...[
               const SizedBox(height: 16),
               _buildDownloadProgressCard(),
             ],
@@ -349,7 +366,7 @@ class _EmbeddingTestScreenState extends State<EmbeddingTestScreen> {
             Expanded(
               child: Text(
                 showPercent
-                    ? 'Downloading model… $percent%'
+                    ? 'Downloading $_downloadStage… $percent%'
                     : 'Installing model…',
                 style: const TextStyle(color: Colors.white60),
               ),

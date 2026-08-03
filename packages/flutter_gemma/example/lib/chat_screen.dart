@@ -197,6 +197,9 @@ class ChatScreenState extends State<ChatScreen> {
         setState(() {
           _error = 'Failed to initialize model: ${e.toString()}';
           _isModelInitialized = false;
+          // Drop the stale percentage — a frozen "63%" claims a download is
+          // still running long after it died.
+          _downloadPercent = null;
         });
       }
       rethrow;
@@ -465,6 +468,11 @@ class ChatScreenState extends State<ChatScreen> {
                     ),
                   ],
                 )
+              // Initialization failed: show the error, not a frozen
+              // percentage. _error is only reachable here — the banner above
+              // lives in the initialized branch.
+              : _error != null
+              ? _buildErrorBanner(_error!)
               : LoadingWidget(
                   message: 'Initializing model',
                   progress:

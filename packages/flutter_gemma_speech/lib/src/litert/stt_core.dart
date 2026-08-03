@@ -119,13 +119,15 @@ List<int> ctcGreedyDecode(
   for (var f = 0; f < numFrames; f++) {
     final row = logits.sublist(f * numClasses, (f + 1) * numClasses);
     final id = argmax(row);
-    // A NaN winning logit means the backend produced invalid output (e.g. a
-    // GPU/NPU accelerator failure, cf. #214 and the seq2seq `_decodeLoop`
-    // guard). `argmax`'s `>` comparison is NaN-blind, so a corrupted frame
-    // otherwise yields a plausible-but-wrong id and the whole CTC transcript
-    // is returned as a "successful" garbled result indistinguishable from a
-    // real one. Fail loudly here instead — matching the seq2seq path.
-    if (row[id].isNaN) {
+    // A NaN ANYWHERE in the frame means the backend produced invalid output
+    // (GPU/NPU accelerator failure, cf. #214). Scan the WHOLE frame, not just
+    // the argmax winner: `argmax`'s `>` is NaN-blind, so a NaN away from the
+    // true-max position is silently skipped (treated as -inf) and the frame
+    // would be accepted with a real winner — checking only `row[id]` catches
+    // ONLY the case where a NaN seeds `row[0]`. Fail loudly on any NaN so a
+    // corrupted forward pass can't yield a plausible-but-wrong transcript.
+    // (The 63x1025 scan per parakeet clip is negligible.)
+    if (row.any((v) => v.isNaN)) {
       throw StateError(
         'STT CTC decode produced NaN logits at frame $f — the model backend '
         'returned invalid output; transcription aborted rather than silently '

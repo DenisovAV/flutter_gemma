@@ -95,5 +95,21 @@ void main() {
         throwsStateError,
       );
     });
+
+    test('a NaN AWAY from the argmax winner still fails loud (whole-frame scan, '
+        'not just the winning logit)', () {
+      // The subtle case: the true max is a real value, but another class in the
+      // frame is NaN. argmax is NaN-blind so it returns the real winner, and a
+      // winner-only check (row[argmax]) would silently accept the frame. The
+      // guard must scan the whole frame and still throw.
+      final logits = Float32List.fromList([
+        0.1, double.nan, 0.9, // frame0 -> argmax 2 (real 0.9); NaN at index 1
+        0.1, 0.8, 0.1, // frame1 -> 1
+      ]);
+      expect(
+        () => ctcGreedyDecode(logits, blankId: 5, numFrames: 2, numClasses: 3),
+        throwsStateError,
+      );
+    });
   });
 }

@@ -183,7 +183,11 @@ class PlatformFileSystemService implements FileSystemService {
     if (oldFilename == newFilename) return false;
     final newPath = await getWriteTargetPath(newFilename);
     if (await File(newPath).exists()) return false;
-    final oldPath = await getWriteTargetPath(oldFilename);
+    // Locate the old file via the READ path (which includes the desktop
+    // legacy-Documents fallback), not getWriteTargetPath — otherwise a
+    // companion installed before the 0.15.1 path routing sits in Documents and
+    // adoption silently never finds it. Rename it to the canonical write path.
+    final oldPath = await getReadTargetPath(oldFilename);
     final oldFile = File(oldPath);
     if (!await oldFile.exists()) return false;
     await oldFile.rename(newPath);

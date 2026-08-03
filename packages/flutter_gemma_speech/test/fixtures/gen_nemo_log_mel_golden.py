@@ -12,10 +12,12 @@ regression on the normalization convention instead of encoding the same
 assumption as the code.
 
 The Slaney mel filterbank is NOT re-derived here: it is decoded from the exact
-bundled `nemo_mel_80.g.dart` matrix the Dart runtime uses, so the fixture
-isolates the z-score change (the filterbank is independently verified elsewhere
-against librosa to 1.86e-9). Everything else (tone, pre-emphasis, centered-window
-STFT, rfft power, ln) is standard numpy, independent of the Dart implementation.
+bundled `nemo_mel_80.g.dart` matrix the Dart runtime uses, so this golden
+isolates the z-score axis. The matrix is a `librosa.filters.mel(...)` output by
+construction (see the .g.dart header); its correctness is out of scope for this
+fixture, which exists to pin the ddof=1 normalization convention. Everything
+else (tone, pre-emphasis, centered-window STFT, rfft power, ln) is standard
+numpy, independent of the Dart implementation.
 
 Usage:
     python3 test/fixtures/gen_nemo_log_mel_golden.py

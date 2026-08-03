@@ -147,35 +147,43 @@ class WebModelManager extends ModelFileManager {
     if (namespaced == persistedFilename) return persistedFilename;
 
     final repository = ServiceRegistry.instance.modelRepository;
-    if (!await repository.isInstalled(persistedFilename)) {
-      return persistedFilename; // nothing to migrate
-    }
-    if (await repository.isInstalled(namespaced)) {
-      return namespaced; // already migrated (no-clobber)
+    final plainInstalled = await repository.isInstalled(persistedFilename);
+    final namespacedInstalled = await repository.isInstalled(namespaced);
+    if (!plainInstalled && !namespacedInstalled) {
+      return persistedFilename; // nothing on record to migrate
     }
 
-    final fs = ServiceRegistry.instance.fileSystemService;
-    if (fs is WebFileSystemService) {
-      final url = fs.getUrl(persistedFilename);
-      if (url != null) fs.registerUrl(namespaced, url);
+    // Re-key the repository entry — skip the write if a prior run already
+    // created it (no-clobber). Crucially we do NOT early-return on
+    // namespacedInstalled: the cleanup below (drop the stale plain row + rewrite
+    // prefs) must still run so an interruption between saveModel and those steps
+    // self-heals on the next launch, matching the mobile helper. Otherwise a
+    // web tab closed mid-migration would leave the plain row orphaned forever
+    // (double-counting in getStorageStats) and prefs stuck on the plain name.
+    if (!namespacedInstalled) {
+      final fs = ServiceRegistry.instance.fileSystemService;
+      if (fs is WebFileSystemService) {
+        final url = fs.getUrl(persistedFilename);
+        if (url != null) fs.registerUrl(namespaced, url);
+      }
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: namespaced,
+          source: source,
+          installedAt: DateTime.now(),
+          sizeBytes: await fs.getFileSize(persistedFilename),
+          type: repoType,
+          hasLoraWeights: false,
+        ),
+      );
+      gemmaLog(
+        '[WebModelManager] migrated legacy companion "$persistedFilename" -> '
+        '"$namespaced" (install-identity-namespacing)',
+      );
     }
-    await repository.saveModel(
-      repo.ModelInfo(
-        id: namespaced,
-        source: source,
-        installedAt: DateTime.now(),
-        sizeBytes: await fs.getFileSize(persistedFilename),
-        type: repoType,
-        hasLoraWeights: false,
-      ),
-    );
-    await repository.deleteModel(persistedFilename);
+    if (plainInstalled) await repository.deleteModel(persistedFilename);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(prefsKey, namespaced);
-    gemmaLog(
-      '[WebModelManager] migrated legacy companion "$persistedFilename" -> '
-      '"$namespaced" (install-identity-namespacing)',
-    );
     return namespaced;
   }
 

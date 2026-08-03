@@ -44,6 +44,8 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
   bool _isInitializing = true;
   String? _initError;
+  String _stage = 'Downloading speech model';
+  int? _downloadPercent;
 
   final AudioRecorder _audioRecorder = AudioRecorder();
   final _player = AudioPlayer();
@@ -89,17 +91,39 @@ class _VoiceScreenState extends State<VoiceScreen> {
       final sttToken = _sttModel.needsAuth
           ? await AuthTokenService.loadToken()
           : null;
+      if (!mounted) return;
+      setState(() {
+        _stage = 'Downloading speech model';
+        _downloadPercent = null;
+      });
       await FlutterGemma.installStt()
           .modelFromNetwork(_sttModel.modelUrl, token: sttToken)
           .tokenizerFromNetwork(_sttModel.tokenizerUrl, token: sttToken)
           .ofType(_sttModel.sttModelType)
+          .withModelProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
+          .withTokenizerProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
           .install();
       final recognizer = await FlutterGemma.getActiveStt();
 
       // --- TTS ---
+      if (!mounted) return;
+      setState(() {
+        _stage = 'Downloading voice model';
+        _downloadPercent = null;
+      });
       await FlutterGemma.installTts()
           .fromNetwork(_ttsModel.baseUrl)
           .ofType(_ttsModel.ttsModelType)
+          .withProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
           .install();
       final synth = await FlutterGemma.getActiveTts();
 
@@ -108,10 +132,18 @@ class _VoiceScreenState extends State<VoiceScreen> {
       if (_llmModel.needsAuth) {
         llmToken = await AuthTokenService.loadToken();
       }
+      if (!mounted) return;
+      setState(() {
+        _stage = 'Downloading language model';
+        _downloadPercent = null;
+      });
       await FlutterGemma.installModel(
         modelType: _llmModel.modelType,
         fileType: _llmModel.fileType,
-      ).fromNetwork(_llmModel.url, token: llmToken).install();
+      ).fromNetwork(_llmModel.url, token: llmToken).withProgress((percent) {
+        if (!mounted) return;
+        setState(() => _downloadPercent = percent);
+      }).install();
 
       final model = await FlutterGemma.getActiveModel(
         maxTokens: _llmModel.maxTokens,
@@ -430,16 +462,23 @@ class _VoiceScreenState extends State<VoiceScreen> {
   }
 
   Widget _buildInitializingState() {
-    return const Center(
+    final percent = _downloadPercent;
+    final showPercent = percent != null && percent < 100;
+    return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 32.0),
+        padding: const EdgeInsets.symmetric(vertical: 32.0),
         child: Column(
           children: [
-            CircularProgressIndicator(color: Colors.blue),
-            SizedBox(height: 16),
+            CircularProgressIndicator(
+              color: Colors.blue,
+              value: showPercent ? percent / 100.0 : null,
+            ),
+            const SizedBox(height: 16),
             Text(
-              'Installing models and preparing the voice session…',
-              style: TextStyle(color: Colors.white60),
+              showPercent
+                  ? '$_stage… $percent%'
+                  : 'Installing models and preparing the voice session…',
+              style: const TextStyle(color: Colors.white60),
             ),
           ],
         ),

@@ -15,7 +15,13 @@ class LoadingWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(),
+              // Determinate while a real percentage is in flight, indeterminate
+              // once the bytes are down and the engine is warming up.
+              CircularProgressIndicator(
+                value: (progress != null && progress! >= 0 && progress! < 100)
+                    ? progress! / 100.0
+                    : null,
+              ),
               const SizedBox(height: 16),
               Text(message),
               if (progress != null) ...[

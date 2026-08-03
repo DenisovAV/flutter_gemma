@@ -12,6 +12,7 @@
 //     --dart-define=HF_TOKEN=$HF_TOKEN
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/utils/audio_converter.dart';
@@ -41,14 +42,32 @@ const _llmModelUrl =
 const _ttsModelUrl =
     'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
 
-const _hfToken = String.fromEnvironment('HF_TOKEN');
+// The rest of the suite reads HUGGINGFACE_TOKEN (litertlm_ffi_test.dart et al);
+// this file historically read HF_TOKEN. Accept both so the repo's habitual
+// --dart-define does not silently yield an empty token and push the run onto
+// the tokenless gated-download path.
+const _hfTokenStandard = String.fromEnvironment('HUGGINGFACE_TOKEN');
+const _hfTokenLegacy = String.fromEnvironment('HF_TOKEN');
+final _hfToken = _hfTokenStandard.isNotEmpty
+    ? _hfTokenStandard
+    : _hfTokenLegacy;
 
-/// On desktop, prefer a locally-staged model file (no network, no token) — the
-/// convention the other desktop integration tests use. Stage a Gemma 3 1B IT
-/// `.litertlm` into the app's documents dir as `gemma3-1b-it-int4.litertlm`.
-/// Returns null when no staged file is present (iOS / CI → network install).
+/// Prefer a device-local staged model file (no network, no token) — the
+/// convention the other integration tests use. Desktop and iOS read it from the
+/// app documents dir as `gemma3-1b-it-int4.litertlm`; Android (Firebase Test
+/// Lab) reads it from `/data/local/tmp/flutter_gemma_test/`.
+/// Returns null when no staged file is present (CI → network install).
 Future<String?> _stagedLlmPath() async {
-  if (!(Platform.isMacOS || Platform.isLinux || Platform.isWindows)) {
+  // Android (Firebase Test Lab): the model is pushed to the device via
+  // `--other-files /data/local/tmp/flutter_gemma_test/...` — no network/token.
+  if (Platform.isAndroid) {
+    const p = '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm';
+    return File(p).existsSync() ? p : null;
+  }
+  if (!(Platform.isMacOS ||
+      Platform.isLinux ||
+      Platform.isWindows ||
+      Platform.isIOS)) {
     return null;
   }
   final docs = await getApplicationDocumentsDirectory();
@@ -84,18 +103,37 @@ void main() {
           .ofType(SttModelType.moonshine)
           .install();
 
-      // Desktop: install the LLM from a locally-staged .litertlm (no network,
-      // no token) — the convention used by the other desktop integration tests
-      // (litertlm_ffi_test.dart / active_model_restore_test.dart). iOS / CI
-      // without a staged file fall back to the network install.
+      // Install the LLM from a device-local staged .litertlm (no network, no
+      // token) — the convention used by the other integration tests
+      // (litertlm_ffi_test.dart / active_model_restore_test.dart). A run
+      // without a staged file falls back to the gated network install, which
+      // is reported loudly below: a silent fallback would hide a broken
+      // `--other-files` push and burn 0.5 GB per run on a path the test was
+      // written to avoid.
       final llm = FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
       );
       final llmLocalPath = await _stagedLlmPath();
       if (llmLocalPath != null) {
+        debugPrint('[voice_loop] LLM from staged file: $llmLocalPath');
         await llm.fromFile(llmLocalPath).install();
       } else {
+        debugPrint(
+          '[voice_loop] no staged LLM found — falling back to the gated '
+          'network install',
+        );
+        expect(
+          _hfToken.isNotEmpty,
+          isTrue,
+          reason:
+              'No device-local staged LLM and no HuggingFace token, so the '
+              'gated network fallback cannot authenticate. Stage the model '
+              '(Android: --other-files '
+              '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm; '
+              'desktop/iOS: app documents dir) or pass '
+              '--dart-define=HUGGINGFACE_TOKEN=...',
+        );
         await llm
             .fromNetwork(
               _llmModelUrl,

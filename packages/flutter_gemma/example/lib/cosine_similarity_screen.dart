@@ -29,6 +29,12 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
   EmbeddingModel? _embeddingModel;
   bool _isGenerating = false;
   String? _errorMessage;
+  int? _downloadPercent;
+
+  /// Which file the percentage refers to. The model and the tokenizer are
+  /// downloaded sequentially into the same counter, so without this the bar
+  /// runs 0→100→0 and the label lies during the second phase.
+  String _downloadStage = 'model';
 
   // Embeddings
   List<double>? _queryEmbedding;
@@ -88,6 +94,20 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       await FlutterGemma.installEmbedder()
           .modelFromNetwork(widget.model.url, token: token)
           .tokenizerFromNetwork(widget.model.tokenizerUrl, token: token)
+          .withModelProgress((percent) {
+            if (!mounted) return;
+            setState(() {
+              _downloadStage = 'model';
+              _downloadPercent = percent;
+            });
+          })
+          .withTokenizerProgress((percent) {
+            if (!mounted) return;
+            setState(() {
+              _downloadStage = 'tokenizer';
+              _downloadPercent = percent;
+            });
+          })
           .install();
 
       if (kDebugMode) {
@@ -113,6 +133,9 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
       }
       setState(() {
         _errorMessage = e.toString();
+        // Without this the progress card stays on screen forever, contradicting
+        // the error card right below it.
+        _downloadPercent = null;
       });
     }
   }
@@ -307,6 +330,13 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
               ),
             ),
 
+            if (_embeddingModel == null &&
+                _downloadPercent != null &&
+                _errorMessage == null) ...[
+              const SizedBox(height: 16),
+              _buildDownloadProgressCard(),
+            ],
+
             const SizedBox(height: 24),
 
             // Test sentences
@@ -496,6 +526,39 @@ class _CosineSimilarityScreenState extends State<CosineSimilarityScreen> {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloadProgressCard() {
+    final percent = _downloadPercent!;
+    final showPercent = percent < 100;
+    return Card(
+      color: const Color(0xFF1a3a5c),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.blue,
+                value: showPercent ? percent / 100.0 : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                showPercent
+                    ? 'Downloading $_downloadStage… $percent%'
+                    : 'Installing model…',
+                style: const TextStyle(color: Colors.white60),
+              ),
+            ),
           ],
         ),
       ),

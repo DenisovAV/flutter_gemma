@@ -32,6 +32,7 @@ class _TtsScreenState extends State<TtsScreen> {
   SpeechSynthesizer? _synth;
   bool _isInitializing = true;
   String? _initError;
+  int? _downloadPercent;
 
   final _textController = TextEditingController(text: 'Hello world.');
   final _player = AudioPlayer();
@@ -60,6 +61,10 @@ class _TtsScreenState extends State<TtsScreen> {
       await FlutterGemma.installTts()
           .fromNetwork(_model.baseUrl)
           .ofType(_model.ttsModelType)
+          .withProgress((percent) {
+            if (!mounted) return;
+            setState(() => _downloadPercent = percent);
+          })
           .install();
 
       final synth = await FlutterGemma.getActiveTts();
@@ -184,16 +189,23 @@ class _TtsScreenState extends State<TtsScreen> {
   }
 
   Widget _buildInitializingState() {
-    return const Center(
+    final percent = _downloadPercent;
+    final showPercent = percent != null && percent < 100;
+    return Center(
       child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 32.0),
+        padding: const EdgeInsets.symmetric(vertical: 32.0),
         child: Column(
           children: [
-            CircularProgressIndicator(color: Colors.blue),
-            SizedBox(height: 16),
+            CircularProgressIndicator(
+              color: Colors.blue,
+              value: showPercent ? percent / 100.0 : null,
+            ),
+            const SizedBox(height: 16),
             Text(
-              'Installing model and preparing synthesizer…',
-              style: TextStyle(color: Colors.white60),
+              showPercent
+                  ? 'Downloading model… $percent%'
+                  : 'Installing model and preparing synthesizer…',
+              style: const TextStyle(color: Colors.white60),
             ),
           ],
         ),

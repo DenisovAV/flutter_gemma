@@ -51,6 +51,21 @@
 // `getOutputTensorLayouts` accessor (there is no per-output-index
 // accessor — see [_readOutputShapes]'s doc) so this file never hardcodes
 // the residual vocabulary size.
+//
+// [Qwen3TtsCore.decodeCodes] ports `Qwen3TtsPipeline._decode_codes`
+// (`qwen3_tts_pipeline.py:382-399`): turns the accumulated `[T, 16]` codec
+// frames (codebook-0 + the 15 MTP residuals, one row per talker frame) into
+// 24 kHz PCM by running them through the codec-decoder graph in fixed-size
+// [codecChunk]-frame windows, each carrying 25 frames of LEFT CONTEXT from
+// the previous window (`ctx = 25`) that is decoded but then cropped back
+// out of the emitted audio — the codec is a small causal-ish conv stack, not
+// a fully streaming one, so re-feeding a tail of already-seen frames as
+// context on every step is what keeps chunk boundaries from producing
+// audible seams. Every codec call decodes exactly [codecChunk] frames'
+// worth of PCM (`[1, 1, codecChunk * _upsampleFactor]`) regardless of how
+// many of the window's rows are real (the rest of `buf` is left as
+// zero-padding); only the `window.length`-worth of frames actually fed are
+// kept from each call's output.
 
 import 'dart:ffi';
 import 'dart:io' show Platform;
@@ -77,6 +92,18 @@ import 'qwen3_talker_layout.dart';
 /// `qwen3_tts_pipeline.py`'s module-level `_NEG_INF = -1e9` (used by both
 /// `_run_prefill` and `_run_decode`'s causal masks).
 const double qwen3NegInf = -1e9;
+
+/// Codec-frame width — codebook-0 + the 15 MTP residuals — matches
+/// `qwen3_tts_pipeline.py`'s module-level `_NUM_CODE_GROUPS = 16`. Used by
+/// [Qwen3TtsCore.decodeCodes] to size + transpose the codec's `[1, 16,
+/// chunk]` input.
+const int _numCodeGroups = 16;
+
+/// Codec-frame -> PCM-sample upsample factor — matches
+/// `qwen3_tts_pipeline.py`'s module-level `_UPSAMPLE = 1920` (24 kHz output
+/// at the talker's 12.5 Hz frame rate). Used by [Qwen3TtsCore.decodeCodes]
+/// to size the codec's output and crop left-context samples out of it.
+const int _upsampleFactor = 1920;
 
 int _acceleratorFor(PreferredBackend? backend) {
   switch (backend) {
@@ -809,6 +836,109 @@ class Qwen3TtsCore {
     }
 
     return codes;
+  }
+
+  /// Decodes the accumulated `[T, 16]` codec [frames] (row `t` = codebook-0
+  /// + the 15 MTP residuals for talker frame `t`, e.g. every row of
+  /// [runMtp]'s output prefixed with its `cb0`) into 24 kHz PCM in `[-1,
+  /// 1]`. Port of `Qwen3TtsPipeline._decode_codes`
+  /// (`qwen3_tts_pipeline.py:382-399`) — see this file's header for the
+  /// sliding-window-with-left-context rationale.
+  ///
+  /// Walks [frames] in windows of at most [codecChunk] rows: each window
+  /// after the first carries up to 25 rows of left context (`c = min(25,
+  /// i)`) copied from the END of the previous window, so a window spans
+  /// `[i - c, j)` where `j = min(i + codecChunk - c, frames.length)` — the
+  /// loop only ever advances `i` to `j`, i.e. by `codecChunk - c` NEW rows
+  /// per step. Each window is transposed into the codec's fixed
+  /// `[1, 16, codecChunk]` `args_0` input (`buf[0, :, :window.length] =
+  /// window.T`, zero-padded past `window.length`; row-major flat index for
+  /// codebook `k`, window position `n` is `k * codecChunk + n` — see
+  /// [runLiteRtGraph]'s `I32Input`), producing `[1, 1, codecChunk *
+  /// _upsampleFactor]` PCM; only the samples for the window's OWN (non-
+  /// context) rows are kept (`wav.sublist(c * _upsampleFactor, window.length
+  /// * _upsampleFactor)`) before being concatenated across windows.
+  ///
+  /// Not true public API (see this file's header) — [visibleForTesting] so
+  /// `qwen3_codec_test.dart` can drive it directly against the golden
+  /// `frames.json` / `waveform_f32.bin` fixtures, mirroring [runPrefill]/
+  /// [runDecode]/[runMtp].
+  @visibleForTesting
+  Float32List decodeCodes(List<List<int>> frames) {
+    if (_disposed) {
+      throw StateError('Qwen3TtsCore is disposed');
+    }
+    for (var t = 0; t < frames.length; t++) {
+      if (frames[t].length != _numCodeGroups) {
+        throw ArgumentError.value(
+          frames[t].length,
+          'frames[$t].length',
+          'Qwen3TtsCore.decodeCodes: expected $_numCodeGroups codebooks per '
+              'frame',
+        );
+      }
+    }
+
+    // chunk, ctx = self._codec_chunk, 25 (qwen3_tts_pipeline.py:384).
+    const ctx = 25;
+    final chunk = codecChunk;
+    final pieces = <Float32List>[];
+    var i = 0;
+    while (i < frames.length) {
+      // c = min(ctx, i); j = min(i + chunk - c, len(codes))
+      // (qwen3_tts_pipeline.py:388-391).
+      final c = math.min(ctx, i);
+      final j = math.min(i + chunk - c, frames.length);
+      // window = codes[i - c:j] (qwen3_tts_pipeline.py:392).
+      final window = frames.sublist(i - c, j);
+
+      // buf = zeros(1, 16, chunk); buf[0, :, :len(window)] = window.T
+      // (qwen3_tts_pipeline.py:393-394) — flat row-major `[1,16,chunk]`:
+      // codebook k, window position n -> buf[k * chunk + n].
+      final buf = Int32List(_numCodeGroups * chunk);
+      for (var n = 0; n < window.length; n++) {
+        final row = window[n];
+        for (var k = 0; k < _numCodeGroups; k++) {
+          buf[k * chunk + n] = row[k];
+        }
+      }
+
+      // out = self._codec(args_0=buf); wav = out.values()[0][0, 0]
+      // (qwen3_tts_pipeline.py:395-396).
+      final out = runLiteRtGraph(
+        _bindings,
+        _codec.compiledModel,
+        0,
+        [
+          I32Input([1, _numCodeGroups, chunk], buf),
+        ],
+        [
+          [1, 1, chunk * _upsampleFactor],
+        ],
+      );
+      final wav = out[0];
+
+      // pieces.append(wav[c * _UPSAMPLE:len(window) * _UPSAMPLE])
+      // (qwen3_tts_pipeline.py:397) — drop the left-context samples.
+      pieces.add(
+        Float32List.sublistView(
+          wav,
+          c * _upsampleFactor,
+          window.length * _upsampleFactor,
+        ),
+      );
+      i = j;
+    }
+
+    // return np.concatenate(pieces) (qwen3_tts_pipeline.py:399).
+    final total = pieces.fold<int>(0, (sum, p) => sum + p.length);
+    final result = Float32List(total);
+    var offset = 0;
+    for (final piece in pieces) {
+      result.setRange(offset, offset + piece.length, piece);
+      offset += piece.length;
+    }
+    return result;
   }
 
   /// Destroys the 3 compiled graphs' handles + the shared environment, and

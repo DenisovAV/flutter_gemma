@@ -1,4 +1,4 @@
-/// Minimal HuggingFace `tokenizer.json` reader — DETOKENIZE ONLY.
+/// Minimal HuggingFace `tokenizer.json` reader — DETOKENIZE ONLY — implements [SttTokenizer].
 ///
 /// Encode is not needed for STT output (the model produces token ids
 /// directly). This implements exactly the verified scheme recorded in
@@ -14,6 +14,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data' show BytesBuilder;
 
+import 'stt_tokenizer.dart';
+
 /// Matches LLaMA-style BPE byte-fallback pieces, e.g. `<0x0A>`.
 final RegExp _byteFallbackPattern = RegExp(r'^<0x([0-9A-Fa-f]{2})>$');
 
@@ -21,8 +23,8 @@ final RegExp _byteFallbackPattern = RegExp(r'^<0x([0-9A-Fa-f]{2})>$');
 /// space during detokenize.
 const String _wordBoundary = '▁';
 
-class HfTokenizer {
-  HfTokenizer._({
+class SentencePieceTokenizer implements SttTokenizer {
+  SentencePieceTokenizer._({
     required this._idToPiece,
     required this.unkId,
     required this.bosId,
@@ -46,14 +48,16 @@ class HfTokenizer {
   final int baseVocabSize;
 
   /// Load a `tokenizer.json` file from disk.
-  static Future<HfTokenizer> fromFile(String path) async {
+  static Future<SentencePieceTokenizer> fromFile(String path) async {
     final text = await File(path).readAsString();
-    return HfTokenizer.fromJson(jsonDecode(text) as Map<String, dynamic>);
+    return SentencePieceTokenizer.fromJson(
+      jsonDecode(text) as Map<String, dynamic>,
+    );
   }
 
   /// Parse a `tokenizer.json` document. Pure (no I/O) — used directly by
   /// tests against a canned document.
-  factory HfTokenizer.fromJson(Map<String, dynamic> doc) {
+  factory SentencePieceTokenizer.fromJson(Map<String, dynamic> doc) {
     final model = doc['model'] as Map<String, dynamic>;
     final vocab = model['vocab'] as Map<String, dynamic>;
     final pieceToId = <String, int>{
@@ -63,7 +67,7 @@ class HfTokenizer {
       for (final entry in pieceToId.entries) entry.value: entry.key,
     };
 
-    return HfTokenizer._(
+    return SentencePieceTokenizer._(
       idToPiece: idToPiece,
       unkId: pieceToId['<unk>'] ?? 0,
       bosId: pieceToId['<s>'] ?? 1,
@@ -79,12 +83,19 @@ class HfTokenizer {
   ///    bytes (Replace + Fuse).
   /// 3. UTF-8-decode the accumulated bytes (`allowMalformed: true`).
   /// 4. strip exactly one leading space, if present (Strip start=1).
-  String detokenize(List<int> ids) {
+  @override
+  String decode(List<int> ids) {
     final bytes = BytesBuilder();
     for (final id in ids) {
       if (id == eosId) break;
       if (id == unkId || id == bosId || id >= baseVocabSize) continue;
       final piece = _idToPiece[id];
+      // An id in [0, baseVocabSize) with no vocab piece is dropped rather than
+      // thrown on: detokenization must stay robust to a stray/garbled id from
+      // the model (a decode-time output artifact, not a config error) — unlike
+      // the FAIL-LOUD special-token *resolution* in stt_special_tokens.dart,
+      // which throws on a MISSING configured token because that IS a config
+      // error. A dense HF vocab has no such gaps in practice.
       if (piece == null) continue;
 
       final byteFallback = _byteFallbackPattern.firstMatch(piece);

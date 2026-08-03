@@ -119,6 +119,73 @@ class WebModelManager extends ModelFileManager {
     gemmaLog('[WebModelManager] restored active inference model: $filename');
   }
 
+  /// Web mirror of `MobileModelManager._migrateLegacyCompanionForRestore`: on
+  /// upgrade, re-key a pre-refactor (plain-named) COMPANION to its namespaced
+  /// install identity so the namespaced `.files` lookup in `getModelFilePaths`
+  /// / `isModelInstalled` resolves (both gate on `repository.isInstalled` per
+  /// spec file). Web has no filesystem rename (`adoptLegacyFile` is a
+  /// deliberate no-op), so this re-keys the repository metadata — re-registering
+  /// the existing blob URL under the new key so the bytes are reused, not
+  /// re-fetched — and rewrites the persisted active filename.
+  ///
+  /// Safe for the same reason as the mobile helper: RESTORE targets a single
+  /// KNOWN active model, so [modelId] unambiguously identifies the owner (the
+  /// pre-refactor collision meant only the last-installed = active model's file
+  /// could exist under the plain name). Returns the filename to gate on going
+  /// forward (namespaced if migrated or already namespaced; unchanged plain
+  /// when there is nothing to migrate — the caller's `isInstalled` gate then
+  /// reports it missing).
+  Future<String> _migrateLegacyCompanionForRestore({
+    required String modelId,
+    required String persistedFilename,
+    required ModelSource source,
+    required repo.ModelType repoType,
+    required String prefsKey,
+  }) async {
+    final namespaced = FileNameUtils.namespaced(modelId, persistedFilename);
+    if (namespaced == persistedFilename) return persistedFilename;
+
+    final repository = ServiceRegistry.instance.modelRepository;
+    final plainInstalled = await repository.isInstalled(persistedFilename);
+    final namespacedInstalled = await repository.isInstalled(namespaced);
+    if (!plainInstalled && !namespacedInstalled) {
+      return persistedFilename; // nothing on record to migrate
+    }
+
+    // Re-key the repository entry — skip the write if a prior run already
+    // created it (no-clobber). Crucially we do NOT early-return on
+    // namespacedInstalled: the cleanup below (drop the stale plain row + rewrite
+    // prefs) must still run so an interruption between saveModel and those steps
+    // self-heals on the next launch, matching the mobile helper. Otherwise a
+    // web tab closed mid-migration would leave the plain row orphaned forever
+    // (double-counting in getStorageStats) and prefs stuck on the plain name.
+    if (!namespacedInstalled) {
+      final fs = ServiceRegistry.instance.fileSystemService;
+      if (fs is WebFileSystemService) {
+        final url = fs.getUrl(persistedFilename);
+        if (url != null) fs.registerUrl(namespaced, url);
+      }
+      await repository.saveModel(
+        repo.ModelInfo(
+          id: namespaced,
+          source: source,
+          installedAt: DateTime.now(),
+          sizeBytes: await fs.getFileSize(persistedFilename),
+          type: repoType,
+          hasLoraWeights: false,
+        ),
+      );
+      gemmaLog(
+        '[WebModelManager] migrated legacy companion "$persistedFilename" -> '
+        '"$namespaced" (install-identity-namespacing)',
+      );
+    }
+    if (plainInstalled) await repository.deleteModel(persistedFilename);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(prefsKey, namespaced);
+    return namespaced;
+  }
+
   Future<void> _restoreActiveEmbeddingModel() async {
     final prefs = await SharedPreferences.getInstance();
     final modelFilename = prefs.getString(
@@ -150,9 +217,21 @@ class WebModelManager extends ModelFileManager {
       return;
     }
 
-    final repo = ServiceRegistry.instance.modelRepository;
-    if (!await repo.isInstalled(modelFilename) ||
-        !await repo.isInstalled(tokenizerFilename)) {
+    // The model weight keeps its plain basename (only companions are
+    // namespaced); migrate a pre-refactor plain tokenizer to its namespaced
+    // repo identity so the reconstructed spec's namespaced .files lookup finds
+    // it. No-op for post-refactor installs.
+    final effectiveTokenizerFilename = await _migrateLegacyCompanionForRestore(
+      modelId: FileNameUtils.getBaseName(modelFilename),
+      persistedFilename: tokenizerFilename,
+      source: tokenizerSource,
+      repoType: repo.ModelType.embedding,
+      prefsKey: PreferencesKeys.activeEmbeddingTokenizerFilename,
+    );
+
+    final repository = ServiceRegistry.instance.modelRepository;
+    if (!await repository.isInstalled(modelFilename) ||
+        !await repository.isInstalled(effectiveTokenizerFilename)) {
       gemmaLog(
         '[WebModelManager] active embedding restore: file missing — skipping',
       );
@@ -213,9 +292,21 @@ class WebModelManager extends ModelFileManager {
       return;
     }
 
-    final repo = ServiceRegistry.instance.modelRepository;
-    if (!await repo.isInstalled(modelFilename) ||
-        !await repo.isInstalled(tokenizerFilename)) {
+    // The model weight keeps its plain basename (only companions are
+    // namespaced); migrate a pre-refactor plain tokenizer to its namespaced
+    // repo identity so the reconstructed spec's namespaced .files lookup finds
+    // it. No-op for post-refactor installs.
+    final effectiveTokenizerFilename = await _migrateLegacyCompanionForRestore(
+      modelId: FileNameUtils.getBaseName(modelFilename),
+      persistedFilename: tokenizerFilename,
+      source: tokenizerSource,
+      repoType: repo.ModelType.stt,
+      prefsKey: PreferencesKeys.activeSttTokenizerFilename,
+    );
+
+    final repository = ServiceRegistry.instance.modelRepository;
+    if (!await repository.isInstalled(modelFilename) ||
+        !await repository.isInstalled(effectiveTokenizerFilename)) {
       gemmaLog('[WebModelManager] active STT restore: file missing — skipping');
       return;
     }

@@ -94,4 +94,35 @@ abstract interface class FileSystemService {
   ///
   /// Throws [UnsupportedError] on Web (no local file system).
   Future<String> getModelStorageDirectory();
+
+  /// Migration-only (install-identity-namespacing, 2026-08-02): if a file
+  /// already exists on disk under [oldFilename] (the pre-refactor flat
+  /// name) and nothing exists yet under [newFilename] (the namespaced
+  /// identity), renames it in place and returns true — the caller should
+  /// treat this as "already installed" and persist repository metadata
+  /// under [newFilename] instead of re-downloading. Returns false when
+  /// there is nothing to adopt: no old file, [newFilename] already exists,
+  /// or `oldFilename == newFilename` (nothing changed identity, so there is
+  /// nothing to migrate).
+  ///
+  /// SAFE ONLY when the caller KNOWS the file under [oldFilename] belongs to
+  /// the model it is adopting it into — the old flat name carries no type
+  /// marker, so a blind adoption could hand this model another model's file
+  /// and resurrect the exact collision this refactor fixes. Two call patterns
+  /// satisfy that precondition:
+  ///   1. The old basename is UNIQUE across the whole model catalog (e.g. a
+  ///      TTS bundle's `.tflite` graphs, or a TTS basename gated on
+  ///      [TtsModelType]-catalog uniqueness in `TtsInstallationBuilder`) — a
+  ///      unique name can only have been written by the one model that owns it.
+  ///   2. The caller is migrating a SINGLE KNOWN active model (the active-model
+  ///      restore paths in `MobileModelManager`/`WebModelManager`): the model's
+  ///      own id disambiguates the owner even for a colliding-basename companion
+  ///      (`tokenizer.json`, `sentencepiece.model`), because the pre-refactor
+  ///      collision meant only the last-installed = active model's file could
+  ///      exist under the plain name.
+  /// NEVER call this for a colliding-basename companion at plain INSTALL time
+  /// (where the on-disk plain file could belong to any previously-installed
+  /// model). See
+  /// `docs/superpowers/specs/2026-08-02-install-identity-namespacing-design.md`.
+  Future<bool> adoptLegacyFile(String oldFilename, String newFilename);
 }

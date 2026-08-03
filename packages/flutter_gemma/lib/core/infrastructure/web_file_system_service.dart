@@ -142,6 +142,13 @@ class WebFileSystemService implements FileSystemService {
     );
   }
 
+  @override
+  Future<bool> adoptLegacyFile(String oldFilename, String newFilename) async {
+    // Web has no local filesystem to rename on; the identity change is
+    // absorbed by a normal fresh fetch under the new key instead.
+    return false;
+  }
+
   /// Registers a URL for a model (web-specific extension)
   ///
   /// This is the primary way to "install" models on web.

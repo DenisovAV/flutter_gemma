@@ -19,7 +19,11 @@ class WebBundledSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => false;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) {
     throw UnsupportedError(
       'WebBundledSourceHandler is only available on web platform',
     );
@@ -29,6 +33,7 @@ class WebBundledSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) {
     throw UnsupportedError(
       'WebBundledSourceHandler is only available on web platform',

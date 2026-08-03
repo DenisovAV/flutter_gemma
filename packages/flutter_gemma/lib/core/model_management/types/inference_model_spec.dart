@@ -37,7 +37,10 @@ class InferenceModelFile extends ModelFile {
   }
 }
 
-/// Model file for LoRA weights
+/// Model file for LoRA weights. A COMPANION of the inference model — its
+/// filename gets the modelId__ prefix so a LoRA adapter travels with the
+/// exact base model it was fine-tuned for (mirrors the tokenizer/aux
+/// namespacing used by embedding/STT/TTS companions).
 class LoraModelFile extends ModelFile {
   final ModelSource _source;
   final String _filename;
@@ -46,9 +49,15 @@ class LoraModelFile extends ModelFile {
     : _source = source,
       _filename = filename;
 
-  /// Creates LoraModelFile from ModelSource
-  factory LoraModelFile.fromSource(ModelSource source) {
-    final filename = InferenceModelFile._extractFilenameFromSource(source);
+  /// Creates LoraModelFile from ModelSource, namespaced by [modelId] — the
+  /// owning InferenceModelSpec's own model-file basename (without
+  /// extension).
+  factory LoraModelFile.fromSource(
+    ModelSource source, {
+    required String modelId,
+  }) {
+    final basename = InferenceModelFile._extractFilenameFromSource(source);
+    final filename = FileNameUtils.namespaced(modelId, basename);
     return LoraModelFile(source: source, filename: filename);
   }
 
@@ -118,10 +127,12 @@ class InferenceModelSpec extends ModelSpec {
 
   @override
   List<ModelFile> get files {
-    final result = <ModelFile>[InferenceModelFile.fromSource(_modelSource)];
+    final modelFile = InferenceModelFile.fromSource(_modelSource);
+    final result = <ModelFile>[modelFile];
 
     if (_loraSource != null) {
-      result.add(LoraModelFile.fromSource(_loraSource));
+      final modelId = FileNameUtils.getBaseName(modelFile.filename);
+      result.add(LoraModelFile.fromSource(_loraSource, modelId: modelId));
     }
 
     return result;

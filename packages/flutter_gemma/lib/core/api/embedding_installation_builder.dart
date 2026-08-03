@@ -1,8 +1,8 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:path/path.dart' as path;
 
 /// Fluent builder for embedding model installation
 ///
@@ -153,11 +153,9 @@ class EmbeddingInstallationBuilder {
     final effectiveTokenizerSource = _tokenizerSource!;
 
     // Create spec
-    final modelFilename = _extractFilename(_modelSource!);
-    final tokenizerFilename = _extractFilename(effectiveTokenizerSource);
-
+    final modelFile = EmbeddingModelFile.fromSource(_modelSource!);
     final spec = EmbeddingModelSpec(
-      name: FileNameUtils.getBaseName(modelFilename),
+      name: FileNameUtils.getBaseName(modelFile.filename),
       modelSource: _modelSource!,
       tokenizerSource: effectiveTokenizerSource,
       replacePolicy: ModelReplacePolicy.keep,
@@ -165,6 +163,12 @@ class EmbeddingInstallationBuilder {
 
     final registry = ServiceRegistry.instance;
     final repository = registry.modelRepository;
+
+    // spec.files is [modelFile, tokenizerFile] in that fixed order (see
+    // EmbeddingModelSpec.files) — reuse the already-namespaced identity.
+    final files = spec.files;
+    final modelFilename = files[0].filename;
+    final tokenizerFilename = files[1].filename;
 
     // Check if both model and tokenizer are already installed
     final isModelInstalled = await repository.isInstalled(modelFilename);
@@ -187,11 +191,16 @@ class EmbeddingInstallationBuilder {
           await for (final progress in modelHandler!.installWithProgress(
             _modelSource!,
             cancelToken: _cancelToken,
+            targetFilename: modelFilename,
           )) {
             _onModelProgress!(progress);
           }
         } else {
-          await modelHandler!.install(_modelSource!, cancelToken: _cancelToken);
+          await modelHandler!.install(
+            _modelSource!,
+            cancelToken: _cancelToken,
+            targetFilename: modelFilename,
+          );
         }
       } else {
         gemmaLog('ℹ️  Embedding model file already installed: $modelFilename');
@@ -207,6 +216,7 @@ class EmbeddingInstallationBuilder {
           await for (final progress in tokenizerHandler!.installWithProgress(
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
+            targetFilename: tokenizerFilename,
           )) {
             _onTokenizerProgress!(progress);
           }
@@ -214,6 +224,7 @@ class EmbeddingInstallationBuilder {
           await tokenizerHandler!.install(
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
+            targetFilename: tokenizerFilename,
           );
         }
       } else {
@@ -228,15 +239,6 @@ class EmbeddingInstallationBuilder {
     gemmaLog('✅ Embedding model installed and set as active: ${spec.name}');
 
     return EmbeddingInstallation(spec: spec);
-  }
-
-  String _extractFilename(ModelSource source) {
-    return switch (source) {
-      NetworkSource(:final url) => path.basename(Uri.parse(url).path),
-      AssetSource(:final path) => path.split(RegExp(r'[/\\]')).last,
-      BundledSource(:final resourceName) => resourceName,
-      FileSource(:final path) => path.split(RegExp(r'[/\\]')).last,
-    };
   }
 }
 

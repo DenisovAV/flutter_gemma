@@ -59,6 +59,10 @@ class MockFileSystemService implements FileSystemService {
   Future<String> getModelStorageDirectory() async => '/models';
 
   @override
+  Future<bool> adoptLegacyFile(String oldFilename, String newFilename) async =>
+      false;
+
+  @override
   Future<void> writeFile(String path, List<int> data) async {
     _files.add(path);
   }

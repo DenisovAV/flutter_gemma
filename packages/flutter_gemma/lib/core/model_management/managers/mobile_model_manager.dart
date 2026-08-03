@@ -209,6 +209,73 @@ class MobileModelManager extends ModelFileManager {
     gemmaLog('[ModelManager] restored active inference model: $filename');
   }
 
+  /// One-time migration of a pre-refactor (plain-named) COMPANION file to its
+  /// namespaced install identity, run from the active-model restore paths.
+  ///
+  /// The break this fixes: `EmbeddingModelSpec.files` / `SttModelSpec.files`
+  /// now ALWAYS derive the namespaced tokenizer name (`<modelId>__<basename>`),
+  /// but a model installed BEFORE the install-identity-namespacing refactor
+  /// (2026-08-02) persisted + repository-keyed the PLAIN basename. So after
+  /// upgrade `_isModelInstalled` (which checks the repo under the namespaced
+  /// key) returns false for a model that is physically present, and
+  /// `createEmbeddingModel()` / `createSttModel()` throw on first launch.
+  ///
+  /// This is the ONE place [FileSystemService.adoptLegacyFile] is safe to call
+  /// for a colliding-basename companion (its docstring forbids blind calls):
+  /// RESTORE operates on a single KNOWN active model, so [modelId]
+  /// unambiguously identifies which model the plain file belongs to — the
+  /// pre-refactor collision meant only the last-installed (= the active) model's
+  /// tokenizer could exist on disk under the plain name.
+  ///
+  /// Renames the file to its namespaced identity, re-keys the repository, and
+  /// rewrites the persisted active filename ([prefsKey]) so the next launch
+  /// restores the namespaced identity directly. Returns the on-disk path the
+  /// caller should use for the reconstructed spec (the namespaced path when a
+  /// migration happened or the input was already namespaced; the plain read
+  /// path when there was nothing to migrate — the caller's existence check
+  /// then handles a truly-missing file).
+  Future<String> _migrateLegacyCompanionForRestore({
+    required String modelId,
+    required String persistedFilename,
+    required repo.ModelType repoType,
+    required String prefsKey,
+  }) async {
+    final fs = ServiceRegistry.instance.fileSystemService;
+    final namespaced = FileNameUtils.namespaced(modelId, persistedFilename);
+    if (namespaced == persistedFilename) {
+      // Already namespaced (post-refactor install) — nothing to migrate.
+      return fs.getReadTargetPath(persistedFilename);
+    }
+
+    final adopted = await fs.adoptLegacyFile(persistedFilename, namespaced);
+    final newPath = await fs.getWriteTargetPath(namespaced);
+    if (!adopted && !File(newPath).existsSync()) {
+      // No namespaced file and no plain file to adopt — leave the plain
+      // identity untouched; the caller's existence check reports it missing.
+      return fs.getReadTargetPath(persistedFilename);
+    }
+
+    final repository = ServiceRegistry.instance.modelRepository;
+    await repository.saveModel(
+      repo.ModelInfo(
+        id: namespaced,
+        source: FileSource(newPath),
+        installedAt: DateTime.now(),
+        sizeBytes: await fs.getFileSize(newPath),
+        type: repoType,
+        hasLoraWeights: false,
+      ),
+    );
+    await repository.deleteModel(persistedFilename);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(prefsKey, namespaced);
+    gemmaLog(
+      '[ModelManager] migrated legacy companion "$persistedFilename" -> '
+      '"$namespaced" (install-identity-namespacing)',
+    );
+    return newPath;
+  }
+
   /// Mirror of [_restoreActiveInferenceModel] for the embedding pair
   /// (model + tokenizer).
   Future<void> _restoreActiveEmbeddingModel() async {
@@ -225,8 +292,15 @@ class MobileModelManager extends ModelFileManager {
     }
 
     final fs = ServiceRegistry.instance.fileSystemService;
-    final modelPath = await fs.getTargetPath(modelFilename);
-    final tokenizerPath = await fs.getTargetPath(tokenizerFilename);
+    // The model weight keeps its plain basename (only companions are
+    // namespaced), so only the tokenizer needs a legacy migration.
+    final tokenizerPath = await _migrateLegacyCompanionForRestore(
+      modelId: FileNameUtils.getBaseName(modelFilename),
+      persistedFilename: tokenizerFilename,
+      repoType: repo.ModelType.embedding,
+      prefsKey: PreferencesKeys.activeEmbeddingTokenizerFilename,
+    );
+    final modelPath = await fs.getReadTargetPath(modelFilename);
     if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
       gemmaLog(
         '[ModelManager] active embedding restore: file missing — skipping',
@@ -272,8 +346,15 @@ class MobileModelManager extends ModelFileManager {
     }
 
     final fs = ServiceRegistry.instance.fileSystemService;
-    final modelPath = await fs.getTargetPath(modelFilename);
-    final tokenizerPath = await fs.getTargetPath(tokenizerFilename);
+    // The model weight keeps its plain basename (only companions are
+    // namespaced), so only the tokenizer needs a legacy migration.
+    final tokenizerPath = await _migrateLegacyCompanionForRestore(
+      modelId: FileNameUtils.getBaseName(modelFilename),
+      persistedFilename: tokenizerFilename,
+      repoType: repo.ModelType.stt,
+      prefsKey: PreferencesKeys.activeSttTokenizerFilename,
+    );
+    final modelPath = await fs.getReadTargetPath(modelFilename);
     if (!File(modelPath).existsSync() || !File(tokenizerPath).existsSync()) {
       gemmaLog('[ModelManager] active STT restore: file missing — skipping');
       return;
@@ -290,7 +371,12 @@ class MobileModelManager extends ModelFileManager {
 
   /// Mirror of [_restoreActiveSttModel] for TTS. The bundle files are
   /// re-derived from [TtsModelType.manifest]; each is resolved to its local
-  /// path and required to exist.
+  /// path (namespaced by [FileNameUtils.namespaced] — TTS restore does not
+  /// persist per-file filenames the way Inference/Embedding/STT do, since
+  /// _persistActiveTtsIdentity only stores `name` + `ttsModelType`, so the
+  /// namespaced on-disk filename must be re-derived here, matching exactly
+  /// what TtsBundleFile.fromSource computes at install time) and required
+  /// to exist.
   Future<void> _restoreActiveTtsModel() async {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(PreferencesKeys.activeTtsName);
@@ -310,10 +396,11 @@ class MobileModelManager extends ModelFileManager {
     final fs = ServiceRegistry.instance.fileSystemService;
     final paths = <String, String>{};
     for (final fn in ttsModelType.manifest) {
-      final p = await fs.getTargetPath(fn);
+      final namespacedFn = FileNameUtils.namespaced(ttsModelType.name, fn);
+      final p = await fs.getTargetPath(namespacedFn);
       if (!File(p).existsSync()) {
         gemmaLog(
-          '[ModelManager] active TTS restore: file missing ($fn) — skipping',
+          '[ModelManager] active TTS restore: file missing ($namespacedFn) — skipping',
         );
         return;
       }

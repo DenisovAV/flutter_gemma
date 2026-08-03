@@ -27,49 +27,15 @@ void main() {
     },
   );
 
-  test(
-    'createModel reads spec.sttModelType: unimplemented families throw '
-    'UnimplementedError naming the type (does not hardcode moonshine)',
-    () async {
-      const b = LiteRtSttBackend();
-      // moonshine is the one implemented profile; calling createModel for it
-      // resolves SttModelProfile.forType and spawns the real native pipeline
-      // (covered end-to-end elsewhere — profile resolution in
-      // stt_pipeline_test, on-device transcription in the example gate). Here
-      // we prove the backend surfaces the SELECTED type off the spec by
-      // checking the still-unimplemented families throw UnimplementedError
-      // naming their own type — a hardcoded-moonshine backend could not.
-      final unimplemented = SttModelType.values.where(
-        (t) => t != SttModelType.moonshine,
-      );
-      expect(unimplemented, isNotEmpty, reason: 'need a follow-on family');
-      for (final type in unimplemented) {
-        final spec = SttModelSpec(
-          name: 'test-$type',
-          modelSource: NetworkSource('https://example.com/model.tflite'),
-          tokenizerSource: NetworkSource('https://example.com/tokenizer.json'),
-          sttModelType: type,
-        );
-        const config = RuntimeConfig(
-          maxTokens: 0,
-          modelPath: '/tmp/model.tflite',
-          tokenizerPath: '/tmp/tokenizer.json',
-        );
-
-        await expectLater(
-          () => b.createModel(spec, config),
-          throwsA(
-            isA<UnimplementedError>().having(
-              (e) => e.message,
-              'message',
-              contains(type.toString()),
-            ),
-          ),
-          reason: '$type is a follow-on profile and must throw naming its type',
-        );
-      }
-    },
-  );
+  // The "unimplemented families throw, naming the type" regression test
+  // that used to live here was removed: as of this commit all 3
+  // SttModelType values (moonshine, whisper, parakeet) resolve to a real
+  // SttModelProfile, so there is no remaining "still unimplemented" family
+  // to iterate over. Backend genericity (spec.sttModelType selects the
+  // profile, never hardcoded) is now proven structurally by
+  // stt_model_profile_test.dart's forType coverage of all 3 types, and
+  // end-to-end on-device by the 3 device gates (stt_moonshine_test.dart,
+  // whisper_tiny_test.dart, parakeet_ctc_test.dart).
 
   test('createModel requires config.tokenizerPath', () async {
     const b = LiteRtSttBackend();

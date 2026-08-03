@@ -44,11 +44,16 @@ class WebNetworkSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is NetworkSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     // Delegate to installWithProgress, ignore progress events
     await for (final _ in installWithProgress(
       source,
       cancelToken: cancelToken,
+      targetFilename: targetFilename,
     )) {
       // Ignore progress updates
     }
@@ -58,6 +63,7 @@ class WebNetworkSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     if (source is! NetworkSource) {
       throw ArgumentError(
@@ -67,7 +73,7 @@ class WebNetworkSourceHandler implements SourceHandler {
 
     // Extract filename and validate
     final uri = Uri.parse(source.url);
-    final filename = path.basename(uri.path);
+    final filename = targetFilename ?? path.basename(uri.path);
     if (filename.isEmpty) {
       throw ArgumentError('URL must contain a filename: ${source.url}');
     }

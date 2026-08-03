@@ -41,11 +41,16 @@ class WebAssetSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is AssetSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     // Delegate to installWithProgress, ignore progress events
     await for (final _ in installWithProgress(
       source,
       cancelToken: cancelToken,
+      targetFilename: targetFilename,
     )) {
       // Ignore progress updates
     }
@@ -55,12 +60,13 @@ class WebAssetSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     if (source is! AssetSource) {
       throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
     }
 
-    final filename = path.basename(source.path);
+    final filename = targetFilename ?? path.basename(source.path);
     final cacheKey = source.normalizedPath; // Already has 'assets/' prefix
 
     try {

@@ -9,11 +9,15 @@ import 'package:flutter_gemma/flutter_gemma.dart' show SttModelType;
 /// new family later is a new catalog entry (+ a profile + a mel frontend for
 /// the log-mel families), not a new screen or a new backend/recognizer class.
 ///
-/// Only [moonshineTiny] has a shipped `SttModelProfile` (raw PCM, no mel
-/// frontend — see `docs/superpowers/notes/stt-transcript-recipe.md`).
-/// [whisperTiny] and [parakeetCtc] are listed for completeness but
-/// [isSupported] is false: both need a log-mel frontend that hasn't landed
-/// yet (a documented follow-on, out of scope for this plan).
+/// [moonshineTiny] (raw PCM) and [whisperTiny] (log-mel frontend, English-only)
+/// have shipped `SttModelProfile`s. [moonshineTinyInt8], [whisperTinyInt8]
+/// and [whisperBaseInt8] reuse those same profiles (zero engine code — the
+/// SttModelType selects the profile, not the quantization); [isSupported]
+/// on each int8 entry reflects on-device verification of int8 op-coverage
+/// on the f32-proven `SttCore` path (see `stt_int8_test.dart`).
+/// [parakeetCtc] runs the third family — a CTC model with its own NeMo mel
+/// frontend + greedy CTC decode (device-verified, see `parakeet_ctc_test.dart`).
+/// Desktop-only: 2.35 GB f32, no small/int8 export.
 enum SttModel {
   moonshineTiny(
     modelUrl:
@@ -36,8 +40,7 @@ enum SttModel {
     size: '151MB',
     sttModelType: SttModelType.whisper,
     needsAuth: false,
-    isSupported: false,
-    unsupportedReason: 'Needs a log-mel frontend (follow-on, not shipped yet)',
+    isSupported: true,
   ),
 
   parakeetCtc(
@@ -45,12 +48,52 @@ enum SttModel {
         'https://huggingface.co/litert-community/parakeet-ctc-0.6b/resolve/main/parakeet_ctc_0.6b_5s_f32.tflite',
     tokenizerUrl:
         'https://huggingface.co/nvidia/parakeet-ctc-0.6b/resolve/main/tokenizer.json',
-    displayName: 'Parakeet CTC 0.6B',
+    displayName: 'Parakeet CTC 0.6B (desktop)',
     size: '2.35GB',
     sttModelType: SttModelType.parakeet,
     needsAuth: false,
-    isSupported: false,
-    unsupportedReason: 'Needs a log-mel frontend (follow-on, not shipped yet)',
+    // Desktop-only: 2.35 GB f32 (no small/int8 export) — highest-quality of the
+    // three STT families. Runs the CTC path (NeMo mel + greedy CTC decode).
+    isSupported: true,
+  ),
+
+  moonshineTinyInt8(
+    modelUrl:
+        'https://huggingface.co/litert-community/moonshine-tiny/resolve/main/moonshine_tiny_5s_i8.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/UsefulSensors/moonshine/resolve/main/ctranslate2/tiny/tokenizer.json',
+    displayName: 'Moonshine Tiny (int8)',
+    size: '28MB',
+    sttModelType: SttModelType.moonshine,
+    needsAuth: false,
+    // Selectable, but int8 accuracy is materially lower than the f32 moonshine
+    // (encoder cosine ~0.83 vs f32 on-device) — the tiny model doesn't quantize
+    // cleanly. Kept enabled for comparison; expect degraded transcripts.
+    isSupported: true,
+  ),
+
+  whisperTinyInt8(
+    modelUrl:
+        'https://huggingface.co/litert-community/whisper-tiny/resolve/main/whisper_tiny_30s_i8.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/openai/whisper-tiny/resolve/main/tokenizer.json',
+    displayName: 'Whisper Tiny (int8)',
+    size: '39MB',
+    sttModelType: SttModelType.whisper,
+    needsAuth: false,
+    isSupported: true,
+  ),
+
+  whisperBaseInt8(
+    modelUrl:
+        'https://huggingface.co/litert-community/whisper-base/resolve/main/whisper_base_30s_i8.tflite',
+    tokenizerUrl:
+        'https://huggingface.co/openai/whisper-base/resolve/main/tokenizer.json',
+    displayName: 'Whisper Base (int8)',
+    size: '73MB',
+    sttModelType: SttModelType.whisper,
+    needsAuth: false,
+    isSupported: true,
   );
 
   /// STT model (`.tflite`) download URL.
@@ -89,6 +132,10 @@ enum SttModel {
     required this.sttModelType,
     required this.needsAuth,
     this.isSupported = true,
+    // Every catalog entry is currently supported, so no value is passed today;
+    // the field is retained for `stt_models_screen`'s disabled-entry rendering
+    // and for future unsupported models.
+    // ignore: unused_element_parameter
     this.unsupportedReason,
   });
 }

@@ -39,9 +39,17 @@ class EmbeddingTokenizerFile extends ModelFile {
   }) : _source = source,
        _filename = filename;
 
-  /// Creates EmbeddingTokenizerFile from ModelSource
-  factory EmbeddingTokenizerFile.fromSource(ModelSource source) {
-    final filename = InferenceModelFile._extractFilenameFromSource(source);
+  /// Creates EmbeddingTokenizerFile from ModelSource, namespaced by
+  /// [modelId] (the owning EmbeddingModelSpec's own model-file basename,
+  /// without extension) — this is what keeps embeddinggemma's and Gecko's
+  /// tokenizers distinct even though both are literally named
+  /// `sentencepiece.model`.
+  factory EmbeddingTokenizerFile.fromSource(
+    ModelSource source, {
+    required String modelId,
+  }) {
+    final basename = InferenceModelFile._extractFilenameFromSource(source);
+    final filename = FileNameUtils.namespaced(modelId, basename);
     return EmbeddingTokenizerFile(source: source, filename: filename);
   }
 
@@ -100,10 +108,14 @@ class EmbeddingModelSpec extends ModelSpec {
   ModelReplacePolicy get replacePolicy => _replacePolicy;
 
   @override
-  List<ModelFile> get files => [
-    EmbeddingModelFile.fromSource(_modelSource),
-    EmbeddingTokenizerFile.fromSource(_tokenizerSource),
-  ];
+  List<ModelFile> get files {
+    final modelFile = EmbeddingModelFile.fromSource(_modelSource);
+    final modelId = FileNameUtils.getBaseName(modelFile.filename);
+    return [
+      modelFile,
+      EmbeddingTokenizerFile.fromSource(_tokenizerSource, modelId: modelId),
+    ];
+  }
 
   /// Modern type-safe getters
   ModelSource get modelSource => _modelSource;

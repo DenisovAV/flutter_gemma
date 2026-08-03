@@ -7,18 +7,25 @@
 // so the UI isolate stays free, mirroring `litert_embedding_core.dart`
 // (#299).
 //
-// Generic over [SttModelProfile] — NOT model-specific. Only the
-// `rawPcm`+`seq2seq` arm (moonshine-tiny) is implemented; it is a VERBATIM
-// port of the verified recipe in
+// Generic over [SttModelProfile] — NOT model-specific. `seq2seq` decode is
+// implemented for the `rawPcm` (moonshine-tiny) and `logMel` (whisper) input
+// types; `ctc` decode is implemented for the `logMel`+`frameFirst` (parakeet)
+// path. The `transcribe`/`_encode` dispatch switches are exhaustive over the
+// decode/input/axis enums, so a new family value is a COMPILE error until
+// wired — no runtime capability guard needed. The `rawPcm`+`paddingOnly` path is a
+// VERBATIM port of the verified recipe in
 // `docs/superpowers/notes/stt-transcript-recipe.md`:
 //   - mask convention C (padding-only additive mask: 0.0 if j<len else
 //     -1e9, applied identically to every query row — NO causal triangle);
 //   - decoder start token BOS=1;
 //   - argmax taken at tensor row `len - 1` (the position just written);
 //   - stop at EOS=2 or `profile.maxDecodeTokens`.
-// `logMel`/`ctc` profiles throw `UnimplementedError` (follow-on — needs a
-// mel/DSP frontend). Do NOT "improve" the mask into a causal triangle — the
-// recipe found that degrades output; see the note's "What NOT to do".
+// Do NOT "improve" moonshine's mask into a causal triangle — the recipe
+// found that degrades output; see the note's "What NOT to do". `load()`
+// parses `tokenizer.json` once and resolves every profile's named special
+// tokens (`SttTokenRef`) through `resolveSttSpecialTokens` before
+// constructing the core — moonshine's tokens are fixed ids and resolve
+// byte-identically regardless of tokenizer content.
 //
 // Buffer create/lock/write/run/read/unlock sequence mirrors
 // `litert_embedding_core.dart`'s forward-pass pattern, generalized to the
@@ -28,7 +35,9 @@
 // this is what keeps the core generic instead of hardcoding moonshine's
 // `[1,207,288]`/`32768`.
 
+import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
@@ -42,7 +51,11 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../model/stt_model_profile.dart';
-import '../tokenizer/hf_tokenizer.dart';
+import '../tokenizer/stt_special_tokens.dart'
+    show ResolvedSuppression, SttSpecialTokenResolver;
+import '../tokenizer/stt_tokenizer.dart' show SttTokenizer;
+import 'log_mel_frontend.dart' show computeLogMelSpectrogram, computeNemoLogMel;
+import 'mel_filter_assets.dart' show loadMelFilterAsset;
 
 /// Decoder start token (`<s>`), verified working on the first try — see the
 /// recipe's "Mask convention that worked" section.
@@ -76,16 +89,138 @@ int argmax(Float32List values) {
   return bestIndex;
 }
 
-/// Whether the greedy decode loop should stop: EOS was just generated, or
-/// [generatedLength] has reached [maxDecodeTokens]. Pure — mirrors the
+/// Whether the greedy decode loop should stop: [eosId] was just generated,
+/// or [generatedLength] has reached [maxDecodeTokens]. Pure — mirrors the
 /// verified recipe's stop condition without touching native state.
 bool shouldStopDecoding(
   int lastGeneratedId,
   int generatedLength,
-  int maxDecodeTokens,
+  int maxDecodeTokens, {
+  required int eosId,
+}) {
+  return lastGeneratedId == eosId || generatedLength >= maxDecodeTokens;
+}
+
+/// Greedy CTC decode: argmax each of [numFrames] frames over [numClasses]
+/// logits (row-major `[numFrames, numClasses]`), collapse consecutive
+/// duplicate ids (standard CTC collapse -- a run of the same id, however
+/// long, becomes one), then drop every occurrence of [blankId] from the
+/// collapsed sequence. No beam search, no language model -- plain greedy,
+/// per the verified recipe
+/// (docs/superpowers/notes/parakeet-ctc-spike-findings.md "CTC greedy
+/// decode (verified recipe)"). Pure -- no native calls.
+List<int> ctcGreedyDecode(
+  Float32List logits, {
+  required int blankId,
+  required int numFrames,
+  required int numClasses,
+}) {
+  final perFrameIds = <int>[];
+  for (var f = 0; f < numFrames; f++) {
+    final row = logits.sublist(f * numClasses, (f + 1) * numClasses);
+    final id = argmax(row);
+    // A NaN ANYWHERE in the frame means the backend produced invalid output
+    // (GPU/NPU accelerator failure, cf. #214). Scan the WHOLE frame, not just
+    // the argmax winner: `argmax`'s `>` is NaN-blind, so a NaN away from the
+    // true-max position is silently skipped (treated as -inf) and the frame
+    // would be accepted with a real winner — checking only `row[id]` catches
+    // ONLY the case where a NaN seeds `row[0]`. Fail loudly on any NaN so a
+    // corrupted forward pass can't yield a plausible-but-wrong transcript.
+    // (The 63x1025 scan per parakeet clip is negligible.)
+    if (row.any((v) => v.isNaN)) {
+      throw StateError(
+        'STT CTC decode produced NaN logits at frame $f — the model backend '
+        'returned invalid output; transcription aborted rather than silently '
+        'returning a garbled result.',
+      );
+    }
+    perFrameIds.add(id);
+  }
+  final collapsed = <int>[];
+  for (var i = 0; i < perFrameIds.length; i++) {
+    if (i == 0 || perFrameIds[i] != perFrameIds[i - 1]) {
+      collapsed.add(perFrameIds[i]);
+    }
+  }
+  collapsed.removeWhere((id) => id == blankId);
+  return collapsed;
+}
+
+/// Write `decode_args_2`'s `[1,1,maxTokens,maxTokens]` mask into
+/// [maskHost] (already the right length, `maxTokens*maxTokens`) per
+/// [convention]. `paddingOnly` is moonshine's verified convention C
+/// (docs/superpowers/notes/stt-transcript-recipe.md): every row is
+/// identical, valid iff `j<len`. `causal` additionally requires `j<=r`.
+void writeDecoderMask(
+  Float32List maskHost, {
+  required int maxTokens,
+  required int len,
+  required SttDecoderMaskConvention convention,
+}) {
+  for (var r = 0; r < maxTokens; r++) {
+    final rowBase = r * maxTokens;
+    for (var j = 0; j < maxTokens; j++) {
+      final valid = switch (convention) {
+        SttDecoderMaskConvention.paddingOnly => j < len,
+        SttDecoderMaskConvention.causal => j <= r && j < len,
+      };
+      maskHost[rowBase + j] = valid ? 0.0 : -1e9;
+    }
+  }
+}
+
+/// Force [suppression]'s blocked ids to `-inf` in [logitsRow] (a per-step
+/// COPY of the decode output's argmax row — mutating it does not touch the
+/// native tensor buffer) before argmax is taken. `null` suppression is a
+/// no-op (moonshine, unchanged). [step] is `0` on the first decode call
+/// after the seed prompt (`len == decoderPromptIds.length`), incrementing
+/// thereafter.
+void applySuppression(
+  Float32List logitsRow, {
+  required int step,
+  required ResolvedSuppression? suppression,
+}) {
+  if (suppression == null) return;
+  for (var id = suppression.suppressAboveId + 1; id < logitsRow.length; id++) {
+    logitsRow[id] = double.negativeInfinity;
+  }
+  if (step == 0) {
+    for (final id in suppression.suppressAtStepZeroIds) {
+      if (id < logitsRow.length) logitsRow[id] = double.negativeInfinity;
+    }
+  }
+}
+
+/// [SttCore.load]'s name→id resolution result: the decoder's seed prompt
+/// ids, its stop token id, and its (optional) resolved suppression.
+typedef SttResolvedTokens = ({
+  List<int> decoderPromptIds,
+  int? eosId,
+  ResolvedSuppression? suppression,
+});
+
+/// Resolve [profile]'s [SttTokenRef]s (`decoderPromptTokens`, `eosToken`,
+/// `suppressTokens`) against [tokenizerJson] (an already-parsed
+/// `tokenizer.json` document) via [SttSpecialTokenResolver]. Pure — no I/O,
+/// no native calls — so `load()`'s name→id step is unit-testable directly.
+/// Moonshine's refs are `SttTokenRef.id` (fixed) and resolve
+/// byte-identically regardless of [tokenizerJson]'s content; whisper's are
+/// `SttTokenRef.name` and resolve from `tokenizerJson`'s `model.vocab`/
+/// `added_tokens`. An unresolvable name throws the [StateError]
+/// `SttSpecialTokenResolver.resolve` raises, naming it — no silent fallback
+/// (Global Constraints).
+SttResolvedTokens resolveSttSpecialTokens(
+  SttModelProfile profile,
+  Map<String, dynamic> tokenizerJson,
 ) {
-  return lastGeneratedId == sttDecodeEosId ||
-      generatedLength >= maxDecodeTokens;
+  final resolver = SttSpecialTokenResolver(tokenizerJson);
+  return (
+    decoderPromptIds: [
+      for (final ref in profile.decoderPromptTokens) ref.resolve(resolver),
+    ],
+    eosId: profile.eosToken?.resolve(resolver),
+    suppression: profile.suppressTokens?.resolve(resolver),
+  );
 }
 
 int _acceleratorFor(PreferredBackend? backend) {
@@ -120,15 +255,49 @@ class SttCore {
     required this._compiledModel,
     required this._tokenizer,
     required this._profile,
-  });
+    this._melFilters,
+    List<int>? decoderPromptIds,
+    int? eosId,
+    this._resolvedSuppression,
+  }) : _decoderPromptIds = decoderPromptIds ?? const [sttDecodeBosId],
+       _eosId = eosId ?? sttDecodeEosId;
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
   final LiteRtModel _model;
   final LiteRtOptions _options;
   final LiteRtCompiledModel _compiledModel;
-  final HfTokenizer _tokenizer;
+  final SttTokenizer _tokenizer;
   final SttModelProfile _profile;
+
+  /// Bundled mel filterbank matrix (`loadMelFilterAsset`), non-null for
+  /// `logMel` profiles (whisper). `null` for `rawPcm` (moonshine) profiles —
+  /// `_encode` never reads it on that path. Loaded once in `load()` from
+  /// `profile.melFilterAsset`.
+  final Float32List? _melFilters;
+
+  /// Resolved decoder seed sequence (moonshine: `[1]`; whisper: the 4
+  /// forced-English-transcription ids), resolved once in `load()` via
+  /// `resolveSttSpecialTokens`. Defaults to moonshine's hardcoded single BOS
+  /// so this compiles standalone; every real call site passes the resolved
+  /// ids.
+  final List<int> _decoderPromptIds;
+
+  /// Resolved stop token id (moonshine: 2; whisper: resolved
+  /// `<|endoftext|>`), resolved once in `load()`. Defaults to moonshine's
+  /// hardcoded EOS.
+  ///
+  /// Read ONLY by the `seq2seq` `_decodeLoop`. A `ctc` profile (parakeet) has
+  /// a null `eosToken`, so the `?? sttDecodeEosId` fallback in the constructor
+  /// leaves this at moonshine's EOS=2 — inert, because `_ctcDecode` is a
+  /// single pass and never reads `_eosId`. A FUTURE seq2seq family with a null
+  /// `eosToken` would silently inherit EOS=2 here; such a family must set a
+  /// real `eosToken` (the seq2seq stop condition depends on it).
+  final int _eosId;
+
+  /// Resolved logit suppression, applied every decode step before argmax.
+  /// `null` = no suppression (moonshine, unchanged).
+  final ResolvedSuppression? _resolvedSuppression;
 
   bool _disposed = false;
 
@@ -140,16 +309,23 @@ class SttCore {
     required SttModelProfile profile,
     PreferredBackend? backend,
   }) async {
-    if (profile.inputType != SttInputType.rawPcm ||
-        profile.decodeType != SttDecodeType.seq2seq) {
-      throw UnimplementedError(
-        'SttCore: only rawPcm+seq2seq profiles are implemented '
-        '(logMel/ctc are follow-ons; see the design spec).',
-      );
-    }
-
+    // No capability guard here: `transcribe`'s decodeType switch and
+    // `_encode`'s inputType/melAxisOrder switches are exhaustive (no default
+    // arm), so an unwired enum value is a compile error, not a runtime
+    // surprise — a stronger guarantee than the vacuous `!= a && != b` checks
+    // this replaced (both enums are now fully implemented).
     final bindings = LiteRtBindings.open();
-    final tokenizer = await HfTokenizer.fromFile(tokenizerPath);
+    final tokenizerText = await File(tokenizerPath).readAsString();
+    final tokenizerJson = jsonDecode(tokenizerText) as Map<String, dynamic>;
+    final resolved = resolveSttSpecialTokens(profile, tokenizerJson);
+    final tokenizer = SttTokenizer.forProfileKind(
+      profile.tokenizerKind,
+      tokenizerJson,
+      eosId: resolved.eosId,
+    );
+    final melFilters = profile.melFilterAsset != null
+        ? loadMelFilterAsset(profile.melFilterAsset!)
+        : null;
 
     // Track native handles as they are created so a failure partway through
     // frees everything already allocated instead of leaking it — the LiteRT
@@ -204,6 +380,10 @@ class SttCore {
         compiledModel: compiled,
         tokenizer: tokenizer,
         profile: profile,
+        melFilters: melFilters,
+        decoderPromptIds: resolved.decoderPromptIds,
+        eosId: resolved.eosId,
+        resolvedSuppression: resolved.suppression,
       );
     } catch (_) {
       if (compiled != null) bindings.destroyCompiledModel(compiled);
@@ -225,21 +405,67 @@ class SttCore {
     final windowed = padOrTrimToWindow(samples, _profile.windowSamples);
     final hidden = _encode(windowed);
     try {
-      final ids = _decodeLoop(hidden);
-      return _tokenizer.detokenize(ids);
+      final ids = switch (_profile.decodeType) {
+        SttDecodeType.seq2seq => _decodeLoop(hidden),
+        SttDecodeType.ctc => _ctcDecode(hidden),
+      };
+      return _tokenizer.decode(ids);
     } finally {
       calloc.free(hidden.alloc.raw);
     }
   }
 
-  /// Run the encoder (signature index 0): `f32[1, windowSamples]` →
-  /// `f32[1, frames, dim]`. `frames`/`dim` are auto-detected from the
-  /// compiled model's output tensor layout — generic over the profile, no
-  /// hardcoded moonshine dimensions. The returned allocation's raw memory
-  /// (the encoder hidden state) is kept alive by the caller: it becomes
-  /// `decode_args_0`'s backing store for every decode step.
-  _EncoderOutput _encode(Float32List samples) {
-    final windowSamples = samples.length;
+  /// Run the encoder (signature index 0). `rawPcm` (moonshine): `f32[1,
+  /// windowSamples]`, UNCHANGED — byte-exact. `logMel` (whisper): runs the
+  /// log-mel frontend first and feeds `f32[1, nMels, melFrames]`.
+  /// `frames`/`dim` (the encoder's OUTPUT layout) are still auto-detected
+  /// from the compiled model.
+  _EncoderOutput _encode(Float32List windowedPcm) {
+    final Float32List encoderInput;
+    final int inRank;
+    final int inDim0;
+    final int inDim1;
+    switch (_profile.inputType) {
+      case SttInputType.rawPcm:
+        encoderInput = windowedPcm;
+        inRank = 2;
+        inDim0 = windowedPcm.length;
+        inDim1 = 0;
+      case SttInputType.logMel:
+        switch (_profile.melAxisOrder!) {
+          case SttMelAxisOrder.melFirst:
+            // whisper: `[nMels, melFrames]`.
+            encoderInput = computeLogMelSpectrogram(
+              windowedPcm,
+              nFft: _profile.nFft!,
+              hopLength: _profile.hopLength!,
+              nMels: _profile.nMels!,
+              melFrames: _profile.melFrames!,
+              melFilters: _melFilters!,
+              normalization: _profile.melNormalization,
+            );
+            inDim0 = _profile.nMels!;
+            inDim1 = _profile.melFrames!;
+          case SttMelAxisOrder.frameFirst:
+            // parakeet: `[melFrames, nMels]` -- NeMo's frontend, distinct
+            // params (winLength, preemphasis, Slaney filterbank, natural
+            // log + full-window per-feature z-score), see
+            // computeNemoLogMel's doc comment.
+            encoderInput = computeNemoLogMel(
+              windowedPcm,
+              nFft: _profile.nFft!,
+              winLength: _profile.winLength!,
+              hopLength: _profile.hopLength!,
+              preemphasis: _profile.preemphasis!,
+              nMels: _profile.nMels!,
+              melFrames: _profile.melFrames!,
+              melFilters: _melFilters!,
+            );
+            inDim0 = _profile.melFrames!;
+            inDim1 = _profile.nMels!;
+        }
+        inRank = 3;
+    }
 
     final outLayout = LiteRtLayoutView.calloc();
     int frames, dim;
@@ -266,10 +492,15 @@ class SttCore {
 
     final inType = LiteRtRankedTensorTypeView.calloc()
       ..elementType = kLiteRtElementTypeFloat32
-      ..rank = 2
-      ..setDimension(0, 1)
-      ..setDimension(1, windowSamples);
-    final inAlloc = allocAligned(windowSamples * 4);
+      ..rank = inRank
+      ..setDimension(0, 1);
+    if (inRank == 2) {
+      inType.setDimension(1, inDim0);
+    } else {
+      inType.setDimension(1, inDim0);
+      inType.setDimension(2, inDim1);
+    }
+    final inAlloc = allocAligned(encoderInput.length * 4);
     final inBufPtr = calloc<LiteRtTensorBuffer>();
     var inBufCreated = false;
 
@@ -289,15 +520,15 @@ class SttCore {
 
     try {
       final inHost = inAlloc.aligned.cast<Float>();
-      for (var i = 0; i < windowSamples; i++) {
-        inHost[i] = samples[i];
+      for (var i = 0; i < encoderInput.length; i++) {
+        inHost[i] = encoderInput[i];
       }
 
       _bindings
           .createTensorBufferFromHostMemory(
             inType.pointer,
             inAlloc.aligned.cast(),
-            windowSamples * 4,
+            encoderInput.length * 4,
             nullptr,
             inBufPtr,
           )
@@ -427,9 +658,11 @@ class SttCore {
 
     try {
       final tokensHost = tokensAlloc.aligned.cast<Int32>();
-      final maskHost = maskAlloc.aligned.cast<Float>();
+      final maskHost = maskAlloc.aligned.cast<Float>().asTypedList(
+        maxTokens * maxTokens,
+      );
 
-      final generated = <int>[sttDecodeBosId];
+      final generated = List<int>.from(_decoderPromptIds);
       while (true) {
         final len = generated.length;
 
@@ -439,18 +672,17 @@ class SttCore {
           tokensHost[i] = i < len ? generated[i] : 0;
         }
 
-        // decode_args_2: f32[1,1,maxTokens,maxTokens] — mask convention C
-        // (verified recipe): padding-only additive mask, identical across
-        // every query row — NO causal triangle. Do not change this to a
-        // causal mask (convention A) or a multiplicative mask (B) — both
-        // produced worse or garbage output; see the recipe's "What NOT to
-        // do".
-        for (var r = 0; r < maxTokens; r++) {
-          final rowBase = r * maxTokens;
-          for (var j = 0; j < maxTokens; j++) {
-            maskHost[rowBase + j] = j < len ? 0.0 : -1e9;
-          }
-        }
+        // decode_args_2: f32[1,1,maxTokens,maxTokens] — mask convention per
+        // `_profile.decoderMaskConvention` (moonshine: `paddingOnly`,
+        // verified recipe convention C; whisper: `causal`, per the Phase 0
+        // spike). Do not change moonshine's convention — see the recipe's
+        // "What NOT to do".
+        writeDecoderMask(
+          maskHost,
+          maxTokens: maxTokens,
+          len: len,
+          convention: _profile.decoderMaskConvention,
+        );
 
         final tokType = LiteRtRankedTensorTypeView.calloc()
           ..elementType = kLiteRtElementTypeInt32
@@ -546,6 +778,11 @@ class SttCore {
               row * vocabSize,
               (row + 1) * vocabSize,
             );
+            applySuppression(
+              rowLogits,
+              step: len - _decoderPromptIds.length,
+              suppression: _resolvedSuppression,
+            );
             bestId = argmax(rowLogits);
             // A NaN top logit means the backend produced invalid output (e.g.
             // a GPU/accelerator failure, cf. #214). argmax then collapses to
@@ -580,8 +817,13 @@ class SttCore {
         }
 
         generated.add(bestId);
-        if (shouldStopDecoding(bestId, generated.length, maxTokens)) {
-          if (bestId != sttDecodeEosId && generated.length >= maxTokens) {
+        if (shouldStopDecoding(
+          bestId,
+          generated.length,
+          maxTokens,
+          eosId: _eosId,
+        )) {
+          if (bestId != _eosId && generated.length >= maxTokens) {
             gemmaLog(
               '[SttCore] decode hit the $maxTokens-token cap without EOS — '
               'transcript may be truncated.',
@@ -597,6 +839,24 @@ class SttCore {
       calloc.free(maskAlloc.raw);
       calloc.free(decodeOutAlloc.raw);
     }
+  }
+
+  /// Single-pass greedy CTC decode (parakeet): the encoder's OWN output
+  /// tensor IS the CTC logits (no decoder subgraph, no growing token
+  /// sequence, no mask, no per-step loop). `hidden.frames`/`hidden.dim`
+  /// (already auto-detected in `_encode` from the compiled model's output
+  /// tensor layout, per the design spec's fix #4) ARE the CTC frame count
+  /// (63) and class count (1025), read at runtime -- never hardcoded.
+  List<int> _ctcDecode(_EncoderOutput hidden) {
+    final logits = hidden.alloc.aligned.cast<Float>().asTypedList(
+      hidden.frames * hidden.dim,
+    );
+    return ctcGreedyDecode(
+      logits,
+      blankId: _profile.blankId!,
+      numFrames: hidden.frames,
+      numClasses: hidden.dim,
+    );
   }
 
   void dispose() {

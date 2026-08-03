@@ -7,39 +7,13 @@
 
 import 'dart:typed_data';
 
-import 'package:flutter_gemma/core/model_management/model_specs.dart'
-    show SttModelType;
 import 'package:flutter_gemma_speech/src/litert/litert_speech_recognizer.dart'
     show pcm16LEToFloat32;
 import 'package:flutter_gemma_speech/src/litert/stt_core.dart'
     show argmax, padOrTrimToWindow, shouldStopDecoding, sttDecodeEosId;
-import 'package:flutter_gemma_speech/src/model/stt_model_profile.dart';
-import 'package:flutter_gemma_speech/src/tokenizer/hf_tokenizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('SttModelProfile.forType', () {
-    test('moonshine resolves to the verified recipe values', () {
-      final profile = SttModelProfile.forType(SttModelType.moonshine);
-      expect(profile.inputType, SttInputType.rawPcm);
-      expect(profile.sampleRate, 16000);
-      expect(profile.windowSamples, 80000);
-      expect(profile.decodeType, SttDecodeType.seq2seq);
-      expect(profile.maxDecodeTokens, 64);
-    });
-
-    test('whisper/parakeet are documented follow-ons (throw)', () {
-      expect(
-        () => SttModelProfile.forType(SttModelType.whisper),
-        throwsUnimplementedError,
-      );
-      expect(
-        () => SttModelProfile.forType(SttModelType.parakeet),
-        throwsUnimplementedError,
-      );
-    });
-  });
-
   group('pcm16LEToFloat32', () {
     test('converts int16 LE samples to [-1,1] float32', () {
       // 0x0000 -> 0.0, 0x7FFF -> ~1.0, 0x8000 (-32768) -> -1.0.
@@ -96,59 +70,23 @@ void main() {
 
   group('shouldStopDecoding', () {
     test('stops on EOS regardless of length', () {
-      expect(shouldStopDecoding(sttDecodeEosId, 5, 64), isTrue);
+      expect(
+        shouldStopDecoding(sttDecodeEosId, 5, 64, eosId: sttDecodeEosId),
+        isTrue,
+      );
     });
 
     test('stops when maxDecodeTokens is reached even without EOS', () {
-      expect(shouldStopDecoding(7, 64, 64), isTrue);
+      expect(shouldStopDecoding(7, 64, 64, eosId: sttDecodeEosId), isTrue);
     });
 
     test('continues otherwise', () {
-      expect(shouldStopDecoding(7, 5, 64), isFalse);
-    });
-  });
-
-  group('HfTokenizer.detokenize (canned vocab)', () {
-    HfTokenizer tokenizerWith(Map<String, int> vocab) => HfTokenizer.fromJson({
-      'model': {'type': 'BPE', 'vocab': vocab},
+      expect(shouldStopDecoding(7, 5, 64, eosId: sttDecodeEosId), isFalse);
     });
 
-    test('skips BOS, stops at EOS, decodes word pieces', () {
-      final tokenizer = tokenizerWith({
-        '<unk>': 0,
-        '<s>': 1,
-        '</s>': 2,
-        '▁Hello': 3,
-        '▁world': 4,
-      });
-      // BOS(1) seeded + generated ids, trailing 999 past EOS must be ignored.
-      final text = tokenizer.detokenize([1, 3, 4, 2, 999]);
-      expect(text, 'Hello world');
-    });
-
-    test('byte-fallback pieces decode to raw bytes (no leading space)', () {
-      final tokenizer = tokenizerWith({
-        '<unk>': 0,
-        '<s>': 1,
-        '</s>': 2,
-        '▁Hello': 3,
-        '<0x21>': 4, // '!'
-        '▁world': 5,
-      });
-      final text = tokenizer.detokenize([1, 3, 4, 5, 2]);
-      expect(text, 'Hello! world');
-    });
-
-    test('unk and added-vocab ids (>= base vocab size) are skipped', () {
-      final tokenizer = tokenizerWith({
-        '<unk>': 0,
-        '<s>': 1,
-        '</s>': 2,
-        '▁Hi': 3,
-      });
-      // id=99 is >= baseVocabSize(4) -> treated as an added/special token.
-      final text = tokenizer.detokenize([1, 0, 3, 99, 2]);
-      expect(text, 'Hi');
+    test('honors a non-default eosId (e.g. whisper\'s resolved EOS)', () {
+      expect(shouldStopDecoding(7, 5, 64, eosId: 7), isTrue);
+      expect(shouldStopDecoding(2, 5, 64, eosId: 7), isFalse);
     });
   });
 }

@@ -32,7 +32,11 @@ class NetworkSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is NetworkSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
     }
@@ -40,7 +44,8 @@ class NetworkSourceHandler implements SourceHandler {
     final effectiveToken =
         source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
-    final filename = path.basename(Uri.parse(source.url).path);
+    final filename =
+        targetFilename ?? path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getWriteTargetPath(filename);
 
     // Download file with cancellation support
@@ -77,6 +82,7 @@ class NetworkSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
@@ -85,7 +91,8 @@ class NetworkSourceHandler implements SourceHandler {
     final effectiveToken =
         source.authToken ??
         (_isHuggingFaceUrl(source.url) ? huggingFaceToken : null);
-    final filename = path.basename(Uri.parse(source.url).path);
+    final filename =
+        targetFilename ?? path.basename(Uri.parse(source.url).path);
     final targetPath = await fileSystem.getWriteTargetPath(filename);
 
     // Download with progress tracking, configurable retries, and cancellation support

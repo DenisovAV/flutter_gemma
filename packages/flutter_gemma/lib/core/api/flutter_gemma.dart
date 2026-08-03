@@ -660,8 +660,21 @@ class FlutterGemma {
   /// [fileName] (the file's basename, e.g. `gemma-4-E2B-it.litertlm`). On web
   /// this resolves to a URL/OPFS handle, not a filesystem path. The path is
   /// computed, not stat-ed — it is returned even if nothing is installed there.
-  static Future<String> getModelPath(String fileName) =>
-      ServiceRegistry.instance.fileSystemService.getReadTargetPath(fileName);
+  static Future<String> getModelPath(String fileName) async {
+    // A FileSource install references the file in place (not copied) and
+    // registers it under its (possibly namespaced) filename -> its original
+    // path. Resolve that first so getModelPath returns where the file ACTUALLY
+    // is; otherwise fall back to the managed read path (downloaded/asset
+    // installs land in the managed dir under their filename). Without this, a
+    // namespaced companion (e.g. `<model>__tokenizer.json`) whose FileSource
+    // file lives elsewhere would resolve to a non-existent managed path.
+    final external = await ServiceRegistry.instance.protectedFilesRegistry
+        .getExternalPath(fileName);
+    if (external != null) return external;
+    return ServiceRegistry.instance.fileSystemService.getReadTargetPath(
+      fileName,
+    );
+  }
 
   /// Clears the active inference identity (in-memory spec + persisted prefs).
   static Future<void> clearActiveInferenceIdentity() =>

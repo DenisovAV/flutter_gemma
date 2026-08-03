@@ -287,7 +287,14 @@ class ModelFileSystemManager {
   /// Safely deletes a model file
   static Future<void> deleteModelFile(String filename) async {
     try {
-      final filePath = await getModelFilePath(filename);
+      // A FileSource install is referenced in place under its (possibly
+      // namespaced) filename -> its original path; delete THAT, not the
+      // managed-dir path the filename would otherwise map to (which is empty
+      // for an externally-referenced companion, so uninstall would leave the
+      // real file behind).
+      final external = await ServiceRegistry.instance.protectedFilesRegistry
+          .getExternalPath(filename);
+      final filePath = external ?? await getModelFilePath(filename);
       final file = File(filePath);
 
       if (await file.exists()) {

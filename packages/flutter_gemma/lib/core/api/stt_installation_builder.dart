@@ -1,8 +1,8 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
+import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:path/path.dart' as path;
 
 /// Fluent builder for STT (speech-to-text) model installation
 ///
@@ -157,11 +157,9 @@ class SttInstallationBuilder {
     final effectiveTokenizerSource = _tokenizerSource!;
 
     // Create spec
-    final modelFilename = _extractFilename(_modelSource!);
-    final tokenizerFilename = _extractFilename(effectiveTokenizerSource);
-
+    final modelFile = SttModelFile.fromSource(_modelSource!);
     final spec = SttModelSpec(
-      name: FileNameUtils.getBaseName(modelFilename),
+      name: FileNameUtils.getBaseName(modelFile.filename),
       modelSource: _modelSource!,
       tokenizerSource: effectiveTokenizerSource,
       sttModelType: sttModelType,
@@ -170,6 +168,12 @@ class SttInstallationBuilder {
 
     final registry = ServiceRegistry.instance;
     final repository = registry.modelRepository;
+
+    // spec.files is [modelFile, tokenizerFile] in that fixed order (see
+    // SttModelSpec.files) — reuse the already-namespaced identity.
+    final files = spec.files;
+    final modelFilename = files[0].filename;
+    final tokenizerFilename = files[1].filename;
 
     // Check if both model and tokenizer are already installed
     final isModelInstalled = await repository.isInstalled(modelFilename);
@@ -184,7 +188,6 @@ class SttInstallationBuilder {
     } else {
       final handlerRegistry = registry.sourceHandlerRegistry;
 
-      // Install model file if not already installed
       if (!isModelInstalled) {
         gemmaLog('📥 Installing STT model...');
         final modelHandler = handlerRegistry.getHandler(_modelSource!);
@@ -192,17 +195,21 @@ class SttInstallationBuilder {
           await for (final progress in modelHandler!.installWithProgress(
             _modelSource!,
             cancelToken: _cancelToken,
+            targetFilename: modelFilename,
           )) {
             _onModelProgress!(progress);
           }
         } else {
-          await modelHandler!.install(_modelSource!, cancelToken: _cancelToken);
+          await modelHandler!.install(
+            _modelSource!,
+            cancelToken: _cancelToken,
+            targetFilename: modelFilename,
+          );
         }
       } else {
         gemmaLog('ℹ️  STT model file already installed: $modelFilename');
       }
 
-      // Install tokenizer file if not already installed
       if (!isTokenizerInstalled) {
         gemmaLog('📥 Installing STT tokenizer...');
         final tokenizerHandler = handlerRegistry.getHandler(
@@ -212,6 +219,7 @@ class SttInstallationBuilder {
           await for (final progress in tokenizerHandler!.installWithProgress(
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
+            targetFilename: tokenizerFilename,
           )) {
             _onTokenizerProgress!(progress);
           }
@@ -219,6 +227,7 @@ class SttInstallationBuilder {
           await tokenizerHandler!.install(
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
+            targetFilename: tokenizerFilename,
           );
         }
       } else {
@@ -235,17 +244,6 @@ class SttInstallationBuilder {
     gemmaLog('✅ STT model installed and set as active: ${spec.name}');
 
     return SttInstallation(spec: spec);
-  }
-
-  String _extractFilename(ModelSource source) {
-    // Note: `path` refers to package:path; bind the source's own path field to
-    // `p` so it does not shadow the import inside these arms.
-    return switch (source) {
-      NetworkSource(:final url) => path.basename(Uri.parse(url).path),
-      AssetSource(path: final p) => p.split(RegExp(r'[/\\]')).last,
-      BundledSource(:final resourceName) => resourceName,
-      FileSource(path: final p) => p.split(RegExp(r'[/\\]')).last,
-    };
   }
 }
 

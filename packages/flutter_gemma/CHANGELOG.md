@@ -1,3 +1,7 @@
+## 1.5.1
+- fix: namespace companion install files (tokenizers, TTS bundle aux) per model, fixing STT/embedding tokenizer collisions.
+- fix: migrate legacy (pre-namespacing) tokenizer installs on restore, so existing STT/embedding models keep working after upgrade.
+
 ## 1.5.0
 - Add genai_primitives support via `package:flutter_gemma/genai.dart` — use `ChatMessage` with `InferenceChat` (#181).
 - New `sendMessage`/`generateContent` (+ streams) covering text, vision, audio, thinking, and tool calls (#181).

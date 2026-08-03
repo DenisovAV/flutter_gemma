@@ -29,7 +29,11 @@ class WebAssetSourceHandler implements SourceHandler {
   }
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     throw UnsupportedError(
       'WebAssetSourceHandler is only available on web platform',
     );
@@ -39,6 +43,7 @@ class WebAssetSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) {
     throw UnsupportedError(
       'WebAssetSourceHandler is only available on web platform',

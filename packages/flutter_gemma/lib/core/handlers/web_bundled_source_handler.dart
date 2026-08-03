@@ -43,11 +43,16 @@ class WebBundledSourceHandler implements SourceHandler {
   bool supports(ModelSource source) => source is BundledSource;
 
   @override
-  Future<void> install(ModelSource source, {CancelToken? cancelToken}) async {
+  Future<void> install(
+    ModelSource source, {
+    CancelToken? cancelToken,
+    String? targetFilename,
+  }) async {
     // Delegate to installWithProgress, ignore progress events
     await for (final _ in installWithProgress(
       source,
       cancelToken: cancelToken,
+      targetFilename: targetFilename,
     )) {
       // Ignore progress updates
     }
@@ -57,6 +62,7 @@ class WebBundledSourceHandler implements SourceHandler {
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
+    String? targetFilename,
   }) async* {
     if (source is! BundledSource) {
       throw ArgumentError(
@@ -66,7 +72,7 @@ class WebBundledSourceHandler implements SourceHandler {
 
     final resourceName = source.resourceName;
     final cacheKey = resourceName;
-    final targetPath = resourceName;
+    final targetPath = targetFilename ?? resourceName;
 
     try {
       // Use unified caching helper
@@ -103,7 +109,7 @@ class WebBundledSourceHandler implements SourceHandler {
       // - enableCache=true: SharedPreferencesModelRepository (persistent)
       // - enableCache=false: InMemoryModelRepository (ephemeral)
       final modelInfo = ModelInfo(
-        id: resourceName,
+        id: targetPath,
         source: source,
         installedAt: DateTime.now(),
         sizeBytes: -1,

@@ -59,6 +59,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   SpeechSynthesizer? _initializedTtsModel;
   TtsModelSpec?
   _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
+  // The `language` the active singleton was built with (raw, as received —
+  // not defaulted). Reusing the singleton for a DIFFERENT language would
+  // silently emit wrong-language audio with no error (Task 5.4 review,
+  // Important #1) — see the same-model branch in createTtsModel below.
+  String? _lastActiveTtsLanguage;
 
   // Made public for example app integration
   late final MobileModelManager _unifiedManager = MobileModelManager();
@@ -610,9 +615,22 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         _initTtsCompleter = null;
         _initializedTtsModel = null;
         _lastActiveTtsSpec = null;
+        _lastActiveTtsLanguage = null;
         await old?.close();
+      } else if (language != _lastActiveTtsLanguage) {
+        // Same model, but a DIFFERENT language was requested — reusing the
+        // singleton here would silently emit WRONG-LANGUAGE audio with no
+        // error (Task 5.4 review, Important #1). Fail loud instead of
+        // reusing: the caller must close() the existing synthesizer first
+        // (tts_screen.dart already does this on every model/language
+        // switch — see LiteRtSpeechSynthesizer/getActiveTts's docs).
+        throw StateError(
+          'Active TTS synthesizer was created for language '
+          "'${_lastActiveTtsLanguage ?? 'default'}'; call close() before "
+          "requesting '${language ?? 'default'}'.",
+        );
       } else {
-        // Same model - return existing singleton
+        // Same model, same language - return existing singleton
         gemmaLog(
           'ℹ️  Reusing existing TTS model instance for ${activeModel.name}',
         );
@@ -665,6 +683,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // package-built model fires this via CloseNotifier (addCloseListener).
       _initializedTtsModel = synth;
       _lastActiveTtsSpec = activeModel;
+      _lastActiveTtsLanguage = language;
       synth.addCloseListener(() {
         // Only reset if this close-listener still belongs to the current
         // singleton — a newer model may already have replaced it (the
@@ -673,6 +692,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           _initializedTtsModel = null;
           _initTtsCompleter = null;
           _lastActiveTtsSpec = null;
+          _lastActiveTtsLanguage = null;
         }
       });
 
@@ -682,6 +702,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       _initTtsCompleter = null;
       _initializedTtsModel = null;
       _lastActiveTtsSpec = null;
+      _lastActiveTtsLanguage = null;
       // Complete the completer and return its future (rather than
       // rethrowing separately) so there is exactly one Future in flight for
       // this call — a second, unheeded `completer.future` (as a bare

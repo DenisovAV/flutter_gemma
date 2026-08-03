@@ -58,3 +58,18 @@ void assertQwen3LanguageSupported(String language) {
     );
   }
 }
+
+/// Canonicalizes an already-[assertQwen3LanguageSupported]-validated
+/// [language] to the lowercase form every downstream consumer expects.
+///
+/// `assertQwen3LanguageSupported`'s membership check is case-insensitive
+/// (`language.toLowerCase()`), but `Qwen3Prompt.build`'s `'auto'` branch
+/// compares case-SENSITIVELY (`language == 'auto'`; its non-`'auto'` branch
+/// already lowercases via `languageIds[language.toLowerCase()]`). Without
+/// normalizing once here, `'Auto'`/`'AUTO'` would pass validation at
+/// `LiteRtSpeechSynthesizer.create` but then miss `Qwen3Prompt.build`'s
+/// `'auto'` comparison and throw `ArgumentError` AFTER the ~1.9 GB model
+/// load, at the first `synthesize` call — defeating create-time fail-fast
+/// for exactly that value (Task 5.4 review, bundled fix). Call this once,
+/// at the `create` boundary, immediately after validation succeeds.
+String normalizeQwen3Language(String language) => language.toLowerCase();

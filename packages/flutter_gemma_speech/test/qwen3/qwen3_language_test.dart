@@ -22,6 +22,15 @@
 // (`@Tags(['qwen3-artifacts'])`), whose default-voice behavior Task 5.4
 // leaves unchanged (`TtsWorker`'s `voice` override is opt-in and defaults to
 // null, i.e. the pre-existing `readNpyF32(demoVoicePath)` path).
+//
+// Bundled fix (review round 1): `assertQwen3LanguageSupported`'s membership
+// check is case-insensitive, but `Qwen3Prompt.build`'s `'auto'` branch
+// compares case-SENSITIVELY — so `'Auto'`/`'AUTO'` used to pass validation
+// at `create` but throw `ArgumentError` AFTER the ~1.9 GB model load, at the
+// first `synthesize` call. `create` now normalizes via
+// `normalizeQwen3Language` right after validation; the tests below cover
+// both the normalizer directly and `create`'s acceptance of mixed-case
+// `'auto'` (still without spawning a real worker).
 
 import 'package:flutter_gemma_speech/src/litert/litert_speech_synthesizer.dart';
 import 'package:flutter_gemma_speech/src/model/tts_model_profile.dart';
@@ -47,6 +56,32 @@ void main() {
       expect(() => assertQwen3LanguageSupported('German'), returnsNormally);
       expect(() => assertQwen3LanguageSupported('GERMAN'), returnsNormally);
     });
+
+    test("accepts 'Auto' and 'AUTO' (case-insensitive) same as 'auto'", () {
+      expect(() => assertQwen3LanguageSupported('Auto'), returnsNormally);
+      expect(() => assertQwen3LanguageSupported('AUTO'), returnsNormally);
+    });
+
+    test('an unknown mixed-case language still throws ArgumentError', () {
+      expect(
+        () => assertQwen3LanguageSupported('Klingon'),
+        throwsArgumentError,
+      );
+    });
+  });
+
+  group('normalizeQwen3Language', () {
+    test("lowercases 'Auto'/'AUTO' to 'auto'", () {
+      expect(normalizeQwen3Language('Auto'), 'auto');
+      expect(normalizeQwen3Language('AUTO'), 'auto');
+      expect(normalizeQwen3Language('auto'), 'auto');
+    });
+
+    test('lowercases every supported language name', () {
+      for (final lang in qwen3SupportedLanguages) {
+        expect(normalizeQwen3Language(lang.toUpperCase()), lang);
+      }
+    });
   });
 
   group('languageIds / qwen3SupportedLanguages (single source of truth)', () {
@@ -71,6 +106,37 @@ void main() {
           profile: const TtsModelProfile.qwen3(),
           artifactPaths: const {},
           language: 'klingon',
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test(
+      "accepts 'Auto' and 'AUTO' the same as 'auto' — validation never "
+      'rejects them as ArgumentError (they still fail later, from the '
+      'empty artifactPaths, exactly like a real "auto" request would)',
+      () async {
+        for (final lang in ['Auto', 'AUTO', 'auto']) {
+          await expectLater(
+            LiteRtSpeechSynthesizer.create(
+              profile: const TtsModelProfile.qwen3(),
+              artifactPaths: const {},
+              language: lang,
+            ),
+            throwsA(isNot(isA<ArgumentError>())),
+            reason: "language: '$lang' must pass validation",
+          );
+        }
+      },
+    );
+
+    test('an unknown mixed-case language still throws ArgumentError at '
+        'create (not just at assertQwen3LanguageSupported)', () async {
+      await expectLater(
+        LiteRtSpeechSynthesizer.create(
+          profile: const TtsModelProfile.qwen3(),
+          artifactPaths: const {},
+          language: 'Klingon',
         ),
         throwsArgumentError,
       );

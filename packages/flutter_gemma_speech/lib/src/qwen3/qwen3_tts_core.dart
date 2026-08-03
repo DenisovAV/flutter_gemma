@@ -40,8 +40,20 @@
 // / `qwen3_talker_decode_test.dart` — different libraries — can drive them
 // directly; annotated `@visibleForTesting` to say so, mirroring
 // `TtsCore.planMelWindows`/`concatSegments`.
+//
+// [Qwen3TtsCore.runMtp] ports `Qwen3TtsPipeline._run_mtp`
+// (`qwen3_tts_pipeline.py:342-380`): the 16-step MTP inner loop that
+// predicts the 15 residual codebooks of one frame from the talker's hidden
+// state ([runDecode]'s `hidden`) + the already-picked codebook-0 token. The
+// MTP graph is single-signature (`args_0..4` -> `output_0..2`, no
+// prefill/decode split like the talker); [load] introspects `output_0`'s
+// shape (the 15-head residual-logit tensor, `[15, vocab]`) via the bulk
+// `getOutputTensorLayouts` accessor (there is no per-output-index
+// accessor — see [_readOutputShapes]'s doc) so this file never hardcodes
+// the residual vocabulary size.
 
 import 'dart:ffi';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -57,6 +69,7 @@ import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 
 import '../litert/litert_graph.dart';
 import 'qwen2_bpe_encoder.dart';
+import 'qwen3_sampler.dart' show pickGreedy;
 import 'qwen3_tables.dart';
 import 'qwen3_talker_layout.dart';
 
@@ -112,6 +125,79 @@ List<int> _readInputShape(
   }
 }
 
+/// Reads the first [count] output tensor shapes for [graph]'s
+/// [signatureIndex] via the BULK `LiteRtGetCompiledModelOutputTensorLayouts`
+/// accessor — unlike [_readInputShape]'s per-index `getInputTensorLayout`,
+/// there is no per-output-index accessor (see `TalkerLayout`'s file header
+/// for the same gap on the talker graph): the C API always fills
+/// `num_layouts` entries starting at output 0, so reading output N's shape
+/// means reading outputs `0..N` together into one contiguous native array.
+/// Only used for the MTP graph at [Qwen3TtsCore.load] time, where [count] is
+/// the small, fixed `3` (`output_0` logits, `output_1`/`output_2` k/v) — see
+/// this file's header.
+List<List<int>> _readOutputShapes(
+  LiteRtBindings bindings,
+  LiteRtCompiledModel graph,
+  int signatureIndex,
+  int count,
+  String label,
+) {
+  final shapes = <List<int>>[];
+  if (Platform.isWindows) {
+    final layouts = calloc<LiteRtLayoutMsvc>(count);
+    try {
+      bindings
+          .getOutputTensorLayouts(
+            graph,
+            signatureIndex,
+            count,
+            layouts.cast(),
+            false,
+          )
+          .check('LiteRtGetCompiledModelOutputTensorLayouts($label)');
+      for (var i = 0; i < count; i++) {
+        final s = (layouts + i).ref;
+        final rank = s.rankAndHasStrides & 0x7f;
+        shapes.add([for (var d = 0; d < rank; d++) s.dimensions[d]]);
+      }
+    } finally {
+      calloc.free(layouts);
+    }
+    return shapes;
+  }
+  final layouts = calloc<LiteRtLayoutPosix>(count);
+  try {
+    bindings
+        .getOutputTensorLayouts(
+          graph,
+          signatureIndex,
+          count,
+          layouts.cast(),
+          false,
+        )
+        .check('LiteRtGetCompiledModelOutputTensorLayouts($label)');
+    for (var i = 0; i < count; i++) {
+      final s = (layouts + i).ref;
+      final rank = s.rankAndHasStrides & 0x7f;
+      shapes.add([for (var d = 0; d < rank; d++) s.dimensions[d]]);
+    }
+  } finally {
+    calloc.free(layouts);
+  }
+  return shapes;
+}
+
+/// `true` iff [a] and [b] have the same length and elements — a plain
+/// `List<int>` equality check (no `package:collection` dependency in this
+/// package; see `pubspec.yaml`).
+bool _shapeEquals(List<int> a, List<int> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
+}
+
 /// Synchronous native core for the Qwen3-TTS talker/MTP/codec pipeline. NOT
 /// safe to share across isolates — the FFI handles it holds are owned by the
 /// isolate that called [load]. Mirrors `TtsCore`/`SttCore`'s shape.
@@ -127,6 +213,8 @@ class Qwen3TtsCore {
     required this._kvShapes,
     required this.mtpCacheLen,
     required this.mtpKvShape,
+    required this._mtpLogitsShape,
+    required this._mtpResidualVocab,
     required this.codecChunk,
   });
 
@@ -162,6 +250,18 @@ class Qwen3TtsCore {
 
   /// MTP graph's `args_3` (k-cache) input shape, read once at load time.
   final List<int> mtpKvShape;
+
+  /// MTP graph's `output_0` (residual-head logits) shape, read once at load
+  /// time via [_readOutputShapes] — expected `[15, vocab]` (a leading `1`
+  /// batch dim, `[1, 15, vocab]`, is also tolerated; see [load]). Used
+  /// verbatim as [runMtp]'s `outputShapes[0]` on every step.
+  final List<int> _mtpLogitsShape;
+
+  /// Residual-codebook vocabulary size — the last dim of [_mtpLogitsShape].
+  /// Read (not hardcoded) so a future model revision that reshapes the MTP
+  /// head fails loud at load time (see [load]) instead of [runMtp] silently
+  /// misreading which slice of `output_0` is head `t-1`.
+  final int _mtpResidualVocab;
 
   /// Codec-decoder graph's `args_0` input's last dim — its fixed
   /// frame-chunk width.
@@ -276,6 +376,70 @@ class Qwen3TtsCore {
         3,
         'mtp.args_3 (k-cache)',
       );
+
+      // MTP has 3 outputs (recipe `:373-376`: `output_0` residual-head
+      // logits, `output_1`/`output_2` the new k/v cache) — read all 3 via
+      // the bulk accessor (see [_readOutputShapes]'s doc for why a single
+      // call must ask for all of them) and pick out `output_0` by shape:
+      // it's the one that does NOT match [mtpKvShape] (k/v are both
+      // `mtpKvShape`-shaped). Verified once, at load time, against the
+      // REAL compiled graph — not hardcoded — per Task 3.1's brief.
+      final mtpOutputShapes = _readOutputShapes(
+        bindings,
+        mtp.compiledModel,
+        0,
+        3,
+        'mtp outputs (output_0..2)',
+      );
+      if (mtpOutputShapes.length != 3) {
+        throw StateError(
+          'Qwen3TtsCore.load: expected 3 MTP graph outputs '
+          '(output_0 logits, output_1/output_2 k/v), got '
+          '${mtpOutputShapes.length}',
+        );
+      }
+      final mtpLogitsShape = mtpOutputShapes[0];
+      if (_shapeEquals(mtpLogitsShape, mtpKvShape)) {
+        throw StateError(
+          'Qwen3TtsCore.load: expected MTP output_0 to be the '
+          'residual-head logits (shape != mtpKvShape=$mtpKvShape), got '
+          '$mtpLogitsShape — output order may have drifted from the '
+          'recipe (output_0=logits, output_1=k, output_2=v)',
+        );
+      }
+      if (!_shapeEquals(mtpOutputShapes[1], mtpKvShape) ||
+          !_shapeEquals(mtpOutputShapes[2], mtpKvShape)) {
+        throw StateError(
+          'Qwen3TtsCore.load: expected MTP output_1/output_2 to match '
+          'mtpKvShape=$mtpKvShape (the new k/v cache), got '
+          '${mtpOutputShapes[1]} / ${mtpOutputShapes[2]}',
+        );
+      }
+      // `[15, vocab]` (observed) or `[1, 15, vocab]` (a leading batch dim,
+      // tolerated defensively — see Task 3.1's brief) — either way the
+      // flat `output_0` buffer is row-major `[15 * vocab]`, so only
+      // `vocab` (the last dim) is actually needed by [runMtp].
+      final int mtpResidualVocab;
+      final int mtpResidualHeads;
+      if (mtpLogitsShape.length == 2) {
+        mtpResidualHeads = mtpLogitsShape[0];
+        mtpResidualVocab = mtpLogitsShape[1];
+      } else if (mtpLogitsShape.length == 3 && mtpLogitsShape[0] == 1) {
+        mtpResidualHeads = mtpLogitsShape[1];
+        mtpResidualVocab = mtpLogitsShape[2];
+      } else {
+        throw StateError(
+          'Qwen3TtsCore.load: unexpected MTP output_0 shape '
+          '$mtpLogitsShape (want [15, vocab] or [1, 15, vocab])',
+        );
+      }
+      if (mtpResidualHeads != 15) {
+        throw StateError(
+          'Qwen3TtsCore.load: expected MTP output_0 to have 15 residual '
+          'heads, got $mtpResidualHeads (shape=$mtpLogitsShape)',
+        );
+      }
+
       final codecInShape = _readInputShape(
         bindings,
         codec.compiledModel,
@@ -302,6 +466,7 @@ class Qwen3TtsCore {
       gemmaLog(
         '[Qwen3TtsCore] loaded: backend=$backend, 3 graphs compiled, '
         'mtpCacheLen=$mtpCacheLen, mtpKvShape=$mtpKvShape, '
+        'mtpLogitsShape=$mtpLogitsShape, mtpResidualVocab=$mtpResidualVocab, '
         'codecChunk=$codecChunk',
       );
 
@@ -316,6 +481,8 @@ class Qwen3TtsCore {
         kvShapes: kvShapes,
         mtpCacheLen: mtpCacheLen,
         mtpKvShape: mtpKvShape,
+        mtpLogitsShape: mtpLogitsShape,
+        mtpResidualVocab: mtpResidualVocab,
         codecChunk: codecChunk,
       );
     } catch (_) {
@@ -516,6 +683,132 @@ class Qwen3TtsCore {
     );
 
     return (cb0Logits, hidden, newKv);
+  }
+
+  /// Runs the MTP (multi-token-prediction) 16-step inner loop that predicts
+  /// the 15 residual codebooks of one frame from the talker's last hidden
+  /// state [hidden] (`[1024]`, [runDecode]'s `hidden` output) and the
+  /// already-picked codebook-0 token [cb0]. Port of
+  /// `Qwen3TtsPipeline._run_mtp` (`qwen3_tts_pipeline.py:342-380`).
+  ///
+  /// The MTP graph is a single decode step over a fixed [mtpCacheLen]-slot
+  /// (17) KV cache, invoked 16 times per frame (`t = 0..15`): two seed
+  /// feeds (`hidden`, then `codecEmbRow(cb0)`), then one feed per residual
+  /// codebook, threading the graph's own k/v outputs (`output_1`/
+  /// `output_2`) forward each step exactly like [runDecode] threads the
+  /// talker's KV cache — except here the loop owns the cache itself
+  /// (there's no separate prefill).
+  ///
+  /// Step `t`'s embedding is `feeds[t]` for `t < 2` (the two seeds above),
+  /// else [Qwen3Tables.mtpEmbRow] of residual group `t - 2` at the
+  /// previously-picked code — so the loop only ever embeds groups `0..13`
+  /// (`t` ranges `2..15`); group 14 is never looked up here (it's used
+  /// later, when the caller assembles the *next* frame's talker embedding —
+  /// not by this loop). Head `t - 1` of `output_0` is read (and, when
+  /// `t >= 1`, picked via [pickGreedy]) at every step from `t = 1` to
+  /// `t = 15`, producing the 15 returned codes — this off-by-one is
+  /// faithful to the recipe, not a bug: ported verbatim, not "fixed".
+  ///
+  /// [greedy] must be `true` — only the golden (`do_sample=False`) path is
+  /// wired so far; a future task can thread [pickSampled] through the same
+  /// loop shape once a sampled decode path is needed.
+  ///
+  /// Not true public API (see this file's header) — [visibleForTesting] so
+  /// `qwen3_mtp_test.dart` can drive it directly, mirroring [runPrefill]/
+  /// [runDecode].
+  @visibleForTesting
+  List<int> runMtp(Float32List hidden, int cb0, {bool greedy = true}) {
+    if (_disposed) {
+      throw StateError('Qwen3TtsCore is disposed');
+    }
+    if (!greedy) {
+      throw UnimplementedError(
+        'Qwen3TtsCore.runMtp: only greedy (do_sample=False) picking is '
+        'wired so far',
+      );
+    }
+    if (hidden.length != TalkerLayout.embeddingDim) {
+      throw ArgumentError.value(
+        hidden.length,
+        'hidden.length',
+        'Qwen3TtsCore.runMtp: expected ${TalkerLayout.embeddingDim} '
+            '(embeddingDim)',
+      );
+    }
+
+    // k_all/v_all: qwen3_tts_pipeline.py:364-365
+    // (`k_all = np.zeros(self._mtp_kv_shape, np.float32); v_all =
+    // np.zeros_like(k_all)`) — reassigned each step to the graph's own
+    // `output_1`/`output_2`, same "thread the previous step's output back
+    // in as the next step's input" shape as [runDecode]'s KV threading.
+    final kvCount = mtpKvShape.fold<int>(1, (a, b) => a * b);
+    var kAll = Float32List(kvCount);
+    var vAll = Float32List(kvCount);
+
+    // feeds = [hidden, self._codec_emb[cb0]] (qwen3_tts_pipeline.py:366).
+    final feeds = <Float32List>[hidden, _tables.codecEmbRow(cb0)];
+    final codes = <int>[];
+
+    // output_0 (logits), output_1 (k), output_2 (v) — order + shapes
+    // introspected once at [load] time (see [_mtpLogitsShape]'s doc); used
+    // verbatim here so [runLiteRtGraph]'s per-output tensor-buffer creation
+    // matches the graph's real output layout on every step.
+    final outputShapes = <List<int>>[_mtpLogitsShape, mtpKvShape, mtpKvShape];
+
+    for (var t = 0; t < 16; t++) {
+      // embed = (feeds[t] if t < 2 else self._mtp_emb[t - 2][codes[-1]])
+      // .reshape(1, 1, _HIDDEN) (qwen3_tts_pipeline.py:369-370).
+      final embed = t < 2 ? feeds[t] : _tables.mtpEmbRow(t - 2, codes.last);
+
+      // mask = np.where(np.arange(cache) <= t, 0.0, _NEG_INF)...
+      // .reshape(1, 1, 1, -1) (qwen3_tts_pipeline.py:371-372).
+      final mask = Float32List(mtpCacheLen);
+      for (var j = 0; j <= t; j++) {
+        mask[j] = 0.0;
+      }
+      for (var j = t + 1; j < mtpCacheLen; j++) {
+        mask[j] = qwen3NegInf;
+      }
+
+      // out = self._mtp(args_0=embed, args_1=[t], args_2=mask,
+      //                  args_3=k_all, args_4=v_all)
+      // (qwen3_tts_pipeline.py:373-375).
+      final inputs = <GraphInput>[
+        F32Input([1, 1, TalkerLayout.embeddingDim], embed),
+        I32Input([1], Int32List.fromList([t])),
+        F32Input([1, 1, 1, mtpCacheLen], mask),
+        F32Input(mtpKvShape, kAll),
+        F32Input(mtpKvShape, vAll),
+      ];
+
+      final out = runLiteRtGraph(
+        _bindings,
+        _mtp.compiledModel,
+        0,
+        inputs,
+        outputShapes,
+      );
+
+      // k_all, v_all = out['output_1'], out['output_2']
+      // (qwen3_tts_pipeline.py:376).
+      kAll = out[1];
+      vAll = out[2];
+
+      // if t >= 1: codes.append(_pick(out['output_0'][t - 1], ...))
+      // (qwen3_tts_pipeline.py:377-379). `out[0]` is the flat, row-major
+      // `[15 * vocab]` (or `[1, 15, vocab]`) buffer — head `t - 1` is the
+      // `vocab`-wide slice at that row, regardless of a leading batch dim
+      // (row-major layout is unaffected by a leading size-1 axis).
+      if (t >= 1) {
+        final head = out[0].sublist(
+          (t - 1) * _mtpResidualVocab,
+          t * _mtpResidualVocab,
+        );
+        codes.add(pickGreedy(head));
+      }
+    }
+
+    return codes;
   }
 
   /// Destroys the 3 compiled graphs' handles + the shared environment, and

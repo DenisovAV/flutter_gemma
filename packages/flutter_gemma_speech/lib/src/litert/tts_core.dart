@@ -29,8 +29,11 @@
 // graphs; this file delegates to it and stays behavior-identical.
 //
 // Generic over [TtsModelProfile] — only `TtsPipelineKind.matchaCfm` is
-// implemented; kokoro/supertonic profiles are documented follow-ons. The
-// `dp_g2p` graph IS loaded here (4th compiled graph) and exposed via
+// implemented. `qwen3ArCodec` profiles are dispatched to `Qwen3TtsCore` by
+// the worker and fail-loud if they ever reach [load]'s guard instead;
+// kokoro/supertonic profiles are documented follow-ons with no wired
+// pipeline kind at all. The `dp_g2p` graph IS loaded here (4th compiled
+// graph) and exposed via
 // `TtsCore.neuralG2p` — it's the neural OOV fallback used when a word is
 // missing from the dictionary; the dictionary-only path stays the golden
 // path via `TtsTextFrontend` (Task 2.2).
@@ -209,8 +212,9 @@ class TtsCore {
   }) async {
     if (profile.pipeline != TtsPipelineKind.matchaCfm) {
       throw UnimplementedError(
-        'TtsCore: only TtsPipelineKind.matchaCfm is implemented '
-        '(kokoro/supertonic are follow-ons; see the design spec).',
+        'TtsCore: only TtsPipelineKind.matchaCfm is implemented here '
+        '(qwen3ArCodec is handled by Qwen3TtsCore, not the Matcha TtsCore '
+        'path; kokoro/supertonic have no wired pipeline kind yet).',
       );
     }
 

@@ -20,6 +20,15 @@ enum TtsPipelineKind {
   /// Glow-TTS length regulator (256→512 frames) → N-step Euler CFM decoder →
   /// HiFi-GAN vocoder. Numeric params come from the bundle's config.json.
   matchaCfm,
+
+  /// Qwen3-TTS: autoregressive codec-token LM (talker, prefill+decode over a
+  /// threaded KV cache) → 15-step MTP residual-codebook inner loop →
+  /// windowed codec decoder → 24 kHz PCM. Dispatched to `Qwen3TtsCore`
+  /// (`flutter_gemma_speech/lib/src/qwen3/qwen3_tts_core.dart`) by the
+  /// background worker — this pipeline kind never reaches the Matcha-only
+  /// `TtsCore`/`TtsTextFrontend` path, which fail-loud on it instead of
+  /// silently running Matcha behavior against a Qwen3 bundle.
+  qwen3ArCodec,
 }
 
 /// How text becomes the model's encoder input.
@@ -47,6 +56,33 @@ class TtsModelProfile {
       embeddingFile = 'emb.bin',
       representation = TextRepresentation.phonemeSymbols,
       g2p = G2pStrategy.dictionaryPlusNeural,
+      locale = 'en_us';
+
+  /// Qwen3-TTS bundle: unlike [matcha], `Qwen3TtsCore.load` does NOT read
+  /// these file-role fields — it hardcodes its own manifest basenames
+  /// (`talker_int4.tflite`, `mtp_fp32.tflite`, `codec_decoder_fp32.tflite`,
+  /// `tokenizer.json`, plus the 4 `Qwen3Tables` npy/npz basenames; see
+  /// `TtsModelTypeManifest.manifest` for `TtsModelType.qwen3` in
+  /// `flutter_gemma`'s `model_specs.dart`). So for this profile [pipeline]
+  /// is the ONLY load-bearing field; the file-role fields below are left
+  /// `''` (non-nullable, so empty stands in for "not used") rather than
+  /// mapped onto Qwen3 basenames — none of Matcha's roles (a single
+  /// text-encoder/decoder/vocoder trio) has a clean 1:1 equivalent in the
+  /// AR-codec pipeline's talker/MTP/codec-decoder split, and inventing one
+  /// here would be misleading. Qwen3 does its own byte-level BPE
+  /// tokenization (`Qwen2BpeEncoder` over `tokenizer.json`), not G2P.
+  const TtsModelProfile.qwen3()
+    : pipeline = TtsPipelineKind.qwen3ArCodec,
+      textEncoderFile = '',
+      decoderFile = '',
+      vocoderFile = '',
+      g2pFile = '',
+      g2pMetaFile = '',
+      configFile = '',
+      dictFile = '',
+      embeddingFile = '',
+      representation = TextRepresentation.subwordTokens,
+      g2p = G2pStrategy.none,
       locale = 'en_us';
 
   /// Which end-to-end synthesis pipeline this profile drives.
@@ -89,13 +125,14 @@ class TtsModelProfile {
   /// Selects the `TtsTextNormalizer` (Task 4); matcha → `'en_us'`.
   final String locale;
 
-  /// Resolve the runtime profile for [t]. Only [TtsModelType.matcha] is
-  /// wired; kokoro/supertonic are follow-ons and throw (fail-loud — never
-  /// run text through the wrong pipeline).
+  /// Resolve the runtime profile for [t]. Only [TtsModelType.matcha] and
+  /// [TtsModelType.qwen3] are wired; kokoro/supertonic are follow-ons and
+  /// throw (fail-loud — never run text through the wrong pipeline).
   factory TtsModelProfile.forType(TtsModelType t) => switch (t) {
     TtsModelType.matcha => const TtsModelProfile.matcha(),
+    TtsModelType.qwen3 => const TtsModelProfile.qwen3(),
     _ => throw UnimplementedError(
-      'TTS profile for $t is a follow-on (only matcha is wired)',
+      'TTS profile for $t is a follow-on (only matcha/qwen3 are wired)',
     ),
   };
 }

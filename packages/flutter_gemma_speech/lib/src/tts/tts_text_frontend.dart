@@ -36,5 +36,15 @@ abstract class TtsTextFrontend {
       paths,
       neuralG2p: neuralG2p,
     ),
+    // Qwen3 does its own BPE tokenization (`Qwen2BpeEncoder` +
+    // `Qwen3Prompt`) and is driven by `Qwen3TtsCore`, not this
+    // Matcha-only frontend seam — the worker (Task 5.3) dispatches to it
+    // directly and never calls `TtsTextFrontend.load` for this pipeline
+    // kind. Fail-loud rather than silently running Matcha's phoneme
+    // frontend against a Qwen3 bundle.
+    TtsPipelineKind.qwen3ArCodec => throw StateError(
+      'TtsTextFrontend: qwen3ArCodec is handled by Qwen3TtsCore, not the '
+      'Matcha TtsTextFrontend path.',
+    ),
   };
 }

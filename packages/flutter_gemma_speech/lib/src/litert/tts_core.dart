@@ -23,7 +23,10 @@
 // outputs (the multi-input pattern mirrors `SttCore._decodeLoop`'s 3-input
 // decode at stt_core.dart:504-527: each buffer is created into its own
 // single-slot pointer, then `.value` is copied into a fresh combined array
-// right before the run call).
+// right before the run call). The load/run/tensor-buffer machinery itself
+// now lives in `litert_graph.dart` (`loadLiteRtGraph`/`runLiteRtGraph`),
+// generalized to mixed F32/I32 inputs for the upcoming Qwen3 talker/codec
+// graphs; this file delegates to it and stays behavior-identical.
 //
 // Generic over [TtsModelProfile] — only `TtsPipelineKind.matchaCfm` is
 // implemented; kokoro/supertonic profiles are documented follow-ons. The
@@ -63,6 +66,7 @@ import 'package:flutter_gemma_litertlm/litert_bindings.dart';
 import '../model/tts_model_profile.dart';
 import '../tts/neural_g2p_decode.dart';
 import '../tts/tts_frontend_input.dart';
+import 'litert_graph.dart';
 
 /// The Euler CFM decoder's fixed Gaussian-noise seed. Fixed (not
 /// time-derived) so [TtsCore.synthesize] is byte-reproducible run-to-run —
@@ -135,78 +139,6 @@ String _artifactPath(Map<String, String> artifactPaths, String file) {
   return path;
 }
 
-/// One compiled Matcha graph's handles (model/options/compiledModel), freed
-/// together by [TtsCore.dispose] or by [TtsCore.load]'s partial-failure
-/// cleanup.
-class _LoadedGraph {
-  _LoadedGraph(this.model, this.options, this.compiledModel);
-  final LiteRtModel model;
-  final LiteRtOptions options;
-  final LiteRtCompiledModel compiledModel;
-}
-
-/// Loads + compiles one `.tflite` graph at [path], mirroring the
-/// model/options/compiled sequence `SttCore.load` runs for its single model
-/// — generalized so [TtsCore.load] can call it 4 times (text-encoder,
-/// decoder, vocoder, dp_g2p). On any failure partway through, frees whatever
-/// handles it already created for THIS graph before rethrowing; the caller
-/// is responsible for freeing any earlier, already-succeeded graphs + the
-/// shared environment.
-_LoadedGraph _loadGraph(
-  LiteRtBindings bindings,
-  LiteRtEnvironment environment,
-  String path,
-  int accelerator,
-) {
-  LiteRtModel? model;
-  LiteRtOptions? options;
-  LiteRtCompiledModel? compiled;
-  try {
-    final pathC = path.toNativeUtf8();
-    final modelPtr = calloc<LiteRtModel>();
-    try {
-      bindings
-          .createModelFromFile(environment, pathC, modelPtr)
-          .check('LiteRtCreateModelFromFile($path)');
-    } finally {
-      calloc.free(pathC);
-    }
-    model = modelPtr.value;
-    calloc.free(modelPtr);
-
-    final optsPtr = calloc<LiteRtOptions>();
-    bindings.createOptions(optsPtr).check('LiteRtCreateOptions($path)');
-    options = optsPtr.value;
-    calloc.free(optsPtr);
-    bindings
-        .setOptionsHardwareAccelerators(options, accelerator)
-        .check('LiteRtSetOptionsHardwareAccelerators($path)');
-
-    final compiledPtr = calloc<LiteRtCompiledModel>();
-    bindings
-        .createCompiledModel(environment, model, options, compiledPtr)
-        .check('LiteRtCreateCompiledModel($path)');
-    compiled = compiledPtr.value;
-    calloc.free(compiledPtr);
-
-    return _LoadedGraph(model, options, compiled);
-  } catch (_) {
-    if (compiled != null) bindings.destroyCompiledModel(compiled);
-    if (options != null) bindings.destroyOptions(options);
-    if (model != null) bindings.destroyModel(model);
-    rethrow;
-  }
-}
-
-/// One tensor buffer's raw host allocation + its LiteRT wrapper handle,
-/// freed together in `TtsCore._runGraph`'s `finally`. Mirrors
-/// `matcha_synth.dart`'s `_TensorHandle`.
-class _TensorHandle {
-  _TensorHandle(this.raw, this.buffer);
-  final Pointer<Uint8> raw;
-  final LiteRtTensorBuffer buffer;
-}
-
 /// Synchronous native TTS core. NOT safe to share across isolates — the FFI
 /// handles it holds are owned by the isolate that called [load].
 class TtsCore {
@@ -238,10 +170,10 @@ class TtsCore {
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
-  final _LoadedGraph _textEncoder;
-  final _LoadedGraph _decoder;
-  final _LoadedGraph _vocoder;
-  final _LoadedGraph _dpG2p;
+  final LoadedGraph _textEncoder;
+  final LoadedGraph _decoder;
+  final LoadedGraph _vocoder;
+  final LoadedGraph _dpG2p;
 
   final int _nFeats;
   final int _nChannels;
@@ -306,7 +238,7 @@ class TtsCore {
     // LiteRT native heap is process-global and is NOT reclaimed by the
     // isolate dying. Mirrors `SttCore.load`, generalized to 4 graphs.
     LiteRtEnvironment? environment;
-    final loadedGraphs = <_LoadedGraph>[];
+    final loadedGraphs = <LoadedGraph>[];
     try {
       final envPtr = calloc<LiteRtEnvironment>();
       bindings
@@ -315,7 +247,7 @@ class TtsCore {
       environment = envPtr.value;
       calloc.free(envPtr);
 
-      final textEncoder = _loadGraph(
+      final textEncoder = loadLiteRtGraph(
         bindings,
         environment,
         _artifactPath(artifactPaths, profile.textEncoderFile),
@@ -323,7 +255,7 @@ class TtsCore {
       );
       loadedGraphs.add(textEncoder);
 
-      final decoder = _loadGraph(
+      final decoder = loadLiteRtGraph(
         bindings,
         environment,
         _artifactPath(artifactPaths, profile.decoderFile),
@@ -331,7 +263,7 @@ class TtsCore {
       );
       loadedGraphs.add(decoder);
 
-      final vocoder = _loadGraph(
+      final vocoder = loadLiteRtGraph(
         bindings,
         environment,
         _artifactPath(artifactPaths, profile.vocoderFile),
@@ -339,7 +271,7 @@ class TtsCore {
       );
       loadedGraphs.add(vocoder);
 
-      final dpG2p = _loadGraph(
+      final dpG2p = loadLiteRtGraph(
         bindings,
         environment,
         _artifactPath(artifactPaths, profile.g2pFile),
@@ -424,10 +356,12 @@ class TtsCore {
       end: _g2pEnd,
       maxT: _g2pMaxT,
     );
-    final logits = _runGraph(
+    final logits = runLiteRtGraph(
+      _bindings,
       _dpG2p.compiledModel,
+      0,
       [
-        ([1, _g2pMaxT], x),
+        F32Input([1, _g2pMaxT], x),
       ],
       [
         [1, _g2pMaxT, _g2pNPhonemes],
@@ -453,10 +387,10 @@ class TtsCore {
   /// into MAX_MEL-sized windows -> per-window N-step Euler CFM decoder ->
   /// mel denorm -> HiFi-GAN vocoder -> 16-bit PCM, concatenated across
   /// windows. Verbatim port of `matcha_synth.dart:518-635`'s math for the
-  /// single-window case; every graph run goes through [_runGraph] instead of
-  /// that script's raw-`dlopen` `runGraph`. Returns 16-bit little-endian
-  /// mono PCM with NO WAV header — the example's `pcmToWav` adds a header in
-  /// Phase 3.
+  /// single-window case; every graph run goes through [runLiteRtGraph]
+  /// instead of that script's raw-`dlopen` `runGraph`. Returns 16-bit
+  /// little-endian mono PCM with NO WAV header — the example's `pcmToWav`
+  /// adds a header in Phase 3.
   ///
   /// When the predicted duration fits one window (`rawYlen <= _maxMel`, the
   /// common case), this is byte-identical to the pre-chunking implementation
@@ -480,11 +414,13 @@ class TtsCore {
 
     // --- text encoder: symbolEmbeddings[1,maxText,nChannels] +
     //     textMask[1,1,maxText] -> mu[1,nFeats,maxText], logw[1,1,maxText] ---
-    final teOut = _runGraph(
+    final teOut = runLiteRtGraph(
+      _bindings,
       _textEncoder.compiledModel,
+      0,
       [
-        ([1, _maxText, _nChannels], input.symbolEmbeddings),
-        ([1, 1, _maxText], input.textMask),
+        F32Input([1, _maxText, _nChannels], input.symbolEmbeddings),
+        F32Input([1, 1, _maxText], input.textMask),
       ],
       [
         [1, _nFeats, _maxText],
@@ -605,13 +541,15 @@ class TtsCore {
     }
     for (var k = 0; k < _nTimesteps; k++) {
       final tEmb = tSin(k / _nTimesteps);
-      final decOut = _runGraph(
+      final decOut = runLiteRtGraph(
+        _bindings,
         _decoder.compiledModel,
+        0,
         [
-          ([1, _nFeats, _maxMel], x),
-          ([1, _nFeats, _maxMel], muY),
-          ([1, 160], tEmb),
-          ([1, 1, _maxMel], ymask),
+          F32Input([1, _nFeats, _maxMel], x),
+          F32Input([1, _nFeats, _maxMel], muY),
+          F32Input([1, 160], tEmb),
+          F32Input([1, 1, _maxMel], ymask),
         ],
         [
           [1, _nFeats, _maxMel],
@@ -632,10 +570,12 @@ class TtsCore {
     }
 
     // vocoder -> wav -> 16-bit LE PCM
-    final vocOut = _runGraph(
+    final vocOut = runLiteRtGraph(
+      _bindings,
       _vocoder.compiledModel,
+      0,
       [
-        ([1, _nFeats, _maxMel], mel),
+        F32Input([1, _nFeats, _maxMel], mel),
       ],
       [
         [1, 1, _maxMel * _hop],
@@ -691,134 +631,6 @@ class TtsCore {
     }
     if (start < realCount) windows.add((start, realCount));
     return windows;
-  }
-
-  /// Generic multi-input/multi-output f32 forward pass over one compiled
-  /// [graph], signature index 0. Mirrors `SttCore._encode`/`_decodeLoop`'s
-  /// tensor-buffer create -> run -> lock(Read) -> copy-through-locked-ptr ->
-  /// unlock -> destroy sequence, generalized to N inputs / M outputs — this
-  /// replaces `matcha_synth.dart`'s raw-`dlopen` `runGraph`. [inputs] and
-  /// [outputShapes] must list tensors in the model's declared signature-0
-  /// argument order.
-  List<Float32List> _runGraph(
-    LiteRtCompiledModel graph,
-    List<(List<int> shape, Float32List data)> inputs,
-    List<List<int>> outputShapes,
-  ) {
-    final inHandles = <_TensorHandle>[];
-    final outHandles = <_TensorHandle>[];
-    try {
-      for (final (shape, data) in inputs) {
-        inHandles.add(_createF32TensorBuffer(shape, data));
-      }
-      for (final shape in outputShapes) {
-        outHandles.add(_createF32TensorBuffer(shape, null));
-      }
-
-      // Combined arrays are built fresh right before the call and freed
-      // right after, mirroring `SttCore._decodeLoop`'s 3-input decode
-      // (stt_core.dart:504-527): each buffer was created into its own
-      // single-slot pointer above; only `.value` is copied in here.
-      final inPtrs = calloc<LiteRtTensorBuffer>(inHandles.length);
-      final outPtrs = calloc<LiteRtTensorBuffer>(outHandles.length);
-      try {
-        for (var i = 0; i < inHandles.length; i++) {
-          inPtrs[i] = inHandles[i].buffer;
-        }
-        for (var i = 0; i < outHandles.length; i++) {
-          outPtrs[i] = outHandles[i].buffer;
-        }
-        _bindings
-            .runCompiledModel(
-              graph,
-              0,
-              inHandles.length,
-              inPtrs,
-              outHandles.length,
-              outPtrs,
-            )
-            .check('LiteRtRunCompiledModel(tts)');
-      } finally {
-        calloc.free(inPtrs);
-        calloc.free(outPtrs);
-      }
-
-      // Lock(Read) triggers the device->host sync on GPU/NPU; read each
-      // output THROUGH the locked pointer into an owned Float32List copy
-      // before unlocking/destroying the buffer — mirrors
-      // `SttCore._encode`'s locked-pointer copy (stt_core.dart:322-351).
-      final results = <Float32List>[];
-      for (var i = 0; i < outHandles.length; i++) {
-        final count = outputShapes[i].fold<int>(1, (a, b) => a * b);
-        final lockedPtr = calloc<Pointer<Void>>();
-        try {
-          _bindings
-              .lockTensorBuffer(
-                outHandles[i].buffer,
-                lockedPtr,
-                kLiteRtTensorBufferLockModeRead,
-              )
-              .check('LiteRtLockTensorBuffer(tts out $i)');
-          final locked = lockedPtr.value.cast<Float>();
-          results.add(Float32List.fromList(locked.asTypedList(count)));
-          _bindings
-              .unlockTensorBuffer(outHandles[i].buffer)
-              .check('LiteRtUnlockTensorBuffer(tts out $i)');
-        } finally {
-          calloc.free(lockedPtr);
-        }
-      }
-      return results;
-    } finally {
-      for (final h in inHandles) {
-        _bindings.destroyTensorBuffer(h.buffer);
-        calloc.free(h.raw);
-      }
-      for (final h in outHandles) {
-        _bindings.destroyTensorBuffer(h.buffer);
-        calloc.free(h.raw);
-      }
-    }
-  }
-
-  _TensorHandle _createF32TensorBuffer(List<int> shape, Float32List? data) {
-    final count = shape.fold<int>(1, (a, b) => a * b);
-    final bytes = count * 4;
-    final type = LiteRtRankedTensorTypeView.calloc()
-      ..elementType = kLiteRtElementTypeFloat32
-      ..rank = shape.length;
-    for (var i = 0; i < shape.length; i++) {
-      type.setDimension(i, shape[i]);
-    }
-    final alloc = allocAligned(bytes);
-    if (data != null) {
-      final view = alloc.aligned.cast<Float>().asTypedList(count);
-      view.setAll(0, data);
-    }
-    final bufPtr = calloc<LiteRtTensorBuffer>();
-    // On success alloc.raw is handed off to the caller inside the returned
-    // _TensorHandle — _runGraph frees it once the tensor buffer is destroyed
-    // (tts_core.dart:556-563). On ANY throw before the return it must be
-    // freed here or it leaks native heap permanently (~bytes per failed
-    // call) — mirrors SttCore._encode's `returning` flag (stt_core.dart:288).
-    var returning = false;
-    try {
-      _bindings
-          .createTensorBufferFromHostMemory(
-            type.pointer,
-            alloc.aligned.cast(),
-            bytes,
-            nullptr,
-            bufPtr,
-          )
-          .check('CreateTensorBufferFromHostMemory(shape=$shape)');
-      returning = true;
-      return _TensorHandle(alloc.raw, bufPtr.value);
-    } finally {
-      calloc.free(bufPtr);
-      type.free();
-      if (!returning) calloc.free(alloc.raw);
-    }
   }
 
   /// Destroys all 4 compiled graphs' handles + the shared environment.

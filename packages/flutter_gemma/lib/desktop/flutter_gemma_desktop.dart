@@ -500,6 +500,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   @override
   Future<SpeechSynthesizer> createTtsModel({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     final activeModel = _modelManager.activeTtsModel;
     if (activeModel is! TtsModelSpec) {
@@ -550,6 +551,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
             .first, // representative; TTS backend uses artifactPaths
         artifactPaths: filePaths,
         preferredBackend: preferredBackend,
+        language: language,
       );
       final backend = TtsRegistry.instance.findFor(activeModel);
       if (backend == null) {

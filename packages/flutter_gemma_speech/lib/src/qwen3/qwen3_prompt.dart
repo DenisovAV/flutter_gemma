@@ -20,6 +20,7 @@
 
 import 'dart:typed_data';
 
+import 'qwen3_languages.dart' show languageIds;
 import 'qwen3_tables.dart';
 
 /// Talker hidden size — width of every embedding row this module handles.
@@ -38,21 +39,6 @@ const int _codecThinkEos = 2157;
 const int _ttsBos = 151672;
 const int _ttsEos = 151673;
 const int _ttsPad = 151671;
-
-/// Language id map from the model config (`talker_config.codec_language_id`).
-/// qwen3_tts_pipeline.py:59-70.
-const Map<String, int> languageIds = {
-  'chinese': 2055,
-  'english': 2050,
-  'german': 2053,
-  'italian': 2070,
-  'portuguese': 2071,
-  'spanish': 2054,
-  'japanese': 2058,
-  'korean': 2064,
-  'french': 2061,
-  'russian': 2069,
-};
 
 /// Result of [Qwen3Prompt.build]: the talker's fixed-length prefill
 /// embeddings plus the per-frame streamed text conditioning consumed while

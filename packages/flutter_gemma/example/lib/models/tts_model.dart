@@ -3,7 +3,11 @@ import 'package:flutter_gemma/flutter_gemma.dart' show TtsModelType;
 /// Catalog of on-device TTS models. SELECTABLE like STT — each entry carries
 /// the [TtsModelType] that tells the generic `LiteRtTtsBackend` which
 /// `TtsModelProfile` to run. Install uses one base URL + `.ofType`.
-/// Only [matcha] is wired; kokoro/supertonic are follow-ons (isSupported false).
+/// [matcha] and [qwen3] are wired; kokoro/supertonic are follow-ons
+/// (isSupported false). [qwen3] additionally exposes 11 selectable
+/// languages (`tts_screen.dart`'s language dropdown, populated from
+/// `flutter_gemma_speech`'s `qwen3SupportedLanguages`) — [matcha] is
+/// English-only (its locale comes from its bundle, not a runtime param).
 enum TtsModel {
   matcha(
     baseUrl: 'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/',
@@ -11,6 +15,17 @@ enum TtsModel {
     size: '~94MB',
     ttsModelType: TtsModelType.matcha,
     isSupported: true,
+  ),
+  qwen3(
+    baseUrl:
+        'https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base/resolve/main/',
+    displayName: 'Qwen3-TTS 0.6B (11 languages)',
+    size: '~1.9GB',
+    ttsModelType: TtsModelType.qwen3,
+    isSupported: true,
+    notes:
+        'CPU only, slow (RTF≈3 — ~3s of compute per 1s of audio), needs a '
+        '6 GB-RAM-class device',
   ),
   kokoro(
     baseUrl: 'https://huggingface.co/litert-community/Kokoro-82M/resolve/main/',
@@ -38,6 +53,7 @@ enum TtsModel {
     required this.ttsModelType,
     this.isSupported = true,
     this.unsupportedReason,
+    this.notes,
   });
 
   /// HuggingFace repo base URL each manifest filename is resolved against.
@@ -59,4 +75,9 @@ enum TtsModel {
 
   /// Why [isSupported] is false; null when supported.
   final String? unsupportedReason;
+
+  /// UI-only performance/hardware caveat shown under the model info card
+  /// (e.g. CPU-only, expected RTF, RAM class) — null when there's nothing
+  /// notable to call out.
+  final String? notes;
 }

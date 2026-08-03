@@ -18,6 +18,7 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart'
     show SpeechSynthesizer;
 
 import '../model/tts_model_profile.dart';
+import '../qwen3/qwen3_languages.dart' show assertQwen3LanguageSupported;
 import 'tts_worker.dart';
 
 /// Signature for the `onClose` callback. Same name Flutter uses.
@@ -41,9 +42,21 @@ class LiteRtSpeechSynthesizer extends SpeechSynthesizer with CloseNotifier {
   /// [artifactPaths] maps each of [profile]'s bundle filenames (config,
   /// dict, embedding, and the `.tflite` graphs) to their resolved on-disk
   /// paths. [preferredBackend] selects the LiteRT hardware accelerator
-  /// (defaults to CPU). [language] is Qwen3-only (ignored by Matcha) — see
-  /// `TtsWorker.spawn`'s doc; defaults to `'english'`. Task 5.4 surfaces a
-  /// real language picker end to end.
+  /// (defaults to CPU). [language] is Qwen3-only (ignored by Matcha, which
+  /// has no language parameter — its locale comes from
+  /// [TtsModelProfile.locale] instead); defaults to `'english'`. For a
+  /// [profile] whose [TtsModelProfile.pipeline] is
+  /// [TtsPipelineKind.qwen3ArCodec], [language] is validated against
+  /// `qwen3SupportedLanguages` (`qwen3_languages.dart`) and this throws
+  /// [ArgumentError] for an unknown value BEFORE spawning the worker —
+  /// fail-fast, ahead of the ~1.9 GB model load (Task 5.4).
+  ///
+  /// [voice] is a forward-compat speaker x-vector override (`[1024]`,
+  /// Qwen3-only): when non-null it replaces the bundle's single demo voice
+  /// (`voices/demo_speaker.npy`) for every `synthesize` call on the returned
+  /// instance. v1 ships exactly one voice and does not surface a voice
+  /// picker anywhere (see Task 5.4's brief) — this param exists purely so a
+  /// future multi-voice release doesn't need a breaking signature change.
   ///
   /// Caller owns the returned instance and must call [close] when done.
   static Future<LiteRtSpeechSynthesizer> create({
@@ -51,13 +64,18 @@ class LiteRtSpeechSynthesizer extends SpeechSynthesizer with CloseNotifier {
     required Map<String, String> artifactPaths,
     PreferredBackend? preferredBackend,
     String language = 'english',
+    Float32List? voice,
     VoidCallback? onClose,
   }) async {
+    if (profile.pipeline == TtsPipelineKind.qwen3ArCodec) {
+      assertQwen3LanguageSupported(language);
+    }
     final worker = await TtsWorker.spawn(
       profile: profile,
       artifactPaths: artifactPaths,
       backend: preferredBackend,
       language: language,
+      voice: voice,
     );
     return LiteRtSpeechSynthesizer._(worker, onClose ?? () {});
   }

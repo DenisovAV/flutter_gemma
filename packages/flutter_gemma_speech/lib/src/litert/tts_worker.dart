@@ -103,6 +103,7 @@ class _WorkerInit {
     required this.backend,
     required this.logLevel,
     required this.language,
+    required this.voice,
   });
   final SendPort replyTo;
   final TtsModelProfile profile;
@@ -117,9 +118,18 @@ class _WorkerInit {
   /// Qwen3-only: the `Qwen3Prompt.languageIds` key (case-insensitive) or
   /// `'auto'`, forwarded verbatim to every `Qwen3TtsCore.synthesizePcm16`
   /// call. Ignored by [_runMatchaWorker] (Matcha has no language parameter —
-  /// its locale comes from [TtsModelProfile.locale] instead). Task 5.4 wires
-  /// a real picker end to end; for now this just threads a default through.
+  /// its locale comes from [TtsModelProfile.locale] instead). Validated by
+  /// `LiteRtSpeechSynthesizer.create` (Task 5.4) before the worker is even
+  /// spawned, so by the time it reaches here it is always a supported value.
   final String language;
+
+  /// Qwen3-only: forward-compat speaker x-vector override (`[1024]`); null
+  /// uses the bundle's single demo voice (`voices/demo_speaker.npy`, read in
+  /// [_runQwen3Worker]). Ignored by [_runMatchaWorker]. See
+  /// `LiteRtSpeechSynthesizer.create`'s [voice] doc — v1 does not surface a
+  /// voice picker anywhere; this only exists so a future multi-voice release
+  /// doesn't need a breaking signature change.
+  final Float32List? voice;
 }
 
 /// Main-isolate handle to the TTS worker. Spawns the isolate, performs the
@@ -146,12 +156,14 @@ class TtsWorker {
   ///
   /// [language] is Qwen3-only (see [_WorkerInit.language]'s doc); Matcha
   /// ignores it. Defaults to `'english'` so every existing (Matcha) caller
-  /// is unaffected.
+  /// is unaffected. [voice] is Qwen3-only (see [_WorkerInit.voice]'s doc);
+  /// null (the default) uses the bundle's demo voice.
   static Future<TtsWorker> spawn({
     required TtsModelProfile profile,
     required Map<String, String> artifactPaths,
     PreferredBackend? backend,
     String language = 'english',
+    Float32List? voice,
   }) async {
     final fromWorker = ReceivePort();
     final readyCompleter = Completer<_Ready>();
@@ -191,6 +203,7 @@ class TtsWorker {
           backend: backend,
           logLevel: gemmaLogLevel,
           language: language,
+          voice: voice,
         ),
         // onExit posts `null` to fromWorker so we never wait on a dead isolate.
         onExit: fromWorker.sendPort,
@@ -414,9 +427,12 @@ Future<void> _runMatchaWorker(_WorkerInit init) async {
 /// here — this worker never runs greedy.
 ///
 /// v1 ships exactly one voice: the bundle's `demo_speaker.npy` x-vector
-/// (Task 5.2's manifest), read once at load time via [readNpyF32] — no
-/// voice picker yet (`init.language` is the only per-call knob Task 5.3
-/// threads through; see [_WorkerInit.language]'s doc).
+/// (Task 5.2's manifest), read once at load time via [readNpyF32] unless
+/// [_WorkerInit.voice] overrides it — no voice PICKER yet (`init.voice` is
+/// forward-compat-only; the UI never sets it, see [_WorkerInit.voice]'s
+/// doc). `init.language` is the per-call knob Task 5.3 threads through and
+/// Task 5.4 validates + surfaces a real picker for; see
+/// [_WorkerInit.language]'s doc.
 ///
 /// Fail-loud (per Global Constraints / the project's no-masking-fallback
 /// rule): if [Qwen3TtsCore.load] or the demo-voice read throws, this sends
@@ -443,7 +459,12 @@ Future<void> _runQwen3Worker(_WorkerInit init) async {
         'artifactPaths',
       );
     }
-    demoVoice = readNpyF32(demoVoicePath);
+    // [_WorkerInit.voice] overrides the bundle's demo voice when set
+    // (forward-compat only — v1's UI never sets it). The manifest presence
+    // check above stays unconditional even then: the bundle always ships
+    // demo_speaker.npy in v1, so its absence is still a load-time bug worth
+    // surfacing regardless of whether an override happens to be in play.
+    demoVoice = init.voice ?? readNpyF32(demoVoicePath);
   } catch (e, st) {
     loadedCore?.dispose();
     gemmaLog('[TtsWorker] qwen3 load failed: $e\n$st');

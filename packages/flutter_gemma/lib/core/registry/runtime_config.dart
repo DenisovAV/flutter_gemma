@@ -17,6 +17,7 @@ class RuntimeConfig {
     this.maxConcurrentSessions,
     this.loraRanks,
     this.artifactPaths,
+    this.language,
   }) : assert(maxTokens >= 0, 'maxTokens must not be negative'),
        assert(
          maxNumImages == null || maxNumImages >= 0,
@@ -61,4 +62,13 @@ class RuntimeConfig {
   /// backend resolves each graph/dictionary/embedding file by name from this
   /// map. Null for single-file models (inference/embedding/STT).
   final Map<String, String>? artifactPaths;
+
+  /// TTS-only (Qwen3): the language to condition generation on — one of
+  /// `flutter_gemma_speech`'s `qwen3SupportedLanguages`, or `'auto'`. Null
+  /// for non-TTS models, and for TTS models with no language parameter
+  /// (e.g. Matcha, whose locale comes from its `TtsModelProfile.locale`
+  /// instead) — the TTS backend defaults a null value to `'english'`. Not
+  /// validated here; the TTS backend rejects an unsupported value with
+  /// `ArgumentError` before loading the model.
+  final String? language;
 }

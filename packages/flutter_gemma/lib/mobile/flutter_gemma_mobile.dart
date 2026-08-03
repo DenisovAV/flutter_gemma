@@ -581,6 +581,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   @override
   Future<SpeechSynthesizer> createTtsModel({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     final manager = _unifiedManager;
     final activeModel = manager.activeTtsModel;
@@ -643,6 +644,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
             .first, // representative; TTS backend uses artifactPaths
         artifactPaths: filePaths,
         preferredBackend: preferredBackend,
+        language: language,
       );
       final backend = TtsRegistry.instance.findFor(activeModel);
       if (backend == null) {

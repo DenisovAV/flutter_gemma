@@ -234,4 +234,57 @@ void main() {
       core.dispose();
     }
   }, timeout: const Timeout(Duration(minutes: 30)));
+
+  test('Qwen3TtsCore.synthesize: hitting maxFrames without EOS throws '
+      '(fail-loud — no silent truncation)', () async {
+    if (!Directory(modelDir).existsSync()) {
+      markTestSkipped(
+        'Qwen3-TTS model snapshot not found at $modelDir — set '
+        'QWEN3_MODEL_DIR or fetch the model snapshot to run this test.',
+      );
+      return;
+    }
+
+    final artifactPaths = _scanArtifactPaths(modelDir);
+    if (!artifactPaths.containsKey('talker_fp32.tflite')) {
+      markTestSkipped(
+        'talker_fp32.tflite not found under $modelDir — the golden '
+        'fixtures were generated against the fp32 talker (int4 is not '
+        'bit-exact vs the PyTorch reference) and this test needs it '
+        'present to run.',
+      );
+      return;
+    }
+
+    // Golden fixtures — committed, always present (no skip-guard needed).
+    final meta =
+        jsonDecode(File('test/golden/qwen3/meta.json').readAsStringSync())
+            as Map<String, dynamic>;
+    final text = meta['text'] as String;
+    final speaker = readNpyF32('test/golden/qwen3/voices/demo_speaker.npy');
+
+    final core = await Qwen3TtsCore.load(
+      artifactPaths: artifactPaths,
+      backend: PreferredBackend.cpu,
+      talkerFileName: 'talker_fp32.tflite',
+    );
+    try {
+      // The golden text reaches EOS at frame 26 (meta.json's `num_frames`)
+      // in the greedy run above — a maxFrames well below that forces the
+      // AR loop to hit the cap before EOS, so this proves the guard fires
+      // without paying for a long synthesis run just to exercise it.
+      expect(
+        () => core.synthesize(
+          text,
+          speaker: speaker,
+          language: meta['language'] as String,
+          doSample: false, // Deterministic: same greedy path as the gate above.
+          maxFrames: 5,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    } finally {
+      core.dispose();
+    }
+  }, timeout: const Timeout(Duration(minutes: 30)));
 }

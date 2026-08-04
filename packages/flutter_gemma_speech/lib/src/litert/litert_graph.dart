@@ -148,8 +148,8 @@ List<Float32List> runLiteRtGraph(
           bindings,
           shape,
           kLiteRtElementTypeFloat32,
+          data.length,
           (alloc, count) {
-            _checkPayloadLength(data.length, count);
             alloc.aligned.cast<Float>().asTypedList(count).setAll(0, data);
           },
         ),
@@ -157,8 +157,8 @@ List<Float32List> runLiteRtGraph(
           bindings,
           shape,
           kLiteRtElementTypeInt32,
+          data.length,
           (alloc, count) {
-            _checkPayloadLength(data.length, count);
             alloc.aligned.cast<Int32>().asTypedList(count).setAll(0, data);
           },
         ),
@@ -166,7 +166,13 @@ List<Float32List> runLiteRtGraph(
     }
     for (final shape in outputShapes) {
       outHandles.add(
-        _createTensorBuffer(bindings, shape, kLiteRtElementTypeFloat32, null),
+        _createTensorBuffer(
+          bindings,
+          shape,
+          kLiteRtElementTypeFloat32,
+          null,
+          null,
+        ),
       );
     }
 
@@ -251,10 +257,10 @@ TensorHandle createF32TensorBuffer(
     bindings,
     shape,
     kLiteRtElementTypeFloat32,
+    data?.length,
     data == null
         ? null
         : (alloc, count) {
-            _checkPayloadLength(data.length, count);
             alloc.aligned.cast<Float>().asTypedList(count).setAll(0, data);
           },
   );
@@ -275,22 +281,27 @@ TensorHandle createI32TensorBuffer(
     bindings,
     shape,
     kLiteRtElementTypeInt32,
+    data?.length,
     data == null
         ? null
         : (alloc, count) {
-            _checkPayloadLength(data.length, count);
             alloc.aligned.cast<Int32>().asTypedList(count).setAll(0, data);
           },
   );
 }
 
 /// Guards every [GraphInput]/[createF32TensorBuffer]/[createI32TensorBuffer]
-/// payload write: a `data` shorter than [count] (= product of the tensor's
-/// shape) would otherwise be silently zero-padded by `setAll` into a
+/// payload: a `data` shorter than [count] (= product of the tensor's shape)
+/// would otherwise be silently zero-padded by `setAll` into a
 /// wrong-but-not-obviously-wrong tensor, and a longer one would throw a
 /// confusing `RangeError` from `setAll` itself instead of naming the actual
-/// mismatch. THROWS (not `assert` — asserts are stripped in release builds
-/// and this must fail loud in production too).
+/// mismatch. Called from [_createTensorBuffer] itself — BEFORE any native
+/// allocation (`allocAligned`/the `type` view) — so a mismatch fails loud
+/// with zero native allocation instead of leaking the aligned buffer + type
+/// struct that a throw from inside the old write-callback used to leave
+/// behind (both were allocated before the `try`/`finally` that frees them).
+/// THROWS (not `assert` — asserts are stripped in release builds and this
+/// must fail loud in production too).
 void _checkPayloadLength(int dataLength, int count) {
   if (dataLength != count) {
     throw ArgumentError(
@@ -304,16 +315,26 @@ void _checkPayloadLength(int dataLength, int count) {
 /// per-input dispatch. [elementType] is one of `kLiteRtElementTypeFloat32`/
 /// `kLiteRtElementTypeInt32` (both 4-byte elements, so `bytes = count * 4`
 /// unconditionally — matches the original F32-only arithmetic byte-for-byte
-/// when [elementType] is float32). [writeData], if non-null, is called once
-/// with the fresh aligned allocation to copy the caller's payload in before
-/// the tensor buffer is created.
+/// when [elementType] is float32). [dataLength], when non-null (a payload is
+/// being written), is validated against `count` (= product of [shape]) via
+/// [_checkPayloadLength] BEFORE any native allocation — [writeData], if
+/// non-null, is called once with the fresh aligned allocation to copy the
+/// caller's payload in AFTER that check passes, so a length mismatch throws
+/// with zero native allocation instead of leaking the aligned buffer + the
+/// `type` view (both used to be allocated before the length was checked,
+/// which sat inside [writeData] itself, past the point either could still
+/// be freed on that throw).
 TensorHandle _createTensorBuffer(
   LiteRtBindings bindings,
   List<int> shape,
   int elementType,
+  int? dataLength,
   void Function(AlignedAlloc alloc, int count)? writeData,
 ) {
   final count = shape.fold<int>(1, (a, b) => a * b);
+  if (dataLength != null) {
+    _checkPayloadLength(dataLength, count);
+  }
   final bytes = count * 4;
   final type = LiteRtRankedTensorTypeView.calloc()
     ..elementType = elementType

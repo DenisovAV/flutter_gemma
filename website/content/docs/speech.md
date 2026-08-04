@@ -10,8 +10,8 @@ speech** — speech-to-text and text-to-speech — to flutter_gemma. It runs
 no streaming a mic to a server.
 You choose the model with `SttModelType` / `TtsModelType` and a profile-driven,
 model-agnostic pipeline resolves the matching runtime, so it isn't tied to one
-model. **moonshine** (a raw-PCM seq2seq STT model) and **Matcha** (TTS) work
-end-to-end today; Whisper / Parakeet STT profiles and kokoro / supertonic TTS
+model. **moonshine**, **Whisper**, and **Parakeet** STT and **Matcha** +
+**Qwen3-TTS** (multilingual) TTS work end-to-end today; kokoro / supertonic TTS
 voices are follow-ons.
 
 <Info>
@@ -30,8 +30,8 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.5.1
-  flutter_gemma_speech: ^0.4.0
+  flutter_gemma: ^1.5.2
+  flutter_gemma_speech: ^0.4.1
 ```
 
 ## Register the backend
@@ -115,6 +115,26 @@ The Matcha repo is public, so no HuggingFace token is required. Synthesis is
 deterministic on a given arch — byte-identical on arm64, with imperceptible
 low-float-bit divergence on x86_64.
 
+### Qwen3-TTS (multilingual)
+
+A second TTS family is selectable via `TtsModelType.qwen3` — an autoregressive
+codec-LM (`litert-community/Qwen3-TTS-12Hz-0.6B-Base`, ~1.9 GB) that speaks 11
+languages, chosen at synth time with the new `language:` param. Same
+install/synthesize API as Matcha, but heavier: CPU-only, RTF≈3 (~3 s of compute
+per 1 s of audio), and needs a 6 GB-RAM-class device.
+
+```dart
+await FlutterGemma.installTts()
+    .fromNetwork('https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base/resolve/main/')
+    .ofType(TtsModelType.qwen3)
+    .install();
+
+// language is one of qwen3SupportedLanguages (11) or 'auto'; ignored by Matcha.
+final synth = await FlutterGemma.getActiveTts(language: 'english');
+final pcm = await synth.synthesize('Bonjour le monde.'); // Uint8List, 16-bit PCM
+await synth.close();
+```
+
 ## Voice loop
 
 `VoiceSession` chains STT → LLM → TTS into one push-to-talk turn — transcribe,
@@ -168,8 +188,9 @@ requires **minSdk 30** — see
 | Model | Task | Input | Status |
 |---|---|---|---|
 | **moonshine-tiny** | STT | raw PCM (seq2seq) | ✅ end-to-end |
+| **Whisper / Parakeet** | STT | log-mel | ✅ end-to-end |
 | **Matcha** | TTS | text (Glow-TTS + CFM) | ✅ end-to-end |
-| Whisper / Parakeet | STT | log-mel | 🚧 profile follow-on |
+| **Qwen3-TTS** | TTS | text (AR codec-LM, 11 langs) | ✅ end-to-end |
 | kokoro / supertonic | TTS | text | 🚧 voice follow-on |
 
 Both pipelines are profile-driven (`SttModelProfile` / `TtsModelProfile`), so

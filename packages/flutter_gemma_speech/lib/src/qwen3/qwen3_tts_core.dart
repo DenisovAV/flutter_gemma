@@ -1147,8 +1147,8 @@ class Qwen3TtsCore {
     );
 
     // kv = _run_prefill(...); pos = prefill.shape[1] - 1; logits, hidden,
-    // kv = _run_decode(kv, prefill[0, -1], pos) (qwen3_tts_pipeline.py:
-    // 216-220).
+    // kv = _run_decode(kv, prefill[0, -1], pos)
+    // (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
     final initialKv = runPrefill(prompt.prefill, prompt.promptLen);
     var pos = prompt.promptLen - 1;
     final firstEmbed = Float32List.sublistView(

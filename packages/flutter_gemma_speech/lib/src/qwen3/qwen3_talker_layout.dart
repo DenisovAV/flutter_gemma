@@ -59,7 +59,7 @@
 // accessor that can target e.g. output 56 alone without already knowing
 // the count), and there is no dedicated get-input-count / get-output-count
 // / get-signature-count binding at all. If a future model revision changes
-// any of these, the run path (Tasks 2.2/2.3) fails loud — a tensor-buffer
+// any of these, the run path fails loud — a tensor-buffer
 // create/run call against a mismatched shape returns a non-OK LiteRT
 // status, which the `.check()` extension turns into a thrown
 // [StateError] — rather than silently misbehaving.

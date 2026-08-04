@@ -1,4 +1,4 @@
-## 1.5.2
+## 1.6.0
 - Add TtsModelType.qwen3.
 
 ## 1.5.1

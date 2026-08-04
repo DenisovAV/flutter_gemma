@@ -4,17 +4,26 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_example/models/tts_model.dart';
 import 'package:flutter_gemma_example/utils/audio_converter.dart';
 import 'package:flutter_gemma_example/utils/platform_io_helper.dart';
+import 'package:flutter_gemma_speech/flutter_gemma_speech.dart'
+    show qwen3SupportedLanguages;
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// TTS synthesize screen — mirrors [SttScreen]'s install-in-initState /
 /// `mounted`-after-await / reentrancy discipline, but the flow is simpler:
 /// no recording, just a text field → synthesize → play. Installs
-/// (idempotent) and activates [TtsModel.matcha] — the only catalog entry
-/// with a shipped `TtsModelProfile` today (see `models/tts_model.dart`) —
-/// then lets the user type text and hear it spoken via
+/// (idempotent) and activates the selected [TtsModel] (defaults to
+/// [TtsModel.matcha]) then lets the user type text and hear it spoken via
 /// [SpeechSynthesizer.synthesize] + `just_audio` playback of the
 /// WAV-wrapped PCM (`AudioConverter.pcmToWav`).
+///
+/// [TtsModel.qwen3] additionally exposes a LANGUAGE dropdown (11 languages,
+/// populated from `qwen3SupportedLanguages` — see Task 5.4's brief for why
+/// language, not voice, is the v1-selectable dimension: the model ships
+/// exactly one voice, no voice picker). Language is a create-time param
+/// (`FlutterGemma.getActiveTts(language: ...)`) — changing it re-creates the
+/// synthesizer (closes the old one, installs/activates again), reloading
+/// the ~1.9 GB model. Switching the model dropdown does the same.
 ///
 /// `createFile` (not raw `dart:io`) is used to write the WAV to a temp file
 /// so this screen still compiles for web, where `flutter_gemma_speech` has
@@ -27,7 +36,8 @@ class TtsScreen extends StatefulWidget {
 }
 
 class _TtsScreenState extends State<TtsScreen> {
-  static const _model = TtsModel.matcha;
+  TtsModel _model = TtsModel.matcha;
+  String _language = 'english';
 
   SpeechSynthesizer? _synth;
   bool _isInitializing = true;
@@ -54,9 +64,25 @@ class _TtsScreenState extends State<TtsScreen> {
     super.dispose();
   }
 
+  bool get _isQwen3 => _model.ttsModelType == TtsModelType.qwen3;
+
   /// Install (idempotent) + activate [_model], then create the
   /// [SpeechSynthesizer]. Mirrors `SttScreen._initializeSttModel`.
+  ///
+  /// Closes any previously-created [_synth] first — `getActiveTts` reuses a
+  /// singleton for the same active model, so a language change alone (same
+  /// [_model], new [_language]) would otherwise silently keep serving the
+  /// OLD language unless the old instance is closed first (see
+  /// `FlutterGemma.getActiveTts`'s doc).
   Future<void> _initializeTtsModel() async {
+    setState(() {
+      _isInitializing = true;
+      _initError = null;
+      _downloadPercent = null;
+    });
+    final oldSynth = _synth;
+    _synth = null;
+    await oldSynth?.close();
     try {
       await FlutterGemma.installTts()
           .fromNetwork(_model.baseUrl)
@@ -67,7 +93,9 @@ class _TtsScreenState extends State<TtsScreen> {
           })
           .install();
 
-      final synth = await FlutterGemma.getActiveTts();
+      final synth = await FlutterGemma.getActiveTts(
+        language: _isQwen3 ? _language : null,
+      );
 
       if (!mounted) return;
       setState(() {
@@ -84,6 +112,22 @@ class _TtsScreenState extends State<TtsScreen> {
         _isInitializing = false;
       });
     }
+  }
+
+  /// Switch the active catalog entry and reinitialize. No-op if [model] is
+  /// already selected or a (re)initialization is already in flight.
+  void _selectModel(TtsModel model) {
+    if (model == _model || _isInitializing) return;
+    setState(() => _model = model);
+    _initializeTtsModel();
+  }
+
+  /// Switch the qwen3 language and reinitialize (see [_initializeTtsModel]'s
+  /// doc for why this must close+recreate rather than just updating state).
+  void _selectLanguage(String language) {
+    if (language == _language || _isInitializing) return;
+    setState(() => _language = language);
+    _initializeTtsModel();
   }
 
   Future<void> _speak() async {
@@ -143,6 +187,7 @@ class _TtsScreenState extends State<TtsScreen> {
   }
 
   Widget _buildModelInfoCard() {
+    final supported = TtsModel.values.where((m) => m.isSupported).toList();
     return Card(
       color: const Color(0xFF1a3a5c),
       child: Padding(
@@ -159,11 +204,76 @@ class _TtsScreenState extends State<TtsScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            _buildDropdownRow<TtsModel>(
+              label: 'Model:',
+              value: _model,
+              items: [
+                for (final m in supported)
+                  DropdownMenuItem(value: m, child: Text(m.displayName)),
+              ],
+              onChanged: (m) {
+                if (m != null) _selectModel(m);
+              },
+            ),
+            const SizedBox(height: 8),
             _buildInfoRow('Size:', _model.size),
             _buildInfoRow('Type:', 'Text-to-Speech'),
+            if (_isQwen3) ...[
+              const SizedBox(height: 8),
+              _buildDropdownRow<String>(
+                label: 'Language:',
+                value: _language,
+                items: [
+                  for (final lang in qwen3SupportedLanguages)
+                    DropdownMenuItem(value: lang, child: Text(lang)),
+                ],
+                onChanged: (lang) {
+                  if (lang != null) _selectLanguage(lang);
+                },
+              ),
+            ],
+            if (_model.notes != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _model.notes!,
+                style: const TextStyle(
+                  color: Colors.orangeAccent,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ],
         ),
       ),
+    );
+  }
+
+  /// A label + [DropdownButton] row, disabled while [_isInitializing] (a
+  /// model/language switch is already in flight — reentrancy guard mirrors
+  /// [_selectModel]/[_selectLanguage]'s own check).
+  Widget _buildDropdownRow<T>({
+    required String label,
+    required T value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(label, style: const TextStyle(color: Colors.white70)),
+        ),
+        Expanded(
+          child: DropdownButton<T>(
+            value: value,
+            items: items,
+            onChanged: _isInitializing ? null : onChanged,
+            isExpanded: true,
+            dropdownColor: const Color(0xFF1a3a5c),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
     );
   }
 

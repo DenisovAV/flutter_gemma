@@ -18,7 +18,7 @@ void main() {
 
   test('forType throws UnimplementedError for unwired families', () {
     for (final t in TtsModelType.values.where(
-      (t) => t != TtsModelType.matcha,
+      (t) => t != TtsModelType.matcha && t != TtsModelType.qwen3,
     )) {
       expect(
         () => TtsModelProfile.forType(t),

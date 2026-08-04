@@ -216,62 +216,121 @@ void main() {
     );
   });
 
-  group('Task 6: migration fallback-probe (unique-basename files only)', () {
-    test(
-      'an old flat TTS bundle file is adopted in place — no re-download',
-      () async {
-        final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
-        await ServiceRegistry.initialize(downloadService: fixtureDownload);
+  group('Task 6 (superseded 2026-08-04, whole-branch review): TTS install-time '
+      'adoption REMOVED — a not-yet-installed manifest file is always '
+      'downloaded fresh, never adopted from an on-disk plain file, even when '
+      'its basename is unique within the TTS catalog. Adoption at install time '
+      'could not distinguish "an old flat file this exact model installed '
+      "before namespacing shipped\" from \"a same-named file some OTHER "
+      "model's catalog (e.g. an STT tokenizer.json) happened to leave "
+      'behind" — no size/hash check was available to tell them apart. The '
+      'only remaining (safe) adoption path is restore-time, in '
+      'MobileModelManager._migrateLegacyCompanionForRestore, which operates on '
+      'a single KNOWN active model so the ambiguity cannot occur.', () {
+    test('an old flat TTS bundle file at the pre-refactor path is left '
+        'untouched — install() downloads the namespaced file fresh instead '
+        'of adopting it', () async {
+      final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
+      await ServiceRegistry.initialize(downloadService: fixtureDownload);
 
-        // Resolve the storage dir via the same FileSystemService the
-        // builder/adopt probe use rather than hardcoding fakeDocuments.path
-        // — on desktop hosts (this test typically runs as a native VM test)
-        // writes land under ApplicationSupport/flutter_gemma/, not
-        // Documents; on mobile they land directly under Documents.
-        final storageDir = await ServiceRegistry.instance.fileSystemService
-            .getModelStorageDirectory();
+      // Resolve the storage dir via the same FileSystemService the
+      // builder uses rather than hardcoding fakeDocuments.path — on
+      // desktop hosts (this test typically runs as a native VM test)
+      // writes land under ApplicationSupport/flutter_gemma/, not
+      // Documents; on mobile they land directly under Documents.
+      final storageDir = await ServiceRegistry.instance.fileSystemService
+          .getModelStorageDirectory();
 
-        // Pre-seed ONE bundle member at its OLD, pre-refactor flat path —
-        // simulating a matcha install from before this refactor shipped.
-        final oldPath = path.join(storageDir, 'matcha_textenc_fp16.tflite');
-        await File(oldPath).writeAsBytes([7, 7, 7, 7]);
+      // Pre-seed ONE bundle member at its OLD, pre-refactor flat path —
+      // simulating a matcha install from before the namespacing refactor
+      // shipped. Its basename is unique within the TTS catalog, so
+      // pre-fix this WOULD have been adopted.
+      final oldPath = path.join(storageDir, 'matcha_textenc_fp16.tflite');
+      await File(oldPath).writeAsBytes([7, 7, 7, 7]);
 
-        await FlutterGemma.installTts()
-            .fromNetwork('https://example.com/matcha/')
-            .ofType(TtsModelType.matcha)
-            .install();
+      await FlutterGemma.installTts()
+          .fromNetwork('https://example.com/matcha/')
+          .ofType(TtsModelType.matcha)
+          .install();
 
-        // Adopted in place: old path gone, new namespaced path holds the
-        // ORIGINAL bytes (proves it was renamed, not re-downloaded — a
-        // re-download would have overwritten it with _fakeCompanionBytes).
-        expect(await File(oldPath).exists(), isFalse);
-        final newPath = path.join(
-          storageDir,
-          'matcha__matcha_textenc_fp16.tflite',
-        );
-        expect(await File(newPath).readAsBytes(), [7, 7, 7, 7]);
-        expect(
-          fixtureDownload.requestedTargetPaths.contains(newPath),
-          isFalse,
-          reason: 'the adopted file must not have been (re-)downloaded',
-        );
+      // NOT adopted: the old flat file is left exactly as it was...
+      expect(await File(oldPath).readAsBytes(), [7, 7, 7, 7]);
+      // ...and the namespaced file was downloaded fresh (fixture bytes),
+      // not renamed from the old path (which would carry [7,7,7,7]).
+      final newPath = path.join(
+        storageDir,
+        'matcha__matcha_textenc_fp16.tflite',
+      );
+      expect(await File(newPath).readAsBytes(), _fakeCompanionBytes);
+      expect(
+        fixtureDownload.requestedTargetPaths.contains(newPath),
+        isTrue,
+        reason:
+            'a not-yet-installed bundle file must always be '
+            'downloaded, never adopted',
+      );
 
-        // Every OTHER bundle member (no old file seeded) was downloaded
-        // normally under its namespaced name.
-        final otherPath = path.join(storageDir, 'matcha__config.json');
-        expect(
-          fixtureDownload.requestedTargetPaths.contains(otherPath),
-          isTrue,
-        );
+      // Every OTHER bundle member (no old file seeded) was also
+      // downloaded normally under its namespaced name.
+      final otherPath = path.join(storageDir, 'matcha__config.json');
+      expect(fixtureDownload.requestedTargetPaths.contains(otherPath), isTrue);
 
-        final repository = ServiceRegistry.instance.modelRepository;
-        expect(
-          await repository.isInstalled('matcha__matcha_textenc_fp16.tflite'),
-          isTrue,
-        );
-      },
-    );
+      final repository = ServiceRegistry.instance.modelRepository;
+      expect(
+        await repository.isInstalled('matcha__matcha_textenc_fp16.tflite'),
+        isTrue,
+      );
+    });
 
+    test('a FOREIGN plain file left by another catalog (e.g. an STT '
+        'tokenizer.json) is NEVER adopted into a Qwen3 TTS install — the '
+        'exact collision this fix closes', () async {
+      final fixtureDownload = _FixtureDownloadService(_fakeCompanionBytes);
+      await ServiceRegistry.initialize(downloadService: fixtureDownload);
+
+      final storageDir = await ServiceRegistry.instance.fileSystemService
+          .getModelStorageDirectory();
+
+      // Pre-seed a plain `tokenizer.json` at the real storage location —
+      // standing in for a leftover Moonshine/Whisper/Parakeet STT
+      // tokenizer. Distinct byte content from the qwen3 fixture bytes so
+      // adoption-vs-download is unambiguous.
+      final foreignPath = path.join(storageDir, 'tokenizer.json');
+      await File(foreignPath).writeAsBytes([1, 2, 3, 4, 5]);
+
+      final installation = await FlutterGemma.installTts()
+          .fromNetwork(
+            'https://huggingface.co/litert-community/'
+            'Qwen3-TTS-12Hz-0.6B-Base/resolve/main/',
+          )
+          .ofType(TtsModelType.qwen3)
+          .install();
+
+      // The foreign file is completely untouched.
+      expect(await File(foreignPath).readAsBytes(), [1, 2, 3, 4, 5]);
+
+      // qwen3's own tokenizer.json was downloaded fresh under ITS
+      // namespaced identity, carrying the fixture bytes — not the
+      // foreign file's bytes.
+      final qwen3TokenizerPath = path.join(storageDir, 'qwen3__tokenizer.json');
+      expect(await File(qwen3TokenizerPath).readAsBytes(), _fakeCompanionBytes);
+      expect(
+        fixtureDownload.requestedTargetPaths.contains(qwen3TokenizerPath),
+        isTrue,
+      );
+
+      final repository = ServiceRegistry.instance.modelRepository;
+      expect(await repository.isInstalled('qwen3__tokenizer.json'), isTrue);
+      // The plain foreign key was never claimed by this install.
+      expect(await repository.isInstalled('tokenizer.json'), isFalse);
+
+      // The installed identity is qwen3's, not the foreign file's.
+      expect(installation.spec.ttsModelType, TtsModelType.qwen3);
+    });
+  });
+
+  group('Task 6b: STT install-time collision guard (unaffected by the TTS '
+      'adoption removal — STT install() never adopted at all)', () {
     test(
       'a colliding companion (tokenizer) NEVER triggers migration — it always '
       'installs fresh under the namespaced key (the mis-adoption guard)',

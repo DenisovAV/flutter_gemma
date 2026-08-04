@@ -394,6 +394,7 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
   @override
   Future<SpeechSynthesizer> createTtsModel({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     throw UnsupportedError(
       'On-device TTS is not supported on web (flutter_gemma_speech TTS is native-only).',

@@ -1,3 +1,6 @@
+## 1.5.2
+- Add TtsModelType.qwen3.
+
 ## 1.5.1
 - fix: namespace companion install files (tokenizers, TTS bundle aux) per model, fixing STT/embedding tokenizer collisions.
 - fix: migrate legacy (pre-namespacing) tokenizer installs on restore, so existing STT/embedding models keep working after upgrade.

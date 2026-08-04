@@ -122,8 +122,16 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   ///
   /// Uses the active TTS model set via `FlutterGemma.installTts()` /
   /// `modelManager.setActiveModel()`. Native-only — throws on web.
+  ///
+  /// [language] is TTS-only (Qwen3; ignored by Matcha) — see
+  /// `RuntimeConfig.language`'s doc. Forwarded into the `RuntimeConfig` the
+  /// active model's backend builds from. A singleton for the same active
+  /// model is reused across calls, so switching languages requires
+  /// explicitly closing the previous [SpeechSynthesizer] first — a new
+  /// [language] alone does not force a rebuild.
   Future<SpeechSynthesizer> createTtsModel({
     PreferredBackend? preferredBackend,
+    String? language,
   });
 
   /// === RAG functionality ===

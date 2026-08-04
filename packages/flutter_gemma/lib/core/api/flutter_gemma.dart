@@ -554,6 +554,13 @@ class FlutterGemma {
   ///
   /// Runtime parameters:
   /// - [preferredBackend]: CPU or GPU preference (optional)
+  /// - [language]: TTS-only (Qwen3; ignored by Matcha, whose locale comes
+  ///   from its bundle instead) — one of `flutter_gemma_speech`'s
+  ///   `qwen3SupportedLanguages`, or `'auto'`; defaults to `'english'` when
+  ///   null. An unsupported value throws `ArgumentError` before the model
+  ///   loads. A previously-created synthesizer for the same active model is
+  ///   reused across calls (create-time singleton) — to pick up a new
+  ///   [language], [close][SpeechSynthesizer.close] it first.
   ///
   /// Throws:
   /// - [StateError] if no active TTS model is set
@@ -571,6 +578,7 @@ class FlutterGemma {
   /// ```
   static Future<SpeechSynthesizer> getActiveTts({
     PreferredBackend? preferredBackend,
+    String? language,
   }) async {
     final manager = FlutterGemmaPlugin.instance.modelManager;
     final activeSpec = manager.activeTtsModel;
@@ -591,6 +599,7 @@ class FlutterGemma {
     // Create SpeechSynthesizer using active spec (paths resolved automatically)
     return await FlutterGemmaPlugin.instance.createTtsModel(
       preferredBackend: preferredBackend,
+      language: language,
     );
   }
 

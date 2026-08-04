@@ -1,7 +1,6 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
-import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Fluent builder for TTS (text-to-speech) model installation.
@@ -87,8 +86,15 @@ class TtsInstallationBuilder {
       );
     }
 
-    String joinUrl(String base, String fn) =>
-        base.endsWith('/') ? '$base$fn' : '$base/$fn';
+    // Most bundle members are fetched from `baseUrl/<plain filename>`, but a
+    // few (e.g. qwen3's embedding tables + demo voice) live under a
+    // subdirectory on the origin server even though their INSTALLED
+    // identity is the plain basename — see
+    // `TtsModelTypeManifest.urlSuffixFor`'s doc for why that split is safe.
+    String joinUrl(String base, String fn) {
+      final suffix = ttsModelType.urlSuffixFor(fn);
+      return base.endsWith('/') ? '$base$suffix' : '$base/$suffix';
+    }
 
     final spec = TtsModelSpec.fromManifest(
       name: _name ?? ttsModelType.name,
@@ -99,61 +105,27 @@ class TtsInstallationBuilder {
 
     final registry = ServiceRegistry.instance;
     final repository = registry.modelRepository;
-    final fileSystem = registry.fileSystemService;
     final handlerRegistry = registry.sourceHandlerRegistry;
 
-    final manifest = ttsModelType.manifest;
-    // Only a bundle basename that is UNIQUE across the ENTIRE TTS catalog is
-    // safe to adopt from a pre-refactor flat install: a shared basename (e.g. a
-    // generic `config.json`) carries no type marker, so blindly adopting it
-    // could hand THIS model another TTS model's file — the exact collision the
-    // namespacing refactor fixes (see FileSystemService.adoptLegacyFile's
-    // contract). Today matcha is the only type, so every basename is unique;
-    // this guard keeps the adoption correct the moment a second TTS model
-    // shares a basename (that basename then falls through to a fresh download).
-    final catalogBasenameCounts = <String, int>{};
-    for (final type in TtsModelType.values) {
-      final List<String> typeManifest;
-      try {
-        typeManifest = type.manifest;
-      } on UnimplementedError {
-        // A not-yet-wired TTS type has no installed files, so it can't own a
-        // colliding plain file — skip it rather than let its manifest getter
-        // throw.
-        continue;
-      }
-      for (final fn in typeManifest) {
-        catalogBasenameCounts[fn] = (catalogBasenameCounts[fn] ?? 0) + 1;
-      }
-    }
-
+    // NOTE: install-time legacy-file adoption (renaming an on-disk
+    // pre-1.5.1-namespacing plain file onto the namespaced identity) was
+    // removed here — a bundle basename can be unique within the TTS catalog
+    // yet still collide with a plain file left behind by an STT/embedding
+    // install (e.g. Qwen3's `tokenizer.json`), and adoption has no way to
+    // verify the on-disk file actually belongs to this model (no size/hash
+    // check available). A manifest file that is not already installed is
+    // downloaded fresh (never adopted from a legacy plain file);
+    // already-installed files are still skipped by the loop below. The safe
+    // migration path for genuinely-legacy TTS installs is restore-time, in
+    // MobileModelManager._migrateLegacyCompanionForRestore.
     final files = spec.files;
     var done = 0;
     for (var i = 0; i < files.length; i++) {
       _cancelToken?.throwIfCancelled();
       final file = files[i];
-      final legacyBasename = manifest[i];
-      final adoptable = (catalogBasenameCounts[legacyBasename] ?? 0) == 1;
 
       if (await repository.isInstalled(file.filename)) {
         gemmaLog('ℹ️  TTS bundle file already installed: ${file.filename}');
-      } else if (adoptable &&
-          await fileSystem.adoptLegacyFile(legacyBasename, file.filename)) {
-        gemmaLog(
-          '♻️  Adopted legacy TTS bundle file: $legacyBasename -> ${file.filename}',
-        );
-        final newPath = await fileSystem.getWriteTargetPath(file.filename);
-        final sizeBytes = await fileSystem.getFileSize(newPath);
-        await repository.saveModel(
-          repo.ModelInfo(
-            id: file.filename,
-            source: file.source,
-            installedAt: DateTime.now(),
-            sizeBytes: sizeBytes,
-            type: repo.ModelType.tts,
-            hasLoraWeights: false,
-          ),
-        );
       } else {
         gemmaLog('📥 Installing TTS bundle file: ${file.filename}...');
         final handler = handlerRegistry.getHandler(file.source);

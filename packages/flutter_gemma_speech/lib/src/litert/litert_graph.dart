@@ -148,15 +148,19 @@ List<Float32List> runLiteRtGraph(
           bindings,
           shape,
           kLiteRtElementTypeFloat32,
-          (alloc, count) =>
-              alloc.aligned.cast<Float>().asTypedList(count).setAll(0, data),
+          (alloc, count) {
+            _checkPayloadLength(data.length, count);
+            alloc.aligned.cast<Float>().asTypedList(count).setAll(0, data);
+          },
         ),
         I32Input(:final shape, :final data) => _createTensorBuffer(
           bindings,
           shape,
           kLiteRtElementTypeInt32,
-          (alloc, count) =>
-              alloc.aligned.cast<Int32>().asTypedList(count).setAll(0, data),
+          (alloc, count) {
+            _checkPayloadLength(data.length, count);
+            alloc.aligned.cast<Int32>().asTypedList(count).setAll(0, data);
+          },
         ),
       });
     }
@@ -249,8 +253,10 @@ TensorHandle createF32TensorBuffer(
     kLiteRtElementTypeFloat32,
     data == null
         ? null
-        : (alloc, count) =>
-              alloc.aligned.cast<Float>().asTypedList(count).setAll(0, data),
+        : (alloc, count) {
+            _checkPayloadLength(data.length, count);
+            alloc.aligned.cast<Float>().asTypedList(count).setAll(0, data);
+          },
   );
 }
 
@@ -271,9 +277,26 @@ TensorHandle createI32TensorBuffer(
     kLiteRtElementTypeInt32,
     data == null
         ? null
-        : (alloc, count) =>
-              alloc.aligned.cast<Int32>().asTypedList(count).setAll(0, data),
+        : (alloc, count) {
+            _checkPayloadLength(data.length, count);
+            alloc.aligned.cast<Int32>().asTypedList(count).setAll(0, data);
+          },
   );
+}
+
+/// Guards every [GraphInput]/[createF32TensorBuffer]/[createI32TensorBuffer]
+/// payload write: a `data` shorter than [count] (= product of the tensor's
+/// shape) would otherwise be silently zero-padded by `setAll` into a
+/// wrong-but-not-obviously-wrong tensor, and a longer one would throw a
+/// confusing `RangeError` from `setAll` itself instead of naming the actual
+/// mismatch. THROWS (not `assert` — asserts are stripped in release builds
+/// and this must fail loud in production too).
+void _checkPayloadLength(int dataLength, int count) {
+  if (dataLength != count) {
+    throw ArgumentError(
+      'GraphInput payload length $dataLength != product(shape) $count',
+    );
+  }
 }
 
 /// Shared allocate + (optionally) write + wrap-as-tensor-buffer sequence

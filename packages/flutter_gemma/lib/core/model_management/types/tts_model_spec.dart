@@ -6,6 +6,20 @@ part of '../model_specs.dart';
 /// (fail-loud until wired).
 enum TtsModelType { matcha, supertonic, kokoro, qwen3 }
 
+/// [TtsModelType.qwen3]'s 4 embedding-table bundle members — the SINGLE
+/// source of truth for which manifest basenames live under the HF repo's
+/// `tables/` subdirectory. Spread into [TtsModelTypeManifest.manifest]'s
+/// qwen3 entry AND consulted by [TtsModelTypeManifest.urlSuffixFor], so the
+/// two can never desync (a prior version hardcoded this set a second time in
+/// [TtsModelTypeManifest.urlSuffixFor]; a rename here used to require
+/// remembering to update both places).
+const _qwen3TableFiles = [
+  'text_embedding_fp16.npy',
+  'text_projection_fp32.npz',
+  'codec_embedding_fp32.npy',
+  'mtp_embeddings_fp16.npy',
+];
+
 /// The filenames a given TTS model needs, installed together as a bundle from
 /// one source. Fail-loud for unwired families.
 extension TtsModelTypeManifest on TtsModelType {
@@ -42,10 +56,7 @@ extension TtsModelTypeManifest on TtsModelType {
       'mtp_fp32.tflite',
       'codec_decoder_fp32.tflite',
       'tokenizer.json',
-      'text_embedding_fp16.npy',
-      'text_projection_fp32.npz',
-      'codec_embedding_fp32.npy',
-      'mtp_embeddings_fp16.npy',
+      ..._qwen3TableFiles,
       'demo_speaker.npy',
     ],
     _ => throw UnimplementedError(
@@ -66,13 +77,9 @@ extension TtsModelTypeManifest on TtsModelType {
   /// intends). A no-op (identity) for every other [TtsModelType].
   String urlSuffixFor(String plainFilename) {
     if (this != TtsModelType.qwen3) return plainFilename;
-    const tableFiles = {
-      'text_embedding_fp16.npy',
-      'text_projection_fp32.npz',
-      'codec_embedding_fp32.npy',
-      'mtp_embeddings_fp16.npy',
-    };
-    if (tableFiles.contains(plainFilename)) return 'tables/$plainFilename';
+    if (_qwen3TableFiles.contains(plainFilename)) {
+      return 'tables/$plainFilename';
+    }
     if (plainFilename == 'demo_speaker.npy') return 'voices/$plainFilename';
     return plainFilename;
   }

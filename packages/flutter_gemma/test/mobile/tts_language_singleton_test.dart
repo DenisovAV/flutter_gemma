@@ -108,7 +108,62 @@ void main() {
     expect(fakeBackend.lastConfig?.language, 'french');
     expect(fakeBackend.createModelCallCount, 2);
     expect(identical(synth2, synth1), isFalse);
+
+    // Close synth2 too — FlutterGemmaMobile's TTS singleton fields
+    // (_lastActiveTtsSpec/_lastActiveTtsLanguage/_initializedTtsModel) live
+    // on the plugin instance, not this test's fixtures, so a leftover
+    // active synthesizer here would leak into the NEXT test in this file.
+    await synth2.close();
   });
+
+  test(
+    'getActiveTts treats null, "english", and "English" as the SAME '
+    'effective language (default + case normalized before the reuse-guard '
+    'store/compare) — a genuinely different language still fails loud',
+    () async {
+      final fixtureDownload = _FixtureDownloadService(_fakeBundleBytes);
+      await ServiceRegistry.initialize(downloadService: fixtureDownload);
+      final fakeBackend = _FakeTtsBackend();
+      TtsRegistry.instance.registerAll([fakeBackend]);
+
+      await FlutterGemma.installTts()
+          .fromNetwork('https://example.com/qwen3/')
+          .ofType(TtsModelType.qwen3)
+          .install();
+
+      // No `language:` argument at all -> the backend defaults it to
+      // 'english' (LiteRtTtsBackend.createModel), and the guard normalizes
+      // the same way when storing.
+      final synth1 = await FlutterGemma.getActiveTts();
+      expect(fakeBackend.createModelCallCount, 1);
+
+      // Same effective language, explicit lowercase -> reuse, no new backend
+      // call, no StateError. Before normalization this compared `null !=
+      // 'english'` and threw spuriously.
+      final synth1Again = await FlutterGemma.getActiveTts(language: 'english');
+      expect(identical(synth1Again, synth1), isTrue);
+      expect(fakeBackend.createModelCallCount, 1);
+
+      // Same effective language, different case -> still reused. Before
+      // normalization this compared `'english' != 'English'` and threw.
+      final synth1Cased = await FlutterGemma.getActiveTts(language: 'English');
+      expect(identical(synth1Cased, synth1), isTrue);
+      expect(fakeBackend.createModelCallCount, 1);
+
+      // A GENUINELY different language must still fail loud, without closing
+      // the existing synthesizer first.
+      await expectLater(
+        FlutterGemma.getActiveTts(language: 'german'),
+        throwsA(isA<StateError>()),
+      );
+      expect(fakeBackend.createModelCallCount, 1);
+
+      // Close the still-active synthesizer so FlutterGemmaMobile's TTS
+      // singleton fields don't leak into a later test in this file (see the
+      // matching cleanup at the end of the test above).
+      await synth1.close();
+    },
+  );
 }
 
 class _FakeTtsBackend implements TtsBackendProvider {

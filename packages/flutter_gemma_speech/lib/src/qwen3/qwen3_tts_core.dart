@@ -138,6 +138,14 @@ const int _mtpResidualGroups = 15;
 /// `_codecPad`/`_codecBos`/etc.
 const int _codecEos = 2150;
 
+/// Left-context frame count [Qwen3TtsCore.decodeCodes]'s sliding window
+/// re-feeds from the previous window on every step but one (`ctx`/`c` in
+/// `qwen3_tts_pipeline.py:384-392` — see this file's header). [codecChunk]
+/// must exceed this or [Qwen3TtsCore.decodeCodes]'s window advance
+/// (`codecChunk - c`) never makes progress — checked at [Qwen3TtsCore.load]
+/// time, see the guard there.
+const int _codecLeftContext = 25;
+
 int _acceleratorFor(PreferredBackend? backend) {
   switch (backend) {
     case PreferredBackend.gpu:
@@ -515,6 +523,17 @@ class Qwen3TtsCore {
         'codec.args_0',
       );
       final codecChunk = codecInShape.last;
+      // [decodeCodes]'s sliding window advances by `codecChunk -
+      // min(_codecLeftContext, i)` rows per step (this file's header); if a
+      // drifted model shipped a codecChunk at or below the left-context
+      // width, that advance is <= 0 and the decode loop never makes
+      // progress (hangs) instead of failing loud here.
+      if (codecChunk <= _codecLeftContext) {
+        throw StateError(
+          'Qwen3TtsCore.load: codecChunk ($codecChunk) must exceed the '
+          'codec left-context ($_codecLeftContext); model layout drift.',
+        );
+      }
 
       tables = await Qwen3Tables.load(
         codecEmbPath: _artifactPath(artifactPaths, 'codec_embedding_fp32.npy'),
@@ -941,7 +960,7 @@ class Qwen3TtsCore {
     }
 
     // chunk, ctx = self._codec_chunk, 25 (qwen3_tts_pipeline.py:384).
-    const ctx = 25;
+    const ctx = _codecLeftContext;
     final chunk = codecChunk;
     final pieces = <Float32List>[];
     var i = 0;
@@ -1137,6 +1156,7 @@ class Qwen3TtsCore {
     final suppress = buildSuppress();
     final frames = <List<int>>[];
     final history = <int>{};
+    var hitEos = false;
 
     // while len(frames) < max_frames: ... (qwen3_tts_pipeline.py:230-256).
     while (frames.length < maxFrames) {
@@ -1164,7 +1184,10 @@ class Qwen3TtsCore {
           : pickGreedy(scores);
       history.add(cb0);
       // if cb0 == _CODEC_EOS: break (qwen3_tts_pipeline.py:240-241).
-      if (cb0 == _codecEos) break;
+      if (cb0 == _codecEos) {
+        hitEos = true;
+        break;
+      }
 
       // residual = _run_mtp(hidden, cb0, do_sample, top_k, temperature,
       // rng) (qwen3_tts_pipeline.py:244-245).
@@ -1209,6 +1232,14 @@ class Qwen3TtsCore {
       // (qwen3_tts_pipeline.py:253-255).
       pos++;
       (cb0Logits, hidden, kv) = runDecode(kv, embed, pos);
+    }
+
+    if (!hitEos) {
+      gemmaLog(
+        '⚠️ Qwen3 TTS reached maxFrames=$maxFrames '
+        '(~${(maxFrames / 12.5).round()}s) before EOS — output is '
+        'truncated; text may be too long for a single AR pass.',
+      );
     }
 
     return frames;

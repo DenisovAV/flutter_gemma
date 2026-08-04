@@ -38,6 +38,17 @@ part '../core/model_management/utils/file_system_manager.dart';
 part '../core/model_management/utils/resume_checker.dart';
 part '../core/model_management/managers/mobile_model_manager.dart';
 
+/// Normalizes a `createTtsModel`/`getActiveTts` `language` argument for the
+/// same-model reuse guard's store/compare — defaults `null` to `'english'`
+/// (mirrors `LiteRtTtsBackend.createModel`'s `config.language ?? 'english'`)
+/// and lowercases so `null`, `'english'`, and `'English'` all compare equal
+/// (they build the SAME synthesizer either way — `Qwen3Prompt.build` already
+/// lowercases the language it's given). Without this, storing/comparing the
+/// raw argument tripped a spurious `StateError` for effectively-identical
+/// requests (e.g. `getActiveTts()` then `getActiveTts(language: 'english')`).
+String _normalizeTtsLanguage(String? language) =>
+    (language ?? 'english').toLowerCase();
+
 class FlutterGemmaMobile extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
@@ -59,10 +70,13 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   SpeechSynthesizer? _initializedTtsModel;
   TtsModelSpec?
   _lastActiveTtsSpec; // Track which spec was used to create _initializedTtsModel
-  // The `language` the active singleton was built with (raw, as received —
-  // not defaulted). Reusing the singleton for a DIFFERENT language would
-  // silently emit wrong-language audio with no error (Task 5.4 review,
-  // Important #1) — see the same-model branch in createTtsModel below.
+  // The `language` the active singleton was built with, NORMALIZED
+  // ([_normalizeTtsLanguage] — defaulted + lowercased) so a same-effective-
+  // language request compared raw-to-raw (e.g. null vs. 'english', or
+  // 'English' vs. 'english') doesn't spuriously trip the guard below.
+  // Reusing the singleton for a genuinely DIFFERENT language would silently
+  // emit wrong-language audio with no error (Task 5.4 review, Important #1)
+  // — see the same-model branch in createTtsModel below.
   String? _lastActiveTtsLanguage;
 
   // Made public for example app integration
@@ -617,17 +631,20 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         _lastActiveTtsSpec = null;
         _lastActiveTtsLanguage = null;
         await old?.close();
-      } else if (language != _lastActiveTtsLanguage) {
+      } else if (_normalizeTtsLanguage(language) != _lastActiveTtsLanguage) {
         // Same model, but a DIFFERENT language was requested — reusing the
         // singleton here would silently emit WRONG-LANGUAGE audio with no
         // error (Task 5.4 review, Important #1). Fail loud instead of
         // reusing: the caller must close() the existing synthesizer first
         // (tts_screen.dart already does this on every model/language
-        // switch — see LiteRtSpeechSynthesizer/getActiveTts's docs).
+        // switch — see LiteRtSpeechSynthesizer/getActiveTts's docs). Both
+        // sides are normalized ([_normalizeTtsLanguage]) so this only fires
+        // for a GENUINELY different language, not e.g. null vs. 'english'
+        // or 'English' vs. 'english'.
         throw StateError(
           'Active TTS synthesizer was created for language '
-          "'${_lastActiveTtsLanguage ?? 'default'}'; call close() before "
-          "requesting '${language ?? 'default'}'.",
+          "'$_lastActiveTtsLanguage'; call close() before requesting "
+          "'${_normalizeTtsLanguage(language)}'.",
         );
       } else {
         // Same model, same language - return existing singleton
@@ -683,7 +700,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // package-built model fires this via CloseNotifier (addCloseListener).
       _initializedTtsModel = synth;
       _lastActiveTtsSpec = activeModel;
-      _lastActiveTtsLanguage = language;
+      _lastActiveTtsLanguage = _normalizeTtsLanguage(language);
       synth.addCloseListener(() {
         // Only reset if this close-listener still belongs to the current
         // singleton — a newer model may already have replaced it (the

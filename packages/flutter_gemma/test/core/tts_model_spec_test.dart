@@ -17,6 +17,28 @@ void main() {
     expect(m.length, 8);
   });
 
+  test('every wired TtsModelType manifest (matcha, qwen3 — those whose '
+      '.manifest does not throw) contains only plain basenames: a "/" would '
+      'make MobileModelManager._restoreActiveTtsModel derive a different '
+      'on-disk path than a fresh install did, silently breaking active-model '
+      'restore after relaunch', () {
+    for (final type in TtsModelType.values) {
+      final List<String> manifest;
+      try {
+        manifest = type.manifest;
+      } on UnimplementedError {
+        continue; // Unwired family (kokoro/supertonic) — nothing to check.
+      }
+      for (final fn in manifest) {
+        expect(
+          fn.contains('/'),
+          isFalse,
+          reason: '$type manifest entry "$fn" must be a plain basename',
+        );
+      }
+    }
+  });
+
   test('unwired families throw UnimplementedError from manifest', () {
     expect(
       () => TtsModelType.kokoro.manifest,

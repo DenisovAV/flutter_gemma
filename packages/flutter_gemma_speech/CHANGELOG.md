@@ -1,4 +1,4 @@
-## 0.5.0
+## 0.4.1
 - Add Qwen3-TTS (multilingual AR codec-LM, 11 languages) — 2nd selectable TTS family.
 
 ## 0.4.0

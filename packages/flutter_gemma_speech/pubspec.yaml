@@ -1,6 +1,6 @@
 name: flutter_gemma_speech
 description: "On-device speech (STT + TTS) for flutter_gemma via the LiteRT C API + dart:ffi. Opt-in Stt/TtsBackendProvider."
-version: 0.4.0
+version: 0.4.1
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_speech
 topics: [speech, stt, gemma, litert, on-device]

@@ -9,11 +9,12 @@
 //    audio frame, consumed during the per-frame decode loop,
 //  - `ttsPad` — the fallback embedding used once `trailing` is exhausted.
 //
-// Ports `Qwen3TtsPipeline._build_prompt` verbatim from
-// `text_to_speech_lm/python/qwen3_tts_pipeline.py:279-313` (plus its
-// module-level token constants at lines 43-70), reading `ids` (already
-// tokenized by the frontend, see `Qwen2BpeEncoder`) instead of re-tokenizing
-// raw text.
+// Ports `Qwen3TtsPipeline._build_prompt` verbatim from the recipe's
+// `qwen3_tts_pipeline.py` (see `qwen3_tts_core.dart`'s file header for
+// where it's vendored; plus its module-level token/language constants —
+// `_CODEC_*`, `_TTS_*`, `LANGUAGE_IDS`), reading `ids` (already tokenized
+// by the frontend, see `Qwen2BpeEncoder`) instead of re-tokenizing raw
+// text.
 //
 // This file is pure Dart (`dart:typed_data` only) — no Flutter import — so
 // it can be unit-tested without a device.
@@ -27,7 +28,8 @@ import 'qwen3_tables.dart';
 const int _hidden = 1024;
 
 // Talker codec-token vocabulary layout (ids >= 2048 are control tokens).
-// qwen3_tts_pipeline.py:44-51.
+// Matches the recipe's codec-token constants block (`_CODEC_VOCAB` ..
+// `_CODEC_NOTHINK` in `qwen3_tts_pipeline.py`).
 const int _codecPad = 2148;
 const int _codecBos = 2149;
 const int _codecThink = 2154;
@@ -35,7 +37,8 @@ const int _codecNothink = 2155;
 const int _codecThinkBos = 2156;
 const int _codecThinkEos = 2157;
 
-// Text-side special tokens (Qwen2 BPE vocabulary). qwen3_tts_pipeline.py:54-56.
+// Text-side special tokens (Qwen2 BPE vocabulary). Matches the recipe's
+// `_TTS_BOS`/`_TTS_EOS`/`_TTS_PAD` in `qwen3_tts_pipeline.py`.
 const int _ttsBos = 151672;
 const int _ttsEos = 151673;
 const int _ttsPad = 151671;
@@ -53,7 +56,7 @@ class Qwen3PromptResult {
 
   /// Flattened prefill embeddings, row-major `[promptLen * 1024]`. Fed to
   /// the talker's `prefill_32` signature (right-padded to 32 rows by the
-  /// caller — see `_run_prefill`, a later task).
+  /// caller — see `Qwen3TtsCore.runPrefill`, which ports `_run_prefill`).
   final Float32List prefill;
 
   /// Number of rows in [prefill] (`prefill.length == promptLen * 1024`).
@@ -65,7 +68,8 @@ class Qwen3PromptResult {
   /// Per-frame streamed text-conditioning rows, each `[1024]`: the
   /// remaining text embeddings (`ids[4:-5]`) followed by the `tts_eos`
   /// embedding. Consumed one row per decoded audio frame; once exhausted,
-  /// [ttsPad] is added instead (see the decode loop, a later task).
+  /// [ttsPad] is added instead (see the decode loop, `synthesize`, in
+  /// `qwen3_tts_core.dart`).
   final List<Float32List> trailing;
 
   /// The `[1024]` TTS pad embedding, added once [trailing] is exhausted.
@@ -74,9 +78,8 @@ class Qwen3PromptResult {
 
 /// Builds the Qwen3-TTS talker prompt.
 ///
-/// Ports `Qwen3TtsPipeline._build_prompt`
-/// (`text_to_speech_lm/python/qwen3_tts_pipeline.py:279-313`) verbatim,
-/// given already-tokenized [ids] (the frontend's chat-template encoding —
+/// Ports `Qwen3TtsPipeline._build_prompt` verbatim, given already-tokenized
+/// [ids] (the frontend's chat-template encoding —
 /// see `Qwen2BpeEncoder`), a `[1024]` speaker x-vector [speaker], and a
 /// [language] (one of [languageIds]' keys, case-insensitive, or `'auto'`).
 class Qwen3Prompt {
@@ -104,7 +107,7 @@ class Qwen3Prompt {
       );
     }
 
-    // qwen3_tts_pipeline.py:295-299.
+    // qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final List<int> control;
     if (language == 'auto') {
       control = [_codecNothink, _codecThinkBos, _codecThinkEos];
@@ -123,7 +126,7 @@ class Qwen3Prompt {
     }
 
     // tts_bos, tts_eos, tts_pad = embedText([_TTS_BOS, _TTS_EOS, _TTS_PAD]).
-    // qwen3_tts_pipeline.py:293-294.
+    // qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final ttsSpecial = tables.embedText([_ttsBos, _ttsEos, _ttsPad]);
     final ttsBosRow = Float32List.sublistView(ttsSpecial, 0, _hidden);
     final ttsEosRow = Float32List.sublistView(ttsSpecial, _hidden, 2 * _hidden);
@@ -134,7 +137,7 @@ class Qwen3Prompt {
     );
 
     // codec_pre = codec_emb[control] ++ [speaker] ++ codec_emb[[PAD, BOS]].
-    // qwen3_tts_pipeline.py:300-304.
+    // qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final codecPreLen = control.length + 1 + 2;
     final codecPre = List<Float32List>.generate(codecPreLen, (i) {
       if (i < control.length) return tables.codecEmbRow(control[i]);
@@ -143,12 +146,12 @@ class Qwen3Prompt {
       return tables.codecEmbRow(_codecBos);
     });
 
-    // role = embedText(ids[0:3]). qwen3_tts_pipeline.py:306.
+    // role = embedText(ids[0:3]). qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final role = tables.embedText(ids.sublist(0, 3));
 
     // pads = repeat(tts_pad, len(codec_pre) - 2);
     // body = concat([pads, tts_bos]) + codec_pre[:-1]  (element-wise add).
-    // qwen3_tts_pipeline.py:307-308.
+    // qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final bodyLen = codecPreLen - 1;
     final padsLen = codecPreLen - 2;
     final body = Float32List(bodyLen * _hidden);
@@ -161,7 +164,7 @@ class Qwen3Prompt {
       }
     }
 
-    // first_text = embedText(ids[3:4]) + codec_pre[-1]. qwen3_tts_pipeline.py:309.
+    // first_text = embedText(ids[3:4]) + codec_pre[-1]. qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final firstTextEmbed = tables.embedText([ids[3]]);
     final firstText = Float32List(_hidden);
     final lastCodecPre = codecPre[codecPreLen - 1];
@@ -169,14 +172,14 @@ class Qwen3Prompt {
       firstText[k] = firstTextEmbed[k] + lastCodecPre[k];
     }
 
-    // prefill = concat(role, body, first_text). qwen3_tts_pipeline.py:310.
+    // prefill = concat(role, body, first_text). qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     final promptLen = 3 + bodyLen + 1;
     if (promptLen > 32) {
-      // Defensive sanity check mirroring `_run_prefill`'s `p > 32` guard
-      // (qwen3_tts_pipeline.py:318-319) — the talker's prefill signature is
-      // a fixed 32-row buffer. This is NOT a text-length limit: only role +
+      // Defensive sanity check mirroring `Qwen3TtsPipeline._run_prefill`'s
+      // `p > 32` guard — the talker's prefill signature is a fixed 32-row
+      // buffer. This is NOT a text-length limit: only role +
       // control/x-vector rows enter the prefill (promptLen is fixed at 10
-      // for every supported language), so it never trips in practice.
+      // for a named language, 9 for 'auto'), so it never trips in practice.
       throw StateError(
         'Qwen3Prompt.build: prefill length $promptLen exceeds the talker '
         'prefill_32 signature (32)',
@@ -187,7 +190,7 @@ class Qwen3Prompt {
     prefill.setRange(3 * _hidden, (3 + bodyLen) * _hidden, body);
     prefill.setRange((3 + bodyLen) * _hidden, promptLen * _hidden, firstText);
 
-    // trailing = concat(embedText(ids[4:-5]), tts_eos). qwen3_tts_pipeline.py:311-312.
+    // trailing = concat(embedText(ids[4:-5]), tts_eos). qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt.
     // Mirrors Python's permissive `ids[4:-5]` slicing (clamped to empty
     // rather than throwing) for very short inputs where `len(ids) - 5 < 4`.
     final trailingStop = ids.length - 5 < 4 ? 4 : ids.length - 5;

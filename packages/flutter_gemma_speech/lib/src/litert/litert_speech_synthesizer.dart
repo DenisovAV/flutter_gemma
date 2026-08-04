@@ -1,13 +1,13 @@
 // `SpeechSynthesizer` facade over a background isolate, mirroring
-// `litert_speech_recognizer.dart` (Task 2.5 direct STT→TTS mirror). The
-// blocking LiteRT text-frontend + CFM/vocoder forward passes run on a
-// dedicated [TtsWorker] isolate — spawned once, reused for every call — so
-// the UI isolate stays free.
+// `litert_speech_recognizer.dart` (a direct STT→TTS mirror). The blocking
+// LiteRT text-frontend + CFM/vocoder forward passes run on a dedicated
+// [TtsWorker] isolate — spawned once, reused for every call — so the UI
+// isolate stays free.
 //
 // The native code lives in `tts_core.dart` (driven inside the worker
-// isolate, Task 2.3) plus `tts_text_frontend.dart` (Task 2.2); this file is
-// the public, async, main-isolate API generic over [TtsModelProfile] —
-// matcha/kokoro/supertonic select a profile, not a synthesizer subclass.
+// isolate) plus `tts_text_frontend.dart`; this file is the public, async,
+// main-isolate API generic over [TtsModelProfile] — matcha/kokoro/supertonic
+// select a profile, not a synthesizer subclass.
 
 import 'dart:typed_data';
 
@@ -50,7 +50,7 @@ class LiteRtSpeechSynthesizer extends SpeechSynthesizer with CloseNotifier {
   /// [TtsPipelineKind.qwen3ArCodec], [language] is validated against
   /// `qwen3SupportedLanguages` (`qwen3_languages.dart`) and this throws
   /// [ArgumentError] for an unknown value BEFORE spawning the worker —
-  /// fail-fast, ahead of the ~1.9 GB model load (Task 5.4). Once validated,
+  /// fail-fast, ahead of the ~1.9 GB model load. Once validated,
   /// [language] is normalized to lowercase (`normalizeQwen3Language`) so the
   /// whole downstream pipeline (the worker, `Qwen3TtsCore.synthesizePcm16`,
   /// `Qwen3Prompt.build`'s case-SENSITIVE `'auto'` comparison) sees one
@@ -61,8 +61,8 @@ class LiteRtSpeechSynthesizer extends SpeechSynthesizer with CloseNotifier {
   /// Qwen3-only): when non-null it replaces the bundle's single demo voice
   /// (`voices/demo_speaker.npy`) for every `synthesize` call on the returned
   /// instance. v1 ships exactly one voice and does not surface a voice
-  /// picker anywhere (see Task 5.4's brief) — this param exists purely so a
-  /// future multi-voice release doesn't need a breaking signature change.
+  /// picker anywhere — this param exists purely so a future multi-voice
+  /// release doesn't need a breaking signature change.
   ///
   /// Caller owns the returned instance and must call [close] when done.
   static Future<LiteRtSpeechSynthesizer> create({

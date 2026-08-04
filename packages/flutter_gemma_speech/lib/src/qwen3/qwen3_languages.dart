@@ -2,11 +2,11 @@
 //
 // Single source of truth for THREE consumers that must never drift apart:
 //  - `Qwen3Prompt.build` (`qwen3_prompt.dart`), which maps a language name to
-//    its control-token id for the talker prompt (Task 1.4/5.1).
-//  - `LiteRtSpeechSynthesizer.create`'s create-time language validator
-//    (Task 5.4) — fails loud with an `ArgumentError` for an unknown language
-//    BEFORE spawning the ~1.9 GB `TtsWorker`, rather than deep inside the
-//    worker isolate on the first `synthesize` call.
+//    its control-token id for the talker prompt.
+//  - `LiteRtSpeechSynthesizer.create`'s create-time language validator —
+//    fails loud with an `ArgumentError` for an unknown language BEFORE
+//    spawning the ~1.9 GB `TtsWorker`, rather than deep inside the worker
+//    isolate on the first `synthesize` call.
 //  - the example's language picker (`tts_screen.dart`), which populates its
 //    dropdown from [qwen3SupportedLanguages] instead of hardcoding a second
 //    copy of the list.
@@ -19,7 +19,7 @@
 library;
 
 /// Language id map from the model config (`talker_config.codec_language_id`).
-/// Ported from `text_to_speech_lm/python/qwen3_tts_pipeline.py:59-70`.
+/// Ported from `text_to_speech_lm/python/qwen3_tts_pipeline.py LANGUAGE_IDS`.
 const Map<String, int> languageIds = {
   'chinese': 2055,
   'english': 2050,
@@ -70,6 +70,6 @@ void assertQwen3LanguageSupported(String language) {
 /// `LiteRtSpeechSynthesizer.create` but then miss `Qwen3Prompt.build`'s
 /// `'auto'` comparison and throw `ArgumentError` AFTER the ~1.9 GB model
 /// load, at the first `synthesize` call — defeating create-time fail-fast
-/// for exactly that value (Task 5.4 review, bundled fix). Call this once,
-/// at the `create` boundary, immediately after validation succeeds.
+/// for exactly that value. Call this once, at the `create` boundary,
+/// immediately after validation succeeds.
 String normalizeQwen3Language(String language) => language.toLowerCase();

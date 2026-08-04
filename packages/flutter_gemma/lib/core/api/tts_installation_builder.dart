@@ -113,9 +113,10 @@ class TtsInstallationBuilder {
     // yet still collide with a plain file left behind by an STT/embedding
     // install (e.g. Qwen3's `tokenizer.json`), and adoption has no way to
     // verify the on-disk file actually belongs to this model (no size/hash
-    // check available). Every not-yet-installed manifest file is always
-    // (re-)downloaded fresh. The safe migration path for genuinely-legacy TTS
-    // installs is restore-time, in
+    // check available). A manifest file that is not already installed is
+    // downloaded fresh (never adopted from a legacy plain file);
+    // already-installed files are still skipped by the loop below. The safe
+    // migration path for genuinely-legacy TTS installs is restore-time, in
     // MobileModelManager._migrateLegacyCompanionForRestore.
     final files = spec.files;
     var done = 0;

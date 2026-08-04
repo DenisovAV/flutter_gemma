@@ -1,10 +1,12 @@
 // Sampler + cb0 scoring for the Qwen3-TTS talker's per-frame codebook-0
 // (cb0) token pick.
 //
-// Ports `_pick` (`text_to_speech_lm/python/qwen3_tts_pipeline.py:467-490`)
-// and the per-step scoring edits applied before it in the decode loop
-// (`qwen3_tts_pipeline.py:223-225` for `suppress`, `:231-237` for the
-// min-new-tokens guard + HF repetition penalty) verbatim.
+// Ports `Qwen3TtsPipeline._pick` (the recipe's `qwen3_tts_pipeline.py` —
+// see `qwen3_tts_core.dart`'s file header for where it's vendored and why
+// citations below name Python symbols, not line numbers) and the per-step
+// scoring edits applied before it in `Qwen3TtsPipeline.synthesize`
+// (`suppress`, the min-new-tokens guard, and the HF repetition penalty)
+// verbatim.
 //
 // This file is pure Dart (`dart:math` / `dart:typed_data` only) — no
 // Flutter import — so it can be unit-tested without a device and needs no
@@ -13,15 +15,15 @@
 import 'dart:math';
 import 'dart:typed_data';
 
-/// Talker codec-token vocabulary size. qwen3_tts_pipeline.py:44.
+/// Talker codec-token vocabulary size. qwen3_tts_pipeline.py _CODEC_VOCAB.
 const int _codecVocab = 3072;
 
-/// Codec end-of-sequence token id. qwen3_tts_pipeline.py:47.
+/// Codec end-of-sequence token id. qwen3_tts_pipeline.py _CODEC_EOS.
 const int _codecEos = 2150;
 
 /// Large negative "suppressed" score, added to logits to rule a token out
 /// of the argmax/sampling pick without producing `-inf` arithmetic hazards.
-/// qwen3_tts_pipeline.py:77.
+/// qwen3_tts_pipeline.py _NEG_INF.
 const double _negInf = -1e9;
 
 /// Builds the per-step control-token suppression vector.
@@ -30,7 +32,7 @@ const double _negInf = -1e9;
 /// `< 2048` are audible codebook-0 codes), so those are suppressed by
 /// `_negInf` — except [_codecEos], which is always a legal pick (the talker
 /// must be able to end the utterance). Ports
-/// `qwen3_tts_pipeline.py:223-225` verbatim:
+/// `qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize` verbatim:
 /// ```python
 /// suppress = np.zeros(_CODEC_VOCAB, np.float32)
 /// suppress[2048:] = _NEG_INF
@@ -51,7 +53,7 @@ Float32List buildSuppress() {
 /// array that is safe to mutate, e.g. a fresh copy of the raw logits, since
 /// the original logits are still needed elsewhere in the decode loop).
 ///
-/// Ports `qwen3_tts_pipeline.py:231-237` verbatim:
+/// Ports `qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize` verbatim:
 /// ```python
 /// scores = logits + suppress
 /// if len(frames) < 2:  # min_new_tokens=2
@@ -62,7 +64,7 @@ Float32List buildSuppress() {
 ///                      else scores[token] * repetition_penalty)
 /// ```
 /// [minNewTokensGuard] is the caller-evaluated `len(frames) < 2` condition
-/// (frame-count bookkeeping lives in the decode loop, a later task — this
+/// (frame-count bookkeeping lives in the decode loop, `synthesize` — this
 /// function only applies the resulting edit).
 void applyCb0Scoring(
   Float32List scores, {
@@ -86,7 +88,7 @@ void applyCb0Scoring(
 /// Deterministic, RNG-free pick: the argmax index of [logits].
 ///
 /// This is the golden-decode path (`do_sample=False` in the recipe):
-/// `return int(np.argmax(logits))` (`qwen3_tts_pipeline.py:482`). Matches
+/// `return int(np.argmax(logits))` (`qwen3_tts_pipeline.py _pick`). Matches
 /// numpy's `argmax` tie-break — the **first** (lowest-index) maximum wins.
 int pickGreedy(Float32List logits) {
   if (logits.isEmpty) {
@@ -110,7 +112,7 @@ int pickGreedy(Float32List logits) {
 /// Top-k / temperature sampling pick (production quality — not the golden
 /// gate, which uses [pickGreedy]).
 ///
-/// Ports `qwen3_tts_pipeline.py:483-490`'s sampling branch:
+/// Ports `qwen3_tts_pipeline.py _pick`'s sampling branch:
 /// ```python
 /// scaled = logits.astype(np.float64) / max(temperature, 1e-6)
 /// if top_k and top_k < len(scaled):

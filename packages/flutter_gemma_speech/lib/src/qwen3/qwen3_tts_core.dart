@@ -1,35 +1,44 @@
 // Qwen3-TTS talker/MTP/codec graph loader + talker KV-cache prefill.
 //
+// This file (plus `qwen3_prompt.dart`, `qwen3_sampler.dart`,
+// `qwen3_talker_layout.dart`, `qwen3_tables.dart`) ports
+// `google-ai-edge/litert-samples`' `Qwen3TtsPipeline` reference recipe
+// (`samples/litert/text_to_speech_lm/python/qwen3_tts_pipeline.py`), a
+// frozen snapshot of which is vendored at `tool/qwen3/qwen3_tts_pipeline.py`
+// for citation/reproducibility. Citations below name the recipe's Python
+// symbols (class/method/constant), NOT line numbers — the vendored copy
+// carries an extra provenance-comment line versus upstream, so any :NNN
+// anchor would silently drift; see that file's own header comment.
+//
 // `Qwen3TtsCore.load` opens the 3 LiteRT graphs that make up the Qwen3-TTS
 // pipeline (`talker_int4.tflite`, `mtp_fp32.tflite`,
 // `codec_decoder_fp32.tflite`), the host embedding tables + text-projection
 // MLP (`Qwen3Tables`), and the Qwen2 byte-level BPE text encoder
 // (`Qwen2BpeEncoder`); asserts the talker's graph layout against the frozen
 // `TalkerLayout` constants; and introspects the MTP/codec graphs' fixed-size
-// inputs (`mtpCacheLen`, `mtpKvShape`, `codecChunk`) so later tasks (the MTP
-// inner loop, the codec sliding-window decode) don't need to re-open the
-// graphs to read them. Ports the constructor of
-// `Qwen3TtsPipeline.__init__` (`text_to_speech_lm/python/
-// qwen3_tts_pipeline.py:130-171`).
+// inputs (`mtpCacheLen`, `mtpKvShape`, `codecChunk`) so the MTP inner loop
+// ([Qwen3TtsCore.runMtp]) and the codec sliding-window decode
+// ([Qwen3TtsCore.decodeCodes]) don't need to re-open the graphs to read
+// them. Ports the constructor of `Qwen3TtsPipeline.__init__`.
 //
-// [Qwen3TtsCore.runPrefill] ports `Qwen3TtsPipeline._run_prefill`
-// (`qwen3_tts_pipeline.py:315-328`): right-pads the (<=32-row) prompt
-// embedding into the talker's fixed 32-row `prefill_32` signature, builds
-// the matching causal `mask`, runs it against an all-zero initial KV cache
-// (`qwen3_tts_pipeline.py:216-217`), and returns the 56 filled KV tensors —
-// this initializes the KV cache the decode loop ([Qwen3TtsCore.runDecode])
-// threads forward one step at a time.
+// [Qwen3TtsCore.runPrefill] ports `Qwen3TtsPipeline._run_prefill`:
+// right-pads the (<=32-row) prompt embedding into the talker's fixed
+// 32-row `prefill_32` signature, builds the matching causal `mask`, runs
+// it against an all-zero initial KV cache (`Qwen3TtsPipeline.synthesize`'s
+// KV-dict init), and returns the 56 filled KV tensors — this initializes
+// the KV cache the decode loop ([Qwen3TtsCore.runDecode]) threads forward
+// one step at a time.
 //
-// [Qwen3TtsCore.runDecode] ports `Qwen3TtsPipeline._run_decode`
-// (`qwen3_tts_pipeline.py:330-340`): builds the one-row causal `mask`
-// (`mask[...,:pos+1] = 0`, else `qwen3NegInf`) for the current KV-cache
-// write position, runs the talker's `decode` signature against the
-// threaded-forward KV cache, and splits the `[1,1,4096]` logits output into
-// codebook-0 logits (`[:3072]`) and the hidden-state tail (`[3072:]`)
-// consumed by the MTP graph (a later task). This is the correctness
-// milestone for the whole talker path: prefill -> decode -> KV threading ->
-// logit split -> cb0 scoring must reproduce the PyTorch reference's frame-0
-// cb0 exactly (see `qwen3_talker_decode_test.dart`'s golden gate).
+// [Qwen3TtsCore.runDecode] ports `Qwen3TtsPipeline._run_decode`: builds
+// the one-row causal `mask` (`mask[...,:pos+1] = 0`, else `qwen3NegInf`)
+// for the current KV-cache write position, runs the talker's `decode`
+// signature against the threaded-forward KV cache, and splits the
+// `[1,1,4096]` logits output into codebook-0 logits (`[:3072]`) and the
+// hidden-state tail (`[3072:]`) consumed by [runMtp]. This is the
+// correctness milestone for the whole talker path: prefill -> decode ->
+// KV threading -> logit split -> cb0 scoring must reproduce the PyTorch
+// reference's frame-0 cb0 exactly (see `qwen3_talker_decode_test.dart`'s
+// golden gate).
 //
 // FFI style + graph load/run machinery: same as `TtsCore`/`SttCore` — see
 // `litert_graph.dart`'s file header for the create -> run -> lock(Read) ->
@@ -41,48 +50,47 @@
 // directly; annotated `@visibleForTesting` to say so, mirroring
 // `TtsCore.planMelWindows`/`concatSegments`.
 //
-// [Qwen3TtsCore.runMtp] ports `Qwen3TtsPipeline._run_mtp`
-// (`qwen3_tts_pipeline.py:342-380`): the 16-step MTP inner loop that
-// predicts the 15 residual codebooks of one frame from the talker's hidden
-// state ([runDecode]'s `hidden`) + the already-picked codebook-0 token. The
-// MTP graph is single-signature (`args_0..4` -> `output_0..2`, no
-// prefill/decode split like the talker); [load] introspects `output_0`'s
-// shape (the 15-head residual-logit tensor, `[15, vocab]`) via the bulk
-// `getOutputTensorLayouts` accessor (there is no per-output-index
-// accessor — see [_readOutputShapes]'s doc) so this file never hardcodes
-// the residual vocabulary size.
+// [Qwen3TtsCore.runMtp] ports `Qwen3TtsPipeline._run_mtp`: the 16-step
+// MTP inner loop that predicts the 15 residual codebooks of one frame from
+// the talker's hidden state ([runDecode]'s `hidden`) + the already-picked
+// codebook-0 token. The MTP graph is single-signature (`args_0..4` ->
+// `output_0..2`, no prefill/decode split like the talker); [load]
+// introspects `output_0`'s shape (the 15-head residual-logit tensor,
+// `[15, vocab]`) via the bulk `getOutputTensorLayouts` accessor (there is
+// no per-output-index accessor — see [_readOutputShapes]'s doc) so this
+// file never hardcodes the residual vocabulary size.
 //
-// [Qwen3TtsCore.decodeCodes] ports `Qwen3TtsPipeline._decode_codes`
-// (`qwen3_tts_pipeline.py:382-399`): turns the accumulated `[T, 16]` codec
-// frames (codebook-0 + the 15 MTP residuals, one row per talker frame) into
-// 24 kHz PCM by running them through the codec-decoder graph in fixed-size
-// [codecChunk]-frame windows, each carrying 25 frames of LEFT CONTEXT from
-// the previous window (`ctx = 25`) that is decoded but then cropped back
-// out of the emitted audio — the codec is a small causal-ish conv stack, not
-// a fully streaming one, so re-feeding a tail of already-seen frames as
-// context on every step is what keeps chunk boundaries from producing
-// audible seams. Every codec call decodes exactly [codecChunk] frames'
-// worth of PCM (`[1, 1, codecChunk * _upsampleFactor]`) regardless of how
-// many of the window's rows are real (the rest of `buf` is left as
-// zero-padding); only the `window.length`-worth of frames actually fed are
-// kept from each call's output.
+// [Qwen3TtsCore.decodeCodes] ports `Qwen3TtsPipeline._decode_codes`: turns
+// the accumulated `[T, 16]` codec frames (codebook-0 + the 15 MTP
+// residuals, one row per talker frame) into 24 kHz PCM by running them
+// through the codec-decoder graph in fixed-size [codecChunk]-frame
+// windows, each carrying 25 frames of LEFT CONTEXT from the previous
+// window (`ctx = 25`) that is decoded but then cropped back out of the
+// emitted audio — the codec is a small causal-ish conv stack, not a fully
+// streaming one, so re-feeding a tail of already-seen frames as context on
+// every step is what keeps chunk boundaries from producing audible seams.
+// Every codec call decodes exactly [codecChunk] frames' worth of PCM
+// (`[1, 1, codecChunk * _upsampleFactor]`) regardless of how many of the
+// window's rows are real (the rest of `buf` is left as zero-padding); only
+// the `window.length`-worth of frames actually fed are kept from each
+// call's output.
 //
-// [Qwen3TtsCore.synthesize] ports `Qwen3TtsPipeline.synthesize`
-// (`qwen3_tts_pipeline.py:173-266`) verbatim — the host-orchestrated,
-// end-to-end AR loop that ties [runPrefill]/[runDecode]/[runMtp]/
-// [decodeCodes] together: tokenize the chat-template-wrapped text
-// (`Qwen2BpeEncoder`), build the prompt embeddings (`Qwen3Prompt.build`),
-// prefill + one initial decode step, then loop — score + pick cb0
-// ([buildSuppress]/[applyCb0Scoring]/[pickGreedy]/[pickSampled], EOS
-// breaks), run the MTP inner loop for the 15 residuals, accumulate the
-// frame, assemble the next step's talker embedding (codec-token embedding
-// of cb0 plus all 15 MTP-residual embeddings plus the next streamed-text/pad
-// row), and decode one more talker step — until EOS or [maxFrames]. This is
-// the culmination correctness gate for the whole pipeline: fp32-greedy
-// waveform correlation ≈ 1.0 vs the PyTorch reference
-// (`qwen3_synthesize_test.dart`). [Qwen3TtsCore.synthesizePcm16] is the same
-// loop, returning int16 LE mono PCM instead of `[-1, 1]` float samples, for
-// the background-isolate worker (a later task).
+// [Qwen3TtsCore.synthesize] ports `Qwen3TtsPipeline.synthesize` verbatim —
+// the host-orchestrated, end-to-end AR loop that ties [runPrefill]/
+// [runDecode]/[runMtp]/[decodeCodes] together: tokenize the
+// chat-template-wrapped text (`Qwen2BpeEncoder`), build the prompt
+// embeddings (`Qwen3Prompt.build`), prefill + one initial decode step,
+// then loop — score + pick cb0 ([buildSuppress]/[applyCb0Scoring]/
+// [pickGreedy]/[pickSampled], EOS breaks), run the MTP inner loop for the
+// 15 residuals, accumulate the frame, assemble the next step's talker
+// embedding (codec-token embedding of cb0 plus all 15 MTP-residual
+// embeddings plus the next streamed-text/pad row), and decode one more
+// talker step — until EOS or [maxFrames]. This is the culmination
+// correctness gate for the whole pipeline: fp32-greedy waveform
+// correlation ≈ 1.0 vs the PyTorch reference (`qwen3_synthesize_test.dart`).
+// [Qwen3TtsCore.synthesizePcm16] is the same loop, returning int16 LE mono
+// PCM instead of `[-1, 1]` float samples, for the isolate worker
+// (`_runQwen3Worker` in `tts_worker.dart`).
 
 import 'dart:ffi';
 import 'dart:io' show Platform;
@@ -126,7 +134,7 @@ const int _upsampleFactor = 1920;
 
 /// Number of MTP residual codebooks — matches `qwen3_tts_pipeline.py`'s
 /// module-level implicit `15` (the `arange(15)` in [Qwen3TtsCore.synthesize]'s
-/// embed-accumulation step, `qwen3_tts_pipeline.py:250`). Distinct from
+/// embed-accumulation step, `qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize`). Distinct from
 /// [_numCodeGroups] (`16` = cb0 + these 15 residuals).
 const int _mtpResidualGroups = 15;
 
@@ -140,7 +148,7 @@ const int _codecEos = 2150;
 
 /// Left-context frame count [Qwen3TtsCore.decodeCodes]'s sliding window
 /// re-feeds from the previous window on every step but one (`ctx`/`c` in
-/// `qwen3_tts_pipeline.py:384-392` — see this file's header). [codecChunk]
+/// `qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes` — see this file's header). [codecChunk]
 /// must exceed this or [Qwen3TtsCore.decodeCodes]'s window advance
 /// (`codecChunk - c`) never makes progress — checked at [Qwen3TtsCore.load]
 /// time, see the guard there.
@@ -293,9 +301,9 @@ class Qwen3TtsCore {
   final LoadedGraph _codec;
 
   /// Host embedding tables + text-projection MLP — used by the decode loop
-  /// (Task 2.3+) to turn codec-token / MTP-residual / text-token ids into
-  /// 1024-d talker-space embeddings. Not read by this task's [runPrefill]
-  /// (the caller supplies already-embedded prompt rows, e.g. via
+  /// (`runDecode`/`synthesize`) to turn codec-token / MTP-residual /
+  /// text-token ids into 1024-d talker-space embeddings. Not read by
+  /// [runPrefill] (the caller supplies already-embedded prompt rows, e.g. via
   /// `Qwen3Prompt.build`), but loaded here so a single [Qwen3TtsCore] owns
   /// every table the full pipeline needs.
   final Qwen3Tables _tables;
@@ -434,8 +442,8 @@ class Qwen3TtsCore {
       ];
 
       // MTP/codec are each single-signature graphs (signature index 0);
-      // their inputs are positional `args_N` == input index N (recipe
-      // `:162-171`).
+      // their inputs are positional `args_N` == input index N (recipe's
+      // `Qwen3TtsPipeline.__init__`).
       final mtpMaskShape = _readInputShape(
         bindings,
         mtp.compiledModel,
@@ -452,13 +460,14 @@ class Qwen3TtsCore {
         'mtp.args_3 (k-cache)',
       );
 
-      // MTP has 3 outputs (recipe `:373-376`: `output_0` residual-head
-      // logits, `output_1`/`output_2` the new k/v cache) — read all 3 via
+      // MTP has 3 outputs (recipe `Qwen3TtsPipeline._run_mtp`: `output_0`
+      // residual-head logits, `output_1`/`output_2` the new k/v cache) —
+      // read all 3 via
       // the bulk accessor (see [_readOutputShapes]'s doc for why a single
       // call must ask for all of them) and pick out `output_0` by shape:
       // it's the one that does NOT match [mtpKvShape] (k/v are both
       // `mtpKvShape`-shaped). Verified once, at load time, against the
-      // REAL compiled graph — not hardcoded — per Task 3.1's brief.
+      // REAL compiled graph — not hardcoded.
       final mtpOutputShapes = _readOutputShapes(
         bindings,
         mtp.compiledModel,
@@ -491,7 +500,7 @@ class Qwen3TtsCore {
         );
       }
       // `[15, vocab]` (observed) or `[1, 15, vocab]` (a leading batch dim,
-      // tolerated defensively — see Task 3.1's brief) — either way the
+      // tolerated defensively) — either way the
       // flat `output_0` buffer is row-major `[15 * vocab]`, so only
       // `vocab` (the last dim) is actually needed by [runMtp].
       final int mtpResidualVocab;
@@ -584,7 +593,7 @@ class Qwen3TtsCore {
   }
 
   /// All-zero initial KV cache — 56 tensors sized to [_kvShapes]. Port of
-  /// `qwen3_tts_pipeline.py:216-217`'s
+  /// `qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize`'s
   /// `kv = {n: np.zeros(shape, np.float32) for n in kv_names}`.
   List<Float32List> _zeroKv() => [
     for (final shape in _kvShapes)
@@ -593,12 +602,11 @@ class Qwen3TtsCore {
 
   /// Prefills the talker's KV cache from the (<=32-row) prompt embedding
   /// [prefillEmb] (flat `[promptLen * 1024]`, row-major — e.g.
-  /// `Qwen3Prompt.build`'s `prefill`). Port of
-  /// `Qwen3TtsPipeline._run_prefill` (`qwen3_tts_pipeline.py:315-328`):
+  /// `Qwen3Prompt.build`'s `prefill`). Port of `Qwen3TtsPipeline._run_prefill`:
   /// right-pads into the fixed 32-row `prefill_32` signature, builds the
   /// matching causal `mask`, runs against an all-zero initial KV cache
   /// ([_zeroKv]), and returns the 56 filled KV tensors — the new KV state a
-  /// caller threads into the first decode step (`runDecode`, Task 2.3).
+  /// caller threads into the first decode step (`runDecode`).
   ///
   /// Not true public API (no v1 consumer outside this package calls it
   /// directly) — exposed (not underscore-private) so
@@ -627,15 +635,15 @@ class Qwen3TtsCore {
       );
     }
 
-    // buf[1,32,1024]: right-padded prompt (qwen3_tts_pipeline.py:320-321).
+    // buf[1,32,1024]: right-padded prompt (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_prefill).
     final buf = Float32List(32 * TalkerLayout.embeddingDim);
     buf.setRange(0, prefillEmb.length, prefillEmb);
 
-    // input_pos = arange(32) (qwen3_tts_pipeline.py:326).
+    // input_pos = arange(32) (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_prefill).
     final inputPos = Int32List.fromList([for (var i = 0; i < 32; i++) i]);
 
     // mask[1,1,32,cacheLen]: causal, `mask[0,0,i,:min(i,p-1)+1] = 0.0` else
-    // qwen3NegInf (qwen3_tts_pipeline.py:322-324). Flattened row-major —
+    // qwen3NegInf (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_prefill). Flattened row-major —
     // row i occupies mask[i*cacheLen .. (i+1)*cacheLen).
     final cacheLen = TalkerLayout.cacheLen;
     final mask = Float32List(32 * cacheLen);
@@ -670,14 +678,14 @@ class Qwen3TtsCore {
 
   /// Runs one autoregressive talker decode step, threading [kv] (the 56
   /// tensors from the previous [runPrefill]/[runDecode] call) forward one
-  /// position. Port of `Qwen3TtsPipeline._run_decode`
-  /// (`qwen3_tts_pipeline.py:330-340`).
+  /// position. Port of `Qwen3TtsPipeline._run_decode`.
   ///
   /// [embed] (`[1024]`) is the current step's input embedding — for the
-  /// very first decode step this is the last prefill row
-  /// (`prefill[0, -1]`, recipe `:219-220`); for later steps (Task 4.2's
-  /// loop) it's the assembled next-frame embedding. [pos] is the KV-cache
-  /// write position (0-indexed, matching `input_pos` passed to the graph).
+  /// very first decode step this is the last prefill row (`prefill[0, -1]`,
+  /// recipe's `Qwen3TtsPipeline.synthesize`); for later steps (the AR loop
+  /// in [synthesize]) it's the assembled next-frame embedding. [pos] is the
+  /// KV-cache write position (0-indexed, matching `input_pos` passed to the
+  /// graph).
   ///
   /// Builds the one-row causal `mask` (`[1,1,1,cacheLen]`,
   /// `mask[...,:pos+1] = 0.0` else [qwen3NegInf]), runs the talker's
@@ -726,7 +734,7 @@ class Qwen3TtsCore {
     }
 
     // mask[1,1,1,cacheLen]: mask[...,:pos+1] = 0.0 else qwen3NegInf.
-    // qwen3_tts_pipeline.py:330-340 (the decode-step causal mask — every
+    // qwen3_tts_pipeline.py Qwen3TtsPipeline._run_decode (the decode-step causal mask — every
     // KV-cache slot up to and including `pos` is attendable, everything
     // after is not-yet-written).
     final mask = Float32List(cacheLen);
@@ -775,7 +783,7 @@ class Qwen3TtsCore {
   /// the 15 residual codebooks of one frame from the talker's last hidden
   /// state [hidden] (`[1024]`, [runDecode]'s `hidden` output) and the
   /// already-picked codebook-0 token [cb0]. Port of
-  /// `Qwen3TtsPipeline._run_mtp` (`qwen3_tts_pipeline.py:342-380`).
+  /// `Qwen3TtsPipeline._run_mtp`.
   ///
   /// The MTP graph is a single decode step over a fixed [mtpCacheLen]-slot
   /// (17) KV cache, invoked 16 times per frame (`t = 0..15`): two seed
@@ -798,7 +806,7 @@ class Qwen3TtsCore {
   /// [greedy] selects [pickGreedy] (`do_sample=False`, the golden path —
   /// `qwen3_mtp_test.dart`'s gate) when `true`, else [pickSampled] with
   /// [topK]/[temperature]/[rng] (`do_sample=True`, ported from
-  /// `qwen3_tts_pipeline.py:377-379`'s `_pick(..., do_sample, top_k,
+  /// `qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp`'s `_pick(..., do_sample, top_k,
   /// temperature, rng)` — the same top-k/temperature knobs are threaded
   /// through every one of the 15 residual heads, exactly as the recipe
   /// does). [rng] is required (and only consulted) when `greedy` is `false`.
@@ -834,7 +842,7 @@ class Qwen3TtsCore {
       );
     }
 
-    // k_all/v_all: qwen3_tts_pipeline.py:364-365
+    // k_all/v_all: qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp
     // (`k_all = np.zeros(self._mtp_kv_shape, np.float32); v_all =
     // np.zeros_like(k_all)`) — reassigned each step to the graph's own
     // `output_1`/`output_2`, same "thread the previous step's output back
@@ -843,7 +851,7 @@ class Qwen3TtsCore {
     var kAll = Float32List(kvCount);
     var vAll = Float32List(kvCount);
 
-    // feeds = [hidden, self._codec_emb[cb0]] (qwen3_tts_pipeline.py:366).
+    // feeds = [hidden, self._codec_emb[cb0]] (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp).
     final feeds = <Float32List>[hidden, _tables.codecEmbRow(cb0)];
     final codes = <int>[];
 
@@ -855,11 +863,11 @@ class Qwen3TtsCore {
 
     for (var t = 0; t < 16; t++) {
       // embed = (feeds[t] if t < 2 else self._mtp_emb[t - 2][codes[-1]])
-      // .reshape(1, 1, _HIDDEN) (qwen3_tts_pipeline.py:369-370).
+      // .reshape(1, 1, _HIDDEN) (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp).
       final embed = t < 2 ? feeds[t] : _tables.mtpEmbRow(t - 2, codes.last);
 
       // mask = np.where(np.arange(cache) <= t, 0.0, _NEG_INF)...
-      // .reshape(1, 1, 1, -1) (qwen3_tts_pipeline.py:371-372).
+      // .reshape(1, 1, 1, -1) (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp).
       final mask = Float32List(mtpCacheLen);
       for (var j = 0; j <= t; j++) {
         mask[j] = 0.0;
@@ -870,7 +878,7 @@ class Qwen3TtsCore {
 
       // out = self._mtp(args_0=embed, args_1=[t], args_2=mask,
       //                  args_3=k_all, args_4=v_all)
-      // (qwen3_tts_pipeline.py:373-375).
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp).
       final inputs = <GraphInput>[
         F32Input([1, 1, TalkerLayout.embeddingDim], embed),
         I32Input([1], Int32List.fromList([t])),
@@ -888,12 +896,12 @@ class Qwen3TtsCore {
       );
 
       // k_all, v_all = out['output_1'], out['output_2']
-      // (qwen3_tts_pipeline.py:376).
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp).
       kAll = out[1];
       vAll = out[2];
 
       // if t >= 1: codes.append(_pick(out['output_0'][t - 1], ...))
-      // (qwen3_tts_pipeline.py:377-379). `out[0]` is the flat, row-major
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_mtp). `out[0]` is the flat, row-major
       // `[15 * vocab]` (or `[1, 15, vocab]`) buffer — head `t - 1` is the
       // `vocab`-wide slice at that row, regardless of a leading batch dim
       // (row-major layout is unaffected by a leading size-1 axis).
@@ -921,9 +929,8 @@ class Qwen3TtsCore {
   /// Decodes the accumulated `[T, 16]` codec [frames] (row `t` = codebook-0
   /// + the 15 MTP residuals for talker frame `t`, e.g. every row of
   /// [runMtp]'s output prefixed with its `cb0`) into 24 kHz PCM in `[-1,
-  /// 1]`. Port of `Qwen3TtsPipeline._decode_codes`
-  /// (`qwen3_tts_pipeline.py:382-399`) — see this file's header for the
-  /// sliding-window-with-left-context rationale.
+  /// 1]`. Port of `Qwen3TtsPipeline._decode_codes` — see this file's header
+  /// for the sliding-window-with-left-context rationale.
   ///
   /// Walks [frames] in windows of at most [codecChunk] rows: each window
   /// after the first carries up to 25 rows of left context (`c = min(25,
@@ -959,21 +966,21 @@ class Qwen3TtsCore {
       }
     }
 
-    // chunk, ctx = self._codec_chunk, 25 (qwen3_tts_pipeline.py:384).
+    // chunk, ctx = self._codec_chunk, 25 (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes).
     const ctx = _codecLeftContext;
     final chunk = codecChunk;
     final pieces = <Float32List>[];
     var i = 0;
     while (i < frames.length) {
       // c = min(ctx, i); j = min(i + chunk - c, len(codes))
-      // (qwen3_tts_pipeline.py:388-391).
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes).
       final c = math.min(ctx, i);
       final j = math.min(i + chunk - c, frames.length);
-      // window = codes[i - c:j] (qwen3_tts_pipeline.py:392).
+      // window = codes[i - c:j] (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes).
       final window = frames.sublist(i - c, j);
 
       // buf = zeros(1, 16, chunk); buf[0, :, :len(window)] = window.T
-      // (qwen3_tts_pipeline.py:393-394) — flat row-major `[1,16,chunk]`:
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes) — flat row-major `[1,16,chunk]`:
       // codebook k, window position n -> buf[k * chunk + n].
       final buf = Int32List(_numCodeGroups * chunk);
       for (var n = 0; n < window.length; n++) {
@@ -984,7 +991,7 @@ class Qwen3TtsCore {
       }
 
       // out = self._codec(args_0=buf); wav = out.values()[0][0, 0]
-      // (qwen3_tts_pipeline.py:395-396).
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes).
       final out = runLiteRtGraph(
         _bindings,
         _codec.compiledModel,
@@ -999,7 +1006,7 @@ class Qwen3TtsCore {
       final wav = out[0];
 
       // pieces.append(wav[c * _UPSAMPLE:len(window) * _UPSAMPLE])
-      // (qwen3_tts_pipeline.py:397) — drop the left-context samples.
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes) — drop the left-context samples.
       pieces.add(
         Float32List.sublistView(
           wav,
@@ -1010,7 +1017,7 @@ class Qwen3TtsCore {
       i = j;
     }
 
-    // return np.concatenate(pieces) (qwen3_tts_pipeline.py:399).
+    // return np.concatenate(pieces) (qwen3_tts_pipeline.py Qwen3TtsPipeline._decode_codes).
     final total = pieces.fold<int>(0, (sum, p) => sum + p.length);
     final result = Float32List(total);
     var offset = 0;
@@ -1022,8 +1029,8 @@ class Qwen3TtsCore {
   }
 
   /// Synthesizes speech for [text] in the voice identified by [speaker].
-  /// Port of `Qwen3TtsPipeline.synthesize` (`qwen3_tts_pipeline.py:173-266`)
-  /// — see this file's header for the full loop shape.
+  /// Port of `Qwen3TtsPipeline.synthesize` — see this file's header for the
+  /// full loop shape.
   ///
   /// [speaker] is a `[1024]` x-vector identifying the target voice (see
   /// `Qwen3Prompt.build`'s doc comment). [language] is one of
@@ -1037,7 +1044,7 @@ class Qwen3TtsCore {
   /// [temperature] / [repetitionPenalty] are only consulted by the sampled
   /// path — [repetitionPenalty] scores the cb0 pick only (`applyCb0Scoring`
   /// over the `history` of previously-picked cb0 tokens), matching the
-  /// recipe's `history` set (`qwen3_tts_pipeline.py:228,234-237`). [seed]
+  /// recipe's `history` set (`Qwen3TtsPipeline.synthesize`). [seed]
   /// seeds the `dart:math.Random` [pickSampled]/[runMtp]'s sampled path
   /// draws from; the greedy path never touches it. [maxFrames] caps the
   /// number of generated 12.5 Hz frames (512 frames ≈ 41 s of audio).
@@ -1071,11 +1078,11 @@ class Qwen3TtsCore {
   }
 
   /// Same as [synthesize], but returns mono 16-bit PCM (little-endian)
-  /// bytes instead of `[-1, 1]` float samples — for the background-isolate
-  /// worker (a later task) that streams audio to a player expecting int16
-  /// PCM. Every float sample is clamped to `[-1, 1]`, scaled by `32767`,
-  /// and rounded before being written little-endian: `(sample.clamp(-1, 1)
-  /// * 32767).round()`.
+  /// bytes instead of `[-1, 1]` float samples — for the isolate worker
+  /// (`_runQwen3Worker` in `tts_worker.dart`) that streams audio to a
+  /// player expecting int16 PCM. Every float sample is clamped to `[-1, 1]`,
+  /// scaled by `32767`, and rounded before being written little-endian:
+  /// `(sample.clamp(-1, 1) * 32767).round()`.
   Uint8List synthesizePcm16(
     String text, {
     required Float32List speaker,
@@ -1109,9 +1116,8 @@ class Qwen3TtsCore {
 
   /// The end-to-end AR loop shared by [synthesize]/[synthesizePcm16], split
   /// out so both can call [decodeCodes] on the same `frames` without
-  /// duplicating the loop. Port of `Qwen3TtsPipeline.synthesize`
-  /// (`qwen3_tts_pipeline.py:173-266`, the part before `_decode_codes` at
-  /// `:259`).
+  /// duplicating the loop. Port of `Qwen3TtsPipeline.synthesize` — the part
+  /// before its `_decode_codes` call.
   List<List<int>> _synthesizeFrames({
     required String text,
     required Float32List speaker,
@@ -1129,7 +1135,7 @@ class Qwen3TtsCore {
     final rng = math.Random(seed);
 
     // ids = tokenizer.encode(f'<|im_start|>assistant\n{text}<|im_end|>\n
-    // <|im_start|>assistant\n').ids (qwen3_tts_pipeline.py:289-291).
+    // <|im_start|>assistant\n').ids (qwen3_tts_pipeline.py Qwen3TtsPipeline._build_prompt).
     final ids = _encoder.encode(
       '<|im_start|>assistant\n$text<|im_end|>\n<|im_start|>assistant\n',
     );
@@ -1152,15 +1158,15 @@ class Qwen3TtsCore {
     );
     var (cb0Logits, hidden, kv) = runDecode(initialKv, firstEmbed, pos);
 
-    // suppress = ...; qwen3_tts_pipeline.py:223-225.
+    // suppress = ...; qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize.
     final suppress = buildSuppress();
     final frames = <List<int>>[];
     final history = <int>{};
     var hitEos = false;
 
-    // while len(frames) < max_frames: ... (qwen3_tts_pipeline.py:230-256).
+    // while len(frames) < max_frames: ... (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
     while (frames.length < maxFrames) {
-      // scores = logits + suppress; ... (qwen3_tts_pipeline.py:231-237).
+      // scores = logits + suppress; ... (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       // COPY cb0Logits first — applyCb0Scoring mutates its argument in
       // place (see its doc), and the original decode-step logits must not
       // be corrupted (nothing else reads them again this iteration, but
@@ -1173,24 +1179,24 @@ class Qwen3TtsCore {
         suppress: suppress,
         history: history,
         repetitionPenalty: repetitionPenalty,
-        // len(frames) < 2: min_new_tokens=2 (qwen3_tts_pipeline.py:232).
+        // len(frames) < 2: min_new_tokens=2 (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
         minNewTokensGuard: frames.length < 2,
       );
 
       // cb0 = _pick(scores, do_sample, top_k, temperature, rng); history.
-      // add(cb0) (qwen3_tts_pipeline.py:238-239).
+      // add(cb0) (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       final cb0 = doSample
           ? pickSampled(scores, topK: topK, temperature: temperature, rng: rng)
           : pickGreedy(scores);
       history.add(cb0);
-      // if cb0 == _CODEC_EOS: break (qwen3_tts_pipeline.py:240-241).
+      // if cb0 == _CODEC_EOS: break (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       if (cb0 == _codecEos) {
         hitEos = true;
         break;
       }
 
       // residual = _run_mtp(hidden, cb0, do_sample, top_k, temperature,
-      // rng) (qwen3_tts_pipeline.py:244-245).
+      // rng) (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       final residual = runMtp(
         hidden,
         cb0,
@@ -1199,11 +1205,11 @@ class Qwen3TtsCore {
         temperature: temperature,
         rng: rng,
       );
-      // frames.append([cb0] + residual) (qwen3_tts_pipeline.py:247).
+      // frames.append([cb0] + residual) (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       frames.add([cb0, ...residual]);
 
       // embed = codec_emb[cb0] + mtp_emb[arange(15), residual].sum(0)
-      // (qwen3_tts_pipeline.py:249-250) — element-wise add over ALL 15 MTP
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize) — element-wise add over ALL 15 MTP
       // residual groups (unlike [runMtp]'s own inner loop, which only ever
       // embeds groups 0..13 while picking; group 14 is used here, for the
       // FIRST time, to assemble the NEXT talker step's input).
@@ -1219,7 +1225,7 @@ class Qwen3TtsCore {
         }
       }
       // step = len(frames) - 1; embed += trailing[step] if step <
-      // len(trailing) else tts_pad (qwen3_tts_pipeline.py:251-252).
+      // len(trailing) else tts_pad (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       final step = frames.length - 1;
       final addend = step < prompt.trailing.length
           ? prompt.trailing[step]
@@ -1229,7 +1235,7 @@ class Qwen3TtsCore {
       }
 
       // pos += 1; logits, hidden, kv = _run_decode(kv, embed, pos)
-      // (qwen3_tts_pipeline.py:253-255).
+      // (qwen3_tts_pipeline.py Qwen3TtsPipeline.synthesize).
       pos++;
       (cb0Logits, hidden, kv) = runDecode(kv, embed, pos);
     }

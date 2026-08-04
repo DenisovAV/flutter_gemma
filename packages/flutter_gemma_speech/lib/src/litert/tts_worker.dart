@@ -1,12 +1,13 @@
 // Long-lived background isolate that owns the entire Matcha-TTS pipeline:
-// both the text frontend (dictionary G2P + host embedding gather, Task 2.2)
-// and the native LiteRT core (4 compiled graphs + the CFM/vocoder forward
-// passes, Task 2.3). The forward passes are blocking synchronous FFI calls;
-// running them (and the frontend's dictionary lookups + 275k-entry load)
-// here keeps the UI isolate's event loop free. Direct analog of
-// `stt_worker.dart` — see that file's header for the "why a long-lived
-// worker and not `Isolate.run`" rationale (FFI handles can't cross isolate
-// boundaries; the compiled models are expensive to build but cheap to run).
+// both the text frontend (`TtsTextFrontend`: dictionary G2P + host embedding
+// gather) and the native LiteRT core (`TtsCore`: 4 compiled graphs + the
+// CFM/vocoder forward passes). The forward passes are blocking synchronous
+// FFI calls; running them (and the frontend's dictionary lookups +
+// 275k-entry load) here keeps the UI isolate's event loop free. Direct
+// analog of `stt_worker.dart` — see that file's header for the "why a
+// long-lived worker and not `Isolate.run`" rationale (FFI handles can't
+// cross isolate boundaries; the compiled models are expensive to build but
+// cheap to run).
 //
 // Unlike `SttWorker` (which owns only `SttCore`, tokenizer included inside
 // the core), this worker owns TWO objects: `TtsTextFrontend` and `TtsCore`.
@@ -31,10 +32,10 @@
 // (setup), a `String` (request), and a `Uint8List` of 16-bit PCM samples
 // (reply).
 //
-// `_workerEntry` branches on `init.profile.pipeline` (Task 5.3) into
-// `_runMatchaWorker` (the above, unchanged) or `_runQwen3Worker`: Qwen3-TTS
-// is a from-scratch autoregressive codec-token LM (`Qwen3TtsCore`, Phase
-// 2-4) with its own KV cache and no CFM step, so it needs neither
+// `_workerEntry` branches on `init.profile.pipeline` into `_runMatchaWorker`
+// (the above, unchanged) or `_runQwen3Worker`: Qwen3-TTS is a from-scratch
+// autoregressive codec-token LM (`Qwen3TtsCore`) with its own KV cache and
+// no CFM step, so it needs neither
 // `TtsTextFrontend`/`TtsTextNormalizer` (Matcha's dictionary G2P + host
 // embedding gather + clause splitter) nor `TtsCore` (Matcha's native
 // core) — it does its own byte-level BPE tokenization
@@ -61,7 +62,8 @@ import 'tts_core.dart';
 
 /// Handshake payload the worker sends back once the frontend + native model
 /// are loaded. Carries [sampleRate] (read from `TtsCore` after load) so the
-/// facade (Task 2.5) can expose it synchronously without a round-trip.
+/// `LiteRtSpeechSynthesizer` facade can expose it synchronously without a
+/// round-trip.
 class _Ready {
   _Ready(this.commandPort, this.sampleRate);
   final SendPort commandPort;
@@ -119,8 +121,8 @@ class _WorkerInit {
   /// `'auto'`, forwarded verbatim to every `Qwen3TtsCore.synthesizePcm16`
   /// call. Ignored by [_runMatchaWorker] (Matcha has no language parameter —
   /// its locale comes from [TtsModelProfile.locale] instead). Validated by
-  /// `LiteRtSpeechSynthesizer.create` (Task 5.4) before the worker is even
-  /// spawned, so by the time it reaches here it is always a supported value.
+  /// `LiteRtSpeechSynthesizer.create` before the worker is even spawned, so
+  /// by the time it reaches here it is always a supported value.
   final String language;
 
   /// Qwen3-only: forward-compat speaker x-vector override (`[1024]`); null
@@ -313,8 +315,8 @@ Future<void> _workerEntry(_WorkerInit init) async {
 
 /// Matcha-CFM arm of [_workerEntry] — loads `TtsTextFrontend` + `TtsCore`
 /// and serves requests via the clause-split / per-clause-CFM-seed /
-/// inter-clause-silence loop described in this file's header. Unchanged by
-/// Task 5.3 (Qwen3 dispatches to [_runQwen3Worker] instead).
+/// inter-clause-silence loop described in this file's header. Qwen3-TTS
+/// dispatches to [_runQwen3Worker] instead.
 Future<void> _runMatchaWorker(_WorkerInit init) async {
   final TtsCore core;
   final TtsTextFrontend frontend;
@@ -395,9 +397,9 @@ Future<void> _runMatchaWorker(_WorkerInit init) async {
   }
 }
 
-/// Qwen3-TTS arm of [_workerEntry] (Task 5.3). Loads `Qwen3TtsCore` (the
-/// talker/MTP/codec graphs + host tables + BPE encoder, Phase 2-4) and the
-/// bundle's one demo-voice x-vector, then serves requests with exactly ONE
+/// Qwen3-TTS arm of [_workerEntry]. Loads `Qwen3TtsCore` (the talker/MTP/
+/// codec graphs + host tables + BPE encoder) and the bundle's one
+/// demo-voice x-vector, then serves requests with exactly ONE
 /// `core.synthesizePcm16` call per request.
 ///
 /// Deliberately does NOT reuse [_runMatchaWorker]'s clause-split / CFM-seed
@@ -408,9 +410,10 @@ Future<void> _runMatchaWorker(_WorkerInit init) async {
 ///   ceiling — it consumes a request's full text in one AR pass
 ///   (`Qwen3TtsCore.synthesize`'s `maxFrames`, not a text-length limit).
 /// - No CFM seed (`ttsCfmSeed + clauseIndex`): Qwen3 has no CFM step; its
-///   only randomness is [_pickSampled]'s token sampling, seeded once per
-///   call via `Qwen3TtsCore.synthesizePcm16`'s own `seed` param (left
-///   unset here — see [doSample]'s doc below).
+///   only randomness is `pickSampled`'s token sampling (see
+///   [Qwen3TtsCore.synthesizePcm16]'s sampling path), seeded once per call
+///   via `Qwen3TtsCore.synthesizePcm16`'s own `seed` param (left unset
+///   here — see `doSample`'s doc below).
 /// - No `concatPcmWithSilence`: there is only ever one segment per request
 ///   (no per-clause splitting to splice back together).
 ///
@@ -419,20 +422,22 @@ Future<void> _runMatchaWorker(_WorkerInit init) async {
 /// artifact the golden-gate tests load) — this is the runtime path real
 /// users hit, not a correctness gate.
 ///
-/// `doSample: true` on every call (per Task 5.3's brief: the runtime
-/// default is varied, natural prosody; a fixed `seed` would make every
-/// synthesis of the same text sound identical). The fp32-greedy
+/// `doSample: true` on every call (the runtime default is varied, natural
+/// prosody; a fixed `seed` would make every synthesis of the same text
+/// sound identical). The fp32-greedy
 /// byte-for-byte golden gate lives in `qwen3_synthesize_test.dart`
 /// (`Qwen3TtsCore.synthesize` driven directly with `doSample: false`), not
 /// here — this worker never runs greedy.
 ///
 /// v1 ships exactly one voice: the bundle's `demo_speaker.npy` x-vector
-/// (Task 5.2's manifest), read once at load time via [readNpyF32] unless
-/// [_WorkerInit.voice] overrides it — no voice PICKER yet (`init.voice` is
-/// forward-compat-only; the UI never sets it, see [_WorkerInit.voice]'s
-/// doc). `init.language` is the per-call knob Task 5.3 threads through and
-/// Task 5.4 validates + surfaces a real picker for; see
-/// [_WorkerInit.language]'s doc.
+/// (the model bundle's asset manifest), read once at load time via
+/// [readNpyF32] unless [_WorkerInit.voice] overrides it — no voice PICKER
+/// yet (`init.voice` is forward-compat-only; the UI never sets it, see
+/// [_WorkerInit.voice]'s doc). `init.language` is the per-call knob this
+/// worker threads through to `Qwen3TtsCore.synthesizePcm16`, validated up
+/// front by `LiteRtSpeechSynthesizer.create` (`assertQwen3LanguageSupported`),
+/// which is also what surfaces a real language picker (via
+/// `qwen3SupportedLanguages`); see [_WorkerInit.language]'s doc.
 ///
 /// Fail-loud (per Global Constraints / the project's no-masking-fallback
 /// rule): if [Qwen3TtsCore.load] or the demo-voice read throws, this sends

@@ -1,7 +1,7 @@
 /// Per-model runtime descriptor for the generic Matcha-CFM TTS pipeline.
 ///
 /// This is what makes the TTS pipeline SELECTABLE without per-model classes:
-/// `TtsCore` (Task 2.3) is generic over [TtsModelProfile] — matcha/kokoro/
+/// `TtsCore` is generic over [TtsModelProfile] — matcha/kokoro/
 /// supertonic are data (a profile + a catalog entry), not separate synthesizer
 /// classes. Mirrors `SttModelProfile`. Unlike STT, the numeric synthesis
 /// params (mel dims, CFM steps, sample rate, …) are NOT baked in here — Matcha
@@ -42,8 +42,8 @@ enum G2pStrategy { dictionary, dictionaryPlusNeural, neuralOnly, none }
 /// `.tflite` to load for which stage; it does not auto-detect roles from the
 /// compiled models' tensor layouts.
 class TtsModelProfile {
-  /// Matcha-TTS bundle: filenames match `TtsModelType.matcha.manifest`
-  /// (Task 1.3), here they get roles.
+  /// Matcha-TTS bundle: filenames match `TtsModelType.matcha.manifest`;
+  /// here they get roles.
   const TtsModelProfile.matcha()
     : pipeline = TtsPipelineKind.matchaCfm,
       textEncoderFile = 'matcha_textenc_fp16.tflite',
@@ -122,7 +122,7 @@ class TtsModelProfile {
   /// token models.
   final G2pStrategy? g2p;
 
-  /// Selects the `TtsTextNormalizer` (Task 4); matcha → `'en_us'`.
+  /// Selects the `TtsTextNormalizer`; matcha → `'en_us'`.
   final String locale;
 
   /// Resolve the runtime profile for [t]. Only [TtsModelType.matcha] and

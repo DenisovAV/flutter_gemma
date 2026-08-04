@@ -193,7 +193,7 @@ class Qwen3Tables {
   /// Applies the 2048->1024 text-projection MLP (SiLU activation) to [rows]
   /// (flat `[n * 2048]`, row-major). Returns a flat `[n * 1024]` array.
   ///
-  /// Ports `Qwen3TtsPipeline._project_text` (`qwen3_tts_pipeline.py:268`):
+  /// Ports `Qwen3TtsPipeline._project_text`:
   /// `h = rows @ w1.T + b1; h = h * sigmoid(h); out = h @ w2.T + b2`.
   /// `w1` is `(2048,2048)` so `h[j] = sum_k rows[k] * w1[j,k] + b1[j]`;
   /// `w2` is `(1024,2048)` so `out[i] = sum_j h[j] * w2[i,j] + b2[i]`.

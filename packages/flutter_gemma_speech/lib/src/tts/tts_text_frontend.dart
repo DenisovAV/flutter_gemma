@@ -1,7 +1,7 @@
 /// Text-frontend seam: resolves the pipeline-specific frontend (currently
 /// only Matcha-CFM's `MatchaTextFrontend`) from a [TtsModelProfile]. The
-/// analog of STT's tokenizer seam — `TtsCore` (Task 2.3) only ever talks to
-/// this interface, never to a concrete frontend class.
+/// analog of STT's tokenizer seam — `TtsCore` only ever talks to this
+/// interface, never to a concrete frontend class.
 library;
 
 import '../model/tts_model_profile.dart';
@@ -9,8 +9,8 @@ import 'matcha_text_frontend.dart';
 import 'tts_frontend_input.dart';
 
 /// Resolves an out-of-dictionary word to its IPA transcription via a neural
-/// G2P model (`TtsCore.neuralG2p`, Task 7), wired in by the worker (Task 11).
-/// A frontend built without a resolver still throws on OOV.
+/// G2P model (`TtsCore.neuralG2p`), wired in by the worker. A frontend
+/// built without a resolver still throws on OOV.
 typedef NeuralG2pResolver = String Function(String word);
 
 /// text -> `TtsCore`-ready frontend input, dispatched by
@@ -38,8 +38,8 @@ abstract class TtsTextFrontend {
     ),
     // Qwen3 does its own BPE tokenization (`Qwen2BpeEncoder` +
     // `Qwen3Prompt`) and is driven by `Qwen3TtsCore`, not this
-    // Matcha-only frontend seam — the worker (Task 5.3) dispatches to it
-    // directly and never calls `TtsTextFrontend.load` for this pipeline
+    // Matcha-only frontend seam — the worker (`_runQwen3Worker`) dispatches
+    // to it directly and never calls `TtsTextFrontend.load` for this pipeline
     // kind. Fail-loud rather than silently running Matcha's phoneme
     // frontend against a Qwen3 bundle.
     TtsPipelineKind.qwen3ArCodec => throw StateError(

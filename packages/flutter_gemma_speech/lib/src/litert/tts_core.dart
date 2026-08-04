@@ -36,12 +36,13 @@
 // graph) and exposed via
 // `TtsCore.neuralG2p` — it's the neural OOV fallback used when a word is
 // missing from the dictionary; the dictionary-only path stays the golden
-// path via `TtsTextFrontend` (Task 2.2).
+// path via `TtsTextFrontend`.
 //
 // Determinism: the Euler CFM decoder's initial noise is drawn from a FIXED
 // seed ([ttsCfmSeed]) via Box-Muller ([nextGaussian]), so [TtsCore.synthesize]
-// is byte-reproducible run-to-run — the Phase-3 golden depends on this. Do
-// NOT change the seed or the Box-Muller formula without regenerating it.
+// is byte-reproducible run-to-run — the golden in `tts_core_test.dart`
+// depends on this. Do NOT change the seed or the Box-Muller formula
+// without regenerating it.
 //
 // Leak-safety: buffer create/lock/read/unlock/destroy mirrors
 // `litert_embedding_core.dart`'s forward-pass pattern; `load`'s partial-
@@ -73,7 +74,7 @@ import 'litert_graph.dart';
 
 /// The Euler CFM decoder's fixed Gaussian-noise seed. Fixed (not
 /// time-derived) so [TtsCore.synthesize] is byte-reproducible run-to-run —
-/// the Phase-3 golden depends on this. Verified value from
+/// the golden in `tts_core_test.dart` depends on this. Verified value from
 /// `matcha_synth.dart:565`.
 const int ttsCfmSeed = 1234;
 
@@ -345,8 +346,8 @@ class TtsCore {
   /// phoneme string. Synchronous (no file I/O; `g2p_meta.json` was already
   /// parsed in [load]), so it's safe to call per-word from the frontend (the
   /// `NeuralG2pResolver` adapter is `core.neuralG2p`). Framing/decoding is
-  /// [encodeG2pInput]/[decodeG2pOutput] (Task 6) — this method only runs the
-  /// native forward pass and picks the per-position argmax over the
+  /// [encodeG2pInput]/[decodeG2pOutput] — this method only runs the native
+  /// forward pass and picks the per-position argmax over the
   /// `n_phonemes`-wide logits.
   String neuralG2p(String word) {
     if (_disposed) {
@@ -394,7 +395,7 @@ class TtsCore {
   /// single-window case; every graph run goes through [runLiteRtGraph]
   /// instead of that script's raw-`dlopen` `runGraph`. Returns 16-bit
   /// little-endian mono PCM with NO WAV header — the example's `pcmToWav`
-  /// adds a header in Phase 3.
+  /// adds a header.
   ///
   /// When the predicted duration fits one window (`rawYlen <= _maxMel`, the
   /// common case), this is byte-identical to the pre-chunking implementation

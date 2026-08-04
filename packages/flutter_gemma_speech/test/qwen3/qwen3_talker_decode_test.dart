@@ -147,11 +147,11 @@ void main() {
           tables: tables,
         );
 
-        // _run_prefill (qwen3_tts_pipeline.py:315-328).
+        // _run_prefill (qwen3_tts_pipeline.py Qwen3TtsPipeline._run_prefill).
         final kv = core.runPrefill(prompt.prefill, prompt.promptLen);
 
         // Initial decode step: embed = prefill[0, -1] (the last prompt
-        // row), pos = promptLen - 1 (recipe :219-220).
+        // row), pos = promptLen - 1 (recipe's `Qwen3TtsPipeline.synthesize`).
         final promptLen = prompt.promptLen;
         final pos = promptLen - 1;
         final embed = Float32List.sublistView(

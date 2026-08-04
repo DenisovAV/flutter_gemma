@@ -98,8 +98,8 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   // language request compared raw-to-raw (e.g. null vs. 'english', or
   // 'English' vs. 'english') doesn't spuriously trip the guard below.
   // Reusing the singleton for a genuinely DIFFERENT language would silently
-  // emit wrong-language audio with no error (Task 5.4 review, Important #1)
-  // — see the same-model branch in createTtsModel below.
+  // emit wrong-language audio with no error — see the same-model branch in
+  // createTtsModel below.
   String? _lastActiveTtsLanguage;
 
   @override
@@ -548,10 +548,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       } else if (_normalizeTtsLanguage(language) != _lastActiveTtsLanguage) {
         // Same model, but a DIFFERENT language was requested — reusing the
         // singleton here would silently emit WRONG-LANGUAGE audio with no
-        // error (Task 5.4 review, Important #1). Fail loud instead of
-        // reusing: the caller must close() the existing synthesizer first
-        // (tts_screen.dart already does this on every model/language
-        // switch — see LiteRtSpeechSynthesizer/getActiveTts's docs). Both
+        // error. Fail loud instead of reusing: the caller must close() the
+        // existing synthesizer first (tts_screen.dart already does this on
+        // every model/language switch — see LiteRtSpeechSynthesizer/
+        // getActiveTts's docs). Both
         // sides are normalized ([_normalizeTtsLanguage]) so this only fires
         // for a GENUINELY different language, not e.g. null vs. 'english'
         // or 'English' vs. 'english'.

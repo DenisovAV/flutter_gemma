@@ -3,9 +3,9 @@
 //
 // Pure unit tests — no model tables, no artifacts, no `@Tags` skip-guard.
 // Every input is a small hand-constructed vector so the expected output can
-// be hand-checked against the recipe's arithmetic
-// (`text_to_speech_lm/python/qwen3_tts_pipeline.py:223-225, 231-237,
-// 467-490`).
+// be hand-checked against the recipe's arithmetic — `synthesize`'s
+// `suppress`/scoring edits and `_pick`, both on `Qwen3TtsPipeline` in the
+// recipe's `qwen3_tts_pipeline.py`.
 
 import 'dart:math';
 import 'dart:typed_data';

@@ -37,7 +37,7 @@ class LiteRtTtsBackend implements TtsBackendProvider {
     // spec.ttsModelType (e.g. TtsModelType.matcha) selects the runtime
     // profile — this backend never hardcodes a model.
     //
-    // config.language is Qwen3-only (Task 5.4) — threaded from
+    // config.language is Qwen3-only — threaded from
     // `FlutterGemma.getActiveTts(language: ...)` through `RuntimeConfig`;
     // null falls back to `LiteRtSpeechSynthesizer.create`'s own `'english'`
     // default. Matcha ignores it (no language parameter). No `voice` here:

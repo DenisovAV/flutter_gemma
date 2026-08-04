@@ -81,7 +81,7 @@ void main() {
     );
     try {
       expect(core.sampleRate, 24000);
-      // recipe (qwen3_tts_pipeline.py:162-163): mtp_cache_len == 17 (16
+      // recipe (qwen3_tts_pipeline.py Qwen3TtsPipeline.__init__): mtp_cache_len == 17 (16
       // MTP residual steps + 1).
       expect(core.mtpCacheLen, 17);
       expect(core.mtpKvShape, isNotEmpty);

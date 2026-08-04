@@ -2,14 +2,13 @@
 // (`talker_int4.tflite` / `talker_fp32.tflite`), pinned by a spike ("C1",
 // 2026-08-03) that introspected the REAL graph out-of-band (independent of
 // this package's Dart FFI bindings) before any Dart code existed to load
-// it — see `docs/superpowers/plans/2026-08-03-qwen3-tts.md`'s "C1 de-risk"
-// section. This file's job is narrow: (1) name the frozen numbers so the
-// rest of the Qwen3 port (Tasks 2.2/2.3+) references `TalkerLayout.xxx`
-// instead of magic numbers, and (2) a load-time [TalkerLayout.assertLayout]
-// that re-verifies as much of the C1 spike's findings as the EXISTING bound
-// LiteRT C API surface allows, so a future model revision that reorders the
-// graph fails loud at load time instead of silently corrupting the decode
-// loop weeks later.
+// it. This file's job is narrow: (1) name the frozen numbers so the rest of
+// the Qwen3 port (`Qwen3TtsCore.runPrefill`/`runDecode`) references
+// `TalkerLayout.xxx` instead of magic numbers, and (2) a load-time
+// `TalkerLayout.assertLayout` that re-verifies as much of the C1 spike's
+// findings as the EXISTING bound LiteRT C API surface allows, so a future
+// model revision that reorders the graph fails loud at load time instead
+// of silently corrupting the decode loop weeks later.
 //
 // Talker signatures, in index order (there is no signature-NAME binding —
 // signatures are told apart purely by the `embeddings` input's time-dim: 1
@@ -49,9 +48,9 @@
 // `numTalkerInputs == 59` this per-index accessor allows.
 //
 // What it CANNOT check with the CURRENTLY bound API, and therefore treats
-// as trusted, frozen constants instead (the plan's explicit ruling: do NOT
-// add a new native binding, and do NOT probe an out-of-range index to
-// "discover" a count, to work around this): [numLayers], [numKvTensors],
+// as trusted, frozen constants instead (deliberately: do NOT add a new
+// native binding, and do NOT probe an out-of-range index to "discover" a
+// count, to work around this): [numLayers], [numKvTensors],
 // the exact output COUNTS (57 for decode / 56 for prefill_32/prefill_128),
 // the individual per-tensor shape of each of the 56 KV tensors, and the KV
 // input-order == KV output-order identity. `LiteRtGetCompiledModelOutput
@@ -187,8 +186,8 @@ class TalkerLayout {
 
     // `mask` (input 2): [1, 1, T, cacheLen] — cacheLen (the KV cache's
     // fixed capacity) is the load-bearing dim here; checked for every
-    // signature, not just its last dim (the brief's stated minimum), since
-    // the full shape is just as cheap to check via the same call.
+    // signature, not just its last dim (the minimum needed), since the
+    // full shape is just as cheap to check via the same call.
     _assertInputShape(bindings, talker, prefill32Sig, 2, 'prefill_32.mask', [
       1,
       1,

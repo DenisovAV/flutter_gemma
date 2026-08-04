@@ -130,6 +130,7 @@ class FfiInferenceModel extends InferenceModel with CloseNotifier {
         topP: topP,
         seed: randomSeed,
         maxOutputTokens: maxOutputTokens,
+        enableThinking: enableThinking,
       );
       gemmaLog(
         '[FfiInferenceModel/perf] createConversation (FFI): ${sessionSw.elapsedMilliseconds - beforeConv}ms',
@@ -658,6 +659,7 @@ class _VirtualConversationHandle implements ConversationHandle {
         seed: seed,
         extraContext: extraContext,
         maxOutputTokens: maxOutputTokens,
+        enableThinking: enableThinking,
       )) {
         final chunkText = LiteRtLmFfiClient.extractTextFromResponse(rawChunk);
         assistantText.write(chunkText);

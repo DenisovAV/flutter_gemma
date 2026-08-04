@@ -873,6 +873,7 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     int? maxOutputTokens,
+    bool enableThinking = false,
   }) {
     // The handle must be registered before the guard lifts: otherwise shutdown()
     // can clear _handles between the create and the add, leaving a live
@@ -896,6 +897,7 @@ class LiteRtLmFfiClient {
           topP: topP,
           seed: seed,
           maxOutputTokens: maxOutputTokens,
+          enableThinking: enableThinking,
         ),
       );
       gemmaLog('[LiteRtLmFfi] Conversation created');
@@ -921,6 +923,7 @@ class LiteRtLmFfiClient {
     double? topP,
     int seed = 1,
     int? maxOutputTokens,
+    bool enableThinking = false,
   }) async {
     _assertInitialized();
     final b = _bindings!;
@@ -1021,6 +1024,18 @@ class LiteRtLmFfiClient {
         b.litert_lm_conversation_config_set_messages(
           convConfig,
           messagesPtr.cast(),
+        );
+      }
+      // Thinking output is per-turn scratch work. Left in the KV cache it is
+      // re-prefilled on every later turn of the same conversation, so a long
+      // chat pays for reasoning the user never sees and that the model does
+      // not need again. The web path already pairs the two
+      // (`filterChannelContentFromKvCache: enableThinking ? true : null` in
+      // litert_lm_web_inference.dart); this is the FFI half.
+      if (enableThinking) {
+        b.litert_lm_conversation_config_set_filter_channel_content_from_kv_cache(
+          convConfig,
+          true,
         );
       }
     }
@@ -1292,6 +1307,7 @@ class LiteRtLmFfiClient {
     int seed = 1,
     String? extraContext,
     int? maxOutputTokens,
+    bool enableThinking = false,
   }) {
     // StreamController (not async*) so the mutex release is tied to the
     // controller lifecycle — it fires on done, error, AND consumer cancel /
@@ -1358,6 +1374,7 @@ class LiteRtLmFfiClient {
               topP: topP,
               seed: seed,
               maxOutputTokens: maxOutputTokens,
+              enableThinking: enableThinking,
             );
             _virtualConv = conv;
             _virtualActiveToken = conversationToken;

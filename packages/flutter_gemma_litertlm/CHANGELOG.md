@@ -1,3 +1,6 @@
+## 1.3.2
+- Drop thinking output from the KV cache on FFI, as web already does.
+
 ## 1.3.1
 - Clearer engine-create error for GPU-only `.litertlm` models run on CPU (#390).
 

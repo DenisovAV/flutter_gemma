@@ -12,8 +12,8 @@ import 'package:path_provider/path_provider.dart';
 /// TTS synthesize screen — mirrors [SttScreen]'s install-in-initState /
 /// `mounted`-after-await / reentrancy discipline, but the flow is simpler:
 /// no recording, just a text field → synthesize → play. Installs
-/// (idempotent) and activates the selected [TtsModel] (defaults to
-/// [TtsModel.matcha]) then lets the user type text and hear it spoken via
+/// (idempotent) and activates [widget.model] (chosen upstream in
+/// [TtsModelsScreen]) then lets the user type text and hear it spoken via
 /// [SpeechSynthesizer.synthesize] + `just_audio` playback of the
 /// WAV-wrapped PCM (`AudioConverter.pcmToWav`).
 ///
@@ -23,20 +23,22 @@ import 'package:path_provider/path_provider.dart';
 /// exactly one voice, no voice picker). Language is a create-time param
 /// (`FlutterGemma.getActiveTts(language: ...)`) — changing it re-creates the
 /// synthesizer (closes the old one, installs/activates again), reloading
-/// the ~1.9 GB model. Switching the model dropdown does the same.
+/// the ~1.9 GB model.
 ///
 /// `createFile` (not raw `dart:io`) is used to write the WAV to a temp file
 /// so this screen still compiles for web, where `flutter_gemma_speech` has
 /// no TTS arm (the init call surfaces that as [_initError] instead).
 class TtsScreen extends StatefulWidget {
-  const TtsScreen({super.key});
+  final TtsModel model;
+
+  const TtsScreen({super.key, required this.model});
 
   @override
   State<TtsScreen> createState() => _TtsScreenState();
 }
 
 class _TtsScreenState extends State<TtsScreen> {
-  TtsModel _model = TtsModel.matcha;
+  late final TtsModel _model = widget.model;
   String _language = 'english';
 
   SpeechSynthesizer? _synth;
@@ -114,14 +116,6 @@ class _TtsScreenState extends State<TtsScreen> {
     }
   }
 
-  /// Switch the active catalog entry and reinitialize. No-op if [model] is
-  /// already selected or a (re)initialization is already in flight.
-  void _selectModel(TtsModel model) {
-    if (model == _model || _isInitializing) return;
-    setState(() => _model = model);
-    _initializeTtsModel();
-  }
-
   /// Switch the qwen3 language and reinitialize (see [_initializeTtsModel]'s
   /// doc for why this must close+recreate rather than just updating state).
   void _selectLanguage(String language) {
@@ -187,7 +181,6 @@ class _TtsScreenState extends State<TtsScreen> {
   }
 
   Widget _buildModelInfoCard() {
-    final supported = TtsModel.values.where((m) => m.isSupported).toList();
     return Card(
       color: const Color(0xFF1a3a5c),
       child: Padding(
@@ -204,18 +197,7 @@ class _TtsScreenState extends State<TtsScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildDropdownRow<TtsModel>(
-              label: 'Model:',
-              value: _model,
-              items: [
-                for (final m in supported)
-                  DropdownMenuItem(value: m, child: Text(m.displayName)),
-              ],
-              onChanged: (m) {
-                if (m != null) _selectModel(m);
-              },
-            ),
-            const SizedBox(height: 8),
+            _buildInfoRow('Model:', _model.displayName),
             _buildInfoRow('Size:', _model.size),
             _buildInfoRow('Type:', 'Text-to-Speech'),
             if (_isQwen3) ...[

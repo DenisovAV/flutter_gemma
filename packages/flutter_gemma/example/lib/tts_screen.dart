@@ -231,8 +231,8 @@ class _TtsScreenState extends State<TtsScreen> {
   }
 
   /// A label + [DropdownButton] row, disabled while [_isInitializing] (a
-  /// model/language switch is already in flight — reentrancy guard mirrors
-  /// [_selectModel]/[_selectLanguage]'s own check).
+  /// language switch is already in flight — reentrancy guard mirrors
+  /// [_selectLanguage]'s own check).
   Widget _buildDropdownRow<T>({
     required String label,
     required T value,

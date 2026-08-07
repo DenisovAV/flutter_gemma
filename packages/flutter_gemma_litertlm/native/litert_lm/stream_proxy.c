@@ -1,3 +1,11 @@
+// _GNU_SOURCE must precede every include: on glibc, RTLD_DEFAULT (used by the
+// ABI probe below) is a GNU extension that <dlfcn.h> only exposes under it.
+// Apple's libc declares RTLD_DEFAULT unconditionally, so a macOS build compiles
+// happily without this and Linux fails with "RTLD_DEFAULT undeclared".
+#if defined(__linux__) && !defined(_GNU_SOURCE)
+#define _GNU_SOURCE
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

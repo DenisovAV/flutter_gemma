@@ -11,11 +11,13 @@ import 'package:flutter_gemma_example/voice_screen.dart';
 /// (STT -> LLM -> TTS) via the standard per-modality list screens, then start
 /// the loop. Mirrors how model selection works everywhere else in the example
 /// (Inference / STT / TTS / Translate): selection lives in a list screen, not
-/// an in-screen dropdown. Each row pushes the matching `*ModelsScreen` in
-/// selection mode (its `onSelected` callback) — only entries with a shipped
-/// profile are pickable there. Defaults reproduce the previously-hardcoded
-/// trio (Moonshine Tiny / Gemma 3 1B IT / Matcha-TTS), so the loop's behaviour
-/// is unchanged until the user swaps a step.
+/// an in-screen dropdown. Each row pushes the matching selection screen
+/// (`SttModelsScreen` / `ModelSelectionScreen` / `TtsModelsScreen`) in
+/// selection mode (its `onSelected` callback); for STT/TTS only entries with a
+/// shipped profile are pickable, whereas any LLM is pickable. Defaults
+/// reproduce the previously-hardcoded trio (Moonshine Tiny / Gemma 3 1B IT /
+/// Matcha-TTS), so the loop's behaviour is unchanged until the user swaps a
+/// step.
 class VoiceSetupScreen extends StatefulWidget {
   const VoiceSetupScreen({super.key});
 
@@ -39,8 +41,10 @@ class _VoiceSetupScreenState extends State<VoiceSetupScreen> {
   Future<void> _pickLlm() => Navigator.push(
     context,
     MaterialPageRoute<void>(
-      builder: (_) =>
-          ModelSelectionScreen(onSelected: (m) => setState(() => _llm = m)),
+      builder: (_) => ModelSelectionScreen(
+        hideBuiltIn: true,
+        onSelected: (m) => setState(() => _llm = m),
+      ),
     ),
   );
 

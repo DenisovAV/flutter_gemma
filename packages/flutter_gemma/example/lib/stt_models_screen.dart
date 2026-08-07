@@ -9,7 +9,7 @@ import 'package:flutter_gemma_example/stt_screen.dart';
 class SttModelsScreen extends StatelessWidget {
   /// When set, the screen is in "pick a model" mode: tapping a supported entry
   /// invokes this and pops (returning the choice to the caller, e.g.
-  /// [VoiceSetupScreen]) instead of navigating into [SttScreen].
+  /// `VoiceSetupScreen`) instead of navigating into [SttScreen].
   final ValueChanged<SttModel>? onSelected;
 
   const SttModelsScreen({super.key, this.onSelected});

@@ -11,7 +11,7 @@ import 'package:flutter_gemma_example/tts_screen.dart';
 class TtsModelsScreen extends StatelessWidget {
   /// When set, the screen is in "pick a model" mode: tapping a supported entry
   /// invokes this and pops (returning the choice to the caller, e.g.
-  /// [VoiceSetupScreen]) instead of navigating into [TtsScreen].
+  /// `VoiceSetupScreen`) instead of navigating into [TtsScreen].
   final ValueChanged<TtsModel>? onSelected;
 
   const TtsModelsScreen({super.key, this.onSelected});

@@ -21,7 +21,7 @@ import 'package:record/record.dart';
 /// [VoiceSession]. Mirrors `SttScreen` for capture (AudioRecorder + 5-second
 /// timer + WAV parse) and `TtsScreen` for playback (AudioConverter.pcmToWav +
 /// just_audio), and wires both through one [VoiceSession.fromChat] built
-/// from the three models chosen upstream in [VoiceSetupScreen] and passed in:
+/// from the three models chosen upstream in `VoiceSetupScreen` and passed in:
 /// [VoiceScreen.sttModel], [VoiceScreen.llmModel] (a text-only chat model —
 /// no tools, since `VoiceSession.fromChat` requires `chat.tools.isEmpty`) and
 /// [VoiceScreen.ttsModel]. The upstream defaults reproduce the original trio

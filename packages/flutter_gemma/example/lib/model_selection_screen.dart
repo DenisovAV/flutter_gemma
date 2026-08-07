@@ -22,7 +22,23 @@ enum SortType {
 }
 
 class ModelSelectionScreen extends StatefulWidget {
-  const ModelSelectionScreen({super.key});
+  /// When set, the screen is in "pick a model" mode: tapping an entry invokes
+  /// this and pops (returning the choice to the caller, e.g.
+  /// `VoiceSetupScreen`) instead of navigating into the download/chat flow.
+  final ValueChanged<Model>? onSelected;
+
+  /// Hide the OS built-in models (Gemini Nano / Apple Foundation Models) from
+  /// the list. They can't be installed via the plain
+  /// `installModel(...).fromNetwork(...)` path a caller like `VoiceSetupScreen`
+  /// uses, so pickers that don't route through the built-in short-circuit
+  /// exclude them.
+  final bool hideBuiltIn;
+
+  const ModelSelectionScreen({
+    super.key,
+    this.onSelected,
+    this.hideBuiltIn = false,
+  });
 
   @override
   State<ModelSelectionScreen> createState() => _ModelSelectionScreenState();
@@ -94,6 +110,12 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
   Widget build(BuildContext context) {
     // Show all models on all platforms
     var models = Model.values.toList();
+
+    // Pickers that can't install a built-in model (e.g. the Voice Loop LLM
+    // step) opt out of showing them entirely.
+    if (widget.hideBuiltIn) {
+      models = models.where((model) => !model.isBuiltIn).toList();
+    }
 
     // Platform-filter the OS built-in models: Gemini Nano is Android-only (ML
     // Kit GenAI / AICore), Apple Foundation Models are iOS/macOS-only. Both
@@ -335,7 +357,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                 itemCount: models.length,
                 itemBuilder: (context, index) {
                   final model = models[index];
-                  return ModelCard(model: model);
+                  return ModelCard(model: model, onSelected: widget.onSelected);
                 },
               ),
             ),
@@ -348,8 +370,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
 class ModelCard extends StatefulWidget {
   final Model model;
+  final ValueChanged<Model>? onSelected;
 
-  const ModelCard({super.key, required this.model});
+  const ModelCard({super.key, required this.model, this.onSelected});
 
   @override
   State<ModelCard> createState() => _ModelCardState();
@@ -502,6 +525,14 @@ class _ModelCardState extends State<ModelCard> {
             ),
             trailing: Icon(Icons.arrow_forward_ios, color: Colors.grey[400]),
             onTap: () {
+              // Selection mode (e.g. picking the LLM step in VoiceSetupScreen):
+              // return the model to the caller instead of navigating into the
+              // download/chat flow.
+              if (widget.onSelected != null) {
+                widget.onSelected!(widget.model);
+                Navigator.pop(context);
+                return;
+              }
               // Built-in OS models: route through the download screen so its
               // builtIn short-circuit runs (instant bundled install +
               // BuiltInAi.ensureReady), surfacing availability errors before

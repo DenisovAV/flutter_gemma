@@ -7,7 +7,12 @@ import 'package:flutter_gemma_example/stt_screen.dart';
 /// installs it (idempotent) and sets it active. Unsupported entries (need a
 /// log-mel frontend, see [SttModel.unsupportedReason]) are shown but disabled.
 class SttModelsScreen extends StatelessWidget {
-  const SttModelsScreen({super.key});
+  /// When set, the screen is in "pick a model" mode: tapping a supported entry
+  /// invokes this and pops (returning the choice to the caller, e.g.
+  /// `VoiceSetupScreen`) instead of navigating into [SttScreen].
+  final ValueChanged<SttModel>? onSelected;
+
+  const SttModelsScreen({super.key, this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +46,7 @@ class SttModelsScreen extends StatelessWidget {
                 itemCount: SttModel.values.length,
                 itemBuilder: (context, index) {
                   final model = SttModel.values[index];
-                  return _SttModelCard(model: model);
+                  return _SttModelCard(model: model, onSelected: onSelected);
                 },
               ),
             ),
@@ -54,8 +59,9 @@ class SttModelsScreen extends StatelessWidget {
 
 class _SttModelCard extends StatelessWidget {
   final SttModel model;
+  final ValueChanged<SttModel>? onSelected;
 
-  const _SttModelCard({required this.model});
+  const _SttModelCard({required this.model, this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -114,12 +120,20 @@ class _SttModelCard extends StatelessWidget {
             ? Icon(Icons.arrow_forward_ios, color: Colors.grey[400])
             : const Icon(Icons.lock_outline, color: Colors.white24),
         onTap: model.isSupported
-            ? () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (context) => SttScreen(model: model),
-                ),
-              )
+            ? () {
+                final cb = onSelected;
+                if (cb != null) {
+                  cb(model);
+                  Navigator.pop(context);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (context) => SttScreen(model: model),
+                    ),
+                  );
+                }
+              }
             : null,
       ),
     );

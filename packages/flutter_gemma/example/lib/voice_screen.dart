@@ -21,22 +21,28 @@ import 'package:record/record.dart';
 /// [VoiceSession]. Mirrors `SttScreen` for capture (AudioRecorder + 5-second
 /// timer + WAV parse) and `TtsScreen` for playback (AudioConverter.pcmToWav +
 /// just_audio), and wires both through one [VoiceSession.fromChat] built
-/// from three fixed models: [SttModel.moonshineTiny] (the only STT catalog
-/// entry with a shipped profile today), [_llmModel] (a small text-only chat
-/// model, no tools — `VoiceSession.fromChat` requires `chat.tools.isEmpty`),
-/// and [TtsModel.matcha] (the only TTS catalog entry with a shipped profile).
+/// from the three models chosen upstream in `VoiceSetupScreen` and passed in:
+/// [VoiceScreen.sttModel], [VoiceScreen.llmModel] (a text-only chat model —
+/// no tools, since `VoiceSession.fromChat` requires `chat.tools.isEmpty`) and
+/// [VoiceScreen.ttsModel]. The upstream defaults reproduce the original trio
+/// (Moonshine Tiny / Gemma 3 1B IT / Matcha-TTS).
 class VoiceScreen extends StatefulWidget {
-  const VoiceScreen({super.key});
+  final SttModel sttModel;
+  final Model llmModel;
+  final TtsModel ttsModel;
+
+  const VoiceScreen({
+    super.key,
+    required this.sttModel,
+    required this.llmModel,
+    required this.ttsModel,
+  });
 
   @override
   State<VoiceScreen> createState() => _VoiceScreenState();
 }
 
 class _VoiceScreenState extends State<VoiceScreen> {
-  static const _sttModel = SttModel.moonshineTiny;
-  static const _llmModel = Model.gemma3_1B;
-  static const _ttsModel = TtsModel.matcha;
-
   SpeechRecognizer? _recognizer;
   SpeechSynthesizer? _synth;
   InferenceChat? _chat;
@@ -88,7 +94,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
   Future<void> _initializeVoiceSession() async {
     try {
       // --- STT ---
-      final sttToken = _sttModel.needsAuth
+      final sttToken = widget.sttModel.needsAuth
           ? await AuthTokenService.loadToken()
           : null;
       if (!mounted) return;
@@ -97,9 +103,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _downloadPercent = null;
       });
       await FlutterGemma.installStt()
-          .modelFromNetwork(_sttModel.modelUrl, token: sttToken)
-          .tokenizerFromNetwork(_sttModel.tokenizerUrl, token: sttToken)
-          .ofType(_sttModel.sttModelType)
+          .modelFromNetwork(widget.sttModel.modelUrl, token: sttToken)
+          .tokenizerFromNetwork(widget.sttModel.tokenizerUrl, token: sttToken)
+          .ofType(widget.sttModel.sttModelType)
           .withModelProgress((percent) {
             if (!mounted) return;
             setState(() => _downloadPercent = percent);
@@ -118,8 +124,8 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _downloadPercent = null;
       });
       await FlutterGemma.installTts()
-          .fromNetwork(_ttsModel.baseUrl)
-          .ofType(_ttsModel.ttsModelType)
+          .fromNetwork(widget.ttsModel.baseUrl)
+          .ofType(widget.ttsModel.ttsModelType)
           .withProgress((percent) {
             if (!mounted) return;
             setState(() => _downloadPercent = percent);
@@ -129,7 +135,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
       // --- LLM (no tools — see class doc) ---
       String? llmToken;
-      if (_llmModel.needsAuth) {
+      if (widget.llmModel.needsAuth) {
         llmToken = await AuthTokenService.loadToken();
       }
       if (!mounted) return;
@@ -138,25 +144,27 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _downloadPercent = null;
       });
       await FlutterGemma.installModel(
-        modelType: _llmModel.modelType,
-        fileType: _llmModel.fileType,
-      ).fromNetwork(_llmModel.url, token: llmToken).withProgress((percent) {
+        modelType: widget.llmModel.modelType,
+        fileType: widget.llmModel.fileType,
+      ).fromNetwork(widget.llmModel.url, token: llmToken).withProgress((
+        percent,
+      ) {
         if (!mounted) return;
         setState(() => _downloadPercent = percent);
       }).install();
 
       final model = await FlutterGemma.getActiveModel(
-        maxTokens: _llmModel.maxTokens,
-        preferredBackend: _llmModel.preferredBackend,
+        maxTokens: widget.llmModel.maxTokens,
+        preferredBackend: widget.llmModel.preferredBackend,
       );
       final chat = await model.createChat(
-        temperature: _llmModel.temperature,
+        temperature: widget.llmModel.temperature,
         randomSeed: 1,
-        topK: _llmModel.topK,
-        topP: _llmModel.topP,
+        topK: widget.llmModel.topK,
+        topP: widget.llmModel.topP,
         tokenBuffer: 256,
         tools: const [],
-        modelType: _llmModel.modelType,
+        modelType: widget.llmModel.modelType,
         maxOutputTokens: 128,
         systemInstruction:
             'Reply concisely in one or two short sentences; your reply will '
@@ -293,8 +301,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
 
     if (!kIsWeb && (platformIsAndroid || platformIsIOS)) {
       final status = await Permission.microphone.request();
-      if (!mounted)
+      if (!mounted) {
         return; // a permission dialog is a classic navigate-away gap
+      }
       if (!status.isGranted) {
         scaffoldMessenger.showSnackBar(
           const SnackBar(
@@ -431,9 +440,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            _buildInfoRow('STT:', _sttModel.displayName),
-            _buildInfoRow('LLM:', _llmModel.displayName),
-            _buildInfoRow('TTS:', _ttsModel.displayName),
+            _buildInfoRow('STT:', widget.sttModel.displayName),
+            _buildInfoRow('LLM:', widget.llmModel.displayName),
+            _buildInfoRow('TTS:', widget.ttsModel.displayName),
           ],
         ),
       ),

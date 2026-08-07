@@ -22,7 +22,12 @@ enum SortType {
 }
 
 class ModelSelectionScreen extends StatefulWidget {
-  const ModelSelectionScreen({super.key});
+  /// When set, the screen is in "pick a model" mode: tapping an entry invokes
+  /// this and pops (returning the choice to the caller, e.g.
+  /// [VoiceSetupScreen]) instead of navigating into the download/chat flow.
+  final ValueChanged<Model>? onSelected;
+
+  const ModelSelectionScreen({super.key, this.onSelected});
 
   @override
   State<ModelSelectionScreen> createState() => _ModelSelectionScreenState();
@@ -335,7 +340,7 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
                 itemCount: models.length,
                 itemBuilder: (context, index) {
                   final model = models[index];
-                  return ModelCard(model: model);
+                  return ModelCard(model: model, onSelected: widget.onSelected);
                 },
               ),
             ),
@@ -348,8 +353,9 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
 
 class ModelCard extends StatefulWidget {
   final Model model;
+  final ValueChanged<Model>? onSelected;
 
-  const ModelCard({super.key, required this.model});
+  const ModelCard({super.key, required this.model, this.onSelected});
 
   @override
   State<ModelCard> createState() => _ModelCardState();
@@ -502,6 +508,14 @@ class _ModelCardState extends State<ModelCard> {
             ),
             trailing: Icon(Icons.arrow_forward_ios, color: Colors.grey[400]),
             onTap: () {
+              // Selection mode (e.g. picking the LLM step in VoiceSetupScreen):
+              // return the model to the caller instead of navigating into the
+              // download/chat flow.
+              if (widget.onSelected != null) {
+                widget.onSelected!(widget.model);
+                Navigator.pop(context);
+                return;
+              }
               // Built-in OS models: route through the download screen so its
               // builtIn short-circuit runs (instant bundled install +
               // BuiltInAi.ensureReady), surfacing availability errors before

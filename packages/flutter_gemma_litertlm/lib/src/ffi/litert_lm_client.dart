@@ -42,6 +42,25 @@ typedef _ProxyCreateDart =
 typedef _ProxyFreeStringNative = Void Function(Pointer<Char> str);
 typedef _ProxyFreeStringDart = void Function(Pointer<Char> str);
 
+/// Decode a NUL-terminated native string without throwing on malformed bytes.
+///
+/// `Utf8Pointer.toDartString` throws [FormatException] the moment the buffer
+/// isn't valid UTF-8, which is the worst possible behaviour on the error path:
+/// a native failure then surfaces as a complaint about character encoding, and
+/// the actual message — the only thing that would explain the failure — is
+/// lost. That misdirection cost real debugging time when LiteRT-LM v0.15.0
+/// changed the stream-callback ABI and this path started receiving register
+/// garbage. Decoding leniently keeps whatever the native layer did send
+/// readable, with U+FFFD standing in for the unreadable bytes.
+String _decodeNativeString(Pointer<Char> ptr, {int maxBytes = 64 * 1024}) {
+  final bytes = ptr.cast<Uint8>();
+  var length = 0;
+  while (length < maxBytes && bytes[length] != 0) {
+    length++;
+  }
+  return utf8.decode(bytes.asTypedList(length), allowMalformed: true);
+}
+
 /// Per-conversation operations a session needs from the FFI layer.
 ///
 /// [LiteRtLmConversationHandle] is the real implementation backed by a
@@ -1493,7 +1512,7 @@ class LiteRtLmFfiClient {
       Pointer<Char> errorMsg,
     ) {
       if (errorMsg != nullptr && errorMsg.address != 0) {
-        final error = errorMsg.cast<Utf8>().toDartString();
+        final error = _decodeNativeString(errorMsg);
         _proxyFreeString!(errorMsg); // free strdup'd string
         // stopGeneration() (and any other caller-initiated cancel) surfaces
         // here as a CANCELLED error from native. That's not an error from

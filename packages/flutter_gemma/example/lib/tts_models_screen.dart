@@ -9,7 +9,12 @@ import 'package:flutter_gemma_example/tts_screen.dart';
 /// but disabled. Model selection lives here — the standard list screen —
 /// not in an in-screen dropdown, so TTS matches STT / Inference / Translate.
 class TtsModelsScreen extends StatelessWidget {
-  const TtsModelsScreen({super.key});
+  /// When set, the screen is in "pick a model" mode: tapping a supported entry
+  /// invokes this and pops (returning the choice to the caller, e.g.
+  /// [VoiceSetupScreen]) instead of navigating into [TtsScreen].
+  final ValueChanged<TtsModel>? onSelected;
+
+  const TtsModelsScreen({super.key, this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +48,7 @@ class TtsModelsScreen extends StatelessWidget {
                 itemCount: TtsModel.values.length,
                 itemBuilder: (context, index) {
                   final model = TtsModel.values[index];
-                  return _TtsModelCard(model: model);
+                  return _TtsModelCard(model: model, onSelected: onSelected);
                 },
               ),
             ),
@@ -56,8 +61,9 @@ class TtsModelsScreen extends StatelessWidget {
 
 class _TtsModelCard extends StatelessWidget {
   final TtsModel model;
+  final ValueChanged<TtsModel>? onSelected;
 
-  const _TtsModelCard({required this.model});
+  const _TtsModelCard({required this.model, this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -134,12 +140,20 @@ class _TtsModelCard extends StatelessWidget {
             ? Icon(Icons.arrow_forward_ios, color: Colors.grey[400])
             : const Icon(Icons.lock_outline, color: Colors.white24),
         onTap: model.isSupported
-            ? () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (context) => TtsScreen(model: model),
-                ),
-              )
+            ? () {
+                final cb = onSelected;
+                if (cb != null) {
+                  cb(model);
+                  Navigator.pop(context);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (context) => TtsScreen(model: model),
+                    ),
+                  );
+                }
+              }
             : null,
       ),
     );

@@ -1,34 +1,16 @@
-// Unit tests for QdrantVectorStore. These run in the plain Dart
-// VM (`flutter test`), not in an integration_test runner, so we load the
-// release dylib by absolute path via QdrantEdgeClient.debugOverrideDylibPath.
-//
-// Prerequisite: `native/qdrant_edge/qdrant_edge_ffi/target/release/
-// libqdrant_edge_ffi.dylib` exists. The dylib is regenerated via
-// `native/qdrant_edge/build_local.sh macos` if missing.
+// Unit tests for QdrantVectorStore, backed by the official Qdrant Edge SDK
+// (UniFFI binding of qdrant-edge-ffi). These run in the plain Dart VM under
+// `flutter test`; the native engine is delivered by the qdrant_edge package's
+// Native Assets build hook, which the test runner builds and registers
+// automatically — no manual dylib path or build-gate needed.
 
 import 'dart:io';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
-import 'package:flutter_gemma_rag_qdrant/src/qdrant_edge_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _dylibRelative =
-    'native/qdrant_edge/qdrant_edge_ffi/target/release/libqdrant_edge_ffi.dylib';
-
 void main() {
-  final dylib = File(_dylibRelative);
-  if (!dylib.existsSync()) {
-    // Skip the whole suite when the dylib hasn't been built. CI builds it
-    // via the GitHub Actions workflow; local devs run build_local.sh.
-    test('libqdrant_edge_ffi.dylib not built — skipping suite', () {
-      // ignore: avoid_print
-      print('Skipping: build via native/qdrant_edge/build_local.sh macos');
-    });
-    return;
-  }
-  QdrantEdgeClient.debugOverrideDylibPath = dylib.absolute.path;
-
   late QdrantVectorStore repo;
   late String shardDir;
 

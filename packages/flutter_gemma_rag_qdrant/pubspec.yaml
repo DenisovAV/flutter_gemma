@@ -1,6 +1,9 @@
 name: flutter_gemma_rag_qdrant
-description: "qdrant-edge on-device RAG vector store for flutter_gemma (native Rust FFI). Opt-in VectorStoreRepository with payload filtering. Native platforms only (no web)."
+description: "qdrant-edge on-device RAG vector store for flutter_gemma (official UniFFI SDK). Opt-in VectorStoreRepository with payload filtering. Native platforms only (no web)."
 version: 1.1.0
+# This validation fork wires the SDK via a local path dependency; not for
+# publishing in this state. A release would pin a pub.dev version of qdrant_edge.
+publish_to: none
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_qdrant
 topics: [rag, qdrant, vector-search, embeddings, on-device]
@@ -25,17 +28,18 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.1.0
-  ffi: ^2.1.0
   uuid: ^4.0.0
-  hooks: ^2.0.0
-  code_assets: ^1.2.0
-  crypto: ^3.0.6
+  # Official Qdrant Edge Dart SDK (UniFFI binding of the shared qdrant-edge-ffi
+  # crate). Local path dep for this validation fork — the native engine + its
+  # Native Assets build hook come from here, so this package no longer carries
+  # its own hook/ffigen bindings. A published release would pin a version.
+  qdrant_edge:
+    path: /Users/sashadenisov/Work/qdrant-dart/lib/edge/dart
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  ffigen: ^20.1.1
 
 # No flutter: plugin/asset block — the native lib is delivered as a CodeAsset by
-# hook/build.dart (Native Assets), not a platform-channel plugin. Native-only.
+# the qdrant_edge SDK's Native Assets build hook, not a platform-channel plugin.

@@ -642,7 +642,13 @@ class LiteRtLmFfiClient {
     // Create engine settings
     final modelPathPtr = modelPath.toNativeUtf8();
     final backendPtr = backend.toNativeUtf8();
-    final visionBackendPtr = enableVision ? backend.toNativeUtf8() : nullptr;
+    // The vision encoder cannot be prepared by the Metal delegate: it fails with
+    // "Node number 41 (STABLEHLO_COMPOSITE) failed to prepare", which surfaces as
+    // "Failed to create conversation" from vision_litert_compiled_model_executor.cc.
+    // Pin it to CPU, the same way the audio encoder below already is. The .litertlm
+    // file itself ships section_backend_constraint: cpu for vision_adapter and
+    // audio_encoder, so mixed backends are the intended configuration.
+    final visionBackendPtr = enableVision ? 'cpu'.toNativeUtf8() : nullptr;
     final audioBackendPtr = enableAudio ? 'cpu'.toNativeUtf8() : nullptr;
 
     try {

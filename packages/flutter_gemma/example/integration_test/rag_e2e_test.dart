@@ -26,12 +26,25 @@ import 'package:path_provider/path_provider.dart';
 
 const _embUrl =
     'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/Gecko_64_quant.tflite';
-const _genUrl =
+// Gecko's own SentencePiece tokenizer (desktop path — see note below).
+const _embTokenizerUrl =
+    'https://huggingface.co/litert-community/Gecko-110m-en/resolve/main/sentencepiece.model';
+// Generation model: MediaPipe `.task` on mobile, LiteRT-LM `.litertlm` on desktop
+// (MediaPipe LLM inference is mobile-only; desktop runs the litertlm backend).
+const _genTaskUrl =
     'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.task';
+const _genLitertlmUrl =
+    'https://huggingface.co/sasha-denisov/function-gemma-270M-it/resolve/main/functiongemma-270M-it.litertlm';
 // Optional adb-pushed fast path (Android): `adb push <file> /data/local/tmp/qe_rag/`.
 const _pushDir = '/data/local/tmp/qe_rag';
 const _embPath = '$_pushDir/Gecko_64_quant.tflite';
-const _genPath = '$_pushDir/functiongemma-270M-it.task';
+
+bool get _desktop => Platform.isMacOS || Platform.isLinux || Platform.isWindows;
+ModelFileType get _genType =>
+    _desktop ? ModelFileType.litertlm : ModelFileType.task;
+String get _genUrl => _desktop ? _genLitertlmUrl : _genTaskUrl;
+String get _genPath =>
+    '$_pushDir/functiongemma-270M-it.${_desktop ? 'litertlm' : 'task'}';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -54,7 +67,13 @@ void main() {
         eb = File(_embPath).existsSync()
             ? eb.modelFromFile(_embPath)
             : eb.modelFromNetwork(_embUrl);
-        await eb.tokenizerFromAsset('assets/models/gecko_tokenizer.json').install();
+        // large_file_handler cannot copy a Flutter asset on macOS (throws a 404),
+        // so on desktop fetch the tokenizer over the network; mobile uses the
+        // committed asset (works on iOS/Android).
+        eb = _desktop
+            ? eb.tokenizerFromNetwork(_embTokenizerUrl)
+            : eb.tokenizerFromAsset('assets/models/gecko_tokenizer.json');
+        await eb.install();
 
         final embedder = await FlutterGemma.getActiveEmbedder();
         expect(await embedder.getDimension(), 768);
@@ -101,7 +120,7 @@ void main() {
         //    CPU session (simulator/emulator have no usable GPU delegate).
         var ib = FlutterGemma.installModel(
           modelType: ModelType.gemmaIt,
-          fileType: ModelFileType.task,
+          fileType: _genType,
         );
         ib = File(_genPath).existsSync() ? ib.fromFile(_genPath) : ib.fromNetwork(_genUrl);
         await ib.install();

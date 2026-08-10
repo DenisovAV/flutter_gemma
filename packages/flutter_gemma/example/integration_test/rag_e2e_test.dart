@@ -76,7 +76,6 @@ void main() {
         await eb.install();
 
         final embedder = await FlutterGemma.getActiveEmbedder();
-        expect(await embedder.getDimension(), 768);
 
         // 3. Open a fresh shard and index a few distinct documents. rag.
         //    addDocument auto-embeds with TaskType.retrievalDocument.
@@ -107,6 +106,13 @@ void main() {
               'Photosynthesis is the process by which green plants convert '
               'sunlight, water and carbon dioxide into chemical energy.',
         );
+
+        // The embedding worker loads its model lazily on the first embed, which
+        // the addDocument calls above have now forced; only then is the
+        // auto-detected output dimension populated. (Checking it right after
+        // getActiveEmbedder races the worker isolate's load on slower hosts.)
+        expect(await embedder.getDimension(), 768,
+            reason: 'Gecko produces 768-dim embeddings');
 
         // 4. Retrieve — the query auto-embeds with TaskType.retrievalQuery.
         const question = 'What is Qdrant Edge and how does it search?';

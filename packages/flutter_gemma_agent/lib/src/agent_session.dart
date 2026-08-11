@@ -165,7 +165,11 @@ class AgentSession {
   /// Drive one agent turn for [userMessage], emitting progress [AgentEvent]s
   /// (skill loads, tool calls + their image/webview/widget results, streamed
   /// final text, and a terminal [DoneEvent] / [MaxIterationsEvent]).
-  Stream<AgentEvent> ask(String userMessage) => _loop.run(chat, userMessage);
+  ///
+  /// [isCancelled], when provided, ends the stream promptly between
+  /// iterations for barge-in — see [AgentLoop.run].
+  Stream<AgentEvent> ask(String userMessage, {bool Function()? isCancelled}) =>
+      _loop.run(chat, userMessage, isCancelled: isCancelled);
 
   /// Close the underlying chat session.
   Future<void> close() => chat.close();

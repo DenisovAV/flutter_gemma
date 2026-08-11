@@ -82,11 +82,25 @@ class AgentLoop {
   /// Drive one agent turn for [userMessage] against [chat], emitting progress
   /// [AgentEvent]s. The [chat] must already have been created with [agentTools]
   /// and the skill discovery injected into its system prompt.
-  Stream<AgentEvent> run(InferenceChat chat, String userMessage) async* {
+  ///
+  /// [isCancelled], when provided, is polled between iterations — before the
+  /// next generation and between dispatched calls — for barge-in: once it
+  /// returns true the stream ends promptly (no [DoneEvent], no
+  /// [MaxIterationsEvent]). A tool already executing still completes; only
+  /// the *next* step is skipped. `null` (the default) preserves prior
+  /// behavior exactly.
+  Stream<AgentEvent> run(
+    InferenceChat chat,
+    String userMessage, {
+    bool Function()? isCancelled,
+  }) async* {
     await chat.addQueryChunk(Message(text: userMessage, isUser: true));
+    bool cancelled() => isCancelled?.call() ?? false;
 
     for (var iteration = 0; iteration < maxIterations; iteration++) {
+      if (cancelled()) return; // barge-in before the next generation
       final ModelResponse response = await chat.generateChatResponse();
+      if (cancelled()) return; // decode was stopped by chat.stopGeneration()
 
       final calls = _extractCalls(response);
       if (calls.isEmpty) {
@@ -103,6 +117,7 @@ class AgentLoop {
 
       // Dispatch every call (single or parallel), feeding each result back.
       for (final call in calls) {
+        if (cancelled()) return; // barge-in between parallel calls
         yield* _dispatch(chat, call);
       }
     }

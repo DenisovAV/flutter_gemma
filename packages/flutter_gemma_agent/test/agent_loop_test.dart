@@ -207,6 +207,49 @@ void main() {
     });
   });
 
+  group('AgentLoop — isCancelled', () {
+    test(
+      'run stops early when isCancelled flips true (no further generations)',
+      () async {
+        final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+        final chat = _FakeAgentChat([
+          _runSkill('calculate-hash'),
+          const TextResponse('should never be reached'),
+        ]);
+        final loop = AgentLoop(
+          registry: registry,
+          executors: [_FakeExecutor(SkillType.js)],
+        );
+
+        var cancel = false;
+        final events = <AgentEvent>[];
+        await for (final e in loop.run(chat, 'hi', isCancelled: () => cancel)) {
+          events.add(e);
+          cancel = true; // flip after the first emitted event
+        }
+
+        expect(
+          chat.generateCallCount,
+          1,
+          reason: 'no second generation after cancel',
+        );
+        expect(events.whereType<DoneEvent>(), isEmpty);
+        expect(events.whereType<MaxIterationsEvent>(), isEmpty);
+      },
+    );
+
+    test(
+      'run without isCancelled behaves exactly as before (text -> DoneEvent)',
+      () async {
+        final registry = SkillRegistry();
+        final chat = _FakeAgentChat([const TextResponse('hello')]);
+        final loop = AgentLoop(registry: registry, executors: const []);
+        final events = await loop.run(chat, 'hi').toList();
+        expect(events.whereType<DoneEvent>().single.text, 'hello');
+      },
+    );
+  });
+
   group('AgentLoop — parallel calls', () {
     test(
       'handles a ParallelFunctionCallResponse: dispatches every call',

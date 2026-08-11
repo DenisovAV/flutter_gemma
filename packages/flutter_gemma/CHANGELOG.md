@@ -1,3 +1,6 @@
+## 1.6.0
+- Add InferenceChat.generateChatResponseWithTools — the reusable function-calling driver loop.
+
 ## 1.5.2
 - Add TtsModelType.qwen3.
 

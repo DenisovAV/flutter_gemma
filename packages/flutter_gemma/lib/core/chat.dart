@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -636,6 +637,48 @@ class InferenceChat {
     }
 
     gemmaLog('InferenceChat: generateChatResponseAsync completed successfully');
+  }
+
+  /// Drive flutter_gemma's function-calling loop to completion. Stream this
+  /// turn's text/thinking tokens; whenever the model calls a tool, run
+  /// [onToolCall] and feed its result back as a tool-response message, then
+  /// continue — until a turn has no calls (the model's final answer) or
+  /// [maxToolTurns] / [isCancelled] stops it.
+  ///
+  /// PRECONDITION: the user message must already be staged (call [addQueryChunk]
+  /// first), same as [generateChatResponseAsync]. [onToolCall] returns the
+  /// `{...}` response map fed back via [Message.toolResponse]. Tool *execution*
+  /// is the caller's (tools are app actions); core only parses the call and
+  /// drives the loop.
+  Stream<ModelResponse> generateChatResponseWithTools({
+    required FutureOr<Map<String, dynamic>> Function(FunctionCallResponse call)
+    onToolCall,
+    int maxToolTurns = 8,
+    bool Function()? isCancelled,
+  }) async* {
+    for (var turn = 0; turn < maxToolTurns; turn++) {
+      if (isCancelled?.call() ?? false) return;
+      final pending = <FunctionCallResponse>[];
+      await for (final r in generateChatResponseAsync()) {
+        switch (r) {
+          case FunctionCallResponse():
+            pending.add(r);
+          case ParallelFunctionCallResponse(:final calls):
+            pending.addAll(calls);
+          default:
+            yield r; // TextResponse / ThinkingResponse pass through
+        }
+      }
+      if (pending.isEmpty) return; // model's final (call-free) answer
+      if (isCancelled?.call() ?? false) return;
+      for (final call in pending) {
+        final response = await onToolCall(call);
+        await addQueryChunk(
+          Message.toolResponse(toolName: call.name, response: response),
+        );
+      }
+    }
+    // maxToolTurns hit: stop; any text already streamed has been yielded.
   }
 
   Future<void> _recreateSessionWithReducedChunks() async {

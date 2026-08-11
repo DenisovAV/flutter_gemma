@@ -4,7 +4,9 @@ import 'package:flutter_gemma_example/stt_screen.dart';
 
 /// STT model selection screen — mirrors [EmbeddingModelsScreen]. Lists the
 /// [SttModel] catalog; picking a supported entry pushes [SttScreen], which
-/// installs it (idempotent) and sets it active. Unsupported entries (need a
+/// installs it (idempotent) and sets it active — unless [onSelected] is set
+/// (pick-a-model mode), which returns the choice and pops instead. Unsupported
+/// entries (need a
 /// log-mel frontend, see [SttModel.unsupportedReason]) are shown but disabled.
 class SttModelsScreen extends StatelessWidget {
   /// When set, the screen is in "pick a model" mode: tapping a supported entry

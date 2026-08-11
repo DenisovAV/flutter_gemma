@@ -42,7 +42,10 @@ class _VoiceSetupScreenState extends State<VoiceSetupScreen> {
     context,
     MaterialPageRoute<void>(
       builder: (_) => ModelSelectionScreen(
-        hideBuiltIn: true,
+        // The loop installs the LLM via installModel(...).fromNetwork(url), so
+        // offer only network-installable models: no OS built-ins (no file) and
+        // no localModel asset entries (their url is an assets/... path).
+        modelFilter: (m) => !m.isBuiltIn && !m.localModel,
         onSelected: (m) => setState(() => _llm = m),
       ),
     ),

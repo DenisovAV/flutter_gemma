@@ -4,7 +4,9 @@ import 'package:flutter_gemma_example/tts_screen.dart';
 
 /// TTS model selection screen — mirrors [SttModelsScreen]. Lists the
 /// [TtsModel] catalog; picking a supported entry pushes [TtsScreen], which
-/// installs it (idempotent) and sets it active. Unsupported entries (need
+/// installs it (idempotent) and sets it active — unless [onSelected] is set
+/// (pick-a-model mode), which returns the choice and pops instead. Unsupported
+/// entries (need
 /// their own `TtsModelProfile`, see [TtsModel.unsupportedReason]) are shown
 /// but disabled. Model selection lives here — the standard list screen —
 /// not in an in-screen dropdown, so TTS matches STT / Inference / Translate.

@@ -27,18 +27,16 @@ class ModelSelectionScreen extends StatefulWidget {
   /// `VoiceSetupScreen`) instead of navigating into the download/chat flow.
   final ValueChanged<Model>? onSelected;
 
-  /// Hide the OS built-in models (Gemini Nano / Apple Foundation Models) from
-  /// the list. They can't be installed via the plain
-  /// `installModel(...).fromNetwork(...)` path a caller like `VoiceSetupScreen`
-  /// uses, so pickers that don't route through the built-in short-circuit
-  /// exclude them.
-  final bool hideBuiltIn;
+  /// Optional eligibility filter — when set, only models satisfying it are
+  /// listed. A pick-mode caller whose install path can't handle every catalog
+  /// entry uses this to offer only installable models. The Voice Loop LLM step
+  /// installs via `installModel(...).fromNetwork(url)` in `VoiceScreen`, which
+  /// can handle neither OS built-in models (no file) nor `localModel` asset
+  /// entries (their `url` is an `assets/...` path), so it passes
+  /// `(m) => !m.isBuiltIn && !m.localModel`.
+  final bool Function(Model model)? modelFilter;
 
-  const ModelSelectionScreen({
-    super.key,
-    this.onSelected,
-    this.hideBuiltIn = false,
-  });
+  const ModelSelectionScreen({super.key, this.onSelected, this.modelFilter});
 
   @override
   State<ModelSelectionScreen> createState() => _ModelSelectionScreenState();
@@ -111,10 +109,12 @@ class _ModelSelectionScreenState extends State<ModelSelectionScreen> {
     // Show all models on all platforms
     var models = Model.values.toList();
 
-    // Pickers that can't install a built-in model (e.g. the Voice Loop LLM
-    // step) opt out of showing them entirely.
-    if (widget.hideBuiltIn) {
-      models = models.where((model) => !model.isBuiltIn).toList();
+    // A pick-mode caller restricts the list to models its install path can
+    // actually handle (e.g. the Voice Loop LLM step excludes built-in + local
+    // asset models it cannot network-install).
+    final modelFilter = widget.modelFilter;
+    if (modelFilter != null) {
+      models = models.where(modelFilter).toList();
     }
 
     // Platform-filter the OS built-in models: Gemini Nano is Android-only (ML

@@ -92,6 +92,19 @@ class _VoiceScreenState extends State<VoiceScreen> {
   /// the [VoiceSession]. Mirrors `SttScreen._initializeSttModel` /
   /// `TtsScreen._initializeTtsModel`.
   Future<void> _initializeVoiceSession() async {
+    // These are promoted to the state fields only in the terminal setState
+    // below; until then dispose() can't reclaim them, so an early return / a
+    // failure must close whatever was already activated — otherwise the
+    // STT/TTS/LLM sessions leak on every failed init and retry.
+    SpeechRecognizer? recognizer;
+    SpeechSynthesizer? synth;
+    InferenceChat? chat;
+    Future<void> closePartial() async {
+      await recognizer?.close();
+      await synth?.close();
+      await chat?.close();
+    }
+
     try {
       // --- STT ---
       final sttToken = widget.sttModel.needsAuth
@@ -115,10 +128,13 @@ class _VoiceScreenState extends State<VoiceScreen> {
             setState(() => _downloadPercent = percent);
           })
           .install();
-      final recognizer = await FlutterGemma.getActiveStt();
+      recognizer = await FlutterGemma.getActiveStt();
 
       // --- TTS ---
-      if (!mounted) return;
+      if (!mounted) {
+        await closePartial();
+        return;
+      }
       setState(() {
         _stage = 'Downloading voice model';
         _downloadPercent = null;
@@ -131,14 +147,17 @@ class _VoiceScreenState extends State<VoiceScreen> {
             setState(() => _downloadPercent = percent);
           })
           .install();
-      final synth = await FlutterGemma.getActiveTts();
+      synth = await FlutterGemma.getActiveTts();
 
       // --- LLM (no tools — see class doc) ---
       String? llmToken;
       if (widget.llmModel.needsAuth) {
         llmToken = await AuthTokenService.loadToken();
       }
-      if (!mounted) return;
+      if (!mounted) {
+        await closePartial();
+        return;
+      }
       setState(() {
         _stage = 'Downloading language model';
         _downloadPercent = null;
@@ -157,7 +176,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
         maxTokens: widget.llmModel.maxTokens,
         preferredBackend: widget.llmModel.preferredBackend,
       );
-      final chat = await model.createChat(
+      chat = await model.createChat(
         temperature: widget.llmModel.temperature,
         randomSeed: 1,
         topK: widget.llmModel.topK,
@@ -177,7 +196,10 @@ class _VoiceScreenState extends State<VoiceScreen> {
         synthesizer: synth,
       );
 
-      if (!mounted) return;
+      if (!mounted) {
+        await closePartial();
+        return;
+      }
       setState(() {
         _recognizer = recognizer;
         _synth = synth;
@@ -186,6 +208,9 @@ class _VoiceScreenState extends State<VoiceScreen> {
         _isInitializing = false;
       });
     } catch (e) {
+      // Close whatever activated before the failure (dispose() only reclaims
+      // resources once they've been promoted to the state fields).
+      await closePartial();
       if (kDebugMode) {
         debugPrint('[VoiceScreen] Could not initialize voice session: $e');
       }

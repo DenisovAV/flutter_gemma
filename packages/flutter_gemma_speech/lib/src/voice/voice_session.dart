@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
+        FunctionCallResponse,
         InferenceChat,
         Message,
         ModelResponse,
@@ -39,34 +40,69 @@ class VoiceSession {
   /// `getActiveModel().createChat(...)` with a short `maxOutputTokens` and a
   /// "reply concisely, this will be spoken aloud" system instruction.
   ///
-  /// PRECONDITION: `chat.tools` MUST be empty — a tools-chat emits
-  /// FunctionCallResponse items this text-only path would silently swallow,
-  /// stranding a dangling tool call that poisons history. Route tool use to
-  /// [VoiceSession.custom] + `AgentLoop`. Enforced with a real throw (asserts
-  /// are stripped in release — §12 B4).
+  /// When `chat.tools` is empty this is the plain text-only path. When
+  /// `chat.tools` is non-empty, [onToolCall] MUST be supplied — it is the
+  /// tool implementation (same as a text chat), and the turn is driven
+  /// through core's `InferenceChat.generateChatResponseWithTools` (the
+  /// reusable function-calling loop; see [maxToolTurns]). Without
+  /// [onToolCall] there is nothing to run a tool call with, so a tools-chat
+  /// throws (a real throw, not an assert — asserts are stripped in release —
+  /// §12 B4).
   ///
-  /// NOTE: the `chat.tools.isEmpty` guard reads the (mutable, aliased) list
-  /// once at construction — the requirement is lifetime-wide, not one-shot:
-  /// mutating `chat.tools` after construction re-enters the unsupported state
-  /// without this constructor catching it again.
+  /// NOTE: the `chat.tools` check reads the (mutable, aliased) list once at
+  /// construction — the requirement is lifetime-wide, not one-shot: mutating
+  /// `chat.tools` after construction re-enters the unsupported state without
+  /// this constructor catching it again.
   factory VoiceSession.fromChat({
     required SpeechRecognizer recognizer,
     required InferenceChat chat,
     required SpeechSynthesizer synthesizer,
+    FutureOr<Map<String, dynamic>> Function(FunctionCallResponse call)?
+    onToolCall,
+    int maxToolTurns = 8,
   }) {
-    if (chat.tools.isNotEmpty) {
+    if (chat.tools.isEmpty) {
+      return VoiceSession.custom(
+        recognizer: recognizer,
+        responder: VoiceResponder(
+          respond: (userText) => _chatRespond(chat, userText),
+          stop: chat.stopGeneration,
+        ),
+        synthesizer: synthesizer,
+      );
+    }
+    if (onToolCall == null) {
       throw ArgumentError.value(
         chat,
         'chat',
-        'VoiceSession.fromChat requires chat.tools.isEmpty; '
-            'route tool use to VoiceSession.custom + AgentLoop.',
+        'VoiceSession.fromChat: a chat with tools requires an onToolCall '
+            'handler (the tool implementations, same as a text chat). '
+            'Pass onToolCall.',
       );
     }
+    // Tool-calling path: a thin wrapper over core's driver loop — no loop
+    // lives here.
+    var cancelled = false;
+    Stream<String> respondWithTools(String userText) async* {
+      cancelled = false;
+      await chat.addQueryChunk(Message(text: userText, isUser: true));
+      yield* textTokensOf(
+        chat.generateChatResponseWithTools(
+          onToolCall: onToolCall,
+          maxToolTurns: maxToolTurns,
+          isCancelled: () => cancelled,
+        ),
+      );
+    }
+
     return VoiceSession.custom(
       recognizer: recognizer,
       responder: VoiceResponder(
-        respond: (userText) => _chatRespond(chat, userText),
-        stop: chat.stopGeneration,
+        respond: respondWithTools,
+        stop: () async {
+          cancelled = true;
+          await chat.stopGeneration();
+        },
       ),
       synthesizer: synthesizer,
     );

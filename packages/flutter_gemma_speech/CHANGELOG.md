@@ -1,3 +1,6 @@
+## 0.4.2
+- VoiceSession.fromChat: optional onToolCall runs function calling in the Voice Loop (via core's generateChatResponseWithTools).
+
 ## 0.4.1
 - Add Qwen3-TTS (multilingual AR codec-LM, 11 languages) — 2nd selectable TTS family.
 

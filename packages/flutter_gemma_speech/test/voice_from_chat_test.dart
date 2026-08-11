@@ -34,7 +34,7 @@ class _NoopSynth implements SpeechSynthesizer {
 }
 
 void main() {
-  test('fromChat throws ArgumentError when the chat has tools', () {
+  test('fromChat with a tools-chat but no onToolCall throws', () {
     final chatWithTools = InferenceChat(
       sessionCreator: null,
       maxTokens: 1024,
@@ -48,6 +48,21 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  test('fromChat with a tools-chat AND onToolCall builds a session', () {
+    final chatWithTools = InferenceChat(
+      sessionCreator: null,
+      maxTokens: 1024,
+      tools: const [Tool(name: 'noop', description: 'noop')],
+    );
+    final session = VoiceSession.fromChat(
+      recognizer: _NoopRecognizer(),
+      chat: chatWithTools,
+      synthesizer: _NoopSynth(),
+      onToolCall: (c) async => {'result': 'ok'},
+    );
+    expect(session, isA<VoiceSession>());
   });
 
   test('fromChat builds a session when the chat is tools-free', () {

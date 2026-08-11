@@ -8,7 +8,7 @@ import 'package:flutter_gemma_example/stt_models_screen.dart';
 import 'package:flutter_gemma_example/translate_models_screen.dart';
 import 'package:flutter_gemma_example/tts_models_screen.dart';
 import 'package:flutter_gemma_example/utils/installed_model_lookup.dart';
-import 'package:flutter_gemma_example/voice_screen.dart';
+import 'package:flutter_gemma_example/voice_setup_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -148,7 +148,7 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: 'Speak → on-device STT → LLM → TTS → hear the reply',
               icon: Icons.record_voice_over,
               color: Colors.teal,
-              onTap: () => _push(const VoiceScreen()),
+              onTap: () => _push(const VoiceSetupScreen()),
             ),
             const SizedBox(height: 16),
             _NavigationCard(

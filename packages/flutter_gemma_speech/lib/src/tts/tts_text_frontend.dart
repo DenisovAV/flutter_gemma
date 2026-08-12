@@ -46,5 +46,13 @@ abstract class TtsTextFrontend {
       'TtsTextFrontend: qwen3ArCodec is handled by Qwen3TtsCore, not the '
       'Matcha TtsTextFrontend path.',
     ),
+    // Inflect maps IPA to RAW token ids (no blank-interspersing / embedding
+    // gather), so it has its own `InflectTextFrontend` (List<int> ids, not a
+    // MatchaFrontendInput) and is dispatched by the worker directly — this
+    // Matcha-shaped seam is the wrong return type for it.
+    TtsPipelineKind.inflectVits => throw StateError(
+      'TtsTextFrontend: inflectVits is handled by InflectTextFrontend, not the '
+      'Matcha TtsTextFrontend path.',
+    ),
   };
 }

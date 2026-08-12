@@ -29,6 +29,14 @@ enum TtsPipelineKind {
   /// `TtsCore`/`TtsTextFrontend` path, which fail-loud on it instead of
   /// silently running Matcha behavior against a Qwen3 bundle.
   qwen3ArCodec,
+
+  /// Inflect-Nano-v2 (VITS-style): text-encoder emits `m_p` + `logs_p` latents
+  /// (last-dim 128) and `logw` log-durations (last-dim 1) → host-side length
+  /// regulator (`durations = ceil(exp(logw))`, repeat each frame) + a
+  /// fixed-seed Gaussian noise sample (`z_p = m_p + noise·exp(logs_p)·
+  /// NOISE_SCALE`) → decoder emits 24 kHz waveform DIRECTLY (no separate
+  /// vocoder). Phoneme ids in, PCM out. Dispatched to `InflectTtsCore`.
+  inflectVits,
 }
 
 /// How text becomes the model's encoder input.
@@ -85,6 +93,30 @@ class TtsModelProfile {
       g2p = G2pStrategy.none,
       locale = 'en_us';
 
+  /// Inflect-Nano-v2 bundle: a text-encoder + decoder pair (no vocoder — the
+  /// decoder emits waveform). `InflectTtsCore` reads ONLY [pipeline],
+  /// [textEncoderFile], [decoderFile]; its numeric params (24 kHz, hop,
+  /// NOISE_SCALE) are recipe constants, so [vocoderFile]/[embeddingFile] are ''.
+  /// Inflect uses the SAME espeak-style IPA and the SAME 178-symbol table as
+  /// Matcha (verified byte-identical), so it REUSES Matcha's G2P bundle for the
+  /// text→IPA frontend: [configFile] (the symbol table), [dictFile] (word→IPA),
+  /// [g2pFile]/[g2pMetaFile] (neural OOV G2P). `InflectTextFrontend` maps the
+  /// IPA string to raw token ids per-char (NO blank-interspersing, unlike
+  /// Matcha) — the encoder takes token ids directly, not gathered embeddings.
+  const TtsModelProfile.inflect()
+    : pipeline = TtsPipelineKind.inflectVits,
+      textEncoderFile = 'inflect_text_encoder_fp16.tflite',
+      decoderFile = 'inflect_decoder_fp16.tflite',
+      vocoderFile = '',
+      g2pFile = 'dp_g2p_matcha_fp16.tflite',
+      g2pMetaFile = 'g2p_meta.json',
+      configFile = 'config.json',
+      dictFile = 'g2p_dict.txt.gz',
+      embeddingFile = '',
+      representation = TextRepresentation.phonemeSymbols,
+      g2p = G2pStrategy.dictionaryPlusNeural,
+      locale = 'en_us';
+
   /// Which end-to-end synthesis pipeline this profile drives.
   final TtsPipelineKind pipeline;
 
@@ -131,8 +163,9 @@ class TtsModelProfile {
   factory TtsModelProfile.forType(TtsModelType t) => switch (t) {
     TtsModelType.matcha => const TtsModelProfile.matcha(),
     TtsModelType.qwen3 => const TtsModelProfile.qwen3(),
+    TtsModelType.inflect => const TtsModelProfile.inflect(),
     _ => throw UnimplementedError(
-      'TTS profile for $t is a follow-on (only matcha/qwen3 are wired)',
+      'TTS profile for $t is a follow-on (only matcha/qwen3/inflect are wired)',
     ),
   };
 }

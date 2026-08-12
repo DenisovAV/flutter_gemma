@@ -1,10 +1,10 @@
 part of '../model_specs.dart';
 
 /// Text-to-speech model families supported by the pluggable TTS backends.
-/// [matcha] and [qwen3] have shipped [TtsModelProfile]/pipelines
+/// [matcha], [qwen3] and [inflect] have shipped [TtsModelProfile]/pipelines
 /// (`flutter_gemma_speech`); [kokoro]/[supertonic] are documented follow-ons
 /// (fail-loud until wired).
-enum TtsModelType { matcha, supertonic, kokoro, qwen3 }
+enum TtsModelType { matcha, supertonic, kokoro, qwen3, inflect }
 
 /// [TtsModelType.qwen3]'s 4 embedding-table bundle members — the SINGLE
 /// source of truth for which manifest basenames live under the HF repo's
@@ -59,6 +59,22 @@ extension TtsModelTypeManifest on TtsModelType {
       ..._qwen3TableFiles,
       'demo_speaker.npy',
     ],
+    // Inflect-Nano-v2 (huggingface.co/sasha-denisov/inflect-nano-v2-litert). A
+    // VITS-style text-encoder + decoder; no separate vocoder (the decoder emits
+    // waveform directly). Phoneme ids in → 24 kHz PCM out. Inflect uses the
+    // SAME espeak-style IPA + 178-symbol table as Matcha (verified identical),
+    // so it REUSES Matcha's G2P bundle (config.json symbol table, g2p_dict word
+    // dictionary, dp_g2p neural OOV fallback + its meta) — those 4 are fetched
+    // from the Matcha repo, the 2 tflites from the Inflect repo (per-file
+    // sourceFor in the installer).
+    TtsModelType.inflect => const [
+      'inflect_text_encoder_fp16.tflite',
+      'inflect_decoder_fp16.tflite',
+      'config.json',
+      'g2p_dict.txt.gz',
+      'dp_g2p_matcha_fp16.tflite',
+      'g2p_meta.json',
+    ],
     _ => throw UnimplementedError(
       'TTS manifest for $this is a follow-on (only matcha/qwen3 are wired)',
     ),
@@ -76,6 +92,24 @@ extension TtsModelTypeManifest on TtsModelType {
   /// the path is dropped exactly like the plain-basename manifest entry
   /// intends). A no-op (identity) for every other [TtsModelType].
   String urlSuffixFor(String plainFilename) {
+    if (this == TtsModelType.inflect) {
+      // Inflect's 2 tflites come from its own repo (the install base URL); the
+      // 4 G2P files it reuses live in the Matcha repo. Return their FULL URL so
+      // the installer fetches them cross-repo — `TtsInstallationBuilder`'s
+      // joinUrl passes an absolute suffix through unchanged. Installed identity
+      // stays the bare basename (derived from the URL's last segment).
+      const matchaBase =
+          'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+      const g2pFiles = {
+        'config.json',
+        'g2p_dict.txt.gz',
+        'dp_g2p_matcha_fp16.tflite',
+        'g2p_meta.json',
+      };
+      return g2pFiles.contains(plainFilename)
+          ? '$matchaBase$plainFilename'
+          : plainFilename;
+    }
     if (this != TtsModelType.qwen3) return plainFilename;
     if (_qwen3TableFiles.contains(plainFilename)) {
       return 'tables/$plainFilename';

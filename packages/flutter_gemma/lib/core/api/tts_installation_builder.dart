@@ -93,6 +93,11 @@ class TtsInstallationBuilder {
     // `TtsModelTypeManifest.urlSuffixFor`'s doc for why that split is safe.
     String joinUrl(String base, String fn) {
       final suffix = ttsModelType.urlSuffixFor(fn);
+      // An absolute suffix (a cross-repo full URL, e.g. Inflect's reused Matcha
+      // G2P files) wins — it is fetched as-is, not appended to [base].
+      if (suffix.startsWith('http://') || suffix.startsWith('https://')) {
+        return suffix;
+      }
       return base.endsWith('/') ? '$base$suffix' : '$base/$suffix';
     }
 

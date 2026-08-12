@@ -27,6 +27,17 @@ enum TtsModel {
         'CPU only, slow (RTF≈3 — ~3s of compute per 1s of audio), needs a '
         '6 GB-RAM-class device',
   ),
+  inflect(
+    // The 2 tflites come from this repo; the 4 reused G2P files are fetched
+    // cross-repo from Matcha (routed by TtsModelType.inflect.urlSuffixFor).
+    baseUrl:
+        'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/',
+    displayName: 'Inflect-Nano-v2 (fast)',
+    size: '~8MB',
+    ttsModelType: TtsModelType.inflect,
+    isSupported: true,
+    notes: 'Tiny + very fast (RTF≈0.01 — ~90× real-time on CPU). English only.',
+  ),
   kokoro(
     baseUrl: 'https://huggingface.co/litert-community/Kokoro-82M/resolve/main/',
     displayName: 'Kokoro 82M',

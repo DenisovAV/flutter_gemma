@@ -55,8 +55,10 @@ import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import '../model/tts_model_profile.dart';
 import '../qwen3/npy_reader.dart';
 import '../qwen3/qwen3_tts_core.dart';
+import '../tts/inflect_text_frontend.dart';
 import '../tts/tts_text_frontend.dart';
 import '../tts/tts_text_normalizer.dart';
+import 'inflect_tts_core.dart';
 import 'tts_chunk.dart';
 import 'tts_core.dart';
 
@@ -310,6 +312,8 @@ Future<void> _workerEntry(_WorkerInit init) async {
       await _runMatchaWorker(init);
     case TtsPipelineKind.qwen3ArCodec:
       await _runQwen3Worker(init);
+    case TtsPipelineKind.inflectVits:
+      await _runInflectWorker(init);
   }
 }
 
@@ -392,6 +396,75 @@ Future<void> _runMatchaWorker(_WorkerInit init) async {
     // Dart (dictionary map + embedding table), nothing to dispose there.
     // Always dispose even if the loop exits unexpectedly, then ack so the
     // main isolate can kill us without racing teardown.
+    core.dispose();
+    init.replyTo.send(const _CloseAck());
+  }
+}
+
+/// Inflect-Nano-v2 arm of [_workerEntry]. Loads `InflectTtsCore` (the VITS
+/// text-encoder + decoder, plus the shared dp_g2p neural OOV G2P when the
+/// bundle carries it) + `InflectTextFrontend`, and serves each request by
+/// splitting into clauses, phonemizing (dictionary + neural OOV), synthesizing
+/// per clause, and splicing with a short inter-clause silence — the same shape
+/// as [_runMatchaWorker] minus the CFM-seed (Inflect's noise is a fixed-seed
+/// Gaussian inside `InflectTtsCore.synthesize`) and minus `encodeChunks` (the
+/// encoder/decoder are dynamic-length, no MAX_MEL cap to chunk under).
+Future<void> _runInflectWorker(_WorkerInit init) async {
+  final InflectTtsCore core;
+  final InflectTextFrontend frontend;
+  final TtsTextNormalizer normalizer;
+  InflectTtsCore? loadedCore;
+  try {
+    core = await InflectTtsCore.load(
+      profile: init.profile,
+      artifactPaths: init.artifactPaths,
+      backend: init.backend,
+    );
+    loadedCore = core;
+    frontend = await InflectTextFrontend.load(
+      init.profile,
+      init.artifactPaths,
+      neuralG2p: core.neuralG2p,
+    );
+    normalizer = TtsTextNormalizer.forLocale(init.profile.locale, {});
+  } catch (e, st) {
+    loadedCore?.dispose();
+    gemmaLog('[TtsWorker] inflect load failed: $e\n$st');
+    init.replyTo.send('TTS worker failed to load: $e');
+    return;
+  }
+
+  final commandPort = ReceivePort();
+  init.replyTo.send(_Ready(commandPort.sendPort, core.sampleRate));
+
+  try {
+    await for (final msg in commandPort) {
+      if (msg is _SynthRequest) {
+        try {
+          final clauses = normalizer.splitClauses(msg.text);
+          final units = clauses.isEmpty ? <String>[msg.text] : clauses;
+          final segs = <Uint8List>[];
+          for (final unit in units) {
+            final ids = frontend.encode(unit);
+            if (ids.isEmpty) continue; // non-speech clause → no audio.
+            segs.add(core.synthesize(ids));
+          }
+          final pcm = segs.isEmpty
+              ? Uint8List(0)
+              : concatPcmWithSilence(
+                  segs,
+                  silenceSamples: (core.sampleRate * 0.12).round(),
+                );
+          init.replyTo.send(_SynthReply(msg.id, pcm, null));
+        } catch (e) {
+          init.replyTo.send(_SynthReply(msg.id, null, e.toString()));
+        }
+      } else if (msg is _Close) {
+        commandPort.close();
+        break;
+      }
+    }
+  } finally {
     core.dispose();
     init.replyTo.send(const _CloseAck());
   }

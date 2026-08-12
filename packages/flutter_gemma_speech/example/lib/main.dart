@@ -275,6 +275,14 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
         topK: 64,
         topP: 0.95,
         tokenBuffer: 256,
+        // The reply is SPOKEN, then synthesized in one Matcha pass — keep it
+        // short or TTS crawls. A one-sentence cap keeps each turn snappy.
+        systemInstruction:
+            'You are a concise voice assistant. Reply in ONE short, natural '
+            'sentence that will be read aloud. No lists, no markdown.',
+        // Safe ceiling that fits a function-call JSON; the systemInstruction
+        // keeps the actual spoken answer to ~one sentence.
+        maxOutputTokens: 128,
       );
     } else {
       // Full agent over the bundled skills (calculate-hash JS, etc.). The skills
@@ -289,6 +297,9 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
           TextSkillExecutor(),
           JsSkillExecutor(sourceFor: source.jsSkillSourceFor),
         ],
+        // Cap the spoken answer so TTS stays snappy (agent turns can otherwise
+        // ramble; this bounds each generation, tool calls included).
+        maxOutputTokens: 128,
       );
     }
   }

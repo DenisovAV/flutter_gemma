@@ -44,6 +44,11 @@ const _llmFileName = 'gemma-4-E2B-it.litertlm';
 const _ttsUrl =
     'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
 
+// flutter_gemma brand palette (matches the main example's screens).
+const _kNavy = Color(0xFF0b2351);
+const _kCard = Color(0xFF1a3a5c);
+const _kAccent = Color(0xFF2a5a8c);
+
 void main() => runApp(const AgenticVoiceApp());
 
 class AgenticVoiceApp extends StatelessWidget {
@@ -52,7 +57,28 @@ class AgenticVoiceApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Agentic Voice',
-    theme: ThemeData.dark(useMaterial3: true),
+    debugShowCheckedModeBanner: false,
+    theme: ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: _kNavy,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF4a90d9),
+        brightness: Brightness.dark,
+      ).copyWith(surface: _kNavy),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: _kNavy,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+      ),
+      cardTheme: const CardThemeData(color: _kCard),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: _kAccent,
+          foregroundColor: Colors.white,
+        ),
+      ),
+    ),
     home: const VoiceHomePage(),
   );
 }
@@ -409,44 +435,60 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
   }
 
   Widget _buildSetup() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'On-device agentic voice',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'STT (Moonshine) → LLM (Gemma 4 E2B, tools + agent) → TTS (Matcha), '
-          'all on device.',
-        ),
-        const SizedBox(height: 24),
-        TextField(
-          controller: _tokenController,
-          decoration: const InputDecoration(
-            labelText: 'HuggingFace token (for the gated Gemma download)',
-            helperText:
-                'Optional if the .litertlm is already staged in app documents.',
-            border: OutlineInputBorder(),
+    return Center(
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset('assets/gemma.png', height: 150),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'On-device agentic voice',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'STT (Moonshine) → LLM (Gemma 4 E2B, tools + agent) → '
+                'TTS (Matcha), all on device.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _tokenController,
+                decoration: const InputDecoration(
+                  labelText: 'HuggingFace token (for the gated Gemma download)',
+                  helperText:
+                      'Optional if the .litertlm is already staged in app documents.',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _busy ? null : _setup,
+                icon: _busy
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.download),
+                label: const Text('Download & initialize'),
+              ),
+              const SizedBox(height: 16),
+              Text(_status, textAlign: TextAlign.center),
+            ],
           ),
-          obscureText: true,
         ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _busy ? null : _setup,
-          icon: _busy
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.download),
-          label: const Text('Download & initialize'),
-        ),
-        const SizedBox(height: 16),
-        Text(_status),
-      ],
+      ),
     );
   }
 

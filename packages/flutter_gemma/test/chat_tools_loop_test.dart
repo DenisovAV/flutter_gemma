@@ -119,4 +119,63 @@ void main() {
         .toList();
     expect(n, 3);
   });
+
+  test('maxToolTurns < 1 throws (no silent empty-stream no-op)', () {
+    final chat = _ScriptChat(const []);
+    expect(
+      () => chat
+          .generateChatResponseWithTools(
+            onToolCall: (c) => {'result': 'x'},
+            maxToolTurns: 0,
+          )
+          .toList(),
+      throwsA(isA<RangeError>()),
+    );
+  });
+
+  test('onToolCall throwing balances the committed call then rethrows', () async {
+    final chat = _ScriptChat([
+      const [FunctionCallResponse(name: 'boom', args: {})],
+    ]);
+    await expectLater(
+      chat
+          .generateChatResponseWithTools(
+            onToolCall: (c) => throw StateError('tool failed'),
+          )
+          .toList(),
+      throwsA(isA<StateError>()),
+    );
+    // The committed tool-call must get a matching (error) tool-response so the
+    // persistent chat is not left with a dangling call that poisons next turn.
+    expect(
+      chat.fedBack.where((m) => m.toolName == 'boom'),
+      hasLength(1),
+      reason: 'failed call must be answered to balance history',
+    );
+  });
+
+  test(
+    'cancel after generation balances the pending call before stopping',
+    () async {
+      final chat = _ScriptChat([
+        const [FunctionCallResponse(name: 'a', args: {})],
+        const [TextResponse('unreachable')],
+      ]);
+      var polls = 0;
+      final out = await chat
+          .generateChatResponseWithTools(
+            onToolCall: (c) => {'result': 'x'},
+            // false at the top-of-loop check, true right after generation — so the
+            // cancel lands with a call already committed but not yet executed.
+            isCancelled: () => ++polls > 1,
+          )
+          .toList();
+      expect(out.whereType<TextResponse>(), isEmpty); // stopped, no 2nd turn
+      expect(
+        chat.fedBack.where((m) => m.toolName == 'a'),
+        hasLength(1),
+        reason: 'cancelled call must be answered to balance history',
+      );
+    },
+  );
 }

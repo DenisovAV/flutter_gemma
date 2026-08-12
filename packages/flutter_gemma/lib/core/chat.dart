@@ -656,6 +656,12 @@ class InferenceChat {
     int maxToolTurns = 8,
     bool Function()? isCancelled,
   }) async* {
+    if (maxToolTurns < 1) {
+      // A cap below 1 would exit before any generation — the already-staged
+      // user turn would get NO response and the stream would close empty (a
+      // silent no-op). Fail loud (asserts are stripped in release).
+      throw RangeError.range(maxToolTurns, 1, null, 'maxToolTurns');
+    }
     for (var turn = 0; turn < maxToolTurns; turn++) {
       if (isCancelled?.call() ?? false) return;
       final pending = <FunctionCallResponse>[];
@@ -670,15 +676,66 @@ class InferenceChat {
         }
       }
       if (pending.isEmpty) return; // model's final (call-free) answer
-      if (isCancelled?.call() ?? false) return;
-      for (final call in pending) {
-        final response = await onToolCall(call);
+
+      // generateChatResponseAsync already committed the assistant tool-call(s)
+      // to history; EVERY committed call must get a matching tool-response or
+      // the (persistent, reused-across-turns) chat is left with a dangling
+      // call that poisons the next turn (the model re-issues it or replies
+      // empty). So both abnormal exits below balance the history first.
+      if (isCancelled?.call() ?? false) {
+        // Barge-in after generation, before execution: don't run the tools,
+        // but still answer the committed call(s) with a cancelled marker.
+        await _answerToolCalls(pending, const {'status': 'cancelled'});
+        return;
+      }
+      for (var i = 0; i < pending.length; i++) {
+        final call = pending[i];
+        final Map<String, dynamic> response;
+        try {
+          response = await onToolCall(call);
+        } catch (e) {
+          // The app's tool threw. Answer the failed call (and any siblings in
+          // this turn not yet run) so the committed call isn't left dangling,
+          // then rethrow so the caller sees the failure.
+          await addQueryChunk(
+            Message.toolResponse(
+              toolName: call.name,
+              response: {'error': '$e'},
+            ),
+          );
+          await _answerToolCalls(pending.sublist(i + 1), const {
+            'status': 'not run — an earlier tool call in this turn failed',
+          });
+          rethrow;
+        }
         await addQueryChunk(
           Message.toolResponse(toolName: call.name, response: response),
         );
       }
     }
-    // maxToolTurns hit: stop; any text already streamed has been yielded.
+    // Exhausted maxToolTurns with calls still pending: each turn's calls WERE
+    // answered, but no final call-free generation ran, so the reply may be
+    // empty/truncated. Log it (mirrors AgentLoop's MaxIterationsEvent) — silent
+    // truncation would violate the no-masking-failure rule.
+    gemmaLog(
+      'InferenceChat.generateChatResponseWithTools: hit maxToolTurns '
+      '($maxToolTurns) with tool calls still pending; stopping. The reply may '
+      'be empty or truncated — the model never produced a call-free answer.',
+    );
+  }
+
+  /// Feeds a fixed [response] as the tool-response for each of [calls]. Used to
+  /// balance history when a turn is cancelled or a tool throws mid-turn, so a
+  /// committed tool-call is never left without a matching response.
+  Future<void> _answerToolCalls(
+    List<FunctionCallResponse> calls,
+    Map<String, dynamic> response,
+  ) async {
+    for (final call in calls) {
+      await addQueryChunk(
+        Message.toolResponse(toolName: call.name, response: response),
+      );
+    }
   }
 
   Future<void> _recreateSessionWithReducedChunks() async {

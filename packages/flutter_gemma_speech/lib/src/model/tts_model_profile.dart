@@ -157,9 +157,10 @@ class TtsModelProfile {
   /// Selects the `TtsTextNormalizer`; matcha → `'en_us'`.
   final String locale;
 
-  /// Resolve the runtime profile for [t]. Only [TtsModelType.matcha] and
-  /// [TtsModelType.qwen3] are wired; kokoro/supertonic are follow-ons and
-  /// throw (fail-loud — never run text through the wrong pipeline).
+  /// Resolve the runtime profile for [t]. Only [TtsModelType.matcha],
+  /// [TtsModelType.qwen3] and [TtsModelType.inflect] are wired;
+  /// kokoro/supertonic are follow-ons and throw (fail-loud — never run text
+  /// through the wrong pipeline).
   factory TtsModelProfile.forType(TtsModelType t) => switch (t) {
     TtsModelType.matcha => const TtsModelProfile.matcha(),
     TtsModelType.qwen3 => const TtsModelProfile.qwen3(),

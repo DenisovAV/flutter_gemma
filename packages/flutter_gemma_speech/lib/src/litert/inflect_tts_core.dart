@@ -47,6 +47,12 @@ const int inflectSampleRate = 24000;
 /// Waveform samples the decoder emits per z_p frame (upsampling factor).
 const int _hop = 256;
 
+/// Upper bound on a single phoneme's duration (frames) — a guard against
+/// degenerate model output driving `tFrames` into an OOM allocation. At
+/// 24 kHz / hop 256 (~94 frames/s) this is ~11 s for one phoneme: far beyond
+/// anything legitimate, so it only ever clamps garbage.
+const int _maxFramesPerPhoneme = 1024;
+
 /// VITS prior noise scale (`--variation` default in `say.py`).
 const double _noiseScale = 0.667;
 
@@ -304,7 +310,27 @@ class InflectTtsCore {
     final logw = enc[2]; // [N]
 
     // 2. Durations + length regulator (repeat each encoder frame).
-    final durations = List<int>.generate(n, (t) => math.exp(logw[t]).ceil());
+    // Defensive vs garbage model output (e.g. #214 GPU output-garbage): a
+    // non-finite logw would make exp().ceil() THROW ('Infinity or NaN toInt'),
+    // and a large-but-finite logw would explode tFrames into an OOM Float32List
+    // (Matcha survives both via .ceilToDouble() + its MAX_MEL chunk cap; this
+    // pipeline has no chunk cap). Clamp each frame to [1, _maxFramesPerPhoneme]
+    // so a degenerate frame degrades that phoneme instead of crashing the turn.
+    var clamped = false;
+    final durations = List<int>.generate(n, (t) {
+      final e = math.exp(logw[t]);
+      if (!e.isFinite || e > _maxFramesPerPhoneme) {
+        clamped = true;
+        return e.isFinite ? _maxFramesPerPhoneme : 1;
+      }
+      return e.ceil();
+    });
+    if (clamped) {
+      gemmaLog(
+        '[InflectTtsCore] clamped a non-finite/oversized duration frame — '
+        'model output looks degenerate; audio may be distorted for that span.',
+      );
+    }
     var tFrames = 0;
     for (final d in durations) {
       tFrames += d;
@@ -365,7 +391,12 @@ class InflectTtsCore {
     final bd = ByteData.sublistView(pcm);
     for (var i = 0; i < wav.length; i++) {
       var s = wav[i];
-      if (s > 1.0) {
+      // NaN passes BOTH comparisons (all NaN comparisons are false), so it
+      // would reach .round() and throw 'Infinity or NaN toInt'. Map a
+      // non-finite sample to silence instead of crashing the whole utterance.
+      if (s.isNaN) {
+        s = 0.0;
+      } else if (s > 1.0) {
         s = 1.0;
       } else if (s < -1.0) {
         s = -1.0;

@@ -76,21 +76,23 @@ extension TtsModelTypeManifest on TtsModelType {
       'g2p_meta.json',
     ],
     _ => throw UnimplementedError(
-      'TTS manifest for $this is a follow-on (only matcha/qwen3 are wired)',
+      'TTS manifest for $this is a follow-on (only matcha/qwen3/inflect are '
+      'wired)',
     ),
   };
 
-  /// The URL path segment a bundle member is actually fetched from under the
-  /// model's `resolve/main/` base — usually just [plainFilename] itself, but
-  /// [TtsModelType.qwen3]'s 4 embedding-table members and its 1 demo-voice
-  /// member live in the HF repo's `tables/`/`voices/` subdirectories even
-  /// though (per [manifest]'s doc) their INSTALLED identity is the bare
-  /// basename. Safe to add a directory prefix here: it changes ONLY where
-  /// [TtsInstallationBuilder] fetches the bytes from, never the on-disk
-  /// filename/prefsKey (which [TtsBundleFile.fromSource] derives from the
-  /// LAST path segment of the resulting URL — a `tables/` prefix earlier in
-  /// the path is dropped exactly like the plain-basename manifest entry
-  /// intends). A no-op (identity) for every other [TtsModelType].
+  /// Where a bundle member is fetched from, resolved against the model's
+  /// `resolve/main/` base by [TtsInstallationBuilder]. USUALLY a relative path
+  /// segment ([plainFilename] itself, or a `tables/`/`voices/` subdir for
+  /// [TtsModelType.qwen3]'s embedding-table/demo-voice members). For
+  /// [TtsModelType.inflect] the 4 reused Matcha G2P files return an ABSOLUTE
+  /// cross-repo Matcha URL instead (its 2 `.tflite`s stay bare basenames);
+  /// `joinUrl` passes an absolute return value through unchanged. Either way
+  /// this never changes a file's on-disk filename/prefsKey, which
+  /// [TtsBundleFile.fromSource] derives from the LAST path segment of the
+  /// resulting URL (any earlier prefix/host is dropped, exactly like the
+  /// plain-basename manifest entry intends). An identity no-op for matcha and
+  /// the unwired follow-on types.
   String urlSuffixFor(String plainFilename) {
     if (this == TtsModelType.inflect) {
       // Inflect's 2 tflites come from its own repo (the install base URL); the

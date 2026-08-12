@@ -49,6 +49,43 @@ void main() {
         _stripStress(espeak),
         reason: 'phoneme content differs beyond stress marks',
       );
+      expect(
+        got.contains('ˈ'),
+        isTrue,
+        reason: 'stress mark emitted, not dropped',
+      );
     });
   }
+
+  test('OOV word routes through the neural G2P resolver; out-of-table symbols '
+      'are dropped', () async {
+    final dir = '${Directory.current.path}/test/inflect_fixtures';
+    final withG2p = await InflectTextFrontend.load(
+      const TtsModelProfile.inflect(),
+      {
+        'config.json': '$dir/config.json',
+        'g2p_dict.txt.gz': '$dir/g2p_dict.txt.gz',
+      },
+      // 'zzz' is out-of-dictionary → this resolver fires. The trailing '5' is
+      // not in the 178-symbol table and must be dropped (matching the
+      // reference cleaned_text_to_sequence's drop-unknown behavior).
+      neuralG2p: (word) => 'zˈɛd5',
+    );
+    final idToSym = {
+      for (final e in withG2p.symbolToId.entries) e.value: e.key,
+    };
+    // "today" is a dictionary hit (resolver not consulted); "zzz" is OOV.
+    final got = withG2p.encode('zzz today').map((id) => idToSym[id]).join();
+    expect(
+      got,
+      'zˈɛd tədˈeɪ',
+      reason: 'resolver IPA (5 dropped) + inter-word space + dict IPA',
+    );
+  });
+
+  test('OOV word with no neural resolver throws (fail-loud)', () {
+    // `fe` was loaded WITHOUT a resolver, so an out-of-dictionary word must
+    // throw rather than silently produce nothing.
+    expect(() => fe.encode('zzz'), throwsA(isA<StateError>()));
+  });
 }

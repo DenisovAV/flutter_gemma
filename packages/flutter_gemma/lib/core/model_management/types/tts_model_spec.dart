@@ -190,7 +190,7 @@ class TtsBundleFile extends ModelFile {
   });
 
   /// Creates TtsBundleFile from ModelSource, namespaced by [modelId] — in
-  /// practice the owning [TtsModelType]'s name (matcha/kokoro/supertonic).
+  /// practice the owning [TtsModelType]'s name (matcha/qwen3/inflect/…).
   ///
   /// The source's extracted basename is NOT restore-safe by itself:
   /// `MobileModelManager._restoreActiveTtsModel` reconstructs the spec from

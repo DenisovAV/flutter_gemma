@@ -27,9 +27,13 @@ void main() {
         inferenceEngines: const [LiteRtLmEngine()],
       );
 
+      // Optional HF token via --dart-define=HF_TOKEN=... — the repo is public,
+      // so anonymous is the default; a token only matters if HF ever gates it.
+      const hfToken = String.fromEnvironment('HF_TOKEN');
       await FlutterGemma.installTts()
           .fromNetwork(
             'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/',
+            token: hfToken.isEmpty ? null : hfToken,
           )
           .ofType(TtsModelType.inflect)
           .install();

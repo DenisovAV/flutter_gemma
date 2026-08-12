@@ -33,20 +33,36 @@ VoiceResponder agentVoiceResponder(
   AgentSession agent, {
   String maxIterationsFallback = _kFallback,
 }) {
-  var cancelled = false;
+  // Cancellation is PER-TURN: each respond() creates its own token and stop()
+  // cancels only the currently-active one. A single shared boolean that
+  // respond() resets to false would UN-cancel a prior turn's detached
+  // (drain-timeout) agent loop, letting it resume tool calls on this same
+  // chat concurrently with the new turn.
+  _CancelToken? activeToken;
   return VoiceResponder(
     respond: (userText) {
-      cancelled = false;
+      final token = _CancelToken();
+      activeToken = token;
       // isCancelled (flutter_gemma_agent 0.2.0, Task 3a) makes barge-in halt
       // the agent loop before the next tool, not just mute the speech.
       return agentEventsToSpeech(
-        agent.ask(userText, isCancelled: () => cancelled),
+        agent.ask(userText, isCancelled: () => token.cancelled),
         fallback: maxIterationsFallback,
       );
     },
     stop: () async {
-      cancelled = true;
+      activeToken?.cancel();
       await agent.chat.stopGeneration();
     },
   );
+}
+
+/// Per-turn cancellation token — an enforced one-way latch: [cancelled] is
+/// read-only and [cancel] can only ever set it true (never reset), so a later
+/// turn (with its OWN token) cannot un-cancel a prior turn's still-running
+/// detached loop.
+class _CancelToken {
+  bool _cancelled = false;
+  bool get cancelled => _cancelled;
+  void cancel() => _cancelled = true;
 }

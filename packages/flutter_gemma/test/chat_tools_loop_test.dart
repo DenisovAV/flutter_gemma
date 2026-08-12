@@ -178,4 +178,46 @@ void main() {
       );
     },
   );
+
+  test(
+    'cancel BETWEEN parallel calls skips the rest, balances them, stops',
+    () async {
+      final chat = _ScriptChat([
+        const [
+          ParallelFunctionCallResponse(
+            calls: [
+              FunctionCallResponse(name: 'a', args: {}),
+              FunctionCallResponse(name: 'b', args: {}),
+            ],
+          ),
+        ],
+        const [TextResponse('unreachable')],
+      ]);
+      var cancel = false;
+      final ran = <String>[];
+      final out = await chat
+          .generateChatResponseWithTools(
+            onToolCall: (c) {
+              ran.add(c.name);
+              cancel = true; // barge-in lands right after the FIRST call runs
+              return {'result': 'x'};
+            },
+            isCancelled: () => cancel,
+          )
+          .toList();
+      // Only the first call's side effect fired: the between-call check
+      // (mirroring AgentLoop) stops the rest instead of running every tool's
+      // side effect after barge-in.
+      expect(ran, ['a'], reason: 'remaining tools must NOT run after barge-in');
+      expect(out.whereType<TextResponse>(), isEmpty); // no 2nd turn
+      // Both committed calls still get a tool-response (a: real, b: cancelled)
+      // so neither is left dangling in the persistent chat.
+      expect(chat.fedBack.where((m) => m.toolName == 'a'), hasLength(1));
+      expect(
+        chat.fedBack.where((m) => m.toolName == 'b'),
+        hasLength(1),
+        reason: 'the skipped call must be balanced with a cancelled response',
+      );
+    },
+  );
 }

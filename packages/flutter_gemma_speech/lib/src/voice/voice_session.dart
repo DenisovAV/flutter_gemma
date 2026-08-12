@@ -23,9 +23,12 @@ import 'voice_responder.dart';
 /// design spec (`2026-07-29-voice-loop-design.md`) for the full contract.
 class VoiceSession {
   /// General constructor — any LLM behind a [VoiceResponder].
-  // The initializer list (not `this._recognizer` initializing formals) is
-  // intentional: it lets the constructor keep PUBLIC named params
-  // (`recognizer:`/`responder:`/`synthesizer:`) while the backing fields are
+  //
+  // `this._recognizer` initializing formals with PRIVATE field names: Dart
+  // de-underscores the leading `_`, so the public named params stay
+  // `recognizer:`/`responder:`/`synthesizer:` while the backing fields remain
+  // private (`_recognizer`/`_responder`/`_synthesizer`) — no initializer list
+  // needed.
   VoiceSession.custom({
     required this._recognizer,
     required this._responder,
@@ -104,7 +107,7 @@ class VoiceSession {
       responder: VoiceResponder(
         respond: respondWithTools,
         stop: () async {
-          activeToken?.cancelled = true;
+          activeToken?.cancel();
           await chat.stopGeneration();
         },
       ),
@@ -403,9 +406,12 @@ class VoiceSession {
   }
 }
 
-/// Per-turn cancellation token for the tool-calling respond path. One-way:
-/// once [cancelled] flips true it never resets, so a later turn (which gets
-/// its OWN token) cannot un-cancel a prior turn's still-running detached loop.
+/// Per-turn cancellation token for the tool-calling respond path — an enforced
+/// one-way latch: [cancelled] is read-only and [cancel] can only ever set it
+/// true (never reset), so a later turn (which gets its OWN token) cannot
+/// un-cancel a prior turn's still-running detached loop.
 class _CancelToken {
-  bool cancelled = false;
+  bool _cancelled = false;
+  bool get cancelled => _cancelled;
+  void cancel() => _cancelled = true;
 }

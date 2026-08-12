@@ -54,6 +54,15 @@ const int _hop = 256;
 /// anything legitimate, so it only ever clamps garbage.
 const int _maxFramesPerPhoneme = 1024;
 
+/// Upper bound on the TOTAL length-regulated frames across the whole utterance.
+/// The per-phoneme clamp only caps one frame; without this, N degenerate
+/// phonemes each hitting [_maxFramesPerPhoneme] would still sum to
+/// N·[_maxFramesPerPhoneme] frames and OOM the `T·128` latent buffers + the
+/// `T·HOP` decoder output. At ~94 frames/s this is ~87 s of audio — far beyond
+/// any real spoken reply (upstream capped by `maxOutputTokens`), so it only
+/// ever truncates garbage.
+const int _maxTotalFrames = 8192;
+
 /// VITS prior noise scale (`--variation` default in `say.py`).
 const double _noiseScale = 0.667;
 
@@ -204,11 +213,11 @@ class InflectTtsCore {
       // harness) → neuralG2p is null and the frontend needs dictionary-covered
       // input.
       _InflectG2p? g2p;
+      // The profile always DECLARES the G2P filenames; the optionality is
+      // whether the bundle actually STAGED them — gate on containsKey alone.
       final g2pFile = profile.g2pFile;
       final g2pMetaFile = profile.g2pMetaFile;
-      if (g2pFile != null &&
-          g2pMetaFile != null &&
-          artifactPaths.containsKey(g2pFile) &&
+      if (artifactPaths.containsKey(g2pFile) &&
           artifactPaths.containsKey(g2pMetaFile)) {
         final dpG2p = loadLiteRtGraph(
           bindings,
@@ -320,14 +329,28 @@ class InflectTtsCore {
       tFrames += d;
     }
     if (tFrames == 0) return Uint8List(0);
+    // Aggregate safety cap (see [_maxTotalFrames]): the per-phoneme clamp above
+    // bounds each frame, but their SUM is still unbounded, so cap the total and
+    // truncate rather than OOM. Loud log (no silent masking) — this only fires
+    // on degenerate output, and the audio will be cut short for that turn.
+    if (tFrames > _maxTotalFrames) {
+      gemmaLog(
+        '[InflectTtsCore] total length-regulated frames $tFrames exceeds cap '
+        '$_maxTotalFrames — truncating; model output looks degenerate, audio '
+        'will be cut short.',
+      );
+      tFrames = _maxTotalFrames;
+    }
 
     final total = tFrames * 128;
     final mExp = Float32List(total);
     final lsExp = Float32List(total);
     var f = 0;
+    outer:
     for (var t = 0; t < n; t++) {
       final base = t * 128;
       for (var r = 0; r < durations[t]; r++) {
+        if (f >= tFrames) break outer; // aggregate cap reached — stop expanding
         final off = f * 128;
         mExp.setRange(off, off + 128, mP, base);
         lsExp.setRange(off, off + 128, logsP, base);
@@ -371,6 +394,7 @@ class InflectTtsCore {
     // 5. float32 [-1,1] -> 16-bit little-endian PCM.
     final pcm = Uint8List(wav.length * 2);
     final bd = ByteData.sublistView(pcm);
+    var nanSamples = 0;
     for (var i = 0; i < wav.length; i++) {
       var s = wav[i];
       // NaN passes BOTH comparisons (all NaN comparisons are false), so it
@@ -378,12 +402,21 @@ class InflectTtsCore {
       // non-finite sample to silence instead of crashing the whole utterance.
       if (s.isNaN) {
         s = 0.0;
+        nanSamples++;
       } else if (s > 1.0) {
         s = 1.0;
       } else if (s < -1.0) {
         s = -1.0;
       }
       bd.setInt16(i * 2, (s * 32767).round(), Endian.little);
+    }
+    // Loud once (not per-sample) — NaN-to-silence is a degrade path, not
+    // normal, so a fully-silent map would mask genuinely-broken decoder output.
+    if (nanSamples > 0) {
+      gemmaLog(
+        '[InflectTtsCore] $nanSamples/${wav.length} decoder samples were NaN '
+        '— mapped to silence; model output looks degenerate.',
+      );
     }
     return pcm;
   }

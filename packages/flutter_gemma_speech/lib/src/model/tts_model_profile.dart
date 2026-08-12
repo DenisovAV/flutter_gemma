@@ -194,13 +194,16 @@ final class InflectProfile extends TtsModelProfile {
   /// VITS decoder model file (latents → 24 kHz waveform directly).
   final String decoderFile = 'inflect_decoder_fp16.tflite';
 
-  /// Optional neural OOV G2P model file (Matcha's shared dp_g2p); null-able
-  /// role — `InflectTtsCore.load` also skips it when the bundle at hand
-  /// doesn't stage the file.
-  final String? g2pFile = 'dp_g2p_matcha_fp16.tflite';
+  /// Neural OOV G2P model file (Matcha's shared dp_g2p). Always DECLARED
+  /// (non-null, like [MatchaProfile.g2pFile]) — the optionality is at the
+  /// ARTIFACT level, not the name: `InflectTtsCore.load` skips the neural G2P
+  /// when the bundle at hand doesn't stage this file (gated on
+  /// `artifactPaths.containsKey`, never on a null filename).
+  final String g2pFile = 'dp_g2p_matcha_fp16.tflite';
 
-  /// Side-car meta for [g2pFile] (vocab + framing params); optional with it.
-  final String? g2pMetaFile = 'g2p_meta.json';
+  /// Side-car meta for [g2pFile] (vocab + framing params); same artifact-level
+  /// optionality as [g2pFile].
+  final String g2pMetaFile = 'g2p_meta.json';
 
   /// Symbol-table config file (Matcha's `config.json`, reused).
   final String configFile = 'config.json';

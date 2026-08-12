@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart'
@@ -165,6 +166,43 @@ void main() {
         chat.generations,
         2,
         reason: 'one generation for the call, one for the answer',
+      );
+    },
+  );
+
+  test(
+    'fromChat tools path: interrupt() halts the loop before the next generation',
+    () async {
+      final chat = _ScriptChat([
+        const [FunctionCallResponse(name: 'get_time', args: {})],
+        const [TextResponse('unreachable')], // 2nd generation must NOT run
+      ]);
+      final toolFired = Completer<void>();
+      final letToolReturn = Completer<void>();
+      final session = VoiceSession.fromChat(
+        recognizer: _FixedRecognizer(),
+        chat: chat,
+        synthesizer: _NoopSynth(),
+        onToolCall: (c) async {
+          if (!toolFired.isCompleted) toolFired.complete();
+          await letToolReturn.future; // hang the tool mid-turn
+          return {'result': 'x'};
+        },
+      );
+
+      final events = session.runTurn(Uint8List(0)).toList();
+      await toolFired.future; // the tool is now running (turn in flight)
+      final interrupting = session.interrupt(); // cancels this turn's token
+      letToolReturn.complete(); // tool returns; loop then sees the cancel
+      await interrupting;
+      await events;
+
+      expect(
+        chat.generations,
+        1,
+        reason:
+            'barge-in must stop the tool loop before the 2nd generation; '
+            'the per-turn cancel token propagates to generateChatResponseWithTools',
       );
     },
   );

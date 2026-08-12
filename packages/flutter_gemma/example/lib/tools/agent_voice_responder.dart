@@ -51,15 +51,18 @@ VoiceResponder agentVoiceResponder(
       );
     },
     stop: () async {
-      activeToken?.cancelled = true;
+      activeToken?.cancel();
       await agent.chat.stopGeneration();
     },
   );
 }
 
-/// Per-turn cancellation token. One-way: once [cancelled] flips true it never
-/// resets, so a later turn (with its OWN token) cannot un-cancel a prior
-/// turn's still-running detached loop.
+/// Per-turn cancellation token — an enforced one-way latch: [cancelled] is
+/// read-only and [cancel] can only ever set it true (never reset), so a later
+/// turn (with its OWN token) cannot un-cancel a prior turn's still-running
+/// detached loop.
 class _CancelToken {
-  bool cancelled = false;
+  bool _cancelled = false;
+  bool get cancelled => _cancelled;
+  void cancel() => _cancelled = true;
 }

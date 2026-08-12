@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -33,8 +34,12 @@ class InferenceChat {
   late InferenceModelSession session;
   final List<Tool> _tools;
 
-  /// Tools available to this chat, fixed for the chat's lifetime.
-  List<Tool> get tools => List.unmodifiable(_tools);
+  /// Tools available to this chat, fixed for the chat's lifetime. A cached
+  /// unmodifiable VIEW over `_tools` (allocated once, reflects the backing
+  /// list) — `tools.isNotEmpty` is read once per generated token on the
+  /// streaming path, so a per-read `List.unmodifiable(_tools)` copy would be
+  /// an O(tools) allocation on the hottest generation loop.
+  late final List<Tool> tools = UnmodifiableListView(_tools);
 
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
@@ -492,6 +497,15 @@ class InferenceChat {
             'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream',
           );
           emittedFunctionCall = true;
+          // Record the tool-call in history BEFORE yielding (mirrors the sync
+          // SDK path at ~L193 and the JSON paths) — otherwise the caller's
+          // tool-response has no matching call and is left orphaned, which
+          // corrupts the replayed history when the Gemma 4 session rotates.
+          // Strip the Gemma 4 escape tokens first, same as the sync path (#248).
+          final cleanRaw = SdkResponseParser.cleanRawForHistory(raw);
+          final toolCallMessage = Message.toolCall(text: cleanRaw);
+          _fullHistory.add(toolCallMessage);
+          _modelHistory.add(toolCallMessage);
           if (allCalls.length == 1) {
             yield allCalls.first;
           } else {
@@ -669,13 +683,15 @@ class InferenceChat {
       if (isCancelled?.call() ?? false) return;
       final pending = <FunctionCallResponse>[];
       await for (final r in generateChatResponseAsync()) {
+        // Exhaustive over the sealed ModelResponse: a future subtype fails to
+        // compile here instead of silently passing through as text.
         switch (r) {
           case FunctionCallResponse():
             pending.add(r);
           case ParallelFunctionCallResponse(:final calls):
             pending.addAll(calls);
-          default:
-            yield r; // TextResponse / ThinkingResponse pass through
+          case TextResponse() || ThinkingResponse():
+            yield r; // pass through to the caller's text/thinking stream
         }
       }
       if (pending.isEmpty) return; // model's final (call-free) answer
@@ -692,6 +708,19 @@ class InferenceChat {
         return;
       }
       for (var i = 0; i < pending.length; i++) {
+        if (isCancelled?.call() ?? false) {
+          // Barge-in landed mid-turn (between individual tool calls). Don't run
+          // the remaining tools' side effects — mirrors AgentLoop's between-call
+          // check (agent_loop.dart) — but answer every not-yet-run call (i..end)
+          // with a cancelled marker so no committed call is left dangling, then
+          // stop. On the voice detach path the per-turn token stays cancelled
+          // forever, so a still-running DETACHED loop bails here at the next
+          // tool boundary instead of executing the rest of this turn's tools.
+          await _answerToolCalls(pending.sublist(i), const {
+            'status': 'cancelled',
+          });
+          return;
+        }
         final call = pending[i];
         final Map<String, dynamic> response;
         try {

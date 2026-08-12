@@ -87,8 +87,11 @@ class AgentLoop {
   /// next generation and between dispatched calls — for barge-in: once it
   /// returns true the stream ends promptly (no [DoneEvent], no
   /// [MaxIterationsEvent]). A tool already executing still completes; only
-  /// the *next* step is skipped. `null` (the default) preserves prior
-  /// behavior exactly.
+  /// the *next* step is skipped. Tool calls the model already committed to
+  /// [chat]'s history but that were not executed are answered with a
+  /// synthetic `status: cancelled` tool-response, so the persistent chat is
+  /// never left with a dangling half-answered call. `null` (the default)
+  /// preserves prior behavior exactly.
   Stream<AgentEvent> run(
     InferenceChat chat,
     String userMessage, {
@@ -100,9 +103,18 @@ class AgentLoop {
     for (var iteration = 0; iteration < maxIterations; iteration++) {
       if (cancelled()) return; // barge-in before the next generation
       final ModelResponse response = await chat.generateChatResponse();
-      if (cancelled()) return; // decode was stopped by chat.stopGeneration()
-
       final calls = _extractCalls(response);
+      if (cancelled()) {
+        // Decode was stopped by chat.stopGeneration(). If the response still
+        // parsed as tool call(s), generateChatResponse already committed them
+        // to history — balance them with a synthetic cancelled tool-response
+        // (mirrors core InferenceChat.generateChatResponseWithTools) so the
+        // persistent chat isn't left with a dangling call that poisons the
+        // next turn.
+        await _answerCancelledCalls(chat, calls);
+        return;
+      }
+
       if (calls.isEmpty) {
         // Plain text (or thinking) — the model is done with this turn.
         final text = switch (response) {
@@ -116,13 +128,34 @@ class AgentLoop {
       }
 
       // Dispatch every call (single or parallel), feeding each result back.
-      for (final call in calls) {
-        if (cancelled()) return; // barge-in between parallel calls
-        yield* _dispatch(chat, call);
+      for (var i = 0; i < calls.length; i++) {
+        if (cancelled()) {
+          // Barge-in between parallel calls: the model's whole call turn is
+          // already committed to history, so answer the not-yet-dispatched
+          // remainder before returning (dispatched calls already got their
+          // real tool-responses).
+          await _answerCancelledCalls(chat, calls.sublist(i));
+          return;
+        }
+        yield* _dispatch(chat, calls[i]);
       }
     }
 
     yield MaxIterationsEvent(maxIterations);
+  }
+
+  /// Answer each committed-but-not-executed call in [calls] with a synthetic
+  /// `{'status': 'cancelled'}` tool-response, so a barge-in never leaves the
+  /// persistent [chat] with a tool call lacking a matching response (which
+  /// would poison the next turn — the model re-issues it or replies empty).
+  /// Mirrors core InferenceChat._answerToolCalls.
+  Future<void> _answerCancelledCalls(
+    InferenceChat chat,
+    List<FunctionCallResponse> calls,
+  ) async {
+    for (final call in calls) {
+      await _feedBack(chat, call.name, const {'status': 'cancelled'});
+    }
   }
 
   /// Normalize a [ModelResponse] into the list of function calls to dispatch.

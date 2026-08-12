@@ -31,7 +31,10 @@ class InferenceChat {
   final ModelFileType fileType; // Add fileType parameter
   final ToolChoice toolChoice; // Tool calling mode
   late InferenceModelSession session;
-  final List<Tool> tools;
+  final List<Tool> _tools;
+
+  /// Tools available to this chat, fixed for the chat's lifetime.
+  List<Tool> get tools => List.unmodifiable(_tools);
 
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
@@ -61,7 +64,7 @@ class InferenceChat {
     this.supportAudio = false,
     this.supportsFunctionCalls = false,
     this.maxFunctionBufferLength = defaultMaxFunctionBufferLength,
-    this.tools = const [],
+    this._tools = const [],
     this.modelType =
         ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
     this.isThinking = false, // Default to false for backward compatibility

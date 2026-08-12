@@ -1,6 +1,7 @@
 // On-device (macOS/desktop): the FULL public path for Inflect TTS —
 // install (cross-repo: 2 tflites from the Inflect repo + 4 G2P files from the
-// Matcha repo, routed by TtsModelType.inflect.urlSuffixFor) -> getActiveTts ->
+// Matcha repo, routed by TtsModelType.inflect.fetchLocationFor) ->
+// getActiveTts ->
 // synthesize (through the background worker's inflectVits arm) -> non-silent
 // 24 kHz PCM. Public repos, no token.
 //

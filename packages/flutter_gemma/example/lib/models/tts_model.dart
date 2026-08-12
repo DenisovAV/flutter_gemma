@@ -29,7 +29,8 @@ enum TtsModel {
   ),
   inflect(
     // The 2 tflites come from this repo; the 4 reused G2P files are fetched
-    // cross-repo from Matcha (routed by TtsModelType.inflect.urlSuffixFor).
+    // cross-repo from Matcha (routed by
+    // TtsModelType.inflect.fetchLocationFor).
     baseUrl:
         'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/',
     displayName: 'Inflect-Nano-v2 (fast)',

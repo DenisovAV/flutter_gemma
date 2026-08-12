@@ -123,25 +123,8 @@ double nextGaussian(math.Random r) {
   return math.sqrt(-2.0 * math.log(u1)) * math.cos(2 * math.pi * u2);
 }
 
-int _acceleratorFor(PreferredBackend? backend) {
-  switch (backend) {
-    case PreferredBackend.gpu:
-      return kLiteRtHwAcceleratorGpu;
-    case PreferredBackend.npu:
-      return kLiteRtHwAcceleratorNpu;
-    case PreferredBackend.cpu:
-    case null:
-      return kLiteRtHwAcceleratorCpu;
-  }
-}
-
-String _artifactPath(Map<String, String> artifactPaths, String file) {
-  final path = artifactPaths[file];
-  if (path == null) {
-    throw StateError('TtsCore: bundle is missing "$file" in artifactPaths');
-  }
-  return path;
-}
+String _artifactPath(Map<String, String> artifactPaths, String file) =>
+    artifactPath(artifactPaths, file, owner: 'TtsCore');
 
 /// Synchronous native TTS core. NOT safe to share across isolates — the FFI
 /// handles it holds are owned by the isolate that called [load].
@@ -211,7 +194,7 @@ class TtsCore {
     required Map<String, String> artifactPaths,
     PreferredBackend? backend,
   }) async {
-    if (profile.pipeline != TtsPipelineKind.matchaCfm) {
+    if (profile is! MatchaProfile) {
       throw UnimplementedError(
         'TtsCore: only TtsPipelineKind.matchaCfm is implemented here '
         '(qwen3ArCodec is handled by Qwen3TtsCore, not the Matcha TtsCore '
@@ -235,7 +218,7 @@ class TtsCore {
     final melMean = (config['mel_mean'] as num).toDouble();
 
     final bindings = LiteRtBindings.open();
-    final accelerator = _acceleratorFor(backend);
+    final accelerator = acceleratorFor(backend);
 
     // Track handles as they're created so a failure partway through (e.g.
     // the decoder graph fails to compile after the text-encoder already
@@ -328,11 +311,7 @@ class TtsCore {
         g2pNPhonemes: g2pNPhonemes,
       );
     } catch (_) {
-      for (final graph in loadedGraphs) {
-        bindings.destroyCompiledModel(graph.compiledModel);
-        bindings.destroyOptions(graph.options);
-        bindings.destroyModel(graph.model);
-      }
+      destroyGraphs(bindings, loadedGraphs);
       if (environment != null) bindings.destroyEnvironment(environment);
       rethrow;
     }
@@ -643,11 +622,7 @@ class TtsCore {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final graph in [_textEncoder, _decoder, _vocoder, _dpG2p]) {
-      _bindings.destroyCompiledModel(graph.compiledModel);
-      _bindings.destroyOptions(graph.options);
-      _bindings.destroyModel(graph.model);
-    }
+    destroyGraphs(_bindings, [_textEncoder, _decoder, _vocoder, _dpG2p]);
     _bindings.destroyEnvironment(_environment);
   }
 }

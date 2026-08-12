@@ -40,6 +40,7 @@ import '../model/tts_model_profile.dart';
 import '../tts/neural_g2p_decode.dart';
 import '../tts/tts_text_frontend.dart' show NeuralG2pResolver;
 import 'litert_graph.dart';
+import 'tts_core.dart' show nextGaussian;
 
 /// Inflect output sample rate (Hz).
 const int inflectSampleRate = 24000;
@@ -59,43 +60,23 @@ const double _noiseScale = 0.667;
 /// Fixed default RNG seed for the product path (byte-reproducible per text).
 const int _defaultSeed = 7;
 
-int _acceleratorFor(PreferredBackend? backend) => switch (backend) {
-  PreferredBackend.gpu => kLiteRtHwAcceleratorGpu,
-  PreferredBackend.npu => kLiteRtHwAcceleratorNpu,
-  _ => kLiteRtHwAcceleratorCpu,
-};
-
-String _artifactPath(Map<String, String> paths, String file) {
-  final p = paths[file];
-  if (p == null) {
-    throw StateError('InflectTtsCore: bundle is missing "$file" in paths');
-  }
-  return p;
-}
-
-/// One standard-normal draw via Box-Muller (mirrors `tts_core.dart`'s
-/// `nextGaussian`), kept local so this core has no dependency on the Matcha
-/// pipeline file.
-double _nextGaussian(math.Random r) {
-  final u1 = 1.0 - r.nextDouble();
-  final u2 = 1.0 - r.nextDouble();
-  return math.sqrt(-2.0 * math.log(u1)) * math.cos(2.0 * math.pi * u2);
-}
+String _artifactPath(Map<String, String> paths, String file) =>
+    artifactPath(paths, file, owner: 'InflectTtsCore');
 
 /// The neural OOV G2P (dp_g2p graph + its `g2p_meta.json` framing/vocab),
 /// loaded only when the bundle carries it. Shared verbatim with Matcha's
 /// `dp_g2p` — same graph, same meta.
 class _InflectG2p {
-  _InflectG2p(
-    this.graph,
-    this.char2idx,
-    this.idx2ph,
-    this.charRepeats,
-    this.start,
-    this.end,
-    this.maxT,
-    this.nPhonemes,
-  );
+  _InflectG2p({
+    required this.graph,
+    required this.char2idx,
+    required this.idx2ph,
+    required this.charRepeats,
+    required this.start,
+    required this.end,
+    required this.maxT,
+    required this.nPhonemes,
+  });
   final LoadedGraph graph;
   final Map<String, int> char2idx;
   final Map<int, String> idx2ph;
@@ -110,16 +91,12 @@ class _InflectG2p {
 /// FFI handles are process-global; create + use + [dispose] on one isolate.
 class InflectTtsCore {
   InflectTtsCore._({
-    required LiteRtBindings bindings,
-    required LiteRtEnvironment environment,
-    required LoadedGraph textEncoder,
-    required LoadedGraph decoder,
-    _InflectG2p? g2p,
-  }) : _bindings = bindings, // ignore: prefer_initializing_formals
-       _environment = environment, // ignore: prefer_initializing_formals
-       _textEncoder = textEncoder, // ignore: prefer_initializing_formals
-       _decoder = decoder, // ignore: prefer_initializing_formals
-       _g2p = g2p; // ignore: prefer_initializing_formals
+    required this._bindings,
+    required this._environment,
+    required this._textEncoder,
+    required this._decoder,
+    this._g2p,
+  });
 
   final LiteRtBindings _bindings;
   final LiteRtEnvironment _environment;
@@ -127,10 +104,15 @@ class InflectTtsCore {
   final LoadedGraph _decoder;
   final _InflectG2p? _g2p;
 
+  bool _disposed = false;
+
   /// Neural OOV G2P resolver (dp_g2p), or null if the bundle didn't include it
   /// — pass to `InflectTextFrontend` so out-of-dictionary words resolve instead
   /// of throwing. Mirrors `TtsCore.neuralG2p`.
   NeuralG2pResolver? get neuralG2p {
+    if (_disposed) {
+      throw StateError('InflectTtsCore is disposed');
+    }
     final g = _g2p;
     if (g == null) return null;
     return (word) {
@@ -180,13 +162,13 @@ class InflectTtsCore {
     required Map<String, String> artifactPaths,
     PreferredBackend? backend,
   }) async {
-    if (profile.pipeline != TtsPipelineKind.inflectVits) {
+    if (profile is! InflectProfile) {
       throw UnimplementedError(
         'InflectTtsCore: only TtsPipelineKind.inflectVits is implemented here',
       );
     }
     final bindings = LiteRtBindings.open();
-    final accelerator = _acceleratorFor(backend);
+    final accelerator = acceleratorFor(backend);
 
     // Track handles as they're created so a partial failure frees everything
     // already allocated (the LiteRT native heap is process-global). Mirrors
@@ -222,36 +204,39 @@ class InflectTtsCore {
       // harness) → neuralG2p is null and the frontend needs dictionary-covered
       // input.
       _InflectG2p? g2p;
-      if (profile.g2pFile.isNotEmpty &&
-          artifactPaths.containsKey(profile.g2pFile) &&
-          artifactPaths.containsKey(profile.g2pMetaFile)) {
+      final g2pFile = profile.g2pFile;
+      final g2pMetaFile = profile.g2pMetaFile;
+      if (g2pFile != null &&
+          g2pMetaFile != null &&
+          artifactPaths.containsKey(g2pFile) &&
+          artifactPaths.containsKey(g2pMetaFile)) {
         final dpG2p = loadLiteRtGraph(
           bindings,
           environment,
-          _artifactPath(artifactPaths, profile.g2pFile),
+          _artifactPath(artifactPaths, g2pFile),
           accelerator,
         );
         loaded.add(dpG2p);
         final meta =
             jsonDecode(
                   await File(
-                    _artifactPath(artifactPaths, profile.g2pMetaFile),
+                    _artifactPath(artifactPaths, g2pMetaFile),
                   ).readAsString(),
                 )
                 as Map<String, dynamic>;
         g2p = _InflectG2p(
-          dpG2p,
-          (meta['char2idx'] as Map<String, dynamic>).map(
+          graph: dpG2p,
+          char2idx: (meta['char2idx'] as Map<String, dynamic>).map(
             (k, v) => MapEntry(k, (v as num).toInt()),
           ),
-          (meta['idx2ph'] as Map<String, dynamic>).map(
+          idx2ph: (meta['idx2ph'] as Map<String, dynamic>).map(
             (k, v) => MapEntry(int.parse(k), v as String),
           ),
-          (meta['char_repeats'] as num).toInt(),
-          (meta['start'] as num).toInt(),
-          (meta['end'] as num).toInt(),
-          (meta['MAXT'] as num).toInt(),
-          (meta['n_phonemes'] as num).toInt(),
+          charRepeats: (meta['char_repeats'] as num).toInt(),
+          start: (meta['start'] as num).toInt(),
+          end: (meta['end'] as num).toInt(),
+          maxT: (meta['MAXT'] as num).toInt(),
+          nPhonemes: (meta['n_phonemes'] as num).toInt(),
         );
       }
 
@@ -267,11 +252,7 @@ class InflectTtsCore {
         g2p: g2p,
       );
     } catch (_) {
-      for (final g in loaded) {
-        bindings.destroyCompiledModel(g.compiledModel);
-        bindings.destroyOptions(g.options);
-        bindings.destroyModel(g.model);
-      }
+      destroyGraphs(bindings, loaded);
       if (environment != null) bindings.destroyEnvironment(environment);
       rethrow;
     }
@@ -287,6 +268,9 @@ class InflectTtsCore {
     int seed = _defaultSeed,
     Float32List? noiseOverride,
   }) {
+    if (_disposed) {
+      throw StateError('InflectTtsCore is disposed');
+    }
     final n = phonemeIds.length;
     if (n == 0) return Uint8List(0);
     final ids = Int32List.fromList(phonemeIds);
@@ -345,10 +329,8 @@ class InflectTtsCore {
       final base = t * 128;
       for (var r = 0; r < durations[t]; r++) {
         final off = f * 128;
-        for (var c = 0; c < 128; c++) {
-          mExp[off + c] = mP[base + c];
-          lsExp[off + c] = logsP[base + c];
-        }
+        mExp.setRange(off, off + 128, mP, base);
+        lsExp.setRange(off, off + 128, logsP, base);
         f++;
       }
     }
@@ -367,7 +349,7 @@ class InflectTtsCore {
     } else {
       final rnd = math.Random(seed);
       for (var i = 0; i < total; i++) {
-        zp[i] = mExp[i] + _nextGaussian(rnd) * math.exp(lsExp[i]) * _noiseScale;
+        zp[i] = mExp[i] + nextGaussian(rnd) * math.exp(lsExp[i]) * _noiseScale;
       }
     }
 
@@ -407,13 +389,16 @@ class InflectTtsCore {
   }
 
   /// Destroys the compiled graphs' handles + the shared environment.
+  /// Idempotent — a second call is a no-op.
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
     final g2p = _g2p;
-    for (final g in [_textEncoder, _decoder, if (g2p != null) g2p.graph]) {
-      _bindings.destroyCompiledModel(g.compiledModel);
-      _bindings.destroyOptions(g.options);
-      _bindings.destroyModel(g.model);
-    }
+    destroyGraphs(_bindings, [
+      _textEncoder,
+      _decoder,
+      if (g2p != null) g2p.graph,
+    ]);
     _bindings.destroyEnvironment(_environment);
   }
 }

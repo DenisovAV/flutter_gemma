@@ -154,27 +154,8 @@ const int _codecEos = 2150;
 /// time, see the guard there.
 const int _codecLeftContext = 25;
 
-int _acceleratorFor(PreferredBackend? backend) {
-  switch (backend) {
-    case PreferredBackend.gpu:
-      return kLiteRtHwAcceleratorGpu;
-    case PreferredBackend.npu:
-      return kLiteRtHwAcceleratorNpu;
-    case PreferredBackend.cpu:
-    case null:
-      return kLiteRtHwAcceleratorCpu;
-  }
-}
-
-String _artifactPath(Map<String, String> artifactPaths, String file) {
-  final path = artifactPaths[file];
-  if (path == null) {
-    throw StateError(
-      'Qwen3TtsCore: bundle is missing "$file" in artifactPaths',
-    );
-  }
-  return path;
-}
+String _artifactPath(Map<String, String> artifactPaths, String file) =>
+    artifactPath(artifactPaths, file, owner: 'Qwen3TtsCore');
 
 /// Reads one input tensor's full shape via the index-based
 /// `getInputTensorLayout` accessor — the only per-tensor introspection the
@@ -379,7 +360,7 @@ class Qwen3TtsCore {
     String talkerFileName = 'talker_int4.tflite',
   }) async {
     final bindings = LiteRtBindings.open();
-    final accelerator = _acceleratorFor(backend);
+    final accelerator = acceleratorFor(backend);
 
     // Track handles as they're created so a failure partway through (e.g.
     // the codec graph fails to compile after the talker/MTP already
@@ -582,11 +563,7 @@ class Qwen3TtsCore {
       );
     } catch (_) {
       tables?.dispose();
-      for (final graph in loadedGraphs) {
-        bindings.destroyCompiledModel(graph.compiledModel);
-        bindings.destroyOptions(graph.options);
-        bindings.destroyModel(graph.model);
-      }
+      destroyGraphs(bindings, loadedGraphs);
       if (environment != null) bindings.destroyEnvironment(environment);
       rethrow;
     }
@@ -1276,11 +1253,7 @@ class Qwen3TtsCore {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final graph in [_talker, _mtp, _codec]) {
-      _bindings.destroyCompiledModel(graph.compiledModel);
-      _bindings.destroyOptions(graph.options);
-      _bindings.destroyModel(graph.model);
-    }
+    destroyGraphs(_bindings, [_talker, _mtp, _codec]);
     _bindings.destroyEnvironment(_environment);
     _tables.dispose();
   }

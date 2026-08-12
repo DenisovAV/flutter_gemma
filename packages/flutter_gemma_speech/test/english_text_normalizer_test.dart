@@ -23,6 +23,23 @@ void main() {
   test('splitClauses splits on sentence + clause boundaries', () {
     expect(n.splitClauses('One, two. Three'), ['One,', 'two.', 'Three']);
   });
+  test('splitClauses keeps comma-grouped numbers intact', () {
+    expect(n.splitClauses('We shipped 1,234 items'), [
+      'We shipped 1,234 items',
+    ]);
+    expect(n.splitClauses('First, 1,234,567 units. Done'), [
+      'First,',
+      '1,234,567 units.',
+      'Done',
+    ]);
+  });
+  test('splitClauses keeps decimals intact', () {
+    expect(n.splitClauses('Pi is 3.14, roughly. Yes'), [
+      'Pi is 3.14,',
+      'roughly.',
+      'Yes',
+    ]);
+  });
   test('integer expands to words', () {
     final t = EnglishTextNormalizer({' '}).normalize('3 cats');
     expect((t.first as WordToken).word, 'three');

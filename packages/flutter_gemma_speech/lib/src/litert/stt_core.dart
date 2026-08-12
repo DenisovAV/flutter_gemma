@@ -54,6 +54,7 @@ import '../model/stt_model_profile.dart';
 import '../tokenizer/stt_special_tokens.dart'
     show ResolvedSuppression, SttSpecialTokenResolver;
 import '../tokenizer/stt_tokenizer.dart' show SttTokenizer;
+import 'litert_graph.dart' show acceleratorFor;
 import 'log_mel_frontend.dart' show computeLogMelSpectrogram, computeNemoLogMel;
 import 'mel_filter_assets.dart' show loadMelFilterAsset;
 
@@ -223,18 +224,6 @@ SttResolvedTokens resolveSttSpecialTokens(
   );
 }
 
-int _acceleratorFor(PreferredBackend? backend) {
-  switch (backend) {
-    case PreferredBackend.gpu:
-      return kLiteRtHwAcceleratorGpu;
-    case PreferredBackend.npu:
-      return kLiteRtHwAcceleratorNpu;
-    case PreferredBackend.cpu:
-    case null:
-      return kLiteRtHwAcceleratorCpu;
-  }
-}
-
 /// The encoder's output tensor (`decode_args_0` for every decode step),
 /// plus the auto-detected shape needed to describe it to LiteRT again.
 class _EncoderOutput {
@@ -360,7 +349,7 @@ class SttCore {
       options = optsPtr.value;
       calloc.free(optsPtr);
       bindings
-          .setOptionsHardwareAccelerators(options, _acceleratorFor(backend))
+          .setOptionsHardwareAccelerators(options, acceleratorFor(backend))
           .check('LiteRtSetOptionsHardwareAccelerators');
 
       final compiledPtr = calloc<LiteRtCompiledModel>();

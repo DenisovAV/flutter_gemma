@@ -9,9 +9,9 @@ enum TtsModelType { matcha, supertonic, kokoro, qwen3, inflect }
 /// [TtsModelType.qwen3]'s 4 embedding-table bundle members — the SINGLE
 /// source of truth for which manifest basenames live under the HF repo's
 /// `tables/` subdirectory. Spread into [TtsModelTypeManifest.manifest]'s
-/// qwen3 entry AND consulted by [TtsModelTypeManifest.urlSuffixFor], so the
-/// two can never desync (a prior version hardcoded this set a second time in
-/// [TtsModelTypeManifest.urlSuffixFor]; a rename here used to require
+/// qwen3 entry AND consulted by [TtsModelTypeManifest.fetchLocationFor], so
+/// the two can never desync (a prior version hardcoded this set a second time
+/// in [TtsModelTypeManifest.fetchLocationFor]; a rename here used to require
 /// remembering to update both places).
 const _qwen3TableFiles = [
   'text_embedding_fp16.npy',
@@ -19,6 +19,50 @@ const _qwen3TableFiles = [
   'codec_embedding_fp32.npy',
   'mtp_embeddings_fp16.npy',
 ];
+
+/// Where one TTS bundle member is fetched from — the typed result of
+/// [TtsModelTypeManifest.fetchLocationFor]. Exactly two shapes exist:
+/// a [TtsRelativeSuffix] resolved against the model's install base URL, or a
+/// [TtsAbsoluteUrl] fetched as-is (a cross-repo file, e.g. Inflect's reused
+/// Matcha G2P bundle). `TtsInstallationBuilder`'s joinUrl exhaustively
+/// switches on this, so the two cases can never be confused by string
+/// sniffing.
+sealed class TtsFetchLocation {
+  const TtsFetchLocation();
+}
+
+/// A relative path segment appended to the install base URL (the plain
+/// basename itself, or a `tables/`/`voices/` subpath for qwen3's
+/// embedding-table/demo-voice members).
+class TtsRelativeSuffix extends TtsFetchLocation {
+  final String suffix;
+  const TtsRelativeSuffix(this.suffix);
+
+  @override
+  bool operator ==(Object other) =>
+      other is TtsRelativeSuffix && other.suffix == suffix;
+
+  @override
+  int get hashCode => Object.hash(TtsRelativeSuffix, suffix);
+
+  @override
+  String toString() => 'TtsRelativeSuffix($suffix)';
+}
+
+/// A full absolute URL fetched as-is — the install base URL is ignored.
+class TtsAbsoluteUrl extends TtsFetchLocation {
+  final String url;
+  const TtsAbsoluteUrl(this.url);
+
+  @override
+  bool operator ==(Object other) => other is TtsAbsoluteUrl && other.url == url;
+
+  @override
+  int get hashCode => Object.hash(TtsAbsoluteUrl, url);
+
+  @override
+  String toString() => 'TtsAbsoluteUrl($url)';
+}
 
 /// The filenames a given TTS model needs, installed together as a bundle from
 /// one source. Fail-loud for unwired families.
@@ -36,7 +80,8 @@ extension TtsModelTypeManifest on TtsModelType {
     ],
     // litert-community/Qwen3-TTS-12Hz-0.6B-Base on HuggingFace. Entries are
     // PLAIN basenames — deliberately NOT the `tables/`/`voices/` subpaths
-    // those 5 files actually live under on the HF repo (see [urlSuffixFor]).
+    // those 5 files actually live under on the HF repo (see
+    // [fetchLocationFor]).
     // This is load-bearing, not a simplification: [TtsBundleFile.fromSource]
     // derives a file's installed identity (== [TtsBundleFile.prefsKey] ==
     // the `artifactPaths` key `Qwen3TtsCore.load`/`Qwen3Tables.load` read)
@@ -81,27 +126,28 @@ extension TtsModelTypeManifest on TtsModelType {
     ),
   };
 
-  /// Where a bundle member is fetched from, resolved against the model's
-  /// `resolve/main/` base by [TtsInstallationBuilder]. USUALLY a relative path
-  /// segment ([plainFilename] itself, or a `tables/`/`voices/` subdir for
-  /// [TtsModelType.qwen3]'s embedding-table/demo-voice members). For
-  /// [TtsModelType.inflect] the 4 reused Matcha G2P files return an ABSOLUTE
-  /// cross-repo Matcha URL instead (its 2 `.tflite`s stay bare basenames);
-  /// `joinUrl` passes an absolute return value through unchanged. Either way
-  /// this never changes a file's on-disk filename/prefsKey, which
+  /// Where a bundle member is fetched from, resolved by
+  /// [TtsInstallationBuilder]'s joinUrl. USUALLY a [TtsRelativeSuffix]
+  /// against the model's `resolve/main/` base ([plainFilename] itself, or a
+  /// `tables/`/`voices/` subdir for [TtsModelType.qwen3]'s
+  /// embedding-table/demo-voice members). For [TtsModelType.inflect] the 4
+  /// reused Matcha G2P files return a [TtsAbsoluteUrl] to the Matcha repo
+  /// instead (its 2 `.tflite`s stay bare basenames), fetched as-is. Either
+  /// way this never changes a file's on-disk filename/prefsKey, which
   /// [TtsBundleFile.fromSource] derives from the LAST path segment of the
   /// resulting URL (any earlier prefix/host is dropped, exactly like the
-  /// plain-basename manifest entry intends). An identity no-op for matcha and
-  /// the unwired follow-on types.
-  String urlSuffixFor(String plainFilename) {
+  /// plain-basename manifest entry intends). An identity relative no-op for
+  /// matcha and the unwired follow-on types.
+  TtsFetchLocation fetchLocationFor(String plainFilename) {
     if (this == TtsModelType.inflect) {
       // Inflect's 2 tflites come from its own repo (the install base URL); the
-      // 4 G2P files it reuses live in the Matcha repo. Return their FULL URL so
-      // the installer fetches them cross-repo — `TtsInstallationBuilder`'s
-      // joinUrl passes an absolute suffix through unchanged. Installed identity
-      // stays the bare basename (derived from the URL's last segment).
+      // 4 G2P files it reuses live in the Matcha repo. Return their FULL URL
+      // as a [TtsAbsoluteUrl] so the installer fetches them cross-repo.
+      // Installed identity stays the bare basename (derived from the URL's
+      // last segment). Pinned Matcha revision so a fresh Inflect install can
+      // never pull drifted G2P/symbol files off Matcha's mutable main branch.
       const matchaBase =
-          'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+          'https://huggingface.co/litert-community/Matcha-TTS/resolve/ee32148115e2dd25913f70b1d71b587c73e0866e/';
       const g2pFiles = {
         'config.json',
         'g2p_dict.txt.gz',
@@ -109,15 +155,17 @@ extension TtsModelTypeManifest on TtsModelType {
         'g2p_meta.json',
       };
       return g2pFiles.contains(plainFilename)
-          ? '$matchaBase$plainFilename'
-          : plainFilename;
+          ? TtsAbsoluteUrl('$matchaBase$plainFilename')
+          : TtsRelativeSuffix(plainFilename);
     }
-    if (this != TtsModelType.qwen3) return plainFilename;
+    if (this != TtsModelType.qwen3) return TtsRelativeSuffix(plainFilename);
     if (_qwen3TableFiles.contains(plainFilename)) {
-      return 'tables/$plainFilename';
+      return TtsRelativeSuffix('tables/$plainFilename');
     }
-    if (plainFilename == 'demo_speaker.npy') return 'voices/$plainFilename';
-    return plainFilename;
+    if (plainFilename == 'demo_speaker.npy') {
+      return TtsRelativeSuffix('voices/$plainFilename');
+    }
+    return TtsRelativeSuffix(plainFilename);
   }
 }
 
@@ -136,12 +184,10 @@ class TtsBundleFile extends ModelFile {
   final String _filename;
   final String _plainFilename;
   TtsBundleFile({
-    required ModelSource source,
-    required String filename,
-    required String plainFilename,
-  }) : _source = source,
-       _filename = filename,
-       _plainFilename = plainFilename;
+    required this._source,
+    required this._filename,
+    required this._plainFilename,
+  });
 
   /// Creates TtsBundleFile from ModelSource, namespaced by [modelId] — in
   /// practice the owning [TtsModelType]'s name (matcha/kokoro/supertonic).
@@ -204,14 +250,11 @@ class TtsModelSpec extends ModelSpec {
   final ModelReplacePolicy _replacePolicy;
 
   TtsModelSpec({
-    required String name,
-    required List<ModelSource> sources,
-    required TtsModelType ttsModelType,
-    ModelReplacePolicy replacePolicy = ModelReplacePolicy.keep,
-  }) : _name = name,
-       _sources = sources,
-       _ttsModelType = ttsModelType,
-       _replacePolicy = replacePolicy;
+    required this._name,
+    required this._sources,
+    required this._ttsModelType,
+    this._replacePolicy = ModelReplacePolicy.keep,
+  });
 
   /// Builds a spec from the type's [TtsModelTypeManifest.manifest], turning each
   /// filename into a source via [sourceFor] (network URL for install, local file

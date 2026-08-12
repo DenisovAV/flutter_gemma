@@ -60,11 +60,11 @@ void main() {
 
   test(
     'qwen3: install() wires the 4 embedding tables + demo voice through '
-    'urlSuffixFor (the real joinUrl path, not a re-derivation) — their '
+    'fetchLocationFor (the real joinUrl path, not a re-derivation) — their '
     'NetworkSource URL carries the HF tables/voices subdirectory, but the '
     'installed identity (TtsBundleFile.prefsKey, via TtsModelSpec.files) '
     'stays the PLAIN basename. Exercises TtsInstallationBuilder.install() '
-    'end to end, so reverting the joinUrl/urlSuffixFor wiring in '
+    'end to end, so reverting the joinUrl/fetchLocationFor wiring in '
     'tts_installation_builder.dart fails this test (unlike the '
     'tts_model_spec_test.dart round-trip test, which builds sourceFor '
     'itself and would keep passing even if the builder wiring regressed).',
@@ -156,7 +156,8 @@ void main() {
 
   test(
     'matcha spot-check: install() keeps identity URLs for its top-level-only '
-    'manifest (no subdirectory, urlSuffixFor is a no-op for non-qwen3 types)',
+    'manifest (no subdirectory, fetchLocationFor is a relative no-op for '
+    'non-qwen3 types)',
     () async {
       final fixtureDownload = _RecordingDownloadService(
         Uint8List.fromList(List.filled(2048, 3)),

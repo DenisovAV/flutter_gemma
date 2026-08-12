@@ -7,18 +7,23 @@ void main() {
   test('forType(matcha) gives the matcha CFM pipeline + file roles', () {
     final p = TtsModelProfile.forType(TtsModelType.matcha);
     expect(p.pipeline, TtsPipelineKind.matchaCfm);
-    expect(p.textEncoderFile, 'matcha_textenc_fp16.tflite');
-    expect(p.decoderFile, 'matcha_decoder_fp16.tflite');
-    expect(p.vocoderFile, 'matcha_vocoder_fp16.tflite');
-    expect(p.g2pFile, 'dp_g2p_matcha_fp16.tflite');
-    expect(p.configFile, 'config.json');
-    expect(p.dictFile, 'g2p_dict.txt.gz');
-    expect(p.embeddingFile, 'emb.bin');
+    expect(p, isA<MatchaProfile>());
+    final m = p as MatchaProfile;
+    expect(m.textEncoderFile, 'matcha_textenc_fp16.tflite');
+    expect(m.decoderFile, 'matcha_decoder_fp16.tflite');
+    expect(m.vocoderFile, 'matcha_vocoder_fp16.tflite');
+    expect(m.g2pFile, 'dp_g2p_matcha_fp16.tflite');
+    expect(m.configFile, 'config.json');
+    expect(m.dictFile, 'g2p_dict.txt.gz');
+    expect(m.embeddingFile, 'emb.bin');
   });
 
   test('forType throws UnimplementedError for unwired families', () {
     for (final t in TtsModelType.values.where(
-      (t) => t != TtsModelType.matcha && t != TtsModelType.qwen3,
+      (t) =>
+          t != TtsModelType.matcha &&
+          t != TtsModelType.qwen3 &&
+          t != TtsModelType.inflect,
     )) {
       expect(
         () => TtsModelProfile.forType(t),

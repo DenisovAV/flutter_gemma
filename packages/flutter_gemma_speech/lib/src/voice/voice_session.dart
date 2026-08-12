@@ -26,15 +26,11 @@ class VoiceSession {
   // The initializer list (not `this._recognizer` initializing formals) is
   // intentional: it lets the constructor keep PUBLIC named params
   // (`recognizer:`/`responder:`/`synthesizer:`) while the backing fields are
-  // PRIVATE — an initializing formal would force the param name to match the
-  // (private) field name, breaking the public constructor API.
   VoiceSession.custom({
-    required SpeechRecognizer recognizer,
-    required VoiceResponder responder,
-    required SpeechSynthesizer synthesizer,
-  }) : _recognizer = recognizer, // ignore: prefer_initializing_formals
-       _responder = responder, // ignore: prefer_initializing_formals
-       _synthesizer = synthesizer; // ignore: prefer_initializing_formals
+    required this._recognizer,
+    required this._responder,
+    required this._synthesizer,
+  });
 
   /// Multi-turn conversational voice. Recommended default. Create the chat via
   /// `getActiveModel().createChat(...)` with a short `maxOutputTokens` and a
@@ -82,15 +78,23 @@ class VoiceSession {
     }
     // Tool-calling path: a thin wrapper over core's driver loop — no loop
     // lives here.
-    var cancelled = false;
+    //
+    // Cancellation is PER-TURN: each respond() creates its own token and
+    // stop() cancels only the currently-active one. A single shared boolean
+    // that respond() resets to false would UN-cancel a prior turn's detached
+    // (drain-timeout) tool loop, letting it resume tool calls on this same
+    // chat concurrently with the new turn. A prior turn's token, once
+    // cancelled, stays cancelled forever.
+    _CancelToken? activeToken;
     Stream<String> respondWithTools(String userText) async* {
-      cancelled = false;
+      final token = _CancelToken();
+      activeToken = token;
       await chat.addQueryChunk(Message(text: userText, isUser: true));
       yield* textTokensOf(
         chat.generateChatResponseWithTools(
           onToolCall: onToolCall,
           maxToolTurns: maxToolTurns,
-          isCancelled: () => cancelled,
+          isCancelled: () => token.cancelled,
         ),
       );
     }
@@ -100,7 +104,7 @@ class VoiceSession {
       responder: VoiceResponder(
         respond: respondWithTools,
         stop: () async {
-          cancelled = true;
+          activeToken?.cancelled = true;
           await chat.stopGeneration();
         },
       ),
@@ -397,4 +401,11 @@ class VoiceSession {
     _turnDone = null;
     if (done != null && !done.isCompleted) done.complete();
   }
+}
+
+/// Per-turn cancellation token for the tool-calling respond path. One-way:
+/// once [cancelled] flips true it never resets, so a later turn (which gets
+/// its OWN token) cannot un-cancel a prior turn's still-running detached loop.
+class _CancelToken {
+  bool cancelled = false;
 }

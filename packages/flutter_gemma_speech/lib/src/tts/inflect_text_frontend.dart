@@ -19,10 +19,8 @@
 ///      non-first word; punctuation ([SymbolToken]) attaches with no space.
 library;
 
-import 'dart:convert';
-import 'dart:io';
-
 import '../model/tts_model_profile.dart';
+import 'g2p_dict_bundle.dart';
 import 'tts_text_frontend.dart' show NeuralG2pResolver;
 import 'tts_text_normalizer.dart';
 
@@ -61,26 +59,21 @@ class InflectTextFrontend {
     Map<String, String> paths, {
     NeuralG2pResolver? neuralG2p,
   }) async {
-    final config =
-        jsonDecode(await File(paths[profile.configFile]!).readAsString())
-            as Map<String, dynamic>;
-    final symbols = (config['symbols'] as List).cast<String>();
-    final symbolToId = <String, int>{
-      for (var i = 0; i < symbols.length; i++) symbols[i]: i, // last-wins
-    };
-
-    final gzBytes = await File(paths[profile.dictFile]!).readAsBytes();
-    final dictText = utf8.decode(gzip.decode(gzBytes));
-    final dictionary = <String, String>{};
-    for (final line in const LineSplitter().convert(dictText)) {
-      final tab = line.indexOf('\t');
-      if (tab < 0) continue;
-      dictionary[line.substring(0, tab)] = line.substring(tab + 1);
+    if (profile is! InflectProfile) {
+      throw UnimplementedError(
+        'InflectTextFrontend: only TtsPipelineKind.inflectVits profiles are '
+        'supported here (Matcha has MatchaTextFrontend; Qwen3 tokenizes via '
+        'Qwen3TtsCore).',
+      );
     }
+    final bundle = await loadG2pDictBundle(
+      paths[profile.configFile]!,
+      paths[profile.dictFile]!,
+    );
 
     return InflectTextFrontend(
-      symbolToId: symbolToId,
-      dictionary: dictionary,
+      symbolToId: bundle.symbolToId,
+      dictionary: bundle.dictionary,
       locale: profile.locale,
       neuralG2p: neuralG2p,
     );

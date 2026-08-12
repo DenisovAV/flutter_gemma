@@ -8,8 +8,12 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
+import 'voice_test_helpers.dart' show stagedModelPath;
 
-const _file = '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.task';
+// .litertlm (not .task): desktop/iOS run the litertlm FFI engine; MediaPipe has
+// no desktop backend. Staged device-locally (no network/token) — resolved per
+// platform by stagedModelPath.
+const _modelFile = 'gemma3-1b-it-int4.litertlm';
 const _tools = [
   Tool(
     name: 'show_alert',
@@ -32,10 +36,18 @@ void main() {
     'generateChatResponseWithTools runs the tool then answers',
     (tester) async {
       await registerTestEngines();
+      final llmPath = await stagedModelPath(_modelFile);
+      expect(
+        llmPath,
+        isNotNull,
+        reason:
+            'stage $_modelFile to the app documents dir (desktop/iOS) or '
+            '/data/local/tmp/flutter_gemma_test/ (Android)',
+      );
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.task,
-      ).fromFile(_file).install();
+        fileType: ModelFileType.litertlm,
+      ).fromFile(llmPath!).install();
       final model = await FlutterGemma.getActiveModel(
         maxTokens: 1024,
         preferredBackend: PreferredBackend.cpu,

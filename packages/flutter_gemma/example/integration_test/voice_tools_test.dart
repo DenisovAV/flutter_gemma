@@ -13,8 +13,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'voice_test_helpers.dart';
 
-const _llmFile =
-    '/data/local/tmp/flutter_gemma_test/gemma3-1b-it-int4.litertlm';
+const _llmFileName = 'gemma3-1b-it-int4.litertlm';
 const _ttsUrl =
     'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
 const _tools = [
@@ -42,23 +41,44 @@ void main() {
         ttsBackends: const [LiteRtTtsBackend()],
         inferenceEngines: const [LiteRtLmEngine()],
       );
+      final llmPath = await stagedModelPath(_llmFileName);
+      expect(
+        llmPath,
+        isNotNull,
+        reason:
+            'stage $_llmFileName to the app documents dir (desktop/iOS) or '
+            '/data/local/tmp/flutter_gemma_test/ (Android)',
+      );
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
         fileType: ModelFileType.litertlm,
-      ).fromFile(_llmFile).install();
+      ).fromFile(llmPath!).install();
       await FlutterGemma.installTts()
           .fromNetwork(_ttsUrl)
           .ofType(TtsModelType.matcha)
           .install();
 
       final synth = await FlutterGemma.getActiveTts();
-      final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // CPU: this gate exercises the tool-calling LOOP, not GPU perf. On desktop
+      // the litertlm default is GPU (Metal/Dawn), which is flaky for concurrent
+      // model loads (a documented desktop-voice caveat) — pin CPU for a
+      // deterministic correctness gate.
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        preferredBackend: PreferredBackend.cpu,
+      );
       final chat = await model.createChat(
         tools: _tools,
         supportsFunctionCalls: true,
         modelType: ModelType.gemmaIt,
+        // Same function-calling config generate_with_tools_test uses to reliably
+        // elicit a show_alert call from Gemma 3 1B — toolChoice + sampling.
+        // Without these the model tends to answer in prose and never calls.
+        toolChoice: ToolChoice.auto,
+        temperature: 1.0,
+        topK: 64,
+        topP: 0.95,
         tokenBuffer: 256,
-        maxOutputTokens: 128,
       );
 
       var called = false;

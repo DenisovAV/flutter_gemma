@@ -21,7 +21,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'voice_test_helpers.dart';
 
-const _llmFile = '/data/local/tmp/flutter_gemma_test/gemma-4-E2B-it.litertlm';
+const _llmFileName = 'gemma-4-E2B-it.litertlm';
 const _ttsUrl =
     'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
 const _sha1OfHello = 'aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d';
@@ -55,10 +55,18 @@ void main() {
         ttsBackends: const [LiteRtTtsBackend()],
         inferenceEngines: const [LiteRtLmEngine()],
       );
+      final llmPath = await stagedModelPath(_llmFileName);
+      expect(
+        llmPath,
+        isNotNull,
+        reason:
+            'stage $_llmFileName to the app documents dir (desktop/iOS) or '
+            '/data/local/tmp/flutter_gemma_test/ (Android)',
+      );
       await FlutterGemma.installModel(
         modelType: ModelType.gemma4,
         fileType: ModelFileType.litertlm,
-      ).fromFile(_llmFile).install();
+      ).fromFile(llmPath!).install();
       await FlutterGemma.installTts()
           .fromNetwork(_ttsUrl)
           .ofType(TtsModelType.matcha)
@@ -69,9 +77,13 @@ void main() {
       final assetSource = AssetSkillSource();
       final skills = await assetSource.load();
       final registry = SkillRegistry()..addAll(skills, selected: true);
+      // CPU: the voice path loads Matcha TTS (Metal) alongside the LLM; a
+      // concurrent Metal GPU load is flaky on desktop (agent_with_model_test can
+      // use GPU because it has no TTS). This gate proves the agent->voice loop,
+      // not GPU perf — pin CPU for determinism.
       final model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,
-        preferredBackend: PreferredBackend.gpu,
+        preferredBackend: PreferredBackend.cpu,
       );
       final agent = await AgentSession.fromModel(
         model,

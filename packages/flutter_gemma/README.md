@@ -56,7 +56,7 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.6
+## What's new in 1.5.3
 
 - 🛠️ **Tool-calling in the Voice Loop** — `VoiceSession.fromChat(…, onToolCall:)` ([`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) 0.4.2) now runs function calling inside a spoken turn, driven by the new reusable core loop `InferenceChat.generateChatResponseWithTools` (run tool → feed the result back → final answer, with a `maxToolTurns` cap and barge-in cancellation). The full agent (skills / MCP) plugs in the same way via `AgentSession.ask(…, isCancelled:)` ([`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) 0.2.0). See [docs](https://fluttergemma.dev/docs/speech).
 - ⚡ **Inflect-Nano-v2 fast TTS** (`flutter_gemma_speech` 0.4.2) — a tiny VITS voice that synthesizes ~90× faster than real-time on CPU (RTF≈0.01), for snappy spoken replies: `installTts()…ofType(TtsModelType.inflect).install()` → `getActiveTts()` → `synthesize(text)`. English-only; reuses Matcha's phonemizer bundle. See [docs](https://fluttergemma.dev/docs/speech).

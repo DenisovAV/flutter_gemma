@@ -1,4 +1,4 @@
-## 1.6.0
+## 1.5.3
 - Add InferenceChat.generateChatResponseWithTools — the reusable function-calling driver loop.
 - Add TtsModelType.inflect — Inflect-Nano-v2 TTS bundle, with cross-repo G2P file routing.
 - fix: record the Gemma 4 SDK tool-call in history on the streaming path (was orphaned).

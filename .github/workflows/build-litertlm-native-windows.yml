@@ -56,7 +56,7 @@ jobs:
             --features=compiler_param_file `
             --features=archive_param_file `
             --spawn_strategy=local `
-            --define=litert_link_capi_so=true `
+            --define=litert_runtime_link_mode=dynamic `
             --define=resolve_symbols_in_exec=false `
             '//c:libLiteRtLm.dylib'
 

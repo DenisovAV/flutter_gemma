@@ -187,6 +187,31 @@ jobs:
             --define=resolve_symbols_in_exec=false `
             '//c:libLiteRtLm.dylib'
 
+      - name: Build Intel NPU dispatch
+        # Build LiteRtDispatch.dll from the SAME pin as the runtime instead of
+        # carrying a prebuilt forward. Ours had been frozen since our own
+        # native-v0.11.0-b bundle and shipped OpenVino 2026.2.0, while every
+        # LiteRT pin since has required 2026.3.0.dev20260622 — and upstream's
+        # own third_party/intel_openvino/openvino.bzl warns that a mismatched
+        # pair leaves the Intel OV compiler plugin talking to the wrong
+        # libopenvino_intel_npu_compiler at runtime. That is what kills
+        # engine_create on backend=npu (our #3217).
+        #
+        # The OpenVino SDK is fetched by Bazel (configurable_repo), so this
+        # needs no preinstalled toolkit on the runner.
+        run: |
+          cd C:\LiteRT-LM
+          bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
+            build -c opt `
+            --linkopt=/OPT:REF --linkopt=/OPT:ICF `
+            --build_tag_filters='-nowindows' `
+            --features=compiler_param_file `
+            --features=archive_param_file `
+            --spawn_strategy=local `
+            --define=litert_runtime_link_mode=dynamic `
+            --define=resolve_symbols_in_exec=false `
+            '@litert//litert/vendors/intel_openvino/dispatch:LiteRtDispatch'
+
       - uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build StreamProxy.dll
@@ -237,6 +262,23 @@ jobs:
               throw "DXC runtime missing: $dxc"
             }
           }
+          # Intel NPU dispatch, built above from the pinned tree, plus the
+          # OpenVino runtime from the SDK Bazel fetched for that same pin.
+          # Searched rather than hardcoded: bzlmod decorates external repo
+          # directory names, so the path is not stable across Bazel versions.
+          $outputBase = $env:BAZEL_OUTPUT_BASE
+          $dispatch = Get-ChildItem -Recurse -Filter 'LiteRtDispatch.dll' `
+            -Path C:\LiteRT-LM\bazel-bin -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $dispatch) { throw "LiteRtDispatch.dll not produced — NPU would ship broken" }
+          Copy-Item $dispatch.FullName "artifacts\LiteRtDispatch.dll"
+          $ovRoot = Get-ChildItem -Directory -Path "$outputBase\external" `
+            -Filter '*intel_openvino*' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ovRoot) { throw "OpenVino SDK not fetched — cannot ship a matched NPU stack" }
+          $ovDlls = Get-ChildItem -Recurse -Filter '*.dll' -Path $ovRoot.FullName |
+            Where-Object { $_.FullName -match 'runtime\\bin' -and $_.Name -notmatch '_d\.dll$' }
+          if (-not $ovDlls) { throw "OpenVino runtime DLLs not found under $($ovRoot.FullName)" }
+          foreach ($d in $ovDlls) { Copy-Item $d.FullName "artifacts\$($d.Name)" -Force }
+          Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
 
       - uses: actions/upload-artifact@v4

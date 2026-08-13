@@ -62,6 +62,23 @@ jobs:
 
       - uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Build Intel NPU dispatch
+        # Same pin as the runtime — see build-litertlm-native.yml for why the
+        # previously carried-forward prebuilt (OpenVino 2026.2.0 against a
+        # runtime pinned to 2026.3.0) is what broke backend=npu (#3217).
+        run: |
+          cd C:\LiteRT-LM
+          bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
+            build -c opt `
+            --linkopt=/OPT:REF --linkopt=/OPT:ICF `
+            --build_tag_filters='-nowindows' `
+            --features=compiler_param_file `
+            --features=archive_param_file `
+            --spawn_strategy=local `
+            --define=litert_runtime_link_mode=dynamic `
+            --define=resolve_symbols_in_exec=false `
+            '@litert//litert/vendors/intel_openvino/dispatch:LiteRtDispatch'
+
       - name: Build StreamProxy.dll
         run: |
           cl /LD /Fe:StreamProxy.dll packages\flutter_gemma_litertlm\native\litert_lm\stream_proxy.c
@@ -99,6 +116,19 @@ jobs:
               throw "DXC runtime missing: $dxc"
             }
           }
+          $outputBase = $env:BAZEL_OUTPUT_BASE
+          $dispatch = Get-ChildItem -Recurse -Filter 'LiteRtDispatch.dll' `
+            -Path C:\LiteRT-LM\bazel-bin -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $dispatch) { throw "LiteRtDispatch.dll not produced — NPU would ship broken" }
+          Copy-Item $dispatch.FullName "artifacts\LiteRtDispatch.dll"
+          $ovRoot = Get-ChildItem -Directory -Path "$outputBase\external" `
+            -Filter '*intel_openvino*' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $ovRoot) { throw "OpenVino SDK not fetched — cannot ship a matched NPU stack" }
+          $ovDlls = Get-ChildItem -Recurse -Filter '*.dll' -Path $ovRoot.FullName |
+            Where-Object { $_.FullName -match 'runtime\\bin' -and $_.Name -notmatch '_d\.dll$' }
+          if (-not $ovDlls) { throw "OpenVino runtime DLLs not found under $($ovRoot.FullName)" }
+          foreach ($d in $ovDlls) { Copy-Item $d.FullName "artifacts\$($d.Name)" -Force }
+          Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
 
       - uses: actions/upload-artifact@v4

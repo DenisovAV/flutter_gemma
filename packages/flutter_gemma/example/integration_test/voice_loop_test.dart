@@ -150,11 +150,19 @@ void main() {
 
       final recognizer = await FlutterGemma.getActiveStt();
       final synthesizer = await FlutterGemma.getActiveTts();
-      final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // CPU LLM: the voice path loads the Inflect TTS graphs (Metal) alongside
+      // the LLM; a concurrent GPU (Metal) engine_create dies mid-weight-convert
+      // on macOS. Same CPU pin as voice_tools/voice_agent. Android/desktop GPU
+      // is unaffected, but CPU keeps this release gate green on every platform.
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        preferredBackend: PreferredBackend.cpu,
+      );
       final chat = await model.createChat(
         tokenBuffer: 256,
         tools: const [],
-        maxOutputTokens: 128,
+        systemInstruction: 'Reply in one short sentence.',
+        maxOutputTokens: 32,
       );
 
       // 2. Load the bundled clip -> 16 kHz mono PCM.
@@ -172,7 +180,30 @@ void main() {
         chat: chat,
         synthesizer: synthesizer,
       );
-      final events = await session.runTurn(pcm).toList();
+      // Per-stage latency timing (STT / LLM / TTS) for the FTL measurement.
+      final sw = Stopwatch()..start();
+      int? tStt, tLlmFirst, tLlmLast, tTts, tTotal;
+      final events = <VoiceEvent>[];
+      await for (final e in session.runTurn(pcm)) {
+        events.add(e);
+        if (e is VoiceTranscriptEvent) {
+          tStt = sw.elapsedMilliseconds;
+        } else if (e is VoiceReplyTextEvent) {
+          tLlmFirst ??= sw.elapsedMilliseconds;
+          tLlmLast = sw.elapsedMilliseconds;
+        } else if (e is VoiceReplyAudioEvent) {
+          tTts = sw.elapsedMilliseconds;
+        } else if (e is VoiceTurnCompleteEvent) {
+          tTotal = sw.elapsedMilliseconds;
+        }
+      }
+      String delta(int? a, int? b) =>
+          (a != null && b != null) ? '${a - b}ms' : 'n/a';
+      debugPrint(
+        '[voice_loop][timing] STT=${tStt ?? 'n/a'}ms '
+        'LLM_ttft=${delta(tLlmFirst, tStt)} LLM=${delta(tLlmLast, tStt)} '
+        'TTS=${delta(tTts, tLlmLast)} TURN_TOTAL=${tTotal ?? 'n/a'}ms',
+      );
 
       // 4. Assert the full pipeline produced output.
       final transcript = events.whereType<VoiceTranscriptEvent>().single.text;
@@ -182,6 +213,14 @@ void main() {
           .join();
       final audio = events.whereType<VoiceReplyAudioEvent>().toList();
       final complete = events.whereType<VoiceTurnCompleteEvent>().single;
+      final spokenSeconds =
+          audio.single.pcm.length / 2 / audio.single.sampleRate;
+      debugPrint('[voice_loop] transcript: "$transcript"');
+      debugPrint('[voice_loop] reply: "$replyText"');
+      debugPrint(
+        '[voice_loop] spoken audio: ${spokenSeconds.toStringAsFixed(1)}s '
+        '(${audio.single.pcm.length} bytes @ ${audio.single.sampleRate} Hz)',
+      );
 
       expect(
         transcript.trim(),

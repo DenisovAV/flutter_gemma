@@ -765,28 +765,6 @@ class LiteRtLmBindings {
             void Function(ffi.Pointer<LiteRtLmEngineSettings>, bool)
           >();
 
-  void litert_lm_engine_settings_set_gpu_num_threads_to_upload(
-    ffi.Pointer<LiteRtLmEngineSettings> settings,
-    int numThreads,
-  ) {
-    return _litert_lm_engine_settings_set_gpu_num_threads_to_upload(
-      settings,
-      numThreads,
-    );
-  }
-
-  late final _litert_lm_engine_settings_set_gpu_num_threads_to_uploadPtr =
-      _lookup<
-        ffi.NativeFunction<
-          ffi.Void Function(ffi.Pointer<LiteRtLmEngineSettings>, ffi.Int)
-        >
-      >('litert_lm_engine_settings_set_gpu_num_threads_to_upload');
-  late final _litert_lm_engine_settings_set_gpu_num_threads_to_upload =
-      _litert_lm_engine_settings_set_gpu_num_threads_to_uploadPtr
-          .asFunction<
-            void Function(ffi.Pointer<LiteRtLmEngineSettings>, int)
-          >();
-
   ffi.Pointer<LiteRtLmEngine> litert_lm_engine_create(
     ffi.Pointer<LiteRtLmEngineSettings> settings,
   ) {

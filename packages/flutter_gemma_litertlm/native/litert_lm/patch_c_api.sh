@@ -82,7 +82,6 @@ EXPORTS
   litert_lm_engine_settings_set_cache_dir
   litert_lm_engine_settings_set_enable_speculative_decoding
   litert_lm_engine_settings_set_gpu_context_low_priority
-  litert_lm_engine_settings_set_gpu_num_threads_to_upload
   litert_lm_engine_settings_set_kernel_batch_size
   litert_lm_engine_settings_set_litert_dispatch_lib_dir
   litert_lm_engine_settings_set_max_num_images
@@ -217,16 +216,6 @@ void litert_lm_engine_settings_set_gpu_context_low_priority(\
 LITERT_LM_C_API_EXPORT\
 void litert_lm_engine_settings_set_kernel_batch_size(\
     LiteRtLmEngineSettings* settings, int kernel_batch_size);\
-\
-// Number of threads the WebGPU backend uses to upload model weights. The\
-// runtime default is 2 (kDefaultNumThreadsToUpload); 0 serialises the upload.\
-// Windows/D3D12 crashes inside the prebuilt WebGPU accelerator during weight\
-// upload (LiteRT-LM #2957 on Intel Arc, #1857 on NVIDIA), and the thread count\
-// is chosen by the host rather than the accelerator, so a caller can serialise\
-// it without rebuilding the (closed-source) accelerator. -1 keeps the default.\
-LITERT_LM_C_API_EXPORT\
-void litert_lm_engine_settings_set_gpu_num_threads_to_upload(\
-    LiteRtLmEngineSettings* settings, int num_threads);\
 ' "$DIR/c/engine.h"
   rm -f "$DIR/c/engine.h.bak"
   echo "  OK: Added GPU smooth-UI knob setters to c/engine.h"
@@ -254,17 +243,6 @@ void litert_lm_engine_settings_set_kernel_batch_size(\
     auto advanced_settings = main_settings.GetAdvancedSettings().value_or(\
         litert::lm::AdvancedSettings());\
     advanced_settings.hint_kernel_batch_size = kernel_batch_size;\
-    main_settings.SetAdvancedSettings(advanced_settings);\
-  }\
-}\
-\
-void litert_lm_engine_settings_set_gpu_num_threads_to_upload(\
-    LiteRtLmEngineSettings* settings, int num_threads) {\
-  if (settings \&\& settings->settings) {\
-    auto\& main_settings = settings->settings->GetMutableMainExecutorSettings();\
-    auto advanced_settings = main_settings.GetAdvancedSettings().value_or(\
-        litert::lm::AdvancedSettings());\
-    advanced_settings.num_threads_to_upload = num_threads;\
     main_settings.SetAdvancedSettings(advanced_settings);\
   }\
 }\

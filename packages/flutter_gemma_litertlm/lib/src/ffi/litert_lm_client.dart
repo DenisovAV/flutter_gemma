@@ -707,25 +707,6 @@ class LiteRtLmFfiClient {
         );
       }
 
-      // Windows GPU: serialise WebGPU weight upload.
-      //
-      // With no AdvancedSettings supplied the runtime applies
-      // kDefaultNumThreadsToUpload = 2 (llm_executor_settings_utils.cc:43),
-      // and the prebuilt D3D12 accelerator faults during that threaded upload:
-      // ACCESS_VIOLATION inside libLiteRtWebGpuAccelerator.dll on Intel Arc
-      // (LiteRT-LM #2957), and the same phase on three NVIDIA parts (#1857,
-      // which logs `# of threads to upload weights = 2` immediately before the
-      // crash). The thread count is chosen by the *host*, not the accelerator,
-      // so we can serialise it without rebuilding ml_drift — which is closed
-      // source and therefore not rebuildable by us at all.
-      if (Platform.isWindows && backend == 'gpu') {
-        b.litert_lm_engine_settings_set_gpu_num_threads_to_upload(settings, 0);
-        gemmaLog(
-          '[LiteRtLmFfi] GPU Windows: num_threads_to_upload=0 '
-          '(serialised weight upload, upstream #2957)',
-        );
-      }
-
       // Windows NPU: point LiteRT at the directory containing
       // `LiteRtDispatch.dll` and disable HW mask update path. Native Assets
       // bundles both DLLs next to the executable, so resolvedExecutable.parent

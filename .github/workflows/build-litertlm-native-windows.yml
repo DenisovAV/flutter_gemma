@@ -15,7 +15,7 @@ on:
       litertlm_version:
         description: 'LiteRT-LM ref (tag, branch, or commit SHA)'
         required: true
-        default: '62f7a8ec3587027a2351ff348bf8bc1648fd59b4'
+        default: '924e79c91542761242244e4f1651851f822e4cbb'
 
 jobs:
   build-windows-x86_64:

@@ -52,7 +52,7 @@ class BuggyModelCreator {
     try {
       await platformService.createModel();
       completer.complete(modelName);
-      return completer.future;
+      return await completer.future;
     } catch (e, st) {
       // BUG: Not resetting _initCompleter = null here!
       completer.completeError(e, st);
@@ -95,7 +95,7 @@ class FixedModelCreator {
       await platformService.createModel();
       _initializedModel = modelName;
       completer.complete(modelName);
-      return completer.future;
+      return await completer.future;
     } catch (e, st) {
       // FIX: Reset completer on failure to allow retry
       _initCompleter = null;

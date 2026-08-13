@@ -26,15 +26,20 @@ class _FakeAgentChat extends InferenceChat {
     : _turns = [
         for (final r in responses) [r],
       ],
+      _errorAfterTurns = const {},
       super(sessionCreator: null, maxTokens: 1024);
 
   /// Streaming form: each inner list is one turn's ORDERED token/call stream,
   /// so a turn can emit several [TextResponse] tokens (and/or a call). This is
   /// what proves the loop streams token-by-token like VoiceSession.
-  _FakeAgentChat.turns(this._turns)
+  /// [errorAfterTurns] names turn indices whose stream THROWS after yielding its
+  /// responses — models a native decode error mid-stream, AFTER a tool-call was
+  /// already parsed + committed to history by generateChatResponseAsync.
+  _FakeAgentChat.turns(this._turns, {this._errorAfterTurns = const {}})
     : super(sessionCreator: null, maxTokens: 1024);
 
   final List<List<ModelResponse>> _turns;
+  final Set<int> _errorAfterTurns;
   int _turn = 0;
 
   /// Every message fed back into the chat (user message + tool responses).
@@ -65,8 +70,12 @@ class _FakeAgentChat extends InferenceChat {
       yield const TextResponse('done');
       return;
     }
-    for (final response in _turns[_turn++]) {
+    final turnIndex = _turn++;
+    for (final response in _turns[turnIndex]) {
       yield response;
+    }
+    if (_errorAfterTurns.contains(turnIndex)) {
+      throw StateError('native decode failed mid-stream');
     }
   }
 
@@ -849,6 +858,153 @@ void main() {
           '2',
         ]);
         expect((events.last as DoneEvent).text, '42');
+      },
+    );
+  });
+
+  group('AgentLoop — streaming: error path & parallel/edge coverage', () {
+    test('a mid-stream error after a committed tool call balances the pending '
+        'call before rethrowing (no dangling call)', () async {
+      final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+      final executor = _FakeExecutor(SkillType.js);
+      // Turn 0 yields a complete tool call (core commits it to the persistent
+      // history the moment it yields), then the native decode stream errors on
+      // a later token. The rethrow must NOT skip balancing the committed call.
+      final chat = _FakeAgentChat.turns(
+        [
+          [_runSkill('calculate-hash')],
+        ],
+        errorAfterTurns: {0},
+      );
+      final loop = AgentLoop(registry: registry, executors: [executor]);
+
+      // The error MUST surface — never hidden (no-masking-failure rule)...
+      await expectLater(
+        loop.run(chat, 'go').toList(),
+        throwsA(isA<StateError>()),
+      );
+      // ...and the committed-but-unexecuted call must be balanced so it does
+      // not dangle into the next ask() on the reused chat.
+      expect(chat.toolResponses, hasLength(1));
+      expect(chat.toolResponses.single.text, contains('failed'));
+      // It was never dispatched (the error landed before dispatch).
+      expect(executor.calls, isEmpty);
+    });
+
+    test(
+      'barge-in BETWEEN parallel dispatched calls answers the remaining call '
+      'cancelled and never runs it',
+      () async {
+        final registry = SkillRegistry()
+          ..add(_jsSkill(name: 'a'), selected: true)
+          ..add(_jsSkill(name: 'b'), selected: true);
+        final executor = _FakeExecutor(
+          SkillType.js,
+          result: const TextResult('ok'),
+        );
+        // One stream: preamble text THEN two parallel calls.
+        final chat = _FakeAgentChat.turns([
+          [
+            const TextResponse('working '),
+            ParallelFunctionCallResponse(
+              calls: [
+                _runSkill('a', data: '{"i":1}'),
+                _runSkill('b', data: '{"i":2}'),
+              ],
+            ),
+          ],
+        ]);
+        final loop = AgentLoop(registry: registry, executors: [executor]);
+
+        // Cancel the moment the FIRST tool result is observed, so dispatch of
+        // the second parallel call sees cancelled() true (pending.sublist(i)).
+        var cancel = false;
+        final events = <AgentEvent>[];
+        await for (final e in loop.run(chat, 'go', isCancelled: () => cancel)) {
+          events.add(e);
+          if (e is ToolResultEvent) cancel = true;
+        }
+
+        // Only 'a' ran; 'b' was answered cancelled, never executed.
+        expect(executor.calls, hasLength(1));
+        expect(executor.calls.single.dataJson, '{"i":1}');
+        // Preamble streamed before the first tool call.
+        final preambleIdx = events.indexWhere((e) => e is TextChunkEvent);
+        final firstCallIdx = events.indexWhere((e) => e is ToolCallEvent);
+        expect(preambleIdx, isNonNegative);
+        expect(firstCallIdx, greaterThan(preambleIdx));
+        // Two tool-responses fed back: 'a' real + 'b' cancelled.
+        expect(chat.toolResponses, hasLength(2));
+        expect(
+          chat.toolResponses.where((m) => m.text.contains('cancelled')),
+          hasLength(1),
+        );
+        // No terminal event after a barge-in.
+        expect(events.whereType<DoneEvent>(), isEmpty);
+        expect(events.whereType<MaxIterationsEvent>(), isEmpty);
+      },
+    );
+
+    test(
+      'streams preamble text before PARALLEL calls, dispatches both, then the '
+      'final answer',
+      () async {
+        final registry = SkillRegistry()
+          ..add(_jsSkill(name: 'a'), selected: true)
+          ..add(_jsSkill(name: 'b'), selected: true);
+        final executor = _FakeExecutor(
+          SkillType.js,
+          result: const TextResult('ok'),
+        );
+        final chat = _FakeAgentChat.turns([
+          [
+            const TextResponse('Let me check both. '),
+            ParallelFunctionCallResponse(
+              calls: [
+                _runSkill('a', data: '{"i":1}'),
+                _runSkill('b', data: '{"i":2}'),
+              ],
+            ),
+          ],
+          [const TextResponse('Both done.')],
+        ]);
+        final loop = AgentLoop(registry: registry, executors: [executor]);
+
+        final events = await loop.run(chat, 'do both').toList();
+
+        // Preamble streamed before every tool call.
+        final preambleIdx = events.indexWhere(
+          (e) => e is TextChunkEvent && e.text == 'Let me check both. ',
+        );
+        final callIdxs = events.indexed
+            .where((r) => r.$2 is ToolCallEvent)
+            .map((r) => r.$1);
+        expect(preambleIdx, isNonNegative);
+        expect(callIdxs.every((i) => i > preambleIdx), isTrue);
+        // Both parallel calls executed with their own data.
+        expect(executor.calls, hasLength(2));
+        expect(executor.calls[0].dataJson, '{"i":1}');
+        expect(executor.calls[1].dataJson, '{"i":2}');
+        // DoneEvent = final turn only; preamble did NOT leak in.
+        expect((events.last as DoneEvent).text, 'Both done.');
+        expect(chat.generateCallCount, 2);
+      },
+    );
+
+    test(
+      'an empty stream (model produced nothing) ends with DoneEvent("")',
+      () async {
+        // One turn that yields zero responses — neither text nor a call.
+        final chat = _FakeAgentChat.turns([<ModelResponse>[]]);
+        final loop = AgentLoop(registry: SkillRegistry(), executors: const []);
+
+        final events = await loop.run(chat, 'x').toList();
+
+        expect(events.whereType<TextChunkEvent>(), isEmpty);
+        expect(events.single, isA<DoneEvent>());
+        expect((events.single as DoneEvent).text, '');
+        // Terminates on the empty turn, does not spin to maxIterations.
+        expect(chat.generateCallCount, 1);
       },
     );
   });

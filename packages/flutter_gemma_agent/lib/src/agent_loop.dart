@@ -22,8 +22,10 @@ import 'secret_store.dart';
 /// selected skills and the registered [executors], [run] drives the loop:
 ///
 /// 1. `generateChatResponseAsync()` — stream this turn's text tokens out as
-///    [TextChunkEvent]s and collect any function calls (parity with
-///    VoiceSession, which drives core's `generateChatResponseWithTools`).
+///    [TextChunkEvent]s and collect any function calls. Streams tokens like
+///    VoiceSession; the same tool-loop *shape* as core's
+///    `generateChatResponseWithTools`, re-implemented here so it can emit the
+///    agent's rich step events.
 /// 2. If the turn produced a [FunctionCallResponse] **or**
 ///    [ParallelFunctionCallResponse], dispatch every call:
 ///    - `loadSkill` → return the skill's full SKILL.md instructions (lazy
@@ -112,24 +114,41 @@ class AgentLoop {
       // step events (which a plain onToolCall callback cannot yield) at dispatch.
       final pending = <FunctionCallResponse>[];
       final buffer = StringBuffer();
-      await for (final response in chat.generateChatResponseAsync()) {
-        switch (response) {
-          case FunctionCallResponse():
-            pending.add(response);
-          case ParallelFunctionCallResponse(:final calls):
-            pending.addAll(calls);
-          case TextResponse(:final token):
-            if (token.isEmpty) continue;
-            buffer.write(token);
-            yield TextChunkEvent(token);
-          case ThinkingResponse(:final content):
-            // The agent creates its chat with thinking off and has no thinking
-            // event, so this never fires today; fold content into the answer
-            // text if it ever does (parity with the pre-streaming switch).
-            if (content.isEmpty) continue;
-            buffer.write(content);
-            yield TextChunkEvent(content);
+      try {
+        await for (final response in chat.generateChatResponseAsync()) {
+          switch (response) {
+            case FunctionCallResponse():
+              pending.add(response);
+            case ParallelFunctionCallResponse(:final calls):
+              pending.addAll(calls);
+            case TextResponse(:final token):
+              if (token.isEmpty) continue;
+              buffer.write(token);
+              yield TextChunkEvent(token);
+            case ThinkingResponse(:final content):
+              // The agent creates its chat with thinking off and has no thinking
+              // event, so this never fires today; fold content into the answer
+              // text if it ever does (parity with the pre-streaming switch).
+              if (content.isEmpty) continue;
+              buffer.write(content);
+              yield TextChunkEvent(content);
+          }
         }
+      } catch (_) {
+        // generateChatResponseAsync commits each tool-call to the persistent
+        // chat history the moment it yields it, so any calls collected before a
+        // mid-stream decode error are already in history. The rethrow below
+        // skips the dispatch / cancel balancing, so answer them here first —
+        // otherwise the committed call dangles with no tool-response and poisons
+        // the next ask() on this reused chat. The error is still rethrown (never
+        // hidden — no-masking-failure rule).
+        for (final call in pending) {
+          await _feedBack(chat, call.name, const {
+            'status': 'failed',
+            'error': 'generation stream errored before this tool call ran',
+          });
+        }
+        rethrow;
       }
 
       if (cancelled()) {

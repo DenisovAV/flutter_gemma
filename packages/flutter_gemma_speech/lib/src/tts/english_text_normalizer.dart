@@ -114,14 +114,27 @@ class EnglishTextNormalizer implements TtsTextNormalizer {
     return out;
   }
 
+  static final _digit = RegExp(r'[0-9]');
+
   @override
   List<String> splitClauses(String text) {
     final parts = <String>[];
     final buf = StringBuffer();
-    for (final rune in text.runes) {
-      final ch = String.fromCharCode(rune);
+    final chars = text.runes.map(String.fromCharCode).toList();
+    for (var i = 0; i < chars.length; i++) {
+      final ch = chars[i];
       buf.write(ch);
       if ('.!?,;:'.contains(ch)) {
+        // A ',' or '.' flanked by digits is part of a number ("1,234",
+        // "3.14"), not a clause boundary — splitting there tears the digit
+        // group apart before the per-clause number expansion sees it.
+        if ((ch == ',' || ch == '.') &&
+            i > 0 &&
+            i + 1 < chars.length &&
+            _digit.hasMatch(chars[i - 1]) &&
+            _digit.hasMatch(chars[i + 1])) {
+          continue;
+        }
         final s = buf.toString().trim();
         if (s.isNotEmpty) parts.add(s);
         buf.clear();

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
+        FunctionCallResponse,
         InferenceChat,
         Message,
         ModelResponse,
@@ -22,51 +23,93 @@ import 'voice_responder.dart';
 /// design spec (`2026-07-29-voice-loop-design.md`) for the full contract.
 class VoiceSession {
   /// General constructor — any LLM behind a [VoiceResponder].
-  // The initializer list (not `this._recognizer` initializing formals) is
-  // intentional: it lets the constructor keep PUBLIC named params
-  // (`recognizer:`/`responder:`/`synthesizer:`) while the backing fields are
-  // PRIVATE — an initializing formal would force the param name to match the
-  // (private) field name, breaking the public constructor API.
+  //
+  // `this._recognizer` initializing formals with PRIVATE field names: Dart
+  // de-underscores the leading `_`, so the public named params stay
+  // `recognizer:`/`responder:`/`synthesizer:` while the backing fields remain
+  // private (`_recognizer`/`_responder`/`_synthesizer`) — no initializer list
+  // needed.
   VoiceSession.custom({
-    required SpeechRecognizer recognizer,
-    required VoiceResponder responder,
-    required SpeechSynthesizer synthesizer,
-  }) : _recognizer = recognizer, // ignore: prefer_initializing_formals
-       _responder = responder, // ignore: prefer_initializing_formals
-       _synthesizer = synthesizer; // ignore: prefer_initializing_formals
+    required this._recognizer,
+    required this._responder,
+    required this._synthesizer,
+  });
 
   /// Multi-turn conversational voice. Recommended default. Create the chat via
   /// `getActiveModel().createChat(...)` with a short `maxOutputTokens` and a
   /// "reply concisely, this will be spoken aloud" system instruction.
   ///
-  /// PRECONDITION: `chat.tools` MUST be empty — a tools-chat emits
-  /// FunctionCallResponse items this text-only path would silently swallow,
-  /// stranding a dangling tool call that poisons history. Route tool use to
-  /// [VoiceSession.custom] + `AgentLoop`. Enforced with a real throw (asserts
-  /// are stripped in release — §12 B4).
+  /// When `chat.tools` is empty this is the plain text-only path. When
+  /// `chat.tools` is non-empty, [onToolCall] MUST be supplied — it is the
+  /// tool implementation (same as a text chat), and the turn is driven
+  /// through core's `InferenceChat.generateChatResponseWithTools` (the
+  /// reusable function-calling loop; see [maxToolTurns]). Without
+  /// [onToolCall] there is nothing to run a tool call with, so a tools-chat
+  /// throws (a real throw, not an assert — asserts are stripped in release —
+  /// §12 B4).
   ///
-  /// NOTE: the `chat.tools.isEmpty` guard reads the (mutable, aliased) list
-  /// once at construction — the requirement is lifetime-wide, not one-shot:
-  /// mutating `chat.tools` after construction re-enters the unsupported state
-  /// without this constructor catching it again.
+  /// NOTE: the `chat.tools` check reads the (mutable, aliased) list once at
+  /// construction — the requirement is lifetime-wide, not one-shot: mutating
+  /// `chat.tools` after construction re-enters the unsupported state without
+  /// this constructor catching it again.
   factory VoiceSession.fromChat({
     required SpeechRecognizer recognizer,
     required InferenceChat chat,
     required SpeechSynthesizer synthesizer,
+    FutureOr<Map<String, dynamic>> Function(FunctionCallResponse call)?
+    onToolCall,
+    int maxToolTurns = 8,
   }) {
-    if (chat.tools.isNotEmpty) {
+    if (chat.tools.isEmpty) {
+      return VoiceSession.custom(
+        recognizer: recognizer,
+        responder: VoiceResponder(
+          respond: (userText) => _chatRespond(chat, userText),
+          stop: chat.stopGeneration,
+        ),
+        synthesizer: synthesizer,
+      );
+    }
+    if (onToolCall == null) {
       throw ArgumentError.value(
         chat,
         'chat',
-        'VoiceSession.fromChat requires chat.tools.isEmpty; '
-            'route tool use to VoiceSession.custom + AgentLoop.',
+        'VoiceSession.fromChat: a chat with tools requires an onToolCall '
+            'handler (the tool implementations, same as a text chat). '
+            'Pass onToolCall.',
       );
     }
+    // Tool-calling path: a thin wrapper over core's driver loop — no loop
+    // lives here.
+    //
+    // Cancellation is PER-TURN: each respond() creates its own token and
+    // stop() cancels only the currently-active one. A single shared boolean
+    // that respond() resets to false would UN-cancel a prior turn's detached
+    // (drain-timeout) tool loop, letting it resume tool calls on this same
+    // chat concurrently with the new turn. A prior turn's token, once
+    // cancelled, stays cancelled forever.
+    _CancelToken? activeToken;
+    Stream<String> respondWithTools(String userText) async* {
+      final token = _CancelToken();
+      activeToken = token;
+      await chat.addQueryChunk(Message(text: userText, isUser: true));
+      yield* textTokensOf(
+        chat.generateChatResponseWithTools(
+          onToolCall: onToolCall,
+          maxToolTurns: maxToolTurns,
+          isCancelled: () => token.cancelled,
+        ),
+      );
+    }
+
     return VoiceSession.custom(
       recognizer: recognizer,
       responder: VoiceResponder(
-        respond: (userText) => _chatRespond(chat, userText),
-        stop: chat.stopGeneration,
+        respond: respondWithTools,
+        stop: () async {
+          activeToken?.cancel();
+          await chat.stopGeneration();
+        },
       ),
       synthesizer: synthesizer,
     );
@@ -361,4 +404,14 @@ class VoiceSession {
     _turnDone = null;
     if (done != null && !done.isCompleted) done.complete();
   }
+}
+
+/// Per-turn cancellation token for the tool-calling respond path — an enforced
+/// one-way latch: [cancelled] is read-only and [cancel] can only ever set it
+/// true (never reset), so a later turn (which gets its OWN token) cannot
+/// un-cancel a prior turn's still-running detached loop.
+class _CancelToken {
+  bool _cancelled = false;
+  bool get cancelled => _cancelled;
+  void cancel() => _cancelled = true;
 }

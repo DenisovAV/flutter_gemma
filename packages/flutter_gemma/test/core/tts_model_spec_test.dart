@@ -3,6 +3,11 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// The relative fetch suffix for a qwen3 bundle member — every qwen3 member
+/// resolves same-repo, so the location is always a [TtsRelativeSuffix].
+String qwen3SuffixOf(String fn) =>
+    (TtsModelType.qwen3.fetchLocationFor(fn) as TtsRelativeSuffix).suffix;
+
 void main() {
   test('matcha manifest lists its 8 runtime files', () {
     final m = TtsModelType.matcha.manifest;
@@ -52,7 +57,7 @@ void main() {
 
   test('qwen3 manifest lists its 9 runtime files (plain basenames — no '
       'config.json, no tables/voices subdirectory in the manifest itself; '
-      'see urlSuffixFor for the network-fetch mapping)', () {
+      'see fetchLocationFor for the network-fetch mapping)', () {
     final m = TtsModelType.qwen3.manifest;
     expect(m, contains('talker_int4.tflite'));
     expect(m, contains('mtp_fp32.tflite'));
@@ -71,57 +76,84 @@ void main() {
   });
 
   test(
-    'qwen3 urlSuffixFor maps the 4 embedding tables + demo voice to their '
-    'HF tables/voices subdirectory; the other 4 members map to themselves',
+    'qwen3 fetchLocationFor maps the 4 embedding tables + demo voice to their '
+    'HF tables/voices subdirectory; the other 4 members map to themselves — '
+    'all as relative suffixes (qwen3 has no cross-repo members)',
     () {
       expect(
-        TtsModelType.qwen3.urlSuffixFor('text_embedding_fp16.npy'),
-        'tables/text_embedding_fp16.npy',
+        TtsModelType.qwen3.fetchLocationFor('text_embedding_fp16.npy'),
+        const TtsRelativeSuffix('tables/text_embedding_fp16.npy'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('text_projection_fp32.npz'),
-        'tables/text_projection_fp32.npz',
+        TtsModelType.qwen3.fetchLocationFor('text_projection_fp32.npz'),
+        const TtsRelativeSuffix('tables/text_projection_fp32.npz'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('codec_embedding_fp32.npy'),
-        'tables/codec_embedding_fp32.npy',
+        TtsModelType.qwen3.fetchLocationFor('codec_embedding_fp32.npy'),
+        const TtsRelativeSuffix('tables/codec_embedding_fp32.npy'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('mtp_embeddings_fp16.npy'),
-        'tables/mtp_embeddings_fp16.npy',
+        TtsModelType.qwen3.fetchLocationFor('mtp_embeddings_fp16.npy'),
+        const TtsRelativeSuffix('tables/mtp_embeddings_fp16.npy'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('demo_speaker.npy'),
-        'voices/demo_speaker.npy',
+        TtsModelType.qwen3.fetchLocationFor('demo_speaker.npy'),
+        const TtsRelativeSuffix('voices/demo_speaker.npy'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('talker_int4.tflite'),
-        'talker_int4.tflite',
+        TtsModelType.qwen3.fetchLocationFor('talker_int4.tflite'),
+        const TtsRelativeSuffix('talker_int4.tflite'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('mtp_fp32.tflite'),
-        'mtp_fp32.tflite',
+        TtsModelType.qwen3.fetchLocationFor('mtp_fp32.tflite'),
+        const TtsRelativeSuffix('mtp_fp32.tflite'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('codec_decoder_fp32.tflite'),
-        'codec_decoder_fp32.tflite',
+        TtsModelType.qwen3.fetchLocationFor('codec_decoder_fp32.tflite'),
+        const TtsRelativeSuffix('codec_decoder_fp32.tflite'),
       );
       expect(
-        TtsModelType.qwen3.urlSuffixFor('tokenizer.json'),
-        'tokenizer.json',
+        TtsModelType.qwen3.fetchLocationFor('tokenizer.json'),
+        const TtsRelativeSuffix('tokenizer.json'),
       );
     },
   );
 
-  test('urlSuffixFor is the identity mapping for every other TtsModelType '
-      '(matcha has no subdirectories)', () {
+  test('fetchLocationFor is the identity relative mapping for every other '
+      'TtsModelType (matcha has no subdirectories)', () {
     for (final fn in TtsModelType.matcha.manifest) {
-      expect(TtsModelType.matcha.urlSuffixFor(fn), fn);
+      expect(TtsModelType.matcha.fetchLocationFor(fn), TtsRelativeSuffix(fn));
+    }
+  });
+
+  test('inflect fetchLocationFor: the 4 reused Matcha G2P files resolve to an '
+      'ABSOLUTE pinned-revision Matcha URL (TtsAbsoluteUrl); its own 2 '
+      'tflites stay relative bare basenames', () {
+    const g2pFiles = {
+      'config.json',
+      'g2p_dict.txt.gz',
+      'dp_g2p_matcha_fp16.tflite',
+      'g2p_meta.json',
+    };
+    for (final fn in TtsModelType.inflect.manifest) {
+      final location = TtsModelType.inflect.fetchLocationFor(fn);
+      if (g2pFiles.contains(fn)) {
+        expect(
+          location,
+          TtsAbsoluteUrl(
+            'https://huggingface.co/litert-community/Matcha-TTS/resolve/'
+            'ee32148115e2dd25913f70b1d71b587c73e0866e/$fn',
+          ),
+        );
+      } else {
+        expect(location, TtsRelativeSuffix(fn));
+      }
     }
   });
 
   test('flat<->url round trip (I5): building a qwen3 spec with sourceFor '
-      'wired through urlSuffixFor (as TtsInstallationBuilder does) produces '
+      'wired through fetchLocationFor (as TtsInstallationBuilder does) '
+      'produces '
       'TtsBundleFiles whose prefsKey set is EXACTLY the manifest — the '
       "tables/voices subdirectory in the fetch URL never leaks into the "
       'installed identity / artifactPaths key Qwen3TtsCore.load reads', () {
@@ -131,7 +163,7 @@ void main() {
       sourceFor: (fn) => ModelSource.network(
         'https://huggingface.co/litert-community/'
         'Qwen3-TTS-12Hz-0.6B-Base/resolve/main/'
-        '${TtsModelType.qwen3.urlSuffixFor(fn)}',
+        '${qwen3SuffixOf(fn)}',
       ),
     );
     final prefsKeys = spec.files.map((f) => f.prefsKey).toSet();
@@ -156,9 +188,7 @@ void main() {
     final spec = TtsModelSpec.fromManifest(
       name: 'qwen3',
       ttsModelType: TtsModelType.qwen3,
-      sourceFor: (fn) => ModelSource.network(
-        'https://x/${TtsModelType.qwen3.urlSuffixFor(fn)}',
-      ),
+      sourceFor: (fn) => ModelSource.network('https://x/${qwen3SuffixOf(fn)}'),
     );
     final byName = {for (final f in spec.files) f.prefsKey: f};
 
@@ -264,15 +294,13 @@ void main() {
   test('qwen3 restore-safe: MobileModelManager._restoreActiveTtsModel derives '
       'namespaced paths DIRECTLY from the raw manifest string (no URL '
       'involved) — this must land on the SAME namespaced filename a fresh '
-      'network install produces via urlSuffixFor, for every one of the 4 '
+      'network install produces via fetchLocationFor, for every one of the 4 '
       'table + 1 voice member whose fetch URL has a tables/voices '
       'subdirectory the plain manifest entry does not', () {
     final installed = TtsModelSpec.fromManifest(
       name: 'qwen3',
       ttsModelType: TtsModelType.qwen3,
-      sourceFor: (fn) => ModelSource.network(
-        'https://x/${TtsModelType.qwen3.urlSuffixFor(fn)}',
-      ),
+      sourceFor: (fn) => ModelSource.network('https://x/${qwen3SuffixOf(fn)}'),
     );
     for (final fn in TtsModelType.qwen3.manifest) {
       // Mirrors _restoreActiveTtsModel's `FileNameUtils.namespaced(modelId,

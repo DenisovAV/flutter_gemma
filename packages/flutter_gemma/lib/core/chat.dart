@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -30,7 +32,14 @@ class InferenceChat {
   final ModelFileType fileType; // Add fileType parameter
   final ToolChoice toolChoice; // Tool calling mode
   late InferenceModelSession session;
-  final List<Tool> tools;
+  final List<Tool> _tools;
+
+  /// Tools available to this chat, fixed for the chat's lifetime. A cached
+  /// unmodifiable VIEW over `_tools` (allocated once, reflects the backing
+  /// list) — `tools.isNotEmpty` is read once per generated token on the
+  /// streaming path, so a per-read `List.unmodifiable(_tools)` copy would be
+  /// an O(tools) allocation on the hottest generation loop.
+  late final List<Tool> tools = UnmodifiableListView(_tools);
 
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
@@ -60,7 +69,7 @@ class InferenceChat {
     this.supportAudio = false,
     this.supportsFunctionCalls = false,
     this.maxFunctionBufferLength = defaultMaxFunctionBufferLength,
-    this.tools = const [],
+    this._tools = const [],
     this.modelType =
         ModelType.gemmaIt, // Default to gemmaIt for backward compatibility
     this.isThinking = false, // Default to false for backward compatibility
@@ -488,6 +497,15 @@ class InferenceChat {
             'InferenceChat: ${allCalls.length} SDK-parsed tool call(s) at end of stream',
           );
           emittedFunctionCall = true;
+          // Record the tool-call in history BEFORE yielding (mirrors the sync
+          // SDK path at ~L193 and the JSON paths) — otherwise the caller's
+          // tool-response has no matching call and is left orphaned, which
+          // corrupts the replayed history when the Gemma 4 session rotates.
+          // Strip the Gemma 4 escape tokens first, same as the sync path (#248).
+          final cleanRaw = SdkResponseParser.cleanRawForHistory(raw);
+          final toolCallMessage = Message.toolCall(text: cleanRaw);
+          _fullHistory.add(toolCallMessage);
+          _modelHistory.add(toolCallMessage);
           if (allCalls.length == 1) {
             yield allCalls.first;
           } else {
@@ -636,6 +654,120 @@ class InferenceChat {
     }
 
     gemmaLog('InferenceChat: generateChatResponseAsync completed successfully');
+  }
+
+  /// Drive flutter_gemma's function-calling loop to completion. Stream this
+  /// turn's text/thinking tokens; whenever the model calls a tool, run
+  /// [onToolCall] and feed its result back as a tool-response message, then
+  /// continue — until a turn has no calls (the model's final answer) or
+  /// [maxToolTurns] / [isCancelled] stops it.
+  ///
+  /// PRECONDITION: the user message must already be staged (call [addQueryChunk]
+  /// first), same as [generateChatResponseAsync]. [onToolCall] returns the
+  /// `{...}` response map fed back via [Message.toolResponse]. Tool *execution*
+  /// is the caller's (tools are app actions); core only parses the call and
+  /// drives the loop.
+  Stream<ModelResponse> generateChatResponseWithTools({
+    required FutureOr<Map<String, dynamic>> Function(FunctionCallResponse call)
+    onToolCall,
+    int maxToolTurns = 8,
+    bool Function()? isCancelled,
+  }) async* {
+    if (maxToolTurns < 1) {
+      // A cap below 1 would exit before any generation — the already-staged
+      // user turn would get NO response and the stream would close empty (a
+      // silent no-op). Fail loud (asserts are stripped in release).
+      throw RangeError.range(maxToolTurns, 1, null, 'maxToolTurns');
+    }
+    for (var turn = 0; turn < maxToolTurns; turn++) {
+      if (isCancelled?.call() ?? false) return;
+      final pending = <FunctionCallResponse>[];
+      await for (final r in generateChatResponseAsync()) {
+        // Exhaustive over the sealed ModelResponse: a future subtype fails to
+        // compile here instead of silently passing through as text.
+        switch (r) {
+          case FunctionCallResponse():
+            pending.add(r);
+          case ParallelFunctionCallResponse(:final calls):
+            pending.addAll(calls);
+          case TextResponse() || ThinkingResponse():
+            yield r; // pass through to the caller's text/thinking stream
+        }
+      }
+      if (pending.isEmpty) return; // model's final (call-free) answer
+
+      // generateChatResponseAsync already committed the assistant tool-call(s)
+      // to history; EVERY committed call must get a matching tool-response or
+      // the (persistent, reused-across-turns) chat is left with a dangling
+      // call that poisons the next turn (the model re-issues it or replies
+      // empty). So both abnormal exits below balance the history first.
+      if (isCancelled?.call() ?? false) {
+        // Barge-in after generation, before execution: don't run the tools,
+        // but still answer the committed call(s) with a cancelled marker.
+        await _answerToolCalls(pending, const {'status': 'cancelled'});
+        return;
+      }
+      for (var i = 0; i < pending.length; i++) {
+        if (isCancelled?.call() ?? false) {
+          // Barge-in landed mid-turn (between individual tool calls). Don't run
+          // the remaining tools' side effects — mirrors AgentLoop's between-call
+          // check (agent_loop.dart) — but answer every not-yet-run call (i..end)
+          // with a cancelled marker so no committed call is left dangling, then
+          // stop. On the voice detach path the per-turn token stays cancelled
+          // forever, so a still-running DETACHED loop bails here at the next
+          // tool boundary instead of executing the rest of this turn's tools.
+          await _answerToolCalls(pending.sublist(i), const {
+            'status': 'cancelled',
+          });
+          return;
+        }
+        final call = pending[i];
+        final Map<String, dynamic> response;
+        try {
+          response = await onToolCall(call);
+        } catch (e) {
+          // The app's tool threw. Answer the failed call (and any siblings in
+          // this turn not yet run) so the committed call isn't left dangling,
+          // then rethrow so the caller sees the failure.
+          await addQueryChunk(
+            Message.toolResponse(
+              toolName: call.name,
+              response: {'error': '$e'},
+            ),
+          );
+          await _answerToolCalls(pending.sublist(i + 1), const {
+            'status': 'not run — an earlier tool call in this turn failed',
+          });
+          rethrow;
+        }
+        await addQueryChunk(
+          Message.toolResponse(toolName: call.name, response: response),
+        );
+      }
+    }
+    // Exhausted maxToolTurns with calls still pending: each turn's calls WERE
+    // answered, but no final call-free generation ran, so the reply may be
+    // empty/truncated. Log it (mirrors AgentLoop's MaxIterationsEvent) — silent
+    // truncation would violate the no-masking-failure rule.
+    gemmaLog(
+      'InferenceChat.generateChatResponseWithTools: hit maxToolTurns '
+      '($maxToolTurns) with tool calls still pending; stopping. The reply may '
+      'be empty or truncated — the model never produced a call-free answer.',
+    );
+  }
+
+  /// Feeds a fixed [response] as the tool-response for each of [calls]. Used to
+  /// balance history when a turn is cancelled or a tool throws mid-turn, so a
+  /// committed tool-call is never left without a matching response.
+  Future<void> _answerToolCalls(
+    List<FunctionCallResponse> calls,
+    Map<String, dynamic> response,
+  ) async {
+    for (final call in calls) {
+      await addQueryChunk(
+        Message.toolResponse(toolName: call.name, response: response),
+      );
+    }
   }
 
   Future<void> _recreateSessionWithReducedChunks() async {

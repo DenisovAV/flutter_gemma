@@ -30,8 +30,8 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.5.2
-  flutter_gemma_speech: ^0.4.1
+  flutter_gemma: ^1.5.3
+  flutter_gemma_speech: ^0.4.2
 ```
 
 ## Register the backend
@@ -135,12 +135,31 @@ final pcm = await synth.synthesize('Bonjour le monde.'); // Uint8List, 16-bit PC
 await synth.close();
 ```
 
+### Inflect-Nano-v2 (fast)
+
+For snappy spoken replies, `TtsModelType.inflect` selects Inflect-Nano-v2 — a
+tiny VITS voice (`sasha-denisov/inflect-nano-v2-litert`, ~8 MB) that synthesizes
+~90× faster than real-time on CPU (RTF≈0.01). English-only; it reuses Matcha's
+phonemizer bundle, so those G2P files are fetched cross-repo automatically.
+
+```dart
+await FlutterGemma.installTts()
+    .fromNetwork('https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/')
+    .ofType(TtsModelType.inflect)
+    .install();
+
+final synth = await FlutterGemma.getActiveTts();
+final pcm = await synth.synthesize('Hello there!'); // Uint8List, 16-bit PCM @ 24 kHz
+await synth.close();
+```
+
 ## Voice loop
 
 `VoiceSession` chains STT → LLM → TTS into one push-to-talk turn — transcribe,
 generate a chat reply, synthesize it — streamed back as `VoiceEvent`s. Build
-one with `VoiceSession.fromChat`, which wraps an `InferenceChat` (it must have
-no tools — route tool use through `VoiceSession.custom` + `AgentLoop` instead).
+one with `VoiceSession.fromChat`, which wraps an `InferenceChat`. A tools-free
+chat is the plain speech-to-speech loop; pass `onToolCall` to run function calls
+inside a spoken turn (see [Tool calling](#tool-calling-in-the-voice-loop) below).
 
 ```dart
 final recognizer = await FlutterGemma.getActiveStt();
@@ -167,6 +186,29 @@ itself, same as the STT/TTS sections above. For barge-in, call
 `await session.interrupt()` while a turn is in flight: it stops generation,
 bounded-drains the reply stream, and the turn ends with a
 `VoiceTurnInterruptedEvent` instead of `VoiceTurnCompleteEvent`.
+
+### Tool calling in the voice loop
+
+When the chat has tools, pass `onToolCall` — the turn is driven through core's
+`InferenceChat.generateChatResponseWithTools` (run tool → feed the result back →
+final answer, capped by `maxToolTurns`, cancelled on barge-in). `onToolCall` is
+your tool implementation, exactly as in a text chat; only the final spoken answer
+is synthesized.
+
+```dart
+final chat = await (await FlutterGemma.getActiveModel(maxTokens: 1024))
+    .createChat(tools: myTools, supportsFunctionCalls: true,
+                toolChoice: ToolChoice.auto, maxOutputTokens: 128);
+
+final session = VoiceSession.fromChat(
+  recognizer: recognizer, chat: chat, synthesizer: synthesizer,
+  onToolCall: (call) async => runMyTool(call), // returns the tool result map
+);
+```
+
+For the full agent (skills / MCP), wrap an `AgentSession` in a `VoiceResponder`
+and use `VoiceSession.custom`; `AgentSession.ask(…, isCancelled:)` makes barge-in
+halt the agent loop before the next tool.
 
 ## Platform support
 

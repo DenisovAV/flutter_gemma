@@ -8,11 +8,11 @@
 /// blank-intersperse + gather).
 library;
 
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import '../model/tts_model_profile.dart';
+import 'g2p_dict_bundle.dart';
 import 'tts_frontend_input.dart';
 import 'tts_text_frontend.dart';
 import 'tts_text_normalizer.dart';
@@ -68,7 +68,7 @@ class MatchaTextFrontend implements TtsTextFrontend {
   /// n_channels + MAX_TEXT), `g2p_dict.txt.gz` (gzipped word -> IPA
   /// dictionary), `emb.bin` (little-endian f32 phoneme embedding table).
   static Future<MatchaTextFrontend> load(
-    TtsModelProfile profile,
+    MatchaProfile profile,
     Map<String, String> paths, {
     NeuralG2pResolver? neuralG2p,
   }) async {
@@ -76,25 +76,9 @@ class MatchaTextFrontend implements TtsTextFrontend {
     final dictPath = paths[profile.dictFile]!;
     final embeddingPath = paths[profile.embeddingFile]!;
 
-    final config =
-        jsonDecode(await File(configPath).readAsString())
-            as Map<String, dynamic>;
-    final symbols = (config['symbols'] as List).cast<String>();
-    final symbolToId = <String, int>{
-      // last-wins on duplicates, matches Python dict comprehension.
-      for (var i = 0; i < symbols.length; i++) symbols[i]: i,
-    };
-    final nChannels = (config['n_channels'] as num).toInt();
-    final maxText = (config['MAX_TEXT'] as num).toInt();
-
-    final gzBytes = await File(dictPath).readAsBytes();
-    final dictText = utf8.decode(gzip.decode(gzBytes));
-    final dictionary = <String, String>{};
-    for (final line in const LineSplitter().convert(dictText)) {
-      final tab = line.indexOf('\t');
-      if (tab < 0) continue;
-      dictionary[line.substring(0, tab)] = line.substring(tab + 1);
-    }
+    final bundle = await loadG2pDictBundle(configPath, dictPath);
+    final nChannels = (bundle.config['n_channels'] as num).toInt();
+    final maxText = (bundle.config['MAX_TEXT'] as num).toInt();
 
     final embBytes = await File(embeddingPath).readAsBytes();
     final embBd = ByteData.sublistView(embBytes);
@@ -104,8 +88,8 @@ class MatchaTextFrontend implements TtsTextFrontend {
     }
 
     return MatchaTextFrontend(
-      symbolToId: symbolToId,
-      dictionary: dictionary,
+      symbolToId: bundle.symbolToId,
+      dictionary: bundle.dictionary,
       embeddingTable: embeddingTable,
       nChannels: nChannels,
       maxText: maxText,

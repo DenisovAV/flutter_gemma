@@ -23,10 +23,50 @@ import 'dart:ffi';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 // Public, native-only bindings library (not the package barrel) — see the
 // equivalent comment in `tts_core.dart`/`stt_core.dart` for why this import
 // (not the `if (dart.library.ffi)` barrel) is correct in a native-only file.
 import 'package:flutter_gemma_litertlm/litert_bindings.dart';
+
+/// Maps the public [PreferredBackend] to the LiteRT hardware-accelerator
+/// constant. Shared by every speech core (`SttCore`, `TtsCore`,
+/// `Qwen3TtsCore`, `InflectTtsCore`) — they used to carry identical private
+/// copies of this switch.
+int acceleratorFor(PreferredBackend? backend) => switch (backend) {
+  PreferredBackend.gpu => kLiteRtHwAcceleratorGpu,
+  PreferredBackend.npu => kLiteRtHwAcceleratorNpu,
+  PreferredBackend.cpu || null => kLiteRtHwAcceleratorCpu,
+};
+
+/// Resolves [file] from the bundle's filename -> on-disk-path map, failing
+/// loud (named by [owner], e.g. `'TtsCore'`) when the bundle doesn't carry
+/// it. Shared by the TTS cores — they used to carry per-class private
+/// copies differing only in the class name baked into the message.
+String artifactPath(
+  Map<String, String> artifactPaths,
+  String file, {
+  required String owner,
+}) {
+  final path = artifactPaths[file];
+  if (path == null) {
+    throw StateError('$owner: bundle is missing "$file" in artifactPaths');
+  }
+  return path;
+}
+
+/// Destroys each graph's compiledModel/options/model handles, in creation-
+/// reverse order per graph. Shared by every multi-graph core's `dispose` and
+/// `load` partial-failure cleanup — they used to repeat this 3-call sequence
+/// inline. Does NOT destroy the shared environment; the caller owns that.
+void destroyGraphs(LiteRtBindings bindings, Iterable<LoadedGraph> graphs) {
+  for (final graph in graphs) {
+    bindings.destroyCompiledModel(graph.compiledModel);
+    bindings.destroyOptions(graph.options);
+    bindings.destroyModel(graph.model);
+  }
+}
 
 /// One compiled graph's handles (model/options/compiledModel), freed
 /// together by the owner's dispose or by [loadLiteRtGraph]'s caller's

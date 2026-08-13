@@ -1,3 +1,7 @@
+## 0.4.2
+- Add Inflect-Nano-v2 — fast on-device TTS (~90× real-time on CPU, English-only).
+- VoiceSession.fromChat: optional onToolCall runs function calling in the Voice Loop (via core's generateChatResponseWithTools).
+
 ## 0.4.1
 - Add Qwen3-TTS (multilingual AR codec-LM, 11 languages) — 2nd selectable TTS family.
 

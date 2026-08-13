@@ -1,3 +1,7 @@
+## 0.2.0
+
+- Add optional isCancelled to AgentLoop.run / AgentSession.ask for barge-in / cancellation.
+
 ## 0.1.0
 
 * Initial pure-Dart foundation: Skill model + SKILL.md parser (Gallery-compatible).

@@ -68,6 +68,36 @@ await chat.addQueryChunk(toolMessage);
 final followUp = await chat.generateChatResponse();
 ```
 
+### Or drive the whole loop in one call (recommended)
+
+`InferenceChat.generateChatResponseWithTools` runs that whole cycle for you — it
+streams the reply, and whenever the model calls a tool it invokes your
+`onToolCall`, feeds the result back as a `Message.toolResponse`, and continues
+until the model produces a final call-free answer (bounded by `maxToolTurns`).
+You only implement the tools; the parse → execute → feed-back loop is handled.
+
+```dart
+final stream = chat.generateChatResponseWithTools(
+  onToolCall: (call) async {
+    // Run whatever tool the model asked for; return its result map.
+    return switch (call.name) {
+      'change_background_color' => {'status': 'success', 'color': call.args['color']},
+      _ => {'error': 'unknown tool ${call.name}'},
+    };
+  },
+  maxToolTurns: 8,           // safety cap on tool round-trips
+  isCancelled: () => false,  // optional: return true to stop (e.g. barge-in)
+);
+
+await for (final response in stream) {
+  if (response is TextResponse) print(response.token); // final-answer tokens
+}
+```
+
+This is the same driver the voice loop uses: `VoiceSession.fromChat(…, onToolCall:)`
+runs function calls inside a spoken turn through it (see
+[Speech → Tool calling in the voice loop](/docs/speech#tool-calling-in-the-voice-loop)).
+
 ## Platform support
 
 Function calling is supported on **Android, iOS, Web, and Desktop**. For Gemma 4,

@@ -90,11 +90,15 @@ class TtsInstallationBuilder {
     // few (e.g. qwen3's embedding tables + demo voice) live under a
     // subdirectory on the origin server even though their INSTALLED
     // identity is the plain basename — see
-    // `TtsModelTypeManifest.urlSuffixFor`'s doc for why that split is safe.
-    String joinUrl(String base, String fn) {
-      final suffix = ttsModelType.urlSuffixFor(fn);
-      return base.endsWith('/') ? '$base$suffix' : '$base/$suffix';
-    }
+    // `TtsModelTypeManifest.fetchLocationFor`'s doc for why that split is
+    // safe. An absolute location (a cross-repo full URL, e.g. Inflect's
+    // reused Matcha G2P files) is fetched as-is, not appended to [base].
+    String joinUrl(String base, String fn) =>
+        switch (ttsModelType.fetchLocationFor(fn)) {
+          TtsAbsoluteUrl(:final url) => url,
+          TtsRelativeSuffix(:final suffix) =>
+            base.endsWith('/') ? '$base$suffix' : '$base/$suffix',
+        };
 
     final spec = TtsModelSpec.fromManifest(
       name: _name ?? ttsModelType.name,

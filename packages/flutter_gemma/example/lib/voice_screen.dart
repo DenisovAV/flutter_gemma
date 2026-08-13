@@ -25,7 +25,7 @@ import 'package:record/record.dart';
 /// [VoiceScreen.sttModel], [VoiceScreen.llmModel] (a text-only chat model —
 /// no tools, since `VoiceSession.fromChat` requires `chat.tools.isEmpty`) and
 /// [VoiceScreen.ttsModel]. The upstream defaults reproduce the original trio
-/// (Moonshine Tiny / Gemma 3 1B IT / Matcha-TTS).
+/// (Moonshine Tiny / Gemma 3 1B IT / Inflect-Nano-v2).
 class VoiceScreen extends StatefulWidget {
   final SttModel sttModel;
   final Model llmModel;

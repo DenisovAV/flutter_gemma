@@ -16,7 +16,7 @@ import 'package:flutter_gemma_example/voice_screen.dart';
 /// selection mode (its `onSelected` callback); for STT/TTS only entries with a
 /// shipped profile are pickable, whereas any LLM is pickable. Defaults
 /// reproduce the previously-hardcoded trio (Moonshine Tiny / Gemma 3 1B IT /
-/// Matcha-TTS), so the loop's behaviour is unchanged until the user swaps a
+/// Inflect-Nano-v2), so the loop's behaviour is unchanged until the user swaps a
 /// step.
 class VoiceSetupScreen extends StatefulWidget {
   const VoiceSetupScreen({super.key});
@@ -28,7 +28,7 @@ class VoiceSetupScreen extends StatefulWidget {
 class _VoiceSetupScreenState extends State<VoiceSetupScreen> {
   SttModel _stt = SttModel.moonshineTiny;
   Model _llm = Model.gemma3_1B;
-  TtsModel _tts = TtsModel.matcha;
+  TtsModel _tts = TtsModel.inflect;
 
   Future<void> _pickStt() => Navigator.push(
     context,

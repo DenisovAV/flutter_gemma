@@ -1,5 +1,5 @@
 // On-device: voice loop backed by the full agent. Fixed transcript
-// -> AgentSession (calculate-hash skill) -> Matcha TTS. Asserts the skill's
+// -> AgentSession (calculate-hash skill) -> Inflect TTS. Asserts the skill's
 // deterministic SHA-1 surfaces and a spoken reply is produced.
 //
 // JS skills need a real webview host (agent_with_model_test.dart's
@@ -23,7 +23,7 @@ import 'voice_test_helpers.dart';
 
 const _llmFileName = 'gemma-4-E2B-it.litertlm';
 const _ttsUrl =
-    'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+    'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
 const _sha1OfHello = 'aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d';
 
 /// JS skills (calculate-hash) require a real webview host — same mechanism
@@ -69,7 +69,7 @@ void main() {
       ).fromFile(llmPath!).install();
       await FlutterGemma.installTts()
           .fromNetwork(_ttsUrl)
-          .ofType(TtsModelType.matcha)
+          .ofType(TtsModelType.inflect)
           .install();
 
       // Agent with the bundled calculate-hash skill (deterministic output) —
@@ -77,7 +77,7 @@ void main() {
       final assetSource = AssetSkillSource();
       final skills = await assetSource.load();
       final registry = SkillRegistry()..addAll(skills, selected: true);
-      // CPU: the voice path loads Matcha TTS (Metal) alongside the LLM; a
+      // CPU: the voice path loads Inflect TTS (Metal) alongside the LLM; a
       // concurrent Metal GPU load is flaky on desktop (agent_with_model_test can
       // use GPU because it has no TTS). This gate proves the agent->voice loop,
       // not GPU perf — pin CPU for determinism.

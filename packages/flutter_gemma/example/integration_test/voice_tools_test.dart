@@ -1,5 +1,5 @@
 // On-device: voice loop WITH function calling. Fixed transcript -> Gemma 3 1B
-// (tools) -> onToolCall -> Matcha TTS. Asserts the tool ran and a spoken reply
+// (tools) -> onToolCall -> Inflect TTS. Asserts the tool ran and a spoken reply
 // was produced.
 // Run: flutter test integration_test/voice_tools_test.dart -d <device> \
 //   --dart-define=HUGGINGFACE_TOKEN=$HF_TOKEN
@@ -15,7 +15,7 @@ import 'voice_test_helpers.dart';
 
 const _llmFileName = 'gemma3-1b-it-int4.litertlm';
 const _ttsUrl =
-    'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+    'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
 const _tools = [
   Tool(
     name: 'show_alert',
@@ -55,7 +55,7 @@ void main() {
       ).fromFile(llmPath!).install();
       await FlutterGemma.installTts()
           .fromNetwork(_ttsUrl)
-          .ofType(TtsModelType.matcha)
+          .ofType(TtsModelType.inflect)
           .install();
 
       final synth = await FlutterGemma.getActiveTts();

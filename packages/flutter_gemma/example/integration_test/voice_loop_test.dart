@@ -2,7 +2,7 @@
 // by VoiceSession.fromChat, end-to-end on the bundled clip — no mic/speaker.
 //
 // Installs moonshine-tiny STT, Gemma 3 1B IT (.litertlm, no tools) and
-// Matcha TTS from HuggingFace, activates all three via the public API, then
+// Inflect TTS from HuggingFace, activates all three via the public API, then
 // runs one VoiceSession turn and asserts transcript -> reply text -> reply
 // audio -> turn-complete all landed with real (non-empty, non-silent)
 // content.
@@ -37,10 +37,11 @@ const _sttTokenizerUrl =
 const _llmModelUrl =
     'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 
-// ── TTS: Matcha-TTS — same URL as tts_matcha_test.dart. Public repo, no
-// token needed there. ──
+// ── TTS: Inflect-Nano-v2 (fast, ~90× real-time) — 2 tflites from this repo +
+// 4 G2P files fetched cross-repo from Matcha (routed by fetchLocationFor).
+// Public repos, no token needed. ──
 const _ttsModelUrl =
-    'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+    'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
 
 // The rest of the suite reads HUGGINGFACE_TOKEN (litertlm_ffi_test.dart et al);
 // this file historically read HF_TOKEN. Accept both so the repo's habitual
@@ -83,7 +84,7 @@ void main() {
     (tester) async {
       // 1. Register the STT/TTS/inference backends and install + activate
       //    STT (moonshine), a small no-tools LLM (Gemma 3 1B), and TTS
-      //    (Matcha).
+      //    (Inflect).
       await FlutterGemma.initialize(
         huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
         sttBackends: const [LiteRtSttBackend()],
@@ -144,7 +145,7 @@ void main() {
 
       await FlutterGemma.installTts()
           .fromNetwork(_ttsModelUrl)
-          .ofType(TtsModelType.matcha)
+          .ofType(TtsModelType.inflect)
           .install();
 
       final recognizer = await FlutterGemma.getActiveStt();
@@ -190,7 +191,7 @@ void main() {
       expect(replyText.trim(), isNotEmpty, reason: 'LLM produced no reply');
       expect(audio, isNotEmpty, reason: 'TTS produced no audio event');
       expect(audio.single.pcm.length, greaterThan(0));
-      expect(audio.single.sampleRate, 22050);
+      expect(audio.single.sampleRate, 24000); // Inflect is 24 kHz
       expect(
         audio.single.pcm.any((b) => b != 0),
         isTrue,

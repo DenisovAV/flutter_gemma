@@ -14,7 +14,7 @@
 // Speak by holding the mic button, or tap "Demo turn" to run the bundled clip
 // (no microphone needed). The LLM (Gemma 4 E2B, .litertlm) loads from a
 // device-local staged file when present, else downloads from HuggingFace with
-// the token you enter. STT (Moonshine) and TTS (Matcha) are public downloads.
+// the token you enter. STT (Moonshine) and TTS (Inflect) are public downloads.
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
@@ -42,7 +42,7 @@ const _llmUrl =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 const _llmFileName = 'gemma-4-E2B-it.litertlm';
 const _ttsUrl =
-    'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+    'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
 
 // flutter_gemma brand palette (matches the main example's screens).
 const _kNavy = Color(0xFF0b2351);
@@ -185,15 +185,15 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
         await llm.fromNetwork(_llmUrl, token: token).install();
       }
 
-      setState(() => _status = 'Installing TTS (Matcha)…');
+      setState(() => _status = 'Installing TTS (Inflect)…');
       await FlutterGemma.installTts()
           .fromNetwork(_ttsUrl)
-          .ofType(TtsModelType.matcha)
+          .ofType(TtsModelType.inflect)
           .install();
 
       _recognizer = await FlutterGemma.getActiveStt();
       _synthesizer = await FlutterGemma.getActiveTts();
-      // CPU: the voice path loads Matcha (Metal) alongside the LLM; a concurrent
+      // CPU: the voice path loads Inflect (Metal) alongside the LLM; a concurrent
       // Metal GPU load is flaky on desktop — CPU keeps the demo deterministic.
       _model = await FlutterGemma.getActiveModel(
         maxTokens: 4096,
@@ -275,7 +275,7 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
         topK: 64,
         topP: 0.95,
         tokenBuffer: 256,
-        // The reply is SPOKEN, then synthesized in one Matcha pass — keep it
+        // The reply is SPOKEN, then synthesized in one Inflect pass — keep it
         // short or TTS crawls. A one-sentence cap keeps each turn snappy.
         systemInstruction:
             'You are a concise voice assistant. Reply in ONE short, natural '
@@ -467,7 +467,7 @@ class _VoiceHomePageState extends State<VoiceHomePage> {
               const SizedBox(height: 8),
               const Text(
                 'STT (Moonshine) → LLM (Gemma 4 E2B, tools + agent) → '
-                'TTS (Matcha), all on device.',
+                'TTS (Inflect), all on device.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70),
               ),

@@ -3,7 +3,6 @@ import 'package:flutter_gemma/flutter_gemma.dart'
         FunctionCallResponse,
         InferenceChat,
         Message,
-        ModelResponse,
         ParallelFunctionCallResponse,
         TextResponse,
         ThinkingResponse;
@@ -22,8 +21,10 @@ import 'secret_store.dart';
 /// discovery list injected into its system prompt) plus the [registry] of
 /// selected skills and the registered [executors], [run] drives the loop:
 ///
-/// 1. `generateChatResponse()`.
-/// 2. If the response is a [FunctionCallResponse] **or**
+/// 1. `generateChatResponseAsync()` — stream this turn's text tokens out as
+///    [TextChunkEvent]s and collect any function calls (parity with
+///    VoiceSession, which drives core's `generateChatResponseWithTools`).
+/// 2. If the turn produced a [FunctionCallResponse] **or**
 ///    [ParallelFunctionCallResponse], dispatch every call:
 ///    - `loadSkill` → return the skill's full SKILL.md instructions (lazy
 ///      second-stage discovery) from the [registry];
@@ -102,42 +103,62 @@ class AgentLoop {
 
     for (var iteration = 0; iteration < maxIterations; iteration++) {
       if (cancelled()) return; // barge-in before the next generation
-      final ModelResponse response = await chat.generateChatResponse();
-      final calls = _extractCalls(response);
+
+      // Stream this turn's tokens (parity with VoiceSession, which drives core's
+      // generateChatResponseWithTools): TextResponse tokens surface immediately
+      // as TextChunkEvent(s), while function calls are collected and dispatched
+      // once the turn's stream ends. Same shape as core
+      // InferenceChat.generateChatResponseWithTools, but emits the agent's rich
+      // step events (which a plain onToolCall callback cannot yield) at dispatch.
+      final pending = <FunctionCallResponse>[];
+      final buffer = StringBuffer();
+      await for (final response in chat.generateChatResponseAsync()) {
+        switch (response) {
+          case FunctionCallResponse():
+            pending.add(response);
+          case ParallelFunctionCallResponse(:final calls):
+            pending.addAll(calls);
+          case TextResponse(:final token):
+            if (token.isEmpty) continue;
+            buffer.write(token);
+            yield TextChunkEvent(token);
+          case ThinkingResponse(:final content):
+            // The agent creates its chat with thinking off and has no thinking
+            // event, so this never fires today; fold content into the answer
+            // text if it ever does (parity with the pre-streaming switch).
+            if (content.isEmpty) continue;
+            buffer.write(content);
+            yield TextChunkEvent(content);
+        }
+      }
+
       if (cancelled()) {
-        // Decode was stopped by chat.stopGeneration(). If the response still
-        // parsed as tool call(s), generateChatResponse already committed them
-        // to history — balance them with a synthetic cancelled tool-response
-        // (mirrors core InferenceChat.generateChatResponseWithTools) so the
-        // persistent chat isn't left with a dangling call that poisons the
-        // next turn.
-        await _answerCancelledCalls(chat, calls);
+        // stopGeneration() ended the decode. generateChatResponseAsync already
+        // committed any parsed tool-call(s) to history — balance them with a
+        // synthetic cancelled tool-response (mirrors core
+        // generateChatResponseWithTools) so the persistent chat isn't left with
+        // a dangling call that poisons the next turn.
+        await _answerCancelledCalls(chat, pending);
         return;
       }
 
-      if (calls.isEmpty) {
-        // Plain text (or thinking) — the model is done with this turn.
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          ThinkingResponse(:final content) => content,
-          _ => '',
-        };
-        if (text.isNotEmpty) yield TextChunkEvent(text);
-        yield DoneEvent(text);
+      if (pending.isEmpty) {
+        // No calls this turn — the streamed text was the model's final answer.
+        yield DoneEvent(buffer.toString());
         return;
       }
 
       // Dispatch every call (single or parallel), feeding each result back.
-      for (var i = 0; i < calls.length; i++) {
+      for (var i = 0; i < pending.length; i++) {
         if (cancelled()) {
           // Barge-in between parallel calls: the model's whole call turn is
           // already committed to history, so answer the not-yet-dispatched
           // remainder before returning (dispatched calls already got their
           // real tool-responses).
-          await _answerCancelledCalls(chat, calls.sublist(i));
+          await _answerCancelledCalls(chat, pending.sublist(i));
           return;
         }
-        yield* _dispatch(chat, calls[i]);
+        yield* _dispatch(chat, pending[i]);
       }
     }
 
@@ -156,16 +177,6 @@ class AgentLoop {
     for (final call in calls) {
       await _feedBack(chat, call.name, const {'status': 'cancelled'});
     }
-  }
-
-  /// Normalize a [ModelResponse] into the list of function calls to dispatch.
-  /// Returns an empty list for a plain text / thinking response.
-  List<FunctionCallResponse> _extractCalls(ModelResponse response) {
-    return switch (response) {
-      FunctionCallResponse() => [response],
-      ParallelFunctionCallResponse(:final calls) => calls,
-      _ => const [],
-    };
   }
 
   /// Execute one [call] and feed its result back to [chat], emitting the

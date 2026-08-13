@@ -8,25 +8,39 @@ import 'package:flutter_gemma/flutter_gemma.dart'
         MessageType,
         ModelResponse,
         ParallelFunctionCallResponse,
-        TextResponse;
+        TextResponse,
+        ThinkingResponse;
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// A scriptable fake [InferenceChat]: returns the next queued [ModelResponse]
-/// per [generateChatResponse] call and records every [addQueryChunk] message
-/// (so a test can assert what was fed back to the model). Subclasses the real
-/// [InferenceChat] (mirrors the genkit `FakeInferenceChat` pattern) so no real
-/// session is created.
+/// A scriptable fake [InferenceChat]: yields the next queued turn's token/call
+/// stream per [generateChatResponseAsync] call and records every
+/// [addQueryChunk] message (so a test can assert what was fed back to the
+/// model). Subclasses the real [InferenceChat] (mirrors the genkit
+/// `FakeInferenceChat` pattern) so no real session is created.
 class _FakeAgentChat extends InferenceChat {
-  _FakeAgentChat(this._responses)
+  /// Flat form: one [ModelResponse] per turn (each becomes a single-element
+  /// token stream). Keeps every pre-streaming test constructing the fake the
+  /// same way — `[a, b, c]` is still three separate turns.
+  _FakeAgentChat(List<ModelResponse> responses)
+    : _turns = [
+        for (final r in responses) [r],
+      ],
+      super(sessionCreator: null, maxTokens: 1024);
+
+  /// Streaming form: each inner list is one turn's ORDERED token/call stream,
+  /// so a turn can emit several [TextResponse] tokens (and/or a call). This is
+  /// what proves the loop streams token-by-token like VoiceSession.
+  _FakeAgentChat.turns(this._turns)
     : super(sessionCreator: null, maxTokens: 1024);
 
-  final List<ModelResponse> _responses;
-  int _index = 0;
+  final List<List<ModelResponse>> _turns;
+  int _turn = 0;
 
   /// Every message fed back into the chat (user message + tool responses).
   final List<Message> received = [];
 
+  /// One increment per model generation (per [generateChatResponseAsync] call).
   int generateCallCount = 0;
 
   @override
@@ -41,15 +55,29 @@ class _FakeAgentChat extends InferenceChat {
     received.add(message);
   }
 
+  /// The loop drives the STREAMING API (parity with VoiceSession). Yields this
+  /// turn's scripted token/call stream; a default terminal text turn keeps an
+  /// over-eager loop from running past the script.
   @override
-  Future<ModelResponse> generateChatResponse() async {
+  Stream<ModelResponse> generateChatResponseAsync() async* {
     generateCallCount++;
-    if (_index >= _responses.length) {
-      // Default terminal: a plain text answer, so an over-eager loop still ends.
-      return const TextResponse('done');
+    if (_turn >= _turns.length) {
+      yield const TextResponse('done');
+      return;
     }
-    return _responses[_index++];
+    for (final response in _turns[_turn++]) {
+      yield response;
+    }
   }
+
+  /// The loop must NEVER fall back to the blocking API — streaming was the whole
+  /// point of the refactor. Fail loudly (and permanently guard the regression)
+  /// if it ever does.
+  @override
+  Future<ModelResponse> generateChatResponse() => throw UnimplementedError(
+    'AgentLoop must drive generateChatResponseAsync (streaming), not the '
+    'blocking generateChatResponse.',
+  );
 
   @override
   Future<void> close() async {}
@@ -661,5 +689,167 @@ void main() {
 
       expect(executor.calls.single.secret, 'sk-shared-9');
     });
+  });
+
+  group('AgentLoop — streaming (VoiceSession parity)', () {
+    test(
+      'a multi-token final answer streams as ordered TextChunkEvents',
+      () async {
+        // One turn, three tokens — the real generateChatResponseAsync yields the
+        // model's answer token-by-token; the loop must surface each immediately.
+        final chat = _FakeAgentChat.turns([
+          [
+            const TextResponse('Hel'),
+            const TextResponse('lo '),
+            const TextResponse('world'),
+          ],
+        ]);
+        final loop = AgentLoop(registry: SkillRegistry(), executors: const []);
+
+        final events = await loop.run(chat, 'hi').toList();
+
+        final chunks = events
+            .whereType<TextChunkEvent>()
+            .map((e) => e.text)
+            .toList();
+        expect(chunks, ['Hel', 'lo ', 'world'], reason: 'streamed in order');
+        // DoneEvent carries the full accumulated answer.
+        expect(events.last, isA<DoneEvent>());
+        expect((events.last as DoneEvent).text, 'Hello world');
+        expect(chunks.join(), (events.last as DoneEvent).text);
+        expect(chat.generateCallCount, 1);
+      },
+    );
+
+    test('empty tokens are not surfaced as TextChunkEvents', () async {
+      final chat = _FakeAgentChat.turns([
+        [
+          const TextResponse(''),
+          const TextResponse('hi'),
+          const TextResponse(''),
+        ],
+      ]);
+      final loop = AgentLoop(registry: SkillRegistry(), executors: const []);
+
+      final events = await loop.run(chat, 'x').toList();
+
+      expect(
+        events.whereType<TextChunkEvent>().map((e) => e.text).toList(),
+        ['hi'],
+        reason: 'empty tokens dropped, no blank TextChunkEvent',
+      );
+      expect((events.last as DoneEvent).text, 'hi');
+    });
+
+    test('streams preamble text BEFORE a tool call, then dispatches, then the '
+        'final answer — DoneEvent carries only the final turn text', () async {
+      final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+      final executor = _FakeExecutor(
+        SkillType.js,
+        result: const TextResult('5'),
+      );
+      // Turn 1: the model narrates, THEN calls the tool (both in one stream).
+      // Turn 2: the final answer.
+      final chat = _FakeAgentChat.turns([
+        [
+          const TextResponse('Let me check. '),
+          _runSkill('calculate-hash', data: '{"n":1}'),
+        ],
+        [const TextResponse('Result is 5.')],
+      ]);
+      final loop = AgentLoop(registry: registry, executors: [executor]);
+
+      final events = await loop.run(chat, 'compute').toList();
+
+      // Ordering: preamble text streams before the tool call is dispatched.
+      final preambleIdx = events.indexWhere(
+        (e) => e is TextChunkEvent && e.text == 'Let me check. ',
+      );
+      final toolCallIdx = events.indexWhere((e) => e is ToolCallEvent);
+      expect(preambleIdx, isNonNegative);
+      expect(toolCallIdx, greaterThan(preambleIdx));
+
+      // The executor ran with the model's data.
+      expect(executor.calls.single.dataJson, '{"n":1}');
+      // Both text spans streamed, preamble first then final answer.
+      expect(
+        events.whereType<TextChunkEvent>().map((e) => e.text),
+        containsAllInOrder(['Let me check. ', 'Result is 5.']),
+      );
+      // DoneEvent = the FINAL turn's text only, not the preamble.
+      expect((events.last as DoneEvent).text, 'Result is 5.');
+      expect(chat.generateCallCount, 2);
+    });
+
+    test(
+      'ThinkingResponse content folds into the answer text (defensive)',
+      () async {
+        // The agent creates its chat with thinking off, so this never fires in
+        // production — but if a thinking token ever reaches the loop it must not
+        // be dropped silently; it folds into the streamed answer (parity with the
+        // pre-streaming switch's `ThinkingResponse(:content) => content`).
+        final chat = _FakeAgentChat.turns([
+          [const ThinkingResponse('hmm '), const TextResponse('answer')],
+        ]);
+        final loop = AgentLoop(registry: SkillRegistry(), executors: const []);
+
+        final events = await loop.run(chat, 'q').toList();
+
+        expect(events.whereType<TextChunkEvent>().map((e) => e.text).toList(), [
+          'hmm ',
+          'answer',
+        ]);
+        expect((events.last as DoneEvent).text, 'hmm answer');
+      },
+    );
+
+    test('cancel after the stream ends (before dispatch) answers the pending '
+        'call cancelled and never runs it', () async {
+      final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+      final executor = _FakeExecutor(SkillType.js);
+      // A single pure tool-call turn. isCancelled is false for the pre-gen
+      // check (generateCallCount == 0) and flips true once the generation has
+      // run (== 1) — i.e. exactly at the post-stream cancel checkpoint.
+      final chat = _FakeAgentChat.turns([
+        [_runSkill('calculate-hash')],
+      ]);
+      final loop = AgentLoop(registry: registry, executors: [executor]);
+
+      final events = await loop
+          .run(chat, 'go', isCancelled: () => chat.generateCallCount >= 1)
+          .toList();
+
+      // The tool must NOT have executed...
+      expect(executor.calls, isEmpty);
+      // ...but the committed call is balanced with a cancelled tool-response
+      // so it never dangles into the next turn.
+      expect(chat.toolResponses.single.text, contains('cancelled'));
+      // No result + no terminal Done/MaxIterations after a barge-in.
+      expect(events.whereType<ToolResultEvent>(), isEmpty);
+      expect(events.whereType<DoneEvent>(), isEmpty);
+      expect(events.whereType<MaxIterationsEvent>(), isEmpty);
+    });
+
+    test(
+      'streaming works end-to-end through the AgentSession facade',
+      () async {
+        final chat = _FakeAgentChat.turns([
+          [const TextResponse('4'), const TextResponse('2')],
+        ]);
+        final session = AgentSession(
+          chat: chat,
+          registry: SkillRegistry(),
+          executors: const [],
+        );
+
+        final events = await session.ask('answer?').toList();
+
+        expect(events.whereType<TextChunkEvent>().map((e) => e.text).toList(), [
+          '4',
+          '2',
+        ]);
+        expect((events.last as DoneEvent).text, '42');
+      },
+    );
   });
 }

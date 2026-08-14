@@ -269,6 +269,20 @@ class InferenceChat {
     ); // Return TextResponse instead of String
   }
 
+  /// Streams this turn's response token-by-token.
+  ///
+  /// INVARIANT (critical for every consumer): each yielded [FunctionCallResponse]
+  /// / [ParallelFunctionCallResponse] has ALREADY been committed to the
+  /// persistent chat history (`_fullHistory` + `_modelHistory`) at the moment it
+  /// is yielded — committed *before* the yield so a tool-response feeds in AFTER
+  /// it in history order. Because the call is committed on yield, any consumer
+  /// that collects these calls MUST answer every one (via [addQueryChunk] with a
+  /// [Message.toolResponse]) on EVERY exit path — normal completion,
+  /// cancellation, a tool throwing, AND a mid-stream stream error — or the
+  /// committed call is left dangling with no response and poisons the next turn
+  /// on this reused chat. [generateChatResponseWithTools] is the reference
+  /// implementation that balances all four paths; new consumers should prefer it
+  /// over re-driving this stream directly.
   Stream<ModelResponse> generateChatResponseAsync() async* {
     gemmaLog('InferenceChat: Starting async stream generation');
     final buffer = StringBuffer();
@@ -700,12 +714,34 @@ class InferenceChat {
         // history the moment it yields it (see the callsites above). A mid-stream
         // decode error rethrows past the balancing below, leaving a committed
         // call with no tool-response — it dangles and poisons the next turn on
-        // this reused chat. Answer the collected calls first, then rethrow (the
-        // error still surfaces to the caller — never hidden).
-        await _answerToolCalls(pending, const {
-          'status': 'failed',
-          'error': 'generation stream errored before this tool call ran',
-        });
+        // this reused chat. Answer the collected calls first, then rethrow the
+        // ORIGINAL error (the failure still surfaces to the caller — never
+        // hidden).
+        if (pending.isNotEmpty) {
+          gemmaLog(
+            'InferenceChat.generateChatResponseWithTools: generation stream '
+            'errored mid-turn; balancing ${pending.length} committed '
+            'tool-call(s) before rethrowing.',
+          );
+        }
+        try {
+          await _answerToolCalls(pending, const {
+            'status': 'failed',
+            'error': 'generation stream errored before this tool call ran',
+          });
+        } catch (balanceError) {
+          // The already-errored session rejected the balancing feed too. Do NOT
+          // let that mask the original failure — log loudly and still rethrow the
+          // original below. The caller's safe recovery is to recreate the session
+          // / clearHistory(replayHistory:), which the Dart-side history makes
+          // correct once the session is usable again.
+          gemmaLog(
+            'InferenceChat.generateChatResponseWithTools: could not balance '
+            'committed tool-call(s) after a stream error ($balanceError); the '
+            'persistent chat history may be left unbalanced — recover by '
+            'recreating the session.',
+          );
+        }
         rethrow;
       }
       if (pending.isEmpty) return; // model's final (call-free) answer

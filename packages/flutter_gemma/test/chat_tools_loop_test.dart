@@ -13,12 +13,20 @@ class _ScriptChat extends InferenceChat {
   int _i = 0;
   final List<Message> fedBack = [];
 
+  /// When true, feeding a tool-RESPONSE throws — models an already-errored
+  /// session rejecting the balancing feed (so a test can assert the ORIGINAL
+  /// stream error still wins, not the balancing failure).
+  bool failToolResponseFeed = false;
+
   @override
   Future<void> addQueryChunk(
     Message m, [
     bool noTool = false,
     bool prefix = false,
   ]) async {
+    if (failToolResponseFeed && m.type == MessageType.toolResponse) {
+      throw StateError('session dead — cannot feed tool-response');
+    }
     fedBack.add(m);
   }
 
@@ -255,4 +263,30 @@ void main() {
       reason: 'stream error must balance the committed call before rethrowing',
     );
   });
+
+  test(
+    'if the balancing feed itself fails, the ORIGINAL stream error still wins',
+    () async {
+      final chat = _ScriptChat(
+        [
+          const [FunctionCallResponse(name: 'boom', args: {})],
+        ],
+        errorAfterTurns: {0},
+      )..failToolResponseFeed = true;
+      // The mid-stream decode error must surface — NOT the balancing failure,
+      // which would mask the real cause.
+      await expectLater(
+        chat
+            .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+            .toList(),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('native decode failed'),
+          ),
+        ),
+      );
+    },
+  );
 }

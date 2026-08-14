@@ -111,6 +111,32 @@ version, list every package you will publish (e.g. "publishing `flutter_gemma`
 1.2.2 AND `flutter_gemma_mediapipe` 1.0.4"), and run the whole of Steps 2/8/9/10
 for each one.
 
+### 1g. Did a satellite start CALLING a newer core API than its `flutter_gemma:` floor allows? → bump the floor
+
+Each satellite (agent / speech / litertlm / mediapipe / embeddings / rag)
+declares a `flutter_gemma: ^X.Y.Z` constraint. In the pub **workspace** the local
+core is always used, so `flutter analyze` / `flutter test` **and
+`dart pub publish --dry-run` all pass with a too-low floor** — everything builds
+green locally and dry-run only checks the constraint is *satisfiable*, never that
+the code needs a *higher* one. A pub.dev consumer who pins an older core alongside
+the new satellite then gets a resolve that **fails to compile** (calls a
+method/param that core version lacks). This is a manual step; nothing automated
+catches it.
+
+> **Regression this prevents (agent 0.2.2):** `AgentLoop` was rewritten to call
+> `generateChatResponseWithTools(onMaxToolTurns:)` — `onMaxToolTurns` landed in
+> core `1.5.5` — but the satellite still declared `flutter_gemma: ^1.2.0`. A
+> fresh install resolves core to latest (fine), but a consumer on
+> `flutter_gemma: 1.4.0` + `flutter_gemma_agent: 0.2.2` resolves happily then
+> throws `No named parameter 'onMaxToolTurns'` at build time.
+
+**For every satellite whose own Dart code changed, bump its `flutter_gemma:`
+floor to the core version that introduced the newest core symbol it now uses:**
+```bash
+git diff <last-tag> -- packages/<satellite>/lib   # what core symbols did it start using?
+grep -n 'flutter_gemma: \^' packages/<satellite>/pubspec.yaml
+```
+
 ## Step 2: Bump versions
 
 Always:

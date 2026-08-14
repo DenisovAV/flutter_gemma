@@ -109,14 +109,30 @@ class AgentLoop {
     // generateChatResponseWithTools (one audited implementation — cancel,
     // tool-throw and mid-stream-error balancing all live there) and translate its
     // ModelResponse stream + per-call hook into the agent's rich AgentEvent
-    // stream. The controller is the single output; a fire-and-forget driver feeds
-    // it. `onToolCall` cannot yield events (it returns the tool-response map core
-    // feeds back), so dispatch emits step events through [emit] instead.
-    final controller = StreamController<AgentEvent>();
+    // stream. `onToolCall` cannot yield events (it returns the tool-response map
+    // core feeds back), so dispatch emits step events through [emit] instead.
+    //
+    // The driver is started lazily on listen and stopped when the subscription
+    // is cancelled — so disposing the chat view mid-turn (subscription.cancel())
+    // halts generation + tool side-effects at the next turn/tool boundary,
+    // instead of running the whole remaining loop into a dead controller.
+    late final StreamController<AgentEvent> controller;
     final buffer = StringBuffer();
     var maxHit = false;
+    var stopped = false; // the subscription was cancelled
+    var cancelledSeen = false; // core acted on a cancel this run
+
     void emit(AgentEvent e) {
       if (!controller.isClosed) controller.add(e);
+    }
+
+    // Fold subscription-cancel into the caller's [isCancelled], and latch what
+    // core actually acted on — so the terminal decision below matches core's
+    // instead of re-polling a possibly-toggling flag.
+    bool cancelled() {
+      final c = stopped || (isCancelled?.call() ?? false);
+      if (c) cancelledSeen = true;
+      return c;
     }
 
     Future<void> drive() async {
@@ -130,7 +146,7 @@ class AgentLoop {
           return _dispatch(call, emit);
         },
         maxToolTurns: maxIterations,
-        isCancelled: isCancelled,
+        isCancelled: cancelled,
         onMaxToolTurns: () {
           maxHit = true;
           emit(MaxIterationsEvent(maxIterations));
@@ -151,21 +167,26 @@ class AgentLoop {
             break; // dispatched via onToolCall above
         }
       }
-      // A barge-in (isCancelled true) and maxToolTurns exhaustion (its own
+      // A barge-in (cancel) and maxToolTurns exhaustion (its own
       // MaxIterationsEvent) both end WITHOUT a DoneEvent — mirrors the
       // pre-consolidation loop.
-      if (!maxHit && !(isCancelled?.call() ?? false)) {
+      if (!maxHit && !cancelledSeen) {
         emit(DoneEvent(buffer.toString()));
       }
     }
 
-    drive()
-        .catchError((Object e, StackTrace st) {
-          if (!controller.isClosed) controller.addError(e, st);
-        })
-        .whenComplete(() {
-          if (!controller.isClosed) controller.close();
-        });
+    controller = StreamController<AgentEvent>(
+      onListen: () {
+        drive()
+            .catchError((Object e, StackTrace st) {
+              if (!controller.isClosed) controller.addError(e, st);
+            })
+            .whenComplete(() {
+              if (!controller.isClosed) controller.close();
+            });
+      },
+      onCancel: () => stopped = true,
+    );
     return controller.stream;
   }
 

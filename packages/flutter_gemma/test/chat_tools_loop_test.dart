@@ -413,4 +413,25 @@ void main() {
       expect(maxHit, 0);
     },
   );
+
+  test('a cancel preempts onMaxToolTurns (cancelled before the cap)', () async {
+    final chat = _ScriptChat(
+      List.filled(50, const [FunctionCallResponse(name: 'a', args: {})]),
+    );
+    var maxHit = 0;
+    var cancel = false;
+    await chat
+        .generateChatResponseWithTools(
+          onToolCall: (c) {
+            cancel = true; // barge-in after the first tool runs
+            return {'result': 'x'};
+          },
+          maxToolTurns: 2,
+          isCancelled: () => cancel,
+          onMaxToolTurns: () => maxHit++,
+        )
+        .toList();
+    // The next-turn cancel returns before the maxToolTurns exhaustion tail.
+    expect(maxHit, 0);
+  });
 }

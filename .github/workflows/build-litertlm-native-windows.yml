@@ -32,6 +32,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Exclude the Bazel output base from Defender
+        # Two consecutive Windows runs died at ~52 minutes with
+        #   ERROR: Couldn't delete action output directory:
+        #     D:/b/execroot/litert_lm/bazel-out/_tmp/actions/stderr-NNNN (Permission denied)
+        # The build itself had finished; what failed was Bazel's cleanup of a
+        # per-action stderr file that Defender still held open. Excluding the
+        # output base removes the scanner from that path.
+        continue-on-error: true
+        run: |
+          Add-MpPreference -ExclusionPath "$env:BAZEL_OUTPUT_BASE" -ErrorAction SilentlyContinue
+          Add-MpPreference -ExclusionProcess "bazel.exe" -ErrorAction SilentlyContinue
+          Write-Host "Defender exclusions requested for $env:BAZEL_OUTPUT_BASE"
+
       - name: Enable symlinks
         run: git config --global core.symlinks true
 
@@ -78,6 +91,22 @@ jobs:
             --define=litert_runtime_link_mode=dynamic `
             --define=resolve_symbols_in_exec=false `
             '@litert//litert/vendors/intel_openvino/dispatch:LiteRtDispatch'
+          if ($LASTEXITCODE -ne 0) {
+            # Retry once: a cleanup-only failure leaves the action cache warm,
+            # so the second pass finishes in minutes rather than re-doing an
+            # hour of compilation.
+            Write-Host "First pass exited $LASTEXITCODE — retrying against the warm cache"
+            bazel --output_base="$env:BAZEL_OUTPUT_BASE" `
+              build -c opt `
+              --linkopt=/OPT:REF --linkopt=/OPT:ICF `
+              --build_tag_filters='-nowindows' `
+              --features=compiler_param_file `
+              --features=archive_param_file `
+              --spawn_strategy=local `
+              --define=litert_runtime_link_mode=dynamic `
+              --define=resolve_symbols_in_exec=false `
+              '@litert//litert/vendors/intel_openvino/dispatch:LiteRtDispatch'
+          }
 
       - name: Build StreamProxy.dll
         run: |

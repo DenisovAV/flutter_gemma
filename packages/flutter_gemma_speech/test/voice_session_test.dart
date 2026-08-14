@@ -49,10 +49,11 @@ class _FakeSynth implements SpeechSynthesizer {
 /// boundaries) and returns a distinct non-empty PCM per call. Optionally gates
 /// (blocks) and/or throws when a clause contains [throwOn].
 class _RecordingSynth implements SpeechSynthesizer {
-  _RecordingSynth({this.gate, this.throwOn, this.delay});
+  _RecordingSynth({this.gate, this.throwOn, this.delay, this.gateFrom});
   final Completer<void>? gate;
   final String? throwOn;
   final Duration? delay; // fakeAsync-controllable in-flight time
+  final int? gateFrom; // if set, [gate] only blocks from this call (1-based)
   final List<String> synthesized = [];
   @override
   int get sampleRate => 22050;
@@ -60,7 +61,9 @@ class _RecordingSynth implements SpeechSynthesizer {
   Future<Uint8List> synthesize(String text) async {
     synthesized.add(text);
     if (delay != null) await Future<void>.delayed(delay!);
-    if (gate != null) await gate!.future;
+    if (gate != null && (gateFrom == null || synthesized.length >= gateFrom!)) {
+      await gate!.future;
+    }
     if (throwOn != null && text.contains(throwOn!)) {
       throw StateError('synth boom');
     }
@@ -698,6 +701,11 @@ void main() {
         // No terminal event after a fatal error.
         expect(events.whereType<VoiceTurnCompleteEvent>(), isEmpty);
         expect(events.whereType<VoiceTurnInterruptedEvent>(), isEmpty);
+        // ...and NO isFinal:true sentinel — that marker is successful-turn-only.
+        expect(
+          events.whereType<VoiceReplyAudioEvent>().where((a) => a.isFinal),
+          isEmpty,
+        );
       },
     );
 
@@ -736,6 +744,84 @@ void main() {
           // audio event was ever emitted.
           expect(events.whereType<VoiceReplyAudioEvent>(), isEmpty);
         });
+      },
+    );
+
+    test('barge-in AFTER a chunk is emitted keeps that chunk, suppresses the rest, '
+        'emits no sentinel → Interrupted', () async {
+      final r = _FakeResponder();
+      // Gate only the SECOND synth: chunk #1 is delivered, then barge-in lands
+      // while synth #2 is in flight (the between-chunks case the other barge-in
+      // test can't reach — it gates the very first synth).
+      final gate = Completer<void>();
+      final synth = _RecordingSynth(gate: gate, gateFrom: 2);
+      final session = VoiceSession.custom(
+        recognizer: _FakeRecognizer('hi'),
+        responder: r.build(),
+        synthesizer: synth,
+        streamAudio: true,
+      );
+      final events = <VoiceEvent>[];
+      final sub = session.runTurn(_pcm()).listen(events.add);
+      await Future<void>.delayed(Duration.zero);
+      r.ctrl.add('First clause here. '); // synth #1 ok → chunk emitted
+      await Future<void>.delayed(Duration.zero);
+      r.ctrl.add('Second clause here. '); // synth #2 blocks on the gate
+      await Future<void>.delayed(Duration.zero);
+      final interruptFut = session.interrupt(); // barge-in between chunks
+      await Future<void>.delayed(Duration.zero);
+      gate.complete(); // release the in-flight synth #2
+      await interruptFut;
+      await sub.asFuture<void>();
+
+      final audio = events.whereType<VoiceReplyAudioEvent>().toList();
+      // Exactly the first chunk survived; the second is suppressed post-synth.
+      expect(audio, hasLength(1));
+      expect(audio.single.isFinal, isFalse);
+      // No isFinal:true sentinel on the interrupt path (Gap B, interrupt side).
+      expect(audio.where((a) => a.isFinal), isEmpty);
+      expect(events.last, isA<VoiceTurnInterruptedEvent>());
+      expect(r.stopCalls, 1);
+    });
+
+    test(
+      'when the synth pump AND the LLM stream both error, the LLM error wins',
+      () async {
+        final ctrl = StreamController<String>();
+        final responder = VoiceResponder(
+          respond: (_) => ctrl.stream,
+          // The pump error calls stop(); model that as the LLM stream erroring
+          // too (so both replyError and pumpError are set in the same turn).
+          stop: () async {
+            if (!ctrl.isClosed) {
+              ctrl.addError(StateError('llm boom'));
+              await ctrl.close();
+            }
+          },
+        );
+        final synth = _RecordingSynth(throwOn: 'boom');
+        final session = VoiceSession.custom(
+          recognizer: _FakeRecognizer('hi'),
+          responder: responder,
+          synthesizer: synth,
+          streamAudio: true,
+        );
+        final events = <VoiceEvent>[];
+        final errors = <Object>[];
+        final done = Completer<void>();
+        session
+            .runTurn(_pcm())
+            .listen(events.add, onError: errors.add, onDone: done.complete);
+        await Future<void>.delayed(Duration.zero);
+        // synth throws → pump error → stop() → LLM stream also errors.
+        ctrl.add('boom clause here. ');
+        await done.future;
+
+        // Priority: the LLM error wins; exactly one error surfaces.
+        expect(errors, hasLength(1));
+        expect((errors.single as StateError).message, 'llm boom');
+        expect(events.whereType<VoiceTurnCompleteEvent>(), isEmpty);
+        expect(events.whereType<VoiceTurnInterruptedEvent>(), isEmpty);
       },
     );
   });

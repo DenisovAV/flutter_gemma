@@ -184,10 +184,13 @@ class VoiceSession {
   /// Run one push-to-talk turn on a recorded utterance (16 kHz mono 16-bit LE
   /// PCM — same contract as [SpeechRecognizer.transcribe]).
   ///
-  /// v1 sequence: transcribe(pcm) → VoiceTranscriptEvent(final) →
-  /// responder.respond(text) streamed as VoiceReplyTextEvent(s) →
-  /// synthesize(fullReply) → one VoiceReplyAudioEvent(final) →
-  /// VoiceTurnCompleteEvent. A stage failure surfaces as a Dart stream error.
+  /// Sequence: transcribe(pcm) → VoiceTranscriptEvent(final) →
+  /// responder.respond(text) streamed as VoiceReplyTextEvent(s) → reply audio →
+  /// VoiceTurnCompleteEvent. Reply audio is one VoiceReplyAudioEvent(isFinal)
+  /// in one-shot mode (default), or a series of VoiceReplyAudioEvent(isFinal:
+  /// false) chunks then a zero-byte VoiceReplyAudioEvent(isFinal) marker when
+  /// streamAudio is set. A stage failure surfaces as a Dart stream error; an
+  /// interrupted turn ends with VoiceTurnInterruptedEvent (no isFinal audio).
   ///
   /// WARNINGS:
   /// - Cancelling this stream's subscription is NOT a portable stop — to barge
@@ -353,13 +356,20 @@ class VoiceSession {
           try {
             await for (final clause in clauseQueue.stream) {
               // Check the stop flag on BOTH sides of the (uncancellable)
-              // synthesize: `await for` keeps delivering already-buffered
-              // clauses after close(), so without the pre-check a barge-in would
-              // still synthesize the whole backlog, and without the post-check a
-              // stale result would be emitted after teardown. We `continue`
-              // (drain-and-skip) rather than `break` so the loop always ends via
-              // the driver's queue.close() — breaking mid-stream cancels the
-              // subscription, which deadlocks against that concurrent close().
+              // synthesize: `await for` keeps delivering already-buffered clauses
+              // after close(), so without the pre-check a barge-in would still
+              // synthesize the whole backlog, and without the post-check a stale
+              // result would be emitted after teardown. We `continue`
+              // (drain-and-skip) rather than `break` so the pump only ever ends
+              // when the driver's queue.close() drains the last item, never on
+              // its own: `break` exits the `await for` and cancels the clause
+              // subscription, and the driver's later queue.close() then can't
+              // join it promptly — `await pumpDone` fails to resolve within the
+              // drain window, so the terminal is emitted too late. (verified:
+              // with `break` the forced-drain test observes the wrong terminal —
+              // no interrupted/complete event.) The load-bearing skip for that
+              // test is the post-check below (the barge-in lands mid-synthesize);
+              // the pre-check here guards the buffered-backlog case.
               if (stopPump || _interruptRequested) continue;
               final chunk = await _synthesizer.synthesize(clause);
               if (stopPump || _interruptRequested || controller.isClosed) {
@@ -380,7 +390,15 @@ class VoiceSession {
             // of after the whole reply finishes generating.
             pumpError = e;
             pumpStack = st;
-            unawaited(_responder.stop().catchError((_) {}));
+            unawaited(
+              _responder.stop().catchError((Object stopErr) {
+                gemmaLog(
+                  'VoiceSession: stopping the LLM after a synth pump error '
+                  'failed: $stopErr',
+                  level: GemmaLogLevel.info,
+                );
+              }),
+            );
             _armBoundedDrain(drained, 'synth pump errored');
           }
         }();
@@ -452,6 +470,15 @@ class VoiceSession {
       // Interrupted/Complete event. interrupt()'s Future still completes (via
       // teardown) without rethrowing. Priority: LLM error, then pump error.
       if (replyError != null) {
+        // The LLM error is the turn-fatal one, but a concurrent pump error must
+        // not vanish silently — log it before it's superseded.
+        if (pumpError != null) {
+          gemmaLog(
+            'VoiceSession: synth pump also errored (superseded by the LLM '
+            'stream error): $pumpError',
+            level: GemmaLogLevel.info,
+          );
+        }
         controller.addError(replyError!, replyStack);
         _teardown(controller);
         return;

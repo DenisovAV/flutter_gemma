@@ -1,6 +1,6 @@
 name: flutter_gemma_agent
 description: "On-device agentic skills (SKILL.md + tool-calling loop) for flutter_gemma. Opt-in package adding text/JS/native-intent/MCP skill executors."
-version: 0.2.1
+version: 0.2.2
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_agent
 topics: [agent, skills, llm, tool-calling, on-device]

@@ -1,3 +1,7 @@
+## 0.2.2
+
+- AgentLoop delegates its tool loop to core generateChatResponseWithTools (single balancing impl); fed-back tool-response now carries the model's original call name.
+
 ## 0.2.1
 
 - AgentSession.ask now streams the final answer token-by-token (VoiceSession parity); balance pending tool-calls on a mid-stream error.

@@ -680,12 +680,16 @@ class InferenceChat {
   /// first), same as [generateChatResponseAsync]. [onToolCall] returns the
   /// `{...}` response map fed back via [Message.toolResponse]. Tool *execution*
   /// is the caller's (tools are app actions); core only parses the call and
-  /// drives the loop.
+  /// drives the loop. [onMaxToolTurns], when supplied, is invoked once if the
+  /// loop exhausts [maxToolTurns] without a call-free answer — so a consumer
+  /// driving this loop can surface its own terminal signal (e.g. AgentLoop's
+  /// MaxIterationsEvent).
   Stream<ModelResponse> generateChatResponseWithTools({
     required FutureOr<Map<String, dynamic>> Function(FunctionCallResponse call)
     onToolCall,
     int maxToolTurns = 8,
     bool Function()? isCancelled,
+    void Function()? onMaxToolTurns,
   }) async* {
     if (maxToolTurns < 1) {
       // A cap below 1 would exit before any generation — the already-staged
@@ -797,8 +801,11 @@ class InferenceChat {
     }
     // Exhausted maxToolTurns with calls still pending: each turn's calls WERE
     // answered, but no final call-free generation ran, so the reply may be
-    // empty/truncated. Log it (mirrors AgentLoop's MaxIterationsEvent) — silent
-    // truncation would violate the no-masking-failure rule.
+    // empty/truncated. Log it (and notify [onMaxToolTurns], so a consumer that
+    // drives this loop can surface its own terminal — e.g. AgentLoop's
+    // MaxIterationsEvent) — silent truncation would violate the
+    // no-masking-failure rule.
+    onMaxToolTurns?.call();
     gemmaLog(
       'InferenceChat.generateChatResponseWithTools: hit maxToolTurns '
       '($maxToolTurns) with tool calls still pending; stopping. The reply may '

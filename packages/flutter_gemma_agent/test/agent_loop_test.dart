@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart'
@@ -500,6 +501,12 @@ void main() {
         isEmpty,
       );
       expect(events.whereType<DoneEvent>().single.text, contains('abc123'));
+      // The tool-response is paired with the model's ORIGINAL call name (run_js),
+      // not the internally-normalized runSkill — on the success path too.
+      expect(
+        chat.toolResponses.where((m) => m.toolName == 'run_js'),
+        hasLength(1),
+      );
     });
 
     test('run_intent is dispatched to the intent executor', () async {
@@ -572,9 +579,11 @@ void main() {
         final error = events.whereType<AgentErrorEvent>().single;
         expect(error.message, contains('skillName'));
         // Two tool responses fed back: loadSkill (instructions) + the run call
-        // (error). The alias already normalized run_js -> runSkill in dispatch.
+        // (error). Core feeds the response paired with the model's ORIGINAL call
+        // name (`run_js`) — the alias is normalized only internally, for executor
+        // selection, not in the fed-back tool-response.
         final fed = chat.toolResponses.last;
-        expect(fed.toolName, 'runSkill');
+        expect(fed.toolName, 'run_js');
         expect(fed.text, contains('failed'));
         expect(fed.text, contains('skillName'));
         // Must NOT have tried a synthetic `runSkill` asset path.
@@ -1005,6 +1014,97 @@ void main() {
         expect((events.single as DoneEvent).text, '');
         // Terminates on the empty turn, does not spin to maxIterations.
         expect(chat.generateCallCount, 1);
+      },
+    );
+  });
+
+  group('AgentLoop — subscription lifecycle', () {
+    test('run() is lazy — nothing runs until the stream is listened', () async {
+      final chat = _FakeAgentChat([const TextResponse('hi')]);
+      final loop = AgentLoop(registry: SkillRegistry(), executors: const []);
+
+      final stream = loop.run(chat, 'hello');
+      // Not listened yet: the user message must NOT have been staged, and no
+      // generation started.
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        chat.received,
+        isEmpty,
+        reason: 'no work before the stream is listened',
+      );
+      expect(chat.generateCallCount, 0);
+
+      // Consuming it now runs the turn.
+      final events = await stream.toList();
+      expect(chat.received.first.text, 'hello');
+      expect(events.last, isA<DoneEvent>());
+    });
+
+    test(
+      'cancelling the subscription stops the runaway loop (no orphaned turns)',
+      () async {
+        final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+        final executor = _FakeExecutor(SkillType.js);
+        // The model would call the tool forever if never stopped.
+        final chat = _FakeAgentChat(
+          List.generate(50, (_) => _runSkill('calculate-hash')),
+        );
+        final loop = AgentLoop(
+          registry: registry,
+          executors: [executor],
+          maxIterations: 50,
+        );
+
+        late final StreamSubscription<AgentEvent> sub;
+        final firstEvent = Completer<void>();
+        sub = loop.run(chat, 'go').listen((_) {
+          if (!firstEvent.isCompleted) firstEvent.complete();
+        });
+        await firstEvent.future;
+        await sub.cancel();
+        // Give a detached driver ample time to keep running, if it were going to.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        // Subscription-cancel is folded into the signal core polls between
+        // turns, so the loop stops far short of the 50-turn cap instead of
+        // running every remaining generation + tool side-effect to a dead
+        // controller.
+        expect(
+          chat.generateCallCount,
+          lessThan(50),
+          reason: 'subscription-cancel must stop the loop',
+        );
+      },
+    );
+  });
+
+  group('AgentLoop — maxIterations boundary', () {
+    test(
+      'settling with a call-free answer on the LAST allowed turn → DoneEvent, '
+      'not MaxIterationsEvent',
+      () async {
+        final registry = SkillRegistry()..add(_jsSkill(), selected: true);
+        final executor = _FakeExecutor(SkillType.js);
+        // Two tool turns, then a final answer on the third (last) allowed turn.
+        final chat = _FakeAgentChat([
+          _runSkill('calculate-hash'),
+          _runSkill('calculate-hash'),
+          const TextResponse('final answer'),
+        ]);
+        final loop = AgentLoop(
+          registry: registry,
+          executors: [executor],
+          maxIterations: 3,
+        );
+
+        final events = await loop.run(chat, 'go').toList();
+
+        // The model got its final generation within budget — the off-by-one in
+        // `turn < maxToolTurns` must allow exactly the 3rd generation.
+        expect(events.last, isA<DoneEvent>());
+        expect((events.last as DoneEvent).text, 'final answer');
+        expect(events.whereType<MaxIterationsEvent>(), isEmpty);
+        expect(chat.generateCallCount, 3);
       },
     );
   });

@@ -21,6 +21,8 @@ void main() {
         ModelType.llama,
         ModelType.functionGemma,
         ModelType.gemmaIt,
+        ModelType.general,
+        ModelType.hammer,
         null,
       ]) {
         expect(

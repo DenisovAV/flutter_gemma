@@ -243,4 +243,21 @@ void main() {
     );
     expect(toolCalls, hasLength(1));
   });
+
+  test(
+    'a whitespace-only reply is flushed at end of stream, not dropped',
+    () async {
+      // The stream ends while still unclassified (only whitespace tokens seen), so
+      // neither the swallow nor the tool-call block fires — the end-of-stream flush
+      // is the SOLE guard against silently dropping this output.
+      final responses = await _streamGemma4(const ['  ', '\n'], raw: null);
+
+      expect(responses.whereType<FunctionCallResponse>(), isEmpty);
+      expect(
+        responses.whereType<TextResponse>().map((t) => t.token).join(),
+        '  \n',
+        reason: 'whitespace-only reply must be flushed, not swallowed',
+      );
+    },
+  );
 }

@@ -305,12 +305,12 @@ class InferenceChat {
     // TextChunkEvent / voice synthesis). We classify the turn on its first
     // non-whitespace char: a '{' means a tool-call JSON turn, which we swallow
     // (the structured call is surfaced from lastRawResponse at end-of-stream);
-    // anything else is plain text and streams normally. The SDK passthrough is
-    // the only format whose whole turn is a bare '{'-leading JSON object, so this
-    // probe does not misfire on text-stream formats (they never reach here).
-    // Invariant assumed: a passthrough turn is EITHER all tool-call JSON OR all
-    // text, never prose-then-JSON — Gemma 4's SDK emits a pure tool_calls object
-    // for a call, so the first-char classification holds.
+    // anything else is plain text and streams normally. Other formats are
+    // excluded by the guard below, so this first-char probe only ever runs for
+    // the passthrough format — it never misfires on a text-stream format's
+    // JSON-ish output. Invariant assumed: a passthrough turn is EITHER all
+    // tool-call JSON OR all text, never prose-then-JSON — Gemma 4's SDK emits a
+    // pure tool_calls object for a call, so the first-char classification holds.
     final bool sdkPassthrough =
         FunctionCallParser.usesSdkPassthrough(modelType) &&
         tools.isNotEmpty &&
@@ -592,9 +592,13 @@ class InferenceChat {
       }
     }
 
-    // Safety net: we suppressed a `{`-leading Gemma 4 stream as a tool call, but
-    // lastRawResponse yielded no parseable call. Don't silently drop the model's
-    // output — surface the swallowed text (degrades to the pre-fix behavior).
+    // Safety net: we suppressed a `{`-leading SDK-passthrough stream as a tool
+    // call, but lastRawResponse yielded no parseable call. Don't silently drop
+    // the model's output — surface the swallowed text (as it leaked pre-fix). It
+    // is deliberately NOT re-recorded to history: this only fires on a degenerate
+    // turn (a `{`-leading passthrough turn with no extractable tool_calls), where
+    // re-appending the JSON-shaped blob as an assistant turn would pollute the
+    // model's next-turn context more than omitting it.
     if (sdkSwallow && !emittedFunctionCall && sdkSwallowed.isNotEmpty) {
       gemmaLog(
         'InferenceChat: SDK tool-call stream suppressed but no call parsed — '

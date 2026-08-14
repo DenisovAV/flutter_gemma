@@ -1,3 +1,6 @@
+## 0.4.3
+- Add VoiceSession(streamAudio:) — clause-by-clause TTS overlapped with the LLM stream for lower time-to-first-audio.
+
 ## 0.4.2
 - Add Inflect-Nano-v2 — fast on-device TTS (~90× real-time on CPU, English-only).
 - VoiceSession.fromChat: optional onToolCall runs function calling in the Voice Loop (via core's generateChatResponseWithTools).

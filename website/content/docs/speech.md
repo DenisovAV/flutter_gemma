@@ -31,7 +31,7 @@ inference.
 ```
 dependencies:
   flutter_gemma: ^1.5.5
-  flutter_gemma_speech: ^0.4.2
+  flutter_gemma_speech: ^0.4.3
 ```
 
 ## Register the backend

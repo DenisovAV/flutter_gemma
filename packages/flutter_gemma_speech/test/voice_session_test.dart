@@ -45,6 +45,34 @@ class _FakeSynth implements SpeechSynthesizer {
   Future<void> close() async {}
 }
 
+/// Records every text it synthesizes (so streaming tests can assert clause
+/// boundaries) and returns a distinct non-empty PCM per call. Optionally gates
+/// (blocks) and/or throws when a clause contains [throwOn].
+class _RecordingSynth implements SpeechSynthesizer {
+  _RecordingSynth({this.gate, this.throwOn, this.delay});
+  final Completer<void>? gate;
+  final String? throwOn;
+  final Duration? delay; // fakeAsync-controllable in-flight time
+  final List<String> synthesized = [];
+  @override
+  int get sampleRate => 22050;
+  @override
+  Future<Uint8List> synthesize(String text) async {
+    synthesized.add(text);
+    if (delay != null) await Future<void>.delayed(delay!);
+    if (gate != null) await gate!.future;
+    if (throwOn != null && text.contains(throwOn!)) {
+      throw StateError('synth boom');
+    }
+    return Uint8List.fromList(List.filled(synthesized.length, 7));
+  }
+
+  @override
+  void addCloseListener(void Function() listener) {}
+  @override
+  Future<void> close() async {}
+}
+
 /// A responder whose reply stream the test drives via [ctrl]; `stop` closes it
 /// (the contract: stop must end the respond stream). Records stop calls.
 class _FakeResponder {
@@ -512,6 +540,204 @@ void main() {
     expect(events.whereType<VoiceTurnInterruptedEvent>(), hasLength(1));
     final terminal = events.last as VoiceTurnInterruptedEvent;
     expect(terminal.partialReplyText, 'tok');
+  });
+
+  group('streamAudio (clause-by-clause TTS)', () {
+    test('synthesizes clause-by-clause: isFinal:false chunks then a zero-byte '
+        'isFinal:true marker', () async {
+      final r = _FakeResponder();
+      final synth = _RecordingSynth();
+      final session = VoiceSession.custom(
+        recognizer: _FakeRecognizer('hi'),
+        responder: r.build(),
+        synthesizer: synth,
+        streamAudio: true,
+      );
+      final events = <VoiceEvent>[];
+      final sub = session.runTurn(_pcm()).listen(events.add);
+      await Future<void>.delayed(Duration.zero);
+      r.ctrl.add('Hello there. '); // complete clause → synth now
+      await Future<void>.delayed(Duration.zero);
+      r.ctrl.add('How are you today?'); // no trailing space → flushed on close
+      await r.ctrl.close();
+      await sub.asFuture<void>();
+
+      // Two clauses synthesized in order (the tail via flush()).
+      expect(synth.synthesized, ['Hello there. ', 'How are you today?']);
+      final audio = events.whereType<VoiceReplyAudioEvent>().toList();
+      expect(audio, hasLength(3)); // 2 chunks + 1 sentinel
+      expect(audio[0].isFinal, isFalse);
+      expect(audio[1].isFinal, isFalse);
+      expect(audio[2].isFinal, isTrue);
+      expect(audio[2].pcm, isEmpty); // zero-byte end-of-audio marker
+      expect(audio.where((a) => a.isFinal), hasLength(1)); // exactly one final
+      expect(events.last, isA<VoiceTurnCompleteEvent>());
+      expect(
+        (events.last as VoiceTurnCompleteEvent).replyText,
+        'Hello there. How are you today?',
+      );
+    });
+
+    test(
+      'a single short reply is synthesized via flush → one chunk + sentinel',
+      () async {
+        final r = _FakeResponder();
+        final synth = _RecordingSynth();
+        final session = VoiceSession.custom(
+          recognizer: _FakeRecognizer('hi'),
+          responder: r.build(),
+          synthesizer: synth,
+          streamAudio: true,
+        );
+        final events = <VoiceEvent>[];
+        final sub = session.runTurn(_pcm()).listen(events.add);
+        await Future<void>.delayed(Duration.zero);
+        r.ctrl.add('Hi.'); // short + no trailing space → only via flush()
+        await r.ctrl.close();
+        await sub.asFuture<void>();
+
+        expect(synth.synthesized, ['Hi.']);
+        final audio = events.whereType<VoiceReplyAudioEvent>().toList();
+        expect(audio, hasLength(2));
+        expect(audio[0].isFinal, isFalse);
+        expect(audio[1].isFinal, isTrue);
+        expect(audio[1].pcm, isEmpty);
+      },
+    );
+
+    test(
+      'an empty reply → no audio, no sentinel, VoiceTurnComplete("")',
+      () async {
+        final r = _FakeResponder();
+        final synth = _RecordingSynth();
+        final session = VoiceSession.custom(
+          recognizer: _FakeRecognizer('hi'),
+          responder: r.build(),
+          synthesizer: synth,
+          streamAudio: true,
+        );
+        final events = <VoiceEvent>[];
+        final sub = session.runTurn(_pcm()).listen(events.add);
+        await Future<void>.delayed(Duration.zero);
+        await r.ctrl.close(); // no tokens
+        await sub.asFuture<void>();
+
+        expect(synth.synthesized, isEmpty);
+        expect(events.whereType<VoiceReplyAudioEvent>(), isEmpty);
+        expect(events.last, isA<VoiceTurnCompleteEvent>());
+        expect((events.last as VoiceTurnCompleteEvent).replyText, '');
+      },
+    );
+
+    test(
+      'barge-in during synthesis suppresses further chunks → Interrupted',
+      () async {
+        final r = _FakeResponder();
+        final gate = Completer<void>();
+        final synth = _RecordingSynth(gate: gate);
+        final session = VoiceSession.custom(
+          recognizer: _FakeRecognizer('hi'),
+          responder: r.build(),
+          synthesizer: synth,
+          streamAudio: true,
+        );
+        final events = <VoiceEvent>[];
+        final sub = session.runTurn(_pcm()).listen(events.add);
+        await Future<void>.delayed(Duration.zero);
+        r.ctrl.add('First clause here. '); // pump starts synth, blocks on gate
+        await Future<void>.delayed(Duration.zero);
+        final interruptFut = session.interrupt(); // barge-in mid-synth
+        await Future<void>.delayed(Duration.zero);
+        gate.complete(); // release the in-flight synthesize
+        await interruptFut;
+        await sub.asFuture<void>();
+
+        // The in-flight synth completes but its chunk is suppressed (barge-in set
+        // _interruptRequested before the pump's post-synth check).
+        expect(events.whereType<VoiceReplyAudioEvent>(), isEmpty);
+        expect(events.last, isA<VoiceTurnInterruptedEvent>());
+        expect(r.stopCalls, 1);
+      },
+    );
+
+    test(
+      'a synthesize error is turn-fatal (stream error), earlier chunks kept',
+      () async {
+        final r = _FakeResponder();
+        final synth = _RecordingSynth(throwOn: 'boom');
+        final session = VoiceSession.custom(
+          recognizer: _FakeRecognizer('hi'),
+          responder: r.build(),
+          synthesizer: synth,
+          streamAudio: true,
+        );
+        final events = <VoiceEvent>[];
+        final errors = <Object>[];
+        // The pump-error path ends the turn on its own (no ctrl.close() from the
+        // test), possibly before we start awaiting — so complete on onDone rather
+        // than asFuture() (which hangs if the stream already closed).
+        final done = Completer<void>();
+        session
+            .runTurn(_pcm())
+            .listen(events.add, onError: errors.add, onDone: done.complete);
+        await Future<void>.delayed(Duration.zero);
+        r.ctrl.add('Good clause here. '); // synth ok → chunk
+        await Future<void>.delayed(Duration.zero);
+        r.ctrl.add(
+          'boom clause here. ',
+        ); // synth throws → pump error stops the LLM
+        await done.future;
+
+        expect(errors, isNotEmpty);
+        expect(errors.first, isA<StateError>());
+        // The first chunk was emitted before the error.
+        expect(
+          events.whereType<VoiceReplyAudioEvent>().where((a) => !a.isFinal),
+          isNotEmpty,
+        );
+        // No terminal event after a fatal error.
+        expect(events.whereType<VoiceTurnCompleteEvent>(), isEmpty);
+        expect(events.whereType<VoiceTurnInterruptedEvent>(), isEmpty);
+      },
+    );
+
+    test(
+      'forced-drain barge-in during synthesis terminates within drainTimeout, '
+      'suppresses the in-flight chunk',
+      () {
+        fakeAsync((async) {
+          final ctrl = StreamController<String>();
+          final responder = VoiceResponder(
+            respond: (_) => ctrl.stream,
+            stop: () async {}, // does NOT close the stream → forces the drain
+          );
+          final synth = _RecordingSynth(delay: const Duration(seconds: 2));
+          final session = VoiceSession.custom(
+            recognizer: _FakeRecognizer('hi'),
+            responder: responder,
+            synthesizer: synth,
+            streamAudio: true,
+          );
+          final events = <VoiceEvent>[];
+          session.runTurn(_pcm()).listen(events.add);
+          async.flushMicrotasks();
+          ctrl.add('Hello there now. '); // a clause → pump starts synth (2s)
+          async.flushMicrotasks();
+          session.interrupt(); // barge-in while the synth is in flight
+          // Elapse past the 2s synth AND the drain timeout: the in-flight synth
+          // completes but its chunk is suppressed, then the drain forces the
+          // terminal — interrupt() must not wedge on the uncancellable synth.
+          async.elapse(VoiceSession.drainTimeout + const Duration(seconds: 3));
+          async.flushMicrotasks();
+
+          expect(events.last, isA<VoiceTurnInterruptedEvent>());
+          expect(synth.synthesized, ['Hello there now. ']); // exactly one synth
+          // Barge-in landed during the synth → the chunk was suppressed, so no
+          // audio event was ever emitted.
+          expect(events.whereType<VoiceReplyAudioEvent>(), isEmpty);
+        });
+      },
+    );
   });
 }
 

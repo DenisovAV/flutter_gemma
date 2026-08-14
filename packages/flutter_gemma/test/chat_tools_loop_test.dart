@@ -378,4 +378,39 @@ void main() {
     expect(chat.fedBack.where((m) => m.toolName == 'a'), hasLength(1));
     expect(chat.fedBack.where((m) => m.toolName == 'b'), hasLength(1));
   });
+
+  test('onMaxToolTurns fires exactly once when the cap is hit', () async {
+    // The model keeps calling a tool forever — never a call-free answer.
+    final chat = _ScriptChat(
+      List.filled(50, const [FunctionCallResponse(name: 'a', args: {})]),
+    );
+    var maxHit = 0;
+    await chat
+        .generateChatResponseWithTools(
+          onToolCall: (c) => {'result': 'x'},
+          maxToolTurns: 3,
+          onMaxToolTurns: () => maxHit++,
+        )
+        .toList();
+    expect(maxHit, 1, reason: 'fires once, only on maxToolTurns exhaustion');
+  });
+
+  test(
+    'onMaxToolTurns does NOT fire when the model settles on an answer',
+    () async {
+      final chat = _ScriptChat([
+        const [FunctionCallResponse(name: 'a', args: {})],
+        const [TextResponse('done')],
+      ]);
+      var maxHit = 0;
+      await chat
+          .generateChatResponseWithTools(
+            onToolCall: (c) => {'result': 'x'},
+            maxToolTurns: 5,
+            onMaxToolTurns: () => maxHit++,
+          )
+          .toList();
+      expect(maxHit, 0);
+    },
+  );
 }

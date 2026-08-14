@@ -572,9 +572,11 @@ void main() {
         final error = events.whereType<AgentErrorEvent>().single;
         expect(error.message, contains('skillName'));
         // Two tool responses fed back: loadSkill (instructions) + the run call
-        // (error). The alias already normalized run_js -> runSkill in dispatch.
+        // (error). Core feeds the response paired with the model's ORIGINAL call
+        // name (`run_js`) — the alias is normalized only internally, for executor
+        // selection, not in the fed-back tool-response.
         final fed = chat.toolResponses.last;
-        expect(fed.toolName, 'runSkill');
+        expect(fed.toolName, 'run_js');
         expect(fed.text, contains('failed'));
         expect(fed.text, contains('skillName'));
         // Must NOT have tried a synthetic `runSkill` asset path.

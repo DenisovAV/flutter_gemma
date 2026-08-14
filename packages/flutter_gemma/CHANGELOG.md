@@ -1,3 +1,6 @@
+## 1.5.5
+- Add optional onMaxToolTurns to generateChatResponseWithTools (lets a driving consumer surface its own maxToolTurns terminal).
+
 ## 1.5.4
 - fix: balance committed tool-calls when the generation stream errors mid-turn (generateChatResponseWithTools).
 

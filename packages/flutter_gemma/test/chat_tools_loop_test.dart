@@ -2,10 +2,25 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _ScriptChat extends InferenceChat {
-  _ScriptChat(this._turns) : super(sessionCreator: null, maxTokens: 1024);
+  _ScriptChat(this._turns, {this._errorAfterTurns = const {}})
+    : super(sessionCreator: null, maxTokens: 1024);
   final List<List<ModelResponse>> _turns;
+
+  /// Turn indices whose stream THROWS after yielding its responses — models a
+  /// native decode error mid-stream, AFTER a tool-call was parsed + committed to
+  /// history by generateChatResponseAsync.
+  final Set<int> _errorAfterTurns;
   int _i = 0;
   final List<Message> fedBack = [];
+
+  /// When true, feeding a tool-RESPONSE throws — models an already-errored
+  /// session rejecting the balancing feed (so a test can assert the ORIGINAL
+  /// stream error still wins, not the balancing failure).
+  bool failToolResponseFeed = false;
+
+  /// Counts tool-response feed ATTEMPTS (incremented before the optional fail
+  /// throw) so a test can prove balancing was actually attempted, not skipped.
+  int toolResponseFeedAttempts = 0;
 
   @override
   Future<void> addQueryChunk(
@@ -13,16 +28,26 @@ class _ScriptChat extends InferenceChat {
     bool noTool = false,
     bool prefix = false,
   ]) async {
+    if (m.type == MessageType.toolResponse) {
+      toolResponseFeedAttempts++;
+      if (failToolResponseFeed) {
+        throw StateError('session dead — cannot feed tool-response');
+      }
+    }
     fedBack.add(m);
   }
 
   @override
   Stream<ModelResponse> generateChatResponseAsync() async* {
+    final turnIndex = _i;
     final turn = _i < _turns.length
         ? _turns[_i++]
         : const <ModelResponse>[TextResponse('done')];
     for (final r in turn) {
       yield r;
+    }
+    if (_errorAfterTurns.contains(turnIndex)) {
+      throw StateError('native decode failed mid-stream');
     }
   }
 
@@ -220,4 +245,137 @@ void main() {
       );
     },
   );
+
+  test('a mid-stream generation error after a committed call balances it then '
+      'rethrows', () async {
+    final chat = _ScriptChat(
+      [
+        const [FunctionCallResponse(name: 'boom', args: {})],
+      ],
+      // The stream commits the tool-call, then errors on a later token.
+      errorAfterTurns: {0},
+    );
+    // The error MUST surface — never hidden.
+    await expectLater(
+      chat
+          .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+          .toList(),
+      throwsA(isA<StateError>()),
+    );
+    // ...and the committed call must be balanced (status: failed) so it does
+    // not dangle in the persistent chat and poison the next turn.
+    expect(
+      chat.fedBack.where((m) => m.toolName == 'boom'),
+      hasLength(1),
+      reason: 'stream error must balance the committed call before rethrowing',
+    );
+    // ...carrying the honest failed marker (what the model replays next turn).
+    expect(
+      chat.fedBack.singleWhere((m) => m.toolName == 'boom').text,
+      allOf(contains('failed'), contains('generation stream errored')),
+    );
+  });
+
+  test(
+    'if the balancing feed itself fails, the ORIGINAL stream error still wins',
+    () async {
+      final chat = _ScriptChat(
+        [
+          const [FunctionCallResponse(name: 'boom', args: {})],
+        ],
+        errorAfterTurns: {0},
+      )..failToolResponseFeed = true;
+      // The mid-stream decode error must surface — NOT the balancing failure,
+      // which would mask the real cause.
+      await expectLater(
+        chat
+            .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+            .toList(),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('native decode failed'),
+          ),
+        ),
+      );
+      // Prove balancing was actually ATTEMPTED (not a false-green via an empty
+      // pending list): the feed was tried once for the committed call.
+      expect(chat.toolResponseFeedAttempts, greaterThanOrEqualTo(1));
+    },
+  );
+
+  test(
+    'a mid-stream error with NO committed call rethrows without over-balancing',
+    () async {
+      // A text-only turn (nothing committed) that then errors — the most common
+      // real failure. Must rethrow and feed NO spurious tool-response.
+      final chat = _ScriptChat(
+        [
+          const [TextResponse('partial')],
+        ],
+        errorAfterTurns: {0},
+      );
+      await expectLater(
+        chat
+            .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+            .toList(),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        chat.fedBack.where((m) => m.type == MessageType.toolResponse),
+        isEmpty,
+        reason: 'nothing was committed, so nothing may be balanced',
+      );
+    },
+  );
+
+  test(
+    'a mid-stream error after PARALLEL committed calls balances every one',
+    () async {
+      final chat = _ScriptChat(
+        [
+          const [
+            ParallelFunctionCallResponse(
+              calls: [
+                FunctionCallResponse(name: 'a', args: {}),
+                FunctionCallResponse(name: 'b', args: {}),
+              ],
+            ),
+          ],
+        ],
+        errorAfterTurns: {0},
+      );
+      await expectLater(
+        chat
+            .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+            .toList(),
+        throwsA(isA<StateError>()),
+      );
+      // BOTH committed calls balanced — not just the first.
+      expect(chat.fedBack.where((m) => m.toolName == 'a'), hasLength(1));
+      expect(chat.fedBack.where((m) => m.toolName == 'b'), hasLength(1));
+    },
+  );
+
+  test('a mid-stream error on a LATER turn balances only that turn without '
+      'double-feeding the earlier one', () async {
+    final chat = _ScriptChat(
+      [
+        const [FunctionCallResponse(name: 'a', args: {})], // turn 0: runs clean
+        const [FunctionCallResponse(name: 'b', args: {})], // turn 1: errors
+      ],
+      errorAfterTurns: {1},
+    );
+    await expectLater(
+      chat
+          .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+          .toList(),
+      throwsA(isA<StateError>()),
+    );
+    // 'a' got its real response (turn 0), 'b' got the failed balance (turn 1) —
+    // each exactly once; per-turn `pending` reset means no carry-over/double.
+    expect(chat.fedBack.where((m) => m.toolName == 'a'), hasLength(1));
+    expect(chat.fedBack.where((m) => m.toolName == 'b'), hasLength(1));
+  });
 }

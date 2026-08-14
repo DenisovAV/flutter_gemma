@@ -1,3 +1,6 @@
+## 1.5.4
+- fix: balance committed tool-calls when the generation stream errors mid-turn (generateChatResponseWithTools).
+
 ## 1.5.3
 - Add InferenceChat.generateChatResponseWithTools — the reusable function-calling driver loop.
 - Add TtsModelType.inflect — Inflect-Nano-v2 TTS bundle, with cross-repo G2P file routing.

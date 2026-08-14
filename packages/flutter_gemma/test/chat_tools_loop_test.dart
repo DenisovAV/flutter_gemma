@@ -18,14 +18,21 @@ class _ScriptChat extends InferenceChat {
   /// stream error still wins, not the balancing failure).
   bool failToolResponseFeed = false;
 
+  /// Counts tool-response feed ATTEMPTS (incremented before the optional fail
+  /// throw) so a test can prove balancing was actually attempted, not skipped.
+  int toolResponseFeedAttempts = 0;
+
   @override
   Future<void> addQueryChunk(
     Message m, [
     bool noTool = false,
     bool prefix = false,
   ]) async {
-    if (failToolResponseFeed && m.type == MessageType.toolResponse) {
-      throw StateError('session dead — cannot feed tool-response');
+    if (m.type == MessageType.toolResponse) {
+      toolResponseFeedAttempts++;
+      if (failToolResponseFeed) {
+        throw StateError('session dead — cannot feed tool-response');
+      }
     }
     fedBack.add(m);
   }
@@ -262,6 +269,11 @@ void main() {
       hasLength(1),
       reason: 'stream error must balance the committed call before rethrowing',
     );
+    // ...carrying the honest failed marker (what the model replays next turn).
+    expect(
+      chat.fedBack.singleWhere((m) => m.toolName == 'boom').text,
+      allOf(contains('failed'), contains('generation stream errored')),
+    );
   });
 
   test(
@@ -287,6 +299,83 @@ void main() {
           ),
         ),
       );
+      // Prove balancing was actually ATTEMPTED (not a false-green via an empty
+      // pending list): the feed was tried once for the committed call.
+      expect(chat.toolResponseFeedAttempts, greaterThanOrEqualTo(1));
     },
   );
+
+  test(
+    'a mid-stream error with NO committed call rethrows without over-balancing',
+    () async {
+      // A text-only turn (nothing committed) that then errors — the most common
+      // real failure. Must rethrow and feed NO spurious tool-response.
+      final chat = _ScriptChat(
+        [
+          const [TextResponse('partial')],
+        ],
+        errorAfterTurns: {0},
+      );
+      await expectLater(
+        chat
+            .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+            .toList(),
+        throwsA(isA<StateError>()),
+      );
+      expect(
+        chat.fedBack.where((m) => m.type == MessageType.toolResponse),
+        isEmpty,
+        reason: 'nothing was committed, so nothing may be balanced',
+      );
+    },
+  );
+
+  test(
+    'a mid-stream error after PARALLEL committed calls balances every one',
+    () async {
+      final chat = _ScriptChat(
+        [
+          const [
+            ParallelFunctionCallResponse(
+              calls: [
+                FunctionCallResponse(name: 'a', args: {}),
+                FunctionCallResponse(name: 'b', args: {}),
+              ],
+            ),
+          ],
+        ],
+        errorAfterTurns: {0},
+      );
+      await expectLater(
+        chat
+            .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+            .toList(),
+        throwsA(isA<StateError>()),
+      );
+      // BOTH committed calls balanced — not just the first.
+      expect(chat.fedBack.where((m) => m.toolName == 'a'), hasLength(1));
+      expect(chat.fedBack.where((m) => m.toolName == 'b'), hasLength(1));
+    },
+  );
+
+  test('a mid-stream error on a LATER turn balances only that turn without '
+      'double-feeding the earlier one', () async {
+    final chat = _ScriptChat(
+      [
+        const [FunctionCallResponse(name: 'a', args: {})], // turn 0: runs clean
+        const [FunctionCallResponse(name: 'b', args: {})], // turn 1: errors
+      ],
+      errorAfterTurns: {1},
+    );
+    await expectLater(
+      chat
+          .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+          .toList(),
+      throwsA(isA<StateError>()),
+    );
+    // 'a' got its real response (turn 0), 'b' got the failed balance (turn 1) —
+    // each exactly once; per-turn `pending` reset means no carry-over/double.
+    expect(chat.fedBack.where((m) => m.toolName == 'a'), hasLength(1));
+    expect(chat.fedBack.where((m) => m.toolName == 'b'), hasLength(1));
+  });
 }

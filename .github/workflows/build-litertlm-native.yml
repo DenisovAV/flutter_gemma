@@ -50,7 +50,17 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build -c opt --strip=always --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+          # Same correction as the Windows job: litert_link_capi_so no longer
+          # exists upstream, so it was a no-op and the LiteRt runtime ended up
+          # linked statically inside libLiteRtLm. Linux masked that with our
+          # RTLD_GLOBAL preload of libLiteRt.so, at the cost of two copies of
+          # the runtime in one process — the suspected reason a second
+          # engine_create trips 'wgpu::Instance already set'. Upstream docs
+          # require both defines for GPU on every platform.
+          bazelisk build -c opt --strip=always \
+            --define=litert_runtime_link_mode=dynamic \
+            --define=resolve_symbols_in_exec=false \
+            '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |
@@ -104,7 +114,17 @@ jobs:
       - name: Build libLiteRtLm.so
         run: |
           cd /tmp/LiteRT-LM
-          bazelisk build -c opt --strip=always --define=litert_link_capi_so=true '//c:libLiteRtLm.dylib'
+          # Same correction as the Windows job: litert_link_capi_so no longer
+          # exists upstream, so it was a no-op and the LiteRt runtime ended up
+          # linked statically inside libLiteRtLm. Linux masked that with our
+          # RTLD_GLOBAL preload of libLiteRt.so, at the cost of two copies of
+          # the runtime in one process — the suspected reason a second
+          # engine_create trips 'wgpu::Instance already set'. Upstream docs
+          # require both defines for GPU on every platform.
+          bazelisk build -c opt --strip=always \
+            --define=litert_runtime_link_mode=dynamic \
+            --define=resolve_symbols_in_exec=false \
+            '//c:libLiteRtLm.dylib'
 
       - name: Build libStreamProxy.so
         run: |

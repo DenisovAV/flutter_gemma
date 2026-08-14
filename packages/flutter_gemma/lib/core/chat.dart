@@ -682,17 +682,31 @@ class InferenceChat {
     for (var turn = 0; turn < maxToolTurns; turn++) {
       if (isCancelled?.call() ?? false) return;
       final pending = <FunctionCallResponse>[];
-      await for (final r in generateChatResponseAsync()) {
-        // Exhaustive over the sealed ModelResponse: a future subtype fails to
-        // compile here instead of silently passing through as text.
-        switch (r) {
-          case FunctionCallResponse():
-            pending.add(r);
-          case ParallelFunctionCallResponse(:final calls):
-            pending.addAll(calls);
-          case TextResponse() || ThinkingResponse():
-            yield r; // pass through to the caller's text/thinking stream
+      try {
+        await for (final r in generateChatResponseAsync()) {
+          // Exhaustive over the sealed ModelResponse: a future subtype fails to
+          // compile here instead of silently passing through as text.
+          switch (r) {
+            case FunctionCallResponse():
+              pending.add(r);
+            case ParallelFunctionCallResponse(:final calls):
+              pending.addAll(calls);
+            case TextResponse() || ThinkingResponse():
+              yield r; // pass through to the caller's text/thinking stream
+          }
         }
+      } catch (_) {
+        // generateChatResponseAsync commits each tool-call to the persistent
+        // history the moment it yields it (see the callsites above). A mid-stream
+        // decode error rethrows past the balancing below, leaving a committed
+        // call with no tool-response — it dangles and poisons the next turn on
+        // this reused chat. Answer the collected calls first, then rethrow (the
+        // error still surfaces to the caller — never hidden).
+        await _answerToolCalls(pending, const {
+          'status': 'failed',
+          'error': 'generation stream errored before this tool call ran',
+        });
+        rethrow;
       }
       if (pending.isEmpty) return; // model's final (call-free) answer
 

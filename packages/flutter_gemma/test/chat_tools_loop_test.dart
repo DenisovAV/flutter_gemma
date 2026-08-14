@@ -2,8 +2,14 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _ScriptChat extends InferenceChat {
-  _ScriptChat(this._turns) : super(sessionCreator: null, maxTokens: 1024);
+  _ScriptChat(this._turns, {this._errorAfterTurns = const {}})
+    : super(sessionCreator: null, maxTokens: 1024);
   final List<List<ModelResponse>> _turns;
+
+  /// Turn indices whose stream THROWS after yielding its responses — models a
+  /// native decode error mid-stream, AFTER a tool-call was parsed + committed to
+  /// history by generateChatResponseAsync.
+  final Set<int> _errorAfterTurns;
   int _i = 0;
   final List<Message> fedBack = [];
 
@@ -18,11 +24,15 @@ class _ScriptChat extends InferenceChat {
 
   @override
   Stream<ModelResponse> generateChatResponseAsync() async* {
+    final turnIndex = _i;
     final turn = _i < _turns.length
         ? _turns[_i++]
         : const <ModelResponse>[TextResponse('done')];
     for (final r in turn) {
       yield r;
+    }
+    if (_errorAfterTurns.contains(turnIndex)) {
+      throw StateError('native decode failed mid-stream');
     }
   }
 
@@ -220,4 +230,29 @@ void main() {
       );
     },
   );
+
+  test('a mid-stream generation error after a committed call balances it then '
+      'rethrows', () async {
+    final chat = _ScriptChat(
+      [
+        const [FunctionCallResponse(name: 'boom', args: {})],
+      ],
+      // The stream commits the tool-call, then errors on a later token.
+      errorAfterTurns: {0},
+    );
+    // The error MUST surface — never hidden.
+    await expectLater(
+      chat
+          .generateChatResponseWithTools(onToolCall: (c) => {'result': 'x'})
+          .toList(),
+      throwsA(isA<StateError>()),
+    );
+    // ...and the committed call must be balanced (status: failed) so it does
+    // not dangle in the persistent chat and poison the next turn.
+    expect(
+      chat.fedBack.where((m) => m.toolName == 'boom'),
+      hasLength(1),
+      reason: 'stream error must balance the committed call before rethrowing',
+    );
+  });
 }

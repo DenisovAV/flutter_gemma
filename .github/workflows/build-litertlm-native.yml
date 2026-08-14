@@ -303,10 +303,28 @@ jobs:
           $ovRoot = Get-ChildItem -Directory -Path "$outputBase\external" `
             -Filter '*intel_openvino*' -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $ovRoot) { throw "OpenVino SDK not fetched — cannot ship a matched NPU stack" }
+          # Explicit allow-list, mirroring the set that worked on native-v0.14.0
+          # plus the NPU compiler pair that 2026.3.0 adds. A blanket copy of
+          # runtime\bin drags in the CPU/GPU/auto/hetero plugins, every model
+          # frontend, and a full parallel set of debug builds (openvinod.dll,
+          # *_plugind.dll, *_frontendd.dll) — and two near-identically named
+          # sets next to each other is exactly how the OpenVino core can bind
+          # the wrong plugin. TBB lives outside runtime\bin (3rdparty\tbb\bin),
+          # so the search covers the whole SDK.
+          $ovWanted = @(
+            'openvino.dll',
+            'openvino_intel_npu_plugin.dll',
+            'openvino_intel_npu_compiler.dll',
+            'openvino_intel_npu_compiler_loader.dll',
+            'openvino_tensorflow_lite_frontend.dll'
+          )
           $ovDlls = Get-ChildItem -Recurse -Filter '*.dll' -Path $ovRoot.FullName |
-            Where-Object { $_.FullName -match 'runtime\\bin' -and $_.Name -notmatch '_d\.dll$' }
+            Where-Object { $ovWanted -contains $_.Name -or $_.Name -like 'tbb*' }
           if (-not $ovDlls) { throw "OpenVino runtime DLLs not found under $($ovRoot.FullName)" }
           foreach ($d in $ovDlls) { Copy-Item $d.FullName "artifacts\$($d.Name)" -Force }
+          foreach ($w in $ovWanted) {
+            if (-not (Test-Path "artifacts\$w")) { throw "OpenVino component missing: $w" }
+          }
           Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
 

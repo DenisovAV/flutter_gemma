@@ -1,3 +1,7 @@
+## 0.2.1
+
+- AgentSession.ask now streams the final answer token-by-token (VoiceSession parity); balance pending tool-calls on a mid-stream error.
+
 ## 0.2.0
 
 - Add optional isCancelled to AgentLoop.run / AgentSession.ask for barge-in / cancellation.

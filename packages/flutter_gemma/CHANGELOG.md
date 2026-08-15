@@ -1,5 +1,5 @@
 ## 1.5.7
-- fix: getInstalledModels(stt/tts/embedding) returns installed models — were mistagged inference (#391).
+- fix: getInstalledModels(stt/tts/embedding) returns installed models — were mistagged inference (#391; concurrent fix by @o-mid in #421).
 
 ## 1.5.6
 - fix: Gemma 4 streaming no longer leaks raw tool-call JSON into the text channel.

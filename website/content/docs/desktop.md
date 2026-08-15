@@ -409,10 +409,9 @@ back to CPU. Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`
 VS 2019+ Visual C++ Runtime.
 
 <Warning>
-On a Windows **discrete GPU** with litertlm 1.2.0+ / LiteRT-LM v0.14.0, GPU also
-crashes in the upstream WebGPU/Dawn stack
-([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
-use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. See
+On a Windows **discrete GPU** with litertlm 1.2.0–1.3.1, GPU also crashes for a
+separate reason — a Bazel define we passed had been removed upstream, so the
+runtime linked statically. Fixed in 1.4.0. See
 [Known limitations](#known-limitations).
 </Warning>
 

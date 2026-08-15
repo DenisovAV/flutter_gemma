@@ -402,7 +402,7 @@ Inference (LiteRT-LM C API) and embeddings (LiteRT C API) on all native platform
 
 > ¹ Linux GPU requires a proper vendor Vulkan driver (NVIDIA / AMD / Intel). Mesa's `llvmpipe` software fallback is not sufficient for Gemma 4 — its hardcoded 128 MB `maxStorageBufferRange` is below the model's per-buffer requirement. Install the vendor driver (e.g. `nvidia-driver-535-server` on Ubuntu) before running on GPU.
 >
-> ² **Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected.
+> ² **Fixed in litertlm 1.4.0:** Windows **discrete GPUs** crashed on `PreferredBackend.gpu` in litertlm 1.2.0–1.3.1. Upgrade to 1.4.0; on the affected versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were never affected.
 
 **macOS Setup:**
 
@@ -1694,10 +1694,10 @@ Function calling is currently supported by the following models:
 > subset (text-only; vision/audio/thinking not verified). See
 > [Web `.litertlm` support & limitations](#web-litertlm-support--limitations).
 >
-> ² **Desktop GPU on Windows:** discrete GPUs crash in the upstream WebGPU/Dawn
-> stack as of litertlm 1.2.0+ / LiteRT-LM v0.14.0 ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957))
-> — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
-> macOS/Linux GPU and Windows CPU/NPU are unaffected.
+> ² **Desktop GPU on Windows:** discrete GPUs crash on `PreferredBackend.gpu`
+> in litertlm 1.2.0–1.3.1. Fixed in 1.4.0; on the affected versions use
+> `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were
+> never affected.
 
 ### Web Platform Specifics
 

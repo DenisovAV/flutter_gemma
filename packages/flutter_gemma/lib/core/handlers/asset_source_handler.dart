@@ -35,6 +35,7 @@ class AssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async {
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
@@ -77,7 +78,7 @@ class AssetSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 
@@ -89,6 +90,7 @@ class AssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async* {
     if (source is! AssetSource) {
       throw ArgumentError('AssetSourceHandler only supports AssetSource');
@@ -126,7 +128,7 @@ class AssetSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 

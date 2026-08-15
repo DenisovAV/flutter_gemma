@@ -33,6 +33,7 @@ class FileSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async {
     // File sources are instant (just registration), no cancellation needed
     if (source is! FileSource) {
@@ -67,7 +68,7 @@ class FileSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 
@@ -79,6 +80,7 @@ class FileSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async* {
     // Same as above - file registration is instant
     if (source is! FileSource) {
@@ -116,7 +118,7 @@ class FileSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 

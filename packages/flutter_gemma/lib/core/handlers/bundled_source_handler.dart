@@ -36,6 +36,7 @@ class BundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async {
     // Bundled resources are instant, no cancellation needed
     if (source is! BundledSource) {
@@ -57,7 +58,7 @@ class BundledSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 
@@ -69,6 +70,7 @@ class BundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async* {
     // Same as above - bundled resources are instant
     if (source is! BundledSource) {
@@ -92,7 +94,7 @@ class BundledSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 

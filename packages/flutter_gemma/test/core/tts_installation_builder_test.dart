@@ -178,6 +178,46 @@ void main() {
       expect(configUrl, 'https://example.com/matcha/config.json');
     },
   );
+
+  test(
+    'matcha install: bundle is tagged tts (getInstalledModels) AND protected '
+    'from cleanup — not reported orphaned (#391 + regression guard)',
+    () async {
+      final fixtureDownload = _RecordingDownloadService(
+        Uint8List.fromList(List.filled(2048, 5)),
+      );
+      await ServiceRegistry.initialize(downloadService: fixtureDownload);
+
+      await FlutterGemma.installTts()
+          .fromNetwork('https://example.com/matcha/')
+          .ofType(TtsModelType.matcha)
+          .install();
+
+      final manager = FlutterGemmaPlugin.instance.modelManager;
+
+      // #391: the installed bundle is listed under tts, not inference.
+      expect(
+        await manager.getInstalledModels(ModelManagementType.tts),
+        isNotEmpty,
+        reason: 'getInstalledModels(tts) must return the installed TTS bundle',
+      );
+      expect(
+        await manager.getInstalledModels(ModelManagementType.inference),
+        isEmpty,
+        reason: 'a TTS install must not be tagged inference',
+      );
+
+      // Regression guard: correctly tagging tts must NOT drop the bundle out of
+      // the storage keep-set. The files land in the managed dir (via the
+      // download fake), so getOrphanedFiles() would report — and
+      // cleanupStorage() would delete — them if _getProtectedFiles omitted tts.
+      expect(
+        await FlutterGemma.getOrphanedFiles(),
+        isEmpty,
+        reason: 'installed TTS files must be protected from cleanup',
+      );
+    },
+  );
 }
 
 /// PathProviderPlatform stub mirroring

@@ -158,6 +158,37 @@ void main() {
       },
     );
 
+    test('threads modelType into the saved ModelInfo.type (#391)', () async {
+      final source = NetworkSource('https://example.com/model.bin');
+      const targetPath = '/data/model.bin';
+      when(
+        () => mockFileSystem.getWriteTargetPath(any()),
+      ).thenAnswer((_) async => targetPath);
+      when(
+        () => mockDownloadService.download(
+          any(),
+          any(),
+          token: any(named: 'token'),
+          cancelToken: any(named: 'cancelToken'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockFileSystem.getFileSize(targetPath),
+      ).thenAnswer((_) async => 2048);
+      when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+      // Default is inference; an explicit type must reach ModelInfo.type
+      // (getInstalledModels(stt/tts/embedding) filters on exactly this).
+      await handler.install(source);
+      await handler.install(source, modelType: ModelType.stt);
+
+      final saved = verify(
+        () => mockRepository.saveModel(captureAny()),
+      ).captured.cast<ModelInfo>();
+      expect(saved[0].type, ModelType.inference);
+      expect(saved[1].type, ModelType.stt);
+    });
+
     test('installWithProgress tracks download progress', () async {
       final source = NetworkSource('https://example.com/model.bin');
       const targetPath = '/data/model.bin';

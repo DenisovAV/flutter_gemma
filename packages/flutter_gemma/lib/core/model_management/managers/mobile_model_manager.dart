@@ -1548,36 +1548,37 @@ class MobileModelManager extends ModelFileManager {
     return deletedCount;
   }
 
-  /// Get list of files that should NOT be deleted
+  /// Get list of files that should NOT be deleted by cleanupStorage() /
+  /// getOrphanedFiles() / getStorageInfo().
+  ///
+  /// Type-agnostic on purpose: it protects EVERY installed model (any
+  /// [ModelManagementType]) via the repository, plus the active models' full
+  /// file sets. It previously listed only inference + embedding, which silently
+  /// relied on STT/TTS being mis-tagged `inference` — once #391 fixed that tag,
+  /// stt/tts installs would have dropped out of the keep-set and been deleted by
+  /// cleanupStorage(). Backing the installed set with the type-agnostic
+  /// listInstalled() (via [_getAllProtectedFiles]) means a newly-added type can
+  /// never silently fall out again.
   Future<List<String>> _getProtectedFiles() async {
     final protected = <String>[];
 
     try {
-      // Add all files from active inference model
-      if (_activeInferenceModel != null) {
-        for (final file in _activeInferenceModel!.files) {
+      // Active models' full file sets (model + tokenizer + companions) — all
+      // modalities, not just inference/embedding.
+      for (final active in [
+        _activeInferenceModel,
+        _activeEmbeddingModel,
+        _activeSttModel,
+        _activeTtsModel,
+      ]) {
+        if (active == null) continue;
+        for (final file in active.files) {
           protected.add(file.filename);
         }
       }
 
-      // Add all files from active embedding model
-      if (_activeEmbeddingModel != null) {
-        for (final file in _activeEmbeddingModel!.files) {
-          protected.add(file.filename);
-        }
-      }
-
-      // Add all installed inference models
-      final installedInference = await getInstalledModels(
-        ModelManagementType.inference,
-      );
-      protected.addAll(installedInference);
-
-      // Add all installed embedding models
-      final installedEmbedding = await getInstalledModels(
-        ModelManagementType.embedding,
-      );
-      protected.addAll(installedEmbedding);
+      // All installed models, ANY type (ids from the repository).
+      protected.addAll(await _getAllProtectedFiles());
 
       gemmaLog(
         'UnifiedModelManager: Protected files count: ${protected.length}',

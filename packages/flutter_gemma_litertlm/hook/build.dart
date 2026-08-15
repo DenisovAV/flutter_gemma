@@ -138,17 +138,35 @@ class _NativeBundle {
 
 /// LiteRT-LM native library version and release info.
 ///
-/// 0.11.0-b adds Intel NPU dispatch bundling to the Windows tarball
-/// (LiteRtDispatch.dll + OpenVino runtime + TBB, 12 extra DLLs) to enable
-/// `PreferredBackend.npu` on Intel LunarLake-class chips. Windows built
-/// from LiteRT-LM commit 62f7a8e (ABI-compatible with Intel NPU dispatch);
-/// other 6 platforms unchanged from -a (032334d). Same optimization flags:
-/// `-c opt --strip=always` (Bazel) + MSVC `/OPT:REF /OPT:ICF` (Windows).
-/// Apple: vtool minos 26.2 → 16.0 patch on libGemmaModelConstraintProvider
-/// (#245). Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
+/// 0.16.0 — built from LiteRT-LM `924e79c9` with LiteRT `0ff28117`. There is no
+/// native-v0.15.0; the jump is 0.14.0 → 0.16.0. All 7 platforms rebuilt.
+///
+/// Fixes the Android OpenCL per-turn leak (#348/#402, upstream #2699). Upstream
+/// changed `LiteRtLmStreamCallback` from 4 args to a 2-arg opaque chunk with no
+/// compat path — libStreamProxy resolves the shape at runtime.
+///
+/// Windows GPU works again: our build had been passing
+/// `--define=litert_link_capi_so=true`, a name upstream deleted. Bazel accepts
+/// unknown defines silently, so the LiteRt runtime linked statically and
+/// conflicted with the separately shipped WebGPU accelerator once Dawn was split
+/// out. Corrected to `litert_runtime_link_mode=dynamic` +
+/// `resolve_symbols_in_exec=false` (both documented as mandatory for GPU).
+///
+/// Both NPU dispatch stacks are now BUILT FROM THE PIN, not carried forward —
+/// carrying them is what broke NPU on both platforms. Intel ships a version
+/// matched OpenVino (2026.3.0.dev20260622); Qualcomm ships a dispatch rebuilt
+/// from the derived LiteRT ref together with the 10 QNN runtime libs refreshed
+/// from the same QAIRT 2.44.0.260225 (the stale pair failed with
+/// `Qnn System library version 1.8.0 is mismatched`, minimum 1.11.0).
+///
+/// Apple: `-Wl,-headerpad_max_install_names` (Native Assets re-runs
+/// install_name_tool on every pub get), macOS `-mmacosx-version-min=11.0` —
+/// libStreamProxy.dylib had been inheriting the build host and shipped minos
+/// 26.0 since native-v0.14.0. iOS vtool minos 13.0 (#245).
+/// Android: `-Wl,-z,max-page-size=16384` (Google Play 16KB).
 const _litertlmBundle = _NativeBundle(
   namespace: 'litertlm',
-  version: '0.14.0',
+  version: '0.16.0',
   releaseTagPrefix: 'native-v',
   archivePrefix: 'litertlm',
   mainLibName: 'LiteRtLm',
@@ -159,36 +177,24 @@ const _litertlmBundle = _NativeBundle(
   // in a dedicated PR (tracked: roadmap entry in CHANGELOG for 0.16.0).
   useFlatLayout: true,
   markerFileName: '.flutter_gemma_native_version',
-  // 0.13.1-a: same LiteRT-LM 0.13.1 build (bundles LiteRT post-v2.1.5 main,
-  // Gemma 4 E2B MTP/speculative-decoding crash fix #318) — with the NPU
-  // dispatch stacks restored on Android (11 Qualcomm/QNN libs) and Windows (12
-  // Intel OpenVino/TBB files), which were accidentally omitted from
-  // native-v0.13.1 (broke PreferredBackend.npu on those platforms in 1.0.0).
-  // Only android_arm64 + windows_x86_64 checksums changed vs 0.13.1; the other
-  // 5 platforms are byte-identical. 16KB page alignment preserved (the ARM64
-  // QNN libs are 16KB-aligned; the *Skel.so are DSP6 blobs, 16KB N/A).
-  // 0.13.1-b: android_arm64 ONLY re-diffed vs -a — libLiteRtLm.so + the 7 other
-  // LiteRt libs rebuilt from the SAME commit a0afb5a with two added C-API
-  // setters (litert_lm_engine_settings_set_kernel_batch_size /
-  // set_gpu_context_low_priority) exposing the GPU smooth-UI knobs for #364; the
-  // 11 Qualcomm/QNN NPU libs are carried over byte-identical from -a so NPU is
-  // unaffected. The other 6 platforms are byte-identical copies re-uploaded
-  // under the -b tag (their checksums below are unchanged from -a).
+  // All 7 rebuilt for 0.16.0. These sums must equal both the bytes GitHub
+  // serves and the `checksums_litertlm.txt` published on the release — a stale
+  // txt sent a user down the wrong path while debugging a mismatch (#316).
   checksums: {
     'litertlm-linux_x86_64.tar.gz':
-        '98df14ffbf8d5f14ec78f05794101077d11f0d149c25d00032a9a8e1f075e8b1',
+        '33734e5de5b915f45a0c4e72b96a21ee71c7708263c665e328af2f7e2b396fc2',
     'litertlm-linux_arm64.tar.gz':
-        '875c491a4a95713c575b98c26088ff6d8f484a0b360466f6db2f42e515ae9521',
+        '8d3114307ad55261f30d88c8b045509f3abf67461c0503ca14adbe0fe31227de',
     'litertlm-windows_x86_64.tar.gz':
-        'e86ec6924e5886d164e3cc6a40ede9e5b750c2b6b952a85bd86a08c1f5a9a05e',
+        '925e665dd2d40245f38457011576b612b2b377e24aaded53f960d0faa4464dec',
     'litertlm-macos_arm64.tar.gz':
-        'c7fbcb8a977ac92f0a7ce19430f810eed6938a4d8324381d7f4ee4c0763073e8',
+        'c597554a7a5cdf099658227099a54ef4916c5802b9182757e656e1788f9426b6',
     'litertlm-ios_arm64.tar.gz':
-        '174304237a400131fa673f7cfd90e05633feb7b54f08a13090ac86ae1510bff9',
+        '4fae776d252bd58993413284a0612864535c2c6d49b07e9052ff936624d26069',
     'litertlm-ios_sim_arm64.tar.gz':
-        'ee619c2bfcb58f08c5f370ff34ceae39d85579619a6490b8e0372cfa04b033e7',
+        '669277872ef9825df9762fa1c5225c9335da3ab2323349083cbc62a7626073d3',
     'litertlm-android_arm64.tar.gz':
-        'b583d49e199fe4dfdc09f44f1b4629565d784c05d33d2b109614e158da1be8bf',
+        '197dd324d82f22b7b6427004bfe8fb90223c625f77282c85305f79db6db16141',
   },
   companions: [
     'GemmaModelConstraintProvider',

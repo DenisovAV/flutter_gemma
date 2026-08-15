@@ -45,12 +45,14 @@ class WebAssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async {
     // Delegate to installWithProgress, ignore progress events
     await for (final _ in installWithProgress(
       source,
       cancelToken: cancelToken,
       targetFilename: targetFilename,
+      modelType: modelType,
     )) {
       // Ignore progress updates
     }
@@ -61,6 +63,7 @@ class WebAssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async* {
     if (source is! AssetSource) {
       throw ArgumentError('WebAssetSourceHandler only supports AssetSource');
@@ -109,7 +112,7 @@ class WebAssetSourceHandler implements SourceHandler {
         source: source,
         installedAt: DateTime.now(),
         sizeBytes: -1,
-        type: ModelType.inference,
+        type: modelType,
         hasLoraWeights: false,
       );
 

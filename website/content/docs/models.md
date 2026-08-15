@@ -251,9 +251,10 @@ tokenizer), works on mobile + web, and throws `DownloadCancelledException`.
 
 On-device speech via the opt-in [`flutter_gemma_speech`](/docs/speech) package —
 selectable, profile-driven pipelines (you pick the model with `SttModelType` /
-`TtsModelType`). **moonshine-tiny** (STT) and **Matcha** (TTS) work end-to-end
-today; Whisper / Parakeet STT profiles and kokoro / supertonic TTS voices are
-follow-ons. Native only (no Web). See [Speech](/docs/speech) for usage.
+`TtsModelType`). **moonshine-tiny**, **Whisper**, and **Parakeet** (STT) and
+**Matcha**, **Qwen3-TTS** (multilingual), and **Inflect-Nano-v2** (fast) TTS work
+end-to-end today; kokoro / supertonic TTS voices are follow-ons. Native only (no
+Web). See [Speech](/docs/speech) for usage.
 A `VoiceSession` also chains STT → LLM → TTS into a push-to-talk voice loop —
 see [Speech](/docs/speech).
 
@@ -262,12 +263,16 @@ see [Speech](/docs/speech).
 | Model | Input | Size | Status | Auth |
 |---|---|---|---|---|
 | **[moonshine-tiny](https://huggingface.co/litert-community/moonshine-tiny)** | raw 16 kHz PCM | ~104 MB | ✅ end-to-end | ❌ |
+| **Whisper** (tiny, English) | log-mel | — | ✅ end-to-end | ❌ |
+| **Parakeet** (CTC) | log-mel | — | ✅ end-to-end | ❌ |
 
 **Text-to-speech**
 
 | Model | Output | Size | Status | Auth |
 |---|---|---|---|---|
 | **[Matcha](https://huggingface.co/litert-community/Matcha-TTS)** | 16-bit PCM @ 22050 Hz | ~90 MB | ✅ end-to-end | ❌ |
+| **[Qwen3-TTS](https://huggingface.co/litert-community/Qwen3-TTS-12Hz-0.6B-Base)** (11 langs) | 16-bit PCM | ~1.9 GB | ✅ end-to-end | ❌ |
+| **[Inflect-Nano-v2](https://huggingface.co/sasha-denisov/inflect-nano-v2-litert)** (fast) | 16-bit PCM @ 24 kHz | ~8 MB | ✅ end-to-end | ❌ |
 
 ## Text embedding models
 

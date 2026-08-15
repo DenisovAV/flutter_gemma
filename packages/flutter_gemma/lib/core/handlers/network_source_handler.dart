@@ -36,6 +36,7 @@ class NetworkSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
@@ -71,7 +72,7 @@ class NetworkSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 
@@ -83,6 +84,7 @@ class NetworkSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async* {
     if (source is! NetworkSource) {
       throw ArgumentError('NetworkSourceHandler only supports NetworkSource');
@@ -122,7 +124,7 @@ class NetworkSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: sizeBytes,
-      type: ModelType.inference,
+      type: modelType,
       hasLoraWeights: false,
     );
 

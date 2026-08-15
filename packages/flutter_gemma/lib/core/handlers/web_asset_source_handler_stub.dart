@@ -33,6 +33,7 @@ class WebAssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) async {
     throw UnsupportedError(
       'WebAssetSourceHandler is only available on web platform',
@@ -44,6 +45,7 @@ class WebAssetSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   }) {
     throw UnsupportedError(
       'WebAssetSourceHandler is only available on web platform',

@@ -30,7 +30,7 @@ inference.
 
 ```
 dependencies:
-  flutter_gemma: ^1.5.5
+  flutter_gemma: ^1.5.6
   flutter_gemma_speech: ^0.4.3
 ```
 
@@ -186,6 +186,23 @@ itself, same as the STT/TTS sections above. For barge-in, call
 `await session.interrupt()` while a turn is in flight: it stops generation,
 bounded-drains the reply stream, and the turn ends with a
 `VoiceTurnInterruptedEvent` instead of `VoiceTurnCompleteEvent`.
+
+### Streaming audio (lower time-to-first-audio)
+
+By default the reply is synthesized in one shot after the LLM finishes — a single
+`VoiceReplyAudioEvent(isFinal: true)`. Pass `streamAudio: true` to synthesize
+clause-by-clause, overlapped with the LLM stream, so the first audio plays much
+sooner: the turn emits a series of `VoiceReplyAudioEvent(isFinal: false)` chunks
+followed by a zero-byte `isFinal: true` marker. The player must play the chunks
+in order; per-clause synthesis has slightly flatter prosody at the clause joins
+than synthesizing the whole reply at once.
+
+```dart
+final session = VoiceSession.fromChat(
+  recognizer: recognizer, chat: chat, synthesizer: synthesizer,
+  streamAudio: true,
+);
+```
 
 ### Tool calling in the voice loop
 

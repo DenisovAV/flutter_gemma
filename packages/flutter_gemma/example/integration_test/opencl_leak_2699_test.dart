@@ -18,11 +18,11 @@
 /// Model is pushed by Firebase Test Lab via
 ///   --other-files /data/local/tmp/flutter_gemma_test/Qwen3-0.6B.litertlm=<local>
 /// Locally: adb push Qwen3-0.6B.litertlm /data/local/tmp/flutter_gemma_test/
+library;
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/core/model.dart';
 import 'inference_test_helpers.dart' show registerTestEngines;
 
 const _dir = '/data/local/tmp/flutter_gemma_test';
@@ -40,12 +40,22 @@ const _prompt =
 /// needs no permission and reports VmRSS already in kB — unlike `statm`, which
 /// is in pages and would need the page size (16 KB on newer Android, 4 KB
 /// elsewhere) to interpret correctly.
+/// Throws rather than returning a sentinel: an unreadable VmRSS would make every
+/// sample equal, growth compute to 0, and all three thresholds pass — a broken
+/// measurement is indistinguishable from a clean result.
 int _rssKb() {
   final line = File('/proc/self/status').readAsLinesSync().firstWhere(
     (l) => l.startsWith('VmRSS:'),
     orElse: () => '',
   );
-  return int.tryParse(RegExp(r'(\d+)').firstMatch(line)?.group(1) ?? '') ?? -1;
+  final kb = int.tryParse(RegExp(r'(\d+)').firstMatch(line)?.group(1) ?? '');
+  if (kb == null || kb <= 0) {
+    throw StateError(
+      'could not read VmRSS from /proc/self/status (line: "$line") — '
+      'refusing to report a leak measurement taken with a broken instrument',
+    );
+  }
+  return kb;
 }
 
 /// One engine, [turns] throwaway chats — the exact shape both reports used.
@@ -56,24 +66,63 @@ Future<List<int>> _turnLoop(PreferredBackend backend, int turns) async {
     maxTokens: 4096, // #348: KV-cache size
     preferredBackend: backend,
   );
+
+  // The FFI runtime falls back silently: `gpu` resolves to [gpu, cpu], and a
+  // failed OpenCL init is only a developer.log line (backend_preference.dart).
+  // On a device where the vendor ICD does not load (#324) the "GPU" leg would
+  // run on CPU, show flat RSS, and report #2699 as fixed on a build where the
+  // suspect path never executed. Assert what actually initialised.
+  expect(
+    model.activeBackend,
+    backend,
+    reason:
+        'requested $backend but the runtime initialised '
+        '${model.activeBackend} — this measurement would describe the wrong '
+        'backend',
+  );
+
   final rss = <int>[_rssKb()];
-  for (var i = 0; i < turns; i++) {
-    final chat = await model.openChat(
-      temperature: 0.2,
-      topK: 20,
-      tokenBuffer: 256,
-      isThinking: false,
-    );
-    await chat.addQueryChunk(Message(text: _prompt, isUser: true));
-    await for (final r in chat.generateChatResponseAsync()) {
-      if (r is TextResponse) {
-        // drain
+  // close() must run even if a turn throws. getActiveModel() dedupes on the
+  // model's NAME only — preferredBackend is not part of the comparison
+  // (flutter_gemma_mobile.dart, `currentSpec.name != requestedSpec.name`). So a
+  // model left open by a failed CPU run is handed straight back to the GPU run,
+  // which then measures CPU, sees no growth, and PASSES — hiding the very leak
+  // this file exists to catch.
+  try {
+    for (var i = 0; i < turns; i++) {
+      final chat = await model.openChat(
+        modelType: ModelType.qwen3,
+        temperature: 0.2,
+        topK: 20,
+        tokenBuffer: 256,
+        isThinking: false,
+      );
+      var chunks = 0;
+      try {
+        await chat.addQueryChunk(const Message(text: _prompt, isUser: true));
+        await for (final _ in chat.generateChatResponseAsync()) {
+          chunks++; // count every ModelResponse, thinking included
+        }
+      } finally {
+        await chat.close();
       }
+      // A stream that yields nothing completes normally, does no work, and
+      // leaves RSS flat — which this harness would read as "no leak". That is
+      // not hypothetical here: this branch carries a runtime probe for the
+      // v0.15.0 stream-callback ABI change, and a probe that guesses wrong
+      // produces exactly zero chunks.
+      expect(
+        chunks,
+        greaterThan(4),
+        reason:
+            'turn ${i + 1} generated $chunks chunks — no generation happened, '
+            'so any RSS reading from this run is meaningless',
+      );
+      rss.add(_rssKb());
     }
-    await chat.close();
-    rss.add(_rssKb());
+  } finally {
+    await model.close();
   }
-  await model.close();
   rss.add(_rssKb());
   return rss;
 }

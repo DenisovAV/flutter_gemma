@@ -241,26 +241,43 @@ const _litertlmBundle = _NativeBundle(
     // DXC runtime
     'dxil',
     'dxcompiler',
-    // Intel NPU dispatch (~30 MB, only enables PreferredBackend.npu on
+    // Intel NPU dispatch (~102 MB, only enables PreferredBackend.npu on
     // LunarLake/PantherLake — model still loads on CPU/GPU without it).
+    //
+    // THIS LIST AND THE WORKFLOW'S `$ovWanted` ARE ONE SET IN TWO PLACES.
+    // The tarball is what CI assembles; this is what becomes a CodeAsset and
+    // lands next to the app binary. A name present there and absent here
+    // extracts to the cache and is never shipped — which is exactly how
+    // openvino_intel_npu_compiler(.dll/_loader.dll) went missing at v0.16.0:
+    // 78.8 MB of the stack, allow-listed and `throw`-guarded in CI, silently
+    // not bundled, so openvino_intel_npu_plugin could not resolve its compiler
+    // and backend=npu stayed broken in the release that set out to fix it.
+    // Change one, change the other.
     'LiteRtDispatch',
     'openvino',
     'openvino_intel_npu_plugin',
+    'openvino_intel_npu_compiler',
+    'openvino_intel_npu_compiler_loader',
     'openvino_tensorflow_lite_frontend',
+    // Release TBB only. The debug variants were being registered into user
+    // apps — 1.8 MB of parallel debug builds sitting beside the release set,
+    // which is the mis-binding hazard the workflow's allow-list exists to
+    // avoid, reintroduced one layer down.
     'tbb12',
-    'tbb12_debug',
     'tbbbind_2_5',
-    'tbbbind_2_5_debug',
     'tbbmalloc',
-    'tbbmalloc_debug',
     'tbbmalloc_proxy',
-    'tbbmalloc_proxy_debug',
   ],
   // Android NPU: Qualcomm dispatch bridge + QNN HTP runtime + per-SoC Stubs.
-  // Extracted from Google AI Edge Gallery APKs (no Qualcomm account needed);
-  // ABI verified against litert_dispatch.h at LiteRT commit d865fd82.
+  //
+  // No longer extracted from Google AI Edge Gallery APKs — that is what let
+  // them drift. `build_qualcomm_dispatch.sh` builds the dispatch from the
+  // LiteRT ref derived from the pin, and refreshes all ten QNN runtime libs
+  // from the same QAIRT the dispatch was compiled against (2.44.0.260225).
+  // The extracted set had QNN System API 1.8.0 against a dispatch requiring
+  // 1.11.0, which fails engine_create with an opaque null on real hardware.
+  //
   // sm8550=V73, sm8650=V75, sm8750=V79, sm8850=V81.
-  // Skel libs (DSP-side code) extracted from Google AI Edge Gallery APKs.
   // Stub libs are the CPU-side bridge; Skel libs run on Hexagon DSP via FastRPC.
   androidExtraLibs: [
     'LiteRtDispatch_Qualcomm',

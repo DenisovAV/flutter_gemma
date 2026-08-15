@@ -71,7 +71,7 @@ The empty-result guard matters: `curl | sed` on a moved/renamed WORKSPACE yields
 
 A `--define` that upstream has deleted is **not an error**. Bazel accepts any `--define=key=value`; if no `config_setting` reads that key, the flag is silently inert and you get the default build.
 
-We passed `--define=litert_link_capi_so=true` on Windows and Linux for three releases. Upstream removed the name; it has **zero occurrences** in the v0.16.0 tree. The live name is `litert_runtime_link_mode=dynamic`. This was harmless until v0.14.0 split Dawn out of the WebGPU accelerator, from which point the statically-linked runtime is exactly what crashed GPU `engine_create` — reported upstream as #2957 and **retracted**, because the cause was ours.
+We passed `--define=litert_link_capi_so=true` on Windows and Linux for three releases. Upstream removed the name; **no `config_setting` reads it** in the v0.16.0 tree (a plain grep still finds one commented-out mention in `.github/workflows/ci-build-mac.yml`, which is why the recipe below greps only `.bzl`/`BUILD`/`.bazelrc`). The live name is `litert_runtime_link_mode=dynamic`. This was harmless until v0.14.0 split Dawn out of the WebGPU accelerator, from which point the statically-linked runtime is exactly what crashed GPU `engine_create` — reported upstream as #2957 and **retracted**, because the cause was ours.
 
 Before trusting any define in a build command, grep the tree you are about to build:
 
@@ -204,7 +204,7 @@ Whatever the origin, assert the NPU file count per bundle before packing. Shippi
 
 - **Job timeout 150 minutes.** A cold Bazel cache plus the OpenVino fetch overruns anything shorter; 60 min was killing runs mid-link.
 - **Exclude the Bazel output base from Defender.** Two consecutive runs died at ~52 min with `Couldn't delete action output directory: D:/b/execroot/litert_lm/bazel-out/_tmp/actions/stderr-NNNN (Permission denied)`. The build had *finished*; Defender was holding a per-action stderr file open during cleanup. `Add-MpPreference -ExclusionPath` on the output base, plus one warm-cache retry of the build step, turns a 52-minute loss into a two-minute one.
-- **Allow-list the OpenVino components; never copy `runtime\bin` wholesale.** A blanket copy drags in the CPU/GPU/auto/hetero plugins, every model frontend, and a full parallel set of **debug builds** — and those are named `openvinod.dll`, `*_plugind.dll`, `*_frontendd.dll`, so a `_d.dll` filter misses all of them. Two near-identically named sets side by side is precisely how the OpenVino core binds the wrong plugin. The allow-list took the bundle from 45 files / 207 MB to 28 files / 96 MB:
+- **Allow-list the OpenVino components; never copy `runtime\bin` wholesale.** A blanket copy drags in the CPU/GPU/auto/hetero plugins, every model frontend, and a full parallel set of **debug builds** — and those are named `openvinod.dll`, `*_plugind.dll`, `*_frontendd.dll`, so a `_d.dll` filter misses all of them. Two near-identically named sets side by side is precisely how the OpenVino core binds the wrong plugin. The allow-list took the bundle from 45 files to 28 (253 MB uncompressed, 93 MB packed):
 
   ```
   openvino.dll, openvino_intel_npu_plugin.dll, openvino_intel_npu_compiler.dll,
@@ -213,7 +213,7 @@ Whatever the origin, assert the NPU file count per bundle before packing. Shippi
 
   TBB lives outside `runtime\bin` (`3rdparty\tbb\bin`), so search the whole SDK. `throw` on any missing member — a silently short NPU stack is the failure mode this whole section exists to prevent.
 
-  The `tbb*` wildcard at the end of that list is itself a small leak: it also matches `tbb12_debug.dll`, `tbbbind_2_5_debug.dll`, `tbbmalloc_debug.dll` and `tbbmalloc_proxy_debug.dll`. Only ~1.9 MB of a 253 MB bundle, and unlike `openvinod.dll` the names are distinct enough not to be mis-bound, so it is dead weight rather than a hazard — but add `-and $_.Name -notlike '*_debug.dll'` next time the workflow is touched.
+  The `tbb*` wildcard at the end of that list is itself a small leak: it also matches `tbb12_debug.dll`, `tbbbind_2_5_debug.dll`, `tbbmalloc_debug.dll` and `tbbmalloc_proxy_debug.dll`. Only ~1.8 MB of a 253 MB bundle, and unlike `openvinod.dll` the names are distinct enough not to be mis-bound, so it is dead weight rather than a hazard — but add `-and $_.Name -notlike '*_debug.dll'` next time the workflow is touched.
 
 #### Qualcomm dispatch: `-gcc-toolchain` means you are building the wrong ref
 
@@ -395,11 +395,11 @@ flutter build ios --debug --no-codesign   # mandatory (catches dylib loading)
 
 ### 7b. Build with `prebuilt/` moved aside — the only test of what users actually get
 
-`_resolveLibDir` tries three sources in order: local `native/litert_lm/prebuilt/<dir>/`, then the version-scoped cache, then `_downloadAndExtract` from `native-v<version>`. **End users only ever reach the third** — `prebuilt/` is gitignored and ships in no pub package (confirm with `dart pub publish --dry-run | grep -ciE 'prebuilt|\.so$|\.dylib|\.dll'` → must be `0`).
+`_resolveLibDir` tries local `native/litert_lm/prebuilt/<dir>/`, then the cache; its caller falls back to `_downloadAndExtract` from `native-v<version>`. The cache path is NOT version-scoped — staleness is decided by the marker file. **End users only ever reach the download** — `prebuilt/` is gitignored and ships in no pub package (confirm with `dart pub publish --dry-run | grep -ciE 'prebuilt|\.so$|\.dylib|\.dll'` → must be `0`).
 
 On a maintainer machine the first source always hits. So every build you run locally — including check #7 and the release skill's `flutter build apk --release` pre-flight — silently validates **your** bundle and never touches the download, checksum verification, or extraction. Green means nothing about the artifact you are about to publish.
 
-After the release exists and the hook's `_checksums` are updated, force the real path:
+After the release exists and the hook's `checksums` are updated, force the real path:
 
 ```bash
 mv native/litert_lm/prebuilt /tmp/prebuilt-aside
@@ -507,7 +507,7 @@ We import some dylibs as-is from upstream LiteRT-LM (`libGemmaModelConstraintPro
 ## After successful build
 
 1. **Run the verification checklist 1-9 above. All checks must pass.**
-2. Commit the new dylibs (`git add prebuilt/<dir>/*.dylib`)
-3. Pack tarballs + update `hook/build.dart` `_checksums` + re-upload to GitHub Release `native-v<version>` (see `release` skill).
+2. Do NOT try to commit the dylibs — `prebuilt/` is gitignored (`.gitignore` `**/native/litert_lm/prebuilt/`) and `git ls-files` returns nothing under it. The bundles reach users through the GitHub Release only; the working copy is yours alone. (This step used to say `git add prebuilt/<dir>/*.dylib`, which cannot succeed.)
+3. Pack tarballs + update `hook/build.dart` `checksums` + re-upload to GitHub Release `native-v<version>` (see `release` skill).
 4. Run `dart pub publish --dry-run` — must show 0 warnings.
 5. Only then publish.

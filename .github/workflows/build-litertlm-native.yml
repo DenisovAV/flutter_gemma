@@ -72,7 +72,30 @@ jobs:
           mkdir -p artifacts
           cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
           cp /tmp/libStreamProxy.so artifacts/
-          cp /tmp/LiteRT-LM/prebuilt/linux_x86_64/*.so artifacts/ 2>/dev/null || true
+          # `|| true` used to hide an empty glob here. That was survivable when
+          # libLiteRt.so was optional; it is not now. litert_runtime_link_mode=dynamic
+          # deliberately keeps the LiteRt C API OUT of libLiteRtLm, so these
+          # companions became hard DT_NEEDED dependencies — shipping without them
+          # is a green CI run, a valid SHA256, and a dlopen failure on the user's
+          # machine. A git-lfs pointer stub would pass a bare existence test too,
+          # so assert ELF, not presence.
+          shopt -s nullglob
+          libs=(/tmp/LiteRT-LM/prebuilt/linux_x86_64/*.so)
+          if [ ${#libs[@]} -eq 0 ]; then
+            echo "::error::no prebuilt .so under prebuilt/linux_x86_64 — git lfs pull produced nothing"
+            exit 1
+          fi
+          cp "${libs[@]}" artifacts/
+          for want in libLiteRt.so libLiteRtWebGpuAccelerator.so libwebgpu_dawn.so; do
+            if [ ! -s "artifacts/$want" ]; then
+              echo "::error::missing $want — dynamic link mode requires it at runtime"
+              exit 1
+            fi
+            if [ "$(head -c 4 "artifacts/$want" | od -An -tx1 | tr -d ' ')" != "7f454c46" ]; then
+              echo "::error::$want is not an ELF file (git-lfs pointer?)"
+              exit 1
+            fi
+          done
           # v0.14.0 Dawn split — libLiteRtWebGpuAccelerator.so now hard-links the
           # separate libwebgpu_dawn.so. Set $ORIGIN rpath so each lib resolves its
           # flat-layout siblings from its own directory at dlopen time.
@@ -136,7 +159,30 @@ jobs:
           mkdir -p artifacts
           cp /tmp/LiteRT-LM/bazel-bin/c/libLiteRtLm.dylib artifacts/libLiteRtLm.so
           cp /tmp/libStreamProxy.so artifacts/
-          cp /tmp/LiteRT-LM/prebuilt/linux_arm64/*.so artifacts/ 2>/dev/null || true
+          # `|| true` used to hide an empty glob here. That was survivable when
+          # libLiteRt.so was optional; it is not now. litert_runtime_link_mode=dynamic
+          # deliberately keeps the LiteRt C API OUT of libLiteRtLm, so these
+          # companions became hard DT_NEEDED dependencies — shipping without them
+          # is a green CI run, a valid SHA256, and a dlopen failure on the user's
+          # machine. A git-lfs pointer stub would pass a bare existence test too,
+          # so assert ELF, not presence.
+          shopt -s nullglob
+          libs=(/tmp/LiteRT-LM/prebuilt/linux_arm64/*.so)
+          if [ ${#libs[@]} -eq 0 ]; then
+            echo "::error::no prebuilt .so under prebuilt/linux_arm64 — git lfs pull produced nothing"
+            exit 1
+          fi
+          cp "${libs[@]}" artifacts/
+          for want in libLiteRt.so libLiteRtWebGpuAccelerator.so libwebgpu_dawn.so; do
+            if [ ! -s "artifacts/$want" ]; then
+              echo "::error::missing $want — dynamic link mode requires it at runtime"
+              exit 1
+            fi
+            if [ "$(head -c 4 "artifacts/$want" | od -An -tx1 | tr -d ' ')" != "7f454c46" ]; then
+              echo "::error::$want is not an ELF file (git-lfs pointer?)"
+              exit 1
+            fi
+          done
           # v0.14.0 Dawn split — libLiteRtWebGpuAccelerator.so now hard-links the
           # separate libwebgpu_dawn.so. Set $ORIGIN rpath so each lib resolves its
           # flat-layout siblings from its own directory at dlopen time.
@@ -259,6 +305,12 @@ jobs:
               --define=litert_runtime_link_mode=dynamic `
               --define=resolve_symbols_in_exec=false `
               '@litert//litert/vendors/intel_openvino/dispatch:LiteRtDispatch'
+            if ($LASTEXITCODE -ne 0) {
+              # Do not lean on PowerShell's implicit $LASTEXITCODE trailer: one
+              # appended native command or a $LASTEXITCODE-clearing construct
+              # and a failed build goes green with no diff-level signal.
+              throw "Intel NPU dispatch build failed twice (exit $LASTEXITCODE)"
+            }
           }
 
       - uses: ilammy/msvc-dev-cmd@v1
@@ -288,15 +340,23 @@ jobs:
           Copy-Item C:\LiteRT-LM\bazel-bin\c\libLiteRtLm.dylib artifacts\LiteRtLm.dll
           Copy-Item StreamProxy.dll artifacts\
           $prebuilt = 'C:\LiteRT-LM\prebuilt\windows_x86_64'
+          # No `else` used to mean a missing companion shipped silently. With
+          # litert_runtime_link_mode=dynamic these are PE imports of LiteRtLm.dll,
+          # so absence is a LoadLibrary failure on the user's machine, not a
+          # degraded build. Test-Path is also true for a ~130-byte git-lfs pointer
+          # stub, and Windows has no patchelf step to trip over one — assert size.
           foreach ($base in @('libGemmaModelConstraintProvider','libLiteRt','libLiteRtTopKWebGpuSampler','libLiteRtWebGpuAccelerator','libwebgpu_dawn')) {
             $src = "$prebuilt\$base.dll"
-            if (Test-Path $src) {
-              # Keep original name for PE imports
-              Copy-Item $src "artifacts\$base.dll"
-              # And prefixless copy for Native Assets registration
-              $stripped = $base -replace '^lib',''
-              Copy-Item $src "artifacts\$stripped.dll"
+            if (-not (Test-Path $src)) {
+              throw "prebuilt companion missing: $base.dll - LiteRtLm.dll imports it"
             }
+            $len = (Get-Item $src).Length
+            if ($len -lt 100kb) {
+              throw "$base.dll is $len bytes - git-lfs pointer, not a DLL"
+            }
+            Copy-Item $src "artifacts\$base.dll"
+            $stripped = $base -replace '^lib',''
+            Copy-Item $src "artifacts\$stripped.dll"
           }
           # DXC runtime — search recursively because the zip layout puts the
           # x64 binaries in bin\x64\ inside the archive root.
@@ -316,13 +376,27 @@ jobs:
           # Searched rather than hardcoded: bzlmod decorates external repo
           # directory names, so the path is not stable across Bazel versions.
           $outputBase = $env:BAZEL_OUTPUT_BASE
-          $dispatch = Get-ChildItem -Recurse -Filter 'LiteRtDispatch.dll' `
-            -Path C:\LiteRT-LM\bazel-bin -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $dispatch) { throw "LiteRtDispatch.dll not produced — NPU would ship broken" }
+          # Assert the match is unique. The bazel-bin layout is unstable across
+          # Bazel versions and configurations; -First 1 over a recursive search
+          # silently ships whichever the filesystem enumerated first.
+          $dispatchAll = @(Get-ChildItem -Recurse -Filter 'LiteRtDispatch.dll' `
+            -Path C:\LiteRT-LM\bazel-bin -ErrorAction SilentlyContinue)
+          if ($dispatchAll.Count -eq 0) { throw "LiteRtDispatch.dll not produced — NPU would ship broken" }
+          if ($dispatchAll.Count -ne 1) {
+            throw "expected exactly 1 LiteRtDispatch.dll, found $($dispatchAll.Count): $($dispatchAll.FullName -join ', ')"
+          }
+          $dispatch = $dispatchAll[0]
           Copy-Item $dispatch.FullName "artifacts\LiteRtDispatch.dll"
-          $ovRoot = Get-ChildItem -Directory -Path "$outputBase\external" `
-            -Filter '*intel_openvino*' -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $ovRoot) { throw "OpenVino SDK not fetched — cannot ship a matched NPU stack" }
+          $ovRootAll = @(Get-ChildItem -Directory -Path "$outputBase\external" `
+            -Filter '*intel_openvino*' -ErrorAction SilentlyContinue)
+          if ($ovRootAll.Count -eq 0) { throw "OpenVino SDK not fetched — cannot ship a matched NPU stack" }
+          if ($ovRootAll.Count -ne 1) {
+            # bzlmod can produce both `intel_openvino` and a decorated
+            # `+_repo_rules+intel_openvino~`; picking the wrong one reintroduces
+            # the version skew this whole step exists to close.
+            throw "expected exactly 1 intel_openvino repo, found $($ovRootAll.Count): $($ovRootAll.Name -join ', ')"
+          }
+          $ovRoot = $ovRootAll[0]
           # Explicit allow-list, mirroring the set that worked on native-v0.14.0
           # plus the NPU compiler pair that 2026.3.0 adds. A blanket copy of
           # runtime\bin drags in the CPU/GPU/auto/hetero plugins, every model
@@ -338,12 +412,31 @@ jobs:
             'openvino_intel_npu_compiler_loader.dll',
             'openvino_tensorflow_lite_frontend.dll'
           )
+          # Release TBB only: the '*_debug.dll' variants are a full parallel set
+          # whose presence beside the release DLLs is the same mis-binding hazard
+          # the allow-list above exists to avoid, and the hook was registering
+          # them into user apps.
           $ovDlls = Get-ChildItem -Recurse -Filter '*.dll' -Path $ovRoot.FullName |
-            Where-Object { $ovWanted -contains $_.Name -or $_.Name -like 'tbb*' }
+            Where-Object {
+              ($ovWanted -contains $_.Name -or $_.Name -like 'tbb*') -and
+              $_.Name -notlike '*_debug.dll'
+            }
           if (-not $ovDlls) { throw "OpenVino runtime DLLs not found under $($ovRoot.FullName)" }
           foreach ($d in $ovDlls) { Copy-Item $d.FullName "artifacts\$($d.Name)" -Force }
           foreach ($w in $ovWanted) {
             if (-not (Test-Path "artifacts\$w")) { throw "OpenVino component missing: $w" }
+          }
+          # TBB was matched by wildcard and never asserted: if the search found
+          # zero of them, $ovDlls is still non-empty (the five openvino* matched),
+          # the earlier throw does not fire, and the bundle ships without the
+          # library openvino.dll imports. An absent dependency presents exactly
+          # like the version mismatch that cost us #3217.
+          $tbb = @($ovDlls | Where-Object { $_.Name -like 'tbb*' })
+          if ($tbb.Count -eq 0) {
+            throw "no TBB DLLs under $($ovRoot.FullName) - openvino.dll imports tbb12; NPU would ship broken"
+          }
+          if ($tbb.Name -notcontains 'tbb12.dll') {
+            throw "tbb12.dll specifically is missing (found: $($tbb.Name -join ', '))"
           }
           Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
@@ -370,14 +463,28 @@ jobs:
       - name: Package archives
         run: |
           mkdir -p release
+          # A missing artifact dir used to be skipped silently. Combined with the
+          # delete-old-assets step below and fail_on_unmatched_files, that means:
+          # the previous asset is deleted, the replacement is never built, and
+          # checksums_litertlm.txt is regenerated over whatever survived — so the
+          # published checksums file is internally consistent and quietly short a
+          # platform. That is the #316 shape: a self-consistent lie is harder to
+          # debug than an obvious gap.
+          missing=()
           for dir_name in linux_x86_64 linux_arm64 windows_x86_64; do
             dir="artifacts/litertlm-${dir_name}"
             archive="litertlm-${dir_name}.tar.gz"
             if [ -d "$dir" ]; then
               tar -czf "release/${archive}" -C "$dir" .
               echo "Packaged: ${archive}"
+            else
+              missing+=("$dir_name")
             fi
           done
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error::missing platform artifacts: ${missing[*]} — refusing to publish a partial release"
+            exit 1
+          fi
           cd release && sha256sum *.tar.gz > checksums_litertlm.txt
           cat checksums_litertlm.txt
 
@@ -404,4 +511,4 @@ jobs:
 
             macOS/iOS/Android archives are uploaded separately after local builds.
           files: release/*
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true

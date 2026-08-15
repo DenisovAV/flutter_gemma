@@ -467,8 +467,9 @@ class LiteRtLmFfiClient {
       proxyLib = DynamicLibrary.open('StreamProxy.framework/StreamProxy');
     } else if (Platform.isLinux) {
       // Load order matters: libLiteRt.so must be loaded first with
-      // RTLD_GLOBAL so libLiteRtLm.so (built with litert_link_capi_so=true)
-      // and the WebGPU accelerator can resolve LiteRt* C API symbols
+      // RTLD_GLOBAL so libLiteRtLm.so (built with
+      // litert_runtime_link_mode=dynamic) and the WebGPU accelerator can
+      // resolve LiteRt* C API symbols
       // against it. StreamProxy exposes a dlopen helper because Dart's
       // DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
       //

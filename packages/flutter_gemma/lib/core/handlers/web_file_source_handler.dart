@@ -41,6 +41,7 @@ class WebFileSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) async {
     // Web file registration is instant, no cancellation needed
     if (source is! FileSource) {
@@ -64,7 +65,7 @@ class WebFileSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: -1, // Unknown for web external files
-      type: ModelType.inference,
+      type: type,
       hasLoraWeights: false,
     );
 
@@ -76,6 +77,7 @@ class WebFileSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) async* {
     // Same as above - web file registration is instant
     if (source is! FileSource) {
@@ -105,7 +107,7 @@ class WebFileSourceHandler implements SourceHandler {
       source: source,
       installedAt: DateTime.now(),
       sizeBytes: -1, // Unknown for web external files
-      type: ModelType.inference,
+      type: type,
       hasLoraWeights: false,
     );
 

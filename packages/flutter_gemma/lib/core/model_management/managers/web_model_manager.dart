@@ -388,6 +388,7 @@ class WebModelManager extends ModelFileManager {
       // true progress will emit 100% immediately)
       await for (final progress in handler.installWithProgress(
         sourceToInstall,
+        type: _toRepoType(spec.type),
       )) {
         yield DownloadProgress(
           currentFileIndex: i,
@@ -441,6 +442,13 @@ class WebModelManager extends ModelFileManager {
     gemmaLog('WebModelManager: Model ${spec.name} deleted');
   }
 
+  repo.ModelType _toRepoType(ModelManagementType type) => switch (type) {
+    ModelManagementType.inference => repo.ModelType.inference,
+    ModelManagementType.embedding => repo.ModelType.embedding,
+    ModelManagementType.stt => repo.ModelType.stt,
+    ModelManagementType.tts => repo.ModelType.tts,
+  };
+
   /// Gets list of installed model filenames
   ///
   /// Phase 5.5: Delegates to Modern API (ModelRepository) instead of
@@ -456,15 +464,9 @@ class WebModelManager extends ModelFileManager {
     // Get all installed models from repository
     final allInstalled = await repository.listInstalled();
 
-    // Filter by type (exhaustive — a new ModelManagementType value must be
-    // mapped here, not silently bucketed into embedding).
-    final wantType = switch (type) {
-      ModelManagementType.inference => repo.ModelType.inference,
-      ModelManagementType.embedding => repo.ModelType.embedding,
-      ModelManagementType.stt => repo.ModelType.stt,
-      ModelManagementType.tts => repo.ModelType.tts,
-    };
-    final filtered = allInstalled.where((m) => m.type == wantType).toList();
+    final filtered = allInstalled
+        .where((m) => m.type == _toRepoType(type))
+        .toList();
 
     // Return filenames
     return filtered.map((m) => m.id).toList();
@@ -592,7 +594,10 @@ class WebModelManager extends ModelFileManager {
             file.source,
           );
           if (handler != null) {
-            await handler.install(file.source);
+            await handler.install(
+              file.source,
+              type: _toRepoType(spec.type),
+            );
             url = fileSystem.getUrl(file.filename);
           }
         }
@@ -679,7 +684,7 @@ class WebModelManager extends ModelFileManager {
             'ensureModelReadyFromSpec',
           );
         }
-        await handler.install(file.source);
+        await handler.install(file.source, type: _toRepoType(spec.type));
       }
     }
 

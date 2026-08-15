@@ -47,12 +47,14 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) async {
     // Delegate to installWithProgress, ignore progress events
     await for (final _ in installWithProgress(
       source,
       cancelToken: cancelToken,
       targetFilename: targetFilename,
+      type: type,
     )) {
       // Ignore progress updates
     }
@@ -63,6 +65,7 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) async* {
     if (source is! BundledSource) {
       throw ArgumentError(
@@ -113,7 +116,7 @@ class WebBundledSourceHandler implements SourceHandler {
         source: source,
         installedAt: DateTime.now(),
         sizeBytes: -1,
-        type: ModelType.inference,
+        type: type,
         hasLoraWeights: false,
       );
 

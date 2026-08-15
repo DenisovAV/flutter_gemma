@@ -1,6 +1,7 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Fluent builder for TTS (text-to-speech) model installation.
@@ -137,6 +138,7 @@ class TtsInstallationBuilder {
           file.source,
           cancelToken: _cancelToken,
           targetFilename: file.filename,
+          type: repo.ModelType.tts,
         );
       }
       done++;

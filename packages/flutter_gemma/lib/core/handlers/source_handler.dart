@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart';
 
 /// Base interface for handling different model source types
 /// Each source type (Network, Asset, Bundled, File) has its own handler implementation
@@ -39,6 +40,9 @@ abstract interface class SourceHandler {
   ///   `*InstallationBuilder`s so a companion file's on-disk identity can be
   ///   namespaced by its owning model (see
   ///   `docs/superpowers/specs/2026-08-02-install-identity-namespacing-design.md`).
+  /// - [type]: Repository tag written to [ModelInfo.type]. Defaults to
+  ///   [ModelType.inference]. STT/TTS/embedding builders must pass their
+  ///   own type so [ModelFileManager.getInstalledModels] can list them.
   ///
   /// Throws:
   /// - [UnsupportedError] if this handler doesn't support the source type
@@ -49,6 +53,7 @@ abstract interface class SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   });
 
   /// Installs the model with progress tracking
@@ -89,6 +94,7 @@ abstract interface class SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   });
 
   /// Checks if this source supports resume after interruption

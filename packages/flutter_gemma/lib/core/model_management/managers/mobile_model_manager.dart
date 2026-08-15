@@ -478,7 +478,7 @@ class MobileModelManager extends ModelFileManager {
           );
         }
 
-        await handler.install(file.source);
+        await handler.install(file.source, type: _toRepoType(spec.type));
         gemmaLog(
           '✅ File installed: ${file.filename} via Modern handler: ${file.source.runtimeType}',
         );
@@ -667,6 +667,7 @@ class MobileModelManager extends ModelFileManager {
           source: file.source,
           targetPath: filePath,
           token: token,
+          type: _toRepoType(spec.type),
         )) {
           yield DownloadProgress(
             currentFileIndex: i,
@@ -719,6 +720,7 @@ class MobileModelManager extends ModelFileManager {
     required ModelSource source,
     required String targetPath,
     String? token,
+    repo.ModelType type = repo.ModelType.inference,
   }) async* {
     // Delegate to ServiceRegistry handler
     if (source is! NetworkSource) {
@@ -738,7 +740,10 @@ class MobileModelManager extends ModelFileManager {
     final handler = registry.networkHandler;
 
     // Use handler's progress stream
-    await for (final progress in handler.installWithProgress(networkSource)) {
+    await for (final progress in handler.installWithProgress(
+      networkSource,
+      type: type,
+    )) {
       yield progress;
     }
   }
@@ -827,6 +832,13 @@ class MobileModelManager extends ModelFileManager {
     }
   }
 
+  repo.ModelType _toRepoType(ModelManagementType type) => switch (type) {
+    ModelManagementType.inference => repo.ModelType.inference,
+    ModelManagementType.embedding => repo.ModelType.embedding,
+    ModelManagementType.stt => repo.ModelType.stt,
+    ModelManagementType.tts => repo.ModelType.tts,
+  };
+
   /// Gets all installed models for a specific type
   @override
   Future<List<String>> getInstalledModels(ModelManagementType type) async {
@@ -836,15 +848,7 @@ class MobileModelManager extends ModelFileManager {
       final registry = ServiceRegistry.instance;
       final repository = registry.modelRepository;
 
-      // Convert ModelManagementType to repo.ModelType (exhaustive — a new
-      // ModelManagementType value must be mapped here, not silently bucketed
-      // into embedding).
-      final modelType = switch (type) {
-        ModelManagementType.inference => repo.ModelType.inference,
-        ModelManagementType.embedding => repo.ModelType.embedding,
-        ModelManagementType.stt => repo.ModelType.stt,
-        ModelManagementType.tts => repo.ModelType.tts,
-      };
+      final modelType = _toRepoType(type);
 
       // Get all installed models and filter by type
       final allModels = await repository.listInstalled();

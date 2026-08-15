@@ -1,6 +1,7 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -192,6 +193,7 @@ class EmbeddingInstallationBuilder {
             _modelSource!,
             cancelToken: _cancelToken,
             targetFilename: modelFilename,
+            type: repo.ModelType.embedding,
           )) {
             _onModelProgress!(progress);
           }
@@ -200,6 +202,7 @@ class EmbeddingInstallationBuilder {
             _modelSource!,
             cancelToken: _cancelToken,
             targetFilename: modelFilename,
+            type: repo.ModelType.embedding,
           );
         }
       } else {
@@ -217,6 +220,7 @@ class EmbeddingInstallationBuilder {
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
             targetFilename: tokenizerFilename,
+            type: repo.ModelType.embedding,
           )) {
             _onTokenizerProgress!(progress);
           }
@@ -225,6 +229,7 @@ class EmbeddingInstallationBuilder {
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
             targetFilename: tokenizerFilename,
+            type: repo.ModelType.embedding,
           );
         }
       } else {

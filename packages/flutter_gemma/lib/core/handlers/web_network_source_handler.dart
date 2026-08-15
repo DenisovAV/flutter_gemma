@@ -48,12 +48,14 @@ class WebNetworkSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) async {
     // Delegate to installWithProgress, ignore progress events
     await for (final _ in installWithProgress(
       source,
       cancelToken: cancelToken,
       targetFilename: targetFilename,
+      type: type,
     )) {
       // Ignore progress updates
     }
@@ -64,6 +66,7 @@ class WebNetworkSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) async* {
     if (source is! NetworkSource) {
       throw ArgumentError(
@@ -104,7 +107,7 @@ class WebNetworkSourceHandler implements SourceHandler {
         source: source,
         installedAt: DateTime.now(),
         sizeBytes: -1, // Web doesn't track size (blob URL)
-        type: ModelType.inference,
+        type: type,
         hasLoraWeights: false,
       );
 

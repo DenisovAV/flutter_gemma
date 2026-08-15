@@ -1,6 +1,7 @@
 import 'package:flutter_gemma/core/handlers/source_handler.dart';
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart';
 
 /// Stub implementation for non-web platforms
 class WebBundledSourceHandler implements SourceHandler {
@@ -23,6 +24,7 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) {
     throw UnsupportedError(
       'WebBundledSourceHandler is only available on web platform',
@@ -34,6 +36,7 @@ class WebBundledSourceHandler implements SourceHandler {
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType type = ModelType.inference,
   }) {
     throw UnsupportedError(
       'WebBundledSourceHandler is only available on web platform',

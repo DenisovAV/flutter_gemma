@@ -1,6 +1,7 @@
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart' as repo;
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -196,6 +197,7 @@ class SttInstallationBuilder {
             _modelSource!,
             cancelToken: _cancelToken,
             targetFilename: modelFilename,
+            type: repo.ModelType.stt,
           )) {
             _onModelProgress!(progress);
           }
@@ -204,6 +206,7 @@ class SttInstallationBuilder {
             _modelSource!,
             cancelToken: _cancelToken,
             targetFilename: modelFilename,
+            type: repo.ModelType.stt,
           );
         }
       } else {
@@ -220,6 +223,7 @@ class SttInstallationBuilder {
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
             targetFilename: tokenizerFilename,
+            type: repo.ModelType.stt,
           )) {
             _onTokenizerProgress!(progress);
           }
@@ -228,6 +232,7 @@ class SttInstallationBuilder {
             effectiveTokenizerSource,
             cancelToken: _cancelToken,
             targetFilename: tokenizerFilename,
+            type: repo.ModelType.stt,
           );
         }
       } else {

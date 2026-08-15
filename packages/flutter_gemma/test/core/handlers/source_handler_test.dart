@@ -120,6 +120,34 @@ void main() {
       verify(() => mockRepository.saveModel(any())).called(1);
     });
 
+    test('install persists the requested ModelType tag', () async {
+      final source = NetworkSource('https://example.com/tts.bin');
+      const targetPath = '/data/tts.bin';
+
+      when(
+        () => mockFileSystem.getWriteTargetPath(any()),
+      ).thenAnswer((_) async => targetPath);
+      when(
+        () => mockDownloadService.download(
+          any(),
+          any(),
+          token: any(named: 'token'),
+        ),
+      ).thenAnswer((_) async {});
+      when(
+        () => mockFileSystem.getFileSize(any()),
+      ).thenAnswer((_) async => 1024);
+      when(() => mockRepository.saveModel(any())).thenAnswer((_) async {});
+
+      await handler.install(source, type: ModelType.tts);
+
+      final captured = verify(
+        () => mockRepository.saveModel(captureAny()),
+      ).captured.single as ModelInfo;
+      expect(captured.type, ModelType.tts);
+      expect(captured.id, 'tts.bin');
+    });
+
     test(
       'install honors targetFilename override for write path and ModelInfo.id',
       () async {

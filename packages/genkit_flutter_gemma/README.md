@@ -48,7 +48,7 @@ register their providers in `FlutterGemma.initialize()`.
 dependencies:
   genkit_flutter_gemma: ^0.4.3
   flutter_gemma: ^1.5.8
-  flutter_gemma_litertlm: ^1.4.0   # only the engines/backends you actually use
+  flutter_gemma_litertlm: ^1.4.1   # only the engines/backends you actually use
   flutter_gemma_mediapipe: ^1.0.4
   flutter_gemma_embeddings: ^1.0.4
 ```

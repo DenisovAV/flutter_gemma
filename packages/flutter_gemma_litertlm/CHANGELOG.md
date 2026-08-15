@@ -1,3 +1,7 @@
+## 1.4.1
+- Fix Windows NPU: the OpenVino compiler DLLs shipped but were never bundled into the app.
+- Drop the debug TBB variants that were being bundled alongside the release set.
+
 ## 1.4.0
 - Migrate to LiteRT-LM v0.16.0 (native-v0.16.0) — fixes the Android OpenCL per-turn leak (#348, #402).
 - Detect the stream-callback ABI at runtime — v0.15.0 changed it with no compat path.

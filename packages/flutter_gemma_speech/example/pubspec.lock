@@ -186,7 +186,7 @@ packages:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.4.0"
+    version: "1.4.1"
   flutter_gemma_speech:
     dependency: "direct main"
     description:

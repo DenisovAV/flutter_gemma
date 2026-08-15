@@ -1,3 +1,7 @@
+## 0.2.4
+
+- docs: document the imageBytes vision API in the package README.
+
 ## 0.2.3
 
 - feat: AgentSession.ask / AgentLoop.run accept an optional imageBytes — vision-capable agent turns (requires supportImage: true).

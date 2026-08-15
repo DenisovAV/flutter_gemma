@@ -136,6 +136,29 @@ final session = await AgentSession.fromModel(
 See `packages/flutter_gemma/example` (the **Agent Skills** screen) for a
 runnable demo.
 
+## Asking about a photo
+
+`ask` takes an optional image, so the model can pick a skill from what it saw
+rather than from the text alone. Build the session with `supportImage: true`
+(and back it with a multimodal model):
+
+```dart
+final session = await AgentSession.fromModel(
+  model,
+  registry: registry,
+  supportImage: true, // required — and the model must be multimodal
+);
+
+await for (final event in session.ask('what is this?', imageBytes: photo)) {
+  // …
+}
+```
+
+Passing `imageBytes` to a session built without `supportImage: true` fails the
+returned stream with an `ArgumentError` instead of quietly answering as if there
+were no image — the flag is what's checked; that the model is actually
+multimodal stays your responsibility (it can't be introspected from Dart).
+
 ## SKILL.md format
 
 ```yaml

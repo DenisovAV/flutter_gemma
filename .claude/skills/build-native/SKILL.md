@@ -417,13 +417,16 @@ This is the same failure shape as the frozen NPU dispatches: local state standin
 After `flutter build ipa --release` or archive:
 
 ```bash
-ls Runner.app/Frameworks/
-# → only *.framework directories. Zero loose .dylib files. Zero symlinks.
-find Runner.app/Frameworks/ -maxdepth 1 -type l   # must be empty
-find Runner.app/Frameworks/ -maxdepth 1 -name "*.dylib" -type f   # must be empty
+R=build/ios/iphoneos/Runner.app
+ls "$R/Frameworks" | wc -l                                    # must be NON-ZERO
+ls "$R/Frameworks" | grep -E 'LiteRtLm|LiteRtMetalAccelerator|GemmaModelConstraintProvider|StreamProxy'
+find "$R/Frameworks" -maxdepth 1 -type l                      # must be empty
+find "$R/Frameworks" -maxdepth 1 -name "*.dylib" -type f      # must be empty
 ```
 
 If anything other than `.framework/` is in there, App Store will reject with ITMS-90432 ("Unexpected file found in Frameworks").
+
+**Count the contents first — an empty `Frameworks/` passes every "must be empty" test.** `flutter build ios` can leave a half-assembled `Runner.app` behind: the Xcode phase reports `Xcode build done`, then flutter_tools dies cleaning up its own temp dir (`PathNotFoundException: Deletion failed … flutter_ios_build_temp_dir…`), and the frameworks are never embedded. The bundle exists, the two negative checks come back perfectly clean, and nothing distinguishes "compliant" from "nothing was built". Re-running the build fixes it; a healthy debug build of the example carries ~10 frameworks, four of them ours. Same failure shape as `nm` on a missing file — assert the positive before trusting the negative.
 
 ### 9. NPU on real silicon — the only check that covers the dispatch libraries
 

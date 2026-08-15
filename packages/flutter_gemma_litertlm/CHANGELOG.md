@@ -1,8 +1,8 @@
 ## 1.4.0
 - Migrate to LiteRT-LM v0.16.0 (native-v0.16.0) — fixes the Android OpenCL per-turn leak (#348, #402).
 - Detect the stream-callback ABI at runtime — v0.15.0 changed it with no compat path.
-- Fix Windows GPU by linking the LiteRt runtime dynamically (#2957).
-- Rebuild both NPU dispatch stacks from the pin instead of shipping stale prebuilts (#3217).
+- Fix Windows discrete GPU: a Bazel define we passed had been removed upstream.
+- Rebuild both NPU dispatch stacks from the pin instead of shipping stale prebuilts.
 - Pin the macOS deployment target of `libStreamProxy.dylib` to 11.0 instead of the build host's.
 
 ## 1.3.1

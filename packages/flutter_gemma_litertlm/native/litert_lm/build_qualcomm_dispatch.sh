@@ -90,23 +90,25 @@ echo "Building from: $(git -C "$LITERT_DIR" log --oneline -1)"
 
 cd "$LITERT_DIR"
 
-# 2. Write .litert_configure.bazelrc with Android NDK path.
-# LiteRT's .bazelrc does `try-import %workspace%/.litert_configure.bazelrc` —
-# without it //external:android/crosstool doesn't exist and arm64-v8a build fails.
-NDK_API_LEVEL=30
-echo "Generating .litert_configure.bazelrc (NDK=$ANDROID_NDK_HOME, API=$NDK_API_LEVEL)..."
-cat > "$LITERT_DIR/.litert_configure.bazelrc" <<EOF
-build --action_env ANDROID_NDK_HOME="$ANDROID_NDK_HOME"
-build --action_env ANDROID_NDK_API_LEVEL="$NDK_API_LEVEL"
-build --action_env ANDROID_SDK_HOME="$ANDROID_HOME"
-build --action_env ANDROID_SDK_API_LEVEL="34"
-build --action_env ANDROID_BUILD_TOOLS_VERSION="34.0.0"
-EOF
-
-# 3. Build dispatch lib
+# 2. Build dispatch lib.
+#
+# The NDK path goes in via --repo_env, NOT --action_env. At this pin LiteRT
+# resolves the toolchain through rules_android_ndk and gates it on a repository
+# rule: check_android_ndk_env() reads ctx.getenv("ANDROID_NDK_HOME") and, when
+# it comes back empty, registers @android_ndk_env//:all — a repo with an EMPTY
+# BUILD file. Zero toolchains, cc resolution finds nothing, Bazel falls back to
+# the legacy crosstool, and you get `clang: error: unknown argument:
+# '-gcc-toolchain'` — which reads as "NDK too new" and is not.
+#
+# --action_env populates action environments, which repo rules never read. The
+# old .litert_configure.bazelrc written here (ANDROID_NDK_API_LEVEL and
+# friends) was the pre-rules_android_ndk mechanism and is dead weight now:
+# api_level is declared in LiteRT's own WORKSPACE call.
 echo ""
 echo "=== Running Bazel build ==="
 bazelisk build \
+  --repo_env=ANDROID_NDK_HOME="$ANDROID_NDK_HOME" \
+  --repo_env=ANDROID_HOME="$ANDROID_HOME" \
   --repo_env=HERMETIC_PYTHON_VERSION=3.12 \
   --config=android_arm64 \
   --compilation_mode=opt \
@@ -126,9 +128,53 @@ fi
 cp "$OUTPUT" "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so"
 chmod +w "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so"
 
+# 4. Refresh the QNN runtime from the SAME QAIRT the dispatch was built against.
+#
+# These are not compiled from source — they come out of the QAIRT SDK — which
+# makes "keep the old ones" look safe. It is not: the dispatch negotiates an
+# API version with them. Ours drifted to
+#   qnn_manager.cc:349 Qnn System library version 1.8.0 is mismatched.
+#                      The minimum supported version is 1.11.0.
+#   dispatch_api.cc:139 Failed to set up QNN manager
+#   dispatch_delegate.cc:131 No usable Dispatch runtime found
+# and engine_create then fails on backend=npu in ~60ms with nothing but an
+# opaque null, which the Dart layer reports as "model may be invalid".
+#
+# Do NOT try to catch this by version string: QNN has two independent
+# numberings, and libQnnSystem.so — the file that actually broke — carries no
+# version string at all. Compare sizes against the SDK instead.
+QAIRT_DIR="$(bazelisk info output_base 2>/dev/null)/external/qairt"
+if [ ! -d "$QAIRT_DIR/lib/aarch64-android" ]; then
+  echo "ERROR: QAIRT SDK not found at $QAIRT_DIR" >&2
+  echo "       The QNN runtime was NOT refreshed. Shipping a runtime older than" >&2
+  echo "       the dispatch fails only on real hardware, at engine_create." >&2
+  exit 1
+fi
+echo ""
+echo "=== Refreshing QNN runtime from $QAIRT_DIR ==="
+for f in libQnnSystem.so libQnnHtp.so \
+         libQnnHtpV73Stub.so libQnnHtpV75Stub.so \
+         libQnnHtpV79Stub.so libQnnHtpV81Stub.so; do
+  src="$QAIRT_DIR/lib/aarch64-android/$f"
+  [ -f "$src" ] || { echo "ERROR: missing in SDK: $src" >&2; exit 1; }
+  cp -f "$src" "$PREBUILT_DIR/$f"
+  chmod +w "$PREBUILT_DIR/$f"
+  printf "  %-26s %s bytes\n" "$f" "$(wc -c < "$PREBUILT_DIR/$f" | tr -d ' ')"
+done
+# Skel libs live per-Hexagon-version, outside lib/aarch64-android. V79 is the
+# HTP of SM8750 (Snapdragon 8 Elite) and is absent from /vendor/dsp/cdsp/ even
+# on Qualcomm reference firmware, so bundling it is required, not a workaround.
+for v in 73 75 79 81; do
+  src="$QAIRT_DIR/lib/hexagon-v$v/unsigned/libQnnHtpV${v}Skel.so"
+  [ -f "$src" ] || { echo "ERROR: missing in SDK: $src" >&2; exit 1; }
+  cp -f "$src" "$PREBUILT_DIR/libQnnHtpV${v}Skel.so"
+  chmod +w "$PREBUILT_DIR/libQnnHtpV${v}Skel.so"
+  printf "  %-26s %s bytes\n" "libQnnHtpV${v}Skel.so" "$(wc -c < "$PREBUILT_DIR/libQnnHtpV${v}Skel.so" | tr -d ' ')"
+done
+
 echo ""
 echo "=== Done ==="
-echo "  libLiteRtDispatch_Qualcomm.so → $PREBUILT_DIR/"
+echo "  libLiteRtDispatch_Qualcomm.so + 10 QNN runtime libs → $PREBUILT_DIR/"
 ls -lh "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so"
 echo ""
 echo "Exported symbols (dispatch API):"

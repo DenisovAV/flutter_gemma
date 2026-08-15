@@ -176,7 +176,27 @@ Why the old rule was believable and still wrong: a fresh LiteRT-LM build genuine
 
 Both looked like clean regressions at a version boundary, because they were: the boundary is where upstream finally touched the code the frozen artifact depended on. **Verify a bisection's conclusion, not just its measurement** — "v0.13.1 works, v0.14.0 crashes" is a true measurement that says nothing about whose change is at fault when one input to the comparison never moved.
 
-QNN runtime `.so`s (`libQnn*.so`) *are* genuinely carried forward — they come from the QAIRT SDK, not from source. `libQnnHtpV79Skel.so` in particular must be bundled: it is **absent from `/vendor/dsp/cdsp/` even on Qualcomm reference firmware**, so shipping it is required, not a workaround for unusual devices.
+**The QNN runtime `.so`s must be refreshed with the dispatch, not carried forward.** They are not compiled from source — they come out of the QAIRT SDK — which makes "just keep the old ones" look safe. It is not: the dispatch you build negotiates an **API version** with them, and ours drifted into
+
+```
+E/litert: [qnn_manager.cc:349] Qnn System library version 1.8.0 is mismatched.
+          The minimum supported version is 1.11.0.
+E/litert: [dispatch_api.cc:139] Failed to set up QNN manager
+E/litert: [dispatch_delegate.cc:131] No usable Dispatch runtime found
+```
+
+Bazel already downloaded the matching SDK while building the dispatch. Take them from there so both halves come from one QAIRT:
+
+```bash
+Q=$(find "$(bazel info output_base)/external/qairt" -maxdepth 0 2>/dev/null)
+D=native/litert_lm/prebuilt/android_arm64
+for f in libQnnSystem.so libQnnHtp.so libQnnHtpV{73,75,79,81}Stub.so; do cp -f "$Q/lib/aarch64-android/$f" "$D/"; done
+for v in 73 75 79 81; do cp -f "$Q/lib/hexagon-v$v/unsigned/libQnnHtpV${v}Skel.so" "$D/"; done
+```
+
+`libQnnHtpV79Skel.so` in particular must be bundled: it is **absent from `/vendor/dsp/cdsp/` even on Qualcomm reference firmware**, so shipping it is required, not a workaround for unusual devices.
+
+**Do not verify this by version string.** QNN carries two independent numberings — the SDK marketing version (`2.44.0.260225143659`, present in `libQnnHtp*.so`) and the per-component API version (`1.8.0` vs the required `1.11.0`) that actually gates loading. Matching the first says nothing about the second, and `libQnnSystem.so` — the exact file that broke — carries **no version string at all**, so a `strings | grep` check on it silently reports "no data" in a way that reads as "fine". Compare **file sizes against the SDK** instead; every one of our ten stale libs was visibly smaller than its QAIRT 2.44 counterpart.
 
 Whatever the origin, assert the NPU file count per bundle before packing. Shipping without them fails no build and no CPU/GPU smoke test — only a user on `PreferredBackend.npu` finds out.
 
@@ -192,6 +212,8 @@ Whatever the origin, assert the NPU file count per bundle before packing. Shippi
   ```
 
   TBB lives outside `runtime\bin` (`3rdparty\tbb\bin`), so search the whole SDK. `throw` on any missing member — a silently short NPU stack is the failure mode this whole section exists to prevent.
+
+  The `tbb*` wildcard at the end of that list is itself a small leak: it also matches `tbb12_debug.dll`, `tbbbind_2_5_debug.dll`, `tbbmalloc_debug.dll` and `tbbmalloc_proxy_debug.dll`. Only ~1.9 MB of a 253 MB bundle, and unlike `openvinod.dll` the names are distinct enough not to be mis-bound, so it is dead weight rather than a hazard — but add `-and $_.Name -notlike '*_debug.dll'` next time the workflow is touched.
 
 #### Qualcomm dispatch: `-gcc-toolchain` means you are building the wrong ref
 
@@ -369,6 +391,27 @@ flutter build ios --debug --no-codesign   # mandatory (catches dylib loading)
 
 **This is the smoke test I skipped in 0.14.1.** Doing this once would have caught the `libGemmaModelConstraintProvider.dylib` headerpad issue before publish.
 
+**But note what it still does NOT cover** — see the next check.
+
+### 7b. Build with `prebuilt/` moved aside — the only test of what users actually get
+
+`_resolveLibDir` tries three sources in order: local `native/litert_lm/prebuilt/<dir>/`, then the version-scoped cache, then `_downloadAndExtract` from `native-v<version>`. **End users only ever reach the third** — `prebuilt/` is gitignored and ships in no pub package (confirm with `dart pub publish --dry-run | grep -ciE 'prebuilt|\.so$|\.dylib|\.dll'` → must be `0`).
+
+On a maintainer machine the first source always hits. So every build you run locally — including check #7 and the release skill's `flutter build apk --release` pre-flight — silently validates **your** bundle and never touches the download, checksum verification, or extraction. Green means nothing about the artifact you are about to publish.
+
+After the release exists and the hook's `_checksums` are updated, force the real path:
+
+```bash
+mv native/litert_lm/prebuilt /tmp/prebuilt-aside
+rm -rf "$HOME/Library/Caches/flutter_gemma/native"     # kill the cache too, or you test source #2
+cd example && flutter clean && flutter pub get && flutter build apk --release
+mv /tmp/prebuilt-aside native/litert_lm/prebuilt
+```
+
+Pack the tarballs **from the exact directory you device-tested**, so the published bytes match the verified bytes by construction rather than by coincidence.
+
+This is the same failure shape as the frozen NPU dispatches: local state standing in for what goes out the door.
+
 ### 8. (App Store-bound builds) Frameworks/ structural check
 
 After `flutter build ipa --release` or archive:
@@ -435,6 +478,7 @@ And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` 
 | 12 | Intel NPU dispatch carried forward at OpenVino 2026.2.0 against a pin requiring 2026.3.0 | Build the dispatch from the pin | v0.11.0-b → v0.16.0, **misfiled upstream as #3217** |
 | 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt, **device verification pending** |
 | 14 | Blanket copy of OpenVino `runtime\bin` ships debug DLLs (`openvinod.dll`) beside release | Explicit allow-list + `throw` on missing | caught pre-publish at v0.16.0 |
+| 15 | QNN runtime libs left at an old QAIRT while the dispatch moved — `Qnn System library version 1.8.0 is mismatched` | Check #9 on device; compare file sizes against the SDK | native-v0.12.0 → v0.16.0, **caught on device** |
 
 Every one of those would have been caught by checks 1-9 before commit. **Run them all every time.**
 

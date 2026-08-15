@@ -1,3 +1,15 @@
+## 1.4.1
+- Fix Windows NPU: the OpenVino compiler DLLs shipped but were never bundled into the app.
+- Drop the debug TBB variants that were being bundled alongside the release set.
+
+## 1.4.0
+- Migrate to LiteRT-LM v0.16.0 (native-v0.16.0) — fixes the Android OpenCL per-turn leak (#348, #402).
+- Detect the stream-callback ABI at runtime — v0.15.0 changed it with no compat path.
+- Fix Windows discrete GPU: a Bazel define we passed had been removed upstream.
+- Rebuild both NPU dispatch stacks from the pin instead of shipping stale prebuilts.
+- Pin the macOS deployment target of `libStreamProxy.dylib` to 11.0 instead of the build host's.
+- Native platforms only — web stays on `@litert-lm/core` 0.14.0 (the 0.16.0 npm publish ships no `dist/`).
+
 ## 1.3.1
 - Clearer engine-create error for GPU-only `.litertlm` models run on CPU (#390).
 

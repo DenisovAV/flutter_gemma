@@ -55,17 +55,16 @@ models.
 |---|---|---|---|---|---|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC. ⚠️ Discrete GPU regressed — see below |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
 
 <Warning>
-**Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete
-GPUs** crash in the upstream WebGPU/Dawn stack
-([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
-use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
-macOS/Linux GPU and Windows CPU/NPU are unaffected.
+**Fixed in litertlm 1.4.0.** On litertlm 1.2.0–1.3.1, Windows **discrete GPUs**
+crash on `PreferredBackend.gpu`. Upgrade to 1.4.0; on the affected versions use
+`PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were
+never affected.
 </Warning>
 
 ## Requirements
@@ -340,12 +339,16 @@ swap works. To swap models at runtime, call `model.close()` first, then
 
 ## Known limitations
 
-### Windows discrete GPU crashes (litertlm 1.2.0+ / LiteRT-LM v0.14.0)
+### Windows discrete GPU crashes (litertlm 1.2.0–1.3.1) — fixed in 1.4.0
 
-Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack on
-`PreferredBackend.gpu` ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)).
-Use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
-macOS/Linux GPU and Windows CPU/NPU are unaffected.
+Windows **discrete GPUs** crash on `PreferredBackend.gpu` in litertlm
+1.2.0–1.3.1. The Windows native build passed a Bazel define that upstream had
+removed, so it silently linked the LiteRt runtime statically — which conflicts
+with the separately shipped WebGPU accelerator once Dawn was split out into its
+own library. The define was corrected in 1.4.0 and Windows GPU works again.
+
+On 1.2.0–1.3.1 use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
+Windows CPU/NPU were never affected.
 
 ### Per-token sampler runs on CPU on all desktop platforms
 
@@ -406,10 +409,9 @@ back to CPU. Verify `dxcompiler.dll` and `dxil.dll` are next to your `app.exe`
 VS 2019+ Visual C++ Runtime.
 
 <Warning>
-On a Windows **discrete GPU** with litertlm 1.2.0+ / LiteRT-LM v0.14.0, GPU also
-crashes in the upstream WebGPU/Dawn stack
-([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
-use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. See
+On a Windows **discrete GPU** with litertlm 1.2.0–1.3.1, GPU also crashes for a
+separate reason — a Bazel define we passed had been removed upstream, so the
+runtime linked statically. Fixed in 1.4.0. See
 [Known limitations](#known-limitations).
 </Warning>
 

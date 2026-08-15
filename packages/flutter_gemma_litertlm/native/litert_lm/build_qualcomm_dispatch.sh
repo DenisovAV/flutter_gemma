@@ -13,7 +13,15 @@
 #
 # Usage:
 #   ./build_qualcomm_dispatch.sh
+#   LITERTLM_REF=<sha> ./build_qualcomm_dispatch.sh          # match a specific engine build
 #   LITERT_QAIRT_SDK=/path/to/qairt/2.44.0.260225 ./build_qualcomm_dispatch.sh
+#
+# Env:
+#   LITERTLM_REF      LiteRT-LM commit to derive LITERT_REF from (default below).
+#   LITERT_REF        Override the derived LiteRT ref. Rarely correct — the two
+#                     must come from one tree or the dispatch SIGSEGVs.
+#   LITERT_QAIRT_SDK  Local QAIRT SDK, skips the ~500 MB download.
+#   ANDROID_NDK_HOME  NDK r29+ (auto-detected from ~/Library/Android/sdk/ndk).
 
 set -euo pipefail
 
@@ -21,10 +29,39 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_DIR="/tmp/LiteRT"
 
-# LiteRT commit that matches LiteRT-LM ffed38ad (flutter_gemma native-v0.12.0).
-# Pinned via LiteRT-LM WORKSPACE LITERT_REF. Do NOT use v2.1.1 or earlier —
-# the LiteRtDispatchApi struct has breaking ABI changes between v2.1.1 and this.
-LITERT_REF="5c5b9ce68875f51af2fee3d7d7a9929df8be977f"
+# The dispatch library must be built from the SAME LiteRT tree as the engine it
+# calls into. Hardcoding a ref here is how it silently drifted: this file sat at
+# 5c5b9ce6 (LiteRT-LM ffed38ad, native-v0.12.0) while the engine moved on, and a
+# stale dispatch does not fail politely — on v0.16.0 it SIGSEGVs inside
+# LiteRtDestroyOptions the moment engine_create tears an options object down.
+#
+# So derive it instead: read LITERT_REF out of the WORKSPACE of the LiteRT-LM
+# revision we are building. Pass LITERTLM_REF to match a specific engine build.
+#
+# Do NOT go back to a literal, and do NOT use LiteRT v2.1.1 or earlier — the
+# LiteRtDispatchApi struct has breaking ABI changes after it.
+LITERTLM_REF="${LITERTLM_REF:-924e79c91542761242244e4f1651851f822e4cbb}"   # v0.16.0
+LITERT_REF="${LITERT_REF:-}"
+if [ -z "$LITERT_REF" ]; then
+  echo "Resolving LITERT_REF from LiteRT-LM $LITERTLM_REF WORKSPACE..."
+  # Fetch and parse as separate steps. Combined, `set -e` aborts on a curl
+  # failure (a bad LITERTLM_REF 404s — the single most likely operator error)
+  # at the assignment, so the diagnostic below could never print. `sed …;q`
+  # rather than `| head -1` also avoids a SIGPIPE that `pipefail` reports as 141.
+  if ! _workspace="$(curl -fsSL \
+      "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/$LITERTLM_REF/WORKSPACE")"; then
+    echo "ERROR: could not fetch WORKSPACE for LiteRT-LM $LITERTLM_REF" >&2
+    echo "       (bad ref? network? the ref must be a commit/tag that exists)" >&2
+    exit 1
+  fi
+  LITERT_REF="$(printf '%s\n' "$_workspace" \
+    | sed -n 's/^LITERT_REF *= *"\([0-9a-f]*\)".*/\1/p;/^LITERT_REF/q')"
+  if [ -z "$LITERT_REF" ]; then
+    echo "ERROR: WORKSPACE for $LITERTLM_REF has no LITERT_REF line" >&2
+    exit 1
+  fi
+  echo "  -> $LITERT_REF"
+fi
 
 # Resolve Android NDK
 if [ -z "${ANDROID_NDK_HOME:-}" ]; then
@@ -70,32 +107,52 @@ echo "Building from: $(git -C "$LITERT_DIR" log --oneline -1)"
 
 cd "$LITERT_DIR"
 
-# 2. Write .litert_configure.bazelrc with Android NDK path.
-# LiteRT's .bazelrc does `try-import %workspace%/.litert_configure.bazelrc` —
-# without it //external:android/crosstool doesn't exist and arm64-v8a build fails.
-NDK_API_LEVEL=30
-echo "Generating .litert_configure.bazelrc (NDK=$ANDROID_NDK_HOME, API=$NDK_API_LEVEL)..."
-cat > "$LITERT_DIR/.litert_configure.bazelrc" <<EOF
-build --action_env ANDROID_NDK_HOME="$ANDROID_NDK_HOME"
-build --action_env ANDROID_NDK_API_LEVEL="$NDK_API_LEVEL"
-build --action_env ANDROID_SDK_HOME="$ANDROID_HOME"
-build --action_env ANDROID_SDK_API_LEVEL="34"
-build --action_env ANDROID_BUILD_TOOLS_VERSION="34.0.0"
-EOF
-
-# 3. Build dispatch lib
+# 2. Build dispatch lib.
+#
+# The NDK path goes in via --repo_env, NOT --action_env. At this pin LiteRT
+# resolves the toolchain through rules_android_ndk and gates it on a repository
+# rule: check_android_ndk_env() reads ctx.getenv("ANDROID_NDK_HOME") and, when
+# it comes back empty, registers @android_ndk_env//:all — a repo with an EMPTY
+# BUILD file. Zero toolchains, cc resolution finds nothing, Bazel falls back to
+# the legacy crosstool, and you get `clang: error: unknown argument:
+# '-gcc-toolchain'` — which reads as "NDK too new" and is not.
+#
+# --action_env populates action environments, which repo rules never read. The
+# old .litert_configure.bazelrc written here (ANDROID_NDK_API_LEVEL and
+# friends) was the pre-rules_android_ndk mechanism and is dead weight now:
+# api_level is declared in LiteRT's own WORKSPACE call.
+#
+# LITERT_QAIRT_SDK rides the same rule: it is read by a repository rule, so
+# exporting it does nothing. Without this line the script printed "(local)" and
+# then downloaded the 500 MB SDK anyway.
+QAIRT_ENV=()
+if [ -n "${LITERT_QAIRT_SDK:-}" ]; then
+  QAIRT_ENV+=(--repo_env=LITERT_QAIRT_SDK="$LITERT_QAIRT_SDK")
+fi
 echo ""
 echo "=== Running Bazel build ==="
 bazelisk build \
+  --repo_env=ANDROID_NDK_HOME="$ANDROID_NDK_HOME" \
+  --repo_env=ANDROID_HOME="$ANDROID_HOME" \
   --repo_env=HERMETIC_PYTHON_VERSION=3.12 \
+  "${QAIRT_ENV[@]+"${QAIRT_ENV[@]}"}" \
   --config=android_arm64 \
   --compilation_mode=opt \
   --strip=always \
   --linkopt=-Wl,-z,max-page-size=16384 \
   //litert/vendors/qualcomm/dispatch:dispatch_api_so
 
-# 4. Copy to prebuilt dir
-mkdir -p "$PREBUILT_DIR"
+# 3. Stage the whole set, promote only when every piece is in hand.
+#
+# The dispatch and the QNN runtime are one matched pair. Writing the dispatch
+# straight into $PREBUILT_DIR and refreshing QNN afterwards means any abort in
+# between leaves exactly the mismatched pair this script exists to prevent —
+# new dispatch, old runtime — and the next `tar czf` ships it. Nothing in the
+# bundle records which half is stale, so the failure is unrecoverable by
+# inspection; it shows up only on device.
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+
 OUTPUT="bazel-bin/litert/vendors/qualcomm/dispatch/libLiteRtDispatch_Qualcomm.so"
 if [ ! -f "$OUTPUT" ]; then
   echo "ERROR: expected output not found at $OUTPUT"
@@ -103,14 +160,80 @@ if [ ! -f "$OUTPUT" ]; then
   find bazel-bin/litert/vendors/qualcomm/dispatch/ -name "*.so" 2>/dev/null || true
   exit 1
 fi
-cp "$OUTPUT" "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so"
-chmod +w "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so"
+cp "$OUTPUT" "$STAGE/libLiteRtDispatch_Qualcomm.so"
+
+# 4. Refresh the QNN runtime from the SAME QAIRT the dispatch was built against.
+#
+# These are not compiled from source — they come out of the QAIRT SDK — which
+# makes "keep the old ones" look safe. It is not: the dispatch negotiates an
+# API version with them. Ours drifted to
+#   qnn_manager.cc:349 Qnn System library version 1.8.0 is mismatched.
+#                      The minimum supported version is 1.11.0.
+#   dispatch_api.cc:139 Failed to set up QNN manager
+#   dispatch_delegate.cc:131 No usable Dispatch runtime found
+# and engine_create then fails on backend=npu in ~60ms with nothing but an
+# opaque null, which the Dart layer reports as "model may be invalid".
+#
+# Do NOT try to catch this by version string: QNN has two independent
+# numberings, and libQnnSystem.so — the file that actually broke — carries no
+# version string at all. Compare sizes against the SDK instead.
+if ! OUTPUT_BASE="$(bazelisk info output_base)"; then
+  echo "ERROR: 'bazelisk info output_base' failed (see its stderr above)" >&2
+  exit 1
+fi
+if [ -z "$OUTPUT_BASE" ]; then
+  echo "ERROR: 'bazelisk info output_base' returned nothing" >&2
+  exit 1
+fi
+QAIRT_DIR="$OUTPUT_BASE/external/qairt"
+if [ ! -d "$QAIRT_DIR/lib/aarch64-android" ]; then
+  echo "ERROR: QAIRT SDK not found at $QAIRT_DIR" >&2
+  echo "       The QNN runtime cannot be refreshed. Shipping a runtime older" >&2
+  echo "       than the dispatch fails only on real hardware, at engine_create." >&2
+  exit 1
+fi
+echo ""
+echo "=== Staging QNN runtime from $QAIRT_DIR ==="
+for f in libQnnSystem.so libQnnHtp.so \
+         libQnnHtpV73Stub.so libQnnHtpV75Stub.so \
+         libQnnHtpV79Stub.so libQnnHtpV81Stub.so; do
+  src="$QAIRT_DIR/lib/aarch64-android/$f"
+  [ -f "$src" ] || { echo "ERROR: missing in SDK: $src" >&2; exit 1; }
+  cp -f "$src" "$STAGE/$f"
+  printf "  %-26s %s bytes\n" "$f" "$(wc -c < "$STAGE/$f" | tr -d ' ')"
+done
+# Skel libs live per-Hexagon-version, outside lib/aarch64-android. V79 is the
+# HTP of SM8750 (Snapdragon 8 Elite) and is absent from /vendor/dsp/cdsp/ even
+# on Qualcomm reference firmware, so bundling it is required, not a workaround.
+for v in 73 75 79 81; do
+  src="$QAIRT_DIR/lib/hexagon-v$v/unsigned/libQnnHtpV${v}Skel.so"
+  [ -f "$src" ] || { echo "ERROR: missing in SDK: $src" >&2; exit 1; }
+  cp -f "$src" "$STAGE/libQnnHtpV${v}Skel.so"
+  printf "  %-26s %s bytes\n" "libQnnHtpV${v}Skel.so" "$(wc -c < "$STAGE/libQnnHtpV${v}Skel.so" | tr -d ' ')"
+done
+
+# 5. Verify the staged dispatch before it can reach the bundle. This is the one
+# symbol the library exists to export; without it the NPU path is dead.
+if ! nm -D "$STAGE/libLiteRtDispatch_Qualcomm.so" 2>/dev/null \
+     | grep -q 'LiteRtDispatchGetApi'; then
+  echo "ERROR: staged dispatch does not export LiteRtDispatchGetApi" >&2
+  exit 1
+fi
+
+# 6. Promote. All 11 files are present and the dispatch is sane, so the bundle
+# moves from one consistent state to another.
+staged=$(find "$STAGE" -maxdepth 1 -type f -name '*.so' | wc -l | tr -d ' ')
+if [ "$staged" -ne 11 ]; then
+  echo "ERROR: staged $staged files, expected 11 (dispatch + 10 QNN)" >&2
+  exit 1
+fi
+mkdir -p "$PREBUILT_DIR"
+for f in "$STAGE"/*.so; do
+  cp -f "$f" "$PREBUILT_DIR/$(basename "$f")"
+  chmod +w "$PREBUILT_DIR/$(basename "$f")"
+done
 
 echo ""
 echo "=== Done ==="
-echo "  libLiteRtDispatch_Qualcomm.so → $PREBUILT_DIR/"
+echo "  libLiteRtDispatch_Qualcomm.so + 10 QNN runtime libs → $PREBUILT_DIR/"
 ls -lh "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so"
-echo ""
-echo "Exported symbols (dispatch API):"
-nm -D "$PREBUILT_DIR/libLiteRtDispatch_Qualcomm.so" 2>/dev/null \
-  | grep " T \|LiteRtGetDispatchApiVersion\|LiteRtInitialize" | head -10

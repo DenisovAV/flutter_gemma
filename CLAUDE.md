@@ -48,7 +48,7 @@
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
 - **Engine selection by file extension** (via `canHandle`): `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
-- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time via each package's `hook/build.dart` (Native Assets) from GitHub release `native-v0.14.0`. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
+- **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time from GitHub release `native-v0.16.0` (Native Assets). `flutter_gemma_litertlm/hook/build.dart` is the **sole** hook carrying the LiteRT native version; `flutter_gemma_embeddings` and `flutter_gemma_speech` have no hook of their own and consume the bundle transitively. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
 
 ### Supported Models
 
@@ -136,9 +136,9 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **Dart SDK**: `>=3.12.0 <4.0.0`
 - **iOS**: Minimum 16.0
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
-- **LiteRT-LM**: native libs from `native-v0.14.0` GitHub Release. Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake). v0.14.0: native per-session sampler (opaque session-config) + #214 GPU output-garbage fix; Dawn split static→dynamic (Linux/Windows bundle `libwebgpu_dawn`). Windows discrete GPU (WebGPU/Dawn) regressed upstream — use CPU/NPU on Windows (LiteRT-LM #2957).
+- **LiteRT-LM**: native libs from `native-v0.16.0` GitHub Release (LiteRT-LM pin `924e79c9`, LiteRT pin `0ff28117`). Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.5.7`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.3.1`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.4`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.3`, `flutter_gemma_builtin_ai` `0.1.0`
+- **Current Version**: core `flutter_gemma` `1.5.8`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.4.1`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.4`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.3`, `flutter_gemma_builtin_ai` `0.1.0`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -175,7 +175,7 @@ window.LlmInference = LlmInference;
 
 ### Desktop (macOS/Windows/Linux)
 - Architecture: Dart → `dart:ffi` → LiteRT-LM C API (no JVM, no gRPC)
-- Native libs fetched at build time by each package's `hook/build.dart` from `native-v0.14.0` GitHub release; SHA256-verified, bundled via Native Assets
+- Native libs fetched at build time by `flutter_gemma_litertlm/hook/build.dart` (the only hook that carries the version) from the `native-v0.16.0` GitHub release; SHA256-verified, bundled via Native Assets
 - Desktop uses `.litertlm` format only (not `.task`)
 - Windows GPU requires `dxil.dll` + `dxcompiler.dll` (DirectXShaderCompiler runtime) — bundled in the Windows native archive
 - Windows NPU (`PreferredBackend.npu`) requires Intel LunarLake/PantherLake silicon — `LiteRtDispatch.dll` + OpenVino runtime + TBB bundled in the Windows native archive (0.15.1+)
@@ -243,7 +243,7 @@ flutter analyze && dart format . && flutter test
 | `lib/src/litert/litert_bindings.dart` | Hand-written dart:ffi bindings to LiteRT C API; dual MSVC/POSIX `LiteRtLayout` |
 | `lib/src/litert/litert_embedding_model.dart` | Facade over `EmbeddingWorker` (forward pass on a background isolate, #299) |
 | `lib/src/litert/litert_embedding_core.dart`, `litert_embedding_worker.dart` | Sync native core + the isolate that drives it |
-| `hook/build.dart` | Byte-identical to litertlm hook (single-registrant coordination; no litertlm dep) |
+| *(no `hook/build.dart`)* | Deleted in the LiteRT engine consolidation — the shared `libLiteRtLm` bundle comes transitively from `flutter_gemma_litertlm`, which owns the sole hook |
 
 **`packages/flutter_gemma_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
 

@@ -116,7 +116,10 @@ await for (final event in session.ask('what is this?', imageBytes: photo)) {
 `supportImage: true` is not optional here. Passing `imageBytes` to a session
 built without it fails with `ArgumentError` instead of quietly answering as if
 there were no image — the engines disagree on the unsupported case, and a silent
-drop would give you a confident answer about a photo the model never saw.
+drop would give you a confident answer about a photo the model never saw. The
+flag is what's checked; that the model is actually multimodal stays your
+responsibility (it can't be introspected from Dart) — a text-only model behind
+`supportImage: true` will simply ignore the image.
 
 ## Bundled starter skills
 

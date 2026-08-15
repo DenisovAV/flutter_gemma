@@ -106,14 +106,17 @@ class AgentLoop {
   /// image alongside [userMessage] and can call skills based on what it saw.
   ///
   /// PRECONDITION: [chat] must have been created with `supportImage: true`
-  /// (see [AgentSession.fromModel]) and be backed by a multimodal model. This
-  /// is enforced with a real error (surfaced on the returned stream), because
-  /// the engines below do NOT agree on what an unsupported image means: the
-  /// FFI, mobile-MediaPipe and built-in-AI sessions drop it silently and answer
-  /// text-only, while web MediaPipe throws `ArgumentError`. A silent drop is the
-  /// worse half — the model returns a confident answer to a photo it never saw,
-  /// and nothing in the event stream says so. Failing here makes the outcome
-  /// identical on every platform.
+  /// (see [AgentSession.fromModel]) and be backed by a multimodal model. The
+  /// `supportImage: true` half is enforced with a real error (surfaced on the
+  /// returned stream), because the engines below do NOT agree on what an
+  /// unsupported image means: the FFI, mobile-MediaPipe and built-in-AI sessions
+  /// drop it silently and answer text-only, while web MediaPipe throws
+  /// `ArgumentError`. A silent drop is the worse half — the model returns a
+  /// confident answer to a photo it never saw, and nothing in the event stream
+  /// says so. Failing here makes the outcome identical on every platform. The
+  /// "multimodal model" half cannot be checked from Dart (no capability
+  /// introspection API): if the flag is set but the model is text-only, the
+  /// image reaches the engine and is dropped there — a caller precondition.
   Stream<AgentEvent> run(
     InferenceChat chat,
     String userMessage, {

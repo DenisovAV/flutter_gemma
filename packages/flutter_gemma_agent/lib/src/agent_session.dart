@@ -173,8 +173,10 @@ class AgentSession {
   ///
   /// Pass [imageBytes] to attach a photo to the turn. The session must have been
   /// built with `supportImage: true` (see [fromModel]) and back a multimodal
-  /// model; otherwise the returned stream fails with an [ArgumentError] rather
-  /// than quietly answering as if there were no image.
+  /// model. A missing `supportImage: true` fails the returned stream with an
+  /// [ArgumentError] rather than quietly answering as if there were no image;
+  /// the "multimodal model" half is a caller precondition (undetectable from
+  /// Dart — see [AgentLoop.run]).
   Stream<AgentEvent> ask(
     String userMessage, {
     bool Function()? isCancelled,

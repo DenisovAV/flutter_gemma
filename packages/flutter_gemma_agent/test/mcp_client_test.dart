@@ -12,11 +12,16 @@ class _FakeMcpServer {
     this.sessionId = 'sess-123',
     this.toolsAsSse = false,
     this.forcedProtocolVersion,
+    this.rejectNotification = false,
   });
 
   /// When set, `initialize` answers with this revision instead of echoing the
   /// client's — i.e. the server negotiates down.
   final String? forcedProtocolVersion;
+
+  /// When true, `notifications/initialized` is answered with HTTP 400 — models
+  /// a server that rejects the spec-mandatory notification.
+  final bool rejectNotification;
 
   final String sessionId;
   final bool toolsAsSse;
@@ -50,7 +55,9 @@ class _FakeMcpServer {
           },
         );
       case 'notifications/initialized':
-        return http.Response('', 202);
+        return rejectNotification
+            ? http.Response('session expired', 400)
+            : http.Response('', 202);
       case 'tools/list':
         final payload = jsonEncode({
           'jsonrpc': '2.0',
@@ -236,6 +243,27 @@ void main() {
             (e) => e.toString(),
             'message',
             allOf(contains('2025-06-18'), contains('2025-11-25')),
+          ),
+        ),
+      );
+    });
+
+    test('connect() throws when notifications/initialized is rejected', () async {
+      // The notification is spec-mandatory before tools/list; a server that
+      // rejects it may then refuse tools/list, so the failure must surface here
+      // rather than be swallowed (which would send the debugger to the wrong
+      // request). tools/list stays valid, so a reverted swallow would let
+      // connect() SUCCEED — the message assertion pins the notification failure.
+      final server = _FakeMcpServer(rejectNotification: true);
+      final client = McpClient(config: config, httpClient: server.client);
+
+      await expectLater(
+        client.connect(),
+        throwsA(
+          isA<McpException>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('notifications/initialized'), contains('400')),
           ),
         ),
       );

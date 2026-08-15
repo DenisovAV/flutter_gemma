@@ -381,8 +381,8 @@ class McpClient {
       'Content-Type': 'application/json',
       'Accept': 'application/json, text/event-stream',
       // Required on every request after initialize. Without it a stateless
-      // server MUST assume 2025-03-26, so advertising a newer revision in the
-      // handshake alone changes nothing on the wire.
+      // server SHOULD assume 2025-03-26 (per the transport spec), so advertising
+      // a newer revision in the handshake alone changes nothing on the wire.
       'MCP-Protocol-Version': ?_negotiatedProtocolVersion,
       'Mcp-Session-Id': ?_sessionId,
       ...config.authHeaders,

@@ -17,8 +17,15 @@ Blocks when, for a real publish (not --dry-run):
 Exit 0 allows, exit 2 blocks with the message on stderr.
 """
 import json
+import re
 import subprocess
 import sys
+
+# Must sit in *command position* — start of the line, or right after a
+# separator. A bare substring test also fires on a command that merely mentions
+# the string (an echo, a grep, a heredoc), which is how the guard's own first
+# live run blocked an unrelated `git push` that printed a test fixture.
+PUBLISH_RE = re.compile(r"(?:^|[;&|]|\&\&|\|\|)\s*(?:dart|flutter)\s+pub\s+publish\b")
 
 
 def git(*args):
@@ -34,7 +41,7 @@ def main():
         return 0  # never block on a malformed payload
 
     cmd = payload.get("tool_input", {}).get("command", "")
-    if "pub publish" not in cmd:
+    if not PUBLISH_RE.search(cmd):
         return 0
     if "--dry-run" in cmd:
         return 0  # dry-run touches nothing

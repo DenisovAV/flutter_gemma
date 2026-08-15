@@ -26,7 +26,7 @@ dependencies:
   flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec / vec0; all platforms, incl. web)
 
   # Optional — on-device speech (STT + TTS):
-  flutter_gemma_speech: latest_version       # transcribe audio + synthesize speech (moonshine + Matcha today; native only) + voice loop
+  flutter_gemma_speech: latest_version       # transcribe audio + synthesize speech (on-device STT + TTS; native only) + voice loop
 ```
 
 **Pick by need:**

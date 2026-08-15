@@ -96,6 +96,28 @@ final session = await AgentSession.fromModel(
 The package also ships an adaptive UI: `AgentChatView`, `SkillManagerView`,
 `McpManagerView`, `SecretEditorDialog`, and `SkillTesterView`.
 
+## Asking about a photo
+
+`ask` takes an optional image, so the model can pick a skill from what it saw
+rather than from the text alone:
+
+```dart
+final session = await AgentSession.fromModel(
+  model,
+  registry: registry,
+  supportImage: true, // required — and the model must be multimodal
+);
+
+await for (final event in session.ask('what is this?', imageBytes: photo)) {
+  // …
+}
+```
+
+`supportImage: true` is not optional here. Passing `imageBytes` to a session
+built without it fails with `ArgumentError` instead of quietly answering as if
+there were no image — the engines disagree on the unsupported case, and a silent
+drop would give you a confident answer about a photo the model never saw.
+
 ## Bundled starter skills
 
 Eight starter skills ship as package assets, spanning the JS, native-intent, and

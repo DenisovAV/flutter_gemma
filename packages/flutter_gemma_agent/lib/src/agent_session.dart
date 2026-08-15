@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
         InferenceChat,
@@ -168,8 +170,21 @@ class AgentSession {
   ///
   /// [isCancelled], when provided, ends the stream promptly between
   /// iterations for barge-in — see [AgentLoop.run].
-  Stream<AgentEvent> ask(String userMessage, {bool Function()? isCancelled}) =>
-      _loop.run(chat, userMessage, isCancelled: isCancelled);
+  ///
+  /// Pass [imageBytes] to attach a photo to the turn. The session must have been
+  /// built with `supportImage: true` (see [fromModel]) and back a multimodal
+  /// model; otherwise the returned stream fails with an [ArgumentError] rather
+  /// than quietly answering as if there were no image.
+  Stream<AgentEvent> ask(
+    String userMessage, {
+    bool Function()? isCancelled,
+    Uint8List? imageBytes,
+  }) => _loop.run(
+    chat,
+    userMessage,
+    isCancelled: isCancelled,
+    imageBytes: imageBytes,
+  );
 
   /// Close the underlying chat session.
   Future<void> close() => chat.close();

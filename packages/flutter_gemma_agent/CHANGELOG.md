@@ -1,3 +1,8 @@
+## 0.2.3
+
+- feat: AgentSession.ask / AgentLoop.run accept an optional imageBytes — vision-capable agent turns (requires supportImage: true).
+- feat: McpClient advertises MCP protocol revision 2025-11-25 + negotiated-version header on every request.
+
 ## 0.2.2
 
 - AgentLoop delegates its tool loop to core generateChatResponseWithTools (single balancing impl); fed-back tool-response now carries the model's original call name.

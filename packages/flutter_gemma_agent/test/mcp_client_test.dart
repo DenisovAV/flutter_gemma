@@ -8,7 +8,15 @@ import 'package:http/testing.dart';
 /// A scripted MCP server: returns a canned JSON-RPC reply per `method`, records
 /// every request, and lets a test assert on the headers/body it received.
 class _FakeMcpServer {
-  _FakeMcpServer({this.sessionId = 'sess-123', this.toolsAsSse = false});
+  _FakeMcpServer({
+    this.sessionId = 'sess-123',
+    this.toolsAsSse = false,
+    this.forcedProtocolVersion,
+  });
+
+  /// When set, `initialize` answers with this revision instead of echoing the
+  /// client's — i.e. the server negotiates down.
+  final String? forcedProtocolVersion;
 
   final String sessionId;
   final bool toolsAsSse;
@@ -28,7 +36,10 @@ class _FakeMcpServer {
             'jsonrpc': '2.0',
             'id': decoded['id'],
             'result': {
-              'protocolVersion': '2025-06-18',
+              // Echo what the client advertised, as the spec requires, unless
+              // the test deliberately forces a downgrade.
+              'protocolVersion':
+                  forcedProtocolVersion ?? decoded['params']['protocolVersion'],
               'serverInfo': {'name': 'fake-mcp', 'version': '9.9'},
             },
           }),
@@ -169,6 +180,65 @@ void main() {
       final connected = await client.connect();
 
       expect(connected.tools.single.alwaysAllow, isTrue);
+    });
+
+    // The advertised revision is the one thing an audience of spec authors can
+    // check live, so it is pinned by a test rather than left to drift.
+    test('advertises the current protocol revision by default', () async {
+      final server = _FakeMcpServer();
+      final client = McpClient(config: config, httpClient: server.client);
+
+      expect(client.protocolVersion, '2025-11-25');
+
+      await client.connect();
+
+      final initialize = server.requests.first;
+      expect(initialize.method, 'initialize');
+      expect(initialize.body['params']['protocolVersion'], '2025-11-25');
+      expect(client.negotiatedProtocolVersion, '2025-11-25');
+    });
+
+    test(
+      'sends MCP-Protocol-Version on every request after initialize',
+      () async {
+        // Without this header a stateless server MUST assume 2025-03-26, so the
+        // advertised revision alone changes nothing on the wire.
+        final server = _FakeMcpServer();
+        final client = McpClient(config: config, httpClient: server.client);
+
+        await client.connect();
+
+        final initialize = server.requests.first;
+        expect(
+          initialize.headers.keys.map((k) => k.toLowerCase()),
+          isNot(contains('mcp-protocol-version')),
+          reason: 'the revision is not yet negotiated during initialize',
+        );
+
+        final toolsList = server.requests.firstWhere(
+          (r) => r.method == 'tools/list',
+        );
+        final header = toolsList.headers.entries
+            .firstWhere((e) => e.key.toLowerCase() == 'mcp-protocol-version')
+            .value;
+        expect(header, '2025-11-25');
+      },
+    );
+
+    test('throws when the server negotiates a different revision', () async {
+      final server = _FakeMcpServer(forcedProtocolVersion: '2025-06-18');
+      final client = McpClient(config: config, httpClient: server.client);
+
+      await expectLater(
+        client.connect(),
+        throwsA(
+          isA<McpException>().having(
+            (e) => e.toString(),
+            'message',
+            allOf(contains('2025-06-18'), contains('2025-11-25')),
+          ),
+        ),
+      );
     });
   });
 

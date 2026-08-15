@@ -30,20 +30,24 @@ abstract class TtsTextFrontend {
     TtsModelProfile profile,
     Map<String, String> paths, {
     NeuralG2pResolver? neuralG2p,
-  }) => switch (profile.pipeline) {
-    TtsPipelineKind.matchaCfm => MatchaTextFrontend.load(
-      profile,
-      paths,
-      neuralG2p: neuralG2p,
-    ),
+  }) => switch (profile) {
+    MatchaProfile p => MatchaTextFrontend.load(p, paths, neuralG2p: neuralG2p),
     // Qwen3 does its own BPE tokenization (`Qwen2BpeEncoder` +
     // `Qwen3Prompt`) and is driven by `Qwen3TtsCore`, not this
     // Matcha-only frontend seam — the worker (`_runQwen3Worker`) dispatches
     // to it directly and never calls `TtsTextFrontend.load` for this pipeline
     // kind. Fail-loud rather than silently running Matcha's phoneme
     // frontend against a Qwen3 bundle.
-    TtsPipelineKind.qwen3ArCodec => throw StateError(
+    Qwen3Profile() => throw StateError(
       'TtsTextFrontend: qwen3ArCodec is handled by Qwen3TtsCore, not the '
+      'Matcha TtsTextFrontend path.',
+    ),
+    // Inflect maps IPA to RAW token ids (no blank-interspersing / embedding
+    // gather), so it has its own `InflectTextFrontend` (List<int> ids, not a
+    // MatchaFrontendInput) and is dispatched by the worker directly — this
+    // Matcha-shaped seam is the wrong return type for it.
+    InflectProfile() => throw StateError(
+      'TtsTextFrontend: inflectVits is handled by InflectTextFrontend, not the '
       'Matcha TtsTextFrontend path.',
     ),
   };

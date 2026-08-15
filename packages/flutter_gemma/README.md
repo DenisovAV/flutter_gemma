@@ -56,37 +56,10 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.4
+## What's new in 1.5.3
 
-- 🎤 **On-device Speech-to-Text** — new opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech): transcribe audio fully offline through the LiteRT C API + `dart:ffi`. You pick the ASR model via `SttModelType` (a profile-driven, model-agnostic pipeline) — **moonshine** works end-to-end today, Whisper / Parakeet are follow-on profiles. Register `LiteRtSttBackend()`, then `installStt()…ofType(SttModelType.moonshine).install()` → `getActiveStt()` → `transcribe(pcm)`. Android, iOS, macOS, Windows, Linux (Web is a follow-on). See [docs](https://fluttergemma.dev/docs/speech).
-- 🔊 **On-device Text-to-Speech** (1.4.1) — [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) now also synthesizes speech: register `LiteRtTtsBackend()`, `installTts()…ofType(TtsModelType.matcha).install()` → `getActiveTts()` → `synthesize(text)` returns 16-bit PCM. **Matcha** runs a 3-graph LiteRT pipeline (encoder → CFM decoder → HiFi-GAN vocoder) on all five native platforms; kokoro / supertonic are follow-ons. See [docs](https://fluttergemma.dev/docs/speech).
-- 🗣️ **On-device Voice Loop** (speech 0.3.0) — [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) now ties STT + TTS into a full **speech-to-speech** loop: `VoiceSession.fromChat(recognizer:, chat:, synthesizer:)` runs transcribe → chat reply → synthesize as one push-to-talk turn (`runTurn(pcm)` → `Stream<VoiceEvent>`), barge-in via `interrupt()`. The app owns mic + player. See [docs](https://fluttergemma.dev/docs/speech).
-
-## What's new in 1.3
-
-- ⚙️ **LiteRT-LM v0.14.0 runtime** ([`flutter_gemma_litertlm`](https://pub.dev/packages/flutter_gemma_litertlm) 1.2.0) — native per-session sampler params (seed / temperature / topK / topP now honored per session) and a fix for GPU garbage output on some Android GPUs (#214). ⚠️ Known upstream regression: Windows **discrete GPUs** crash in the WebGPU/Dawn stack — use `PreferredBackend.cpu` or `.npu` on Windows (LiteRT-LM #2957).
-- 🧪 **5 new community models** — SmolLM3 3B, Phi-4 Mini Reasoning, Qwen2-VL 2B, SmolVLM2 500M, LLaVA-OneVision 0.5B.
-- 🧠 **System OS models** — new opt-in [`flutter_gemma_builtin_ai`](https://pub.dev/packages/flutter_gemma_builtin_ai): run **Gemini Nano** (Android / AICore) and **Apple Foundation Models** (iOS 26+/macOS) with no model file to bundle or download — register `BuiltInAiEngine()` and the OS owns the weights.
-
-## What's new in 1.2
-
-- 🤖 **On-device agentic skills** — new opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent): give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through function-calling, fully offline. Gallery-compatible. Register executors via the new `FlutterGemma.initialize(skillExecutors: …)` seam.
-
-## What's new in 1.1
-
-- 🔎 **Declared-column RAG filters** — `FilterSchema` / `FilterField` + `configure(FilterSchema)` on `VectorStoreRepository`, threaded through `FlutterGemma.initialize(filterSchema: …)`; vector search now runs inside the store engine (`enableHnsw` deprecated as a no-op).
-
-## What's new in 1.0
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/DenisovAV/flutter_gemma/main/packages/flutter_gemma/assets/architecture_1.0.png" alt="flutter_gemma 1.0 modular architecture: a small core plus opt-in Inference / Embeddings / RAG families, each extensible with your own module">
-</p>
-
-- 📦 **Modular package split** — the monolith is now a small **core** (`flutter_gemma`) plus **opt-in** packages, so your app ships only the native weight it uses: `flutter_gemma_litertlm` (.litertlm), `flutter_gemma_mediapipe` (.task/.bin), `flutter_gemma_builtin_ai` (system OS models), `flutter_gemma_embeddings`, `flutter_gemma_rag_qdrant`, `flutter_gemma_rag_sqlite`.
-- 🔧 **New `FlutterGemma.initialize(...)`** registration — pass `inferenceEngines`, `embeddingBackends`, `vectorStore` for the packages you added. See [Initialize Flutter Gemma](#initialize-flutter-gemma).
-- ✅ **Every model / session / chat / embedding / RAG API is unchanged** — migrating is just adding packages + the initialize call. See **[MIGRATION.md](MIGRATION.md)**.
-- 🧹 **Legacy sqlite+local_hnsw vector store removed** — native RAG runs on qdrant-edge (`flutter_gemma_rag_qdrant`); the portable store is in-SQLite `sqlite-vec`/`vec0` on all six platforms incl. Web (`flutter_gemma_rag_sqlite`).
-- 🧩 **Genkit integration** — use flutter_gemma through [Genkit](https://pub.dev/packages/genkit) via [`genkit_flutter_gemma`](https://pub.dev/packages/genkit_flutter_gemma), and route between on-device and cloud models with [`genkit_hybrid`](https://pub.dev/packages/genkit_hybrid). See [docs](https://fluttergemma.dev/docs/genkit).
+- 🛠️ **Tool-calling in the Voice Loop** — `VoiceSession.fromChat(…, onToolCall:)` ([`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) 0.4.2) now runs function calling inside a spoken turn, driven by the new reusable core loop `InferenceChat.generateChatResponseWithTools` (run tool → feed the result back → final answer, with a `maxToolTurns` cap and barge-in cancellation). The full agent (skills / MCP) plugs in the same way via `AgentSession.ask(…, isCancelled:)` ([`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) 0.2.0). See [docs](https://fluttergemma.dev/docs/speech).
+- ⚡ **Inflect-Nano-v2 fast TTS** (`flutter_gemma_speech` 0.4.2) — a tiny VITS voice that synthesizes ~90× faster than real-time on CPU (RTF≈0.01), for snappy spoken replies: `installTts()…ofType(TtsModelType.inflect).install()` → `getActiveTts()` → `synthesize(text)`. English-only; reuses Matcha's phonemizer bundle. See [docs](https://fluttergemma.dev/docs/speech).
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
 

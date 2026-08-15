@@ -2,7 +2,7 @@
 // by VoiceSession.fromChat, end-to-end on the bundled clip — no mic/speaker.
 //
 // Installs moonshine-tiny STT, Gemma 3 1B IT (.litertlm, no tools) and
-// Matcha TTS from HuggingFace, activates all three via the public API, then
+// Inflect TTS from HuggingFace, activates all three via the public API, then
 // runs one VoiceSession turn and asserts transcript -> reply text -> reply
 // audio -> turn-complete all landed with real (non-empty, non-silent)
 // content.
@@ -37,10 +37,11 @@ const _sttTokenizerUrl =
 const _llmModelUrl =
     'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
 
-// ── TTS: Matcha-TTS — same URL as tts_matcha_test.dart. Public repo, no
-// token needed there. ──
+// ── TTS: Inflect-Nano-v2 (fast, ~90× real-time) — 2 tflites from this repo +
+// 4 G2P files fetched cross-repo from Matcha (routed by fetchLocationFor).
+// Public repos, no token needed. ──
 const _ttsModelUrl =
-    'https://huggingface.co/litert-community/Matcha-TTS/resolve/main/';
+    'https://huggingface.co/sasha-denisov/inflect-nano-v2-litert/resolve/main/';
 
 // The rest of the suite reads HUGGINGFACE_TOKEN (litertlm_ffi_test.dart et al);
 // this file historically read HF_TOKEN. Accept both so the repo's habitual
@@ -83,7 +84,7 @@ void main() {
     (tester) async {
       // 1. Register the STT/TTS/inference backends and install + activate
       //    STT (moonshine), a small no-tools LLM (Gemma 3 1B), and TTS
-      //    (Matcha).
+      //    (Inflect).
       await FlutterGemma.initialize(
         huggingFaceToken: _hfToken.isEmpty ? null : _hfToken,
         sttBackends: const [LiteRtSttBackend()],
@@ -144,16 +145,24 @@ void main() {
 
       await FlutterGemma.installTts()
           .fromNetwork(_ttsModelUrl)
-          .ofType(TtsModelType.matcha)
+          .ofType(TtsModelType.inflect)
           .install();
 
       final recognizer = await FlutterGemma.getActiveStt();
       final synthesizer = await FlutterGemma.getActiveTts();
-      final model = await FlutterGemma.getActiveModel(maxTokens: 1024);
+      // CPU LLM: the voice path loads the Inflect TTS graphs (Metal) alongside
+      // the LLM; a concurrent GPU (Metal) engine_create dies mid-weight-convert
+      // on macOS. Same CPU pin as voice_tools/voice_agent. Android/desktop GPU
+      // is unaffected, but CPU keeps this release gate green on every platform.
+      final model = await FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+        preferredBackend: PreferredBackend.cpu,
+      );
       final chat = await model.createChat(
         tokenBuffer: 256,
         tools: const [],
-        maxOutputTokens: 128,
+        systemInstruction: 'Reply in one short sentence.',
+        maxOutputTokens: 32,
       );
 
       // 2. Load the bundled clip -> 16 kHz mono PCM.
@@ -171,7 +180,30 @@ void main() {
         chat: chat,
         synthesizer: synthesizer,
       );
-      final events = await session.runTurn(pcm).toList();
+      // Per-stage latency timing (STT / LLM / TTS) for the FTL measurement.
+      final sw = Stopwatch()..start();
+      int? tStt, tLlmFirst, tLlmLast, tTts, tTotal;
+      final events = <VoiceEvent>[];
+      await for (final e in session.runTurn(pcm)) {
+        events.add(e);
+        if (e is VoiceTranscriptEvent) {
+          tStt = sw.elapsedMilliseconds;
+        } else if (e is VoiceReplyTextEvent) {
+          tLlmFirst ??= sw.elapsedMilliseconds;
+          tLlmLast = sw.elapsedMilliseconds;
+        } else if (e is VoiceReplyAudioEvent) {
+          tTts = sw.elapsedMilliseconds;
+        } else if (e is VoiceTurnCompleteEvent) {
+          tTotal = sw.elapsedMilliseconds;
+        }
+      }
+      String delta(int? a, int? b) =>
+          (a != null && b != null) ? '${a - b}ms' : 'n/a';
+      debugPrint(
+        '[voice_loop][timing] STT=${tStt ?? 'n/a'}ms '
+        'LLM_ttft=${delta(tLlmFirst, tStt)} LLM=${delta(tLlmLast, tStt)} '
+        'TTS=${delta(tTts, tLlmLast)} TURN_TOTAL=${tTotal ?? 'n/a'}ms',
+      );
 
       // 4. Assert the full pipeline produced output.
       final transcript = events.whereType<VoiceTranscriptEvent>().single.text;
@@ -181,6 +213,14 @@ void main() {
           .join();
       final audio = events.whereType<VoiceReplyAudioEvent>().toList();
       final complete = events.whereType<VoiceTurnCompleteEvent>().single;
+      final spokenSeconds =
+          audio.single.pcm.length / 2 / audio.single.sampleRate;
+      debugPrint('[voice_loop] transcript: "$transcript"');
+      debugPrint('[voice_loop] reply: "$replyText"');
+      debugPrint(
+        '[voice_loop] spoken audio: ${spokenSeconds.toStringAsFixed(1)}s '
+        '(${audio.single.pcm.length} bytes @ ${audio.single.sampleRate} Hz)',
+      );
 
       expect(
         transcript.trim(),
@@ -190,7 +230,7 @@ void main() {
       expect(replyText.trim(), isNotEmpty, reason: 'LLM produced no reply');
       expect(audio, isNotEmpty, reason: 'TTS produced no audio event');
       expect(audio.single.pcm.length, greaterThan(0));
-      expect(audio.single.sampleRate, 22050);
+      expect(audio.single.sampleRate, 24000); // Inflect is 24 kHz
       expect(
         audio.single.pcm.any((b) => b != 0),
         isTrue,

@@ -1,9 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
         FunctionCallResponse,
         InferenceChat,
         Message,
-        ModelResponse,
         ParallelFunctionCallResponse,
         TextResponse,
         ThinkingResponse;
@@ -20,20 +21,27 @@ import 'secret_store.dart';
 ///
 /// Given an [InferenceChat] created with the [agentTools] (and the skill
 /// discovery list injected into its system prompt) plus the [registry] of
-/// selected skills and the registered [executors], [run] drives the loop:
+/// selected skills and the registered [executors], [run] drives one turn by
+/// delegating the tool loop to core's
+/// [InferenceChat.generateChatResponseWithTools] (one audited implementation of
+/// the streaming + history-balancing + cancel logic) and translating its output
+/// into the agent's rich [AgentEvent] stream:
 ///
-/// 1. `generateChatResponse()`.
-/// 2. If the response is a [FunctionCallResponse] **or**
-///    [ParallelFunctionCallResponse], dispatch every call:
+/// 1. `TextResponse` tokens → [TextChunkEvent]s (streamed); the final, call-free
+///    turn's accumulated text → [DoneEvent].
+/// 2. Each tool call runs through core's `onToolCall` hook, where the agent
+///    dispatches it and RETURNS the tool-response map (core feeds it back with
+///    the model's original call name):
 ///    - `loadSkill` → return the skill's full SKILL.md instructions (lazy
 ///      second-stage discovery) from the [registry];
 ///    - `runSkill` / `runIntent` / `runMcp` → pick the first [SkillExecutor]
 ///      whose `canExecute` is true (highest [SkillExecutor.priority] wins) and
 ///      execute it.
-///    Each call's result is fed back to the chat via [InferenceChat.addQueryChunk]
-///    with a tool-response [Message], then the loop continues.
-/// 3. Stop on a plain [TextResponse] (emit [DoneEvent]) or when [maxIterations]
-///    is reached (emit [MaxIterationsEvent]).
+///    The rich step events ([SkillLoadEvent] / [ToolCallEvent] /
+///    [ToolResultEvent] / [AgentErrorEvent]) — which a plain `onToolCall`
+///    callback cannot yield — are emitted into the stream during dispatch.
+/// 3. Stop on the model's call-free answer ([DoneEvent]) or when [maxIterations]
+///    is reached ([MaxIterationsEvent], surfaced via core's `onMaxToolTurns`).
 ///
 /// [run] is a `Stream<AgentEvent>` so the UI can show progress + inline
 /// image / webview / widget results as the turn unfolds.
@@ -82,42 +90,104 @@ class AgentLoop {
   /// Drive one agent turn for [userMessage] against [chat], emitting progress
   /// [AgentEvent]s. The [chat] must already have been created with [agentTools]
   /// and the skill discovery injected into its system prompt.
-  Stream<AgentEvent> run(InferenceChat chat, String userMessage) async* {
-    await chat.addQueryChunk(Message(text: userMessage, isUser: true));
+  ///
+  /// [isCancelled], when provided, is polled between iterations — before the
+  /// next generation and between dispatched calls — for barge-in: once it
+  /// returns true the stream ends promptly (no [DoneEvent], no
+  /// [MaxIterationsEvent]). A tool already executing still completes; only
+  /// the *next* step is skipped. Tool calls the model already committed to
+  /// [chat]'s history but that were not executed are answered with a
+  /// synthetic `status: cancelled` tool-response, so the persistent chat is
+  /// never left with a dangling half-answered call. `null` (the default)
+  /// preserves prior behavior exactly.
+  Stream<AgentEvent> run(
+    InferenceChat chat,
+    String userMessage, {
+    bool Function()? isCancelled,
+  }) {
+    // Delegate the loop + history-balancing to core's
+    // generateChatResponseWithTools (one audited implementation — cancel,
+    // tool-throw and mid-stream-error balancing all live there) and translate its
+    // ModelResponse stream + per-call hook into the agent's rich AgentEvent
+    // stream. `onToolCall` cannot yield events (it returns the tool-response map
+    // core feeds back), so dispatch emits step events through [emit] instead.
+    //
+    // The driver is started lazily on listen and stopped when the subscription
+    // is cancelled — so disposing the chat view mid-turn (subscription.cancel())
+    // halts generation + tool side-effects at the next turn/tool boundary,
+    // instead of running the whole remaining loop into a dead controller.
+    late final StreamController<AgentEvent> controller;
+    final buffer = StringBuffer();
+    var maxHit = false;
+    var stopped = false; // the subscription was cancelled
+    var cancelledSeen = false; // core acted on a cancel this run
 
-    for (var iteration = 0; iteration < maxIterations; iteration++) {
-      final ModelResponse response = await chat.generateChatResponse();
+    void emit(AgentEvent e) {
+      if (!controller.isClosed) controller.add(e);
+    }
 
-      final calls = _extractCalls(response);
-      if (calls.isEmpty) {
-        // Plain text (or thinking) — the model is done with this turn.
-        final text = switch (response) {
-          TextResponse(:final token) => token,
-          ThinkingResponse(:final content) => content,
-          _ => '',
-        };
-        if (text.isNotEmpty) yield TextChunkEvent(text);
-        yield DoneEvent(text);
-        return;
+    // Fold subscription-cancel into the caller's [isCancelled], and latch what
+    // core actually acted on — so the terminal decision below matches core's
+    // instead of re-polling a possibly-toggling flag.
+    bool cancelled() {
+      final c = stopped || (isCancelled?.call() ?? false);
+      if (c) cancelledSeen = true;
+      return c;
+    }
+
+    Future<void> drive() async {
+      await chat.addQueryChunk(Message(text: userMessage, isUser: true));
+      await for (final r in chat.generateChatResponseWithTools(
+        onToolCall: (call) {
+          // A tool call ends this turn: the text streamed before it was preamble,
+          // not the final answer — drop it so DoneEvent carries only the final
+          // (call-free) turn's text (it was already surfaced as TextChunkEvent).
+          buffer.clear();
+          return _dispatch(call, emit);
+        },
+        maxToolTurns: maxIterations,
+        isCancelled: cancelled,
+        onMaxToolTurns: () {
+          maxHit = true;
+          emit(MaxIterationsEvent(maxIterations));
+        },
+      )) {
+        switch (r) {
+          case TextResponse(:final token):
+            if (token.isEmpty) continue;
+            buffer.write(token);
+            emit(TextChunkEvent(token));
+          case ThinkingResponse(:final content):
+            // Thinking is off for the agent chat, so this never fires today; fold
+            // it into the answer if it ever does (parity with the old switch).
+            if (content.isEmpty) continue;
+            buffer.write(content);
+            emit(TextChunkEvent(content));
+          case FunctionCallResponse() || ParallelFunctionCallResponse():
+            break; // dispatched via onToolCall above
+        }
       }
-
-      // Dispatch every call (single or parallel), feeding each result back.
-      for (final call in calls) {
-        yield* _dispatch(chat, call);
+      // A barge-in (cancel) and maxToolTurns exhaustion (its own
+      // MaxIterationsEvent) both end WITHOUT a DoneEvent — mirrors the
+      // pre-consolidation loop.
+      if (!maxHit && !cancelledSeen) {
+        emit(DoneEvent(buffer.toString()));
       }
     }
 
-    yield MaxIterationsEvent(maxIterations);
-  }
-
-  /// Normalize a [ModelResponse] into the list of function calls to dispatch.
-  /// Returns an empty list for a plain text / thinking response.
-  List<FunctionCallResponse> _extractCalls(ModelResponse response) {
-    return switch (response) {
-      FunctionCallResponse() => [response],
-      ParallelFunctionCallResponse(:final calls) => calls,
-      _ => const [],
-    };
+    controller = StreamController<AgentEvent>(
+      onListen: () {
+        drive()
+            .catchError((Object e, StackTrace st) {
+              if (!controller.isClosed) controller.addError(e, st);
+            })
+            .whenComplete(() {
+              if (!controller.isClosed) controller.close();
+            });
+      },
+      onCancel: () => stopped = true,
+    );
+    return controller.stream;
   }
 
   /// Execute one [call] and feed its result back to [chat], emitting the
@@ -135,10 +205,15 @@ class AgentLoop {
     'load_skill': AgentToolNames.loadSkill,
   };
 
-  Stream<AgentEvent> _dispatch(
-    InferenceChat chat,
+  /// Run one [call], emitting progress events via [emit], and RETURN the
+  /// tool-response map. Core's generateChatResponseWithTools feeds it back with
+  /// the model's ORIGINAL call name (so a web-decoder `run_js` gets a `run_js`
+  /// response, correctly paired). The agent still normalizes the alias internally
+  /// to pick the executor.
+  Future<Map<String, dynamic>> _dispatch(
     FunctionCallResponse originalCall,
-  ) async* {
+    void Function(AgentEvent) emit,
+  ) async {
     // Normalize a SKILL.md tool-name spelling to the canonical declared name
     // (e.g. `run_js` -> `runSkill`). A native call already uses the canonical
     // name, so the alias map leaves it untouched.
@@ -148,11 +223,11 @@ class AgentLoop {
         : FunctionCallResponse(name: canonical, args: originalCall.args);
     switch (call.name) {
       case AgentToolNames.loadSkill:
-        yield* _loadSkill(chat, call);
+        return _loadSkill(call, emit);
       case AgentToolNames.runSkill:
       case AgentToolNames.runIntent:
       case AgentToolNames.runMcp:
-        yield* _runExecutor(chat, call);
+        return _runExecutor(call, emit);
       default:
         // Unknown tool. Small models (notably the web decoder) sometimes call
         // a skill by name as if it were a tool — e.g. `calculate-hash{...}` —
@@ -167,24 +242,21 @@ class AgentLoop {
                   'Call ${AgentToolNames.loadSkill}(skillName: "${call.name}") '
                   'first, then follow its instructions.'
             : 'Unknown tool "${call.name}".';
-        yield AgentErrorEvent(message, toolName: call.name);
-        await _feedBack(chat, call.name, {
-          'error': message,
-          'status': 'failed',
-        });
+        emit(AgentErrorEvent(message, toolName: call.name));
+        return {'error': message, 'status': 'failed'};
     }
   }
 
-  /// `loadSkill(skillName)` — return the full SKILL.md instructions (lazy
-  /// second-stage discovery). Feeds the instructions back as the tool response.
-  Stream<AgentEvent> _loadSkill(
-    InferenceChat chat,
+  /// `loadSkill(skillName)` — return the full SKILL.md instructions as the
+  /// tool-response map (lazy second-stage discovery).
+  Future<Map<String, dynamic>> _loadSkill(
     FunctionCallResponse call,
-  ) async* {
+    void Function(AgentEvent) emit,
+  ) async {
     final skillName = _stringArg(call.args, 'skillName').trim();
     final skill = registry.get(skillName);
 
-    yield SkillLoadEvent(skillName, found: skill != null);
+    emit(SkillLoadEvent(skillName, found: skill != null));
 
     if (skill == null) {
       // Mirror the unknown-tool path: surface a real error event and a
@@ -192,27 +264,22 @@ class AgentLoop {
       // same `skill_instructions` field real instructions occupy (which the
       // model would read as content and could act on as if a skill loaded).
       final message = 'Skill "$skillName" not found.';
-      yield AgentErrorEvent(message, toolName: call.name);
-      await _feedBack(chat, call.name, {
-        'skill_name': skillName,
-        'error': message,
-        'status': 'failed',
-      });
-      return;
+      emit(AgentErrorEvent(message, toolName: call.name));
+      return {'skill_name': skillName, 'error': message, 'status': 'failed'};
     }
 
-    await _feedBack(chat, call.name, {
+    return {
       'skill_name': skillName,
       'skill_instructions': _skillContent(skill),
-    });
+    };
   }
 
   /// `runSkill` / `runIntent` / `runMcp` — pick an executor by probe-chain and
-  /// run it, feeding the structured result back to the model.
-  Stream<AgentEvent> _runExecutor(
-    InferenceChat chat,
+  /// run it, returning the structured result map fed back to the model.
+  Future<Map<String, dynamic>> _runExecutor(
     FunctionCallResponse call,
-  ) async* {
+    void Function(AgentEvent) emit,
+  ) async {
     // Resolve the targeted skill (skill-based calls carry a `skillName`; intent
     // and MCP calls don't, so this may be null).
     final skillName = _stringArg(call.args, 'skillName').trim();
@@ -229,28 +296,27 @@ class AgentLoop {
           ? 'run_js requires a "skillName" argument naming the skill to run '
                 '(the one you just loaded). Call it again with skillName set.'
           : 'Skill "$skillName" not found. Pass a valid skillName to run_js.';
-      yield AgentErrorEvent(message, toolName: call.name);
-      await _feedBack(chat, call.name, {'error': message, 'status': 'failed'});
-      return;
+      emit(AgentErrorEvent(message, toolName: call.name));
+      return {'error': message, 'status': 'failed'};
     }
 
     // Expose an unmodifiable view so a UI consumer can't mutate the loop's own
     // parsed call args through the event.
-    yield ToolCallEvent(
-      toolName: call.name,
-      args: Map.unmodifiable(call.args),
-      skill: skill,
+    emit(
+      ToolCallEvent(
+        toolName: call.name,
+        args: Map.unmodifiable(call.args),
+        skill: skill,
+      ),
     );
 
     // Map the tool call to the (data) payload + skill the executor expects.
     final probe = skill ?? _syntheticSkillFor(call);
     final executor = _pickExecutor(probe);
     if (executor == null) {
-      const status = 'failed';
       final message = 'No executor available for "${call.name}".';
-      yield AgentErrorEvent(message, toolName: call.name);
-      await _feedBack(chat, call.name, {'error': message, 'status': status});
-      return;
+      emit(AgentErrorEvent(message, toolName: call.name));
+      return {'error': message, 'status': 'failed'};
     }
 
     final dataJson = _dataFor(call);
@@ -263,12 +329,12 @@ class AgentLoop {
       result = ErrorResult(e.toString());
     }
 
-    yield ToolResultEvent(toolName: call.name, result: result);
+    emit(ToolResultEvent(toolName: call.name, result: result));
     if (result is ErrorResult) {
-      yield AgentErrorEvent(result.message, toolName: call.name);
+      emit(AgentErrorEvent(result.message, toolName: call.name));
     }
 
-    await _feedBack(chat, call.name, _resultToResponse(result));
+    return _resultToResponse(result);
   }
 
   /// First executor (in probe order) that can run [skill]; null if none can.
@@ -329,17 +395,6 @@ class AgentLoop {
       },
       ErrorResult(:final message) => {'error': message, 'status': 'failed'},
     };
-  }
-
-  /// Feed a tool response back into the chat as a tool-response [Message].
-  Future<void> _feedBack(
-    InferenceChat chat,
-    String toolName,
-    Map<String, dynamic> response,
-  ) {
-    return chat.addQueryChunk(
-      Message.toolResponse(toolName: toolName, response: response),
-    );
   }
 
   /// The Gallery `SKILL_INSTRUCTIONS_TEMPLATE` content `loadSkill` returns.

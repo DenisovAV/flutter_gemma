@@ -1,9 +1,39 @@
+import 'package:flutter_gemma/core/function_call_parser.dart';
 import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/parsing/function_call_format_factory.dart';
 import 'package:flutter_gemma/core/parsing/sdk_passthrough_function_call_format.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('FunctionCallParser.usesSdkPassthrough', () {
+    test('true for the SDK-passthrough model (gemma4)', () {
+      expect(FunctionCallParser.usesSdkPassthrough(ModelType.gemma4), isTrue);
+    });
+
+    test('false for text-stream function-call formats (parsed in-stream)', () {
+      // These carry tool calls in the text stream, so the funcBuffer parses
+      // them — they must NOT be swallowed by the SDK-passthrough path.
+      for (final m in <ModelType?>[
+        ModelType.qwen,
+        ModelType.qwen3,
+        ModelType.deepSeek,
+        ModelType.phi,
+        ModelType.llama,
+        ModelType.functionGemma,
+        ModelType.gemmaIt,
+        ModelType.general,
+        ModelType.hammer,
+        null,
+      ]) {
+        expect(
+          FunctionCallParser.usesSdkPassthrough(m),
+          isFalse,
+          reason: '$m must not be treated as SDK passthrough',
+        );
+      }
+    });
+  });
+
   group('FunctionCallFormatFactory for ModelType.gemma4', () {
     test('returns SdkPassthroughFunctionCallFormat', () {
       final format = FunctionCallFormatFactory.create(ModelType.gemma4);

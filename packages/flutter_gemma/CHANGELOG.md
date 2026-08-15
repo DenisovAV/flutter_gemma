@@ -1,3 +1,17 @@
+## 1.5.6
+- fix: Gemma 4 streaming no longer leaks raw tool-call JSON into the text channel.
+
+## 1.5.5
+- Add optional onMaxToolTurns to generateChatResponseWithTools (lets a driving consumer surface its own maxToolTurns terminal).
+
+## 1.5.4
+- fix: balance committed tool-calls when the generation stream errors mid-turn (generateChatResponseWithTools).
+
+## 1.5.3
+- Add InferenceChat.generateChatResponseWithTools — the reusable function-calling driver loop.
+- Add TtsModelType.inflect — Inflect-Nano-v2 TTS bundle, with cross-repo G2P file routing.
+- fix: record the Gemma 4 SDK tool-call in history on the streaming path (was orphaned).
+
 ## 1.5.2
 - Add TtsModelType.qwen3.
 

@@ -21,10 +21,30 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_DIR="/tmp/LiteRT"
 
-# LiteRT commit that matches LiteRT-LM ffed38ad (flutter_gemma native-v0.12.0).
-# Pinned via LiteRT-LM WORKSPACE LITERT_REF. Do NOT use v2.1.1 or earlier —
-# the LiteRtDispatchApi struct has breaking ABI changes between v2.1.1 and this.
-LITERT_REF="5c5b9ce68875f51af2fee3d7d7a9929df8be977f"
+# The dispatch library must be built from the SAME LiteRT tree as the engine it
+# calls into. Hardcoding a ref here is how it silently drifted: this file sat at
+# 5c5b9ce6 (LiteRT-LM ffed38ad, native-v0.12.0) while the engine moved on, and a
+# stale dispatch does not fail politely — on v0.16.0 it SIGSEGVs inside
+# LiteRtDestroyOptions the moment engine_create tears an options object down.
+#
+# So derive it instead: read LITERT_REF out of the WORKSPACE of the LiteRT-LM
+# revision we are building. Pass LITERTLM_REF to match a specific engine build.
+#
+# Do NOT go back to a literal, and do NOT use LiteRT v2.1.1 or earlier — the
+# LiteRtDispatchApi struct has breaking ABI changes after it.
+LITERTLM_REF="${LITERTLM_REF:-924e79c91542761242244e4f1651851f822e4cbb}"   # v0.16.0
+LITERT_REF="${LITERT_REF:-}"
+if [ -z "$LITERT_REF" ]; then
+  echo "Resolving LITERT_REF from LiteRT-LM $LITERTLM_REF WORKSPACE..."
+  LITERT_REF="$(curl -fsSL \
+    "https://raw.githubusercontent.com/google-ai-edge/LiteRT-LM/$LITERTLM_REF/WORKSPACE" \
+    | sed -n 's/^LITERT_REF *= *"\([0-9a-f]*\)".*/\1/p' | head -1)"
+  if [ -z "$LITERT_REF" ]; then
+    echo "ERROR: could not read LITERT_REF from LiteRT-LM $LITERTLM_REF" >&2
+    exit 1
+  fi
+  echo "  -> $LITERT_REF"
+fi
 
 # Resolve Android NDK
 if [ -z "${ANDROID_NDK_HOME:-}" ]; then

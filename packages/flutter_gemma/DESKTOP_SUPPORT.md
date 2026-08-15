@@ -43,7 +43,7 @@ Detailed setup and reference for running Flutter Gemma on **macOS, Windows, and 
 ```
 
 **Native libraries** are fetched at build time by `hook/build.dart` from the
-GitHub release `native-v0.14.0`, SHA256-verified, and bundled by Flutter
+GitHub release `native-v0.16.0`, SHA256-verified, and bundled by Flutter
 [Native Assets](https://docs.flutter.dev/development/platform-integration/c-interop)
 into the application bundle. End-users only need to add a small
 `post_install` snippet to their **macOS** `Podfile` so the upstream companion
@@ -70,12 +70,12 @@ loading sequence differs per platform (handled in `litert_lm_client.dart`).
 |----------|--------------|-------------|--------|-------|-------|
 | macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
-| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC. ⚠️ Discrete GPU regressed — see below |
+| Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
 | Windows | arm64 | — | — | — | Not supported |
 | Linux | x86_64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | glibc ≥ 2.34 (Ubuntu 22.04+, Debian 12+, RHEL 9+) |
 | Linux | arm64 | Vulkan (via Dawn/WebGPU) | ✅ | ✅ | Same glibc requirement |
 
-> ⚠️ **Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) — use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it. macOS/Linux GPU and Windows CPU/NPU are unaffected. See [Known Limitations](#known-limitations).
+> **Fixed in litertlm 1.4.0:** Windows **discrete GPUs** crashed on `PreferredBackend.gpu` in litertlm 1.2.0–1.3.1. Upgrade to 1.4.0; on the affected versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows CPU/NPU were never affected. See [Known Limitations](#known-limitations).
 
 For mobile platforms see the main [README](README.md).
 
@@ -99,8 +99,8 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.4.1            # core
-  flutter_gemma_litertlm: ^1.3.1   # .litertlm engine — required on desktop
+  flutter_gemma: ^1.5.8            # core
+  flutter_gemma_litertlm: ^1.4.1   # .litertlm engine — required on desktop
 ```
 
 ```dart
@@ -288,12 +288,16 @@ Same as switching model — close, then reopen with the new `preferredBackend`.
 
 ## Known Limitations
 
-### Windows discrete GPU crashes (litertlm 1.2.0+ / LiteRT-LM v0.14.0)
+### Windows discrete GPU crashes (litertlm 1.2.0–1.3.1) — fixed in 1.4.0
 
-Windows **discrete GPUs** crash in the upstream WebGPU/Dawn stack on
-`PreferredBackend.gpu` ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)).
-Use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
-macOS/Linux GPU and Windows CPU/NPU are unaffected.
+Windows **discrete GPUs** crash on `PreferredBackend.gpu` in litertlm
+1.2.0–1.3.1. The Windows native build passed a Bazel define that upstream had
+removed, so it silently linked the LiteRt runtime statically — which conflicts
+with the separately shipped WebGPU accelerator once Dawn was split into its own
+library. Corrected in 1.4.0.
+
+On 1.2.0–1.3.1 use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
+Windows CPU/NPU were never affected.
 
 ### Per-token sampler runs on CPU on all desktop platforms
 

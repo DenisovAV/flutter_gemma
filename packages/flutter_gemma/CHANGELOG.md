@@ -1,3 +1,6 @@
+## 1.5.8
+- docs: Windows discrete GPU is fixed in litertlm 1.4.0 — the README said it was still broken.
+
 ## 1.5.7
 - fix: getInstalledModels(stt/tts/embedding) returns installed models — were mistagged inference (#391).
 

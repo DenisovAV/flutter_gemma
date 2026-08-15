@@ -31,10 +31,19 @@ echo "Patching LiteRT-LM C API in $DIR..."
 # visible — the WebGPU accelerator plugin needs to resolve LiteRt* C API
 # via dlsym(RTLD_DEFAULT) during auto-registration.
 #
-# Requires building with --define=litert_link_capi_so=true so that
-# libLiteRtLm.so references libLiteRt.so dynamically at runtime instead
-# of statically linking the LiteRt C API (which would create two copies
-# of TFLite in the process alongside the prebuilt accelerator).
+# Requires building with --define=litert_runtime_link_mode=dynamic (plus
+# --define=resolve_symbols_in_exec=false) so that libLiteRtLm references
+# libLiteRt dynamically at runtime instead of statically linking the LiteRt
+# C API, which would put two copies of the runtime in the process alongside
+# the prebuilt accelerator.
+#
+# NOT litert_link_capi_so=true. Upstream deleted that name; no config_setting
+# reads it, and Bazel accepts unknown --defines silently, so passing it links
+# statically while looking correct. That is what broke Windows GPU from
+# v0.14.0 (when Dawn was split into its own library) through v0.16.0 — and was
+# misreported upstream as LiteRT-LM #2957 before the cause turned out to be
+# ours. Both live names are documented in upstream's
+# docs/getting-started/build-and-run.md as required for GPU.
 if ! grep -q '"libLiteRtLm.dylib"' "$DIR/c/BUILD"; then
   # Dynamic-list: make these symbols visible in the dynamic export table.
   cat > "$DIR/c/dynamic_list.lds" << 'LDSEOF'

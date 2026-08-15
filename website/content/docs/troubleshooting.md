@@ -122,11 +122,10 @@ executor surface.
 ## Windows desktop GPU crashes
 
 <Warning>
-**Known regression (litertlm 1.2.0+ / LiteRT-LM v0.14.0):** Windows **discrete
-GPUs** crash in the upstream WebGPU/Dawn stack
-([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
-use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
-macOS/Linux GPU and Windows CPU/NPU are unaffected. See [Desktop → Known
+**Fixed in litertlm 1.4.0.** Windows **discrete GPUs** crash on
+`PreferredBackend.gpu` in litertlm 1.2.0–1.3.1. Upgrade to 1.4.0; on the
+affected versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and
+Windows CPU/NPU were never affected. See [Desktop → Known
 limitations](/docs/desktop#known-limitations).
 </Warning>
 

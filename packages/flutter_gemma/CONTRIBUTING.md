@@ -257,7 +257,7 @@ If you're working on desktop support:
 2. **Understand the architecture:**
    - Since 0.14.0 desktop runs LiteRT-LM directly via `dart:ffi` against the C API. No JVM/JRE/gRPC.
    - The FFI client lives in `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` (used by all five platforms)
-   - Native libs are downloaded by each package's `hook/build.dart` at build time from the `native-v0.14.0` GitHub release; SHA256-verified and bundled by Native Assets
+   - Native libs are downloaded by `flutter_gemma_litertlm/hook/build.dart` (the sole hook) at build time from the `native-v0.16.0` GitHub release; SHA256-verified and bundled by Native Assets
 
 3. **Test your changes:**
    - Test on macOS (Apple Silicon) and/or Windows x64 / Linux x86_64

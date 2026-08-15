@@ -50,14 +50,13 @@ Native platforms need no web setup.
 | Android  | ✅ FFI (GPU via OpenCL, NPU via `.litertlm` on Qualcomm) |
 | iOS      | ✅ FFI (GPU via Metal on device; CPU on simulator) |
 | macOS / Linux | ✅ FFI (GPU via Metal / Vulkan) |
-| Windows  | ✅ FFI (CPU + Intel NPU; ⚠️ discrete GPU regressed — see below) |
+| Windows  | ✅ FFI (CPU + GPU via DirectX 12 + Intel NPU) |
 | Web      | ✅ via `@litert-lm/core` (CDN, early preview) |
 
-> ⚠️ **Known regression (1.2.0 / LiteRT-LM v0.14.0):** Windows **discrete GPUs**
-> crash in the upstream WebGPU/Dawn stack
-> ([LiteRT-LM #2957](https://github.com/google-ai-edge/LiteRT-LM/issues/2957)) —
-> use `PreferredBackend.cpu` or `.npu` on Windows until upstream fixes it.
-> macOS/Linux GPU and Windows CPU/NPU are unaffected.
+> **Fixed in 1.4.0:** Windows **discrete GPUs** crashed on
+> `PreferredBackend.gpu` in 1.2.0–1.3.1. Upgrade to 1.4.0; on the affected
+> versions use `PreferredBackend.cpu` or `.npu`. macOS/Linux GPU and Windows
+> CPU/NPU were never affected.
 
 The native library is fetched at build time by `hook/build.dart` (Native Assets)
 from a SHA256-verified GitHub release — no manual setup on native platforms.

@@ -22,7 +22,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/macos_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="80f301ff9a3b02c2c1e7be2dd1a567752f7b51b6"
+DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
 VERSION="${1:-}"
 
 echo "=== Building libLiteRtLm.dylib for macOS arm64 ==="
@@ -100,8 +100,14 @@ done
 
 # 7. Build stream proxy
 echo "Building stream proxy..."
+# -mmacosx-version-min is not optional: without it clang stamps LC_BUILD_VERSION
+# with the *build host's* OS, so the bundle's minimum silently tracks whichever
+# Mac produced it (native-v0.14.0 shipped minos 26.0 this way). Pin it to 11.0 to
+# match libLiteRtLm.dylib, which sets the bundle's real floor. build_ios.sh does
+# the equivalent in step 8b via `vtool -set-build-version`; macOS had no such step.
 clang -shared -o "$PREBUILT_DIR/libStreamProxy.dylib" \
   -arch arm64 \
+  -mmacosx-version-min=11.0 \
   -install_name @rpath/libStreamProxy.dylib \
   -Wl,-headerpad_max_install_names \
   "$SCRIPT_DIR/stream_proxy.c"

@@ -23,7 +23,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PREBUILT_DIR="$SCRIPT_DIR/prebuilt/android_arm64"
 LITERT_LM_DIR="/tmp/LiteRT-LM"
-DEFAULT_REF="80f301ff9a3b02c2c1e7be2dd1a567752f7b51b6"
+DEFAULT_REF="924e79c91542761242244e4f1651851f822e4cbb"
 VERSION="${1:-}"
 
 # Resolve Android NDK — prefer ANDROID_NDK_HOME env, else newest under
@@ -94,12 +94,16 @@ git lfs pull --include="prebuilt/android_arm64/*"
 # 5. Build for Android arm64
 echo ""
 echo "=== Building for Android arm64 ==="
-# Note: NOT using --define=litert_link_capi_so=true. On Linux/Windows that
-# flag tells libLiteRtLm to dynamically resolve LiteRt* symbols against a
-# separate libLiteRt.so we ship alongside, and we preload it via RTLD_GLOBAL
-# from Dart. On Android, upstream's prebuilt accelerator libs are already
-# linked against a fully self-contained libLiteRtLm.so (LiteRt symbols
-# linked statically into libLiteRtLm.so), so we build the same way.
+# Note: Android deliberately does NOT use --define=litert_runtime_link_mode=dynamic.
+# On Linux/Windows that define keeps the LiteRt C API out of libLiteRtLm so it
+# resolves against a separate libLiteRt we ship alongside and preload via
+# RTLD_GLOBAL from Dart. On Android, upstream's prebuilt accelerator libs are
+# already linked against a fully self-contained libLiteRtLm.so, so we build the
+# same way and ship no libLiteRt.so at all.
+#
+# (This note used to name `litert_link_capi_so=true`. That define no longer
+# exists upstream — the deviation described here is still correct, only the
+# flag's name changed.)
 #
 # 16KB page size support (Android 15+ on Pixel 8 and beyond, mandatory for
 # Google Play uploads since Nov 2025 — see #253). max-page-size=16384 makes

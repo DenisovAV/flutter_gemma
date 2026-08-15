@@ -1,3 +1,9 @@
+## 1.4.0
+- Migrate to LiteRT-LM v0.15.0 (native-v0.15.0) — fixes the Android OpenCL per-turn leak (#348, #402).
+- Detect the stream-callback ABI at runtime — v0.15.0 changed it with no compat path.
+- Pin the macOS deployment target of `libStreamProxy.dylib` to 11.0 instead of the build host's.
+- Windows discrete GPU still crashes upstream (#2957) — use CPU or NPU.
+
 ## 1.3.1
 - Clearer engine-create error for GPU-only `.litertlm` models run on CPU (#390).
 

@@ -1584,7 +1584,14 @@ class MobileModelManager extends ModelFileManager {
         'UnifiedModelManager: Protected files count: ${protected.length}',
       );
     } catch (e) {
-      gemmaLog('UnifiedModelManager: Failed to get protected files: $e');
+      // This keep-set is the SOLE gate for the destructive cleanupStorage() (and
+      // for the reporting getOrphanedFiles/getStorageInfo). Returning the partial
+      // set accumulated so far would let cleanup delete installed models it must
+      // protect — so a failed enumeration must ABORT the caller, not launder into
+      // an under-protective list. Matches the "propagate real errors" contract
+      // those three callers already document.
+      gemmaLog('UnifiedModelManager: Failed to compute protected files: $e');
+      rethrow;
     }
 
     return protected;

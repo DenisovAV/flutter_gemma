@@ -1,5 +1,6 @@
 import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/cancel_token.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart';
 
 /// Base interface for handling different model source types
 /// Each source type (Network, Asset, Bundled, File) has its own handler implementation
@@ -45,10 +46,13 @@ abstract interface class SourceHandler {
   /// - [ArgumentError] if the source is invalid
   /// - [DownloadCancelledException] if cancelled via cancelToken
   /// - Platform-specific exceptions for download/file errors
+  /// [modelType]: the repository model-type tag written to ModelInfo
+  /// (defaults to inference; STT/TTS/embedding builders override).
   Future<void> install(
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   });
 
   /// Installs the model with progress tracking
@@ -85,10 +89,13 @@ abstract interface class SourceHandler {
   ///
   /// Throws:
   /// - [DownloadCancelledException] if cancelled via cancelToken
+  /// [modelType]: the repository model-type tag written to ModelInfo
+  /// (defaults to inference; STT/TTS/embedding builders override).
   Stream<int> installWithProgress(
     ModelSource source, {
     CancelToken? cancelToken,
     String? targetFilename,
+    ModelType modelType = ModelType.inference,
   });
 
   /// Checks if this source supports resume after interruption

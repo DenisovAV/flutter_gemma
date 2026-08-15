@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/services/download_service.dart';
+import 'package:flutter_gemma/core/services/model_repository.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
@@ -178,6 +179,115 @@ void main() {
       expect(configUrl, 'https://example.com/matcha/config.json');
     },
   );
+
+  test(
+    'matcha install: bundle is tagged tts (getInstalledModels) AND protected '
+    'from cleanup — not reported orphaned (#391 + regression guard)',
+    () async {
+      final fixtureDownload = _RecordingDownloadService(
+        Uint8List.fromList(List.filled(2048, 5)),
+      );
+      await ServiceRegistry.initialize(downloadService: fixtureDownload);
+
+      await FlutterGemma.installTts()
+          .fromNetwork('https://example.com/matcha/')
+          .ofType(TtsModelType.matcha)
+          .install();
+
+      final manager = FlutterGemmaPlugin.instance.modelManager;
+
+      // #391: the installed bundle is listed under tts, not inference.
+      expect(
+        await manager.getInstalledModels(ModelManagementType.tts),
+        isNotEmpty,
+        reason: 'getInstalledModels(tts) must return the installed TTS bundle',
+      );
+      expect(
+        await manager.getInstalledModels(ModelManagementType.inference),
+        isEmpty,
+        reason: 'a TTS install must not be tagged inference',
+      );
+
+      // Regression guard: correctly tagging tts must NOT drop the bundle out of
+      // the storage keep-set. The files land in the managed dir (via the
+      // download fake), so getOrphanedFiles() would report — and
+      // cleanupStorage() would delete — them if _getProtectedFiles omitted tts.
+      expect(
+        await FlutterGemma.getOrphanedFiles(),
+        isEmpty,
+        reason: 'installed TTS files must be protected from cleanup',
+      );
+    },
+    // On regression the files are reported orphaned and the scan hangs in
+    // background_downloader's platform channel (absent in the test host) — so a
+    // hang here IS the failure. Cap it so a revert fails in ~20s with a reason
+    // rather than the 2-minute default timeout.
+    timeout: const Timeout(Duration(seconds: 20)),
+  );
+
+  test(
+    'an installed-but-INACTIVE tts bundle is still protected from cleanup — '
+    'isolates the type-agnostic listInstalled keep-set (#391, limb 2)',
+    () async {
+      final fixtureDownload = _RecordingDownloadService(
+        Uint8List.fromList(List.filled(2048, 5)),
+      );
+      await ServiceRegistry.initialize(downloadService: fixtureDownload);
+
+      await FlutterGemma.installTts()
+          .fromNetwork('https://example.com/matcha/')
+          .ofType(TtsModelType.matcha)
+          .install();
+
+      // Drop it from the ACTIVE slot so the active-spec limb of
+      // _getProtectedFiles can no longer contribute — protection must now come
+      // ONLY from the type-agnostic listInstalled() keep-set (the actual #391
+      // anti-data-loss fix). Real-world case: a second TTS voice, or a TTS
+      // installed while a different modality is active.
+      await FlutterGemmaPlugin.instance.modelManager.clearActiveTtsIdentity();
+
+      expect(
+        await FlutterGemma.getOrphanedFiles(),
+        isEmpty,
+        reason:
+            'installed-but-inactive TTS files must still be protected; reverting '
+            '_getAllProtectedFiles to a type-filtered set re-introduces #391',
+      );
+    },
+    timeout: const Timeout(Duration(seconds: 20)),
+  );
+
+  test(
+    'getOrphanedFiles ABORTS (rethrows) when repository enumeration fails — a '
+    'partial keep-set must never feed the destructive cleanup',
+    () async {
+      // If listInstalled() throws, _getProtectedFiles must NOT swallow it and
+      // return a partial (active-only / empty) keep-set — cleanupStorage() would
+      // then delete installed models it should protect. The failure must abort.
+      await ServiceRegistry.initialize(modelRepository: _ThrowingRepository());
+
+      await expectLater(
+        FlutterGemma.getOrphanedFiles(),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
+}
+
+/// A ModelRepository whose enumeration throws — models a transient repo failure
+/// (e.g. MissingPluginException early in app lifecycle) during a storage scan.
+class _ThrowingRepository implements ModelRepository {
+  @override
+  Future<List<ModelInfo>> listInstalled() async =>
+      throw StateError('repo enumeration failed');
+  @override
+  Future<void> saveModel(ModelInfo info) async {}
+  @override
+  Future<ModelInfo?> loadModel(String id) async => null;
+  @override
+  Future<void> deleteModel(String id) async {}
+  @override
+  Future<bool> isInstalled(String id) async => false;
 }
 
 /// PathProviderPlatform stub mirroring

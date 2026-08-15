@@ -68,6 +68,25 @@ This implies (1b) — verify dylibs were actually rebuilt against the new patche
 ### 1d. Website (`website/`, fluttergemma.dev) — ALWAYS in scope
 Every release touches the site. At minimum the package versions hardcoded in its docs must be bumped to the just-published versions (Step 12a) — this is required even for a version-only release. On top of that, any new/changed public API, breaking change, or common pitfall must be documented (Step 12b). Don't defer to "later" — stale docs outlive the release.
 
+### 1d-bis. `README.md` ships in the archive — a docs-only fix there needs its own version bump
+
+Step 1a scopes "did the package change" to `lib/ hook/ pubspec.yaml ios/ android/ web/`, and 1d/12 scope "docs" to `website/`. **`packages/*/README.md` is in neither**, and it is the one doc that gets frozen into the published tarball and rendered as the pub.dev landing page. Fixing it on the branch changes nothing for users until a version is published.
+
+> **What this rule prevents (core 1.5.8):** 1.5.7 shipped with a README telling Windows users their discrete GPU crashes and to fall back to CPU/NPU — published the same day the release that fixed it was being prepared. The website was corrected, `DESKTOP_SUPPORT.md` was corrected, and both reach users immediately via GitHub. The README needed 1.5.8.
+
+Two consequences:
+
+1. **Grep the WHOLE repo for any claim you are correcting, not just `website/`.** Same sentence, several homes, different delivery channels:
+   ```bash
+   grep -rniE "<the claim you are fixing>" --include='*.md' packages/ website/ | grep -v '/build/'
+   ```
+   A single stale statement in this repo lived in eight places: the litertlm README, the core README twice, `DESKTOP_SUPPORT.md` three times, and two site pages.
+2. **Know which docs actually ship** before deciding whether a bump is needed — the answer differs per package:
+   ```bash
+   cd packages/<pkg> && dart pub publish --dry-run 2>&1 | grep -E "^├── .*\.md"
+   ```
+   In `flutter_gemma` only `README.md` and `CHANGELOG.md` ship; `DESKTOP_SUPPORT.md`, `MIGRATION.md` and `CONTRIBUTING.md` are GitHub-only and need no publish.
+
 ### 1e. Did the core public API change? → realign the Genkit packages
 ```bash
 git diff <last-tag> -- packages/flutter_gemma/lib/flutter_gemma_interface.dart packages/flutter_gemma/lib/core

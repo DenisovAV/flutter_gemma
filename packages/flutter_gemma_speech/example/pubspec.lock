@@ -179,7 +179,7 @@ packages:
       path: "../../flutter_gemma_agent"
       relative: true
     source: path
-    version: "0.2.2"
+    version: "0.2.3"
   flutter_gemma_litertlm:
     dependency: "direct main"
     description:

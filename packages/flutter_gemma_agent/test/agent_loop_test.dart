@@ -23,7 +23,7 @@ class _FakeAgentChat extends InferenceChat {
   /// Flat form: one [ModelResponse] per turn (each becomes a single-element
   /// token stream). Keeps every pre-streaming test constructing the fake the
   /// same way — `[a, b, c]` is still three separate turns.
-  _FakeAgentChat(List<ModelResponse> responses)
+  _FakeAgentChat(List<ModelResponse> responses, {super.supportImage})
     : _turns = [
         for (final r in responses) [r],
       ],
@@ -1107,5 +1107,92 @@ void main() {
         expect(chat.generateCallCount, 3);
       },
     );
+  });
+
+  group('AgentLoop — image input', () {
+    test('sends an image message when imageBytes is given', () async {
+      final chat = _FakeAgentChat([
+        const TextResponse('a printed card'),
+      ], supportImage: true);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+      final bytes = Uint8List.fromList([1, 2, 3]);
+
+      await loop.run(chat, 'what is this?', imageBytes: bytes).toList();
+
+      final message = chat.received.single;
+      expect(message.hasImage, isTrue);
+      expect(message.imageBytes, bytes);
+      expect(message.text, 'what is this?');
+      expect(message.isUser, isTrue);
+    });
+
+    test('sends a text-only message when imageBytes is omitted', () async {
+      final chat = _FakeAgentChat([const TextResponse('hi')]);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+
+      await loop.run(chat, 'hello').toList();
+
+      expect(chat.received.single.hasImage, isFalse);
+      expect(chat.received.single.text, 'hello');
+    });
+
+    test('fails when the chat was built without image support', () async {
+      // The engines disagree on this case — FFI/mobile drop the image and
+      // answer text-only, web MediaPipe throws. Fail here so the behaviour is
+      // identical everywhere. The guard runs in the driver, so it surfaces as a
+      // stream error (not a synchronous throw).
+      final chat = _FakeAgentChat([const TextResponse('never reached')]);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+
+      await expectLater(
+        loop
+            .run(chat, 'what is this?', imageBytes: Uint8List.fromList([1]))
+            .toList(),
+        throwsArgumentError,
+      );
+      expect(chat.received, isEmpty);
+    });
+
+    test('fails on empty imageBytes', () async {
+      final chat = _FakeAgentChat([
+        const TextResponse('never reached'),
+      ], supportImage: true);
+      final loop = AgentLoop(
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+
+      await expectLater(
+        loop.run(chat, 'what is this?', imageBytes: Uint8List(0)).toList(),
+        throwsArgumentError,
+      );
+      expect(chat.received, isEmpty);
+    });
+
+    test('AgentSession.ask forwards imageBytes to the loop', () async {
+      final chat = _FakeAgentChat([
+        const TextResponse('ok'),
+      ], supportImage: true);
+      final session = AgentSession(
+        chat: chat,
+        registry: SkillRegistry(),
+        executors: [_FakeExecutor(SkillType.textOnly)],
+      );
+      final bytes = Uint8List.fromList([9, 9]);
+
+      await session.ask('what is this?', imageBytes: bytes).toList();
+
+      expect(chat.received.single.hasImage, isTrue);
+      expect(chat.received.single.imageBytes, bytes);
+    });
   });
 }

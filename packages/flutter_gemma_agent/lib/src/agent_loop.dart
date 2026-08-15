@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_gemma/flutter_gemma.dart'
     show
@@ -100,10 +101,27 @@ class AgentLoop {
   /// synthetic `status: cancelled` tool-response, so the persistent chat is
   /// never left with a dangling half-answered call. `null` (the default)
   /// preserves prior behavior exactly.
+  ///
+  /// Pass [imageBytes] to attach a photo to the turn — the model then sees the
+  /// image alongside [userMessage] and can call skills based on what it saw.
+  ///
+  /// PRECONDITION: [chat] must have been created with `supportImage: true`
+  /// (see [AgentSession.fromModel]) and be backed by a multimodal model. The
+  /// `supportImage: true` half is enforced with a real error (surfaced on the
+  /// returned stream), because the engines below do NOT agree on what an
+  /// unsupported image means: the FFI, mobile-MediaPipe and built-in-AI sessions
+  /// drop it silently and answer text-only, while web MediaPipe throws
+  /// `ArgumentError`. A silent drop is the worse half — the model returns a
+  /// confident answer to a photo it never saw, and nothing in the event stream
+  /// says so. Failing here makes the outcome identical on every platform. The
+  /// "multimodal model" half cannot be checked from Dart (no capability
+  /// introspection API): if the flag is set but the model is text-only, the
+  /// image reaches the engine and is dropped there — a caller precondition.
   Stream<AgentEvent> run(
     InferenceChat chat,
     String userMessage, {
     bool Function()? isCancelled,
+    Uint8List? imageBytes,
   }) {
     // Delegate the loop + history-balancing to core's
     // generateChatResponseWithTools (one audited implementation — cancel,
@@ -136,7 +154,36 @@ class AgentLoop {
     }
 
     Future<void> drive() async {
-      await chat.addQueryChunk(Message(text: userMessage, isUser: true));
+      // Image precondition — checked before addQueryChunk so a rejected turn
+      // writes nothing to history. Surfaces via the driver's catchError as a
+      // stream error (see the doc on [run]).
+      if (imageBytes != null) {
+        if (!chat.supportsImages) {
+          throw ArgumentError.value(
+            chat,
+            'chat',
+            'AgentLoop.run(imageBytes:) requires a chat created with '
+                'supportImage: true, backed by a multimodal model. Without it '
+                'the engine drops the image and the model answers text-only.',
+          );
+        }
+        if (imageBytes.isEmpty) {
+          throw ArgumentError.value(
+            imageBytes,
+            'imageBytes',
+            'imageBytes must not be empty.',
+          );
+        }
+      }
+      await chat.addQueryChunk(
+        imageBytes == null
+            ? Message(text: userMessage, isUser: true)
+            : Message.withImage(
+                text: userMessage,
+                imageBytes: imageBytes,
+                isUser: true,
+              ),
+      );
       await for (final r in chat.generateChatResponseWithTools(
         onToolCall: (call) {
           // A tool call ends this turn: the text streamed before it was preamble,

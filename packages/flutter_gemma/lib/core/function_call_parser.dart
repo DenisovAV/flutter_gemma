@@ -2,11 +2,23 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_response.dart';
 import 'package:flutter_gemma/core/parsing/function_call_format.dart';
 import 'package:flutter_gemma/core/parsing/function_call_format_factory.dart';
+import 'package:flutter_gemma/core/parsing/sdk_passthrough_function_call_format.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Facade for backward compatibility.
 /// Delegates to model-specific [FunctionCallFormat] implementations.
 class FunctionCallParser {
+  /// Whether [modelType]'s function-call format is the SDK-passthrough kind:
+  /// the backend surfaces tool calls through a structured SDK response
+  /// (`RawSdkResponseSession.lastRawResponse`) rather than in the text stream,
+  /// and the text stream itself carries the raw
+  /// `{"role":"assistant","tool_calls":...}` JSON that must be suppressed. Keyed
+  /// off the format (not a hardcoded model) so any SDK-passthrough model — today
+  /// only Gemma 4 — is handled the same way.
+  static bool usesSdkPassthrough(ModelType? modelType) =>
+      FunctionCallFormatFactory.create(modelType)
+          is SdkPassthroughFunctionCallFormat;
+
   /// Check if buffer starts with function call indicators
   static bool isFunctionCallStart(String buffer, {ModelType? modelType}) {
     return FunctionCallFormatFactory.create(

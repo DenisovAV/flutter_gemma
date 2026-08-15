@@ -31,8 +31,15 @@ class VoiceReplyTextEvent extends VoiceEvent {
   String toString() => 'VoiceReplyTextEvent("$chunk")';
 }
 
-/// Synthesized reply audio: 16-bit LE mono PCM at [sampleRate]. v1 emits
-/// exactly one with isFinal = true (the whole reply).
+/// Synthesized reply audio: 16-bit LE mono PCM at [sampleRate].
+///
+/// One-shot mode (default) emits exactly one event with `isFinal: true` — the
+/// whole reply. Streaming mode (`VoiceSession(streamAudio: true)`) emits the
+/// reply as several `isFinal: false` chunks followed by a single zero-byte
+/// `isFinal: true` marker. A successful NON-EMPTY turn ends with exactly one
+/// `isFinal: true` (an empty-reply turn is successful but emits no audio at
+/// all); an errored or interrupted turn emits no `isFinal: true` — though an
+/// interrupted streaming turn may already have emitted `isFinal: false` chunks.
 class VoiceReplyAudioEvent extends VoiceEvent {
   const VoiceReplyAudioEvent(
     this.pcm, {

@@ -14,6 +14,7 @@ import 'package:flutter_gemma/flutter_gemma.dart'
 import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
 import 'package:meta/meta.dart' show visibleForTesting;
 
+import 'clause_splitter.dart';
 import 'voice_event.dart';
 import 'voice_responder.dart';
 
@@ -33,6 +34,7 @@ class VoiceSession {
     required this._recognizer,
     required this._responder,
     required this._synthesizer,
+    this._streamAudio = false,
   });
 
   /// Multi-turn conversational voice. Recommended default. Create the chat via
@@ -59,6 +61,7 @@ class VoiceSession {
     FutureOr<Map<String, dynamic>> Function(FunctionCallResponse call)?
     onToolCall,
     int maxToolTurns = 8,
+    bool streamAudio = false,
   }) {
     if (chat.tools.isEmpty) {
       return VoiceSession.custom(
@@ -68,6 +71,7 @@ class VoiceSession {
           stop: chat.stopGeneration,
         ),
         synthesizer: synthesizer,
+        streamAudio: streamAudio,
       );
     }
     if (onToolCall == null) {
@@ -112,6 +116,7 @@ class VoiceSession {
         },
       ),
       synthesizer: synthesizer,
+      streamAudio: streamAudio,
     );
   }
 
@@ -137,6 +142,15 @@ class VoiceSession {
   final SpeechRecognizer _recognizer;
   final VoiceResponder _responder;
   final SpeechSynthesizer _synthesizer;
+
+  /// When true, synthesize the reply clause-by-clause as the LLM streams (lower
+  /// time-to-first-audio) — a series of `VoiceReplyAudioEvent(isFinal:false)`
+  /// chunks then a final `isFinal:true` marker. When false (default), the reply
+  /// is synthesized in one shot after the LLM finishes (a single `isFinal:true`
+  /// chunk). Opt-in because consumers must play the chunks in sequence, and
+  /// because per-clause synthesis has slightly flatter prosody at the clause
+  /// joins than synthesizing the whole reply at once.
+  final bool _streamAudio;
 
   /// Max time interrupt() waits for the LLM reply stream to drain after stop()
   /// before force-terminating the turn and detaching the (still-running)
@@ -170,10 +184,13 @@ class VoiceSession {
   /// Run one push-to-talk turn on a recorded utterance (16 kHz mono 16-bit LE
   /// PCM — same contract as [SpeechRecognizer.transcribe]).
   ///
-  /// v1 sequence: transcribe(pcm) → VoiceTranscriptEvent(final) →
-  /// responder.respond(text) streamed as VoiceReplyTextEvent(s) →
-  /// synthesize(fullReply) → one VoiceReplyAudioEvent(final) →
-  /// VoiceTurnCompleteEvent. A stage failure surfaces as a Dart stream error.
+  /// Sequence: transcribe(pcm) → VoiceTranscriptEvent(final) →
+  /// responder.respond(text) streamed as VoiceReplyTextEvent(s) → reply audio →
+  /// VoiceTurnCompleteEvent. Reply audio is one VoiceReplyAudioEvent(isFinal)
+  /// in one-shot mode (default), or a series of VoiceReplyAudioEvent(isFinal:
+  /// false) chunks then a zero-byte VoiceReplyAudioEvent(isFinal) marker when
+  /// streamAudio is set. A stage failure surfaces as a Dart stream error; an
+  /// interrupted turn ends with VoiceTurnInterruptedEvent (no isFinal audio).
   ///
   /// WARNINGS:
   /// - Cancelling this stream's subscription is NOT a portable stop — to barge
@@ -238,18 +255,11 @@ class VoiceSession {
       );
     }
     // Bounded drain: give the reply stream drainTimeout to end, else force it.
-    if (drained != null && !drained.isCompleted) {
-      _drainTimer = Timer(drainTimeout, () {
-        if (!drained.isCompleted) {
-          _drainForced = true;
-          gemmaLog(
-            'VoiceSession: barge-in drain exceeded ${drainTimeout.inSeconds}s; '
-            'detaching LLM stream (generation finishes in background).',
-            level: GemmaLogLevel.info,
-          );
-          drained.complete();
-        }
-      });
+    if (drained != null) {
+      _armBoundedDrain(
+        drained,
+        'barge-in drain exceeded ${drainTimeout.inSeconds}s',
+      );
     }
     try {
       if (done != null) await done.future;
@@ -262,6 +272,27 @@ class VoiceSession {
     }
   }
 
+  /// Arm the bounded-drain timeout: give the (still-running) reply stream
+  /// [drainTimeout] to end on its own, else force-complete [drained] and set
+  /// [_drainForced] so the driver detaches the subscription (never cancels it —
+  /// the chat epilogue must run). Shared by [interrupt] (barge-in) and the
+  /// streaming synth-pump's error path.
+  void _armBoundedDrain(Completer<void> drained, String reason) {
+    if (drained.isCompleted) return;
+    _drainTimer?.cancel();
+    _drainTimer = Timer(drainTimeout, () {
+      if (!drained.isCompleted) {
+        _drainForced = true;
+        gemmaLog(
+          'VoiceSession: $reason; detaching LLM stream '
+          '(generation finishes in background).',
+          level: GemmaLogLevel.info,
+        );
+        drained.complete();
+      }
+    });
+  }
+
   Future<void> _drive(
     StreamController<VoiceEvent> controller,
     Uint8List pcm,
@@ -270,6 +301,12 @@ class VoiceSession {
       controller.add(terminal);
       _teardown(controller);
     }
+
+    // Streaming-audio pump state, hoisted so the catch can always stop + join
+    // the pump instead of leaving it parked on the clause queue.
+    StreamController<String>? clauses;
+    Future<void>? pumpDone;
+    var stopPump = false;
 
     try {
       // ---- STT ----
@@ -295,6 +332,78 @@ class VoiceSession {
       _replyDrained = drained;
       Object? replyError;
       StackTrace? replyStack;
+
+      // ---- Streaming-audio pump (null in one-shot mode) ----
+      // A serial synth pump runs CONCURRENTLY with the LLM subscription: the
+      // token listener feeds completed clauses into [clauses], the pump
+      // synthesizes them in order and emits isFinal:false chunks. It is joined
+      // in the driver body below (never from the detached listener), so barge-in
+      // stays bounded by the existing drain machinery.
+      final splitter = _streamAudio ? ClauseSplitter() : null;
+      clauses = _streamAudio ? StreamController<String>() : null;
+      Object? pumpError;
+      StackTrace? pumpStack;
+      final clauseQueue = clauses;
+
+      void enqueueClause(String clause) {
+        if (clauseQueue == null || clauseQueue.isClosed) return;
+        if (clause.trim().isEmpty) return; // TTS on whitespace is undefined
+        clauseQueue.add(clause);
+      }
+
+      if (clauseQueue != null) {
+        pumpDone = () async {
+          try {
+            await for (final clause in clauseQueue.stream) {
+              // Check the stop flag on BOTH sides of the (uncancellable)
+              // synthesize: `await for` keeps delivering already-buffered clauses
+              // after close(), so without the pre-check a barge-in would still
+              // synthesize the whole backlog, and without the post-check a stale
+              // result would be emitted after teardown. We `continue`
+              // (drain-and-skip) rather than `break` so the pump only ever ends
+              // when the driver's queue.close() drains the last item, never on
+              // its own: `break` exits the `await for` and cancels the clause
+              // subscription, and the driver's later queue.close() then can't
+              // join it promptly — `await pumpDone` fails to resolve within the
+              // drain window, so the terminal is emitted too late. (verified:
+              // with `break` the forced-drain test observes the wrong terminal —
+              // no interrupted/complete event.) The load-bearing skip for that
+              // test is the post-check below (the barge-in lands mid-synthesize);
+              // the pre-check here guards the buffered-backlog case.
+              if (stopPump || _interruptRequested) continue;
+              final chunk = await _synthesizer.synthesize(clause);
+              if (stopPump || _interruptRequested || controller.isClosed) {
+                continue;
+              }
+              controller.add(
+                VoiceReplyAudioEvent(
+                  chunk,
+                  sampleRate: _synthesizer.sampleRate,
+                  isFinal: false,
+                ),
+              );
+            }
+          } catch (e, st) {
+            // A synthesize stage error. NEVER throw out of the pump future;
+            // capture it, then (the driver is parked on `drained`) stop the LLM
+            // and arm the bounded drain so the error surfaces promptly instead
+            // of after the whole reply finishes generating.
+            pumpError = e;
+            pumpStack = st;
+            unawaited(
+              _responder.stop().catchError((Object stopErr) {
+                gemmaLog(
+                  'VoiceSession: stopping the LLM after a synth pump error '
+                  'failed: $stopErr',
+                  level: GemmaLogLevel.info,
+                );
+              }),
+            );
+            _armBoundedDrain(drained, 'synth pump errored');
+          }
+        }();
+      }
+
       final sub = _responder
           .respond(transcript)
           .listen(
@@ -302,6 +411,11 @@ class VoiceSession {
               if (controller.isClosed) return; // detached / torn-down turn
               buffer.write(token);
               controller.add(VoiceReplyTextEvent(token));
+              if (splitter != null) {
+                for (final clause in splitter.feed(token)) {
+                  enqueueClause(clause);
+                }
+              }
             },
             onError: (Object e, StackTrace st) {
               replyError = e;
@@ -320,6 +434,11 @@ class VoiceSession {
               if (!drained.isCompleted) drained.complete();
             },
             onDone: () {
+              // ONLY complete `drained` here. The splitter flush + queue close +
+              // pump join all happen in the driver body after `await
+              // drained.future` — which the bounded drain guarantees resumes
+              // within drainTimeout even if this onDone never fires (detach). A
+              // detached onDone must not touch the queue/pump (they may be gone).
               if (!drained.isCompleted) drained.complete();
             },
             cancelOnError: false,
@@ -333,11 +452,39 @@ class VoiceSession {
       }
       final replyText = buffer.toString();
 
+      // ---- Join the synth pump before ANY terminal (streaming mode) ----
+      // Normal end → flush the splitter tail as the last clause; error/barge-in
+      // → abandon buffered clauses. Then the driver (sole closer) closes the
+      // queue and waits out at most one in-flight synthesize.
+      if (clauseQueue != null) {
+        if (replyError != null || _interruptRequested) {
+          stopPump = true;
+        } else {
+          enqueueClause(splitter!.flush());
+        }
+        if (!clauseQueue.isClosed) clauseQueue.close();
+        await pumpDone;
+      }
+
       // Error wins (whether or not interrupted): turn-fatal stream error, no
       // Interrupted/Complete event. interrupt()'s Future still completes (via
-      // teardown) without rethrowing.
+      // teardown) without rethrowing. Priority: LLM error, then pump error.
       if (replyError != null) {
+        // The LLM error is the turn-fatal one, but a concurrent pump error must
+        // not vanish silently — log it before it's superseded.
+        if (pumpError != null) {
+          gemmaLog(
+            'VoiceSession: synth pump also errored (superseded by the LLM '
+            'stream error): $pumpError',
+            level: GemmaLogLevel.info,
+          );
+        }
         controller.addError(replyError!, replyStack);
+        _teardown(controller);
+        return;
+      }
+      if (pumpError != null) {
+        controller.addError(pumpError!, pumpStack);
         _teardown(controller);
         return;
       }
@@ -355,28 +502,47 @@ class VoiceSession {
         return;
       }
 
-      // ---- TTS ----
-      final pcmOut = await _synthesizer.synthesize(replyText);
-      if (_interruptRequested) {
-        // Barge-in landed during (uncancellable) synthesis → suppress audio.
-        finish(
-          VoiceTurnInterruptedEvent(
-            transcript: transcript,
-            partialReplyText: replyText,
+      // ---- TTS terminal ----
+      if (_streamAudio) {
+        // Chunks were emitted incrementally as isFinal:false; a zero-byte
+        // isFinal:true marker keeps the "exactly one isFinal:true per successful
+        // turn" invariant (harmless for a player to receive 0 bytes).
+        controller.add(
+          VoiceReplyAudioEvent(
+            Uint8List(0),
+            sampleRate: _synthesizer.sampleRate,
+            isFinal: true,
           ),
         );
-        return;
+      } else {
+        final pcmOut = await _synthesizer.synthesize(replyText);
+        if (_interruptRequested) {
+          // Barge-in landed during (uncancellable) synthesis → suppress audio.
+          finish(
+            VoiceTurnInterruptedEvent(
+              transcript: transcript,
+              partialReplyText: replyText,
+            ),
+          );
+          return;
+        }
+        controller.add(
+          VoiceReplyAudioEvent(
+            pcmOut,
+            sampleRate: _synthesizer.sampleRate,
+            isFinal: true,
+          ),
+        );
       }
-      controller.add(
-        VoiceReplyAudioEvent(
-          pcmOut,
-          sampleRate: _synthesizer.sampleRate,
-          isFinal: true,
-        ),
-      );
       finish(VoiceTurnCompleteEvent(transcript, replyText));
     } catch (e, st) {
-      // Stage failure (transcribe/synthesize throw) is turn-fatal (§7).
+      // Stage failure (transcribe/synthesize throw) is turn-fatal (§7). If the
+      // throw landed after the streaming pump started (e.g. sub.cancel() threw),
+      // stop + close the queue and join the pump first, or it leaks parked on
+      // the never-closed clause stream.
+      stopPump = true;
+      if (clauses != null && !clauses.isClosed) clauses.close();
+      if (pumpDone != null) await pumpDone;
       if (!controller.isClosed) {
         controller.addError(e, st);
         _teardown(controller);

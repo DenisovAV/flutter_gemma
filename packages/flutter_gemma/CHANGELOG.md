@@ -1,3 +1,6 @@
+## 1.5.6
+- fix: Gemma 4 streaming no longer leaks raw tool-call JSON into the text channel.
+
 ## 1.5.5
 - Add optional onMaxToolTurns to generateChatResponseWithTools (lets a driving consumer surface its own maxToolTurns terminal).
 

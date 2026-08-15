@@ -295,6 +295,34 @@ class InferenceChat {
     // Track if we emitted a function call (to record correct history and skip session clearing)
     bool emittedFunctionCall = false;
 
+    // SDK-passthrough tool-call suppression (currently Gemma 4; keyed off the
+    // format, not the model — see FunctionCallParser.usesSdkPassthrough). The
+    // C++ runtime streams a tool-call turn as the raw
+    // `{"role":"assistant","tool_calls":[...]}` JSON (one or more concatenated
+    // objects) AND exposes it via lastRawResponse. The passthrough format reports
+    // "no function call in text", so the funcBuffer below never suppresses those
+    // tokens — without this they leak into the text channel (agent
+    // TextChunkEvent / voice synthesis). We classify the turn on its first
+    // non-whitespace char: a '{' means a tool-call JSON turn, which we swallow
+    // (the structured call is surfaced from lastRawResponse at end-of-stream);
+    // anything else is plain text and streams normally. Other formats are
+    // excluded by the guard below, so this first-char probe only ever runs for
+    // the passthrough format — it never misfires on a text-stream format's
+    // JSON-ish output. Invariant assumed: a passthrough turn is EITHER all
+    // tool-call JSON OR all text, never prose-then-JSON — Gemma 4's SDK emits a
+    // pure tool_calls object for a call, so the first-char classification holds.
+    final bool sdkPassthrough =
+        FunctionCallParser.usesSdkPassthrough(modelType) &&
+        tools.isNotEmpty &&
+        supportsFunctionCalls &&
+        toolChoice != ToolChoice.none &&
+        session is RawSdkResponseSession;
+    bool sdkClassified = false; // has this turn been classified yet?
+    bool sdkSwallow = false; // swallowing a tool-call JSON stream?
+    String sdkProbe = ''; // pre-classification token accumulator
+    final sdkSwallowed =
+        StringBuffer(); // swallowed JSON (fallback if unparsed)
+
     final originalStream = session.getResponseAsync().map(
       (token) => TextResponse(token),
     );
@@ -334,6 +362,37 @@ class InferenceChat {
             'InferenceChat: Received filtered token: "$token"',
             level: GemmaLogLevel.verbose,
           );
+        }
+
+        // Gemma 4 SDK-passthrough classification (see `sdkPassthrough` above).
+        // Runs before the generic funcBuffer scanning, which is a no-op for the
+        // passthrough format anyway (it never detects a call in the text stream).
+        if (sdkPassthrough) {
+          if (sdkSwallow) {
+            // Inside a tool-call JSON stream — swallow every token.
+            sdkSwallowed.write(token);
+            continue;
+          }
+          if (!sdkClassified) {
+            sdkProbe += token;
+            final trimmed = sdkProbe.trimLeft();
+            if (trimmed.isEmpty) continue; // whitespace only — keep probing
+            sdkClassified = true;
+            if (trimmed.startsWith('{')) {
+              // Tool-call JSON turn — swallow this and all following tokens.
+              sdkSwallow = true;
+              sdkSwallowed.write(sdkProbe);
+              continue;
+            }
+            // Plain-text turn — emit the probed prefix, then stream the rest.
+            yield TextResponse(sdkProbe);
+            buffer.write(sdkProbe);
+            continue;
+          }
+          // Already classified as plain text — stream token-by-token.
+          yield response;
+          buffer.write(token);
+          continue;
         }
 
         // Track if this token should be added to buffer (default true)
@@ -489,20 +548,24 @@ class InferenceChat {
     }
 
     gemmaLog('InferenceChat: Native token stream ended');
+
+    // The stream ended before we classified this Gemma 4 turn (e.g. a
+    // whitespace-only reply) — the probed tokens are plain text, flush them.
+    if (sdkPassthrough && !sdkClassified && sdkProbe.isNotEmpty) {
+      yield TextResponse(sdkProbe);
+      buffer.write(sdkProbe);
+    }
+
     final response = buffer.toString();
     gemmaLog(
       'InferenceChat: Complete response accumulated: "$response"',
       level: GemmaLogLevel.verbose,
     );
 
-    // Gemma 4 path: streaming yielded plain text via the SDK passthrough
-    // format. The tool calls live in the structured `lastRawResponse` JSON.
-    // Surface them at end-of-stream as the final ModelResponse.
-    if (modelType == ModelType.gemma4 &&
-        tools.isNotEmpty &&
-        supportsFunctionCalls &&
-        toolChoice != ToolChoice.none &&
-        session is RawSdkResponseSession) {
+    // SDK-passthrough path (same guard that swallowed the tool-call JSON above):
+    // the structured tool calls live in `lastRawResponse`. Surface them here as
+    // the final ModelResponse(s).
+    if (sdkPassthrough) {
       final raw = (session as RawSdkResponseSession).lastRawResponse;
       if (raw != null) {
         final allCalls = SdkResponseParser.extractToolCalls(raw);
@@ -527,6 +590,21 @@ class InferenceChat {
           }
         }
       }
+    }
+
+    // Safety net: we suppressed a `{`-leading SDK-passthrough stream as a tool
+    // call, but lastRawResponse yielded no parseable call. Don't silently drop
+    // the model's output — surface the swallowed text (as it leaked pre-fix). It
+    // is deliberately NOT re-recorded to history: this only fires on a degenerate
+    // turn (a `{`-leading passthrough turn with no extractable tool_calls), where
+    // re-appending the JSON-shaped blob as an assistant turn would pollute the
+    // model's next-turn context more than omitting it.
+    if (sdkSwallow && !emittedFunctionCall && sdkSwallowed.isNotEmpty) {
+      gemmaLog(
+        'InferenceChat: SDK tool-call stream suppressed but no call parsed — '
+        'surfacing raw text (fallback)',
+      );
+      yield TextResponse(sdkSwallowed.toString());
     }
 
     // Handle end of stream - process any remaining buffer

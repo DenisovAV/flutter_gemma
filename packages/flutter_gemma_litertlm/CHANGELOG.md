@@ -4,6 +4,7 @@
 - Fix Windows discrete GPU: a Bazel define we passed had been removed upstream.
 - Rebuild both NPU dispatch stacks from the pin instead of shipping stale prebuilts.
 - Pin the macOS deployment target of `libStreamProxy.dylib` to 11.0 instead of the build host's.
+- Native platforms only — web stays on `@litert-lm/core` 0.14.0 (the 0.16.0 npm publish ships no `dist/`).
 
 ## 1.3.1
 - Clearer engine-create error for GPU-only `.litertlm` models run on CPU (#390).

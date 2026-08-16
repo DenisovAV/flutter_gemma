@@ -12,8 +12,10 @@ Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) �
 - Supports text generation (blocking and streaming)
 - Embeddings via `FlutterGemmaEmbedder`
 - Multimodal input (images, audio) — supports `data:` URIs, `file://` paths, and `http(s)://` URLs
-- Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`)
+- Function calling / tool use with `toolChoice` control (`auto`, `required`, `none`) — honors Genkit 0.15's native top-level `toolChoice`
 - Parallel tool calls — multiple function calls in a single model response
+- Structured JSON output — pass an `outputSchema`, read the parsed object from `response.output`
+- Context-window trimmer middleware (`trimContext`) — drops oldest turns to fit the on-device KV budget
 - Thinking mode (Gemma 4, DeepSeek)
 - Generation latency tracking via `latencyMs` in responses
 - Configurable via `@Schema()`-annotated options
@@ -164,6 +166,46 @@ final response = await ai.generate(
   tools: [weatherTool],
 );
 ```
+
+## Structured Output
+
+The plugin advertises `output: ['text', 'json']`. On-device Gemma has no native
+schema-constrained decoder, so Genkit's instruction-injection fallback drives
+JSON output: the plugin returns raw model text and Genkit's `extractJson`
+populates `response.output`. Pass an `outputSchema` (a `schemantic` type) and
+read the parsed object:
+
+```dart
+final response = await ai.generate(
+  model: flutterGemma.model('gemma-3-nano'),
+  prompt: 'Give me a pancake recipe.',
+  outputSchema: Recipe.$schema, // any @Schema()-annotated type
+);
+
+final Recipe? recipe = response.output;
+```
+
+## Context-Window Trimming
+
+On-device models run with a fixed, small context window (`maxTokens` — 1024 for
+most `.litertlm` models). A long multi-turn chat overflows it and the native
+runtime fails to allocate the KV cache mid-generation. `trimContext()` is a
+Genkit middleware that drops the oldest **non-system** turns before each model
+call, always keeping every system message and the most recent message:
+
+```dart
+final response = await ai.generate(
+  model: flutterGemma.model('gemma-3-nano'),
+  prompt: 'Continue our conversation…',
+  messages: longHistory,
+  use: [trimContext(maxInputTokens: 800)],
+);
+```
+
+With no arguments the budget is derived from the request's `maxTokens` (the
+model's context window) minus 256 tokens of response headroom. Token counts are
+estimated with a `chars / 4` heuristic; a contiguous suffix of recent turns is
+kept, never a gap.
 
 ## Embeddings
 

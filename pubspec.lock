@@ -476,10 +476,10 @@ packages:
     dependency: transitive
     description:
       name: genkit
-      sha256: "31a98b360873f033ceab41921072c2a20eadb621ddc3223851a92f051f2cc0da"
+      sha256: "6ba891c5d04e3d628676181494244b307efa3eaeef9daf118675a0b95e0a7680"
       url: "https://pub.dev"
     source: hosted
-    version: "0.14.1"
+    version: "0.15.1"
   glob:
     dependency: transitive
     description:
@@ -908,10 +908,10 @@ packages:
     dependency: transitive
     description:
       name: schemantic
-      sha256: "87c9bb8c2b33be1904533f8f72094e76e772ef227b137dd0b77b4981c5f5ee77"
+      sha256: "3597f1c6bfcfc95e92bb215a8868be0494105b6b6c12228b184253616047d5d2"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.0"
+    version: "0.2.2"
   shared_preferences:
     dependency: transitive
     description:

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Bump `genkit` to `^0.15.1` (from `^0.14.1`). No API or behavioral changes; 32 tests green.
+
 ## 0.1.0
 
 Initial release.

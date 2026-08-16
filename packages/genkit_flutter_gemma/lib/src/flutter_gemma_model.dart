@@ -9,6 +9,24 @@ import 'converters/response_converter.dart';
 import 'converters/tool_converter.dart';
 import 'flutter_gemma_options.dart';
 import 'flutter_gemma_runtime.dart';
+import 'tool_choice_parse.dart';
+
+/// Capabilities a flutter_gemma model advertises to Genkit. Shared by the
+/// plugin's `list()` metadata AND the resolved [Model]'s `metadata` so the two
+/// never drift (the resolved action previously carried no metadata, leaving its
+/// supports empty at generate time). `constrained: false` — on-device Gemma has
+/// no native schema-constrained decoder, so Genkit's instruction-injection
+/// fallback drives JSON output (`output: ['text', 'json']`); we return the raw
+/// model text and the framework's `extractJson` populates `response.output`.
+const Map<String, dynamic> kFlutterGemmaModelSupports = {
+  'multiturn': true,
+  'media': true,
+  'tools': true,
+  'toolChoice': true,
+  'systemRole': true,
+  'constrained': false,
+  'output': ['text', 'json'],
+};
 
 /// Creates a Genkit [Model] action backed by flutter_gemma inference.
 ///
@@ -41,6 +59,9 @@ Model createFlutterGemmaModel({
 
   return Model(
     name: name,
+    metadata: {
+      'model': {'supports': kFlutterGemmaModelSupports},
+    },
     fn: (request, context) async {
       if (request == null) {
         throw GenkitException(
@@ -146,11 +167,13 @@ Future<ModelResponse> _executeGeneration({
   final supportAudio = config?.supportAudio ?? false;
   final isThinking = config?.isThinking ?? false;
   final enableSpeculativeDecoding = config?.enableSpeculativeDecoding;
-  final gemmaToolChoice = switch (config?.toolChoice) {
-    'required' => gemma.ToolChoice.required,
-    'none' => gemma.ToolChoice.none,
-    _ => gemma.ToolChoice.auto,
-  };
+  // Prefer the native top-level request.toolChoice (Genkit 0.15's standard
+  // field) over the legacy config.toolChoice custom option. Fails loud on an
+  // unrecognized value (see parseToolChoice) rather than silently defaulting
+  // to auto — a 'none' typo must not quietly re-enable tools.
+  final gemmaToolChoice = parseToolChoice(
+    request.toolChoice ?? config?.toolChoice,
+  );
   final systemInstruction =
       config?.systemInstruction ?? extractSystemInstruction(request.messages);
   final maxFunctionBufferLength = config?.maxFunctionBufferLength;

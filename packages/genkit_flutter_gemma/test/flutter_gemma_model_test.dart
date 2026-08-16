@@ -198,6 +198,60 @@ void main() {
       expect(fakeModel.lastToolChoice, gemma.ToolChoice.none);
     });
 
+    test('native request.toolChoice reaches createChat (0.15)', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          toolChoice: 'required', // top-level native field, not config
+        ),
+      );
+
+      expect(fakeModel.lastToolChoice, gemma.ToolChoice.required);
+    });
+
+    test('native request.toolChoice wins over config.toolChoice', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          toolChoice: 'none',
+          config: {'toolChoice': 'required'},
+        ),
+      );
+
+      expect(fakeModel.lastToolChoice, gemma.ToolChoice.none);
+    });
+
+    test(
+      'advertises supports (toolChoice, constrained, json) in Model metadata',
+      () {
+        final supports =
+            (buildModel().metadata['model'] as Map)['supports'] as Map;
+        expect(supports['multiturn'], isTrue);
+        expect(supports['media'], isTrue);
+        expect(supports['tools'], isTrue);
+        expect(supports['systemRole'], isTrue);
+        expect(supports['toolChoice'], isTrue);
+        expect(supports['constrained'], isFalse);
+        expect(supports['output'], containsAll(<String>['text', 'json']));
+      },
+    );
+
     test('defaults toolChoice to auto', () async {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();

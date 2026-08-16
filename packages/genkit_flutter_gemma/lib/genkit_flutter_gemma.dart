@@ -55,6 +55,12 @@ export 'src/flutter_gemma_plugin.dart'
         FlutterGemmaEmbedderConfig;
 export 'src/flutter_gemma_runtime.dart'
     show FlutterGemmaRuntime, DefaultFlutterGemmaRuntime;
+export 'src/middleware/context_window.dart'
+    show
+        ContextWindowMiddleware,
+        contextWindowMiddlewareDef,
+        kContextWindowMiddlewareName,
+        trimContext;
 
 /// Convenience handle for referencing flutter-gemma models and embedders.
 ///
@@ -71,12 +77,14 @@ class FlutterGemmaPluginHandle {
   /// Returns a [ModelRef] for the given model name registered by this plugin.
   ModelRef<FlutterGemmaModelOptions> model(String name) =>
       modelRef<FlutterGemmaModelOptions>(
-          '${GenkitFlutterGemmaPlugin.prefix}/$name');
+        '${GenkitFlutterGemmaPlugin.prefix}/$name',
+      );
 
   /// Returns an [EmbedderRef] for the given embedder name registered by this plugin.
   EmbedderRef<FlutterGemmaEmbedConfig> embedder(String name) =>
       embedderRef<FlutterGemmaEmbedConfig>(
-          '${GenkitFlutterGemmaPlugin.prefix}/$name');
+        '${GenkitFlutterGemmaPlugin.prefix}/$name',
+      );
 }
 
 /// Global convenience instance for referencing flutter-gemma models and embedders.

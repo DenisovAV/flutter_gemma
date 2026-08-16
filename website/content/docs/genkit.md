@@ -20,7 +20,7 @@ with the on-device model exactly as it would with any cloud provider.
 
 ```
 dependencies:
-  genkit_flutter_gemma: ^0.4.3
+  genkit_flutter_gemma: ^0.5.0
   flutter_gemma: ^1.5.9
   # Add the inference engine(s) you need:
   flutter_gemma_litertlm: ^1.4.2   # .litertlm models (mobile + desktop)
@@ -116,6 +116,10 @@ final response = await ai.generate(
     temperature: 0.5,
     topK: 40,
     supportImage: true,
+    // Optional per-component backend ('cpu'/'gpu'/'npu'):
+    preferredBackend: 'gpu',        // text decoder
+    preferredAudioBackend: 'gpu',   // audio encoder (~2x on Metal; defaults to CPU)
+    // preferredVisionBackend defaults to CPU (Metal/WebGPU can't run its ops).
   ),
 );
 ```
@@ -125,6 +129,43 @@ The plugin does **not** manage model installation. Call
 `FlutterGemma.installModel()` (and `FlutterGemma.installEmbedder()` for
 embeddings) before using the plugin. See [Getting Started](/docs/getting-started).
 </Info>
+
+### Structured (JSON) output
+
+The plugin advertises `output: ['text', 'json']`. On-device Gemma has no native
+schema-constrained decoder, so Genkit's instruction-injection fallback drives
+JSON output — the plugin returns raw model text and Genkit's `extractJson`
+populates `response.output`. Pass an `outputSchema` and read the parsed object:
+
+```dart
+final response = await ai.generate(
+  model: flutterGemma.model('gemma-3-nano'),
+  prompt: 'Give me a pancake recipe.',
+  outputSchema: Recipe.$schema, // any @Schema()-annotated type
+);
+
+final Recipe? recipe = response.output;
+```
+
+### Context-window trimming
+
+On-device models run with a fixed, small context window (`maxTokens` — 1024 for
+most `.litertlm` models). A long multi-turn chat overflows it and the native
+runtime fails to allocate the KV cache mid-generation. `trimContext()` is a
+middleware that drops the oldest **non-system** turns before each model call,
+always keeping every system message and the most recent message:
+
+```dart
+final response = await ai.generate(
+  model: flutterGemma.model('gemma-3-nano'),
+  prompt: 'Continue our conversation…',
+  messages: longHistory,
+  use: [trimContext(maxInputTokens: 800)],
+);
+```
+
+With no arguments the budget is derived from the request's `maxTokens` (the
+model's context window) minus 256 tokens of response headroom.
 
 ## genkit_hybrid
 
@@ -139,8 +180,8 @@ flutter_gemma and works with **any** pair of Genkit models.
 
 ```
 dependencies:
-  genkit_hybrid: ^0.1.0
-  genkit: ^0.14.1
+  genkit_hybrid: ^0.1.1
+  genkit: ^0.15.1
 ```
 
 ### Basic usage

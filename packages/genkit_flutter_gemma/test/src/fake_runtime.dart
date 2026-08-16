@@ -7,8 +7,8 @@ import 'package:genkit_flutter_gemma/src/flutter_gemma_runtime.dart';
 /// without depending on the real flutter_gemma static API.
 class FakeRuntime implements FlutterGemmaRuntime {
   FakeRuntime({FakeInferenceModel? model, FakeEmbeddingModel? embedder})
-      : modelToReturn = model ?? FakeInferenceModel(),
-        embedderToReturn = embedder ?? FakeEmbeddingModel();
+    : modelToReturn = model ?? FakeInferenceModel(),
+      embedderToReturn = embedder ?? FakeEmbeddingModel();
 
   final FakeInferenceModel modelToReturn;
   final FakeEmbeddingModel embedderToReturn;
@@ -16,6 +16,9 @@ class FakeRuntime implements FlutterGemmaRuntime {
   int getActiveEmbedderCallCount = 0;
 
   bool? lastEnableSpeculativeDecoding;
+  gemma.PreferredBackend? lastPreferredBackend;
+  gemma.PreferredBackend? lastPreferredVisionBackend;
+  gemma.PreferredBackend? lastPreferredAudioBackend;
 
   @override
   Future<gemma.InferenceModel> getActiveModel({
@@ -23,14 +26,18 @@ class FakeRuntime implements FlutterGemmaRuntime {
     bool supportImage = false,
     bool supportAudio = false,
     bool? enableSpeculativeDecoding,
+    gemma.PreferredBackend? preferredBackend,
+    gemma.PreferredBackend? preferredVisionBackend,
+    gemma.PreferredBackend? preferredAudioBackend,
   }) async {
     getActiveModelCallCount++;
     modelToReturn._maxTokens = maxTokens;
     lastEnableSpeculativeDecoding = enableSpeculativeDecoding;
+    lastPreferredBackend = preferredBackend;
+    lastPreferredVisionBackend = preferredVisionBackend;
+    lastPreferredAudioBackend = preferredAudioBackend;
     return modelToReturn;
   }
-
-  gemma.PreferredBackend? lastPreferredBackend;
 
   @override
   Future<gemma.EmbeddingModel> getActiveEmbedder({
@@ -124,15 +131,12 @@ class FakeInferenceModel extends gemma.InferenceModel {
 
 /// Fake chat that returns preconfigured responses.
 class FakeInferenceChat extends gemma.InferenceChat {
-  FakeInferenceChat()
-      : super(
-          sessionCreator: null,
-          maxTokens: 1024,
-        );
+  FakeInferenceChat() : super(sessionCreator: null, maxTokens: 1024);
 
   /// Response returned by [generateChatResponse].
-  gemma.ModelResponse blockingResponse =
-      const gemma.TextResponse('fake response');
+  gemma.ModelResponse blockingResponse = const gemma.TextResponse(
+    'fake response',
+  );
 
   /// Responses yielded by [generateChatResponseAsync].
   List<gemma.ModelResponse> streamingResponses = [
@@ -151,7 +155,11 @@ class FakeInferenceChat extends gemma.InferenceChat {
   }
 
   @override
-  Future<void> addQueryChunk(gemma.Message message, [bool noTool = false, bool prefix = false]) async {
+  Future<void> addQueryChunk(
+    gemma.Message message, [
+    bool noTool = false,
+    bool prefix = false,
+  ]) async {
     addQueryChunkCallCount++;
     receivedMessages.add(message);
   }

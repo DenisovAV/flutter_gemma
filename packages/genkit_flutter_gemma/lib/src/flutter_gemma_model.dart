@@ -3,11 +3,30 @@ import 'dart:async';
 import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
 import 'package:genkit/plugin.dart';
 
+import 'backend_parse.dart';
 import 'converters/request_converter.dart';
 import 'converters/response_converter.dart';
 import 'converters/tool_converter.dart';
 import 'flutter_gemma_options.dart';
 import 'flutter_gemma_runtime.dart';
+import 'tool_choice_parse.dart';
+
+/// Capabilities a flutter_gemma model advertises to Genkit. Shared by the
+/// plugin's `list()` metadata AND the resolved [Model]'s `metadata` so the two
+/// never drift (the resolved action previously carried no metadata, leaving its
+/// supports empty at generate time). `constrained: false` — on-device Gemma has
+/// no native schema-constrained decoder, so Genkit's instruction-injection
+/// fallback drives JSON output (`output: ['text', 'json']`); we return the raw
+/// model text and the framework's `extractJson` populates `response.output`.
+const Map<String, dynamic> kFlutterGemmaModelSupports = {
+  'multiturn': true,
+  'media': true,
+  'tools': true,
+  'toolChoice': true,
+  'systemRole': true,
+  'constrained': false,
+  'output': ['text', 'json'],
+};
 
 /// Creates a Genkit [Model] action backed by flutter_gemma inference.
 ///
@@ -30,6 +49,9 @@ Model createFlutterGemmaModel({
   bool? cachedSupportImage;
   bool? cachedSupportAudio;
   bool? cachedEnableSpeculativeDecoding;
+  gemma.PreferredBackend? cachedPreferredBackend;
+  gemma.PreferredBackend? cachedPreferredVisionBackend;
+  gemma.PreferredBackend? cachedPreferredAudioBackend;
 
   // Future-chain lock: each caller awaits the previous one, ensuring
   // only one generation runs at a time against the native model.
@@ -37,6 +59,9 @@ Model createFlutterGemmaModel({
 
   return Model(
     name: name,
+    metadata: {
+      'model': {'supports': kFlutterGemmaModelSupports},
+    },
     fn: (request, context) async {
       if (request == null) {
         throw GenkitException(
@@ -62,13 +87,29 @@ Model createFlutterGemmaModel({
           cachedSupportImage: cachedSupportImage,
           cachedSupportAudio: cachedSupportAudio,
           cachedEnableSpeculativeDecoding: cachedEnableSpeculativeDecoding,
-          onModelCached: (model, maxTokens, supportImage, supportAudio, enableSpeculativeDecoding) {
-            cachedModel = model;
-            cachedMaxTokens = maxTokens;
-            cachedSupportImage = supportImage;
-            cachedSupportAudio = supportAudio;
-            cachedEnableSpeculativeDecoding = enableSpeculativeDecoding;
-          },
+          cachedPreferredBackend: cachedPreferredBackend,
+          cachedPreferredVisionBackend: cachedPreferredVisionBackend,
+          cachedPreferredAudioBackend: cachedPreferredAudioBackend,
+          onModelCached:
+              (
+                model,
+                maxTokens,
+                supportImage,
+                supportAudio,
+                enableSpeculativeDecoding,
+                preferredBackend,
+                preferredVisionBackend,
+                preferredAudioBackend,
+              ) {
+                cachedModel = model;
+                cachedMaxTokens = maxTokens;
+                cachedSupportImage = supportImage;
+                cachedSupportAudio = supportAudio;
+                cachedEnableSpeculativeDecoding = enableSpeculativeDecoding;
+                cachedPreferredBackend = preferredBackend;
+                cachedPreferredVisionBackend = preferredVisionBackend;
+                cachedPreferredAudioBackend = preferredAudioBackend;
+              },
         );
       } finally {
         completer.complete();
@@ -88,7 +129,20 @@ Future<ModelResponse> _executeGeneration({
   required bool? cachedSupportImage,
   required bool? cachedSupportAudio,
   required bool? cachedEnableSpeculativeDecoding,
-  required void Function(gemma.InferenceModel, int, bool, bool, bool?) onModelCached,
+  required gemma.PreferredBackend? cachedPreferredBackend,
+  required gemma.PreferredBackend? cachedPreferredVisionBackend,
+  required gemma.PreferredBackend? cachedPreferredAudioBackend,
+  required void Function(
+    gemma.InferenceModel,
+    int,
+    bool,
+    bool,
+    bool?,
+    gemma.PreferredBackend?,
+    gemma.PreferredBackend?,
+    gemma.PreferredBackend?,
+  )
+  onModelCached,
 }) async {
   // Parse config from the untyped Map.
   final configMap = request.config;
@@ -113,21 +167,39 @@ Future<ModelResponse> _executeGeneration({
   final supportAudio = config?.supportAudio ?? false;
   final isThinking = config?.isThinking ?? false;
   final enableSpeculativeDecoding = config?.enableSpeculativeDecoding;
-  final gemmaToolChoice = switch (config?.toolChoice) {
-    'required' => gemma.ToolChoice.required,
-    'none' => gemma.ToolChoice.none,
-    _ => gemma.ToolChoice.auto,
-  };
-  final systemInstruction = config?.systemInstruction ??
-      extractSystemInstruction(request.messages);
+  // Prefer the native top-level request.toolChoice (Genkit 0.15's standard
+  // field) over the legacy config.toolChoice custom option. Fails loud on an
+  // unrecognized value (see parseToolChoice) rather than silently defaulting
+  // to auto — a 'none' typo must not quietly re-enable tools.
+  final gemmaToolChoice = parseToolChoice(
+    request.toolChoice ?? config?.toolChoice,
+  );
+  final systemInstruction =
+      config?.systemInstruction ?? extractSystemInstruction(request.messages);
   final maxFunctionBufferLength = config?.maxFunctionBufferLength;
+  final preferredBackend = parsePreferredBackend(
+    config?.preferredBackend,
+    field: 'preferredBackend',
+  );
+  final preferredVisionBackend = parsePreferredBackend(
+    config?.preferredVisionBackend,
+    field: 'preferredVisionBackend',
+  );
+  final preferredAudioBackend = parsePreferredBackend(
+    config?.preferredAudioBackend,
+    field: 'preferredAudioBackend',
+  );
 
   // Get or create InferenceModel (cached if params match).
-  final needsNewModel = cachedModel == null ||
+  final needsNewModel =
+      cachedModel == null ||
       cachedMaxTokens != maxTokens ||
       cachedSupportImage != supportImage ||
       cachedSupportAudio != supportAudio ||
-      cachedEnableSpeculativeDecoding != enableSpeculativeDecoding;
+      cachedEnableSpeculativeDecoding != enableSpeculativeDecoding ||
+      cachedPreferredBackend != preferredBackend ||
+      cachedPreferredVisionBackend != preferredVisionBackend ||
+      cachedPreferredAudioBackend != preferredAudioBackend;
 
   gemma.InferenceModel model;
   if (needsNewModel) {
@@ -136,8 +208,20 @@ Future<ModelResponse> _executeGeneration({
       supportImage: supportImage,
       supportAudio: supportAudio,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
     );
-    onModelCached(model, maxTokens, supportImage, supportAudio, enableSpeculativeDecoding);
+    onModelCached(
+      model,
+      maxTokens,
+      supportImage,
+      supportAudio,
+      enableSpeculativeDecoding,
+      preferredBackend,
+      preferredVisionBackend,
+      preferredAudioBackend,
+    );
   } else {
     model = cachedModel;
   }
@@ -203,9 +287,17 @@ Future<ModelResponse> _generateBlocking(
         latencyMs: latencyMs,
       );
     case gemma.ParallelFunctionCallResponse(:final calls):
-      return convertFinalResponse('', functionCalls: calls, latencyMs: latencyMs);
+      return convertFinalResponse(
+        '',
+        functionCalls: calls,
+        latencyMs: latencyMs,
+      );
     case gemma.ThinkingResponse(:final content):
-      return convertFinalResponse('', reasoningText: content, latencyMs: latencyMs);
+      return convertFinalResponse(
+        '',
+        reasoningText: content,
+        latencyMs: latencyMs,
+      );
   }
 }
 
@@ -237,8 +329,7 @@ Future<ModelResponse> _generateStreaming(
   return convertFinalResponse(
     fullText.toString(),
     functionCalls: functionCalls.isNotEmpty ? functionCalls : null,
-    reasoningText:
-        reasoningText.isNotEmpty ? reasoningText.toString() : null,
+    reasoningText: reasoningText.isNotEmpty ? reasoningText.toString() : null,
     latencyMs: stopwatch.elapsedMilliseconds.toDouble(),
   );
 }

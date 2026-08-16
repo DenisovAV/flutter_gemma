@@ -5,6 +5,7 @@ import 'flutter_gemma_embedder.dart';
 import 'flutter_gemma_model.dart';
 import 'flutter_gemma_options.dart';
 import 'flutter_gemma_runtime.dart';
+import 'middleware/context_window.dart';
 
 /// Configuration for a single model exposed by [GenkitFlutterGemmaPlugin].
 class FlutterGemmaModelConfig {
@@ -34,7 +35,10 @@ class FlutterGemmaEmbedderConfig {
   FlutterGemmaEmbedderConfig({required this.name}) {
     if (name.isEmpty) {
       throw ArgumentError.value(
-          name, 'name', 'Embedder name must not be empty');
+        name,
+        'name',
+        'Embedder name must not be empty',
+      );
     }
   }
 
@@ -75,9 +79,9 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
     required List<FlutterGemmaModelConfig> models,
     List<FlutterGemmaEmbedderConfig> embedders = const [],
     FlutterGemmaRuntime? runtime,
-  })  : models = List.unmodifiable(models),
-        embedders = List.unmodifiable(embedders),
-        runtime = runtime ?? const DefaultFlutterGemmaRuntime() {
+  }) : models = List.unmodifiable(models),
+       embedders = List.unmodifiable(embedders),
+       runtime = runtime ?? const DefaultFlutterGemmaRuntime() {
     // Validate name uniqueness.
     final modelNames = models.map((c) => c.name).toSet();
     if (modelNames.length != models.length) {
@@ -106,43 +110,46 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
   @override
   String get name => prefix;
 
+  /// Ships the context-window trimmer so apps can guard the on-device KV budget
+  /// with `ai.generate(use: [trimContext(...)])`. See [ContextWindowMiddleware].
+  @override
+  List<GenerateMiddlewareDef> middleware() => [contextWindowMiddlewareDef()];
+
   @override
   Future<List<ActionMetadata>> list() async {
     final metadata = <ActionMetadata>[];
 
     for (final config in models) {
-      metadata.add(ActionMetadata(
-        actionType: 'model',
-        name: '$prefix/${config.name}',
-        metadata: {
-          'model': {
-            'label': config.name,
-            'customOptions':
-                FlutterGemmaModelOptions.$schema.jsonSchema(),
-            'supports': {
-              'multiturn': true,
-              'media': true,
-              'tools': true,
-              'systemRole': true,
-              'output': ['text'],
+      metadata.add(
+        ActionMetadata(
+          actionType: 'model',
+          name: '$prefix/${config.name}',
+          metadata: {
+            'model': {
+              'label': config.name,
+              'customOptions': FlutterGemmaModelOptions.$schema.jsonSchema(),
+              // Shared with the resolved Model's metadata so list() and the live
+              // action never diverge (see kFlutterGemmaModelSupports).
+              'supports': kFlutterGemmaModelSupports,
             },
           },
-        },
-      ));
+        ),
+      );
     }
 
     for (final config in embedders) {
-      metadata.add(ActionMetadata(
-        actionType: 'embedder',
-        name: '$prefix/${config.name}',
-        metadata: {
-          'embedder': {
-            'label': config.name,
-            'customOptions':
-                FlutterGemmaEmbedConfig.$schema.jsonSchema(),
+      metadata.add(
+        ActionMetadata(
+          actionType: 'embedder',
+          name: '$prefix/${config.name}',
+          metadata: {
+            'embedder': {
+              'label': config.name,
+              'customOptions': FlutterGemmaEmbedConfig.$schema.jsonSchema(),
+            },
           },
-        },
-      ));
+        ),
+      );
     }
 
     return metadata;
@@ -158,9 +165,7 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
       // Registry strips prefix before calling resolve(), so `name` is just
       // the model name (e.g. 'function-gemma-270m-it'), not the full
       // 'flutter-gemma/function-gemma-270m-it'.
-      final config = models
-          .where((c) => c.name == name)
-          .firstOrNull;
+      final config = models.where((c) => c.name == name).firstOrNull;
       if (config == null) return null;
 
       final fullName = '$prefix/$name';
@@ -175,9 +180,7 @@ class GenkitFlutterGemmaPlugin extends GenkitPlugin {
     }
 
     if (actionType == 'embedder') {
-      final config = embedders
-          .where((c) => c.name == name)
-          .firstOrNull;
+      final config = embedders.where((c) => c.name == name).firstOrNull;
       if (config == null) return null;
 
       final fullName = '$prefix/$name';

@@ -1,6 +1,7 @@
 import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
 import 'package:genkit/plugin.dart';
 
+import 'backend_parse.dart';
 import 'flutter_gemma_options.dart';
 import 'flutter_gemma_runtime.dart';
 
@@ -38,23 +39,7 @@ Embedder<FlutterGemmaEmbedConfig> createFlutterGemmaEmbedder({
       }
 
       // Parse preferredBackend string to enum.
-      gemma.PreferredBackend? backend;
-      if (config?.preferredBackend != null) {
-        switch (config!.preferredBackend) {
-          case 'cpu':
-            backend = gemma.PreferredBackend.cpu;
-          case 'gpu':
-            backend = gemma.PreferredBackend.gpu;
-          case 'npu':
-            backend = gemma.PreferredBackend.npu;
-          default:
-            throw GenkitException(
-              'Unknown preferredBackend: "${config.preferredBackend}". '
-              'Supported values: cpu, gpu, npu.',
-              status: StatusCodes.INVALID_ARGUMENT,
-            );
-        }
-      }
+      final backend = parsePreferredBackend(config?.preferredBackend);
 
       // Get or create embedding model (invalidate on backend change).
       if (cachedEmbedder == null || cachedBackend != backend) {
@@ -74,10 +59,12 @@ Embedder<FlutterGemmaEmbedConfig> createFlutterGemmaEmbedder({
         embeddings: vectors
             .asMap()
             .entries
-            .map((entry) => Embedding(
-                  embedding: entry.value,
-                  metadata: request.input[entry.key].metadata,
-                ))
+            .map(
+              (entry) => Embedding(
+                embedding: entry.value,
+                metadata: request.input[entry.key].metadata,
+              ),
+            )
             .toList(growable: false),
       );
     },

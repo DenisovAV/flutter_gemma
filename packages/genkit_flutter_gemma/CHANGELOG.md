@@ -1,3 +1,12 @@
+## 0.5.0
+
+- Upgrade to `genkit ^0.15.1` and `schemantic ^0.2.2` (from 0.14.1 / 0.2.0).
+- Add `preferredBackend` / `preferredVisionBackend` / `preferredAudioBackend` to `FlutterGemmaModelOptions` (text decoder + vision/audio encoders).
+- Honor Genkit 0.15 native top-level `request.toolChoice`; still falls back to the legacy config option.
+- Advertise real capabilities (toolChoice, JSON) in resolved-model metadata; fixes empty `supports` at generate time.
+- Structured JSON output via Genkit's instruction-injection fallback (`output: ['text','json']`, `constrained: false`).
+- Add `trimContext()` context-window middleware — drops oldest turns to fit the on-device KV budget.
+
 ## 0.4.3
 
 - Fix example: declare `ModelFileType.litertlm` for `.litertlm` models (desktop was declaring `.task`, routing them to MediaPipe). Adds a fileType-consistency test.

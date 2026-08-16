@@ -25,6 +25,9 @@ base class FlutterGemmaModelOptions {
     String? systemInstruction,
     int? maxFunctionBufferLength,
     bool? enableSpeculativeDecoding,
+    String? preferredBackend,
+    String? preferredVisionBackend,
+    String? preferredAudioBackend,
   }) {
     _json = {
       'maxTokens': ?maxTokens,
@@ -39,6 +42,9 @@ base class FlutterGemmaModelOptions {
       'systemInstruction': ?systemInstruction,
       'maxFunctionBufferLength': ?maxFunctionBufferLength,
       'enableSpeculativeDecoding': ?enableSpeculativeDecoding,
+      'preferredBackend': ?preferredBackend,
+      'preferredVisionBackend': ?preferredVisionBackend,
+      'preferredAudioBackend': ?preferredAudioBackend,
     };
   }
 
@@ -191,6 +197,42 @@ base class FlutterGemmaModelOptions {
     }
   }
 
+  String? get preferredBackend {
+    return _json['preferredBackend'] as String?;
+  }
+
+  set preferredBackend(String? value) {
+    if (value == null) {
+      _json.remove('preferredBackend');
+    } else {
+      _json['preferredBackend'] = value;
+    }
+  }
+
+  String? get preferredVisionBackend {
+    return _json['preferredVisionBackend'] as String?;
+  }
+
+  set preferredVisionBackend(String? value) {
+    if (value == null) {
+      _json.remove('preferredVisionBackend');
+    } else {
+      _json['preferredVisionBackend'] = value;
+    }
+  }
+
+  String? get preferredAudioBackend {
+    return _json['preferredAudioBackend'] as String?;
+  }
+
+  set preferredAudioBackend(String? value) {
+    if (value == null) {
+      _json.remove('preferredAudioBackend');
+    } else {
+      _json['preferredAudioBackend'] = value;
+    }
+  }
+
   @override
   String toString() {
     return _json.toString();
@@ -228,6 +270,9 @@ base class _FlutterGemmaModelOptionsTypeFactory
             'systemInstruction': $Schema.string(),
             'maxFunctionBufferLength': $Schema.integer(),
             'enableSpeculativeDecoding': $Schema.boolean(),
+            'preferredBackend': $Schema.string(),
+            'preferredVisionBackend': $Schema.string(),
+            'preferredAudioBackend': $Schema.string(),
           },
           required: [],
           description: 'Configuration options for flutter_gemma inference',

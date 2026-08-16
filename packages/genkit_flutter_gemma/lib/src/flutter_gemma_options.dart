@@ -49,6 +49,17 @@ abstract class $FlutterGemmaModelOptions {
   /// (LiteRT-LM v0.11.0+). `null` honors the model's default; `true`/`false`
   /// forces on/off. Ignored by models without an embedded MTP drafter.
   bool? get enableSpeculativeDecoding;
+
+  /// Hardware backend for the text decoder ('cpu', 'gpu', 'npu'). Null uses the engine default.
+  String? get preferredBackend;
+
+  /// Backend for the vision encoder ('cpu', 'gpu', 'npu'). Null defaults to CPU
+  /// (the Metal/WebGPU delegates can't prepare its ops). Ignored by MediaPipe.
+  String? get preferredVisionBackend;
+
+  /// Backend for the audio encoder ('cpu', 'gpu', 'npu'). Null defaults to CPU;
+  /// set 'gpu' for faster audio (Gemma 3n ~2x on Metal). Ignored by MediaPipe.
+  String? get preferredAudioBackend;
 }
 
 /// Configuration options for flutter_gemma embedding generation.

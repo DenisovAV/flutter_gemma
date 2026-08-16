@@ -33,10 +33,11 @@ final model = await FlutterGemma.getActiveModel(
 
 `preferredBackend` selects the text decoder's backend. The vision encoder runs on
 CPU by default regardless (the Metal/WebGPU delegates can't prepare its
-`STABLEHLO_COMPOSITE` ops — routing it to GPU used to hard-fail at model load,
-fixed in `flutter_gemma_litertlm` 1.4.2). To force GPU vision — only for a model
-whose vision section is built to allow it — pass
-`preferredVisionBackend: PreferredBackend.gpu` to `getActiveModel(...)`.
+`STABLEHLO_COMPOSITE` ops — routing it to GPU used to hard-fail at model load;
+`flutter_gemma_litertlm` 1.4.2 fixes this by defaulting the vision encoder to
+CPU). To force GPU vision — only for a model whose vision section is built to
+allow it — pass `preferredVisionBackend: PreferredBackend.gpu` to
+`getActiveModel(...)`.
 
 ### Sending an image
 

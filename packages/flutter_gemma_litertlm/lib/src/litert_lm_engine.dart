@@ -76,8 +76,10 @@ class LiteRtLmEngine implements InferenceEngineProvider {
           maxTokens: maxTokens,
           cacheDir: cacheDir,
           enableVision: config.supportImage,
+          visionBackend: encoderBackendWireName(config.preferredVisionBackend),
           maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
           enableAudio: config.supportAudio,
+          audioBackend: encoderBackendWireName(config.preferredAudioBackend),
           enableSpeculativeDecoding: config.enableSpeculativeDecoding,
         );
       },

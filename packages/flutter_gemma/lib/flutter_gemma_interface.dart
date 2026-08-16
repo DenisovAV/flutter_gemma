@@ -62,6 +62,10 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
   /// value is clamped up to 1024 to avoid a native tensor-allocation crash
   /// (#318). The default (1024) is safe for every supported model.
   /// [preferredBackend] — backend preference (e.g., CPU, GPU).
+  /// [preferredVisionBackend] — vision-encoder backend override; null
+  /// defaults to CPU (optional).
+  /// [preferredAudioBackend] — audio-encoder backend override; null defaults
+  /// to CPU (optional).
   /// [loraRanks] — optional supported LoRA ranks.
   /// [maxNumImages] — maximum number of images (for multimodal models).
   /// [supportImage] — whether the model supports images.
@@ -80,6 +84,8 @@ abstract class FlutterGemmaPlugin extends PlatformInterface {
     ModelFileType fileType = ModelFileType.task,
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
+    PreferredBackend? preferredVisionBackend,
+    PreferredBackend? preferredAudioBackend,
     List<int>? loraRanks,
     int? maxNumImages, // Add image support
     bool supportImage = false, // Add image support flag

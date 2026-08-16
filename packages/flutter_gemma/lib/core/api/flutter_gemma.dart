@@ -334,6 +334,9 @@ class FlutterGemma {
   /// Runtime parameters:
   /// - [maxTokens]: Maximum context size (default: 1024)
   /// - [preferredBackend]: CPU or GPU preference (optional)
+  /// - [preferredVisionBackend]: vision-encoder backend override; null
+  /// defaults to CPU (optional)
+  /// - [preferredAudioBackend]: audio-encoder backend override; null defaults to CPU (optional)
   /// - [supportImage]: Enable multimodal image support (default: false)
   /// - [supportAudio]: Enable audio input support for Gemma 3n E4B (default: false)
   /// - [maxNumImages]: Maximum number of images if supportImage is true
@@ -367,6 +370,8 @@ class FlutterGemma {
   static Future<InferenceModel> getActiveModel({
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
+    PreferredBackend? preferredVisionBackend,
+    PreferredBackend? preferredAudioBackend,
     bool supportImage = false,
     bool supportAudio = false,
     int? maxNumImages,
@@ -395,6 +400,8 @@ class FlutterGemma {
       fileType: activeSpec.fileType,
       maxTokens: maxTokens,
       preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
       supportImage: supportImage,
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,

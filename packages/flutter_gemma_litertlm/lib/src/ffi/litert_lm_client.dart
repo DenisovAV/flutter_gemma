@@ -648,8 +648,10 @@ class LiteRtLmFfiClient {
     int maxTokens = 2048,
     String? cacheDir,
     bool enableVision = false,
+    String visionBackend = 'cpu',
     int maxNumImages = 0,
     bool enableAudio = false,
+    String audioBackend = 'cpu',
     bool? enableSpeculativeDecoding,
   }) async {
     final initSw = Stopwatch()..start();
@@ -662,8 +664,16 @@ class LiteRtLmFfiClient {
     // Create engine settings
     final modelPathPtr = modelPath.toNativeUtf8();
     final backendPtr = backend.toNativeUtf8();
-    final visionBackendPtr = enableVision ? backend.toNativeUtf8() : nullptr;
-    final audioBackendPtr = enableAudio ? 'cpu'.toNativeUtf8() : nullptr;
+    // Vision + audio encoders default to CPU (visionBackend/audioBackend), NOT
+    // the text backend: their STABLEHLO_COMPOSITE ops fail to prepare on the
+    // Metal/WebGPU delegates (vision hard-fails at conversation_create, no
+    // fallback — LiteRT-LM#2461). Both stay overridable (arg) for a model whose
+    // encoder section bakes a gpu-only backend_constraint, or where GPU is
+    // faster (Gemma 3n audio ~2x on GPU).
+    final visionBackendPtr = enableVision
+        ? visionBackend.toNativeUtf8()
+        : nullptr;
+    final audioBackendPtr = enableAudio ? audioBackend.toNativeUtf8() : nullptr;
 
     try {
       final settingsCreateStart = initSw.elapsedMilliseconds;

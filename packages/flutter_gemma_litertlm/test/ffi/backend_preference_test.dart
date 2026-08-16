@@ -141,6 +141,24 @@ void main() {
       },
     );
   });
+
+  group('encoderBackendWireName (vision + audio encoders)', () {
+    // The vision/audio ENCODER graphs carry STABLEHLO_COMPOSITE ops the Metal /
+    // WebGPU LiteRT delegates can't prepare (hard-fails at conversation_create,
+    // no fallback), so CPU is the op-safe default. It must stay overridable:
+    // a model whose encoder section bakes a gpu-only backend_constraint would
+    // otherwise hard-fail on CPU (the constraint is a validation gate upstream),
+    // and Gemma 3n audio is ~2x faster on GPU.
+    test('defaults to cpu when no encoder backend is set (null)', () {
+      expect(encoderBackendWireName(null), 'cpu');
+    });
+
+    test('passes an explicit override through unchanged', () {
+      expect(encoderBackendWireName(PreferredBackend.gpu), 'gpu');
+      expect(encoderBackendWireName(PreferredBackend.npu), 'npu');
+      expect(encoderBackendWireName(PreferredBackend.cpu), 'cpu');
+    });
+  });
 }
 
 class _FakeClient {

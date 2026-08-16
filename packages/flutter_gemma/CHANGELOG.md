@@ -1,3 +1,6 @@
+## 1.5.9
+- Add getActiveModel(preferredVisionBackend:, preferredAudioBackend:) — per-encoder backend override (default CPU).
+
 ## 1.5.8
 - docs: Windows discrete GPU is fixed in litertlm 1.4.0 — the README said it was still broken.
 

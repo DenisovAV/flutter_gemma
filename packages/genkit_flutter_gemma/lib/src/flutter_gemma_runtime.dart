@@ -12,6 +12,9 @@ abstract class FlutterGemmaRuntime {
     bool supportImage = false,
     bool supportAudio = false,
     bool? enableSpeculativeDecoding,
+    gemma.PreferredBackend? preferredBackend,
+    gemma.PreferredBackend? preferredVisionBackend,
+    gemma.PreferredBackend? preferredAudioBackend,
   });
 
   /// Retrieves the active embedding model.
@@ -30,12 +33,18 @@ class DefaultFlutterGemmaRuntime implements FlutterGemmaRuntime {
     bool supportImage = false,
     bool supportAudio = false,
     bool? enableSpeculativeDecoding,
+    gemma.PreferredBackend? preferredBackend,
+    gemma.PreferredBackend? preferredVisionBackend,
+    gemma.PreferredBackend? preferredAudioBackend,
   }) {
     return gemma.FlutterGemma.getActiveModel(
       maxTokens: maxTokens,
       supportImage: supportImage,
       supportAudio: supportAudio,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
+      preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
     );
   }
 

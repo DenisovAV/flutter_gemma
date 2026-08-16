@@ -138,6 +138,9 @@ final response = await ai.generate(
 | `systemInstruction` | `String?` | null | System-level instruction (overrides system-role messages) |
 | `maxFunctionBufferLength` | `int?` | null | Max token buffer for streaming tool-call arguments (increase for large payloads) |
 | `enableSpeculativeDecoding` | `bool?` | null | MTP speculative decoding for Gemma 4 E2B/E4B (null = model default, true/false = force on/off) |
+| `preferredBackend` | `String?` | null | Text-decoder backend: `'cpu'`, `'gpu'`, `'npu'` (null = engine default) |
+| `preferredVisionBackend` | `String?` | null | Vision-encoder backend: `'cpu'`, `'gpu'`, `'npu'` (null defaults to CPU; ignored by MediaPipe) |
+| `preferredAudioBackend` | `String?` | null | Audio-encoder backend: `'cpu'`, `'gpu'`, `'npu'` (null defaults to CPU; set `'gpu'` for faster audio; ignored by MediaPipe) |
 
 ## Streaming
 

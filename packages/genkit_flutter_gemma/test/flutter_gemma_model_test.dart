@@ -2,6 +2,7 @@ import 'package:flutter_gemma/flutter_gemma.dart' as gemma;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genkit/plugin.dart';
 import 'package:genkit_flutter_gemma/src/flutter_gemma_model.dart';
+import 'package:genkit_flutter_gemma/src/flutter_gemma_options.dart';
 
 import 'src/fake_runtime.dart';
 
@@ -72,10 +73,7 @@ void main() {
       final model = buildModel();
       final chunks = <ModelResponseChunk>[];
 
-      final response = await model(
-        simpleRequest(),
-        onChunk: chunks.add,
-      );
+      final response = await model(simpleRequest(), onChunk: chunks.add);
 
       expect(chunks, hasLength(2));
       expect(chunks[0].content.first.isText, isTrue);
@@ -86,19 +84,13 @@ void main() {
 
     test('streaming: handles function call in stream', () async {
       fakeChat.streamingResponses = [
-        const gemma.FunctionCallResponse(
-          name: 'search',
-          args: {'q': 'dart'},
-        ),
+        const gemma.FunctionCallResponse(name: 'search', args: {'q': 'dart'}),
       ];
 
       final model = buildModel();
       final chunks = <ModelResponseChunk>[];
 
-      final response = await model(
-        simpleRequest(),
-        onChunk: chunks.add,
-      );
+      final response = await model(simpleRequest(), onChunk: chunks.add);
 
       expect(response.message!.content.first.isToolRequest, isTrue);
       expect(response.message!.content.first.toolRequest!.name, 'search');
@@ -172,12 +164,17 @@ void main() {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [
-          Message(role: Role.user, content: [TextPart(text: 'Hi')]),
-        ],
-        config: {'toolChoice': 'required'},
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'toolChoice': 'required'},
+        ),
+      );
 
       expect(fakeModel.lastToolChoice, gemma.ToolChoice.required);
     });
@@ -186,12 +183,17 @@ void main() {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [
-          Message(role: Role.user, content: [TextPart(text: 'Hi')]),
-        ],
-        config: {'toolChoice': 'none'},
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'toolChoice': 'none'},
+        ),
+      );
 
       expect(fakeModel.lastToolChoice, gemma.ToolChoice.none);
     });
@@ -209,36 +211,54 @@ void main() {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [Message(role: Role.user, content: [TextPart(text: 'Hi')])],
-        config: {'maxFunctionBufferLength': 4096},
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'maxFunctionBufferLength': 4096},
+        ),
+      );
 
       expect(fakeModel.lastMaxFunctionBufferLength, 4096);
     });
 
-    test('passes null maxFunctionBufferLength to createChat when not set',
-        () async {
-      fakeChat.blockingResponse = const gemma.TextResponse('ok');
-      final model = buildModel();
+    test(
+      'passes null maxFunctionBufferLength to createChat when not set',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
 
-      await model(simpleRequest());
+        await model(simpleRequest());
 
-      expect(fakeModel.lastMaxFunctionBufferLength, isNull);
-    });
+        expect(fakeModel.lastMaxFunctionBufferLength, isNull);
+      },
+    );
 
-    test('passes enableSpeculativeDecoding to getActiveModel when set',
-        () async {
-      fakeChat.blockingResponse = const gemma.TextResponse('ok');
-      final model = buildModel();
+    test(
+      'passes enableSpeculativeDecoding to getActiveModel when set',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [Message(role: Role.user, content: [TextPart(text: 'Hi')])],
-        config: {'enableSpeculativeDecoding': true},
-      ));
+        await model(
+          ModelRequest(
+            messages: [
+              Message(
+                role: Role.user,
+                content: [TextPart(text: 'Hi')],
+              ),
+            ],
+            config: {'enableSpeculativeDecoding': true},
+          ),
+        );
 
-      expect(runtime.lastEnableSpeculativeDecoding, isTrue);
-    });
+        expect(runtime.lastEnableSpeculativeDecoding, isTrue);
+      },
+    );
 
     test('passes null enableSpeculativeDecoding when not set', () async {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
@@ -254,33 +274,227 @@ void main() {
       final model = buildModel();
 
       await model(simpleRequest());
-      await model(ModelRequest(
-        messages: [Message(role: Role.user, content: [TextPart(text: 'Hi')])],
-        config: {'enableSpeculativeDecoding': false},
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'enableSpeculativeDecoding': false},
+        ),
+      );
 
       expect(runtime.getActiveModelCallCount, 2);
     });
 
-    test('recreates model when enableSpeculativeDecoding reverts to null',
-        () async {
+    test(
+      'recreates model when enableSpeculativeDecoding reverts to null',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
+
+        await model(
+          ModelRequest(
+            messages: [
+              Message(
+                role: Role.user,
+                content: [TextPart(text: 'Hi')],
+              ),
+            ],
+            config: {'enableSpeculativeDecoding': true},
+          ),
+        );
+        await model(simpleRequest());
+
+        expect(runtime.getActiveModelCallCount, 2);
+        expect(runtime.lastEnableSpeculativeDecoding, isNull);
+      },
+    );
+
+    test('passes preferredBackend to getActiveModel when set', () async {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [Message(role: Role.user, content: [TextPart(text: 'Hi')])],
-        config: {'enableSpeculativeDecoding': true},
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'preferredBackend': 'gpu'},
+        ),
+      );
+
+      expect(runtime.lastPreferredBackend, gemma.PreferredBackend.gpu);
+    });
+
+    test('passes preferredVisionBackend to getActiveModel when set', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'preferredVisionBackend': 'gpu'},
+        ),
+      );
+
+      expect(runtime.lastPreferredVisionBackend, gemma.PreferredBackend.gpu);
+    });
+
+    test('passes preferredAudioBackend to getActiveModel when set', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'preferredAudioBackend': 'gpu'},
+        ),
+      );
+
+      expect(runtime.lastPreferredAudioBackend, gemma.PreferredBackend.gpu);
+    });
+
+    test('passes null backends to getActiveModel when not set', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
       await model(simpleRequest());
 
+      expect(runtime.lastPreferredBackend, isNull);
+      expect(runtime.lastPreferredVisionBackend, isNull);
+      expect(runtime.lastPreferredAudioBackend, isNull);
+    });
+
+    test('invalid preferredVisionBackend throws GenkitException', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await expectLater(
+        model(
+          ModelRequest(
+            messages: [
+              Message(
+                role: Role.user,
+                content: [TextPart(text: 'Hi')],
+              ),
+            ],
+            config: {'preferredVisionBackend': 'xyz'},
+          ),
+        ),
+        throwsA(
+          isA<GenkitException>().having(
+            (e) => e.status,
+            'status',
+            StatusCodes.INVALID_ARGUMENT,
+          ),
+        ),
+      );
+    });
+
+    test('recreates model when preferredVisionBackend changes', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(simpleRequest());
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'preferredVisionBackend': 'gpu'},
+        ),
+      );
+
       expect(runtime.getActiveModelCallCount, 2);
-      expect(runtime.lastEnableSpeculativeDecoding, isNull);
+      // Recreated AND forwarded the new value (not a stale-value recreate).
+      expect(runtime.lastPreferredVisionBackend, gemma.PreferredBackend.gpu);
+    });
+
+    test('recreates model when preferredBackend changes', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(simpleRequest());
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'preferredBackend': 'gpu'},
+        ),
+      );
+
+      expect(runtime.getActiveModelCallCount, 2);
+      expect(runtime.lastPreferredBackend, gemma.PreferredBackend.gpu);
+    });
+
+    test('recreates model when preferredAudioBackend changes', () async {
+      fakeChat.blockingResponse = const gemma.TextResponse('ok');
+      final model = buildModel();
+
+      await model(simpleRequest());
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'preferredAudioBackend': 'gpu'},
+        ),
+      );
+
+      expect(runtime.getActiveModelCallCount, 2);
+      expect(runtime.lastPreferredAudioBackend, gemma.PreferredBackend.gpu);
+    });
+
+    test('FlutterGemmaModelOptions round-trips backend strings', () {
+      final json = FlutterGemmaModelOptions(
+        preferredBackend: 'npu',
+        preferredVisionBackend: 'gpu',
+        preferredAudioBackend: 'cpu',
+      ).toJson();
+
+      expect(json['preferredBackend'], 'npu');
+      expect(json['preferredVisionBackend'], 'gpu');
+      expect(json['preferredAudioBackend'], 'cpu');
+
+      final parsed = FlutterGemmaModelOptions.fromJson(json);
+      expect(parsed.preferredBackend, 'npu');
+      expect(parsed.preferredVisionBackend, 'gpu');
+      expect(parsed.preferredAudioBackend, 'cpu');
     });
 
     test('blocking: returns parallel function call response', () async {
       fakeChat.blockingResponse = const gemma.ParallelFunctionCallResponse(
         calls: [
-          gemma.FunctionCallResponse(name: 'get_weather', args: {'city': 'Moscow'}),
+          gemma.FunctionCallResponse(
+            name: 'get_weather',
+            args: {'city': 'Moscow'},
+          ),
           gemma.FunctionCallResponse(name: 'get_time', args: {'tz': 'MSK'}),
         ],
       );
@@ -310,10 +524,7 @@ void main() {
       final model = buildModel();
       final chunks = <ModelResponseChunk>[];
 
-      final response = await model(
-        simpleRequest(),
-        onChunk: chunks.add,
-      );
+      final response = await model(simpleRequest(), onChunk: chunks.add);
 
       expect(chunks, hasLength(2));
       final parts = response.message!.content;
@@ -321,8 +532,7 @@ void main() {
     });
 
     test('blocking: returns reasoning for ThinkingResponse', () async {
-      fakeChat.blockingResponse =
-          const gemma.ThinkingResponse('step by step');
+      fakeChat.blockingResponse = const gemma.ThinkingResponse('step by step');
 
       final model = buildModel();
       final response = await model(simpleRequest());
@@ -343,10 +553,7 @@ void main() {
       final model = buildModel();
       final chunks = <ModelResponseChunk>[];
 
-      final response = await model(
-        simpleRequest(),
-        onChunk: chunks.add,
-      );
+      final response = await model(simpleRequest(), onChunk: chunks.add);
 
       expect(chunks, hasLength(3));
       expect(chunks[0].content.first.isReasoning, isTrue);
@@ -371,15 +578,10 @@ void main() {
     });
 
     test('streaming: response includes latencyMs', () async {
-      fakeChat.streamingResponses = [
-        const gemma.TextResponse('ok'),
-      ];
+      fakeChat.streamingResponses = [const gemma.TextResponse('ok')];
       final model = buildModel();
 
-      final response = await model(
-        simpleRequest(),
-        onChunk: (_) {},
-      );
+      final response = await model(simpleRequest(), onChunk: (_) {});
 
       expect(response.latencyMs, isNotNull);
       expect(response.latencyMs, greaterThanOrEqualTo(0));
@@ -388,22 +590,24 @@ void main() {
     test('null request throws GenkitException', () async {
       final model = buildModel();
 
-      await expectLater(
-        model(null),
-        throwsA(isA<GenkitException>()),
-      );
+      await expectLater(model(null), throwsA(isA<GenkitException>()));
     });
 
     test('passes systemInstruction from config to createChat', () async {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [
-          Message(role: Role.user, content: [TextPart(text: 'Hi')]),
-        ],
-        config: {'systemInstruction': 'Be concise.'},
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+          config: {'systemInstruction': 'Be concise.'},
+        ),
+      );
 
       expect(fakeModel.lastSystemInstruction, 'Be concise.');
     });
@@ -412,73 +616,94 @@ void main() {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [
-          Message(
-            role: Role.system,
-            content: [TextPart(text: 'You are helpful.')],
-          ),
-          Message(role: Role.user, content: [TextPart(text: 'Hi')]),
-        ],
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.system,
+              content: [TextPart(text: 'You are helpful.')],
+            ),
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hi')],
+            ),
+          ],
+        ),
+      );
 
       expect(fakeModel.lastSystemInstruction, 'You are helpful.');
     });
 
-    test('config systemInstruction takes priority over system messages',
-        () async {
-      fakeChat.blockingResponse = const gemma.TextResponse('ok');
-      final model = buildModel();
+    test(
+      'config systemInstruction takes priority over system messages',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [
-          Message(
-            role: Role.system,
-            content: [TextPart(text: 'From message.')],
+        await model(
+          ModelRequest(
+            messages: [
+              Message(
+                role: Role.system,
+                content: [TextPart(text: 'From message.')],
+              ),
+              Message(
+                role: Role.user,
+                content: [TextPart(text: 'Hi')],
+              ),
+            ],
+            config: {'systemInstruction': 'From config.'},
           ),
-          Message(role: Role.user, content: [TextPart(text: 'Hi')]),
-        ],
-        config: {'systemInstruction': 'From config.'},
-      ));
+        );
 
-      expect(fakeModel.lastSystemInstruction, 'From config.');
-    });
+        expect(fakeModel.lastSystemInstruction, 'From config.');
+      },
+    );
 
     test('system messages are not prepended to user messages', () async {
       fakeChat.blockingResponse = const gemma.TextResponse('ok');
       final model = buildModel();
 
-      await model(ModelRequest(
-        messages: [
-          Message(
-            role: Role.system,
-            content: [TextPart(text: 'Be helpful.')],
-          ),
-          Message(role: Role.user, content: [TextPart(text: 'Hello')]),
-        ],
-      ));
+      await model(
+        ModelRequest(
+          messages: [
+            Message(
+              role: Role.system,
+              content: [TextPart(text: 'Be helpful.')],
+            ),
+            Message(
+              role: Role.user,
+              content: [TextPart(text: 'Hello')],
+            ),
+          ],
+        ),
+      );
 
       // System message should be passed via createChat, not prepended to user message.
       expect(fakeChat.receivedMessages, hasLength(1));
       expect(fakeChat.receivedMessages[0].text, 'Hello');
     });
 
-    test('throws on system-only messages (no user or model messages)',
-        () async {
-      fakeChat.blockingResponse = const gemma.TextResponse('ok');
-      final model = buildModel();
+    test(
+      'throws on system-only messages (no user or model messages)',
+      () async {
+        fakeChat.blockingResponse = const gemma.TextResponse('ok');
+        final model = buildModel();
 
-      await expectLater(
-        model(ModelRequest(
-          messages: [
-            Message(
-              role: Role.system,
-              content: [TextPart(text: 'Be helpful.')],
+        await expectLater(
+          model(
+            ModelRequest(
+              messages: [
+                Message(
+                  role: Role.system,
+                  content: [TextPart(text: 'Be helpful.')],
+                ),
+              ],
             ),
-          ],
-        )),
-        throwsA(isA<GenkitException>()),
-      );
-    });
+          ),
+          throwsA(isA<GenkitException>()),
+        );
+      },
+    );
   });
 }

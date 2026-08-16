@@ -1,3 +1,7 @@
+## 0.4.4
+
+- Add preferredBackend / preferredVisionBackend / preferredAudioBackend to FlutterGemmaModelOptions (text decoder + vision/audio encoder backends).
+
 ## 0.4.3
 
 - Fix example: declare `ModelFileType.litertlm` for `.litertlm` models (desktop was declaring `.task`, routing them to MediaPipe). Adds a fileType-consistency test.

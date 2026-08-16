@@ -155,7 +155,15 @@ if you hit it.
 - Ensure you're using a multimodal model (Gemma 4, Gemma3n E2B/E4B, FastVLM).
 - Set `supportImage: true` (and `supportAudio: true` for audio) when creating the model.
 - Check device memory — multimodal models require more RAM.
-- Use the GPU backend for better performance. See [Multimodal](/docs/multimodal).
+- **Image input crashes at model load on a GPU text backend (older releases).**
+  On Metal (iOS/macOS) and WebGPU (Windows/Linux) the vision encoder's ops can't
+  be prepared by the GPU delegate. Fixed in **`flutter_gemma_litertlm` 1.4.2 /
+  core 1.5.9** — the vision encoder now defaults to CPU while the text decoder
+  keeps the GPU. Upgrade if you hit it.
+- Use the GPU backend for faster text decoding. Image encoding runs on CPU by
+  default; move audio encoding to GPU with `preferredAudioBackend: PreferredBackend.gpu`.
+  To force GPU vision (only for a model built to allow it), pass
+  `preferredVisionBackend: PreferredBackend.gpu`. See [Multimodal](/docs/multimodal).
 
 ## Function calling
 

@@ -143,12 +143,13 @@ void main() {
   });
 
   group('encoderBackendWireName (vision + audio encoders)', () {
-    // The vision/audio ENCODER graphs carry STABLEHLO_COMPOSITE ops the Metal /
+    // The VISION encoder graph carries STABLEHLO_COMPOSITE ops the Metal /
     // WebGPU LiteRT delegates can't prepare (hard-fails at conversation_create,
-    // no fallback), so CPU is the op-safe default. It must stay overridable:
-    // a model whose encoder section bakes a gpu-only backend_constraint would
-    // otherwise hard-fail on CPU (the constraint is a validation gate upstream),
-    // and Gemma 3n audio is ~2x faster on GPU.
+    // no fallback — LiteRT-LM#2461), so CPU is the op-safe default there. AUDIO
+    // runs on either backend; CPU is a conservative default. Both stay
+    // overridable: a vision model whose section bakes a gpu-only
+    // backend_constraint would otherwise hard-fail on CPU, and Gemma 3n audio is
+    // ~2x faster on GPU.
     test('defaults to cpu when no encoder backend is set (null)', () {
       expect(encoderBackendWireName(null), 'cpu');
     });

@@ -659,6 +659,17 @@ class LiteRtLmFfiClient {
     _backend = backend;
     final bindingsMs = initSw.elapsedMilliseconds;
     gemmaLog('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
+    // Log the resolved per-encoder backends: vision/audio default to CPU
+    // independent of the text backend, so this makes the GPU→CPU default (and
+    // any override) visible when diagnosing "why isn't vision using my GPU".
+    if (enableVision || enableAudio) {
+      gemmaLog(
+        '[LiteRtLmFfi] encoders: '
+        '${enableVision ? "vision=$visionBackend " : ""}'
+        '${enableAudio ? "audio=$audioBackend " : ""}'
+        '(text=$backend)',
+      );
+    }
     final b = _bindings!;
 
     // Create engine settings

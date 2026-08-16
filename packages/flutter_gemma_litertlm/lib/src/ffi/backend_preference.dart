@@ -23,16 +23,19 @@ String ffiBackendWireName(PreferredBackend backend) => switch (backend) {
 };
 
 /// Wire name for an ENCODER backend (vision / audio), defaulting to `cpu` when
-/// unset. Shared by both because their defaulting is identical.
+/// unset. Shared by both because their defaulting is identical (`null → cpu`).
 ///
-/// The vision & audio encoder graphs carry `STABLEHLO_COMPOSITE` ops that the
-/// Metal (iOS/macOS) and WebGPU (Linux) LiteRT delegates cannot prepare — the
-/// vision encoder hard-fails at `conversation_create` with no backend fallback
-/// (LiteRT-LM#2461, open upstream). CPU has full op coverage, so it is the safe
-/// default (and matches the vision *adapter*, which LiteRT-LM already pins to
-/// CPU unconditionally). It stays overridable: a model whose encoder section
-/// bakes a gpu-only `backend_constraint`, or where GPU is measurably faster
-/// (Gemma 3n audio on GPU is ~2× CPU), can pass `PreferredBackend.gpu`.
+/// Why CPU differs per encoder:
+/// - VISION: its graph carries `STABLEHLO_COMPOSITE` ops the Metal (iOS/macOS)
+///   and WebGPU (Windows/Linux) LiteRT delegates cannot prepare — it hard-fails
+///   at `conversation_create` with no backend fallback (LiteRT-LM#2461, open
+///   upstream). CPU is the mandatory-safe default (matching the vision
+///   *adapter*, which LiteRT-LM already pins to CPU unconditionally).
+/// - AUDIO: runs fine on either backend (verified on Metal); CPU is a
+///   conservative default, but GPU is often faster (Gemma 3n audio ~2× CPU).
+///
+/// Both stay overridable: pass `PreferredBackend.gpu` for a vision model whose
+/// section bakes a gpu-only `backend_constraint`, or for faster GPU audio.
 String encoderBackendWireName(PreferredBackend? encoderBackend) =>
     encoderBackend == null ? 'cpu' : ffiBackendWireName(encoderBackend);
 

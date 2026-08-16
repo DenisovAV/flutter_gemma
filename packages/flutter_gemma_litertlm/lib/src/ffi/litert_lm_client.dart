@@ -665,11 +665,11 @@ class LiteRtLmFfiClient {
     final modelPathPtr = modelPath.toNativeUtf8();
     final backendPtr = backend.toNativeUtf8();
     // Vision + audio encoders default to CPU (visionBackend/audioBackend), NOT
-    // the text backend: their STABLEHLO_COMPOSITE ops fail to prepare on the
-    // Metal/WebGPU delegates (vision hard-fails at conversation_create, no
-    // fallback — LiteRT-LM#2461). Both stay overridable (arg) for a model whose
-    // encoder section bakes a gpu-only backend_constraint, or where GPU is
-    // faster (Gemma 3n audio ~2x on GPU).
+    // the text backend. The VISION encoder's STABLEHLO_COMPOSITE ops fail to
+    // prepare on the Metal/WebGPU delegates (hard-fails at conversation_create,
+    // no fallback — LiteRT-LM#2461), so CPU is mandatory-safe there. AUDIO runs
+    // on either backend; CPU is a conservative default (GPU is often faster —
+    // Gemma 3n audio ~2x). Both stay overridable via the arg.
     final visionBackendPtr = enableVision
         ? visionBackend.toNativeUtf8()
         : nullptr;

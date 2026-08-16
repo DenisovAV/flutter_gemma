@@ -20,8 +20,10 @@ silently do the other thing.
 1. **ONE PR: code + `website/` docs + version bumps ship together.** The Step 12
    doc changes (version pins + new/changed-API docs) go on the SAME release
    branch/PR as the code, merged in one go. A **separate website-only PR is
-   FORBIDDEN** — the only time it is allowed is when the code PR has ALREADY
-   merged before you got to docs, and that is a planning failure to note in the
+   FORBIDDEN** except (a) the code PR has ALREADY merged before you got to docs
+   (a planning failure — do NOT let this become the pattern), or (b) a
+   post-merge deploy-failure hotfix, which 12c requires be a new PR since main is
+   protected. Case (a) is a failure to note in the
    PR, not the pattern to copy. Author the docs BEFORE the release PR merges.
 2. **Docs are part of Done, not a follow-up.** "I'll do the docs later / in a
    follow-up" is the exact failure this skill exists to stop. `README.md`
@@ -33,7 +35,7 @@ silently do the other thing.
    (done / N/A + reason) before you publish. Do not publish off memory of the
    skill — walk it as a literal checklist against the actual repo state.
 
-### Definition of Done (paste + check every line before Step 10 publish)
+### Definition of Done (paste it; check 1a–12b before Step 10 publish; 12c is verified after merge)
 
 ```
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
@@ -416,6 +418,11 @@ git push origin <branch> --tags
 ## Step 10: pub.dev publish
 
 ```bash
+# Run from the package dir so the guard-release-docs hook can resolve which
+# package is publishing (bare `dart pub publish` with the cwd already in the
+# package works too — the hook reads the payload cwd — but the explicit `cd` is
+# unambiguous):
+cd packages/<name>
 dart pub publish --dry-run    # verify once more
 dart pub publish              # only after user approval
 ```

@@ -53,7 +53,7 @@ models.
 
 | Platform | Architecture | GPU backend | Vision | Audio | Notes |
 |---|---|---|---|---|---|
-| macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n via Metal |
+| macOS | arm64 (Apple Silicon) | Metal | ✅ | ✅ | Vision verified on Gemma 4 + Gemma 3n (text decoder on Metal, vision encoder on CPU) |
 | macOS | x86_64 | — | — | — | Not supported (Apple Silicon only) |
 | Windows | x86_64 | DirectX 12 (via Dawn/WebGPU) | ✅ | ✅ | Requires VS 2019+ runtime (`vcredist`) for DXC |
 | Windows | arm64 | — | — | — | Not supported |
@@ -355,7 +355,10 @@ Windows CPU/NPU were never affected.
 When `preferredBackend: PreferredBackend.gpu`, the **forward pass** (prefill +
 decode) runs on the GPU accelerator (Metal, DX12, Vulkan). The **per-token
 sampler** (top-k / top-p / argmax) runs on CPU — roughly 1–5 ms per token vs. the
-full LLM generation, which is dominated by the forward pass.
+full LLM generation, which is dominated by the forward pass. The **vision
+encoder** likewise runs on CPU by default (the GPU delegate can't prepare its
+ops); override per-encoder with `preferredVisionBackend:` / `preferredAudioBackend:`
+on `getActiveModel(...)`.
 
 - **macOS, Windows** — upstream `libLiteRtTopKMetalSampler` / `libLiteRtTopKWebGpuSampler` ship with incomplete C ABI exports (3 of 7 functions); the factory falls back to the CPU chain. ([#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990), [#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073))
 - **Linux** — the prebuilt sampler `.so` holds a process-static `wgpu::Instance` that any second `engine_create` rejects. Since runtime model swap matters more than the few ms saved, the plugin doesn't preload it and lets the factory fall back to CPU.

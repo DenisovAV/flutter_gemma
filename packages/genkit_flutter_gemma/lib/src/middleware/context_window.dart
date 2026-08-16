@@ -35,14 +35,21 @@ const _kMediaPartTokenEstimate = 256;
 ///   * the most-recent message is kept (the current turn's query — trimming it
 ///     away would make the generation meaningless), even if it alone exceeds
 ///     the budget — so the kept total can exceed [maxInputTokens];
-///   * the retained non-system history begins on a `Role.user` turn: a kept
-///     suffix that would otherwise start on a model/tool turn whose partner was
-///     trimmed has that orphaned leading turn dropped, so a tool-call and its
-///     response are never split.
+///   * a kept suffix that would otherwise start on a model/tool turn whose
+///     partner was trimmed has that orphaned leading turn dropped, so the
+///     retained non-system history normally begins on a `Role.user` turn and a
+///     tool-call and its response are never split. The one exception is the
+///     always-kept most-recent message: if it is itself a lone non-user turn
+///     (e.g. a `tool` response mid tool-loop) it is retained, and a warning is
+///     logged.
+///
+/// When even the pinned messages (all system + the most-recent turn) exceed the
+/// budget, the request is forwarded over budget (dropping the query would be
+/// worse) and a warning is logged — it does not claim to have fit.
 ///
 /// Token counts are a rough `chars / 4` estimate (plus a flat cost per media
-/// part); leave headroom via [reserveOutputTokens] rather than treating the
-/// budget as exact.
+/// part). This undercounts CJK/dense-code text (often ≥ 1 token/char), so leave
+/// headroom via [reserveOutputTokens] rather than treating the budget as exact.
 class ContextWindowMiddleware extends GenerateMiddleware {
   ContextWindowMiddleware({this.maxInputTokens, int? reserveOutputTokens})
     : reserveOutputTokens =
@@ -149,17 +156,30 @@ class ContextWindowMiddleware extends GenerateMiddleware {
       start++;
     }
     final kept = chronological.sublist(start);
+    final result = [...system, ...kept];
 
-    final dropped = rest.length - kept.length;
-    if (dropped > 0) {
+    // Report honestly: the pinned messages (all system + the most-recent turn)
+    // can still exceed the budget, in which case the request is forwarded over
+    // budget. Never log "fit budget" when it didn't — a misleading success line
+    // sends a debugging engineer the wrong way.
+    final finalTotal = result.fold<int>(0, (s, m) => s + _estimateTokens(m));
+    const logName = 'genkit.flutter_gemma.context_window';
+    if (finalTotal > budget) {
       developer.log(
-        'trimmed $dropped of ${rest.length} non-system messages to fit '
-        'budget $budget',
-        name: 'genkit.flutter_gemma.context_window',
+        'could not fit budget $budget: pinned system + most-recent messages '
+        'total ~$finalTotal tokens; forwarding over budget',
+        name: logName,
+        level: 900, // WARNING
+      );
+    } else if (result.length < messages.length) {
+      developer.log(
+        'trimmed ${messages.length - result.length} of ${messages.length} '
+        'messages to fit budget $budget (~$finalTotal tokens)',
+        name: logName,
       );
     }
 
-    return [...system, ...kept];
+    return result;
   }
 
   /// Rough token estimate: total text characters / 4, plus a flat cost per

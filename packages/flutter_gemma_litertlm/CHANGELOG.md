@@ -1,3 +1,6 @@
+## 1.4.2
+- fix: vision + audio encoders default to CPU (fixes GPU vision hard-fail on Metal/WebGPU); overridable.
+
 ## 1.4.1
 - Fix Windows NPU: the OpenVino compiler DLLs shipped but were never bundled into the app.
 - Drop the debug TBB variants that were being bundled alongside the release set.

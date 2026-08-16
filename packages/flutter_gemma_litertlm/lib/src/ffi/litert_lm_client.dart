@@ -648,8 +648,10 @@ class LiteRtLmFfiClient {
     int maxTokens = 2048,
     String? cacheDir,
     bool enableVision = false,
+    String visionBackend = 'cpu',
     int maxNumImages = 0,
     bool enableAudio = false,
+    String audioBackend = 'cpu',
     bool? enableSpeculativeDecoding,
   }) async {
     final initSw = Stopwatch()..start();
@@ -657,13 +659,32 @@ class LiteRtLmFfiClient {
     _backend = backend;
     final bindingsMs = initSw.elapsedMilliseconds;
     gemmaLog('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
+    // Log the resolved per-encoder backends: vision/audio default to CPU
+    // independent of the text backend, so this makes the GPU→CPU default (and
+    // any override) visible when diagnosing "why isn't vision using my GPU".
+    if (enableVision || enableAudio) {
+      gemmaLog(
+        '[LiteRtLmFfi] encoders: '
+        '${enableVision ? "vision=$visionBackend " : ""}'
+        '${enableAudio ? "audio=$audioBackend " : ""}'
+        '(text=$backend)',
+      );
+    }
     final b = _bindings!;
 
     // Create engine settings
     final modelPathPtr = modelPath.toNativeUtf8();
     final backendPtr = backend.toNativeUtf8();
-    final visionBackendPtr = enableVision ? backend.toNativeUtf8() : nullptr;
-    final audioBackendPtr = enableAudio ? 'cpu'.toNativeUtf8() : nullptr;
+    // Vision + audio encoders default to CPU (visionBackend/audioBackend), NOT
+    // the text backend. The VISION encoder's STABLEHLO_COMPOSITE ops fail to
+    // prepare on the Metal/WebGPU delegates (hard-fails at conversation_create,
+    // no fallback — LiteRT-LM#2461), so CPU is mandatory-safe there. AUDIO runs
+    // on either backend; CPU is a conservative default (GPU is often faster —
+    // Gemma 3n audio ~2x). Both stay overridable via the arg.
+    final visionBackendPtr = enableVision
+        ? visionBackend.toNativeUtf8()
+        : nullptr;
+    final audioBackendPtr = enableAudio ? audioBackend.toNativeUtf8() : nullptr;
 
     try {
       final settingsCreateStart = initSw.elapsedMilliseconds;

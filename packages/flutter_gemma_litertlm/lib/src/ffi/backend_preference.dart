@@ -22,6 +22,23 @@ String ffiBackendWireName(PreferredBackend backend) => switch (backend) {
   PreferredBackend.cpu => 'cpu',
 };
 
+/// Wire name for an ENCODER backend (vision / audio), defaulting to `cpu` when
+/// unset. Shared by both because their defaulting is identical (`null → cpu`).
+///
+/// Why CPU differs per encoder:
+/// - VISION: its graph carries `STABLEHLO_COMPOSITE` ops the Metal (iOS/macOS)
+///   and WebGPU (Windows/Linux) LiteRT delegates cannot prepare — it hard-fails
+///   at `conversation_create` with no backend fallback (LiteRT-LM#2461, open
+///   upstream). CPU is the mandatory-safe default (matching the vision
+///   *adapter*, which LiteRT-LM already pins to CPU unconditionally).
+/// - AUDIO: runs fine on either backend (verified on Metal); CPU is a
+///   conservative default, but GPU is often faster (Gemma 3n audio ~2× CPU).
+///
+/// Both stay overridable: pass `PreferredBackend.gpu` for a vision model whose
+/// section bakes a gpu-only `backend_constraint`, or for faster GPU audio.
+String encoderBackendWireName(PreferredBackend? encoderBackend) =>
+    encoderBackend == null ? 'cpu' : ffiBackendWireName(encoderBackend);
+
 /// Failure details for a single FFI backend initialization attempt.
 class BackendInitAttemptFailure {
   const BackendInitAttemptFailure({

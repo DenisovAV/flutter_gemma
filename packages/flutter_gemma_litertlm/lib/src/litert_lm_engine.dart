@@ -1,3 +1,5 @@
+import 'package:flutter_gemma/core/domain/platform_types.dart'
+    show PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
@@ -42,6 +44,29 @@ int clampLitertlmContextTokens(int maxTokens) {
   return kMinLitertlmContextTokens;
 }
 
+/// Pure map from a [RuntimeConfig] + resolved text backend to the encoder /
+/// backend args of [LiteRtLmFfiClient.initialize]. Extracted from
+/// [LiteRtLmEngine.createModel] so the vision↔audio wiring is unit-testable
+/// without path_provider or a real FFI `dlopen` — the swap it guards is silent
+/// under the default config (both encoders resolve to `cpu`).
+@visibleForTesting
+({
+  String backend,
+  bool enableVision,
+  String visionBackend,
+  int maxNumImages,
+  bool enableAudio,
+  String audioBackend,
+})
+encoderInitArgs(RuntimeConfig config, PreferredBackend activeBackend) => (
+  backend: ffiBackendWireName(activeBackend),
+  enableVision: config.supportImage,
+  visionBackend: encoderBackendWireName(config.preferredVisionBackend),
+  maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
+  enableAudio: config.supportAudio,
+  audioBackend: encoderBackendWireName(config.preferredAudioBackend),
+);
+
 /// LiteRT-LM (.litertlm) inference engine. Pure factory: builds and returns a
 /// bare [InferenceModel]; core owns the singleton lifecycle and registers its
 /// reset via [InferenceModel.addCloseListener] (added in a later task).
@@ -70,14 +95,17 @@ class LiteRtLmEngine implements InferenceEngineProvider {
       logTag: '[LiteRtLmEngine]',
       createClient: LiteRtLmFfiClient.new,
       initializeClient: (client, backend) async {
+        final args = encoderInitArgs(config, backend);
         await client.initialize(
           modelPath: config.modelPath,
-          backend: ffiBackendWireName(backend),
+          backend: args.backend,
           maxTokens: maxTokens,
           cacheDir: cacheDir,
-          enableVision: config.supportImage,
-          maxNumImages: config.supportImage ? (config.maxNumImages ?? 1) : 0,
-          enableAudio: config.supportAudio,
+          enableVision: args.enableVision,
+          visionBackend: args.visionBackend,
+          maxNumImages: args.maxNumImages,
+          enableAudio: args.enableAudio,
+          audioBackend: args.audioBackend,
           enableSpeculativeDecoding: config.enableSpeculativeDecoding,
         );
       },

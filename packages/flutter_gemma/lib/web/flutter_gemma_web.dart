@@ -58,6 +58,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
     ModelFileType fileType = ModelFileType.task,
     int maxTokens = 1024,
     PreferredBackend? preferredBackend,
+    PreferredBackend? preferredVisionBackend,
+    PreferredBackend? preferredAudioBackend,
     List<int>? loraRanks,
     int? maxNumImages,
     bool supportImage = false, // Enabling image support
@@ -111,6 +113,8 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       maxTokens: maxTokens,
       modelPath: '',
       preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
       supportImage: supportImage,
       supportAudio: supportAudio,
       maxNumImages: maxNumImages,

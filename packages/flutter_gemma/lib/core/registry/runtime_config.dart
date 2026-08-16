@@ -10,6 +10,8 @@ class RuntimeConfig {
     required this.modelPath,
     this.tokenizerPath,
     this.preferredBackend,
+    this.preferredVisionBackend,
+    this.preferredAudioBackend,
     this.supportImage = false,
     this.supportAudio = false,
     this.maxNumImages,
@@ -47,6 +49,22 @@ class RuntimeConfig {
   final String? tokenizerPath;
 
   final PreferredBackend? preferredBackend;
+
+  /// Backend for the VISION encoder, independent of [preferredBackend] (the
+  /// text/decoder backend). Null defaults to CPU in the LiteRT-LM engine,
+  /// because the vision encoder's `STABLEHLO_COMPOSITE` ops fail to prepare on
+  /// the Metal/WebGPU delegates (LiteRT-LM#2461). Set it (e.g. to
+  /// `PreferredBackend.gpu`) only for a model whose vision section bakes a
+  /// gpu-only `backend_constraint`. Ignored by the MediaPipe engine (whole-model
+  /// backend, no per-encoder split).
+  final PreferredBackend? preferredVisionBackend;
+
+  /// Backend for the AUDIO encoder, independent of [preferredBackend]. Null
+  /// defaults to CPU in the LiteRT-LM engine as a conservative default — but,
+  /// unlike the vision encoder, the audio encoder runs fine on GPU and is often
+  /// faster there (Gemma 3n audio is ~2× CPU on Metal), so set it to
+  /// `PreferredBackend.gpu` for speed. Ignored by MediaPipe.
+  final PreferredBackend? preferredAudioBackend;
   final bool supportImage;
   final bool supportAudio;
   final int? maxNumImages;

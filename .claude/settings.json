@@ -12,6 +12,16 @@
         ]
       },
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-release-docs.py\"",
+            "error_message": "Release blocked: package lib/ changed but its README/website docs did not (release skill Step 12). Ship docs in the same PR, or override with RELEASE_SKIP_DOCS=\"reason\"."
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Write",
         "hooks": [
           {

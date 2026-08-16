@@ -8,6 +8,50 @@ user_invocable: true
 
 Run as `/release <plugin-version>` (e.g. `/release 0.14.1`).
 
+## ⛔ HARD RULES — these are not advice, and not overridable by your judgment
+
+A checklist advises; these refuse. They exist because the steps below were read
+and still skipped — twice in one session (agent 0.2.3 shipped without its README
+→ had to publish 0.2.4; the 1.5.9 docs were split into a separate website PR).
+When a rule here conflicts with what seems "more sensible right now", the rule
+wins. If following one is genuinely impossible, SAY SO out loud and stop — do not
+silently do the other thing.
+
+1. **ONE PR: code + `website/` docs + version bumps ship together.** The Step 12
+   doc changes (version pins + new/changed-API docs) go on the SAME release
+   branch/PR as the code, merged in one go. A **separate website-only PR is
+   FORBIDDEN** except (a) the code PR has ALREADY merged before you got to docs
+   (a planning failure — do NOT let this become the pattern), or (b) a
+   post-merge deploy-failure hotfix, which 12c requires be a new PR since main is
+   protected. Case (a) is a failure to note in the
+   PR, not the pattern to copy. Author the docs BEFORE the release PR merges.
+2. **Docs are part of Done, not a follow-up.** "I'll do the docs later / in a
+   follow-up" is the exact failure this skill exists to stop. `README.md`
+   (pub.dev-facing) and `website/content/docs/**` are release deliverables. A
+   `guard-release-docs.py` hook BLOCKS `dart pub publish` when a package's `lib/`
+   changed but neither its README nor website docs did — if it fires, you skipped
+   Step 12, not "hit a false positive".
+3. **Reproduce this Definition-of-Done in your reply and mark every item**
+   (done / N/A + reason) before you publish. Do not publish off memory of the
+   skill — walk it as a literal checklist against the actual repo state.
+
+### Definition of Done (paste it; check 1a–12b before Step 10 publish; 12c is verified after merge)
+
+```
+[ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
+[ ] 1a  every package whose lib/ changed is in the publish list (grep, don't guess)
+[ ] 1b/c native: dylibs/build-scripts changed? → rebuild + SHA256 + native release, else N/A
+[ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
+[ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
+[ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
+[ ] 2   versions bumped: pubspec + podspec (if any) + CLAUDE.md Current-Version line
+[ ] 7   CHANGELOG: one short line per package, every published package
+[ ] 8   dart pub publish --dry-run → 0 warnings, every package
+[ ] 12a website + README version pins bumped to the just-published versions
+[ ] 12b new/changed public API + behavior documented (README + website)  ← SAME PR
+[ ] 12c after merge: firebase-hosting-merge run == success (not just triggered)
+```
+
 ## Architecture context (read this first)
 
 flutter_gemma 0.14.0+ has **no Kotlin/JVM/gRPC server**. Native libs come from one of two sources, decided per-platform by `hook/build.dart` (Native Assets):
@@ -374,6 +418,11 @@ git push origin <branch> --tags
 ## Step 10: pub.dev publish
 
 ```bash
+# Run from the package dir so the guard-release-docs hook can resolve which
+# package is publishing (bare `dart pub publish` with the cwd already in the
+# package works too — the hook reads the payload cwd — but the explicit `cd` is
+# unambiguous):
+cd packages/<name>
 dart pub publish --dry-run    # verify once more
 dart pub publish              # only after user approval
 ```

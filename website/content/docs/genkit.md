@@ -20,7 +20,7 @@ with the on-device model exactly as it would with any cloud provider.
 
 ```
 dependencies:
-  genkit_flutter_gemma: ^0.4.3
+  genkit_flutter_gemma: ^0.4.4
   flutter_gemma: ^1.5.9
   # Add the inference engine(s) you need:
   flutter_gemma_litertlm: ^1.4.2   # .litertlm models (mobile + desktop)
@@ -116,6 +116,10 @@ final response = await ai.generate(
     temperature: 0.5,
     topK: 40,
     supportImage: true,
+    // Optional per-component backend ('cpu'/'gpu'/'npu'):
+    preferredBackend: 'gpu',        // text decoder
+    preferredAudioBackend: 'gpu',   // audio encoder (~2x on Metal; defaults to CPU)
+    // preferredVisionBackend defaults to CPU (Metal/WebGPU can't run its ops).
   ),
 );
 ```

@@ -15,3 +15,12 @@ library;
 
 export 'src/litert_embedding_backend_stub.dart'
     if (dart.library.ffi) 'src/litert_embedding_backend.dart';
+
+// The runtime-agnostic `ForwardPass` seam (design doc §2, §11 D3/D4): pure
+// Dart, no engine dependency. Engine packages (flutter_gemma_litertlm,
+// flutter_gemma_onnx) implement `EmbeddingForwardPass` and build a
+// `ForwardPassDescriptor` from a top-level factory tear-off to plug into the
+// common embedder. Unconditional export — these files have no dart:io/web
+// split, unlike the backend above.
+export 'src/forward_pass.dart';
+export 'src/pooling.dart';

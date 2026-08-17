@@ -1,0 +1,125 @@
+// The engine-specific forward-pass seam for the runtime-agnostic embedder
+// (design: docs/superpowers/specs/2026-08-17-flutter-gemma-onnx-engine-design.md
+// §2, §11 D3/D4).
+//
+// `flutter_gemma_embeddings` owns tokenization, TaskType prefixing, and
+// pooling/normalization (see `pooling.dart`); the ONLY thing an inference
+// engine (LiteRT-LM, ONNX, ...) supplies is the raw forward pass over
+// already-tokenized input. This file defines that seam.
+//
+// Lifecycle is ASYNC (`Future<void> load()`, not a sync constructor) because
+// every real forward-pass implementation loads/compiles a native model from
+// disk — e.g. `litert_embedding_core.dart`'s `EmbeddingCore.load()` takes
+// ~570-780ms. A sync API would force that work onto whichever isolate calls
+// the constructor; async lets an off-main-isolate host (see
+// `litert_embedding_worker.dart`'s pattern) `await` it inside the worker.
+
+/// One engine's forward-pass implementation.
+///
+/// An instance is built and lives inside a single isolate — see
+/// [ForwardPassDescriptor] for how the *ability to build one* crosses an
+/// isolate boundary. Once built, the SAME isolate that called [load] must be
+/// the one that calls [run] and [close]: the concrete implementation owns
+/// native (FFI) handles that cannot themselves cross isolates.
+abstract class EmbeddingForwardPass {
+  /// Load/compile the model. Heavy (hundreds of ms for a real native
+  /// engine) — call once, then reuse for many [run] calls.
+  Future<void> load();
+
+  /// Run one forward pass over already-tokenized input.
+  ///
+  /// [tokenIds] is required. [attentionMask] / [tokenTypeIds] are optional —
+  /// BERT-style models (WordPiece tokenizers) use them; SentencePiece/
+  /// Gemma-style models typically don't and may ignore them.
+  Future<ForwardResult> run({
+    required List<int> tokenIds,
+    List<int>? attentionMask,
+    List<int>? tokenTypeIds,
+  });
+
+  /// Free native resources. Must be safe to call multiple times.
+  Future<void> close();
+}
+
+/// Raw forward-pass output: a flat, row-major buffer plus its tensor shape.
+///
+/// [shape] is one of two layouts a forward pass can hand back — see
+/// `pooling.dart`'s `meanPoolAndNormalize` for how each is turned into a
+/// single embedding vector:
+///  - `[1, dim]` — already pooled by the engine (e.g. a LiteRT compiled
+///    model whose graph itself produces one vector per input). Treated as a
+///    pass-through.
+///  - `[1, seq, dim]` — per-token hidden states. Mean-pooled over the `seq`
+///    axis (optionally respecting an attention mask) before normalizing.
+class ForwardResult {
+  const ForwardResult({required this.values, required this.shape});
+
+  /// Flat, row-major buffer. `values.length == shape.reduce((a, b) => a * b)`.
+  final List<double> values;
+
+  /// Tensor shape, e.g. `[1, dim]` or `[1, seq, dim]`.
+  final List<int> shape;
+}
+
+/// Factory that builds an [EmbeddingForwardPass] for a given on-disk model
+/// path.
+///
+/// MUST be a top-level or static function — a genuine tear-off — and never a
+/// closure or bound instance method. This is enforced by convention (not by
+/// the type system: `Function(String)` can't statically distinguish a
+/// tear-off from a closure), so implementers must follow it deliberately.
+///
+/// **Why it must be a tear-off, not a closure or a registry:**
+/// [ForwardPassDescriptor] carrying this factory is sent through a
+/// [SendPort] into a freshly [Isolate.spawn]'d isolate (see
+/// `IsolateForwardHost` in engine packages, and
+/// `test/forward_pass_isolate_test.dart` for the boundary proof). Isolates
+/// do not share mutable state — no shared statics, no captured closures —
+/// they only share the compiled *code* of the program (in AOT, the same
+/// binary; in JIT, the same loaded kernel). Dart's isolate messaging allows
+/// sending values that *denote* code rather than *capture* it:
+///  - A top-level/static function tear-off denotes "the function declared at
+///    this source location." That declaration exists, unchanged, in the
+///    fresh isolate's copy of the program, so the receiving isolate can
+///    invoke it immediately — nothing needs to be reconstructed.
+///  - A closure over local/instance state is either rejected outright by
+///    isolate messaging, or (if it captured only sendable values) would
+///    silently NOT carry the mutable object identity the closure's author
+///    expected — a correctness trap.
+///  - A runtime registry (e.g. a `Map<String, EmbeddingForwardPassFactory>`
+///    populated via some `register()` call in the main isolate) is equally
+///    unusable: a freshly spawned isolate starts from the *initial* static
+///    state of the program, so the registry would be empty inside the
+///    worker no matter what the main isolate had registered into it before
+///    spawning — top-level/static state is NOT shared across isolates,
+///    only re-initialized identically in each.
+typedef EmbeddingForwardPassFactory =
+    EmbeddingForwardPass Function(String modelPath);
+
+/// Sendable description of "which engine, which model" that crosses an
+/// isolate boundary so the receiving isolate can build its own
+/// [EmbeddingForwardPass] locally. FFI handles/pointers themselves can never
+/// cross isolates — only this descriptor (plain data + a code reference)
+/// does; see [EmbeddingForwardPassFactory] for why [factory] must be a
+/// top-level/static tear-off.
+class ForwardPassDescriptor {
+  const ForwardPassDescriptor({
+    required this.engineTag,
+    required this.modelPath,
+    required this.factory,
+  });
+
+  /// Human-readable engine identifier for diagnostics (e.g. `'LiteRT-LM'`,
+  /// `'ONNX'`). Not used for dispatch — [factory] already IS the dispatch;
+  /// no receiving isolate ever switches on this string.
+  final String engineTag;
+
+  /// On-disk path to the model file, already resolved by core before this
+  /// descriptor is built (install-vs-runtime separation — see
+  /// `RuntimeConfig.modelPath`).
+  final String modelPath;
+
+  /// Top-level factory tear-off (see [EmbeddingForwardPassFactory]) that
+  /// builds the forward pass inside the receiving isolate.
+  final EmbeddingForwardPassFactory factory;
+}

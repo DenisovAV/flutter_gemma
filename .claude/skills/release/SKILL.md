@@ -417,14 +417,39 @@ git push origin <branch> --tags
 
 ## Step 10: pub.dev publish
 
+### ⛔ ALWAYS publish from `main`, and `main` MUST be up to date — no exceptions
+
+Publishing happens **from the `main` branch only**, never from a feature/release
+branch. After a PR merges, GitHub auto-deletes its head branch, so a
+`dart pub publish` still sitting on that branch is publishing code from a ref
+that no longer exists on origin — the **`guard-publish.py` hook blocks this**
+(`refusing to publish source that is not on the remote … branch does not exist
+on origin`). This is not a bug to work around; it is the guard doing its job.
+
+The fix is always the same — get onto an up-to-date `main` first (Rule 2 says the
+user owns git, but switching to `main` for a release is an explicit, expected
+release action — do it, don't ask):
+
+```bash
+git switch main
+git pull --ff-only origin main        # main MUST equal origin/main
+# verify the release landed on main before publishing:
+git rev-parse --short HEAD            # == origin/main
+git show HEAD:packages/<name>/pubspec.yaml | grep '^version:'   # the version you're publishing
+git status --short                    # clean tree
+```
+
+Only once `HEAD == origin/main`, the version on `main` is the one you intend to
+publish, and the tree is clean, proceed:
+
 ```bash
 # Run from the package dir so the guard-release-docs hook can resolve which
 # package is publishing (bare `dart pub publish` with the cwd already in the
 # package works too — the hook reads the payload cwd — but the explicit `cd` is
 # unambiguous):
 cd packages/<name>
-dart pub publish --dry-run    # verify once more
-dart pub publish              # only after user approval
+dart pub publish --dry-run    # verify once more (expect 0 warnings on a clean main)
+dart pub publish --force      # only after user approval; --force is non-interactive
 ```
 
 ## Step 11: Optional — GitHub plugin release

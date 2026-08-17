@@ -225,6 +225,34 @@ jobs:
           if ($tbb.Name -notcontains 'tbb12.dll') {
             throw "tbb12.dll specifically is missing (found: $($tbb.Name -join ', '))"
           }
+          # The dispatch links against the SDK Bazel fetched, and the runtime
+          # DLLs above are copied out of that same tree, so the pair matches by
+          # construction. That is a property of the code above, not an
+          # assertion. Carrying a stale pair forward is what cost us #3217: we
+          # shipped OpenVino 2026.2.0 against a pin requiring 2026.3.0, and it
+          # read as an upstream regression until the bundle was rebuilt from
+          # the pin. Compare what the SDK declares against what is embedded in
+          # the DLL actually being shipped, so any future path that stages
+          # these from somewhere else fails here rather than on a user's
+          # machine. Every unreadable case throws: no data is a failure, not a
+          # pass.
+          $versionTxt = Join-Path $ovRoot.FullName 'openvino\runtime\version.txt'
+          if (-not (Test-Path $versionTxt)) {
+            throw "OpenVino SDK has no runtime\version.txt at $versionTxt - cannot verify the shipped runtime matches the SDK the dispatch was built against"
+          }
+          $sdkBuild = (Get-Content $versionTxt -Raw).Trim()
+          if (-not $sdkBuild) { throw "runtime\version.txt is empty - cannot verify the shipped runtime" }
+          $ovText = [System.Text.Encoding]::ASCII.GetString(
+            [System.IO.File]::ReadAllBytes("artifacts\openvino.dll"))
+          $embedded = @([regex]::Matches($ovText, '20\d\d\.\d+\.\d+-\d+-[0-9a-f]{7,40}[-/\w]*') |
+            ForEach-Object { $_.Value } | Sort-Object -Unique)
+          if ($embedded.Count -eq 0) {
+            throw "no build string embedded in the staged openvino.dll - cannot verify it matches the SDK ($sdkBuild)"
+          }
+          if ($embedded -notcontains $sdkBuild) {
+            throw "shipped openvino.dll reports '$($embedded -join ', ')' but the dispatch was built against '$sdkBuild'"
+          }
+          Write-Host "OpenVino build verified: $sdkBuild"
           Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
 

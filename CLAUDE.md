@@ -47,7 +47,7 @@
 - **Probe-chain registry**: `EngineRegistry`/`EmbeddingRegistry` select a provider by `canHandle(spec)` + `priority` (descending priority, ascending registration index). Engines are pure factories; core owns singleton lifecycle via `CloseNotifier`/`addCloseListener`.
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
-- **Engine selection by file extension** (via `canHandle`): `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
+- **Engine selection by declared `ModelFileType`** (via `canHandle(spec)` — NOT by sniffing the file name): `task`/`binary` → MediaPipe, `litertlm` → LiteRT-LM, `builtIn` → BuiltInAi. `installModel` defaults `fileType` to `task`, so `.litertlm` must be declared explicitly or it is routed to MediaPipe
 - **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time from GitHub release `native-v0.16.0` (Native Assets). `flutter_gemma_litertlm/hook/build.dart` is the **sole** hook carrying the LiteRT native version; `flutter_gemma_embeddings` and `flutter_gemma_speech` have no hook of their own and consume the bundle transitively. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
 
 ### Supported Models

@@ -81,9 +81,11 @@ Both formats have **identical behavior** — MediaPipe handles chat templates in
 
 Both formats require **manual chat template formatting** in your code.
 
-**Note:** The plugin automatically detects the file extension and applies appropriate formatting. When specifying `ModelFileType` in your code:
-- Use `ModelFileType.task` for `.task` and `.litertlm` files (same behavior)
-- Use `ModelFileType.binary` for `.bin` and `.tflite` files (same behavior)
+**Note:** `ModelFileType` is what selects the engine — it is **not** inferred from the file name. `installModel` defaults it to `ModelFileType.task`, so declare it explicitly:
+- `ModelFileType.litertlm` for `.litertlm` files. Omitting it routes the model to MediaPipe, which cannot read that format.
+- `ModelFileType.task` for `.task` files
+- `ModelFileType.binary` for `.bin` and `.tflite` files
+- `ModelFileType.builtIn` for OS-provided models (Gemini Nano, Apple Foundation Models)
 
 ### Format by Platform
 
@@ -576,6 +578,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 // `.task`/`-web.task` variants of the same model also work.
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 ).fromNetwork(
   'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
   token: 'your_hf_token',
@@ -783,23 +786,35 @@ Each `DownloadError` exposes `toUserMessage()`, `toTitle()`, `isRetryable`, and
 ```dart
 // Network — .litertlm is the cross-platform default (Android/iOS/Desktop).
 // For mobile-only or web-only apps you can substitute a .task URL of the
-// same model.
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+// same model — and drop the fileType, which defaults to ModelFileType.task.
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromNetwork('https://example.com/model.litertlm', token: 'optional')
   .install();
 
 // Flutter assets
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromAsset('assets/models/model.litertlm')
   .install();
 
 // Native bundle
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromBundled('model.litertlm')
   .install();
 
 // External file
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromFile('/path/to/model.litertlm')
   .install();
 ```
@@ -1000,6 +1015,7 @@ flutter run --dart-define=HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
 // Pass token directly for specific downloads
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromNetwork(
     'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
@@ -1052,6 +1068,7 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 // Public model
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromNetwork('https://example.com/model.litertlm')
   .withProgress((progress) => print('$progress%'))
@@ -1060,6 +1077,7 @@ await FlutterGemma.installModel(
 // Private model with authentication
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromNetwork(
     'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
@@ -1189,6 +1207,7 @@ Copies models from Flutter assets (declared in `pubspec.yaml`).
 // 2. Install from asset
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromAsset('models/gemma3-1b-it.litertlm')
   .install();
@@ -1242,6 +1261,7 @@ flutter build web
 ```dart
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromBundled('gemma3-270m-it-q8.litertlm')
   .install();

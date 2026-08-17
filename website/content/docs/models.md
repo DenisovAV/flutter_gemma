@@ -41,10 +41,12 @@ Both formats require **manual chat template formatting** in your code.
   Apple FM needs Apple Intelligence enabled on iPhone 15 Pro+/M-series).
 
 <Info>
-The plugin automatically detects the file extension and applies the appropriate
-formatting. When specifying `ModelFileType` in code: use `ModelFileType.task` for
-`.task` and `.litertlm` files (same behavior), and `ModelFileType.binary` for
-`.bin` and `.tflite` files (same behavior).
+`ModelFileType` is what selects the engine — it is **not** inferred from the file
+name. `installModel` defaults it to `ModelFileType.task`, so declare it
+explicitly: `ModelFileType.litertlm` for `.litertlm` files (omitting it routes the
+model to MediaPipe, which cannot read that format), `ModelFileType.task` for
+`.task`, `ModelFileType.binary` for `.bin` and `.tflite`, and
+`ModelFileType.builtIn` for OS-provided models.
 </Info>
 
 ### Format by platform
@@ -162,23 +164,36 @@ await FlutterGemma.installModel(modelType: ModelType.general)
 
 ```dart
 // Network — .litertlm is the cross-platform default (Android/iOS/Desktop).
-// For mobile-only or web-only apps you can substitute a .task URL.
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+// For mobile-only or web-only apps you can substitute a .task URL — and drop
+// the fileType, which defaults to ModelFileType.task.
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromNetwork('https://example.com/model.litertlm', token: 'optional')
   .install();
 
 // Flutter assets
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromAsset('assets/models/model.litertlm')
   .install();
 
 // Native bundle
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromBundled('model.litertlm')
   .install();
 
 // External file (native only)
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromFile('/path/to/model.litertlm')
   .install();
 ```

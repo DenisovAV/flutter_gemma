@@ -104,7 +104,8 @@ These keep the exact same API — no edits needed:
 
 ```dart
 // install + run a model
-await FlutterGemma.installModel(modelType: ModelType.gemma4)
+await FlutterGemma.installModel(
+    modelType: ModelType.gemma4, fileType: ModelFileType.litertlm)
     .fromNetwork(url, token: token).install();
 final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
 final chat  = await model.createChat();

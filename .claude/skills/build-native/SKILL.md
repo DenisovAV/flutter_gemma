@@ -491,7 +491,7 @@ And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` 
 | 10 | v0.15.0 changed `LiteRtLmStreamCallback` 4-arg → 2-arg, no compat overload | ACCESS_VIOLATION (Windows) / malformed UTF-8 (macOS) at first token | **caught pre-publish** at v0.15.0 |
 | 11 | `--define=litert_link_capi_so=true` deleted upstream — inert, statically linked runtime → Windows GPU `engine_create` crash | Grep the define in the tree being built | v0.14.0 → v0.16.0, **misfiled upstream as #2957** |
 | 12 | Intel NPU dispatch carried forward at OpenVino 2026.2.0 against a pin requiring 2026.3.0 | Build the dispatch from the pin; CI asserts the staged `openvino.dll` matches the SDK's `version.txt` | v0.11.0-b → v0.16.0, **misfiled upstream as #3217** |
-| 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt, **device verification pending** |
+| 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt and **verified on Snapdragon 8 Elite via QDC** at v0.16.0 |
 | 14 | Blanket copy of OpenVino `runtime\bin` ships debug DLLs (`openvinod.dll`) beside release | Explicit allow-list + `throw` on missing | caught pre-publish at v0.16.0 |
 | 15 | QNN runtime libs left at an old QAIRT while the dispatch moved — `Qnn System library version 1.8.0 is mismatched` | Check #9 on device; compare file sizes against the SDK | native-v0.12.0 → v0.16.0, **caught on device** |
 

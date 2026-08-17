@@ -227,24 +227,35 @@ jobs:
           }
           # The dispatch links against the SDK Bazel fetched, and the runtime
           # DLLs above are copied out of that same tree, so the pair matches by
-          # construction. That is a property of the code above, not an
-          # assertion. Carrying a stale pair forward is what cost us #3217: we
-          # shipped OpenVino 2026.2.0 against a pin requiring 2026.3.0, and it
-          # read as an upstream regression until the bundle was rebuilt from
-          # the pin. Compare what the SDK declares against what is embedded in
-          # the DLL actually being shipped, so any future path that stages
-          # these from somewhere else fails here rather than on a user's
-          # machine. Every unreadable case throws: no data is a failure, not a
-          # pass.
+          # construction. This asserts that construction rather than trusting
+          # it: a future edit that stages either side from somewhere else fails
+          # here instead of shipping a bundle whose halves disagree. Carrying a
+          # stale pair forward is what cost us #3217 - we shipped OpenVino
+          # 2026.2.0 against a pin requiring 2026.3.0, and it read as an
+          # upstream regression until the bundle was rebuilt from the pin.
+          # Every unreadable input throws: no data is a failure, not a pass.
+          #
+          # NOT covered: LiteRtDispatch.dll embeds no version string, so the
+          # dispatch half of the pair is still only verified by an on-device
+          # NPU run.
           $versionTxt = Join-Path $ovRoot.FullName 'openvino\runtime\version.txt'
           if (-not (Test-Path $versionTxt)) {
             throw "OpenVino SDK has no runtime\version.txt at $versionTxt - cannot verify the shipped runtime matches the SDK the dispatch was built against"
           }
           $sdkBuild = (Get-Content $versionTxt -Raw).Trim()
-          if (-not $sdkBuild) { throw "runtime\version.txt is empty - cannot verify the shipped runtime" }
+          $buildPattern = '20\d\d\.\d+\.\d+-\d+-[0-9a-fA-F]{7,40}[-/\w]*'
+          # Check the SDK's own string against the pattern first. A shape this
+          # does not recognise - an unreleased format, or the '<triple>-000--'
+          # a git-less OpenVino rebuild produces - would otherwise surface as
+          # "no build string in openvino.dll", blaming the DLL for a file whose
+          # contents it matches exactly.
+          if ($sdkBuild -notmatch "^$buildPattern$") {
+            throw "runtime\version.txt is not a build string this check understands: '$sdkBuild' - widen the pattern rather than skipping the comparison"
+          }
+          $ovDllPath = (Resolve-Path 'artifacts\openvino.dll').Path
           $ovText = [System.Text.Encoding]::ASCII.GetString(
-            [System.IO.File]::ReadAllBytes("artifacts\openvino.dll"))
-          $embedded = @([regex]::Matches($ovText, '20\d\d\.\d+\.\d+-\d+-[0-9a-f]{7,40}[-/\w]*') |
+            [System.IO.File]::ReadAllBytes($ovDllPath))
+          $embedded = @([regex]::Matches($ovText, $buildPattern) |
             ForEach-Object { $_.Value } | Sort-Object -Unique)
           if ($embedded.Count -eq 0) {
             throw "no build string embedded in the staged openvino.dll - cannot verify it matches the SDK ($sdkBuild)"

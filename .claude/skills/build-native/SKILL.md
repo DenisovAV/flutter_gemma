@@ -176,7 +176,17 @@ Why the old rule was believable and still wrong: a fresh LiteRT-LM build genuine
 
 Both looked like clean regressions at a version boundary, because they were: the boundary is where upstream finally touched the code the frozen artifact depended on. **Verify a bisection's conclusion, not just its measurement** — "v0.13.1 works, v0.14.0 crashes" is a true measurement that says nothing about whose change is at fault when one input to the comparison never moved.
 
-**Windows now asserts the pairing instead of documenting it.** `build-litertlm-native-windows.yml` reads the build string the SDK declares in `runtime/version.txt` and compares it against the string embedded in the `openvino.dll` being staged, throwing on mismatch — and throwing just as loudly when either side is unreadable, because a check that passes on missing data is indistinguishable from one that verified something. It reads the *artifact* rather than the source, so a bundle staged from a cache, a carried-forward directory, or by hand fails in CI rather than on a user's machine. Verified in both directions on Lunar Lake: the pinned nightly passes, and the released `2026.3.0` build `22451` throws — note that one shares the version triple with the pin, so a `MAJOR.MINOR.PATCH` comparison would have waved it through. **Android has no equivalent.** The QNN libs are still checked by size comparison against the SDK plus an on-device run (check #9), so that half of the rule is still enforced by hand.
+**The OpenVino runtime half is now asserted, in both Windows workflows.** They read the build string the SDK declares in `runtime/version.txt` and compare it against the string embedded in the `openvino.dll` being staged, throwing on mismatch — and throwing just as loudly when either side is unreadable or malformed, because a check that passes on missing data is indistinguishable from one that verified something.
+
+Be precise about what that does and does not buy, because the first version of this note was not:
+
+- **It asserts internal consistency, not the pin.** Both sides come out of the same Bazel-fetched `$ovRoot`, so no *input* can currently make it fail — only a future edit that stages either side from somewhere else. That is anti-regression value, not detection of an upstream SDK bump.
+- **It does not cover the dispatch.** `LiteRtDispatch.dll` is copied from `bazel-bin` and embeds no version string, so the half of the pair that actually broke in #3217 is still only verified by check #9 on real silicon.
+- **It cannot catch a hand-staged bundle.** `Copy-Item -Force` overwrites `artifacts\` from `$ovRoot` immediately before the check, so anything placed there by hand is gone before it could be tested.
+
+**Put it in both workflows.** `build-litertlm-native-windows.yml` is fast iteration and ends at `upload-artifact`; `build-litertlm-native.yml` carries the `publish-release` job that creates the `native-v*` tag users fetch. A check added only to the first protects nothing that ships — which is exactly the mistake this paragraph originally shipped with.
+
+**Android has no equivalent.** The QNN libs are still checked by size comparison against the SDK plus an on-device run (check #9).
 
 **The QNN runtime `.so`s must be refreshed with the dispatch, not carried forward.** They are not compiled from source — they come out of the QAIRT SDK — which makes "just keep the old ones" look safe. It is not: the dispatch you build negotiates an **API version** with them, and ours drifted into
 

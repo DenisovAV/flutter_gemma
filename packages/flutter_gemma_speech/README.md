@@ -10,11 +10,12 @@ native bundle and exposes the LiteRt interpreter FFI (`LiteRtBindings`) used her
 
 ## Status
 
-- **STT** works end-to-end for **moonshine-tiny** (raw-PCM seq2seq) via
-  `LiteRtSttBackend`; `whisper`/`parakeet` (log-mel) profiles are follow-ons.
-- **TTS** works end-to-end for **Matcha** (`litert-community/Matcha-TTS`, 22050 Hz)
-  via `LiteRtTtsBackend` — a 3-graph LiteRT pipeline (encoder → CFM decoder →
-  HiFi-GAN vocoder) producing 16-bit PCM; `kokoro`/`supertonic` are follow-ons.
+- **STT** works end-to-end for **moonshine-tiny** (raw-PCM seq2seq), **Whisper**
+  and **Parakeet** (log-mel) via `LiteRtSttBackend`.
+- **TTS** works end-to-end for **Matcha** (`litert-community/Matcha-TTS`, 22050 Hz
+  — a 3-graph LiteRT pipeline: encoder → CFM decoder → HiFi-GAN vocoder,
+  producing 16-bit PCM), **Qwen3-TTS** and **Inflect-Nano-v2** via
+  `LiteRtTtsBackend`; `kokoro`/`supertonic` are follow-ons.
 
 Both backends are pure factories (`canHandle` always `true`) — the *model* is
 selected per-install via `SttModelType` / `TtsModelType`, not the backend.
@@ -45,9 +46,11 @@ await synth.close();
 ## Voice loop
 
 `VoiceSession` chains STT → LLM → TTS into one push-to-talk turn with barge-in.
-`VoiceSession.fromChat` wraps an `InferenceChat` (which must have no tools —
-route tool use to `VoiceSession.custom` + `AgentLoop` instead); `runTurn` takes
-recorded PCM and streams back `VoiceEvent`s.
+`VoiceSession.fromChat` wraps an `InferenceChat`. A chat with tools is supported
+— pass `onToolCall` and the turn runs through the tool loop; it throws only if a
+tools-enabled chat arrives without a handler. Use `VoiceSession.custom` for an
+`AgentSession`/MCP responder. `runTurn` takes recorded PCM and streams back
+`VoiceEvent`s.
 
 ```dart
 final recognizer = await FlutterGemma.getActiveStt();

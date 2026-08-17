@@ -13,7 +13,7 @@ unchanged** — your existing inference code keeps working as-is.
 ## TL;DR
 
 1. Add the opt-in packages for the formats/features you use (see table below).
-2. Call `FlutterGemma.initialize(inferenceEngines: [...], ...)` once in `main()`, passing the engines/backends from the packages you added.
+2. Call `await FlutterGemma.initialize(inferenceEngines: [...], ...)` once in `main()`, passing the engines/backends from the packages you added.
 3. Everything else stays the same.
 
 ## 1. pubspec.yaml
@@ -81,14 +81,18 @@ import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  FlutterGemma.initialize(
+  await FlutterGemma.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
     vectorStore: QdrantVectorStore(),          // or WebSqliteVectorStore() on web
-    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+    // '' when the define is absent — an empty token still sends a bare
+    // `Authorization: Bearer` header, so pass null instead.
+    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN').isNotEmpty
+        ? const String.fromEnvironment('HUGGINGFACE_TOKEN')
+        : null,
   );
 
   runApp(MyApp());

@@ -247,16 +247,32 @@ strings prebuilt/ios_arm64/libLiteRtLm.dylib | grep '@executable_path'
 Each archive is a flat tar of the matching `prebuilt/` directory. Naming: `litertlm-<os>_<arch>.tar.gz`.
 
 ```bash
+PREBUILT=packages/flutter_gemma_litertlm/native/litert_lm/prebuilt
 DIST=$(mktemp -d)
-for d in macos_arm64 ios_arm64 ios_sim_arm64 android_arm64 linux_x86_64 windows_x86_64; do
-  if [ -d "native/litert_lm/prebuilt/$d" ]; then
-    (cd "native/litert_lm/prebuilt/$d" && tar -czf "$DIST/litertlm-$d.tar.gz" .)
+# All SEVEN platforms the hook has checksums for. linux_arm64 was missing from
+# this list for six native releases: the loop silently skipped it (`if -d`
+# guards a directory that is there), the Step-5 glob then inherited the gap
+# into checksums_litertlm.txt, and the result is a release that is internally
+# consistent and still unbuildable on that platform.
+PLATFORMS="macos_arm64 ios_arm64 ios_sim_arm64 android_arm64 linux_x86_64 linux_arm64 windows_x86_64"
+for d in $PLATFORMS; do
+  if [ -d "$PREBUILT/$d" ]; then
+    (cd "$PREBUILT/$d" && tar -czf "$DIST/litertlm-$d.tar.gz" .)
     echo "  $d: $(ls -la "$DIST/litertlm-$d.tar.gz" | awk '{print $5}') bytes"
+  else
+    echo "  $d: NO prebuilt dir — will not be in this release"
   fi
 done
 ```
 
-Only archive platforms whose dylibs actually changed since the previous release. Untouched platforms keep their existing release assets.
+Only archive platforms whose dylibs actually changed since the previous release. Untouched platforms keep their existing release assets — but if you are cutting a **new** `native-v*` tag, every platform must be present, because the hook verifies against its own `checksums` map regardless of which ones you touched. Assert it rather than eyeballing the loop's output:
+
+```bash
+# Count what you packed against what the hook demands.
+want=$(grep -cE "'litertlm-[a-z0-9_]+\.tar\.gz'" packages/flutter_gemma_litertlm/hook/build.dart)
+got=$(ls "$DIST"/litertlm-*.tar.gz 2>/dev/null | wc -l | tr -d ' ')
+[ "$got" -eq "$want" ] || { echo "packed $got, hook expects $want"; exit 1; }
+```
 
 ## Step 5: Compute SHA256 + update hook/build.dart
 

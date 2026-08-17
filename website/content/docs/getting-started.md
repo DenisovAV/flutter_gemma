@@ -117,21 +117,36 @@ final chat = await model.createChat(
 
 **Platform support:**
 
-- **Android `.litertlm` / Desktop**: passed natively via `ConversationConfig.systemInstruction`.
-- **Android `.task` / iOS / Web**: prepended to the first user message as a fallback.
+- **`.litertlm` on every platform, native and web**: passed as a real system turn.
+- **MediaPipe `.task` on web**: prepended to the first user message as a fallback.
 
-### Multiple Instances from the Same Model
+### Runtime parameters are fixed at first load
+
+`getActiveModel` returns a **cached singleton**. A second call for the same
+active model hands back the same object and **discards** the new arguments — so
+this does not produce two differently-sized models:
 
 ```dart
-// Install once
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromNetwork(url).install();
-
-// Create multiple instances
-final quickModel = await FlutterGemma.getActiveModel(maxTokens: 512);
-final deepModel = await FlutterGemma.getActiveModel(maxTokens: 4096);
-// Both use the SAME model file!
+final quick = await FlutterGemma.getActiveModel(maxTokens: 512);
+final deep  = await FlutterGemma.getActiveModel(maxTokens: 4096);
+// deep is quick. Its context window is whatever the FIRST call set.
 ```
+
+To change `maxTokens` or the backend, close the model and load it again:
+
+```dart
+await quick.close();
+final deep = await FlutterGemma.getActiveModel(maxTokens: 4096);
+```
+
+To serve several dialogues from one loaded model, do not reload it — open
+several sessions instead (next section).
+
+<Info>
+On `.litertlm` a `maxTokens` below 1024 is clamped up to 1024, so the 512 above
+would not have been honored in any case. See
+[Troubleshooting](/docs/troubleshooting).
+</Info>
 
 ### Concurrent Sessions (`openSession`)
 

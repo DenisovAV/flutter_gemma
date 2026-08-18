@@ -518,27 +518,88 @@ ffi.DynamicLibrary _openFirst(List<String> candidates) {
   throw StateError('Could not open any of $candidates. Last error: $lastError');
 }
 
+/// POSIX `Dl_info` — only `dli_fname` (the absolute on-disk path of the image
+/// a symbol lives in) is used here.
+final class _DlInfo extends ffi.Struct {
+  external ffi.Pointer<pkg_ffi.Utf8> dli_fname;
+  external ffi.Pointer<ffi.Void> dli_fbase;
+  external ffi.Pointer<pkg_ffi.Utf8> dli_sname;
+  external ffi.Pointer<ffi.Void> dli_saddr;
+}
+
+typedef _DladdrNative =
+    ffi.Int32 Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_DlInfo>);
+typedef _DladdrDart = int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<_DlInfo>);
+typedef _SetenvNative =
+    ffi.Int32 Function(
+      ffi.Pointer<pkg_ffi.Utf8>,
+      ffi.Pointer<pkg_ffi.Utf8>,
+      ffi.Int32,
+    );
+typedef _SetenvDart =
+    int Function(ffi.Pointer<pkg_ffi.Utf8>, ffi.Pointer<pkg_ffi.Utf8>, int);
+
+/// Resolves the absolute on-disk path of the already-loaded [ortLib] via
+/// `dladdr` on its `OrtGetApiBase` symbol, then exports it as `ORT_LIB_PATH`.
+///
+/// This is the fix for the framework-wrap co-location blocker: onnxruntime-genai
+/// resolves onnxruntime at runtime by a bare `dlopen("libonnxruntime.dylib")`
+/// (a string constant, not a Mach-O load command — nothing for install_name_tool
+/// to patch) with a `dladdr`-based "next to my own binary" fallback. Under
+/// Flutter's Native-Assets `.framework` wrapping the two libs land in SEPARATE
+/// `.framework` bundles, so that fallback fails. But GenAI's `InitApi()` checks
+/// the `ORT_LIB_PATH` env var FIRST and unconditionally `dlopen`s that absolute
+/// path — Microsoft's own sanctioned override. We set it before GenAI's dylib
+/// static initializer runs (i.e. before opening its library), pointing at ORT's
+/// real path (whatever Flutter named the framework), so resolution succeeds with
+/// zero packaging/Podfile/hook changes. No-op on platforms without dladdr/setenv.
+void _exportOrtLibPath(ffi.DynamicLibrary ortLib) {
+  if (!(Platform.isMacOS || Platform.isIOS || Platform.isLinux)) return;
+  final proc = ffi.DynamicLibrary.process();
+  final dladdr = proc.lookupFunction<_DladdrNative, _DladdrDart>('dladdr');
+  final setenv = proc.lookupFunction<_SetenvNative, _SetenvDart>('setenv');
+  final info = pkg_ffi.calloc<_DlInfo>();
+  final namePtr = 'ORT_LIB_PATH'.toNativeUtf8();
+  ffi.Pointer<pkg_ffi.Utf8>? valuePtr;
+  try {
+    final sym = ortLib.lookup<ffi.Void>('OrtGetApiBase');
+    if (dladdr(sym, info) == 0 || info.ref.dli_fname == ffi.nullptr) return;
+    final ortPath = info.ref.dli_fname.toDartString();
+    valuePtr = ortPath.toNativeUtf8();
+    setenv(namePtr, valuePtr, 1); // overwrite
+    gemmaLog('[OnnxGenAi] ORT_LIB_PATH=$ortPath');
+  } catch (_) {
+    // Best-effort: if the env override can't be set, GenAI still tries its
+    // bare-name + self-directory paths (works for the flat host-test layout).
+  } finally {
+    pkg_ffi.calloc.free(info);
+    pkg_ffi.calloc.free(namePtr);
+    if (valuePtr != null) pkg_ffi.calloc.free(valuePtr);
+  }
+}
+
 (ffi.DynamicLibrary, ffi.DynamicLibrary) _openGenAiLibraries(String? libsDir) {
   final ffi.DynamicLibrary ortLib;
-  final ffi.DynamicLibrary genaiLib;
   if (libsDir != null) {
     // Host-test override (FLUTTER_GEMMA_ORT_GENAI_LIBS / the macOS host
     // smoke test): exact spike layout, bare platform-default names in one
     // directory — bypasses the CodeAsset bundle entirely.
     final ortName = _candidateNames('onnxruntime').last;
-    final genaiName = _candidateNames('onnxruntime-genai').last;
     ortLib = ffi.DynamicLibrary.open('$libsDir/$ortName');
-    genaiLib = ffi.DynamicLibrary.open('$libsDir/$genaiName');
   } else {
     ortLib = _openFirst(_candidateNames('onnxruntime'));
-    genaiLib = _openFirst(_candidateNames('onnxruntime-genai'));
   }
-
-  // Preload ORT first (full path/framework), then GenAI — GenAI internally
-  // dlopen()s "libonnxruntime.dylib" (etc.) by BARE NAME at runtime, not as
-  // a load-time dependency. Loading the exact dylib first lets the bare-name
-  // lookup resolve to the already-loaded image. Exact spike order.
   ortLib.providesSymbol('OrtGetApiBase'); // keep ortLib reachable/loaded
+
+  // Point GenAI's InitApi() at ORT's real absolute path BEFORE its dylib static
+  // initializer (which resolves ORT) runs — i.e. before we open the GenAI lib.
+  _exportOrtLibPath(ortLib);
+
+  final genaiLib = libsDir != null
+      ? ffi.DynamicLibrary.open(
+          '$libsDir/${_candidateNames('onnxruntime-genai').last}',
+        )
+      : _openFirst(_candidateNames('onnxruntime-genai'));
   return (ortLib, genaiLib);
 }
 

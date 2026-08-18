@@ -33,8 +33,8 @@ Register the engine at startup, alongside any other engines your app uses:
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 
-void main() {
-  FlutterGemma.initialize(
+void main() async {
+  await FlutterGemma.initialize(
     inferenceEngines: const [BuiltInAiEngine()],
   );
   runApp(MyApp());

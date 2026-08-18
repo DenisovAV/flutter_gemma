@@ -270,6 +270,10 @@ class LiteRtLmFfiClient {
   Pointer<LiteRtLmEngine>? _engine;
   bool _isInitialized = false;
   String? _nativeLogPath;
+
+  /// Backend the engine was initialised with, as the wire string ('cpu' /
+  /// 'gpu' / 'npu'). Read only to warn that the NPU executor discards sampler
+  /// params — it must never gate what we send again.
   String? _backend;
 
   /// Conversation creates currently suspended across an `await`.
@@ -980,56 +984,67 @@ class LiteRtLmFfiClient {
     // native/litert_lm/patch_c_api.sh ("PATCH: 6-arg overload") is gone.
     final sessionConfig = b.litert_lm_session_config_create();
 
-    // NPU executor on LiteRT-LM only supports internal greedy sampling — any
-    // sampler params we pass cause engine_create / generation failures
-    // upstream. Skip the setter chain in that case; CPU/GPU paths are
-    // unaffected.
-    if (_backend != 'npu') {
-      // Upstream LiteRT-LM (commit 5e0d86b) only implements TopP sampling at
-      // engine level — sampler type 1 (TopK) and 3 (Greedy) are rejected with
-      // "UNIMPLEMENTED: Sampler type: N not implemented yet." Use TopP (=2)
-      // unconditionally and pass top_k as a hint; native respects both fields
-      // even though it's gated by the type tag.
-      //
-      // v0.14.0: LiteRtLmSamplerParams is opaque — built via
-      // litert_lm_sampler_params_create + the _set_* setters instead of
-      // writing struct fields directly.
-      final samplerParams = b.litert_lm_sampler_params_create(2); // always TopP
-      b.litert_lm_sampler_params_set_top_k(samplerParams, topK);
-      b.litert_lm_sampler_params_set_top_p(samplerParams, topP ?? 0.95);
-      b.litert_lm_sampler_params_set_temperature(samplerParams, temperature);
-      b.litert_lm_sampler_params_set_seed(samplerParams, seed);
-      b.litert_lm_session_config_set_sampler_params(
-        sessionConfig,
-        samplerParams,
-      );
-      b.litert_lm_sampler_params_delete(samplerParams);
-    } else {
+    // Sampler params go to every backend, NPU included.
+    //
+    // We used to skip this whole chain when the backend was NPU, citing a May
+    // measurement against LiteRT-LM 032334d8 where GetSamplerBackend() did
+    // `sampler_backend = backend` and then required CPU or GPU.
+    //
+    // Traced at the shipped pin v0.16.0 (924e79c9), that reason was never the
+    // operative one: `GetSamplerBackend(LlmExecutorSettings)` is only reachable
+    // from LlmLiteRtCompiledModelExecutorBase, and the NPU executor
+    // (LlmLiteRtNpuCompiledModelExecutor) does not derive from it. The real
+    // situation is simpler and worse — the NPU executor stores sampler_params_
+    // and never reads it; every Decode() path calls ApplyGreedySampling, a
+    // plain argmax. So NPU accepts the params because it discards them.
+    //
+    // Sending them anyway is harmless and correct the day upstream implements
+    // NPU sampling. But the caller must not be left thinking they took effect,
+    // which is why the warning below exists — dropping the old guard also
+    // dropped the only signal the user had.
+    //
+    // Sampler TYPE is a separate question: at 5e0d86b only TopP (=2) was
+    // implemented at engine level, with types 1 (TopK) and 3 (Greedy) rejected
+    // as "UNIMPLEMENTED: Sampler type: N not implemented yet". We still send
+    // TopP unconditionally and pass top_k as a hint, which native honours.
+    // That was NOT re-checked at 924e79c9 — it is carried forward, not verified.
+    final samplerParams = b.litert_lm_sampler_params_create(2); // always TopP
+    b.litert_lm_sampler_params_set_top_k(samplerParams, topK);
+    b.litert_lm_sampler_params_set_top_p(samplerParams, topP ?? 0.95);
+    b.litert_lm_sampler_params_set_temperature(samplerParams, temperature);
+    b.litert_lm_sampler_params_set_seed(samplerParams, seed);
+    b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
+    b.litert_lm_sampler_params_delete(samplerParams);
+
+    // The NPU executor argmaxes regardless of what we just set, so tell the
+    // caller rather than letting them believe a seed or temperature took hold.
+    // Only when they asked for something other than the greedy default —
+    // warning on every NPU session would train people to ignore it.
+    if (_backend == 'npu' &&
+        (temperature != 0.8 || topK != 40 || topP != null || seed != 1)) {
       gemmaLog(
-        '[LiteRtLmFfi] NPU backend — sampler params '
-        '(temperature, topK, topP, seed) ignored, engine uses '
-        'internal greedy sampling.',
+        '[LiteRtLmFfi] NPU backend: sampler params (temperature=$temperature, '
+        'topK=$topK, topP=$topP, seed=$seed) are sent but the NPU executor '
+        'samples greedily and never reads them — output is deterministic '
+        'argmax. Use PreferredBackend.cpu or .gpu if you need sampling.',
       );
     }
 
     // Optional per-session cap on how many tokens are *generated* (output),
     // independent of the engine's context window (maxTokens / KV-cache). This
     // is what callers usually want when they say "limit the response length".
-    // Skipped on NPU for the same reason as sampler params: the NPU executor
-    // only supports internal greedy sampling and rejects extra session config
-    // upstream — setting it there risks engine_create/generation failures.
+    //
+    // This was skipped on NPU too, "for the same reason as sampler params".
+    // It was never measured — the reason was borrowed from the guard above by
+    // analogy, and an output cap has nothing to do with sampling. Exercised
+    // 2026-08-15 on Intel Lunar Lake NPU: accepted and honoured. Passing it
+    // unconditionally, because silently ignoring a documented parameter is
+    // worse than the failure the guard was imagining.
     if (maxOutputTokens != null) {
-      if (_backend != 'npu') {
-        b.litert_lm_session_config_set_max_output_tokens(
-          sessionConfig,
-          maxOutputTokens,
-        );
-      } else {
-        gemmaLog(
-          '[LiteRtLmFfi] NPU backend — maxOutputTokens ($maxOutputTokens) '
-          'ignored (NPU executor uses internal greedy sampling).',
-        );
-      }
+      b.litert_lm_session_config_set_max_output_tokens(
+        sessionConfig,
+        maxOutputTokens,
+      );
     }
 
     final systemPtr = systemMessage?.toNativeUtf8();

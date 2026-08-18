@@ -25,18 +25,25 @@ void main() {
       expect(loadSkillTool.parameters['required'], ['skillName']);
     });
 
-    test(
-      'runSkill mirrors Gallery runJs params (skillName/scriptName/data)',
-      () {
-        final props = runSkillTool.parameters['properties'] as Map;
-        expect(props.keys, containsAll(['skillName', 'scriptName', 'data']));
-        expect(runSkillTool.parameters['required'], [
-          'skillName',
-          'scriptName',
-          'data',
-        ]);
-      },
-    );
+    test('runSkill takes skillName + data', () {
+      final props = runSkillTool.parameters['properties'] as Map;
+      expect(props.keys, containsAll(['skillName', 'data']));
+      expect(runSkillTool.parameters['required'], ['skillName', 'data']);
+    });
+
+    test('runSkill does not ask the model for a scriptName it cannot use', () {
+      // Gallery's runJs schema has a required `scriptName`, and this tool
+      // mirrored it — but AgentLoop resolves the script from the registered
+      // Skill's own SKILL.md (`Skill.scriptName`), never from the call args.
+      // Declaring it required made the model invent a filename to fill a field
+      // that was then dropped. Keep it out of both lists.
+      final props = runSkillTool.parameters['properties'] as Map;
+      expect(props.keys, isNot(contains('scriptName')));
+      expect(
+        runSkillTool.parameters['required'],
+        isNot(contains('scriptName')),
+      );
+    });
 
     test('runIntent takes intent + parameters', () {
       final props = runIntentTool.parameters['properties'] as Map;

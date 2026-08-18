@@ -179,14 +179,14 @@ packages:
       path: "../../flutter_gemma_agent"
       relative: true
     source: path
-    version: "0.2.4"
+    version: "0.2.5"
   flutter_gemma_litertlm:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.4.2"
+    version: "1.4.3"
   flutter_gemma_speech:
     dependency: "direct main"
     description:

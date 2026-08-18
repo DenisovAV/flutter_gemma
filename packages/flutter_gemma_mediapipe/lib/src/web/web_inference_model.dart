@@ -201,7 +201,11 @@ class WebInferenceModel extends InferenceModel with CloseNotifier {
       );
 
       completer.complete(session);
-      return completer.future;
+      // `await` so the future stays inside this try. It is already completed
+      // with `session` on the line above, so this changes no behaviour today —
+      // but returning a Future unawaited from a try block means the catch
+      // below would not see an error it carried.
+      return await completer.future;
     } catch (e, st) {
       _initCompleter = null;
       completer.completeError(e, st);

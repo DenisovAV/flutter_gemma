@@ -30,7 +30,7 @@ Then use the unchanged RAG API:
 ```dart
 await FlutterGemmaPlugin.instance.initializeVectorStore('rag_store'); // a directory
 await FlutterGemmaPlugin.instance.addDocument(/* ... */);
-final hits = await FlutterGemmaPlugin.instance.searchSimilar(query, topK: 5);
+final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK: 5);
 ```
 
 `QdrantVectorStore` also honors the payload-aware `Filter` DSL on

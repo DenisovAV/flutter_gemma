@@ -47,7 +47,10 @@ From the diff, detect which package(s)/area(s) are affected:
 - `flutter_gemma_embeddings/` — LiteRT C API embeddings (isolate worker)
 - `flutter_gemma_mediapipe/` — `.task` MediaPipe; owns pigeon (`lib/pigeon.g.dart`) + Kotlin/Swift + web JS
 - `flutter_gemma_rag_qdrant/` — native RAG (qdrant-edge Rust FFI), `native/qdrant_edge/`
-- `flutter_gemma_rag_sqlite/` — web RAG (wa-sqlite) + native sqlite3
+- `flutter_gemma_rag_sqlite/` — sqlite-vec `vec0` KNN on all six platforms; native via `package:sqlite3` FFI, web via `package:sqlite3/wasm.dart` (wa-sqlite was dropped in 1.1.0)
+- `flutter_gemma_speech/` — opt-in STT (moonshine / Whisper / Parakeet) + TTS (Matcha / Qwen3 / Inflect) over the LiteRT C API; shares the litertlm bundle
+- `flutter_gemma_agent/` — opt-in SKILL.md agent skills over the function-calling loop (no Web)
+- `flutter_gemma_builtin_ai/` — OS models: Gemini Nano via ML Kit GenAI (Android, `minSdk 26`), Apple Foundation Models (iOS/macOS, `sharedDarwinSource`). Owns its own pigeon.
 - `genkit_flutter_gemma/`, `genkit_hybrid/` — Genkit integration packages (Dart; no native)
 - `flutter_gemma/example/` — example app + `integration_test/` E2E
 
@@ -70,117 +73,169 @@ Launch all 10 agents simultaneously using the Agent tool. Each agent gets:
 
 ## Agent Specifications
 
-### Agent 1: Platform — Android Engine Layer
+Every path named in an agent prompt below was verified to exist. If one stops
+resolving, that is the finding — fix the skill before running the review, because
+an agent pointed at a missing directory returns a clean report.
+
+### Agent 1: Android native
+
+**subagent_type:** `android-architect`
+
+```
+You are reviewing the Android native layer of flutter_gemma, a Dart pub workspace
+monorepo. Inference itself is NOT in Kotlin — `.litertlm` runs through Dart FFI.
+Kotlin exists in exactly three packages; confirm with
+`find packages -path '*/android/src/main/kotlin' -name '*.kt'` before you start.
+
+- packages/flutter_gemma/android/.../FlutterGemmaPlugin.kt — SLIM. Hosts only the
+  `flutter_gemma_bundled` channel: file ops plus the litertlm NPU
+  `getNativeLibraryDir`. If a change adds inference logic here, that is the
+  finding.
+- packages/flutter_gemma_mediapipe/android/ — the only real engine layer:
+  own pigeon (PigeonInterface.g.kt), PlatformServiceImpl, InferenceModel, and
+  engines/{InferenceEngine,EngineFactory,InferenceSession,EngineConfig}.kt plus
+  engines/mediapipe/. EngineFactory handles `.task`/`.bin`/`.tflite` ONLY — it
+  throws on `.litertlm` with a message pointing at the Dart FFI client. That
+  throw is correct behaviour, not a bug.
+- packages/flutter_gemma_builtin_ai/android/ — ML Kit GenAI / AICore. Declares
+  `minSdkVersion 26`; an app on a lower floor fails the manifest merger.
+
+CHECKLIST
+1. GRADLE GUARD DUPLICATION: the AGP-9 Kotlin guard must read
+   `agpMajor < 9 || !builtInKotlinOn` in ALL THREE android/build.gradle files. A
+   version-only `agpMajor < 9` reintroduces #360. Grep all three; a fix in one is
+   a half-fix that ships under its own version number.
+2. MANIFEST: the `<uses-native-library>` entries (libOpenCL.so, -car, -pixel,
+   libvndksupport.so, libcdsprpc.so) live in the CORE plugin manifest and merge
+   into consumer apps. libvndksupport is load-bearing for the OpenCL ICD on
+   Android 12+ (#324) — removing it degrades GPU to WebGPU and can hard-freeze
+   Mali.
+3. minSdk: `.litertlm` needs 30 (API-30-only Bionic symbols, #265); builtin_ai
+   needs 26; core declares 24. A change to any floor must be consistent with what
+   the code actually dlopens.
+4. PIGEON: *.g.kt files are generated — never hand-edited. Regenerated from the
+   package's own pigeon.dart.
+5. NATIVE LIBS: arm64-v8a only for .litertlm/embeddings/vision. A change that
+   implies other ABIs ship broken APKs.
+6. Coroutine scope, cancellation and prompt accumulation in the MediaPipe session.
+
+Report CRITICAL / IMPORTANT / MINOR with file:line. Skip style nits.
+```
+
+### Agent 2: Apple native (iOS + macOS)
+
+**subagent_type:** `swift-reviewer`
+
+```
+You are reviewing the Apple native layer of flutter_gemma. Note the layouts
+differ per package — verify with `find packages -name '*.swift' | grep -v example`
+rather than assuming a single convention:
+
+- packages/flutter_gemma/{ios,macos}/flutter_gemma/Sources/flutter_gemma/ —
+  SwiftPM layout (NOT ios/Classes/). Slim plugin: bundled channel only.
+- packages/flutter_gemma_mediapipe/ios/Classes/ — classic layout, real engine:
+  FlutterGemmaMediaPipePlugin, PlatformServiceImpl, InferenceModel, pigeon .g.swift
+- packages/flutter_gemma_builtin_ai/darwin/ — one source tree for iOS + macOS via
+  `sharedDarwinSource: true`. Apple Foundation Models.
+
+CHECKLIST
+1. Swift 6 concurrency: Sendable conformance, actor isolation, and no
+   captured-mutable-state across the pigeon boundary.
+2. Podspec versions: four first-party podspecs exist and drift independently —
+   core ios, core macos, mediapipe ios, builtin_ai darwin. Each must match its
+   OWN package version.
+3. iOS floor is 16.0 and it comes from the CORE podspec, so it applies to a
+   litertlm-only app too.
+4. Entitlements: extended-virtual-addressing and increased-memory-limit for large
+   models; on macOS `cs.disable-library-validation` is required for dlopen of the
+   ad-hoc-signed companion frameworks — and it must be in BOTH DebugProfile and
+   Release entitlements.
+5. No `Podfile post_install` symlink step should be reintroduced: those lib*.dylib
+   symlinks caused App Store rejection ITMS-90432 (#245). Any bundled dylib needs
+   `vtool` minos 13.0 or the upload is rejected (ITMS-90208).
+6. Generated pigeon .g.swift is never hand-edited.
+
+Report CRITICAL / IMPORTANT / MINOR with file:line.
+```
+
+### Agent 3: Web
 
 **subagent_type:** `general-purpose`
 
-**Prompt template:**
 ```
-You are reviewing the Android engine layer for flutter_gemma — a Flutter plugin for on-device AI inference.
+You are reviewing the web layer of flutter_gemma. Two independent engines have
+web arms, plus embeddings and RAG:
 
-Review these areas if changed:
-- android/src/main/kotlin/dev/flutterberlin/flutter_gemma/engines/ (InferenceEngine, InferenceSession, EngineFactory, EngineConfig)
-- android/src/main/kotlin/dev/flutterberlin/flutter_gemma/engines/mediapipe/ (MediaPipeEngine, MediaPipeSession)
-- android/src/main/kotlin/dev/flutterberlin/flutter_gemma/engines/litertlm/ (LiteRtLmEngine, LiteRtLmSession)
-- android/src/main/kotlin/dev/flutterberlin/flutter_gemma/FlutterGemmaPlugin.kt
-- android/build.gradle
+- packages/flutter_gemma_mediapipe/lib/src/web/ — `.task` via @mediapipe/tasks-genai
+- packages/flutter_gemma_litertlm/lib/src/web/ — `.litertlm` via @litert-lm/core.
+  EARLY PREVIEW: text only. No vision, audio, thinking, function calling or LoRA.
+- packages/flutter_gemma_embeddings/ web arm — LiteRT.js, not the C API
+- packages/flutter_gemma_rag_sqlite/ — package:sqlite3/wasm.dart + a custom
+  sqlite3.wasm with vec0 linked in, which the APP copies into its own web/ dir
+- packages/flutter_gemma/lib/web/ — the shared web shells and model source
 
-CHECKLIST:
-1. STRATEGY PATTERN: InferenceEngine/InferenceSession interfaces correctly implemented by both MediaPipe and LiteRT-LM adapters
-2. ENGINE SELECTION: EngineFactory selects correct engine by file extension (.task/.bin → MediaPipe, .litertlm → LiteRT-LM)
-3. THREAD SAFETY: Coroutine scope usage, synchronized blocks for prompt accumulation in LiteRtLmSession
-4. CANCEL GENERATION: cancelGeneration() correctly calls conversation.cancelProcess() (LiteRT-LM) or SDK cancel (MediaPipe). Error handling around cancel — should not throw to caller
-5. CHUNK BUFFERING: LiteRtLmSession buffers addQueryChunk() in StringBuilder, sends complete message on generateResponse(). Thread-safe accumulation with promptLock
-6. FLOW MANAGEMENT: SharedFlow for partial results and errors. tryEmit() usage — check for dropped emissions
-7. MULTIMODAL: addImage()/addAudio() store bytes correctly. Content.ImageBytes/Content.AudioBytes built properly in buildAndConsumeMessage()
-8. CAPABILITY REPORTING: EngineCapabilities reflects actual runtime state (vision/audio depend on backend config)
-9. DEPENDENCY VERSIONS: MediaPipe tasks-genai and litertlm-android versions consistent with CLAUDE.md
+CHECKLIST
+1. CONDITIONAL IMPORT / STUB DRIFT — the highest-value check here. FFI clients
+   have `*_stub.dart` counterparts that `flutter analyze` and `flutter test` do
+   NOT type-check on the host. Signature drift only surfaces at
+   `flutter build web`. If a real signature changed, its stub must change too.
+   This is how a web break shipped in 0.15.0 with green analyze and green tests.
+2. dart:io / dart:ffi must not reach the web graph. Check the conditional export.
+3. The three required web/ assets are not auto-injected — the app copies them:
+   cache_api.js (default cacheApi storage), opfs_helper.js (streaming), and
+   litert_embeddings.js (web embeddings). A change that needs a new global must
+   document the script tag.
+4. Storage modes: cacheApi (default, <2GB), streaming (OPFS, large models),
+   none. Web is GPU-only — MediaPipe has no web CPU backend.
+5. CDN pins: @mediapipe/tasks-genai and @litert-lm/core versions must agree
+   between the code and any documented script tag.
 
-Report findings as: CRITICAL / IMPORTANT / MINOR with file:line references.
+Report CRITICAL / IMPORTANT / MINOR with file:line.
 ```
 
-### Agent 2: Platform — iOS Native
+### Agent 4: Desktop / FFI and native assets
 
 **subagent_type:** `general-purpose`
 
-**Prompt template:**
 ```
-You are reviewing the iOS native layer for flutter_gemma — a Flutter plugin for on-device AI inference.
+You are reviewing desktop inference and the native-asset pipeline of
+flutter_gemma. Desktop is Dart FFI directly into the LiteRT-LM C API — there is
+NO JVM, NO gRPC, NO separate server process and no proto layer. If the diff or a
+task description mentions any of those, it predates 0.14.0.
 
-Review these areas if changed:
-- ios/Classes/ (Swift plugin, MediaPipe integration, embedding model)
-- ios/flutter_gemma.podspec
-- example/ios/Podfile, Podfile.lock
+- packages/flutter_gemma_litertlm/lib/src/ffi/ — the FFI client, generated
+  bindings, and the inference model
+- packages/flutter_gemma_litertlm/hook/build.dart — the SOLE hook that owns the
+  shared libLiteRtLm bundle. embeddings and speech consume it transitively and
+  have no hook of their own.
+- packages/flutter_gemma_litertlm/native/litert_lm/ — build_*.sh, patch_c_api.sh,
+  stream_proxy.c
+- packages/flutter_gemma/{linux,windows}/ — thin plugin registration C++
+- packages/flutter_gemma/lib/desktop/ — the registry-dispatch shell
 
-CHECKLIST:
-1. MEDIAPIPE INTEGRATION: LlmInference setup, session management, response generation
-2. EMBEDDING MODEL: BPETokenizer.swift and UnigramTokenizer.swift — correct tokenization, auto-detect via model.type in tokenizer.json
-3. MEMORY MANAGEMENT: Sessions and models properly closed/released. No retain cycles
-4. PLATFORM CONSTRAINTS: iOS 16.0 minimum. No SentencePiece C++ (conflicts with TFLite protobuf). No MediaPipeTasksText (doesn't exist for iOS)
-5. COCOAPODS: Podspec dependencies correct. use_frameworks! :linkage => :static
-6. CANCEL GENERATION: If implemented, verify SDK method exists and error handling
-7. MULTIMODAL: Vision support on physical devices only (broken on Apple Silicon simulator)
+CHECKLIST
+1. HOOK CHECKSUMS: a bundle `version:` bump requires all seven per-platform
+   SHA256 entries updated, and the same value must appear in the released
+   tarball, in checksums_litertlm.txt, and in the hook. A stale txt sent a user
+   down the wrong path in #316.
+2. NEVER re-upload an existing native-v* tag. tar is not reproducible, so the
+   published SHA256 can never be recovered — it breaks every user already on a
+   plugin version referencing that tag.
+3. windowsExtraLibs / androidExtraLibs and the CI allow-list are ONE SET IN TWO
+   PLACES. A name staged by CI but absent from the hook extracts to the cache and
+   is never bundled — that is how 78.8 MB of the Intel NPU stack went missing at
+   v0.16.0 while every CI assertion passed.
+4. Bazel `--define` names rot silently: Bazel accepts an unknown define and
+   builds the default. Grep the tree being built before trusting one.
+5. stream_proxy.c probes the callback ABI at runtime via dlsym/GetProcAddress
+   because v0.15.0 changed the shape with no version symbol. Do not replace that
+   with a compile-time branch.
+6. `stage()` in the hook is Apple-only on purpose (an Xcode directoryTreeSignature
+   cycle); staging on Windows splits companion DLLs and hangs cancel/close.
+7. Any claim that a native check "passed" must name the artifact it inspected —
+   nm/otool on a missing path prints nothing and reads as success.
 
-Report findings as: CRITICAL / IMPORTANT / MINOR with file:line references.
-```
-
-### Agent 3: Platform — Web
-
-**subagent_type:** `general-purpose`
-
-**Prompt template:**
-```
-You are reviewing the Web platform layer for flutter_gemma — a Flutter plugin for on-device AI inference.
-
-Review these areas if changed:
-- lib/web/flutter_gemma_web.dart (WebInferenceModel, WebModelSession)
-- lib/web/llm_inference_web.dart (JS interop)
-- web/rag/ (LiteRT embeddings JS, SQLite vector store)
-- example/web/index.html (MediaPipe CDN)
-
-CHECKLIST:
-1. JS INTEROP: @JS() annotations correct. LlmInference, FilesetResolver properly wrapped
-2. MEDIAPIPE CDN: Version pinned (not @latest). Consistent across index.html and Dart code
-3. SESSION LIFECYCLE: _initCompleter handling — reset on failure? Multiple createSession() calls safe?
-4. PROMPT MANAGEMENT: _promptParts accumulation. Cleared after response? Cleared on cancel? Cleared on close?
-5. CANCEL GENERATION: llmInference.cancelProcessing() — error handling, stream controller cleanup
-6. CACHE MANAGEMENT: enableWebCache flag. InMemoryModelRepository vs SharedPreferencesModelRepository selection. Metadata lifetime matches blob URL lifetime
-7. HOT RESTART SAFETY: Cleanup of WASM resources before reinitialization. No "memory access out of bounds"
-8. MULTIMODAL: Image/audio bytes handling via JS interop. Content parts array construction
-
-Report findings as: CRITICAL / IMPORTANT / MINOR with file:line references.
-```
-
-### Agent 4: Platform — Desktop / gRPC
-
-**subagent_type:** `general-purpose`
-
-**Prompt template:**
-```
-You are reviewing the Desktop platform (macOS/Windows/Linux) for flutter_gemma — uses LiteRT-LM via Kotlin/JVM with gRPC.
-
-Review these areas if changed:
-- lib/desktop/grpc_client.dart (GrpcLiteRtLmClient)
-- lib/desktop/desktop_inference_model.dart (DesktopInferenceModel, DesktopInferenceModelSession)
-- lib/desktop/server_process_manager.dart (JVM process lifecycle)
-- lib/desktop/generated/ (protobuf generated code — don't review style, check API correctness)
-- litertlm-server/src/main/kotlin/dev/flutterberlin/litertlm/LiteRtLmServiceImpl.kt
-- litertlm-server/src/main/proto/litertlm.proto
-- litertlm-server/build.gradle.kts
-- macos/scripts/prepare_resources.sh, setup_desktop.sh
-- windows/scripts/setup_desktop.ps1
-
-CHECKLIST:
-1. PROTO DESIGN: RPC definitions correct. Request/Response messages well-typed. No untyped JSON in proto fields
-2. GRPC CLIENT: Channel setup, timeout handling (5min for chat). Error distinction (cancel vs real error)
-3. CANCEL GENERATION: CancelGeneration RPC → server → conversation.cancelProcess(). Fire-and-forget OK but document behavior
-4. SERVER LIFECYCLE: Initialize/Shutdown RPCs. Mutex usage — no runBlocking inside coroutine context
-5. VISION/AUDIO: Image conversion (convertToPng). Audio bytes passthrough. Error handling on conversion failure — NO silent fallbacks
-6. BUILD SCRIPTS: JAR_VERSION, JRE_VERSION, checksums. Cache invalidation on version change. Checksum verification on cached files
-7. JRE: Azul Zulu (NOT Temurin — causes Jinja template errors). Version consistent across macOS/Windows scripts
-8. DEPENDENCIES: litertlm-jvm version, gRPC versions, protobuf versions consistent between build.gradle.kts and generated code
-
-Report findings as: CRITICAL / IMPORTANT / MINOR with file:line references.
+Report CRITICAL / IMPORTANT / MINOR with file:line.
 ```
 
 ### Agent 5: Flutter Architect
@@ -203,19 +258,20 @@ Report findings as: CRITICAL / IMPORTANT / MINOR with file:line references.
 copilot -p "You are reviewing PR #{number} for flutter_gemma — a multi-platform Flutter plugin for running Google Gemma AI models locally on Android, iOS, Web, and Desktop.
 
 Key project context:
-- Multi-platform plugin: Android (Kotlin + MediaPipe/LiteRT-LM dual engine), iOS (Swift + MediaPipe), Web (JS + MediaPipe WASM), Desktop (Dart + gRPC + Kotlin JVM + LiteRT-LM)
-- Engine selection by file extension: .task/.bin → MediaPipe, .litertlm → LiteRT-LM
+- A Dart pub workspace monorepo: core flutter_gemma plus opt-in packages under packages/. Core registers no engine; engines and backends are passed to FlutterGemma.initialize().
+- .litertlm inference is Dart FFI into the LiteRT-LM C API on every native platform, including desktop. There is NO JVM, NO gRPC, no separate server process and no proto layer — those were removed at 0.14.0. Kotlin exists only in the MediaPipe and builtin_ai packages plus a slim core plugin; MediaPipe never handles .litertlm.
+- Engine selection is by the DECLARED ModelFileType via canHandle(spec), NOT by sniffing the file name. installModel defaults fileType to .task, so a .litertlm model must declare it explicitly or it is routed to MediaPipe.
 - ModelSource sealed class: NetworkSource, AssetSource, BundledSource, FileSource
 - Installation stores identity (modelType, fileType), runtime accepts config (maxTokens, preferredBackend)
+- maxTokens is the CONTEXT WINDOW, not the reply length. Below 1024 the .litertlm KV cache allocation fails; the engine clamps up with a warning. To cap a reply use maxOutputTokens on the session.
 - Error handling: NO silent fallbacks. Throw or return error, never swallow in catch blocks
 - No inline string keys — use PreferencesKeys constants
-- Desktop uses Azul Zulu JRE (NOT Temurin — causes Jinja template errors)
-- iOS: No SentencePiece C++ (protobuf conflict), no MediaPipeTasksText (doesn't exist)
+- Generated files are never hand-edited: pigeon *.g.dart / *.g.kt / *.g.swift, and the ffigen bindings.
 
 Review steps:
 1. Run: gh pr diff {number}
 2. Read CLAUDE.md for full project conventions
-3. Cross-check: engine selection logic, proto/gRPC consistency, platform-specific limitations
+3. Cross-check: engine routing by declared fileType, conditional-import stub drift against the real signatures (analyze does not catch it), and platform-specific limitations
 
 Focus on: bugs, logic errors, security, dead code, silent error swallowing, race conditions in async/streaming code, memory leaks (unclosed sessions/models). Be concise — only report real issues with file:line references. Skip style nits. Categorize as CRITICAL / IMPORTANT / MINOR." \
   --allow-all-tools \

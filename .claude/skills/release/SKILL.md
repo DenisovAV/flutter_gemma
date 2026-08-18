@@ -41,6 +41,7 @@ silently do the other thing.
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
 [ ] 1a  every package whose lib/ changed is in the publish list (grep, don't guess)
 [ ] 1b/c native: dylibs/build-scripts changed? → rebuild + SHA256 + native release, else N/A
+[ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
@@ -56,7 +57,7 @@ silently do the other thing.
 
 flutter_gemma 0.14.0+ has **no Kotlin/JVM/gRPC server**. Native libs come from one of two sources, decided per-platform by `hook/build.dart` (Native Assets):
 
-1. **Local prebuilts** at `native/litert_lm/prebuilt/<os>_<arch>/` — populated locally by `native/litert_lm/build_*.sh` scripts. **NOT tracked in git** (gitignored since 0.14.3 — keeps clones lean) and **excluded from the pub package** via `.pubignore`. Maintainers regenerate them on demand and upload to a GitHub Release.
+1. **Local prebuilts** at `packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/<os>_<arch>/` — populated locally by `packages/flutter_gemma_litertlm/native/litert_lm/build_*.sh` scripts. **NOT tracked in git** (gitignored since 0.14.3 — keeps clones lean) and **excluded from the pub package** via `.pubignore`. Maintainers regenerate them on demand and upload to a GitHub Release.
 2. **GitHub Release `native-v<NATIVE_VERSION>` archives** (e.g. `native-v0.10.2-a`) — the **canonical source for both end users and CI**. URL pattern: `litertlm-<os>_<arch>.tar.gz` flat archive of the matching `prebuilt/` folder. End users fetch from there at `pub get` time via `hook/build.dart`. Maintainers re-fetch from there too if their local `prebuilt/` is missing (`gh release download native-v<X>` then extract — see Step 5).
 
 Whether to bump `native-v<NATIVE_VERSION>` or re-publish the existing tag is the **central decision** of every release.
@@ -75,7 +76,7 @@ flutter test                # all pass
 # Skipping this is how `enableSpeculativeDecoding` web breakage shipped
 # in 0.15.0 — analyze was green, tests passed, web build threw
 # `No named parameter ...` at dart2js time.
-cd example
+cd packages/flutter_gemma/example
 flutter build web --no-tree-shake-icons
 # Android MUST be built --release, not --debug: a release build runs R8
 # (shrink/minify/obfuscate) and the full native-asset packaging path, which
@@ -84,7 +85,7 @@ flutter build web --no-tree-shake-icons
 flutter build apk --release
 flutter build macos --debug
 flutter build ios --no-codesign --debug
-cd ..
+cd ../../..   # back to repo root
 ```
 
 ## Step 1: Determine release scope
@@ -93,7 +94,12 @@ Three independent dimensions — answer each:
 
 ### 1a. Plugin code changed?
 ```bash
-git diff <last-tag> -- lib/ hook/ pubspec.yaml ios/flutter_gemma.podspec android/ web/
+# Pathspecs are repo-root relative. The pre-monorepo form (lib/ hook/ ios/ …)
+# matches NOTHING here and `git diff` exits 0 with empty output, so the whole
+# scope decision silently answers "nothing changed".
+git diff <last-tag> --stat -- 'packages/*/lib' 'packages/*/hook' \
+  'packages/*/pubspec.yaml' 'packages/*/android' 'packages/*/ios' \
+  'packages/*/macos' 'packages/*/darwin' 'packages/*/web'
 ```
 If yes → bump pub plugin version, publish to pub.dev. Always true for a release.
 Then **run 1f** for every satellite whose copy of the touched code is stale — a
@@ -102,7 +108,7 @@ shown N/A.
 
 ### 1b. Native dylibs changed (any platform)?
 ```bash
-git diff <last-tag> -- native/litert_lm/prebuilt/
+git diff <last-tag> -- packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/
 ```
 If **any** dylib changed → must re-publish GitHub Release archives **and** update SHA256 checksums in `hook/build.dart`, otherwise end users will keep getting the stale dylibs.
 
@@ -161,8 +167,9 @@ Shared-code hotspots to sweep, per fix type:
 - **Android Gradle** — `packages/*/android/build.gradle` (only `flutter_gemma` +
   `flutter_gemma_mediapipe` have one): `kotlin-android` guard, `compileSdk`,
   `minSdkVersion`, `kotlin_version`, AGP classpath.
-- **Native hook** — `packages/*/hook/build.dart`: `_nativeVersion`, `_checksums`,
-  `_cacheDir` cache-busting, `stage()` Apple-only guard.
+- **Native hook** — `packages/flutter_gemma_litertlm/hook/build.dart` (the only
+  hook that owns a bundle): the `_litertlmBundle` `version:` and `checksums:`
+  fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.
 - **iOS podspecs** — `packages/*/ios/*.podspec`: `s.version`, min-iOS, dep pins,
   `vtool` minos on any bundled dylib.
 - **FFI / web stubs** — `lib/**/*_stub.dart`: conditional-import signatures that
@@ -206,13 +213,24 @@ Always:
 | File | Field | Note |
 |------|-------|------|
 | `pubspec.yaml` | `version:` | the plugin version (e.g. `0.14.1`) |
-| `ios/flutter_gemma.podspec` | `s.version` | match plugin version |
+| podspecs — **all four**, they drift independently | `s.version` | match the owning package's version. `packages/flutter_gemma/ios/flutter_gemma.podspec`, `packages/flutter_gemma/macos/flutter_gemma.podspec`, `packages/flutter_gemma_mediapipe/ios/flutter_gemma_mediapipe.podspec`, `packages/flutter_gemma_builtin_ai/darwin/flutter_gemma_builtin_ai.podspec`. Verify with the loop below rather than by eye — core's iOS and macOS podspecs were four and five releases behind when this was last checked. |
+
+```bash
+for ps in packages/*/{ios,macos,darwin}/*.podspec; do
+  [ -f "$ps" ] || continue
+  pkg=$(echo "$ps" | cut -d/ -f2)
+  want=$(grep -m1 '^version:' "packages/$pkg/pubspec.yaml" | awk '{print $2}')
+  got=$(grep -m1 "s.version" "$ps" | sed "s/.*'\(.*\)'.*/\1/")
+  [ "$want" = "$got" ] && s=OK || s="DRIFT (pubspec $want)"
+  printf '  %-64s %-8s %s\n' "$ps" "$got" "$s"
+done
+```
 | `CLAUDE.md` | `Current Version:` line | match plugin version |
 
 Only if (1b) bumps `NATIVE_VERSION`:
 | File | Field |
 |------|-------|
-| `hook/build.dart` | `_nativeVersion` constant — bump (e.g. `'0.10.2'` → `'0.10.3'`) |
+| `packages/flutter_gemma_litertlm/hook/build.dart` | the `version:` field of `_litertlmBundle` (a `_NativeBundle`) — bump (e.g. `'0.16.0'` → `'0.16.1'`). There is **no** `_nativeVersion` identifier; grep for `version:` inside `const _litertlmBundle`. The cache dir helper is `_cacheBaseDir()`. |
 
 For App Store / breaking platform fixes prefer **bumping NATIVE_VERSION** rather than overwriting `native-v0.10.2` assets — keeps consumers on `0.14.0` reproducible. Overwrite only for emergency hotfixes where downstream version pinning is acceptable.
 
@@ -221,12 +239,21 @@ For App Store / breaking platform fixes prefer **bumping NATIVE_VERSION** rather
 Per-platform rebuild scripts. `bazelisk clean --expunge` between rebuilds **only if** `patch_c_api.sh` / `WORKSPACE` patch changed (forces patch_cmds re-run on a fresh extraction). Otherwise incremental.
 
 ```bash
+# Always pass the pinned tag SHA explicitly. Every script has a DEFAULT_REF and
+# every DEFAULT_REF lags the release you are migrating to — build_ios.sh still
+# defaulted to a v0.14.0-era commit during the v0.15.0 migration. Get the SHA
+# with: gh api repos/google-ai-edge/LiteRT-LM/git/ref/tags/<tag> --jq '.object.sha'
+SHA=<pinned tag SHA>
+N=packages/flutter_gemma_litertlm/native/litert_lm
+
 # macOS arm64
-./native/litert_lm/build_macos.sh                # defaults to LATEST_TAG
+"$N/build_macos.sh" "$SHA"
 # iOS device + simulator
-./native/litert_lm/build_ios.sh                  # defaults to commit 5e0d86b — required for Metal
-# Android arm64 (cross-compile from macOS)
-./native/litert_lm/build_android.sh
+"$N/build_ios.sh" "$SHA"
+# Android arm64 (cross-compile from macOS) — needs NDK r29
+"$N/build_android.sh" "$SHA"
+# Android Qualcomm NPU dispatch (separate target, from the LiteRT repo)
+"$N/build_qualcomm_dispatch.sh" "$SHA"
 # Linux x86_64 — on a Linux VM (use GCloud per project_gcloud_vm_workflow memory)
 # Windows x86_64 — on a Windows VM (same)
 ```
@@ -247,16 +274,32 @@ strings prebuilt/ios_arm64/libLiteRtLm.dylib | grep '@executable_path'
 Each archive is a flat tar of the matching `prebuilt/` directory. Naming: `litertlm-<os>_<arch>.tar.gz`.
 
 ```bash
+PREBUILT=packages/flutter_gemma_litertlm/native/litert_lm/prebuilt
 DIST=$(mktemp -d)
-for d in macos_arm64 ios_arm64 ios_sim_arm64 android_arm64 linux_x86_64 windows_x86_64; do
-  if [ -d "native/litert_lm/prebuilt/$d" ]; then
-    (cd "native/litert_lm/prebuilt/$d" && tar -czf "$DIST/litertlm-$d.tar.gz" .)
+# All SEVEN platforms the hook has checksums for. linux_arm64 was missing from
+# this list for six native releases: the loop silently skipped it (`if -d`
+# guards a directory that is there), the Step-5 glob then inherited the gap
+# into checksums_litertlm.txt, and the result is a release that is internally
+# consistent and still unbuildable on that platform.
+PLATFORMS="macos_arm64 ios_arm64 ios_sim_arm64 android_arm64 linux_x86_64 linux_arm64 windows_x86_64"
+for d in $PLATFORMS; do
+  if [ -d "$PREBUILT/$d" ]; then
+    (cd "$PREBUILT/$d" && tar -czf "$DIST/litertlm-$d.tar.gz" .)
     echo "  $d: $(ls -la "$DIST/litertlm-$d.tar.gz" | awk '{print $5}') bytes"
+  else
+    echo "  $d: NO prebuilt dir — will not be in this release"
   fi
 done
 ```
 
-Only archive platforms whose dylibs actually changed since the previous release. Untouched platforms keep their existing release assets.
+Only archive platforms whose dylibs actually changed since the previous release. Untouched platforms keep their existing release assets — but if you are cutting a **new** `native-v*` tag, every platform must be present, because the hook verifies against its own `checksums` map regardless of which ones you touched. Assert it rather than eyeballing the loop's output:
+
+```bash
+# Count what you packed against what the hook demands.
+want=$(grep -cE "'litertlm-[a-z0-9_]+\.tar\.gz'" packages/flutter_gemma_litertlm/hook/build.dart)
+got=$(ls "$DIST"/litertlm-*.tar.gz 2>/dev/null | wc -l | tr -d ' ')
+[ "$got" -eq "$want" ] || { echo "packed $got, hook expects $want"; exit 1; }
+```
 
 ## Step 5: Compute SHA256 + update hook/build.dart
 
@@ -272,6 +315,35 @@ Also regenerate `checksums_litertlm.txt` for the GitHub Release page (single tex
 ```bash
 (cd "$DIST" && shasum -a 256 litertlm-*.tar.gz > checksums_litertlm.txt)
 ```
+
+## Step 5b: ⛔ Run the manifest gate BEFORE uploading anything
+
+The archives now exist and nothing is published yet — this is the only moment
+the gate can still save you. It diffs each new tarball's file list against the
+same archive in the previous tag and fails on any file that disappeared.
+
+```bash
+packages/flutter_gemma_litertlm/native/litert_lm/verify_tarball_manifest.sh \
+  "$DIST" native-v<PREVIOUS>     # e.g. native-v0.14.0
+```
+
+**Read the last line, not the exit code alone.** A pass now states how many
+platforms it compared:
+
+```
+✅ MANIFEST CHECK PASSED — 7 platform(s) compared against native-v0.14.0, no unexplained file drops.
+```
+
+If that number is lower than the number of tarballs you packed, the gate did
+not examine the rest — treat it as a failure and find out why. `exit 2` means
+it could not read the tag at all (bad auth, wrong tag name); it deliberately
+refuses to report a pass in that case, because a check that compared nothing
+is indistinguishable from a check that found nothing wrong.
+
+> This gate was written in 1.0.1 (`ba614096`) as the answer to native-v0.13.1
+> shipping without the Qualcomm/QNN and Intel OpenVino stacks — and then no
+> release step ever called it, so it sat unused through native-v0.16.0. That is
+> why it is a numbered step with a checklist line rather than a suggestion.
 
 ## Step 6: Update GitHub Release assets
 
@@ -354,7 +426,7 @@ referenced by a published plugin version" rule above.)
 
 ## Step 7: Update CHANGELOG.md
 
-Add new section at top. Categories: **App Store / packaging fixes**, **Features**, **Bug fixes**, **Breaking changes**, **Native runtime updates** (if `_nativeVersion` bumped). Reference issue / PR numbers (`#245`, `#239`).
+Add new section at top. Categories: **App Store / packaging fixes**, **Features**, **Bug fixes**, **Breaking changes**, **Native runtime updates** (if the bundle `version:` bumped). Reference issue / PR numbers (`#245`, `#239`).
 
 ### Style: terse, one line per item, mirror 0.13.x pattern
 
@@ -391,10 +463,10 @@ flutter analyze
 flutter test
 # Cross-platform compile sanity (also in Pre-flight — rerun here after
 # version bumps in case a setter/getter signature shifted):
-(cd example && flutter build web --no-tree-shake-icons)
-(cd example && flutter build apk --release)   # --release, not --debug: exercises R8 + native packaging
-(cd example && flutter build macos --debug)
-(cd example && flutter build ios --no-codesign --debug)
+(cd packages/flutter_gemma/example && flutter build web --no-tree-shake-icons)
+(cd packages/flutter_gemma/example && flutter build apk --release)   # --release, not --debug: exercises R8 + native packaging
+(cd packages/flutter_gemma/example && flutter build macos --debug)
+(cd packages/flutter_gemma/example && flutter build ios --no-codesign --debug)
 dart pub publish --dry-run     # 0 warnings (package size is informational — the
                                # FFI bindings + pigeon + example already push it
                                # to ~700 KB on 0.16.x; the old <=100 KB ceiling
@@ -519,8 +591,8 @@ A manual `./deploy.sh` exists in `website/` for local one-off deploys (it does t
 ## Common gotchas
 
 - **Website SSG build fails silently on a non-Dart code fence** — a ```` ```yaml ````/```` ```xml ````/```` ```kotlin ```` fence in any `website/content/docs/*.md` crashes the Jaspr highlighter (Dart-only grammar) → the merge deploy fails → fluttergemma.dev stays on the OLD build while pub.dev shows the new package. Always `jaspr build` the site locally on the branch before merge, use plain fences for non-Dart, and after merge confirm the `firebase-hosting-merge.yml` run says **success** (Step 12c). main is protected — a website hotfix is a new PR, not a direct push.
-- **`native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
-- **iOS dylib must be built from commit `5e0d86b`** (post-v0.10.2). v0.10.2 tag predates `libLiteRtMetalAccelerator.dylib` → ABI mismatch → EXC_BAD_ACCESS in `litert_lm_engine_create` on iPhone GPU. `build_ios.sh` defaults to it; do not override unless you know what you're doing.
+- **`packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/` excluded from pub package** (`.pubignore`) — end users get dylibs from GitHub Release, NOT from the pub package. Updating local prebuilts without re-uploading them is invisible to users.
+- **The iOS `5e0d86b` pin is obsolete** — modern tags ship their own `prebuilt/ios_arm64/`, and `build_ios.sh` already defaults to the current tag SHA. Always pass the pinned SHA explicitly anyway: every script's `DEFAULT_REF` lags whatever release you are migrating to. The real invariant is that source and accelerator prebuilts come from one tree — see the `build-native` skill, which owns this.
 - **`bazelisk clean --expunge` is NOT free** — it forces a full rebuild (~25 min for one platform). Only do it when WORKSPACE patch_cmds changed; otherwise incremental rebuild.
 - **Linux/Windows builds run on remote VMs** — see `project_gcloud_vm_workflow` memory.
 - **macOS dylib produced LOCALLY**, not in CI — see `project_macos_dylib_built_locally` memory. Same for iOS.

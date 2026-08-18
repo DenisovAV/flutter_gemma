@@ -69,7 +69,9 @@ import 'package:flutter_gemma/core/extensions.dart';
 
 String cleanedResponse = ModelThinkingFilter.cleanResponse(
   rawResponse,
-  ModelType.deepSeek,
+  isThinking: true,
+  modelType: ModelType.deepSeek,
+  fileType: ModelFileType.task,
 );
 
 // The filter removes model-specific tokens like:

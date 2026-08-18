@@ -69,6 +69,13 @@ String _decodeNativeString(Pointer<Char> ptr, {int maxBytes = 64 * 1024}) {
 /// raw-response capture, Gemma 4 tool-call extraction) can be exercised on
 /// the host VM with no native engine.
 abstract class ConversationHandle {
+  /// Token count for [text] from the model's own tokenizer, or null when it
+  /// cannot be obtained (no engine, native call failed). Callers must handle
+  /// null rather than assume a number — this feeds context budgeting, and the
+  /// four-chars-per-token estimate it replaced undercounts Chinese by more than
+  /// half (measured 0.44x on gemma-4-E2B-it) while looking authoritative.
+  int? tokenCount(String text);
+
   Stream<String> chat(
     String text, {
     List<Uint8List>? imageBytes,
@@ -109,6 +116,10 @@ class LiteRtLmConversationHandle implements ConversationHandle {
   Pointer<LiteRtLmConversation>? _conversation;
 
   bool get isClosed => _conversation == null;
+
+  /// Token count from the model's own tokenizer, or null when unavailable.
+  /// Engine-level, so it works on a closed conversation too.
+  int? tokenCount(String text) => _client.tokenCount(text);
 
   void _assertOpen() {
     if (_conversation == null) {
@@ -1808,6 +1819,35 @@ class LiteRtLmFfiClient {
 
   /// Get session metrics from the given conversation including token usage.
   /// Returns empty SessionMetrics if benchmark unavailable.
+  /// Token count for [text] from the model's own tokenizer.
+  ///
+  /// Returns null when the engine is not up or the native call fails, so the
+  /// caller can fall back rather than pretend. Never throws — callers use this
+  /// for context budgeting, and a budgeting helper that throws is worse than
+  /// one that says "I don't know".
+  ///
+  /// `litert_lm_engine_tokenize` is engine-level, not conversation-level: the
+  /// tokenizer belongs to the model, so no session is required.
+  int? tokenCount(String text) {
+    final b = _bindings;
+    final engine = _engine;
+    if (b == null || engine == null || engine == nullptr) return null;
+    if (text.isEmpty) return 0;
+
+    final textPtr = text.toNativeUtf8();
+    Pointer<LiteRtLmTokenizeResult> result = nullptr;
+    try {
+      result = b.litert_lm_engine_tokenize(engine, textPtr.cast<Char>());
+      if (result == nullptr) return null;
+      return b.litert_lm_tokenize_result_get_num_tokens(result);
+    } catch (_) {
+      return null;
+    } finally {
+      if (result != nullptr) b.litert_lm_tokenize_result_delete(result);
+      calloc.free(textPtr);
+    }
+  }
+
   SessionMetrics _getMetricsOn(Pointer<LiteRtLmConversation> conv) {
     if (_bindings == null) {
       return SessionMetrics();

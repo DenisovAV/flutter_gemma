@@ -19,6 +19,12 @@ class _FakeConversationHandle implements ConversationHandle {
   bool isClosed = false;
   int cancelCount = 0;
 
+  /// No engine on the host VM, so no tokenizer. Null is the honest answer and
+  /// the one sizeInTokens is written to handle — returning a made-up number
+  /// here would hide exactly the defect this method was added to fix.
+  @override
+  int? tokenCount(String text) => null;
+
   @override
   Stream<String> chat(
     String text, {

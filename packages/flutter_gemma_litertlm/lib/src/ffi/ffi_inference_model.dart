@@ -547,6 +547,44 @@ class FfiInferenceModelSession extends InferenceModelSession
 
   @override
   Future<int> sizeInTokens(String text) async {
+    // Ask the model's own tokenizer. This used to be `(text.length / 4).ceil()`
+    // — a placeholder from the 0.14.0 FFI port that nothing ever measured,
+    // while the MediaPipe path called the real tokenizer all along.
+    //
+    // Measured 2026-08-18 against gemma-4-E2B-it's own tokenizer, estimate over
+    // actual (below 1.0 = UNDERCOUNT):
+    //
+    //   english   1.23x     russian  1.00x     repeated ru words  1.40x
+    //   code      0.75x     chinese  0.44x
+    //
+    // So the folklore is half right. Four chars per token is fine for English
+    // and — surprisingly — near-exact for Russian, whose words this tokenizer
+    // covers well. It is CJK that breaks it: Chinese runs ~1.8 characters per
+    // token, so the estimate undercounts by more than half. Code undercounts by
+    // a third.
+    //
+    // InferenceChat budgets the context window with this (chat.dart accumulates
+    // `_currentTokens += await session.sizeInTokens(...)` and recreates the
+    // session near `maxTokens`), so an undercount means it believes there is
+    // headroom while the native KV cache is already full — surfacing as the
+    // #318-class DYNAMIC_UPDATE_SLICE failure or silent truncation, and read as
+    // a model problem rather than an estimator one. The same conversation on a
+    // .task model trimmed correctly.
+    //
+    // The ratios are per-tokenizer, not universal: re-measure rather than
+    // re-quote if the model family changes.
+    final exact = handle.tokenCount(text);
+    if (exact != null) return exact;
+
+    // Engine down, or the native call failed. Fall back to the estimate rather
+    // than throw — this feeds budgeting, not correctness — but say so, because
+    // a silent estimate is what got us here.
+    gemmaLog(
+      '[LiteRtLmFfi] sizeInTokens: native tokenizer unavailable, falling back '
+      'to a 4-chars-per-token estimate. Measured against gemma-4-E2B-it it is '
+      'close for English and Russian but undercounts CJK by ~2x and code by '
+      '~1.3x, so the context budget may overrun.',
+    );
     return (text.length / 4).ceil();
   }
 
@@ -605,6 +643,11 @@ class _VirtualConversationHandle implements ConversationHandle {
   final double? topP;
   final int seed;
   final int? maxOutputTokens;
+
+  /// The tokenizer belongs to the engine, not to a conversation, so a virtual
+  /// session answers this as accurately as a live one.
+  @override
+  int? tokenCount(String text) => client.tokenCount(text);
 
   /// Unique identity for this virtual session — the client uses it to tell
   /// whether the live conversation already holds this session's history.

@@ -9,6 +9,10 @@ on:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+    # The full workspace run is ~25 min locally. Without an explicit limit a
+    # stuck `pub get` would sit on GitHub's 6-hour default, which reads as
+    # "still running" rather than "broken".
+    timeout-minutes: 60
 
     steps:
       - name: Checkout code
@@ -20,22 +24,25 @@ jobs:
           channel: 'stable'
           cache: true
 
+      # Pub workspace: one root resolve covers every package.
       - name: Install dependencies
-        working-directory: packages/flutter_gemma
         run: flutter pub get
 
       - name: Verify formatting
-        working-directory: packages/flutter_gemma
         run: dart format --output=none --set-exit-if-changed .
         continue-on-error: true
 
+      # From the repo root, so every workspace package is analyzed — not just
+      # the core one.
       - name: Analyze code
-        working-directory: packages/flutter_gemma
         run: flutter analyze --no-fatal-infos
 
-      - name: Run tests
-        working-directory: packages/flutter_gemma
-        run: flutter test --coverage
+      # Every package that has tests, each run from its OWN directory. The loop
+      # lives in tool/test_all.sh so CI and the local "before committing"
+      # command are the same code — a second copy here would drift, which is
+      # the exact failure the release skill's rule 1f exists to prevent.
+      - name: Run tests (all packages)
+        run: tool/test_all.sh --coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

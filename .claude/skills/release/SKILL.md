@@ -41,6 +41,7 @@ silently do the other thing.
 [ ] Pre-flight: git clean · analyze 0 err · flutter test green · build web + one native target
 [ ] 1a  every package whose lib/ changed is in the publish list (grep, don't guess)
 [ ] 1b/c native: dylibs/build-scripts changed? → rebuild + SHA256 + native release, else N/A
+[ ] 5b  manifest gate RUN and printed "N platform(s) compared" — N == number of tarballs
 [ ] 1e  core public API changed? → upgrade-genkit (realign + version), else N/A
 [ ] 1f  shared code duplicated across satellites patched everywhere (grep the pattern)
 [ ] 1g  each changed satellite's flutter_gemma: floor >= the core version it now needs
@@ -314,6 +315,35 @@ Also regenerate `checksums_litertlm.txt` for the GitHub Release page (single tex
 ```bash
 (cd "$DIST" && shasum -a 256 litertlm-*.tar.gz > checksums_litertlm.txt)
 ```
+
+## Step 5b: ⛔ Run the manifest gate BEFORE uploading anything
+
+The archives now exist and nothing is published yet — this is the only moment
+the gate can still save you. It diffs each new tarball's file list against the
+same archive in the previous tag and fails on any file that disappeared.
+
+```bash
+packages/flutter_gemma_litertlm/native/litert_lm/verify_tarball_manifest.sh \
+  "$DIST" native-v<PREVIOUS>     # e.g. native-v0.14.0
+```
+
+**Read the last line, not the exit code alone.** A pass now states how many
+platforms it compared:
+
+```
+✅ MANIFEST CHECK PASSED — 7 platform(s) compared against native-v0.14.0, no unexplained file drops.
+```
+
+If that number is lower than the number of tarballs you packed, the gate did
+not examine the rest — treat it as a failure and find out why. `exit 2` means
+it could not read the tag at all (bad auth, wrong tag name); it deliberately
+refuses to report a pass in that case, because a check that compared nothing
+is indistinguishable from a check that found nothing wrong.
+
+> This gate was written in 1.0.1 (`ba614096`) as the answer to native-v0.13.1
+> shipping without the Qualcomm/QNN and Intel OpenVino stacks — and then no
+> release step ever called it, so it sat unused through native-v0.16.0. That is
+> why it is a numbered step with a checklist line rather than a suggestion.
 
 ## Step 6: Update GitHub Release assets
 

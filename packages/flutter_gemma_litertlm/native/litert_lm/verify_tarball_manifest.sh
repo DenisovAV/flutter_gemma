@@ -51,19 +51,47 @@ echo "==> Verifying new tarballs in $DIST_DIR against previous tag $PREV_TAG"
 echo "    repo: $REPO"
 echo
 
+# Enumerate the previous tag's assets ONCE, up front. Failing to read this list
+# is a failure to LEARN what shipped last time — it is NOT evidence that a file
+# is absent, so it must never be reported as a skip. Hard-fail instead.
+if ! prev_assets="$(gh release view "$PREV_TAG" --repo "$REPO" \
+      --json assets --jq '.assets[].name' 2>&1)"; then
+  echo "❌ Cannot read the asset list of $PREV_TAG from $REPO." >&2
+  echo "   gh said: $prev_assets" >&2
+  echo "   This gate compares against that tag, so it cannot run at all." >&2
+  echo "   Fix access (gh auth status) or the tag name, then re-run." >&2
+  echo "   Do NOT publish on the strength of a check that did not execute." >&2
+  exit 2
+fi
+
+_prev_has() {
+  printf '%s\n' "$prev_assets" | grep -qxF "$1"
+}
+
 fail=0
 checked=0
+skipped=0
 
 for new in "$DIST_DIR"/litertlm-*.tar.gz; do
   [[ -e "$new" ]] || { echo "No litertlm-*.tar.gz found in $DIST_DIR" >&2; exit 2; }
   base="$(basename "$new")"                 # litertlm-android_arm64.tar.gz
   plat="${base#litertlm-}"; plat="${plat%.tar.gz}"
 
-  # Fetch the same archive from the previous tag. If the platform is new
-  # (didn't exist in the previous tag), skip — nothing to compare against.
+  # Two different outcomes used to collapse into one skip here. Keep them apart:
+  # "the previous tag has no such asset" is a legitimate skip (new platform),
+  # while "the asset is listed but would not download" means we cannot compare —
+  # a hard failure, not a pass.
+  if ! _prev_has "$base"; then
+    echo "  [skip] $plat — '$base' is not an asset of $PREV_TAG (new platform)"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
   if ! gh release download "$PREV_TAG" --repo "$REPO" --pattern "$base" \
         --dir "$PREV_DL" --clobber >/dev/null 2>&1; then
-    echo "  [skip] $plat — '$base' not in $PREV_TAG (new platform?)"
+    echo "  [FAIL] $plat — '$base' IS an asset of $PREV_TAG but would not download."
+    echo "         Cannot diff it, so this run proves nothing about $plat."
+    fail=1
     continue
   fi
 
@@ -105,7 +133,11 @@ done
 
 echo
 if [[ $checked -eq 0 ]]; then
-  echo "WARNING: no platforms compared (none of the new tarballs existed in $PREV_TAG)." >&2
+  echo "❌ MANIFEST CHECK DID NOT RUN — zero platforms compared."
+  echo "   $skipped tarball(s) had no counterpart in $PREV_TAG."
+  echo "   A check that compared nothing is not a check that passed; if every"
+  echo "   platform really is new, you are comparing against the wrong tag."
+  exit 1
 fi
 
 if [[ $fail -eq 1 ]]; then
@@ -116,4 +148,7 @@ if [[ $fail -eq 1 ]]; then
   exit 1
 fi
 
-echo "✅ MANIFEST CHECK PASSED — no unexplained file drops vs $PREV_TAG."
+echo "✅ MANIFEST CHECK PASSED — $checked platform(s) compared against $PREV_TAG, no unexplained file drops."
+if [[ $skipped -gt 0 ]]; then
+  echo "   ($skipped tarball(s) skipped as new platforms.)"
+fi

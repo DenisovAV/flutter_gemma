@@ -99,8 +99,8 @@ No Java/JVM/JRE required.
 ```yaml
 # pubspec.yaml
 dependencies:
-  flutter_gemma: ^1.5.8            # core
-  flutter_gemma_litertlm: ^1.4.1   # .litertlm engine — required on desktop
+  flutter_gemma: ^1.5.9            # core
+  flutter_gemma_litertlm: ^1.4.2   # .litertlm engine — required on desktop
 ```
 
 ```dart
@@ -109,7 +109,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 Future<void> chat() async {
   // Register the LiteRT-LM engine (desktop is .litertlm only).
-  FlutterGemma.initialize(inferenceEngines: const [LiteRtLmEngine()]);
+  await FlutterGemma.initialize(inferenceEngines: const [LiteRtLmEngine()]);
 
   // Install model (downloads on first run, cached after).
   await FlutterGemma.installModel(

@@ -9,37 +9,31 @@
 // This is the native half of the migration's keystone proof (the web half is
 // tool/verify_web_vec0.mjs). Keep it green — it gates the design, not a feature.
 //
-// The prebuilt loadable extension must exist at $VEC0_DYLIB (defaults to
-// /tmp/vec0_poc/vec0.<ext>). Fetch it from the asg017/sqlite-vec release:
-//   https://github.com/asg017/sqlite-vec/releases  (loadable, per-platform)
+// The loadable extension comes from this repo's own
+// native/sqlite_vec/prebuilt/<platform>/ (see test/vec0_locator.dart);
+// $VEC0_DYLIB overrides it. It used to default to /tmp/vec0_poc/vec0.dylib —
+// a path from the migration proof-of-concept that nothing creates — so this
+// "keep it green" test was red wherever nobody had hand-downloaded a copy.
 // Run from the package dir:
-//   VEC0_DYLIB=/path/to/vec0.dylib flutter test test/vec0_text_pk_test.dart
+//   flutter test test/vec0_text_pk_test.dart
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart';
 
-/// Path to the prebuilt loadable vec0 extension. Override with $VEC0_DYLIB so
-/// CI / each platform points at its own `.dylib`/`.so`/`.dll`.
-String get _vec0Path =>
-    Platform.environment['VEC0_DYLIB'] ?? '/tmp/vec0_poc/vec0.dylib';
+import 'vec0_locator.dart';
 
 void main() {
   test('vec0 loads + TEXT PRIMARY KEY + KNN returns the text id', () {
-    expect(
-      File(_vec0Path).existsSync(),
-      isTrue,
-      reason:
-          'prebuilt vec0 extension not found at $_vec0Path — set \$VEC0_DYLIB '
-          'or download from github.com/asg017/sqlite-vec/releases',
-    );
+    final resolved = vec0Path;
+    expect(resolved, isNotNull, reason: vec0SkipReason);
+    final vec0Lib = resolved!;
 
     // (a) Static-entrypoint load (the path sqlite3_flutter_libs supports — NOT
     // runtime SELECT load_extension, which the bundled libs omit). Register the
     // extension's init symbol BEFORE opening any database.
-    final lib = DynamicLibrary.open(_vec0Path);
+    final lib = DynamicLibrary.open(vec0Lib);
     sqlite3.ensureExtensionLoaded(
       SqliteExtension.inLibrary(lib, 'sqlite3_vec_init'),
     );

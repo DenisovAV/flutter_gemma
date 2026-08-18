@@ -9,7 +9,7 @@ unchanged** — your existing inference code keeps working as-is.
 ## TL;DR
 
 1. Add the opt-in packages for the formats/features you use (see table below).
-2. Call `FlutterGemma.initialize(inferenceEngines: [...], ...)` once in `main()`,
+2. Call `await FlutterGemma.initialize(inferenceEngines: [...], ...)` once in `main()`,
    passing the engines/backends from the packages you added.
 3. Everything else stays the same.
 
@@ -24,8 +24,8 @@ dependencies:
 **After (1.0):**
 ```yaml
 dependencies:
-  flutter_gemma: ^1.5.8                 # core — always required
-  flutter_gemma_litertlm: ^1.4.1        # add if you run .litertlm models
+  flutter_gemma: ^1.5.9                 # core — always required
+  flutter_gemma_litertlm: ^1.4.2        # add if you run .litertlm models
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^1.0.4      # add if you compute embeddings
   flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG
@@ -72,14 +72,18 @@ import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  FlutterGemma.initialize(
+  await FlutterGemma.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
     embeddingBackends: const [LiteRtEmbeddingBackend()],
     vectorStore: QdrantVectorStore(),          // or WebSqliteVectorStore() on web
-    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+    // '' when the define is absent, and an empty token still sends a
+    // bare `Authorization: Bearer` header — pass null instead.
+    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN').isNotEmpty
+        ? const String.fromEnvironment('HUGGINGFACE_TOKEN')
+        : null,
   );
 
   runApp(MyApp());
@@ -95,7 +99,8 @@ These keep the exact same API — no edits needed:
 
 ```dart
 // install + run a model
-await FlutterGemma.installModel(modelType: ModelType.gemma4)
+await FlutterGemma.installModel(
+        modelType: ModelType.gemma4, fileType: ModelFileType.litertlm)
     .fromNetwork(url, token: token).install();
 final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
 final chat  = await model.createChat();
@@ -108,7 +113,7 @@ await FlutterGemma.installEmbedder()
     .tokenizerFromNetwork(tokenizerUrl, token: token)
     .install();
 await FlutterGemmaPlugin.instance.addDocument(/* ... */);
-final hits = await FlutterGemmaPlugin.instance.searchSimilar(query, topK: 5);
+final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK: 5);
 ```
 
 ## What you'll see if you forget step 2

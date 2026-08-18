@@ -1,3 +1,6 @@
+## 1.0.5
+- fix: await the session future inside its try block on web, so the catch can see its errors.
+
 ## 1.0.4
 - Fix AGP 9 build on `android.builtInKotlin=false` — apply KGP unless built-in Kotlin is on, so the plugin's Kotlin compiles (#360).
 

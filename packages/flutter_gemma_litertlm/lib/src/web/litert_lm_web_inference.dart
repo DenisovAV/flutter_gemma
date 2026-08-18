@@ -718,10 +718,16 @@ class LiteRtLmWebSession extends InferenceModelSession
     return controller.stream;
   }
 
-  /// Approximate token count — matches `FfiInferenceModelSession.sizeInTokens`.
-  /// The `@litert-lm/core` early-preview API does not expose a tokenizer.
+  /// Approximate token count. `@litert-lm/core` (early preview) exposes no
+  /// tokenizer, so unlike the FFI arm — which now asks the model's own — this
+  /// can only estimate.
+  ///
+  /// Two characters per token, not four, for the same reason the FFI arm's
+  /// fallback uses it: undercounting overruns the native KV cache, while
+  /// overcounting only trims history early. Four was measured at 0.44x on
+  /// Chinese against gemma-4-E2B-it, i.e. wrong in the crash direction.
   @override
-  Future<int> sizeInTokens(String text) async => (text.length / 4).ceil();
+  Future<int> sizeInTokens(String text) async => (text.length / 2).ceil();
 
   /// Stops the in-flight generation both locally (closes the Dart stream)
   /// and upstream (calls `conversation.cancel()` per the @litert-lm/core JS

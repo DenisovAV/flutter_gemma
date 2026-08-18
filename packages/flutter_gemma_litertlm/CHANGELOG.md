@@ -1,3 +1,8 @@
+## 1.4.3
+- fix: `sizeInTokens` asks the model's tokenizer on native; web still estimates (no tokenizer).
+- fix: sampler params and maxOutputTokens now reach the NPU backend; the guards had expired upstream.
+- fix: find the dev prebuilt from any package's directory, not only this one's.
+
 ## 1.4.2
 - fix: vision + audio encoders default to CPU (fixes GPU vision hard-fail on Metal/WebGPU); overridable.
 

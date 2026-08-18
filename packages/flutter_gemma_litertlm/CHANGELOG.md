@@ -1,4 +1,5 @@
 ## 1.4.3
+- fix: a native-archive checksum mismatch now fails the build instead of shipping no library.
 - fix: `sizeInTokens` asks the model's tokenizer on native; web still estimates (no tokenizer).
 - fix: sampler params and maxOutputTokens now reach the NPU backend; the guards had expired upstream.
 - fix: find the dev prebuilt from any package's directory, not only this one's.

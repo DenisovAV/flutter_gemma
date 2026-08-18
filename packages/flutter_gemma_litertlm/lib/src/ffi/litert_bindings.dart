@@ -262,8 +262,9 @@ class LiteRtRankedTensorTypeView {
 
 // ----- Dynamic library resolution --------------------------------------------
 
-/// Checked-out or cached `libLiteRtLm.dylib`, for running outside an app
-/// bundle (`flutter test` on the host).
+/// macOS-only fallbacks for `libLiteRtLm.dylib`, used when there is no app
+/// bundle to resolve `LiteRtLm.framework` from — i.e. `flutter test` on the
+/// host. Never reached inside a shipped app.
 ///
 /// This used to be a single path built as
 /// `${Directory.current.path}/native/litert_lm/prebuilt/...`, which is only
@@ -273,12 +274,23 @@ class LiteRtRankedTensorTypeView {
 /// the lookup at a `native/` tree that does not exist there. The resulting
 /// error named a path and said "not found", so it read as "the native library
 /// was never built" rather than "I looked in the wrong place" — and 9 speech
-/// tests sat red under that misreading.
+/// tests sat red under that misreading. So: walk UP to the workspace root
+/// instead of assuming it.
 ///
-/// So: walk UP to the workspace root instead of assuming it, then fall back to
-/// the Native Assets hook cache.
+/// The Native Assets hook cache comes FIRST. It is version-validated by
+/// `hook/build.dart` (`_readMarker` / `_invalidateBundleCacheIfStale`), whereas
+/// `native/litert_lm/prebuilt/` is gitignored, produced by a local
+/// `build_macos.sh`, and carries no version marker at all. They are the same
+/// bytes today, but after the next `native-v*` bump a stale local prebuilt
+/// would otherwise shadow the refreshed cache and host tests would silently run
+/// against a different native version than the app ships.
 Iterable<String> _devLiteRtLmCandidates() sync* {
   const rel = 'native/litert_lm/prebuilt/macos_arm64/libLiteRtLm.dylib';
+
+  final home = Platform.environment['HOME'];
+  if (home != null && home.isNotEmpty) {
+    yield '$home/Library/Caches/flutter_gemma/native/macos_arm64/libLiteRtLm.dylib';
+  }
 
   var dir = Directory.current.absolute;
   for (var hop = 0; hop < 8; hop++) {
@@ -287,11 +299,6 @@ Iterable<String> _devLiteRtLmCandidates() sync* {
     final parent = dir.parent;
     if (parent.path == dir.path) break;
     dir = parent;
-  }
-
-  final home = Platform.environment['HOME'];
-  if (home != null && home.isNotEmpty) {
-    yield '$home/Library/Caches/flutter_gemma/native/macos_arm64/libLiteRtLm.dylib';
   }
 }
 
@@ -306,16 +313,33 @@ DynamicLibrary _openLiteRt() {
       return DynamicLibrary.open(bundled);
     } catch (_) {}
 
+    // iOS always resolves the bundled framework; it has no dev checkout and no
+    // ~/Library/Caches. Offering it macOS .dylib paths would make the failure
+    // message actively misleading on the one occasion someone reads it.
+    if (Platform.isIOS) {
+      throw UnsupportedError(
+        'LiteRtLm.framework/LiteRtLm did not load. On iOS this is the only '
+        'candidate — the framework is missing from the app bundle.',
+      );
+    }
+
     final tried = <String>[bundled];
     for (final p in _devLiteRtLmCandidates()) {
       tried.add(p);
-      // Existence-check first so the thrown message can distinguish "no such
-      // file" from "found it but it would not load".
+      // Existence-check first so the message below can tell "no such file"
+      // from "found it but it would not load"...
       if (!File(p).existsSync()) continue;
-      return DynamicLibrary.open(p);
+      try {
+        return DynamicLibrary.open(p);
+      } catch (_) {
+        // ...and keep going when a candidate exists but will not load — wrong
+        // arch, missing companion, stale build. Without this the first
+        // existing-but-broken candidate aborts the search and the remaining
+        // ones, including the version-validated hook cache, are never tried.
+      }
     }
     throw UnsupportedError(
-      'LiteRtLm framework/dylib not found. Tried (cwd: '
+      'LiteRtLm framework/dylib not found or would not load. Tried (cwd: '
       '${Directory.current.path}): ${tried.join(", ")}',
     );
   }

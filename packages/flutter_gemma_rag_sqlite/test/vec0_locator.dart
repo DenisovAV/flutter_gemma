@@ -17,15 +17,31 @@ import 'dart:io';
 /// Host-platform subdirectory under `native/sqlite_vec/prebuilt/`.
 /// Null on a host we ship no loadable for (tests run on the host, so the
 /// iOS/Android prebuilts are never the answer here).
+///
+/// Linux ships BOTH `linux_x86_64` and `linux_arm64`, so "prefer x86_64 and let
+/// existence pick the other" does not work — the x86_64 file always exists, so
+/// arm64 was unreachable and an arm64 host got an incompatible ELF. Ask uname.
 String? get _hostPrebuiltDir {
   if (Platform.isMacOS) return 'macos_arm64';
   if (Platform.isWindows) return 'windows_x86_64';
   if (Platform.isLinux) {
-    // No reliable arch probe in dart:io; prefer x86_64 and fall back to arm64
-    // by existence, which `vec0Path` does below.
+    final arch = _unameMachine();
+    if (arch == 'aarch64' || arch == 'arm64') return 'linux_arm64';
     return 'linux_x86_64';
   }
   return null;
+}
+
+/// `uname -m`, or null when it cannot be read. dart:io exposes no CPU
+/// architecture, and `Platform.version` names the SDK's target, not the host's.
+String? _unameMachine() {
+  try {
+    final r = Process.runSync('uname', const ['-m']);
+    if (r.exitCode != 0) return null;
+    return (r.stdout as String).trim();
+  } catch (_) {
+    return null;
+  }
 }
 
 String get _libName {
@@ -44,7 +60,6 @@ List<String> get vec0Candidates {
   const base = 'native/sqlite_vec/prebuilt';
   final host = _hostPrebuiltDir;
   if (host != null) out.add('$base/$host/$_libName');
-  if (Platform.isLinux) out.add('$base/linux_arm64/$_libName');
   return out;
 }
 

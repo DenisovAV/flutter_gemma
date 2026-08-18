@@ -231,6 +231,11 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
     if (_disposed) {
       throw StateError('LiteRtEmbeddingForwardPass is disposed');
     }
+    if (_outputDimension == null) {
+      throw StateError(
+        'LiteRtEmbeddingForwardPass.run() called before load() completed',
+      );
+    }
     final values = _runForward(tokenIds);
     return ForwardResult(values: values, shape: [1, outputDimension]);
   }

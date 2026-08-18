@@ -235,15 +235,16 @@ flutter analyze && dart format . && flutter test
 | `hook/build.dart` | Native Assets hook — OWNS the litertlm bundle; `stage()` is **Apple-only** (Xcode cycle) |
 | `native/litert_lm/{build_ios.sh,patch_c_api.sh,stream_proxy.c}` | iOS dylib rebuild + C API patcher + preload helper |
 
-**`packages/flutter_gemma_embeddings/` (LiteRT C API embeddings; shares libLiteRtLm, autonomous):**
+**`packages/flutter_gemma_embeddings/` (runtime-AGNOSTIC common embedder — 2.0.0; depends ONLY on core; the engine supplies the forward-pass over a seam):**
 
 | File | Purpose |
 |------|---------|
-| `lib/src/litert_embedding_backend.dart` | `LiteRtEmbeddingBackend` (EmbeddingBackendProvider) |
-| `lib/src/litert/litert_bindings.dart` | Hand-written dart:ffi bindings to LiteRT C API; dual MSVC/POSIX `LiteRtLayout` |
-| `lib/src/litert/litert_embedding_model.dart` | Facade over `EmbeddingWorker` (forward pass on a background isolate, #299) |
-| `lib/src/litert/litert_embedding_core.dart`, `litert_embedding_worker.dart` | Sync native core + the isolate that drives it |
-| *(no `hook/build.dart`)* | Deleted in the LiteRT engine consolidation — the shared `libLiteRtLm` bundle comes transitively from `flutter_gemma_litertlm`, which owns the sole hook |
+| `lib/src/forward_pass.dart` | `EmbeddingForwardPass` seam (async load/run/close) + `ForwardResult` + `ForwardPassDescriptor` (`EmbeddingOutputContract` + top-level-tear-off factory, isolate-sendable) |
+| `lib/src/embedding_worker.dart` | Engine-agnostic isolate worker: builds the engine's forward core from the descriptor inside the isolate; dispatches finalize on the contract (`pooledFinal`→verbatim, `tokenLevel`→pool) |
+| `lib/src/embedding_tokenizer.dart` | Gemma SentencePiece tokenize + BOS=2/EOS=1 + TaskType prefix (`.json`/`.model` loader) |
+| `lib/src/pooling.dart` | `meanPoolAndNormalize` (token-level `[1,seq,dim]` only; rejects rank-2 to block the D5 double-normalize trap) |
+| `lib/src/common_embedding_model.dart` | `CommonEmbeddingModel` facade (`EmbeddingModel` + CloseNotifier) |
+| *(no engine dep, no `hook/build.dart`)* | The LiteRT forward-pass moved to `flutter_gemma_litertlm/lib/src/embedding/` (`LiteRtEmbeddingForwardPass` + `LiteRtEmbeddingBackend`, which now provides the registered backend) |
 
 **`packages/flutter_gemma_mediapipe/` (.task MediaPipe; mobile + web, NO desktop):**
 

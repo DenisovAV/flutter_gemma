@@ -8,52 +8,39 @@ import 'dart:math' as math;
 
 import 'forward_pass.dart';
 
-/// Turns a raw [ForwardResult] into a single L2-normalized embedding vector
-/// of length `dim`.
+/// Mean-pools a **token-level** [ForwardResult] over the sequence axis and
+/// L2-normalizes it into a single embedding vector of length `dim`.
 ///
-/// Handles both output layouts a [EmbeddingForwardPass] can hand back:
-///  - `[1, dim]` (already pooled, e.g. LiteRT's compiled-model output) — the
-///    values pass through as-is, then get L2-normalized.
-///  - `[1, seq, dim]` (per-token hidden states) — mean-pooled over the `seq`
-///    axis, then L2-normalized. When [attentionMask] is supplied, positions
-///    where the mask is `0` are excluded from the mean (the standard
-///    BERT-style masked mean-pool over real tokens only, ignoring padding).
+/// Input MUST be rank-3 `[1, seq, dim]` (per-token hidden states, e.g. an ONNX
+/// BERT/MiniLM output). When [attentionMask] is supplied, positions where the
+/// mask is `0` are excluded from the mean (the standard BERT-style masked
+/// mean-pool over real tokens only, ignoring padding).
 ///
-/// Throws [ArgumentError] for an unsupported shape (anything but rank 2 or
-/// 3), a batch size other than 1, or an [attentionMask] whose length doesn't
-/// match the sequence length. Throws [StateError] if every token is masked
-/// out (nothing left to average).
+/// **This function is ONLY for the [EmbeddingOutputContract.tokenLevel] path.**
+/// A rank-2 `[1, dim]` result is ALREADY the final embedding (e.g. LiteRT's
+/// compiled-model output, which bakes pooling — and possibly normalization —
+/// into the graph); it must be copied verbatim via
+/// [EmbeddingOutputContract.pooledFinal], never routed here. Passing a rank-2
+/// result throws rather than silently re-normalizing it — the D5
+/// double-normalize regression this seam exists to prevent.
+///
+/// Throws [ArgumentError] for a non-rank-3 shape, a batch size other than 1,
+/// or an [attentionMask] whose length doesn't match the sequence length.
+/// Throws [StateError] if every token is masked out (nothing to average).
 List<double> meanPoolAndNormalize(
   ForwardResult result, {
   List<int>? attentionMask,
 }) {
   final shape = result.shape;
-
-  final List<double> pooled;
-  if (shape.length == 2) {
-    pooled = _passThrough(result, shape);
-  } else if (shape.length == 3) {
-    pooled = _meanPoolOverSeq(result, shape, attentionMask);
-  } else {
+  if (shape.length != 3) {
     throw ArgumentError(
-      'Unsupported ForwardResult shape: $shape (expected rank 2 `[1, dim]` '
-      'or rank 3 `[1, seq, dim]`)',
+      'meanPoolAndNormalize handles token-level `[1, seq, dim]` results only; '
+      'got $shape. A rank-2 `[1, dim]` result is already the final embedding — '
+      'copy it verbatim via EmbeddingOutputContract.pooledFinal, never re-pool '
+      'or re-normalize it (the D5 double-normalize trap).',
     );
   }
-
-  return _l2Normalize(pooled);
-}
-
-List<double> _passThrough(ForwardResult result, List<int> shape) {
-  _requireBatchOne(shape);
-  final dim = shape[1];
-  if (result.values.length != dim) {
-    throw ArgumentError(
-      'ForwardResult.values.length (${result.values.length}) does not '
-      'match shape $shape',
-    );
-  }
-  return List<double>.of(result.values);
+  return _l2Normalize(_meanPoolOverSeq(result, shape, attentionMask));
 }
 
 List<double> _meanPoolOverSeq(

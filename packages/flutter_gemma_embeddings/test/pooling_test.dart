@@ -101,20 +101,18 @@ void main() {
     );
 
     test(
-      '[1, dim] (already pooled) passes through then L2-normalizes',
+      '[1, dim] (already-final) is REJECTED — must not be re-normalized (D5 trap)',
       () async {
+        // A rank-2 result is the final embedding (e.g. LiteRT). Routing it
+        // through meanPoolAndNormalize would re-apply L2 (the D5 double-
+        // normalize regression), so it must throw, forcing callers onto the
+        // EmbeddingOutputContract.pooledFinal verbatim-copy path.
         final fake = _FakeForwardPass(
           const ForwardResult(values: [3, 4], shape: [1, 2]),
         );
         final result = await fake.run(tokenIds: [10, 11, 12]);
 
-        final pooled = meanPoolAndNormalize(result);
-
-        // [3, 4] has L2 norm 5 -> [0.6, 0.8]
-        expect(pooled.length, 2);
-        expect(pooled[0], closeTo(0.6, 1e-9));
-        expect(pooled[1], closeTo(0.8, 1e-9));
-        expect(_l2Norm(pooled), closeTo(1.0, 1e-9));
+        expect(() => meanPoolAndNormalize(result), throwsArgumentError);
       },
     );
 

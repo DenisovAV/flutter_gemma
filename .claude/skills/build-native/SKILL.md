@@ -186,7 +186,7 @@ Be precise about what that does and does not buy, because the first version of t
 
 **Put it in both workflows.** `build-litertlm-native-windows.yml` is fast iteration and ends at `upload-artifact`; `build-litertlm-native.yml` carries the `publish-release` job that creates the `native-v*` tag users fetch. A check added only to the first protects nothing that ships — which is exactly the mistake this paragraph originally shipped with.
 
-**Android has no equivalent.** The QNN libs are still checked by size comparison against the SDK plus an on-device run (check #9).
+**Android has no equivalent, and cannot have one.** The QNN `.so`s are `cp`'d straight out of the Bazel-fetched QAIRT SDK, so there is nothing to pair them against — no second copy, no version string to compare. `build_qualcomm_dispatch.sh` asserts each one is **present** (`[ -f "$src" ] || exit 1`, a real gate) and then only **prints** its size with `printf`; that print is not a comparison and must not be counted as one. The actual coverage for Android is the on-device run (check #9).
 
 **The QNN runtime `.so`s must be refreshed with the dispatch, not carried forward.** They are not compiled from source — they come out of the QAIRT SDK — which makes "just keep the old ones" look safe. It is not: the dispatch you build negotiates an **API version** with them, and ours drifted into
 

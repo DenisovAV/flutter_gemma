@@ -17,6 +17,8 @@
 
 import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 
+import 'tokenizer_adapter.dart';
+
 /// Gemma special-token IDs. `dart_sentencepiece_tokenizer` defaults to the
 /// swapped pair (bosId=1, eosId=2), so we add them manually.
 const int bosId = 2;
@@ -52,4 +54,28 @@ List<int> encodeForEmbedding(
 ) {
   final encoded = tokenizer.encode(prefix + text);
   return <int>[bosId, ...encoded.ids, eosId];
+}
+
+/// [EmbeddingTokenizerFactory] tear-off (design D-T1) — a thin
+/// [EmbeddingTokenizer] adapter over [loadEmbeddingTokenizer] +
+/// [encodeForEmbedding]. Byte-identical to the pre-generalization LiteRT
+/// path: same BOS=2/EOS=1 convention, same `prefix + text` concatenation
+/// order. Always returns `attentionMask: null, tokenTypeIds: null` — Gemma
+/// SentencePiece has no notion of either; the forward pass pads/truncates
+/// internally and has no mask to report back.
+Future<EmbeddingTokenizer> loadGemmaSentencePieceEmbeddingTokenizer(
+  String tokenizerPath,
+) async {
+  final tokenizer = await loadEmbeddingTokenizer(tokenizerPath);
+  return _GemmaSentencePieceEmbeddingTokenizer(tokenizer);
+}
+
+class _GemmaSentencePieceEmbeddingTokenizer implements EmbeddingTokenizer {
+  _GemmaSentencePieceEmbeddingTokenizer(this._tokenizer);
+
+  final SentencePieceTokenizer _tokenizer;
+
+  @override
+  TokenizedInput encode(String prefix, String text) =>
+      TokenizedInput(ids: encodeForEmbedding(_tokenizer, prefix, text));
 }

@@ -32,15 +32,22 @@ library;
 // common embedder below.
 export 'src/forward_pass.dart';
 export 'src/pooling.dart';
+// The tokenizer seam (design D-T1): pure Dart, no engine dependency, no
+// native library at all — engine packages implement `EmbeddingTokenizer` and
+// build a `ForwardPassDescriptor.tokenizerFactory` from a top-level factory
+// tear-off, same shape as `EmbeddingForwardPassFactory` above.
+export 'src/tokenizer_adapter.dart';
 
-// NOTE: `src/embedding_tokenizer.dart` is a native-only leaf (it pulls in
+// NOTE: `src/embedding_tokenizer.dart` and `src/wordpiece_embedding_tokenizer.dart`
+// are native-only leaves (`dart:io`, and for the former
 // `dart_sentencepiece_tokenizer`, which imports `dart:io`/`dart:isolate`
-// unconditionally) — it is deliberately NOT exported from this barrel so
-// importing this package can never break a web build. It's used internally
-// by `embedding_worker.dart` (reached only via the native-only
-// `common_embedding_model.dart` arm below); native-only test/engine code
-// that needs it directly imports
-// `package:flutter_gemma_embeddings/src/embedding_tokenizer.dart`.
+// unconditionally) — deliberately NOT exported from this barrel so importing
+// this package can never break a web build. They're used internally by
+// engine backends (reached only via the native-only
+// `common_embedding_model.dart` arm below); native-only engine/test code
+// that needs them directly imports
+// `package:flutter_gemma_embeddings/src/embedding_tokenizer.dart` /
+// `package:flutter_gemma_embeddings/src/wordpiece_embedding_tokenizer.dart`.
 
 // The common embedder: background-isolate worker + `EmbeddingModel` facade
 // over any `ForwardPassDescriptor`. Conditional export — the real worker

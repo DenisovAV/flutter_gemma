@@ -1,5 +1,8 @@
 ## 2.0.0
 - BREAKING: runtime-agnostic embedder; `LiteRtEmbeddingBackend` moved to flutter_gemma_litertlm.
+- Add tokenizer-factory seam (`ForwardPassDescriptor.tokenizerFactory`) so engines can bring WordPiece too.
+- Add `EmbeddingForwardPass.outputContract` override + `ForwardResult.attentionMask` for the mask thread.
+- Add `WordPieceEmbeddingTokenizer` (BERT-style, e.g. MiniLM) alongside the existing Gemma SentencePiece adapter.
 
 ## 1.0.4
 - internal: run on the flutter_gemma_litertlm LiteRT engine (no API change).

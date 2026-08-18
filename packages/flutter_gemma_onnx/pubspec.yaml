@@ -25,6 +25,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_gemma: ^1.5.9
+  flutter_gemma_embeddings: ^2.0.0
   ffi: ^2.1.0
 
 dev_dependencies:
@@ -32,7 +33,11 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-# No flutter: plugin/asset block yet — this is the v1 scaffold only
-# (provider identity + canHandle). The native ORT-GenAI + libonnxruntime
-# bundle (hook/build.dart, the sole owner per hardened-plan D1) lands with
-# the productionized inference arm, gated on the D2 throughput spike.
+# No flutter: plugin/asset block yet for the INFERENCE arm — the scaffold
+# only (provider identity + canHandle); productionizing it is gated on the
+# D2 throughput spike. The EMBEDDING arm (OnnxEmbeddingBackend) is
+# productionized (Phase 2): plain-ORT forward pass over dart:ffi, no ORT
+# GenAI. The native ORT-GenAI + libonnxruntime bundle (hook/build.dart, the
+# sole owner per hardened-plan D1) is added in a later step — Task 2's
+# `OrtFfiClient` resolves the dylib directly (platform default names, or
+# `FLUTTER_GEMMA_ORT_LIBRARY` for host tests) until then.

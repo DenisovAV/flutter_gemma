@@ -22,13 +22,12 @@
 // (reply).
 
 import 'dart:async';
-import 'package:dart_sentencepiece_tokenizer/dart_sentencepiece_tokenizer.dart';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'dart:isolate';
 
-import 'embedding_tokenizer.dart';
 import 'forward_pass.dart';
 import 'pooling.dart';
+import 'tokenizer_adapter.dart';
 
 /// Handshake payload the worker sends back once the forward pass is loaded.
 class _Ready {
@@ -240,16 +239,48 @@ class EmbeddingWorker {
 }
 
 /// Turns a raw [ForwardResult] into the final embedding vector per
-/// [descriptor]'s [EmbeddingOutputContract]. `pooledFinal` copies verbatim —
-/// see [EmbeddingOutputContract.pooledFinal]'s doc for why this must never
-/// fall through to [meanPoolAndNormalize].
-List<double> _finalize(ForwardPassDescriptor descriptor, ForwardResult result) {
-  switch (descriptor.outputContract) {
+/// [contract] (design D-T2: `pass.outputContract ?? descriptor.outputContract`
+/// — resolved by the caller). `pooledFinal` copies verbatim — see
+/// [EmbeddingOutputContract.pooledFinal]'s doc for why this must never fall
+/// through to [meanPoolAndNormalize]. `tokenLevel` uses [attentionMask] —
+/// the *effective* mask (design D-T3: [ForwardResult.attentionMask] if the
+/// pass echoed one, else the request's mask) — so padding a pass added never
+/// leaks into the mean.
+List<double> _finalize(
+  EmbeddingOutputContract contract,
+  ForwardResult result,
+  List<int>? attentionMask,
+) {
+  switch (contract) {
     case EmbeddingOutputContract.pooledFinal:
-      return List<double>.of(result.values);
+      return _copyPooledFinal(result);
     case EmbeddingOutputContract.tokenLevel:
-      return meanPoolAndNormalize(result);
+      return meanPoolAndNormalize(result, attentionMask: attentionMask);
   }
+}
+
+/// Copies a `pooledFinal` [ForwardResult] verbatim — but only after
+/// confirming it actually IS an already-pooled `[1, dim]` vector. Symmetric
+/// to [meanPoolAndNormalize]'s rank guard in `pooling.dart`: without this,
+/// a token-level `[1, seq, dim]` result misrouted here (e.g. an ONNX output
+/// name the engine's dispatch didn't recognize, silently falling back to
+/// "assume pooled") would be flattened and returned as a corrupt vector —
+/// unpooled, unnormalized, and the wrong length — with no error anywhere.
+List<double> _copyPooledFinal(ForwardResult result) {
+  final shape = result.shape;
+  final isPooledShape =
+      shape.length == 2 && shape[0] == 1 && result.values.length == shape[1];
+  if (!isPooledShape) {
+    throw StateError(
+      'EmbeddingOutputContract.pooledFinal requires a rank-2 `[1, dim]` '
+      'already-pooled result; got shape $shape with ${result.values.length} '
+      'values. This usually means a token-level output was misclassified as '
+      'pooled (e.g. an unrecognized ONNX output name falling back to '
+      '"assume pooled") — copying it verbatim would silently return a '
+      'corrupt, unpooled embedding.',
+    );
+  }
+  return List<double>.of(result.values);
 }
 
 /// Isolate entry point. Loads the tokenizer + forward pass, then serves
@@ -258,10 +289,10 @@ Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
   gemmaLogLevel = init.logLevel;
 
-  final SentencePieceTokenizer tokenizer;
+  final EmbeddingTokenizer tokenizer;
   final EmbeddingForwardPass pass;
   try {
-    tokenizer = await loadEmbeddingTokenizer(init.tokenizerPath);
+    tokenizer = await init.descriptor.tokenizerFactory(init.tokenizerPath);
     pass = init.descriptor.factory(init.descriptor.modelPath);
     await pass.load();
   } catch (e, st) {
@@ -288,9 +319,16 @@ Future<void> _workerEntry(_WorkerInit init) async {
     await for (final msg in commandPort) {
       if (msg is _EmbedRequest) {
         try {
-          final ids = encodeForEmbedding(tokenizer, msg.prefix, msg.text);
-          final result = await pass.run(tokenIds: ids);
-          final vector = _finalize(init.descriptor, result);
+          final tokenized = tokenizer.encode(msg.prefix, msg.text);
+          final result = await pass.run(
+            tokenIds: tokenized.ids,
+            attentionMask: tokenized.attentionMask,
+            tokenTypeIds: tokenized.tokenTypeIds,
+          );
+          final contract =
+              pass.outputContract ?? init.descriptor.outputContract;
+          final effectiveMask = result.attentionMask ?? tokenized.attentionMask;
+          final vector = _finalize(contract, result, effectiveMask);
           init.replyTo.send(_EmbedReply(msg.id, vector, null));
         } catch (e) {
           init.replyTo.send(_EmbedReply(msg.id, null, e.toString()));

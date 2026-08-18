@@ -14,6 +14,8 @@
 // the constructor; async lets an off-main-isolate host (see
 // `litert_embedding_worker.dart`'s pattern) `await` it inside the worker.
 
+import 'tokenizer_adapter.dart';
+
 /// One engine's forward-pass implementation.
 ///
 /// An instance is built and lives inside a single isolate — see
@@ -49,6 +51,17 @@ abstract class EmbeddingForwardPass {
   /// fixed input length to report (e.g. a dynamic-shape ONNX graph) — the
   /// worker's `_Ready` handshake falls back to `-1` in that case.
   int? get inputSequenceLength => null;
+
+  /// Overrides [ForwardPassDescriptor.outputContract] once the engine knows
+  /// its actual output layout — only knowable for ONNX after the session
+  /// opens (output names live in the graph), but the descriptor is built
+  /// before that (design D-T2). The worker resolves the effective contract
+  /// as `pass.outputContract ?? descriptor.outputContract`.
+  ///
+  /// `null` (the default) means "the descriptor's value is authoritative" —
+  /// LiteRT never overrides; its descriptor always declares `pooledFinal`
+  /// and this getter stays `null`.
+  EmbeddingOutputContract? get outputContract => null;
 }
 
 /// How to turn a [ForwardResult] into the final embedding vector.
@@ -86,13 +99,27 @@ enum EmbeddingOutputContract {
 ///  - `[1, seq, dim]` — per-token hidden states. Mean-pooled over the `seq`
 ///    axis (optionally respecting an attention mask) before normalizing.
 class ForwardResult {
-  const ForwardResult({required this.values, required this.shape});
+  const ForwardResult({
+    required this.values,
+    required this.shape,
+    this.attentionMask,
+  });
 
   /// Flat, row-major buffer. `values.length == shape.reduce((a, b) => a * b)`.
   final List<double> values;
 
   /// Tensor shape, e.g. `[1, dim]` or `[1, seq, dim]`.
   final List<int> shape;
+
+  /// The *effective* attention mask over this result's `seq` axis, when the
+  /// pass knows one (design D-T3's silent-regression fix). A pass that pads
+  /// a fixed-shape graph MUST pad `tokenIds`/mask/`tokenTypeIds` together and
+  /// echo the padded mask here, so the worker's masked mean-pool excludes
+  /// exactly the padding it added — never the caller-supplied
+  /// `run(attentionMask:)`, which describes the UNPADDED input. A pass over
+  /// a dynamic-shape graph (no padding) may pass the input mask through
+  /// unchanged or omit it — the worker falls back to the request's mask.
+  final List<int>? attentionMask;
 }
 
 /// Factory that builds an [EmbeddingForwardPass] for a given on-disk model
@@ -141,6 +168,7 @@ class ForwardPassDescriptor {
     required this.engineTag,
     required this.modelPath,
     required this.factory,
+    required this.tokenizerFactory,
     required this.outputContract,
   });
 
@@ -157,6 +185,13 @@ class ForwardPassDescriptor {
   /// Top-level factory tear-off (see [EmbeddingForwardPassFactory]) that
   /// builds the forward pass inside the receiving isolate.
   final EmbeddingForwardPassFactory factory;
+
+  /// Top-level factory tear-off (see [EmbeddingTokenizerFactory] in
+  /// `tokenizer_adapter.dart`) that builds the tokenizer inside the
+  /// receiving isolate. Model-family logic (WordPiece vs SentencePiece), not
+  /// engine logic — kept alongside [factory] on the same descriptor because
+  /// both cross the same isolate boundary together (design D-T1).
+  final EmbeddingTokenizerFactory tokenizerFactory;
 
   /// How the worker must turn this engine's [ForwardResult] into the final
   /// embedding — see [EmbeddingOutputContract]. A plain enum value, so it

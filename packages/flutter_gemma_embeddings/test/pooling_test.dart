@@ -46,6 +46,9 @@ class _FakeForwardPass implements EmbeddingForwardPass {
 
   @override
   int? get inputSequenceLength => null;
+
+  @override
+  EmbeddingOutputContract? get outputContract => null;
 }
 
 double _l2Norm(List<double> v) =>

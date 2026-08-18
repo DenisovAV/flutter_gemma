@@ -32,7 +32,7 @@ import 'package:ffi/ffi.dart';
 // conditional-export analyzer quirk `litert_bindings.dart` below works
 // around; only that package's `CommonEmbeddingModel` export is conditional.
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
-    show EmbeddingForwardPass, ForwardResult;
+    show EmbeddingForwardPass, EmbeddingOutputContract, ForwardResult;
 // Public, native-only bindings library (not the package barrel): this file
 // is native-only — never reached on web — so it always needs the real FFI
 // bindings. Going through this package's own top-level barrel
@@ -101,6 +101,13 @@ class LiteRtEmbeddingForwardPass implements EmbeddingForwardPass {
 
   @override
   int? get inputSequenceLength => _inputSequenceLength;
+
+  // LiteRT never overrides the descriptor's outputContract — its descriptor
+  // always declares `pooledFinal` (see `litert_embedding_backend.dart`) and
+  // this stays `null` per design D-T2's doc on
+  // `EmbeddingForwardPass.outputContract`.
+  @override
+  EmbeddingOutputContract? get outputContract => null;
 
   /// Load and compile the `.tflite` embedding model for [backend]. Heavy
   /// (compile is ~570-780ms) — call once, from a background isolate.

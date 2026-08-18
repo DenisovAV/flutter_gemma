@@ -11,6 +11,8 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart'
     show CommonEmbeddingModel, EmbeddingOutputContract, ForwardPassDescriptor;
+import 'package:flutter_gemma_embeddings/embedding_tokenizer.dart'
+    show loadGemmaSentencePieceEmbeddingTokenizer;
 
 import 'litert_embedding_forward_pass.dart';
 
@@ -49,6 +51,7 @@ class LiteRtEmbeddingBackend implements EmbeddingBackendProvider {
         engineTag: 'LiteRT',
         modelPath: config.modelPath,
         factory: createLiteRtEmbeddingForwardPass,
+        tokenizerFactory: loadGemmaSentencePieceEmbeddingTokenizer,
         outputContract: EmbeddingOutputContract.pooledFinal,
       ),
       tokenizerPath: tokenizerPath,

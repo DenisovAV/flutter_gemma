@@ -573,20 +573,47 @@ class FfiInferenceModelSession extends InferenceModelSession
     //
     // The ratios are per-tokenizer, not universal: re-measure rather than
     // re-quote if the model family changes.
-    final exact = handle.tokenCount(text);
+    // Same closed-session contract as every sibling method. Without it this
+    // was the one call that survived close() — and it would have answered with
+    // a plausible estimate instead of the use-after-close error the caller
+    // gets everywhere else.
+    _assertNotClosed();
+
+    final exact = await handle.tokenCount(text);
     if (exact != null) return exact;
 
     // Engine down, or the native call failed. Fall back to the estimate rather
     // than throw — this feeds budgeting, not correctness — but say so, because
     // a silent estimate is what got us here.
-    gemmaLog(
-      '[LiteRtLmFfi] sizeInTokens: native tokenizer unavailable, falling back '
-      'to a 4-chars-per-token estimate. Measured against gemma-4-E2B-it it is '
-      'close for English and Russian but undercounts CJK by ~2x and code by '
-      '~1.3x, so the context budget may overrun.',
-    );
-    return (text.length / 4).ceil();
+    // Fall back, but err HIGH — and note that this warning does not reach a
+    // release build at all (`gemmaLog` is `kDebugMode`-gated and
+    // dead-code-eliminated), so the fallback has to be safe on its own rather
+    // than merely announced.
+    //
+    // The two directions are not symmetric. Overcounting trims history and
+    // recreates the session a little early — cheap, recoverable, visible.
+    // Undercounting overruns the native KV cache, which is the #318-class
+    // DYNAMIC_UPDATE_SLICE crash. `len/4` was measured at 0.44x on Chinese and
+    // 0.75x on code, i.e. it errs in the crash direction on exactly the inputs
+    // that break. Two characters per token bounds every case measured
+    // (densest was ~1.8), so it over-counts English by roughly 2x and never
+    // under-counts.
+    if (!_tokenFallbackWarned) {
+      _tokenFallbackWarned = true;
+      gemmaLog(
+        '[LiteRtLmFfi] sizeInTokens: native tokenizer unavailable; estimating '
+        'conservatively at 2 chars/token for the rest of this session. '
+        'Context budgeting will over-count, trimming history earlier than '
+        'necessary — the safe direction.',
+      );
+    }
+    return (text.length / 2).ceil();
   }
+
+  /// One-shot latch for the estimate warning. Without it the message fires
+  /// once per turn and once per trimmed message, which is the volume that
+  /// teaches people to scroll past it.
+  bool _tokenFallbackWarned = false;
 
   @override
   Future<void> stopGeneration() async {
@@ -647,7 +674,7 @@ class _VirtualConversationHandle implements ConversationHandle {
   /// The tokenizer belongs to the engine, not to a conversation, so a virtual
   /// session answers this as accurately as a live one.
   @override
-  int? tokenCount(String text) => client.tokenCount(text);
+  Future<int?> tokenCount(String text) => client.tokenCount(text);
 
   /// Unique identity for this virtual session — the client uses it to tell
   /// whether the live conversation already holds this session's history.

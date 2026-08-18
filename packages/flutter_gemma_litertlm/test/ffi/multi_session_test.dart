@@ -19,6 +19,12 @@ class _FakeConversationHandle implements ConversationHandle {
   bool isClosed = false;
   int cancelCount = 0;
 
+  /// No engine on the host VM, so no tokenizer. Null is the honest answer and
+  /// the one sizeInTokens is written to handle — returning a made-up number
+  /// here would hide exactly the defect this method was added to fix.
+  @override
+  Future<int?> tokenCount(String text) async => null;
+
   @override
   Stream<String> chat(
     String text, {
@@ -242,4 +248,54 @@ void main() {
       expect(model.maxConcurrentSessions, isNull);
     });
   });
+
+  group('sizeInTokens', () {
+    FfiInferenceModelSession sessionWith(ConversationHandle handle) =>
+        FfiInferenceModelSession(
+          handle: handle,
+          modelType: ModelType.gemmaIt,
+          fileType: ModelFileType.litertlm,
+          supportImage: false,
+          supportAudio: false,
+          onClose: () {},
+        );
+
+    test(
+      'returns the tokenizer count verbatim when the handle answers',
+      () async {
+        // 7 for a 40-char string is nothing the estimator could produce from
+        // either divisor — the point is to prove the native count is passed
+        // through, not recomputed. Before this, both branches were untested and
+        // an integration assert of `n > 0` passed identically for the estimate.
+        final session = sessionWith(_CountingHandle(7));
+        expect(await session.sizeInTokens('x' * 40), 7);
+      },
+    );
+
+    test(
+      'falls back to a conservative estimate when the handle returns null',
+      () async {
+        // 2 chars/token, not 4. Undercounting overruns the native KV cache
+        // (#318); overcounting only trims history early. The old 4 was measured
+        // at 0.44x on Chinese, i.e. wrong in the crash direction.
+        final session = sessionWith(_FakeConversationHandle(const []));
+        expect(await session.sizeInTokens('x' * 40), 20);
+      },
+    );
+
+    test('throws after close, like every other session method', () async {
+      final session = sessionWith(_CountingHandle(7));
+      await session.close();
+      expect(() => session.sizeInTokens('hello'), throwsStateError);
+    });
+  });
+}
+
+/// Handle that reports a fixed token count, standing in for a live tokenizer.
+class _CountingHandle extends _FakeConversationHandle {
+  _CountingHandle(this._count) : super(const []);
+  final int _count;
+
+  @override
+  Future<int?> tokenCount(String text) async => _count;
 }

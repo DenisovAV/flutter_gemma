@@ -547,8 +547,73 @@ class FfiInferenceModelSession extends InferenceModelSession
 
   @override
   Future<int> sizeInTokens(String text) async {
-    return (text.length / 4).ceil();
+    // Ask the model's own tokenizer. This used to be `(text.length / 4).ceil()`
+    // — a placeholder from the 0.14.0 FFI port that nothing ever measured,
+    // while the MediaPipe path called the real tokenizer all along.
+    //
+    // Measured 2026-08-18 against gemma-4-E2B-it's own tokenizer, estimate over
+    // actual (below 1.0 = UNDERCOUNT):
+    //
+    //   english   1.23x     russian  1.00x     repeated ru words  1.40x
+    //   code      0.75x     chinese  0.44x
+    //
+    // So the folklore is half right. Four chars per token is fine for English
+    // and — surprisingly — near-exact for Russian, whose words this tokenizer
+    // covers well. It is CJK that breaks it: Chinese runs ~1.8 characters per
+    // token, so the estimate undercounts by more than half. Code undercounts by
+    // a third.
+    //
+    // InferenceChat budgets the context window with this (chat.dart accumulates
+    // `_currentTokens += await session.sizeInTokens(...)` and recreates the
+    // session near `maxTokens`), so an undercount means it believes there is
+    // headroom while the native KV cache is already full — surfacing as the
+    // #318-class DYNAMIC_UPDATE_SLICE failure or silent truncation, and read as
+    // a model problem rather than an estimator one. The same conversation on a
+    // .task model trimmed correctly.
+    //
+    // The ratios are per-tokenizer, not universal: re-measure rather than
+    // re-quote if the model family changes.
+    // Same closed-session contract as every sibling method. Without it this
+    // was the one call that survived close() — and it would have answered with
+    // a plausible estimate instead of the use-after-close error the caller
+    // gets everywhere else.
+    _assertNotClosed();
+
+    final exact = await handle.tokenCount(text);
+    if (exact != null) return exact;
+
+    // Engine down, or the native call failed. Fall back to the estimate rather
+    // than throw — this feeds budgeting, not correctness — but say so, because
+    // a silent estimate is what got us here.
+    // Fall back, but err HIGH — and note that this warning does not reach a
+    // release build at all (`gemmaLog` is `kDebugMode`-gated and
+    // dead-code-eliminated), so the fallback has to be safe on its own rather
+    // than merely announced.
+    //
+    // The two directions are not symmetric. Overcounting trims history and
+    // recreates the session a little early — cheap, recoverable, visible.
+    // Undercounting overruns the native KV cache, which is the #318-class
+    // DYNAMIC_UPDATE_SLICE crash. `len/4` was measured at 0.44x on Chinese and
+    // 0.75x on code, i.e. it errs in the crash direction on exactly the inputs
+    // that break. Two characters per token bounds every case measured
+    // (densest was ~1.8), so it over-counts English by roughly 2x and never
+    // under-counts.
+    if (!_tokenFallbackWarned) {
+      _tokenFallbackWarned = true;
+      gemmaLog(
+        '[LiteRtLmFfi] sizeInTokens: native tokenizer unavailable; estimating '
+        'conservatively at 2 chars/token for the rest of this session. '
+        'Context budgeting will over-count, trimming history earlier than '
+        'necessary — the safe direction.',
+      );
+    }
+    return (text.length / 2).ceil();
   }
+
+  /// One-shot latch for the estimate warning. Without it the message fires
+  /// once per turn and once per trimmed message, which is the volume that
+  /// teaches people to scroll past it.
+  bool _tokenFallbackWarned = false;
 
   @override
   Future<void> stopGeneration() async {
@@ -605,6 +670,11 @@ class _VirtualConversationHandle implements ConversationHandle {
   final double? topP;
   final int seed;
   final int? maxOutputTokens;
+
+  /// The tokenizer belongs to the engine, not to a conversation, so a virtual
+  /// session answers this as accurately as a live one.
+  @override
+  Future<int?> tokenCount(String text) => client.tokenCount(text);
 
   /// Unique identity for this virtual session — the client uses it to tell
   /// whether the live conversation already holds this session's history.

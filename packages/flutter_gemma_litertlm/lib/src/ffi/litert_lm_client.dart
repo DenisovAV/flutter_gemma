@@ -69,6 +69,13 @@ String _decodeNativeString(Pointer<Char> ptr, {int maxBytes = 64 * 1024}) {
 /// raw-response capture, Gemma 4 tool-call extraction) can be exercised on
 /// the host VM with no native engine.
 abstract class ConversationHandle {
+  /// Token count for [text] from the model's own tokenizer, or null when it
+  /// cannot be obtained (no engine, native call failed). Callers must handle
+  /// null rather than assume a number — this feeds context budgeting, and the
+  /// four-chars-per-token estimate it replaced undercounts Chinese by more than
+  /// half (measured 0.44x on gemma-4-E2B-it) while looking authoritative.
+  Future<int?> tokenCount(String text);
+
   Stream<String> chat(
     String text, {
     List<Uint8List>? imageBytes,
@@ -109,6 +116,11 @@ class LiteRtLmConversationHandle implements ConversationHandle {
   Pointer<LiteRtLmConversation>? _conversation;
 
   bool get isClosed => _conversation == null;
+
+  /// Token count from the model's own tokenizer, or null when unavailable.
+  /// Engine-level, so it works on a closed conversation too.
+  @override
+  Future<int?> tokenCount(String text) => _client.tokenCount(text);
 
   void _assertOpen() {
     if (_conversation == null) {
@@ -1803,7 +1815,85 @@ class LiteRtLmFfiClient {
 
     _isInitialized = false;
     _backend = null;
+    _tokenizerMissing = false;
     _isShuttingDown = false;
+  }
+
+  /// Latched once the tokenizer symbols turn out to be missing from the loaded
+  /// library, so a native bump that drops them degrades once and loudly rather
+  /// than silently on every call. Reset by [shutdown] with the rest of the
+  /// engine state.
+  bool _tokenizerMissing = false;
+
+  /// Token count for [text] from the model's own tokenizer, or null when it
+  /// cannot be obtained.
+  ///
+  /// Null means "ask someone else" — no engine, engine shut down, the native
+  /// call returned NULL (the only failure `engine.h` documents), or the
+  /// tokenizer symbols are absent from this build. Callers budget context with
+  /// this, and a budgeting helper that throws is worse than one that admits it
+  /// does not know: `chat.dart` wraps the call in a bare catch that would
+  /// swallow the throw and skip the increment entirely — a 100% undercount.
+  ///
+  /// It does NOT swallow everything. The bindings resolve symbols lazily
+  /// (`late final _lookup(...)`), so the first call is where a missing symbol
+  /// surfaces as `ArgumentError` — and that is precisely the signal that this
+  /// fix has stopped working after a native bump. It is caught once, latched,
+  /// and reported; every other error propagates.
+  ///
+  /// `litert_lm_engine_tokenize` is engine-level, not conversation-level: the
+  /// tokenizer belongs to the model, so no session is required.
+  Future<int?> tokenCount(String text) async {
+    if (text.isEmpty) return 0; // measured: this tokenizer prepends no BOS
+    if (_tokenizerMissing) return null;
+
+    // Holds [_nativeMutex] like every other native call on this engine. The
+    // C API is not documented as reentrant on one engine (see the field's own
+    // comment), and `send_message_stream` is documented as non-blocking with
+    // callbacks on a background thread — so the Dart isolate is free while a
+    // decode runs, and an unguarded tokenize would reach liblitert_lm
+    // concurrently with it. Callers arrive through the already-async
+    // sizeInTokens, so the await costs nothing.
+    return _nativeMutex.protect(() async {
+      final b = _bindings;
+      final engine = _engine;
+      // Re-read inside the lock: shutdown() can null these while we waited.
+      if (b == null || engine == null || engine == nullptr) return null;
+
+      // Allocated inside the try: the default allocator throws ArgumentError
+      // when it cannot allocate, and this method promises not to throw.
+      Pointer<Utf8>? textPtr;
+      Pointer<LiteRtLmTokenizeResult> result = nullptr;
+      try {
+        textPtr = text.toNativeUtf8();
+        result = b.litert_lm_engine_tokenize(engine, textPtr.cast<Char>());
+        if (result == nullptr) return null;
+        final n = b.litert_lm_tokenize_result_get_num_tokens(result);
+        // Non-empty text cannot legitimately tokenize to nothing, and the
+        // count is bound from size_t, so a negative would be a sentinel we do
+        // not understand. Either way it is a failure, not a budget of zero —
+        // which would mark the turn free and undercount worse than the
+        // estimate this replaced.
+        if (n <= 0) return null;
+        return n;
+      } on ArgumentError catch (e) {
+        // Either a missing symbol (lazy lookup firing here) or an allocation
+        // failure. Both mean "no count this time"; only the first is permanent,
+        // and telling them apart is not worth a string match — latch on the
+        // lookup wording only, and let a one-off OOM retry next turn.
+        final missing = e.toString().contains('Failed to lookup symbol');
+        if (missing) _tokenizerMissing = true;
+        gemmaLog(
+          '[LiteRtLmFfi] tokenCount unavailable${missing ? ' (symbol missing '
+                    'from this native build — sizeInTokens will estimate from '
+                    'here on)' : ''}: $e',
+        );
+        return null;
+      } finally {
+        if (result != nullptr) b.litert_lm_tokenize_result_delete(result);
+        if (textPtr != null) calloc.free(textPtr);
+      }
+    });
   }
 
   /// Get session metrics from the given conversation including token usage.

@@ -276,7 +276,7 @@ packages:
       path: "../../flutter_gemma_mediapipe"
       relative: true
     source: path
-    version: "1.0.4"
+    version: "1.0.5"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:

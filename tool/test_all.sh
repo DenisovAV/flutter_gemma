@@ -55,6 +55,26 @@ if [[ -z "${VEC0_DYLIB:-}" ]]; then
   fi
 fi
 
+# flutter_gemma_speech's nine qwen3 suites load real Qwen3-TTS graphs from a
+# HuggingFace snapshot on disk (~GBs) and check their output against PyTorch
+# goldens. They carry `@Tags(['qwen3-artifacts'])` — but until now no
+# dart_test.yaml existed anywhere, so that tag was a label nothing acted on and
+# the suites ran everywhere, failing wherever the snapshot is absent.
+#
+# Exclude them only when the snapshot is genuinely missing, and say so with a
+# count. A skip that is checked, reported and reversible is honest; a skip that
+# reads like a pass is the failure this whole file exists to prevent.
+QWEN3_DIR="${QWEN3_MODEL_DIR:-$HOME/.cache/huggingface/hub/models--litert-community--Qwen3-TTS-12Hz-0.6B-Base}"
+if [[ -d "$QWEN3_DIR" ]]; then
+  QWEN3_ARGS=""
+  echo "==> qwen3 model snapshot found; running the tagged suites too"
+else
+  QWEN3_ARGS="--exclude-tags qwen3-artifacts"
+  echo "==> qwen3 model snapshot NOT at $QWEN3_DIR"
+  echo "    excluding tag 'qwen3-artifacts' (9 suites). Set \$QWEN3_MODEL_DIR"
+  echo "    or fetch litert-community/Qwen3-TTS-12Hz-0.6B-Base to run them."
+fi
+
 fail=0 tested=0 untested=0 total=0
 summary=""
 
@@ -77,11 +97,15 @@ for dir in packages/*/; do
   # ships bash 3.2, where `set -u` plus an EMPTY array expansion is an
   # "unbound variable" error. CI runs bash 5 and would never have shown it —
   # this script is meant to be run locally too.
+  extra=""
+  [[ "$pkg" == "flutter_gemma_speech" ]] && extra="$QWEN3_ARGS"
+
   echo "::group::flutter test — $pkg"
   if [[ $WANT_COVERAGE -eq 1 && "$pkg" == "flutter_gemma" ]]; then
     (cd "$dir" && flutter test --coverage)
   else
-    (cd "$dir" && flutter test)
+    # $extra unquoted on purpose — it is either empty or two bare words.
+    (cd "$dir" && flutter test $extra)
   fi
   rc=$?
   echo "::endgroup::"

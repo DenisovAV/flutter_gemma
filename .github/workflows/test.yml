@@ -32,10 +32,15 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
         continue-on-error: true
 
-      # From the repo root, so every workspace package is analyzed — not just
-      # the core one.
+      # Every workspace package, not just the core one — but scoped to
+      # packages/ rather than the repo root. `website/` is a Jaspr app that is
+      # deliberately NOT in the workspace list, so the root `pub get` never
+      # resolves its dependencies and analyzing it from the root fails on its
+      # own generated brand code. That passes locally on any machine where the
+      # site has been built once, which is exactly why it has to be scoped
+      # here instead of relying on a dev checkout.
       - name: Analyze code
-        run: flutter analyze --no-fatal-infos
+        run: flutter analyze packages/ --no-fatal-infos
 
       # Every package that has tests, each run from its OWN directory. The loop
       # lives in tool/test_all.sh so CI and the local "before committing"

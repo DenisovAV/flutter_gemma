@@ -185,7 +185,8 @@ Entitlements needed: `network.client`, `extended-virtual-addressing`, `increased
 ## Code Quality
 
 ```bash
-flutter analyze      # from the repo root — covers every workspace package
+flutter analyze packages/   # every workspace package (not website/ — it is
+                            # outside the workspace, so its deps are unresolved)
 dart format .
 tool/test_all.sh     # every package, each from its own directory
 ```

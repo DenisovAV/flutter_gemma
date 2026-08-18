@@ -208,6 +208,18 @@ Why the old rule was believable and still wrong: a fresh LiteRT-LM build genuine
 
 Both looked like clean regressions at a version boundary, because they were: the boundary is where upstream finally touched the code the frozen artifact depended on. **Verify a bisection's conclusion, not just its measurement** — "v0.13.1 works, v0.14.0 crashes" is a true measurement that says nothing about whose change is at fault when one input to the comparison never moved.
 
+**The OpenVino runtime half is now asserted, in both Windows workflows.** They read the build string the SDK declares in `runtime/version.txt` and compare it against the string embedded in the `openvino.dll` being staged, throwing on mismatch — and throwing just as loudly when either side is unreadable or malformed, because a check that passes on missing data is indistinguishable from one that verified something.
+
+Be precise about what that does and does not buy, because the first version of this note was not:
+
+- **It asserts internal consistency, not the pin.** Both sides come out of the same Bazel-fetched `$ovRoot`, so no *input* can currently make it fail — only a future edit that stages either side from somewhere else. That is anti-regression value, not detection of an upstream SDK bump.
+- **It does not cover the dispatch.** `LiteRtDispatch.dll` is copied from `bazel-bin` and embeds no version string, so the half of the pair that actually broke in #3217 is still only verified by check #9 on real silicon.
+- **It cannot catch a hand-staged bundle.** `Copy-Item -Force` overwrites `artifacts\` from `$ovRoot` immediately before the check, so anything placed there by hand is gone before it could be tested.
+
+**Put it in both workflows.** `build-litertlm-native-windows.yml` is fast iteration and ends at `upload-artifact`; `build-litertlm-native.yml` carries the `publish-release` job that creates the `native-v*` tag users fetch. A check added only to the first protects nothing that ships — which is exactly the mistake this paragraph originally shipped with.
+
+**Android has no equivalent, and cannot have one.** The QNN `.so`s are `cp`'d straight out of the Bazel-fetched QAIRT SDK, so there is nothing to pair them against — no second copy, no version string to compare. `build_qualcomm_dispatch.sh` asserts each one is **present** (`[ -f "$src" ] || exit 1`, a real gate) and then only **prints** its size with `printf`; that print is not a comparison and must not be counted as one. The actual coverage for Android is the on-device run (check #9).
+
 **The QNN runtime `.so`s must be refreshed with the dispatch, not carried forward.** They are not compiled from source — they come out of the QAIRT SDK — which makes "just keep the old ones" look safe. It is not: the dispatch you build negotiates an **API version** with them, and ours drifted into
 
 ```
@@ -529,8 +541,8 @@ And beware the Espresso idle timeout: `Could not launch intent within 45000 ms` 
 | 9 | `RTLD_DEFAULT` undeclared on glibc — needs `_GNU_SOURCE` before every include | CI Linux job (macOS compiles it happily) | **caught in CI** at v0.15.0 |
 | 10 | v0.15.0 changed `LiteRtLmStreamCallback` 4-arg → 2-arg, no compat overload | ACCESS_VIOLATION (Windows) / malformed UTF-8 (macOS) at first token | **caught pre-publish** at v0.15.0 |
 | 11 | `--define=litert_link_capi_so=true` deleted upstream — inert, statically linked runtime → Windows GPU `engine_create` crash | Grep the define in the tree being built | v0.14.0 → v0.16.0, **misfiled upstream as #2957** |
-| 12 | Intel NPU dispatch carried forward at OpenVino 2026.2.0 against a pin requiring 2026.3.0 | Build the dispatch from the pin | v0.11.0-b → v0.16.0, **misfiled upstream as #3217** |
-| 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt, **device verification pending** |
+| 12 | Intel NPU dispatch carried forward at OpenVino 2026.2.0 against a pin requiring 2026.3.0 | Build the dispatch from the pin; CI asserts the staged `openvino.dll` matches the SDK's `version.txt` | v0.11.0-b → v0.16.0, **misfiled upstream as #3217** |
+| 13 | Qualcomm dispatch hardcoded to LiteRT `5c5b9ce6` — SIGSEGV in `LiteRtDestroyOptions`, and `-gcc-toolchain` when rebuilt | Derive `LITERT_REF` from WORKSPACE; check #9 on device | native-v0.12.0 → v0.16.0; rebuilt and **verified on Snapdragon 8 Elite via QDC** at v0.16.0 |
 | 14 | Blanket copy of OpenVino `runtime\bin` ships debug DLLs (`openvinod.dll`) beside release | Explicit allow-list + `throw` on missing | caught pre-publish at v0.16.0 |
 | 15 | QNN runtime libs left at an old QAIRT while the dispatch moved — `Qnn System library version 1.8.0 is mismatched` | Check #9 on device; compare file sizes against the SDK | native-v0.12.0 → v0.16.0, **caught on device** |
 

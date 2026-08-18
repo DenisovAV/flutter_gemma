@@ -42,9 +42,18 @@ WANT_COVERAGE=0
 # gated on $VEC0_DYLIB being set — which it never was — so a suite that had
 # never once executed looked exactly like a suite that passed.
 if [[ -z "${VEC0_DYLIB:-}" ]]; then
+  _vec0_base="packages/flutter_gemma_rag_sqlite/native/sqlite_vec/prebuilt"
   case "$(uname -s)" in
-    Darwin) _vec0_rel="packages/flutter_gemma_rag_sqlite/native/sqlite_vec/prebuilt/macos_arm64/libvec0.dylib" ;;
-    Linux)  _vec0_rel="packages/flutter_gemma_rag_sqlite/native/sqlite_vec/prebuilt/linux_x86_64/libvec0.so" ;;
+    Darwin) _vec0_rel="$_vec0_base/macos_arm64/libvec0.dylib" ;;
+    # Both linux_x86_64 and linux_arm64 ship, so ask uname -m rather than
+    # assuming: on an arm64 host the x86_64 file exists and would be exported,
+    # handing every suite an incompatible ELF.
+    Linux)
+      case "$(uname -m)" in
+        aarch64|arm64) _vec0_rel="$_vec0_base/linux_arm64/libvec0.so" ;;
+        *)             _vec0_rel="$_vec0_base/linux_x86_64/libvec0.so" ;;
+      esac
+      ;;
     *)      _vec0_rel="" ;;
   esac
   if [[ -n "$_vec0_rel" && -f "$_vec0_rel" ]]; then
@@ -55,25 +64,16 @@ if [[ -z "${VEC0_DYLIB:-}" ]]; then
   fi
 fi
 
-# flutter_gemma_speech's nine qwen3 suites load real Qwen3-TTS graphs from a
-# HuggingFace snapshot on disk (~GBs) and check their output against PyTorch
-# goldens. They carry `@Tags(['qwen3-artifacts'])` — but until now no
-# dart_test.yaml existed anywhere, so that tag was a label nothing acted on and
-# the suites ran everywhere, failing wherever the snapshot is absent.
+# NOTE, so nobody re-adds it: an earlier revision of this script excluded
+# flutter_gemma_speech's `qwen3-artifacts` tag whenever the HuggingFace model
+# snapshot was absent, on the assumption that those suites would otherwise fail
+# in CI. That assumption was never tested and is false — the suites check for
+# the snapshot themselves and call markTestSkipped. Measured with
+# QWEN3_MODEL_DIR=/definitely/not/here: exit 0, 52 passed, 14 skipped, 0 failed.
 #
-# Exclude them only when the snapshot is genuinely missing, and say so with a
-# count. A skip that is checked, reported and reversible is honest; a skip that
-# reads like a pass is the failure this whole file exists to prevent.
-QWEN3_DIR="${QWEN3_MODEL_DIR:-$HOME/.cache/huggingface/hub/models--litert-community--Qwen3-TTS-12Hz-0.6B-Base}"
-if [[ -d "$QWEN3_DIR" ]]; then
-  QWEN3_ARGS=""
-  echo "==> qwen3 model snapshot found; running the tagged suites too"
-else
-  QWEN3_ARGS="--exclude-tags qwen3-artifacts"
-  echo "==> qwen3 model snapshot NOT at $QWEN3_DIR"
-  echo "    excluding tag 'qwen3-artifacts' (9 suites). Set \$QWEN3_MODEL_DIR"
-  echo "    or fetch litert-community/Qwen3-TTS-12Hz-0.6B-Base to run them."
-fi
+# The exclusion therefore fixed no failure, replaced 14 itemised skips with
+# invisible non-runs, and silenced 9 suites that execute perfectly well without
+# artifacts. Removed. Let the suites decide; they already know how.
 
 fail=0 tested=0 untested=0 total=0
 summary=""
@@ -83,7 +83,12 @@ for dir in packages/*/; do
   [[ -f "${dir}pubspec.yaml" ]] || continue
   total=$((total + 1))
 
-  if ! find "${dir}test" -name '*_test.dart' 2>/dev/null | grep -q .; then
+  # `-print -quit` rather than piping to `grep -q`: under `pipefail`, once
+  # find's output exceeds the pipe buffer grep exits first, find dies on
+  # SIGPIPE, and the poisoned pipeline reports "no tests" for a package that
+  # has them. Reproducible at ~1.3 MB of find output; today's largest package
+  # is 46 files, so it is latent — and it grows with the repo.
+  if [[ -z "$(find "${dir}test" -name '*_test.dart' -print -quit 2>/dev/null)" ]]; then
     summary="${summary}  --  ${pkg}: no test/ directory"$'\n'
     untested=$((untested + 1))
     continue
@@ -97,15 +102,11 @@ for dir in packages/*/; do
   # ships bash 3.2, where `set -u` plus an EMPTY array expansion is an
   # "unbound variable" error. CI runs bash 5 and would never have shown it —
   # this script is meant to be run locally too.
-  extra=""
-  [[ "$pkg" == "flutter_gemma_speech" ]] && extra="$QWEN3_ARGS"
-
   echo "::group::flutter test — $pkg"
   if [[ $WANT_COVERAGE -eq 1 && "$pkg" == "flutter_gemma" ]]; then
     (cd "$dir" && flutter test --coverage)
   else
-    # $extra unquoted on purpose — it is either empty or two bare words.
-    (cd "$dir" && flutter test $extra)
+    (cd "$dir" && flutter test)
   fi
   rc=$?
   echo "::endgroup::"

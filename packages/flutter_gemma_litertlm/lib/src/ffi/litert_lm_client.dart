@@ -271,6 +271,11 @@ class LiteRtLmFfiClient {
   bool _isInitialized = false;
   String? _nativeLogPath;
 
+  /// Backend the engine was initialised with, as the wire string ('cpu' /
+  /// 'gpu' / 'npu'). Read only to warn that the NPU executor discards sampler
+  /// params — it must never gate what we send again.
+  String? _backend;
+
   /// Conversation creates currently suspended across an `await`.
   ///
   /// `litert_lm_conversation_create` runs on a spawned isolate, so the calling
@@ -655,6 +660,7 @@ class LiteRtLmFfiClient {
   }) async {
     final initSw = Stopwatch()..start();
     _ensureBindings();
+    _backend = backend;
     final bindingsMs = initSw.elapsedMilliseconds;
     gemmaLog('[LiteRtLmFfi/perf] _ensureBindings: ${bindingsMs}ms');
     // Log the resolved per-encoder backends: vision/audio default to CPU
@@ -980,14 +986,22 @@ class LiteRtLmFfiClient {
 
     // Sampler params go to every backend, NPU included.
     //
-    // Measured 2026-05-14 against LiteRT-LM 032334d8: NPU rejected them.
-    // GetSamplerBackend() assigned the executor backend straight through
-    // (`sampler_backend = backend`) and then required CPU or GPU, so any
-    // sampler param on an NPU engine failed. We skipped the setter chain.
-    // Re-measured 2026-08-15 against the shipped v0.16.0 (924e79c9) on Intel
-    // Lunar Lake NPU: upstream now maps `backend == NPU ? CPU : backend`, the
-    // params are accepted, and the failure is structurally impossible. Guard
-    // removed. Re-measure — do not re-reason — if the pin moves.
+    // We used to skip this whole chain when the backend was NPU, citing a May
+    // measurement against LiteRT-LM 032334d8 where GetSamplerBackend() did
+    // `sampler_backend = backend` and then required CPU or GPU.
+    //
+    // Traced at the shipped pin v0.16.0 (924e79c9), that reason was never the
+    // operative one: `GetSamplerBackend(LlmExecutorSettings)` is only reachable
+    // from LlmLiteRtCompiledModelExecutorBase, and the NPU executor
+    // (LlmLiteRtNpuCompiledModelExecutor) does not derive from it. The real
+    // situation is simpler and worse — the NPU executor stores sampler_params_
+    // and never reads it; every Decode() path calls ApplyGreedySampling, a
+    // plain argmax. So NPU accepts the params because it discards them.
+    //
+    // Sending them anyway is harmless and correct the day upstream implements
+    // NPU sampling. But the caller must not be left thinking they took effect,
+    // which is why the warning below exists — dropping the old guard also
+    // dropped the only signal the user had.
     //
     // Sampler TYPE is a separate question: at 5e0d86b only TopP (=2) was
     // implemented at engine level, with types 1 (TopK) and 3 (Greedy) rejected
@@ -1001,6 +1015,20 @@ class LiteRtLmFfiClient {
     b.litert_lm_sampler_params_set_seed(samplerParams, seed);
     b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
     b.litert_lm_sampler_params_delete(samplerParams);
+
+    // The NPU executor argmaxes regardless of what we just set, so tell the
+    // caller rather than letting them believe a seed or temperature took hold.
+    // Only when they asked for something other than the greedy default —
+    // warning on every NPU session would train people to ignore it.
+    if (_backend == 'npu' &&
+        (temperature != 0.8 || topK != 40 || topP != null || seed != 1)) {
+      gemmaLog(
+        '[LiteRtLmFfi] NPU backend: sampler params (temperature=$temperature, '
+        'topK=$topK, topP=$topP, seed=$seed) are sent but the NPU executor '
+        'samples greedily and never reads them — output is deterministic '
+        'argmax. Use PreferredBackend.cpu or .gpu if you need sampling.',
+      );
+    }
 
     // Optional per-session cap on how many tokens are *generated* (output),
     // independent of the engine's context window (maxTokens / KV-cache). This
@@ -1774,6 +1802,7 @@ class LiteRtLmFfiClient {
     _liveConvs.clear();
 
     _isInitialized = false;
+    _backend = null;
     _isShuttingDown = false;
   }
 

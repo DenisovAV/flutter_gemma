@@ -96,12 +96,23 @@ for new in "$DIST_DIR"/litertlm-*.tar.gz; do
   fi
 
   checked=$((checked + 1))
-  # Strip the tar dir entry (`.` from `tar -C dir .` layout) and blanks — they
-  # aren't files. Without this, a `./`-prefixed archive yields a spurious
-  # "MISSING: ." against a non-`./` one (the two layouts list the dir slot
-  # differently). basename of "./" is "." → filtered here.
-  old_list="$(tar -tzf "$PREV_DL/$base" | xargs -n1 basename | grep -vE '^\.?$' | sort -u)"
-  new_list="$(tar -tzf "$new"           | xargs -n1 basename | grep -vE '^\.?$' | sort -u)"
+  # Normalise a leading `./` (the `tar -C dir .` layout) and drop directory
+  # entries and blanks — they aren't files. Without the normalisation a
+  # `./`-prefixed archive diffs wholesale against a non-`./` one.
+  #
+  # Compare FULL PATHS, not basenames. `xargs -n1 basename` used to flatten the
+  # tree, so `./libQnnHtp.so` -> `./nested/libQnnHtp.so` read as "no files
+  # dropped" plus a reassuring "new files (ok): nested" — while the hook's flat
+  # extraction would no longer find it. A relocation is a drop.
+  _list() {
+    tar -tzf "$1" \
+      | sed 's|^\./||' \
+      | grep -vE '/$' \
+      | grep -vE '^\.?$' \
+      | sort -u
+  }
+  old_list="$(_list "$PREV_DL/$base")"
+  new_list="$(_list "$new")"
 
   # Files in OLD but not in NEW = dropped.
   dropped="$(comm -23 <(printf '%s\n' "$old_list") <(printf '%s\n' "$new_list"))"
@@ -130,6 +141,23 @@ for new in "$DIST_DIR"/litertlm-*.tar.gz; do
 
   [[ $local_fail -eq 1 ]] && fail=1
 done
+
+# The loop above walks the NEW tarballs, so a platform that vanished entirely
+# is invisible to it: pack only windows when the previous tag had windows and
+# android, and it reports "1 platform(s) compared" and exits 0. That is the same
+# defect the gate exists to catch, one level up — "android was never rebuilt"
+# instead of "a file inside android went missing". Walk the other direction too.
+missing_plat=0
+while IFS= read -r asset; do
+  [[ "$asset" == litertlm-*.tar.gz ]] || continue
+  if [[ ! -e "$DIST_DIR/$asset" ]]; then
+    plat="${asset#litertlm-}"; plat="${plat%.tar.gz}"
+    echo "  [FAIL] $plat — '$asset' is in $PREV_TAG but was not packed at all."
+    echo "         The platform was not rebuilt, or packing skipped it."
+    missing_plat=1
+  fi
+done <<< "$prev_assets"
+[[ $missing_plat -eq 1 ]] && fail=1
 
 echo
 if [[ $checked -eq 0 ]]; then

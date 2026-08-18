@@ -14,8 +14,8 @@ abstract final class AgentToolNames {
   /// `loadSkill(skillName)` — pull a skill's full SKILL.md instructions.
   static const loadSkill = 'loadSkill';
 
-  /// `runSkill(skillName, scriptName, data)` — run a JS skill's script
-  /// (Gallery's `runJs`).
+  /// `runSkill(skillName, data)` — run a JS skill's script (Gallery's `runJs`,
+  /// minus its `scriptName`: the script comes from the skill's own SKILL.md).
   static const runSkill = 'runSkill';
 
   /// `runIntent(intent, parameters)` — fire a native OS intent.
@@ -46,9 +46,13 @@ const Tool loadSkillTool = Tool(
   },
 );
 
-/// `runSkill(skillName, scriptName, data)` — run a JavaScript skill's script in a
-/// sandboxed webview (Gallery's `runJs`). The script exposes
+/// `runSkill(skillName, data)` — run a JavaScript skill's script in a sandboxed
+/// webview (Gallery's `runJs`). The script exposes
 /// `window.ai_edge_gallery_get_result(data, secret)`.
+///
+/// Which script runs is the skill's decision, not the model's: [AgentLoop]
+/// looks the skill up in the registry and [JsSkillExecutor] resolves it via
+/// [Skill.scriptName], parsed from SKILL.md.
 const Tool runSkillTool = Tool(
   name: AgentToolNames.runSkill,
   description: 'Runs a JS script for a skill.',
@@ -56,11 +60,13 @@ const Tool runSkillTool = Tool(
     'type': 'object',
     'properties': {
       'skillName': {'type': 'string', 'description': 'The name of the skill.'},
-      'scriptName': {
-        'type': 'string',
-        'description':
-            "The script name to run. Use 'index.html' if not provided by user.",
-      },
+      // No `scriptName` here, deliberately. Gallery's schema has one, but which
+      // script a skill runs is decided by the skill's own SKILL.md (parsed into
+      // `Skill.scriptName`, defaulting to index.html) and resolved by
+      // `JsSkillExecutor.sourceFor` — the model's answer was never read. Asking
+      // for it made the model invent a filename to satisfy a required field,
+      // and honouring one would let it name any file under the skill's
+      // scripts/ directory, which the SKILL.md value cannot.
       'data': {
         'type': 'string',
         'description':
@@ -68,7 +74,7 @@ const Tool runSkillTool = Tool(
             'string if not provided by user.',
       },
     },
-    'required': ['skillName', 'scriptName', 'data'],
+    'required': ['skillName', 'data'],
   },
 );
 

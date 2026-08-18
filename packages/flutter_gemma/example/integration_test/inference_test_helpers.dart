@@ -10,7 +10,6 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -23,8 +22,11 @@ void initIntegrationTest() {
 /// the tests need.
 ///
 /// As of 1.0, `.litertlm` inference and LiteRT embeddings are provided by the
-/// `flutter_gemma_litertlm` / `flutter_gemma_embeddings` packages, NOT core;
-/// on-device STT is provided by `flutter_gemma_speech`. The integration tests
+/// `flutter_gemma_litertlm` package (embedder decoupling, 1.5.0: the
+/// `LiteRtEmbeddingBackend` moved there from `flutter_gemma_embeddings`,
+/// which is now a runtime-agnostic pipeline with no concrete backend of its
+/// own), NOT core; on-device STT is provided by `flutter_gemma_speech`. The
+/// integration tests
 /// drive the SDK directly, so each test must register the providers via the
 /// public `FlutterGemma.initialize` opt-in API. Registration is idempotent
 /// (the registry dedups by instance), so calling this in every `setUpAll` —

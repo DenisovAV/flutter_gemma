@@ -41,18 +41,16 @@ register their providers in `FlutterGemma.initialize()`.
 
 | Package | Provider | Add it when you use… |
 |---|---|---|
-| `flutter_gemma_litertlm` | `LiteRtLmEngine()` | `.litertlm` models (Gemma 4, desktop) |
+| `flutter_gemma_litertlm` | `LiteRtLmEngine()`, `LiteRtEmbeddingBackend()` | `.litertlm` models (Gemma 4, desktop) and/or text embeddings (EmbeddingGemma) |
 | `flutter_gemma_mediapipe` | `MediaPipeEngine()` | `.task` / `.bin` models (Gemma 3, mobile/web) |
-| `flutter_gemma_embeddings` | `LiteRtEmbeddingBackend()` | text embeddings (EmbeddingGemma) |
 
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
   genkit_flutter_gemma: ^0.4.3
-  flutter_gemma: ^1.5.8
-  flutter_gemma_litertlm: ^1.4.1   # only the engines/backends you actually use
+  flutter_gemma: ^1.5.9
+  flutter_gemma_litertlm: ^1.5.0   # only the engines/backends you actually use
   flutter_gemma_mediapipe: ^1.0.4
-  flutter_gemma_embeddings: ^1.0.4
 ```
 
 ```dart
@@ -71,7 +69,6 @@ await FlutterGemma.initialize(
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
 // Engines/backends are opt-in (see Setup) — register the ones you need.
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:genkit/genkit.dart';
@@ -233,7 +230,7 @@ for (final embedding in embeddings) {
 
 ## Known Limitations
 
-- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm`, `flutter_gemma_mediapipe` for `.task`/`.bin`, `flutter_gemma_embeddings` for embeddings) and register their providers in `FlutterGemma.initialize()` before using the plugin.
+- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm` and/or embeddings, `flutter_gemma_mediapipe` for `.task`/`.bin`) and register their providers in `FlutterGemma.initialize()` before using the plugin.
 - **Model installation**: The plugin does NOT manage model installation. The host app must install models via `FlutterGemma.installModel()` and embedders via `FlutterGemma.installEmbedder()` before using the plugin.
 - **System role**: System messages are passed natively via `createChat(systemInstruction:)` (requires flutter_gemma ^0.13.0). Only text content is supported in system messages.
 - **Thinking mode**: Requires `.litertlm` model format. Supported on Android, iOS, and Desktop. Not supported on Web.

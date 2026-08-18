@@ -39,6 +39,40 @@ abstract class EmbeddingForwardPass {
 
   /// Free native resources. Must be safe to call multiple times.
   Future<void> close();
+
+  /// Output embedding dimension. Valid only after [load] completes.
+  int get outputDimension;
+
+  /// Sequence length the model was compiled/loaded for, if the engine knows
+  /// it ahead of a forward pass (e.g. LiteRT auto-detects it from the
+  /// compiled model's input tensor layout). `null` when the engine has no
+  /// fixed input length to report (e.g. a dynamic-shape ONNX graph) — the
+  /// worker's `_Ready` handshake falls back to `-1` in that case.
+  int? get inputSequenceLength => null;
+}
+
+/// How to turn a [ForwardResult] into the final embedding vector.
+///
+/// The dispatch MUST be on this enum, never on [ForwardResult.shape] — a
+/// rank-2 `[1, dim]` result from an engine that already pools+normalizes
+/// internally (LiteRT) must NOT be routed through `meanPoolAndNormalize` a
+/// second time (that would silently add an L2-normalize the LiteRT path
+/// never had — see this file's module doc / the embedder decoupling plan's
+/// Invariant I0). `meanPoolAndNormalize` lives in `pooling.dart` and is
+/// applied by the generalized worker (`embedding_worker.dart`) based on this
+/// contract.
+enum EmbeddingOutputContract {
+  /// [ForwardResult] IS the final embedding already — copy `values` verbatim
+  /// (`List<double>.of(result.values)`). No pooling, no normalization.
+  /// Used by LiteRT: whatever pooling/normalization exists is baked into the
+  /// compiled `.tflite` graph and is opaque to Dart.
+  pooledFinal,
+
+  /// [ForwardResult] is `[1, seq, dim]` per-token hidden states. Apply
+  /// `meanPoolAndNormalize` (mean-pool over `seq`, then L2-normalize) to get
+  /// the final embedding. Used by engines (e.g. ONNX) that expose raw
+  /// hidden states rather than a pooled output.
+  tokenLevel,
 }
 
 /// Raw forward-pass output: a flat, row-major buffer plus its tensor shape.
@@ -107,6 +141,7 @@ class ForwardPassDescriptor {
     required this.engineTag,
     required this.modelPath,
     required this.factory,
+    required this.outputContract,
   });
 
   /// Human-readable engine identifier for diagnostics (e.g. `'LiteRT-LM'`,
@@ -122,4 +157,10 @@ class ForwardPassDescriptor {
   /// Top-level factory tear-off (see [EmbeddingForwardPassFactory]) that
   /// builds the forward pass inside the receiving isolate.
   final EmbeddingForwardPassFactory factory;
+
+  /// How the worker must turn this engine's [ForwardResult] into the final
+  /// embedding — see [EmbeddingOutputContract]. A plain enum value, so it
+  /// stays trivially sendable across the isolate boundary alongside the rest
+  /// of this descriptor.
+  final EmbeddingOutputContract outputContract;
 }

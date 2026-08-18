@@ -44,6 +44,12 @@ class _IsolateFakeForwardPass implements EmbeddingForwardPass {
 
   @override
   Future<void> close() async {}
+
+  @override
+  int get outputDimension => 1;
+
+  @override
+  int? get inputSequenceLength => null;
 }
 
 /// Top-level factory tear-off. MUST be top-level/static (see
@@ -81,6 +87,7 @@ void main() {
       engineTag: 'FakeEngine',
       modelPath: '/tmp/fake-model.onnx',
       factory: _buildIsolateFake,
+      outputContract: EmbeddingOutputContract.pooledFinal,
     );
 
     final receivePort = ReceivePort();

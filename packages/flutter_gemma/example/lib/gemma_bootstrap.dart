@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';

@@ -40,6 +40,12 @@ class _FakeForwardPass implements EmbeddingForwardPass {
   Future<void> close() async {
     closed = true;
   }
+
+  @override
+  int get outputDimension => 0;
+
+  @override
+  int? get inputSequenceLength => null;
 }
 
 double _l2Norm(List<double> v) =>

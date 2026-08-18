@@ -19,3 +19,10 @@ export 'src/litert_lm_engine_web.dart'
 // the web stub exports no symbols (web leaves use their own JS arm).
 export 'src/ffi/litert_bindings_stub.dart'
     if (dart.library.ffi) 'src/ffi/litert_bindings.dart';
+
+// LiteRT embedding backend (`LiteRtEmbeddingBackend`) — moved from
+// flutter_gemma_embeddings (embedder decoupling, 1.5.0). Native arm builds a
+// `ForwardPassDescriptor` over the LiteRT C API forward pass; web arm builds
+// the LiteRT.js-backed `WebEmbeddingModel` directly.
+export 'src/embedding/litert_embedding_backend_web.dart'
+    if (dart.library.ffi) 'src/embedding/litert_embedding_backend.dart';

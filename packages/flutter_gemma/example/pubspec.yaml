@@ -64,14 +64,20 @@ dependencies:
 # (`^1.0.0-rc.1`) for publishing. This example consumes the local source, so
 # override flutter_gemma to the local path — this resolves the path-vs-hosted
 # conflict (every package, including the siblings, resolves core from source).
-# Same conflict for flutter_gemma_litertlm now that flutter_gemma_embeddings
-# declares a hosted dependency on it (Task 1.4 consolidation).
+# Same conflict for flutter_gemma_litertlm (flutter_gemma_speech declares a
+# hosted dependency on it) and, since the embedder decoupling refactor
+# (litertlm 1.5.0 / embeddings 2.0.0), for flutter_gemma_embeddings too:
+# flutter_gemma_litertlm now declares a hosted dependency on
+# flutter_gemma_embeddings (D3 edge — the direction flipped from the
+# pre-2.0.0 shape, where embeddings hosted-depended on litertlm).
 # Overrides only apply to this example; they are ignored for published packages.
 dependency_overrides:
   flutter_gemma:
     path: ../
   flutter_gemma_litertlm:
     path: ../../flutter_gemma_litertlm
+  flutter_gemma_embeddings:
+    path: ../../flutter_gemma_embeddings
   flutter_markdown: ^0.7.1
   url_launcher: ^6.3.1
   http: ^1.3.0

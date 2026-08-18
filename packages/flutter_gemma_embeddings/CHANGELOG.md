@@ -1,3 +1,6 @@
+## 2.0.0
+- BREAKING: runtime-agnostic embedder; `LiteRtEmbeddingBackend` moved to flutter_gemma_litertlm.
+
 ## 1.0.4
 - internal: run on the flutter_gemma_litertlm LiteRT engine (no API change).
 

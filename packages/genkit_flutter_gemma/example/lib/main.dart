@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 
@@ -70,9 +69,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Genkit Flutter Gemma'),
-      ),
+      appBar: AppBar(title: const Text('Genkit Flutter Gemma')),
       body: IndexedStack(
         index: _currentIndex,
         children: [
@@ -88,7 +85,9 @@ class _HomePageState extends State<HomePage> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.chat), label: 'Chat'),
           NavigationDestination(
-              icon: Icon(Icons.data_array), label: 'Embeddings'),
+            icon: Icon(Icons.data_array),
+            label: 'Embeddings',
+          ),
           NavigationDestination(icon: Icon(Icons.build), label: 'Tools'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],

@@ -5,7 +5,6 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:genkit/genkit.dart';

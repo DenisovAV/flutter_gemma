@@ -1,3 +1,6 @@
+## 1.5.0
+- Add LiteRT embedding forward-pass + `LiteRtEmbeddingBackend` (moved from flutter_gemma_embeddings).
+
 ## 1.4.2
 - fix: vision + audio encoders default to CPU (fixes GPU vision hard-fail on Metal/WebGPU); overridable.
 

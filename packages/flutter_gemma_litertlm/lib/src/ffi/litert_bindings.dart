@@ -262,24 +262,61 @@ class LiteRtRankedTensorTypeView {
 
 // ----- Dynamic library resolution --------------------------------------------
 
+/// Checked-out or cached `libLiteRtLm.dylib`, for running outside an app
+/// bundle (`flutter test` on the host).
+///
+/// This used to be a single path built as
+/// `${Directory.current.path}/native/litert_lm/prebuilt/...`, which is only
+/// right when the current directory happens to BE flutter_gemma_litertlm.
+/// `flutter_gemma_speech` and `flutter_gemma_embeddings` bind these same
+/// symbols, and running their suites from their own package directory pointed
+/// the lookup at a `native/` tree that does not exist there. The resulting
+/// error named a path and said "not found", so it read as "the native library
+/// was never built" rather than "I looked in the wrong place" — and 9 speech
+/// tests sat red under that misreading.
+///
+/// So: walk UP to the workspace root instead of assuming it, then fall back to
+/// the Native Assets hook cache.
+Iterable<String> _devLiteRtLmCandidates() sync* {
+  const rel = 'native/litert_lm/prebuilt/macos_arm64/libLiteRtLm.dylib';
+
+  var dir = Directory.current.absolute;
+  for (var hop = 0; hop < 8; hop++) {
+    yield '${dir.path}/packages/flutter_gemma_litertlm/$rel';
+    yield '${dir.path}/$rel';
+    final parent = dir.parent;
+    if (parent.path == dir.path) break;
+    dir = parent;
+  }
+
+  final home = Platform.environment['HOME'];
+  if (home != null && home.isNotEmpty) {
+    yield '$home/Library/Caches/flutter_gemma/native/macos_arm64/libLiteRtLm.dylib';
+  }
+}
+
 DynamicLibrary _openLiteRt() {
   if (Platform.isMacOS || Platform.isIOS) {
     // libLiteRt is statically linked into LiteRtLm.framework on Apple
     // platforms; both LiteRtLm and LiteRt symbols are exported from the
     // same dylib. The `@executable_path/../Frameworks/...` path resolves
-    // at runtime; for `dart test` outside an app bundle we fall back to
-    // the path-dep prebuilt.
-    final candidates = <String>[
-      'LiteRtLm.framework/LiteRtLm',
-      '${Directory.current.path}/native/litert_lm/prebuilt/macos_arm64/libLiteRtLm.dylib',
-    ];
-    for (final p in candidates) {
-      try {
-        return DynamicLibrary.open(p);
-      } catch (_) {}
+    // at runtime; outside an app bundle we fall back to a dev prebuilt.
+    const bundled = 'LiteRtLm.framework/LiteRtLm';
+    try {
+      return DynamicLibrary.open(bundled);
+    } catch (_) {}
+
+    final tried = <String>[bundled];
+    for (final p in _devLiteRtLmCandidates()) {
+      tried.add(p);
+      // Existence-check first so the thrown message can distinguish "no such
+      // file" from "found it but it would not load".
+      if (!File(p).existsSync()) continue;
+      return DynamicLibrary.open(p);
     }
     throw UnsupportedError(
-      'LiteRtLm framework/dylib not found in any of: ${candidates.join(", ")}',
+      'LiteRtLm framework/dylib not found. Tried (cwd: '
+      '${Directory.current.path}): ${tried.join(", ")}',
     );
   }
   if (Platform.isAndroid) return DynamicLibrary.open('libLiteRtLm.so');

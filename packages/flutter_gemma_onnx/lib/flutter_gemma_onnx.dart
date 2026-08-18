@@ -1,14 +1,15 @@
 /// ONNX Runtime on-device engines for flutter_gemma: text generation
-/// (`OnnxEngine`, scaffold) and embeddings (`OnnxEmbeddingBackend`,
-/// productionized — Phase 2).
+/// (`OnnxEngine`, macOS-first host arm — Phase 3) and embeddings
+/// (`OnnxEmbeddingBackend`, productionized — Phase 2).
 ///
 /// Opt-in. Add to pubspec.yaml and pass instances to
 /// `FlutterGemma.initialize(...)`.
 ///
-/// **Inference (`OnnxEngine`) — scaffold only (v1 slice)** — see
-/// [OnnxEngine]'s doc comment: identity + `canHandle` work, `createModel`
-/// throws `UnimplementedError` pending the device generation-throughput
-/// go/no-go gate.
+/// **Inference (`OnnxEngine`) — macOS-first host arm (v1 slice)** — see
+/// [OnnxEngine]'s doc comment: text-only, greedy decoding, one session at a
+/// time, over ORT-GenAI via `dart:ffi` (`GenAiFfiClient`, a long-lived
+/// worker isolate — no FFI handle ever crosses an isolate boundary).
+/// Android/iOS device work stays behind the D2 throughput/RAM go/no-go gate.
 ///
 /// **Embeddings (`OnnxEmbeddingBackend`) — productionized (Phase 2)**: a
 /// plain ONNX Runtime forward pass (`dart:ffi`, no ORT GenAI) over an
@@ -33,6 +34,10 @@
 library;
 
 export 'src/onnx_engine.dart';
+export 'src/onnx_inference_model.dart';
+export 'src/onnx_session.dart';
+export 'src/ffi/gen_ai_client.dart'
+    show GenAiClient, GenAiFfiClient, GenAiTurn, GenAiGenerationStats;
 export 'src/embedding/onnx_embedding_backend.dart';
 
 // Exposed for advanced/test use — direct construction of the pass or a

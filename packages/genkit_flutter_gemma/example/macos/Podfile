@@ -64,10 +64,26 @@ post_install do |installer|
         # Wrap each upstream dylib into a .framework bundle inside the app's
         # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
         # (the path our patched gpu_registry.cc uses) resolves at runtime.
-        PLUGIN_PREBUILT="${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64"
-        if [ ! -d "${PLUGIN_PREBUILT}" ]; then
-          # Fallback: maybe flutter_gemma was added via path: dependency
-          PLUGIN_PREBUILT="${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"
+        # Both former candidates here were dead: a .symlinks/plugins path
+        # (flutter_gemma_litertlm declares no macOS plugin, so Flutter makes no
+        # symlink for it) and flutter_gemma/native (the prebuilts moved to
+        # flutter_gemma_litertlm at the monorepo split). Neither ever matched,
+        # so this phase only printed WARNINGs and let the build continue with no
+        # companion frameworks — GPU then silently fell back to CPU.
+        for candidate in \
+            "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
+            "${SRCROOT}/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64"; do
+          if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
+            PLUGIN_PREBUILT="${candidate}"
+            break
+          fi
+        done
+        if [ -z "${PLUGIN_PREBUILT:-}" ]; then
+          echo "[flutter_gemma] ERROR: Could not find macOS companion dylibs in either of:"
+          echo "  - $HOME/Library/Caches/flutter_gemma/native/macos_arm64/"
+          echo "  - $SRCROOT/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64/"
+          echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
+          exit 1
         fi
         for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
           src="${PLUGIN_PREBUILT}/lib${base}.dylib"

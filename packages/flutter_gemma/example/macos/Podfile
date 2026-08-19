@@ -109,26 +109,38 @@ post_install do |installer|
         #
         # Resolve the dylib source directory in this order:
         # 1. Native Assets cache — where hook/build.dart fetches them on
-        #    `flutter pub get`. This is the only location for pub.dev users
-        #    (the in-repo prebuilt/ is .gitignored AND .pubignored since
-        #    flutter_gemma 0.14.3, see #255).
-        # 2. Pub-cache symlink path — only populated for plugins added via
-        #    a git checkout that still tracks prebuilt/ (legacy).
-        # 3. Local path: dependency — the maintainer's repo.
+        #    `flutter pub get`. This is the ONLY source an installed app ever
+        #    sees: prebuilt/ is .gitignored and excluded from the pub package.
+        # 2. This repo's own prebuilt/, for working on the plugin itself with a
+        #    freshly built bundle and a cold cache.
+        #
+        # A third candidate used to sit between them, pointing at
+        # .symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/. It could
+        # never fire: flutter_gemma_litertlm declares no macOS plugin, so
+        # Flutter creates no symlink for it. The old candidate 2 was equally
+        # dead — it pointed at flutter_gemma/native/, which has not existed
+        # since the monorepo split moved the prebuilts into
+        # flutter_gemma_litertlm. Only candidate 1 ever ran, which is why
+        # nobody noticed until a cold cache made the macOS build fail outright.
+        #
+        # Note what candidate 2 above is and is not: prebuilt/ is .gitignored
+        # and .pubignore'd, so it never exists for an app installed from
+        # pub.dev — but it DOES exist in a source checkout where a maintainer
+        # ran native/litert_lm/build_macos.sh, and that is the only case it
+        # serves. Saying it is "absent everywhere" would make the candidate
+        # below look dead too.
         for candidate in \
             "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
-            "${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64" \
-            "${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"; do
+            "${SRCROOT}/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64"; do
           if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
             PLUGIN_PREBUILT="${candidate}"
             break
           fi
         done
         if [ -z "${PLUGIN_PREBUILT:-}" ]; then
-          echo "[flutter_gemma] ERROR: Could not find macOS companion dylibs in any of:"
+          echo "[flutter_gemma] ERROR: Could not find macOS companion dylibs in either of:"
           echo "  - \$HOME/Library/Caches/flutter_gemma/native/macos_arm64/"
-          echo "  - \$PODS_ROOT/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64/"
-          echo "  - \$SRCROOT/../../native/litert_lm/prebuilt/macos_arm64/"
+          echo "  - \$SRCROOT/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64/"
           echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
           exit 1
         fi

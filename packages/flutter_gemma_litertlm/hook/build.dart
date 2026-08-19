@@ -486,10 +486,16 @@ Future<Directory?> _downloadAndExtract(
   final archiveName = bundle.archiveName(dirName);
   final expectedChecksum = bundle.checksums[archiveName];
   if (expectedChecksum == null) {
-    // No checksum registered — silently skip (mirrors LiteRT-LM behavior for
-    // unsupported targets like android_x86_64). Build proceeds without this
-    // CodeAsset; runtime will fail at first use with a clear "no such file"
-    // dlopen error.
+    // No checksum registered — the ONLY legitimate reason this function
+    // returns null. Mirrors LiteRT-LM's behaviour for targets we ship nothing
+    // for (android_x86_64). The build proceeds without this CodeAsset and the
+    // runtime fails at first use with a clear "no such file" dlopen error.
+    //
+    // Every other failure below THROWS. A registered checksum is a promise
+    // that this platform is supported, so failing to produce the library is a
+    // broken build, not a skip — and a hook that returns null there completes
+    // successfully, ships an app with no native library, and surfaces as an
+    // opaque dlopen crash on the user's device (#316's shape).
     return null;
   }
 
@@ -512,10 +518,13 @@ Future<Directory?> _downloadAndExtract(
       final request = await client.getUrl(Uri.parse(url));
       final response = await request.close();
       if (response.statusCode != 200) {
-        stderr.writeln(
-          'flutter_gemma: Download failed (HTTP ${response.statusCode})',
+        throw StateError(
+          'flutter_gemma: could not download ${bundle.namespace} native libs '
+          'for $dirName — HTTP ${response.statusCode} from $url.\n'
+          'This platform HAS a registered checksum, so the archive is expected '
+          'to exist. Check network access to github.com, or that release tag '
+          '"${bundle.releaseTag}" still carries $archiveName.',
         );
-        return null;
       }
       final sink = archiveFile.openWrite();
       await response.pipe(sink);
@@ -526,11 +535,23 @@ Future<Directory?> _downloadAndExtract(
     final bytes = await archiveFile.readAsBytes();
     final actualChecksum = sha256.convert(bytes).toString();
     if (actualChecksum != expectedChecksum) {
-      stderr.writeln('flutter_gemma: Checksum mismatch for $archiveName!');
-      stderr.writeln('  Expected: $expectedChecksum');
-      stderr.writeln('  Actual:   $actualChecksum');
       archiveFile.deleteSync();
-      return null;
+      // An integrity failure has no benign reading, so this is the one case
+      // that must never degrade to "build succeeded". It means the bytes
+      // GitHub served are not the bytes this plugin version was built against
+      // — a re-uploaded tag (#316), a corrupted transfer, or a MITM. Shipping
+      // an app without the library, or with the wrong one, are both worse than
+      // failing here.
+      throw StateError(
+        'flutter_gemma: CHECKSUM MISMATCH for $archiveName.\n'
+        '  expected $expectedChecksum\n'
+        '  actual   $actualChecksum\n'
+        'The archive served by ${bundle.releaseBase} does not match what '
+        '${bundle.namespace} ${bundle.version} was pinned to. Re-run to rule '
+        'out a corrupt transfer; if it persists, the release asset was '
+        'replaced after publication and the pin can no longer be satisfied — '
+        'do NOT work around it by clearing the checksum.',
+      );
     }
     stderr.writeln('flutter_gemma: Checksum verified ($archiveName)');
 
@@ -548,10 +569,15 @@ Future<Directory?> _downloadAndExtract(
         tmpDir.path,
       ]);
       if (result.exitCode != 0) {
-        stderr.writeln(
-          'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}',
+        throw StateError(
+          'flutter_gemma: could not extract $archiveName for '
+          '${bundle.namespace} — tar exited ${result.exitCode}.\n'
+          '${result.stderr}\n'
+          'The download and its checksum both passed, so this is local: '
+          'disk space or permissions. (A MISSING tar cannot reach this branch '
+          'at all — Process.run raises ProcessException instead of returning a '
+          'non-zero code — so do not read this as "tar not installed".)',
         );
-        return null;
       }
       if (targetDir.existsSync()) targetDir.deleteSync(recursive: true);
       tmpDir.renameSync(targetDir.path); // atomic on same FS
@@ -563,10 +589,29 @@ Future<Directory?> _downloadAndExtract(
       'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}',
     );
     return targetDir;
-  } catch (e) {
-    stderr.writeln('flutter_gemma: ${bundle.namespace} download failed: $e');
+  } on StateError {
+    // Already carries a crafted message — clean up and let it through.
     if (archiveFile.existsSync()) archiveFile.deleteSync();
-    return null;
+    rethrow;
+  } catch (e) {
+    // Everything else, and this is the COMMON path: no network, DNS failure,
+    // a proxy or firewall refusing github.com, TLS interception, a 429. Those
+    // used to `return null` and now would surface as a bare SocketException
+    // with a 17-frame stack and no guidance — the four crafted messages above
+    // all cover rarer cases than this one.
+    if (archiveFile.existsSync()) archiveFile.deleteSync();
+    throw StateError(
+      'flutter_gemma: could not fetch ${bundle.namespace} native libs for '
+      '$dirName.\n'
+      '  $e\n'
+      'This platform is supported, so the build cannot continue without them.\n'
+      '  - No network / restricted egress? The archives come from '
+      'github.com/DenisovAV/flutter_gemma/releases (tag ${bundle.releaseTag}), '
+      'not from pub.dev, so mirroring pub is not enough.\n'
+      '  - Transient (GitHub 5xx or 429)? Re-run; there is no retry here.\n'
+      '  - Working on the plugin itself? A populated '
+      'native/litert_lm/prebuilt/$dirName/ is used before any download.',
+    );
   }
 }
 
@@ -650,12 +695,27 @@ Future<void> _processBundle({
 
   var libDir = _resolveLibDir(bundle, dirName, input.packageRoot, os);
   libDir ??= await _downloadAndExtract(bundle, dirName);
+  // Null now means one thing only: no checksum registered for this platform,
+  // i.e. we ship nothing for it on purpose. Every real failure throws.
   if (libDir == null) return;
 
   final prebuiltDir = libDir.uri;
   final mainFileName = _dylibFileName(os, bundle.mainLibName);
   final mainFileUri = prebuiltDir.resolve(mainFileName);
-  if (!File.fromUri(mainFileUri).existsSync()) return;
+  if (!File.fromUri(mainFileUri).existsSync()) {
+    // We got a directory — from the cache, a local prebuilt, or a verified
+    // download — and the one library the bundle exists to deliver is not in
+    // it. Returning here registered no CodeAsset and reported success, so a
+    // half-populated cache shipped as a working build.
+    throw StateError(
+      'flutter_gemma: ${bundle.namespace} $dirName resolved to '
+      '${prebuiltDir.toFilePath()} but $mainFileName is missing from it.\n'
+      'The directory is present but incomplete — most often a cache left over '
+      'from an interrupted extract. Delete it, then `flutter clean` and build '
+      'again. NOT `flutter pub get`: pub get does not run build hooks, so it '
+      'will not repopulate the cache (measured — output.json mtimes unchanged).',
+    );
+  }
 
   // Commit point: marker written only after the dylib is confirmed in place.
   // Gated on iAmRegistrant so a non-owner dedup never clobbers the owner.

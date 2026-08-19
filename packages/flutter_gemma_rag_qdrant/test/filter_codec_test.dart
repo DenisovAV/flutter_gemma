@@ -135,6 +135,170 @@ void main() {
     });
   });
 
+  group('a value that cannot inhabit the declared type matches nothing', () {
+    // The codec branched on the VALUE's runtime type while the write path
+    // stores the payload verbatim, so an off-type value still became a real
+    // predicate and could match an equally off-type stored value. sqlite gates
+    // both directions through coerceForColumn, so it answered []. One filter,
+    // two answers — the class this PR exists to remove.
+    test('a String against a number field', () {
+      expect(
+        FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'price', value: '10')],
+          ),
+          _schema,
+        ),
+        isNotNull,
+      );
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'price', value: '10')],
+          ),
+          _schema,
+        ),
+      );
+      expect(
+        (out['must'] as List).first['range'],
+        {'gte': 1, 'lte': 0},
+        reason: 'unsatisfiable, not a literal string match',
+      );
+    });
+
+    test('a num against a string field', () {
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldEquals(key: 'lang', value: 5)]),
+          _schema,
+        ),
+      );
+      expect((out['must'] as List).first['range'], {'gte': 1, 'lte': 0});
+    });
+
+    test('off-type members of a match-any set are dropped, not matched', () {
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldMatchAny(key: 'price', values: ['10', 20]),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      final arms = (out['must'] as List).first['should'] as List;
+      expect(arms, hasLength(1), reason: "'10' cannot be a number here");
+      expect(arms.first['range'], {'gte': 20, 'lte': 20});
+    });
+
+    test('a string set on a string field keeps the compact match.any', () {
+      // The common case must not pay for the gate above.
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldMatchAny(key: 'tag', values: ['a', 'b']),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      expect((out['must'] as List).first['match'], {
+        'any': ['a', 'b'],
+      });
+    });
+  });
+
+  group('a bool field accepts only what coerceForColumn accepts', () {
+    // `value == 1` is not the test for "can this be a boolean": it is false
+    // for 2, for 0.5, for -1, so each of those became the boolean FALSE and
+    // matched documents storing `false` or `0`. sqlite accepts only 0 and 1
+    // and rendered the condition always-false, so the same filter returned
+    // different rows per backend.
+    for (final v in [2, 0.5, -1, 7]) {
+      test('$v is not a boolean, so it matches nothing', () {
+        final out = _decode(
+          FilterCodec.encode(
+            Filter(
+              must: [FieldEquals(key: 'archived', value: v)],
+            ),
+            _schema,
+          ),
+        );
+        expect((out['must'] as List).first['range'], {'gte': 1, 'lte': 0});
+      });
+    }
+
+    test('a non-bool-ish string on a bool field matches nothing', () {
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [FieldEquals(key: 'archived', value: 'yes')],
+          ),
+          _schema,
+        ),
+      );
+      expect((out['must'] as List).first['range'], {'gte': 1, 'lte': 0});
+    });
+
+    test('0 and 1 still work, in both spellings', () {
+      for (final v in [0, 1, true, false]) {
+        final out = _decode(
+          FilterCodec.encode(
+            Filter(
+              must: [FieldEquals(key: 'archived', value: v)],
+            ),
+            _schema,
+          ),
+        );
+        final arms = (out['must'] as List).first['should'] as List;
+        expect(arms, hasLength(2), reason: '$v must keep both spellings');
+      }
+    });
+
+    test('a bool member of a set does not become a nested disjunction', () {
+      // "is one of {x}" and "equals x" are the same predicate and must produce
+      // the same JSON — the arms are spliced, not nested.
+      final eq = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldEquals(key: 'archived', value: true)]),
+          _schema,
+        ),
+      );
+      final any = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldMatchAny(key: 'archived', values: [true]),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      expect(eq['must'], any['must']);
+    });
+
+    test('a non-scalar member of a set is dropped, not emitted', () {
+      // AnyVariants is Strings|Integers. A bool in the list used to reach
+      // match.any, and qdrant's Filter is deny_unknown_fields, so the WHOLE
+      // filter failed to deserialize and searchSimilar threw.
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldMatchAny(key: 'lang', values: ['a', true]),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      final arms = (out['must'] as List).first['should'] as List;
+      expect(arms, hasLength(1));
+      expect(arms.first['match'], {'value': 'a'});
+    });
+  });
+
   group('an all-ignored bucket is absent, not empty', () {
     // "Ignored" and "matches nothing" both leave a bucket with no arms, and
     // the code told them apart by asking whether any arm was DECLARED — which

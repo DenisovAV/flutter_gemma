@@ -270,7 +270,62 @@ class FilterField {
   /// so every accepted name means the same thing on both backends — and `.` is
   /// excluded on its own merits, since qdrant reads it as a nested-payload
   /// separator.
+  /// Names the sqlite arm cannot use, because its `vec0` table already
+  /// declares them.
+  ///
+  /// MEASURED against vec0 0.1.9, not assumed: declaring any of these as a
+  /// filter field makes the CREATE VIRTUAL TABLE fail outright —
+  /// `vec0 constructor error: could not declare virtual table`. Not a silent
+  /// mis-read, a hard refusal.
+  ///
+  /// Two reasons this belongs in core rather than in the sqlite store. The
+  /// failure is LATE: the table is created lazily on the first addDocument, so
+  /// a schema the developer wrote at startup blows up much later and points at
+  /// an insert. And it is one-sided: qdrant namespaces its own payload keys
+  /// (`__flutter_gemma_*`), so the same schema works there — the same
+  /// FilterSchema succeeding on one backend and failing on the other is the
+  /// divergence this file exists to prevent.
+  static const reservedNames = {
+    'id',
+    'embedding',
+    'content',
+    'metadata',
+    'distance',
+  };
+
+  /// Rejects a [FilterSchema] that no backend could implement identically.
+  ///
+  /// Called from each store's `configure()`. It replaced three copies of the
+  /// same loop — and the copies had already stopped agreeing about what a
+  /// schema means, which is exactly how a shared contract rots.
+  static void validateSchema(FilterSchema schema) {
+    final seen = <String>{};
+    for (final field in schema.fields) {
+      validateName(field.name);
+      // A duplicate is meaningless — fieldFor returns the first match — and it
+      // is not harmless: the native sqlite arm builds its INSERT from
+      // `schema.fields` (duplicates kept) while the web arm builds it from the
+      // declaredColumnValues map (duplicates collapsed), so the two arms
+      // emitted different column lists for the same document.
+      if (!seen.add(field.name)) {
+        throw ArgumentError.value(
+          field.name,
+          'FilterSchema.fields',
+          'duplicate filter field name',
+        );
+      }
+    }
+  }
+
   static void validateName(String name) {
+    if (reservedNames.contains(name)) {
+      throw ArgumentError.value(
+        name,
+        'FilterField.name',
+        'reserved: the sqlite vec0 table already declares this column '
+            '(measured: the table refuses to be created)',
+      );
+    }
     if (!namePattern.hasMatch(name)) {
       throw ArgumentError.value(
         name,

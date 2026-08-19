@@ -67,6 +67,59 @@ void main() {
       }
     });
 
+    test('rejects the names the sqlite vec0 table already declares', () {
+      // MEASURED against vec0 0.1.9, not assumed: declaring any of these makes
+      // the CREATE VIRTUAL TABLE fail outright with
+      // `vec0 constructor error: could not declare virtual table`.
+      //
+      // In core rather than in the sqlite store for two reasons. The failure is
+      // LATE — the table is created lazily on the first addDocument, so a
+      // schema written at startup blows up much later, pointing at an insert.
+      // And it is one-sided: qdrant namespaces its own payload keys, so the
+      // identical FilterSchema works there. One schema, two behaviours.
+      for (final name in FilterField.reservedNames) {
+        expect(
+          () => FilterField.validateName(name),
+          throwsArgumentError,
+          reason: '"$name" collides with a vec0 column',
+        );
+      }
+      expect(FilterField.reservedNames, contains('content'));
+      expect(FilterField.reservedNames, contains('metadata'));
+    });
+
+    test('rejects a duplicate field name', () {
+      // Meaningless (fieldFor returns the first match) and not harmless: the
+      // native sqlite arm built its INSERT from schema.fields with duplicates
+      // kept, while the web arm built it from a map with duplicates collapsed,
+      // so the two arms emitted different column lists for one document.
+      expect(
+        () => FilterField.validateSchema(
+          const FilterSchema(
+            fields: [
+              FilterField(name: 'lang', type: FilterFieldType.string),
+              FilterField(name: 'lang', type: FilterFieldType.string),
+            ],
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('validateSchema accepts a well-formed schema', () {
+      expect(
+        () => FilterField.validateSchema(
+          const FilterSchema(
+            fields: [
+              FilterField(name: 'lang', type: FilterFieldType.string),
+              FilterField(name: 'year', type: FilterFieldType.number),
+            ],
+          ),
+        ),
+        returnsNormally,
+      );
+    });
+
     test('rejects a hyphen — the measured vec0 DDL parse failure', () {
       expect(
         () => FilterField.validateName('doc-type'),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
 /// Translates a [Filter] into a SQL `WHERE` fragment over vec0's declared
@@ -612,10 +613,19 @@ class FilterToVec0 {
   /// a field, a document without it could not be inserted at all: heterogeneous
   /// metadata, the normal RAG case, threw a raw SqliteException.
   ///
-  /// A sentinel is a real value, chosen so no user value can equal it:
-  ///   * TEXT — a NUL-led marker. A bare NUL is not enough: RFC 8259 forbids
-  ///     only RAW control characters, and Dart's jsonDecode accepts the
-  ///     `\u0000` escape, so `{"a":"\u0000"}` is legal JSON.
+  /// A sentinel is a real value, chosen to be as close to unreachable as the
+  /// storage allows. NOT unreachable — this used to claim no user value could
+  /// equal it, and the very next bullet explains why that is false for TEXT:
+  ///
+  ///   * TEXT — a NUL-led marker, and it is COLLIDABLE. RFC 8259 forbids only
+  ///     RAW control characters, and Dart's jsonDecode accepts the `\u0000`
+  ///     escape, so `{"a":"\u0000"}` is legal JSON — and by the same token so
+  ///     is `{"a":"\u0000__absent__"}`. A document carrying that exact string
+  ///     is indistinguishable from one that omits the field: an equality on it
+  ///     also returns every document that has no value at all. There is no
+  ///     string a user cannot write, so no choice of marker removes this; the
+  ///     write path logs when a value collides (see [declaredColumnValues]),
+  ///     which is the most the storage permits.
   ///   * FLOAT — negative infinity. NOT NaN: measured, SQLite converts NaN to
   ///     NULL before vec0 sees it (`typeof(9e999*0)` is `null`, and binding
   ///     `double.nan` binds NULL), so a NaN sentinel would throw the very error
@@ -664,12 +674,44 @@ class FilterToVec0 {
       }
     }
     final json = decoded is Map ? decoded : const {};
-    return {
-      for (final field in schema.fields)
-        field.name:
-            coerceForColumn(json[field.name], field.type) ??
-            absentValue(field.type),
-    };
+    final values = <String, Object?>{};
+    for (final field in schema.fields) {
+      final raw = json[field.name];
+      final coerced = coerceForColumn(raw, field.type);
+      if (coerced == absentText) {
+        // A real value equal to the TEXT sentinel. It cannot be told apart
+        // from an absent field afterwards, so an equality on it will also
+        // return documents that never carried the field. Unfixable in the
+        // storage (any string is writable) — see absentText — so the least
+        // dishonest thing is to say it happened.
+        gemmaLog(
+          '[FilterToVec0] metadata["${field.name}"] equals the absent-value '
+          'sentinel — this document is indistinguishable from one missing the '
+          'field, and filters on it will answer accordingly',
+        );
+      }
+      if (coerced == null && raw != null) {
+        // PRESENT but unstorable — a list for a scalar column, a string for a
+        // FLOAT one. It becomes the absent sentinel, so the document reads as
+        // if it never carried the field at all: `must` excludes it and
+        // `mustNot` returns it, both without a word. The first evidence a
+        // developer gets is a query returning fewer rows than expected, long
+        // after the write that caused it.
+        //
+        // Worth a line because this is the one place the two backends cannot
+        // be made to agree. qdrant stores the payload verbatim, so an array
+        // there has list semantics and DOES match; vec0 has a single scalar
+        // column and no way to express that. Neither can imitate the other, so
+        // the honest move is to say so at the moment the value is dropped.
+        gemmaLog(
+          '[FilterToVec0] metadata["${field.name}"] is a ${raw.runtimeType} '
+          'but the field is declared ${field.type.name} — stored as absent, '
+          'so filters on it will not match this document',
+        );
+      }
+      values[field.name] = coerced ?? absentValue(field.type);
+    }
+    return values;
   }
 
   /// The distinct, storable members of a [FieldMatchAny] value list, in the

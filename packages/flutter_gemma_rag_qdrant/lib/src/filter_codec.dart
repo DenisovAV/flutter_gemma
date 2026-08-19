@@ -174,20 +174,7 @@ class FilterCodec {
         // returned both. FieldMatchAny already checks bool first, so the same
         // predicate written as a one-element set answered differently from
         // FieldEquals on the SAME backend.
-        if (field.type == FilterFieldType.bool) {
-          return _Clause({'should': _boolSpellings(key, value)});
-        }
-        if (value is num) {
-          if (!_isFinite(value)) return const _MatchesNone();
-          return _Clause({
-            'key': key,
-            'range': {'gte': value, 'lte': value},
-          });
-        }
-        return _Clause({
-          'key': key,
-          'match': {'value': value},
-        });
+        return _equality(field, key, value);
 
       case FieldMatchAny(:final key, :final values):
         // Same trap as FieldEquals above, and it was left here when that one
@@ -200,47 +187,45 @@ class FilterCodec {
         // A nested `should` of degenerate ranges says "is one of" in a form
         // qdrant compares numerically. Condition::Filter(Filter) is a legal
         // member of the untagged enum, so this nests.
-        // A bool field has two JSON spellings per value (see _boolSpellings),
-        // so it always needs the expanded form.
-        if (field.type == FilterFieldType.bool) {
-          final arms = [for (final v in values) ..._boolSpellings(key, v)];
-          if (arms.isEmpty) return const _MatchesNone();
-          return _Clause({'should': arms});
+        // A string field with only string members is the one shape `match.any`
+        // expresses exactly, and it is the common case — keep the compact form.
+        if (field.type == FilterFieldType.string &&
+            values.every((v) => v is String)) {
+          // "is one of nothing" matches nothing — the same reading the sqlite
+          // arm gives an empty set, and the reason its negation is a no-op.
+          if (values.isEmpty) return const _MatchesNone();
+          return _Clause({
+            'key': key,
+            'match': {'any': values},
+          });
         }
 
-        if (values.any((v) => v is num)) {
-          final arms = <Map<String, Object>>[];
-          for (final v in values) {
-            if (v is num) {
-              // Non-finite members are dropped, not encoded: they can match no
-              // stored value, so they add nothing to a disjunction. Encoding
-              // one would have reached jsonEncode, which refuses NaN and
-              // ±Infinity and would have thrown the whole search.
-              if (!_isFinite(v)) continue;
-              arms.add({
-                'key': key,
-                'range': {'gte': v, 'lte': v},
-              });
-            } else {
-              arms.add({
-                'key': key,
-                'match': {'value': v},
-              });
-            }
+        // Otherwise expand, so each member goes through the SAME per-type gate
+        // as FieldEquals. Members that cannot inhabit the declared type are
+        // dropped rather than encoded: nothing storable in that column can
+        // equal them.
+        final arms = <Map<String, Object>>[];
+        for (final v in values) {
+          switch (_equality(field, key, v)) {
+            case _Clause(:final json):
+              // A member whose own encoding is already a disjunction — a bool,
+              // which has two legal JSON spellings — is SPLICED, not nested.
+              // "is one of {x}" and "equals x" are the same predicate, so they
+              // must produce the same JSON; nesting made them differ in shape
+              // while agreeing in meaning, which is the sort of near-miss that
+              // later reads as a real difference.
+              final inner = json.length == 1 ? json['should'] : null;
+              if (inner is List) {
+                arms.addAll(inner.cast<Map<String, Object>>());
+              } else {
+                arms.add(json);
+              }
+            case _:
+              break;
           }
-          if (arms.isEmpty) return const _MatchesNone();
-          return _Clause({'should': arms});
         }
-
-        // No numbers and no bools: `match.any` says it directly, and qdrant
-        // compares strings by equality, so the compact form is exact.
-        // "is one of nothing" matches nothing — the same reading the sqlite arm
-        // gives an empty set, and the reason its negation is a no-op.
-        if (values.isEmpty) return const _MatchesNone();
-        return _Clause({
-          'key': key,
-          'match': {'any': values},
-        });
+        if (arms.isEmpty) return const _MatchesNone();
+        return _Clause({'should': arms});
 
       case FieldRange(:final key, :final gte, :final lte):
         // A range only means something over a numeric column. On a string or
@@ -264,36 +249,82 @@ class FilterCodec {
     }
   }
 
+  /// One value compared against one DECLARED field, dispatching on the
+  /// field's type rather than on the value's runtime type.
+  ///
+  /// That difference is the whole point. This used to branch on `value is num`
+  /// / `value is bool`, and the write path stores the payload verbatim — so a
+  /// value that cannot inhabit the declared type was still emitted as a real
+  /// predicate, and could match a stored value that also did not fit. The
+  /// sqlite arm gates BOTH directions through coerceForColumn, so it erased
+  /// such a value on write and rendered the condition always-false on read.
+  /// One filter, two answers:
+  ///
+  ///   schema `price: number`, document `{"price": "10"}`,
+  ///   filter `FieldEquals('price', '10')`  ->  sqlite [], qdrant [d1]
+  ///   schema `lang: string`, document `{"lang": 5}`,
+  ///   filter `FieldEquals('lang', 5)`      ->  sqlite [], qdrant [d1]
+  ///
+  /// Gating on the declared type here fixes both, and fixes them for shards
+  /// ALREADY WRITTEN — a write-side coercion could not, and would have made a
+  /// single shard answer differently for old and new points.
+  static _Contribution _equality(FilterField field, String key, Object? value) {
+    switch (field.type) {
+      case FilterFieldType.bool:
+        // Only a real bool, or exactly 0/1 — the same values coerceForColumn
+        // accepts on the sqlite side. `value == 1` alone was not that test: it
+        // is false for 2, for 0.5, for -1, so every one of those became the
+        // boolean FALSE and matched documents storing `false` or `0`, while
+        // sqlite rendered the condition always-false and matched nothing.
+        // A non-bool-ish value cannot inhabit this column, so nothing equals it.
+        final asBool = switch (value) {
+          bool b => b,
+          num n when n == 0 || n == 1 => n == 1,
+          _ => null,
+        };
+        if (asBool == null) return const _MatchesNone();
+        return _Clause({'should': _boolSpellings(key, asBool)});
+
+      case FilterFieldType.number:
+        // Not a number in this column: nothing storable can equal it.
+        if (value is! num) return const _MatchesNone();
+        if (!_isFinite(value)) return const _MatchesNone();
+        return _Clause({
+          'key': key,
+          'range': {'gte': value, 'lte': value},
+        });
+
+      case FilterFieldType.string:
+        if (value is! String) return const _MatchesNone();
+        return _Clause({
+          'key': key,
+          'match': {'value': value},
+        });
+    }
+  }
+
   /// Both JSON spellings of a boolean, as a disjunction.
   ///
   /// qdrant stores the payload value verbatim, so `{"archived": true}` is
-  /// Bool(true) and `{"archived": 1}` is Integer(1) — two different variants of
-  /// an untagged enum, and `match: {value: true}` matches only the first. The
-  /// sqlite store coerces both to the integer 1 in a BOOLEAN column, so the
-  /// identical filter over identical documents answered differently on the two
-  /// backends. Accepting both spellings here is the query-side half of that
-  /// fix; it needs no migration of shards already written.
-  static List<Map<String, Object>> _boolSpellings(String key, Object? value) {
-    final asBool = value is bool ? value : (value is num ? value == 1 : null);
-    if (asBool == null) {
-      return [
-        {
-          'key': key,
-          'match': {'value': value as Object},
-        },
-      ];
-    }
-    return [
-      {
-        'key': key,
-        'match': {'value': asBool},
-      },
-      {
-        'key': key,
-        'range': {'gte': asBool ? 1 : 0, 'lte': asBool ? 1 : 0},
-      },
-    ];
-  }
+  /// Bool(true) and `{"archived": 1}` is Integer(1) — two variants of an
+  /// untagged enum, and `match: {value: true}` matches only the first. The
+  /// sqlite store folds both to the integer 1 in a BOOLEAN column, so the same
+  /// filter over the same documents answered differently per backend.
+  ///
+  /// Accepting both spellings here is the query-side half of that fix, and it
+  /// needs no migration of shards already written. Takes a real [bool]:
+  /// deciding whether a value can BE a boolean belongs with the other per-type
+  /// gates in [_equality], not buried in a formatter.
+  static List<Map<String, Object>> _boolSpellings(String key, bool value) => [
+    {
+      'key': key,
+      'match': {'value': value},
+    },
+    {
+      'key': key,
+      'range': {'gte': value ? 1 : 0, 'lte': value ? 1 : 0},
+    },
+  ];
 
   /// True for a value that is either absent or a number JSON can represent.
   ///

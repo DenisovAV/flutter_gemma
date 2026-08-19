@@ -64,6 +64,13 @@ if [[ -z "${VEC0_DYLIB:-}" ]]; then
   fi
 fi
 
+# NOTE: the cross-backend parity suite needs no wiring here. qdrant-edge's
+# library is DOWNLOADED by flutter_gemma_rag_qdrant/hook/build.dart, exactly
+# like the LiteRT natives, and `flutter test` runs that hook — so the library is
+# already on disk by the time the suite reads it (test/qdrant_locator.dart finds
+# it). An earlier draft exported $QDRANT_DYLIB from a cargo target directory and
+# told CI to build Rust; that was solving a problem the hook had already solved.
+
 # NOTE, so nobody re-adds it: an earlier revision of this script excluded
 # flutter_gemma_speech's `qwen3-artifacts` tag whenever the HuggingFace model
 # snapshot was absent, on the assumption that those suites would otherwise fail

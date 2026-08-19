@@ -117,12 +117,18 @@ post_install do |installer|
         # A third candidate used to sit between them, pointing at
         # .symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/. It could
         # never fire: flutter_gemma_litertlm declares no macOS plugin, so
-        # Flutter creates no symlink for it, and prebuilt/ is absent from every
-        # checkout and package anyway. Candidate 2 was equally dead — it pointed
-        # at flutter_gemma/native/, which has not existed since the monorepo
-        # split moved the prebuilts into flutter_gemma_litertlm. Only candidate
-        # 1 ever ran, which is why nobody noticed until a cold cache made the
-        # macOS build fail outright.
+        # Flutter creates no symlink for it. The old candidate 2 was equally
+        # dead — it pointed at flutter_gemma/native/, which has not existed
+        # since the monorepo split moved the prebuilts into
+        # flutter_gemma_litertlm. Only candidate 1 ever ran, which is why
+        # nobody noticed until a cold cache made the macOS build fail outright.
+        #
+        # Note what candidate 2 above is and is not: prebuilt/ is .gitignored
+        # and .pubignore'd, so it never exists for an app installed from
+        # pub.dev — but it DOES exist in a source checkout where a maintainer
+        # ran native/litert_lm/build_macos.sh, and that is the only case it
+        # serves. Saying it is "absent everywhere" would make the candidate
+        # below look dead too.
         for candidate in \
             "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
             "${SRCROOT}/../../../flutter_gemma_litertlm/native/litert_lm/prebuilt/macos_arm64"; do

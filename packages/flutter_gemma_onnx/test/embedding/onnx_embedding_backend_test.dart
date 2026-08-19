@@ -60,4 +60,44 @@ void main() {
       );
     });
   });
+
+  group(
+    'OnnxEmbeddingBackend platform gate (debugForceUnsupportedHost seam)',
+    () {
+      tearDown(() {
+        OnnxEmbeddingBackend.debugForceUnsupportedHost = null;
+      });
+
+      test('canHandle stays true on an unsupported host (must NOT gate — '
+          'gating here would let the LiteRT catch-all silently claim the '
+          'file instead)', () {
+        OnnxEmbeddingBackend.debugForceUnsupportedHost = true;
+        const backend = OnnxEmbeddingBackend();
+
+        expect(backend.canHandle(_spec('model.onnx')), isTrue);
+      });
+
+      test('createModel throws a StateError naming the platform when the '
+          'host is unsupported', () async {
+        OnnxEmbeddingBackend.debugForceUnsupportedHost = true;
+        const backend = OnnxEmbeddingBackend();
+        const config = RuntimeConfig(
+          maxTokens: 1024,
+          modelPath: '/tmp/model.onnx',
+          tokenizerPath: '/tmp/tokenizer.json',
+        );
+
+        await expectLater(
+          backend.createModel(_spec('model.onnx'), config),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf(contains('unsupported host'), contains('macOS-arm64')),
+            ),
+          ),
+        );
+      });
+    },
+  );
 }

@@ -3,6 +3,10 @@
 // `LiteRtEmbeddingBackend` shape: builds a `ForwardPassDescriptor` and hands
 // it to the runtime-agnostic `CommonEmbeddingModel`.
 
+import 'dart:ffi' show Abi;
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/core/registry/embedding_backend_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show EmbeddingModel;
@@ -24,6 +28,25 @@ import 'onnx_tokenizer_loader.dart';
 /// `canHandle: true` catch-all.
 class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
   const OnnxEmbeddingBackend();
+
+  /// Unlike [OnnxEngine], [canHandle] here MUST stay extension-based (not
+  /// platform-gated): if it went false on an unsupported host,
+  /// `LiteRtEmbeddingBackend`'s `canHandle => true` catch-all (priority 0)
+  /// would silently claim the `.onnx`/`.ort` file and fail deep inside
+  /// LiteRT native load instead of here, with a confusing error. So the
+  /// platform gate lives in [createModel] as a loud [StateError] instead —
+  /// same `_isSupportedHost` shape as `OnnxEngine`, kept in lockstep with
+  /// `hook/build.dart`'s platform table.
+  static bool get _isSupportedHost =>
+      debugForceUnsupportedHost != true &&
+      Platform.isMacOS &&
+      Abi.current() == Abi.macosArm64;
+
+  /// Test-only override — see `OnnxEngine.debugForceUnsupportedHost` (same
+  /// seam, same rationale). Never read or set outside `test/`. Reset to
+  /// `null` in `tearDown`.
+  @visibleForTesting
+  static bool? debugForceUnsupportedHost;
 
   @override
   String get name => 'ONNX Embedding';
@@ -48,6 +71,13 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
     EmbeddingModelSpec spec,
     RuntimeConfig config,
   ) async {
+    if (!_isSupportedHost) {
+      throw StateError(
+        'OnnxEmbeddingBackend.createModel called on unsupported host '
+        '${Platform.operatingSystem}/${Abi.current()} — ONNX embedding '
+        'native archives are macOS-arm64-only in v1.',
+      );
+    }
     final tokenizerPath = config.tokenizerPath;
     if (tokenizerPath == null) {
       throw StateError(

@@ -34,6 +34,51 @@ void main() {
       expect(engine.canHandle(_spec(ModelFileType.binary)), isFalse);
       expect(engine.canHandle(_spec(ModelFileType.builtIn)), isFalse);
     });
+
+    test('canHandle is true for .onnx on this (macOS-arm64) host — the '
+        'platform gate is exercised via debugForceUnsupportedHost below since '
+        'this suite always runs on a supported host', () {
+      const engine = OnnxEngine();
+      expect(engine.canHandle(_spec(ModelFileType.onnx)), isTrue);
+    });
+  });
+
+  group('OnnxEngine platform gate (debugForceUnsupportedHost seam)', () {
+    tearDown(() {
+      OnnxEngine.debugForceUnsupportedHost = null;
+    });
+
+    test('canHandle returns false when the host is unsupported', () {
+      OnnxEngine.debugForceUnsupportedHost = true;
+      const engine = OnnxEngine();
+
+      expect(engine.canHandle(_spec(ModelFileType.onnx)), isFalse);
+    });
+
+    test('createModel throws a StateError naming the platform when the host '
+        'is unsupported (belt-and-suspenders, reachable via direct '
+        'construction bypassing canHandle)', () async {
+      OnnxEngine.debugForceUnsupportedHost = true;
+      final client = FakeGenAiClient();
+      final engine = OnnxEngine(clientFactory: () => client);
+      final config = RuntimeConfig(
+        maxTokens: 1024,
+        modelPath: '/tmp/model.onnx',
+      );
+
+      await expectLater(
+        engine.createModel(_spec(ModelFileType.onnx), config),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('unsupported host'), contains('macOS-arm64')),
+          ),
+        ),
+      );
+      // The platform guard fires before ever touching the client.
+      expect(client.loadCalls, 0);
+    });
   });
 
   group('OnnxEngine.createModel', () {

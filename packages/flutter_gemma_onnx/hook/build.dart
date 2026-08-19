@@ -7,8 +7,15 @@
 // Document this supply-chain divergence: unlike every other bundle in this
 // monorepo, these two archives are never re-hosted by us.
 //
-// **macOS arm64 only (v1)** — non-macOS archives/shas are a stubbed "pending
-// D2" gap (hardened plan device go/no-go), see [_archivesFor].
+// **macOS arm64, linux_x64, windows_x64 (v1)** — Android/iOS are a stubbed
+// "pending D2" gap (device throughput/RAM go/no-go, not archive
+// availability; Android's own archive is also a differently-shaped AAR, see
+// [_archivesFor]'s doc). `stage()`'s canonical-rename copy applies on
+// macOS/iOS (framework-name derivation) AND Linux (Microsoft's tarball ships
+// the versioned `.so.X.Y.Z`, not the bare name `_candidateNames` dlopens) —
+// Windows stays a no-op, both because its `.dll`s already ship under the
+// bare canonical name and because active staging is what breaks Windows
+// cancel/close (see CLAUDE.md's build-native scar).
 //
 // This hook is the SOLE owner of exactly one `libonnxruntime` (1.27.0) per
 // design D1 — the embedding arm's `OrtFfiClient` (`ort_ffi_client.dart`)
@@ -59,11 +66,12 @@ class _Archive {
   String get archiveFileName => url.split('/').last;
 }
 
-/// macOS arm64 archives for this version pair. Non-macOS entries are a
-/// stubbed "pending D2" gap: Android/iOS are blocked on the device
-/// throughput/RAM go/no-go (hardened plan tail), Linux/Windows shas need a
-/// real fetch — neither happens in this phase. Returns null for any
-/// unsupported (os, arch).
+/// Archives for this version pair, keyed by (os, arch). macOS arm64,
+/// linux_x64, and windows_x64 are landed (host-fetchable, no device
+/// involved — hardened plan Task 4a). Android/iOS stay a stubbed "pending
+/// D2" gap: they're blocked on the device throughput/RAM go/no-go, not on
+/// archive availability — see the hardened plan's explicit tail. Returns
+/// null for any unsupported (os, arch).
 _OrtBundle? _archivesFor(OS os, Architecture arch) {
   if (os == OS.macOS && arch == Architecture.arm64) {
     return const _OrtBundle(
@@ -90,9 +98,64 @@ _OrtBundle? _archivesFor(OS os, Architecture arch) {
       ),
     );
   }
-  // linux_x64, windows_x64, android arm64, ios arm64/ios_sim_arm64: DEVICE /
-  // gated — see the hardened plan's explicit tail. No entry here means the
-  // hook silently skips those targets (matches flutter_gemma_litertlm's
+  if (os == OS.linux && arch == Architecture.x64) {
+    return const _OrtBundle(
+      dirName: 'linux_x64',
+      ort: _Archive(
+        url:
+            'https://github.com/microsoft/onnxruntime/releases/download/'
+            'v1.27.0/onnxruntime-linux-x64-1.27.0.tgz',
+        sha256:
+            '547e40a48f1fe73e3f812d7c88a948612c23f896b91e4e2ee1e232d7b468246f',
+        extractedLibPath:
+            'onnxruntime-linux-x64-1.27.0/lib/libonnxruntime.so.1.27.0',
+        assetName: 'onnxruntime',
+      ),
+      genai: _Archive(
+        url:
+            'https://github.com/microsoft/onnxruntime-genai/releases/'
+            'download/v0.14.0/onnxruntime-genai-0.14.0-linux-x64.tar.gz',
+        sha256:
+            '7b37f13619ee01263278fb1c24a950e219d75c9fa90586b1623d3e8bab9076b0',
+        extractedLibPath:
+            'onnxruntime-genai-0.14.0-linux-x64/lib/libonnxruntime-genai.so',
+        assetName: 'onnxruntime-genai',
+      ),
+    );
+  }
+  if (os == OS.windows && arch == Architecture.x64) {
+    return const _OrtBundle(
+      dirName: 'windows_x64',
+      ort: _Archive(
+        url:
+            'https://github.com/microsoft/onnxruntime/releases/download/'
+            'v1.27.0/onnxruntime-win-x64-1.27.0.zip',
+        sha256:
+            'c5c81710938e68079ff1a192b04897faabe4b43830d48f39f27ecd4e16138bfc',
+        extractedLibPath: 'onnxruntime-win-x64-1.27.0/lib/onnxruntime.dll',
+        assetName: 'onnxruntime',
+      ),
+      genai: _Archive(
+        url:
+            'https://github.com/microsoft/onnxruntime-genai/releases/'
+            'download/v0.14.0/onnxruntime-genai-0.14.0-win-x64.zip',
+        sha256:
+            '8a303e52dc7be8fb2a5331929af451a25ac59774102d7fd09ef673adc85c5ebf',
+        extractedLibPath:
+            'onnxruntime-genai-0.14.0-win-x64/lib/onnxruntime-genai.dll',
+        assetName: 'onnxruntime-genai',
+      ),
+    );
+  }
+  // android arm64, ios arm64/ios_sim_arm64: DEVICE-gated — blocked on the
+  // hardened plan's throughput/RAM go/no-go, not archive availability.
+  // Android's own archive is an AAR (a zip containing per-ABI .so files
+  // under jni/<abi>/, plus AndroidManifest.xml/classes.jar noise this hook
+  // has no use for) rather than a flat tarball like every other platform
+  // here — extracting the right per-ABI .so out of that layout is its own
+  // small chunk of work, deliberately left for whoever actually runs the
+  // Android go/no-go gate rather than landed speculatively. No entry means
+  // the hook silently skips those targets (matches flutter_gemma_litertlm's
   // "no checksum registered → skip" convention); GenAiFfiClient's own
   // dlopen then fails loud at first use with a clear "no such file".
   return null;
@@ -224,8 +287,17 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
     if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     tmpDir.createSync(recursive: true);
     try {
+      // Windows archives (ORT/ORT-GenAI's own release layout) are PKZIP, not
+      // tar.gz — `-z` unconditionally forces a gzip decompress pass, which
+      // fails outright on a real .zip (true of both GNU tar and bsdtar).
+      // Every Windows box since 10 (build 17063) ships `tar.exe` as bsdtar,
+      // which auto-detects the container format (including zip) from
+      // `-xf` alone — this hook only ever needs `.zip` handling ON Windows
+      // (macOS/Linux archives here are always `.tar.gz`/`.tgz`), so bsdtar's
+      // availability there is guaranteed, not an assumption about the host.
+      final isZip = archive.archiveFileName.toLowerCase().endsWith('.zip');
       final result = await Process.run('tar', [
-        '-xzf',
+        if (isZip) '-xf' else '-xzf',
         archiveFile.path,
         '-C',
         tmpDir.path,
@@ -327,8 +399,20 @@ void main(List<String> args) async {
     // [destFileName] renames the staged copy to the CANONICAL bare name
     // (`libonnxruntime.dylib`) so the derived framework is
     // `onnxruntime.framework/onnxruntime` — verified end-to-end below.
+    //
+    // LINUX gets the same treatment for a different reason: Microsoft's own
+    // Linux tarballs ship the concrete versioned file
+    // (`libonnxruntime.so.1.27.0`), not the bare `libonnxruntime.so` name
+    // `GenAiFfiClient`'s `_candidateNames` bare-name dlopen looks for — copy
+    // + rename closes that gap, same as the macOS framework-name fix above.
+    // WINDOWS stays a no-op: its .dll archives already ship under the bare
+    // canonical name (`onnxruntime.dll`), so no rename is needed — and
+    // CLAUDE.md's build-native scar warns that ACTIVE staging on Windows
+    // (splitting companion DLLs) is what hangs cancel/close, so this
+    // deliberately does not opt Windows in even though it would be a no-op
+    // byte-for-byte copy today.
     Uri stage(File src, String destFileName) {
-      if (os != OS.macOS && os != OS.iOS) return src.uri;
+      if (os != OS.macOS && os != OS.iOS && os != OS.linux) return src.uri;
       final destUri = input.outputDirectory.resolve(destFileName);
       final dest = File.fromUri(destUri);
       if (!dest.existsSync() || dest.lengthSync() != src.lengthSync()) {
@@ -341,7 +425,11 @@ void main(List<String> args) async {
     for (final archive in bundle.archives) {
       final src = _stagedSourceFile(libDir, archive);
       if (!src.existsSync()) continue; // shouldn't happen post-fetch; be safe.
-      final canonicalFileName = 'lib${archive.assetName}.dylib';
+      final canonicalFileName = switch (os) {
+        OS.linux => 'lib${archive.assetName}.so',
+        OS.windows => '${archive.assetName}.dll',
+        _ => 'lib${archive.assetName}.dylib',
+      };
       output.assets.code.add(
         CodeAsset(
           package: _packageName,

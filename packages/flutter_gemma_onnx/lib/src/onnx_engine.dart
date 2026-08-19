@@ -1,6 +1,7 @@
 import 'dart:ffi' show Abi;
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/core/domain/platform_types.dart'
     show PreferredBackend;
 import 'package:flutter_gemma/core/model.dart' show ModelFileType;
@@ -8,6 +9,7 @@ import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 import 'package:flutter_gemma/core/registry/inference_engine_provider.dart';
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart' show gemmaLog;
 import 'package:flutter_gemma/flutter_gemma_interface.dart' show InferenceModel;
 
 import 'ffi/gen_ai_client.dart';
@@ -43,26 +45,60 @@ class OnnxEngine implements InferenceEngineProvider {
   @override
   int get priority => 0;
 
-  /// `hook/build.dart`'s `_archivesFor` currently ships ORT/ORT-GenAI
-  /// prebuilts for macOS arm64 ONLY — every other (os, arch) has no
-  /// registered CodeAsset, so `GenAiFfiClient`'s worker-side dlopen would
-  /// fail at first use with a confusing native error instead of routing to
-  /// another engine (there is none for `.onnx` yet) or failing with a clear
-  /// "not supported on this platform" message. Keep this in lockstep with
-  /// the hook's platform table as it grows (device go/no-go, hardened plan
-  /// D2 tail).
+  /// Deliberately narrower than `hook/build.dart`'s `_archivesFor`: the hook
+  /// also bundles linux_x64/windows_x64 archives (so the FFI layer can be
+  /// device-tested for the throughput/RAM go/no-go), but this engine only
+  /// SELECTS ITSELF on macOS arm64 until that measurement passes — without
+  /// this gate, `GenAiFfiClient`'s worker-side dlopen would fail at first
+  /// use with a confusing native error on a platform whose archive exists
+  /// but hasn't been validated, instead of routing to another engine (there
+  /// is none for `.onnx` yet) or failing with a clear "not supported on
+  /// this platform" message. Widen deliberately once the gate passes for a
+  /// given platform — never let it drift ahead of the hook's table.
   static bool get _isSupportedHost =>
-      Platform.isMacOS && Abi.current() == Abi.macosArm64;
+      debugForceUnsupportedHost != true &&
+      Platform.isMacOS &&
+      Abi.current() == Abi.macosArm64;
+
+  /// Test-only override: when `true`, [_isSupportedHost] reports false
+  /// regardless of the real host — the cheapest seam to exercise the
+  /// unsupported-host branches of [canHandle]/[createModel] on a macOS-arm64
+  /// CI/dev host without an actual non-macOS-arm64 machine. Never read or
+  /// set outside `test/`. Reset to `null` in `tearDown`.
+  @visibleForTesting
+  static bool? debugForceUnsupportedHost;
 
   @override
-  bool canHandle(InferenceModelSpec spec) =>
-      spec.fileType == ModelFileType.onnx && _isSupportedHost;
+  bool canHandle(InferenceModelSpec spec) {
+    if (spec.fileType != ModelFileType.onnx) return false;
+    if (!_isSupportedHost) {
+      gemmaLog(
+        'OnnxEngine declined ${Platform.operatingSystem}/${Abi.current()}: '
+        'native ORT archives are macOS-arm64-only in v1 '
+        '(hook/build.dart `_archivesFor`).',
+      );
+      return false;
+    }
+    return true;
+  }
 
   @override
   Future<InferenceModel> createModel(
     InferenceModelSpec spec,
     RuntimeConfig config,
   ) async {
+    // Belt-and-suspenders: canHandle already gates this in the normal
+    // registry-dispatch path, but createModel is reachable directly (manual
+    // construction / a registry bypass) — fail loud instead of dlopen-ing a
+    // native archive that was never shipped for this host.
+    if (!_isSupportedHost) {
+      throw StateError(
+        'OnnxEngine.createModel called on unsupported host '
+        '${Platform.operatingSystem}/${Abi.current()} — ONNX native archives '
+        'are macOS-arm64-only in v1 (hook/build.dart `_archivesFor`).',
+      );
+    }
+
     // The install layer hands inference engines a single resolved FILE path
     // per `InferenceModelSpec` (`RuntimeConfig.modelPath` —
     // `manager.getModelFilePaths(...).values.first`, see

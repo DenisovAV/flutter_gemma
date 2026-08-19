@@ -11,6 +11,7 @@
 //   FLUTTER_GEMMA_ORT_GENAI_LIBS=/path/to/dir/containing/both/dylibs
 //   ONNX_SMOKE_GENAI_MODEL_DIR=/path/to/dir/containing/genai_config.json+...
 // then `flutter test test/onnx_generation_host_smoke_test.dart`.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_gemma/core/message.dart';
@@ -116,6 +117,86 @@ void main() {
       // --- Close: no hang -------------------------------------------------
       // (e) close frees cleanly.
       await session.close().timeout(const Duration(seconds: 10));
+      await client.shutdown().timeout(const Duration(seconds: 10));
+    },
+    skip: available
+        ? false
+        : 'FLUTTER_GEMMA_ORT_GENAI_LIBS / ONNX_SMOKE_GENAI_MODEL_DIR not '
+              'set or the files are absent locally — see this file\'s header.',
+    timeout: const Timeout(Duration(minutes: 5)),
+  );
+
+  test(
+    'real-worker close-during-generation: stopGeneration() + resetSession() '
+    'while a REAL generation is still in flight does not hang or throw, and '
+    'the client is reusable afterward — regression guard for the '
+    '_defaultWorkerEntry free-after-drain ordering in '
+    "ResetSessionRequest/Close (`stopRequested = true; await activeGeneration;` "
+    "before OgaDestroyGenerator/Tokenizer/Model in gen_ai_client.dart). "
+    'gen_ai_client_lifecycle_test.dart\'s fake-worker test (b) exercises the '
+    'same shape against a zero-FFI fake and cannot detect a deleted await '
+    'here — only real native handles can actually use-after-free.',
+    () async {
+      final client = GenAiFfiClient();
+      await client.load(modelDir!, contextWindow: 1024);
+
+      final received = <String>[];
+      Object? error;
+      var done = false;
+      final doneCompleter = Completer<void>();
+      client
+          .generate(
+            const GenAiTurn(
+              userContent:
+                  'Write a detailed, at least 150-word paragraph describing '
+                  'the water cycle, covering evaporation, condensation, and '
+                  'precipitation.',
+              isFirstTurn: true,
+            ),
+          )
+          .listen(
+            received.add,
+            onError: (Object e) => error = e,
+            onDone: () {
+              done = true;
+              doneCompleter.complete();
+            },
+          );
+
+      // Give the worker a moment to start prefill/decode before tearing
+      // down mid-flight — the goal is to land ResetSessionRequest while the
+      // decode loop is genuinely suspended on its per-token yield, not
+      // after it has already finished.
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      await client.stopGeneration();
+      await client.resetSession();
+
+      await doneCompleter.future.timeout(const Duration(seconds: 15));
+
+      expect(done, isTrue);
+      expect(
+        error,
+        isNull,
+        reason:
+            'a mid-stream stop completes the stream normally, never as a '
+            'stream error — and never crashes the process via a freed '
+            'generator/tokenizer/model handle',
+      );
+
+      // The client is still usable: resetSession() destroyed the real
+      // generator, so the next turn starts fresh.
+      final nextChunks = <String>[];
+      await client
+          .generate(
+            const GenAiTurn(
+              userContent: 'Say hello in one short sentence.',
+              isFirstTurn: true,
+            ),
+          )
+          .forEach(nextChunks.add);
+      expect(nextChunks.join().trim(), isNotEmpty);
+
       await client.shutdown().timeout(const Duration(seconds: 10));
     },
     skip: available

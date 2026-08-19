@@ -44,6 +44,7 @@
 ### Core Principles
 - **1.0 six-package split** (monorepo, Dart pub workspace): core `flutter_gemma` (no engine) + opt-in `flutter_gemma_litertlm` (.litertlm FFI), `flutter_gemma_embeddings` (LiteRT embeddings), `flutter_gemma_mediapipe` (.task), `flutter_gemma_rag_qdrant` (native RAG), `flutter_gemma_rag_sqlite` (web RAG). Packages → core (one-directional). Engines/backends register via `FlutterGemma.initialize(inferenceEngines:, embeddingBackends:, vectorStore:)`; core registers none by default.
 - **`flutter_gemma_builtin_ai`** (new, opt-in): OS built-in AI engine — Gemini Nano via ML Kit GenAI/AICore (Android) and Apple Foundation Models (iOS/macOS). Registers via `inferenceEngines: [BuiltInAiEngine()]`; models use `ModelFileType.builtIn` (core has no file to install — the OS owns the weights).
+- **`flutter_gemma_onnx`** (new, opt-in): ONNX Runtime engines — text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ORT (`OnnxEmbeddingBackend`), both `dart:ffi` worker-isolate. `hook/build.dart` bundles native archives for macOS arm64, linux_x64, windows_x64 (Android AAR extraction + iOS pending); but `OnnxEngine.canHandle`/`OnnxEmbeddingBackend.createModel` are hard-gated to **macOS arm64 only**, independent of which archives are bundled — Linux/Windows archives exist so the FFI layer can be device-tested for the throughput/RAM go/no-go, not because those platforms are enabled yet. `OnnxEngine.canHandle` declines + logs off-host; `OnnxEmbeddingBackend.canHandle` stays extension-based on every platform (so LiteRT's catch-all can't silently claim an `.onnx` file) and gates in `createModel` instead. ORT-GenAI model installs are a DIRECTORY (`genai_config.json` + `.onnx`[+`.onnx_data`] + tokenizer) — single-file network install doesn't cover this yet.
 - **Probe-chain registry**: `EngineRegistry`/`EmbeddingRegistry` select a provider by `canHandle(spec)` + `priority` (descending priority, ascending registration index). Engines are pure factories; core owns singleton lifecycle via `CloseNotifier`/`addCloseListener`.
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
@@ -138,7 +139,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.16.0` GitHub Release (LiteRT-LM pin `924e79c9`, LiteRT pin `0ff28117`). Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.5.9`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.4.2`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `1.0.4`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.4`, `flutter_gemma_builtin_ai` `0.1.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
+- **Current Version**: core `flutter_gemma` `1.5.9`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.5.0`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.4`, `flutter_gemma_builtin_ai` `0.1.0`, `flutter_gemma_onnx` `0.1.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -286,6 +287,18 @@ flutter analyze && dart format . && flutter test
 | `android/src/.../` | Android ML Kit GenAI (AICore) native layer; declares `minSdk 26` |
 | `darwin/Classes/` (shared iOS+macOS source via `sharedDarwinSource: true`) | Apple Foundation Models native layer |
 
+**`packages/flutter_gemma_onnx/` (ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings; macOS arm64 only in v1, no web):**
+
+| File | Purpose |
+|------|---------|
+| `lib/src/onnx_engine.dart` | `OnnxEngine` (InferenceEngineProvider; platform-gated `canHandle` + belt-and-suspenders `createModel` guard) |
+| `lib/src/onnx_inference_model.dart`, `onnx_session.dart` | `OnnxInferenceModel` (singleton-session lane) / `OnnxSession` (buffers query chunks, drives `GenAiClient.generate`) |
+| `lib/src/ffi/gen_ai_client.dart` | `GenAiFfiClient` — worker-isolate ORT-GenAI FFI client (mutex-serialized generate/countTokens; `ORT_LIB_PATH` co-location fix) |
+| `lib/src/ffi/gen_ai_protocol.dart` | Isolate message protocol (src-only, not barrel-exported) — the injection seam for a scripted fake worker in tests |
+| `lib/src/embedding/onnx_embedding_backend.dart` | `OnnxEmbeddingBackend` (EmbeddingBackendProvider; priority 10 over LiteRT's catch-all 0) |
+| `lib/src/embedding/{ort_client,ort_ffi_client,onnx_embedding_forward_pass,onnx_tokenizer_loader}.dart` | Plain ORT C API FFI client + forward pass (WordPiece/SentencePiece, `pooledFinal`/`tokenLevel` contracts) |
+| `hook/build.dart` | Native Assets hook — owns the ORT + ORT-GenAI CodeAssets, sourced from Microsoft's own GitHub releases (not a `native-vX` repo tag); `_archivesFor` covers macOS arm64/linux_x64/windows_x64 (Android AAR + iOS pending) |
+
 ## Project Structure
 
 ```
@@ -303,6 +316,7 @@ flutter_gemma/                       # Dart pub workspace (monorepo root)
 │   ├── flutter_gemma_rag_qdrant/    # native RAG (qdrant-edge Rust FFI)
 │   ├── flutter_gemma_rag_sqlite/    # SQLite RAG — in-SQLite vec0 KNN (native sqlite3 FFI + web wasm)
 │   ├── flutter_gemma_builtin_ai/    # OS built-in AI — Gemini Nano (Android) / Apple Foundation Models (iOS/macOS)
+│   ├── flutter_gemma_onnx/          # ONNX Runtime — ORT-GenAI inference + plain-ORT embeddings (macOS arm64 v1)
 │   ├── flutter_gemma_speech/        # opt-in on-device STT (moonshine) + TTS (Matcha) via LiteRT C API (shares libLiteRtLm)
 │   ├── flutter_gemma_agent/         # opt-in on-device agent skills (SKILL.md: text/JS/native-intent/MCP) over the function-calling loop
 │   ├── genkit_flutter_gemma/        # Firebase Genkit integration (flutter_gemma runtime + converters)

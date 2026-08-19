@@ -17,15 +17,20 @@ import 'onnx_inference_model.dart';
 
 /// ONNX Runtime GenAI on-device inference engine.
 ///
-/// **macOS/Linux/Windows/Android arm (hardened plan Phase 3, design §11 D2).**
-/// [createModel] productionizes the ORT-GenAI FFI path (`GenAiFfiClient` →
-/// `OnnxInferenceModel`/`OnnxSession`) — text-only, greedy decoding, one
-/// session at a time. All four arm/x64 hosts are device-verified — Android on
-/// FTL (Pixel 8 Pro, 2026-08-19: ~10.4 tok/s, ~3.74 GB peak RSS, flat-APK
-/// co-location with no ORT_LIB_PATH fix needed, via
-/// `onnx_inference_smoke_test.dart`), the D2 throughput/RAM go/no-go the gate
-/// waited on. iOS archives/shas aren't published yet; see `hook/build.dart`'s
-/// platform table.
+/// **macOS/Linux/Windows/Android arm + iOS arm64 (hardened plan Phase 3,
+/// design §11 D2).** [createModel] productionizes the ORT-GenAI FFI path
+/// (`GenAiFfiClient` → `OnnxInferenceModel`/`OnnxSession`) — text-only,
+/// greedy decoding, one session at a time. macOS/Linux/Windows/Android arm64
+/// are device-verified — Android on FTL (Pixel 8 Pro, 2026-08-19: ~10.4
+/// tok/s, ~3.74 GB peak RSS, flat-APK co-location with no ORT_LIB_PATH fix
+/// needed, via `onnx_inference_smoke_test.dart`), the D2 throughput/RAM
+/// go/no-go the gate waited on. iOS arm64 (device + Apple-Silicon simulator,
+/// same `Abi.iosArm64`) is wired and **simulator-functionally verified**
+/// (2026-08-19, iOS 26.5 sim: the `@executable_path`-anchored dlopen resolves
+/// both `Oga*` and `OrtGetApiBase` from the single self-contained genai
+/// xcframework, `OgaCreateModel` + streamed generation succeed); the real-
+/// iPhone RAM/thermal go/no-go is a separate, later gate — see
+/// `hook/build.dart`'s platform table.
 ///
 /// Mirrors [LiteRtLmEngine] from `flutter_gemma_litertlm`: a pure factory
 /// that core probes via [canHandle] and calls to build a bare
@@ -50,24 +55,32 @@ class OnnxEngine implements InferenceEngineProvider {
 
   /// In lockstep with `hook/build.dart`'s `_archivesFor`: every host whose
   /// archive the hook bundles AND whose throughput/RAM go/no-go has passed on
-  /// a real device (macOS/Linux/Windows/Android arm64). The gate exists so
-  /// that on a host with no archive — or an archive not yet device-validated —
-  /// `GenAiFfiClient`'s worker-side dlopen doesn't fail at first use with a
-  /// confusing native error; instead this engine declines cleanly (there is
-  /// no other `.onnx` engine to route to yet). Widen deliberately only once
-  /// the gate passes for a given platform — never let it drift ahead of
-  /// validation (iOS: archives not published yet).
+  /// a real device (macOS/Linux/Windows/Android arm64) OR whose iOS-build
+  /// path is wired and sim-verified (iOS arm64, device go/no-go pending —
+  /// see below). The gate exists so that on a host with no archive — or an
+  /// archive not yet device-validated — `GenAiFfiClient`'s worker-side dlopen
+  /// doesn't fail at first use with a confusing native error; instead this
+  /// engine declines cleanly (there is no other `.onnx` engine to route to
+  /// yet). Widen deliberately only once the hook's archive lands for a given
+  /// platform — never let it drift ahead of what `hook/build.dart` actually
+  /// ships.
   static bool get _isSupportedHost {
     if (debugForceUnsupportedHost == true) return false;
     final abi = Abi.current();
-    // Keep in lockstep with hook/build.dart's `_archivesFor` table. All four
-    // device-verified (macOS/Linux/Windows/Android arm64 — Android on FTL
+    // Keep in lockstep with hook/build.dart's `_archivesFor` table.
+    // macOS/Linux/Windows/Android arm64 are device-verified (Android on FTL
     // Pixel 8 Pro 2026-08-19: ~10.4 tok/s, ~3.74 GB peak RSS, flat-APK
-    // co-location with no ORT_LIB_PATH fix needed).
+    // co-location with no ORT_LIB_PATH fix needed). `dart:ffi`'s `Abi` has no
+    // separate simulator ABI: an arm64 iOS Simulator on Apple Silicon
+    // reports the SAME `Abi.iosArm64` as a real device (verified — the
+    // sim-smoke test asserts this), so this one clause covers device +
+    // Apple-Silicon-sim together; `Abi.iosX64` (Intel-Mac simulator) stays
+    // ungated, matching `hook/build.dart` shipping no archive for it either.
     return (Platform.isMacOS && abi == Abi.macosArm64) ||
         (Platform.isLinux && abi == Abi.linuxX64) ||
         (Platform.isWindows && abi == Abi.windowsX64) ||
-        (Platform.isAndroid && abi == Abi.androidArm64);
+        (Platform.isAndroid && abi == Abi.androidArm64) ||
+        (Platform.isIOS && abi == Abi.iosArm64);
   }
 
   /// Test-only override: when `true`, [_isSupportedHost] reports false
@@ -85,7 +98,7 @@ class OnnxEngine implements InferenceEngineProvider {
       gemmaLog(
         'OnnxEngine declined ${Platform.operatingSystem}/${Abi.current()}: '
         'native ORT archives are macOS-arm64/linux-x64/windows-x64/'
-        'android-arm64-only in v1 (iOS pending; see hook/build.dart '
+        'android-arm64/ios-arm64-only in v1 (see hook/build.dart '
         '`_archivesFor`).',
       );
       return false;
@@ -106,8 +119,8 @@ class OnnxEngine implements InferenceEngineProvider {
       throw StateError(
         'OnnxEngine.createModel called on unsupported host '
         '${Platform.operatingSystem}/${Abi.current()} — ONNX native archives '
-        'are macOS-arm64/linux-x64/windows-x64/android-arm64-only in v1 '
-        '(iOS pending; see hook/build.dart `_archivesFor`).',
+        'are macOS-arm64/linux-x64/windows-x64/android-arm64/ios-arm64-only '
+        'in v1 (see hook/build.dart `_archivesFor`).',
       );
     }
 

@@ -7,9 +7,21 @@
 // Document this supply-chain divergence: unlike every other bundle in this
 // monorepo, these two archives are never re-hosted by us.
 //
-// **macOS arm64, linux_x64, windows_x64, android_arm64 (v1)** — iOS is a
-// stubbed "pending D2" gap (device throughput/RAM go/no-go, not archive
-// availability). Android's own archive is a differently-shaped AAR (a zip
+// **macOS arm64, linux_x64, windows_x64, android_arm64, ios arm64 (v1)** —
+// iOS is now landed too, but shaped differently from every other platform:
+// Microsoft ships ONE self-contained artifact for iOS
+// (`onnxruntime-genai-ios-<ver>.zip` → `onnxruntime-genai.xcframework`) whose
+// framework binary STATICALLY links ORT and DYNAMICALLY EXPORTS BOTH APIs
+// (`Oga*` for generation, `OrtGetApiBase` for the plain-ORT embedding arm) —
+// verified via `nm -gU` + `otool -L` on the extracted binary (zero
+// `LC_LOAD_DYLIB` on onnxruntime). So iOS registers exactly one CodeAsset
+// (`ort: null` in `_OrtBundle`, see its doc) where every other platform
+// registers two — there is no co-location problem to solve and no second
+// "onnxruntime" archive to add; do not add one. The device throughput/RAM
+// go/no-go is a separate, later gate on top of this (see
+// `OnnxEngine._isSupportedHost`'s doc) — sim-verified at build time here does
+// not by itself mean device-verified. Android's own archive is a
+// differently-shaped AAR (a zip
 // containing per-ABI `.so` files under `jni/<abi>/` — see [_archivesFor]'s
 // doc) but the (host-verifiable) extraction is landed: only arm64-v8a is
 // registered (ORT-GenAI's AAR ships no armeabi-v7a slice, so arm64-only is
@@ -49,6 +61,7 @@ class _Archive {
     required this.sha256,
     required this.extractedLibPath,
     required this.assetName,
+    this.thinArch,
   });
 
   /// Full download URL (Microsoft's own release, not ours).
@@ -72,19 +85,78 @@ class _Archive {
   /// 4's framework-wrap risk note in `gen_ai_client.dart`).
   final String assetName;
 
+  /// When set, the extracted binary is a fat Mach-O and must be thinned to
+  /// this single architecture (via `lipo -thin`) before being staged as a
+  /// CodeAsset. Used only for iOS's simulator slice (see `_archivesFor`'s
+  /// iOS branch): Microsoft ships `ios-arm64_x86_64-simulator` as one fat
+  /// arm64+x86_64 binary, but a CodeAsset needs a single-arch input — Native
+  /// Assets's own lipo step merges per-arch outputs ACROSS separate hook
+  /// invocations, not within one already-fat input. `lipo` is guaranteed
+  /// present: this hook only ever runs on a macOS host when targeting iOS.
+  final String? thinArch;
+
   String get archiveFileName => url.split('/').last;
 }
 
-/// Archives for this version pair, keyed by (os, arch). macOS arm64,
-/// linux_x64, windows_x64, and android_arm64 are landed (host-fetchable —
-/// the Android AAR extraction is a build-time step, no device involved to
-/// GET the CodeAssets bundled; the device throughput/RAM go/no-go is a
-/// separate, later gate on top of this). iOS stays a stubbed "pending D2"
-/// gap: blocked on the device throughput/RAM go/no-go, not archive
-/// availability. Returns null for any unsupported (os, arch) — notably
-/// Android x86_64 (emulator, out of scope) and Android armeabi-v7a (ORT-GenAI
-/// ships no such AAR slice).
-_OrtBundle? _archivesFor(OS os, Architecture arch) {
+/// Archives for this version pair, keyed by (os, arch[, iOSSdk]). macOS
+/// arm64, linux_x64, windows_x64, android_arm64, and ios arm64 (device +
+/// Apple-Silicon simulator) are landed (host-fetchable — the Android AAR
+/// extraction and the iOS zip extraction are both build-time steps, no
+/// device involved to GET the CodeAssets bundled; the device throughput/RAM
+/// go/no-go is a separate, later gate on top of this — see
+/// `OnnxEngine._isSupportedHost`'s doc). [iOSSdk] distinguishes device vs
+/// simulator on iOS (exact `flutter_gemma_litertlm` precedent,
+/// `_prebuiltDirName`) — unused for every other OS. Returns null for any
+/// unsupported (os, arch) — notably Android x86_64 (emulator, out of scope),
+/// Android armeabi-v7a (ORT-GenAI ships no such AAR slice), and iOS x86_64
+/// (Intel-Mac simulator; ORT-GenAI's iOS xcframework only ships arm64 device
+/// + an arm64/x86_64 simulator fat slice, never a bare x86_64-only one, and
+/// `dart:ffi`'s `Abi` has no distinct simulator ABI anyway — see
+/// `OnnxEngine._isSupportedHost`'s doc).
+_OrtBundle? _archivesFor(OS os, Architecture arch, {IOSSdk? iOSSdk}) {
+  if (os == OS.iOS) {
+    // Only arm64 is supported. On Apple Silicon Macs, Flutter still invokes
+    // the hook for x86_64 simulator slices; returning null skips them so
+    // Native Assets's lipo step doesn't try to merge two arm64-only inputs
+    // and fail with "same architectures and can't be in the same fat file"
+    // (exact `flutter_gemma_litertlm` precedent).
+    if (arch != Architecture.arm64) return null;
+    const url =
+        'https://github.com/microsoft/onnxruntime-genai/releases/'
+        'download/v0.14.0/onnxruntime-genai-ios-0.14.0.zip';
+    const sha256Hex =
+        '6734735af0827d503031a9e17e034cafeb9b54311d333b3dc6aa1ed73476137f';
+    if (iOSSdk == IOSSdk.iPhoneSimulator) {
+      return const _OrtBundle(
+        dirName: 'ios_sim_arm64',
+        ort: null,
+        genai: _Archive(
+          url: url,
+          sha256: sha256Hex,
+          // Microsoft's simulator slice is a fat arm64+x86_64 binary — the
+          // Apple-Silicon-only arm64 half is pulled out by `thinArch` below
+          // before this file is staged as a CodeAsset.
+          extractedLibPath:
+              'onnxruntime-genai.xcframework/ios-arm64_x86_64-simulator/'
+              'onnxruntime-genai.framework/onnxruntime-genai',
+          assetName: 'onnxruntime-genai',
+          thinArch: 'arm64',
+        ),
+      );
+    }
+    return const _OrtBundle(
+      dirName: 'ios_arm64',
+      ort: null,
+      genai: _Archive(
+        url: url,
+        sha256: sha256Hex,
+        extractedLibPath:
+            'onnxruntime-genai.xcframework/ios-arm64/'
+            'onnxruntime-genai.framework/onnxruntime-genai',
+        assetName: 'onnxruntime-genai',
+      ),
+    );
+  }
   if (os == OS.macOS && arch == Architecture.arm64) {
     return const _OrtBundle(
       dirName: 'macos_arm64',
@@ -198,15 +270,22 @@ _OrtBundle? _archivesFor(OS os, Architecture arch) {
       ),
     );
   }
-  // ios arm64/ios_sim_arm64, android x86_64/armeabi-v7a: no entry means the
-  // hook silently skips those targets (matches flutter_gemma_litertlm's "no
-  // checksum registered → skip" convention); GenAiFfiClient's own dlopen
-  // then fails loud at first use with a clear "no such file".
+  // ios x86_64 (Intel-Mac simulator; see this function's doc), android
+  // x86_64/armeabi-v7a: no entry means the hook silently skips those
+  // targets (matches flutter_gemma_litertlm's "no checksum registered →
+  // skip" convention); GenAiFfiClient's own dlopen then fails loud at first
+  // use with a clear "no such file".
   return null;
 }
 
-/// The two archives that make up one platform's bundle, plus the bundle
-/// version tag used for the cache marker.
+/// The archive(s) that make up one platform's bundle, plus the bundle
+/// version tag used for the cache marker. Every platform but iOS carries
+/// TWO archives (`ort` + `genai`) — iOS's genai framework statically links
+/// ORT and exports both APIs from the one binary (see this file's top doc),
+/// so [ort] is `null` there. **Never add a second ORT asset for iOS** — that
+/// would be redundant (a second copy of the same statically-linked symbols
+/// under a different CodeAsset name) and defeats the whole point of iOS
+/// shipping one self-contained artifact.
 class _OrtBundle {
   const _OrtBundle({
     required this.dirName,
@@ -215,13 +294,14 @@ class _OrtBundle {
   });
 
   final String dirName;
-  final _Archive ort;
+  final _Archive? ort;
   final _Archive genai;
 
   /// Cache-invalidation key — bump whenever either archive's URL/sha changes.
-  String get version => 'ort-1.27.0_genai-0.14.0';
+  String get version =>
+      ort == null ? 'genai-0.14.0' : 'ort-1.27.0_genai-0.14.0';
 
-  List<_Archive> get archives => [ort, genai];
+  List<_Archive> get archives => [?ort, genai];
 }
 
 // ============================================================================
@@ -386,7 +466,44 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
       }
       if (!destDir.existsSync()) destDir.createSync(recursive: true);
       final destFileName = extracted.uri.pathSegments.last;
-      extracted.copySync('${destDir.path}/$destFileName');
+      final destPath = '${destDir.path}/$destFileName';
+      extracted.copySync(destPath);
+
+      final thinArch = archive.thinArch;
+      if (thinArch != null) {
+        // iOS's simulator slice ships as a fat arm64+x86_64 Mach-O — pull
+        // the single arch this hook targets out to a distinct temp path
+        // first (rather than `-output` the same path in place) so a failed
+        // lipo run can't leave a half-written file behind.
+        final thinnedPath = '$destPath.thin';
+        final thinResult = await Process.run('lipo', [
+          '-thin',
+          thinArch,
+          destPath,
+          '-output',
+          thinnedPath,
+        ]);
+        if (thinResult.exitCode != 0) {
+          stderr.writeln(
+            'flutter_gemma_onnx: lipo -thin $thinArch failed for $destPath: '
+            '${thinResult.stderr}',
+          );
+          return false;
+        }
+        final infoResult = await Process.run('lipo', ['-info', thinnedPath]);
+        final infoOut = infoResult.stdout.toString().trim();
+        if (infoResult.exitCode != 0 || !infoOut.contains(thinArch)) {
+          stderr.writeln(
+            'flutter_gemma_onnx: lipo -info after thinning did not report '
+            '"$thinArch" for $thinnedPath: $infoOut',
+          );
+          return false;
+        }
+        File(thinnedPath).renameSync(destPath);
+        stderr.writeln(
+          'flutter_gemma_onnx: thinned $destFileName to $thinArch ($infoOut)',
+        );
+      }
     } finally {
       if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     }
@@ -420,8 +537,12 @@ void main(List<String> args) async {
     final codeConfig = input.config.code;
     final os = codeConfig.targetOS;
     final arch = codeConfig.targetArchitecture;
+    // iOS distinguishes device vs simulator via IOSSdk — exact
+    // flutter_gemma_litertlm precedent (`_prebuiltDirName`/`codeConfig.iOS.
+    // targetSdk`). `null`/unused on every other OS.
+    final iOSSdk = os == OS.iOS ? codeConfig.iOS.targetSdk : null;
 
-    final bundle = _archivesFor(os, arch);
+    final bundle = _archivesFor(os, arch, iOSSdk: iOSSdk);
     if (bundle == null) return; // unsupported target this phase — see doc.
 
     final cacheDir = Directory('${_cacheBaseDir().path}/${bundle.dirName}');
@@ -452,20 +573,28 @@ void main(List<String> args) async {
     // Run Script then takes a directoryTreeSignature over that input dir,
     // which now contains its own output, producing "Cycle inside Flutter
     // Assemble". Exact same fix as flutter_gemma_litertlm's hook; see that
-    // file's longer note. macOS-only in this package (no iOS device support
-    // yet), but written OS-gated for when iOS lands.
+    // file's longer note. Apple-only in this package (macOS + iOS); Linux
+    // gets a related-but-different rename below, Windows/Android are no-ops.
     // CRITICAL (codex Phase-1 finding, confirmed via a real `flutter build
-    // macos`): Flutter's macOS asset-bundling derives each `.framework`'s
+    // macos`): Flutter's macOS/iOS asset-bundling derives each `.framework`'s
     // NAME from the STAGED FILE'S OWN FILENAME, not from the CodeAsset's
     // `name:` field — a naive `stage()` that preserves
     // `libonnxruntime.1.27.0.dylib`'s on-disk name produces
     // `onnxruntime1270.framework/onnxruntime1270` (dots collapsed out of the
     // version suffix), which GenAI's bare-name
     // `dlopen("libonnxruntime.dylib")` and `GenAiFfiClient`'s own
-    // `'onnxruntime.framework/onnxruntime'` candidate can never match.
-    // [destFileName] renames the staged copy to the CANONICAL bare name
-    // (`libonnxruntime.dylib`) so the derived framework is
-    // `onnxruntime.framework/onnxruntime` — verified end-to-end below.
+    // `'onnxruntime.framework/onnxruntime'` candidate can never match. On iOS
+    // this is a no-op RENAME rather than a version-suffix collapse (the
+    // extracted `onnxruntime-genai` leaf is already un-versioned — see
+    // `_archivesFor`'s iOS branch — so `destFileName` here is just adding
+    // the `lib`/`.dylib` wrapping) but the SAME derivation mechanism applies:
+    // Flutter's iOS embedder also names the `.framework` after the staged
+    // file. [destFileName] renames the staged copy to the CANONICAL bare
+    // name (`libonnxruntime.dylib` / `libonnxruntime-genai.dylib`) so the
+    // derived framework is `<name>.framework/<name>` — verified end-to-end
+    // on macOS below; codesigning on iOS is Flutter's embed-phase re-sign of
+    // every Native-Assets framework with the app identity (same as
+    // litertlm's iOS dylibs) — nothing extra needed in this hook.
     //
     // LINUX gets the same treatment for a different reason: Microsoft's own
     // Linux tarballs ship the concrete versioned file

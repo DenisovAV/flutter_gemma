@@ -19,6 +19,14 @@
 // version the prompt forward pass (prefill) runs INSIDE
 // `OgaGenerator_AppendTokenSequences`, not the first `GenerateNextToken`.
 // Every timing/stop-flag decision below assumes that.
+//
+// iOS shape (verified via otool -L / nm -gU on the extracted xcframework
+// slice, see `hook/build.dart`'s iOS branch doc): Microsoft ships ONE image,
+// `onnxruntime-genai.framework/onnxruntime-genai`, that STATICALLY links ORT
+// and DYNAMICALLY EXPORTS BOTH APIs (`Oga*` here + `OrtGetApiBase` for the
+// plain-ORT embedding arm in `ort_ffi_client.dart`). So [_openGenAiLibraries]
+// opens a single library on iOS and returns it as both halves of its tuple —
+// see that function's iOS branch.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
@@ -431,7 +439,7 @@ class GenAiFfiClient implements GenAiClient {
 /// Candidate paths/names to try opening [libraryName] (bare, no `lib`
 /// prefix/extension) with, in priority order, for the current platform.
 ///
-/// On macOS/iOS the FIRST candidate is the CodeAsset's framework leaf name
+/// On macOS the FIRST candidate is the CodeAsset's framework leaf name
 /// (`hook/build.dart` registers each dylib under a bare asset name; Flutter's
 /// macOS build wraps every CodeAsset in its own `<name>.framework`, renaming
 /// the binary inside to `<name>.framework/<name>`) — Task 4's framework-wrap
@@ -442,8 +450,27 @@ class GenAiFfiClient implements GenAiClient {
 /// `lib<name>.dylib` names are a fallback for host runs that bypass the
 /// CodeAsset bundle (`flutter test`, the macOS host smoke test's `libsDir`
 /// override takes priority over all of this — see [_openGenAiLibraries]).
+///
+/// iOS gets its OWN branch, deliberately NOT grouped with macOS: iOS dyld 4
+/// cannot resolve a bare `<name>.framework/<name>` leaf name the way macOS's
+/// dyld does — it needs an explicit anchor, exactly the
+/// `@executable_path/Frameworks/<name>.framework/<name>` shape
+/// `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart` already uses
+/// (and documents, with the same "dyld 4 cannot resolve from .framework
+/// names alone" reasoning) for `LiteRtLm.framework`/`StreamProxy.framework`.
+/// A bare leaf name here would dlopen-fail on every real iPhone (and the
+/// simulator — verified: unanchored fails there too). This list is only ever
+/// consulted for `'onnxruntime-genai'` on iOS — the platform ships one image
+/// serving both APIs (see [_openGenAiLibraries]'s iOS branch), so
+/// `'onnxruntime'` is never opened there.
 List<String> _candidateNames(String libraryName) {
-  if (Platform.isMacOS || Platform.isIOS) {
+  if (Platform.isIOS) {
+    return [
+      '@executable_path/Frameworks/$libraryName.framework/$libraryName',
+      'lib$libraryName.dylib',
+    ];
+  }
+  if (Platform.isMacOS) {
     return ['$libraryName.framework/$libraryName', 'lib$libraryName.dylib'];
   }
   if (Platform.isLinux || Platform.isAndroid) return ['lib$libraryName.so'];
@@ -499,7 +526,12 @@ typedef _SetenvDart =
 /// path — Microsoft's own sanctioned override. We set it before GenAI's dylib
 /// static initializer runs (i.e. before opening its library), pointing at ORT's
 /// real path (whatever Flutter named the framework), so resolution succeeds with
-/// zero packaging/Podfile/hook changes. No-op on platforms without dladdr/setenv.
+/// zero packaging/Podfile/hook changes. No-op on platforms without
+/// dladdr/setenv. iOS keeps the `Platform.isIOS` gate below (this function IS
+/// harmless there — genai's iOS build is static, so `ORT_LIB_PATH` is simply
+/// never consulted) but [_openGenAiLibraries]'s iOS branch never calls this
+/// function at all — see its doc for why an explicit skip is cleaner than
+/// relying on this being a no-op.
 void _exportOrtLibPath(ffi.DynamicLibrary ortLib) {
   if (!(Platform.isMacOS || Platform.isIOS || Platform.isLinux)) return;
   final proc = ffi.DynamicLibrary.process();
@@ -526,6 +558,23 @@ void _exportOrtLibPath(ffi.DynamicLibrary ortLib) {
 }
 
 (ffi.DynamicLibrary, ffi.DynamicLibrary) _openGenAiLibraries(String? libsDir) {
+  if (Platform.isIOS && libsDir == null) {
+    // iOS ships ONE self-contained framework: onnxruntime-genai statically
+    // links ORT and exports both APIs (`Oga*` + `OrtGetApiBase`) from the
+    // same binary — verified via `otool -L` (zero LC_LOAD_DYLIB on
+    // onnxruntime) and `nm -gU` (both symbol sets present) on the extracted
+    // xcframework slice. See `hook/build.dart`'s iOS branch (single
+    // CodeAsset, `ort: null`) and this file's top doc. Skip the two-library
+    // open/`ORT_LIB_PATH` dance entirely: there is no separate onnxruntime
+    // dylib to co-locate with, and genai does no runtime dlopen of ORT on
+    // iOS (a static build, unlike macOS's `MACOS_USE_DLOPEN` path) — calling
+    // `_exportOrtLibPath` here would be a harmless no-op (its own
+    // `Platform.isIOS` gate stays for that reason) but an explicit skip is
+    // cleaner than relying on it.
+    final genaiLib = _openFirst(_candidateNames('onnxruntime-genai'));
+    return (genaiLib, genaiLib);
+  }
+
   final ffi.DynamicLibrary ortLib;
   if (libsDir != null) {
     // Host-test override (FLUTTER_GEMMA_ORT_GENAI_LIBS / the macOS host

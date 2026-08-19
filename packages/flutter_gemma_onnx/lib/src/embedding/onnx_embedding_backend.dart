@@ -37,16 +37,20 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
   /// platform gate lives in [createModel] as a loud [StateError] instead —
   /// same `_isSupportedHost` shape as `OnnxEngine`, kept in lockstep with
   /// `hook/build.dart`'s platform table (macOS/Linux/Windows/Android arm64 —
-  /// all device-verified; see `OnnxEngine._isSupportedHost`'s doc).
+  /// all device-verified; iOS arm64 wired + sim-build-verified, device
+  /// go/no-go pending; see `OnnxEngine._isSupportedHost`'s doc, including
+  /// the `Abi.iosArm64`-covers-device-and-Apple-Silicon-sim note).
   static bool get _isSupportedHost {
     if (debugForceUnsupportedHost == true) return false;
     final abi = Abi.current();
-    // Keep in lockstep with hook/build.dart's `_archivesFor` table — all four
-    // arm/x64 hosts device-verified (Android on FTL 2026-08-19).
+    // Keep in lockstep with hook/build.dart's `_archivesFor` table — four
+    // arm/x64 hosts device-verified (Android on FTL 2026-08-19), iOS arm64
+    // wired + sim-build-verified (device on-hardware go/no-go pending).
     return (Platform.isMacOS && abi == Abi.macosArm64) ||
         (Platform.isLinux && abi == Abi.linuxX64) ||
         (Platform.isWindows && abi == Abi.windowsX64) ||
-        (Platform.isAndroid && abi == Abi.androidArm64);
+        (Platform.isAndroid && abi == Abi.androidArm64) ||
+        (Platform.isIOS && abi == Abi.iosArm64);
   }
 
   /// Test-only override — see `OnnxEngine.debugForceUnsupportedHost` (same
@@ -82,8 +86,8 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
       throw StateError(
         'OnnxEmbeddingBackend.createModel called on unsupported host '
         '${Platform.operatingSystem}/${Abi.current()} — ONNX embedding '
-        'native archives are macOS-arm64/linux-x64/windows-x64/android-arm64-'
-        'only in v1 (iOS pending).',
+        'native archives are macOS-arm64/linux-x64/windows-x64/android-arm64/'
+        'ios-arm64-only in v1.',
       );
     }
     final tokenizerPath = config.tokenizerPath;

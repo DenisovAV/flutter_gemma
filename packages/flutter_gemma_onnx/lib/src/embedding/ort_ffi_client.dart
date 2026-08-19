@@ -36,7 +36,48 @@ ffi.DynamicLibrary _openOnnxRuntime() {
   if (override != null && override.isNotEmpty) {
     return ffi.DynamicLibrary.open(override);
   }
-  if (Platform.isMacOS || Platform.isIOS) {
+  if (Platform.isIOS) {
+    // iOS ships no standalone onnxruntime archive: the onnxruntime-genai
+    // framework statically links ORT and dynamically exports OrtGetApiBase
+    // from the same binary (verified via `nm -gU` on the extracted
+    // xcframework slice — see `hook/build.dart`'s iOS branch and
+    // `gen_ai_client.dart`'s `_openGenAiLibraries` iOS branch). Resolve it
+    // from there instead of a separate CodeAsset.
+    //
+    // Opening the framework by name works whether or not the inference arm
+    // (`GenAiFfiClient`) already loaded it: dlopen of an already-loaded
+    // image just bumps its refcount — no double-load, one shared ORT
+    // state — and dlopen's loaded-image set is process-wide, so this also
+    // resolves correctly from the embedding worker isolate. Falling back to
+    // `DynamicLibrary.process()` (guarded by `providesSymbol` so a false hit
+    // can't slip past) covers the case where the framework was already
+    // loaded under a path this literal name doesn't re-resolve by.
+    //
+    // The open MUST use the `@executable_path/Frameworks/` anchor — iOS
+    // dyld 4 cannot resolve a bare `<name>.framework/<name>` leaf name (same
+    // reasoning, and same anchor shape, as
+    // `flutter_gemma_litertlm/lib/src/ffi/litert_lm_client.dart`'s
+    // `LiteRtLm.framework`/`StreamProxy.framework` opens, and
+    // `gen_ai_client.dart`'s `_candidateNames` iOS branch).
+    try {
+      return ffi.DynamicLibrary.open(
+        '@executable_path/Frameworks/onnxruntime-genai.framework/'
+        'onnxruntime-genai',
+      );
+    } catch (_) {}
+    final proc = ffi.DynamicLibrary.process();
+    if (proc.providesSymbol('OrtGetApiBase')) return proc;
+    throw UnsupportedError(
+      'Could not resolve OrtGetApiBase on iOS: '
+      '@executable_path/Frameworks/onnxruntime-genai.framework/'
+      'onnxruntime-genai was not found and the process image does not '
+      'already export OrtGetApiBase. Set $_libraryOverrideEnvVar to an '
+      'explicit path for host testing — in a real app build iOS resolves '
+      'OrtGetApiBase from onnxruntime-genai.framework (see '
+      'hook/build.dart\'s iOS branch).',
+    );
+  }
+  if (Platform.isMacOS) {
     final candidates = <String>[
       'libonnxruntime.dylib',
       'onnxruntime.framework/onnxruntime',

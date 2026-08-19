@@ -90,6 +90,51 @@ void main() {
     });
   });
 
+  group('a range on a non-numeric field is ignored, not always-true', () {
+    // Core names three degenerate cases; this codec implemented two, so an
+    // ignored condition took the matches-everything path. Those differ in
+    // exactly the buckets this algebra exists for.
+    test('mustNot: an ignored range excludes nothing', () {
+      // Was: _MatchesAll -> "excluding what everything satisfies" -> the whole
+      // filter unsatisfiable. sqlite returned every document for this filter.
+      expect(
+        FilterCodec.encode(
+          const Filter(mustNot: [FieldRange(key: 'lang')]),
+          _schema,
+        ),
+        isNull,
+        reason: 'ignored in every bucket, so no filter is sent',
+      );
+    });
+
+    test('should: an ignored range does not make the bucket always-true', () {
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            should: [
+              FieldRange(key: 'lang'),
+              FieldEquals(key: 'lang', value: 'en'),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      final should = out['should'] as List;
+      expect(should, hasLength(1));
+      expect((should.first as Map)['match'], {'value': 'en'});
+    });
+
+    test('must: a bounded range on a string field is ignored', () {
+      expect(
+        FilterCodec.encode(
+          const Filter(must: [FieldRange(key: 'lang', gte: 1)]),
+          _schema,
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('non-finite numbers match nothing instead of throwing', () {
     // jsonEncode refuses NaN and ±Infinity outright (measured:
     // JsonUnsupportedObjectError), so these used to throw out of

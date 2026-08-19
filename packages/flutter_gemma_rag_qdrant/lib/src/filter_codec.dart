@@ -46,6 +46,8 @@ class FilterCodec {
     final must = <Map<String, Object>>[];
     for (final c in _declared(filter.must, schema)) {
       switch (_encodeCondition(c, schema)) {
+        case _Ignored():
+          break;
         case _MatchesAll():
           break;
         case _MatchesNone():
@@ -66,6 +68,8 @@ class FilterCodec {
       var alwaysTrue = false;
       for (final c in shouldConditions) {
         switch (_encodeCondition(c, schema)) {
+          case _Ignored():
+            break;
           case _MatchesAll():
             alwaysTrue = true;
           case _MatchesNone():
@@ -90,6 +94,8 @@ class FilterCodec {
     final mustNot = <Map<String, Object>>[];
     for (final c in _declared(filter.mustNot, schema)) {
       switch (_encodeCondition(c, schema)) {
+        case _Ignored():
+          break;
         case _MatchesAll():
           impossible = true;
         case _MatchesNone():
@@ -214,6 +220,11 @@ class FilterCodec {
         });
 
       case FieldRange(:final key, :final gte, :final lte):
+        // A range only means something over a numeric column. On a string or
+        // bool field it is ignored — skipped in every bucket — which is what
+        // the sqlite arm does and what core documents. Encoding it here made
+        // the same filter answer oppositely on the two backends.
+        if (field.type != FilterFieldType.number) return const _Ignored();
         // A range with neither bound constrains nothing, so it matches
         // everything — the same reading the SQLite arm applies. Emitting an
         // empty `range: {}` instead turns it into an existence test there,
@@ -284,6 +295,18 @@ sealed class _Contribution {
 
 class _MatchesAll extends _Contribution {
   const _MatchesAll();
+}
+
+/// Skipped as if never written — a contract choice, not a truth value.
+///
+/// Core's Condition dartdoc names three degenerate cases and this codec
+/// implemented two, so a FieldRange on a declared string/bool field took the
+/// _MatchesAll path: `mustNot: [FieldRange(key: 'tag')]` over a string field
+/// returned every document on sqlite (which ignores it) and none on qdrant.
+/// An ignored condition contributes nothing to ANY bucket, which is exactly
+/// what neither of the other two variants means.
+class _Ignored extends _Contribution {
+  const _Ignored();
 }
 
 class _MatchesNone extends _Contribution {

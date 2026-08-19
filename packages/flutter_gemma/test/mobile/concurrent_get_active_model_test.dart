@@ -78,6 +78,73 @@ void main() {
     return engine;
   }
 
+  test('a failed build does not trap every later request', () async {
+    // Found by review, and it is the reason the re-entry above needed a guard
+    // of its own. The three pre-build checks (model not installed, no file
+    // paths, file missing) completed the completer with an error and returned
+    // WITHOUT clearing _initCompleter — the defect FIX #170 removed from the
+    // catch block, in the paths it did not cover.
+    //
+    // Alone that meant every later caller was handed the same dead completer
+    // and the same stale error. Combined with the in-flight re-entry, it
+    // became unbounded: a DIFFERENT request awaited that completer, caught the
+    // error, re-entered, found the very same completer still installed, and
+    // looped without end.
+    //
+    // Both calls carry a deadline, so a regression fails in seconds rather
+    // than hanging the suite.
+    final engine = await installWithGatedEngine();
+    engine.release(); // never reaches the engine; nothing to gate
+
+    // Delete the installed file out from under the plugin.
+    final installed = fakeAppSupport
+        .listSync(recursive: true)
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.bin'))
+        .toList();
+    expect(installed, isNotEmpty, reason: 'fixture should have written a file');
+    for (final f in installed) {
+      f.deleteSync();
+    }
+
+    await expectLater(
+      FlutterGemma.getActiveModel(
+        maxTokens: 1024,
+      ).timeout(const Duration(seconds: 5)),
+      throwsA(isA<Exception>()),
+    );
+
+    // A DIFFERENT request must also fail — promptly, and on its own merits.
+    await expectLater(
+      FlutterGemma.getActiveModel(
+        maxTokens: 2048,
+      ).timeout(const Duration(seconds: 5)),
+      throwsA(isA<Exception>()),
+    );
+
+    // And it must not have been served the first call's dead completer: the
+    // engine was never reached either time.
+    expect(engine.createModelCallCount, 0);
+
+    // The sharpest check, and the one that pins the state RESET rather than
+    // the outcome. Put the file back and repeat the request whose params match
+    // the last attempt — 2048, not 1024. That matters: an identical request
+    // takes the `return completer.future` path, which the loop guard never
+    // runs on, so a trapped completer replays the stale error and never
+    // reaches the engine. Asking with 1024 here would instead take the
+    // differing-params path, where the guard rescues it and the assertion
+    // passes whether or not the early exits reset — which is exactly what the
+    // first version of this check did, and why it caught nothing.
+    for (final f in installed) {
+      f.writeAsBytesSync(_fakeBundleBytes);
+    }
+    final recovered = await FlutterGemma.getActiveModel(
+      maxTokens: 2048,
+    ).timeout(const Duration(seconds: 5));
+    expect(engine.createModelCallCount, 1, reason: 'must build, not replay');
+    await recovered.close();
+  });
+
   test('a second caller with DIFFERENT params does not get the in-flight '
       'model built for the first', () async {
     final engine = await installWithGatedEngine();

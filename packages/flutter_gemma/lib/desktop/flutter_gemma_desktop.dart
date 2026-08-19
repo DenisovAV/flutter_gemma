@@ -231,12 +231,24 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         '(${sameModel ? 'config $changedParam' : 'model ${pending?.specName} → ${requestedSpec.name}'})'
         ' — waiting for it, then rebuilding',
       );
+      var inFlightFailed = false;
       try {
         await completer.future;
       } catch (_) {
         // That build failed. Its own catch resets the state and its caller
         // receives the error, so nothing is being swallowed here — fall
         // through and build fresh for THIS caller.
+        inFlightFailed = true;
+      }
+      if (inFlightFailed && identical(_initCompleter, completer)) {
+        // A failed build left its own completer installed. Recursing now would
+        // find that same dead completer, await it, catch the same error, and
+        // repeat without end — the recursion below must not depend on every
+        // error path having remembered to reset. (On the SUCCESS path the
+        // completer stays installed on purpose: it IS the cache. Hence the
+        // failure condition rather than a bare identity check.)
+        _initCompleter = null;
+        _inFlightRequest = null;
       }
       // Re-enter rather than tear down mid-build: the first caller's future
       // stays valid and gets the model it asked for, and only then is it

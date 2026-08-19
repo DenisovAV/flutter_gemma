@@ -217,12 +217,24 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         '(${sameModel ? 'config $changedParam' : 'model ${pending?.specName} → ${requestedSpec.name}'})'
         ' — waiting for it, then rebuilding',
       );
+      var inFlightFailed = false;
       try {
         await completer.future;
       } catch (_) {
         // That build failed. Its own catch resets the state and its caller
         // receives the error, so nothing is being swallowed here — fall
         // through and build fresh for THIS caller.
+        inFlightFailed = true;
+      }
+      if (inFlightFailed && identical(_initCompleter, completer)) {
+        // A failed build left its own completer installed. Recursing now would
+        // find that same dead completer, await it, catch the same error, and
+        // repeat without end — the recursion below must not depend on every
+        // error path having remembered to reset. (On the SUCCESS path the
+        // completer stays installed on purpose: it IS the cache. Hence the
+        // failure condition rather than a bare identity check.)
+        _initCompleter = null;
+        _inFlightRequest = null;
       }
       // Re-enter rather than tear down mid-build: the first caller's future
       // stays valid and gets the model it asked for, and only then is it
@@ -248,6 +260,25 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     final completer = _initCompleter = Completer<InferenceModel>();
     _inFlightRequest = (specName: requestedSpec.name, params: requestedParams);
 
+    /// Completes [completer] with [error] AFTER clearing the singleton state.
+    ///
+    /// The three pre-build checks below used to complete the error and return
+    /// while leaving `_initCompleter` installed — the same defect FIX #170
+    /// removed from the catch block, in the paths it did not cover. Every later
+    /// caller was then handed that dead completer: an identical request got the
+    /// stale error forever, and a DIFFERENT request awaited it, caught it,
+    /// re-entered, found the very same completer still installed, and looped
+    /// without end.
+    Future<InferenceModel> failBeforeBuild(Object error) {
+      _initCompleter = null;
+      _inFlightRequest = null;
+      _initializedModel = null;
+      _lastActiveInferenceSpec = null;
+      _lastInferenceParams = null;
+      completer.completeError(error);
+      return completer.future;
+    }
+
     final isBuiltIn = requestedSpec.fileType == ModelFileType.builtIn;
 
     String modelPath = '';
@@ -255,33 +286,30 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // Verify the active model is still installed
       final isModelInstalled = await manager.isModelInstalled(activeModel);
       if (!isModelInstalled) {
-        completer.completeError(
+        return failBeforeBuild(
           Exception(
             'Active model is no longer installed. Use the `modelManager` to load the model first',
           ),
         );
-        return completer.future;
       }
 
       // Get the actual model file path through unified system
       final modelFilePaths = await manager.getModelFilePaths(activeModel);
       if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        completer.completeError(
+        return failBeforeBuild(
           Exception(
             'Model file paths not found. Use the `modelManager` to load the model first',
           ),
         );
-        return completer.future;
       }
 
       modelPath = modelFilePaths.values.first;
       final modelFile = File(modelPath);
 
       if (!await modelFile.exists()) {
-        completer.completeError(
+        return failBeforeBuild(
           Exception('Model file not found at path: ${modelFile.path}'),
         );
-        return completer.future;
       }
 
       gemmaLog('Using unified model file: $modelPath');

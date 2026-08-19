@@ -128,6 +128,42 @@ void main() {
       expect(got, ['d1']);
     });
 
+    test('FieldRange rejects a non-finite bound at construction', () {
+      // The first version of this test tried to push `gte: -double.infinity`
+      // through translate() to exercise the release-mode guard. It cannot:
+      // FieldRange asserts finite bounds in its constructor, and `flutter
+      // test` always runs with asserts on, so the value never reaches the
+      // translator. The comment claiming otherwise was simply wrong.
+      //
+      // So this pins the dev-time half. The release half — _isFiniteBound in
+      // filter_to_vec0.dart, which stops -Infinity (the absent-value
+      // sentinel) from being bound as a range bound once the assert is gone —
+      // is NOT covered by a test, and cannot be under this runner. Saying so
+      // is better than a test that looks like it covers it.
+      expect(
+        () => FieldRange(key: 'year', gte: double.negativeInfinity),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
+    test('FieldRange rejects a non-finite bound at construction', () {
+      // An earlier version of this test tried to push `gte: -double.infinity`
+      // through translate() to exercise the release-mode guard. It cannot:
+      // FieldRange asserts finite bounds in its constructor and `flutter test`
+      // always runs with asserts on, so the value never reaches the
+      // translator. The comment claiming otherwise was simply wrong.
+      //
+      // This pins the dev-time half. The release half — _isFiniteBound in
+      // filter_to_vec0.dart, which stops -Infinity (the absent-value
+      // sentinel) from being bound as a range bound once the assert is gone —
+      // is NOT covered by a test and cannot be under this runner. Saying so is
+      // better than a test that looks like it covers it.
+      expect(
+        () => FieldRange(key: 'year', gte: double.negativeInfinity),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
     test('a non-finite equality matches nothing, not the absent sentinel', () {
       // -Infinity IS the absent-number sentinel, so this used to return every
       // document that has no `year` — the opposite of a filter on year. Here

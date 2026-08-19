@@ -281,6 +281,10 @@ class FilterToVec0 {
 
       case FieldRange(:final gte, :final lte):
         if (field.type != FilterFieldType.number) return null;
+        // A range no document can satisfy excludes nothing, so its negation is
+        // no constraint. See the positive branch for why the bounds need their
+        // own finite check.
+        if (!_isFiniteBound(gte) || !_isFiniteBound(lte)) return null;
         // Two-sided is the one shape that cannot be rescued: measured, vec0
         // pushes neither `NOT BETWEEN` nor the `< a OR > b` rewrite, because
         // OR across bounds is not a single comparison. It therefore keeps the
@@ -372,6 +376,13 @@ class FilterToVec0 {
         // documented no-op), rather than emitting a typed comparison that
         // silently mis-filters.
         if (field.type != FilterFieldType.number) return null;
+        // Bounds bypass coerceForColumn — they are bound directly — so the
+        // non-finite rule has to be restated here. FieldRange asserts finite
+        // bounds, but asserts vanish in release, and -Infinity IS the
+        // absent-value sentinel: `year >= -Infinity` returned exactly the
+        // documents with no year. Nothing storable compares against a
+        // non-finite bound, so the range matches nothing.
+        if (!_isFiniteBound(gte) || !_isFiniteBound(lte)) return '0';
         if (gte != null && lte != null) {
           binds.add(gte);
           binds.add(lte);
@@ -526,6 +537,14 @@ class FilterToVec0 {
         return null;
     }
   }
+
+  /// Whether [bound] is absent or a number JSON can actually represent.
+  ///
+  /// NaN and +/-Infinity have no JSON literal, so no stored payload holds one.
+  /// Range bounds do not pass through [coerceForColumn], which is where the
+  /// same rule lives for equality and set membership, so it is restated here
+  /// rather than assumed.
+  static bool _isFiniteBound(double? bound) => bound == null || bound.isFinite;
 
   /// How far over-fetching may grow, as a multiple of the requested topK.
   /// Bounded on purpose: without a cap an unpushable filter turns every search

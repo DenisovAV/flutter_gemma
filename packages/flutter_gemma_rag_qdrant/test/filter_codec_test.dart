@@ -135,6 +135,108 @@ void main() {
     });
   });
 
+  group('an all-ignored bucket is absent, not empty', () {
+    // "Ignored" and "matches nothing" both leave a bucket with no arms, and
+    // the code told them apart by asking whether any arm was DECLARED — which
+    // an ignored one is. So a should bucket holding only ignored arms was read
+    // as an empty disjunction and sank the whole filter.
+
+    test('a should bucket of only ignored arms constrains nothing', () {
+      // The contrast that makes it plainly wrong: the identical condition in
+      // `must` correctly yields no filter at all.
+      expect(
+        FilterCodec.encode(
+          const Filter(should: [FieldRange(key: 'lang', gte: 1)]),
+          _schema,
+        ),
+        isNull,
+      );
+      expect(
+        FilterCodec.encode(
+          const Filter(must: [FieldRange(key: 'lang', gte: 1)]),
+          _schema,
+        ),
+        isNull,
+      );
+    });
+
+    test('a should bucket of only match-nothing arms IS unsatisfiable', () {
+      // The other half of the distinction — this one must still sink it.
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            should: [FieldMatchAny(key: 'tag', values: [])],
+          ),
+          _schema,
+        ),
+      );
+      expect((out['must'] as List).first['range'], {'gte': 1, 'lte': 0});
+    });
+
+    test('the unsatisfiable sentinel uses a DECLARED key', () {
+      // It used to take the first key off the raw filter — often the one just
+      // dropped as undeclared, and Condition.key is unvalidated. qdrant parses
+      // that field as a JsonPath, so a key with a space fails to deserialize
+      // and searchSimilar throws, reopening the never-throws hole.
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldEquals(key: 'not a key!', value: 'x'),
+              FieldMatchAny(key: 'tag', values: []),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      final key = (out['must'] as List).first['key'] as String;
+      expect(key, isNotEmpty);
+      expect(
+        RegExp(r'^[A-Za-z][A-Za-z0-9_]*$').hasMatch(key),
+        isTrue,
+        reason: 'must be a schema-declared name, not user text',
+      );
+    });
+  });
+
+  group('a bool field answers the same however the predicate is spelled', () {
+    // FieldEquals checked `value is num` before the field type, so a numeric
+    // value on a bool field took the degenerate-range path and never reached
+    // _boolSpellings. FieldMatchAny checked the type first. The same predicate,
+    // written two ways, answered differently on the SAME backend.
+    test('FieldEquals(1) on a bool field accepts true and 1', () {
+      final out = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldEquals(key: 'archived', value: 1)]),
+          _schema,
+        ),
+      );
+      final arms = (out['must'] as List).first['should'] as List;
+      expect(arms.first['match'], {'value': true});
+      expect(arms.last['range'], {'gte': 1, 'lte': 1});
+    });
+
+    test('FieldEquals(1) and FieldMatchAny([1]) agree', () {
+      final eq = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldEquals(key: 'archived', value: 1)]),
+          _schema,
+        ),
+      );
+      final any = _decode(
+        FilterCodec.encode(
+          const Filter(
+            must: [
+              FieldMatchAny(key: 'archived', values: [1]),
+            ],
+          ),
+          _schema,
+        ),
+      );
+      expect(eq['must'], any['must']);
+    });
+  });
+
   group('non-finite numbers match nothing instead of throwing', () {
     // jsonEncode refuses NaN and ±Infinity outright (measured:
     // JsonUnsupportedObjectError), so these used to throw out of

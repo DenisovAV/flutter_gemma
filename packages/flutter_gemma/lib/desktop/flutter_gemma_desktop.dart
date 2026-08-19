@@ -166,6 +166,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
       maxConcurrentSessions: maxConcurrentSessions,
+      loraRanks: loraRanks,
     );
 
     // Check if singleton exists and matches active model + runtime params

@@ -149,6 +149,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       maxNumImages: maxNumImages,
       enableSpeculativeDecoding: enableSpeculativeDecoding,
       maxConcurrentSessions: maxConcurrentSessions,
+      loraRanks: loraRanks,
     );
 
     // Check if singleton exists and matches the active model
@@ -183,7 +184,20 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         );
         gemmaLog('🔄 Closing old model and creating new one...');
         await _initializedModel?.close();
-        // close-listener will reset _initializedModel and _initCompleter
+        // Clear all five here rather than trusting the close listener to do
+        // the other two. It may not have run yet — fireCloseListeners() sits
+        // behind an await inside the model's close() — and it may never run if
+        // that close() throws. The state it left behind was a fixed point:
+        // _initCompleter installed and SUCCESSFULLY completed, spec null, so
+        // the reuse check is skipped, the in-flight branch awaits an
+        // already-completed future, the failure-conditioned guard does not
+        // fire, and the recursion re-enters unchanged. Awaiting a completed
+        // future schedules a microtask, and Dart drains that queue before
+        // returning to the event loop, so it hangs the isolate outright.
+        // Desktop already cleared all five; this is mobile catching up.
+        _initCompleter = null;
+        _inFlightRequest = null;
+        _initializedModel = null;
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
       } else {
@@ -262,6 +276,16 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
 
     /// Completes [completer] with [error] AFTER clearing the singleton state.
     ///
+    /// Also used by the catch below, which is what makes the three checks safe
+    /// against THROWING as well as against returning false. They sit outside
+    /// the try that wraps the build, and an exception from any of them — a
+    /// prefs read, an IO error, a permission denial — used to escape
+    /// createModel with the completer installed and never completed. Every
+    /// later caller then awaited a future that could not settle: no error, no
+    /// timeout, nothing in the log, and unrecoverable for the process
+    /// lifetime, since the only writers of _initCompleter are unreachable from
+    /// that state.
+    ///
     /// The three pre-build checks below used to complete the error and return
     /// while leaving `_initCompleter` installed — the same defect FIX #170
     /// removed from the catch block, in the paths it did not cover. Every later
@@ -282,41 +306,48 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     final isBuiltIn = requestedSpec.fileType == ModelFileType.builtIn;
 
     String modelPath = '';
-    if (!isBuiltIn) {
-      // Verify the active model is still installed
-      final isModelInstalled = await manager.isModelInstalled(activeModel);
-      if (!isModelInstalled) {
-        return failBeforeBuild(
-          Exception(
-            'Active model is no longer installed. Use the `modelManager` to load the model first',
-          ),
+    try {
+      if (!isBuiltIn) {
+        // Verify the active model is still installed
+        final isModelInstalled = await manager.isModelInstalled(activeModel);
+        if (!isModelInstalled) {
+          return failBeforeBuild(
+            Exception(
+              'Active model is no longer installed. Use the `modelManager` to load the model first',
+            ),
+          );
+        }
+
+        // Get the actual model file path through unified system
+        final modelFilePaths = await manager.getModelFilePaths(activeModel);
+        if (modelFilePaths == null || modelFilePaths.isEmpty) {
+          return failBeforeBuild(
+            Exception(
+              'Model file paths not found. Use the `modelManager` to load the model first',
+            ),
+          );
+        }
+
+        modelPath = modelFilePaths.values.first;
+        final modelFile = File(modelPath);
+
+        if (!await modelFile.exists()) {
+          return failBeforeBuild(
+            Exception('Model file not found at path: ${modelFile.path}'),
+          );
+        }
+
+        gemmaLog('Using unified model file: $modelPath');
+      } else {
+        gemmaLog(
+          'Built-in model ${requestedSpec.name}: skipping file/installed checks (no on-disk file)',
         );
       }
-
-      // Get the actual model file path through unified system
-      final modelFilePaths = await manager.getModelFilePaths(activeModel);
-      if (modelFilePaths == null || modelFilePaths.isEmpty) {
-        return failBeforeBuild(
-          Exception(
-            'Model file paths not found. Use the `modelManager` to load the model first',
-          ),
-        );
-      }
-
-      modelPath = modelFilePaths.values.first;
-      final modelFile = File(modelPath);
-
-      if (!await modelFile.exists()) {
-        return failBeforeBuild(
-          Exception('Model file not found at path: ${modelFile.path}'),
-        );
-      }
-
-      gemmaLog('Using unified model file: $modelPath');
-    } else {
-      gemmaLog(
-        'Built-in model ${requestedSpec.name}: skipping file/installed checks (no on-disk file)',
-      );
+    } catch (e) {
+      // A throw from isModelInstalled / getModelFilePaths / exists() must land
+      // on the same path as a false answer from them. Anything else leaves a
+      // completer that never settles.
+      return failBeforeBuild(e);
     }
 
     try {

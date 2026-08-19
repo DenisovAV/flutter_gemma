@@ -102,6 +102,23 @@ void main() {
       );
     });
 
+    test('a should bucket of ONLY ignored arms constrains nothing', () {
+      // The sibling of the qdrant bug, and the same root: the code asked
+      // whether any arm was DECLARED, and an ignored arm is declared. With no
+      // surviving arm to mask it, the bucket read as an empty disjunction and
+      // returned nothing. The existing test above has a surviving arm, which
+      // is exactly why it never caught this.
+      expect(
+        search(const Filter(should: [FieldRange(key: 'lang', gte: 1)])),
+        hasLength(4),
+      );
+      // And the identical condition in `must` must agree.
+      expect(
+        search(const Filter(must: [FieldRange(key: 'lang', gte: 1)])),
+        hasLength(4),
+      );
+    });
+
     test('an ignored condition is skipped in should, not treated as true', () {
       // An undeclared key is ignored as if never written — a contract choice,
       // not a truth value — so the remaining arm still constrains.
@@ -140,24 +157,6 @@ void main() {
       // sentinel) from being bound as a range bound once the assert is gone —
       // is NOT covered by a test, and cannot be under this runner. Saying so
       // is better than a test that looks like it covers it.
-      expect(
-        () => FieldRange(key: 'year', gte: double.negativeInfinity),
-        throwsA(isA<AssertionError>()),
-      );
-    });
-
-    test('FieldRange rejects a non-finite bound at construction', () {
-      // An earlier version of this test tried to push `gte: -double.infinity`
-      // through translate() to exercise the release-mode guard. It cannot:
-      // FieldRange asserts finite bounds in its constructor and `flutter test`
-      // always runs with asserts on, so the value never reaches the
-      // translator. The comment claiming otherwise was simply wrong.
-      //
-      // This pins the dev-time half. The release half — _isFiniteBound in
-      // filter_to_vec0.dart, which stops -Infinity (the absent-value
-      // sentinel) from being bound as a range bound once the assert is gone —
-      // is NOT covered by a test and cannot be under this runner. Saying so is
-      // better than a test that looks like it covers it.
       expect(
         () => FieldRange(key: 'year', gte: double.negativeInfinity),
         throwsA(isA<AssertionError>()),

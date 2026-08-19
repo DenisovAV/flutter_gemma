@@ -66,21 +66,32 @@ class FilterCodec {
     if (shouldConditions.isNotEmpty) {
       final should = <Map<String, Object>>[];
       var alwaysTrue = false;
+      // Whether any arm was actually EVALUATED. An ignored arm is skipped as
+      // if never written, so a bucket left empty because every arm was ignored
+      // is a bucket that was never there — no constraint. A bucket left empty
+      // because every arm matched nothing is an empty disjunction, which is
+      // unsatisfiable. Without this flag both look like `should.isEmpty`, and
+      // the ignored case wrongly sank the whole filter: `should:
+      // [FieldRange(key: 'lang')]` over a string field returned zero rows
+      // while the identical condition in `must` correctly returned everything.
+      var sawEvaluated = false;
       for (final c in shouldConditions) {
         switch (_encodeCondition(c, schema)) {
           case _Ignored():
             break;
           case _MatchesAll():
             alwaysTrue = true;
+            sawEvaluated = true;
           case _MatchesNone():
-            break;
+            sawEvaluated = true;
           case _Clause(:final json):
+            sawEvaluated = true;
             should.add(json);
         }
       }
       if (!alwaysTrue) {
         if (should.isEmpty) {
-          impossible = true;
+          if (sawEvaluated) impossible = true;
         } else {
           map['should'] = should;
         }
@@ -111,7 +122,18 @@ class FilterCodec {
       // `1 <= v <= 0` holds for no number, and a non-numeric payload fails the
       // range check outright. Encoded on a key we actually saw, so the shape
       // stays a well-formed condition rather than a special token.
-      final key = _anyKey(filter) ?? '';
+      // A key from the SCHEMA, not from the filter. _anyKey read
+      // `bucket.first.key`, which is often the condition that was dropped as
+      // undeclared — and Condition.key is unvalidated, while a declared name
+      // is constrained to FilterField.namePattern by construction. qdrant
+      // parses this field as a JsonPath during deserialization, so a key with
+      // a space or an unbalanced bracket fails to parse, the FFI call returns
+      // non-zero, and searchSimilar THROWS — reopening the never-throws hole
+      // this PR closed for non-finite numbers, through a different door.
+      //
+      // `impossible` can only be set from inside a loop over declared
+      // conditions, so the schema is guaranteed non-empty here.
+      final key = schema.fields.first.name;
       return jsonEncode({
         'must': [
           {
@@ -132,13 +154,6 @@ class FilterCodec {
     (c) => schema.fieldFor(c.key) != null,
   );
 
-  static String? _anyKey(Filter filter) {
-    for (final bucket in [filter.must, filter.should, filter.mustNot]) {
-      if (bucket != null && bucket.isNotEmpty) return bucket.first.key;
-    }
-    return null;
-  }
-
   static _Contribution _encodeCondition(Condition c, FilterSchema schema) {
     final field = schema.fieldFor(c.key)!;
     switch (c) {
@@ -151,15 +166,23 @@ class FilterCodec {
         // compared with `as_i64()`, which returns None for a payload of `4.0`
         // and quietly matches nothing. A degenerate range says the same thing
         // in a form qdrant compares numerically.
+        // The bool check comes FIRST, and the order is load-bearing. With the
+        // numeric branch ahead of it, `FieldEquals('archived', 1)` on a
+        // bool-typed field took the degenerate-range path and never reached
+        // _boolSpellings — so a document storing `true` was missed while one
+        // storing `1` matched, and sqlite (which folds both to the integer 1)
+        // returned both. FieldMatchAny already checks bool first, so the same
+        // predicate written as a one-element set answered differently from
+        // FieldEquals on the SAME backend.
+        if (field.type == FilterFieldType.bool) {
+          return _Clause({'should': _boolSpellings(key, value)});
+        }
         if (value is num) {
           if (!_isFinite(value)) return const _MatchesNone();
           return _Clause({
             'key': key,
             'range': {'gte': value, 'lte': value},
           });
-        }
-        if (field.type == FilterFieldType.bool) {
-          return _Clause({'should': _boolSpellings(key, value)});
         }
         return _Clause({
           'key': key,

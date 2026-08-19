@@ -78,6 +78,54 @@ void main() {
     return engine;
   }
 
+  test('loraRanks reaches the comparison, not just the comparator', () async {
+    // Found by review. ActiveModelParams gained loraRanks as its tenth knob
+    // and runtime_config_test proves the COMPARATOR handles it — but both
+    // shells built requestedParams with nine fields and stopped, so the value
+    // was always null on both sides and always compared equal. The knob was
+    // uncompared again: moved out of the comparator and into the call site,
+    // where the unit test cannot see it because it never goes through a shell.
+    //
+    // Driven through FlutterGemmaPlugin.instance.createModel rather than
+    // FlutterGemma.getActiveModel: loraRanks is a createModel knob, and the
+    // facade does not expose it. That is also why the earlier count assertion
+    // in runtime_config_test read "nine" and looked right.
+    final engine = await installWithGatedEngine();
+    engine.release();
+
+    final plugin = FlutterGemmaPlugin.instance;
+    final a = await plugin.createModel(
+      modelType: ModelType.gemmaIt,
+      maxTokens: 1024,
+      loraRanks: const [4],
+    );
+    expect(engine.createModelCallCount, 1);
+
+    final b = await plugin.createModel(
+      modelType: ModelType.gemmaIt,
+      maxTokens: 1024,
+      loraRanks: const [16],
+    );
+    expect(
+      engine.createModelCallCount,
+      2,
+      reason: 'a different LoRA rank is a different model',
+    );
+    expect(identical(a, b), isFalse);
+
+    // An identical rank still reuses — the guard must not be so strict that
+    // every call rebuilds.
+    final c = await plugin.createModel(
+      modelType: ModelType.gemmaIt,
+      maxTokens: 1024,
+      loraRanks: const [16],
+    );
+    expect(engine.createModelCallCount, 2);
+    expect(identical(c, b), isTrue);
+
+    await b.close();
+  });
+
   test('a failed build does not trap every later request', () async {
     // Found by review, and it is the reason the re-entry above needed a guard
     // of its own. The three pre-build checks (model not installed, no file

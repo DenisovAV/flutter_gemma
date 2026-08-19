@@ -97,9 +97,16 @@ class FilterToVec0 {
       final shouldSql = _joinConditions(fusedShould, schema, binds, ' OR ');
       if (shouldSql != null) {
         groups.add('($shouldSql)');
-      } else if (fusedShould != null &&
-          fusedShould.any((c) => schema.fieldFor(c.key) != null)) {
-        // Every declared arm matches nothing, so the disjunction does too.
+      } else if (_bucketHasEvaluatedCondition(fusedShould, schema)) {
+        // Every arm that was actually EVALUATED matches nothing, so the
+        // disjunction does too.
+        //
+        // The test cannot be "was any arm declared". An ignored arm — a range
+        // on a TEXT column — is declared, but it is skipped as if never
+        // written, so a bucket holding only ignored arms is a bucket that was
+        // never there: no constraint. Asking about declaredness sank the whole
+        // filter for `should: [FieldRange(key: 'lang')]` on a string field,
+        // while the same condition in `must` correctly matched everything.
         return (whereSql: '', binds: const [], matchesNothing: true);
       }
     }
@@ -135,6 +142,27 @@ class FilterToVec0 {
       binds: binds,
       matchesNothing: false,
     );
+  }
+
+  /// Whether [conditions] contains an arm that is EVALUATED at all — as
+  /// opposed to one that is ignored (an undeclared key, or a [FieldRange] on a
+  /// non-numeric field). See core's `Condition` dartdoc: ignored and
+  /// always-false are different, and only the second makes a disjunction
+  /// unsatisfiable.
+  static bool _bucketHasEvaluatedCondition(
+    List<Condition>? conditions,
+    FilterSchema schema,
+  ) {
+    if (conditions == null) return false;
+    for (final c in conditions) {
+      final field = schema.fieldFor(c.key);
+      if (field == null) continue; // ignored
+      if (c is FieldRange && field.type != FilterFieldType.number) {
+        continue; // ignored: a range only means something over a number
+      }
+      return true;
+    }
+    return false;
   }
 
   /// Whether [conditions] contains one that is EVALUATED and true of every

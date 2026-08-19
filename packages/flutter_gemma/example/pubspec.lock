@@ -241,7 +241,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.5.9"
+    version: "1.6.0"
   flutter_gemma_agent:
     dependency: "direct main"
     description:

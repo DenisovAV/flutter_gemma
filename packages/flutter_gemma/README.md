@@ -173,6 +173,7 @@ model formats and features you need.
       flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
       flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
+      flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI)
 
       # Optional — text embeddings (EmbeddingGemma / Gecko via flutter_gemma_litertlm's
       # LiteRtEmbeddingBackend — see the "Inference engines" section above) + on-device RAG:
@@ -192,7 +193,9 @@ model formats and features you need.
     |---|---|
     | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
     | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
+    | Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android arm64, iOS sim) | `flutter_gemma_onnx` |
     | Generate text embeddings | `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
+    | Generate text embeddings from ONNX/ORT models | `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
     | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
     | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_gemma_rag_sqlite` |
     | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_gemma_agent` |
@@ -882,7 +885,9 @@ void main() {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
+| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models via ORT-GenAI (FFI; macOS/Linux/Windows/Android arm64, iOS sim) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI) |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

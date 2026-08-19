@@ -1,3 +1,6 @@
+## 1.6.0
+- Add `ModelFileType.onnx` + ONNX engine chat-format routing — enables the new `flutter_gemma_onnx` engine.
+
 ## 1.5.9
 - Add getActiveModel(preferredVisionBackend:, preferredAudioBackend:) — per-encoder backend override (default CPU).
 

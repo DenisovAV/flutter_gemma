@@ -13,15 +13,17 @@ and the only store that runs on Web. Your code is portable across both.
 
 ## Setup
 
-Embeddings need the `flutter_gemma_embeddings` package, and RAG needs a vector
-store package — `flutter_gemma_rag_qdrant` (native, fastest) or
+Embeddings need the `flutter_gemma_embeddings` package plus a backend that
+implements it — `flutter_gemma_litertlm`'s `LiteRtEmbeddingBackend` (or
+`flutter_gemma_onnx`'s `OnnxEmbeddingBackend` for ONNX/ORT models). RAG also
+needs a vector store package — `flutter_gemma_rag_qdrant` (native, fastest) or
 `flutter_gemma_rag_sqlite` (sqlite-vec; all platforms, including Web). Register
 them in `FlutterGemma.initialize(...)`:
 
 ```dart
 FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine()],
-  embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_embeddings
+  embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
   vectorStore: QdrantVectorStore(),                    // or WebSqliteVectorStore() on web
 );
 ```

@@ -64,29 +64,55 @@ String? get _cacheBase {
   return '$home/.cache/flutter_gemma/native';
 }
 
-/// Every path tried, in order. Named so the skip reason can list them: a wrong
-/// working directory and a genuinely absent library otherwise look identical.
+/// Every path tried, in order. Named so the skip reason can list them.
+///
+/// The ORDER copies flutter_gemma_litertlm's `_devLiteRtLmCandidates`, and both
+/// of its choices are there because of an incident, not a preference:
+///
+///   * the hook's CACHE comes before any local artifact. The cache is
+///     version-validated by hook/build.dart (`_readMarker` /
+///     `_invalidateBundleCacheIfStale`); a build output is not. They hold the
+///     same bytes today, and after the next `qdrant-edge-v*` bump a stale local
+///     copy would silently shadow the refreshed download, so host tests would
+///     run against a different native version than the app ships.
+///   * the package-relative paths WALK UP from the working directory instead of
+///     assuming it. litertlm's comment records what assuming costs: the error
+///     named a path and said "not found", so it read as "the library was never
+///     built" rather than "I looked in the wrong place", and nine speech tests
+///     sat red under that misreading.
+///
+/// $QDRANT_DYLIB stays first: it is an explicit instruction from whoever ran
+/// the tests, and overriding it would make the override useless.
 List<String> get qdrantCandidates {
   final out = <String>[];
 
   final override = Platform.environment['QDRANT_DYLIB'];
   if (override != null && override.isNotEmpty) out.add(override);
 
-  // The hook's output for THIS package — produced by the very test run that is
-  // about to read it.
+  // The version-validated download.
+  final base = _cacheBase;
+  final host = _hostDir;
+  if (base != null && host != null) {
+    out.add('$base/qdrant_edge/$host/$_libName');
+  }
+
+  // The hook's Native Assets output, found by walking up rather than by
+  // assuming the working directory is the package root.
   final osDir = Platform.isMacOS
       ? 'macos'
       : Platform.isWindows
       ? 'windows'
       : 'linux';
-  out.add('build/native_assets/$osDir/$_libName');
-  out.add('.dart_tool/lib/$_libName');
-
-  // The shared download cache the hook writes to.
-  final base = _cacheBase;
-  final host = _hostDir;
-  if (base != null && host != null) {
-    out.add('$base/qdrant_edge/$host/$_libName');
+  const pkg = 'packages/flutter_gemma_rag_sqlite';
+  var dir = Directory.current.absolute;
+  for (var hop = 0; hop < 8; hop++) {
+    out.add('${dir.path}/build/native_assets/$osDir/$_libName');
+    out.add('${dir.path}/.dart_tool/lib/$_libName');
+    out.add('${dir.path}/$pkg/build/native_assets/$osDir/$_libName');
+    out.add('${dir.path}/$pkg/.dart_tool/lib/$_libName');
+    final parent = dir.parent;
+    if (parent.path == dir.path) break;
+    dir = parent;
   }
   return out;
 }

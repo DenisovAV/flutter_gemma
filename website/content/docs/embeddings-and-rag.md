@@ -160,12 +160,20 @@ await FlutterGemma.initialize(
 `void`, so do not `await` it:
 
 ```dart
-store.configure(const FilterSchema(fields: [
+store.configure(FilterSchema(fields: [
   FilterField(name: 'category', type: FilterFieldType.string),
 ]));
 ```
 
 `FilterFieldType` has exactly three values: `string`, `number`, `bool`.
+
+`FilterField.name` must match `^[A-Za-z][A-Za-z0-9_]*$` — an ASCII letter, then
+letters, digits or underscores. Anything else (`doc-type`, `doc.type`, a name
+with a space or comma) throws an `ArgumentError` from the constructor. The name
+is promoted to a real `vec0` column and sqlite-vec's DDL grammar has no quoted
+identifier form, so an out-of-set name cannot be represented there at all. The
+same rule applies on qdrant, where the name is a payload key, so one schema
+means the same thing on both backends.
 
 A `Filter` over the declared fields is then applied inside the store; a filter
 referencing an **undeclared** field is silently ignored (no-op, never throws).

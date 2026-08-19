@@ -1,3 +1,8 @@
+## 1.6.0
+- `getActiveModel` compares all nine runtime params before reusing the cached model.
+- Add `FilterField.validateName` — stores reject a name no backend can represent.
+- Document the canonical `FieldEquals` / `FieldRange` semantics both stores must honour.
+
 ## 1.5.9
 - Add getActiveModel(preferredVisionBackend:, preferredAudioBackend:) — per-encoder backend override (default CPU).
 

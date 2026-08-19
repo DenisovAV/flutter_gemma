@@ -15,6 +15,7 @@ workspace:
   - packages/flutter_gemma_speech
   - packages/flutter_gemma_mediapipe
   - packages/flutter_gemma_builtin_ai
+  - packages/flutter_gemma_onnx
   - packages/flutter_gemma_agent
   - packages/genkit_flutter_gemma
   - packages/genkit_hybrid

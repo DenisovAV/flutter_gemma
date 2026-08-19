@@ -1,9 +1,12 @@
-## 1.6.0
+## 1.7.0
 - `getActiveModel` compares every runtime param before reusing the cached model.
 - Racing `getActiveModel` calls no longer share a model built for other params.
 - Add `FilterField.validateName` — stores reject a name no backend can represent.
 - **Breaking:** `FilterSchema` now rejects duplicate names and vec0's reserved ones.
 - Document the canonical `FieldEquals` / `FieldRange` semantics both stores must honour.
+
+## 1.6.0
+- Add `ModelFileType.onnx` + ONNX engine chat-format routing — enables the new `flutter_gemma_onnx` engine.
 
 ## 1.5.9
 - Add getActiveModel(preferredVisionBackend:, preferredAudioBackend:) — per-encoder backend override (default CPU).

@@ -494,9 +494,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
                 : null);
       if (backend == null) {
         throw StateError(
-          'No embedding backend registered. Add flutter_gemma_embeddings to '
-          'pubspec.yaml and pass it in embeddingBackends: of '
-          'FlutterGemma.initialize(...). Registered backends: '
+          'No embedding backend registered. Add flutter_gemma_litertlm to '
+          'pubspec.yaml and pass LiteRtEmbeddingBackend() in '
+          'embeddingBackends: of FlutterGemma.initialize(...). Registered '
+          'backends: '
           '${EmbeddingRegistry.instance.registered.map((b) => b.name).join(", ")}.',
         );
       }

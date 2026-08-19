@@ -177,9 +177,10 @@ model formats and features you need.
       flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
       flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
+      flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI)
 
-      # Optional — text embeddings + on-device RAG:
-      flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
+      # Optional — text embeddings (EmbeddingGemma / Gecko via flutter_gemma_litertlm's
+      # LiteRtEmbeddingBackend — see the "Inference engines" section above) + on-device RAG:
       flutter_gemma_rag_qdrant: latest_version   # RAG vector store (native: qdrant-edge)
       flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec/vec0; all six platforms incl. web)
 
@@ -196,7 +197,9 @@ model formats and features you need.
     |---|---|
     | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
     | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
-    | Generate text embeddings | `flutter_gemma_embeddings` |
+    | Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android arm64, iOS sim) | `flutter_gemma_onnx` |
+    | Generate text embeddings | `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
+    | Generate text embeddings from ONNX/ORT models | `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
     | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
     | On-device RAG on any platform incl. web (portable `sqlite-vec`) | `flutter_gemma_rag_sqlite` |
     | On-device agent skills (SKILL.md + tool-calling loop) | `flutter_gemma_agent` |
@@ -859,7 +862,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 void main() async {
@@ -874,7 +876,7 @@ void main() async {
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
-      LiteRtEmbeddingBackend(), // flutter_gemma_embeddings
+      LiteRtEmbeddingBackend(), // flutter_gemma_litertlm
     ],
     // Optional — RAG vector store (pick one; native here):
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
@@ -899,7 +901,9 @@ void main() async {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
-| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
+| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models via ORT-GenAI (FFI; macOS/Linux/Windows/Android arm64, iOS sim) |
+| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI) |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

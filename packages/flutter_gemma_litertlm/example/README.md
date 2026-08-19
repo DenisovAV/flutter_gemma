@@ -42,3 +42,16 @@ Web inference is an early preview — see the
 [package README](https://pub.dev/packages/flutter_gemma_litertlm) for the
 `web/index.html` handshake. A full runnable app lives in the
 [`flutter_gemma` example](https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma/example).
+
+## Embeddings
+
+As of 1.5.0 this package also ships the LiteRT C API embedding backend
+(`LiteRtEmbeddingBackend`, Gecko / EmbeddingGemma `.tflite` — moved here from
+`flutter_gemma_embeddings`, which is now a runtime-agnostic pipeline with no
+concrete backend of its own):
+
+```dart
+await FlutterGemma.initialize(
+  embeddingBackends: [LiteRtEmbeddingBackend()],
+);
+```

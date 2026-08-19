@@ -5,9 +5,12 @@ via `dart:ffi`. Opt-in package — add it only if you run `.litertlm` models.
 Android, iOS, macOS, Linux, Windows.
 
 This package **owns** the shared LiteRT-LM native library (`libLiteRtLm`) and
-exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by the
-capability packages [flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings)
-and [flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech).
+exposes the LiteRt interpreter FFI (`LiteRtBindings`); both are shared by
+[flutter_gemma_speech](https://pub.dev/packages/flutter_gemma_speech). As of
+1.5.0 this package also ships the LiteRT C API embedding backend
+(`LiteRtEmbeddingBackend`) — see [Embeddings](#embeddings) below — built over
+[flutter_gemma_embeddings](https://pub.dev/packages/flutter_gemma_embeddings)'s
+runtime-agnostic embedding pipeline.
 
 ## Usage
 
@@ -23,6 +26,21 @@ await FlutterGemma.initialize(
 `LiteRtLmEngine` handles `ModelFileType.litertlm` models; pass it alongside
 other engines (e.g. `MediaPipeEngine` from `flutter_gemma_mediapipe`) if your app
 uses both formats.
+
+## Embeddings
+
+```dart
+await FlutterGemma.initialize(
+  embeddingBackends: [LiteRtEmbeddingBackend()],
+);
+```
+
+`LiteRtEmbeddingBackend` runs Gecko / EmbeddingGemma `.tflite` models via the
+LiteRT C API (moved here from `flutter_gemma_embeddings` in 1.5.0 — see that
+package for the runtime-agnostic tokenization/pooling pipeline it's built on).
+On web it runs via LiteRT.js instead; see
+[flutter_gemma_embeddings' web setup](https://pub.dev/packages/flutter_gemma_embeddings#web-setup)
+for the `<script>` tag your app needs.
 
 ## Web setup (early preview)
 
@@ -66,8 +84,9 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 ### `dlopen` / "library not found" (`libLiteRtLm`)
 
 `flutter_gemma_litertlm` is the sole owner of the shared native library
-(`libLiteRtLm`) and bundles it via its build hook; `flutter_gemma_embeddings` and
-`flutter_gemma_speech` get it transitively. A stale Native-Assets cache after a
+(`libLiteRtLm`) and bundles it via its build hook — this package's own
+`LiteRtEmbeddingBackend` and `flutter_gemma_speech` both use it directly. A
+stale Native-Assets cache after a
 native version bump can leave the library unbundled, surfacing as an opaque
 `dlopen` "no such file" on the first inference. Fix with a clean rebuild:
 

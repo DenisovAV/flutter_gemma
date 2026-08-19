@@ -33,11 +33,16 @@ dependencies:
 # for publishing; this example consumes the local source, so override both to the
 # local path (resolves the path-vs-hosted conflict — every package resolves core +
 # litertlm from source). Ignored for published packages.
+# litertlm 1.5.0 (embedder decoupling) also hosted-depends on
+# flutter_gemma_embeddings ^2.0.0, which is not yet published — override to
+# local path too, or pub falls back to the (nonexistent) hosted version.
 dependency_overrides:
   flutter_gemma:
     path: ../../flutter_gemma
   flutter_gemma_litertlm:
     path: ../../flutter_gemma_litertlm
+  flutter_gemma_embeddings:
+    path: ../../flutter_gemma_embeddings
 
 dev_dependencies:
   flutter_test:

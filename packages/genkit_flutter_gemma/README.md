@@ -41,18 +41,16 @@ register their providers in `await FlutterGemma.initialize()`.
 
 | Package | Provider | Add it when you use… |
 |---|---|---|
-| `flutter_gemma_litertlm` | `LiteRtLmEngine()` | `.litertlm` models (Gemma 4, desktop) |
+| `flutter_gemma_litertlm` | `LiteRtLmEngine()`, `LiteRtEmbeddingBackend()` | `.litertlm` models (Gemma 4, desktop) and/or text embeddings (EmbeddingGemma) |
 | `flutter_gemma_mediapipe` | `MediaPipeEngine()` | `.task` / `.bin` models (Gemma 3, mobile/web) |
-| `flutter_gemma_embeddings` | `LiteRtEmbeddingBackend()` | text embeddings (EmbeddingGemma) |
 
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
   genkit_flutter_gemma: ^0.5.0
-  flutter_gemma: ^1.5.9
-  flutter_gemma_litertlm: ^1.4.2   # only the engines/backends you actually use
+  flutter_gemma: ^1.6.0
+  flutter_gemma_litertlm: ^1.5.0   # only the engines/backends you actually use
   flutter_gemma_mediapipe: ^1.0.4
-  flutter_gemma_embeddings: ^1.0.4
 ```
 
 ```dart
@@ -71,7 +69,6 @@ await FlutterGemma.initialize(
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
 // Engines/backends are opt-in (see Setup) — register the ones you need.
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:genkit/genkit.dart';

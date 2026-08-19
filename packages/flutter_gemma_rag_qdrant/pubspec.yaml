@@ -24,7 +24,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.6.0
+  flutter_gemma: ^1.7.0
   ffi: ^2.1.0
   uuid: ^4.0.0
   hooks: ^2.0.0

@@ -1,4 +1,6 @@
-## 1.4.4
+## 1.5.0
+- Add LiteRT embedding forward-pass + `LiteRtEmbeddingBackend` (moved from flutter_gemma_embeddings).
+- internal: wire the new `tokenizerFactory` descriptor field; byte-identical vectors, no API change.
 - Share the host-side native library lookup with core instead of a private copy.
 
 ## 1.4.3

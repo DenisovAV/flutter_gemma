@@ -16,12 +16,13 @@ dependencies:
   flutter_gemma: latest_version              # Core — always required (no engine on its own)
 
   # Inference engines — add at least one:
-  flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
+  flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
   flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
+  flutter_gemma_onnx: latest_version         # ONNX models via ORT-GenAI (FFI) + OnnxEmbeddingBackend
 
   # Optional — text embeddings + on-device RAG:
-  flutter_gemma_embeddings: latest_version   # text embeddings (EmbeddingGemma / Gecko)
+  flutter_gemma_embeddings: latest_version   # text-embedding pipeline (needs a backend, e.g. LiteRtEmbeddingBackend above)
   flutter_gemma_rag_qdrant: latest_version   # RAG vector store (qdrant-edge; fastest on native)
   flutter_gemma_rag_sqlite: latest_version   # RAG vector store (sqlite-vec / vec0; all platforms, incl. web)
 
@@ -36,7 +37,9 @@ dependencies:
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
 | Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
-| Generate text embeddings | `flutter_gemma_embeddings` |
+| Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android/iOS arm64) | `flutter_gemma_onnx` |
+| Generate text embeddings | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
+| Generate text embeddings from ONNX/ORT models | `flutter_gemma_embeddings` + `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
 | On-device RAG on web, or a portable/exact store on any platform | `flutter_gemma_rag_sqlite` |
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
@@ -63,7 +66,6 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
@@ -79,7 +81,7 @@ void main() async {
     ],
     // Optional — embeddings (needed for RAG / generateEmbedding):
     embeddingBackends: const [
-      LiteRtEmbeddingBackend(), // flutter_gemma_embeddings
+      LiteRtEmbeddingBackend(), // flutter_gemma_litertlm (needs flutter_gemma_embeddings too)
     ],
     // Optional — on-device speech-to-text:
     sttBackends: const [
@@ -112,7 +114,9 @@ void main() async {
 |---|---|---|
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
-| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_embeddings` | text embeddings |
+| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models via ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) |
+| `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings (needs `flutter_gemma_embeddings` too) |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (needs `flutter_gemma_embeddings` too) |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

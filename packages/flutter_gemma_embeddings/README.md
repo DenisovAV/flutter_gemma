@@ -1,20 +1,23 @@
 # flutter_gemma_embeddings
 
-On-device text embeddings for [flutter_gemma](https://pub.dev/packages/flutter_gemma):
-Gecko / EmbeddingGemma `.tflite` models via the LiteRT C API + `dart:ffi`. Opt-in
-package — add it only if you compute embeddings (e.g. for on-device RAG).
-Android, iOS, macOS, Linux, Windows, Web.
+Runtime-agnostic on-device text embedding **pipeline** for
+[flutter_gemma](https://pub.dev/packages/flutter_gemma): tokenization,
+task-type prefixing, a background-isolate worker, and pooling/normalization,
+over the `EmbeddingForwardPass` seam. Android, iOS, macOS, Linux, Windows, Web.
 
-This package is thin logic that depends on **`flutter_gemma_litertlm`** — the full
-LiteRT engine, which owns the shared native library (`libLiteRtLm`) and exposes
-the LiteRt interpreter FFI. You get the native library transitively; there is no
-separate embeddings build hook.
+Since 2.0.0 this package ships **no concrete embedding backend** — it depends
+only on `flutter_gemma`. Pair it with an engine package that implements
+`EmbeddingForwardPass` and registers an `EmbeddingBackendProvider`, e.g.
+[`flutter_gemma_litertlm`](https://pub.dev/packages/flutter_gemma_litertlm)'s
+`LiteRtEmbeddingBackend` (Gecko / EmbeddingGemma `.tflite` via the LiteRT C
+API + `dart:ffi`). Most apps only ever interact with `flutter_gemma_litertlm`
+directly — it re-exports the pieces you register.
 
 ## Usage
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 await FlutterGemma.initialize(
   embeddingBackends: [LiteRtEmbeddingBackend()],
@@ -28,7 +31,8 @@ it with a vector store from `flutter_gemma_rag_sqlite` or
 
 ## Web setup
 
-On web, embeddings run via LiteRT.js. Add the loader script to your app's
+On web, `flutter_gemma_litertlm`'s embedding backend runs via LiteRT.js, using
+this package's `web/litert_embeddings.js`. Add the loader script to your app's
 `web/index.html` `<head>`. Pin a release tag and include a Subresource Integrity
 hash so a CDN compromise cannot inject code:
 
@@ -44,19 +48,29 @@ hash so a CDN compromise cannot inject code:
 > `openssl dgst -sha384 -binary web/litert_embeddings.js | openssl base64 -A`
 
 Native platforms need no setup — the LiteRT native library is bundled at build
-time by `flutter_gemma_litertlm`'s Native-Assets hook (a transitive dependency).
+time by `flutter_gemma_litertlm`'s Native-Assets hook.
 
 ## Platforms
 
 | Platform | Support |
 |----------|---------|
-| Android / iOS | ✅ FFI |
-| macOS / Linux / Windows | ✅ FFI |
-| Web | ✅ via LiteRT.js (CDN) |
+| Android / iOS | ✅ (via flutter_gemma_litertlm's FFI backend) |
+| macOS / Linux / Windows | ✅ (via flutter_gemma_litertlm's FFI backend) |
+| Web | ✅ (via flutter_gemma_litertlm's LiteRT.js backend, CDN) |
 
-The native library is fetched at build time by `flutter_gemma_litertlm`'s
-`hook/build.dart` (Native Assets), a transitive dependency, from a
-SHA256-verified GitHub release — no manual setup on native platforms.
+This package itself is pure Dart with no native/FFI code — the concrete
+backend (and its native library) is owned by whichever engine package you add.
+
+## Building a new engine backend
+
+Implement `EmbeddingForwardPass` (`load`/`run`/`close`/`outputDimension`/
+`inputSequenceLength`) for your engine, expose a top-level factory tear-off
+for it, and build an `EmbeddingBackendProvider` that calls
+`CommonEmbeddingModel.create(descriptor: ForwardPassDescriptor(...), tokenizerPath: ...)`.
+Declare `EmbeddingOutputContract.pooledFinal` if your engine's forward pass
+already returns the final embedding, or `.tokenLevel` if it returns raw
+per-token hidden states for this package's `meanPoolAndNormalize` to pool.
+See `flutter_gemma_litertlm`'s `lib/src/embedding/` for a worked example.
 
 ## Troubleshooting
 

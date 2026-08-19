@@ -25,9 +25,8 @@ dependencies:
 ```yaml
 dependencies:
   flutter_gemma: ^1.5.9                 # core — always required
-  flutter_gemma_litertlm: ^1.4.2        # add if you run .litertlm models
+  flutter_gemma_litertlm: ^1.5.0        # add if you run .litertlm models OR compute embeddings
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
-  flutter_gemma_embeddings: ^1.0.4      # add if you compute embeddings
   flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG
   flutter_gemma_rag_sqlite: ^1.1.0      # add for web (or native sqlite) RAG
 ```
@@ -38,7 +37,7 @@ Pick by what you actually used in 0.16.x:
 |---|---|
 | `.litertlm` models (Gemma 4, Qwen3, FastVLM, any desktop) | `flutter_gemma_litertlm` |
 | `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4, …) | `flutter_gemma_mediapipe` |
-| `generateEmbedding()` / `installEmbedder()` | `flutter_gemma_embeddings` |
+| `generateEmbedding()` / `installEmbedder()` | `flutter_gemma_litertlm` (see [Embedder decoupling](#embedder-decoupling-litertlm-150) below) |
 | RAG (`addDocument` / `searchSimilar`) on native | `flutter_gemma_rag_qdrant` |
 | RAG on web | `flutter_gemma_rag_sqlite` |
 
@@ -69,7 +68,6 @@ void main() {
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 void main() async {
@@ -121,7 +119,8 @@ final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK:
 - Calling `getActiveModel()` with no matching `inferenceEngines` registered throws
   a `StateError` telling you which package to add.
 - `createEmbeddingModel()` / auto-embedding RAG with no `embeddingBackends` throws
-  a clear "add `flutter_gemma_embeddings`" error.
+  a clear "add an embedding backend package" error (e.g. `flutter_gemma_litertlm`'s
+  `LiteRtEmbeddingBackend`).
 - RAG calls with no `vectorStore` throw "add a RAG package" (the default store is
   an unconfigured sentinel).
 
@@ -139,6 +138,32 @@ Native setup moved to the package that owns it:
 The iOS/Android entitlements and manifest entries from the main README still
 apply when you ship an inference engine. See the
 [README Setup section](README.md#setup) for the full list.
+
+## Embedder decoupling (litertlm 1.5.0)
+
+If you were on an earlier 1.x and imported `LiteRtEmbeddingBackend` from
+`flutter_gemma_embeddings`, that class moved:
+
+**Before:**
+```dart
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+```
+
+**After:**
+```dart
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+```
+
+`FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` is
+otherwise unchanged — only the import path moved. `flutter_gemma_embeddings`
+itself is now a runtime-agnostic pipeline (tokenization, isolate worker,
+pooling) with no concrete backend of its own; there is no re-export shim, so
+the import must be updated.
+
+If your app used embeddings **without** also using `.litertlm` inference, add
+`flutter_gemma_litertlm` to your `pubspec.yaml` — this also delivers the
+shared native bundle (`libLiteRtLm`) your app was previously getting
+transitively through `flutter_gemma_embeddings`'s old dependency on it.
 
 ## Troubleshooting
 

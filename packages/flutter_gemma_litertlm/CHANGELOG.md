@@ -1,3 +1,7 @@
+## 1.5.0
+- Add LiteRT embedding forward-pass + `LiteRtEmbeddingBackend` (moved from flutter_gemma_embeddings).
+- internal: wire the new `tokenizerFactory` descriptor field; byte-identical vectors, no API change.
+
 ## 1.4.3
 - fix: a native-archive checksum mismatch now fails the build instead of shipping no library.
 - fix: `sizeInTokens` asks the model's tokenizer on native; web still estimates (no tokenizer).

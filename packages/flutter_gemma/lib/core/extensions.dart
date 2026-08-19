@@ -81,6 +81,15 @@ _ChatFormatMode _chatFormatModeFor(
     return _ChatFormatMode.raw;
   }
 
+  // ORT-GenAI model directories — the SDK owns tokenizer + chat template
+  // (OgaTokenizerApplyChatTemplate, applied worker-side in
+  // flutter_gemma_onnx's GenAiFfiClient), same posture as .litertlm on
+  // non-iOS. No platform split here: unlike .litertlm, iOS uses the same
+  // GenAI runtime as every other native platform.
+  if (fileType == ModelFileType.onnx) {
+    return _ChatFormatMode.raw;
+  }
+
   // .bin/.tflite files - always manual formatting based on model type.
   return _ChatFormatMode.manual;
 }
@@ -521,6 +530,12 @@ class ModelThinkingFilter {
 
     // Built-in OS models return clean text - trim only.
     if (fileType == ModelFileType.builtIn) {
+      return cleaned.trim();
+    }
+
+    // ORT-GenAI model directories — the SDK owns tokenizer + chat template,
+    // so there are no manual turn markers to strip. Trim only.
+    if (fileType == ModelFileType.onnx) {
       return cleaned.trim();
     }
 

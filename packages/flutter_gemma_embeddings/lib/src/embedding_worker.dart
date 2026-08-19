@@ -1,34 +1,35 @@
-// Long-lived background isolate that owns the entire LiteRT embedding native
-// lifecycle (lib open, model compile, forward pass, teardown) and the
-// SentencePiece tokenizer. The forward pass (`LiteRtRunCompiledModel`) is a
-// blocking synchronous FFI call; running it here keeps the UI isolate's event
-// loop free (issue #299).
+// Long-lived background isolate that drives a runtime-agnostic
+// [EmbeddingForwardPass] (built from a [ForwardPassDescriptor]'s top-level
+// factory tear-off — see `forward_pass.dart`) plus tokenization
+// (`embedding_tokenizer.dart`). Generalization of what used to be
+// `litert/litert_embedding_worker.dart`; the isolate machinery below
+// (message classes, id-correlated pending map, onExit-null death handling,
+// timeout-guarded close, log-level seeding, debugName) is preserved
+// verbatim from that file.
 //
 // Why a long-lived worker and not `Isolate.run` per call:
-//   - The compiled model costs ~570-780ms to build but only ~80ms to run, so
-//     it MUST be compiled once and reused — `Isolate.run` would recompile
-//     every call.
+//   - A real forward pass costs hundreds of ms to load/compile but far less
+//     to run per call, so it MUST be loaded once and reused — `Isolate.run`
+//     would reload every call.
 //   - FFI `Pointer`/`DynamicLibrary` cannot cross isolate boundaries
 //     (flutter/flutter#169431; passing a pointer as an int is officially
 //     "risky and unsupported"). Keeping all handles inside the one worker
 //     means nothing crosses the boundary, and a (future) GPU command queue —
 //     which is thread-affine — is created and used on the same isolate.
 //
-// Only sendable values cross the port: file paths + backend (setup), text +
-// task-type prefix (request), and `List<double>` vectors (reply).
+// Only sendable values cross the port: the [ForwardPassDescriptor] + paths
+// (setup), text + task-type prefix (request), and `List<double>` vectors
+// (reply).
 
 import 'dart:async';
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'dart:isolate';
 
-import 'litert_embedding_core.dart';
+import 'forward_pass.dart';
+import 'pooling.dart';
+import 'tokenizer_adapter.dart';
 
-/// Backend selector mirrored across the isolate boundary as a plain int
-/// (the `PreferredBackend` enum lives in core's platform_types.dart; we map it
-/// to the LiteRT HW accelerator bit in the worker).
-enum EmbeddingBackend { cpu, gpu, npu }
-
-/// Handshake payload the worker sends back once the native model is loaded.
+/// Handshake payload the worker sends back once the forward pass is loaded.
 class _Ready {
   _Ready(this.commandPort, this.seqLen, this.dim);
   final SendPort commandPort;
@@ -53,34 +54,31 @@ class _EmbedReply {
   final String? error;
 }
 
-/// Sentinel asking the worker to tear down the native model and exit.
+/// Sentinel asking the worker to tear down the forward pass and exit.
 class _Close {
   const _Close();
 }
 
-/// Ack the worker sends after [EmbeddingCore.dispose] completes, so the main
-/// isolate can kill the isolate without racing native teardown.
+/// Ack the worker sends after [EmbeddingForwardPass.close] completes, so the
+/// main isolate can kill the isolate without racing native teardown.
 class _CloseAck {
   const _CloseAck();
 }
 
-/// Parameters needed to boot the worker isolate. Must be fully sendable.
+/// Parameters needed to boot the worker isolate. Must be fully sendable —
+/// [descriptor] carries a top-level factory tear-off (see
+/// `ForwardPassDescriptor`'s doc for why that's the one form of "code
+/// reference" that survives `Isolate.spawn`).
 class _WorkerInit {
   _WorkerInit({
     required this.replyTo,
-    required this.modelPath,
+    required this.descriptor,
     required this.tokenizerPath,
-    required this.backend,
-    required this.inputSequenceLength,
-    required this.outputDimension,
     required this.logLevel,
   });
   final SendPort replyTo;
-  final String modelPath;
+  final ForwardPassDescriptor descriptor;
   final String tokenizerPath;
-  final EmbeddingBackend backend;
-  final int? inputSequenceLength;
-  final int? outputDimension;
 
   /// Snapshot of the main-isolate [gemmaLogLevel] at spawn — the worker
   /// isolate gets its own copy of the per-isolate top-level (default info),
@@ -103,7 +101,8 @@ class EmbeddingWorker {
   final SendPort _commandPort;
   final ReceivePort _fromWorker;
 
-  /// Sequence length the model was compiled for.
+  /// Sequence length the forward pass reported at load, or -1 if the engine
+  /// has none to report (see [EmbeddingForwardPass.inputSequenceLength]).
   final int inputSequenceLength;
 
   /// Output embedding dimension.
@@ -114,13 +113,10 @@ class EmbeddingWorker {
   bool _closed = false;
   Completer<void>? _closeAck;
 
-  /// Spawn the worker and wait until the native model is loaded.
+  /// Spawn the worker and wait until the forward pass is loaded.
   static Future<EmbeddingWorker> spawn({
-    required String modelPath,
+    required ForwardPassDescriptor descriptor,
     required String tokenizerPath,
-    EmbeddingBackend backend = EmbeddingBackend.cpu,
-    int? inputSequenceLength,
-    int? outputDimension,
   }) async {
     final fromWorker = ReceivePort();
     final readyCompleter = Completer<_Ready>();
@@ -150,16 +146,13 @@ class EmbeddingWorker {
       _workerEntry,
       _WorkerInit(
         replyTo: fromWorker.sendPort,
-        modelPath: modelPath,
+        descriptor: descriptor,
         tokenizerPath: tokenizerPath,
-        backend: backend,
-        inputSequenceLength: inputSequenceLength,
-        outputDimension: outputDimension,
         logLevel: gemmaLogLevel,
       ),
       // onExit posts `null` to fromWorker so we never wait on a dead isolate.
       onExit: fromWorker.sendPort,
-      debugName: 'litert-embedding-worker',
+      debugName: 'embedding-forward-worker',
     );
 
     final _Ready ready;
@@ -224,7 +217,7 @@ class EmbeddingWorker {
     return completer.future;
   }
 
-  /// Tear down the native model and stop the isolate. Waits for the worker to
+  /// Tear down the forward pass and stop the isolate. Waits for the worker to
   /// finish native teardown (a _CloseAck, or the isolate's onExit) before
   /// killing it, so handles are never freed mid-dispose.
   Future<void> close() async {
@@ -245,31 +238,80 @@ class EmbeddingWorker {
   }
 }
 
-/// Isolate entry point. Loads the model, then serves requests until _Close.
+/// Turns a raw [ForwardResult] into the final embedding vector per
+/// [contract] (design D-T2: `pass.outputContract ?? descriptor.outputContract`
+/// — resolved by the caller). `pooledFinal` copies verbatim — see
+/// [EmbeddingOutputContract.pooledFinal]'s doc for why this must never fall
+/// through to [meanPoolAndNormalize]. `tokenLevel` uses [attentionMask] —
+/// the *effective* mask (design D-T3: [ForwardResult.attentionMask] if the
+/// pass echoed one, else the request's mask) — so padding a pass added never
+/// leaks into the mean.
+List<double> _finalize(
+  EmbeddingOutputContract contract,
+  ForwardResult result,
+  List<int>? attentionMask,
+) {
+  switch (contract) {
+    case EmbeddingOutputContract.pooledFinal:
+      return _copyPooledFinal(result);
+    case EmbeddingOutputContract.tokenLevel:
+      return meanPoolAndNormalize(result, attentionMask: attentionMask);
+  }
+}
+
+/// Copies a `pooledFinal` [ForwardResult] verbatim — but only after
+/// confirming it actually IS an already-pooled `[1, dim]` vector. Symmetric
+/// to [meanPoolAndNormalize]'s rank guard in `pooling.dart`: without this,
+/// a token-level `[1, seq, dim]` result misrouted here (e.g. an ONNX output
+/// name the engine's dispatch didn't recognize, silently falling back to
+/// "assume pooled") would be flattened and returned as a corrupt vector —
+/// unpooled, unnormalized, and the wrong length — with no error anywhere.
+List<double> _copyPooledFinal(ForwardResult result) {
+  final shape = result.shape;
+  final isPooledShape =
+      shape.length == 2 && shape[0] == 1 && result.values.length == shape[1];
+  if (!isPooledShape) {
+    throw StateError(
+      'EmbeddingOutputContract.pooledFinal requires a rank-2 `[1, dim]` '
+      'already-pooled result; got shape $shape with ${result.values.length} '
+      'values. This usually means a token-level output was misclassified as '
+      'pooled (e.g. an unrecognized ONNX output name falling back to '
+      '"assume pooled") — copying it verbatim would silently return a '
+      'corrupt, unpooled embedding.',
+    );
+  }
+  return List<double>.of(result.values);
+}
+
+/// Isolate entry point. Loads the tokenizer + forward pass, then serves
+/// requests until _Close.
 Future<void> _workerEntry(_WorkerInit init) async {
   // Seed this isolate's per-isolate log level from the main-isolate snapshot.
   gemmaLogLevel = init.logLevel;
-  final EmbeddingCore core;
+
+  final EmbeddingTokenizer tokenizer;
+  final EmbeddingForwardPass pass;
   try {
-    core = await EmbeddingCore.load(
-      modelPath: init.modelPath,
-      tokenizerPath: init.tokenizerPath,
-      backend: init.backend,
-      inputSequenceLength: init.inputSequenceLength,
-      outputDimension: init.outputDimension,
-    );
+    tokenizer = await init.descriptor.tokenizerFactory(init.tokenizerPath);
+    pass = init.descriptor.factory(init.descriptor.modelPath);
+    await pass.load();
   } catch (e, st) {
     gemmaLog('[EmbeddingWorker] load failed: $e\n$st');
     init.replyTo.send('Embedding worker failed to load: $e');
     return;
   }
 
+  gemmaLog(
+    '[EmbeddingWorker] loaded: engine=${init.descriptor.engineTag}, '
+    'seqLen=${pass.inputSequenceLength}, dim=${pass.outputDimension}',
+  );
+
   final commandPort = ReceivePort();
   init.replyTo.send(
     _Ready(
       commandPort.sendPort,
-      core.inputSequenceLength,
-      core.outputDimension,
+      pass.inputSequenceLength ?? -1,
+      pass.outputDimension,
     ),
   );
 
@@ -277,7 +319,16 @@ Future<void> _workerEntry(_WorkerInit init) async {
     await for (final msg in commandPort) {
       if (msg is _EmbedRequest) {
         try {
-          final vector = core.embed(msg.text, prefix: msg.prefix);
+          final tokenized = tokenizer.encode(msg.prefix, msg.text);
+          final result = await pass.run(
+            tokenIds: tokenized.ids,
+            attentionMask: tokenized.attentionMask,
+            tokenTypeIds: tokenized.tokenTypeIds,
+          );
+          final contract =
+              pass.outputContract ?? init.descriptor.outputContract;
+          final effectiveMask = result.attentionMask ?? tokenized.attentionMask;
+          final vector = _finalize(contract, result, effectiveMask);
           init.replyTo.send(_EmbedReply(msg.id, vector, null));
         } catch (e) {
           init.replyTo.send(_EmbedReply(msg.id, null, e.toString()));
@@ -290,7 +341,7 @@ Future<void> _workerEntry(_WorkerInit init) async {
   } finally {
     // Always free native handles, even if the loop exits unexpectedly, then
     // ack so the main isolate can kill us without racing teardown.
-    core.dispose();
+    await pass.close();
     init.replyTo.send(const _CloseAck());
   }
 }

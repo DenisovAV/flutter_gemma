@@ -29,10 +29,10 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.5.9                 # core — always required
-  flutter_gemma_litertlm: ^1.4.2        # add if you run .litertlm models
+  flutter_gemma: ^1.6.0                 # core — always required
+  flutter_gemma_litertlm: ^1.5.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
-  flutter_gemma_embeddings: ^1.0.4      # add if you compute embeddings
+  flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
   flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG (qdrant)
   flutter_gemma_rag_sqlite: ^1.1.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
@@ -43,7 +43,7 @@ Pick by what you actually used in 0.16.x:
 |---|---|
 | `.litertlm` models (Gemma 4, Qwen3, FastVLM, any desktop) | `flutter_gemma_litertlm` |
 | `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4, …) | `flutter_gemma_mediapipe` |
-| `generateEmbedding()` / `installEmbedder()` | `flutter_gemma_embeddings` |
+| `generateEmbedding()` / `installEmbedder()` | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
 | RAG (`addDocument` / `searchSimilar`), fastest on native | `flutter_gemma_rag_qdrant` |
 | RAG on web (or a portable store on any platform) | `flutter_gemma_rag_sqlite` |
 
@@ -56,9 +56,46 @@ file type.
 
 > **New opt-in packages since 1.2/1.3** (not migration targets from the 0.16.x
 > monolith — they add new capabilities): `flutter_gemma_agent` (on-device agent
-> skills — SKILL.md + tool-calling loop) and `flutter_gemma_builtin_ai` (OS
-> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS).
-> Add either only if you want that feature. See [Getting Started](/docs/getting-started).
+> skills — SKILL.md + tool-calling loop), `flutter_gemma_builtin_ai` (OS
+> system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS),
+> and `flutter_gemma_onnx` (ONNX Runtime — ORT-GenAI text generation +
+> plain-ORT embeddings via `dart:ffi`). Add any of them only if you want that
+> feature. See [Getting Started](/docs/getting-started).
+
+## Breaking: embeddings 2.0.0 — `LiteRtEmbeddingBackend` moved
+
+<Warning>
+`flutter_gemma_embeddings` **2.0.0** is a breaking change, independent of the
+0.16.x → 1.0 migration above. As of `flutter_gemma_litertlm` **1.5.0**,
+`flutter_gemma_embeddings` no longer ships a concrete embedding backend — it's
+now a runtime-agnostic pipeline (tokenizer, pooling, isolate worker) that any
+engine package can implement. `LiteRtEmbeddingBackend` moved to
+`flutter_gemma_litertlm`.
+</Warning>
+
+If your app registers `LiteRtEmbeddingBackend()`, fix the import and bump both
+dependencies:
+
+```dart
+// Before (< 2.0.0):
+import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
+
+// After (>= 2.0.0):
+import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
+```
+
+```
+dependencies:
+  flutter_gemma_embeddings: ^2.0.0   # runtime-agnostic pipeline (still required)
+  flutter_gemma_litertlm: ^1.5.0     # now provides LiteRtEmbeddingBackend
+```
+
+`FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` itself
+is unchanged — only where the class is imported from. You still depend on
+`flutter_gemma_embeddings` (it owns the tokenizer/pooling/worker); you just no
+longer import a backend class from it. If you'd rather run embeddings over an
+ONNX/ORT model instead, `flutter_gemma_onnx`'s `OnnxEmbeddingBackend` is a
+drop-in alternative — see [Packages](/docs/packages#onnx-runtime-engine).
 
 ## 2. main.dart — the one new call
 
@@ -78,7 +115,6 @@ void main() {
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
-import 'package:flutter_gemma_embeddings/flutter_gemma_embeddings.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
 void main() async {
@@ -86,7 +122,7 @@ void main() async {
 
   await FlutterGemma.initialize(
     inferenceEngines: const [LiteRtLmEngine(), MediaPipeEngine()],
-    embeddingBackends: const [LiteRtEmbeddingBackend()],
+    embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
     vectorStore: QdrantVectorStore(),          // or WebSqliteVectorStore() on web
     // '' when the define is absent — an empty token still sends a bare
     // `Authorization: Bearer` header, so pass null instead.
@@ -129,7 +165,7 @@ final hits = await FlutterGemma.rag.searchSimilar(query: query, topK: 5);
 ## What you'll see if you forget step 2
 
 - Calling `getActiveModel()` with no matching `inferenceEngines` registered throws a `StateError` telling you which package to add.
-- `createEmbeddingModel()` / auto-embedding RAG with no `embeddingBackends` throws a clear "add `flutter_gemma_embeddings`" error.
+- `createEmbeddingModel()` / auto-embedding RAG with no `embeddingBackends` throws a clear "add `flutter_gemma_litertlm`" error.
 - RAG calls with no `vectorStore` throw "add a RAG package" (the default store is an unconfigured sentinel).
 
 ## Platform setup
@@ -148,5 +184,7 @@ inference engine. See the full [Installation guide](/docs/installation).
 **`dlopen` "library not found" after removing a package:** if you had both
 `flutter_gemma_litertlm` and `flutter_gemma_embeddings` and removed one, run
 `flutter clean` and delete `~/Library/Caches/flutter_gemma/native` (Windows:
-`%LOCALAPPDATA%\flutter_gemma\native`), then `flutter pub get`. They share one
-native library.
+`%LOCALAPPDATA%\flutter_gemma\native`), then `flutter pub get`.
+`flutter_gemma_litertlm` owns the native LiteRT library;
+`flutter_gemma_embeddings` (and `flutter_gemma_speech`) consume it
+transitively — they have no Native-Assets hook of their own.

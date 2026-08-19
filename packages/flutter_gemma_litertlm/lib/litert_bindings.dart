@@ -1,7 +1,9 @@
 /// Public, native-only export of the LiteRt interpreter FFI bindings
-/// (`LiteRtBindings`) for capability packages (`flutter_gemma_embeddings`,
-/// `flutter_gemma_speech`) that need to import the concrete bindings from a
-/// file that is itself native-only (never reached on web).
+/// (`LiteRtBindings`) for native-only leaves that need to import the
+/// concrete bindings from a file that is itself native-only (never reached
+/// on web) — this package's own `src/embedding/litert_embedding_forward_pass.dart`
+/// (as an intra-package import) and the capability package
+/// `flutter_gemma_speech`.
 ///
 /// Prefer this over `package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart`
 /// in native-only files: that barrel's `LiteRtBindings` export is behind an

@@ -16,4 +16,5 @@ enum ModelFileType {
   binary, // .bin and .tflite files - require manual chat template formatting
   litertlm, // .litertlm files - LiteRT-LM SDK handles templates on Android/Desktop, manual on iOS
   builtIn, // OS system models (Gemini Nano, Apple Foundation Models) - no file, native side owns templates
+  onnx, // ORT-GenAI model dirs (genai_config.json + .onnx[+.onnx_data] + tokenizer) - flutter_gemma_onnx engine
 }

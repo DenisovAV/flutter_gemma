@@ -283,16 +283,27 @@ class LiteRtRankedTensorTypeView {
 /// and the incidents behind them now live in ONE place, core's
 /// host_native_library.dart, because this search had been written three times
 /// (here, and twice in rag_sqlite's tests) and the copies had drifted.
-List<String> _devLiteRtLmCandidates() => hostNativeLibraryCandidates(
+List<String> _devLiteRtLmCandidates() {
+  // Guarded rather than trusted: hostNativeDirName() is null on iOS, and the
+  // relative paths below interpolate it, so an unguarded call would build
+  // `.../prebuilt/null/libLiteRtLm.dylib`. Unreachable today — _openLiteRt
+  // throws for iOS before getting here — but a comment is the only thing
+  // keeping that true, and comments do not fail.
+  final hostDir = hostNativeDirName();
+  if (hostDir == null) return const [];
+  return _candidatesFor(hostDir);
+}
+
+List<String> _candidatesFor(String hostDir) => hostNativeLibraryCandidates(
   // Reached only from the macOS branch of _openLiteRt (iOS throws before it),
   // so the host names the shared helper computes are the macOS ones.
   libFileName: hostNativeLibraryFileName('LiteRtLm'),
   // LiteRT uses the FLAT cache layout: <cacheBase>/<host>/, no namespace.
   relativePaths: [
     'packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/'
-        '${hostNativeDirName()}/${hostNativeLibraryFileName('LiteRtLm')}',
+        '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
     'native/litert_lm/prebuilt/'
-        '${hostNativeDirName()}/${hostNativeLibraryFileName('LiteRtLm')}',
+        '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
   ],
 );
 

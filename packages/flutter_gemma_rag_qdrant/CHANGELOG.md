@@ -1,4 +1,5 @@
 ## 1.2.0
+- Encode filters by the declared field type, so both backends answer alike.
 - Fix numeric equality never matching a float payload (`4` vs `4.0`).
 - Fix an unbounded `FieldRange` excluding every non-numeric document instead of matching all.
 

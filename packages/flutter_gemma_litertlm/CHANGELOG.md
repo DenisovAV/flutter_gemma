@@ -1,3 +1,6 @@
+## 1.4.4
+- Share the host-side native library lookup with core instead of a private copy.
+
 ## 1.4.3
 - fix: a native-archive checksum mismatch now fails the build instead of shipping no library.
 - fix: `sizeInTokens` asks the model's tokenizer on native; web still estimates (no tokenizer).

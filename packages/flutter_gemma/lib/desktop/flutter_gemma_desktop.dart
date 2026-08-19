@@ -355,6 +355,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         maxNumImages: maxNumImages,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
         maxConcurrentSessions: maxConcurrentSessions,
+        // Forwarded, not merely compared. ActiveModelParams treats loraRanks as
+        // a rebuild trigger and its dartdoc says the engine receives it — but
+        // desktop compared it and then dropped it here, so a changed rank tore
+        // down multi-gigabyte weights and handed the engine a byte-identical
+        // config. Comparing a value the engine never sees is its own kind of
+        // lie. Mobile and web already forwarded it.
+        loraRanks: loraRanks,
       );
       final engine = EngineRegistry.instance.findFor(spec);
       if (engine == null) {

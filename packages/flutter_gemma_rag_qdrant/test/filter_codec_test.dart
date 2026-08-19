@@ -17,7 +17,11 @@ final _schema = FilterSchema(
     FilterField(name: 'tag', type: FilterFieldType.string),
     FilterField(name: 'price', type: FilterFieldType.number),
     FilterField(name: 'archived', type: FilterFieldType.bool),
-    FilterField(name: 'k', type: FilterFieldType.number),
+    // Not 'k': that is a reserved vec0 hidden column (FilterField
+    // .reservedNames). qdrant accepts it, which is precisely why the name
+    // has to be rejected in core -- one schema must not work on one backend
+    // and fail on the other.
+    FilterField(name: 'rank', type: FilterFieldType.number),
   ],
 );
 
@@ -625,7 +629,7 @@ void main() {
       final json = _decode(
         FilterCodec.encode(
           const Filter(
-            must: [FieldEquals(key: 'k', value: 1)],
+            must: [FieldEquals(key: 'rank', value: 1)],
             should: [],
           ),
           _schema,

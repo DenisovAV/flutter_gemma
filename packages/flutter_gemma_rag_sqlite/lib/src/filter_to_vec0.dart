@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kDebugMode;
+
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
@@ -623,9 +625,13 @@ class FilterToVec0 {
   ///     is `{"a":"\u0000__absent__"}`. A document carrying that exact string
   ///     is indistinguishable from one that omits the field: an equality on it
   ///     also returns every document that has no value at all. There is no
-  ///     string a user cannot write, so no choice of marker removes this; the
-  ///     write path logs when a value collides (see [declaredColumnValues]),
-  ///     which is the most the storage permits.
+  ///     string a user cannot write, so no choice of marker removes this.
+  ///
+  ///     The write path logs the collision (see [declaredColumnValues]) — but
+  ///     `gemmaLog` is `kDebugMode`-gated, so that is a DEBUG-build diagnostic
+  ///     and nothing at all in a shipped app. Saying "the write path reports
+  ///     it" without that qualifier would describe a guarantee users do not
+  ///     get.
   ///   * FLOAT — negative infinity. NOT NaN: measured, SQLite converts NaN to
   ///     NULL before vec0 sees it (`typeof(9e999*0)` is `null`, and binding
   ///     `double.nan` binds NULL), so a NaN sentinel would throw the very error
@@ -678,7 +684,7 @@ class FilterToVec0 {
     for (final field in schema.fields) {
       final raw = json[field.name];
       final coerced = coerceForColumn(raw, field.type);
-      if (coerced == absentText) {
+      if (coerced == absentText && kDebugMode) {
         // A real value equal to the TEXT sentinel. It cannot be told apart
         // from an absent field afterwards, so an equality on it will also
         // return documents that never carried the field. Unfixable in the
@@ -690,7 +696,7 @@ class FilterToVec0 {
           'field, and filters on it will answer accordingly',
         );
       }
-      if (coerced == null && raw != null) {
+      if (coerced == null && raw != null && kDebugMode) {
         // PRESENT but unstorable — a list for a scalar column, a string for a
         // FLOAT one. It becomes the absent sentinel, so the document reads as
         // if it never carried the field at all: `must` excludes it and

@@ -290,7 +290,19 @@ class FilterField {
     'embedding',
     'content',
     'metadata',
+    // The two HIDDEN columns vec0 appends to every table it declares --
+    // `sqlite-vec.c`: `sqlite3_str_appendall(createStr, " distance hidden, k
+    // hidden) ")`. They are as reserved as the visible ones and fail the same
+    // way, but they do not appear in either store's CREATE statement, so
+    // reading those is not enough to find them.
+    //
+    // `k` was missed on the first pass for exactly that reason, and it is not
+    // an exotic name: a schema in this repo's own qdrant tests declares a field
+    // called `k`. Measured on vec0 0.1.9 -- `k FLOAT` gives `vec0 constructor
+    // error: could not declare virtual table`; `rowid`, checked at the same
+    // time, is accepted and so is deliberately NOT listed.
     'distance',
+    'k',
   };
 
   /// Rejects a [FilterSchema] that no backend could implement identically.

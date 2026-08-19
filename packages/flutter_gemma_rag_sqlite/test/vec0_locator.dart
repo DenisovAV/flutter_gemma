@@ -17,11 +17,7 @@ import 'dart:io';
 import 'package:flutter_gemma/core/utils/host_native_library.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
-String get _libName {
-  if (Platform.isMacOS) return 'libvec0.dylib';
-  if (Platform.isWindows) return 'vec0.dll';
-  return 'libvec0.so';
-}
+String get _libName => hostNativeLibraryFileName('vec0');
 
 /// Every path considered, in order. Exposed so a failure message can name them
 /// all — "not found" and "looked in the wrong place" must not read alike.

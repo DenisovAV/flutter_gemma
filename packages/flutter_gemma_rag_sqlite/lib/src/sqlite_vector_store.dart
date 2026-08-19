@@ -1,10 +1,10 @@
 import 'dart:ffi';
 import 'dart:io';
 
-import 'package:meta/meta.dart';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -79,10 +79,6 @@ class SqliteVectorStore implements VectorStoreRepository {
     _vec0Loaded = true;
   }
 
-  /// Path to the `vec0` loadable extension. Host tests set `$VEC0_DYLIB`; in a
-  /// real app the per-platform `vec0.<ext>` is bundled by `hook/build.dart`
-  /// (Native Assets) and resolved by its bundled filename — the same mechanism
-  /// qdrant-edge uses.
   /// Host-test override for the loadable's path; null in production.
   ///
   /// The qdrant store already had this (`QdrantEdgeClient.debugOverrideDylibPath`)
@@ -97,6 +93,10 @@ class SqliteVectorStore implements VectorStoreRepository {
   @visibleForTesting
   static String? debugOverrideDylibPath;
 
+  /// Path to the `vec0` loadable extension. Host tests set `$VEC0_DYLIB`; in a
+  /// real app the per-platform `vec0.<ext>` is bundled by `hook/build.dart`
+  /// (Native Assets) and resolved by its bundled filename — the same mechanism
+  /// qdrant-edge uses.
   static String _resolveVec0Path() {
     final testOverride = debugOverrideDylibPath;
     if (testOverride != null && testOverride.isNotEmpty) return testOverride;

@@ -112,6 +112,13 @@ void main() {
       reason: 'a different LoRA rank is a different model',
     );
     expect(identical(a, b), isFalse);
+    // And the value actually REACHED the engine. Counting rebuilds alone would
+    // stay green for a shell that compares loraRanks and then drops it before
+    // building — which is exactly what desktop did. A knob that forces a
+    // multi-gigabyte reload and then is not sent is worse than one that is
+    // ignored outright.
+    expect(engine.configs.last.loraRanks, [16]);
+    expect(engine.configs.first.loraRanks, [4]);
 
     // An identical rank still reuses — the guard must not be so strict that
     // every call rebuilds.
@@ -127,6 +134,16 @@ void main() {
   });
 
   test('a caller arriving mid-close is not handed the closing model', () async {
+    // Scope, stated because the first version of this test implied more than it
+    // checks: the guarantee is that C is not handed the model that was ALREADY
+    // closing. It is not that C's model survives.
+    //
+    // Only one model is cached, so when two callers want different params one
+    // of them loses — that is the singleton contract, and a race just decides
+    // who. Concretely, B can resume after C has built, re-enter, find params it
+    // does not want, and close C's model. A caller must therefore not hold a
+    // model across another getActiveModel with different params; the assertion
+    // at the end of this test pins that behaviour rather than hiding it.
     // The reuse check reads five fields, and the rebuild branch used to clear
     // them AFTER awaiting close(). During that await every field was still
     // populated, so a caller whose params matched the OLD model passed the
@@ -166,6 +183,17 @@ void main() {
       reason: 'C was handed the model that was closing',
     );
     expect((first as dynamic).isClosed, isTrue);
+
+    // The known consequence, asserted so it cannot change silently: the loser
+    // of the race holds a model the winner closed. Documented above.
+    final bWonLast = !identical(modelB, modelC);
+    if (bWonLast) {
+      expect(
+        (modelC as dynamic).isClosed || (modelB as dynamic).isClosed,
+        isTrue,
+        reason: 'one of the two racing models must have been torn down',
+      );
+    }
 
     await modelB.close();
     if (!identical(modelC, modelB)) await modelC.close();

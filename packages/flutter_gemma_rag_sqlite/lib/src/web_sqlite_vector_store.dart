@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -64,7 +63,17 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   FilterSchema get filterSchema => _filterSchema;
 
   @override
-  void configure(FilterSchema schema) => _filterSchema = schema;
+  void configure(FilterSchema schema) {
+    // Validate here, not only in FilterField's assert: asserts are stripped in
+    // release, and a field name read from config at runtime would otherwise
+    // reach the storage layer unchecked. Rejecting at configure() points the
+    // error at the schema the developer wrote rather than at a query built
+    // from it much later.
+    for (final field in schema.fields) {
+      FilterField.validateName(field.name);
+    }
+    _filterSchema = schema;
+  }
 
   @override
   Future<void> initialize(String databasePath) async {
@@ -163,6 +172,9 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       // and `similarity = 1 - distance` holds. Without it vec0 defaults to L2,
       // breaking the similarity convention (matches the native store).
       'embedding float[$dimension] distance_metric=cosine',
+      // Deliberately bare, never quoted — sqlite-vec's DDL tokenizer has no
+      // quoted-identifier form. FilterField's constructor guarantees the name
+      // is a legal bare identifier. Matches the native store.
       for (final field in _filterSchema.fields)
         '${field.name} ${_columnType(field.type)}',
       '+content TEXT',
@@ -204,11 +216,19 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     }
 
     try {
-      final declared = _declaredValues(metadata);
+      // Shared with the native arm — see FilterToVec0.declaredColumnValues.
+      // One entry per declared field, in schema order, so both arms write the
+      // same column list for the same document.
+      final declared = FilterToVec0.declaredColumnValues(
+        metadata,
+        _filterSchema,
+      );
       final columns = <String>[
         'id',
         'embedding',
-        ...declared.keys,
+        // Quoted here (SQLite parses this statement) but NOT in the vec0 DDL
+        // above — see FilterToVec0.quoteColumn.
+        ...declared.keys.map(FilterToVec0.quoteColumn),
         'content',
         'metadata',
       ];
@@ -233,34 +253,6 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     } catch (e) {
       throw VectorStoreException('Failed to add document', e);
     }
-  }
-
-  /// Extracts declared filterable fields out of the raw [metadata] JSON into
-  /// the typed vec0 columns. Undeclared fields stay only in the `+metadata`
-  /// blob. Returns an empty map when no schema is configured or the metadata is
-  /// not a decodable JSON object.
-  Map<String, Object?> _declaredValues(String? metadata) {
-    if (_filterSchema.isEmpty || metadata == null || metadata.isEmpty) {
-      return const {};
-    }
-    Object? decoded;
-    try {
-      decoded = jsonDecode(metadata);
-    } catch (_) {
-      return const {};
-    }
-    if (decoded is! Map) return const {};
-
-    final values = <String, Object?>{};
-    for (final field in _filterSchema.fields) {
-      if (!decoded.containsKey(field.name)) continue;
-      final raw = decoded[field.name];
-      values[field.name] = switch (field.type) {
-        FilterFieldType.bool => (raw == true || raw == 1) ? 1 : 0,
-        _ => raw,
-      };
-    }
-    return values;
   }
 
   @override

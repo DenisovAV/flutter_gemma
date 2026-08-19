@@ -251,7 +251,7 @@ void main() {
     });
 
     group('declared-column Filter', () {
-      const schema = FilterSchema(
+      final schema = FilterSchema(
         fields: [
           FilterField(name: 'lang', type: FilterFieldType.string),
           FilterField(name: 'year', type: FilterFieldType.number),
@@ -261,6 +261,55 @@ void main() {
 
       setUp(() {
         repo.configure(schema);
+      });
+
+      test('over-fetches past the top-k when the filter is not pushable', () async {
+        // A cross-column OR cannot be pushed into vec0's KNN, so SQLite applies
+        // it AFTER vec0 has already chosen k rows. Without over-fetching this
+        // returns nothing: the nearest rows match neither condition, and a
+        // post-filter cannot reach past them.
+        //
+        // Seed so the two nearest are non-matching and the matches sit behind
+        // them — the exact shape that used to come back empty.
+        await repo.initialize(dbPath);
+        for (var i = 0; i < 6; i++) {
+          await repo.addDocument(
+            id: 'near$i',
+            content: 'near $i',
+            embedding: [1.0 - i * 0.01, i * 0.01, 0.0, 0.0],
+            metadata: '{"lang":"de","year":1990,"archived":false}',
+          );
+        }
+        await repo.addDocument(
+          id: 'far-fr',
+          content: 'far fr',
+          embedding: [0.0, 1.0, 0.0, 0.0],
+          metadata: '{"lang":"fr","year":1990,"archived":false}',
+        );
+        await repo.addDocument(
+          id: 'far-2020',
+          content: 'far 2020',
+          embedding: [0.0, 0.9, 0.1, 0.0],
+          metadata: '{"lang":"de","year":2020,"archived":false}',
+        );
+
+        final got = await repo.searchSimilar(
+          queryEmbedding: [1.0, 0.0, 0.0, 0.0],
+          topK: 2,
+          filter: const Filter(
+            should: [
+              FieldEquals(key: 'lang', value: 'fr'),
+              FieldEquals(key: 'year', value: 2020),
+            ],
+          ),
+        );
+
+        expect(
+          got.map((r) => r.id),
+          unorderedEquals(['far-fr', 'far-2020']),
+          reason: 'without over-fetch the post-filter sees only the 2 nearest, '
+              'which match neither condition, and returns nothing',
+        );
       });
 
       Future<void> seed() async {
@@ -404,6 +453,65 @@ void main() {
         );
         expect(results.single.metadata, contains('"lang":"en"'));
       });
+    });
+
+    // FilterField.namePattern accepts SQL keywords, because a keyword is a
+    // perfectly good qdrant payload key and banning it would have no
+    // cross-backend justification. vec0's DDL tokenizer has no keyword table,
+    // so `order TEXT` declares fine — but the INSERT and the KNN WHERE are
+    // parsed by SQLite, where a bare `order` is a syntax error. The stores
+    // therefore quote in those two statements only (never in the DDL, which
+    // vec0 parses and where quoting is rejected outright). This exercises the
+    // whole round-trip against the real extension.
+
+    test('a SQL-keyword column name round-trips end to end', () async {
+      repo.configure(
+        FilterSchema(
+          fields: [
+            FilterField(name: 'order', type: FilterFieldType.string),
+            FilterField(name: 'select', type: FilterFieldType.number),
+          ],
+        ),
+      );
+      await repo.initialize(dbPath);
+      await repo.addDocument(
+        id: 'a',
+        content: 'first',
+        embedding: [1.0, 0.0],
+        metadata: '{"order":"asc","select":1}',
+      );
+      await repo.addDocument(
+        id: 'b',
+        content: 'second',
+        embedding: [0.9, 0.1],
+        metadata: '{"order":"desc","select":2}',
+      );
+
+      final equals = await repo.searchSimilar(
+        queryEmbedding: [1.0, 0.0],
+        topK: 10,
+        filter: const Filter(
+          must: [FieldEquals(key: 'order', value: 'desc')],
+        ),
+      );
+      expect(equals.map((r) => r.id), ['b']);
+
+      final range = await repo.searchSimilar(
+        queryEmbedding: [1.0, 0.0],
+        topK: 10,
+        filter: const Filter(must: [FieldRange(key: 'select', lte: 1.0)]),
+      );
+      expect(range.map((r) => r.id), ['a']);
+
+      // mustNot goes through the separate negated-encode path.
+      final negated = await repo.searchSimilar(
+        queryEmbedding: [1.0, 0.0],
+        topK: 10,
+        filter: const Filter(
+          mustNot: [FieldEquals(key: 'order', value: 'asc')],
+        ),
+      );
+      expect(negated.map((r) => r.id), ['b']);
     });
   }, skip: skip);
 }

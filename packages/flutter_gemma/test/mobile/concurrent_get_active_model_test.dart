@@ -126,6 +126,51 @@ void main() {
     await b.close();
   });
 
+  test('a caller arriving mid-close is not handed the closing model', () async {
+    // The reuse check reads five fields, and the rebuild branch used to clear
+    // them AFTER awaiting close(). During that await every field was still
+    // populated, so a caller whose params matched the OLD model passed the
+    // reuse check and received a model that was already closing.
+    //
+    // Needs a fake whose listeners fire after an asynchronous gap — see
+    // _FakeInferenceModel.close(). With synchronous firing this window does
+    // not exist and the test cannot fail.
+    final engine = await installWithGatedEngine();
+    engine.release();
+
+    final first = await FlutterGemma.getActiveModel(
+      maxTokens: 1024,
+      preferredBackend: PreferredBackend.cpu,
+    );
+    expect(engine.createModelCallCount, 1);
+
+    // B forces a rebuild and suspends inside close().
+    final b = FlutterGemma.getActiveModel(
+      maxTokens: 1024,
+      preferredBackend: PreferredBackend.gpu,
+    );
+    // C asks for the OLD config while that close is in flight.
+    final c = FlutterGemma.getActiveModel(
+      maxTokens: 1024,
+      preferredBackend: PreferredBackend.cpu,
+    );
+
+    final modelB = await b;
+    final modelC = await c;
+
+    // Neither may be the closed model.
+    expect(identical(modelB, first), isFalse);
+    expect(
+      identical(modelC, first),
+      isFalse,
+      reason: 'C was handed the model that was closing',
+    );
+    expect((first as dynamic).isClosed, isTrue);
+
+    await modelB.close();
+    if (!identical(modelC, modelB)) await modelC.close();
+  });
+
   test('a failed build does not trap every later request', () async {
     // Found by review, and it is the reason the re-entry above needed a guard
     // of its own. The three pre-build checks (model not installed, no file
@@ -336,8 +381,25 @@ class _FakeInferenceModel with CloseNotifier implements InferenceModel {
   _FakeInferenceModel(this.config);
   final RuntimeConfig config;
 
+  /// Set the moment close() is entered, before the asynchronous gap — so a
+  /// test can tell "this model is on its way out" from "this model is gone".
+  bool isClosed = false;
+
+  /// Fires the close listeners only AFTER an asynchronous gap, which is what
+  /// every real model does — MobileInferenceModel awaits `_session.close()`
+  /// (a platform-channel round trip) and FfiInferenceModel awaits
+  /// `ffiClient.shutdown()` before firing.
+  ///
+  /// The first version of this fake fired them synchronously. That collapsed
+  /// the whole close window, so no test here could reach the state a caller
+  /// arriving mid-close observes — which is exactly where two of the bugs in
+  /// this file lived.
   @override
-  Future<void> close() async => fireCloseListeners();
+  Future<void> close() async {
+    isClosed = true;
+    await Future<void>.delayed(Duration.zero);
+    fireCloseListeners();
+  }
 
   // The shell only calls close() and addCloseListener() on the model it
   // caches. Anything else reaching this fake is a change in what the shell

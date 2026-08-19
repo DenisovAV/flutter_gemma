@@ -183,23 +183,40 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
                     '${requestedSpec.name} — rebuilding the model',
         );
         gemmaLog('🔄 Closing old model and creating new one...');
-        await _initializedModel?.close();
-        // Clear all five here rather than trusting the close listener to do
-        // the other two. It may not have run yet — fireCloseListeners() sits
-        // behind an await inside the model's close() — and it may never run if
-        // that close() throws. The state it left behind was a fixed point:
-        // _initCompleter installed and SUCCESSFULLY completed, spec null, so
-        // the reuse check is skipped, the in-flight branch awaits an
-        // already-completed future, the failure-conditioned guard does not
-        // fire, and the recursion re-enters unchanged. Awaiting a completed
-        // future schedules a microtask, and Dart drains that queue before
-        // returning to the event loop, so it hangs the isolate outright.
-        // Desktop already cleared all five; this is mobile catching up.
+        // Clear the state BEFORE awaiting the close, not after. Everything
+        // between these two statements runs without an await, so no other
+        // caller can observe a half-torn singleton — which the old order
+        // allowed, in two ways:
+        //
+        //   * a caller arriving during the close passed the reuse check (every
+        //     field was still populated) and was handed the model that was
+        //     already closing; its next createSession threw "Model is closed".
+        //   * two callers with different params both entered this branch, both
+        //     awaited a close the second found already done, then raced to
+        //     install their own build. The surviving _initCompleter and
+        //     _lastInferenceParams could come from different callers, so the
+        //     reuse check would hand back a model built for someone else's
+        //     request — the exact failure this change exists to remove. The
+        //     other interleaving simply leaked a model nothing closed.
+        //
+        // Clearing first also removes the reason the old code trusted the
+        // close listener for two of the five fields: nothing here depends on
+        // that listener running, or running in time, or running at all.
+        //
+        // The close is wrapped because a throwing teardown must not leave the
+        // singleton registered; the fields are already clear, so the next call
+        // builds fresh instead of inheriting a dead model.
+        final closing = _initializedModel;
         _initCompleter = null;
         _inFlightRequest = null;
         _initializedModel = null;
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
+        try {
+          await closing?.close();
+        } catch (e) {
+          gemmaLog('Old model close() failed, continuing with rebuild: $e');
+        }
       } else {
         // Same model - return existing singleton
         gemmaLog(
@@ -239,6 +256,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         // receives the error, so nothing is being swallowed here — fall
         // through and build fresh for THIS caller.
         inFlightFailed = true;
+        // Logged, not silent: the "waiting for it" line above fires BEFORE
+        // the await, so a build that failed and was recovered from left no
+        // trace at all. The error itself still reaches the caller that
+        // started that build.
+        gemmaLog('In-flight build failed; building fresh for this request');
       }
       if (inFlightFailed && identical(_initCompleter, completer)) {
         // A failed build left its own completer installed. Recursing now would
@@ -388,6 +410,12 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       // package-built model fires this via CloseNotifier (addCloseListener).
       _initializedModel = model;
       model.addCloseListener(() {
+        // Identity-guarded, as the session layer already does
+        // (mobile_inference_model.dart: `if (identical(_session, session))`).
+        // Without it a late close of a SUPERSEDED model nulls whatever is
+        // registered now — including a newer, live model, whose next caller
+        // then reloads weights that were already in memory.
+        if (!identical(_initializedModel, model)) return;
         _initializedModel = null;
         _initCompleter = null;
         _inFlightRequest = null;

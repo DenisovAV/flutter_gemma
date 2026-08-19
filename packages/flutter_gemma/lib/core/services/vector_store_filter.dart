@@ -193,132 +193,59 @@ enum FilterFieldType { string, number, bool }
 ///
 /// ## Name rules
 ///
-/// [name] must match [namePattern] — an ASCII letter, then ASCII letters,
-/// digits or underscores (`^[A-Za-z][A-Za-z0-9_]*$`). Anything else is rejected
-/// by [validateName], which each store calls from `configure()` — so the throw
-/// lands when the schema is handed to a store, NOT at the `FilterField(…)`
-/// declaration. The constructor is `const` and can only assert (see below), so
-/// it catches an empty name in development and nothing at all in release.
+/// What a name may CONTAIN is a storage question, and each store answers it in
+/// its own `configure()` so the error names the store that cannot take the
+/// name. Core enforces only what is wrong everywhere — see [validateSchema].
 ///
-/// The rule is not a stylistic preference, it is the intersection of what the
-/// backends can express, and `vec0` is the binding constraint:
+///   * sqlite/vec0 is the strictest, and therefore the portable set. It
+///     promotes each field to a column in a DDL parsed by sqlite-vec's own
+///     tokenizer, which accepts `[A-Za-z][A-Za-z0-9_]*` and has no
+///     quoted-identifier form at all; and it already declares `id`,
+///     `embedding`, `content`, `metadata`, plus the hidden `distance` and `k`.
+///     See `FilterToVec0.validateFieldName`.
+///   * qdrant payload keys are free-form UTF-8, except that `.` is a nested
+///     path separator there. See `FilterCodec.validateFieldName`.
 ///
-///   * `vec0` promotes each declared field to a real column in its
-///     `CREATE VIRTUAL TABLE … USING vec0(…)` DDL, which is parsed by
-///     sqlite-vec's own tokenizer, not SQLite's. That tokenizer accepts an
-///     identifier as `[A-Za-z][A-Za-z0-9_]*` and nothing else — measured on
-///     vec0 0.1.9, `doc-type TEXT` fails with
-///     `vec0 constructor error: Could not parse 'doc-type TEXT'`.
-///   * Quoting cannot rescue it. `"doc-type"`, `[doc-type]` and
-///     `` `doc-type` `` were each measured against vec0 0.1.9 and each fails
-///     the same way — sqlite-vec's DDL grammar has no quoted-identifier form
-///     at all. So an out-of-set name is unrepresentable, not merely unescaped,
-///     and rejecting it is the only option.
-///   * A name carrying a comma is worse than an error: the store renders
-///     `'$name $type'` into the DDL, so `FilterField(name: 'a TEXT, b')`
-///     silently declares **two** columns (measured: `pragma_table_info`
-///     reports both `a` and `b`) and the schema no longer describes the table.
-///   * qdrant payload keys are free-form UTF-8, so this set is a strict subset
-///     of what qdrant accepts — every name that passes here means the same
-///     thing on both backends. That is the point of the shared schema, and it
-///     is why the rule is enforced here rather than inside one store.
-///   * `.` is rejected for a reason that holds on qdrant independently: qdrant
-///     reads `.` as a nested payload-path separator, so `doc.type` would mean
-///     "field `type` nested inside `doc`" there and a flat column on vec0. The
-///     same declaration would denote two different things.
+/// Core does NOT enforce the intersection. Doing so put one backend's grammar
+/// — a vec0 regex, and the words `k` and `distance` — inside a package that
+/// has no backends, and would have grown with every backend added. The cost is
+/// small and honest: a schema legal on qdrant and illegal on vec0 is refused by
+/// the sqlite store at `configure()` rather than by core everywhere.
 ///
-/// The constructor stays `const` — `const FilterSchema(fields: [FilterField(…)])`
-/// is the documented idiom and dropping it would break every caller. A `const`
-/// constructor can only `assert`, and asserts vanish in release, so the assert
-/// here is the fast path for development only: the load-bearing check is
-/// [validateName], called by each store in `configure()` where it runs in every
-/// build. A name computed at runtime — from a config file or JSON — is caught
-/// there rather than reaching the DDL.
+/// The constructor stays `const`: `const FilterSchema(fields: [FilterField(…)])`
+/// is the documented idiom. A `const` constructor can only `assert`, and asserts
+/// vanish in release, so that assert is a development convenience — the
+/// load-bearing checks run at `configure()` in every build, which is where a
+/// name computed at runtime from a config file is caught.
 class FilterField {
-  /// The only shape [name] may take: an ASCII letter followed by ASCII
-  /// letters, digits or underscores. Mirrors sqlite-vec's `vec0` identifier
-  /// tokenizer, which is the narrowest grammar the name must survive.
-  static final RegExp namePattern = RegExp(r'^[A-Za-z][A-Za-z0-9_]*$');
-
   /// Metadata JSON key promoted to a filterable storage field.
   final String name;
 
   /// Storage type used when promoting and when binding [Filter] predicates.
   final FilterFieldType type;
 
-  const FilterField({required this.name, required this.type})
-    : assert(
-        // Development-only: see validateName for the check that survives
-        // release. Duplicated as a literal because a const assert cannot call
-        // a method or touch a static field.
-        name != '',
-        'FilterField.name must not be empty',
-      );
-
-  /// Throws [ArgumentError] when [name] cannot be represented as a storage
-  /// identifier. Stores call this from `configure()`, so it runs in release
-  /// builds too — unlike the constructor's assert.
+  /// Rejects a [FilterSchema] no backend could implement.
   ///
-  /// Measured against vec0 0.1.9: `doc-type TEXT` fails the table constructor
-  /// outright, and `a TEXT, b` silently declares TWO columns. No quoting form
-  /// helps — `"doc-type"`, `[doc-type]` and backticks all fail, because
-  /// sqlite-vec parses its own DDL with a hand-rolled tokenizer that has no
-  /// quoted-identifier production. So the name has to be rejected, not escaped.
+  /// Deliberately narrow: only what is wrong regardless of where the schema is
+  /// stored. Storage-specific rules belong to the store that has them — see the
+  /// class dartdoc.
   ///
-  /// The charset is not a preference: it is vec0's identifier grammar, the
-  /// narrowest the name must survive. qdrant payload keys are free-form UTF-8,
-  /// so every accepted name means the same thing on both backends — and `.` is
-  /// excluded on its own merits, since qdrant reads it as a nested-payload
-  /// separator.
-  /// Names the sqlite arm cannot use, because its `vec0` table already
-  /// declares them.
-  ///
-  /// MEASURED against vec0 0.1.9, not assumed: declaring any of these as a
-  /// filter field makes the CREATE VIRTUAL TABLE fail outright —
-  /// `vec0 constructor error: could not declare virtual table`. Not a silent
-  /// mis-read, a hard refusal.
-  ///
-  /// Two reasons this belongs in core rather than in the sqlite store. The
-  /// failure is LATE: the table is created lazily on the first addDocument, so
-  /// a schema the developer wrote at startup blows up much later and points at
-  /// an insert. And it is one-sided: qdrant namespaces its own payload keys
-  /// (`__flutter_gemma_*`), so the same schema works there — the same
-  /// FilterSchema succeeding on one backend and failing on the other is the
-  /// divergence this file exists to prevent.
-  static const reservedNames = {
-    'id',
-    'embedding',
-    'content',
-    'metadata',
-    // The two HIDDEN columns vec0 appends to every table it declares --
-    // `sqlite-vec.c`: `sqlite3_str_appendall(createStr, " distance hidden, k
-    // hidden) ")`. They are as reserved as the visible ones and fail the same
-    // way, but they do not appear in either store's CREATE statement, so
-    // reading those is not enough to find them.
-    //
-    // `k` was missed on the first pass for exactly that reason, and it is not
-    // an exotic name: a schema in this repo's own qdrant tests declares a field
-    // called `k`. Measured on vec0 0.1.9 -- `k FLOAT` gives `vec0 constructor
-    // error: could not declare virtual table`; `rowid`, checked at the same
-    // time, is accepted and so is deliberately NOT listed.
-    'distance',
-    'k',
-  };
-
-  /// Rejects a [FilterSchema] that no backend could implement identically.
-  ///
-  /// Called from each store's `configure()`. It replaced three copies of the
-  /// same loop — and the copies had already stopped agreeing about what a
-  /// schema means, which is exactly how a shared contract rots.
+  /// Called from each store's `configure()`, so it runs in release builds
+  /// unlike the constructor's assert.
   static void validateSchema(FilterSchema schema) {
     final seen = <String>{};
     for (final field in schema.fields) {
-      validateName(field.name);
-      // A duplicate is meaningless — fieldFor returns the first match — and it
-      // is not harmless: the native sqlite arm builds its INSERT from
-      // `schema.fields` (duplicates kept) while the web arm builds it from the
-      // declaredColumnValues map (duplicates collapsed), so the two arms
-      // emitted different column lists for the same document.
+      if (field.name.isEmpty) {
+        throw ArgumentError.value(
+          field.name,
+          'FilterField.name',
+          'must not be empty',
+        );
+      }
+      // Meaningless on every backend — fieldFor returns the first match — and
+      // not harmless: the native sqlite arm built its INSERT from
+      // `schema.fields` with duplicates kept, the web arm from a map with them
+      // collapsed, so one document produced different column lists.
       if (!seen.add(field.name)) {
         throw ArgumentError.value(
           field.name,
@@ -329,26 +256,14 @@ class FilterField {
     }
   }
 
-  static void validateName(String name) {
-    if (reservedNames.contains(name)) {
-      throw ArgumentError.value(
-        name,
-        'FilterField.name',
-        'reserved: the sqlite vec0 table already declares this column '
-            '(measured: the table refuses to be created)',
+  const FilterField({required this.name, required this.type})
+    : assert(
+        // Development-only. The checks that survive release are
+        // [validateSchema] here and each store's own, both run from
+        // `configure()`; a const assert cannot call either.
+        name != '',
+        'FilterField.name must not be empty',
       );
-    }
-    if (!namePattern.hasMatch(name)) {
-      throw ArgumentError.value(
-        name,
-        'FilterField.name',
-        'must match ^[A-Za-z][A-Za-z0-9_]*\$ (an ASCII letter, then letters, '
-            'digits or underscores). It is promoted to a sqlite-vec `vec0` '
-            'column, whose DDL grammar has no quoted identifier form, so this '
-            'name cannot be represented there',
-      );
-    }
-  }
 }
 
 /// The set of metadata fields a store should make filterable.

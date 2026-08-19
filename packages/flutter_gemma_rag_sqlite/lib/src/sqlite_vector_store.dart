@@ -55,7 +55,13 @@ class SqliteVectorStore implements VectorStoreRepository {
     // reach the storage layer unchecked. Rejecting at configure() points the
     // error at the schema the developer wrote rather than at a query built
     // from it much later.
+    // Core checks what is wrong on every backend; this store checks what
+    // ITS storage cannot take. Splitting them keeps one backend's grammar
+    // out of a package that has no backends.
     FilterField.validateSchema(schema);
+    for (final field in schema.fields) {
+      FilterToVec0.validateFieldName(field.name);
+    }
     _filterSchema = schema;
   }
 

@@ -577,6 +577,66 @@ class FilterToVec0 {
   /// rather than assumed.
   static bool _isFiniteBound(double? bound) => bound == null || bound.isFinite;
 
+  /// The only shape a declared field name may take here: an ASCII letter, then
+  /// ASCII letters, digits or underscores.
+  ///
+  /// This is `vec0`'s identifier grammar, not a preference. sqlite-vec parses
+  /// its own `CREATE VIRTUAL TABLE … USING vec0(…)` DDL with a hand-rolled
+  /// tokenizer that accepts nothing else and has NO quoted-identifier form —
+  /// `"doc-type"`, `[doc-type]` and backticks were each measured against vec0
+  /// 0.1.9 and each fails. So an out-of-set name is unrepresentable, not merely
+  /// unescaped, and rejecting it is the only option. A name carrying a comma is
+  /// worse than an error: the DDL renders `'$name $type'`, so
+  /// `FilterField(name: 'a TEXT, b')` silently declares TWO columns.
+  static final RegExp namePattern = RegExp(r'^[A-Za-z][A-Za-z0-9_]*$');
+
+  /// Names `vec0` already declares for itself.
+  ///
+  /// Five are visible in the DDL the stores build; `distance` and `k` are
+  /// HIDDEN columns vec0 appends to every table it declares — `sqlite-vec.c`:
+  /// `sqlite3_str_appendall(createStr, " distance hidden, k hidden) ")`. They
+  /// do not appear in either store's CREATE statement, so reading those is not
+  /// enough to find them, which is how `k` was missed on the first pass.
+  ///
+  /// Measured on vec0 0.1.9: each of these makes the table refuse to be
+  /// created. `rowid`, checked at the same time, is accepted and so is
+  /// deliberately absent from this list.
+  static const reservedNames = {
+    'id',
+    'embedding',
+    'content',
+    'metadata',
+    'distance',
+    'k',
+  };
+
+  /// Throws [ArgumentError] when [name] cannot be a vec0 column.
+  ///
+  /// Lives here rather than in core because these are facts about sqlite-vec:
+  /// core has no backends, and holding one backend's grammar there would grow
+  /// it with every backend added. The trade-off is that a name legal on qdrant
+  /// is refused here — at `configure()`, naming this store, rather than at the
+  /// first `addDocument`, which is when the table is actually built.
+  static void validateFieldName(String name) {
+    if (reservedNames.contains(name)) {
+      throw ArgumentError.value(
+        name,
+        'FilterField.name',
+        'reserved: the vec0 table already declares this column '
+            '(measured: the table refuses to be created)',
+      );
+    }
+    if (!namePattern.hasMatch(name)) {
+      throw ArgumentError.value(
+        name,
+        'FilterField.name',
+        r'must match ^[A-Za-z][A-Za-z0-9_]*$ — it becomes a sqlite-vec `vec0` '
+            'column, and that DDL grammar has no quoted identifier form, so '
+            'this name cannot be represented there',
+      );
+    }
+  }
+
   /// How far over-fetching may grow, as a multiple of the requested topK.
   /// Bounded on purpose: without a cap an unpushable filter turns every search
   /// into an O(n) scan, and the cost is invisible until the collection is big.

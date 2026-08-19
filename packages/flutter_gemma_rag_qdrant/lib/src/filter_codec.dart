@@ -25,6 +25,28 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 class FilterCodec {
   const FilterCodec._();
 
+  /// Throws [ArgumentError] when [name] cannot be a qdrant payload key.
+  ///
+  /// qdrant keys are free-form UTF-8, so there is exactly one rule: `.` is a
+  /// nested-payload-path separator, which would make `doc.type` mean "field
+  /// `type` inside `doc`" here and a flat column on vec0 — one declaration
+  /// denoting two different things.
+  ///
+  /// Lives here, not in core: it is a fact about qdrant. Note the asymmetry is
+  /// real — this store accepts names vec0 refuses, so a schema that works here
+  /// may be rejected by `FilterToVec0.validateFieldName`. The portable set is
+  /// vec0's, and core's FilterField dartdoc says so.
+  static void validateFieldName(String name) {
+    if (name.contains('.')) {
+      throw ArgumentError.value(
+        name,
+        'FilterField.name',
+        'qdrant reads "." as a nested payload-path separator, so this name '
+            'would denote a different field here than on other stores',
+      );
+    }
+  }
+
   /// Encodes [filter] to a compact JSON string. Returns null for empty filters
   /// AND for filters that, after dropping conditions on fields not declared in
   /// [schema], have nothing left (callers should then skip the filter-aware FFI

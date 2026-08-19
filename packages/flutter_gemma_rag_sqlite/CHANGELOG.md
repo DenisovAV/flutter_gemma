@@ -1,5 +1,5 @@
 ## 1.2.0
-- Reject schema names vec0 cannot represent, and duplicate field names.
+- **Breaking:** reject schema names vec0 cannot represent, including `distance` and `k`.
 - Fix `mustNot` and unpushable filters silently returning fewer rows than `topK`, or none.
 - Fix a document missing one declared metadata field being un-insertable.
 - Fix `FieldMatchAny` on a number field throwing instead of matching.

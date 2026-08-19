@@ -1,8 +1,8 @@
 ## 1.7.0
 - `getActiveModel` compares every runtime param before reusing the cached model.
 - Racing `getActiveModel` calls no longer share a model built for other params.
-- Add `FilterField.validateName` — stores reject a name no backend can represent.
-- **Breaking:** `FilterSchema` now rejects duplicate names and vec0's reserved ones.
+- Add `FilterField.validateSchema` — rejects duplicate field names, checked in release.
+- Storage-specific name rules moved to the stores that have them, out of core.
 - Document the canonical `FieldEquals` / `FieldRange` semantics both stores must honour.
 
 ## 1.6.0

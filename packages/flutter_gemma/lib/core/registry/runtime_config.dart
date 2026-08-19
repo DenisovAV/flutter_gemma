@@ -90,3 +90,63 @@ class RuntimeConfig {
   /// `ArgumentError` before loading the model.
   final String? language;
 }
+
+/// The runtime knobs a caller passes to `getActiveModel`, captured so a second
+/// call can tell whether the cached singleton still satisfies the request.
+///
+/// This exists because the check was written twice and drifted. Mobile compared
+/// nothing beyond the model name, so `getActiveModel(preferredBackend: cpu)`
+/// after a GPU creation silently returned the GPU model; desktop compared three
+/// of the nine parameters, so the other six were equally silent there. Two
+/// copies of one rule is how the copies stop agreeing — keep the comparison
+/// here and let both shells call it.
+class ActiveModelParams {
+  const ActiveModelParams({
+    required this.maxTokens,
+    this.preferredBackend,
+    this.preferredVisionBackend,
+    this.preferredAudioBackend,
+    this.supportImage = false,
+    this.supportAudio = false,
+    this.maxNumImages,
+    this.enableSpeculativeDecoding,
+    this.maxConcurrentSessions,
+  });
+
+  final int maxTokens;
+  final PreferredBackend? preferredBackend;
+  final PreferredBackend? preferredVisionBackend;
+  final PreferredBackend? preferredAudioBackend;
+  final bool supportImage;
+  final bool supportAudio;
+  final int? maxNumImages;
+  final bool? enableSpeculativeDecoding;
+  final int? maxConcurrentSessions;
+
+  /// Name of the first parameter that differs from [other], or null when the
+  /// cached model can be reused.
+  ///
+  /// Returns the NAME rather than a bool so the caller can say which knob
+  /// forced the reload. "Model recreation: paramsChanged=true" tells nobody
+  /// what to change.
+  String? firstDifference(ActiveModelParams other) {
+    if (maxTokens != other.maxTokens) return 'maxTokens';
+    if (preferredBackend != other.preferredBackend) return 'preferredBackend';
+    if (preferredVisionBackend != other.preferredVisionBackend) {
+      return 'preferredVisionBackend';
+    }
+    if (preferredAudioBackend != other.preferredAudioBackend) {
+      return 'preferredAudioBackend';
+    }
+    if (supportImage != other.supportImage) return 'supportImage';
+    if (supportAudio != other.supportAudio) return 'supportAudio';
+    if (maxNumImages != other.maxNumImages) return 'maxNumImages';
+    if (enableSpeculativeDecoding != other.enableSpeculativeDecoding) {
+      return 'enableSpeculativeDecoding';
+    }
+    if (maxConcurrentSessions != other.maxConcurrentSessions) {
+      return 'maxConcurrentSessions';
+    }
+    return null;
+  }
+}

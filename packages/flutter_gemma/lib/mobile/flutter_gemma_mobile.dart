@@ -56,6 +56,11 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
   InferenceModelSpec?
   _lastActiveInferenceSpec; // Track which spec was used to create _initializedModel
 
+  /// Runtime knobs the cached model was built with. Compared on every
+  /// getActiveModel so a request that differs rebuilds instead of silently
+  /// handing back a model configured for something else.
+  ActiveModelParams? _lastInferenceParams;
+
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
   EmbeddingModelSpec?
@@ -117,6 +122,20 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       );
     }
 
+    // Captured once: compared against the cached model below, and recorded
+    // as the new baseline after a successful build.
+    final requestedParams = ActiveModelParams(
+      maxTokens: maxTokens,
+      preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
+      supportImage: supportImage,
+      supportAudio: supportAudio,
+      maxNumImages: maxNumImages,
+      enableSpeculativeDecoding: enableSpeculativeDecoding,
+      maxConcurrentSessions: maxConcurrentSessions,
+    );
+
     // Check if singleton exists and matches the active model
     if (_initCompleter != null &&
         _initializedModel != null &&
@@ -124,15 +143,26 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       final currentSpec = _lastActiveInferenceSpec!;
       final requestedSpec = activeModel as InferenceModelSpec;
 
-      if (currentSpec.name != requestedSpec.name) {
-        // Active model changed - close old model and create new one
+      // The name alone used to decide this, so every runtime knob was
+      // ignored: getActiveModel(preferredBackend: cpu) after a GPU creation
+      // returned the GPU model without a word. Compare the knobs too, and name
+      // the one that forced the rebuild.
+      final changedParam = _lastInferenceParams?.firstDifference(
+        requestedParams,
+      );
+
+      if (currentSpec.name != requestedSpec.name || changedParam != null) {
         gemmaLog(
-          '⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}',
+          currentSpec.name != requestedSpec.name
+              ? '⚠️  Active model changed: ${currentSpec.name} → ${requestedSpec.name}'
+              : '⚠️  Runtime config changed ($changedParam) for '
+                    '${requestedSpec.name} — rebuilding the model',
         );
         gemmaLog('🔄 Closing old model and creating new one...');
         await _initializedModel?.close();
         // close-listener will reset _initializedModel and _initCompleter
         _lastActiveInferenceSpec = null;
+        _lastInferenceParams = null;
       } else {
         // Same model - return existing singleton
         gemmaLog(
@@ -237,6 +267,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
       });
 
       _lastActiveInferenceSpec = spec;
+      _lastInferenceParams = requestedParams;
       completer.complete(model);
       return model;
     } catch (e, st) {

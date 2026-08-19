@@ -76,7 +76,12 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
   InferenceModelSpec? _lastActiveInferenceSpec;
-  ({bool supportImage, bool supportAudio, int maxTokens})? _lastInferenceParams;
+
+  /// Runtime knobs the cached model was built with. This was a three-field
+  /// record — supportImage, supportAudio, maxTokens — so the other six
+  /// parameters of getActiveModel were silently ignored on reuse. The shared
+  /// type compares all nine and names the one that differs.
+  ActiveModelParams? _lastInferenceParams;
 
   // Embedding model
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
@@ -134,6 +139,20 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       );
     }
 
+    // Captured once: compared against the cached model below, and recorded as
+    // the new baseline after a successful build.
+    final requestedParams = ActiveModelParams(
+      maxTokens: maxTokens,
+      preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
+      supportImage: supportImage,
+      supportAudio: supportAudio,
+      maxNumImages: maxNumImages,
+      enableSpeculativeDecoding: enableSpeculativeDecoding,
+      maxConcurrentSessions: maxConcurrentSessions,
+    );
+
     // Check if singleton exists and matches active model + runtime params
     if (_initCompleter != null &&
         _initializedModel != null &&
@@ -142,16 +161,18 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       final requestedSpec = activeModel as InferenceModelSpec;
 
       final modelChanged = currentSpec.name != requestedSpec.name;
-      final p = _lastInferenceParams;
-      final paramsChanged =
-          p != null &&
-          (p.supportImage != supportImage ||
-              p.supportAudio != supportAudio ||
-              p.maxTokens != maxTokens);
+      final changedParam = _lastInferenceParams?.firstDifference(
+        requestedParams,
+      );
 
-      if (modelChanged || paramsChanged) {
+      if (modelChanged || changedParam != null) {
+        // Name the knob. "paramsChanged=true" told nobody what to change.
         gemmaLog(
-          'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged',
+          modelChanged
+              ? 'Model recreation: active model changed '
+                    '(${currentSpec.name} -> ${requestedSpec.name})'
+              : 'Model recreation: $changedParam changed for '
+                    '${requestedSpec.name}',
         );
         await _initializedModel?.close();
         _initCompleter = null;
@@ -234,11 +255,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // Core owns the singleton lifecycle: track it + reset on close. The
       // package-built model fires this via CloseNotifier (addCloseListener).
       _initializedModel = model;
-      _lastInferenceParams = (
-        supportImage: supportImage,
-        supportAudio: supportAudio,
-        maxTokens: maxTokens,
-      );
+      _lastInferenceParams = requestedParams;
       model.addCloseListener(() {
         _initializedModel = null;
         _initCompleter = null;

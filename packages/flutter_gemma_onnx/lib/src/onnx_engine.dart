@@ -25,12 +25,11 @@ import 'onnx_inference_model.dart';
 /// tok/s, ~3.74 GB peak RSS, flat-APK co-location with no ORT_LIB_PATH fix
 /// needed, via `onnx_inference_smoke_test.dart`), the D2 throughput/RAM
 /// go/no-go the gate waited on. iOS arm64 (device + Apple-Silicon simulator,
-/// same `Abi.iosArm64`) is wired and **simulator-functionally verified**
-/// (2026-08-19, iOS 26.5 sim: the `@executable_path`-anchored dlopen resolves
-/// both `Oga*` and `OrtGetApiBase` from the single self-contained genai
-/// xcframework, `OgaCreateModel` + streamed generation succeed); the real-
-/// iPhone RAM/thermal go/no-go is a separate, later gate — see
-/// `hook/build.dart`'s platform table.
+/// same `Abi.iosArm64`) is wired and verified: the app builds, signs,
+/// installs and launches on a real iPhone, and generation runs — the
+/// `@executable_path`-anchored dlopen resolves both `Oga*` and `OrtGetApiBase`
+/// from the single self-contained genai xcframework, `OgaCreateModel` +
+/// streamed generation succeed. See `hook/build.dart`'s platform table.
 ///
 /// Mirrors [LiteRtLmEngine] from `flutter_gemma_litertlm`: a pure factory
 /// that core probes via [canHandle] and calls to build a bare
@@ -54,10 +53,9 @@ class OnnxEngine implements InferenceEngineProvider {
   int get priority => 0;
 
   /// In lockstep with `hook/build.dart`'s `_archivesFor`: every host whose
-  /// archive the hook bundles AND whose throughput/RAM go/no-go has passed on
-  /// a real device (macOS/Linux/Windows/Android arm64) OR whose iOS-build
-  /// path is wired and sim-verified (iOS arm64, device go/no-go pending —
-  /// see below). The gate exists so that on a host with no archive — or an
+  /// archive the hook bundles AND whose engine path is verified on a real
+  /// device (macOS/Linux/Windows/Android/iOS arm64). The gate exists so that
+  /// on a host with no archive — or an
   /// archive not yet device-validated — `GenAiFfiClient`'s worker-side dlopen
   /// doesn't fail at first use with a confusing native error; instead this
   /// engine declines cleanly (there is no other `.onnx` engine to route to

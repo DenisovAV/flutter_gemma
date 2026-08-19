@@ -35,7 +35,7 @@ SmolLM and more — see [Models](/docs/models) for the full list.
 
 ## What's new in 1.6
 
-- **`flutter_gemma_onnx`** — new opt-in ONNX Runtime engine: text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ONNX Runtime (`OnnxEmbeddingBackend`), both `dart:ffi`. Device-verified on macOS, Linux, Windows, and Android (arm64); iOS is simulator-verified. See [Packages](/docs/packages#onnx-runtime-engine).
+- **`flutter_gemma_onnx`** — new opt-in ONNX Runtime engine: text generation via ORT-GenAI (`OnnxEngine`) + embeddings via plain ONNX Runtime (`OnnxEmbeddingBackend`), both `dart:ffi`. Device-verified on macOS, Linux, Windows, Android, and iOS (arm64). See [Packages](/docs/packages#onnx-runtime-engine).
 - **BREAKING (`flutter_gemma_embeddings` 2.0.0):** the embedder is now runtime-agnostic — `LiteRtEmbeddingBackend` moved to `flutter_gemma_litertlm` (1.5.0). See [Migration](/docs/migration).
 
 ## What's new in 1.5

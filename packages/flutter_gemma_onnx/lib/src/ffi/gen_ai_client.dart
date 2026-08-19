@@ -606,12 +606,18 @@ Future<void> _defaultWorkerEntry(WorkerInit init) async {
 
   void check(ffi.Pointer<OgaResult> result, String step) {
     if (result == ffi.nullptr) return;
-    final errPtr = oga.OgaResultGetError(result);
-    final message = errPtr == ffi.nullptr
-        ? '<no message>'
-        : errPtr.cast<pkg_ffi.Utf8>().toDartString();
-    oga.OgaDestroyResult(result);
-    throw StateError('ORT-GenAI $step failed: $message');
+    // Free the result in `finally` — mirrors `ort_ffi_client.dart`'s
+    // `_check()` — so a non-UTF-8 error message (toDartString() throwing)
+    // can't leak the native OgaResult handle.
+    try {
+      final errPtr = oga.OgaResultGetError(result);
+      final message = errPtr == ffi.nullptr
+          ? '<no message>'
+          : errPtr.cast<pkg_ffi.Utf8>().toDartString();
+      throw StateError('ORT-GenAI $step failed: $message');
+    } finally {
+      oga.OgaDestroyResult(result);
+    }
   }
 
   ffi.Pointer<OgaModel>? model;

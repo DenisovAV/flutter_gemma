@@ -97,7 +97,13 @@ class OnnxSession extends InferenceModelSession {
     final startFresh = _isFirstTurn || _forceResetOnNextTurn;
     final turn = GenAiTurn(
       userContent: text,
-      systemInstruction: _isFirstTurn ? systemInstruction : null,
+      // Send the system instruction whenever a FRESH generator is created —
+      // not only on the very first turn. `startFresh` also covers the
+      // post-stop/post-cancel/post-error reset turn: that turn rebuilds the
+      // generator with an empty KV cache, so a `_isFirstTurn`-only gate
+      // silently drops the system prompt for the rest of the conversation
+      // the first time the turn is interrupted (see `_forceResetOnNextTurn`).
+      systemInstruction: startFresh ? systemInstruction : null,
       isFirstTurn: startFresh,
       maxOutputTokens: maxOutputTokens,
     );
@@ -121,13 +127,25 @@ class OnnxSession extends InferenceModelSession {
     int? firstChunkMs;
     var chunkCount = 0;
     final buffer = StringBuffer();
-    await for (final chunk in client.generate(turn)) {
-      firstChunkMs ??= genSw.elapsedMilliseconds;
-      chunkCount++;
-      buffer.write(chunk);
+    var completedNormally = false;
+    try {
+      await for (final chunk in client.generate(turn)) {
+        firstChunkMs ??= genSw.elapsedMilliseconds;
+        chunkCount++;
+        buffer.write(chunk);
+      }
+      completedNormally = true;
+      _logGenerationStats(genSw, firstChunkMs, chunkCount);
+    } finally {
+      // A turn that did not complete normally — a mid-stream native error,
+      // or the consumer cancelling the subscription (barge-in) — leaves the
+      // generator's KV cache holding the same kind of dangling, incomplete
+      // assistant turn an explicit stopGeneration() does. Force the next
+      // turn to start a fresh generator either way, not only on an explicit
+      // stop (see `_forceResetOnNextTurn`'s doc).
+      if (!completedNormally) _forceResetOnNextTurn = true;
+      _noteGenerationFinished();
     }
-    _logGenerationStats(genSw, firstChunkMs, chunkCount);
-    _noteGenerationFinished();
     return buffer.toString();
   }
 
@@ -138,13 +156,23 @@ class OnnxSession extends InferenceModelSession {
     final genSw = Stopwatch()..start();
     int? firstChunkMs;
     var chunkCount = 0;
-    await for (final chunk in client.generate(turn)) {
-      firstChunkMs ??= genSw.elapsedMilliseconds;
-      chunkCount++;
-      yield chunk;
+    var completedNormally = false;
+    try {
+      await for (final chunk in client.generate(turn)) {
+        firstChunkMs ??= genSw.elapsedMilliseconds;
+        chunkCount++;
+        yield chunk;
+      }
+      completedNormally = true;
+      _logGenerationStats(genSw, firstChunkMs, chunkCount);
+    } finally {
+      // Same reset-on-abnormal-termination rule as getResponse() above —
+      // this also covers the consumer breaking out of `await for`
+      // (subscription cancellation), which Dart unwinds through this
+      // finally block without completing the try normally.
+      if (!completedNormally) _forceResetOnNextTurn = true;
+      _noteGenerationFinished();
     }
-    _logGenerationStats(genSw, firstChunkMs, chunkCount);
-    _noteGenerationFinished();
   }
 
   void _logGenerationStats(Stopwatch sw, int? firstChunkMs, int chunks) {

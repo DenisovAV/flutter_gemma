@@ -101,6 +101,40 @@ void main() {
       expect(client.generateCalls[0].isFirstTurn, isTrue);
       expect(client.generateCalls[0].systemInstruction, 'Be terse.');
       expect(client.generateCalls[1].isFirstTurn, isFalse);
+      expect(client.generateCalls[1].systemInstruction, isNull);
+    });
+
+    test('systemInstruction is RE-SENT on the post-stop reset turn — not '
+        'dropped for the rest of the conversation', () async {
+      final client = FakeGenAiClient(chunksToEmit: ['a', 'b', 'c', 'd']);
+      final session = _session(client, systemInstruction: 'Be terse.');
+
+      // Turn 1: natural first turn.
+      await session.addQueryChunk(const Message(text: 'one', isUser: true));
+      await session.getResponse();
+      expect(client.generateCalls[0].systemInstruction, 'Be terse.');
+
+      // Turn 2: stopped mid-stream.
+      await session.addQueryChunk(const Message(text: 'two', isUser: true));
+      var count = 0;
+      await for (final _ in session.getResponseAsync()) {
+        count++;
+        if (count == 1) await session.stopGeneration();
+      }
+      expect(client.generateCalls[1].systemInstruction, isNull);
+
+      // Turn 3: forced reset (fresh generator, empty KV) — the system
+      // instruction MUST be re-sent, or the model silently loses it.
+      await session.addQueryChunk(const Message(text: 'three', isUser: true));
+      await session.getResponse();
+      expect(client.generateCalls[2].isFirstTurn, isTrue);
+      expect(client.generateCalls[2].systemInstruction, 'Be terse.');
+
+      // Turn 4: back to normal — no forced reset, no system instruction.
+      await session.addQueryChunk(const Message(text: 'four', isUser: true));
+      await session.getResponse();
+      expect(client.generateCalls[3].isFirstTurn, isFalse);
+      expect(client.generateCalls[3].systemInstruction, isNull);
     });
   });
 
@@ -161,6 +195,66 @@ void main() {
       await session.addQueryChunk(const Message(text: 'four', isUser: true));
       await session.getResponse();
       expect(client.generateCalls[3].isFirstTurn, isFalse);
+    });
+  });
+
+  group('barge-in / mid-stream error force a reset', () {
+    test(
+      'consumer cancelling the stream (barge-in, no explicit stopGeneration) '
+      'forces the NEXT turn to start a fresh generator',
+      () async {
+        final client = FakeGenAiClient(chunksToEmit: ['a', 'b', 'c', 'd']);
+        final session = _session(client);
+
+        // Turn 1: natural first turn.
+        await session.addQueryChunk(const Message(text: 'one', isUser: true));
+        await session.getResponse();
+        expect(client.generateCalls[0].isFirstTurn, isTrue);
+
+        // Turn 2: consumer breaks out of the stream mid-generation WITHOUT
+        // calling session.stopGeneration() — the barge-in path (e.g. a
+        // voice-loop interrupt cancelling its subscription).
+        await session.addQueryChunk(const Message(text: 'two', isUser: true));
+        var count = 0;
+        await for (final _ in session.getResponseAsync()) {
+          count++;
+          if (count == 1) break;
+        }
+        expect(client.stopGenerationCalls, 0);
+
+        // Turn 3: MUST start fresh — the cancelled turn left a dangling,
+        // incomplete assistant turn in the KV cache just like an explicit
+        // stop would.
+        await session.addQueryChunk(const Message(text: 'three', isUser: true));
+        await session.getResponse();
+        expect(client.generateCalls[2].isFirstTurn, isTrue);
+      },
+    );
+
+    test('a mid-stream native generate() error forces the NEXT turn to start '
+        'a fresh generator', () async {
+      final client = FakeGenAiClient(chunksToEmit: ['a', 'b']);
+      final session = _session(client);
+
+      // Turn 1: natural first turn.
+      await session.addQueryChunk(const Message(text: 'one', isUser: true));
+      await session.getResponse();
+      expect(client.generateCalls[0].isFirstTurn, isTrue);
+
+      // Turn 2: the native worker fails mid-stream.
+      client.generateError = StateError('native GenerateError');
+      await session.addQueryChunk(const Message(text: 'two', isUser: true));
+      await expectLater(
+        () => session.getResponse(),
+        throwsA(isA<StateError>()),
+      );
+
+      // Turn 3: MUST start fresh — the errored turn must not leave a
+      // dangling assistant turn behind for the next generator to inherit.
+      client.generateError = null;
+      await session.addQueryChunk(const Message(text: 'three', isUser: true));
+      await session.getResponse();
+      expect(client.generateCalls[2].isFirstTurn, isTrue);
     });
   });
 

@@ -17,7 +17,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma_litertlm`** | `.litertlm` inference via `dart:ffi` (LiteRT-LM C API). Owns the shared native library. | Mobile + Desktop + Web |
 | **`flutter_gemma_mediapipe`** | `.task` / `.bin` inference via MediaPipe. | Mobile + Web |
 | **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore) + Apple Foundation Models (iOS 26+/macOS). No model file to bundle or download. | Android + iOS + macOS |
-| **`flutter_gemma_onnx`** | ONNX Runtime engines via `dart:ffi` — text generation (`OnnxEngine`, ORT-GenAI) + embeddings (`OnnxEmbeddingBackend`, plain ORT). | macOS, Linux, Windows, Android (arm64); iOS (sim-verified) |
+| **`flutter_gemma_onnx`** | ONNX Runtime engines via `dart:ffi` — text generation (`OnnxEngine`, ORT-GenAI) + embeddings (`OnnxEmbeddingBackend`, plain ORT). | macOS, Linux, Windows, Android, iOS (arm64) |
 | **`flutter_gemma_embeddings`** | Runtime-agnostic text-embedding pipeline (tokenizer, pooling, isolate worker). Needs a backend — `LiteRtEmbeddingBackend` (`flutter_gemma_litertlm`) or `OnnxEmbeddingBackend` (`flutter_gemma_onnx`). | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, native Rust FFI). Fastest on native. | Native (no Web) |
 | **`flutter_gemma_rag_sqlite`** | On-device RAG vector store — in-SQLite KNN via the `sqlite-vec` (`vec0`) extension. Exact + portable. | All (incl. Web) |
@@ -48,7 +48,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
 | Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
-| Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android arm64, iOS sim) | `flutter_gemma_onnx` |
+| Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android/iOS arm64) | `flutter_gemma_onnx` |
 | Generate text embeddings | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
 | Generate text embeddings from ONNX/ORT models | `flutter_gemma_embeddings` + `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
@@ -90,9 +90,8 @@ await FlutterGemma.initialize(
 ```
 
 **Platform support:** device-verified on macOS (Apple Silicon), Linux x64,
-Windows x64, and Android (arm64); iOS is simulator-verified today (real-device
-RAM/thermal go/no-go still pending). No Web build — ORT-GenAI and ORT ship no
-WASM target.
+Windows x64, Android (arm64), and iOS (arm64). No Web build — ORT-GenAI and ORT
+ship no WASM target.
 
 <Info>
 An ORT-GenAI model installs as a **directory**, not a single file:

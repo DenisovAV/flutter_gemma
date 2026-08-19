@@ -24,6 +24,10 @@
 //   sent FIRST, echoing what the worker received on [GenAiTurn.isFirstTurn]
 //   — lets a test assert the client-observable effect of `resetSession()`
 //   without reaching into worker-private state.
+// - `kill`: when true, the isolate kills ITSELF (`Isolate.current.kill`)
+//   instead of ever replying — simulates an unexpected native crash
+//   mid-generation, same shape as `embedding_worker_test.dart`'s
+//   `killMidRequest` fake mode. Never sends a Chunk/GenerateDone.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
@@ -49,6 +53,16 @@ Future<void> fakeGenAiWorkerEntry(WorkerInit init) async {
     var echoIsFirstTurn = false;
     try {
       final decoded = jsonDecode(turn.userContent) as Map<String, dynamic>;
+      if (decoded['kill'] == true) {
+        // Simulate an unexpected native crash: the isolate dies while a
+        // request is in flight, never sending a reply — the real worker's
+        // `onExit` port is what `GenAiFfiClient._dispatch`'s `msg == null`
+        // branch is built to catch.
+        Isolate.current.kill(priority: Isolate.immediate);
+        // Unreachable in practice — kill() terminates before this returns —
+        // but the function must still return on every path.
+        return;
+      }
       chunks = (decoded['chunks'] as List).cast<String>();
       delayMs = (decoded['delayMs'] as num?)?.toInt() ?? 0;
       echoIsFirstTurn = decoded['echoIsFirstTurn'] == true;

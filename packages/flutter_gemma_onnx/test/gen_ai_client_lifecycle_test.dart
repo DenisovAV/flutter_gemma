@@ -247,6 +247,58 @@ void main() {
         expect(countError, isA<StateError>());
       },
     );
+
+    test(
+      'an unexpected worker death (unhandled native crash) fails BOTH an '
+      'in-flight generate() stream and a bystander countTokens() instead of '
+      'hanging them forever (msg == null / onExit branch of _dispatch)',
+      () async {
+        final killer = <String>[];
+        Object? killerError;
+        var killerDone = false;
+        final killerDoneCompleter = Completer<void>();
+        client
+            .generate(GenAiTurn(userContent: jsonEncode({'kill': true})))
+            .listen(
+              killer.add,
+              onError: (Object e) => killerError = e,
+              onDone: () {
+                killerDone = true;
+                killerDoneCompleter.complete();
+              },
+            );
+
+        // A bystander call racing the dying worker — must fail fast too,
+        // not hang forever waiting on a worker that will never reply.
+        Object? bystanderError;
+        int? bystanderResult;
+        final bystanderSettled = Completer<void>();
+        unawaited(
+          client
+              .countTokens('never replies')
+              .then(
+                (r) {
+                  bystanderResult = r;
+                  bystanderSettled.complete();
+                },
+                onError: (Object e) {
+                  bystanderError = e;
+                  bystanderSettled.complete();
+                },
+              ),
+        );
+
+        await killerDoneCompleter.future.timeout(const Duration(seconds: 10));
+        await bystanderSettled.future.timeout(const Duration(seconds: 10));
+
+        expect(killer, isEmpty);
+        expect(killerDone, isTrue);
+        expect(killerError, isA<StateError>());
+
+        expect(bystanderResult, isNull);
+        expect(bystanderError, isA<StateError>());
+      },
+    );
   });
 
   group('GenAiFfiClient / OnnxSession-shaped close ordering', () {

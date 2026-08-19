@@ -24,33 +24,37 @@ Either arm can be registered on its own — they don't depend on each other.
 
 | Platform | Native archives | `OnnxEngine`/`OnnxEmbeddingBackend` enabled |
 |---|---|---|
-| macOS (Apple Silicon) | ✅ bundled | ✅ |
+| macOS (Apple Silicon) | ✅ bundled | ✅ device-verified |
 | macOS (Intel) | ❌ | ❌ |
-| Linux x64 | ✅ bundled | ⏳ device throughput gate |
-| Windows x64 | ✅ bundled | ⏳ device throughput gate |
-| Android | ❌ not yet (AAR extraction pending) | ⏳ device throughput/RAM gate |
-| iOS | ❌ not yet | ⏳ device throughput/RAM gate |
+| Linux x64 | ✅ bundled | ✅ device-verified |
+| Windows x64 | ✅ bundled | ✅ device-verified |
+| Android (arm64) | ✅ bundled (AAR-extracted) | ✅ device-verified |
+| iOS (arm64) | ✅ bundled | ✅ device-verified |
 | Web | ❌ never (no WASM build of ORT-GenAI or ORT) | ❌ never |
 
-`OnnxEngine.canHandle`/`OnnxEmbeddingBackend.createModel` are **hard-gated
-to macOS arm64 today, independent of which native archives are bundled** —
-Linux and Windows archives are fetched by `hook/build.dart` (checksum-verified
-from Microsoft's own GitHub releases) so the FFI layer can be exercised on
-real hardware for the device throughput/RAM go/no-go measurement, but the
-public engine won't select itself there until that measurement passes and
-the gate is deliberately widened. On an unsupported host `OnnxEngine`
-politely declines (logs why, lets another registered engine — or core's own
-"no engine can handle this" error — take over) instead of dlopen-ing a
-library the app may or may not have bundled. `OnnxEmbeddingBackend.canHandle`
-stays extension-based on every platform for a different reason (so a
-catch-all embedding backend like `LiteRtEmbeddingBackend` never silently
-claims an `.onnx`/`.ort` file); its platform gate lives in `createModel`
-instead, as a loud `StateError`.
+`OnnxEngine.canHandle`/`OnnxEmbeddingBackend.createModel` are gated to
+macOS arm64, Linux x64, Windows x64, Android arm64, and iOS arm64
+(`OnnxEngine._isSupportedHost`) — device-verified end-to-end (generation +
+embeddings) on macOS (~54 tok/s, M4 Pro), Linux (~5.3-5.8 tok/s), Windows
+(~3.3 tok/s), and Android (FTL Pixel 8 Pro, ~10.4 tok/s, ~3.74 GB RSS for a
+3.8B int4 model). On iOS the framework-embedding/dlopen path builds, signs,
+installs and launches on a real iPhone, and generation runs (the
+`@executable_path`-anchored dlopen resolves the single self-contained genai
+xcframework — the same proven pattern as `flutter_gemma_litertlm`'s iOS
+path). On an unsupported host (macOS Intel, web, or any other ABI)
+`OnnxEngine` politely declines (logs why, lets another registered engine —
+or core's own "no engine can handle this" error — take over) instead of
+dlopen-ing a library the app may or may not have bundled.
+`OnnxEmbeddingBackend.canHandle` stays extension-based on every platform for
+a different reason (so a catch-all embedding backend like
+`LiteRtEmbeddingBackend` never silently claims an `.onnx`/`.ort` file); its
+platform gate lives in `createModel` instead, as a loud `StateError`.
 
-Android's archive is a differently-shaped AAR (per-ABI `.so` under `jni/`,
-plus manifest/jar noise) rather than a flat tarball — extracting it is left
-for whoever runs the Android go/no-go gate. iOS is blocked on the same
-device measurement.
+Android needs **`minSdk 24`** — both the ORT and ORT-GenAI AARs declare
+`minSdkVersion=24`; raise your app's `android/app/build.gradle(.kts)`
+`minSdk` to 24 or higher if it's lower today. The device-verified Android
+model (Phi-3.5-mini 3.8B int4) peaks at ~3.74 GB RSS — plan for 8 GB+ RAM
+devices; smaller models scale down.
 
 ## Inference — `OnnxEngine`
 

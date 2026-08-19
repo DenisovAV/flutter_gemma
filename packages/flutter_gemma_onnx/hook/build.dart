@@ -17,10 +17,7 @@
 // `LC_LOAD_DYLIB` on onnxruntime). So iOS registers exactly one CodeAsset
 // (`ort: null` in `_OrtBundle`, see its doc) where every other platform
 // registers two — there is no co-location problem to solve and no second
-// "onnxruntime" archive to add; do not add one. The device throughput/RAM
-// go/no-go is a separate, later gate on top of this (see
-// `OnnxEngine._isSupportedHost`'s doc) — sim-verified at build time here does
-// not by itself mean device-verified. Android's own archive is a
+// "onnxruntime" archive to add; do not add one. Android's own archive is a
 // differently-shaped AAR (a zip
 // containing per-ABI `.so` files under `jni/<abi>/` — see [_archivesFor]'s
 // doc) but the (host-verifiable) extraction is landed: only arm64-v8a is
@@ -544,6 +541,25 @@ void main(List<String> args) async {
 
     final bundle = _archivesFor(os, arch, iOSSdk: iOSSdk);
     if (bundle == null) return; // unsupported target this phase — see doc.
+
+    // Both Android AARs (onnxruntime-android + onnxruntime-genai-android)
+    // declare minSdkVersion=24 in their own AndroidManifest.xml. There is no
+    // Gradle module here to force a manifest-merger floor (unlike
+    // flutter_gemma_builtin_ai's minSdk-26 module), so an app with a lower
+    // minSdk builds cleanly and only fails at runtime `dlopen` — and only on
+    // API 21-23 devices, the hardest kind of bug to catch pre-release. Fail
+    // fast here instead: skip bundling (same "unsupported target" posture as
+    // the `bundle == null` case above) with a clear diagnostic naming the
+    // floor, rather than shipping a `.so` the OS can't load.
+    if (os == OS.android && codeConfig.android.targetNdkApi < 24) {
+      stderr.writeln(
+        'flutter_gemma_onnx: ORT / ORT-GenAI require Android minSdk 24 '
+        '(this build targets minSdk ${codeConfig.android.targetNdkApi}). '
+        "Raise android/app/build.gradle(.kts)'s `minSdk` to 24 or higher "
+        'before using OnnxEngine()/OnnxEmbeddingBackend() on Android.',
+      );
+      return;
+    }
 
     final cacheDir = Directory('${_cacheBaseDir().path}/${bundle.dirName}');
     final localDir = _localPrebuiltDir(input.packageRoot, bundle);

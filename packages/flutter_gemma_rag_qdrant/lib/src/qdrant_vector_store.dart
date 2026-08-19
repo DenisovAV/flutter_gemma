@@ -75,7 +75,17 @@ class QdrantVectorStore implements VectorStoreRepository {
   FilterSchema get filterSchema => _filterSchema;
 
   @override
-  void configure(FilterSchema schema) => _filterSchema = schema;
+  void configure(FilterSchema schema) {
+    // Validate here, not only in FilterField's assert: asserts are stripped in
+    // release, and a field name read from config at runtime would otherwise
+    // reach the storage layer unchecked. Rejecting at configure() points the
+    // error at the schema the developer wrote rather than at a query built
+    // from it much later.
+    for (final field in schema.fields) {
+      FilterField.validateName(field.name);
+    }
+    _filterSchema = schema;
+  }
 
   @override
   Future<void> initialize(String databasePath) async {

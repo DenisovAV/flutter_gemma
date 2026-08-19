@@ -11,7 +11,7 @@ Map<String, dynamic> _decode(String? json) {
 
 /// Schema declaring every field the tests filter on. Conditions on a field NOT
 /// in the schema are skipped (no-op), so all happy-path tests declare theirs.
-const _schema = FilterSchema(
+final _schema = FilterSchema(
   fields: [
     FilterField(name: 'lang', type: FilterFieldType.string),
     FilterField(name: 'tag', type: FilterFieldType.string),
@@ -22,6 +22,8 @@ const _schema = FilterSchema(
 );
 
 void main() {
+  _crossBackendParityTests();
+
   group('FilterCodec.encode', () {
     test('null filter → null output', () {
       expect(FilterCodec.encode(null, _schema), isNull);
@@ -175,6 +177,67 @@ void main() {
         ),
       );
       expect(json.keys, equals({'must'}));
+    });
+  });
+}
+
+/// One filter, both encodings, same meaning.
+///
+/// Findings 3, 4 and 8 of the RAG audit were all the same shape: SQLite and
+/// qdrant answered the SAME filter differently, and nothing compared them. The
+/// canonical semantics now live in the core dartdoc (`vector_store_filter.dart`
+/// on [FieldEquals] and [FieldRange]); these assert the qdrant half honours
+/// them, so a future divergence fails here instead of in a user's results.
+void _crossBackendParityTests() {
+  group('canonical semantics — qdrant half', () {
+    test('numeric equality is encoded by value, not by JSON spelling', () {
+      // `match` cannot carry it: ValueVariants is untagged String|Integer|Bool,
+      // so a double is rejected at deserialization and an integer is compared
+      // with as_i64(), which returns None for a payload of 4.0. A degenerate
+      // range compares numerically and accepts both spellings.
+      for (final value in <num>[4, 4.0]) {
+        final json = _decode(
+          FilterCodec.encode(
+            Filter(must: [FieldEquals(key: 'price', value: value)]),
+            _schema,
+          ),
+        );
+        final cond = (json['must'] as List).single as Map<String, dynamic>;
+        expect(cond['match'], isNull, reason: 'match cannot express 4 == 4.0');
+        expect(cond['range'], {'gte': value, 'lte': value});
+      }
+    });
+
+    test('a string equality still uses match', () {
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldEquals(key: 'lang', value: 'en')]),
+          _schema,
+        ),
+      );
+      final cond = (json['must'] as List).single as Map<String, dynamic>;
+      expect(cond['match'], {'value': 'en'});
+    });
+
+    test('a range with neither bound contributes no clause', () {
+      // Not `range: {}` — qdrant reads that as an existence test and excludes
+      // every non-numeric document, the opposite of the SQLite arm's no-op.
+      final json = FilterCodec.encode(
+        const Filter(must: [FieldRange(key: 'price')]),
+        _schema,
+      );
+      expect(json, isNull, reason: 'a no-op condition leaves nothing to send');
+    });
+
+    test('a one-sided range still encodes that bound', () {
+      final json = _decode(
+        FilterCodec.encode(
+          const Filter(must: [FieldRange(key: 'price', gte: 10)]),
+          _schema,
+        ),
+      );
+      final cond = (json['must'] as List).single as Map<String, dynamic>;
+      expect(cond['range'], {'gte': 10});
     });
   });
 }

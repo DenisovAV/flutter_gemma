@@ -55,16 +55,33 @@ class FilterCodec {
     FilterSchema schema,
   ) {
     if (conditions == null || conditions.isEmpty) return null;
-    final encoded = [
+    final encoded = <Map<String, Object>>[
       for (final c in conditions)
-        if (schema.fieldFor(c.key) != null) _encodeCondition(c),
+        if (schema.fieldFor(c.key) != null)
+          // Null means the condition constrains nothing (an unbounded range),
+          // so it contributes no clause — the same no-op the SQLite arm applies.
+          ?_encodeCondition(c),
     ];
     return encoded.isEmpty ? null : encoded;
   }
 
-  static Map<String, Object> _encodeCondition(Condition c) {
+  static Map<String, Object>? _encodeCondition(Condition c) {
     switch (c) {
       case FieldEquals(:final key, :final value):
+        // A NUMBER is compared by value, not by JSON spelling — `4` and `4.0`
+        // are the same number, and a store must not disagree with its sibling
+        // about that. qdrant's `match` cannot express it: ValueVariants is an
+        // untagged String | Integer | Bool with no float arm (types.rs), so a
+        // double `value` fails deserialization outright, and an integer is
+        // compared with `as_i64()`, which returns None for a payload of `4.0`
+        // and quietly matches nothing. A degenerate range says the same thing
+        // in a form qdrant compares numerically.
+        if (value is num) {
+          return {
+            'key': key,
+            'range': {'gte': value, 'lte': value},
+          };
+        }
         return {
           'key': key,
           'match': {'value': value},
@@ -75,6 +92,12 @@ class FilterCodec {
           'match': {'any': values},
         };
       case FieldRange(:final key, :final gte, :final lte):
+        // A range with neither bound constrains nothing, so it must match
+        // everything — the same no-op the SQLite arm applies. Emitting an empty
+        // `range: {}` instead turns it into an existence test there, which
+        // EXCLUDES every document whose value is not numeric: the same filter
+        // then returns opposite sets on the two backends.
+        if (gte == null && lte == null) return null;
         final range = <String, Object>{};
         if (gte != null) range['gte'] = gte;
         if (lte != null) range['lte'] = lte;

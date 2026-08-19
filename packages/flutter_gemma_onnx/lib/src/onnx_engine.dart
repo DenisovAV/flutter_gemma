@@ -17,12 +17,16 @@ import 'onnx_inference_model.dart';
 
 /// ONNX Runtime GenAI on-device inference engine.
 ///
-/// **macOS-first host arm (hardened plan Phase 3, design §11 D2).**
+/// **macOS/Linux/Windows host arm (hardened plan Phase 3, design §11 D2).**
 /// [createModel] productionizes the ORT-GenAI FFI path (`GenAiFfiClient` →
 /// `OnnxInferenceModel`/`OnnxSession`) — text-only, greedy decoding, one
 /// session at a time. Android/iOS device work stays behind the D2
-/// throughput/RAM go/no-go gate (native archives + shas for those platforms
-/// aren't published yet; see `hook/build.dart`'s platform table).
+/// throughput/RAM go/no-go gate — Android's archives are now bundled by
+/// `hook/build.dart` (so `onnx_inference_smoke_test.dart` can run on FTL),
+/// but this engine deliberately does NOT select itself there yet: the gate
+/// widens only after that test's numbers pass go/no-go, same as the
+/// mac/linux/windows sequence. iOS archives/shas aren't published yet at
+/// all; see `hook/build.dart`'s platform table.
 ///
 /// Mirrors [LiteRtLmEngine] from `flutter_gemma_litertlm`: a pure factory
 /// that core probes via [canHandle] and calls to build a bare
@@ -46,19 +50,21 @@ class OnnxEngine implements InferenceEngineProvider {
   int get priority => 0;
 
   /// Deliberately narrower than `hook/build.dart`'s `_archivesFor`: the hook
-  /// also bundles linux_x64/windows_x64 archives (so the FFI layer can be
-  /// device-tested for the throughput/RAM go/no-go), but this engine only
-  /// SELECTS ITSELF on macOS arm64 until that measurement passes — without
-  /// this gate, `GenAiFfiClient`'s worker-side dlopen would fail at first
-  /// use with a confusing native error on a platform whose archive exists
-  /// but hasn't been validated, instead of routing to another engine (there
-  /// is none for `.onnx` yet) or failing with a clear "not supported on
-  /// this platform" message. Widen deliberately once the gate passes for a
-  /// given platform — never let it drift ahead of the hook's table.
+  /// also bundles the Android arm64 archives (so the FFI layer can be
+  /// device-tested via `onnx_inference_smoke_test.dart` for the
+  /// throughput/RAM go/no-go), but this engine only SELECTS ITSELF on
+  /// macOS/Linux/Windows until that measurement passes — without this gate,
+  /// `GenAiFfiClient`'s worker-side dlopen would fail at first use with a
+  /// confusing native error on a platform whose archive exists but hasn't
+  /// been validated, instead of routing to another engine (there is none
+  /// for `.onnx` yet) or failing with a clear "not supported on this
+  /// platform" message. Widen deliberately once the gate passes for a given
+  /// platform — never let it drift ahead of validation.
   static bool get _isSupportedHost {
     if (debugForceUnsupportedHost == true) return false;
     final abi = Abi.current();
-    // Keep in lockstep with hook/build.dart's `_archivesFor` table.
+    // Keep in lockstep with hook/build.dart's `_archivesFor` table — MINUS
+    // Android, which is bundled but not yet device-verified (see doc above).
     return (Platform.isMacOS && abi == Abi.macosArm64) ||
         (Platform.isLinux && abi == Abi.linuxX64) ||
         (Platform.isWindows && abi == Abi.windowsX64);
@@ -78,8 +84,9 @@ class OnnxEngine implements InferenceEngineProvider {
     if (!_isSupportedHost) {
       gemmaLog(
         'OnnxEngine declined ${Platform.operatingSystem}/${Abi.current()}: '
-        'native ORT archives are macOS-arm64-only in v1 '
-        '(hook/build.dart `_archivesFor`).',
+        'native ORT archives are macOS-arm64/linux-x64/windows-x64-only in '
+        'v1 (Android arm64 is bundled but not yet device-verified; see '
+        'hook/build.dart `_archivesFor`).',
       );
       return false;
     }
@@ -99,7 +106,9 @@ class OnnxEngine implements InferenceEngineProvider {
       throw StateError(
         'OnnxEngine.createModel called on unsupported host '
         '${Platform.operatingSystem}/${Abi.current()} — ONNX native archives '
-        'are macOS-arm64-only in v1 (hook/build.dart `_archivesFor`).',
+        'are macOS-arm64/linux-x64/windows-x64-only in v1 (Android arm64 is '
+        'bundled but not yet device-verified; see hook/build.dart '
+        '`_archivesFor`).',
       );
     }
 

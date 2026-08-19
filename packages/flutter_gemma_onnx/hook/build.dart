@@ -7,15 +7,24 @@
 // Document this supply-chain divergence: unlike every other bundle in this
 // monorepo, these two archives are never re-hosted by us.
 //
-// **macOS arm64, linux_x64, windows_x64 (v1)** — Android/iOS are a stubbed
-// "pending D2" gap (device throughput/RAM go/no-go, not archive
-// availability; Android's own archive is also a differently-shaped AAR, see
-// [_archivesFor]'s doc). `stage()`'s canonical-rename copy applies on
-// macOS/iOS (framework-name derivation) AND Linux (Microsoft's tarball ships
-// the versioned `.so.X.Y.Z`, not the bare name `_candidateNames` dlopens) —
-// Windows stays a no-op, both because its `.dll`s already ship under the
-// bare canonical name and because active staging is what breaks Windows
-// cancel/close (see CLAUDE.md's build-native scar).
+// **macOS arm64, linux_x64, windows_x64, android_arm64 (v1)** — iOS is a
+// stubbed "pending D2" gap (device throughput/RAM go/no-go, not archive
+// availability). Android's own archive is a differently-shaped AAR (a zip
+// containing per-ABI `.so` files under `jni/<abi>/` — see [_archivesFor]'s
+// doc) but the (host-verifiable) extraction is landed: only arm64-v8a is
+// registered (ORT-GenAI's AAR ships no armeabi-v7a slice, so arm64-only is
+// the only viable device ABI, not just policy). `stage()`'s canonical-rename
+// copy applies on macOS/iOS (framework-name derivation) AND Linux
+// (Microsoft's tarball ships the versioned `.so.X.Y.Z`, not the bare name
+// `_candidateNames` dlopens) — Android is a no-op like Windows: both AARs'
+// `.so` files already ship under the bare canonical name
+// (`libonnxruntime.so`, `libonnxruntime-genai.so`) that `_candidateNames`
+// bare-name dlopens on that platform, so CodeAssets register straight from
+// the cache dir (matches `flutter_gemma_litertlm`'s Android posture, which
+// ships 12+ flat CodeAssets with runtime bare-name cross-dlopen, device-
+// proven). Windows stays a no-op for a different reason: its `.dll`s already
+// ship under the bare canonical name AND active staging is what breaks
+// Windows cancel/close (see CLAUDE.md's build-native scar).
 //
 // This hook is the SOLE owner of exactly one `libonnxruntime` (1.27.0) per
 // design D1 — the embedding arm's `OrtFfiClient` (`ort_ffi_client.dart`)
@@ -67,11 +76,14 @@ class _Archive {
 }
 
 /// Archives for this version pair, keyed by (os, arch). macOS arm64,
-/// linux_x64, and windows_x64 are landed (host-fetchable, no device
-/// involved — hardened plan Task 4a). Android/iOS stay a stubbed "pending
-/// D2" gap: they're blocked on the device throughput/RAM go/no-go, not on
-/// archive availability — see the hardened plan's explicit tail. Returns
-/// null for any unsupported (os, arch).
+/// linux_x64, windows_x64, and android_arm64 are landed (host-fetchable —
+/// the Android AAR extraction is a build-time step, no device involved to
+/// GET the CodeAssets bundled; the device throughput/RAM go/no-go is a
+/// separate, later gate on top of this). iOS stays a stubbed "pending D2"
+/// gap: blocked on the device throughput/RAM go/no-go, not archive
+/// availability. Returns null for any unsupported (os, arch) — notably
+/// Android x86_64 (emulator, out of scope) and Android armeabi-v7a (ORT-GenAI
+/// ships no such AAR slice).
 _OrtBundle? _archivesFor(OS os, Architecture arch) {
   if (os == OS.macOS && arch == Architecture.arm64) {
     return const _OrtBundle(
@@ -147,17 +159,49 @@ _OrtBundle? _archivesFor(OS os, Architecture arch) {
       ),
     );
   }
-  // android arm64, ios arm64/ios_sim_arm64: DEVICE-gated — blocked on the
-  // hardened plan's throughput/RAM go/no-go, not archive availability.
-  // Android's own archive is an AAR (a zip containing per-ABI .so files
-  // under jni/<abi>/, plus AndroidManifest.xml/classes.jar noise this hook
-  // has no use for) rather than a flat tarball like every other platform
-  // here — extracting the right per-ABI .so out of that layout is its own
-  // small chunk of work, deliberately left for whoever actually runs the
-  // Android go/no-go gate rather than landed speculatively. No entry means
-  // the hook silently skips those targets (matches flutter_gemma_litertlm's
-  // "no checksum registered → skip" convention); GenAiFfiClient's own
-  // dlopen then fails loud at first use with a clear "no such file".
+  if (os == OS.android && arch == Architecture.arm64) {
+    return const _OrtBundle(
+      dirName: 'android_arm64',
+      // Both archives are AARs — a zip containing per-ABI .so files under
+      // jni/<abi>/, plus AndroidManifest.xml/classes.jar/*4j_jni.so
+      // (ORT's Java wrapper) or *-genai-jni.so (GenAI's) noise this hook has
+      // no use for — rather than a flat tarball like every other platform
+      // here. [_Archive.extractedLibPath] pointing at the single concrete
+      // `.so` inside `jni/arm64-v8a/` skips that Java-wrapper noise for
+      // free, same mechanism as the macOS/Linux/Windows entries picking one
+      // file out of their own archive's larger layout.
+      //
+      // NOT on the onnxruntime GitHub release (only Maven Central publishes
+      // the Android AAR) — verified by checking v1.27.0's release assets.
+      ort: _Archive(
+        url:
+            'https://repo1.maven.org/maven2/com/microsoft/onnxruntime/'
+            'onnxruntime-android/1.27.0/onnxruntime-android-1.27.0.aar',
+        sha256:
+            '077dec5e2d821234c7dc0aba584bec8f999854b546c754cab93a90741c56fbeb',
+        extractedLibPath: 'jni/arm64-v8a/libonnxruntime.so',
+        assetName: 'onnxruntime',
+      ),
+      // NOT on Maven Central (probed com.microsoft.onnxruntime[.genai|-genai]
+      // — all 404) — same GitHub-release supply chain as the desktop GenAI
+      // archives above, just a differently-shaped AAR asset. GenAI's AAR
+      // ships arm64-v8a + x86_64 only (no armeabi-v7a) — arm64 is the only
+      // viable device ABI, not a policy choice.
+      genai: _Archive(
+        url:
+            'https://github.com/microsoft/onnxruntime-genai/releases/'
+            'download/v0.14.0/onnxruntime-genai-android-0.14.0.aar',
+        sha256:
+            'c2e9b967a1ecdf766246fbee8572c6637df01183cc263f9b954c01a9ec591f69',
+        extractedLibPath: 'jni/arm64-v8a/libonnxruntime-genai.so',
+        assetName: 'onnxruntime-genai',
+      ),
+    );
+  }
+  // ios arm64/ios_sim_arm64, android x86_64/armeabi-v7a: no entry means the
+  // hook silently skips those targets (matches flutter_gemma_litertlm's "no
+  // checksum registered → skip" convention); GenAiFfiClient's own dlopen
+  // then fails loud at first use with a clear "no such file".
   return null;
 }
 
@@ -290,18 +334,41 @@ Future<bool> _downloadVerifyExtract(_Archive archive, Directory destDir) async {
       // Windows archives (ORT/ORT-GenAI's own release layout) are PKZIP, not
       // tar.gz — `-z` unconditionally forces a gzip decompress pass, which
       // fails outright on a real .zip (true of both GNU tar and bsdtar).
-      // Every Windows box since 10 (build 17063) ships `tar.exe` as bsdtar,
-      // which auto-detects the container format (including zip) from
-      // `-xf` alone — this hook only ever needs `.zip` handling ON Windows
-      // (macOS/Linux archives here are always `.tar.gz`/`.tgz`), so bsdtar's
-      // availability there is guaranteed, not an assumption about the host.
-      final isZip = archive.archiveFileName.toLowerCase().endsWith('.zip');
-      final result = await Process.run('tar', [
-        if (isZip) '-xf' else '-xzf',
-        archiveFile.path,
-        '-C',
-        tmpDir.path,
-      ]);
+      // Android's two archives are AARs, which are ALSO PKZIP under the
+      // hood (an AAR is just a zip with a fixed internal layout) — same
+      // "not gzip" problem, just a different file extension.
+      final lowerName = archive.archiveFileName.toLowerCase();
+      final isZip = lowerName.endsWith('.zip') || lowerName.endsWith('.aar');
+      final ProcessResult result;
+      if (isZip && !Platform.isWindows) {
+        // Portable choice for zip/AAR extraction OFF Windows: macOS's `tar`
+        // is bsdtar and CAN read zip via `-xf`, but Linux ships GNU tar,
+        // which cannot — this hook runs on both when cross-building for
+        // Android, so `unzip` (present on every macOS/Linux dev box and CI
+        // image already used to build Android APKs) is used unconditionally
+        // instead of tar for zip/AAR content on non-Windows hosts.
+        result = await Process.run('unzip', [
+          '-o',
+          archiveFile.path,
+          '-d',
+          tmpDir.path,
+        ]);
+      } else {
+        // Every Windows box since 10 (build 17063) ships `tar.exe` as
+        // bsdtar, which auto-detects the container format (including zip)
+        // from `-xf` alone — this hook only ever needs `.zip`/`.aar`
+        // handling ON Windows for the desktop archives (Android is never
+        // built from a Windows host in this repo's flow), so bsdtar's
+        // availability there is guaranteed, not an assumption about the
+        // host. Non-zip archives (macOS/Linux `.tar.gz`/`.tgz`) always use
+        // `-xzf` regardless of host OS.
+        result = await Process.run('tar', [
+          if (isZip) '-xf' else '-xzf',
+          archiveFile.path,
+          '-C',
+          tmpDir.path,
+        ]);
+      }
       if (result.exitCode != 0) {
         stderr.writeln(
           'flutter_gemma_onnx: extract failed for ${archive.archiveFileName}: '
@@ -426,7 +493,7 @@ void main(List<String> args) async {
       final src = _stagedSourceFile(libDir, archive);
       if (!src.existsSync()) continue; // shouldn't happen post-fetch; be safe.
       final canonicalFileName = switch (os) {
-        OS.linux => 'lib${archive.assetName}.so',
+        OS.linux || OS.android => 'lib${archive.assetName}.so',
         OS.windows => '${archive.assetName}.dll',
         _ => 'lib${archive.assetName}.dylib',
       };

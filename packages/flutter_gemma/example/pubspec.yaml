@@ -38,6 +38,8 @@ dependencies:
     path: ../../flutter_gemma_agent
   flutter_gemma_builtin_ai:
     path: ../../flutter_gemma_builtin_ai
+  flutter_gemma_onnx:
+    path: ../../flutter_gemma_onnx
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

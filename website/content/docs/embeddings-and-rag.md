@@ -18,10 +18,10 @@ implements it — `flutter_gemma_litertlm`'s `LiteRtEmbeddingBackend` (or
 `flutter_gemma_onnx`'s `OnnxEmbeddingBackend` for ONNX/ORT models). RAG also
 needs a vector store package — `flutter_gemma_rag_qdrant` (native, fastest) or
 `flutter_gemma_rag_sqlite` (sqlite-vec; all platforms, including Web). Register
-them in `FlutterGemma.initialize(...)`:
+them in `await FlutterGemma.initialize(...)`:
 
 ```dart
-FlutterGemma.initialize(
+await FlutterGemma.initialize(
   inferenceEngines: const [LiteRtLmEngine()],
   embeddingBackends: const [LiteRtEmbeddingBackend()], // flutter_gemma_litertlm
   vectorStore: QdrantVectorStore(),                    // or WebSqliteVectorStore() on web
@@ -73,7 +73,7 @@ doesn't block the UI thread.
 
 All RAG operations live on the `FlutterGemma.rag` namespace — the canonical
 entry point. (The store is opt-in: register a `vectorStore:` in
-`FlutterGemma.initialize(...)`, or every `rag` call throws a clear "add a RAG
+`await FlutterGemma.initialize(...)`, or every `rag` call throws a clear "add a RAG
 package" error.)
 
 ```dart
@@ -135,39 +135,51 @@ await FlutterGemma.rag.clear();
 - `FieldRange` — numeric range on a payload field.
 - `FieldMatchAny` — match against any value in a set.
 
-Both stores honor `Filter` on **all platforms**. On qdrant-edge the metadata
-fields are promoted to payload keys automatically. On sqlite-vec the filterable
-fields must be **declared up front** as columns (see below); a filter on an
-undeclared field is a no-op — it never throws.
+Both stores honor `Filter` on **all platforms**, and both need the filterable
+fields declared up front in a `FilterSchema` (see below). qdrant-edge promotes
+exactly the declared fields to payload keys at write time; sqlite-vec creates
+them as columns at table-creation time. On either store a filter on an
+undeclared field is a no-op — it matches nothing and never throws, so a missing
+declaration looks like "no results" rather than an error.
 
-### Declaring filter columns (sqlite-vec)
+### Declaring filter fields
 
 The sqlite-vec store filters over declared columns. Describe them with a
 `FilterSchema` of `FilterField`s, and pass it either to `initialize(...)`:
 
 ```dart
-FlutterGemma.initialize(
+await FlutterGemma.initialize(
   vectorStore: SqliteVectorStore(),
-  filterSchema: const FilterSchema([
-    FilterField('category', FilterFieldType.text),
-    FilterField('lang', FilterFieldType.text),
-    FilterField('year', FilterFieldType.integer),
+  filterSchema: const FilterSchema(fields: [
+    FilterField(name: 'category', type: FilterFieldType.string),
+    FilterField(name: 'lang', type: FilterFieldType.string),
+    FilterField(name: 'year', type: FilterFieldType.number),
   ]),
 );
 ```
 
-…or at runtime via `configure(...)` on the `VectorStoreRepository`:
+…or at runtime via `configure(...)` on the `VectorStoreRepository` — it returns
+`void`, so do not `await` it:
 
 ```dart
-await store.configure(const FilterSchema([
-  FilterField('category', FilterFieldType.text),
+store.configure(const FilterSchema(fields: [
+  FilterField(name: 'category', type: FilterFieldType.string),
 ]));
 ```
 
+`FilterFieldType` has exactly three values: `string`, `number`, `bool`.
+
 A `Filter` over the declared fields is then applied inside the store; a filter
 referencing an **undeclared** field is silently ignored (no-op, never throws).
-`FilterSchema` is optional on qdrant-edge, which promotes any metadata field to a
-payload key automatically.
+
+<Warning>
+Declare a `FilterSchema` on **both** stores. qdrant-edge promotes only the fields
+named in the schema to payload keys — an undeclared field is absent from the
+payload, so a `Filter` on it matches nothing and the search returns zero hits
+rather than an error. The difference between the two stores is not "schema
+optional": it is that sqlite-vec needs the schema at table-creation time, while
+qdrant promotes at write time.
+</Warning>
 
 ## Platform support
 

@@ -29,12 +29,12 @@ There is an example of using:
 
 - **Local Execution:** Run Gemma and other LLMs (Qwen, DeepSeek, Phi, FastVLM, SmolLM, …) directly on user devices for enhanced privacy and offline functionality.
 - **Platform Support:** Compatible with iOS, Android, Web, macOS, Windows, and Linux platforms.
-- **🧩 Modular Packages:** A small `flutter_gemma` core plus opt-in packages — add only the engine (`.litertlm` / `.task`), embeddings, RAG, agent, or speech code your app ships. Register them via one `FlutterGemma.initialize(...)` call. See [MIGRATION.md](MIGRATION.md).
+- **🧩 Modular Packages:** A small `flutter_gemma` core plus opt-in packages — add only the engine (`.litertlm` / `.task`), embeddings, RAG, agent, or speech code your app ships. Register them via one `await FlutterGemma.initialize(...)` call. See [MIGRATION.md](MIGRATION.md).
 - **🖥️ Desktop Support:** Native desktop apps (macOS, Windows, Linux) with GPU acceleration via LiteRT-LM, called directly from Dart through `dart:ffi` — no JVM/JRE bundling. See [DESKTOP_SUPPORT.md](DESKTOP_SUPPORT.md) for details.
 - **🖼️ Multimodal Support:** Text + Image input with Gemma 4, Gemma3n, FastVLM, Qwen2-VL, SmolVLM2, and LLaVA-OneVision vision models (Gemma 4 / Gemma3n on all platforms incl. Web; Qwen2-VL / SmolVLM2 / LLaVA-OneVision on Android, iOS, and Desktop; FastVLM on Desktop)
 - **🎙️ Audio Input:** Record and send audio messages with Gemma 4 and Gemma3n E2B/E4B models (Android, iOS device, macOS/Windows/Linux via LiteRT-LM — not on Web)
-- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine today; Whisper / Parakeet profiles are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
-- **🔊 On-device Text-to-Speech:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — synthesize speech fully offline with a selectable model (Matcha today; kokoro / supertonic are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
+- **🎤 On-device Speech-to-Text:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — transcribe audio fully offline with a selectable ASR model (moonshine, Whisper, Parakeet) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
+- **🔊 On-device Text-to-Speech:** Opt-in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) — synthesize speech fully offline with a selectable model (Matcha, Qwen3-TTS, Inflect-Nano-v2; kokoro / supertonic are follow-ons) via the LiteRT C API (Android, iOS, macOS, Windows, Linux; Web is a follow-on)
 - **🗣️ On-device Voice Loop:** `VoiceSession` in [`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) chains STT → LLM → TTS into one push-to-talk turn with barge-in — the full on-device speech-to-speech pipeline. `VoiceSession.fromChat(recognizer:, chat:, synthesizer:)` streams `VoiceEvent`s from recorded PCM (native only).
 - **🛠️ Function Calling:** Enable your models to call external functions and integrate with other services (supported by select models)
 - **🤖 On-device Agent Skills:** Opt-in [`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) — give the model `SKILL.md` skills (text / JavaScript / native-intent / MCP) it invokes through the function-calling loop, fully offline. Gallery-compatible. Android, iOS, macOS, Windows (Web not supported yet).
@@ -81,21 +81,25 @@ Both formats have **identical behavior** — MediaPipe handles chat templates in
 
 Both formats require **manual chat template formatting** in your code.
 
-**Note:** The plugin automatically detects the file extension and applies appropriate formatting. When specifying `ModelFileType` in your code:
-- Use `ModelFileType.task` for `.task` and `.litertlm` files (same behavior)
-- Use `ModelFileType.binary` for `.bin` and `.tflite` files (same behavior)
+**Note:** `ModelFileType` is what selects the engine — it is **not** inferred from the file name. `installModel` defaults it to `ModelFileType.task`, so declare it explicitly:
+- `ModelFileType.litertlm` for `.litertlm` files. Omitting it routes the model to MediaPipe, which cannot read that format.
+- `ModelFileType.task` for `.task` files
+- `ModelFileType.binary` for `.bin` and `.tflite` files
+- `ModelFileType.builtIn` for OS-provided models (Gemini Nano, Apple Foundation Models)
 
 ### Format by Platform
 
 | Format | Android | iOS | Web | Desktop | Use Case |
 |--------|:-------:|:---:|:---:|:-------:|----------|
 | `.task` | ✅ | ✅ | ✅ | ❌ | Older models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) |
-| `.litertlm` | ✅ | ✅ ¹ | ❌ | ✅ | Newer models (Gemma 4, Qwen3, FastVLM + desktop for all) |
+| `.litertlm` | ✅ | ✅ ¹ | ⚠️ ² | ✅ | Newer models (Gemma 4, Qwen3, FastVLM + desktop for all) |
 | `-web.task` | ❌ | ❌ | ✅ | ❌ | Web-specific builds (e.g. Gemma 4, Gemma3n) |
 | `.bin` | ✅ | ✅ | ✅ | ❌ | Manual chat template formatting required |
 | `.tflite` | ✅ | ✅ | ✅ | ✅ | Embeddings only (EmbeddingGemma, Gecko) |
 
 > ¹ iOS `.litertlm` runs on the FFI engine — vision and audio supported on physical devices. The Simulator stays CPU-only because Metal sim has a 256 MB single-allocation cap.
+>
+> ² Web `.litertlm` is an **early preview** via `@litert-lm/core` — text only. No vision, audio, thinking, function calling or LoRA. For full multimodal on web use a MediaPipe `.task` build. See [Web `.litertlm` feature matrix](#web-litertlm-early-preview-feature-matrix).
 
 ## Model Capabilities
 
@@ -202,7 +206,7 @@ model formats and features you need.
     | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 
     Core registers **no** engine by itself — you wire the packages you added in
-    `FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).
+    `await FlutterGemma.initialize(...)` (see [Initialize Flutter Gemma](#initialize-flutter-gemma)).
 
 2.  Run `flutter pub get` to install.
 
@@ -473,18 +477,13 @@ post_install do |installer|
         # Wrap each upstream dylib into a .framework bundle inside the app's
         # Contents/Frameworks/ so dlopen("@executable_path/../Frameworks/<X>.framework/<X>")
         # (the path the patched gpu_registry.cc uses) resolves at runtime.
-        # Resolve dylib source — Native Assets cache (pub.dev), then path-dep fallbacks.
-        for candidate in \
-            "${HOME}/Library/Caches/flutter_gemma/native/macos_arm64" \
-            "${PODS_ROOT}/../Flutter/ephemeral/.symlinks/plugins/flutter_gemma/native/litert_lm/prebuilt/macos_arm64" \
-            "${SRCROOT}/../../native/litert_lm/prebuilt/macos_arm64"; do
-          if [ -f "${candidate}/libGemmaModelConstraintProvider.dylib" ]; then
-            PLUGIN_PREBUILT="${candidate}"
-            break
-          fi
-        done
-        if [ -z "${PLUGIN_PREBUILT:-}" ]; then
-          echo "[flutter_gemma] ERROR: macOS companion dylibs not found. Run 'flutter clean && flutter pub get'."
+        # The Native Assets cache is where hook/build.dart puts these on
+        # `flutter pub get`, and it is the only source an app ever sees —
+        # the in-repo prebuilt/ ships in no package and is gitignored.
+        PLUGIN_PREBUILT="${HOME}/Library/Caches/flutter_gemma/native/macos_arm64"
+        if [ ! -f "${PLUGIN_PREBUILT}/libGemmaModelConstraintProvider.dylib" ]; then
+          echo "[flutter_gemma] ERROR: macOS companion dylibs not found at ${PLUGIN_PREBUILT}."
+          echo "  Run 'flutter clean && flutter pub get' to repopulate the Native Assets cache."
           exit 1
         fi
         for base in GemmaModelConstraintProvider LiteRtMetalAccelerator LiteRtTopKMetalSampler; do
@@ -579,6 +578,7 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 // `.task`/`-web.task` variants of the same model also work.
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 ).fromNetwork(
   'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm',
   token: 'your_hf_token',
@@ -786,23 +786,35 @@ Each `DownloadError` exposes `toUserMessage()`, `toTitle()`, `isRetryable`, and
 ```dart
 // Network — .litertlm is the cross-platform default (Android/iOS/Desktop).
 // For mobile-only or web-only apps you can substitute a .task URL of the
-// same model.
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+// same model — and drop the fileType, which defaults to ModelFileType.task.
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromNetwork('https://example.com/model.litertlm', token: 'optional')
   .install();
 
 // Flutter assets
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromAsset('assets/models/model.litertlm')
   .install();
 
 // Native bundle
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromBundled('model.litertlm')
   .install();
 
 // External file
-await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
+await FlutterGemma.installModel(
+  modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
+)
   .fromFile('/path/to/model.litertlm')
   .install();
 ```
@@ -840,7 +852,7 @@ final model = await FlutterGemmaPlugin.instance.createModel(
 
 ### Initialize Flutter Gemma
 
-Call `FlutterGemma.initialize(...)` once in `main()` and **register the opt-in
+Call `await FlutterGemma.initialize(...)` once in `main()` and **register the opt-in
 packages you added** to `pubspec.yaml`. Core registers no engine on its own, so
 without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 "add the engine package" error.
@@ -852,10 +864,10 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  FlutterGemma.initialize(
+  await FlutterGemma.initialize(
     // Inference engines — add the ones whose packages you depend on:
     inferenceEngines: const [
       LiteRtLmEngine(),     // flutter_gemma_litertlm  — .litertlm models
@@ -870,7 +882,11 @@ void main() {
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
 
     // Common settings:
-    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+    // '' when the define is absent, and an empty token still sends a
+    // bare `Authorization: Bearer` header — pass null instead.
+    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN').isNotEmpty
+        ? const String.fromEnvironment('HUGGINGFACE_TOKEN')
+        : null,
     maxDownloadRetries: 10,
   );
 
@@ -976,14 +992,14 @@ flutter run --dart-define-from-file=config.json
 
 **Step 5:** Access in code:
 ```dart
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Read from environment (populated by --dart-define-from-file)
   const token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
   // Initialize with token (optional if all models are public)
-  FlutterGemma.initialize(
+  await FlutterGemma.initialize(
     huggingFaceToken: token.isNotEmpty ? token : null,
   );
 
@@ -1004,6 +1020,7 @@ flutter run --dart-define=HUGGINGFACE_TOKEN=$HUGGINGFACE_TOKEN
 // Pass token directly for specific downloads
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromNetwork(
     'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
@@ -1056,6 +1073,7 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 // Public model
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromNetwork('https://example.com/model.litertlm')
   .withProgress((progress) => print('$progress%'))
@@ -1064,10 +1082,11 @@ await FlutterGemma.installModel(
 // Private model with authentication
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromNetwork(
     'https://huggingface.co/google/gemma-3n-E2B-it-litert-lm/resolve/main/gemma-3n-E2B-it-int4.litertlm',
-    token: 'hf_...',  // Or use FlutterGemma.initialize(huggingFaceToken: ...)
+    token: 'hf_...',  // Or use await FlutterGemma.initialize(huggingFaceToken: ...)
   )
   .withProgress((progress) => setState(() => _progress = progress))
   .install();
@@ -1193,6 +1212,7 @@ Copies models from Flutter assets (declared in `pubspec.yaml`).
 // 2. Install from asset
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromAsset('models/gemma3-1b-it.litertlm')
   .install();
@@ -1246,6 +1266,7 @@ flutter build web
 ```dart
 await FlutterGemma.installModel(
   modelType: ModelType.gemmaIt,
+  fileType: ModelFileType.litertlm,
 )
   .fromBundled('gemma3-270m-it-q8.litertlm')
   .install();
@@ -1707,7 +1728,7 @@ Function calling is currently supported by the following models:
 
 #### Authentication
 - **Required for gated models:** Gemma3n, Gemma 3 1B/270M, EmbeddingGemma
-- **Configuration:** Use `FlutterGemma.initialize(huggingFaceToken: '...')` or pass token per-download
+- **Configuration:** Use `await FlutterGemma.initialize(huggingFaceToken: '...')` or pass token per-download
 - **Storage:** Tokens stored in browser memory (not localStorage)
 
 #### File Handling
@@ -1738,10 +1759,10 @@ Function calling is currently supported by the following models:
 
 ```dart
 // Default: Cache API for small models
-FlutterGemma.initialize(webStorageMode: WebStorageMode.cacheApi);
+await FlutterGemma.initialize(webStorageMode: WebStorageMode.cacheApi);
 
 // Streaming for large models (>2GB)
-FlutterGemma.initialize(webStorageMode: WebStorageMode.streaming);
+await FlutterGemma.initialize(webStorageMode: WebStorageMode.streaming);
 
 // Check if streaming is supported
 final supported = await FlutterGemma.isStreamingSupported();
@@ -1877,7 +1898,9 @@ import 'package:flutter_gemma/core/extensions.dart';
 // Clean response based on model type
 String cleanedResponse = ModelThinkingFilter.cleanResponse(
   rawResponse,
-  ModelType.deepSeek
+  isThinking: false,
+  modelType: ModelType.deepSeek,
+  fileType: ModelFileType.litertlm,
 );
 
 // The filter automatically removes model-specific tokens like:

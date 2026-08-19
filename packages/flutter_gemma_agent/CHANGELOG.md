@@ -1,3 +1,7 @@
+## 0.2.5
+
+- fix: drop runSkill's required scriptName — the script comes from the skill's SKILL.md.
+
 ## 0.2.4
 
 - docs: document the imageBytes vision API in the package README.

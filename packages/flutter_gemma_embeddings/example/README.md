@@ -24,16 +24,15 @@ Future<void> main() async {
     embeddingBackends: [LiteRtEmbeddingBackend()],
   );
 
-  // Install an embedding model (downloads + sets it active).
-  await FlutterGemma.installEmbedder(
-    modelType: EmbeddingModelType.embeddingGemma,
-  ).fromNetwork(
-    'https://example.com/embeddinggemma.tflite',
-    tokenizer: 'https://example.com/sentencepiece.model',
-  ).install();
+  // Install an embedding model (downloads + sets it active). The model and its
+  // tokenizer are separate downloads.
+  await FlutterGemma.installEmbedder()
+      .modelFromNetwork('https://example.com/embeddinggemma.tflite', token: 'hf_...')
+      .tokenizerFromNetwork('https://example.com/sentencepiece.model', token: 'hf_...')
+      .install();
 
   // Create the embedding model and embed text.
-  final embedder = await FlutterGemma.getActiveEmbeddingModel();
+  final embedder = await FlutterGemma.getActiveEmbedder();
   final vector = await embedder.generateEmbedding('Gemma runs on-device.');
   print('embedding dim: ${vector.length}');
 

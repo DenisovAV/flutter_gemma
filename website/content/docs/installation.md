@@ -45,7 +45,7 @@ dependencies:
 | Transcribe audio, synthesize speech, or run a voice loop on-device (STT + TTS + voice) | `flutter_gemma_speech` |
 
 Core registers **no** engine by itself — you wire the packages you added in
-`FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.
+`await FlutterGemma.initialize(...)` (below). Run `flutter pub get` to install.
 
 <Info>
 **Migrating from 0.16.x (monolith)?** See the [Migration guide](/docs/migration) —
@@ -55,7 +55,7 @@ call; every model / session / RAG API is unchanged.
 
 ## 2. Initialize Flutter Gemma
 
-Call `FlutterGemma.initialize(...)` once in `main()` and **register the opt-in
+Call `await FlutterGemma.initialize(...)` once in `main()` and **register the opt-in
 packages you added** to `pubspec.yaml`. Core registers no engine on its own, so
 without this step `getActiveModel()` / `createEmbeddingModel()` throw a clear
 "add the engine package" error.
@@ -69,10 +69,10 @@ import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  FlutterGemma.initialize(
+  await FlutterGemma.initialize(
     // Inference engines — add the ones whose packages you depend on:
     inferenceEngines: const [
       LiteRtLmEngine(),     // flutter_gemma_litertlm  — .litertlm models
@@ -95,7 +95,12 @@ void main() {
     vectorStore: QdrantVectorStore(), // flutter_gemma_rag_qdrant
 
     // Common settings:
-    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN'),
+    // String.fromEnvironment yields '' when the define is absent, and an
+    // empty token still sends a bare `Authorization: Bearer` header. Pass
+    // null instead so the request goes out unauthenticated.
+    huggingFaceToken: const String.fromEnvironment('HUGGINGFACE_TOKEN').isNotEmpty
+        ? const String.fromEnvironment('HUGGINGFACE_TOKEN')
+        : null,
     maxDownloadRetries: 10,
   );
 
@@ -377,12 +382,12 @@ flutter run --dart-define-from-file=config.json
 Access it in code:
 
 ```dart
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   const token = String.fromEnvironment('HUGGINGFACE_TOKEN');
 
-  FlutterGemma.initialize(
+  await FlutterGemma.initialize(
     huggingFaceToken: token.isNotEmpty ? token : null,
   );
 

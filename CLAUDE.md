@@ -48,7 +48,7 @@
 - **Probe-chain registry**: `EngineRegistry`/`EmbeddingRegistry` select a provider by `canHandle(spec)` + `priority` (descending priority, ascending registration index). Engines are pure factories; core owns singleton lifecycle via `CloseNotifier`/`addCloseListener`.
 - **ModelSource**: Type-safe sealed class (`NetworkSource`, `AssetSource`, `BundledSource`, `FileSource`). See `packages/flutter_gemma/lib/core/domain/`
 - **Install vs Runtime separation**: Installation stores identity (modelType + fileType), runtime accepts config (maxTokens, backend, etc.) via `RuntimeConfig`
-- **Engine selection by file extension** (via `canHandle`): `.task`/`.bin`/`.tflite` → MediaPipe, `.litertlm` → LiteRT-LM
+- **Engine selection by declared `ModelFileType`** (via `canHandle(spec)` — NOT by sniffing the file name): `task`/`binary` → MediaPipe, `litertlm` → LiteRT-LM, `builtIn` → BuiltInAi. `installModel` defaults `fileType` to `task`, so `.litertlm` must be declared explicitly or it is routed to MediaPipe
 - **All five platforms (Android/iOS/macOS/Linux/Windows)**: Dart → `dart:ffi` → LiteRT-LM C API (inference, in `flutter_gemma_litertlm`) + LiteRT C API (embeddings, in `flutter_gemma_embeddings`). Native prebuilts fetched at build time from GitHub release `native-v0.16.0` (Native Assets). `flutter_gemma_litertlm/hook/build.dart` is the **sole** hook carrying the LiteRT native version; `flutter_gemma_embeddings` and `flutter_gemma_speech` have no hook of their own and consume the bundle transitively. The cycle-fix `stage()` in the hooks is **Apple-only** (Xcode `directoryTreeSignature` cycle; staging on Windows splits companion DLLs and hangs cancel/close).
 
 ### Supported Models
@@ -139,7 +139,7 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.16.0` GitHub Release (LiteRT-LM pin `924e79c9`, LiteRT pin `0ff28117`). Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.6.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.5.0`, `flutter_gemma_mediapipe` `1.0.4`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.4`, `flutter_gemma_builtin_ai` `0.1.0`, `flutter_gemma_onnx` `0.1.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
+- **Current Version**: core `flutter_gemma` `1.6.0`, `flutter_gemma_rag_sqlite` `1.1.0`, `flutter_gemma_rag_qdrant` `1.1.0`; `flutter_gemma_litertlm` `1.5.0`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.1.0`, `flutter_gemma_onnx` `0.1.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
@@ -186,14 +186,32 @@ Entitlements needed: `network.client`, `extended-virtual-addressing`, `increased
 ## Code Quality
 
 ```bash
-flutter analyze
+flutter analyze packages/   # every workspace package (not website/ — it is
+                            # outside the workspace, so its deps are unresolved)
 dart format .
-flutter test
+tool/test_all.sh     # every package, each from its own directory
 ```
+
+> `flutter test` at the root tests **nothing** (the workspace root has no
+> `test/`), and `flutter test packages/<pkg>` runs from the wrong working
+> directory — 20 of `flutter_gemma_agent`'s suites read fixtures by a path
+> relative to the package and fail on a missing file. `tool/test_all.sh` is
+> what CI runs, so local green and CI green mean the same thing.
+
+> ⚠️ **A green local `analyze` does not mean CI is green.** CI installs
+> `channel: stable` (whatever is current), while a dev box is usually pinned —
+> so CI's analyzer carries lints yours does not. `unawaited_return_in_try_block`
+> reached CI months before a 3.44.0 checkout could see it. Warnings fail the
+> build (`--no-fatal-infos` only spares `info`), so read the CI log rather than
+> trusting the local run.
+>
+> Analyze `packages/`, not the repo root: `website/` is deliberately outside the
+> workspace, its deps are never resolved by the root `pub get`, and analyzing it
+> fails — except on a machine that happens to have built the site once.
 
 ## Before Committing
 ```bash
-flutter analyze && dart format . && flutter test
+flutter analyze && dart format . && tool/test_all.sh
 ```
 
 ## Key Files

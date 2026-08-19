@@ -69,6 +69,13 @@ String _decodeNativeString(Pointer<Char> ptr, {int maxBytes = 64 * 1024}) {
 /// raw-response capture, Gemma 4 tool-call extraction) can be exercised on
 /// the host VM with no native engine.
 abstract class ConversationHandle {
+  /// Token count for [text] from the model's own tokenizer, or null when it
+  /// cannot be obtained (no engine, native call failed). Callers must handle
+  /// null rather than assume a number — this feeds context budgeting, and the
+  /// four-chars-per-token estimate it replaced undercounts Chinese by more than
+  /// half (measured 0.44x on gemma-4-E2B-it) while looking authoritative.
+  Future<int?> tokenCount(String text);
+
   Stream<String> chat(
     String text, {
     List<Uint8List>? imageBytes,
@@ -109,6 +116,11 @@ class LiteRtLmConversationHandle implements ConversationHandle {
   Pointer<LiteRtLmConversation>? _conversation;
 
   bool get isClosed => _conversation == null;
+
+  /// Token count from the model's own tokenizer, or null when unavailable.
+  /// Engine-level, so it works on a closed conversation too.
+  @override
+  Future<int?> tokenCount(String text) => _client.tokenCount(text);
 
   void _assertOpen() {
     if (_conversation == null) {
@@ -270,6 +282,10 @@ class LiteRtLmFfiClient {
   Pointer<LiteRtLmEngine>? _engine;
   bool _isInitialized = false;
   String? _nativeLogPath;
+
+  /// Backend the engine was initialised with, as the wire string ('cpu' /
+  /// 'gpu' / 'npu'). Read only to warn that the NPU executor discards sampler
+  /// params — it must never gate what we send again.
   String? _backend;
 
   /// Conversation creates currently suspended across an `await`.
@@ -980,56 +996,67 @@ class LiteRtLmFfiClient {
     // native/litert_lm/patch_c_api.sh ("PATCH: 6-arg overload") is gone.
     final sessionConfig = b.litert_lm_session_config_create();
 
-    // NPU executor on LiteRT-LM only supports internal greedy sampling — any
-    // sampler params we pass cause engine_create / generation failures
-    // upstream. Skip the setter chain in that case; CPU/GPU paths are
-    // unaffected.
-    if (_backend != 'npu') {
-      // Upstream LiteRT-LM (commit 5e0d86b) only implements TopP sampling at
-      // engine level — sampler type 1 (TopK) and 3 (Greedy) are rejected with
-      // "UNIMPLEMENTED: Sampler type: N not implemented yet." Use TopP (=2)
-      // unconditionally and pass top_k as a hint; native respects both fields
-      // even though it's gated by the type tag.
-      //
-      // v0.14.0: LiteRtLmSamplerParams is opaque — built via
-      // litert_lm_sampler_params_create + the _set_* setters instead of
-      // writing struct fields directly.
-      final samplerParams = b.litert_lm_sampler_params_create(2); // always TopP
-      b.litert_lm_sampler_params_set_top_k(samplerParams, topK);
-      b.litert_lm_sampler_params_set_top_p(samplerParams, topP ?? 0.95);
-      b.litert_lm_sampler_params_set_temperature(samplerParams, temperature);
-      b.litert_lm_sampler_params_set_seed(samplerParams, seed);
-      b.litert_lm_session_config_set_sampler_params(
-        sessionConfig,
-        samplerParams,
-      );
-      b.litert_lm_sampler_params_delete(samplerParams);
-    } else {
+    // Sampler params go to every backend, NPU included.
+    //
+    // We used to skip this whole chain when the backend was NPU, citing a May
+    // measurement against LiteRT-LM 032334d8 where GetSamplerBackend() did
+    // `sampler_backend = backend` and then required CPU or GPU.
+    //
+    // Traced at the shipped pin v0.16.0 (924e79c9), that reason was never the
+    // operative one: `GetSamplerBackend(LlmExecutorSettings)` is only reachable
+    // from LlmLiteRtCompiledModelExecutorBase, and the NPU executor
+    // (LlmLiteRtNpuCompiledModelExecutor) does not derive from it. The real
+    // situation is simpler and worse — the NPU executor stores sampler_params_
+    // and never reads it; every Decode() path calls ApplyGreedySampling, a
+    // plain argmax. So NPU accepts the params because it discards them.
+    //
+    // Sending them anyway is harmless and correct the day upstream implements
+    // NPU sampling. But the caller must not be left thinking they took effect,
+    // which is why the warning below exists — dropping the old guard also
+    // dropped the only signal the user had.
+    //
+    // Sampler TYPE is a separate question: at 5e0d86b only TopP (=2) was
+    // implemented at engine level, with types 1 (TopK) and 3 (Greedy) rejected
+    // as "UNIMPLEMENTED: Sampler type: N not implemented yet". We still send
+    // TopP unconditionally and pass top_k as a hint, which native honours.
+    // That was NOT re-checked at 924e79c9 — it is carried forward, not verified.
+    final samplerParams = b.litert_lm_sampler_params_create(2); // always TopP
+    b.litert_lm_sampler_params_set_top_k(samplerParams, topK);
+    b.litert_lm_sampler_params_set_top_p(samplerParams, topP ?? 0.95);
+    b.litert_lm_sampler_params_set_temperature(samplerParams, temperature);
+    b.litert_lm_sampler_params_set_seed(samplerParams, seed);
+    b.litert_lm_session_config_set_sampler_params(sessionConfig, samplerParams);
+    b.litert_lm_sampler_params_delete(samplerParams);
+
+    // The NPU executor argmaxes regardless of what we just set, so tell the
+    // caller rather than letting them believe a seed or temperature took hold.
+    // Only when they asked for something other than the greedy default —
+    // warning on every NPU session would train people to ignore it.
+    if (_backend == 'npu' &&
+        (temperature != 0.8 || topK != 40 || topP != null || seed != 1)) {
       gemmaLog(
-        '[LiteRtLmFfi] NPU backend — sampler params '
-        '(temperature, topK, topP, seed) ignored, engine uses '
-        'internal greedy sampling.',
+        '[LiteRtLmFfi] NPU backend: sampler params (temperature=$temperature, '
+        'topK=$topK, topP=$topP, seed=$seed) are sent but the NPU executor '
+        'samples greedily and never reads them — output is deterministic '
+        'argmax. Use PreferredBackend.cpu or .gpu if you need sampling.',
       );
     }
 
     // Optional per-session cap on how many tokens are *generated* (output),
     // independent of the engine's context window (maxTokens / KV-cache). This
     // is what callers usually want when they say "limit the response length".
-    // Skipped on NPU for the same reason as sampler params: the NPU executor
-    // only supports internal greedy sampling and rejects extra session config
-    // upstream — setting it there risks engine_create/generation failures.
+    //
+    // This was skipped on NPU too, "for the same reason as sampler params".
+    // It was never measured — the reason was borrowed from the guard above by
+    // analogy, and an output cap has nothing to do with sampling. Exercised
+    // 2026-08-15 on Intel Lunar Lake NPU: accepted and honoured. Passing it
+    // unconditionally, because silently ignoring a documented parameter is
+    // worse than the failure the guard was imagining.
     if (maxOutputTokens != null) {
-      if (_backend != 'npu') {
-        b.litert_lm_session_config_set_max_output_tokens(
-          sessionConfig,
-          maxOutputTokens,
-        );
-      } else {
-        gemmaLog(
-          '[LiteRtLmFfi] NPU backend — maxOutputTokens ($maxOutputTokens) '
-          'ignored (NPU executor uses internal greedy sampling).',
-        );
-      }
+      b.litert_lm_session_config_set_max_output_tokens(
+        sessionConfig,
+        maxOutputTokens,
+      );
     }
 
     final systemPtr = systemMessage?.toNativeUtf8();
@@ -1788,7 +1815,85 @@ class LiteRtLmFfiClient {
 
     _isInitialized = false;
     _backend = null;
+    _tokenizerMissing = false;
     _isShuttingDown = false;
+  }
+
+  /// Latched once the tokenizer symbols turn out to be missing from the loaded
+  /// library, so a native bump that drops them degrades once and loudly rather
+  /// than silently on every call. Reset by [shutdown] with the rest of the
+  /// engine state.
+  bool _tokenizerMissing = false;
+
+  /// Token count for [text] from the model's own tokenizer, or null when it
+  /// cannot be obtained.
+  ///
+  /// Null means "ask someone else" — no engine, engine shut down, the native
+  /// call returned NULL (the only failure `engine.h` documents), or the
+  /// tokenizer symbols are absent from this build. Callers budget context with
+  /// this, and a budgeting helper that throws is worse than one that admits it
+  /// does not know: `chat.dart` wraps the call in a bare catch that would
+  /// swallow the throw and skip the increment entirely — a 100% undercount.
+  ///
+  /// It does NOT swallow everything. The bindings resolve symbols lazily
+  /// (`late final _lookup(...)`), so the first call is where a missing symbol
+  /// surfaces as `ArgumentError` — and that is precisely the signal that this
+  /// fix has stopped working after a native bump. It is caught once, latched,
+  /// and reported; every other error propagates.
+  ///
+  /// `litert_lm_engine_tokenize` is engine-level, not conversation-level: the
+  /// tokenizer belongs to the model, so no session is required.
+  Future<int?> tokenCount(String text) async {
+    if (text.isEmpty) return 0; // measured: this tokenizer prepends no BOS
+    if (_tokenizerMissing) return null;
+
+    // Holds [_nativeMutex] like every other native call on this engine. The
+    // C API is not documented as reentrant on one engine (see the field's own
+    // comment), and `send_message_stream` is documented as non-blocking with
+    // callbacks on a background thread — so the Dart isolate is free while a
+    // decode runs, and an unguarded tokenize would reach liblitert_lm
+    // concurrently with it. Callers arrive through the already-async
+    // sizeInTokens, so the await costs nothing.
+    return _nativeMutex.protect(() async {
+      final b = _bindings;
+      final engine = _engine;
+      // Re-read inside the lock: shutdown() can null these while we waited.
+      if (b == null || engine == null || engine == nullptr) return null;
+
+      // Allocated inside the try: the default allocator throws ArgumentError
+      // when it cannot allocate, and this method promises not to throw.
+      Pointer<Utf8>? textPtr;
+      Pointer<LiteRtLmTokenizeResult> result = nullptr;
+      try {
+        textPtr = text.toNativeUtf8();
+        result = b.litert_lm_engine_tokenize(engine, textPtr.cast<Char>());
+        if (result == nullptr) return null;
+        final n = b.litert_lm_tokenize_result_get_num_tokens(result);
+        // Non-empty text cannot legitimately tokenize to nothing, and the
+        // count is bound from size_t, so a negative would be a sentinel we do
+        // not understand. Either way it is a failure, not a budget of zero —
+        // which would mark the turn free and undercount worse than the
+        // estimate this replaced.
+        if (n <= 0) return null;
+        return n;
+      } on ArgumentError catch (e) {
+        // Either a missing symbol (lazy lookup firing here) or an allocation
+        // failure. Both mean "no count this time"; only the first is permanent,
+        // and telling them apart is not worth a string match — latch on the
+        // lookup wording only, and let a one-off OOM retry next turn.
+        final missing = e.toString().contains('Failed to lookup symbol');
+        if (missing) _tokenizerMissing = true;
+        gemmaLog(
+          '[LiteRtLmFfi] tokenCount unavailable${missing ? ' (symbol missing '
+                    'from this native build — sizeInTokens will estimate from '
+                    'here on)' : ''}: $e',
+        );
+        return null;
+      } finally {
+        if (result != nullptr) b.litert_lm_tokenize_result_delete(result);
+        if (textPtr != null) calloc.free(textPtr);
+      }
+    });
   }
 
   /// Get session metrics from the given conversation including token usage.

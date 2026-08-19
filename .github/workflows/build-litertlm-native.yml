@@ -416,10 +416,21 @@ jobs:
           # whose presence beside the release DLLs is the same mis-binding hazard
           # the allow-list above exists to avoid, and the hook was registering
           # them into user apps.
+          #
+          # Exclude Debug\ by PATH as well, because the name filter cannot see
+          # it: TBB uses a '_debug' suffix, but openvino_intel_npu_compiler.dll
+          # and openvino_intel_npu_compiler_loader.dll ship under Debug\ AND
+          # Release\ with IDENTICAL basenames (781,576 vs 781,584 bytes). With
+          # an unordered -Recurse, `Copy-Item -Force` is then last-writer-wins,
+          # and no version check can separate them — same SDK, same build
+          # string. #3217 was precisely "the Intel OV compiler plugin talking to
+          # the wrong libopenvino_intel_npu_compiler", so this is the pairing
+          # the assertion below claims to protect.
           $ovDlls = Get-ChildItem -Recurse -Filter '*.dll' -Path $ovRoot.FullName |
             Where-Object {
               ($ovWanted -contains $_.Name -or $_.Name -like 'tbb*') -and
-              $_.Name -notlike '*_debug.dll'
+              $_.Name -notlike '*_debug.dll' -and
+              $_.FullName -notmatch '\\Debug\\'
             }
           if (-not $ovDlls) { throw "OpenVino runtime DLLs not found under $($ovRoot.FullName)" }
           foreach ($d in $ovDlls) { Copy-Item $d.FullName "artifacts\$($d.Name)" -Force }
@@ -438,6 +449,50 @@ jobs:
           if ($tbb.Name -notcontains 'tbb12.dll') {
             throw "tbb12.dll specifically is missing (found: $($tbb.Name -join ', '))"
           }
+          # The dispatch links against the SDK Bazel fetched, and the runtime
+          # DLLs above are copied out of that same tree, so the pair matches by
+          # construction. This asserts that construction rather than trusting
+          # it: a future edit that stages either side from somewhere else fails
+          # here instead of shipping a bundle whose halves disagree. Carrying a
+          # stale pair forward is what cost us #3217 - we shipped OpenVino
+          # 2026.2.0 against a pin requiring 2026.3.0, and it read as an
+          # upstream regression until the bundle was rebuilt from the pin.
+          # Every unreadable input throws: no data is a failure, not a pass.
+          #
+          # NOT covered: LiteRtDispatch.dll embeds no version string, so the
+          # dispatch half of the pair is still only verified by an on-device
+          # NPU run.
+          $versionTxt = Join-Path $ovRoot.FullName 'openvino\runtime\version.txt'
+          if (-not (Test-Path $versionTxt)) {
+            throw "OpenVino SDK has no runtime\version.txt at $versionTxt - cannot verify the shipped runtime matches the SDK the dispatch was built against"
+          }
+          $sdkBuild = (Get-Content $versionTxt -Raw).Trim()
+          $buildPattern = '20\d\d\.\d+\.\d+-\d+-[0-9a-fA-F]{7,40}[-/\w]*'
+          # Check the SDK's own string against the pattern first. A shape this
+          # does not recognise - an unreleased format, or the '<triple>-000--'
+          # a git-less OpenVino rebuild produces - would otherwise surface as
+          # "no build string in openvino.dll", blaming the DLL for a file whose
+          # contents it matches exactly.
+          if ($sdkBuild -notmatch "^$buildPattern$") {
+            throw "runtime\version.txt is not a build string this check understands: '$sdkBuild' - widen the pattern rather than skipping the comparison"
+          }
+          $ovDllPath = (Resolve-Path 'artifacts\openvino.dll').Path
+          $ovText = [System.Text.Encoding]::ASCII.GetString(
+            [System.IO.File]::ReadAllBytes($ovDllPath))
+          $embedded = @([regex]::Matches($ovText, $buildPattern) |
+            ForEach-Object { $_.Value } | Sort-Object -Unique)
+          if ($embedded.Count -eq 0) {
+            throw "no build string embedded in the staged openvino.dll - cannot verify it matches the SDK ($sdkBuild)"
+          }
+          # Exactly one, and it must BE the SDK build — not merely be among the
+          # matches. A DLL carrying both the right string and a stale one would
+          # satisfy -notcontains while being exactly the mismatch this checks
+          # for. Today's openvino.dll embeds precisely one, so requiring one is
+          # not a tightening in practice, only in principle.
+          if ($embedded.Count -ne 1 -or $embedded[0] -ne $sdkBuild) {
+            throw "shipped openvino.dll reports '$($embedded -join ', ')' but the dispatch was built against '$sdkBuild'"
+          }
+          Write-Host "OpenVino build verified: $sdkBuild"
           Write-Host "NPU stack: LiteRtDispatch + $($ovDlls.Count) OpenVino/TBB DLLs"
           Get-ChildItem artifacts\
 

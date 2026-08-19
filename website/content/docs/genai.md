@@ -62,10 +62,13 @@ await for (final chunk in chat.sendMessageStream(
 
 ## Images and audio
 
-Attach media as parts. Inline bytes go in a `DataPart` with a matching MIME
-type; a `LinkPart` is fetched for you (`data:`, `file:`, and `http(s):` URLs are
-supported). Create the chat with the capability the model needs, or the send
-throws rather than silently dropping the media.
+Attach media as parts: inline bytes go in a `DataPart` with a matching MIME
+type. A `LinkPart` is **not** resolved — an on-device model needs the bytes, and
+this inference layer never fetches URLs or reads files, so passing one throws
+`UnsupportedError`. Resolve the link yourself and hand over a `DataPart`. (For
+URL or web content behind a permission gate, use `flutter_gemma_agent`.) Create
+the chat with the capability the model needs, or the send throws rather than
+silently dropping the media.
 
 ```dart
 final chat = await model.createChat(supportImage: true);

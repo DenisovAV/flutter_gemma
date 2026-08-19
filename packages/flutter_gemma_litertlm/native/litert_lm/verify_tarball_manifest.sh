@@ -51,29 +51,68 @@ echo "==> Verifying new tarballs in $DIST_DIR against previous tag $PREV_TAG"
 echo "    repo: $REPO"
 echo
 
+# Enumerate the previous tag's assets ONCE, up front. Failing to read this list
+# is a failure to LEARN what shipped last time — it is NOT evidence that a file
+# is absent, so it must never be reported as a skip. Hard-fail instead.
+if ! prev_assets="$(gh release view "$PREV_TAG" --repo "$REPO" \
+      --json assets --jq '.assets[].name' 2>&1)"; then
+  echo "❌ Cannot read the asset list of $PREV_TAG from $REPO." >&2
+  echo "   gh said: $prev_assets" >&2
+  echo "   This gate compares against that tag, so it cannot run at all." >&2
+  echo "   Fix access (gh auth status) or the tag name, then re-run." >&2
+  echo "   Do NOT publish on the strength of a check that did not execute." >&2
+  exit 2
+fi
+
+_prev_has() {
+  printf '%s\n' "$prev_assets" | grep -qxF "$1"
+}
+
 fail=0
 checked=0
+skipped=0
 
 for new in "$DIST_DIR"/litertlm-*.tar.gz; do
   [[ -e "$new" ]] || { echo "No litertlm-*.tar.gz found in $DIST_DIR" >&2; exit 2; }
   base="$(basename "$new")"                 # litertlm-android_arm64.tar.gz
   plat="${base#litertlm-}"; plat="${plat%.tar.gz}"
 
-  # Fetch the same archive from the previous tag. If the platform is new
-  # (didn't exist in the previous tag), skip — nothing to compare against.
+  # Two different outcomes used to collapse into one skip here. Keep them apart:
+  # "the previous tag has no such asset" is a legitimate skip (new platform),
+  # while "the asset is listed but would not download" means we cannot compare —
+  # a hard failure, not a pass.
+  if ! _prev_has "$base"; then
+    echo "  [skip] $plat — '$base' is not an asset of $PREV_TAG (new platform)"
+    skipped=$((skipped + 1))
+    continue
+  fi
+
   if ! gh release download "$PREV_TAG" --repo "$REPO" --pattern "$base" \
         --dir "$PREV_DL" --clobber >/dev/null 2>&1; then
-    echo "  [skip] $plat — '$base' not in $PREV_TAG (new platform?)"
+    echo "  [FAIL] $plat — '$base' IS an asset of $PREV_TAG but would not download."
+    echo "         Cannot diff it, so this run proves nothing about $plat."
+    fail=1
     continue
   fi
 
   checked=$((checked + 1))
-  # Strip the tar dir entry (`.` from `tar -C dir .` layout) and blanks — they
-  # aren't files. Without this, a `./`-prefixed archive yields a spurious
-  # "MISSING: ." against a non-`./` one (the two layouts list the dir slot
-  # differently). basename of "./" is "." → filtered here.
-  old_list="$(tar -tzf "$PREV_DL/$base" | xargs -n1 basename | grep -vE '^\.?$' | sort -u)"
-  new_list="$(tar -tzf "$new"           | xargs -n1 basename | grep -vE '^\.?$' | sort -u)"
+  # Normalise a leading `./` (the `tar -C dir .` layout) and drop directory
+  # entries and blanks — they aren't files. Without the normalisation a
+  # `./`-prefixed archive diffs wholesale against a non-`./` one.
+  #
+  # Compare FULL PATHS, not basenames. `xargs -n1 basename` used to flatten the
+  # tree, so `./libQnnHtp.so` -> `./nested/libQnnHtp.so` read as "no files
+  # dropped" plus a reassuring "new files (ok): nested" — while the hook's flat
+  # extraction would no longer find it. A relocation is a drop.
+  _list() {
+    tar -tzf "$1" \
+      | sed 's|^\./||' \
+      | grep -vE '/$' \
+      | grep -vE '^\.?$' \
+      | sort -u
+  }
+  old_list="$(_list "$PREV_DL/$base")"
+  new_list="$(_list "$new")"
 
   # Files in OLD but not in NEW = dropped.
   dropped="$(comm -23 <(printf '%s\n' "$old_list") <(printf '%s\n' "$new_list"))"
@@ -103,9 +142,30 @@ for new in "$DIST_DIR"/litertlm-*.tar.gz; do
   [[ $local_fail -eq 1 ]] && fail=1
 done
 
+# The loop above walks the NEW tarballs, so a platform that vanished entirely
+# is invisible to it: pack only windows when the previous tag had windows and
+# android, and it reports "1 platform(s) compared" and exits 0. That is the same
+# defect the gate exists to catch, one level up — "android was never rebuilt"
+# instead of "a file inside android went missing". Walk the other direction too.
+missing_plat=0
+while IFS= read -r asset; do
+  [[ "$asset" == litertlm-*.tar.gz ]] || continue
+  if [[ ! -e "$DIST_DIR/$asset" ]]; then
+    plat="${asset#litertlm-}"; plat="${plat%.tar.gz}"
+    echo "  [FAIL] $plat — '$asset' is in $PREV_TAG but was not packed at all."
+    echo "         The platform was not rebuilt, or packing skipped it."
+    missing_plat=1
+  fi
+done <<< "$prev_assets"
+[[ $missing_plat -eq 1 ]] && fail=1
+
 echo
 if [[ $checked -eq 0 ]]; then
-  echo "WARNING: no platforms compared (none of the new tarballs existed in $PREV_TAG)." >&2
+  echo "❌ MANIFEST CHECK DID NOT RUN — zero platforms compared."
+  echo "   $skipped tarball(s) had no counterpart in $PREV_TAG."
+  echo "   A check that compared nothing is not a check that passed; if every"
+  echo "   platform really is new, you are comparing against the wrong tag."
+  exit 1
 fi
 
 if [[ $fail -eq 1 ]]; then
@@ -116,4 +176,7 @@ if [[ $fail -eq 1 ]]; then
   exit 1
 fi
 
-echo "✅ MANIFEST CHECK PASSED — no unexplained file drops vs $PREV_TAG."
+echo "✅ MANIFEST CHECK PASSED — $checked platform(s) compared against $PREV_TAG, no unexplained file drops."
+if [[ $skipped -gt 0 ]]; then
+  echo "   ($skipped tarball(s) skipped as new platforms.)"
+fi

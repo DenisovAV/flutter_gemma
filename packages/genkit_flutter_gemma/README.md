@@ -37,7 +37,7 @@ Genkit Dart plugin for [flutter_gemma](https://pub.dev/packages/flutter_gemma) �
 stays engine-agnostic. As of flutter_gemma 1.0.0 the inference engines and
 embedding backends ship as **separate, opt-in packages**, and the core
 registers none of them by default. Your app must add the packages it needs and
-register their providers in `FlutterGemma.initialize()`.
+register their providers in `await FlutterGemma.initialize()`.
 
 | Package | Provider | Add it when you use… |
 |---|---|---|
@@ -47,8 +47,8 @@ register their providers in `FlutterGemma.initialize()`.
 ```yaml
 # pubspec.yaml (your app)
 dependencies:
-  genkit_flutter_gemma: ^0.4.3
-  flutter_gemma: ^1.5.9
+  genkit_flutter_gemma: ^0.5.0
+  flutter_gemma: ^1.6.0
   flutter_gemma_litertlm: ^1.5.0   # only the engines/backends you actually use
   flutter_gemma_mediapipe: ^1.0.4
 ```
@@ -125,7 +125,7 @@ final response = await ai.generate(
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `maxTokens` | `int?` | 1024 | Maximum tokens to generate |
+| `maxTokens` | `int?` | 1024 | **Context window** (input + output), not reply length — it goes straight into `getActiveModel(maxTokens:)`. To shorten replies, trim the prompt or use the context-window middleware; lowering this shrinks the KV cache. |
 | `temperature` | `double?` | 0.8 | Sampling temperature |
 | `topK` | `int?` | 1 | Top-K sampling |
 | `topP` | `double?` | null | Top-P (nucleus) sampling |
@@ -230,7 +230,7 @@ for (final embedding in embeddings) {
 
 ## Known Limitations
 
-- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm` and/or embeddings, `flutter_gemma_mediapipe` for `.task`/`.bin`) and register their providers in `FlutterGemma.initialize()` before using the plugin.
+- **Engine registration**: With flutter_gemma 1.0.0+ the inference engines and embedding backends are opt-in. The host app must add the relevant packages (`flutter_gemma_litertlm` for `.litertlm`, `flutter_gemma_mediapipe` for `.task`/`.bin`, `flutter_gemma_embeddings` for embeddings) and register their providers in `await FlutterGemma.initialize()` before using the plugin.
 - **Model installation**: The plugin does NOT manage model installation. The host app must install models via `FlutterGemma.installModel()` and embedders via `FlutterGemma.installEmbedder()` before using the plugin.
 - **System role**: System messages are passed natively via `createChat(systemInstruction:)` (requires flutter_gemma ^0.13.0). Only text content is supported in system messages.
 - **Thinking mode**: Requires `.litertlm` model format. Supported on Android, iOS, and Desktop. Not supported on Web.

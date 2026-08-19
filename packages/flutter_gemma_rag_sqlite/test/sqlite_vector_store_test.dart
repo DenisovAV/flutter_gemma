@@ -1,27 +1,24 @@
 // Native vec0 store test — runs against the real sqlite-vec loadable extension
-// pointed to by $VEC0_DYLIB (the same gate as test/vec0_text_pk_test.dart).
+// resolved by test/vec0_locator.dart (this repo's
+// native/sqlite_vec/prebuilt/<platform>/, or $VEC0_DYLIB).
 //
-//   VEC0_DYLIB=/path/to/vec0.dylib flutter test test/sqlite_vector_store_test.dart
+//   flutter test test/sqlite_vector_store_test.dart
 //
-// When $VEC0_DYLIB is unset the whole group is skipped (the store can't load
-// vec0 without it on a host VM that has no bundled Native Assets dylib).
+// This group used to require $VEC0_DYLIB and skipped itself when it was unset —
+// which was always, so its 23 tests had never run.
 import 'dart:io';
 
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-String? get _vec0Path {
-  final p = Platform.environment['VEC0_DYLIB'];
-  if (p == null || p.isEmpty) return null;
-  return File(p).existsSync() ? p : null;
-}
+import 'vec0_locator.dart';
 
 void main() {
-  final vec0 = _vec0Path;
-  final skip = vec0 == null
-      ? 'set \$VEC0_DYLIB to a prebuilt vec0 loadable (asg017/sqlite-vec)'
-      : null;
+  // The store loads vec0 itself (Native Assets / the bundled sqlite3), so the
+  // locator is only a gate: it answers "is the loadable present on this host",
+  // not "here is the handle to use".
+  final skip = vec0SkipReason;
 
   group('SqliteVectorStore (vec0)', () {
     late SqliteVectorStore repo;

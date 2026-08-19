@@ -55,10 +55,14 @@ class OnnxEngine implements InferenceEngineProvider {
   /// is none for `.onnx` yet) or failing with a clear "not supported on
   /// this platform" message. Widen deliberately once the gate passes for a
   /// given platform — never let it drift ahead of the hook's table.
-  static bool get _isSupportedHost =>
-      debugForceUnsupportedHost != true &&
-      Platform.isMacOS &&
-      Abi.current() == Abi.macosArm64;
+  static bool get _isSupportedHost {
+    if (debugForceUnsupportedHost == true) return false;
+    final abi = Abi.current();
+    // Keep in lockstep with hook/build.dart's `_archivesFor` table.
+    return (Platform.isMacOS && abi == Abi.macosArm64) ||
+        (Platform.isLinux && abi == Abi.linuxX64) ||
+        (Platform.isWindows && abi == Abi.windowsX64);
+  }
 
   /// Test-only override: when `true`, [_isSupportedHost] reports false
   /// regardless of the real host — the cheapest seam to exercise the

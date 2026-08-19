@@ -37,10 +37,14 @@ class OnnxEmbeddingBackend implements EmbeddingBackendProvider {
   /// platform gate lives in [createModel] as a loud [StateError] instead —
   /// same `_isSupportedHost` shape as `OnnxEngine`, kept in lockstep with
   /// `hook/build.dart`'s platform table.
-  static bool get _isSupportedHost =>
-      debugForceUnsupportedHost != true &&
-      Platform.isMacOS &&
-      Abi.current() == Abi.macosArm64;
+  static bool get _isSupportedHost {
+    if (debugForceUnsupportedHost == true) return false;
+    final abi = Abi.current();
+    // Keep in lockstep with hook/build.dart's `_archivesFor` table.
+    return (Platform.isMacOS && abi == Abi.macosArm64) ||
+        (Platform.isLinux && abi == Abi.linuxX64) ||
+        (Platform.isWindows && abi == Abi.windowsX64);
+  }
 
   /// Test-only override — see `OnnxEngine.debugForceUnsupportedHost` (same
   /// seam, same rationale). Never read or set outside `test/`. Reset to

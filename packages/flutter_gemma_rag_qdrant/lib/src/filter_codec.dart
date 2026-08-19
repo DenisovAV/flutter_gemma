@@ -37,35 +37,104 @@ class FilterCodec {
   /// `VectorStoreRepository` contract and matching the sqlite-vec store.
   static String? encode(Filter? filter, FilterSchema schema) {
     if (filter == null || filter.isEmpty) return null;
+
     final map = <String, Object>{};
-    final must = _encodeBucket(filter.must, schema);
-    if (must != null) map['must'] = must;
-    final should = _encodeBucket(filter.should, schema);
-    if (should != null) map['should'] = should;
-    final mustNot = _encodeBucket(filter.mustNot, schema);
-    if (mustNot != null) map['must_not'] = mustNot;
+    var impossible = false;
+
+    // A `must` bucket: everything must hold. A condition matching everything
+    // adds nothing; one matching nothing sinks the whole filter.
+    final must = <Map<String, Object>>[];
+    for (final c in _declared(filter.must, schema)) {
+      switch (_encodeCondition(c, schema)) {
+        case _MatchesAll():
+          break;
+        case _MatchesNone():
+          impossible = true;
+        case _Clause(:final json):
+          must.add(json);
+      }
+    }
+    if (must.isNotEmpty) map['must'] = must;
+
+    // A `should` bucket: at least one must hold. This is where dropping a
+    // no-op silently NARROWED the result — a condition that matches everything
+    // makes the whole disjunction true, so the bucket must disappear, not lose
+    // one arm. And if every arm matches nothing, the bucket is unsatisfiable.
+    final shouldConditions = _declared(filter.should, schema);
+    if (shouldConditions.isNotEmpty) {
+      final should = <Map<String, Object>>[];
+      var alwaysTrue = false;
+      for (final c in shouldConditions) {
+        switch (_encodeCondition(c, schema)) {
+          case _MatchesAll():
+            alwaysTrue = true;
+          case _MatchesNone():
+            break;
+          case _Clause(:final json):
+            should.add(json);
+        }
+      }
+      if (!alwaysTrue) {
+        if (should.isEmpty) {
+          impossible = true;
+        } else {
+          map['should'] = should;
+        }
+      }
+    }
+
+    // A `must_not` bucket: qdrant's check is all(|c| !check(c)), so the two
+    // degenerate cases swap places relative to `must`. Excluding something no
+    // point matches excludes nothing; excluding something EVERY point matches
+    // leaves nothing.
+    final mustNot = <Map<String, Object>>[];
+    for (final c in _declared(filter.mustNot, schema)) {
+      switch (_encodeCondition(c, schema)) {
+        case _MatchesAll():
+          impossible = true;
+        case _MatchesNone():
+          break;
+        case _Clause(:final json):
+          mustNot.add(json);
+      }
+    }
+    if (mustNot.isNotEmpty) map['must_not'] = mustNot;
+
+    if (impossible) {
+      // An empty interval: `Range::check_range` is inclusive at both ends, so
+      // `1 <= v <= 0` holds for no number, and a non-numeric payload fails the
+      // range check outright. Encoded on a key we actually saw, so the shape
+      // stays a well-formed condition rather than a special token.
+      final key = _anyKey(filter) ?? '';
+      return jsonEncode({
+        'must': [
+          {
+            'key': key,
+            'range': {'gte': 1, 'lte': 0},
+          },
+        ],
+      });
+    }
     if (map.isEmpty) return null; // every condition was undeclared → no-op
     return jsonEncode(map);
   }
 
-  /// Encodes one bucket, dropping conditions on undeclared fields. Returns null
-  /// when the bucket is empty or every condition was dropped.
-  static List<Map<String, Object>>? _encodeBucket(
+  static Iterable<Condition> _declared(
     List<Condition>? conditions,
     FilterSchema schema,
-  ) {
-    if (conditions == null || conditions.isEmpty) return null;
-    final encoded = <Map<String, Object>>[
-      for (final c in conditions)
-        if (schema.fieldFor(c.key) != null)
-          // Null means the condition constrains nothing (an unbounded range),
-          // so it contributes no clause — the same no-op the SQLite arm applies.
-          ?_encodeCondition(c),
-    ];
-    return encoded.isEmpty ? null : encoded;
+  ) => (conditions ?? const <Condition>[]).where(
+    (c) => schema.fieldFor(c.key) != null,
+  );
+
+  static String? _anyKey(Filter filter) {
+    for (final bucket in [filter.must, filter.should, filter.mustNot]) {
+      if (bucket != null && bucket.isNotEmpty) return bucket.first.key;
+    }
+    return null;
   }
 
-  static Map<String, Object>? _encodeCondition(Condition c) {
+  static _Contribution _encodeCondition(Condition c, FilterSchema schema) {
+    final field = schema.fieldFor(c.key)!;
     switch (c) {
       case FieldEquals(:final key, :final value):
         // A NUMBER is compared by value, not by JSON spelling — `4` and `4.0`
@@ -77,31 +146,151 @@ class FilterCodec {
         // and quietly matches nothing. A degenerate range says the same thing
         // in a form qdrant compares numerically.
         if (value is num) {
-          return {
+          if (!_isFinite(value)) return const _MatchesNone();
+          return _Clause({
             'key': key,
             'range': {'gte': value, 'lte': value},
-          };
+          });
         }
-        return {
+        if (field.type == FilterFieldType.bool) {
+          return _Clause({'should': _boolSpellings(key, value)});
+        }
+        return _Clause({
           'key': key,
           'match': {'value': value},
-        };
+        });
+
       case FieldMatchAny(:final key, :final values):
-        return {
+        // Same trap as FieldEquals above, and it was left here when that one
+        // was fixed. AnyVariants is Strings(IndexSet<String>) |
+        // Integers(IndexSet<i64>) — no float arm — and the checker compares
+        // with `stored.as_i64()`. So `[2020]` misses a `2020.0` payload, and a
+        // Dart double in the list fails deserialization outright, throwing out
+        // of searchSimilar and breaking the never-throws guarantee.
+        //
+        // A nested `should` of degenerate ranges says "is one of" in a form
+        // qdrant compares numerically. Condition::Filter(Filter) is a legal
+        // member of the untagged enum, so this nests.
+        // A bool field has two JSON spellings per value (see _boolSpellings),
+        // so it always needs the expanded form.
+        if (field.type == FilterFieldType.bool) {
+          final arms = [for (final v in values) ..._boolSpellings(key, v)];
+          if (arms.isEmpty) return const _MatchesNone();
+          return _Clause({'should': arms});
+        }
+
+        if (values.any((v) => v is num)) {
+          final arms = <Map<String, Object>>[];
+          for (final v in values) {
+            if (v is num) {
+              // Non-finite members are dropped, not encoded: they can match no
+              // stored value, so they add nothing to a disjunction. Encoding
+              // one would have reached jsonEncode, which refuses NaN and
+              // ±Infinity and would have thrown the whole search.
+              if (!_isFinite(v)) continue;
+              arms.add({
+                'key': key,
+                'range': {'gte': v, 'lte': v},
+              });
+            } else {
+              arms.add({
+                'key': key,
+                'match': {'value': v},
+              });
+            }
+          }
+          if (arms.isEmpty) return const _MatchesNone();
+          return _Clause({'should': arms});
+        }
+
+        // No numbers and no bools: `match.any` says it directly, and qdrant
+        // compares strings by equality, so the compact form is exact.
+        // "is one of nothing" matches nothing — the same reading the sqlite arm
+        // gives an empty set, and the reason its negation is a no-op.
+        if (values.isEmpty) return const _MatchesNone();
+        return _Clause({
           'key': key,
           'match': {'any': values},
-        };
+        });
+
       case FieldRange(:final key, :final gte, :final lte):
-        // A range with neither bound constrains nothing, so it must match
-        // everything — the same no-op the SQLite arm applies. Emitting an empty
-        // `range: {}` instead turns it into an existence test there, which
-        // EXCLUDES every document whose value is not numeric: the same filter
-        // then returns opposite sets on the two backends.
-        if (gte == null && lte == null) return null;
+        // A range with neither bound constrains nothing, so it matches
+        // everything — the same reading the SQLite arm applies. Emitting an
+        // empty `range: {}` instead turns it into an existence test there,
+        // which EXCLUDES every document whose value is not numeric: the same
+        // filter then returns opposite sets on the two backends.
+        if (gte == null && lte == null) return const _MatchesAll();
+        // A non-finite bound cannot be satisfied by any JSON number, and
+        // jsonEncode refuses to write it at all.
+        if (!_isFinite(gte) || !_isFinite(lte)) return const _MatchesNone();
         final range = <String, Object>{};
         if (gte != null) range['gte'] = gte;
         if (lte != null) range['lte'] = lte;
-        return {'key': key, 'range': range};
+        return _Clause({'key': key, 'range': range});
     }
   }
+
+  /// Both JSON spellings of a boolean, as a disjunction.
+  ///
+  /// qdrant stores the payload value verbatim, so `{"archived": true}` is
+  /// Bool(true) and `{"archived": 1}` is Integer(1) — two different variants of
+  /// an untagged enum, and `match: {value: true}` matches only the first. The
+  /// sqlite store coerces both to the integer 1 in a BOOLEAN column, so the
+  /// identical filter over identical documents answered differently on the two
+  /// backends. Accepting both spellings here is the query-side half of that
+  /// fix; it needs no migration of shards already written.
+  static List<Map<String, Object>> _boolSpellings(String key, Object? value) {
+    final asBool = value is bool ? value : (value is num ? value == 1 : null);
+    if (asBool == null) {
+      return [
+        {
+          'key': key,
+          'match': {'value': value as Object},
+        },
+      ];
+    }
+    return [
+      {
+        'key': key,
+        'match': {'value': asBool},
+      },
+      {
+        'key': key,
+        'range': {'gte': asBool ? 1 : 0, 'lte': asBool ? 1 : 0},
+      },
+    ];
+  }
+
+  /// True for a value that is either absent or a number JSON can represent.
+  ///
+  /// NaN and ±Infinity have no JSON literal, so no stored payload holds one and
+  /// no comparison against one can be satisfied. They also make `jsonEncode`
+  /// throw (measured: JsonUnsupportedObjectError), which is how they used to
+  /// leave `searchSimilar` — breaking the contract that a filter never throws.
+  static bool _isFinite(num? value) =>
+      value == null || value is! double || value.isFinite;
+}
+
+/// What one condition contributes to its bucket.
+///
+/// A single nullable clause used to stand for both "constrains nothing" and
+/// "can never match". Those are opposites in a `should` bucket — dropping the
+/// first narrows the result, when it should have made the whole disjunction
+/// true — and they swap places again under `must_not`. Naming them apart is
+/// what lets the bucket assembler treat each correctly.
+sealed class _Contribution {
+  const _Contribution();
+}
+
+class _MatchesAll extends _Contribution {
+  const _MatchesAll();
+}
+
+class _MatchesNone extends _Contribution {
+  const _MatchesNone();
+}
+
+class _Clause extends _Contribution {
+  const _Clause(this.json);
+  final Map<String, Object> json;
 }

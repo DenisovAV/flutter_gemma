@@ -35,15 +35,34 @@ void main() {
   //     the same way;
   //   * `a TEXT, b TEXT` (what `FilterField(name: 'a TEXT, b')` renders)
   //     succeeds and silently declares TWO columns.
-  // So the name is validated at declaration. These must throw in release too,
-  // hence a real throw rather than an assert.
+  // So the name is validated where each store calls validateName from
+  // configure() — NOT at the FilterField(…) declaration, which is a const
+  // constructor and can only assert. These must be rejected in release builds
+  // too, hence a real throw rather than an assert.
   group('FilterField.name validation', () {
     test('accepts letters, digits and underscores after a leading letter', () {
+      // Through validateName, which is the gate the stores actually run. The
+      // first version of this test constructed a FilterField and asserted
+      // `.name == name` — that is a field assignment, not an acceptance: the
+      // constructor does not validate, so it passed no matter what
+      // validateName did, including rejecting every one of these.
       for (final name in ['lang', 'docType', 'doc_type', 'a1', 'x', 'order']) {
         expect(
-          FilterField(name: name, type: FilterFieldType.string).name,
-          name,
+          () => FilterField.validateName(name),
+          returnsNormally,
           reason: '$name is a legal bare vec0 identifier',
+        );
+      }
+    });
+
+    test('rejects a name that cannot lead an identifier', () {
+      // vec0's tokenizer requires a LETTER first, so these are unrepresentable
+      // for the same reason a hyphen is.
+      for (final name in ['1lang', '_lang', '', ' lang', 'länge']) {
+        expect(
+          () => FilterField.validateName(name),
+          throwsArgumentError,
+          reason: '"$name" is not a bare vec0 identifier',
         );
       }
     });
@@ -60,24 +79,15 @@ void main() {
     });
 
     test('rejects a comma — the measured silent two-column declaration', () {
-      expect(
-        () => FilterField.validateName('a TEXT, b'),
-        throwsArgumentError,
-      );
+      expect(() => FilterField.validateName('a TEXT, b'), throwsArgumentError);
     });
 
     test('rejects a dot — qdrant would read it as a nested payload path', () {
-      expect(
-        () => FilterField.validateName('doc.type'),
-        throwsArgumentError,
-      );
+      expect(() => FilterField.validateName('doc.type'), throwsArgumentError);
     });
 
     test('rejects a double quote — it could terminate a quoted identifier', () {
-      expect(
-        () => FilterField.validateName('a"b'),
-        throwsArgumentError,
-      );
+      expect(() => FilterField.validateName('a"b'), throwsArgumentError);
     });
 
     test('rejects empty, leading digit, leading underscore and whitespace', () {

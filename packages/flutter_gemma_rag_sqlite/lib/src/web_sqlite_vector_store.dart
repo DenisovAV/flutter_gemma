@@ -293,32 +293,67 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
     try {
       final translated = FilterToVec0.translate(filter, _filterSchema);
+      // An unsatisfiable filter has one answer and it costs nothing to give:
+      // an empty result. Without this the over-fetch loop below would grow the
+      // candidate set to the 16x cap looking for rows that cannot exist, and
+      // then log that the result "may be truncated" — a warning about a
+      // shortfall that is the correct and complete answer.
+      if (translated.matchesNothing) return const [];
       final whereExtra = translated.whereSql.isEmpty
           ? ''
           : ' AND ${translated.whereSql}';
 
-      final rows = _db!.select(
-        'SELECT id, content, metadata, distance FROM $_tableName '
-        'WHERE embedding MATCH ? AND k = ?$whereExtra '
-        'ORDER BY distance',
-        [_embeddingToBlob(queryEmbedding), topK, ...translated.binds],
-      );
-
+      // Over-fetch exactly as the native arm does. Both arms share
+      // FilterToVec0, so the SQL and binds are byte-identical — and this loop
+      // was missing here, which meant the same filter answered `[d4]` on
+      // native and `[]` on web. See the native store for why an unpushable
+      // filter needs it at all.
+      var fetch = topK;
+      int? totalRows;
       final results = <RetrievalResult>[];
-      for (final row in rows) {
-        final distance = (row['distance'] as num).toDouble();
-        final similarity = 1.0 - distance; // cosine: 1 = identical
-        if (similarity < threshold) continue;
-        results.add(
-          RetrievalResult(
-            id: row['id'] as String,
-            content: row['content'] as String? ?? '',
-            similarity: similarity,
-            metadata: row['metadata'] as String?,
-          ),
+      var rowsReturned = 0;
+
+      while (true) {
+        final rows = _db!.select(
+          'SELECT id, content, metadata, distance FROM $_tableName '
+          'WHERE embedding MATCH ? AND k = ?$whereExtra '
+          'ORDER BY distance',
+          [_embeddingToBlob(queryEmbedding), fetch, ...translated.binds],
         );
+        rowsReturned = rows.length;
+
+        results.clear();
+        for (final row in rows) {
+          final similarity = 1.0 - (row['distance'] as num).toDouble();
+          // Ordered by distance, so this only trims the tail — not a reason to
+          // fetch more (see FilterToVec0.shouldOverFetch).
+          if (similarity < threshold) break;
+          results.add(
+            RetrievalResult(
+              id: row['id'] as String,
+              content: row['content'] as String? ?? '',
+              similarity: similarity,
+              metadata: row['metadata'] as String?,
+            ),
+          );
+        }
+
+        if (translated.whereSql.isEmpty) break;
+        totalRows ??=
+            _db!.select('SELECT COUNT(*) AS c FROM $_tableName').first['c']
+                as int;
+        if (!FilterToVec0.shouldOverFetch(
+          rowsReturned: rowsReturned,
+          topK: topK,
+          fetch: fetch,
+          totalRows: totalRows,
+        )) {
+          break;
+        }
+        fetch *= 2;
       }
-      return results;
+
+      return results.length > topK ? results.sublist(0, topK) : results;
     } catch (e) {
       throw VectorStoreException('Search failed', e);
     }

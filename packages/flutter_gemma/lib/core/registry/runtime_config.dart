@@ -111,6 +111,7 @@ class ActiveModelParams {
     this.maxNumImages,
     this.enableSpeculativeDecoding,
     this.maxConcurrentSessions,
+    this.loraRanks,
   });
 
   final int maxTokens;
@@ -123,13 +124,67 @@ class ActiveModelParams {
   final bool? enableSpeculativeDecoding;
   final int? maxConcurrentSessions;
 
+  /// MediaPipe LoRA ranks. Forwarded to the engine by `createModel`, so a
+  /// change must rebuild — it was the tenth knob and the comparison had nine.
+  final List<int>? loraRanks;
+
+  /// The same request with every value the engines normalise away already
+  /// applied, so two requests that build a bit-identical engine compare equal.
+  ///
+  /// Comparing the RAW arguments caused spurious rebuilds — and a rebuild here
+  /// unloads and reloads multi-gigabyte weights, so it is expensive and very
+  /// visible. Three knobs are normalised downstream:
+  ///
+  ///   * `maxNumImages` is `maxNumImages ?? 1` when vision is on and discarded
+  ///     entirely when it is off, in both engines. So null and 1 are the same
+  ///     request, and with `supportImage: false` the value is dead.
+  ///   * `preferredVisionBackend` / `preferredAudioBackend` default to CPU
+  ///     (`encoderBackendWireName(null) == 'cpu'`), which the facade's own doc
+  ///     tells callers — so writing the value explicitly followed the
+  ///     documentation into a reload.
+  ///
+  /// `maxTokens` is NOT normalised here: the `.litertlm` engine clamps it up to
+  /// 1024 but MediaPipe does not, so the effective value depends on which
+  /// engine `canHandle` picks and core cannot know it. A caller who asks for
+  /// 512 and then for the default 1024 still rebuilds on the litertlm path
+  /// even though both engines end up at 1024. Fixing that means moving the
+  /// clamp out of the engine and into core; it is left alone rather than
+  /// guessed at.
+  ActiveModelParams normalized() => ActiveModelParams(
+    maxTokens: maxTokens,
+    preferredBackend: preferredBackend,
+    preferredVisionBackend: preferredVisionBackend ?? PreferredBackend.cpu,
+    preferredAudioBackend: preferredAudioBackend ?? PreferredBackend.cpu,
+    supportImage: supportImage,
+    supportAudio: supportAudio,
+    maxNumImages: supportImage ? (maxNumImages ?? 1) : null,
+    enableSpeculativeDecoding: enableSpeculativeDecoding,
+    maxConcurrentSessions: maxConcurrentSessions,
+    loraRanks: loraRanks,
+  );
+
   /// Name of the first parameter that differs from [other], or null when the
-  /// cached model can be reused.
+  /// cached model can be reused. Both sides are [normalized] first.
   ///
   /// Returns the NAME rather than a bool so the caller can say which knob
   /// forced the reload. "Model recreation: paramsChanged=true" tells nobody
   /// what to change.
   String? firstDifference(ActiveModelParams other) {
+    final a = normalized();
+    final b = other.normalized();
+    return a._rawDifference(b);
+  }
+
+  static bool _sameRanks(List<int>? a, List<int>? b) {
+    if (identical(a, b)) return true;
+    if (a == null || b == null || a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  String? _rawDifference(ActiveModelParams other) {
     if (maxTokens != other.maxTokens) return 'maxTokens';
     if (preferredBackend != other.preferredBackend) return 'preferredBackend';
     if (preferredVisionBackend != other.preferredVisionBackend) {
@@ -147,6 +202,7 @@ class ActiveModelParams {
     if (maxConcurrentSessions != other.maxConcurrentSessions) {
       return 'maxConcurrentSessions';
     }
+    if (!_sameRanks(loraRanks, other.loraRanks)) return 'loraRanks';
     return null;
   }
 }

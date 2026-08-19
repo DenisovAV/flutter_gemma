@@ -263,54 +263,58 @@ void main() {
         repo.configure(schema);
       });
 
-      test('over-fetches past the top-k when the filter is not pushable', () async {
-        // A cross-column OR cannot be pushed into vec0's KNN, so SQLite applies
-        // it AFTER vec0 has already chosen k rows. Without over-fetching this
-        // returns nothing: the nearest rows match neither condition, and a
-        // post-filter cannot reach past them.
-        //
-        // Seed so the two nearest are non-matching and the matches sit behind
-        // them — the exact shape that used to come back empty.
-        await repo.initialize(dbPath);
-        for (var i = 0; i < 6; i++) {
+      test(
+        'over-fetches past the top-k when the filter is not pushable',
+        () async {
+          // A cross-column OR cannot be pushed into vec0's KNN, so SQLite applies
+          // it AFTER vec0 has already chosen k rows. Without over-fetching this
+          // returns nothing: the nearest rows match neither condition, and a
+          // post-filter cannot reach past them.
+          //
+          // Seed so the two nearest are non-matching and the matches sit behind
+          // them — the exact shape that used to come back empty.
+          await repo.initialize(dbPath);
+          for (var i = 0; i < 6; i++) {
+            await repo.addDocument(
+              id: 'near$i',
+              content: 'near $i',
+              embedding: [1.0 - i * 0.01, i * 0.01, 0.0, 0.0],
+              metadata: '{"lang":"de","year":1990,"archived":false}',
+            );
+          }
           await repo.addDocument(
-            id: 'near$i',
-            content: 'near $i',
-            embedding: [1.0 - i * 0.01, i * 0.01, 0.0, 0.0],
-            metadata: '{"lang":"de","year":1990,"archived":false}',
+            id: 'far-fr',
+            content: 'far fr',
+            embedding: [0.0, 1.0, 0.0, 0.0],
+            metadata: '{"lang":"fr","year":1990,"archived":false}',
           );
-        }
-        await repo.addDocument(
-          id: 'far-fr',
-          content: 'far fr',
-          embedding: [0.0, 1.0, 0.0, 0.0],
-          metadata: '{"lang":"fr","year":1990,"archived":false}',
-        );
-        await repo.addDocument(
-          id: 'far-2020',
-          content: 'far 2020',
-          embedding: [0.0, 0.9, 0.1, 0.0],
-          metadata: '{"lang":"de","year":2020,"archived":false}',
-        );
+          await repo.addDocument(
+            id: 'far-2020',
+            content: 'far 2020',
+            embedding: [0.0, 0.9, 0.1, 0.0],
+            metadata: '{"lang":"de","year":2020,"archived":false}',
+          );
 
-        final got = await repo.searchSimilar(
-          queryEmbedding: [1.0, 0.0, 0.0, 0.0],
-          topK: 2,
-          filter: const Filter(
-            should: [
-              FieldEquals(key: 'lang', value: 'fr'),
-              FieldEquals(key: 'year', value: 2020),
-            ],
-          ),
-        );
+          final got = await repo.searchSimilar(
+            queryEmbedding: [1.0, 0.0, 0.0, 0.0],
+            topK: 2,
+            filter: const Filter(
+              should: [
+                FieldEquals(key: 'lang', value: 'fr'),
+                FieldEquals(key: 'year', value: 2020),
+              ],
+            ),
+          );
 
-        expect(
-          got.map((r) => r.id),
-          unorderedEquals(['far-fr', 'far-2020']),
-          reason: 'without over-fetch the post-filter sees only the 2 nearest, '
-              'which match neither condition, and returns nothing',
-        );
-      });
+          expect(
+            got.map((r) => r.id),
+            unorderedEquals(['far-fr', 'far-2020']),
+            reason:
+                'without over-fetch the post-filter sees only the 2 nearest, '
+                'which match neither condition, and returns nothing',
+          );
+        },
+      );
 
       Future<void> seed() async {
         await repo.addDocument(

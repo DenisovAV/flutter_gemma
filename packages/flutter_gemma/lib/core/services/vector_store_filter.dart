@@ -105,6 +105,37 @@ class FieldEquals extends Condition {
 ///
 /// Ranges apply to numeric fields only. On a string or bool field the condition
 /// is a no-op rather than an error — see [Filter] on why filters do not throw.
+/// ## Degenerate conditions
+///
+/// Two kinds of condition do nothing, and they are NOT the same thing:
+///
+///   * **Ignored** — the condition is skipped as if it were never written:
+///     a key not declared in the [FilterSchema], or a [FieldRange] on a
+///     non-numeric field. Both stores drop it from every bucket, so the result
+///     is identical to omitting it. This is a contract choice (see [Filter] on
+///     why filters do not throw), not a truth value.
+///   * **Always true / always false** — the condition IS evaluated and has a
+///     constant answer: an unbounded [FieldRange] matches every document, and
+///     a [FieldMatchAny] over an empty list matches none.
+///
+/// The difference only shows once a bucket is not a conjunction. In `should`
+/// (an OR) a condition that matches everything makes the whole bucket true, so
+/// dropping it NARROWS the result; in `mustNot` the two swap places, because
+/// the check is "no condition may match" — excluding something every document
+/// satisfies leaves nothing, and excluding something no document satisfies
+/// excludes nothing. Both stores encode this per bucket.
+///
+/// ## Non-finite numbers
+///
+/// NaN and ±Infinity have no JSON literal, so no stored payload can hold one:
+/// a comparison against one matches nothing. Both stores implement exactly
+/// that, and neither throws — measured, `jsonEncode` rejects all three, which
+/// is how they used to escape qdrant's `searchSimilar`, and on sqlite
+/// -Infinity is the absent-value sentinel, so `FieldEquals(f, -inf)` returned
+/// precisely the documents that have no `f` at all. [FieldRange] additionally
+/// asserts its bounds are finite — an early warning at the call site, not a
+/// different rule; asserts vanish in release, where the stores' handling is
+/// what holds.
 class FieldRange extends Condition {
   @override
   final String key;
@@ -163,8 +194,11 @@ enum FilterFieldType { string, number, bool }
 /// ## Name rules
 ///
 /// [name] must match [namePattern] — an ASCII letter, then ASCII letters,
-/// digits or underscores (`^[A-Za-z][A-Za-z0-9_]*$`). Anything else throws an
-/// [ArgumentError] from the constructor, at the declaration the caller wrote.
+/// digits or underscores (`^[A-Za-z][A-Za-z0-9_]*$`). Anything else is rejected
+/// by [validateName], which each store calls from `configure()` — so the throw
+/// lands when the schema is handed to a store, NOT at the `FilterField(…)`
+/// declaration. The constructor is `const` and can only assert (see below), so
+/// it catches an empty name in development and nothing at all in release.
 ///
 /// The rule is not a stylistic preference, it is the intersection of what the
 /// backends can express, and `vec0` is the binding constraint:

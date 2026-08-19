@@ -65,6 +65,46 @@ void main() {
       fields: [FilterField(name: 'category', type: FilterFieldType.string)],
     );
 
+    test('a document missing the field is RETURNED by mustNot', () {
+      // The rule this PR wrote into core: a missing key never satisfies a
+      // condition, so must excludes such a document and mustNot keeps it —
+      // matching qdrant's check_must_not, which is all(|c| !check(c)).
+      //
+      // Absent fields are stored as a sentinel, so `col != ?` is true of them
+      // and this works. The one-sided `lte` negation did NOT: `col > lte` is
+      // false of -Infinity, so it silently dropped every document lacking the
+      // field. That is why these assert on ROWS.
+      db.execute(
+        "INSERT INTO v(id, embedding, category) VALUES "
+        "('absent', '[0,0.7,0.3,0]', char(0) || '__absent__')",
+      );
+
+      final got = search(
+        const Filter(
+          mustNot: [FieldEquals(key: 'category', value: 'a')],
+        ),
+        schema,
+        k: 4,
+      );
+      expect(got, contains('absent'));
+    });
+
+    test('a document missing the field is EXCLUDED by must', () {
+      db.execute(
+        "INSERT INTO v(id, embedding, category) VALUES "
+        "('absent', '[0,0.7,0.3,0]', char(0) || '__absent__')",
+      );
+
+      final got = search(
+        const Filter(
+          must: [FieldEquals(key: 'category', value: 'a')],
+        ),
+        schema,
+        k: 4,
+      );
+      expect(got, isNot(contains('absent')));
+    });
+
     test('excluding the two nearest still returns k rows', () {
       // The regression: `NOT (category = 'a')` returned ZERO rows here, because
       // vec0 handed SQLite d1 and d2 and both were then discarded.

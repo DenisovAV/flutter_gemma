@@ -273,28 +273,32 @@ class SqliteVectorStore implements VectorStoreRepository {
     }
 
     final translated = FilterToVec0.translate(filter, _filterSchema);
+    // An unsatisfiable filter has one answer and it costs nothing to give:
+    // an empty result. Without this the over-fetch loop below would grow the
+    // candidate set to the 16x cap looking for rows that cannot exist, and
+    // then log that the result "may be truncated" — a warning about a
+    // shortfall that is the correct and complete answer.
+    if (translated.matchesNothing) return const [];
     final whereExtra = translated.whereSql.isEmpty
         ? ''
         : ' AND ${translated.whereSql}';
 
     // vec0's KNN takes a conjunction of single-column comparisons and nothing
     // else. A filter it cannot accept — a cross-column OR, a CASE over a FLOAT
-    // set, a two-sided NOT BETWEEN — is not rejected: SQLite quietly evaluates
-    // it AFTER vec0 has already chosen its k rows. That is a post-filter over a
-    // global top-k, and it can only ever return FEWER than k, never reach past
-    // them. Measured: two conditions on different columns, k=2, with the two
-    // nearest rows matching neither, returned zero rows while three documents
+    // set, a NOT BETWEEN — is not rejected: SQLite quietly evaluates it AFTER
+    // vec0 has already chosen its k rows. That is a post-filter over a global
+    // top-k, and it can only ever return FEWER than k, never reach past them.
+    // Measured: two conditions on different columns at k=2, with the two
+    // nearest matching neither, returned zero rows while three documents
     // satisfied the filter.
     //
-    // So when the filter is not fully pushable, ask vec0 for more and keep
-    // doubling until k survive the post-filter — bounded, because unbounded
-    // growth degenerates to a full scan on a large collection. Past the cap we
-    // return what we have and SAY the result is short, rather than presenting a
-    // truncated answer as a complete one.
-    final needsOverFetch = translated.whereSql.isNotEmpty;
+    // So ask vec0 for more and keep doubling until k survive — bounded,
+    // because unbounded growth degenerates to a full scan. Past the cap we
+    // return what we have and say the result is short.
     var fetch = topK;
-    int? totalRows; // read once, and only if over-fetching actually starts
-    List<RetrievalResult> results = const [];
+    int? totalRows;
+    final results = <RetrievalResult>[];
+    var rowsReturned = 0;
 
     while (true) {
       final rows = _db!.select(
@@ -303,13 +307,16 @@ class SqliteVectorStore implements VectorStoreRepository {
         'ORDER BY distance',
         [_embeddingToBlob(queryEmbedding), fetch, ...translated.binds],
       );
+      rowsReturned = rows.length;
 
-      final batch = <RetrievalResult>[];
+      results.clear();
       for (final row in rows) {
         // vec0 returns cosine DISTANCE; similarity = 1 - distance.
         final similarity = 1.0 - (row['distance'] as num).toDouble();
-        if (similarity < threshold) continue;
-        batch.add(
+        // Rows arrive ordered by distance, so this can only trim the tail —
+        // it is NOT a reason to fetch more (see FilterToVec0.shouldOverFetch).
+        if (similarity < threshold) break;
+        results.add(
           RetrievalResult(
             id: row['id'] as String,
             content: row['content'] as String? ?? '',
@@ -318,41 +325,42 @@ class SqliteVectorStore implements VectorStoreRepository {
           ),
         );
       }
-      results = batch;
 
-      if (!needsOverFetch || results.length >= topK) break;
-
-      // `rows` is ALREADY filtered — SQLite applies the WHERE before handing
-      // rows back — so its length cannot tell "vec0 ran out" from "the filter
-      // rejected them". Comparing it against `fetch` was wrong and stopped the
-      // loop on the first round, which is precisely the case over-fetching
-      // exists for. Ask the table how many rows there are instead; once we
-      // have requested them all, more cannot appear.
+      if (translated.whereSql.isEmpty) break;
       totalRows ??=
           _db!.select('SELECT COUNT(*) AS c FROM $_tableName').first['c']
               as int;
-      if (fetch >= totalRows) break;
-
-      if (fetch >= topK * _maxOverFetchFactor) {
-        gemmaLog(
-          '[SqliteVectorStore] searchSimilar returned ${results.length} of the '
-          'requested $topK after over-fetching ${topK * _maxOverFetchFactor} '
-          'candidates. The filter is not pushable into the KNN scan (a '
-          'cross-column OR, or a set over a number column), so matches beyond '
-          'that window are not reachable. Narrow the filter or lower topK.',
-        );
+      if (!FilterToVec0.shouldOverFetch(
+        rowsReturned: rowsReturned,
+        topK: topK,
+        fetch: fetch,
+        totalRows: totalRows,
+      )) {
         break;
       }
       fetch *= 2;
     }
 
+    // Only a filter shortfall is worth reporting: a short result because the
+    // threshold trimmed the tail, or because the table simply holds fewer
+    // matches, is not something the caller can fix by narrowing the filter.
+    final hitTheCap =
+        totalRows != null &&
+        fetch < totalRows &&
+        fetch >= topK * FilterToVec0.maxOverFetchFactor;
+    if (rowsReturned < topK && hitTheCap) {
+      gemmaLog(
+        '[SqliteVectorStore] searchSimilar found $rowsReturned of the '
+        'requested $topK after over-fetching '
+        '${topK * FilterToVec0.maxOverFetchFactor} candidates. This filter '
+        'cannot be pushed into the KNN scan (a cross-column OR, a set over a '
+        'number column, or a negated two-sided range), so matches beyond that '
+        'window are unreachable. Narrow the filter or lower topK.',
+      );
+    }
+
     return results.length > topK ? results.sublist(0, topK) : results;
   }
-
-  /// How far over-fetching may grow, as a multiple of the requested topK.
-  /// Bounded on purpose: without a cap an unpushable filter turns every search
-  /// into an O(n) scan, and the cost is invisible until the collection is big.
-  static const int _maxOverFetchFactor = 16;
 
   @override
   Future<VectorStoreStats> getStats() async {

@@ -310,9 +310,9 @@ void main() {
       );
       expect(
         out.whereSql,
-        '"lang" IN (?, ?) AND "year" >= ? AND "price" > ?',
+        '"lang" IN (?, ?) AND "year" >= ? AND "price" NOT BETWEEN ? AND ?',
       );
-      expect(out.binds, ['en', 'fr', 2000.0, 5.0]);
+      expect(out.binds, ['en', 'fr', 2000.0, -double.maxFinite, 5.0]);
     });
   });
 }

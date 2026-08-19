@@ -83,6 +83,17 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   /// type compares all nine and names the one that differs.
   ActiveModelParams? _lastInferenceParams;
 
+  /// What the IN-FLIGHT build is building, while [_initCompleter] is pending.
+  ///
+  /// Deliberately separate from [_lastInferenceParams], which describes the
+  /// model that already exists. One field cannot mean both without the two
+  /// states becoming indistinguishable — and "cached model" vs "model being
+  /// built" is exactly the distinction the race below turns on.
+  ///
+  /// Kept in lockstep with [_initCompleter]: set where that is created,
+  /// cleared everywhere it is cleared.
+  ({String specName, ActiveModelParams params})? _inFlightRequest;
+
   // Embedding model
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
   EmbeddingModel? _initializedEmbeddingModel;
@@ -139,6 +150,10 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       );
     }
 
+    // Hoisted out of the reuse check below: the in-flight race also
+    // needs it, and that runs when the reuse check does not.
+    final requestedSpec = activeModel as InferenceModelSpec;
+
     // Captured once: compared against the cached model below, and recorded as
     // the new baseline after a successful build.
     final requestedParams = ActiveModelParams(
@@ -158,12 +173,20 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         _initializedModel != null &&
         _lastActiveInferenceSpec != null) {
       final currentSpec = _lastActiveInferenceSpec!;
-      final requestedSpec = activeModel as InferenceModelSpec;
 
       final modelChanged = currentSpec.name != requestedSpec.name;
-      final changedParam = _lastInferenceParams?.firstDifference(
-        requestedParams,
-      );
+      // A MISSING baseline must mean rebuild, not reuse. `?.` here returned
+      // null when _lastInferenceParams was unset, and null is this function's
+      // word for "nothing changed" — so "we have no record of what this model
+      // was built with" and "it was built with exactly this" took the same
+      // branch. That is the same collapse this whole block exists to fix, one
+      // level up. The costs are not symmetric: guessing "rebuild" reloads
+      // weights that were already right, guessing "reuse" hands back a model
+      // configured for something else and says nothing.
+      final baseline = _lastInferenceParams;
+      final changedParam = baseline == null
+          ? 'unknown — no recorded config for the cached model'
+          : baseline.firstDifference(requestedParams);
 
       if (modelChanged || changedParam != null) {
         // Name the knob. "paramsChanged=true" told nobody what to change.
@@ -176,6 +199,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         );
         await _initializedModel?.close();
         _initCompleter = null;
+        _inFlightRequest = null;
         _initializedModel = null;
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
@@ -186,15 +210,60 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     }
 
     // Return existing completer if initialization in progress
+    // A build may already be in flight — an earlier caller is inside
+    // engine.createModel. Returning that future unconditionally, which is what
+    // this did, hands THIS caller a model built to somebody else's request:
+    // two getActiveModel calls that race, one asking for GPU and one for CPU,
+    // both get whichever started first and the loser is never told. It is the
+    // same defect as the name-only reuse check above, just in the window where
+    // the cached model does not exist yet — so the check above cannot see it.
     if (_initCompleter case Completer<InferenceModel> completer) {
-      return completer.future;
+      final pending = _inFlightRequest;
+      final changedParam = pending?.params.firstDifference(requestedParams);
+      final sameModel = pending?.specName == requestedSpec.name;
+      if (pending != null && sameModel && changedParam == null) {
+        // Genuinely the same request — sharing the in-flight build is the
+        // point of the completer.
+        return completer.future;
+      }
+      gemmaLog(
+        '⏳ A model build is already in flight with a different request '
+        '(${sameModel ? 'config $changedParam' : 'model ${pending?.specName} → ${requestedSpec.name}'})'
+        ' — waiting for it, then rebuilding',
+      );
+      try {
+        await completer.future;
+      } catch (_) {
+        // That build failed. Its own catch resets the state and its caller
+        // receives the error, so nothing is being swallowed here — fall
+        // through and build fresh for THIS caller.
+      }
+      // Re-enter rather than tear down mid-build: the first caller's future
+      // stays valid and gets the model it asked for, and only then is it
+      // replaced. On re-entry the reuse check above sees a built model whose
+      // params differ and does the ordinary close-and-rebuild, so this
+      // terminates — the rebuild records these params as the new baseline.
+      return createModel(
+        modelType: modelType,
+        fileType: fileType,
+        maxTokens: maxTokens,
+        preferredBackend: preferredBackend,
+        preferredVisionBackend: preferredVisionBackend,
+        preferredAudioBackend: preferredAudioBackend,
+        loraRanks: loraRanks,
+        maxNumImages: maxNumImages,
+        supportImage: supportImage,
+        supportAudio: supportAudio,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
+        maxConcurrentSessions: maxConcurrentSessions,
+      );
     }
 
     final completer = _initCompleter = Completer<InferenceModel>();
+    _inFlightRequest = (specName: requestedSpec.name, params: requestedParams);
 
     try {
-      final specForGates = activeModel as InferenceModelSpec;
-      final isBuiltIn = specForGates.fileType == ModelFileType.builtIn;
+      final isBuiltIn = requestedSpec.fileType == ModelFileType.builtIn;
 
       String modelPath = '';
       if (!isBuiltIn) {
@@ -216,7 +285,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         gemmaLog('[FlutterGemmaDesktop] Using model: $modelPath');
       } else {
         gemmaLog(
-          '[FlutterGemmaDesktop] Built-in model ${specForGates.name}: '
+          '[FlutterGemmaDesktop] Built-in model ${requestedSpec.name}: '
           'skipping file/installed checks (no on-disk file)',
         );
       }
@@ -228,7 +297,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // empty (or no engine canHandle the spec), the findFor==null StateError
       // below fires. Desktop is litertlm-only; a `.task` request would simply
       // find no matching engine.
-      final spec = specForGates;
+      final spec = requestedSpec;
       final config = RuntimeConfig(
         maxTokens: maxTokens,
         modelPath: modelPath,
@@ -259,16 +328,22 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       model.addCloseListener(() {
         _initializedModel = null;
         _initCompleter = null;
+        _inFlightRequest = null;
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
       });
 
       _lastActiveInferenceSpec = spec;
+      // Nothing is in flight any more. Leaving this set would be a field
+      // outliving its meaning — the reuse check above happens to shadow it
+      // today, which is not a reason to keep a stale one around.
+      _inFlightRequest = null;
       completer.complete(model);
       return model;
     } catch (e, st) {
       completer.completeError(e, st);
       _initCompleter = null;
+      _inFlightRequest = null;
       _initializedModel = null;
       _lastActiveInferenceSpec = null;
       _lastInferenceParams = null;

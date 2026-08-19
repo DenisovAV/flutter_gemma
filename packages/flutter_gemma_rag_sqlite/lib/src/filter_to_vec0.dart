@@ -68,12 +68,10 @@ class FilterToVec0 {
   /// The returned [whereSql] does NOT include the leading `WHERE`/`AND` — the
   /// caller splices it in after `embedding MATCH ? AND k = ?`. It is empty when
   /// there is nothing to filter on.
-  static ({String whereSql, List<Object?> binds}) translate(
-    Filter? filter,
-    FilterSchema schema,
-  ) {
+  static ({String whereSql, List<Object?> binds, bool matchesNothing})
+  translate(Filter? filter, FilterSchema schema) {
     if (filter == null || filter.isEmpty) {
-      return (whereSql: '', binds: const []);
+      return (whereSql: '', binds: const [], matchesNothing: false);
     }
 
     final binds = <Object?>[];
@@ -82,13 +80,35 @@ class FilterToVec0 {
     final mustSql = _joinConditions(filter.must, schema, binds, ' AND ');
     if (mustSql != null) groups.add(mustSql);
 
-    final shouldSql = _joinConditions(
-      _fuseOneFieldDisjunction(filter.should, schema),
-      schema,
-      binds,
-      ' OR ',
-    );
-    if (shouldSql != null) groups.add('($shouldSql)');
+    // `should` is an OR, and that is where dropping a no-op goes wrong. A
+    // condition that matches EVERY document makes the whole disjunction true,
+    // so the bucket must disappear — losing just that arm leaves the remaining
+    // arms as a real constraint, strictly narrower than no filter at all. The
+    // condition that was supposed to be ignored would change the answer.
+    //
+    // "Ignored" and "always true" are different (see core's Condition
+    // dartdoc): an undeclared key or a range on a text column is skipped as if
+    // never written, in every bucket. Only an unbounded range on a numeric
+    // field is evaluated-and-true, and _shouldBucketIsAlwaysTrue asks about
+    // exactly that.
+    final fusedShould = _fuseOneFieldDisjunction(filter.should, schema);
+    final shouldIsAlwaysTrue = _bucketIsAlwaysTrue(fusedShould, schema);
+    if (!shouldIsAlwaysTrue) {
+      final shouldSql = _joinConditions(fusedShould, schema, binds, ' OR ');
+      if (shouldSql != null) {
+        groups.add('($shouldSql)');
+      } else if (fusedShould != null &&
+          fusedShould.any((c) => schema.fieldFor(c.key) != null)) {
+        // Every declared arm matches nothing, so the disjunction does too.
+        return (whereSql: '', binds: const [], matchesNothing: true);
+      }
+    }
+
+    // mustNot is "no condition may match", so the two degenerate cases swap
+    // places: excluding a condition EVERY document satisfies leaves nothing.
+    if (_bucketIsAlwaysTrue(filter.mustNot, schema)) {
+      return (whereSql: '', binds: const [], matchesNothing: true);
+    }
 
     // mustNot = "no condition may match". The obvious rendering is
     // NOT (A OR B …), and that is what this used to emit — but vec0 accepts
@@ -108,9 +128,38 @@ class FilterToVec0 {
     if (mustNotSql != null) groups.add(mustNotSql);
 
     if (groups.isEmpty) {
-      return (whereSql: '', binds: const []);
+      return (whereSql: '', binds: const [], matchesNothing: false);
     }
-    return (whereSql: groups.join(' AND '), binds: binds);
+    return (
+      whereSql: groups.join(' AND '),
+      binds: binds,
+      matchesNothing: false,
+    );
+  }
+
+  /// Whether [conditions] contains one that is EVALUATED and true of every
+  /// document — as opposed to one that is ignored (see core's `Condition`
+  /// dartdoc for why those are not the same).
+  ///
+  /// Today that is exactly an unbounded [FieldRange] on a declared numeric
+  /// field: no bound is no constraint. A range on a text/bool column is
+  /// ignored instead, and an undeclared key is ignored in every bucket.
+  static bool _bucketIsAlwaysTrue(
+    List<Condition>? conditions,
+    FilterSchema schema,
+  ) {
+    if (conditions == null) return false;
+    for (final c in conditions) {
+      final field = schema.fieldFor(c.key);
+      if (field == null) continue; // ignored, not true
+      if (c is FieldRange &&
+          c.gte == null &&
+          c.lte == null &&
+          field.type == FilterFieldType.number) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Rewrites a `should` bucket that is entirely set membership over ONE
@@ -133,13 +182,29 @@ class FilterToVec0 {
     FilterSchema schema,
   ) {
     if (conditions == null || conditions.length < 2) return conditions;
+
+    // Partition rather than bail out. An earlier version returned the whole
+    // list untouched the moment it met a FieldRange — and if that range then
+    // emitted nothing (unbounded, or on a non-number field: both documented
+    // no-ops), what was left was exactly the raw same-column OR this fusion
+    // exists to prevent. SQLite folds it back to `IN`, and vec0 refuses `IN`
+    // on a FLOAT column, so adding a documented no-op to a working filter
+    // turned it into a throw.
     String? key;
     final values = <Object>[];
+    final untouched = <Condition>[];
     for (final condition in conditions) {
       // Undeclared keys contribute no fragment at all, so they cannot make the
       // bucket a mixed-column OR either.
       if (schema.fieldFor(condition.key) == null) continue;
-      if (key != null && condition.key != key) return conditions;
+      final fusable = switch (condition) {
+        FieldEquals() || FieldMatchAny() => true,
+        FieldRange() => false,
+      };
+      if (!fusable || (key != null && condition.key != key)) {
+        untouched.add(condition);
+        continue;
+      }
       key = condition.key;
       switch (condition) {
         case FieldEquals(:final value):
@@ -147,11 +212,11 @@ class FilterToVec0 {
         case FieldMatchAny(values: final members):
           values.addAll(members);
         case FieldRange():
-          return conditions; // not set membership
+          break; // unreachable — FieldRange is never fusable
       }
     }
-    if (key == null) return conditions; // every condition was undeclared
-    return [FieldMatchAny(key: key, values: values)];
+    if (key == null) return conditions; // nothing fusable was found
+    return [FieldMatchAny(key: key, values: values), ...untouched];
   }
 
   /// Renders one bucket's conditions, appending their binds to [binds] in SQL
@@ -231,10 +296,31 @@ class FilterToVec0 {
           return '$column < ?';
         }
         if (lte != null) {
+          // `col > lte` is the obvious negation and it is WRONG here: the
+          // absent-number sentinel is -Infinity, which is not > anything, so a
+          // document merely MISSING this field would be excluded. It must be
+          // returned — a missing key never satisfies a condition, so mustNot
+          // keeps it (see FieldEquals in core's vector_store_filter.dart, and
+          // qdrant's check_must_not, which is all(|c| !check(c))).
+          //
+          // `col > lte OR col = -Infinity` says it exactly, but a disjunction
+          // is not pushable. NOT BETWEEN covers both in one comparison — it is
+          // true of -Infinity and of everything above lte — at the cost of the
+          // same post-filter the two-sided negation already accepts. Measured:
+          // over d1{2020} d2{2021} d3{absent} d4{2019}, `col > 2020` returned
+          // [d2] and NOT BETWEEN returned [d2, d3].
+          binds.add(-double.maxFinite);
           binds.add(lte);
-          return '$column > ?';
+          return '$column NOT BETWEEN ? AND ?';
         }
-        return null; // constrains nothing, so neither does its negation
+        // Unreachable: an unbounded range in mustNot matches every document,
+        // so excluding it leaves nothing — translate() answers that before
+        // reaching here (_bucketIsAlwaysTrue). It used to return null, reading
+        // "constrains nothing, so neither does its negation", which inverted
+        // the meaning: the range constrains nothing because it is TRUE of
+        // everything, and excluding everything is the strongest constraint
+        // there is.
+        return null;
 
       case FieldMatchAny(:final values):
         // "match none of []" excludes nothing, so emit no constraint. Same for
@@ -410,7 +496,26 @@ class FilterToVec0 {
         return value is String ? value : null;
       case FilterFieldType.number:
         // `bool` is not a `num` in Dart, so booleans fall through to null.
-        return value is num ? value.toDouble() : null;
+        //
+        // NaN and ±Infinity are rejected here, and that is load-bearing rather
+        // than tidiness. JSON has no literal for any of them, so no stored
+        // payload can hold one and no comparison against one can be satisfied
+        // — which is precisely what returning null already means to both
+        // callers. Passing them through went wrong in two different ways:
+        //
+        //   * -Infinity IS the absent-value sentinel, so `FieldEquals(year,
+        //     -double.infinity)` bound -Infinity and matched exactly the
+        //     documents that have no `year` at all — the opposite of a filter
+        //     on year, and returned as an ordinary hit.
+        //   * on the qdrant side the same value reached `jsonEncode`, which
+        //     refuses all three (measured: JsonUnsupportedObjectError), so the
+        //     filter threw out of searchSimilar and broke the never-throws
+        //     contract the two stores share.
+        //
+        // Rejecting here makes both backends agree on one rule, stated in
+        // core's Condition dartdoc: a non-finite number matches nothing.
+        if (value is! num || !value.isFinite) return null;
+        return value.toDouble();
       case FilterFieldType.bool:
         if (value is bool) return value ? 1 : 0;
         // JSON often carries booleans as 0/1; anything else is not a boolean
@@ -420,6 +525,36 @@ class FilterToVec0 {
         }
         return null;
     }
+  }
+
+  /// How far over-fetching may grow, as a multiple of the requested topK.
+  /// Bounded on purpose: without a cap an unpushable filter turns every search
+  /// into an O(n) scan, and the cost is invisible until the collection is big.
+  static const int maxOverFetchFactor = 16;
+
+  /// Whether to ask vec0 for more candidates, given how many rows the LAST
+  /// query returned.
+  ///
+  /// [rowsReturned] must be the count SQLite handed back — already filtered,
+  /// but BEFORE any similarity-threshold rejection. Those two are not the same
+  /// limit and must not share a counter: rows arrive ordered by distance, so
+  /// once one falls below the threshold every later one does too, and
+  /// over-fetching for a threshold shortfall can never help. An earlier version
+  /// counted post-threshold rows and so scanned to 16x on a fully-pushed filter
+  /// that simply matched nothing, then blamed the filter in its log.
+  ///
+  /// Shared by the native and web stores. They are one dialect with two call
+  /// sites, and the web arm shipped without this loop at all — the same filter
+  /// answered `[d4]` on native and `[]` on web.
+  static bool shouldOverFetch({
+    required int rowsReturned,
+    required int topK,
+    required int fetch,
+    required int totalRows,
+  }) {
+    if (rowsReturned >= topK) return false; // enough survived the filter
+    if (fetch >= totalRows) return false; // asked for the whole table already
+    return fetch < topK * maxOverFetchFactor;
   }
 
   /// Sentinels written for a declared field a document does not carry.

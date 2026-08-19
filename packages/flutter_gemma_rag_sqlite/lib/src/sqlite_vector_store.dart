@@ -1,5 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
+
+import 'package:meta/meta.dart';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -81,7 +83,24 @@ class SqliteVectorStore implements VectorStoreRepository {
   /// real app the per-platform `vec0.<ext>` is bundled by `hook/build.dart`
   /// (Native Assets) and resolved by its bundled filename — the same mechanism
   /// qdrant-edge uses.
+  /// Host-test override for the loadable's path; null in production.
+  ///
+  /// The qdrant store already had this (`QdrantEdgeClient.debugOverrideDylibPath`)
+  /// and vec0 had only the environment variable, so a test could hand one store
+  /// its library and had to configure the other through the process environment
+  /// — which meant `tool/test_all.sh` had to know about it, and a plain
+  /// `flutter test` in this package failed on a dlopen for no visible reason.
+  /// Same mechanism on both sides now.
+  ///
+  /// Setting it after the first load has no effect: sqlite3 caches the
+  /// extension.
+  @visibleForTesting
+  static String? debugOverrideDylibPath;
+
   static String _resolveVec0Path() {
+    final testOverride = debugOverrideDylibPath;
+    if (testOverride != null && testOverride.isNotEmpty) return testOverride;
+
     final override = Platform.environment['VEC0_DYLIB'];
     if (override != null && override.isNotEmpty) return override;
 

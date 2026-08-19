@@ -266,6 +266,11 @@ void main() {
     setUp(() async {
       tmp = await Directory.systemTemp.createTemp('parity_');
 
+      // Both stores are pointed at their library the same way, from the same
+      // shared locator — see core's host_native_library.dart. Neither needs an
+      // environment variable.
+      // ignore: invalid_use_of_visible_for_testing_member
+      SqliteVectorStore.debugOverrideDylibPath = vec0Path;
       sqlite = SqliteVectorStore();
       sqlite.configure(schema);
       await sqlite.initialize('${tmp.path}/vec.db');

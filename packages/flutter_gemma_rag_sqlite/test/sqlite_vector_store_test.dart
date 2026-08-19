@@ -25,6 +25,7 @@ void main() {
     late String dbPath;
 
     setUp(() {
+      useHostNativeLibraries();
       repo = SqliteVectorStore();
       dbPath =
           '${Directory.systemTemp.path}/test_vec0_store_'

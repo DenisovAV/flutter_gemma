@@ -3,6 +3,14 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 /// Stub for SqliteVectorStore on web/WASM platforms.
 /// Web uses WebSqliteVectorStore (package:sqlite3/wasm + vec0) instead.
 class SqliteVectorStore implements VectorStoreRepository {
+  /// Present only so the stub keeps the same surface as the native class.
+  ///
+  /// Analysis resolves the conditional export to THIS file, so a static added
+  /// to the native arm and not to the stub is an error that `flutter test`
+  /// never sees and `flutter build web` reports much later. That drift is a
+  /// known hazard in this repo, so the two arms are kept in step by hand.
+  static String? debugOverrideDylibPath;
+
   @override
   bool get isInitialized => false;
 

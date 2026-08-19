@@ -26,6 +26,7 @@ void main() {
     late Database db;
 
     setUp(() {
+      useHostNativeLibraries();
       sqlite3.ensureExtensionLoaded(
         SqliteExtension.inLibrary(
           DynamicLibrary.open(vec0Path!),

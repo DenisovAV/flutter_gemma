@@ -1,3 +1,6 @@
+## 1.5.2
+- Android: embeddings no longer poison the loader, fixing zero-chunk streams and SIGABRT (#447).
+
 ## 1.5.1
 - Share the host-side native library lookup with core instead of a private copy.
 

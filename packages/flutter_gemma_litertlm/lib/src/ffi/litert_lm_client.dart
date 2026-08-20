@@ -12,6 +12,7 @@ import 'package:mutex/mutex.dart';
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
+import 'litert_default_scope.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
@@ -216,6 +217,13 @@ class LiteRtLmConversationHandle implements ConversationHandle {
 ///
 /// Top-level so it can be called from a spawned isolate, which cannot capture
 /// `this` or any other non-const closure state.
+///
+/// Deliberately a plain open, and safe only because of an ordering invariant:
+/// both callers run inside `initialize()`, which calls `_ensureBindings()` —
+/// and therefore `openLiteRtLmRequiringDefaultScope` — first. On Android a
+/// plain open cannot DEMOTE an already-global soinfo, so arriving second is
+/// harmless. If a future caller can reach this before `_ensureBindings`, it
+/// must go through litert_default_scope.dart instead or it reintroduces #447.
 DynamicLibrary _openLiteRtLmLibrary() {
   if (Platform.isIOS) {
     return DynamicLibrary.open(
@@ -225,7 +233,13 @@ DynamicLibrary _openLiteRtLmLibrary() {
   if (Platform.isMacOS) {
     return DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
   }
-  if (Platform.isLinux || Platform.isAndroid) {
+  if (Platform.isAndroid) {
+    // Through the helper rather than relying on the ordering invariant above.
+    // Best-effort variant: an isolate must not throw here, and by the time
+    // this runs the LLM path has already required the strict one.
+    return openLiteRtLmPreferringDefaultScope('libLiteRtLm.so');
+  }
+  if (Platform.isLinux) {
     return DynamicLibrary.open('libLiteRtLm.so');
   }
   return DynamicLibrary.open('LiteRtLm.dll');
@@ -573,34 +587,20 @@ class LiteRtLmFfiClient {
           'or run on an arm64-v8a device / Apple Silicon emulator.',
         );
       }
-      // Load StreamProxy first (it has stream_proxy_load_global helper)
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
-      // Load LiteRtLm with RTLD_GLOBAL so GPU accelerator plugins
-      // can find LiteRt* symbols via dlsym(RTLD_DEFAULT).
-      // Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
-      final loadGlobal = proxyLib
-          .lookupFunction<
-            Pointer Function(Pointer<Utf8>),
-            Pointer Function(Pointer<Utf8>)
-          >('stream_proxy_load_global');
-      final pathPtr = 'libLiteRtLm.so'.toNativeUtf8();
-      final handle = loadGlobal(pathPtr);
-      calloc.free(pathPtr);
-      if (handle == nullptr) {
-        // The most common cause we've seen is Android API < 30 (#265):
-        // upstream `libLiteRtLm.so` is built against Bionic 11+ libc and
-        // hard-references `pthread_cond_clockwait` / `sem_clockwait`,
-        // which don't exist on API 29 and below. Use a MediaPipe `.task`
-        // model instead, or bump `minSdkVersion` to 30.
-        throw Exception(
-          'Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
-          'On Android, this commonly indicates API < 30: `.litertlm` models '
-          'require Android 11+ (minSdkVersion 30). For older devices use a '
-          'MediaPipe `.task` model instead. See '
-          'https://github.com/DenisovAV/flutter_gemma/issues/265',
-        );
-      }
-      lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
+      // Load LiteRtLm into the default search scope so stream_proxy's ABI
+      // probe can resolve the v0.15 chunk accessors through
+      // dlsym(RTLD_DEFAULT); Dart's DynamicLibrary.open uses RTLD_LOCAL, which
+      // hides them. That probe is the ONLY verified consumer of ambient
+      // visibility here: measured on the shipped android_arm64 bundle, the GPU
+      // and OpenCL accelerators have zero undefined LiteRt* symbols, and the
+      // TopK samplers resolve theirs through DT_NEEDED, not RTLD_DEFAULT.
+      //
+      // Shared with the embeddings/speech entry point (litert_bindings.dart)
+      // because the two race for "first to open", and the loser used to decide
+      // the outcome silently. The helper also verifies the load rather than
+      // trusting a non-NULL handle — see its header and #447.
+      lib = openLiteRtLmRequiringDefaultScope('libLiteRtLm.so');
     } else {
       throw UnsupportedError(
         'Platform not supported for FFI: ${Platform.operatingSystem}',

@@ -81,6 +81,30 @@ from a SHA256-verified GitHub release — no manual setup on native platforms.
 
 ## Troubleshooting
 
+### Garbled or empty streams on Android (fixed in 1.5.2)
+
+Symptom: a generation delivers zero chunks and throws
+`Exception: Stream error: <U+FFFD>`, often followed by
+`Callback invoked after it has been deleted` and a `SIGABRT` that Dart cannot
+catch.
+
+Cause: on Android the first `dlopen` of `libLiteRtLm` decides, for the whole
+process, whether its exports are reachable from the default symbol search
+scope, and bionic never promotes an already-loaded library afterwards. Before
+1.5.2 the embeddings and speech entry point opened it locally, so an app that
+embedded or transcribed anything before its first generation left the
+stream-callback ABI probe unable to see the library — and the probe read that
+as "old library" and registered the wrong callback shape.
+
+Fix: upgrade to 1.5.2. If you load `libLiteRtLm` yourself from app or
+third-party code, load it before flutter_gemma does and with `RTLD_GLOBAL`.
+1.5.2 cannot repair that case — bionic never promotes an already-loaded library
+— but it no longer generates corrupt text: a `.litertlm` generation raises a
+`StateError` naming the condition, and embeddings or speech (which resolve
+through their own handle and do not need the symbols to be ambient) log a
+warning and carry on.
+See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
+
 ### `dlopen` / "library not found" (`libLiteRtLm`)
 
 `flutter_gemma_litertlm` is the sole owner of the shared native library

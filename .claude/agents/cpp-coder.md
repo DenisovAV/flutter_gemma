@@ -38,15 +38,33 @@ unconditionally, so a macOS build compiles happily and Linux fails with
 "RTLD_DEFAULT undeclared". `stream_proxy.c` opens with exactly this guard —
 preserve it, and put any new include after it.
 
-**Runtime ABI probing, not compile-time.** LiteRT-LM v0.15.0 changed
-`LiteRtLmStreamCallback` from four arguments to two (an opaque chunk object) with
-no compat overload and no version symbol. C linkage means a stale call shape
-still links and you get register garbage — ACCESS_VIOLATION on Windows,
-malformed UTF-8 on macOS, at the first token. `stream_proxy.c` therefore resolves
-`litert_lm_stream_chunk_get_text` via `dlsym(RTLD_DEFAULT, …)` /
-`GetProcAddress` and picks the shape at call time. When a C API signature moves
-upstream, that is the pattern: probe, do not `#ifdef` on a version you cannot
-see.
+**Runtime ABI probing — but NEVER against ambient scope.** LiteRT-LM v0.15.0
+changed `LiteRtLmStreamCallback` from four arguments to two (an opaque chunk
+object) with no compat overload and no version symbol. C linkage means a stale
+call shape still links and you get register garbage — ACCESS_VIOLATION on
+Windows, malformed UTF-8 on macOS, zero chunks then SIGABRT on Android, at the
+first token. So probing beats `#ifdef` on a version you cannot see.
+
+**Probe through a HANDLE, not `dlsym(RTLD_DEFAULT, …)`.** This is #447, and
+`stream_proxy.c` still carries the mistake: an ambient lookup answers "is this
+symbol reachable from the default search scope", which is NOT the question. On
+Android the answer is decided by whoever `dlopen`s the library FIRST — bionic
+files a soinfo's `RTLD_GLOBAL` flag at creation and never promotes it, so one
+`DynamicLibrary.open` anywhere in the process (Dart passes `RTLD_LAZY` alone;
+`System.loadLibrary` uses `RTLD_NOW` without `RTLD_GLOBAL`) leaves the probe
+blind. A blind probe returns NULL, NULL reads as "old library", and the wrong
+call shape gets registered — the failure the probe existed to prevent.
+
+An absent symbol must never mean two things. Resolve against the handle of the
+library you are about to call — `dlopen(path, RTLD_LAZY | RTLD_NOLOAD)` then
+`dlsym(handle, …)`, or better, have the caller pass the pointers it already
+resolved. `dlsym_handle_lookup` ignores `RTLD_GLOBAL` entirely, so the answer is
+a fact about the binary rather than about load order. Windows already does this
+(`GetModuleHandleA` + `GetProcAddress`); POSIX should match it.
+
+And when the shape genuinely cannot be determined, say so — return NULL and let
+the caller throw. "Could not determine" must not be spelled the same way as
+"determined it is the legacy shape".
 
 **Mixed-type bit-fields lay out differently on MSVC vs GCC/Clang.** Upstream's
 `LiteRtLayout` packs `dimensions[]` at offset 8 under MSVC and offset 4 under

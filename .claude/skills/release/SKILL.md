@@ -94,13 +94,29 @@ Three independent dimensions — answer each:
 
 ### 1a. Plugin code changed?
 ```bash
-# Pathspecs are repo-root relative. The pre-monorepo form (lib/ hook/ ios/ …)
-# matches NOTHING here and `git diff` exits 0 with empty output, so the whole
-# scope decision silently answers "nothing changed".
-git diff <last-tag> --stat -- 'packages/*/lib' 'packages/*/hook' \
-  'packages/*/pubspec.yaml' 'packages/*/android' 'packages/*/ios' \
-  'packages/*/macos' 'packages/*/darwin' 'packages/*/web'
+# Pathspecs are repo-root relative, and a DIRECTORY pathspec needs `/**` to
+# match what is inside it: `'packages/*/lib'` matches ZERO files, while
+# `'packages/*/lib/**'` matches the sources. Both forms exit 0, so the wrong one
+# answers "nothing changed" for a release where everything changed — the same
+# silent-empty failure as the pre-monorepo form (lib/ hook/ ios/ …), which
+# matches nothing here either.
+#
+# Do NOT read the output and move on. Read the COUNT first: a release with zero
+# changed files is a broken command, not a finding.
+git diff <last-tag> --name-only -- 'packages/*/lib/**' 'packages/*/hook/**' \
+  'packages/*/pubspec.yaml' 'packages/*/android/**' 'packages/*/ios/**' \
+  'packages/*/macos/**' 'packages/*/darwin/**' 'packages/*/web/**' \
+  | tee /dev/stderr | wc -l
 ```
+
+**The publish list is derived, not remembered.** Ask git which packages own the
+changed `lib/`, and publish exactly those:
+```bash
+git diff <last-tag> --name-only | grep '/lib/' | cut -d/ -f2 | sort -u
+```
+If empty for a release, the command is wrong — go back and fix it before
+deciding scope.
+
 If yes → bump pub plugin version, publish to pub.dev. Always true for a release.
 Then **run 1f** for every satellite whose copy of the touched code is stale — a
 fix is not "done" until every duplicate across all 6 packages is patched or

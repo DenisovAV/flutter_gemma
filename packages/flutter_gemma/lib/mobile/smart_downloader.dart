@@ -151,18 +151,41 @@ class SmartDownloader {
   /// sites used the stale literal `'flutter_gemma_downloads'`).
   static const String downloadGroup = 'smart_downloads';
 
-  /// Scheduling priority for model downloads.
+  /// Scheduling priority for model downloads — and it must differ per platform.
   ///
   /// background_downloader documents `0 <= priority <= 10 with 0 being the
-  /// HIGHEST`. This was 10 — the worst slot available — which is the opposite
-  /// of what a multi-gigabyte download the user is actively waiting on wants
-  /// (#445, reported by the package author). The default is 5, so the old value
-  /// was not merely unambitious, it was below the default.
+  /// HIGHEST`, default 5. This was **10** everywhere, which on iOS is actively
+  /// harmful and on Android is inert:
   ///
-  /// On Android 14+ a priority of 0 also moves execution from WorkManager to
-  /// JobScheduler, but only when a notification is configured — which this
-  /// package does only for `foreground: true`.
-  static const int downloadPriority = 0;
+  /// **iOS** maps it straight onto URLSession: `BDPlugin.swift` does
+  /// `urlSessionDownloadTask.priority = 1 - Float(task.priority) / 10`. So 10
+  /// produced **0.0** — below `URLSessionTask.lowPriority` (0.25) — for a
+  /// multi-gigabyte download the user is watching. 0 gives 1.0. This is the
+  /// real fix (#445, reported by the package author).
+  ///
+  /// **Android** uses priority for exactly two things: the holding queue, which
+  /// this package never enables, and `expedited = priority < 5` in
+  /// `BDPlugin.kt`. Going below 5 there is not an improvement, it is a hang:
+  ///
+  ///   * WorkManager caps a task at 9 minutes; background_downloader survives
+  ///     that by pausing and RE-ENQUEUING with `initialDelayMillis = 1000`
+  ///     (`DownloadTaskRunner.kt`, "paused due to timeout, will resume in 1
+  ///     second"). That is how a 3 GB download runs in slices.
+  ///   * the re-enqueue sets `setInitialDelay(1000)` and, at `priority < 5`,
+  ///     `setExpedited(...)` on the SAME builder — and `WorkRequest.Builder.build()`
+  ///     throws `IllegalArgumentException: Expedited jobs cannot be delayed`.
+  ///   * that throw is swallowed to a `Log.w`, `doEnqueue`'s `false` is ignored,
+  ///     and the runner returns `TaskStatus.paused` anyway.
+  ///
+  /// The download then stops at the 9-minute mark with no error of any kind.
+  /// So on Android the correct value is the highest one that is NOT expedited.
+  ///
+  /// 0 is additionally wrong on Android 14+: with a notification configured it
+  /// switches execution to a `JobScheduler` job that is never marked persisted
+  /// and never marked user-initiated (`setUserInitiated` is not called anywhere
+  /// in 9.5.8), so it is neither reboot-safe nor exempt from job quotas.
+  static int get downloadPriority =>
+      defaultTargetPlatform == TargetPlatform.android ? 5 : 0;
   static const int _foregroundThresholdMB = 500;
 
   // Track if FileDownloader has been configured
@@ -217,7 +240,12 @@ class SmartDownloader {
     // shouldConfigureForegroundNotification's doc comment for why the
     // auto-detect (`null`) branch is intentionally excluded.
     if (shouldConfigureForegroundNotification(foreground)) {
-      downloader.configureNotification(
+      // ForGroup, not the bare form: `configureNotification` installs a config
+      // with `taskOrGroup: null` — the DEFAULT — which every task in the
+      // process then falls back to, including the host's own downloads, and
+      // nothing ever removes it. Same class of overreach as #445 itself.
+      downloader.configureNotificationForGroup(
+        downloadGroup,
         running: const TaskNotification('Downloading model', '{filename}'),
         progressBar: true,
       );
@@ -301,6 +329,12 @@ class SmartDownloader {
   /// which every listen site here already discarded by taskId.
   static StreamController<TaskUpdate>? _groupUpdates;
 
+  /// The exact closure handed to `registerCallbacks`, so `unregisterCallbacks`
+  /// can name it. Without it the null-callback form is used, which drops the
+  /// status, progress AND notification-tap callbacks for the group — including
+  /// a host's, if it ever registered one there.
+  static void Function(TaskUpdate)? _groupForward;
+
   /// Optional hub stream configured at init (e.g. host cache client forwarder).
   static Stream<TaskUpdate>? _configuredDownloadUpdatesStream;
 
@@ -316,6 +350,12 @@ class SmartDownloader {
   static void configureDownloadUpdatesStream(Stream<TaskUpdate>? stream) {
     _configuredDownloadUpdatesStream = stream;
     _configuredBroadcastStream = null;
+    // A hub and our group callback cannot coexist. Group callbacks outrank the
+    // `updates` stream in background_downloader's dispatch, so an orphaned
+    // registration left over from an earlier download would keep intercepting
+    // our tasks and the host's hub — fed by `updates` — would receive nothing
+    // at all, hanging every download that resolved to it.
+    if (stream != null) _releaseGroupFanOut();
   }
 
   /// Clears injected hub configuration (e.g. registry reset / dispose).
@@ -326,12 +366,27 @@ class SmartDownloader {
   static void clearConfiguration() {
     _configuredDownloadUpdatesStream = null;
     _configuredBroadcastStream = null;
+    _releaseGroupFanOut();
+  }
+
+  /// Unregisters our group callbacks and closes the fan-out.
+  ///
+  /// Closing is deliberate and it is NOT inert for in-flight downloads: live
+  /// listeners get `onDone`, which the download loops turn into a
+  /// "stream closed before task completed" error and retry. That is louder than
+  /// the old behaviour (which left orphaned subscriptions running) and it is
+  /// the honest reading of "the host tore flutter_gemma down".
+  static void _releaseGroupFanOut() {
     final controller = _groupUpdates;
+    final forward = _groupForward;
     _groupUpdates = null;
-    if (controller != null) {
-      FileDownloader().unregisterCallbacks(group: downloadGroup);
-      unawaited(controller.close());
-    }
+    _groupForward = null;
+    if (controller == null) return;
+    FileDownloader().unregisterCallbacks(
+      group: downloadGroup,
+      callback: forward,
+    );
+    unawaited(controller.close());
   }
 
   @visibleForTesting
@@ -353,24 +408,48 @@ class SmartDownloader {
       _resolveUpdatesStream();
 
   static Stream<TaskUpdate> _getUpdatesStream() {
-    final existing = _groupUpdates;
-    if (existing != null && !existing.isClosed) return existing.stream;
-
     // Broadcast, because concurrent downloads each call listen(). Never closed
     // on last-listener-cancel: downloads come and go, and a closed controller
     // would leave the registered callbacks writing into nothing.
-    final controller = StreamController<TaskUpdate>.broadcast();
-    _groupUpdates = controller;
+    var controller = _groupUpdates;
+    if (controller == null || controller.isClosed) {
+      controller = StreamController<TaskUpdate>.broadcast();
+      _groupUpdates = controller;
+    }
+    final live = controller;
+
     void forward(TaskUpdate update) {
-      if (!controller.isClosed) controller.add(update);
+      if (live.isClosed) return;
+      if (!live.hasListener) {
+        // background_downloader used to log exactly this ("no callback
+        // registered, and no listener to the updates stream"). By registering a
+        // callback we silence its warning, so we owe the equivalent — a
+        // download whose updates go nowhere looks identical to a stalled one
+        // until a watchdog fires 90s later.
+        gemmaLog(
+          '⚠️ SmartDownloader: dropping ${update.runtimeType} for '
+          '${update.task.taskId} — no listener attached',
+        );
+        return;
+      }
+      live.add(update);
     }
 
+    // Registered on EVERY call, not once at controller creation. The callback
+    // map belongs to background_downloader, not to us: `FileDownloader().destroy()`
+    // clears it (base_downloader `groupStatusCallbacks.clear()`), and a host may
+    // call `unregisterCallbacks` itself. Either leaves our controller open and
+    // healthy-looking while nothing is routed to it any more — every later
+    // download would then hang at `await completer.future` with no error, which
+    // is the failure this whole file's watchdog machinery exists to avoid.
+    // Re-registering is an idempotent map write, so it is free to repeat.
+    _groupForward = forward;
     FileDownloader().registerCallbacks(
       group: downloadGroup,
       taskStatusCallback: forward,
       taskProgressCallback: forward,
     );
-    return controller.stream;
+    return live.stream;
   }
 
   static Stream<TaskUpdate> _resolveUpdatesStream() {
@@ -605,15 +684,6 @@ class SmartDownloader {
           '🔵 Task $taskId already in progress, attaching to existing...',
         );
 
-        // A paused/killed-mid-download task emits nothing until resumed. The
-        // attach path used to only listen → the watchdog fired → a permanent
-        // wedge (#383/R1). Resume it so it actually makes progress.
-        if (existingTask is DownloadTask &&
-            await downloader.taskCanResume(existingTask)) {
-          gemmaLog('🔵 Existing task $taskId is resumable — resuming');
-          await downloader.resume(existingTask);
-        }
-
         // Create completer to wait for existing task completion
         final completer = Completer<void>();
 
@@ -687,6 +757,25 @@ class SmartDownloader {
 
         onListenerCreated?.call(listener);
         onTaskCreated?.call(taskId);
+
+        // A paused/killed-mid-download task emits nothing until resumed. The
+        // attach path used to only listen → the watchdog fired → a permanent
+        // wedge (#383/R1). Resume it so it actually makes progress.
+        //
+        // Resumed AFTER the listener is attached, not before (#445 review). The
+        // fan-out is a broadcast controller and discards anything emitted while
+        // nobody is listening — where the previous `asBroadcastStream()` over a
+        // single-subscription source merely PAUSED it, so the source buffered
+        // and flushed to the next listener. With the old code a terminal
+        // `complete` landing during resume()'s platform round trip survived;
+        // with a broadcast controller it would be lost, and the 90s watchdog
+        // would then cancel a download that had actually finished, delete its
+        // resume data, and start a multi-gigabyte transfer again from zero.
+        if (existingTask is DownloadTask &&
+            await downloader.taskCanResume(existingTask)) {
+          gemmaLog('🔵 Existing task $taskId is resumable — resuming');
+          await downloader.resume(existingTask);
+        }
 
         // #357 review (Bug E): arm the resume watchdog here too. `retries: 0`
         // means an `existingTask` reattach is effectively always a persisted

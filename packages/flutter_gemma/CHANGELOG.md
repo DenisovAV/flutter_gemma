@@ -1,6 +1,9 @@
 ## 1.6.2
-- Stop claiming `FileDownloader().updates`; scope updates to our own group (#445).
-- Download priority 10 (lowest) was a mistake — 0 is highest (#445).
+- Scope download updates to our own task group; `FileDownloader().updates` stays the host's (#445).
+- iOS download priority now 0 (highest); was 10, the lowest URLSession priority (#445).
+- Android download priority stays at 5 — lower makes WorkManager expedite and stall at 9 min.
+- Download notification is scoped to our task group instead of becoming the app-wide default.
+- `FlutterGemma.dispose()` now ends in-flight downloads instead of leaving them orphaned.
 
 ## 1.6.1
 - `getActiveModel` compares every runtime param before reusing the cached model.

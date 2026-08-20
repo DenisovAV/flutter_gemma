@@ -1081,10 +1081,16 @@ scoped to its own task group, so the stream stays yours:
 FileDownloader().updates.listen((update) { /* your own tasks */ });
 ```
 
-Model downloads run at `priority: 0` — the **highest** in
-`background_downloader`, whose range is `0..10` with 0 best. On Android 14+ a
-priority of 0 additionally moves execution to `JobScheduler` when a notification
-is configured, which this package does for `foreground: true` downloads.
+**Download priority** used to be `10` — the *lowest* in `background_downloader`,
+whose range is `0..10` with 0 best. On iOS that mapped to a raw URLSession
+priority of `0.0`, below `URLSessionTask.lowPriority`, for a multi-gigabyte
+download the user is watching; it is now `0`.
+
+On Android it stays at the package default (`5`) on purpose. Anything lower
+makes the WorkManager request *expedited*, and an expedited request cannot carry
+the 1-second initial delay that `background_downloader` uses to re-enqueue a
+task after WorkManager's 9-minute cap — the build throws, the throw is logged
+and swallowed, and a long download stops at nine minutes with no error.
 
 **Example:**
 ```dart

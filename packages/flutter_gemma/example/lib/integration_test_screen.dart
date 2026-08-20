@@ -939,20 +939,30 @@ class _IntegrationTestScreenState extends State<IntegrationTestScreen> {
 
         // Resume the task
         final completer = Completer<void>();
-        final resumeListener = downloader.updates.listen((update) {
-          if (update.task.taskId != task.taskId) return;
+        // NOT `downloader.updates`: this task is in flutter_gemma's own group,
+        // and group callbacks outrank the updates stream — so once any
+        // SmartDownloader download has run in this process, a listener here
+        // would receive nothing and this test would hang rather than fail.
+        // This screen is the integration harness and is deliberately observing
+        // flutter_gemma's OWN task. A host app watches its own downloads
+        // through FileDownloader().updates, which stays free (#445), and its
+        // model downloads through installModel(...).withProgress(...).
+        // ignore: invalid_use_of_visible_for_testing_member
+        final resumeListener = SmartDownloader.debugResolveUpdatesStream()
+            .listen((update) {
+              if (update.task.taskId != task.taskId) return;
 
-          if (update is TaskProgressUpdate) {
-            final percents = (update.progress * 100).round();
-            setState(() => _progress['resumed'] = percents);
-          } else if (update is TaskStatusUpdate) {
-            if (update.status == TaskStatus.complete) {
-              completer.complete();
-            } else if (update.status == TaskStatus.failed) {
-              completer.completeError('Resume failed: ${update.exception}');
-            }
-          }
-        });
+              if (update is TaskProgressUpdate) {
+                final percents = (update.progress * 100).round();
+                setState(() => _progress['resumed'] = percents);
+              } else if (update is TaskStatusUpdate) {
+                if (update.status == TaskStatus.complete) {
+                  completer.complete();
+                } else if (update.status == TaskStatus.failed) {
+                  completer.completeError('Resume failed: ${update.exception}');
+                }
+              }
+            });
 
         final resumed = await downloader.resume(task);
         if (!resumed) {

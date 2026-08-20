@@ -13,11 +13,17 @@
 // base_downloader consults BEFORE `updates.hasListener` — so we still see every
 // update for our tasks, and the stream stays untouched for everyone else.
 //
-// The load-bearing assertion here is the first test. The rest cover lifecycle,
-// and are honest about testing our own state rather than the package's.
+// A first cut of this file asserted only the NEGATIVE — that we no longer claim
+// the stream — plus our own bookkeeping flag. Review deleted `registerCallbacks`
+// outright, so the package received nothing at all and every download would hang
+// forever, and all six tests still passed. Delivery is now asserted directly:
+// `FileDownloader().downloaderForTesting` is a `@visibleForTesting` getter on the
+// EXPORTED class, so an update can be driven through the real dispatcher without
+// reaching into `src/`.
 import 'dart:async';
 
 import 'package:background_downloader/background_downloader.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -112,21 +118,145 @@ void main() {
     );
   });
 
-  test('priority is above the package default, not below it (#445)', () {
+  test('an update for our group actually reaches our stream', () async {
+    // THE mechanism test. Deleting registerCallbacks, or naming the wrong
+    // group, or omitting taskProgressCallback, all fail here — and all of them
+    // otherwise look like a download frozen at 0% until a 90s watchdog fires.
+    final got = <TaskUpdate>[];
+    final sub = SmartDownloader.debugResolveUpdatesStream().listen(got.add);
+    addTearDown(sub.cancel);
+
+    final base = FileDownloader().downloaderForTesting
+      ..processStatusUpdate(TaskStatusUpdate(_ourTask(), TaskStatus.running))
+      ..processProgressUpdate(TaskProgressUpdate(_ourTask(), 0.42));
+    expect(base, isNotNull);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(got, hasLength(2), reason: 'status and progress must BOTH arrive');
+    expect(got.whereType<TaskProgressUpdate>().single.progress, 0.42);
+  });
+
+  test('our updates come to us, the host keeps its own', () async {
+    final ours = <TaskUpdate>[];
+    final host = <TaskUpdate>[];
+    final a = SmartDownloader.debugResolveUpdatesStream().listen(ours.add);
+    final b = FileDownloader().updates.listen(host.add);
+    addTearDown(a.cancel);
+    addTearDown(b.cancel);
+
+    FileDownloader().downloaderForTesting
+      ..processStatusUpdate(TaskStatusUpdate(_ourTask(), TaskStatus.complete))
+      ..processStatusUpdate(TaskStatusUpdate(_hostTask(), TaskStatus.complete));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(ours.map((u) => u.task.taskId), ['ours']);
+    expect(
+      host.map((u) => u.task.taskId),
+      ['theirs'],
+      reason: 'the host must receive its own task and only its own',
+    );
+  });
+
+  test(
+    'an external unregister does not leave a dead stream (#445 review)',
+    () async {
+      SmartDownloader.debugResolveUpdatesStream().listen((_) {}).cancel();
+
+      // What `FileDownloader().destroy()` does to the callback map. It never
+      // touches our controller — so "my controller is open" is NOT the same fact
+      // as "I am still registered", and using it as one made every later download
+      // hang with no error at all.
+      FileDownloader().unregisterCallbacks(
+        group: SmartDownloader.downloadGroup,
+      );
+
+      final got = <TaskUpdate>[];
+      final sub = SmartDownloader.debugResolveUpdatesStream().listen(got.add);
+      addTearDown(sub.cancel);
+      FileDownloader().downloaderForTesting.processStatusUpdate(
+        TaskStatusUpdate(_ourTask(), TaskStatus.running),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        got,
+        hasLength(1),
+        reason:
+            'resolving again did not re-register, so the fan-out looked healthy '
+            'and delivered nothing',
+      );
+    },
+  );
+
+  test('delivery still works after clearConfiguration', () async {
+    SmartDownloader.debugResolveUpdatesStream().listen((_) {}).cancel();
+    SmartDownloader.clearConfiguration();
+
+    final got = <TaskUpdate>[];
+    final sub = SmartDownloader.debugResolveUpdatesStream().listen(got.add);
+    addTearDown(sub.cancel);
+    FileDownloader().downloaderForTesting.processStatusUpdate(
+      TaskStatusUpdate(_ourTask(), TaskStatus.running),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      got,
+      hasLength(1),
+      reason: 'a download after a reset must still work',
+    );
+  });
+
+  test('priority: iOS gets the highest, Android must not be expedited', () {
     final packageDefault = DownloadTask(
       url: 'https://example.invalid/model.bin',
       filename: 'model.bin',
     ).priority;
 
+    // Both arms asserted explicitly. flutter_test reports Android as the
+    // default target platform, so relying on the ambient value would silently
+    // test only one of the two.
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     expect(
       SmartDownloader.downloadPriority,
-      lessThan(packageDefault),
+      0,
       reason:
-          'background_downloader documents 0 <= priority <= 10 with 0 the '
-          'HIGHEST. This was 10 — worse than the package default of '
-          '$packageDefault — so a multi-gigabyte download the user is actively '
-          'waiting on was scheduled behind everything else',
+          'iOS maps priority onto URLSession as 1 - p/10, so 10 gave 0.0 — '
+          'below URLSessionTask.lowPriority — for a multi-gigabyte download',
     );
-    expect(SmartDownloader.downloadPriority, 0);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    expect(
+      SmartDownloader.downloadPriority,
+      packageDefault,
+      reason:
+          'below the package default is expedited work on API 31+, and an '
+          'expedited request cannot carry the 1s initial delay that '
+          "background_downloader's 9-minute re-enqueue needs — the build "
+          'throws, the throw is logged and swallowed, and the download stops '
+          'at 9 minutes with no error at all',
+    );
+    expect(
+      SmartDownloader.downloadPriority,
+      isNot(lessThan(5)),
+      reason: 'anything under 5 makes the Android job expedited',
+    );
   });
 }
+
+DownloadTask _ourTask() => DownloadTask(
+  taskId: 'ours',
+  url: 'https://example.invalid/model.bin',
+  filename: 'model.bin',
+  group: SmartDownloader.downloadGroup,
+  updates: Updates.statusAndProgress,
+);
+
+DownloadTask _hostTask() => DownloadTask(
+  taskId: 'theirs',
+  url: 'https://example.invalid/host.bin',
+  filename: 'host.bin',
+  updates: Updates.statusAndProgress,
+);

@@ -224,8 +224,8 @@ Directory _cacheBaseDir() {
 /// COMMIT POINT: call LAST, only after the dylib files are fully in place.
 void _writeMarker(_NativeBundle bundle) {
   bundle.markerFile().writeAsStringSync(
-        jsonEncode({'version': bundle.version, 'owner': _packageName}),
-      );
+    jsonEncode({'version': bundle.version, 'owner': _packageName}),
+  );
 }
 
 /// Wipe stale per-platform cached files when a bundle's version changes. Cheap
@@ -302,7 +302,11 @@ bool _hasMainLib(Directory dir, _NativeBundle bundle, OS os) {
 ///   2. cached `<cacheBase>/<bundle-namespace>/<dirName>/` from a previous
 ///      `_downloadAndExtract`.
 Directory? _resolveLibDir(
-    _NativeBundle bundle, String dirName, Uri packageRoot, OS os) {
+  _NativeBundle bundle,
+  String dirName,
+  Uri packageRoot,
+  OS os,
+) {
   // Local prebuilts use a per-bundle directory layout under `native/`.
   // LiteRT historically uses `native/litert_lm/prebuilt/`. For new bundles
   // we use `native/<namespace>/prebuilt/`.
@@ -323,7 +327,9 @@ Directory? _resolveLibDir(
 // ============================================================================
 
 Future<Directory?> _downloadAndExtract(
-    _NativeBundle bundle, String dirName) async {
+  _NativeBundle bundle,
+  String dirName,
+) async {
   final archiveName = bundle.archiveName(dirName);
   final expectedChecksum = bundle.checksums[archiveName];
   if (expectedChecksum == null) {
@@ -345,7 +351,8 @@ Future<Directory?> _downloadAndExtract(
 
     final url = '${bundle.releaseBase}/$archiveName';
     stderr.writeln(
-        'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...');
+      'flutter_gemma: Downloading ${bundle.namespace} native libs from $url ...',
+    );
 
     final client = HttpClient();
     try {
@@ -353,7 +360,8 @@ Future<Directory?> _downloadAndExtract(
       final response = await request.close();
       if (response.statusCode != 200) {
         stderr.writeln(
-            'flutter_gemma: Download failed (HTTP ${response.statusCode})');
+          'flutter_gemma: Download failed (HTTP ${response.statusCode})',
+        );
         return null;
       }
       final sink = archiveFile.openWrite();
@@ -380,13 +388,16 @@ Future<Directory?> _downloadAndExtract(
     if (tmpDir.existsSync()) tmpDir.deleteSync(recursive: true);
     tmpDir.createSync(recursive: true);
     try {
-      final result = await Process.run(
-        'tar',
-        ['-xzf', archiveFile.path, '-C', tmpDir.path],
-      );
+      final result = await Process.run('tar', [
+        '-xzf',
+        archiveFile.path,
+        '-C',
+        tmpDir.path,
+      ]);
       if (result.exitCode != 0) {
         stderr.writeln(
-            'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}');
+          'flutter_gemma: ${bundle.namespace} extract failed: ${result.stderr}',
+        );
         return null;
       }
       if (targetDir.existsSync()) targetDir.deleteSync(recursive: true);
@@ -396,7 +407,8 @@ Future<Directory?> _downloadAndExtract(
     }
     archiveFile.deleteSync();
     stderr.writeln(
-        'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}');
+      'flutter_gemma: ${bundle.namespace} libs cached to ${targetDir.path}',
+    );
     return targetDir;
   } catch (e) {
     stderr.writeln('flutter_gemma: ${bundle.namespace} download failed: $e');

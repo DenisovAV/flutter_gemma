@@ -169,8 +169,16 @@ class FlutterGemma {
     ///
     /// On iOS/Android, events must be [TaskUpdate] values from
     /// `package:background_downloader` — the same shape as
-    /// [FileDownloader.updates]. Ignored on web. When omitted,
-    /// [SmartDownloader] uses its internal broadcast wrapper.
+    /// [FileDownloader.updates]. Ignored on web.
+    ///
+    /// **You almost certainly do not need this.** When omitted, flutter_gemma
+    /// registers callbacks scoped to its own task group and never touches
+    /// `FileDownloader().updates`, so the stream stays entirely yours (#445).
+    ///
+    /// Do NOT pass a stream sourced from `FileDownloader().updates` itself:
+    /// that stream takes a single subscription, so forwarding it here recreates
+    /// the exact conflict this option once existed to work around. Pass a hub
+    /// only if you genuinely synthesise task updates from somewhere else.
     Stream<Object>? downloadUpdatesStream,
 
     /// Optional custom model file storage (e.g. outside Documents).

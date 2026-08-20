@@ -217,6 +217,13 @@ class LiteRtLmConversationHandle implements ConversationHandle {
 ///
 /// Top-level so it can be called from a spawned isolate, which cannot capture
 /// `this` or any other non-const closure state.
+///
+/// Deliberately a plain open, and safe only because of an ordering invariant:
+/// both callers run inside `initialize()`, which calls `_ensureBindings()` —
+/// and therefore `openLiteRtLmRequiringDefaultScope` — first. On Android a
+/// plain open cannot DEMOTE an already-global soinfo, so arriving second is
+/// harmless. If a future caller can reach this before `_ensureBindings`, it
+/// must go through litert_default_scope.dart instead or it reintroduces #447.
 DynamicLibrary _openLiteRtLmLibrary() {
   if (Platform.isIOS) {
     return DynamicLibrary.open(
@@ -226,7 +233,13 @@ DynamicLibrary _openLiteRtLmLibrary() {
   if (Platform.isMacOS) {
     return DynamicLibrary.open('LiteRtLm.framework/LiteRtLm');
   }
-  if (Platform.isLinux || Platform.isAndroid) {
+  if (Platform.isAndroid) {
+    // Through the helper rather than relying on the ordering invariant above.
+    // Best-effort variant: an isolate must not throw here, and by the time
+    // this runs the LLM path has already required the strict one.
+    return openLiteRtLmPreferringDefaultScope('libLiteRtLm.so');
+  }
+  if (Platform.isLinux) {
     return DynamicLibrary.open('libLiteRtLm.so');
   }
   return DynamicLibrary.open('LiteRtLm.dll');
@@ -575,17 +588,19 @@ class LiteRtLmFfiClient {
         );
       }
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
-      // Load LiteRtLm into the default search scope so the GPU accelerator
-      // plugins — and stream_proxy's own ABI probe — can resolve LiteRt*
-      // symbols through dlsym(RTLD_DEFAULT). Dart's DynamicLibrary.open uses
-      // RTLD_LOCAL, which hides them.
+      // Load LiteRtLm into the default search scope so stream_proxy's ABI
+      // probe can resolve the v0.15 chunk accessors through
+      // dlsym(RTLD_DEFAULT); Dart's DynamicLibrary.open uses RTLD_LOCAL, which
+      // hides them. That probe is the ONLY verified consumer of ambient
+      // visibility here: measured on the shipped android_arm64 bundle, the GPU
+      // and OpenCL accelerators have zero undefined LiteRt* symbols, and the
+      // TopK samplers resolve theirs through DT_NEEDED, not RTLD_DEFAULT.
       //
       // Shared with the embeddings/speech entry point (litert_bindings.dart)
       // because the two race for "first to open", and the loser used to decide
       // the outcome silently. The helper also verifies the load rather than
       // trusting a non-NULL handle — see its header and #447.
-      requireLiteRtLmInDefaultScope('libLiteRtLm.so');
-      lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
+      lib = openLiteRtLmRequiringDefaultScope('libLiteRtLm.so');
     } else {
       throw UnsupportedError(
         'Platform not supported for FFI: ${Platform.operatingSystem}',

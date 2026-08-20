@@ -363,8 +363,20 @@ DynamicLibrary _openLiteRt() {
     // speech-only or embeddings-only app must not be broken by a condition it
     // does not depend on. The point of calling this here is to be FIRST, so a
     // later `.litertlm` generation is not poisoned.
-    loadLiteRtLmIntoDefaultScope('libLiteRtLm.so');
-    return DynamicLibrary.open('libLiteRtLm.so');
+    // Guard the ABI before touching any native library. LiteRT-LM ships
+    // android_arm64 only, so on an x86_64 emulator or armeabi-v7a device
+    // nothing is bundled — and the first thing the scope helper opens is
+    // libStreamProxy, so without this the failure names a library the caller
+    // has never heard of instead of saying "wrong ABI". Mirrors the guard in
+    // litert_lm_client.dart's Android branch.
+    if (Abi.current() != Abi.androidArm64) {
+      throw UnsupportedError(
+        'flutter_gemma embeddings and speech require an arm64-v8a Android '
+        'device (got ${Abi.current()}). LiteRT-LM ships no other Android ABI. '
+        'MediaPipe `.task` text inference still works on this ABI.',
+      );
+    }
+    return openLiteRtLmPreferringDefaultScope('libLiteRtLm.so');
   }
   // Linux and Windows need no equivalent: glibc promotes an already-loaded
   // object when a later dlopen asks for RTLD_GLOBAL, and PE modules are

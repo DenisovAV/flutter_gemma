@@ -7,6 +7,7 @@
 // nothing about load order.
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io';
 
 /// The v0.15 chunk accessor stream_proxy.c probes for. Its absence is read as
 /// "old ABI" and selects the 4-arg callback shape.
@@ -23,6 +24,21 @@ typedef _FreeNative = Void Function(Pointer<Uint8>);
 typedef _FreeDart = void Function(Pointer<Uint8>);
 typedef _LoadGlobalNative = Pointer<Void> Function(Pointer<Uint8>);
 typedef _LoadGlobalDart = Pointer<Void> Function(Pointer<Uint8>);
+
+/// Whether [soname] is mapped into this process AT ALL, regardless of scope.
+///
+/// The obvious clean-process check — "the control symbol is not ambient" —
+/// cannot tell "nothing loaded it" from "something loaded it LOCALLY", and the
+/// second is the poisoned state this whole file is about. A test that treats
+/// them as one reports a pass while measuring someone else's poisoning: the
+/// same two-outcomes-one-value defect as #447 itself, reproduced in the
+/// instrument.
+///
+/// /proc/self/maps distinguishes them. A process can always read its own, and
+/// the path shows up whether the .so was extracted to the app's lib dir or
+/// mapped uncompressed straight out of the APK.
+bool mappedInProcess(String soname) =>
+    File('/proc/self/maps').readAsStringSync().contains(soname);
 
 /// dlsym(RTLD_DEFAULT, name) — literally the call stream_proxy_resolve makes.
 ///
@@ -70,3 +86,19 @@ Pointer<Uint8> _cstr(String s) {
 
 void _free(Pointer<Uint8> p) =>
     DynamicLibrary.process().lookupFunction<_FreeNative, _FreeDart>('free')(p);
+
+/// Positive control for [globallyVisible].
+///
+/// Every assertion about poisoning expects `false`, so a [globallyVisible] that
+/// simply never worked would make a whole file pass while measuring nothing.
+/// libc is always in the default scope, so this must be true for any negative
+/// result below to carry meaning.
+void expectLookupWorks() {
+  if (!globallyVisible('malloc')) {
+    throw StateError(
+      'dlsym(RTLD_DEFAULT) cannot see libc malloc — the measurement apparatus '
+      'is broken, so every negative result in this file is meaningless rather '
+      'than informative',
+    );
+  }
+}

@@ -97,9 +97,13 @@ stream-callback ABI probe unable to see the library — and the probe read that
 as "old library" and registered the wrong callback shape.
 
 Fix: upgrade to 1.5.2. If you load `libLiteRtLm` yourself from app or
-third-party code, load it before flutter_gemma does and with `RTLD_GLOBAL`;
-1.5.2 throws a `StateError` naming this situation instead of generating
-corrupt text. See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
+third-party code, load it before flutter_gemma does and with `RTLD_GLOBAL`.
+1.5.2 cannot repair that case — bionic never promotes an already-loaded library
+— but it no longer generates corrupt text: a `.litertlm` generation raises a
+`StateError` naming the condition, and embeddings or speech (which resolve
+through their own handle and do not need the symbols to be ambient) log a
+warning and carry on.
+See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
 
 ### `dlopen` / "library not found" (`libLiteRtLm`)
 

@@ -255,7 +255,7 @@ packages:
       path: "../../flutter_gemma_builtin_ai"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.2.0"
   flutter_gemma_embeddings:
     dependency: "direct main"
     description:

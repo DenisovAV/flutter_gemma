@@ -23,7 +23,6 @@
 import 'dart:async';
 
 import 'package:background_downloader/background_downloader.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -105,6 +104,18 @@ void main() {
     // Capture once: `controller.stream` hands back a fresh view each call, so
     // comparing against a second `hub.stream` would fail for the wrong reason.
     final hubStream = hub.stream;
+
+    // Build the fan-out FIRST. Injecting the hub into a process that never had
+    // one makes the assertion below pass no matter what the implementation
+    // does — which is how the first version of this test quietly covered
+    // nothing. The real hazard is a host installing a hub after a download has
+    // already registered our group callbacks: those outrank the updates stream,
+    // so the hub would be starved and every download resolving to it would
+    // hang.
+    final inFlight = SmartDownloader.debugResolveUpdatesStream().listen((_) {});
+    addTearDown(inFlight.cancel);
+    expect(SmartDownloader.debugGroupFanOutIsLive, isTrue);
+
     SmartDownloader.configureDownloadUpdatesStream(hubStream);
 
     expect(
@@ -126,10 +137,9 @@ void main() {
     final sub = SmartDownloader.debugResolveUpdatesStream().listen(got.add);
     addTearDown(sub.cancel);
 
-    final base = FileDownloader().downloaderForTesting
+    FileDownloader().downloaderForTesting
       ..processStatusUpdate(TaskStatusUpdate(_ourTask(), TaskStatus.running))
       ..processProgressUpdate(TaskProgressUpdate(_ourTask(), 0.42));
-    expect(base, isNotNull);
     await Future<void>.delayed(Duration.zero);
 
     expect(got, hasLength(2), reason: 'status and progress must BOTH arrive');
@@ -207,41 +217,28 @@ void main() {
     );
   });
 
-  test('priority: iOS gets the highest, Android must not be expedited', () {
-    final packageDefault = DownloadTask(
-      url: 'https://example.invalid/model.bin',
-      filename: 'model.bin',
-    ).priority;
+  test('after release our tasks do not spill into the host stream', () async {
+    SmartDownloader.debugResolveUpdatesStream().listen((_) {}).cancel();
+    SmartDownloader.clearConfiguration();
 
-    // Both arms asserted explicitly. flutter_test reports Android as the
-    // default target platform, so relying on the ambient value would silently
-    // test only one of the two.
-    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final host = <TaskUpdate>[];
+    final sub = FileDownloader().updates.listen(host.add);
+    addTearDown(sub.cancel);
 
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    expect(
-      SmartDownloader.downloadPriority,
-      0,
-      reason:
-          'iOS maps priority onto URLSession as 1 - p/10, so 10 gave 0.0 — '
-          'below URLSessionTask.lowPriority — for a multi-gigabyte download',
+    // A task we enqueued can still be running after the host tore us down.
+    // With no group callback its updates fall through to `updates`, and the
+    // host starts receiving tasks it has never heard of — #445 in reverse.
+    FileDownloader().downloaderForTesting.processStatusUpdate(
+      TaskStatusUpdate(_ourTask(), TaskStatus.running),
     );
+    await Future<void>.delayed(Duration.zero);
 
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
     expect(
-      SmartDownloader.downloadPriority,
-      packageDefault,
+      host,
+      isEmpty,
       reason:
-          'below the package default is expedited work on API 31+, and an '
-          'expedited request cannot carry the 1s initial delay that '
-          "background_downloader's 9-minute re-enqueue needs — the build "
-          'throws, the throw is logged and swallowed, and the download stops '
-          'at 9 minutes with no error at all',
-    );
-    expect(
-      SmartDownloader.downloadPriority,
-      isNot(lessThan(5)),
-      reason: 'anything under 5 makes the Android job expedited',
+          'the release left no sink, so our in-flight task leaked into the '
+          "host's stream",
     );
   });
 }

@@ -47,7 +47,7 @@ There is an example of using:
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **📥 Enhanced Downloads:** Smart retry logic with exponential backoff for reliable model downloads
 - **🔧 Download Reliability:** Automatic restart logic for interrupted downloads (resume not supported by HuggingFace CDN)
-- **📱 Android Foreground Service:** Large downloads (>500MB) automatically use foreground service to bypass 9-minute timeout
+- **📱 Android Foreground Service:** opt in with `foreground: true` for large downloads, to bypass the 9-minute timeout
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
 - **📊 Text Embeddings:** Generate 768-dim vector embeddings with EmbeddingGemma or Gecko (all native platforms + Web) via the unified LiteRT C API
 - **🔎 On-device RAG:** Two vector-store backends — `flutter_gemma_rag_qdrant` (qdrant-edge, native) and `flutter_gemma_rag_sqlite` (in-SQLite `sqlite-vec`/`vec0` KNN on all six platforms incl. Web). Payload-aware `Filter` (must / should / mustNot) for semantic search.
@@ -1066,7 +1066,7 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 - ✅ Smart retry logic with exponential backoff
 - ✅ Background downloads on mobile
 - ✅ Cancellable downloads with CancelToken
-- ✅ **Android foreground service** for large downloads (>500MB)
+- ✅ **Android foreground service** for large downloads (opt in with `foreground: true`)
 - ✅ **Coexists with your own `background_downloader` usage** (see below)
 
 **Sharing `background_downloader` with your app.** flutter_gemma downloads
@@ -1086,10 +1086,10 @@ whose range is `0..10` with 0 best. On iOS that mapped to a raw URLSession
 priority of `0.0`, below `URLSessionTask.lowPriority`, for a multi-gigabyte
 download the user is watching; it is now `0`.
 
-On Android it stays at the package default (`5`) on purpose. Anything lower
-makes the WorkManager request *expedited*, and an expedited request cannot carry
-the 1-second initial delay that `background_downloader` uses to re-enqueue a
-task after WorkManager's 9-minute cap — the build throws, the throw is logged
+On Android it is now `5`, the package default, rather than `10`. Anything lower
+makes the WorkManager request *expedited* on Android 12+, and an expedited
+request cannot carry the 1-second initial delay that `background_downloader`
+uses to re-enqueue a task after WorkManager's 9-minute cap — the build throws, the throw is logged
 and swallowed, and a long download stops at nine minutes with no error.
 
 **Example:**
@@ -1121,7 +1121,7 @@ await FlutterGemma.installModel(
 Android has a 9-minute background execution limit. For large models (>500MB), you can use foreground service mode, which shows a notification and exempts the download from battery-optimization kills (note: it does not raise WorkManager's own 9-minute task timeout — see `DOWNLOAD_TESTING.md`):
 
 ```dart
-// Auto-detect based on file size (>500MB = foreground) - DEFAULT
+// DEFAULT - no foreground service; pass foreground: true to get one
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
   .fromNetwork(url)  // foreground: null (auto-detect)
   .install();
@@ -1138,7 +1138,7 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 ```
 
 **Foreground Parameter:**
-- `null` (default): Auto-detect based on file size. Files >500MB use foreground service (no notification — pass `foreground: true` explicitly if you want one).
+- `null` (default): **no foreground service.** This branch configures no notification, and `background_downloader` only calls `setForeground()` once a running notification exists — so the size threshold alone never starts one. As of 1.6.2 this branch also no longer writes `runInForegroundIfFileLargerThan`, which is a process-wide, reboot-surviving setting shared with your own downloads.
 - `true`: Always use foreground service (shows notification)
 - `false`: Never use foreground service
 

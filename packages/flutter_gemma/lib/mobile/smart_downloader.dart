@@ -86,6 +86,60 @@ Timer armResumeWatchdog({
   return Timer(timeout, onTimeout);
 }
 
+/// Builds the `DownloadTask` for a model download.
+///
+/// Extracted so the shape can be asserted without a device — every field here
+/// is load-bearing and every one of them failed silently when wrong:
+///   * `group` must be [SmartDownloader.downloadGroup], the SAME constant
+///     `registerCallbacks` uses. A drift between the two ends means the task
+///     lands in a group nobody is registered for, `_emitStatusUpdate` finds no
+///     callback and no `updates` listener, and the download hangs forever
+///     while background_downloader merely logs a warning (#383's class).
+///   * `updates` must include progress, or the download looks frozen at 0%.
+///   * `retries: 0` because retries are handled here with HTTP-aware logic;
+///     package-level retries would race that loop.
+///   * `priority` — see [SmartDownloader.downloadPriority].
+@visibleForTesting
+DownloadTask buildModelDownloadTask({
+  required String taskId,
+  required String url,
+  required String? token,
+  required BaseDirectory baseDirectory,
+  required String directory,
+  required String filename,
+  required bool allowPause,
+}) => DownloadTask(
+  taskId: taskId,
+  url: url,
+  group: SmartDownloader.downloadGroup,
+  headers: {
+    if (token != null) 'Authorization': 'Bearer $token',
+    'Connection': 'keep-alive',
+    // Attempt to work around CDN ETag issues
+    'Cache-Control': 'no-cache, no-store',
+    'Pragma': 'no-cache',
+  },
+  baseDirectory: baseDirectory,
+  directory: directory,
+  filename: filename,
+  requiresWiFi: false,
+  // Auto-detect: false for HuggingFace (weak ETags), true for others
+  allowPause: allowPause,
+  priority: SmartDownloader.downloadPriority,
+  retries: 0,
+  updates: Updates.statusAndProgress,
+);
+
+/// Turns a background_downloader progress value into a percentage, or null when
+/// it is a STATE SENTINEL rather than progress.
+///
+/// The package signals state through negative values on the progress channel:
+/// -1 failed, -2 canceled, -3 notFound, -4 waiting to retry, -5 paused. Clamping
+/// those to 0 made the bar snap to 0% at every 9-minute WorkManager slice.
+@visibleForTesting
+int? percentFromProgress(double progress) =>
+    progress < 0 ? null : (progress * 100).round().clamp(0, 100);
+
 /// Whether [_ensureConfigured] should register a running [TaskNotification]
 /// for the given [foreground] setting (#356). Extracted as a pure function so
 /// the decision is unit-testable without a `FileDownloader` seam: on Android,
@@ -143,6 +197,25 @@ ResumeAction decideFailedDownloadAction({
 /// - Supports multiple concurrent downloads
 /// - Auto-detects resume support based on server (HuggingFace = no resume)
 /// - Android foreground service for large files (>500MB by default)
+/// Raised when the download-updates fan-out is torn down while a download is
+/// still in flight — i.e. the host called `FlutterGemma.dispose()`/`reset()`.
+///
+/// A distinct type because it must NOT be retried: the generic `catch` in
+/// `_downloadWithSmartRetry` treats anything else as transient and restarts,
+/// which turned one dispose into up to `maxRetries` restarts of a
+/// multi-gigabyte download — each one re-registering the group callbacks two
+/// seconds later, so the teardown did not hold either.
+class DownloadUpdatesReleasedException implements Exception {
+  const DownloadUpdatesReleasedException(this.taskId);
+
+  final String taskId;
+
+  @override
+  String toString() =>
+      'Download updates were released while task $taskId was still running '
+      '(FlutterGemma.dispose() or reset() during a download)';
+}
+
 class SmartDownloader {
   /// The background_downloader task group ALL model downloads run under.
   /// Single source of truth — cleanup / resume code that queries or resets
@@ -186,7 +259,6 @@ class SmartDownloader {
   /// in 9.5.8), so it is neither reboot-safe nor exempt from job quotas.
   static int get downloadPriority =>
       defaultTargetPlatform == TargetPlatform.android ? 5 : 0;
-  static const int _foregroundThresholdMB = 500;
 
   // Track if FileDownloader has been configured
   static bool _isConfigured = false;
@@ -217,14 +289,24 @@ class SmartDownloader {
       );
       gemmaLog('📲 SmartDownloader: Configured for NEVER foreground');
     } else {
-      // Auto-detect based on file size (default)
-      await downloader.configure(
-        globalConfig: [
-          (Config.runInForegroundIfFileLargerThan, _foregroundThresholdMB),
-        ],
-      );
+      // Deliberately writes NOTHING on the default path.
+      //
+      // `Config.runInForegroundIfFileLargerThan` is persisted by the plugin to
+      // the app's default SharedPreferences — process-wide, surviving process
+      // death and reboot, shared with the host's own downloads and with no
+      // getter to read it back. And it could never take effect for us here:
+      // `TaskRunner` needs `runInForegroundFileSize >= 0 AND
+      // notificationConfig?.running != null`, and this branch deliberately
+      // configures no notification (#357). So the old write bought nothing and
+      // silently overwrote whatever the host had chosen — the same overreach
+      // as #445.
+      //
+      // If the host has its own default notification config with a `running`
+      // notification, our tasks inherit it and the host's own threshold
+      // applies, which is the correct owner.
       gemmaLog(
-        '📲 SmartDownloader: Configured for AUTO foreground (>${_foregroundThresholdMB}MB)',
+        '📲 SmartDownloader: AUTO foreground — leaving the app-wide '
+        'runInForeground config untouched',
       );
     }
 
@@ -329,12 +411,6 @@ class SmartDownloader {
   /// which every listen site here already discarded by taskId.
   static StreamController<TaskUpdate>? _groupUpdates;
 
-  /// The exact closure handed to `registerCallbacks`, so `unregisterCallbacks`
-  /// can name it. Without it the null-callback form is used, which drops the
-  /// status, progress AND notification-tap callbacks for the group — including
-  /// a host's, if it ever registered one there.
-  static void Function(TaskUpdate)? _groupForward;
-
   /// Optional hub stream configured at init (e.g. host cache client forwarder).
   static Stream<TaskUpdate>? _configuredDownloadUpdatesStream;
 
@@ -369,25 +445,31 @@ class SmartDownloader {
     _releaseGroupFanOut();
   }
 
-  /// Unregisters our group callbacks and closes the fan-out.
+  /// Closes the fan-out and leaves a silent sink registered for our group.
   ///
-  /// Closing is deliberate and it is NOT inert for in-flight downloads: live
-  /// listeners get `onDone`, which the download loops turn into a
-  /// "stream closed before task completed" error and retry. That is louder than
-  /// the old behaviour (which left orphaned subscriptions running) and it is
-  /// the honest reading of "the host tore flutter_gemma down".
+  /// Closing is deliberate and NOT inert for in-flight downloads: live
+  /// listeners get `onDone`, which becomes a
+  /// [DownloadUpdatesReleasedException] and terminates the download rather than
+  /// retrying it.
+  ///
+  /// The registration is deliberately NOT removed. A native task we enqueued
+  /// can still be running, and with no group callback its updates fall through
+  /// to `FileDownloader().updates` — so tearing flutter_gemma down would start
+  /// pushing tasks the host has never heard of into the host's own stream. That
+  /// is #445 in reverse. A no-op sink costs one map entry and absorbs them.
   static void _releaseGroupFanOut() {
     final controller = _groupUpdates;
-    final forward = _groupForward;
     _groupUpdates = null;
-    _groupForward = null;
     if (controller == null) return;
-    FileDownloader().unregisterCallbacks(
+    FileDownloader().registerCallbacks(
       group: downloadGroup,
-      callback: forward,
+      taskStatusCallback: _absorb,
+      taskProgressCallback: _absorb,
     );
     unawaited(controller.close());
   }
+
+  static void _absorb(TaskUpdate update) {}
 
   @visibleForTesting
   static void resetDownloadUpdatesStreamConfig() => clearConfiguration();
@@ -443,7 +525,6 @@ class SmartDownloader {
     // download would then hang at `await completer.future` with no error, which
     // is the failure this whole file's watchdog machinery exists to avoid.
     // Re-registering is an idempotent map write, so it is free to repeat.
-    _groupForward = forward;
     FileDownloader().registerCallbacks(
       group: downloadGroup,
       taskStatusCallback: forward,
@@ -696,10 +777,11 @@ class SmartDownloader {
               // A live event means the task is not dead — cancel any pending
               // resume watchdog so a normally-progressing task never false-fires (#355).
               _cancelResumeWatchdog(update.task.taskId);
-              final percents = (update.progress * 100).round();
+              final percents = percentFromProgress(update.progress);
+              if (percents == null) return; // state sentinel, not progress
               gemmaLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
-                progress.add(percents.clamp(0, 100));
+                progress.add(percents);
               }
             } else if (update is TaskStatusUpdate) {
               _cancelResumeWatchdog(update.task.taskId);
@@ -729,6 +811,43 @@ class SmartDownloader {
                 }
                 await listener?.cancel();
                 if (!completer.isCompleted) completer.complete();
+              } else if (update.status == TaskStatus.notFound) {
+                // FINAL state — nothing further will ever arrive. Grouping it
+                // with `paused` and re-arming a watchdog would stall a plain
+                // 404 for 90 seconds and then report it as a network timeout,
+                // which is the most common real support case (gated or renamed
+                // HuggingFace URL) told the least useful thing.
+                if (!progress.isClosed) {
+                  progress.addError(
+                    DownloadException(const DownloadError.notFound()),
+                  );
+                  progress.close();
+                }
+                await listener?.cancel();
+                if (!completer.isCompleted) completer.complete();
+              } else if (update.status == TaskStatus.paused ||
+                  update.status == TaskStatus.enqueued) {
+                // Neither is final and neither carries progress, and the
+                // blanket `_cancelResumeWatchdog` above has just disarmed the
+                // only safety net for both.
+                //
+                // `paused` is the normal 9-minute WorkManager slice: native
+                // re-enqueues with a 1s delay, which then emits `enqueued`. If
+                // that re-enqueued job is deferred — Doze, a metered-network
+                // constraint, quota — no further event ever arrives. Without a
+                // re-arm on BOTH, the sequence paused[arm] -> enqueued[disarm]
+                // leaves the download hanging unbounded with no error at all.
+                gemmaLog(
+                  '⏸️ ${update.status} (existing) — re-arming resume watchdog',
+                );
+                _armResumeWatchdog(
+                  taskId: taskId,
+                  progress: progress,
+                  listener: listener,
+                  onSettle: () {
+                    if (!completer.isCompleted) completer.complete();
+                  },
+                );
               }
             }
           },
@@ -745,10 +864,7 @@ class SmartDownloader {
           onDone: () {
             if (!completer.isCompleted) {
               completer.completeError(
-                StateError(
-                  'Download updates stream closed before task $taskId '
-                  'completed',
-                ),
+                DownloadUpdatesReleasedException(taskId),
                 StackTrace.current,
               );
             }
@@ -762,15 +878,14 @@ class SmartDownloader {
         // attach path used to only listen → the watchdog fired → a permanent
         // wedge (#383/R1). Resume it so it actually makes progress.
         //
-        // Resumed AFTER the listener is attached, not before (#445 review). The
-        // fan-out is a broadcast controller and discards anything emitted while
-        // nobody is listening — where the previous `asBroadcastStream()` over a
-        // single-subscription source merely PAUSED it, so the source buffered
-        // and flushed to the next listener. With the old code a terminal
-        // `complete` landing during resume()'s platform round trip survived;
-        // with a broadcast controller it would be lost, and the 90s watchdog
-        // would then cancel a download that had actually finished, delete its
-        // resume data, and start a multi-gigabyte transfer again from zero.
+        // Resumed AFTER the listener is attached, not before (#445 review).
+        // `resume()` is a platform round trip, and the fan-out discards
+        // anything emitted while nobody is listening — so a terminal
+        // `complete` landing in that window would be lost, the 90s watchdog
+        // would fire, and it would cancel a download that had actually
+        // finished, delete its resume data, and restart a multi-gigabyte
+        // transfer from zero. The fresh-enqueue path already listens first;
+        // this brings the reattach path in line.
         if (existingTask is DownloadTask &&
             await downloader.taskCanResume(existingTask)) {
           gemmaLog('🔵 Existing task $taskId is resumable — resuming');
@@ -786,14 +901,20 @@ class SmartDownloader {
         // calls `_cancelResumeWatchdog` on every real
         // TaskProgressUpdate/TaskStatusUpdate, so a live task disarms this
         // immediately; only a truly silent one lets it fire.
-        _armResumeWatchdog(
-          taskId: taskId,
-          progress: progress,
-          listener: listener,
-          onSettle: () {
-            if (!completer.isCompleted) completer.complete();
-          },
-        );
+        // Not if the task already finished during resume()'s round trip: the
+        // taskId is a deterministic hash of (base, directory, filename), so a
+        // stale timer firing 90s later would cancel and delete the resume data
+        // of a NEW download of the same model.
+        if (!completer.isCompleted) {
+          _armResumeWatchdog(
+            taskId: taskId,
+            progress: progress,
+            listener: listener,
+            onSettle: () {
+              if (!completer.isCompleted) completer.complete();
+            },
+          );
+        }
 
         await completer.future;
         return;
@@ -807,32 +928,14 @@ class SmartDownloader {
         '🔵 allowPause: $allowPause (HuggingFace: ${_isHuggingFaceUrl(url)})',
       );
 
-      final task = DownloadTask(
+      final task = buildModelDownloadTask(
         taskId: taskId,
         url: url,
-        group: downloadGroup,
-        headers: token != null
-            ? {
-                'Authorization': 'Bearer $token',
-                'Connection': 'keep-alive',
-                // Attempt to work around CDN ETag issues
-                'Cache-Control': 'no-cache, no-store',
-                'Pragma': 'no-cache',
-              }
-            : {
-                'Connection': 'keep-alive',
-                'Cache-Control': 'no-cache, no-store',
-                'Pragma': 'no-cache',
-              },
+        token: token,
         baseDirectory: baseDirectory,
         directory: downloadDirectory,
         filename: filename,
-        requiresWiFi: false,
-        allowPause:
-            allowPause, // Auto-detect: false for HuggingFace, true for others
-        priority: downloadPriority,
-        retries: 0, // We handle retries manually with HTTP-aware logic
-        updates: Updates.statusAndProgress,
+        allowPause: allowPause,
       );
 
       // Create a completer to wait for download completion
@@ -852,10 +955,11 @@ class SmartDownloader {
             // A live event means the task is not dead — cancel any pending
             // resume watchdog so a normally-progressing task never false-fires (#355).
             _cancelResumeWatchdog(update.task.taskId);
-            final percents = (update.progress * 100).round();
+            final percents = percentFromProgress(update.progress);
+            if (percents == null) return; // state sentinel, not progress
             gemmaLog('📊 Progress: $percents%');
             if (!progress.isClosed) {
-              progress.add(percents.clamp(0, 100));
+              progress.add(percents);
             }
           } else if (update is TaskStatusUpdate) {
             _cancelResumeWatchdog(update.task.taskId);
@@ -1010,6 +1114,25 @@ class SmartDownloader {
                 }
                 break;
 
+              case TaskStatus.paused:
+              case TaskStatus.enqueued:
+                // Neither is final and neither carries progress, and the
+                // blanket `_cancelResumeWatchdog` above has just disarmed the
+                // only safety net for both. `paused` is the 9-minute
+                // WorkManager slice; the re-enqueue it triggers then emits
+                // `enqueued`. Re-arming on paused alone would be undone one
+                // event later, so a deferred re-enqueue would hang unbounded.
+                gemmaLog('⏸️ ${update.status} — re-arming resume watchdog');
+                _armResumeWatchdog(
+                  taskId: task.taskId,
+                  progress: progress,
+                  listener: listener,
+                  onSettle: () {
+                    if (!completer.isCompleted) completer.complete();
+                  },
+                );
+                break;
+
               default:
                 break;
             }
@@ -1028,10 +1151,7 @@ class SmartDownloader {
         onDone: () {
           if (!completer.isCompleted) {
             completer.completeError(
-              StateError(
-                'Download updates stream closed before task ${task.taskId} '
-                'completed',
-              ),
+              DownloadUpdatesReleasedException(task.taskId),
               StackTrace.current,
             );
           }
@@ -1066,6 +1186,19 @@ class SmartDownloader {
 
       // Cancel listener before retry
       await listener?.cancel();
+
+      // An explicit teardown is not a transient failure. Retrying it restarts
+      // the download AND re-registers the group callbacks a couple of seconds
+      // later, so the release never actually holds — and in the gap our tasks
+      // spill into the host's `FileDownloader().updates`, which is #445 running
+      // backwards.
+      if (e is DownloadUpdatesReleasedException) {
+        if (!progress.isClosed) {
+          progress.addError(e, StackTrace.current);
+          await progress.close();
+        }
+        return;
+      }
 
       if (currentAttempt < maxRetries) {
         gemmaLog(

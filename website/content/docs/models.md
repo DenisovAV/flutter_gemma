@@ -229,7 +229,7 @@ plugin auto-detects and uses a foreground service (shows a notification) to
 bypass it:
 
 ```dart
-// Auto-detect based on file size (>500MB = foreground) — DEFAULT
+// DEFAULT — no foreground service; pass foreground: true to get one
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
   .fromNetwork(url)  // foreground: null (auto-detect)
   .install();

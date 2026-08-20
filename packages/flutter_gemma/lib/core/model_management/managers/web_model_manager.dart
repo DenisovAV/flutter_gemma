@@ -99,6 +99,25 @@ class WebModelManager extends ModelFileManager {
       return;
     }
 
+    if (fileType == ModelFileType.builtIn) {
+      // Built-in OS models (Gemini Nano via the Chrome Prompt API) have no
+      // file to install — `InferenceInstallationBuilder.install()` bypasses
+      // SourceHandlers/the repository entirely for `fileType.builtIn`, so
+      // nothing was ever `repository.saveModel()`-ed for it and the
+      // `repo.isInstalled` check below would always be false, incorrectly
+      // skipping the restore on every page reload. Reconstruct the inert
+      // bundled-source carrier directly from the persisted identity, mirroring
+      // `MobileModelManager._restoreActiveInferenceModel`.
+      _activeInferenceModel = InferenceModelSpec(
+        name: filename,
+        modelSource: source,
+        modelType: modelType,
+        fileType: fileType,
+      );
+      gemmaLog('[WebModelManager] restored active built-in model: $filename');
+      return;
+    }
+
     // Verify the underlying file is still installed in the Web repository
     // before we set it active — otherwise getModelFilePaths() will throw
     // later on the first getActiveModel() call.

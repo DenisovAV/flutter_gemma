@@ -78,6 +78,7 @@ final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
 - **`.litertlm` models require minSdk 30.** `libLiteRtLm.so` depends on API 30+ Bionic syscalls (`pthread_cond_clockwait`, `sem_clockwait`) that can't be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 - **`.litertlm` / embeddings / vision are `arm64-v8a` only.** MediaPipe text inference (`.task` / `.bin`) also runs on `x86_64` and `armeabi-v7a`. If you only use arm64-only features, add `ndk { abiFilters 'arm64-v8a' }` so the Play Store doesn't offer broken APKs. See [Installation → Android architecture](/docs/installation#android-architecture-support).
 - **GPU:** add the `libOpenCL.so` `<uses-native-library>` tags to `AndroidManifest.xml`. See [Installation → Android](/docs/installation#android).
+- **Zero chunks and `Stream error: <U+FFFD>`, then `SIGABRT`.** Fixed in `flutter_gemma_litertlm` 1.5.2. On Android the first `dlopen` of `libLiteRtLm` decides for the whole process whether its symbols are reachable from the default search scope, and bionic never promotes it afterwards — so an app that embedded or transcribed anything before its first generation left the stream-callback ABI probe blind and the wrong callback shape was registered. Upgrade to 1.5.2. See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
 
 ## Web
 

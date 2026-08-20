@@ -1,3 +1,6 @@
+## 1.5.2
+- Android: load libLiteRtLm globally from the embeddings path too, fixing garbled streams (#447).
+
 ## 1.5.1
 - Share the host-side native library lookup with core instead of a private copy.
 

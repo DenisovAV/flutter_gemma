@@ -22,6 +22,8 @@ import 'package:flutter_gemma/core/utils/host_native_library.dart';
 
 import 'package:ffi/ffi.dart';
 
+import 'litert_default_scope.dart';
+
 // ----- Opaque handle typedefs ------------------------------------------------
 
 final class _Opaque extends Opaque {}
@@ -348,7 +350,20 @@ DynamicLibrary _openLiteRt() {
       '${Directory.current.path}): ${tried.join(", ")}',
     );
   }
-  if (Platform.isAndroid) return DynamicLibrary.open('libLiteRtLm.so');
+  if (Platform.isAndroid) {
+    // #447: this is the embeddings/speech entry point, and on Android it may
+    // well be the FIRST thing in the process to open libLiteRtLm — whichever
+    // path gets there first decides for good whether the library's exports are
+    // reachable through dlsym(RTLD_DEFAULT). Opening it plainly here left the
+    // LLM path's stream-ABI probe permanently blind. Load it into the default
+    // scope first; the handle-scoped open below is then just a handle.
+    ensureLiteRtLmInDefaultScope('libLiteRtLm.so');
+    return DynamicLibrary.open('libLiteRtLm.so');
+  }
+  // Linux and Windows need no equivalent: glibc promotes an already-loaded
+  // object when a later dlopen asks for RTLD_GLOBAL, and PE modules are
+  // reachable through the loaded-module list regardless. See the header of
+  // litert_default_scope.dart.
   if (Platform.isLinux) return DynamicLibrary.open('libLiteRt.so');
   if (Platform.isWindows) return DynamicLibrary.open('LiteRt.dll');
   throw UnsupportedError(

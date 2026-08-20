@@ -12,6 +12,7 @@ import 'package:mutex/mutex.dart';
 
 import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/parsing/sdk_text_extractor.dart';
+import 'litert_default_scope.dart';
 import 'litert_lm_bindings.dart';
 
 /// Callback typedef with Uint8 for bool (C _Bool = 1 byte)
@@ -573,33 +574,17 @@ class LiteRtLmFfiClient {
           'or run on an arm64-v8a device / Apple Silicon emulator.',
         );
       }
-      // Load StreamProxy first (it has stream_proxy_load_global helper)
       proxyLib = DynamicLibrary.open('libStreamProxy.so');
-      // Load LiteRtLm with RTLD_GLOBAL so GPU accelerator plugins
-      // can find LiteRt* symbols via dlsym(RTLD_DEFAULT).
-      // Dart's DynamicLibrary.open uses RTLD_LOCAL which hides symbols.
-      final loadGlobal = proxyLib
-          .lookupFunction<
-            Pointer Function(Pointer<Utf8>),
-            Pointer Function(Pointer<Utf8>)
-          >('stream_proxy_load_global');
-      final pathPtr = 'libLiteRtLm.so'.toNativeUtf8();
-      final handle = loadGlobal(pathPtr);
-      calloc.free(pathPtr);
-      if (handle == nullptr) {
-        // The most common cause we've seen is Android API < 30 (#265):
-        // upstream `libLiteRtLm.so` is built against Bionic 11+ libc and
-        // hard-references `pthread_cond_clockwait` / `sem_clockwait`,
-        // which don't exist on API 29 and below. Use a MediaPipe `.task`
-        // model instead, or bump `minSdkVersion` to 30.
-        throw Exception(
-          'Failed to load libLiteRtLm.so with RTLD_GLOBAL. '
-          'On Android, this commonly indicates API < 30: `.litertlm` models '
-          'require Android 11+ (minSdkVersion 30). For older devices use a '
-          'MediaPipe `.task` model instead. See '
-          'https://github.com/DenisovAV/flutter_gemma/issues/265',
-        );
-      }
+      // Load LiteRtLm into the default search scope so the GPU accelerator
+      // plugins — and stream_proxy's own ABI probe — can resolve LiteRt*
+      // symbols through dlsym(RTLD_DEFAULT). Dart's DynamicLibrary.open uses
+      // RTLD_LOCAL, which hides them.
+      //
+      // Shared with the embeddings/speech entry point (litert_bindings.dart)
+      // because the two race for "first to open", and the loser used to decide
+      // the outcome silently. The helper also verifies the load rather than
+      // trusting a non-NULL handle — see its header and #447.
+      ensureLiteRtLmInDefaultScope('libLiteRtLm.so');
       lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
     } else {
       throw UnsupportedError(

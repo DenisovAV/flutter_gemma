@@ -5,7 +5,8 @@ import 'package:flutter_gemma/core/model.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show InferenceModelSpec;
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
+import 'package:flutter_gemma_onnx/src/onnx_engine.dart';
+import 'package:flutter_gemma_onnx/src/onnx_inference_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes/fake_gen_ai_client.dart';

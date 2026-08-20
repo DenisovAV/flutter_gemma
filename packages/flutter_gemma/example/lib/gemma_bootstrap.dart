@@ -4,6 +4,7 @@ import 'package:flutter_gemma_agent/flutter_gemma_agent.dart';
 import 'package:flutter_gemma_builtin_ai/flutter_gemma_builtin_ai.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
+import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
 import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 import 'package:flutter_gemma_rag_qdrant/flutter_gemma_rag_qdrant.dart';
 import 'package:flutter_gemma_speech/flutter_gemma_speech.dart';
@@ -17,10 +18,20 @@ const kExampleInferenceEngines = [
   LiteRtLmEngine(),
   MediaPipeEngine(),
   BuiltInAiEngine(),
+  OnnxEngine(),
 ];
 
-/// The opt-in embedding backends the example registers. Single source of truth.
-const kExampleEmbeddingBackends = [LiteRtEmbeddingBackend()];
+/// The opt-in embedding backends the example registers. Single source of
+/// truth. `OnnxEmbeddingBackend` (priority 10) outranks
+/// `LiteRtEmbeddingBackend`'s catch-all (priority 0) for `.onnx`/`.ort`
+/// models — see each backend's `canHandle` doc. Also proves the
+/// `flutter_gemma_onnx` barrel split (ONNX web PR, `feat/onnx-web`): this
+/// single, unbranched registration list compiles for both native
+/// (dart:ffi ORT) and web (onnxruntime-web) builds.
+const kExampleEmbeddingBackends = [
+  LiteRtEmbeddingBackend(),
+  OnnxEmbeddingBackend(),
+];
 
 /// The opt-in STT backends the example registers. Single source of truth.
 const kExampleSttBackends = [LiteRtSttBackend()];

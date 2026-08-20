@@ -1,3 +1,8 @@
+## 0.2.0
+
+- Add web support for `OnnxEmbeddingBackend` via onnxruntime-web (WebGPU/WASM, WordPiece models).
+- `OnnxEngine` (text generation) declines on web for now — Transformers.js support is a fast-follow.
+
 ## 0.1.0
 
 - Initial release: `OnnxEngine` — ORT-GenAI text generation over `dart:ffi`, macOS/Linux/Windows/Android/iOS arm64.

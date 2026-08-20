@@ -29,12 +29,12 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.6.0                 # core — always required
-  flutter_gemma_litertlm: ^1.5.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma: ^1.6.1                 # core — always required
+  flutter_gemma_litertlm: ^1.5.1        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG (qdrant)
-  flutter_gemma_rag_sqlite: ^1.1.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
+  flutter_gemma_rag_qdrant: ^1.2.0      # add for native on-device RAG (qdrant)
+  flutter_gemma_rag_sqlite: ^1.2.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -87,7 +87,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 ```
 dependencies:
   flutter_gemma_embeddings: ^2.0.0   # runtime-agnostic pipeline (still required)
-  flutter_gemma_litertlm: ^1.5.0     # now provides LiteRtEmbeddingBackend
+  flutter_gemma_litertlm: ^1.5.1     # now provides LiteRtEmbeddingBackend
 ```
 
 `FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` itself

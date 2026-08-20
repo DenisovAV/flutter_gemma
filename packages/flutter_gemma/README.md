@@ -1654,6 +1654,14 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
 );
 ```
 
+A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
+the strict one — `^[A-Za-z][A-Za-z0-9_]*$`, and not a name `vec0` already uses
+(`id`, `embedding`, `content`, `metadata`, `distance`, `k`) — because the name
+becomes a real column in a DDL with no quoted-identifier form.
+`QdrantVectorStore` takes free-form UTF-8 keys, minus `.` which it reads as a
+nested path. So the portable set is sqlite's; a duplicate or empty name is
+rejected on any store.
+
 `Filter` supports `must` / `should` / `mustNot` lists of `FieldEquals`, `FieldRange`, `FieldMatchAny` conditions. Both backends honor it: qdrant-edge natively, and the `sqlite-vec`/`vec0` store on all platforms incl. Web (one `Filter` → vec0 declared-column `WHERE`). Filterable fields must be declared as vec0 columns.
 
 **Benchmarks** comparing qdrant-edge to the legacy sqlite + local_hnsw backend across 5 platforms (5 000 documents, EmbeddingGemma 300M, 768-dim): see [example/integration_test/benchmarks/comparison.md](example/integration_test/benchmarks/comparison.md).

@@ -169,13 +169,21 @@ store.configure(FilterSchema(fields: [
 
 `FilterFieldType` has exactly three values: `string`, `number`, `bool`.
 
-`FilterField.name` must match `^[A-Za-z][A-Za-z0-9_]*$` — an ASCII letter, then
-letters, digits or underscores. Anything else (`doc-type`, `doc.type`, a name
-with a space or comma) throws an `ArgumentError` from the constructor. The name
-is promoted to a real `vec0` column and sqlite-vec's DDL grammar has no quoted
-identifier form, so an out-of-set name cannot be represented there at all. The
-same rule applies on qdrant, where the name is a payload key, so one schema
-means the same thing on both backends.
+What a field may be NAMED is decided by the store, and the two differ — the
+check runs in `configure()`, so you find out when you hand the schema over, not
+at the first insert.
+
+`SqliteVectorStore` is the strict one: a name must match
+`^[A-Za-z][A-Za-z0-9_]*$` and must not be one vec0 already uses (`id`,
+`embedding`, `content`, `metadata`, `distance`, `k`). The name becomes a real
+`vec0` column and sqlite-vec's DDL grammar has no quoted identifier form, so
+`doc-type` is unrepresentable there rather than merely unescaped.
+
+`QdrantVectorStore` accepts far more — payload keys are free-form UTF-8 — with
+one rule of its own: no `.`, which qdrant reads as a nested-path separator.
+
+So the portable set is sqlite's. If you may ever switch backends, stay inside
+it. Regardless of store, a schema with a duplicate or empty name is rejected.
 
 A `Filter` over the declared fields is then applied inside the store; a filter
 referencing an **undeclared** field is silently ignored (no-op, never throws).

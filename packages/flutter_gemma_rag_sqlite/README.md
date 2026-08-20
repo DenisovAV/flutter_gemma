@@ -58,11 +58,16 @@ final hits = await store.searchSimilar(
 );
 ```
 
-`FilterField.name` must match `^[A-Za-z][A-Za-z0-9_]*$`; anything else throws an
-`ArgumentError` at construction. The name becomes a real `vec0` column, and
-sqlite-vec's DDL grammar accepts no quoted identifier form (`"doc-type"`,
-`[doc-type]` and `` `doc-type` `` all fail), so a name outside that set is
-unrepresentable rather than merely unescaped.
+`FilterField.name` must match `^[A-Za-z][A-Za-z0-9_]*$`, and must not be a name
+vec0 already declares: `id`, `embedding`, `content`, `metadata`, and the hidden
+`distance` and `k`. `configure()` throws an `ArgumentError` otherwise — at that
+call, not at the first `addDocument`, which is when the table is really built.
+
+The name becomes a real `vec0` column, and sqlite-vec's DDL grammar accepts no
+quoted identifier form (`"doc-type"`, `[doc-type]` and `` `doc-type` `` all
+fail), so a name outside that set is unrepresentable rather than merely
+unescaped. qdrant accepts most of these names, so a schema written for it may be
+refused here — this set is the portable one.
 
 Filtering on an **undeclared** key is a safe no-op (never throws). With no
 `filterSchema`, the store ignores filters entirely — identical to `filter: null`.

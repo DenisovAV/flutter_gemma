@@ -296,57 +296,38 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
     final completer = _initCompleter = Completer<InferenceModel>();
     _inFlightRequest = (specName: requestedSpec.name, params: requestedParams);
 
-    /// Completes [completer] with [error] AFTER clearing the singleton state.
-    ///
-    /// Also used by the catch below, which is what makes the three checks safe
-    /// against THROWING as well as against returning false. They sit outside
-    /// the try that wraps the build, and an exception from any of them — a
-    /// prefs read, an IO error, a permission denial — used to escape
-    /// createModel with the completer installed and never completed. Every
-    /// later caller then awaited a future that could not settle: no error, no
-    /// timeout, nothing in the log, and unrecoverable for the process
-    /// lifetime, since the only writers of _initCompleter are unreachable from
-    /// that state.
-    ///
-    /// The three pre-build checks below used to complete the error and return
-    /// while leaving `_initCompleter` installed — the same defect FIX #170
-    /// removed from the catch block, in the paths it did not cover. Every later
-    /// caller was then handed that dead completer: an identical request got the
-    /// stale error forever, and a DIFFERENT request awaited it, caught it,
-    /// re-entered, found the very same completer still installed, and looped
-    /// without end.
-    Future<InferenceModel> failBeforeBuild(Object error) {
-      _initCompleter = null;
-      _inFlightRequest = null;
-      _initializedModel = null;
-      _lastActiveInferenceSpec = null;
-      _lastInferenceParams = null;
-      completer.completeError(error);
-      return completer.future;
-    }
-
     final isBuiltIn = requestedSpec.fileType == ModelFileType.builtIn;
-
     String modelPath = '';
+
     try {
+      // The pre-build checks live INSIDE this try, and they THROW rather than
+      // completing the completer themselves. Desktop was always shaped this
+      // way; mobile had them outside, with a closure that duplicated the catch
+      // below, and that split cost two defects:
+      //
+      //   * the checks used to complete the error and return while leaving
+      //     `_initCompleter` installed — the defect FIX #170 removed from the
+      //     catch, in the paths it did not cover — so every later caller was
+      //     handed a dead completer, and a DIFFERENT request awaited it,
+      //     caught it, re-entered, and looped without end;
+      //   * a THROW from isModelInstalled / getModelFilePaths / exists()
+      //     escaped createModel entirely, leaving a completer that could never
+      //     settle.
+      //
+      // One try and one catch cannot drift apart the way two did. Throwing also
+      // keeps the stack trace, which the closure discarded.
       if (!isBuiltIn) {
-        // Verify the active model is still installed
         final isModelInstalled = await manager.isModelInstalled(activeModel);
         if (!isModelInstalled) {
-          return failBeforeBuild(
-            Exception(
-              'Active model is no longer installed. Use the `modelManager` to load the model first',
-            ),
+          throw Exception(
+            'Active model is no longer installed. Use the `modelManager` to load the model first',
           );
         }
 
-        // Get the actual model file path through unified system
         final modelFilePaths = await manager.getModelFilePaths(activeModel);
         if (modelFilePaths == null || modelFilePaths.isEmpty) {
-          return failBeforeBuild(
-            Exception(
-              'Model file paths not found. Use the `modelManager` to load the model first',
-            ),
+          throw Exception(
+            'Model file paths not found. Use the `modelManager` to load the model first',
           );
         }
 
@@ -354,9 +335,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
         final modelFile = File(modelPath);
 
         if (!await modelFile.exists()) {
-          return failBeforeBuild(
-            Exception('Model file not found at path: ${modelFile.path}'),
-          );
+          throw Exception('Model file not found at path: ${modelFile.path}');
         }
 
         gemmaLog('Using unified model file: $modelPath');
@@ -365,14 +344,7 @@ class FlutterGemmaMobile extends FlutterGemmaPlugin {
           'Built-in model ${requestedSpec.name}: skipping file/installed checks (no on-disk file)',
         );
       }
-    } catch (e) {
-      // A throw from isModelInstalled / getModelFilePaths / exists() must land
-      // on the same path as a false answer from them. Anything else leaves a
-      // completer that never settles.
-      return failBeforeBuild(e);
-    }
 
-    try {
       // Engine selection routes ENTIRELY through [EngineRegistry] (probe-chain).
       // Core registers NO default engine: both MediaPipe (.task/.bin, from
       // flutter_gemma_mediapipe) and LiteRT-LM (.litertlm, from

@@ -77,6 +77,24 @@
   })();
   </script>
 
+  <!-- Transformers.js v4 (flutter_gemma_onnx web TEXT-GENERATION arm).
+       Same readiness-handshake shape as the shims above: `window.transformersReady`
+       resolves once the module has loaded, and also sets `window.transformers`
+       for the Dart side's `dart:js_interop` bindings
+       (lib/src/web/transformers_js_interop.dart). Unlike onnxruntime-web
+       above (a plain forward pass driven from Dart), Transformers.js owns
+       tokenization, chat templating, generation AND fetching/caching each
+       model repo itself (browser Cache Storage / IndexedDB) from the repo
+       id alone — core's `ModelFileType.onnx` web install never downloads
+       model bytes (see WebModelManager). -->
+  <script type="module">
+  window.transformersReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+    window.transformers = m;
+    return m;
+  })();
+  </script>
+
   <!-- Cache API for persistent storage -->
   <script src="cache_api.js"></script>
 

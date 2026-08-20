@@ -241,7 +241,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.6.0"
+    version: "1.6.1"
   flutter_gemma_agent:
     dependency: "direct main"
     description:
@@ -283,7 +283,7 @@ packages:
       path: "../../flutter_gemma_onnx"
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.3.0"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:

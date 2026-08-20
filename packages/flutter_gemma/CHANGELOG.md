@@ -1,3 +1,6 @@
+## 1.6.1
+- Web: `ModelFileType.onnx` install is fileless — Transformers.js owns the repo, install just sets it active.
+
 ## 1.6.0
 - Add `ModelFileType.onnx` + ONNX engine chat-format routing — enables the new `flutter_gemma_onnx` engine.
 

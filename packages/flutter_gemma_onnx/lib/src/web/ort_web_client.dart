@@ -11,7 +11,7 @@
 // `flutter_gemma_litertlm`'s `window.litertLmReady`/`window.Engine`. See
 // `example/web/index.html`.
 @JS()
-library ort_web_client;
+library;
 
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';

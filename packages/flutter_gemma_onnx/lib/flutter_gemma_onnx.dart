@@ -1,19 +1,23 @@
 /// ONNX Runtime on-device engines for flutter_gemma: text generation
-/// (`OnnxEngine`, native macOS/Linux/Windows/Android/iOS arm — web is a
-/// fast-follow, see below) and embeddings (`OnnxEmbeddingBackend`,
-/// productionized on native + web).
+/// (`OnnxEngine`, native macOS/Linux/Windows/Android/iOS arm via ORT-GenAI
+/// PLUS a web arm via Transformers.js, see below) and embeddings
+/// (`OnnxEmbeddingBackend`, productionized on native + web).
 ///
 /// Opt-in. Add to pubspec.yaml and pass instances to
 /// `FlutterGemma.initialize(...)`.
 ///
-/// **Inference (`OnnxEngine`)** — see [OnnxEngine]'s doc comment: text-only,
-/// greedy decoding, one session at a time, over ORT-GenAI via `dart:ffi`
-/// (`GenAiFfiClient`, a long-lived worker isolate — no FFI handle ever
-/// crosses an isolate boundary) on macOS/Linux/Windows/Android/iOS. **Web is
-/// NOT yet implemented** — [OnnxEngine.canHandle] always declines there;
-/// text generation on web needs Transformers.js, a different
-/// model-provisioning story (an HF-repo-id model, not an ORT-GenAI
-/// directory) planned as its own fast-follow PR.
+/// **Inference (`OnnxEngine`)** — see [OnnxEngine]'s doc comment.
+/// - **Native** (macOS/Linux/Windows/Android/iOS): text-only, greedy
+///   decoding, one session at a time, over ORT-GenAI via `dart:ffi`
+///   (`GenAiFfiClient`, a long-lived worker isolate — no FFI handle ever
+///   crosses an isolate boundary).
+/// - **Web**: text generation via Transformers.js v4
+///   (`@huggingface/transformers`) — a different model-provisioning +
+///   execution story than the native arm: the model is identified by its
+///   Hugging Face repo id (not an ORT-GenAI directory), Transformers.js
+///   resolves + caches the repo itself, and the pipeline is stateless per
+///   call (the session resends the whole chat history every turn). See
+///   `OnnxWebInferenceModel`'s module doc (`lib/src/web/`) for the details.
 ///
 /// **Embeddings (`OnnxEmbeddingBackend`)** — a plain ONNX Runtime forward
 /// pass (no ORT GenAI) over an `.onnx`/`.ort` embedding model directory.

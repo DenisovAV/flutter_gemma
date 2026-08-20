@@ -1,3 +1,9 @@
+## 0.3.0
+
+- Add web text generation via Transformers.js (`@huggingface/transformers`) — `OnnxEngine` web arm (WebGPU/WASM, HF-repo-id models).
+- Fix iOS embeddings: probe ORT `GetApi` down from v27 (the ORT inside onnxruntime-genai predates 1.27).
+- Device-verify embeddings on iOS + Android + macOS (unified `onnx_embedding_device_test`).
+
 ## 0.2.0
 
 - Add web support for `OnnxEmbeddingBackend` via onnxruntime-web (WebGPU/WASM, WordPiece models).

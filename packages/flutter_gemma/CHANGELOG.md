@@ -1,4 +1,4 @@
-## 1.7.0
+## 1.6.1
 - `getActiveModel` compares every runtime param before reusing the cached model.
 - Racing `getActiveModel` calls no longer share a model built for other params.
 - Add `FilterField.validateSchema` — rejects duplicate field names, checked in release.

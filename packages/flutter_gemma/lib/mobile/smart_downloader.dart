@@ -150,6 +150,19 @@ class SmartDownloader {
   /// silently no-ops (this is what caused the #383 leak amplifier: three call
   /// sites used the stale literal `'flutter_gemma_downloads'`).
   static const String downloadGroup = 'smart_downloads';
+
+  /// Scheduling priority for model downloads.
+  ///
+  /// background_downloader documents `0 <= priority <= 10 with 0 being the
+  /// HIGHEST`. This was 10 — the worst slot available — which is the opposite
+  /// of what a multi-gigabyte download the user is actively waiting on wants
+  /// (#445, reported by the package author). The default is 5, so the old value
+  /// was not merely unambitious, it was below the default.
+  ///
+  /// On Android 14+ a priority of 0 also moves execution from WorkManager to
+  /// JobScheduler, but only when a notification is configured — which this
+  /// package does only for `foreground: true`.
+  static const int downloadPriority = 0;
   static const int _foregroundThresholdMB = 500;
 
   // Track if FileDownloader has been configured
@@ -270,12 +283,24 @@ class SmartDownloader {
         url.contains('cdn-lfs-eu-1.huggingface.co');
   }
 
-  // Global broadcast stream for FileDownloader.updates
-  // This allows multiple downloads to listen simultaneously
-  static Stream<TaskUpdate>? _broadcastStream;
+  /// Fan-out for THIS package's download updates, fed by group-scoped
+  /// callbacks rather than by listening to `FileDownloader().updates`.
+  ///
+  /// #445: `FileDownloader().updates` is a SINGLE-SUBSCRIPTION controller
+  /// (`var updates = StreamController<TaskUpdate>()` in base_downloader). Taking
+  /// its one subscription — which `asBroadcastStream()` does — means every later
+  /// `FileDownloader().updates.listen(...)`, in the host app or in any other
+  /// package, throws "Stream has already been listened to". Merely depending on
+  /// flutter_gemma made background_downloader unusable for the app's own
+  /// downloads.
+  ///
+  /// `registerCallbacks(group:)` is the supported alternative and is a strict
+  /// narrowing rather than a workaround: `_emitStatusUpdate` consults
+  /// `groupStatusCallbacks[task.group]` BEFORE `updates.hasListener`, so we
+  /// receive exactly what we received before, minus other people's tasks —
+  /// which every listen site here already discarded by taskId.
+  static StreamController<TaskUpdate>? _groupUpdates;
 
-  /// Get broadcast stream for FileDownloader updates
-  /// Creates the broadcast stream once and reuses it for all downloads
   /// Optional hub stream configured at init (e.g. host cache client forwarder).
   static Stream<TaskUpdate>? _configuredDownloadUpdatesStream;
 
@@ -294,22 +319,58 @@ class SmartDownloader {
   }
 
   /// Clears injected hub configuration (e.g. registry reset / dispose).
+  ///
+  /// Also releases the group callbacks, so a host that disposes flutter_gemma
+  /// gets `background_downloader` back in the state it found it — our group
+  /// entry removed, its `updates` stream never having been touched.
   static void clearConfiguration() {
     _configuredDownloadUpdatesStream = null;
     _configuredBroadcastStream = null;
-    _broadcastStream = null;
+    final controller = _groupUpdates;
+    _groupUpdates = null;
+    if (controller != null) {
+      FileDownloader().unregisterCallbacks(group: downloadGroup);
+      unawaited(controller.close());
+    }
   }
 
   @visibleForTesting
   static void resetDownloadUpdatesStreamConfig() => clearConfiguration();
+
+  /// Whether the group-scoped fan-out is currently live.
+  ///
+  /// Exposes lifecycle only — the property that actually matters (#445) is that
+  /// `FileDownloader().updates` stays listenable for the host, and that is
+  /// asserted directly rather than through this.
+  @visibleForTesting
+  static bool get debugGroupFanOutIsLive {
+    final c = _groupUpdates;
+    return c != null && !c.isClosed;
+  }
 
   @visibleForTesting
   static Stream<TaskUpdate> debugResolveUpdatesStream() =>
       _resolveUpdatesStream();
 
   static Stream<TaskUpdate> _getUpdatesStream() {
-    _broadcastStream ??= FileDownloader().updates.asBroadcastStream();
-    return _broadcastStream!;
+    final existing = _groupUpdates;
+    if (existing != null && !existing.isClosed) return existing.stream;
+
+    // Broadcast, because concurrent downloads each call listen(). Never closed
+    // on last-listener-cancel: downloads come and go, and a closed controller
+    // would leave the registered callbacks writing into nothing.
+    final controller = StreamController<TaskUpdate>.broadcast();
+    _groupUpdates = controller;
+    void forward(TaskUpdate update) {
+      if (!controller.isClosed) controller.add(update);
+    }
+
+    FileDownloader().registerCallbacks(
+      group: downloadGroup,
+      taskStatusCallback: forward,
+      taskProgressCallback: forward,
+    );
+    return controller.stream;
   }
 
   static Stream<TaskUpdate> _resolveUpdatesStream() {
@@ -680,7 +741,7 @@ class SmartDownloader {
         requiresWiFi: false,
         allowPause:
             allowPause, // Auto-detect: false for HuggingFace, true for others
-        priority: 10,
+        priority: downloadPriority,
         retries: 0, // We handle retries manually with HTTP-aware logic
         updates: Updates.statusAndProgress,
       );

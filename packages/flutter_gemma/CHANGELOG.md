@@ -1,3 +1,7 @@
+## 1.6.2
+- Stop claiming `FileDownloader().updates`; scope updates to our own group (#445).
+- Download priority 10 (lowest) was a mistake — 0 is highest (#445).
+
 ## 1.6.1
 - `getActiveModel` compares every runtime param before reusing the cached model.
 - Racing `getActiveModel` calls no longer share a model built for other params.

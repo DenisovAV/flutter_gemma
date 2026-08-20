@@ -12,6 +12,7 @@ glibc, Windows DXC, stale GPU shader cache) see
 
 - **Resume isn't supported by the HuggingFace CDN.** flutter_gemma uses smart retry with exponential backoff and **automatic restart** of interrupted downloads instead. Tune the attempt count via `maxDownloadRetries` in `FlutterGemma.initialize(...)` (default: 10).
 - **Large downloads on Android (>500MB)** automatically use a foreground service (shows a notification) to bypass Android's 9-minute background execution limit. iOS uses native URLSession and needs no special handling. See [Models → downloads](/docs/models#android-foreground-service-large-downloads).
+- **Using `background_downloader` in your own app too?** flutter_gemma no longer listens to `FileDownloader().updates` (fixed in `flutter_gemma` 1.6.2). That stream takes a single subscription, so claiming it made every later `FileDownloader().updates.listen(...)` in the host app throw *"Stream has already been listened to"*. Updates are now scoped to flutter_gemma's own task group and the stream stays yours.
 - **Custom servers on Web** must enable CORS headers. HuggingFace is already configured correctly; for Firebase Storage see the [CORS configuration docs](https://firebase.google.com/docs/storage/web/download-files#cors_configuration).
 
 ### Gated models / download errors (401, 403)

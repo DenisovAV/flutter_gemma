@@ -1067,6 +1067,24 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 - ✅ Background downloads on mobile
 - ✅ Cancellable downloads with CancelToken
 - ✅ **Android foreground service** for large downloads (>500MB)
+- ✅ **Coexists with your own `background_downloader` usage** (see below)
+
+**Sharing `background_downloader` with your app.** flutter_gemma downloads
+through `background_downloader`, but it does **not** listen to
+`FileDownloader().updates` — that is a single-subscription stream, and claiming
+it would make every later `FileDownloader().updates.listen(...)` in your app
+throw *"Stream has already been listened to"*. Instead it registers callbacks
+scoped to its own task group, so the stream stays yours:
+
+```dart
+// Yours — unaffected by flutter_gemma, and unaffected by it in reverse.
+FileDownloader().updates.listen((update) { /* your own tasks */ });
+```
+
+Model downloads run at `priority: 0` — the **highest** in
+`background_downloader`, whose range is `0..10` with 0 best. On Android 14+ a
+priority of 0 additionally moves execution to `JobScheduler` when a notification
+is configured, which this package does for `foreground: true` downloads.
 
 **Example:**
 ```dart

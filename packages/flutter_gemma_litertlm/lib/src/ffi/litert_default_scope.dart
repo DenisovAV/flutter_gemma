@@ -42,6 +42,7 @@
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
 
 /// Exported by EVERY version of libLiteRtLm, which is what makes it usable as
 /// a control: its ambient visibility answers "is this library in the default
@@ -61,12 +62,19 @@ typedef _LoadGlobalDart = Pointer<Void> Function(Pointer<Utf8>);
 /// from any isolate: the underlying dlopen is idempotent, and isolates share
 /// one process and therefore one loader state.
 ///
-/// Throws with a distinguishable message for each of the two failures, because
-/// they need different fixes:
-///   * the library could not be loaded at all (usually API < 30, see #265)
-///   * the library loaded but is not in the default scope, meaning something
-///     opened it locally first (#447)
-void ensureLiteRtLmInDefaultScope(String soname) {
+/// Returns whether the exports are reachable from the default scope
+/// afterwards. Not every caller needs them to be: `LiteRtBindings` and
+/// everything in flutter_gemma_speech resolve through their own handle
+/// (`_lib.lookupFunction`), which ignores RTLD_GLOBAL entirely, so a
+/// speech-only or embeddings-only app works either way. They call this to
+/// avoid POISONING the process for a later LLM path, not because they need the
+/// result. Callers that genuinely depend on ambient visibility — only the
+/// stream-callback ABI probe in stream_proxy.c does — use
+/// [requireLiteRtLmInDefaultScope] instead.
+///
+/// Throws only when the library could not be loaded at all (usually API < 30,
+/// see #265), which is fatal for every caller.
+bool loadLiteRtLmIntoDefaultScope(String soname) {
   final proxy = DynamicLibrary.open('libStreamProxy.so');
   final loadGlobal = proxy.lookupFunction<_LoadGlobalNative, _LoadGlobalDart>(
     'stream_proxy_load_global',
@@ -97,15 +105,41 @@ void ensureLiteRtLmInDefaultScope(String soname) {
   // the library was already open, bionic returned the existing soinfo with its
   // original flags, and the load "succeeded" while changing nothing. That is
   // precisely the state #447 shipped in, and only this check can see it.
-  if (DynamicLibrary.process().providesSymbol(_controlSymbol)) return;
+  if (DynamicLibrary.process().providesSymbol(_controlSymbol)) return true;
+
+  // Report it even when this caller can carry on. Whoever opened the library
+  // first is outside our packages — the fix belongs in their code, and they
+  // cannot fix what they never hear about.
+  gemmaLog(
+    '[LiteRtLm] WARNING: $soname is loaded but its symbols are not in the '
+    'default search scope. ${_poisonedExplanation(soname)} This call site does '
+    'not need them (it resolves through its own handle), but a `.litertlm` '
+    'generation in this process will fail.',
+  );
+  return false;
+}
+
+/// Like [loadLiteRtLmIntoDefaultScope], but throws when the exports did not
+/// land in the default scope.
+///
+/// For the `.litertlm` inference path only. `stream_proxy.c` resolves the
+/// v0.15 stream-chunk accessors with `dlsym(RTLD_DEFAULT)`, and reads their
+/// absence as "pre-v0.15 library" — so continuing here would register the 4-arg
+/// callback against a 2-arg caller and corrupt generated text rather than fail.
+void requireLiteRtLmInDefaultScope(String soname) {
+  if (loadLiteRtLmIntoDefaultScope(soname)) return;
 
   throw StateError(
     '$soname is loaded but its symbols are not in the default search scope. '
-    'Something opened it with a plain DynamicLibrary.open before this call, '
-    'and bionic does not promote an already-loaded library to RTLD_GLOBAL, so '
-    'the condition is permanent for this process. Continuing would register '
-    'the wrong stream-callback ABI and corrupt generated text. Route every '
-    'load of $soname through ensureLiteRtLmInDefaultScope. '
+    '${_poisonedExplanation(soname)} Continuing would register the wrong '
+    'stream-callback ABI and corrupt generated text. '
     'See https://github.com/DenisovAV/flutter_gemma/issues/447',
   );
 }
+
+String _poisonedExplanation(String soname) =>
+    'Something opened $soname with a plain DynamicLibrary.open (or '
+    'System.loadLibrary, which is RTLD_NOW without RTLD_GLOBAL) before this '
+    'call, and bionic does not promote an already-loaded library, so the '
+    'condition is permanent for this process. Load it before flutter_gemma '
+    'does and with RTLD_GLOBAL.';

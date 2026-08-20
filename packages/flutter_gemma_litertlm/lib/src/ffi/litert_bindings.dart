@@ -357,7 +357,13 @@ DynamicLibrary _openLiteRt() {
     // reachable through dlsym(RTLD_DEFAULT). Opening it plainly here left the
     // LLM path's stream-ABI probe permanently blind. Load it into the default
     // scope first; the handle-scoped open below is then just a handle.
-    ensureLiteRtLmInDefaultScope('libLiteRtLm.so');
+    //
+    // Best effort on purpose. This binding resolves everything through its own
+    // handle, so it works whether or not the symbols are ambient — and a
+    // speech-only or embeddings-only app must not be broken by a condition it
+    // does not depend on. The point of calling this here is to be FIRST, so a
+    // later `.litertlm` generation is not poisoned.
+    loadLiteRtLmIntoDefaultScope('libLiteRtLm.so');
     return DynamicLibrary.open('libLiteRtLm.so');
   }
   // Linux and Windows need no equivalent: glibc promotes an already-loaded

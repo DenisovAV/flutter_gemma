@@ -584,7 +584,7 @@ class LiteRtLmFfiClient {
       // because the two race for "first to open", and the loser used to decide
       // the outcome silently. The helper also verifies the load rather than
       // trusting a non-NULL handle — see its header and #447.
-      ensureLiteRtLmInDefaultScope('libLiteRtLm.so');
+      requireLiteRtLmInDefaultScope('libLiteRtLm.so');
       lib = DynamicLibrary.open('libLiteRtLm.so'); // Now symbols are global
     } else {
       throw UnsupportedError(

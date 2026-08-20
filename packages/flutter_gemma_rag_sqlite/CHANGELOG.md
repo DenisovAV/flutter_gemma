@@ -1,3 +1,10 @@
+## 1.2.0
+- **Breaking:** reject schema names vec0 cannot represent, including `distance` and `k`.
+- Fix `mustNot` and unpushable filters silently returning fewer rows than `topK`, or none.
+- Fix a document missing one declared metadata field being un-insertable.
+- Fix `FieldMatchAny` on a number field throwing instead of matching.
+- Fix the web arm rejecting integer metadata the native arm accepts.
+
 ## 1.1.0
 - Un-deprecated: first-class on-device vector store on all 6 platforms with in-SQLite KNN via `sqlite-vec`/`vec0`; removed Dart brute-force + HNSW.
 - Declared-column `Filter` (must/should/mustNot) via `configure(FilterSchema)`; undeclared keys no-op. Requires `flutter_gemma ^1.1.0`.

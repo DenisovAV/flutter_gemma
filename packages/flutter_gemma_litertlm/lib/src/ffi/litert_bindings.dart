@@ -18,6 +18,8 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter_gemma/core/utils/host_native_library.dart';
+
 import 'package:ffi/ffi.dart';
 
 // ----- Opaque handle typedefs ------------------------------------------------
@@ -277,30 +279,33 @@ class LiteRtRankedTensorTypeView {
 /// tests sat red under that misreading. So: walk UP to the workspace root
 /// instead of assuming it.
 ///
-/// The Native Assets hook cache comes FIRST. It is version-validated by
-/// `hook/build.dart` (`_readMarker` / `_invalidateBundleCacheIfStale`), whereas
-/// `native/litert_lm/prebuilt/` is gitignored, produced by a local
-/// `build_macos.sh`, and carries no version marker at all. They are the same
-/// bytes today, but after the next `native-v*` bump a stale local prebuilt
-/// would otherwise shadow the refreshed cache and host tests would silently run
-/// against a different native version than the app ships.
-Iterable<String> _devLiteRtLmCandidates() sync* {
-  const rel = 'native/litert_lm/prebuilt/macos_arm64/libLiteRtLm.dylib';
-
-  final home = Platform.environment['HOME'];
-  if (home != null && home.isNotEmpty) {
-    yield '$home/Library/Caches/flutter_gemma/native/macos_arm64/libLiteRtLm.dylib';
-  }
-
-  var dir = Directory.current.absolute;
-  for (var hop = 0; hop < 8; hop++) {
-    yield '${dir.path}/packages/flutter_gemma_litertlm/$rel';
-    yield '${dir.path}/$rel';
-    final parent = dir.parent;
-    if (parent.path == dir.path) break;
-    dir = parent;
-  }
+/// The ordering rules — cache before local build, walk up rather than assume —
+/// and the incidents behind them now live in ONE place, core's
+/// host_native_library.dart, because this search had been written three times
+/// (here, and twice in rag_sqlite's tests) and the copies had drifted.
+List<String> _devLiteRtLmCandidates() {
+  // Guarded rather than trusted: hostNativeDirName() is null on iOS, and the
+  // relative paths below interpolate it, so an unguarded call would build
+  // `.../prebuilt/null/libLiteRtLm.dylib`. Unreachable today — _openLiteRt
+  // throws for iOS before getting here — but a comment is the only thing
+  // keeping that true, and comments do not fail.
+  final hostDir = hostNativeDirName();
+  if (hostDir == null) return const [];
+  return _candidatesFor(hostDir);
 }
+
+List<String> _candidatesFor(String hostDir) => hostNativeLibraryCandidates(
+  // Reached only from the macOS branch of _openLiteRt (iOS throws before it),
+  // so the host names the shared helper computes are the macOS ones.
+  libFileName: hostNativeLibraryFileName('LiteRtLm'),
+  // LiteRT uses the FLAT cache layout: <cacheBase>/<host>/, no namespace.
+  relativePaths: [
+    'packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/'
+        '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
+    'native/litert_lm/prebuilt/'
+        '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
+  ],
+);
 
 DynamicLibrary _openLiteRt() {
   if (Platform.isMacOS || Platform.isIOS) {

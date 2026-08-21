@@ -56,10 +56,9 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.5.3
+## What's new in 1.6.1
 
-- 🛠️ **Tool-calling in the Voice Loop** — `VoiceSession.fromChat(…, onToolCall:)` ([`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) 0.4.2) now runs function calling inside a spoken turn, driven by the new reusable core loop `InferenceChat.generateChatResponseWithTools` (run tool → feed the result back → final answer, with a `maxToolTurns` cap and barge-in cancellation). The full agent (skills / MCP) plugs in the same way via `AgentSession.ask(…, isCancelled:)` ([`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) 0.2.0). See [docs](https://fluttergemma.dev/docs/speech).
-- ⚡ **Inflect-Nano-v2 fast TTS** (`flutter_gemma_speech` 0.4.2) — a tiny VITS voice that synthesizes ~90× faster than real-time on CPU (RTF≈0.01), for snappy spoken replies: `installTts()…ofType(TtsModelType.inflect).install()` → `getActiveTts()` → `synthesize(text)`. English-only; reuses Matcha's phonemizer bundle. See [docs](https://fluttergemma.dev/docs/speech).
+- 🌐 **ONNX on Web** — `flutter_gemma_onnx`'s `OnnxEngine` now generates text on Web via Transformers.js, with a fileless `ModelFileType.onnx` install (the model is a Hugging Face repo id, not a directory). `OnnxEmbeddingBackend` gained a web arm too, via onnxruntime-web. See [`flutter_gemma_onnx`](https://pub.dev/packages/flutter_gemma_onnx).
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
 
@@ -177,7 +176,7 @@ model formats and features you need.
       flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
       flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
-      flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI)
+      flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI, native) / Transformers.js + onnxruntime-web (Web)
 
       # Optional — text embeddings (EmbeddingGemma / Gecko via flutter_gemma_litertlm's
       # LiteRtEmbeddingBackend — see the "Inference engines" section above) + on-device RAG:
@@ -197,7 +196,7 @@ model formats and features you need.
     |---|---|
     | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
     | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
-    | Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android arm64, iOS sim) | `flutter_gemma_onnx` |
+    | Run ONNX models — ORT-GenAI (macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) | `flutter_gemma_onnx` |
     | Generate text embeddings | `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
     | Generate text embeddings from ONNX/ORT models | `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
     | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
@@ -370,6 +369,28 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
     const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
     window.Engine = m.Engine;
     return m.Engine;
+  })();
+  </script>
+```
+
+* **`flutter_gemma_onnx`** (ONNX models on web) — generation runs on
+  Transformers.js, embeddings on onnxruntime-web. Add the shim for whichever
+  arm(s) you register:
+```html
+  <script type="module">
+  window.transformersReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+    window.transformers = m;
+    return m;
+  })();
+  </script>
+
+  <script type="module">
+  window.ortReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
+    m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+    window.ort = m;
+    return m;
   })();
   </script>
 ```
@@ -901,9 +922,9 @@ void main() async {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
-| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models via ORT-GenAI (FFI; macOS/Linux/Windows/Android arm64, iOS sim) |
+| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
-| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI) |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |

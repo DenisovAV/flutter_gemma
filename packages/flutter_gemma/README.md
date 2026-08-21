@@ -1086,11 +1086,20 @@ whose range is `0..10` with 0 best. On iOS that mapped to a raw URLSession
 priority of `0.0`, below `URLSessionTask.lowPriority`, for a multi-gigabyte
 download the user is watching; it is now `0`.
 
-On Android it is now `5`, the package default, rather than `10`. Anything lower
-makes the WorkManager request *expedited* on Android 12+, and an expedited
-request cannot carry the 1-second initial delay that `background_downloader`
-uses to re-enqueue a task after WorkManager's 9-minute cap — the build throws, the throw is logged
-and swallowed, and a long download stops at nine minutes with no error.
+On Android it is now `5`, the package default, rather than `10` — a change with
+no observable effect there, which is the point. Android uses priority only for
+the holding queue (which this package does not enable) and for
+`expedited = priority < 5`, and expedited is the wrong trade for a
+multi-gigabyte transfer twice over:
+
+- it **shortens** the OS execution guarantee — `JobSchedulerService` gives a
+  regular job 10 minutes and an expedited one 3, and AOSP's own comment says
+  expedited jobs "shouldn't be used for long pieces of work";
+- and it currently hangs the download: `background_downloader` survives
+  WorkManager's 9-minute cap by re-enqueuing with a 1-second delay, and an
+  expedited request cannot carry a delay — `WorkRequest.Builder.build()` throws,
+  the throw is logged and swallowed, and the download stops at nine minutes with
+  no error. That is the package's own open PR #709.
 
 **Example:**
 ```dart

@@ -1,7 +1,7 @@
 ## 1.6.2
 - Scope download updates to our own task group; `FileDownloader().updates` stays the host's (#445).
 - iOS download priority now 0 (highest); was 10, the lowest URLSession priority (#445).
-- Android download priority now 5, not 10 — below 5 WorkManager expedites and stalls at 9 min.
+- Android download priority now 5, not 10 — below 5 shortens the OS execution guarantee.
 - Download notification is scoped to our task group instead of becoming the app-wide default.
 - The default download path no longer overwrites the app-wide `runInForeground` setting.
 - Paused and enqueued downloads re-arm the resume watchdog instead of hanging unbounded.

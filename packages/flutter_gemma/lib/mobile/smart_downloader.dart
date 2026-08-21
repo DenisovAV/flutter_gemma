@@ -236,41 +236,48 @@ class SmartDownloader {
   ///
   /// background_downloader documents `0 <= priority <= 10 with 0 being the
   /// HIGHEST`, default 5. This was **10** everywhere, which on iOS is actively
-  /// harmful and on Android is inert:
+  /// harmful and on Android is inert.
   ///
   /// **iOS** maps it straight onto URLSession: `BDPlugin.swift` does
   /// `urlSessionDownloadTask.priority = 1 - Float(task.priority) / 10`. So 10
-  /// produced **0.0** — below `URLSessionTask.lowPriority` (0.25) — for a
-  /// multi-gigabyte download the user is watching. 0 gives 1.0. This is the
-  /// real fix (#445, reported by the package author).
+  /// produced `0.0` — below `URLSessionTask.lowPriority` (0.25) — for a
+  /// multi-gigabyte download the user is watching. 0 gives 1.0.
   ///
   /// **Android** uses priority for exactly two things: the holding queue, which
   /// this package never enables, and `expedited = priority < 5` in
-  /// `BDPlugin.kt`. Going below 5 there is not an improvement, it is a hang:
+  /// `BDPlugin.kt`. Expedited is the wrong trade for a 2-4 GB transfer, for two
+  /// independent reasons:
   ///
-  ///   * WorkManager caps a task at 9 minutes; background_downloader survives
-  ///     that by pausing and RE-ENQUEUING with `initialDelayMillis = 1000`
-  ///     (`DownloadTaskRunner.kt`, "paused due to timeout, will resume in 1
-  ///     second"). That is how a 3 GB download runs in slices.
-  ///   * the re-enqueue sets `setInitialDelay(1000)` and, at `priority < 5`,
-  ///     `setExpedited(...)` on the SAME builder — and `WorkRequest.Builder.build()`
-  ///     throws `IllegalArgumentException: Expedited jobs cannot be delayed`.
-  ///   * that throw is swallowed to a `Log.w`, `doEnqueue`'s `false` is ignored,
+  ///   * it HALVES the OS execution guarantee. `JobSchedulerService` gives a
+  ///     regular job `RUNTIME_MIN_GUARANTEE_MS` = 10 minutes, an expedited job
+  ///     `RUNTIME_MIN_EJ_GUARANTEE_MS` = 3 minutes, and caps expedited at the
+  ///     regular 10-minute figure — AOSP's own comment there says expedited
+  ///     jobs "shouldn't be used for long pieces of work". Expedited work also
+  ///     draws on a separate 24-hour budget.
+  ///   * it currently hangs the download outright. WorkManager caps a task at 9
+  ///     minutes; background_downloader survives that by pausing and
+  ///     RE-ENQUEUING with `initialDelayMillis = 1000`. The re-enqueue sets
+  ///     `setInitialDelay` and, below priority 5, `setExpedited` on the same
+  ///     builder, and `WorkRequest.Builder.build()` throws
+  ///     `IllegalArgumentException: Expedited jobs cannot be delayed`. The
+  ///     throw is swallowed to a `Log.w`, `doEnqueue`'s `false` is discarded,
   ///     and the runner returns `TaskStatus.paused` anyway.
   ///
-  /// The download then stops at the 9-minute mark with no error of any kind.
-  /// So on Android the correct value is the highest one that is NOT expedited.
+  /// So the correct Android value is the highest that is NOT expedited: 5, the
+  /// package default. Against the old 10 this changes nothing observable on
+  /// Android — priority there is inert outside the holding queue — which is
+  /// the point: 10 cost nothing, and anything below 5 would.
   ///
-  /// 0 is additionally wrong on Android 14+: with a notification configured it
-  /// switches execution to a `JobScheduler` job that is never marked persisted
-  /// and never marked user-initiated (`setUserInitiated` is not called anywhere
-  /// in 9.5.8), so it is neither reboot-safe nor exempt from job quotas.
+  /// On the package author's suggestion of 0: it was offered on the grounds
+  /// that it triggers Android's User Initiated Data Transfer, which has no
+  /// 9-minute limit. That is not what the shipped code does — his own open
+  /// PR #710 says `setUserInitiated(true)` was never called on the JobInfo —
+  /// and the expedited crash is his open PR #709. Revisit both when they land.
   ///
   /// Keyed off `Platform.isAndroid`, NOT `defaultTargetPlatform`: the latter is
   /// a UI-intent signal that a host can legitimately override with
   /// `debugDefaultTargetPlatformOverride` to preview Cupertino, and doing that
-  /// in a debug build on a real Android phone would hand this an iOS answer and
-  /// walk straight into the 9-minute hang described above.
+  /// in a debug build on a real Android phone would hand this an iOS answer.
   static int get downloadPriority =>
       priorityForPlatform(isAndroid: Platform.isAndroid);
 

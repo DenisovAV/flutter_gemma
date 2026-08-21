@@ -27,9 +27,13 @@ ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24 matches flutter_gemma
 # Without this, cc-rs builds C deps (zstd_sys etc.) against the current Xcode
 # SDK but Rust links with the old default minos=10.0, producing undefined
 # symbols like __chkstk_darwin which only exist on iOS 12+ — so any value >= 12
-# satisfies the technical need; matching the plugin floor is the contract.
-# NOTE: the currently published prebuilt was produced at 16.0; this takes
-# effect at the next native rebuild.
+# satisfies the technical need; matching the plugin floor is the contract. This
+# is NOT cosmetic: vtool below rewrites the LC_BUILD_VERSION metadata to 13.0,
+# but the value here still decides which symbols rustc/cc-rs bind strongly, and
+# shipping a min-16 compile under a 15.0 podspec floor is the hazardous
+# direction. NOTE: the published prebuilt was produced at 16.0 and the artifact
+# does not record that (vtool overwrote it) — this takes effect on the next
+# native rebuild.
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-15.0}"
 
 # qdrant-edge 0.7+ uses features stabilized in Rust 1.95.0 (cfg_select,

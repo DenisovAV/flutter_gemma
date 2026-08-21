@@ -166,6 +166,13 @@ Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
 
+- **The plugins do NOT apply KGP** (#440). `flutter_gemma`, `flutter_gemma_mediapipe` and
+  `flutter_gemma_builtin_ai` declare no `kotlin-android`, no `ext.kotlin_version`, no KGP
+  classpath. Flutter's own Gradle plugin applies `kotlin-android` to any plugin subproject
+  that doesn't (`FlutterPluginUtils.detectApplyingKotlinGradlePlugin`), which is what makes
+  `flutter: '>=3.44.0'` load-bearing rather than cosmetic. Re-adding a version guard is the
+  #323/#360 regression, not a fix. `android.builtInKotlin=true` fails on AGP 9 for ANY
+  Flutter app with plugins — Flutter-wide, not ours; `false` is the supported setting.
 - **`flutter_gemma_builtin_ai` requires `minSdk 26`** (ML Kit GenAI / AICore floor) — apps using that package must raise their `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails (`uses-sdk:minSdkVersion` conflict).
 
 ### Web

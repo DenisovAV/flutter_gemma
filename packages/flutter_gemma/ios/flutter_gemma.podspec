@@ -22,11 +22,15 @@ text embeddings, and on-device RAG.
   # the companion Package.swift gives SPM consumers the same sources.
   s.source_files = 'flutter_gemma/Sources/flutter_gemma/**/*.swift'
   s.dependency 'Flutter'
-  # iOS 15.0 matches the Flutter SDK's own minimum (#441). The 16.0 floor this
-  # replaces was MediaPipe GenAI's, and MediaPipe now lives in
-  # flutter_gemma_mediapipe, which still declares 16.0 in its own podspec.
-  # Nothing here needs even 15: the highest floor in the transitive native
-  # graph is background_downloader's 14.0.
+  # iOS 15.0 (#441). The 16.0 this replaces was MediaPipe GenAI's, and MediaPipe
+  # has lived in flutter_gemma_mediapipe since the 1.0 split — that package still
+  # declares 16.0 in its own podspec.
+  # Nothing in this package requires 15: its Swift is plain Foundation, and no
+  # dependency in the native graph needs more than 14 today (Flutter's own
+  # template floor is still 13). 15.0 is a deliberate choice to match
+  # flutter_gemma_builtin_ai, for which 15 IS the lowest free floor, and to sit
+  # where Apple's current SDK puts RecommendedDeploymentTarget — not because
+  # anything here demands it.
   s.platform = :ios, '15.0'
 
   s.pod_target_xcconfig = {

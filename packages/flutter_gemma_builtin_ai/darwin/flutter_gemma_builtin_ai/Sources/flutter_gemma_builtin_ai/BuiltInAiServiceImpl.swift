@@ -29,7 +29,7 @@ import Foundation
 /// FoundationModels only exists on iOS 26+/macOS 26+, so every use is gated with
 /// `if #available(iOS 26.0, macOS 26.0, *)` and sessions are stored TYPE-ERASED
 /// (`[Int64: Any]`, boxed as `SessionState`) so this class itself compiles on
-/// the iOS-16 / macOS-10.15 floor declared in the podspec.
+/// the iOS-15 / macOS-10.15 floor declared in the podspec.
 ///
 /// Unlike the Android Prompt API (single-turn, no server history), a
 /// `LanguageModelSession` keeps its OWN transcript across `respond`/`stream`

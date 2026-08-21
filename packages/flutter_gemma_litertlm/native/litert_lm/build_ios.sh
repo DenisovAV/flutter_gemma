@@ -126,7 +126,7 @@ install_name_tool -add_rpath '@loader_path/../../..' "$SIM_DIR/libLiteRtLm.dylib
 echo ""
 echo "=== Building StreamProxy ==="
 clang -shared -o "$DEVICE_DIR/libStreamProxy.dylib" \
-  -arch arm64 -target arm64-apple-ios16.0 \
+  -arch arm64 -target arm64-apple-ios15.0 \
   -isysroot "$(xcrun --sdk iphoneos --show-sdk-path)" \
   -install_name @rpath/libStreamProxy.dylib \
   -Wl,-headerpad_max_install_names \
@@ -134,7 +134,7 @@ clang -shared -o "$DEVICE_DIR/libStreamProxy.dylib" \
 echo "StreamProxy (device): OK"
 
 clang -shared -o "$SIM_DIR/libStreamProxy.dylib" \
-  -arch arm64 -target arm64-apple-ios16.0-simulator \
+  -arch arm64 -target arm64-apple-ios15.0-simulator \
   -isysroot "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
   -install_name @rpath/libStreamProxy.dylib \
   -Wl,-headerpad_max_install_names \

@@ -264,11 +264,18 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
 
 **iOS** — required by any inference engine package (`flutter_gemma_litertlm` and/or `flutter_gemma_mediapipe`)
 
-* **Set minimum iOS version** in `Podfile` — the floor depends on which engine you use:
+* **Set minimum iOS version** in `Podfile`. Pick ONE line — a Podfile takes a single
+  `platform` directive, and with two the last one silently wins:
 ```ruby
-platform :ios, '16.0'  # if you use flutter_gemma_mediapipe (MediaPipe GenAI needs 16)
-platform :ios, '15.0'  # otherwise — core, litertlm, built-in AI and embeddings need only 15
+platform :ios, '15.0'
 ```
+  Use `'16.0'` instead if your app depends on `flutter_gemma_mediapipe` — MediaPipe GenAI
+  requires it. Core, `flutter_gemma_litertlm`, built-in AI and embeddings build from 15.0.
+
+  Under **Swift Package Manager** — the default since Flutter 3.35 — the Podfile
+  `platform` line is NOT what decides this. SPM reads the Runner target's
+  **iOS Deployment Target** in Xcode, so set that too, or the build fails with
+  "requires minimum platform version 15.0 … but this target supports 13.0".
 
 * **Enable file sharing** in `Info.plist`:
 ```plist

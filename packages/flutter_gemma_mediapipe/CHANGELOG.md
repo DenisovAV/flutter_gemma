@@ -1,5 +1,5 @@
 ## 1.0.5
-- Android plugin no longer applies KGP; built-in Kotlin compiles it (#440).
+- Android plugin no longer applies KGP — Flutter's Gradle plugin does (#440).
 - fix: await the session future inside its try block on web, so the catch can see its errors.
 
 ## 1.0.4

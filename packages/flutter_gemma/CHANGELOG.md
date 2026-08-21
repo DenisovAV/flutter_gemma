@@ -1,5 +1,5 @@
 ## 1.6.4
-- Android plugin no longer applies KGP; built-in Kotlin compiles it (#440).
+- Android plugin no longer applies KGP — Flutter's Gradle plugin does (#440).
 - iOS floor is 15.0; only `flutter_gemma_mediapipe` still needs 16.0 (#441).
 
 ## 1.6.3

@@ -24,14 +24,20 @@ builds from iOS 15 / macOS 10.15.
   s.source_files     = 'flutter_gemma_builtin_ai/Sources/flutter_gemma_builtin_ai/**/*'
   s.ios.dependency 'Flutter'
   s.osx.dependency 'FlutterMacOS'
-  # iOS 15.0, not 16.0 (#441): every Foundation Models call here is behind an
-  # `#available(iOS 26.0, macOS 26.0, *)` guard, so the deployment target is a
-  # free choice and 16 only kept apps off iOS 15 for nothing.
+  # iOS 15.0, not 16.0 (#441): no Foundation Models symbol is reachable without
+  # an availability check — 26.0 for the session APIs, 26.4 for `tokenCount` —
+  # and no stored property has an FM type, so 16 only kept apps off iOS 15 for
+  # nothing. 15.0 is the LOWEST free floor rather than an arbitrary one: this
+  # package uses `Task` / `async` / `for try await`, and Swift Concurrency is
+  # native from iOS 15 — below that Xcode has to embed the back-deploy
+  # dylibs into every consuming app. Do not lower it further.
   s.ios.deployment_target = '15.0'
   s.osx.deployment_target = '10.15'
   # FoundationModels only exists on iOS 26+/macOS 26+, so it must be WEAK-linked
-  # for the pod to load on the iOS 15 / macOS 10.15 floor. All uses are gated at
-  # runtime with `if #available(iOS 26.0, macOS 26.0, *)`.
+  # for the pod to load on the iOS 15 / macOS 10.15 floor. Every use is behind an
+  # availability check (26.0, or 26.4 for tokenCount); the few FM-typed helpers
+  # are gated by an `@available` declaration attribute and only ever reached from
+  # inside a runtime check.
   s.weak_frameworks  = 'FoundationModels'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
   s.swift_version    = '5.9'

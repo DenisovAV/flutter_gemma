@@ -9,7 +9,7 @@ import Foundation
 /// the NEW fragment. This tracks the length already emitted and returns the tail.
 ///
 /// Pure value type with no FoundationModels dependency, so it compiles on the
-/// iOS-16 / macOS-10.15 floor and is unit-testable by inspection. Create (or
+/// iOS-15 / macOS-10.15 floor and is unit-testable by inspection. Create (or
 /// `reset()`) one per generation.
 ///
 /// The length bookkeeping counts Swift `Character`s (grapheme clusters), so a

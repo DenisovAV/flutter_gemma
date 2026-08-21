@@ -284,7 +284,7 @@ If you're working on mobile:
 
 1. **Test on both platforms:**
    - Android (various API levels)
-   - iOS (16.0+)
+   - iOS (15.0+; 16.0+ when `flutter_gemma_mediapipe` is in the app)
 
 2. **Consider memory constraints:**
    - Large models may not work on low-end devices

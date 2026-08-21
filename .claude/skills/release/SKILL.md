@@ -171,18 +171,22 @@ version number.
 > byte-identical guard in `flutter_gemma_mediapipe/android/build.gradle` was
 > missed. mediapipe `1.0.3` shipped to pub.dev still broken, so every `.task`
 > user on AGP 9 kept hitting the crash the core fix was supposed to close.
+> (#440 later deleted the guard entirely — the plugins no longer apply KGP at
+> all. The duplication lesson stands; the pattern to grep has changed.)
 
 **Before finalizing, grep the pattern you changed across ALL packages** and
 confirm every copy is patched (or provably N/A):
 ```bash
 grep -rn "<the exact pattern you changed>" packages/
 # e.g. for the #360 guard:
-grep -rn "agpMajor < 9" packages/*/android/build.gradle
+grep -rn "kotlin" packages/*/android/build.gradle   # post-#440: no KGP anywhere
 ```
 Shared-code hotspots to sweep, per fix type:
-- **Android Gradle** — `packages/*/android/build.gradle` (only `flutter_gemma` +
-  `flutter_gemma_mediapipe` have one): `kotlin-android` guard, `compileSdk`,
-  `minSdkVersion`, `kotlin_version`, AGP classpath.
+- **Android Gradle** — `packages/*/android/build.gradle`. THREE packages have
+  one: `flutter_gemma`, `flutter_gemma_mediapipe`, `flutter_gemma_builtin_ai`.
+  Sweep `compileSdk`, `minSdkVersion`, the AGP classpath, and the
+  `kotlin { compilerOptions { jvmTarget } }` block — which must stay
+  byte-identical across all three (#360, #440).
 - **Native hook** — `packages/flutter_gemma_litertlm/hook/build.dart` (the only
   hook that owns a bundle): the `_litertlmBundle` `version:` and `checksums:`
   fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.

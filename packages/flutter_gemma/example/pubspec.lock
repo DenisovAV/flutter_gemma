@@ -283,7 +283,7 @@ packages:
       path: "../../flutter_gemma_onnx"
       relative: true
     source: path
-    version: "0.1.0"
+    version: "0.3.0"
   flutter_gemma_rag_qdrant:
     dependency: "direct main"
     description:

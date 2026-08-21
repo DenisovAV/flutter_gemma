@@ -6,7 +6,7 @@ import 'package:flutter_gemma/core/domain/model_source.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart'
     show EmbeddingModelSpec;
 import 'package:flutter_gemma/core/registry/runtime_config.dart';
-import 'package:flutter_gemma_onnx/flutter_gemma_onnx.dart';
+import 'package:flutter_gemma_onnx/src/embedding/onnx_embedding_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 EmbeddingModelSpec _spec(String modelFilename) => EmbeddingModelSpec(

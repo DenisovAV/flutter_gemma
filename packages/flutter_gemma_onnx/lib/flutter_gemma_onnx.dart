@@ -1,21 +1,32 @@
 /// ONNX Runtime on-device engines for flutter_gemma: text generation
-/// (`OnnxEngine`, macOS-first host arm — Phase 3) and embeddings
-/// (`OnnxEmbeddingBackend`, productionized — Phase 2).
+/// (`OnnxEngine`, native macOS/Linux/Windows/Android/iOS arm via ORT-GenAI
+/// PLUS a web arm via Transformers.js, see below) and embeddings
+/// (`OnnxEmbeddingBackend`, productionized on native + web).
 ///
 /// Opt-in. Add to pubspec.yaml and pass instances to
 /// `FlutterGemma.initialize(...)`.
 ///
-/// **Inference (`OnnxEngine`) — macOS-first host arm (v1 slice)** — see
-/// [OnnxEngine]'s doc comment: text-only, greedy decoding, one session at a
-/// time, over ORT-GenAI via `dart:ffi` (`GenAiFfiClient`, a long-lived
-/// worker isolate — no FFI handle ever crosses an isolate boundary).
-/// Android/iOS device work stays behind the D2 throughput/RAM go/no-go gate.
+/// **Inference (`OnnxEngine`)** — see [OnnxEngine]'s doc comment.
+/// - **Native** (macOS/Linux/Windows/Android/iOS): text-only, greedy
+///   decoding, one session at a time, over ORT-GenAI via `dart:ffi`
+///   (`GenAiFfiClient`, a long-lived worker isolate — no FFI handle ever
+///   crosses an isolate boundary).
+/// - **Web**: text generation via Transformers.js v4
+///   (`@huggingface/transformers`) — a different model-provisioning +
+///   execution story than the native arm: the model is identified by its
+///   Hugging Face repo id (not an ORT-GenAI directory), Transformers.js
+///   resolves + caches the repo itself, and the pipeline is stateless per
+///   call (the session resends the whole chat history every turn). See
+///   `OnnxWebInferenceModel`'s module doc (`lib/src/web/`) for the details.
 ///
-/// **Embeddings (`OnnxEmbeddingBackend`) — productionized (Phase 2)**: a
-/// plain ONNX Runtime forward pass (`dart:ffi`, no ORT GenAI) over an
-/// `.onnx`/`.ort` embedding model directory — MiniLM-family (WordPiece) and
-/// EmbeddingGemma-300M-ONNX (SentencePiece) both route through one factory,
-/// see `OnnxEmbeddingBackend`'s doc comment.
+/// **Embeddings (`OnnxEmbeddingBackend`)** — a plain ONNX Runtime forward
+/// pass (no ORT GenAI) over an `.onnx`/`.ort` embedding model directory.
+/// Native: `dart:ffi`, both MiniLM-family (WordPiece) and
+/// EmbeddingGemma-300M-ONNX (SentencePiece) route through one factory, see
+/// `OnnxEmbeddingBackend`'s doc comment. **Web**: `onnxruntime-web`
+/// (WebGPU/WASM), WordPiece (MiniLM-family) only in this release —
+/// SentencePiece needs a pure-Dart parser that doesn't exist yet (native's
+/// `dart_sentencepiece_tokenizer` is `dart:io`/`dart:isolate`-only).
 ///
 /// ```dart
 /// import 'package:flutter_gemma/flutter_gemma.dart';
@@ -33,15 +44,19 @@
 /// ```
 library;
 
-export 'src/onnx_engine.dart';
-export 'src/onnx_inference_model.dart';
-export 'src/onnx_session.dart';
-export 'src/ffi/gen_ai_client.dart'
-    show GenAiClient, GenAiFfiClient, GenAiTurn, GenAiGenerationStats;
-export 'src/embedding/onnx_embedding_backend.dart';
+// `OnnxEngine`/`OnnxEmbeddingBackend` are conditionally exported so the SAME
+// public API compiles on both native (dart:ffi) and web — mirrors
+// `flutter_gemma_litertlm`'s barrel exactly. See `src/web/` for the web
+// arms and each web file's module doc for what differs from native.
+export 'src/web/onnx_engine_web.dart'
+    if (dart.library.ffi) 'src/onnx_engine.dart';
+export 'src/web/onnx_embedding_backend_web.dart'
+    if (dart.library.ffi) 'src/embedding/onnx_embedding_backend.dart';
 
-// Exposed for advanced/test use — direct construction of the pass or a
-// custom `OrtClient` (fakes for unit tests, or a non-default client).
-export 'src/embedding/onnx_embedding_forward_pass.dart';
-export 'src/embedding/onnx_tokenizer_loader.dart';
-export 'src/embedding/ort_client.dart';
+// Native-only advanced/test surface — direct construction of the ORT-GenAI
+// FFI client, the plain-ORT embedding forward pass, or a custom `OrtClient`
+// (fakes for unit tests). Exports NO symbols on web — see
+// `src/native_exports_stub.dart`'s doc for why (mirrors
+// `flutter_gemma_litertlm`'s `litert_bindings_stub.dart`).
+export 'src/native_exports_stub.dart'
+    if (dart.library.ffi) 'src/native_exports.dart';

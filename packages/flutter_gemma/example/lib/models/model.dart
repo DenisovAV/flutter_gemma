@@ -462,6 +462,36 @@ enum Model implements InferenceModelInterface {
     supportsFunctionCalls: true,
   ),
 
+  // Qwen2.5 0.5B Instruct — ONNX web text generation via Transformers.js
+  // (`@huggingface/transformers`), flutter_gemma_onnx's web arm. Model
+  // identity IS the Hugging Face repo id itself — `baseUrl` is the repo
+  // root, not a file — Transformers.js resolves + caches the repo bytes
+  // itself, so there is nothing for core's install pipeline to download
+  // (fileType onnx routes the web install through the fileless identity
+  // path in WebModelManager). Native platforms route `.onnx` through
+  // ORT-GenAI instead, which needs a model DIRECTORY, not a repo root URL —
+  // this entry only works on web.
+  qwen25_0_5B_onnxWeb(
+    baseUrl: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
+    // Web-only entry: `webUrl` is what keeps it visible under the web model
+    // filter (`localModel || webUrl != null`). Same HF repo URL as baseUrl —
+    // Transformers.js resolves the repo id from it (fileless install).
+    webUrl: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
+    filename: 'Qwen2.5-0.5B-Instruct',
+    displayName: 'Qwen 2.5 0.5B Instruct (ONNX Web/Transformers.js)',
+    size: '0.5GB',
+    licenseUrl: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
+    needsAuth: false,
+    preferredBackend: PreferredBackend.gpu,
+    modelType: ModelType.qwen,
+    fileType: ModelFileType.onnx,
+    temperature: 1.0,
+    topK: 40,
+    topP: 0.95,
+    maxTokens: 1024,
+    supportsFunctionCalls: false,
+  ),
+
   // SmolLM 135M Instruct (Ultra-small, mobile only)
   smolLM_135M(
     baseUrl:

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_gemma/core/di/service_registry.dart';
 import 'package:flutter_gemma/core/model_management/model_specs.dart';
 import 'package:flutter_gemma/core/utils/file_name_utils.dart';
@@ -191,6 +192,37 @@ class InferenceInstallationBuilder {
       final manager = FlutterGemmaPlugin.instance.modelManager;
       manager.setActiveModel(spec);
       gemmaLog('✅ Built-in model set as active: ${spec.name}');
+      return InferenceInstallation(spec: spec);
+    }
+
+    // ONNX on WEB: Transformers.js (@huggingface/transformers) resolves +
+    // caches the whole Hugging Face repo itself from a repo id — the model
+    // identity is a repo id, not a single downloadable file, so there is
+    // nothing for a SourceHandler to fetch. Persist the active identity only,
+    // exactly like the built-in path above. This is WEB-ONLY: on native, an
+    // ONNX model is a real on-disk directory (genai_config.json + .onnx +
+    // tokenizer) that DOES install through the handler path below, so the
+    // fileless shortcut must never fire off-web.
+    if (kIsWeb && _fileType == ModelFileType.onnx) {
+      if (_loraSource != null) {
+        throw ArgumentError(
+          'LoRA is not supported for ONNX web models (ModelFileType.onnx).',
+        );
+      }
+      final modelFile = InferenceModelFile.fromSource(_modelSource!);
+      final spec = InferenceModelSpec(
+        name: FileNameUtils.getBaseName(modelFile.filename),
+        modelSource: _modelSource!,
+        replacePolicy: ModelReplacePolicy.keep,
+        modelType: _modelType,
+        fileType: _fileType,
+      );
+      final manager = FlutterGemmaPlugin.instance.modelManager;
+      manager.setActiveModel(spec);
+      gemmaLog(
+        '✅ ONNX web model set as active (Transformers.js owns the weights): '
+        '${spec.name}',
+      );
       return InferenceInstallation(spec: spec);
     }
 

@@ -164,7 +164,14 @@ done
 # The declared floor is flutter_gemma's podspec `s.platform = :ios, '15.0'`
 # (#441; 16.0 only for flutter_gemma_mediapipe) — that's the real contract.
 # The minos here is just metadata to satisfy validator equality between binary
-# and wrapper plist; the actual minimum is enforced upstream by CocoaPods.
+# and wrapper plist; the actual minimum is enforced by whichever dependency
+# manager the app uses — SwiftPM against the Runner target on the default path,
+# CocoaPods against the Podfile platform when the app has one.
+# NOTE: the published native-v0.16.0 `libStreamProxy.dylib` was compiled at
+# ios16.0 (LC_BUILD_VERSION vtool'd to 13.0, so the artifact cannot show it).
+# Its imports are all pre-iOS-13 libc, so it is safe under the 15.0 floor; the
+# targets above take effect at the next native rebuild. Delete this note after
+# the release that follows native-v0.16.0.
 # See #245, #286.
 echo ""
 echo "=== Patch iOS companion dylibs minos → 13.0 ==="

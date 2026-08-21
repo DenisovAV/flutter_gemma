@@ -155,20 +155,24 @@ Complete platform-specific setup before using the plugin.
 Required by any inference engine package (`flutter_gemma_litertlm` and/or
 `flutter_gemma_mediapipe`).
 
-**Set the minimum iOS version** in `Podfile`. Pick ONE line — a Podfile takes a single
-`platform` directive, and with two the last one silently wins:
+**Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
+`flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core, `flutter_gemma_litertlm`,
+built-in AI and embeddings build from 15.0. (Requires `flutter_gemma` 1.6.4 or newer;
+earlier versions declared 16.0.)
+
+**Where you set it depends on the dependency manager.** Swift Package Manager is the
+default since Flutter 3.44 (opt-in before that), and an SPM-only app has no `Podfile` at all — set **iOS
+Deployment Target** on the Runner target in Xcode, or the build fails with `requires
+minimum platform version 15.0 … but this target supports 13.0`.
+`flutter_gemma_mediapipe` ships no `Package.swift`, so an app using it also gets a
+`Podfile`; set the platform there as well:
 
 ```
-platform :ios, '15.0'
+platform :ios, '16.0'   # 15.0 if the app does not use flutter_gemma_mediapipe
 ```
 
-Use `'16.0'` instead if your app depends on `flutter_gemma_mediapipe` — MediaPipe GenAI
-requires it. Core, `flutter_gemma_litertlm`, built-in AI and embeddings build from 15.0.
-
-Under **Swift Package Manager** — the default since Flutter 3.35 — the Podfile `platform`
-line is NOT what decides this. SPM reads the Runner target's **iOS Deployment Target** in
-Xcode, so set that too, or the build fails with "requires minimum platform version 15.0 …
-but this target supports 13.0".
+Declare `platform` only once — CocoaPods rejects a second one with
+`Invalid Podfile file: The target 'Pods' already has a platform set`.
 
 **Change the linking type** of pods to static in `Podfile`:
 

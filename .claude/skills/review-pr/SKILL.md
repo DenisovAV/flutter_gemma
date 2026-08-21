@@ -107,8 +107,9 @@ CHECKLIST
    subproject that does not (FlutterPluginUtils `detectApplyingKotlinGradlePlugin`),
    which is why `flutter: '>=3.44.0'` is load-bearing. Re-adding a guard like the
    old `agpMajor < 9 || !builtInKotlinOn` is a REGRESSION, not a fix. What still
-   matters is the #360 lesson: whatever the block says, it must be byte-identical
-   in all three — a fix in one is a half-fix that ships under its own version.
+   matters is the #360 lesson: the `kotlin { compilerOptions { jvmTarget } }` block
+   and its comment must be byte-identical in all three — a fix in one is a half-fix
+   that ships under its own version number.
 2. MANIFEST: the `<uses-native-library>` entries (libOpenCL.so, -car, -pixel,
    libvndksupport.so, libcdsprpc.so) live in the CORE plugin manifest and merge
    into consumer apps. libvndksupport is load-bearing for the OpenCL ICD on

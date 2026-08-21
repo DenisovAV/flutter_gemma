@@ -29,10 +29,22 @@ window.LlmInference = LlmInference;
 
 (Android needs no extra setup — the MediaPipe Gradle deps are bundled by this package.)
 
-**iOS needs `platform :ios, '16.0'` in your Podfile.** MediaPipe GenAI requires it, and
-this is the only flutter_gemma package that does — core, `flutter_gemma_litertlm`,
-built-in AI and embeddings build from 15.0 (#441). Without it `pod install` fails with
-"not compatible with flutter_gemma_mediapipe, which requires a minimum iOS version of 16.0".
+## iOS setup
+
+**iOS needs a 16.0 minimum.** MediaPipe GenAI requires it, and this is the only
+flutter_gemma package that does — core, `flutter_gemma_litertlm`, built-in AI and
+embeddings build from 15.0 (#441).
+
+This package ships no `Package.swift`, so even an app on Swift Package Manager gets a
+`Podfile` for it. Set the floor in BOTH places: `platform :ios, '16.0'` in the `Podfile`,
+and **iOS Deployment Target** on the Runner target in Xcode. Below 16, `pod install`
+reports that specs satisfying the `flutter_gemma_mediapipe` dependency "required a higher
+minimum deployment target".
+
+MediaPipe ships static xcframeworks, so the `Podfile` also needs
+`use_frameworks! :linkage => :static` — with the Flutter template's bare
+`use_frameworks!`, `pod install` fails on "transitive dependencies that include
+statically linked binaries".
 
 ## Platforms
 

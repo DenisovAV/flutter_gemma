@@ -31,9 +31,12 @@ ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24 matches flutter_gemma
 # is NOT cosmetic: vtool below rewrites the LC_BUILD_VERSION metadata to 13.0,
 # but the value here still decides which symbols rustc/cc-rs bind strongly, and
 # shipping a min-16 compile under a 15.0 podspec floor is the hazardous
-# direction. NOTE: the published prebuilt was produced at 16.0 and the artifact
-# does not record that (vtool overwrote it) — this takes effect on the next
-# native rebuild.
+# direction.
+# NOTE: the published `qdrant-edge-v0.7.3` prebuilt was produced at 16.0, and the
+# artifact cannot show it (vtool overwrote LC_BUILD_VERSION). Checked at 0.7.3:
+# every undefined symbol in the shipped dylib predates iOS 13 and none is weak,
+# so that build is safe under the 15.0 floor — this change matters for the NEXT
+# rebuild. Delete this note once a tag after 0.7.3 is built.
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-15.0}"
 
 # qdrant-edge 0.7+ uses features stabilized in Rust 1.95.0 (cfg_select,

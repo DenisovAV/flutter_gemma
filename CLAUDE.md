@@ -78,7 +78,7 @@
 | Platform | Vision/Multimodal | Audio | Embeddings | Notes |
 |----------|-------------------|-------|------------|-------|
 | Android | ✅ | ✅ | ✅ | Full support |
-| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Setup via Podfile `post_install` (creates `lib*.dylib` symlinks next to bundled frameworks) |
+| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). No host-side Podfile `post_install` since 0.14.1 — accelerators load by full `@executable_path/Frameworks/<X>.framework/<X>` path; the old `lib*.dylib` symlinks caused ITMS-90432 (#245) |
 | iOS Simulator | ❌ GPU | ❌ GPU | ✅ | CPU only — Metal sim has 256 MB single-allocation cap, LLM weights exceed |
 | Web | ✅ | ❌ | ✅ | MediaPipe only |
 | macOS | ✅ | ✅ LiteRT-LM only | ✅ | Vision + audio verified on Metal (Gemma 4 + Gemma 3n); Gemma 3n audio GPU is ~2× faster than CPU |
@@ -171,8 +171,10 @@ Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
   classpath. Flutter's own Gradle plugin applies `kotlin-android` to any plugin subproject
   that doesn't (`FlutterPluginUtils.detectApplyingKotlinGradlePlugin`), which is what makes
   `flutter: '>=3.44.0'` load-bearing rather than cosmetic. Re-adding a version guard is the
-  #323/#360 regression, not a fix. `android.builtInKotlin=true` fails on AGP 9 for ANY
-  Flutter app with plugins — Flutter-wide, not ours; `false` is the supported setting.
+  #323/#360 regression, not a fix. `android.builtInKotlin=true` fails on AGP 9 for any app
+  that still has a plugin applying KGP itself — today nearly every app
+  (`shared_preferences`, `background_downloader`). A bare `flutter create` app with no
+  plugins builds fine. Not ours to fix; `false` is what Flutter's own migrator writes.
 - **`flutter_gemma_builtin_ai` requires `minSdk 26`** (ML Kit GenAI / AICore floor) — apps using that package must raise their `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails (`uses-sdk:minSdkVersion` conflict).
 
 ### Web

@@ -179,7 +179,8 @@ confirm every copy is patched (or provably N/A):
 ```bash
 grep -rn "<the exact pattern you changed>" packages/
 # e.g. for the #360 guard:
-grep -rn "kotlin" packages/*/android/build.gradle   # post-#440: no KGP anywhere
+grep -rnE "^\s*(apply plugin: .kotlin-android|ext\.kotlin_version|classpath .*kotlin-gradle-plugin)" \
+  packages/*/android/build.gradle   # post-#440 this must return NOTHING
 ```
 Shared-code hotspots to sweep, per fix type:
 - **Android Gradle** — `packages/*/android/build.gradle`. THREE packages have
@@ -190,8 +191,12 @@ Shared-code hotspots to sweep, per fix type:
 - **Native hook** — `packages/flutter_gemma_litertlm/hook/build.dart` (the only
   hook that owns a bundle): the `_litertlmBundle` `version:` and `checksums:`
   fields, `_cacheBaseDir()` cache-busting, `stage()` Apple-only guard.
-- **iOS podspecs** — `packages/*/ios/*.podspec`: `s.version`, min-iOS, dep pins,
-  `vtool` minos on any bundled dylib.
+- **Apple manifests** — `find packages -name '*.podspec' -not -path '*/example/*'`
+  finds all FOUR (core ios, core macos, mediapipe ios, builtin_ai darwin); the
+  `packages/*/ios/*.podspec` glob silently misses `macos/` and `darwin/`. Sweep
+  `s.version`, min-iOS/osx, dep pins, `vtool` minos on any bundled dylib — and the
+  three `Package.swift` (core ios, core macos, builtin_ai darwin), whose platform
+  floors must match their podspec.
 - **FFI / web stubs** — `lib/**/*_stub.dart`: conditional-import signatures that
   `analyze`/`test` can't catch (web stub drift).
 
@@ -212,6 +217,26 @@ the code needs a *higher* one. A pub.dev consumer who pins an older core alongsi
 the new satellite then gets a resolve that **fails to compile** (calls a
 method/param that core version lacks). This is a manual step; nothing automated
 catches it.
+
+**A floor naming an UNPUBLISHED core forces a publish ORDER — and dry-run is blind
+to it.** `dart pub publish --dry-run` only checks that a constraint is satisfiable in
+the workspace, never that the named version exists on pub.dev, so it reports 0
+warnings for `flutter_gemma: ^1.6.4` while 1.6.3 is the latest published. Publish the
+satellite first and consumers on `^0.1.0` silently backtrack to the previous version —
+no error, just none of the fix. So: **publish core FIRST, then every satellite whose
+floor names it**, and check before publishing any satellite:
+
+```bash
+# does the floor this satellite names actually exist on pub.dev yet?
+grep -m1 "flutter_gemma:" packages/<satellite>/pubspec.yaml
+curl -s https://pub.dev/api/packages/flutter_gemma | \
+  python3 -c 'import sys,json; print(json.load(sys.stdin)["latest"]["version"])'
+```
+
+> **Case (builtin_ai 0.1.1, #441):** it declares an iOS 15.0 floor, but both CocoaPods
+> and SwiftPM reject an app target below ANY dependency's floor — so with core ≤1.6.3
+> (still 16.0) that 15.0 is unreachable. Raising the constraint to `^1.6.4` is correct
+> and makes core 1.6.4 a hard publish prerequisite.
 
 > **Regression this prevents (agent 0.2.2):** `AgentLoop` was rewritten to call
 > `generateChatResponseWithTools(onMaxToolTurns:)` — `onMaxToolTurns` landed in

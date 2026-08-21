@@ -26,11 +26,15 @@ builds from iOS 15 / macOS 10.15.
   s.osx.dependency 'FlutterMacOS'
   # iOS 15.0, not 16.0 (#441): no Foundation Models symbol is reachable without
   # an availability check — 26.0 for the session APIs, 26.4 for `tokenCount` —
-  # and no stored property has an FM type, so 16 only kept apps off iOS 15 for
-  # nothing. 15.0 is the LOWEST free floor rather than an arbitrary one: this
-  # package uses `Task` / `async` / `for try await`, and Swift Concurrency is
-  # native from iOS 15 — below that Xcode has to embed the back-deploy
-  # dylibs into every consuming app. Do not lower it further.
+  # and no stored property of the plugin class has an FM type (`sessions` is
+  # `[Int64: Any]`), so 16 only kept apps off iOS 15 for nothing.
+  # 15.0 is also the lowest FREE floor: this package uses `Task` / `async` /
+  # `for try await`, and Swift Concurrency is native from iOS 15.0 — measured, a
+  # Runner at 13.0 gains `libswift_Concurrency.dylib` in Frameworks/ (+7.7 MB)
+  # and one at 15.0 does not. Lowering it is possible, it just costs that.
+  # NOTE the macOS floor below is 10.15 while macOS's concurrency floor is 12.0,
+  # so every macOS consumer already pays it. Raising osx to 12.0 would be free
+  # (Foundation Models needs macOS 26 regardless) but is out of #441's scope.
   s.ios.deployment_target = '15.0'
   s.osx.deployment_target = '10.15'
   # FoundationModels only exists on iOS 26+/macOS 26+, so it must be WEAK-linked

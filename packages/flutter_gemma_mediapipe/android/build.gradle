@@ -7,9 +7,9 @@ buildscript {
         mavenCentral()
     }
 
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.9.0'
-    }
+    // No AGP classpath pin: Gradle loads parent-first, so the consuming app's AGP
+    // is what resolves `com.android.library` regardless of anything named here.
+    // The old 8.9.0 pin was inert and, in a file about AGP 9, actively misleading.
 }
 
 allprojects {
@@ -64,14 +64,27 @@ android {
 // flutter/flutter#184745, first released in 3.44 — which is what makes
 // `flutter: '>=3.44.0'` in pubspec.yaml load-bearing rather than cosmetic.
 //
-// That apply is also why the bare `kotlin {}` below resolves. It is
-// BEST-EFFORT — Flutter wraps it in a try/catch that only logs "KGP was not
-// found on the classpath" — but the catch is not reachable from a normal
-// Flutter app: `dev.flutter.flutter-gradle-plugin` puts KGP on the classpath
-// itself. Measured by building an app whose settings.gradle.kts declares no
-// KGP at all: our Kotlin still compiled and FlutterGemmaPlugin was in the dex.
-// So do NOT re-add a `kotlin-gradle-plugin` buildscript classpath here as
-// insurance; it would pin a KGP version against the app's own.
+// That apply is also why the bare `kotlin {}` below resolves — and that block is
+// the safety net, not a liability: if KGP is ever not applied, configuration
+// fails loudly with "Could not find method kotlin()" instead of quietly
+// compiling no Kotlin. That is what makes this shape immune to #360.
+//
+// `dev.flutter.flutter-gradle-plugin` carries KGP itself, so a normal Flutter
+// app builds even when its own settings.gradle.kts declares none (measured: the
+// plugin classes were still in the dex). An add-to-app host that supplies no KGP
+// does fail here — but it already failed on `large_file_handler`, a hard
+// dependency shipping this same shape; the fix is one KGP line in the host.
+//
+// Do NOT try to insure against that with a `kotlin-gradle-plugin` classpath in
+// the buildscript above. It cannot work: `detectApplyingKotlinGradlePlugin` runs
+// while `:app` is evaluated, BEFORE this subproject's `buildscript {}` exists.
+// A version pinned here is inert regardless — Gradle loads parent-first, so the
+// app's KGP always wins. (That is also why the old `ext.kotlin_version` never
+// did anything.)
+//
+// When AGP 10 removes `android.builtInKotlin=false`, KGP can no longer be
+// applied and this block is what will break. The remedy is deletion, not a
+// rewrite: built-in Kotlin derives jvmTarget from `compileOptions` above.
 //
 // Keep this block byte-identical in flutter_gemma, flutter_gemma_mediapipe and
 // flutter_gemma_builtin_ai. #360 is what a half-fix looks like: the .kt stops

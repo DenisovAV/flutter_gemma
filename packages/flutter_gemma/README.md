@@ -277,6 +277,12 @@ platform :ios, '15.0'
   **iOS Deployment Target** in Xcode, so set that too, or the build fails with
   "requires minimum platform version 15.0 … but this target supports 13.0".
 
+* **Add-to-app hosts must declare the Kotlin Gradle Plugin themselves.** Flutter
+  auto-applies KGP to plugin modules only when the host provides it, so a Java-only
+  native host fails with `Could not find method kotlin()`. Add KGP to the host's root
+  `buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's
+  own Gradle plugin carries KGP.
+
 * **Enable file sharing** in `Info.plist`:
 ```plist
 <key>UIFileSharingEnabled</key>

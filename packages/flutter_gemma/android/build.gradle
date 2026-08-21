@@ -7,19 +7,15 @@ buildscript {
         mavenCentral()
     }
 
-    dependencies {
-        // Inside a Flutter build this is inert: Gradle loads parent-first, so the
-        // consuming app's AGP resolves `com.android.library` whatever is named here.
-        // Kept anyway because this directory is ALSO a standalone Gradle root project
-        // (own settings.gradle + a tracked wrapper, legacy scaffolding — Flutter's
-        // current plugin template ships neither), where there is no parent to inherit
-        // from and removing this fails at once with "Plugin with id
-        // 'com.android.library' not found". That path cannot fully build post-#440
-        // either way — nothing applies KGP outside a Flutter build, so `./gradlew` here
-        // stops at the `kotlin {}` block below — but dropping the pin only moves the
-        // failure earlier and makes the message less useful.
-        classpath 'com.android.tools.build:gradle:8.9.0'
-    }
+    // No AGP classpath pin. Inside a Flutter build one is inert — Gradle loads
+    // parent-first, so the app's AGP resolves `com.android.library` whatever is named
+    // here — but it is NOT free: measured, the pin makes Gradle eagerly resolve 123
+    // artifacts / ~102 MB per plugin subproject in every consuming app, then shadows
+    // them. All it buys is a clearer first error for `./gradlew` run directly in this
+    // directory, and that path cannot finish post-#440 anyway (nothing applies KGP
+    // outside a Flutter build, so it stops at the `kotlin {}` block below). Only
+    // flutter_gemma even has a wrapper committed; Flutter's current plugin template
+    // ships neither wrapper nor settings.gradle.
 }
 
 allprojects {
@@ -70,9 +66,11 @@ android {
 // Kotlin plugin ownership (#440): this package no longer applies KGP itself.
 // Flutter's Gradle plugin applies `kotlin-android` to any subproject that applies
 // AGP without it (`FlutterPluginUtils.detectApplyingKotlinGradlePlugin`), using
-// whatever KGP the app's plugin classpath resolves to. That code landed in
-// flutter/flutter#184745, first released in 3.44 — which is what makes
-// `flutter: '>=3.44.0'` in pubspec.yaml load-bearing rather than cosmetic.
+// whatever KGP the app's plugin classpath resolves to — which is not necessarily the
+// app's own declaration: on AGP 9 the winner comes from AGP's POM (2.2.10), on AGP 8
+// from Flutter's own (2.0.0). That code landed in flutter/flutter#184745, first
+// released in 3.44 — which is what makes `flutter: '>=3.44.0'` in pubspec.yaml
+// load-bearing rather than cosmetic.
 //
 // That apply is also why the bare `kotlin {}` below resolves, and on the KGP path
 // the block is a safety net rather than a liability: if KGP is not applied,
@@ -83,11 +81,13 @@ android {
 // inside `android {}`: that block is KGP's, is deprecated there, and does not
 // exist at all under AGP's built-in Kotlin.
 //
-// `dev.flutter.flutter-gradle-plugin` carries KGP itself, so a normal Flutter app
-// builds even when its own settings.gradle.kts declares none (measured: the plugin
-// classes were still in the dex). An add-to-app host that supplies no KGP does
-// fail here — but it already failed on `large_file_handler`, a hard dependency
-// shipping this same shape; the fix is one KGP line in the host.
+// An app that declares no KGP of its own still builds on AGP 9 (measured: the plugin
+// classes were in the dex) — AGP itself brings one. Do not read that as a guarantee:
+// on AGP 8 the same app fails, on a sibling dependency, over a Kotlin version
+// mismatch. An add-to-app host that supplies no KGP fails here too — but it already
+// failed on `large_file_handler`, a hard dependency shipping this same shape; the fix
+// is one KGP line in the host. Note also that `android.builtInKotlin=true` makes AGP 9
+// reject `apply plugin: 'com.android.library'` above, because Flutter pre-applies KGP.
 //
 // Do NOT try to insure against that with a `kotlin-gradle-plugin` classpath in the
 // buildscript above. It cannot work: `detectApplyingKotlinGradlePlugin` runs while
@@ -96,10 +96,12 @@ android {
 // failed on our sibling dependencies.
 //
 // This block SURVIVES AGP's built-in Kotlin, so do not delete it when AGP 10 drops
-// `android.builtInKotlin=false`: built-in Kotlin registers its own project
-// extension also named `kotlin`, so `compilerOptions` keeps resolving. Measured on
-// AGP 9.0.1 with `builtInKotlin=true` and no KGP anywhere — built via
-// `built_in_kotlinc`, class file major version 55 (Java 11), i.e. jvmTarget honored.
+// `android.builtInKotlin=false`: built-in Kotlin registers its own project extension
+// also named `kotlin` (KotlinAndroidProjectExtension), so `compilerOptions` keeps
+// resolving and keeps OVERRIDING the target AGP would otherwise derive from
+// `compileOptions`. Measured on AGP 9.0.1 with `builtInKotlin=true` and no KGP
+// anywhere: setting JVM_17 here against VERSION_11 above makes compileDebugKotlin
+// report JVM_17 — the block is read, not ignored.
 //
 // Keep this block byte-identical in flutter_gemma, flutter_gemma_mediapipe and
 // flutter_gemma_builtin_ai. #360 is what a half-fix looks like: the .kt stops

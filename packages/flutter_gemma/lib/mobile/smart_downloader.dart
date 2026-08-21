@@ -164,11 +164,14 @@ int? percentFromProgress(double progress) =>
 /// when `runInForeground` is false for that task). Returning true for the
 /// auto-detect branch (`foreground == null`) would therefore show a
 /// "Downloading model" notification on EVERY download — including small
-/// ones well under the 500MB foreground threshold, where none showed before.
-/// Trade-off: an auto-detected LARGE file (>500MB, which DOES run in
-/// foreground) won't get a notification unless the caller passes
-/// `foreground: true` explicitly. That's accepted in order to avoid the
-/// spurious notification on the much more common small-download path.
+/// ones, where none showed before.
+///
+/// The consequence is that the auto-detect branch has NO foreground service at
+/// all: `canRunInForeground` requires both a size threshold AND a running
+/// notification, so declining the notification declines the service with it.
+/// The size threshold on its own does nothing, and has not since #357 — the
+/// docs that promised otherwise were wrong. `foreground: true` is the only way
+/// to get one.
 @visibleForTesting
 bool shouldConfigureForegroundNotification(bool? foreground) =>
     foreground == true;
@@ -204,7 +207,7 @@ ResumeAction decideFailedDownloadAction({
 /// - Works with ANY URL (HuggingFace, Google Drive, custom servers, etc.)
 /// - Supports multiple concurrent downloads
 /// - Auto-detects resume support based on server (HuggingFace = no resume)
-/// - Android foreground service for large files (>500MB by default)
+/// - Android foreground service for large files, opt in with `foreground: true`
 /// Raised when the download-updates fan-out is torn down while a download is
 /// still in flight — i.e. the host called `FlutterGemma.dispose()`/`reset()`.
 ///
@@ -288,7 +291,7 @@ class SmartDownloader {
   /// Configure FileDownloader for foreground mode
   ///
   /// [foreground]:
-  /// - null: auto-detect based on file size (>500MB = foreground)
+  /// - null: NO foreground service (no notification is configured)
   /// - true: always use foreground
   /// - false: never use foreground
   static Future<void> _ensureConfigured(bool? foreground) async {
@@ -613,7 +616,7 @@ class SmartDownloader {
   /// [maxRetries] - Maximum number of retry attempts for transient errors (default: 10)
   /// [cancelToken] - Optional token for cancellation
   /// [foreground] - Android foreground service mode:
-  ///   - null (default): auto-detect based on file size (>500MB = foreground)
+  ///   - null (default): NO foreground service (no notification is configured)
   ///   - true: always use foreground (shows notification)
   ///   - false: never use foreground
   ///

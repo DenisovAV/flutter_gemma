@@ -57,13 +57,33 @@ android {
     }
 }
 
-// Built-in Kotlin (#440). KGP is no longer applied here: this package requires
-// Flutter >= 3.44, which guarantees KGP 2.0.0 and lets a consuming app build on
-// AGP 9 even with `android.builtInKotlin=false` — the configuration that broke
-// #360 back when the plugin decided for itself whether to apply KGP.
+// Built-in Kotlin migration (#440). This package no longer applies KGP itself,
+// so it stops appearing in Flutter's "plugins that apply KGP" warning.
 //
-// jvmTarget is set through the top-level `kotlin {}` DSL rather than the
-// `kotlinOptions` block inside `android {}`, which AGP 9 removes.
+// What compiles the .kt now: Flutter's own Gradle plugin does it for us.
+// `FlutterPluginUtils.detectApplyingKotlinGradlePlugin` scans every subproject's
+// build file and, for one that applies AGP but not KGP, calls
+// `pluginManager.apply("kotlin-android")` — with the KGP version the CONSUMING
+// APP declares, not one pinned here (measured: 2.3.20 from the app's
+// settings.gradle.kts). Its regex matches the `apply plugin:` form we use, not
+// only a `plugins {}` block; if that ever stops matching, our Kotlin silently
+// stops compiling and the plugin class vanishes — the #360 failure shape.
+// This is why `flutter: '>=3.44.0'` in pubspec.yaml is load-bearing.
+//
+// It is also why the bare `kotlin {}` below resolves. Pre-#440 this was deferred
+// through `pluginManager.withPlugin('kotlin-android')`, because back then the
+// plugin decided for itself whether to apply KGP and a bare block failed with
+// "Could not find method kotlin()" when it had not. KGP is now always applied,
+// so the extension always exists — verified on AGP 8.11.1 and AGP 9.0.1, where
+// the applied plugin is KotlinAndroidPluginWrapper and jvmTarget reads back as
+// JVM_11. `kotlinOptions` inside `android {}` is not an alternative: AGP 9
+// removes it.
+//
+// Note `android.builtInKotlin=true` still fails on AGP 9, and not because of
+// this package: Flutter applies KGP to EVERY plugin subproject and AGP 9
+// rejects that when built-in Kotlin is on. A bare `flutter create` app plus
+// only `shared_preferences` fails identically. `false` is what the Flutter
+// template writes and the only configuration that works today.
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11

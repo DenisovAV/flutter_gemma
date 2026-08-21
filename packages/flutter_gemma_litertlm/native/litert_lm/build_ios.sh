@@ -161,10 +161,11 @@ done
 # does not support the minimum OS Version specified in the Info.plist")
 # whenever a dylib's binary minos differs from the wrapper plist's 13.0.
 #
-# The plugin still requires iOS 16+ via the podspec's `s.platform = :ios,
-# '16.0'` — that's the real contract. The minos here is just metadata to
-# satisfy validator equality between binary and wrapper plist; the actual
-# minimum is enforced upstream by CocoaPods. See #245, #286.
+# The declared floor is flutter_gemma's podspec `s.platform = :ios, '15.0'`
+# (#441; 16.0 only for flutter_gemma_mediapipe) — that's the real contract.
+# The minos here is just metadata to satisfy validator equality between binary
+# and wrapper plist; the actual minimum is enforced upstream by CocoaPods.
+# See #245, #286.
 echo ""
 echo "=== Patch iOS companion dylibs minos → 13.0 ==="
 for arch_dir_pair in "ios:$DEVICE_DIR" "iossim:$SIM_DIR"; do

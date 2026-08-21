@@ -473,6 +473,10 @@ enum Model implements InferenceModelInterface {
   // this entry only works on web.
   qwen25_0_5B_onnxWeb(
     baseUrl: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
+    // Web-only entry: `webUrl` is what keeps it visible under the web model
+    // filter (`localModel || webUrl != null`). Same HF repo URL as baseUrl —
+    // Transformers.js resolves the repo id from it (fileless install).
+    webUrl: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
     filename: 'Qwen2.5-0.5B-Instruct',
     displayName: 'Qwen 2.5 0.5B Instruct (ONNX Web/Transformers.js)',
     size: '0.5GB',

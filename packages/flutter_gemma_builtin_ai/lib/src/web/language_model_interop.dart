@@ -81,6 +81,18 @@ extension type AbortSignal._(JSObject _) implements JSObject {
 /// `ReferenceError`.
 bool get hasLanguageModel => globalContext.has('LanguageModel');
 
+/// `typeof LanguageModel.params === 'function'`. The static `params()`
+/// (`defaultTopK`/`maxTopK`/`maxTemperature` sampler bounds) was present in
+/// early Prompt-API builds but **removed from the shipped surface by Chrome
+/// 151** (only `availability` + `create` remain static). Gate the sampler
+/// clamp on this so a browser without `params()` skips it silently instead of
+/// throwing a `TypeError: LanguageModel.params is not a function` on every
+/// session — `create()` validates the values regardless.
+bool get hasLanguageModelParams {
+  final lm = globalContext.getProperty<JSObject?>('LanguageModel'.toJS);
+  return lm != null && lm.has('params');
+}
+
 /// Builds the `create`/`availability` options object:
 /// `{ initialPrompts, temperature, topK, expectedInputs, expectedOutputs,
 ///   signal, monitor }`. `temperature`/`topK` are included ONLY together (or

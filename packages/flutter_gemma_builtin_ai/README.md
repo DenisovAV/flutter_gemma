@@ -120,8 +120,13 @@ The Chrome Prompt API also supports a web-only JSON-schema `responseConstraint` 
 output; it is intentionally **not** part of the cross-platform contract above (native has no
 equivalent) and is not yet exposed by this package — tracked as a follow-up.
 
-"Prompt-based" function calling means tool definitions are woven into the prompt rather than using
-a native structured tool-calling API — the OS models don't expose one.
+"Prompt-based" function calling means tool definitions are woven into the prompt (by core
+`InferenceChat`) rather than using a native structured tool-calling API — the OS models don't
+expose one. On **Web** specifically, Chrome's Prompt API has **no native tool/function-calling**
+in the stable channel (verified Chrome 151, Aug 2026 — `create({tools})` is silently ignored, no
+enabling flag; function calling is still being explored upstream), so it necessarily goes through
+the prompt-based path, which Gemini Nano handles for single-turn calls. Multi-turn agent chaining
+is not supported on Web (see `flutter_gemma_agent`).
 
 ## Troubleshooting
 

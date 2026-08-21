@@ -194,6 +194,10 @@ class BuiltInAiModelWeb extends InferenceModel with CloseNotifier {
     required double temperature,
     required int topK,
   }) async {
+    // Chrome 151+ dropped the static `LanguageModel.params()` — feature-detect
+    // it and skip the clamp (create() validates the values) rather than calling
+    // a missing method and swallowing a TypeError on every single session.
+    if (!hasLanguageModelParams) return (temperature, topK);
     try {
       final params = await LanguageModel.params().toDart;
       final maxTemp = params

@@ -1,5 +1,4 @@
-## 1.6.2
-- Web: `ModelFileType.onnx` install is fileless — Transformers.js owns the repo, install just sets it active.
+## 1.6.3
 - Scope download updates to our own task group; `FileDownloader().updates` stays the host's (#445).
 - iOS download priority now 0 (highest); was 10, the lowest URLSession priority (#445).
 - Android download priority now 5, not 10 — below 5 shortens the OS execution guarantee.
@@ -9,6 +8,9 @@
 - A reattached download that is gone reports notFound, not a 90-second network timeout.
 - Download progress no longer snaps to 0% when the platform reports a state sentinel.
 - `dispose()` ends a download in progress with a typed error instead of retrying it.
+
+## 1.6.2
+- Web: `ModelFileType.onnx` install is fileless — Transformers.js owns the repo, install just sets it active.
 
 ## 1.6.1
 - `getActiveModel` compares every runtime param before reusing the cached model.

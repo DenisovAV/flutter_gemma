@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '1.6.2'
+  s.version          = '1.6.3'
   s.summary          = 'Flutter Gemma - Run Gemma AI models locally on desktop'
   s.description      = <<-DESC
 Flutter plugin for running Gemma AI models locally on macOS using LiteRT-LM.

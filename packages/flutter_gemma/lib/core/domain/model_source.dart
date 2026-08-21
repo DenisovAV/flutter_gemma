@@ -15,7 +15,8 @@ sealed class ModelSource {
   /// Creates a network-based source (HTTPS/HTTP)
   ///
   /// [foreground] controls Android foreground service:
-  /// - null (default): auto-detect based on file size (>500MB = foreground)
+  /// - null (default): NO foreground service — this branch configures no
+  ///   notification, and the platform needs one before it starts the service
   /// - true: always use foreground (shows notification)
   /// - false: never use foreground
   factory ModelSource.network(
@@ -85,7 +86,7 @@ final class NetworkSource extends ModelSource {
   final String? authToken;
 
   /// Whether to use foreground service on Android (shows notification)
-  /// - null: auto-detect based on file size (>500MB = foreground)
+  /// - null: NO foreground service (no notification is configured)
   /// - true: always use foreground
   /// - false: never use foreground
   final bool? foreground;

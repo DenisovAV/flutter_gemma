@@ -224,14 +224,15 @@ backoff and automatic restart instead. See [Troubleshooting](/docs/troubleshooti
 
 ### Android foreground service (large downloads)
 
-Android has a 9-minute background execution limit. For large models (>500MB) the
-plugin auto-detects and uses a foreground service (shows a notification) to
-bypass it:
+Android has a 9-minute background execution limit. A foreground service shows a
+notification and exempts the download from battery-optimization kills, and you
+have to ask for it — the default configures no notification, and the platform
+will not start the service without one, so file size alone changes nothing:
 
 ```dart
-// Auto-detect based on file size (>500MB = foreground) — DEFAULT
+// DEFAULT — no foreground service; pass foreground: true to get one
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromNetwork(url)  // foreground: null (auto-detect)
+  .fromNetwork(url)  // foreground: null
   .install();
 
 // Force foreground mode

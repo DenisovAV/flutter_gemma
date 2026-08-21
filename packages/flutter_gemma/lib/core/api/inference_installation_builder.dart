@@ -41,7 +41,8 @@ class InferenceInstallationBuilder {
   /// - [url]: The HTTP/HTTPS URL to download from
   /// - [token]: Optional authentication token (e.g., HuggingFace token)
   /// - [foreground]: Android foreground service mode (shows notification, no timeout)
-  ///   - null (default): auto-detect based on file size (>500MB = foreground)
+  ///   - null (default): NO foreground service — this branch configures no
+  ///     notification, and the platform needs one before it starts the service
   ///   - true: always use foreground
   ///   - false: never use foreground
   InferenceInstallationBuilder fromNetwork(

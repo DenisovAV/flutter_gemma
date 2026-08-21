@@ -264,9 +264,10 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
 
 **iOS** — required by any inference engine package (`flutter_gemma_litertlm` and/or `flutter_gemma_mediapipe`)
 
-* **Set minimum iOS version** in `Podfile`:
+* **Set minimum iOS version** in `Podfile` — the floor depends on which engine you use:
 ```ruby
-platform :ios, '16.0'  # Required for MediaPipe GenAI
+platform :ios, '16.0'  # if you use flutter_gemma_mediapipe (MediaPipe GenAI needs 16)
+platform :ios, '15.0'  # otherwise — core, litertlm, built-in AI and embeddings need only 15
 ```
 
 * **Enable file sharing** in `Info.plist`:
@@ -1896,7 +1897,7 @@ fully supported.
 - **Storage:** Local file system in app documents directory
 
 #### iOS
-- **Minimum version:** iOS 16.0 required for MediaPipe GenAI
+- **Minimum version:** iOS 15.0; iOS 16.0 only if you use `flutter_gemma_mediapipe` (MediaPipe GenAI)
 - **Memory entitlements:** Required for large models (see Setup section)
 - **Linking:** Static linking required (`use_frameworks! :linkage => :static`)
 - **Storage:** Local file system in app documents directory
@@ -1921,7 +1922,7 @@ The full and complete example you can find in `example` folder
 * **Function Calling Support:** Gemma 4, Gemma3n, Gemma 3 1B, FunctionGemma, DeepSeek, Qwen3, Qwen 2.5, and Phi-4 models support function calling. Other models will ignore tools and show a warning. See [Model Function Calling Support](#%EF%B8%8F-model-function-calling-support).
 * **Thinking Mode:** Gemma 4, DeepSeek, Qwen3, SmolLM3, and Phi-4 Mini Reasoning models support thinking mode. Enable with `isThinking: true` on the matching `ModelType`.
 * **Multimodal Models:** Gemma3n models with vision support require more memory and are recommended for devices with 8GB+ RAM.
-* **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements` and minimum iOS 16.0.
+* **iOS Memory Requirements:** Large models require memory entitlements in `Runner.entitlements`.
 * **LoRA Weights:** They provide efficient customization without the need for full model retraining.
 * **Development vs. Production:** For production apps, do not embed the model or LoRA weights within your assets. Instead, load them once and store them securely on the device or via a network drive.
 * **Web Models:** Currently, Web support is available only for GPU backend models. Multimodal support is fully implemented.
@@ -1940,14 +1941,13 @@ The full and complete example you can find in `example` folder
 
 **Memory Issues:**
 - **iOS**: Ensure `Runner.entitlements` contains memory entitlements (see iOS setup)
-- **iOS**: Set minimum platform to iOS 16.0 in Podfile
 - Reduce `maxTokens` if experiencing memory issues
 - Use smaller models (1B-2B parameters) for devices with <6GB RAM
 - Close sessions and models when not needed
 - Monitor token usage with `sizeInTokens()`
 
 **iOS Build Issues:**
-- Ensure minimum iOS version is set to 16.0 in Podfile
+- Ensure the Podfile's minimum iOS version is at least 15.0, or 16.0 when using `flutter_gemma_mediapipe`
 - Use static linking: `use_frameworks! :linkage => :static`
 - Clean and reinstall pods: `cd ios && pod install --repo-update`
 - Check that all required entitlements are in `Runner.entitlements`

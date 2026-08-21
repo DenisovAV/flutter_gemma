@@ -155,10 +155,11 @@ Complete platform-specific setup before using the plugin.
 Required by any inference engine package (`flutter_gemma_litertlm` and/or
 `flutter_gemma_mediapipe`).
 
-**Set the minimum iOS version** in `Podfile`:
+**Set the minimum iOS version** in `Podfile` — the floor depends on which engine you use:
 
 ```
-platform :ios, '16.0'  # Required for MediaPipe GenAI
+platform :ios, '16.0'  # if you use flutter_gemma_mediapipe (MediaPipe GenAI needs 16)
+platform :ios, '15.0'  # otherwise — core, litertlm, built-in AI and embeddings need only 15
 ```
 
 **Change the linking type** of pods to static in `Podfile`:

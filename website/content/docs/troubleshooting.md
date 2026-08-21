@@ -49,7 +49,7 @@ Auth errors (401/403/404) fail fast after one attempt — they are not retried. 
 
 ## Memory
 
-- **iOS:** ensure `Runner.entitlements` contains the memory entitlements and the Podfile sets `platform :ios, '16.0'`. See [Installation → iOS](/docs/installation#ios).
+- **iOS:** ensure `Runner.entitlements` contains the memory entitlements and the Podfile sets `platform :ios, '15.0'` (or `'16.0'` with `flutter_gemma_mediapipe`). See [Installation → iOS](/docs/installation#ios).
 - Reduce `maxTokens` if you hit memory pressure — but **keep it at 1024 or higher for `.litertlm` models** (see "maxTokens vs maxOutputTokens" below). To shorten replies, use `maxOutputTokens`, not a smaller `maxTokens`.
 - Use smaller models (1B-2B parameters) for devices with <6GB RAM. Multimodal models (Gemma 4, Gemma3n) need 8GB+.
 - Close sessions and models when not needed; monitor usage with `sizeInTokens()`.
@@ -71,7 +71,7 @@ final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
 
 ## iOS
 
-- **Build issues:** ensure minimum iOS version is 16.0, use static linking (`use_frameworks! :linkage => :static`), and clean/reinstall pods with `cd ios && pod install --repo-update`.
+- **Build issues:** ensure minimum iOS version is at least 15.0 (16.0 with `flutter_gemma_mediapipe`), use static linking (`use_frameworks! :linkage => :static`), and clean/reinstall pods with `cd ios && pod install --repo-update`.
 - **Simulator GPU disabled:** iOS Simulator's Metal has a 256 MB single-allocation cap that LLM weight tensors exceed (e.g. Gemma 3 1B's KV cache alone is 288 MB). Use CPU on the simulator, or test GPU on a physical iPhone. This is a simulator limit, not a plugin bug.
 
 ## Android

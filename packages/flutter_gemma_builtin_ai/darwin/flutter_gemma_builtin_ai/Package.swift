@@ -7,7 +7,7 @@ import PackageDescription
 let package = Package(
   name: "flutter_gemma_builtin_ai",
   platforms: [
-    .iOS("16.0"),
+    .iOS("15.0"),
     .macOS("10.15"),
   ],
   products: [
@@ -34,7 +34,7 @@ let package = Package(
       ],
       linkerSettings: [
         // FoundationModels is iOS 26 / macOS 26 only, but the package builds
-        // from the iOS 16 / macOS 10.15 floor — every use is behind
+        // from the iOS 15 / macOS 10.15 floor — every use is behind
         // `#available`. Weak-link it so binaries load on older OSes (the
         // CocoaPods podspec does this via `s.weak_frameworks`). SPM has no
         // first-class weak-framework setting, so pass the linker flag directly.

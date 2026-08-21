@@ -1,6 +1,6 @@
 name: flutter_gemma_builtin_ai
 description: "Built-in OS AI engine for flutter_gemma: Gemini Nano (ML Kit GenAI, Android) and Apple Foundation Models (iOS/macOS). Opt-in package; provides an InferenceEngineProvider for system on-device models."
-version: 0.1.0
+version: 0.1.1
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_builtin_ai
 topics: [gemma, llm, gemini-nano, apple-intelligence, on-device]

@@ -10,12 +10,12 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma_builtin_ai'
-  s.version          = '0.1.0'
+  s.version          = '0.1.1'
   s.summary          = 'Apple Foundation Models backend for flutter_gemma (iOS/macOS).'
   s.description      = <<-DESC
 Built-in OS AI engine for flutter_gemma: Apple Foundation Models on
 iOS 26+/macOS 26+ (text; image input on OS 27+). Runtime-gated; the pod
-builds from iOS 16 / macOS 10.15.
+builds from iOS 15 / macOS 10.15.
                        DESC
   s.homepage         = 'https://github.com/DenisovAV/flutter_gemma'
   s.license          = { :file => '../../flutter_gemma/LICENSE' }
@@ -24,10 +24,13 @@ builds from iOS 16 / macOS 10.15.
   s.source_files     = 'flutter_gemma_builtin_ai/Sources/flutter_gemma_builtin_ai/**/*'
   s.ios.dependency 'Flutter'
   s.osx.dependency 'FlutterMacOS'
-  s.ios.deployment_target = '16.0'
+  # iOS 15.0, not 16.0 (#441): every Foundation Models call here is behind an
+  # `#available(iOS 26.0, macOS 26.0, *)` guard, so the deployment target is a
+  # free choice and 16 only kept apps off iOS 15 for nothing.
+  s.ios.deployment_target = '15.0'
   s.osx.deployment_target = '10.15'
   # FoundationModels only exists on iOS 26+/macOS 26+, so it must be WEAK-linked
-  # for the pod to load on the iOS 16 / macOS 10.15 floor. All uses are gated at
+  # for the pod to load on the iOS 15 / macOS 10.15 floor. All uses are gated at
   # runtime with `if #available(iOS 26.0, macOS 26.0, *)`.
   s.weak_frameworks  = 'FoundationModels'
   s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }

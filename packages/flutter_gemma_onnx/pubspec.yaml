@@ -1,19 +1,22 @@
 name: flutter_gemma_onnx
-description: "ONNX Runtime GenAI on-device inference engine for flutter_gemma (5 native platforms, no web). Opt-in InferenceEngineProvider for ORT-GenAI model directories."
-version: 0.1.0
+description: "ONNX Runtime engine for flutter_gemma: GenAI inference on 5 native platforms + web generation (Transformers.js) & embeddings (onnxruntime-web)."
+version: 0.3.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_onnx
 topics: [gemma, llm, onnx, onnxruntime, on-device]
 
-# 5 native platforms only, no web — ORT-GenAI has no WASM build (see the
-# design doc §3 / hardened plan D1). Declared explicitly so the supported set
-# is the package's own contract, not inferred from the transitive import graph.
+# 5 native platforms (ORT-GenAI inference + plain-ORT embeddings, dart:ffi)
+# PLUS web: text generation via Transformers.js (`@huggingface/transformers`)
+# AND embeddings via onnxruntime-web — see `src/web/`. Declared explicitly so
+# the supported set is the package's own contract, not inferred from the
+# transitive import graph.
 platforms:
   android:
   ios:
   macos:
   windows:
   linux:
+  web:
 
 resolution: workspace
 
@@ -24,7 +27,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.6.0
+  flutter_gemma: ^1.6.2
   flutter_gemma_embeddings: ^2.0.0
   ffi: ^2.1.0
   mutex: ^3.1.0

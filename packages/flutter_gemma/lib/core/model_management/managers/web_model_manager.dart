@@ -99,6 +99,26 @@ class WebModelManager extends ModelFileManager {
       return;
     }
 
+    if (fileType == ModelFileType.onnx) {
+      // ONNX web text generation (flutter_gemma_onnx's Transformers.js arm)
+      // has no file to verify — Transformers.js resolves + caches the HF
+      // repo itself from the repo id carried in `source` (see
+      // `downloadModelWithProgress`'s fileless-install branch below and
+      // flutter_gemma_onnx's `TransformersWebResolver`). Reconstruct the
+      // identity carrier directly, mirroring the mobile manager's
+      // `ModelFileType.builtIn` restore branch — skip the
+      // `repository.isInstalled` gate below, which guards against a real
+      // file that may have been evicted and doesn't apply here.
+      _activeInferenceModel = InferenceModelSpec(
+        name: filename,
+        modelSource: source,
+        modelType: modelType,
+        fileType: fileType,
+      );
+      gemmaLog('[WebModelManager] restored active ONNX (web) model: $filename');
+      return;
+    }
+
     // Verify the underlying file is still installed in the Web repository
     // before we set it active — otherwise getModelFilePaths() will throw
     // later on the first getActiveModel() call.
@@ -350,6 +370,24 @@ class WebModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     gemmaLog('WebModelManager: Starting download for ${spec.name}');
+
+    // ONNX web text generation is a FILELESS identity install (mirrors
+    // `ModelFileType.builtIn`): Transformers.js resolves + caches the HF
+    // repo itself from the repo id carried in `spec.modelSource` (see
+    // flutter_gemma_onnx's `TransformersWebResolver`) — core must not
+    // byte-download it. Skip the per-file handler loop; just publish the
+    // identity as active.
+    if (spec is InferenceModelSpec && spec.fileType == ModelFileType.onnx) {
+      setActiveModel(spec);
+      yield const DownloadProgress(
+        currentFileIndex: 1,
+        totalFiles: 1,
+        currentFileProgress: 100,
+        currentFileName: 'Complete',
+      );
+      gemmaLog('WebModelManager: ONNX (web) model set as active: ${spec.name}');
+      return;
+    }
 
     // Phase 5: Delegate to Modern API
     final registry = ServiceRegistry.instance;

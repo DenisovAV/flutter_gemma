@@ -35,9 +35,17 @@
 // named private fields (the public factory names read better than
 // `_vocab:` etc.), so initializing formals don't apply here.
 // ignore_for_file: prefer_initializing_formals
+//
+// Deliberately NO `dart:io` import: this file is web-safe (imported directly
+// by `flutter_gemma_onnx`'s web embedding arm — ONNX web PR, `feat/onnx-web`
+// — which cannot pull in `dart:io` at all). The `fromPath` File-based loader
+// that used to live here was unused anywhere in the repo (only
+// `fromJsonString`/`isWordPieceJson` are called, by
+// `flutter_gemma_onnx`'s `onnx_tokenizer_loader.dart`) and was removed for
+// exactly that reason — a native caller with an on-disk path reads the file
+// itself (`File(path).readAsString()`) and calls [fromJsonString].
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'tokenizer_adapter.dart';
 
@@ -82,12 +90,6 @@ class WordPieceEmbeddingTokenizer implements EmbeddingTokenizer {
 
   /// `[UNK]` special-token id (BERT convention: 100).
   final int unkId;
-
-  /// Load a WordPiece tokenizer from a HuggingFace `tokenizer.json` at [path].
-  static Future<WordPieceEmbeddingTokenizer> fromPath(String path) async {
-    final raw = await File(path).readAsString();
-    return fromJsonString(raw);
-  }
 
   /// Returns true when [json] (a decoded `tokenizer.json` map) describes a
   /// WordPiece model. Used by the ONNX backend's tokenizer loader to route

@@ -59,6 +59,42 @@
   })();
   </script>
 
+  <!-- ONNX Runtime Web (flutter_gemma_onnx web embeddings arm, WebGPU/WASM).
+       Same readiness-handshake shape as the litert-lm shim above:
+       `window.ortReady` resolves once the module has loaded, and also sets
+       `window.ort` for the Dart side's `dart:js_interop` bindings
+       (lib/src/web/ort_web_client.dart). `env.wasm.wasmPaths` points at the
+       CDN's own `dist/` directory so the WASM/JSEP runtime files it fetches
+       at session-create time resolve correctly; self-hosting them under
+       web/ instead (the `flutter_gemma_rag_sqlite` sqlite3.wasm posture) is
+       an app-level choice documented in flutter_gemma_onnx's README. -->
+  <script type="module">
+  window.ortReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
+    m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+    window.ort = m;
+    return m;
+  })();
+  </script>
+
+  <!-- Transformers.js v4 (flutter_gemma_onnx web TEXT-GENERATION arm).
+       Same readiness-handshake shape as the shims above: `window.transformersReady`
+       resolves once the module has loaded, and also sets `window.transformers`
+       for the Dart side's `dart:js_interop` bindings
+       (lib/src/web/transformers_js_interop.dart). Unlike onnxruntime-web
+       above (a plain forward pass driven from Dart), Transformers.js owns
+       tokenization, chat templating, generation AND fetching/caching each
+       model repo itself (browser Cache Storage / IndexedDB) from the repo
+       id alone — core's `ModelFileType.onnx` web install never downloads
+       model bytes (see WebModelManager). -->
+  <script type="module">
+  window.transformersReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+    window.transformers = m;
+    return m;
+  })();
+  </script>
+
   <!-- Cache API for persistent storage -->
   <script src="cache_api.js"></script>
 

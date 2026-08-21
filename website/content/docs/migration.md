@@ -29,7 +29,7 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.6.1                 # core — always required
+  flutter_gemma: ^1.6.2                 # core — always required
   flutter_gemma_litertlm: ^1.5.2        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
@@ -59,8 +59,9 @@ file type.
 > skills — SKILL.md + tool-calling loop), `flutter_gemma_builtin_ai` (OS
 > system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS),
 > and `flutter_gemma_onnx` (ONNX Runtime — ORT-GenAI text generation +
-> plain-ORT embeddings via `dart:ffi`). Add any of them only if you want that
-> feature. See [Getting Started](/docs/getting-started).
+> plain-ORT embeddings via `dart:ffi` on native, + Web via Transformers.js /
+> onnxruntime-web). Add any of them only if you want that feature. See
+> [Getting Started](/docs/getting-started).
 
 ## Breaking: embeddings 2.0.0 — `LiteRtEmbeddingBackend` moved
 

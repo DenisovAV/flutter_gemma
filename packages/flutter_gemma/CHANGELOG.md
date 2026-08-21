@@ -1,3 +1,6 @@
+## 1.6.2
+- Web: `ModelFileType.onnx` install is fileless — Transformers.js owns the repo, install just sets it active.
+
 ## 1.6.1
 - `getActiveModel` compares every runtime param before reusing the cached model.
 - Racing `getActiveModel` calls no longer share a model built for other params.

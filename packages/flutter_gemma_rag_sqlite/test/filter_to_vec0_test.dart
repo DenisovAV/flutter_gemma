@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Schema with one column of each storage type, plus the columns the tests
 /// reference. Any key NOT here is undeclared and must be skipped.
-const _schema = FilterSchema(
+final _schema = FilterSchema(
   fields: [
     FilterField(name: 'lang', type: FilterFieldType.string),
     FilterField(name: 'price', type: FilterFieldType.number),
@@ -70,7 +70,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'lang = ?');
+      expect(out.whereSql, '"lang" = ?');
       expect(out.binds, ['en']);
     });
 
@@ -79,7 +79,7 @@ void main() {
         const Filter(must: [FieldEquals(key: 'price', value: 42)]),
         _schema,
       );
-      expect(out.whereSql, 'price = ?');
+      expect(out.whereSql, '"price" = ?');
       expect(out.binds, [42.0]);
     });
 
@@ -88,7 +88,7 @@ void main() {
         const Filter(must: [FieldEquals(key: 'archived', value: true)]),
         _schema,
       );
-      expect(out.whereSql, 'archived = ?');
+      expect(out.whereSql, '"archived" = ?');
       expect(out.binds, [1]);
     });
 
@@ -97,7 +97,7 @@ void main() {
         const Filter(must: [FieldEquals(key: 'archived', value: false)]),
         _schema,
       );
-      expect(out.whereSql, 'archived = ?');
+      expect(out.whereSql, '"archived" = ?');
       expect(out.binds, [0]);
     });
   });
@@ -108,7 +108,7 @@ void main() {
         const Filter(must: [FieldRange(key: 'price', gte: 10.0, lte: 100.0)]),
         _schema,
       );
-      expect(out.whereSql, 'price BETWEEN ? AND ?');
+      expect(out.whereSql, '"price" BETWEEN ? AND ?');
       expect(out.binds, [10.0, 100.0]);
     });
 
@@ -117,7 +117,7 @@ void main() {
         const Filter(must: [FieldRange(key: 'price', gte: 10.0)]),
         _schema,
       );
-      expect(out.whereSql, 'price >= ?');
+      expect(out.whereSql, '"price" >= ?');
       expect(out.binds, [10.0]);
     });
 
@@ -126,8 +126,11 @@ void main() {
         const Filter(must: [FieldRange(key: 'price', lte: 100.0)]),
         _schema,
       );
-      expect(out.whereSql, 'price <= ?');
-      expect(out.binds, [100.0]);
+      // The second conjunct excludes the absent-number sentinel: -Infinity is
+      // <= every bound, so without it a document MISSING `price` would satisfy
+      // `price <= 100`. Both comparisons push, so the guard is free.
+      expect(out.whereSql, '("price" <= ? AND "price" > ?)');
+      expect(out.binds, [100.0, FilterToVec0.absentNumber]);
     });
 
     test('no bounds → skipped (empty)', () {
@@ -161,7 +164,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'lang IN (?, ?, ?)');
+      expect(out.whereSql, '"lang" IN (?, ?, ?)');
       expect(out.binds, ['en', 'fr', 'de']);
     });
 
@@ -174,7 +177,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'lang IN (?)');
+      expect(out.whereSql, '"lang" = ?');
       expect(out.binds, ['en']);
     });
 
@@ -187,7 +190,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'archived IN (?, ?)');
+      expect(out.whereSql, '"archived" IN (?, ?)');
       expect(out.binds, [1, 0]);
     });
 
@@ -214,7 +217,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'lang = ? AND price BETWEEN ? AND ?');
+      expect(out.whereSql, '"lang" = ? AND "price" BETWEEN ? AND ?');
       expect(out.binds, ['en', 10.0, 100.0]);
     });
 
@@ -228,7 +231,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, '(lang = ? OR lang = ?)');
+      expect(out.whereSql, '("lang" IN (?, ?))');
       expect(out.binds, ['en', 'fr']);
     });
 
@@ -237,7 +240,7 @@ void main() {
         const Filter(mustNot: [FieldEquals(key: 'archived', value: true)]),
         _schema,
       );
-      expect(out.whereSql, 'NOT (archived = ?)');
+      expect(out.whereSql, '"archived" != ?');
       expect(out.binds, [1]);
     });
 
@@ -255,7 +258,7 @@ void main() {
         );
         // "no condition may match" → NOT (A OR B), so a row matching either is
         // excluded (De Morgan: NOT A AND NOT B).
-        expect(out.whereSql, 'NOT (lang = ? OR archived = ?)');
+        expect(out.whereSql, '"lang" != ? AND "archived" != ?');
         expect(out.binds, ['en', 1]);
       },
     );
@@ -274,7 +277,7 @@ void main() {
       );
       expect(
         out.whereSql,
-        'lang = ? AND (category = ? OR category = ?) AND NOT (archived = ?)',
+        '"lang" = ? AND ("category" IN (?, ?)) AND "archived" != ?',
       );
       expect(out.binds, ['en', 'news', 'blog', 1]);
     });
@@ -290,7 +293,7 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'lang = ?');
+      expect(out.whereSql, '"lang" = ?');
       expect(out.binds, ['en']);
     });
 
@@ -305,8 +308,11 @@ void main() {
         ),
         _schema,
       );
-      expect(out.whereSql, 'lang IN (?, ?) AND year >= ? AND NOT (price <= ?)');
-      expect(out.binds, ['en', 'fr', 2000.0, 5.0]);
+      expect(
+        out.whereSql,
+        '"lang" IN (?, ?) AND "year" >= ? AND "price" NOT BETWEEN ? AND ?',
+      );
+      expect(out.binds, ['en', 'fr', 2000.0, -double.maxFinite, 5.0]);
     });
   });
 }

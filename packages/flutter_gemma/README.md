@@ -56,7 +56,7 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.6.1
+## What's new in 1.6.2
 
 - 🌐 **ONNX on Web** — `flutter_gemma_onnx`'s `OnnxEngine` now generates text on Web via Transformers.js, with a fileless `ModelFileType.onnx` install (the model is a Hugging Face repo id, not a directory). `OnnxEmbeddingBackend` gained a web arm too, via onnxruntime-web. See [`flutter_gemma_onnx`](https://pub.dev/packages/flutter_gemma_onnx).
 
@@ -1674,6 +1674,14 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
   ),
 );
 ```
+
+A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
+the strict one — `^[A-Za-z][A-Za-z0-9_]*$`, and not a name `vec0` already uses
+(`id`, `embedding`, `content`, `metadata`, `distance`, `k`) — because the name
+becomes a real column in a DDL with no quoted-identifier form.
+`QdrantVectorStore` takes free-form UTF-8 keys, minus `.` which it reads as a
+nested path. So the portable set is sqlite's; a duplicate or empty name is
+rejected on any store.
 
 `Filter` supports `must` / `should` / `mustNot` lists of `FieldEquals`, `FieldRange`, `FieldMatchAny` conditions. Both backends honor it: qdrant-edge natively, and the `sqlite-vec`/`vec0` store on all platforms incl. Web (one `Filter` → vec0 declared-column `WHERE`). Filterable fields must be declared as vec0 columns.
 

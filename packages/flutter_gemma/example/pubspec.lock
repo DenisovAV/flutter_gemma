@@ -269,7 +269,7 @@ packages:
       path: "../../flutter_gemma_litertlm"
       relative: true
     source: path
-    version: "1.5.0"
+    version: "1.5.2"
   flutter_gemma_mediapipe:
     dependency: "direct main"
     description:
@@ -290,14 +290,14 @@ packages:
       path: "../../flutter_gemma_rag_qdrant"
       relative: true
     source: path
-    version: "1.1.0"
+    version: "1.2.0"
   flutter_gemma_rag_sqlite:
     dependency: "direct main"
     description:
       path: "../../flutter_gemma_rag_sqlite"
       relative: true
     source: path
-    version: "1.1.0"
+    version: "1.2.0"
   flutter_gemma_speech:
     dependency: "direct main"
     description:

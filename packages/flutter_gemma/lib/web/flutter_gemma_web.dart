@@ -76,11 +76,23 @@ class FlutterGemmaWeb extends FlutterGemmaPlugin {
       }
     }
 
-    // A cached singleton may exist from a prior createModel call. Core no longer
-    // imports any concrete web inference-model type (the MediaPipe web model
-    // moved to flutter_gemma_mediapipe; LiteRT-LM's lives in
-    // flutter_gemma_litertlm), so it can't introspect the model's params —
-    // any existing model is always closed + replaced.
+    // A cached singleton may exist from a prior createModel call. It is always
+    // closed and replaced — web does NOT do the params-compare reuse that
+    // mobile and desktop do (ActiveModelParams / _lastInferenceParams).
+    //
+    // Not because core cannot see the params: ActiveModelParams records what
+    // the CALLER asked for, so no introspection of the model is needed. The
+    // reason is the spec below. Web synthesises it with the constant name
+    // 'web-active' because, unlike the other shells, createModel here does not
+    // require an active model to be set first. So a reuse check keyed on that
+    // spec cannot see the user swapping the active model file underneath it,
+    // and would hand back a model built from the previous one — silently, and
+    // with the params matching, so nothing would look wrong.
+    //
+    // Always rebuilding is the safe direction of that trade: it costs a reload
+    // that was sometimes unnecessary, rather than answering from the wrong
+    // weights. Reuse can be added here once the spec carries the active
+    // model's identity.
     if (_initializedModel != null) {
       if (kDebugMode) {
         gemmaLog(

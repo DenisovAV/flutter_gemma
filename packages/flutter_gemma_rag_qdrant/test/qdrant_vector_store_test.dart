@@ -171,7 +171,7 @@ void main() {
         // declared, addDocument promotes the declared field to a top-level
         // payload key so FilterCodec's top-level predicates can match it.
         repo.configure(
-          const FilterSchema(
+          FilterSchema(
             fields: [FilterField(name: 'lang', type: FilterFieldType.string)],
           ),
         );
@@ -216,7 +216,7 @@ void main() {
       // so it has the correct "exclude if ANY matches" semantics by construction
       // — unlike the sqlite SQL translator which had to be fixed. This pins it.
       repo.configure(
-        const FilterSchema(
+        FilterSchema(
           fields: [
             FilterField(name: 'lang', type: FilterFieldType.string),
             FilterField(name: 'archived', type: FilterFieldType.bool),
@@ -282,7 +282,7 @@ void main() {
       'undeclared-key Filter on a configured store is a safe no-op (no throw)',
       () async {
         repo.configure(
-          const FilterSchema(
+          FilterSchema(
             fields: [FilterField(name: 'lang', type: FilterFieldType.string)],
           ),
         );
@@ -311,7 +311,7 @@ void main() {
       'malformed metadata JSON does not break addDocument (blob kept)',
       () async {
         repo.configure(
-          const FilterSchema(
+          FilterSchema(
             fields: [FilterField(name: 'lang', type: FilterFieldType.string)],
           ),
         );

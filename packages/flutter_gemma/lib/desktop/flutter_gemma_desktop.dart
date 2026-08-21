@@ -76,7 +76,23 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
   Completer<InferenceModel>? _initCompleter;
   InferenceModel? _initializedModel;
   InferenceModelSpec? _lastActiveInferenceSpec;
-  ({bool supportImage, bool supportAudio, int maxTokens})? _lastInferenceParams;
+
+  /// Runtime knobs the cached model was built with. This was a three-field
+  /// record — supportImage, supportAudio, maxTokens — so the other six
+  /// parameters of getActiveModel were silently ignored on reuse. The shared
+  /// type compares all nine and names the one that differs.
+  ActiveModelParams? _lastInferenceParams;
+
+  /// What the IN-FLIGHT build is building, while [_initCompleter] is pending.
+  ///
+  /// Deliberately separate from [_lastInferenceParams], which describes the
+  /// model that already exists. One field cannot mean both without the two
+  /// states becoming indistinguishable — and "cached model" vs "model being
+  /// built" is exactly the distinction the race below turns on.
+  ///
+  /// Kept in lockstep with [_initCompleter]: set where that is created,
+  /// cleared everywhere it is cleared.
+  ({String specName, ActiveModelParams params})? _inFlightRequest;
 
   // Embedding model
   Completer<EmbeddingModel>? _initEmbeddingCompleter;
@@ -134,30 +150,88 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       );
     }
 
+    // Hoisted out of the reuse check below: the in-flight race also
+    // needs it, and that runs when the reuse check does not.
+    final requestedSpec = activeModel as InferenceModelSpec;
+
+    // Captured once: compared against the cached model below, and recorded as
+    // the new baseline after a successful build.
+    final requestedParams = ActiveModelParams(
+      maxTokens: maxTokens,
+      preferredBackend: preferredBackend,
+      preferredVisionBackend: preferredVisionBackend,
+      preferredAudioBackend: preferredAudioBackend,
+      supportImage: supportImage,
+      supportAudio: supportAudio,
+      maxNumImages: maxNumImages,
+      enableSpeculativeDecoding: enableSpeculativeDecoding,
+      maxConcurrentSessions: maxConcurrentSessions,
+      loraRanks: loraRanks,
+    );
+
     // Check if singleton exists and matches active model + runtime params
     if (_initCompleter != null &&
         _initializedModel != null &&
         _lastActiveInferenceSpec != null) {
       final currentSpec = _lastActiveInferenceSpec!;
-      final requestedSpec = activeModel as InferenceModelSpec;
 
       final modelChanged = currentSpec.name != requestedSpec.name;
-      final p = _lastInferenceParams;
-      final paramsChanged =
-          p != null &&
-          (p.supportImage != supportImage ||
-              p.supportAudio != supportAudio ||
-              p.maxTokens != maxTokens);
+      // A MISSING baseline must mean rebuild, not reuse. `?.` here returned
+      // null when _lastInferenceParams was unset, and null is this function's
+      // word for "nothing changed" — so "we have no record of what this model
+      // was built with" and "it was built with exactly this" took the same
+      // branch. That is the same collapse this whole block exists to fix, one
+      // level up. The costs are not symmetric: guessing "rebuild" reloads
+      // weights that were already right, guessing "reuse" hands back a model
+      // configured for something else and says nothing.
+      final baseline = _lastInferenceParams;
+      final changedParam = baseline == null
+          ? 'unknown — no recorded config for the cached model'
+          : baseline.firstDifference(requestedParams);
 
-      if (modelChanged || paramsChanged) {
+      if (modelChanged || changedParam != null) {
+        // Name the knob. "paramsChanged=true" told nobody what to change.
         gemmaLog(
-          'Model recreation: modelChanged=$modelChanged, paramsChanged=$paramsChanged',
+          modelChanged
+              ? 'Model recreation: active model changed '
+                    '(${currentSpec.name} -> ${requestedSpec.name})'
+              : 'Model recreation: $changedParam changed for '
+                    '${requestedSpec.name}',
         );
-        await _initializedModel?.close();
+        // Clear the state BEFORE awaiting the close, not after. Everything
+        // between these two statements runs without an await, so no other
+        // caller can observe a half-torn singleton — which the old order
+        // allowed, in two ways:
+        //
+        //   * a caller arriving during the close passed the reuse check (every
+        //     field was still populated) and was handed the model that was
+        //     already closing; its next createSession threw "Model is closed".
+        //   * two callers with different params both entered this branch, both
+        //     awaited a close the second found already done, then raced to
+        //     install their own build. The surviving _initCompleter and
+        //     _lastInferenceParams could come from different callers, so the
+        //     reuse check would hand back a model built for someone else's
+        //     request — the exact failure this change exists to remove. The
+        //     other interleaving simply leaked a model nothing closed.
+        //
+        // Clearing first also removes the reason the old code trusted the
+        // close listener for two of the five fields: nothing here depends on
+        // that listener running, or running in time, or running at all.
+        //
+        // The close is wrapped because a throwing teardown must not leave the
+        // singleton registered; the fields are already clear, so the next call
+        // builds fresh instead of inheriting a dead model.
+        final closing = _initializedModel;
         _initCompleter = null;
+        _inFlightRequest = null;
         _initializedModel = null;
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
+        try {
+          await closing?.close();
+        } catch (e) {
+          gemmaLog('Old model close() failed, continuing with rebuild: $e');
+        }
       } else {
         gemmaLog('Reusing existing model instance for ${requestedSpec.name}');
         return _initCompleter!.future;
@@ -165,15 +239,77 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
     }
 
     // Return existing completer if initialization in progress
+    // A build may already be in flight — an earlier caller is inside
+    // engine.createModel. Returning that future unconditionally, which is what
+    // this did, hands THIS caller a model built to somebody else's request:
+    // two getActiveModel calls that race, one asking for GPU and one for CPU,
+    // both get whichever started first and the loser is never told. It is the
+    // same defect as the name-only reuse check above, just in the window where
+    // the cached model does not exist yet — so the check above cannot see it.
     if (_initCompleter case Completer<InferenceModel> completer) {
-      return completer.future;
+      final pending = _inFlightRequest;
+      final changedParam = pending?.params.firstDifference(requestedParams);
+      final sameModel = pending?.specName == requestedSpec.name;
+      if (pending != null && sameModel && changedParam == null) {
+        // Genuinely the same request — sharing the in-flight build is the
+        // point of the completer.
+        return completer.future;
+      }
+      gemmaLog(
+        '⏳ A model build is already in flight with a different request '
+        '(${sameModel ? 'config $changedParam' : 'model ${pending?.specName} → ${requestedSpec.name}'})'
+        ' — waiting for it, then rebuilding',
+      );
+      var inFlightFailed = false;
+      try {
+        await completer.future;
+      } catch (_) {
+        // That build failed. Its own catch resets the state and its caller
+        // receives the error, so nothing is being swallowed here — fall
+        // through and build fresh for THIS caller.
+        inFlightFailed = true;
+        // Logged, not silent: the "waiting for it" line above fires BEFORE
+        // the await, so a build that failed and was recovered from left no
+        // trace at all. The error itself still reaches the caller that
+        // started that build.
+        gemmaLog('In-flight build failed; building fresh for this request');
+      }
+      if (inFlightFailed && identical(_initCompleter, completer)) {
+        // A failed build left its own completer installed. Recursing now would
+        // find that same dead completer, await it, catch the same error, and
+        // repeat without end — the recursion below must not depend on every
+        // error path having remembered to reset. (On the SUCCESS path the
+        // completer stays installed on purpose: it IS the cache. Hence the
+        // failure condition rather than a bare identity check.)
+        _initCompleter = null;
+        _inFlightRequest = null;
+      }
+      // Re-enter rather than tear down mid-build: the first caller's future
+      // stays valid and gets the model it asked for, and only then is it
+      // replaced. On re-entry the reuse check above sees a built model whose
+      // params differ and does the ordinary close-and-rebuild, so this
+      // terminates — the rebuild records these params as the new baseline.
+      return createModel(
+        modelType: modelType,
+        fileType: fileType,
+        maxTokens: maxTokens,
+        preferredBackend: preferredBackend,
+        preferredVisionBackend: preferredVisionBackend,
+        preferredAudioBackend: preferredAudioBackend,
+        loraRanks: loraRanks,
+        maxNumImages: maxNumImages,
+        supportImage: supportImage,
+        supportAudio: supportAudio,
+        enableSpeculativeDecoding: enableSpeculativeDecoding,
+        maxConcurrentSessions: maxConcurrentSessions,
+      );
     }
 
     final completer = _initCompleter = Completer<InferenceModel>();
+    _inFlightRequest = (specName: requestedSpec.name, params: requestedParams);
 
     try {
-      final specForGates = activeModel as InferenceModelSpec;
-      final isBuiltIn = specForGates.fileType == ModelFileType.builtIn;
+      final isBuiltIn = requestedSpec.fileType == ModelFileType.builtIn;
 
       String modelPath = '';
       if (!isBuiltIn) {
@@ -195,7 +331,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         gemmaLog('[FlutterGemmaDesktop] Using model: $modelPath');
       } else {
         gemmaLog(
-          '[FlutterGemmaDesktop] Built-in model ${specForGates.name}: '
+          '[FlutterGemmaDesktop] Built-in model ${requestedSpec.name}: '
           'skipping file/installed checks (no on-disk file)',
         );
       }
@@ -207,7 +343,7 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // empty (or no engine canHandle the spec), the findFor==null StateError
       // below fires. Desktop is litertlm-only; a `.task` request would simply
       // find no matching engine.
-      final spec = specForGates;
+      final spec = requestedSpec;
       final config = RuntimeConfig(
         maxTokens: maxTokens,
         modelPath: modelPath,
@@ -219,6 +355,13 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
         maxNumImages: maxNumImages,
         enableSpeculativeDecoding: enableSpeculativeDecoding,
         maxConcurrentSessions: maxConcurrentSessions,
+        // Forwarded, not merely compared. ActiveModelParams treats loraRanks as
+        // a rebuild trigger and its dartdoc says the engine receives it — but
+        // desktop compared it and then dropped it here, so a changed rank tore
+        // down multi-gigabyte weights and handed the engine a byte-identical
+        // config. Comparing a value the engine never sees is its own kind of
+        // lie. Mobile and web already forwarded it.
+        loraRanks: loraRanks,
       );
       final engine = EngineRegistry.instance.findFor(spec);
       if (engine == null) {
@@ -234,24 +377,32 @@ class FlutterGemmaDesktop extends FlutterGemmaPlugin {
       // Core owns the singleton lifecycle: track it + reset on close. The
       // package-built model fires this via CloseNotifier (addCloseListener).
       _initializedModel = model;
-      _lastInferenceParams = (
-        supportImage: supportImage,
-        supportAudio: supportAudio,
-        maxTokens: maxTokens,
-      );
+      _lastInferenceParams = requestedParams;
       model.addCloseListener(() {
+        // Identity-guarded, as the session layer already does
+        // (mobile_inference_model.dart: `if (identical(_session, session))`).
+        // Without it a late close of a SUPERSEDED model nulls whatever is
+        // registered now — including a newer, live model, whose next caller
+        // then reloads weights that were already in memory.
+        if (!identical(_initializedModel, model)) return;
         _initializedModel = null;
         _initCompleter = null;
+        _inFlightRequest = null;
         _lastActiveInferenceSpec = null;
         _lastInferenceParams = null;
       });
 
       _lastActiveInferenceSpec = spec;
+      // Nothing is in flight any more. Leaving this set would be a field
+      // outliving its meaning — the reuse check above happens to shadow it
+      // today, which is not a reason to keep a stale one around.
+      _inFlightRequest = null;
       completer.complete(model);
       return model;
     } catch (e, st) {
       completer.completeError(e, st);
       _initCompleter = null;
+      _inFlightRequest = null;
       _initializedModel = null;
       _lastActiveInferenceSpec = null;
       _lastInferenceParams = null;

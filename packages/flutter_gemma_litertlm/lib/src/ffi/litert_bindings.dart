@@ -18,7 +18,11 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter_gemma/core/utils/host_native_library.dart';
+
 import 'package:ffi/ffi.dart';
+
+import 'litert_default_scope.dart';
 
 // ----- Opaque handle typedefs ------------------------------------------------
 
@@ -277,30 +281,33 @@ class LiteRtRankedTensorTypeView {
 /// tests sat red under that misreading. So: walk UP to the workspace root
 /// instead of assuming it.
 ///
-/// The Native Assets hook cache comes FIRST. It is version-validated by
-/// `hook/build.dart` (`_readMarker` / `_invalidateBundleCacheIfStale`), whereas
-/// `native/litert_lm/prebuilt/` is gitignored, produced by a local
-/// `build_macos.sh`, and carries no version marker at all. They are the same
-/// bytes today, but after the next `native-v*` bump a stale local prebuilt
-/// would otherwise shadow the refreshed cache and host tests would silently run
-/// against a different native version than the app ships.
-Iterable<String> _devLiteRtLmCandidates() sync* {
-  const rel = 'native/litert_lm/prebuilt/macos_arm64/libLiteRtLm.dylib';
-
-  final home = Platform.environment['HOME'];
-  if (home != null && home.isNotEmpty) {
-    yield '$home/Library/Caches/flutter_gemma/native/macos_arm64/libLiteRtLm.dylib';
-  }
-
-  var dir = Directory.current.absolute;
-  for (var hop = 0; hop < 8; hop++) {
-    yield '${dir.path}/packages/flutter_gemma_litertlm/$rel';
-    yield '${dir.path}/$rel';
-    final parent = dir.parent;
-    if (parent.path == dir.path) break;
-    dir = parent;
-  }
+/// The ordering rules — cache before local build, walk up rather than assume —
+/// and the incidents behind them now live in ONE place, core's
+/// host_native_library.dart, because this search had been written three times
+/// (here, and twice in rag_sqlite's tests) and the copies had drifted.
+List<String> _devLiteRtLmCandidates() {
+  // Guarded rather than trusted: hostNativeDirName() is null on iOS, and the
+  // relative paths below interpolate it, so an unguarded call would build
+  // `.../prebuilt/null/libLiteRtLm.dylib`. Unreachable today — _openLiteRt
+  // throws for iOS before getting here — but a comment is the only thing
+  // keeping that true, and comments do not fail.
+  final hostDir = hostNativeDirName();
+  if (hostDir == null) return const [];
+  return _candidatesFor(hostDir);
 }
+
+List<String> _candidatesFor(String hostDir) => hostNativeLibraryCandidates(
+  // Reached only from the macOS branch of _openLiteRt (iOS throws before it),
+  // so the host names the shared helper computes are the macOS ones.
+  libFileName: hostNativeLibraryFileName('LiteRtLm'),
+  // LiteRT uses the FLAT cache layout: <cacheBase>/<host>/, no namespace.
+  relativePaths: [
+    'packages/flutter_gemma_litertlm/native/litert_lm/prebuilt/'
+        '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
+    'native/litert_lm/prebuilt/'
+        '$hostDir/${hostNativeLibraryFileName('LiteRtLm')}',
+  ],
+);
 
 DynamicLibrary _openLiteRt() {
   if (Platform.isMacOS || Platform.isIOS) {
@@ -343,7 +350,38 @@ DynamicLibrary _openLiteRt() {
       '${Directory.current.path}): ${tried.join(", ")}',
     );
   }
-  if (Platform.isAndroid) return DynamicLibrary.open('libLiteRtLm.so');
+  if (Platform.isAndroid) {
+    // #447: this is the embeddings/speech entry point, and on Android it may
+    // well be the FIRST thing in the process to open libLiteRtLm — whichever
+    // path gets there first decides for good whether the library's exports are
+    // reachable through dlsym(RTLD_DEFAULT). Opening it plainly here left the
+    // LLM path's stream-ABI probe permanently blind. Load it into the default
+    // scope first; the handle-scoped open below is then just a handle.
+    //
+    // Best effort on purpose. This binding resolves everything through its own
+    // handle, so it works whether or not the symbols are ambient — and a
+    // speech-only or embeddings-only app must not be broken by a condition it
+    // does not depend on. The point of calling this here is to be FIRST, so a
+    // later `.litertlm` generation is not poisoned.
+    // Guard the ABI before touching any native library. LiteRT-LM ships
+    // android_arm64 only, so on an x86_64 emulator or armeabi-v7a device
+    // nothing is bundled — and the first thing the scope helper opens is
+    // libStreamProxy, so without this the failure names a library the caller
+    // has never heard of instead of saying "wrong ABI". Mirrors the guard in
+    // litert_lm_client.dart's Android branch.
+    if (Abi.current() != Abi.androidArm64) {
+      throw UnsupportedError(
+        'flutter_gemma embeddings and speech require an arm64-v8a Android '
+        'device (got ${Abi.current()}). LiteRT-LM ships no other Android ABI. '
+        'MediaPipe `.task` text inference still works on this ABI.',
+      );
+    }
+    return openLiteRtLmPreferringDefaultScope('libLiteRtLm.so');
+  }
+  // Linux and Windows need no equivalent: glibc promotes an already-loaded
+  // object when a later dlopen asks for RTLD_GLOBAL, and PE modules are
+  // reachable through the loaded-module list regardless. See the header of
+  // litert_default_scope.dart.
   if (Platform.isLinux) return DynamicLibrary.open('libLiteRt.so');
   if (Platform.isWindows) return DynamicLibrary.open('LiteRt.dll');
   throw UnsupportedError(

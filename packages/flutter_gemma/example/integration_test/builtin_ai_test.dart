@@ -16,8 +16,10 @@ void main() {
   // skips cleanly instead of hanging until a timeout. Run on a device that has
   // Gemini Nano / Apple Intelligence already downloaded, or pass
   // --dart-define=BUILTIN_AI_ALLOW_DOWNLOAD=true to exercise real generation.
-  const allowDownload =
-      bool.fromEnvironment('BUILTIN_AI_ALLOW_DOWNLOAD', defaultValue: false);
+  const allowDownload = bool.fromEnvironment(
+    'BUILTIN_AI_ALLOW_DOWNLOAD',
+    defaultValue: false,
+  );
 
   late bool available;
 
@@ -38,7 +40,9 @@ void main() {
           try {
             await BuiltInAi.ensureReady(timeout: const Duration(minutes: 8));
             available = true;
-          } catch (_) {/* stays skipped */}
+          } catch (_) {
+            /* stays skipped */
+          }
         }
         if (available) {
           final spec = defaultTargetPlatform == TargetPlatform.android
@@ -56,10 +60,13 @@ void main() {
   });
 
   test('single-shot generation', () async {
-    if (!available) return markTestSkipped('BuiltInAI not available on this device');
+    if (!available)
+      return markTestSkipped('BuiltInAI not available on this device');
     final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
     final session = await model.createSession();
-    await session.addQueryChunk(const Message(text: 'Reply with exactly: PONG', isUser: true));
+    await session.addQueryChunk(
+      const Message(text: 'Reply with exactly: PONG', isUser: true),
+    );
     final response = await session.getResponse();
     expect(response.toUpperCase(), contains('PONG'));
     await session.close();
@@ -67,10 +74,13 @@ void main() {
   });
 
   test('streaming yields incremental deltas then completes', () async {
-    if (!available) return markTestSkipped('BuiltInAI not available on this device');
+    if (!available)
+      return markTestSkipped('BuiltInAI not available on this device');
     final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
     final session = await model.createSession();
-    await session.addQueryChunk(const Message(text: 'Count from 1 to 5.', isUser: true));
+    await session.addQueryChunk(
+      const Message(text: 'Count from 1 to 5.', isUser: true),
+    );
     final chunks = await session.getResponseAsync().toList();
     expect(chunks, isNotEmpty);
     expect(chunks.join(), isNotEmpty);
@@ -79,22 +89,31 @@ void main() {
   });
 
   test('multi-turn chat keeps context', () async {
-    if (!available) return markTestSkipped('BuiltInAI not available on this device');
+    if (!available)
+      return markTestSkipped('BuiltInAI not available on this device');
     final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
     final chat = await model.createChat(supportImage: false);
-    await chat.addQueryChunk(const Message(text: 'My name is Sasha. Say hi.', isUser: true));
+    await chat.addQueryChunk(
+      const Message(text: 'My name is Sasha. Say hi.', isUser: true),
+    );
     await chat.generateChatResponse();
-    await chat.addQueryChunk(const Message(text: 'What is my name?', isUser: true));
+    await chat.addQueryChunk(
+      const Message(text: 'What is my name?', isUser: true),
+    );
     final answer = await chat.generateChatResponse();
     expect(answer.toString().toLowerCase(), contains('sasha'));
     await model.close();
   });
 
   test('sizeInTokens returns a positive count', () async {
-    if (!available) return markTestSkipped('BuiltInAI not available on this device');
+    if (!available)
+      return markTestSkipped('BuiltInAI not available on this device');
     final model = await FlutterGemma.getActiveModel(maxTokens: 4096);
     final session = await model.createSession();
-    expect(await session.sizeInTokens('Hello world, four words plus.'), greaterThan(0));
+    expect(
+      await session.sizeInTokens('Hello world, four words plus.'),
+      greaterThan(0),
+    );
     await session.close();
     await model.close();
   });

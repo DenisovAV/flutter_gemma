@@ -14,62 +14,31 @@ library;
 
 import 'dart:io';
 
-/// Host-platform subdirectory under `native/sqlite_vec/prebuilt/`.
-/// Null on a host we ship no loadable for (tests run on the host, so the
-/// iOS/Android prebuilts are never the answer here).
-///
-/// Linux ships BOTH `linux_x86_64` and `linux_arm64`, so "prefer x86_64 and let
-/// existence pick the other" does not work — the x86_64 file always exists, so
-/// arm64 was unreachable and an arm64 host got an incompatible ELF. Ask uname.
-String? get _hostPrebuiltDir {
-  if (Platform.isMacOS) return 'macos_arm64';
-  if (Platform.isWindows) return 'windows_x86_64';
-  if (Platform.isLinux) {
-    final arch = _unameMachine();
-    if (arch == 'aarch64' || arch == 'arm64') return 'linux_arm64';
-    return 'linux_x86_64';
-  }
-  return null;
-}
+import 'package:flutter_gemma/core/utils/host_native_library.dart';
+import 'package:flutter_gemma_rag_sqlite/flutter_gemma_rag_sqlite.dart';
 
-/// `uname -m`, or null when it cannot be read. dart:io exposes no CPU
-/// architecture, and `Platform.version` names the SDK's target, not the host's.
-String? _unameMachine() {
-  try {
-    final r = Process.runSync('uname', const ['-m']);
-    if (r.exitCode != 0) return null;
-    return (r.stdout as String).trim();
-  } catch (_) {
-    return null;
-  }
-}
-
-String get _libName {
-  if (Platform.isMacOS) return 'libvec0.dylib';
-  if (Platform.isWindows) return 'vec0.dll';
-  return 'libvec0.so';
-}
+String get _libName => hostNativeLibraryFileName('vec0');
 
 /// Every path considered, in order. Exposed so a failure message can name them
 /// all — "not found" and "looked in the wrong place" must not read alike.
 List<String> get vec0Candidates {
-  final env = Platform.environment['VEC0_DYLIB'];
-  final out = <String>[if (env != null && env.isNotEmpty) env];
-
-  // Tests run from the package directory (tool/test_all.sh guarantees it).
-  const base = 'native/sqlite_vec/prebuilt';
-  final host = _hostPrebuiltDir;
-  if (host != null) out.add('$base/$host/$_libName');
-  return out;
+  final host = hostNativeDirName();
+  return hostNativeLibraryCandidates(
+    libFileName: _libName,
+    envOverride: Platform.environment['VEC0_DYLIB'],
+    // vec0's prebuilt is committed to this repository, so there is no download
+    // cache for it -- the shared helper simply finds nothing there.
+    relativePaths: host == null
+        ? const []
+        : [
+            'native/sqlite_vec/prebuilt/$host/$_libName',
+            'packages/flutter_gemma_rag_sqlite/native/sqlite_vec/prebuilt/$host/$_libName',
+          ],
+  );
 }
 
 /// First candidate that exists, or null when none does.
-String? get vec0Path {
-  for (final p in vec0Candidates) {
-    if (File(p).existsSync()) return p;
-  }
-  return null;
-}
+String? get vec0Path => firstExistingPath(vec0Candidates);
 
 /// Reason string for `skip:` when the extension is genuinely unavailable, or
 /// null when it is present. Names every path tried, and the working directory,
@@ -79,4 +48,21 @@ String? get vec0SkipReason {
   return 'vec0 loadable extension not found. Looked in: '
       '${vec0Candidates.join(", ")} (cwd: ${Directory.current.path}). '
       'Run from the package directory, or set \$VEC0_DYLIB.';
+}
+
+/// Points both vector stores at the libraries the shared locator found.
+///
+/// Call from `setUp`/`setUpAll` in any suite that opens a store. Before this
+/// existed each suite needed `$VEC0_DYLIB` exported by tool/test_all.sh, so a
+/// plain `flutter test` in this package failed on a dlopen with nothing to
+/// suggest the environment was the problem — and the qdrant side had a
+/// programmatic override while the sqlite side did not, so a test could
+/// configure one store and had to configure the other through the process
+/// environment.
+void useHostNativeLibraries() {
+  final vec0 = vec0Path;
+  if (vec0 != null) {
+    // ignore: invalid_use_of_visible_for_testing_member
+    SqliteVectorStore.debugOverrideDylibPath = vec0;
+  }
 }

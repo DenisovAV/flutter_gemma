@@ -28,8 +28,11 @@
 - **Exception: web** — Flutter SDK does NOT support `flutter test -d chrome/web-server` for `integration_test` (only `flutter test --platform chrome`, which is deprecated for app-level tests per Flutter docs). The **only** officially supported web integration test runner is `flutter drive --driver=test_driver/integration_test.dart --target=integration_test/<file>.dart -d chrome` (or `-d web-server` headless). On web `flutter drive` is the canonical Flutter-supported path, not a workaround — use it.
 
 ## Rule 7: CHANGELOG ENTRIES ARE ONE LINE ⛔
+- **ONE line per ISSUE**, not per change. A fix that touched nine things is still one bullet
 - Every `## X.Y.Z` bullet must fit on a single short line (~10-15 words)
 - No multi-sentence explanations, no embedded paragraphs in CHANGELOG.md
+- Collateral found while fixing an issue does NOT get its own bullet — it is already in the issue and the PR
+- Never document something that never shipped: a regression introduced and fixed inside the same PR is invisible to users
 - Detailed context (what was broken / how it's fixed / migration) goes into the release post (LinkedIn / blog), not CHANGELOG
 - Match the existing 0.15.x entries' brevity
 

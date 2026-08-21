@@ -87,6 +87,33 @@ Timer armResumeWatchdog({
   return Timer(timeout, onTimeout);
 }
 
+/// Whether a non-final, progress-less status should re-arm the resume
+/// watchdog.
+///
+/// The blanket `_cancelResumeWatchdog` that runs before every status disarms
+/// the only safety net, so a status that carries no progress and is not final
+/// must put it back or the download can hang unbounded.
+///
+/// `enqueued` only counts once the task has already been seen PAUSED, and the
+/// native ordering is worth writing down because it is the opposite of what it
+/// looks like. The 9-minute slice emits `enqueued` -> `progress(-5)` ->
+/// `paused`, not the other way round: `DownloadTaskRunner` AWAITS the
+/// re-enqueue (`doEnqueue` is suspend, and posts `enqueued` itself) and only
+/// then returns `paused`, which the runner's `finally` posts last. So `paused`
+/// is the final word and arms the watchdog on its own.
+///
+/// Which leaves `enqueued` covering the resume-driven case only — and makes
+/// gating it essential rather than cosmetic, because `enqueued` is ALSO emitted
+/// on the very first enqueue. Arming there would put a 90-second deadline on
+/// every download before it had a chance to start: WorkManager legitimately
+/// holds a job enqueued while offline, in Doze, or behind other work, and iOS
+/// defers a background transfer started while backgrounded. The watchdog does
+/// not merely report — it cancels the task and deletes its resume data. A phone
+/// in a tunnel would lose a multi-gigabyte partial and restart from zero.
+@visibleForTesting
+bool shouldRearmWatchdog(TaskStatus status, {required bool sawPause}) =>
+    status == TaskStatus.paused || (status == TaskStatus.enqueued && sawPause);
+
 /// The scheduling priority to use, given the real host OS.
 ///
 /// Extracted so both arms are testable without pretending to be on another
@@ -251,12 +278,12 @@ class SmartDownloader {
   /// `BDPlugin.kt`. Expedited is the wrong trade for a 2-4 GB transfer, for two
   /// independent reasons:
   ///
-  ///   * it HALVES the OS execution guarantee. `JobSchedulerService` gives a
-  ///     regular job `RUNTIME_MIN_GUARANTEE_MS` = 10 minutes, an expedited job
-  ///     `RUNTIME_MIN_EJ_GUARANTEE_MS` = 3 minutes, and caps expedited at the
-  ///     regular 10-minute figure — AOSP's own comment there says expedited
-  ///     jobs "shouldn't be used for long pieces of work". Expedited work also
-  ///     draws on a separate 24-hour budget.
+  ///   * it SHORTENS the OS execution guarantee from 10 minutes to 3.
+  ///     `JobSchedulerService` defines `RUNTIME_MIN_GUARANTEE_MS` = 10 min and
+  ///     `RUNTIME_MIN_EJ_GUARANTEE_MS` = 3 min, and caps expedited at the
+  ///     regular figure; developer.android.com says expedited work is for
+  ///     "short" tasks. Expedited work also draws on a separate 24-hour
+  ///     budget.
   ///   * it currently hangs the download outright. WorkManager caps a task at 9
   ///     minutes; background_downloader survives that by pausing and
   ///     RE-ENQUEUING with `initialDelayMillis = 1000`. The re-enqueue sets
@@ -265,6 +292,14 @@ class SmartDownloader {
   ///     `IllegalArgumentException: Expedited jobs cannot be delayed`. The
   ///     throw is swallowed to a `Log.w`, `doEnqueue`'s `false` is discarded,
   ///     and the runner returns `TaskStatus.paused` anyway.
+  ///
+  /// Note the crash is only reachable for RESUMABLE downloads. HuggingFace
+  /// serves weak ETags, so `allowPause` is false for those URLs and the native
+  /// side fails outright at 9 minutes rather than pausing and re-enqueuing —
+  /// which is every URL in the example app. Anyone trying to reproduce the hang
+  /// against a HuggingFace model will not see it and may conclude this was
+  /// unnecessary. Self-hosted, GCS, Firebase Storage and Kaggle URLs do resume,
+  /// and those are the ones that hang.
   ///
   /// So the correct Android value is the highest that is NOT expedited: 5, the
   /// package default. Against the old 10 this changes nothing observable on
@@ -455,7 +490,12 @@ class SmartDownloader {
     // registration left over from an earlier download would keep intercepting
     // our tasks and the host's hub — fed by `updates` — would receive nothing
     // at all, hanging every download that resolved to it.
-    if (stream != null) _releaseGroupFanOut();
+    // NOT absorbing here. A hub is the host saying "route flutter_gemma's
+    // updates to me", and group callbacks outrank the `updates` stream that
+    // feeds it — so leaving any callback registered, even a silent one, starves
+    // the hub and hangs every download that resolves to it. Which is precisely
+    // the hazard this call exists to prevent.
+    if (stream != null) _releaseGroupFanOut(absorb: false);
   }
 
   /// Clears injected hub configuration (e.g. registry reset / dispose).
@@ -466,7 +506,16 @@ class SmartDownloader {
   static void clearConfiguration() {
     _configuredDownloadUpdatesStream = null;
     _configuredBroadcastStream = null;
-    _releaseGroupFanOut();
+    // A host `FileDownloader().destroy()` clears `notificationConfigs` as well
+    // as the callback map, and `_ensureConfigured` short-circuits on
+    // `_isConfigured` — so without this a later `foreground: true` download
+    // silently loses its notification, and with it the foreground service.
+    _isConfigured = false;
+    // absorb: the host is tearing us down, and a task we enqueued may still be
+    // running. With no callback its updates fall through to
+    // `FileDownloader().updates` and the host starts receiving tasks it has
+    // never heard of.
+    _releaseGroupFanOut(absorb: true);
   }
 
   /// Closes the fan-out and leaves a silent sink registered for our group.
@@ -476,21 +525,33 @@ class SmartDownloader {
   /// [DownloadUpdatesReleasedException] and terminates the download rather than
   /// retrying it.
   ///
-  /// The registration is deliberately NOT removed. A native task we enqueued
-  /// can still be running, and with no group callback its updates fall through
-  /// to `FileDownloader().updates` — so tearing flutter_gemma down would start
-  /// pushing tasks the host has never heard of into the host's own stream. That
-  /// is #445 in reverse. A no-op sink costs one map entry and absorbs them.
-  static void _releaseGroupFanOut() {
+  /// [absorb] decides what replaces us, and the two callers want opposites.
+  ///
+  /// On teardown, a native task we enqueued can still be running, and with no
+  /// group callback its updates fall through to `FileDownloader().updates` — so
+  /// the host would start receiving tasks it has never heard of. That is #445 in
+  /// reverse, and a silent sink absorbs them for one map entry.
+  ///
+  /// When a hub is installed, the host is asking for the opposite: route our
+  /// updates to it. Group callbacks outrank the `updates` stream that feeds the
+  /// hub, so ANY callback left registered — including the silent one — starves
+  /// it and hangs every download that resolves to it.
+  static void _releaseGroupFanOut({required bool absorb}) {
     final controller = _groupUpdates;
     _groupUpdates = null;
-    if (controller == null) return;
-    FileDownloader().registerCallbacks(
-      group: downloadGroup,
-      taskStatusCallback: _absorb,
-      taskProgressCallback: _absorb,
-    );
-    unawaited(controller.close());
+    if (absorb) {
+      FileDownloader().registerCallbacks(
+        group: downloadGroup,
+        taskStatusCallback: _absorb,
+        taskProgressCallback: _absorb,
+      );
+    } else {
+      // Unconditional: an earlier teardown may have left a sink behind even
+      // though `_groupUpdates` is already null, and that sink would outlive
+      // this call and starve the hub.
+      FileDownloader().unregisterCallbacks(group: downloadGroup);
+    }
+    unawaited(controller?.close());
   }
 
   static void _absorb(TaskUpdate update) {}
@@ -791,6 +852,9 @@ class SmartDownloader {
 
         // Create completer to wait for existing task completion
         final completer = Completer<void>();
+        // Set on the first `paused`; gates whether a later `enqueued` counts as
+        // the 9-minute re-enqueue rather than an initial one.
+        var sawPause = false;
 
         // Attach listener to existing task
         listener = _resolveUpdatesStream().listen(
@@ -800,9 +864,12 @@ class SmartDownloader {
             if (update is TaskProgressUpdate) {
               // A live event means the task is not dead — cancel any pending
               // resume watchdog so a normally-progressing task never false-fires (#355).
-              _cancelResumeWatchdog(update.task.taskId);
               final percents = percentFromProgress(update.progress);
-              if (percents == null) return; // state sentinel, not progress
+              // Disarm only for REAL progress. A sentinel is not evidence of
+              // life, and disarming on one relies on a later status re-arming —
+              // true today, but an ordering dependency with nothing holding it.
+              if (percents == null) return;
+              _cancelResumeWatchdog(update.task.taskId);
               gemmaLog('📊 Progress (existing): $percents%');
               if (!progress.isClosed) {
                 progress.add(percents);
@@ -851,12 +918,14 @@ class SmartDownloader {
                 if (!completer.isCompleted) completer.complete();
               } else if (update.status == TaskStatus.paused ||
                   update.status == TaskStatus.enqueued) {
+                if (update.status == TaskStatus.paused) sawPause = true;
+                if (!shouldRearmWatchdog(update.status, sawPause: sawPause)) {
+                  return;
+                }
                 // Neither is final and neither carries progress, and the
                 // blanket `_cancelResumeWatchdog` above has just disarmed the
-                // only safety net for both.
-                //
-                // `paused` is the normal 9-minute WorkManager slice: native
-                // re-enqueues with a 1s delay, which then emits `enqueued`. If
+                // only safety net for both. See shouldRearmWatchdog for why
+                // `enqueued` is gated on a prior `paused`. If
                 // that re-enqueued job is deferred — Doze, a metered-network
                 // constraint, quota — no further event ever arrives. Without a
                 // re-arm on BOTH, the sequence paused[arm] -> enqueued[disarm]
@@ -964,6 +1033,9 @@ class SmartDownloader {
 
       // Create a completer to wait for download completion
       final completer = Completer<void>();
+      // Set on the first `paused`; gates whether a later `enqueued` counts as
+      // the 9-minute re-enqueue rather than an initial one.
+      var sawPause = false;
 
       // Listen to broadcast stream to get full status info including HTTP code
       // Using broadcast stream allows multiple downloads and retries
@@ -978,9 +1050,10 @@ class SmartDownloader {
           if (update is TaskProgressUpdate) {
             // A live event means the task is not dead — cancel any pending
             // resume watchdog so a normally-progressing task never false-fires (#355).
-            _cancelResumeWatchdog(update.task.taskId);
             final percents = percentFromProgress(update.progress);
-            if (percents == null) return; // state sentinel, not progress
+            // Disarm only for REAL progress — see the reattach listener.
+            if (percents == null) return;
+            _cancelResumeWatchdog(update.task.taskId);
             gemmaLog('📊 Progress: $percents%');
             if (!progress.isClosed) {
               progress.add(percents);
@@ -1140,12 +1213,10 @@ class SmartDownloader {
 
               case TaskStatus.paused:
               case TaskStatus.enqueued:
-                // Neither is final and neither carries progress, and the
-                // blanket `_cancelResumeWatchdog` above has just disarmed the
-                // only safety net for both. `paused` is the 9-minute
-                // WorkManager slice; the re-enqueue it triggers then emits
-                // `enqueued`. Re-arming on paused alone would be undone one
-                // event later, so a deferred re-enqueue would hang unbounded.
+                if (update.status == TaskStatus.paused) sawPause = true;
+                if (!shouldRearmWatchdog(update.status, sawPause: sawPause)) {
+                  break;
+                }
                 gemmaLog('⏸️ ${update.status} — re-arming resume watchdog');
                 _armResumeWatchdog(
                   taskId: task.taskId,

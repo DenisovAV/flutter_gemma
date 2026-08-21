@@ -217,6 +217,40 @@ void main() {
     );
   });
 
+  test('installing a hub hands our updates back to the updates stream', () async {
+    // Order is the whole test. Injecting a hub into a process that never built
+    // a fan-out proves nothing — the earlier version of the hub test did
+    // exactly that and could not fail. The hazard is a hub installed AFTER a
+    // download has already registered our group callbacks: those outrank the
+    // `updates` stream that feeds the hub, so anything left registered — a
+    // silent sink included — starves it and hangs every download that
+    // resolves to it.
+    final ours = SmartDownloader.debugResolveUpdatesStream().listen((_) {});
+    addTearDown(ours.cancel);
+    expect(SmartDownloader.debugGroupFanOutIsLive, isTrue);
+
+    final hub = StreamController<TaskUpdate>.broadcast();
+    addTearDown(hub.close);
+    SmartDownloader.configureDownloadUpdatesStream(hub.stream);
+
+    final seen = <TaskUpdate>[];
+    final sub = FileDownloader().updates.listen(seen.add);
+    addTearDown(sub.cancel);
+
+    FileDownloader().downloaderForTesting.processStatusUpdate(
+      TaskStatusUpdate(_ourTask(), TaskStatus.running),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      seen,
+      hasLength(1),
+      reason:
+          'a group callback survived the hub installation, so our updates never '
+          'reach the stream the hub is fed from',
+    );
+  });
+
   test('after release our tasks do not spill into the host stream', () async {
     SmartDownloader.debugResolveUpdatesStream().listen((_) {}).cancel();
     SmartDownloader.clearConfiguration();

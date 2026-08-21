@@ -128,4 +128,58 @@ void main() {
       expect(percentFromProgress(1.5), 100);
     });
   });
+
+  group('shouldRearmWatchdog', () {
+    // The blanket _cancelResumeWatchdog that runs before every status disarms
+    // the only safety net, so a non-final status carrying no progress has to
+    // put it back — or the download hangs unbounded with no error.
+    test('paused always re-arms', () {
+      expect(shouldRearmWatchdog(TaskStatus.paused, sawPause: false), isTrue);
+      expect(shouldRearmWatchdog(TaskStatus.paused, sawPause: true), isTrue);
+    });
+
+    test('a FIRST enqueue does not re-arm', () {
+      expect(
+        shouldRearmWatchdog(TaskStatus.enqueued, sawPause: false),
+        isFalse,
+        reason:
+            'arming here puts a 90-second deadline on every download before it '
+            'has started — and the watchdog cancels the task and deletes its '
+            'resume data, so a phone in a tunnel loses a multi-gigabyte partial',
+      );
+    });
+
+    test('an enqueue AFTER a pause re-arms', () {
+      expect(
+        shouldRearmWatchdog(TaskStatus.enqueued, sawPause: true),
+        isTrue,
+        reason:
+            'this is the resume-driven re-enqueue; if the platform then defers '
+            'it, nothing else will ever fire',
+      );
+    });
+
+    test('final and progress-carrying states do not re-arm', () {
+      for (final s in [
+        TaskStatus.complete,
+        TaskStatus.failed,
+        TaskStatus.canceled,
+        TaskStatus.notFound,
+        TaskStatus.running,
+      ]) {
+        expect(
+          shouldRearmWatchdog(s, sawPause: true),
+          isFalse,
+          reason: '$s must not arm a resume watchdog',
+        );
+      }
+    });
+
+    test('every TaskStatus is handled', () {
+      // A new status added upstream must not silently fall through.
+      for (final s in TaskStatus.values) {
+        expect(() => shouldRearmWatchdog(s, sawPause: false), returnsNormally);
+      }
+    });
+  });
 }

@@ -358,17 +358,33 @@ on `getActiveModel(...)`.
 - **macOS, Windows** — upstream `libLiteRtTopKMetalSampler` / `libLiteRtTopKWebGpuSampler` ship with incomplete C ABI exports (3 of 7 functions); the factory falls back to the CPU chain. ([#1990](https://github.com/google-ai-edge/LiteRT-LM/issues/1990), [#2073](https://github.com/google-ai-edge/LiteRT-LM/issues/2073))
 - **Linux** — the prebuilt sampler `.so` holds a process-static `wgpu::Instance` that any second `engine_create` rejects. Since runtime model swap matters more than the few ms saved, the plugin doesn't preload it and lets the factory fall back to CPU.
 
-### `randomSeed` / `temperature` / `topK` / `topP`
+### `randomSeed` / `temperature` / `topK` / `topP` — only the first session's values apply
 
-As of litertlm 1.2.0 (LiteRT-LM **v0.14.0**), per-session sampler params
-(seed / temperature / topK / topP) are honored **natively** by the upstream
-runtime through its opaque session config — no downstream patch. Each session
-carries its own sampler params, so two sessions with different seeds produce
-independent, seed-reproducible output. Verified on CPU and GPU across macOS,
-iOS, Linux, Windows (CPU/NPU), and Android. (Earlier releases needed a build-time
-patch offered upstream as [#2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080) /
-[PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081); v0.14.0 lands the native
-session-config sampler, so that patch is no longer applied.)
+<Warning>
+**Only the first generation on an engine sets the sampler.** Every later session
+on that same engine keeps those values, whatever it asks for. Upstream defect
+([LiteRT-LM #2080](https://github.com/google-ai-edge/LiteRT-LM/issues/2080),
+open), reproducing on v0.14.0, v0.15.0 and v0.16.0, on CPU as well as GPU.
+</Warning>
+
+`topK` defaults to `1`, which is greedy — so the common shape is: an app loads a
+model, runs one generation with defaults, and from then on the engine is locked
+greedy. A later `temperature: 1.5` changes nothing, with no error and no warning.
+It runs the other way too: an engine whose first session is stochastic keeps
+sampling, and a later `topK: 1` will not give you argmax. The seed is not
+re-applied either — the sampler keeps its RNG state across sessions, so two
+identical requests on one engine produce different text.
+
+**Workaround:** close and recreate the engine when you need different sampler
+settings — `model.close()` then `FlutterGemma.getActiveModel(...)` — at the cost
+of a model reload. If your app uses one fixed configuration throughout, as most
+chat apps do, this never surfaces: the first session already set the values you
+wanted.
+
+Before litertlm 1.2.0 we carried a build-time patch that fixed this downstream
+(offered upstream as [PR #2081](https://github.com/google-ai-edge/LiteRT-LM/pull/2081)).
+v0.14.0 added a native session-config sampler API and the patch was dropped, but
+the underlying baking was never fixed.
 
 ### Audio modality requires LiteRT-LM models
 

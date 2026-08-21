@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma/mobile/smart_downloader.dart';
 import 'package:path_provider/path_provider.dart';
@@ -197,6 +198,81 @@ void main() {
           equals(100),
           reason: 'Final progress should be 100%',
         );
+      },
+      timeout: const Timeout(Duration(minutes: 15)),
+    );
+
+    // B1b (#445): the host keeps `background_downloader` for its own use.
+    //
+    // This is the property the whole fix exists for, and until now it had only
+    // ever been asserted against a synthetic dispatcher in a unit test. On a
+    // real device it also proves the half a unit test cannot: that our group
+    // callbacks still carry a genuine native download end to end, rather than
+    // the registration silently routing our updates nowhere.
+    testWidgets(
+      'a host can hold FileDownloader().updates across a model install',
+      (tester) async {
+        final hostSaw = <TaskUpdate>[];
+        StreamSubscription<TaskUpdate>? hostSub;
+
+        // Before the fix this threw: SmartDownloader had taken the single
+        // subscription the process has.
+        expect(
+          () => hostSub = FileDownloader().updates.listen(hostSaw.add),
+          returnsNormally,
+          reason:
+              'flutter_gemma consumed the only subscription on '
+              'FileDownloader().updates, so the host cannot watch its own '
+              'downloads (#445)',
+        );
+        addTearDown(() => hostSub?.cancel());
+
+        final progressValues = <int>[];
+        await FlutterGemma.installModel(
+              modelType: ModelType.functionGemma,
+              fileType: ModelFileType.task,
+            )
+            .fromNetwork(_smallModelUrl)
+            .withProgress(progressValues.add)
+            .install();
+
+        expect(
+          await FlutterGemma.isModelInstalled(_smallModelFilename),
+          isTrue,
+          reason: 'the download itself must still work',
+        );
+        expect(
+          progressValues,
+          isNotEmpty,
+          reason:
+              'group callbacks delivered nothing on a real device — the '
+              'registration is wired to nowhere',
+        );
+        expect(progressValues.last, 100);
+
+        expect(
+          hostSaw.where((u) => u.task.group == SmartDownloader.downloadGroup),
+          isEmpty,
+          reason:
+              "flutter_gemma's own tasks leaked into the host's stream; the "
+              'host would see downloads it never started',
+        );
+
+        // Leave no task record behind. `taskId` is a deterministic hash of
+        // (baseDirectory, directory, filename), so the NEXT test installing the
+        // same model finds this record and takes the attach-to-existing path
+        // instead of downloading — which is how adding this test made the
+        // monotonic-progress test time out.
+        final ours = await FileDownloader().allTasks(
+          group: SmartDownloader.downloadGroup,
+          includeTasksWaitingToRetry: true,
+        );
+        if (ours.isNotEmpty) {
+          await FileDownloader().cancelTasksWithIds(
+            ours.map((t) => t.taskId).toList(),
+          );
+        }
+        await FileDownloader().reset(group: SmartDownloader.downloadGroup);
       },
       timeout: const Timeout(Duration(minutes: 15)),
     );

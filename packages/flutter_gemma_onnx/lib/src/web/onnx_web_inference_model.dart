@@ -454,7 +454,13 @@ class OnnxWebSession extends InferenceModelSession {
       // after it acquires and sees `cancelled`. Releasing here would either
       // race a pre-acquire cancel into a deadlock or let a next turn overlap.
       cancelled = true;
-      _activeStoppingCriteria?.interrupt();
+      // Interrupt ONLY when THIS stream owns the running generation.
+      // `_activeStoppingCriteria` is session-global and points at whichever
+      // turn currently holds the mutex; a still-queued stream (mutexHeld ==
+      // false) that interrupted it would truncate a DIFFERENT, un-cancelled,
+      // actively-running turn. Its own `cancelled = true` still makes its
+      // onListen bail right after it acquires.
+      if (mutexHeld) _activeStoppingCriteria?.interrupt();
     };
     return controller.stream;
   }

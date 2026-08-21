@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
@@ -85,6 +86,13 @@ Timer armResumeWatchdog({
 }) {
   return Timer(timeout, onTimeout);
 }
+
+/// The scheduling priority to use, given the real host OS.
+///
+/// Extracted so both arms are testable without pretending to be on another
+/// platform. See [SmartDownloader.downloadPriority] for why they differ.
+@visibleForTesting
+int priorityForPlatform({required bool isAndroid}) => isAndroid ? 5 : 0;
 
 /// Builds the `DownloadTask` for a model download.
 ///
@@ -257,8 +265,14 @@ class SmartDownloader {
   /// switches execution to a `JobScheduler` job that is never marked persisted
   /// and never marked user-initiated (`setUserInitiated` is not called anywhere
   /// in 9.5.8), so it is neither reboot-safe nor exempt from job quotas.
+  ///
+  /// Keyed off `Platform.isAndroid`, NOT `defaultTargetPlatform`: the latter is
+  /// a UI-intent signal that a host can legitimately override with
+  /// `debugDefaultTargetPlatformOverride` to preview Cupertino, and doing that
+  /// in a debug build on a real Android phone would hand this an iOS answer and
+  /// walk straight into the 9-minute hang described above.
   static int get downloadPriority =>
-      defaultTargetPlatform == TargetPlatform.android ? 5 : 0;
+      priorityForPlatform(isAndroid: Platform.isAndroid);
 
   // Track if FileDownloader has been configured
   static bool _isConfigured = false;

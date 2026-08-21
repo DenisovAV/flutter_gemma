@@ -68,25 +68,36 @@ void main() {
     expect(build(allowPause: true).allowPause, isTrue);
   });
 
-  test('priority reaches the task, per platform', () {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    expect(
-      build().priority,
-      0,
-      reason:
-          'iOS maps priority onto URLSession; 10 meant 0.0, below lowPriority',
-    );
+  test('the task carries the platform priority, not a hardcoded one', () {
+    // The host here is not Android, so this pins the non-Android arm end to
+    // end. Both arms of the decision are covered by priorityForPlatform below;
+    // this asserts the task actually uses it.
+    expect(build().priority, SmartDownloader.downloadPriority);
+    expect(build().priority, 0);
+  });
 
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    expect(
-      build().priority,
-      isNot(lessThan(5)),
-      reason:
-          'below 5 makes the Android job expedited, and an expedited request '
-          'cannot carry the 1s delay background_downloader needs to re-enqueue '
-          'after WorkManager 9-minute cap — the build throws, the throw is '
-          'swallowed, and the download stops at 9 minutes silently',
-    );
+  group('priorityForPlatform', () {
+    test('iOS and desktop get the highest', () {
+      expect(
+        priorityForPlatform(isAndroid: false),
+        0,
+        reason:
+            'iOS maps priority onto URLSession as 1 - p/10, so the old 10 meant '
+            '0.0 — below URLSessionTask.lowPriority',
+      );
+    });
+
+    test('Android must not go below 5', () {
+      expect(
+        priorityForPlatform(isAndroid: true),
+        isNot(lessThan(5)),
+        reason:
+            'below 5 makes the Android job expedited, and an expedited request '
+            'cannot carry the 1s delay background_downloader needs to '
+            're-enqueue after WorkManager 9-minute cap — the build throws, the '
+            'throw is swallowed, and the download stops at 9 minutes silently',
+      );
+    });
   });
 
   test('the auth header is present only when a token is given', () {

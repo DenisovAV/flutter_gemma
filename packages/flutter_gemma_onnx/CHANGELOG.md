@@ -2,7 +2,8 @@
 
 - Add web text generation via Transformers.js (`@huggingface/transformers`) — `OnnxEngine` web arm (WebGPU/WASM, HF-repo-id models).
 - Fix iOS embeddings: probe ORT `GetApi` down from v27 (the ORT inside onnxruntime-genai predates 1.27).
-- Device-verify embeddings on iOS + Android + macOS (unified `onnx_embedding_device_test`).
+- Fix Windows embeddings: pass the model path to `OrtCreateSession` as UTF-16 (`ORTCHAR_T` is `wchar_t` on Windows).
+- Device-verify embeddings on macOS + Linux + Windows + Android + iOS (unified `onnx_embedding_device_test`).
 
 ## 0.2.0
 

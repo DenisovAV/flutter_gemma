@@ -412,11 +412,18 @@ class OrtFfiClient implements OrtClient {
         'SetSessionGraphOptimizationLevel',
       );
 
-      final modelPathC = modelPath.toNativeUtf8();
+      // ORT's CreateSession takes the model path as `ORTCHAR_T*`: a narrow
+      // UTF-8 `char*` on macOS/Linux/Android, but a WIDE UTF-16 `wchar_t*` on
+      // Windows. Passing UTF-8 bytes on Windows makes ORT read them as UTF-16
+      // → a mojibake path → "File doesn't exist" — a Windows-only failure the
+      // narrow-path hosts never surface (device-caught on real Windows).
+      final ffi.Pointer<ffi.Char> modelPathC = Platform.isWindows
+          ? modelPath.toNativeUtf16().cast<ffi.Char>()
+          : modelPath.toNativeUtf8().cast<ffi.Char>();
       final sessionOut = pkg_ffi.calloc<ffi.Pointer<OrtSession>>();
       try {
         _check(
-          _createSession(env, modelPathC.cast(), sessionOptions, sessionOut),
+          _createSession(env, modelPathC, sessionOptions, sessionOut),
           'CreateSession($modelPath)',
         );
         session = sessionOut.value;

@@ -36,6 +36,12 @@ final hits = await FlutterGemmaPlugin.instance.searchSimilar(query: query, topK:
 `QdrantVectorStore` also honors the payload-aware `Filter` DSL on
 `searchSimilar(..., filter: Filter(must: [FieldEquals(key: 'lang', value: 'en')], mustNot: [...]))`.
 
+Field names here are almost unrestricted — payload keys are free-form UTF-8 —
+with one exception: a name containing `.` is rejected, because qdrant reads it
+as a nested payload path, so `doc.type` would mean "`type` inside `doc`" here
+and a flat column on sqlite. Note this store accepts names `SqliteVectorStore`
+refuses; if a schema must work on both, keep it inside sqlite's narrower set.
+
 > The storage path passed to `initializeVectorStore` is treated as a **shard
 > directory** (qdrant creates files under it), not a single `.db` file. Use a
 > distinct path from any sqlite store so they don't collide on disk.

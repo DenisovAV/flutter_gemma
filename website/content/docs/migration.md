@@ -29,12 +29,12 @@ dependencies:
 
 ```
 dependencies:
-  flutter_gemma: ^1.6.0                 # core — always required
-  flutter_gemma_litertlm: ^1.5.0        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
+  flutter_gemma: ^1.6.3                 # core — always required
+  flutter_gemma_litertlm: ^1.5.2        # add if you run .litertlm models (also provides LiteRtEmbeddingBackend)
   flutter_gemma_mediapipe: ^1.0.4       # add if you run .task / .bin models
   flutter_gemma_embeddings: ^2.0.0      # add if you compute embeddings (needs a backend, see above)
-  flutter_gemma_rag_qdrant: ^1.1.0      # add for native on-device RAG (qdrant)
-  flutter_gemma_rag_sqlite: ^1.1.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
+  flutter_gemma_rag_qdrant: ^1.2.0      # add for native on-device RAG (qdrant)
+  flutter_gemma_rag_sqlite: ^1.2.0      # add for on-device RAG (sqlite-vec; all platforms incl. web)
 ```
 
 Pick by what you actually used in 0.16.x:
@@ -59,8 +59,9 @@ file type.
 > skills — SKILL.md + tool-calling loop), `flutter_gemma_builtin_ai` (OS
 > system models — Gemini Nano on Android, Apple Foundation Models on iOS/macOS),
 > and `flutter_gemma_onnx` (ONNX Runtime — ORT-GenAI text generation +
-> plain-ORT embeddings via `dart:ffi`). Add any of them only if you want that
-> feature. See [Getting Started](/docs/getting-started).
+> plain-ORT embeddings via `dart:ffi` on native, + Web via Transformers.js /
+> onnxruntime-web). Add any of them only if you want that feature. See
+> [Getting Started](/docs/getting-started).
 
 ## Breaking: embeddings 2.0.0 — `LiteRtEmbeddingBackend` moved
 
@@ -87,7 +88,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 ```
 dependencies:
   flutter_gemma_embeddings: ^2.0.0   # runtime-agnostic pipeline (still required)
-  flutter_gemma_litertlm: ^1.5.0     # now provides LiteRtEmbeddingBackend
+  flutter_gemma_litertlm: ^1.5.2     # now provides LiteRtEmbeddingBackend
 ```
 
 `FlutterGemma.initialize(embeddingBackends: [LiteRtEmbeddingBackend()])` itself

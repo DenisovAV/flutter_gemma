@@ -15,7 +15,8 @@ and the only store that runs on Web. Your code is portable across both.
 
 Embeddings need the `flutter_gemma_embeddings` package plus a backend that
 implements it — `flutter_gemma_litertlm`'s `LiteRtEmbeddingBackend` (or
-`flutter_gemma_onnx`'s `OnnxEmbeddingBackend` for ONNX/ORT models). RAG also
+`flutter_gemma_onnx`'s `OnnxEmbeddingBackend` for ONNX/ORT models, which also
+runs on Web via onnxruntime-web). RAG also
 needs a vector store package — `flutter_gemma_rag_qdrant` (native, fastest) or
 `flutter_gemma_rag_sqlite` (sqlite-vec; all platforms, including Web). Register
 them in `await FlutterGemma.initialize(...)`:
@@ -162,12 +163,28 @@ await FlutterGemma.initialize(
 `void`, so do not `await` it:
 
 ```dart
-store.configure(const FilterSchema(fields: [
+store.configure(FilterSchema(fields: [
   FilterField(name: 'category', type: FilterFieldType.string),
 ]));
 ```
 
 `FilterFieldType` has exactly three values: `string`, `number`, `bool`.
+
+What a field may be NAMED is decided by the store, and the two differ — the
+check runs in `configure()`, so you find out when you hand the schema over, not
+at the first insert.
+
+`SqliteVectorStore` is the strict one: a name must match
+`^[A-Za-z][A-Za-z0-9_]*$` and must not be one vec0 already uses (`id`,
+`embedding`, `content`, `metadata`, `distance`, `k`). The name becomes a real
+`vec0` column and sqlite-vec's DDL grammar has no quoted identifier form, so
+`doc-type` is unrepresentable there rather than merely unescaped.
+
+`QdrantVectorStore` accepts far more — payload keys are free-form UTF-8 — with
+one rule of its own: no `.`, which qdrant reads as a nested-path separator.
+
+So the portable set is sqlite's. If you may ever switch backends, stay inside
+it. Regardless of store, a schema with a duplicate or empty name is rejected.
 
 A `Filter` over the declared fields is then applied inside the store; a filter
 referencing an **undeclared** field is silently ignored (no-op, never throws).

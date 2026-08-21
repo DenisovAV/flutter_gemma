@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_gemma/core/utils/gemma_log.dart';
@@ -64,7 +63,21 @@ class WebSqliteVectorStore implements VectorStoreRepository {
   FilterSchema get filterSchema => _filterSchema;
 
   @override
-  void configure(FilterSchema schema) => _filterSchema = schema;
+  void configure(FilterSchema schema) {
+    // Validate here, not only in FilterField's assert: asserts are stripped in
+    // release, and a field name read from config at runtime would otherwise
+    // reach the storage layer unchecked. Rejecting at configure() points the
+    // error at the schema the developer wrote rather than at a query built
+    // from it much later.
+    // Core checks what is wrong on every backend; this store checks what
+    // ITS storage cannot take. Splitting them keeps one backend's grammar
+    // out of a package that has no backends.
+    FilterField.validateSchema(schema);
+    for (final field in schema.fields) {
+      FilterToVec0.validateFieldName(field.name);
+    }
+    _filterSchema = schema;
+  }
 
   @override
   Future<void> initialize(String databasePath) async {
@@ -163,6 +176,9 @@ class WebSqliteVectorStore implements VectorStoreRepository {
       // and `similarity = 1 - distance` holds. Without it vec0 defaults to L2,
       // breaking the similarity convention (matches the native store).
       'embedding float[$dimension] distance_metric=cosine',
+      // Deliberately bare, never quoted — sqlite-vec's DDL tokenizer has no
+      // quoted-identifier form. FilterField's constructor guarantees the name
+      // is a legal bare identifier. Matches the native store.
       for (final field in _filterSchema.fields)
         '${field.name} ${_columnType(field.type)}',
       '+content TEXT',
@@ -204,11 +220,19 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     }
 
     try {
-      final declared = _declaredValues(metadata);
+      // Shared with the native arm — see FilterToVec0.declaredColumnValues.
+      // One entry per declared field, in schema order, so both arms write the
+      // same column list for the same document.
+      final declared = FilterToVec0.declaredColumnValues(
+        metadata,
+        _filterSchema,
+      );
       final columns = <String>[
         'id',
         'embedding',
-        ...declared.keys,
+        // Quoted here (SQLite parses this statement) but NOT in the vec0 DDL
+        // above — see FilterToVec0.quoteColumn.
+        ...declared.keys.map(FilterToVec0.quoteColumn),
         'content',
         'metadata',
       ];
@@ -233,34 +257,6 @@ class WebSqliteVectorStore implements VectorStoreRepository {
     } catch (e) {
       throw VectorStoreException('Failed to add document', e);
     }
-  }
-
-  /// Extracts declared filterable fields out of the raw [metadata] JSON into
-  /// the typed vec0 columns. Undeclared fields stay only in the `+metadata`
-  /// blob. Returns an empty map when no schema is configured or the metadata is
-  /// not a decodable JSON object.
-  Map<String, Object?> _declaredValues(String? metadata) {
-    if (_filterSchema.isEmpty || metadata == null || metadata.isEmpty) {
-      return const {};
-    }
-    Object? decoded;
-    try {
-      decoded = jsonDecode(metadata);
-    } catch (_) {
-      return const {};
-    }
-    if (decoded is! Map) return const {};
-
-    final values = <String, Object?>{};
-    for (final field in _filterSchema.fields) {
-      if (!decoded.containsKey(field.name)) continue;
-      final raw = decoded[field.name];
-      values[field.name] = switch (field.type) {
-        FilterFieldType.bool => (raw == true || raw == 1) ? 1 : 0,
-        _ => raw,
-      };
-    }
-    return values;
   }
 
   @override
@@ -301,32 +297,67 @@ class WebSqliteVectorStore implements VectorStoreRepository {
 
     try {
       final translated = FilterToVec0.translate(filter, _filterSchema);
+      // An unsatisfiable filter has one answer and it costs nothing to give:
+      // an empty result. Without this the over-fetch loop below would grow the
+      // candidate set to the 16x cap looking for rows that cannot exist, and
+      // then log that the result "may be truncated" — a warning about a
+      // shortfall that is the correct and complete answer.
+      if (translated.matchesNothing) return const [];
       final whereExtra = translated.whereSql.isEmpty
           ? ''
           : ' AND ${translated.whereSql}';
 
-      final rows = _db!.select(
-        'SELECT id, content, metadata, distance FROM $_tableName '
-        'WHERE embedding MATCH ? AND k = ?$whereExtra '
-        'ORDER BY distance',
-        [_embeddingToBlob(queryEmbedding), topK, ...translated.binds],
-      );
-
+      // Over-fetch exactly as the native arm does. Both arms share
+      // FilterToVec0, so the SQL and binds are byte-identical — and this loop
+      // was missing here, which meant the same filter answered `[d4]` on
+      // native and `[]` on web. See the native store for why an unpushable
+      // filter needs it at all.
+      var fetch = topK;
+      int? totalRows;
       final results = <RetrievalResult>[];
-      for (final row in rows) {
-        final distance = (row['distance'] as num).toDouble();
-        final similarity = 1.0 - distance; // cosine: 1 = identical
-        if (similarity < threshold) continue;
-        results.add(
-          RetrievalResult(
-            id: row['id'] as String,
-            content: row['content'] as String? ?? '',
-            similarity: similarity,
-            metadata: row['metadata'] as String?,
-          ),
+      var rowsReturned = 0;
+
+      while (true) {
+        final rows = _db!.select(
+          'SELECT id, content, metadata, distance FROM $_tableName '
+          'WHERE embedding MATCH ? AND k = ?$whereExtra '
+          'ORDER BY distance',
+          [_embeddingToBlob(queryEmbedding), fetch, ...translated.binds],
         );
+        rowsReturned = rows.length;
+
+        results.clear();
+        for (final row in rows) {
+          final similarity = 1.0 - (row['distance'] as num).toDouble();
+          // Ordered by distance, so this only trims the tail — not a reason to
+          // fetch more (see FilterToVec0.shouldOverFetch).
+          if (similarity < threshold) break;
+          results.add(
+            RetrievalResult(
+              id: row['id'] as String,
+              content: row['content'] as String? ?? '',
+              similarity: similarity,
+              metadata: row['metadata'] as String?,
+            ),
+          );
+        }
+
+        if (translated.whereSql.isEmpty) break;
+        totalRows ??=
+            _db!.select('SELECT COUNT(*) AS c FROM $_tableName').first['c']
+                as int;
+        if (!FilterToVec0.shouldOverFetch(
+          rowsReturned: rowsReturned,
+          topK: topK,
+          fetch: fetch,
+          totalRows: totalRows,
+        )) {
+          break;
+        }
+        fetch *= 2;
       }
-      return results;
+
+      return results.length > topK ? results.sublist(0, topK) : results;
     } catch (e) {
       throw VectorStoreException('Search failed', e);
     }

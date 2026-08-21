@@ -11,7 +11,8 @@ glibc, Windows DXC, stale GPU shader cache) see
 ## Downloads
 
 - **Resume isn't supported by the HuggingFace CDN.** flutter_gemma uses smart retry with exponential backoff and **automatic restart** of interrupted downloads instead. Tune the attempt count via `maxDownloadRetries` in `FlutterGemma.initialize(...)` (default: 10).
-- **Large downloads on Android (>500MB)** automatically use a foreground service (shows a notification) to bypass Android's 9-minute background execution limit. iOS uses native URLSession and needs no special handling. See [Models → downloads](/docs/models#android-foreground-service-large-downloads).
+- **Large downloads on Android** need `foreground: true` to get a foreground service (which shows a notification) and bypass Android's 9-minute background execution limit. The default (`null`) does not configure a notification, and without one the platform never starts the service — so the size threshold alone does nothing. iOS uses native URLSession and needs no special handling. See [Models → downloads](/docs/models#android-foreground-service-large-downloads).
+- **Using `background_downloader` in your own app too?** flutter_gemma no longer listens to `FileDownloader().updates` (fixed in `flutter_gemma` 1.6.3). That stream takes a single subscription, so claiming it made every later `FileDownloader().updates.listen(...)` in the host app throw *"Stream has already been listened to"*. Updates are now scoped to flutter_gemma's own task group and the stream stays yours.
 - **Custom servers on Web** must enable CORS headers. HuggingFace is already configured correctly; for Firebase Storage see the [CORS configuration docs](https://firebase.google.com/docs/storage/web/download-files#cors_configuration).
 
 ### Gated models / download errors (401, 403)
@@ -78,6 +79,7 @@ final chat = await model.createChat(maxOutputTokens: 100);        // reply cap
 - **`.litertlm` models require minSdk 30.** `libLiteRtLm.so` depends on API 30+ Bionic syscalls (`pthread_cond_clockwait`, `sem_clockwait`) that can't be shimmed on older devices. MediaPipe `.task` models work on lower API levels.
 - **`.litertlm` / embeddings / vision are `arm64-v8a` only.** MediaPipe text inference (`.task` / `.bin`) also runs on `x86_64` and `armeabi-v7a`. If you only use arm64-only features, add `ndk { abiFilters 'arm64-v8a' }` so the Play Store doesn't offer broken APKs. See [Installation → Android architecture](/docs/installation#android-architecture-support).
 - **GPU:** add the `libOpenCL.so` `<uses-native-library>` tags to `AndroidManifest.xml`. See [Installation → Android](/docs/installation#android).
+- **Zero chunks and `Stream error: <U+FFFD>`, then `SIGABRT`.** Fixed in `flutter_gemma_litertlm` 1.5.2. On Android the first `dlopen` of `libLiteRtLm` decides for the whole process whether its symbols are reachable from the default search scope, and bionic never promotes it afterwards — so an app that embedded or transcribed anything before its first generation left the stream-callback ABI probe blind and the wrong callback shape was registered. Upgrade to 1.5.2. If your own or third-party code loads `libLiteRtLm` first, load it with `RTLD_GLOBAL` — 1.5.2 cannot repair that case, but it raises a `StateError` naming it rather than generating corrupt text. See [#447](https://github.com/DenisovAV/flutter_gemma/issues/447).
 
 ## Web
 

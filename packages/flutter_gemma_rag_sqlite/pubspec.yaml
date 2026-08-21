@@ -1,6 +1,6 @@
 name: flutter_gemma_rag_sqlite
 description: "SQLite vector search (sqlite-vec) on-device RAG vector store for flutter_gemma. Opt-in package; implements flutter_gemma's VectorStoreRepository."
-version: 1.1.0
+version: 1.2.0
 homepage: https://fluttergemma.dev
 repository: https://github.com/DenisovAV/flutter_gemma/tree/main/packages/flutter_gemma_rag_sqlite
 topics: [rag, sqlite, vector-search, embeddings, web]
@@ -26,7 +26,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_gemma: ^1.1.0
+  flutter_gemma: ^1.6.1
   sqlite3: ^3.3.0
   # Native Assets hook deps — hook/build.dart registers the per-platform
   # sqlite-vec (vec0) loadable extension (committed under native/sqlite_vec/

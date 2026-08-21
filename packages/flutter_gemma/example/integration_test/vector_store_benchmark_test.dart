@@ -270,7 +270,7 @@ void main() {
             const Filter(
               must: [FieldEquals(key: 'category', value: 'science')],
             ),
-            const FilterSchema(
+            FilterSchema(
               fields: [
                 FilterField(name: 'category', type: FilterFieldType.string),
               ],

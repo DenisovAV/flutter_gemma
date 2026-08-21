@@ -99,22 +99,26 @@ class WebModelManager extends ModelFileManager {
       return;
     }
 
-    if (fileType == ModelFileType.builtIn) {
-      // Built-in OS models (Gemini Nano via the Chrome Prompt API) have no
-      // file to install — `InferenceInstallationBuilder.install()` bypasses
-      // SourceHandlers/the repository entirely for `fileType.builtIn`, so
-      // nothing was ever `repository.saveModel()`-ed for it and the
-      // `repo.isInstalled` check below would always be false, incorrectly
-      // skipping the restore on every page reload. Reconstruct the inert
-      // bundled-source carrier directly from the persisted identity, mirroring
-      // `MobileModelManager._restoreActiveInferenceModel`.
+    if (fileType == ModelFileType.builtIn || fileType == ModelFileType.onnx) {
+      // Both are FILELESS on web: built-in OS models (Gemini Nano via the
+      // Chrome Prompt API) and ONNX web text generation (flutter_gemma_onnx's
+      // Transformers.js arm) install no file — `InferenceInstallationBuilder`
+      // bypasses SourceHandlers/the repository for these fileTypes, so nothing
+      // was ever `repository.saveModel()`-ed and the `repo.isInstalled` gate
+      // below would always be false, incorrectly skipping the restore on every
+      // page reload. Reconstruct the identity carrier directly from the
+      // persisted source (a bundled carrier for built-in; the HF repo id for
+      // ONNX), mirroring `MobileModelManager._restoreActiveInferenceModel`.
       _activeInferenceModel = InferenceModelSpec(
         name: filename,
         modelSource: source,
         modelType: modelType,
         fileType: fileType,
       );
-      gemmaLog('[WebModelManager] restored active built-in model: $filename');
+      gemmaLog(
+        '[WebModelManager] restored active fileless '
+        '(${fileType.name}) model: $filename',
+      );
       return;
     }
 
@@ -369,6 +373,24 @@ class WebModelManager extends ModelFileManager {
     await _ensureInitialized();
 
     gemmaLog('WebModelManager: Starting download for ${spec.name}');
+
+    // ONNX web text generation is a FILELESS identity install (mirrors
+    // `ModelFileType.builtIn`): Transformers.js resolves + caches the HF
+    // repo itself from the repo id carried in `spec.modelSource` (see
+    // flutter_gemma_onnx's `TransformersWebResolver`) — core must not
+    // byte-download it. Skip the per-file handler loop; just publish the
+    // identity as active.
+    if (spec is InferenceModelSpec && spec.fileType == ModelFileType.onnx) {
+      setActiveModel(spec);
+      yield const DownloadProgress(
+        currentFileIndex: 1,
+        totalFiles: 1,
+        currentFileProgress: 100,
+        currentFileName: 'Complete',
+      );
+      gemmaLog('WebModelManager: ONNX (web) model set as active: ${spec.name}');
+      return;
+    }
 
     // Phase 5: Delegate to Modern API
     final registry = ServiceRegistry.instance;

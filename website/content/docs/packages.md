@@ -17,7 +17,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma_litertlm`** | `.litertlm` inference via `dart:ffi` (LiteRT-LM C API). Owns the shared native library. | Mobile + Desktop + Web |
 | **`flutter_gemma_mediapipe`** | `.task` / `.bin` inference via MediaPipe. | Mobile + Web |
 | **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore) + Apple Foundation Models (iOS 26+/macOS). No model file to bundle or download. | Android + iOS + macOS |
-| **`flutter_gemma_onnx`** | ONNX Runtime engines via `dart:ffi` — text generation (`OnnxEngine`, ORT-GenAI) + embeddings (`OnnxEmbeddingBackend`, plain ORT). | macOS, Linux, Windows, Android, iOS (arm64) |
+| **`flutter_gemma_onnx`** | Text generation (`OnnxEngine`) + embeddings (`OnnxEmbeddingBackend`) — ORT-GenAI/ORT via `dart:ffi` on native, Transformers.js/onnxruntime-web on Web. | macOS, Linux, Windows, Android, iOS (arm64) + Web |
 | **`flutter_gemma_embeddings`** | Runtime-agnostic text-embedding pipeline (tokenizer, pooling, isolate worker). Needs a backend — `LiteRtEmbeddingBackend` (`flutter_gemma_litertlm`) or `OnnxEmbeddingBackend` (`flutter_gemma_onnx`). | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, native Rust FFI). Fastest on native. | Native (no Web) |
 | **`flutter_gemma_rag_sqlite`** | On-device RAG vector store — in-SQLite KNN via the `sqlite-vec` (`vec0`) extension. Exact + portable. | All (incl. Web) |
@@ -48,7 +48,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
 | Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
-| Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android/iOS arm64) | `flutter_gemma_onnx` |
+| Run ONNX models — ORT-GenAI (native) or Transformers.js (Web) | `flutter_gemma_onnx` |
 | Generate text embeddings | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
 | Generate text embeddings from ONNX/ORT models | `flutter_gemma_embeddings` + `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
@@ -69,15 +69,17 @@ unchanged. See [Migration (0.x → 1.0)](/docs/migration).
 ## ONNX Runtime engine
 
 `flutter_gemma_onnx` adds a second inference/embedding stack alongside
-LiteRT-LM and MediaPipe: **ONNX Runtime**, entirely via `dart:ffi` (no JVM, no
-gRPC). Two independent arms, either can be registered on its own:
+LiteRT-LM and MediaPipe: **ONNX Runtime** — `dart:ffi` on native (no JVM, no
+gRPC), Transformers.js / onnxruntime-web on Web. Two independent arms, either
+can be registered on its own:
 
-- **`OnnxEngine`** — text generation via [ORT-GenAI](https://github.com/microsoft/onnxruntime-genai).
-  Text-only, greedy decoding, one session at a time in v1 — no vision, no
+- **`OnnxEngine`** — text generation via [ORT-GenAI](https://github.com/microsoft/onnxruntime-genai)
+  on native, [Transformers.js](https://huggingface.co/docs/transformers.js) on
+  Web. Text-only, greedy decoding, one session at a time in v1 — no vision, no
   audio, no LoRA yet.
-- **`OnnxEmbeddingBackend`** — embeddings via plain ONNX Runtime (WordPiece/BERT-style
-  and SentencePiece models), priority 10 over `LiteRtEmbeddingBackend`'s
-  catch-all priority 0.
+- **`OnnxEmbeddingBackend`** — embeddings via plain ONNX Runtime
+  (WordPiece/BERT-style and SentencePiece models) on native, onnxruntime-web
+  on Web, priority 10 over `LiteRtEmbeddingBackend`'s catch-all priority 0.
 
 ```dart
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -89,16 +91,21 @@ await FlutterGemma.initialize(
 );
 ```
 
-**Platform support:** device-verified on macOS (Apple Silicon), Linux x64,
-Windows x64, Android (arm64), and iOS (arm64). No Web build — ORT-GenAI and ORT
-ship no WASM target.
+**Platform support:** device-verified via `dart:ffi` on macOS (Apple Silicon),
+Linux x64, Windows x64, Android (arm64), and iOS (arm64). On **Web**,
+`OnnxEngine` runs generation through Transformers.js v4 and
+`OnnxEmbeddingBackend` runs through onnxruntime-web (WebGPU/WASM) — same
+public API as native, no `if (kIsWeb)` needed in app code.
 
 <Info>
-An ORT-GenAI model installs as a **directory**, not a single file:
+On native, an ORT-GenAI model installs as a **directory**, not a single file:
 `genai_config.json` + `model.onnx` (+ `model.onnx_data` for external weights)
 + tokenizer files. `ModelFileType.onnx` models need the whole bundle on disk
 alongside the tracked file (e.g. shipped as an asset) — a real multi-file
-network install is a follow-on.
+network install is a follow-on. On **Web** this doesn't apply — the model is a
+Hugging Face repo id (e.g. `onnx-community/Qwen2.5-0.5B-Instruct`), not a
+directory, and install is fileless: `ModelFileType.onnx` just marks it active,
+and Transformers.js downloads and caches the repo itself.
 </Info>
 
 See the [`flutter_gemma_onnx` README](https://pub.dev/packages/flutter_gemma_onnx) for the full platform matrix and FFI details.

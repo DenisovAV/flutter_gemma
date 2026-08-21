@@ -257,6 +257,13 @@ class OrtFfiClient implements OrtClient {
   late final _ReleaseDart<OrtMemoryInfo> _releaseMemoryInfo;
   late final _GetErrorMessageDart _getErrorMessage;
 
+  int _resolvedApiVersion = ORT_API_VERSION;
+
+  /// The ORT C API version this client actually resolved at construction:
+  /// [ORT_API_VERSION] on desktop/Android (standalone ORT 1.27), lower on iOS
+  /// where the ORT inside `onnxruntime-genai.framework` predates 1.27.
+  int get resolvedApiVersion => _resolvedApiVersion;
+
   OrtFfiClient() {
     final lib = _openOnnxRuntime();
     final bindings = OnnxRuntimeBindings(lib);
@@ -267,11 +274,29 @@ class OrtFfiClient implements OrtClient {
     final getApi = apiBase.ref.GetApi
         .cast<ffi.NativeFunction<ffi.Pointer<OrtApi> Function(ffi.Uint32)>>()
         .asFunction<ffi.Pointer<OrtApi> Function(int)>();
-    final api = getApi(ORT_API_VERSION);
+    // Probe DOWN from our compiled ORT_API_VERSION to the newest API the
+    // linked onnxruntime actually accepts. Desktop/Android link a standalone
+    // ORT 1.27 (API 27) so this matches on the first try; iOS reuses the ORT
+    // statically linked inside `onnxruntime-genai.framework`, whose ORT can be
+    // OLDER than 1.27 — there `GetApi(27)` returns nullptr and we step down.
+    // `OrtApi` is append-only across versions and every function this client
+    // binds (CreateEnv/CreateSession/Run/CreateTensorWithDataAsOrtValue/…)
+    // exists since API 1, so any non-null `OrtApi*` is safe to use.
+    const minOrtApiVersion = 11; // ORT 1.11 floor — far below any bound fn.
+    ffi.Pointer<OrtApi> api = ffi.nullptr;
+    for (var v = ORT_API_VERSION; v >= minOrtApiVersion; v--) {
+      final candidate = getApi(v);
+      if (candidate != ffi.nullptr) {
+        api = candidate;
+        _resolvedApiVersion = v;
+        break;
+      }
+    }
     if (api == ffi.nullptr) {
       throw StateError(
-        'OrtApiBase::GetApi($ORT_API_VERSION) returned nullptr — the linked '
-        'onnxruntime build does not support ORT_API_VERSION=$ORT_API_VERSION',
+        'OrtApiBase::GetApi returned nullptr for every version in '
+        '[$minOrtApiVersion, $ORT_API_VERSION] — the linked onnxruntime build '
+        'is older than ORT API $minOrtApiVersion',
       );
     }
     final a = api.ref;
@@ -387,11 +412,18 @@ class OrtFfiClient implements OrtClient {
         'SetSessionGraphOptimizationLevel',
       );
 
-      final modelPathC = modelPath.toNativeUtf8();
+      // ORT's CreateSession takes the model path as `ORTCHAR_T*`: a narrow
+      // UTF-8 `char*` on macOS/Linux/Android, but a WIDE UTF-16 `wchar_t*` on
+      // Windows. Passing UTF-8 bytes on Windows makes ORT read them as UTF-16
+      // → a mojibake path → "File doesn't exist" — a Windows-only failure the
+      // narrow-path hosts never surface (device-caught on real Windows).
+      final ffi.Pointer<ffi.Char> modelPathC = Platform.isWindows
+          ? modelPath.toNativeUtf16().cast<ffi.Char>()
+          : modelPath.toNativeUtf8().cast<ffi.Char>();
       final sessionOut = pkg_ffi.calloc<ffi.Pointer<OrtSession>>();
       try {
         _check(
-          _createSession(env, modelPathC.cast(), sessionOptions, sessionOut),
+          _createSession(env, modelPathC, sessionOptions, sessionOut),
           'CreateSession($modelPath)',
         );
         session = sessionOut.value;

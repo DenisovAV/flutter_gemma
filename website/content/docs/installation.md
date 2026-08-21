@@ -19,7 +19,7 @@ dependencies:
   flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web) + LiteRtEmbeddingBackend
   flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
   flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
-  flutter_gemma_onnx: latest_version         # ONNX models via ORT-GenAI (FFI) + OnnxEmbeddingBackend
+  flutter_gemma_onnx: latest_version         # ONNX models — ORT-GenAI (FFI, native) / Transformers.js (web) + OnnxEmbeddingBackend
 
   # Optional — text embeddings + on-device RAG:
   flutter_gemma_embeddings: latest_version   # text-embedding pipeline (needs a backend, e.g. LiteRtEmbeddingBackend above)
@@ -37,7 +37,7 @@ dependencies:
 | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
 | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
 | Run the OS system model with no download (Gemini Nano / Apple Foundation Models) | `flutter_gemma_builtin_ai` |
-| Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android/iOS arm64) | `flutter_gemma_onnx` |
+| Run ONNX models — ORT-GenAI (native) or Transformers.js (Web) | `flutter_gemma_onnx` |
 | Generate text embeddings | `flutter_gemma_embeddings` + `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
 | Generate text embeddings from ONNX/ORT models | `flutter_gemma_embeddings` + `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
 | On-device RAG on native, fastest (Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
@@ -114,7 +114,7 @@ void main() async {
 |---|---|---|
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
-| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models via ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) |
+| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI, macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings (needs `flutter_gemma_embeddings` too) |
 | `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (needs `flutter_gemma_embeddings` too) |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
@@ -307,6 +307,33 @@ window.litertLmReady = (async () => {
 })();
 </script>
 ```
+
+**`flutter_gemma_onnx`** (ONNX models on Web): generation runs on
+[Transformers.js](https://huggingface.co/docs/transformers.js) v4, embeddings
+on onnxruntime-web. Both are readiness-handshake shims, same shape as the
+`litertLmReady` promise above:
+
+```
+<script type="module">
+window.transformersReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+  window.transformers = m;
+  return m;
+})();
+</script>
+
+<script type="module">
+window.ortReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
+  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+  window.ort = m;
+  return m;
+})();
+</script>
+```
+
+Only add the shim(s) for the arm(s) you use — `transformersReady` for
+`OnnxEngine`, `ortReady` for `OnnxEmbeddingBackend`.
 
 **`flutter_gemma_rag_sqlite`** (web RAG): add the sqlite-vec loader — a
 `sqlite3.wasm` with the `sqlite-vec` extension statically linked, loaded via

@@ -1,8 +1,10 @@
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
+
 import 'dart:typed_data';
 
+import 'package:flutter_gemma/core/utils/gemma_log.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:sqlite3/sqlite3.dart';
 
@@ -47,7 +49,21 @@ class SqliteVectorStore implements VectorStoreRepository {
   FilterSchema get filterSchema => _filterSchema;
 
   @override
-  void configure(FilterSchema schema) => _filterSchema = schema;
+  void configure(FilterSchema schema) {
+    // Validate here, not only in FilterField's assert: asserts are stripped in
+    // release, and a field name read from config at runtime would otherwise
+    // reach the storage layer unchecked. Rejecting at configure() points the
+    // error at the schema the developer wrote rather than at a query built
+    // from it much later.
+    // Core checks what is wrong on every backend; this store checks what
+    // ITS storage cannot take. Splitting them keeps one backend's grammar
+    // out of a package that has no backends.
+    FilterField.validateSchema(schema);
+    for (final field in schema.fields) {
+      FilterToVec0.validateFieldName(field.name);
+    }
+    _filterSchema = schema;
+  }
 
   // === sqlite-vec (vec0) extension loading ===
 
@@ -69,11 +85,28 @@ class SqliteVectorStore implements VectorStoreRepository {
     _vec0Loaded = true;
   }
 
+  /// Host-test override for the loadable's path; null in production.
+  ///
+  /// The qdrant store already had this (`QdrantEdgeClient.debugOverrideDylibPath`)
+  /// and vec0 had only the environment variable, so a test could hand one store
+  /// its library and had to configure the other through the process environment
+  /// — which meant `tool/test_all.sh` had to know about it, and a plain
+  /// `flutter test` in this package failed on a dlopen for no visible reason.
+  /// Same mechanism on both sides now.
+  ///
+  /// Setting it after the first load has no effect: sqlite3 caches the
+  /// extension.
+  @visibleForTesting
+  static String? debugOverrideDylibPath;
+
   /// Path to the `vec0` loadable extension. Host tests set `$VEC0_DYLIB`; in a
   /// real app the per-platform `vec0.<ext>` is bundled by `hook/build.dart`
   /// (Native Assets) and resolved by its bundled filename — the same mechanism
   /// qdrant-edge uses.
   static String _resolveVec0Path() {
+    final testOverride = debugOverrideDylibPath;
+    if (testOverride != null && testOverride.isNotEmpty) return testOverride;
+
     final override = Platform.environment['VEC0_DYLIB'];
     if (override != null && override.isNotEmpty) return override;
 
@@ -145,6 +178,12 @@ class SqliteVectorStore implements VectorStoreRepository {
       'embedding float[$dimension] distance_metric=cosine',
     ];
     for (final field in _filterSchema.fields) {
+      // Deliberately bare, never quoted: sqlite-vec parses this DDL with its
+      // own tokenizer, which has no quoted-identifier form — `"x"`, `[x]` and
+      // backticks all fail with `vec0 constructor error: Could not parse`.
+      // FilterField's constructor is what guarantees the name is a legal bare
+      // identifier here (and that it carries no comma, which would silently
+      // declare a second column).
       columns.add('${field.name} ${_vec0ColumnType(field.type)}');
     }
     // Auxiliary (unindexed) columns: round-trip content + raw metadata JSON.
@@ -191,13 +230,19 @@ class SqliteVectorStore implements VectorStoreRepository {
 
     // Promote declared filter fields into their typed columns (decoded from the
     // raw metadata JSON). Absent / unparseable metadata leaves them NULL.
-    final filterValues = _extractFilterValues(metadata);
+    // Shared with the web arm — see FilterToVec0.declaredColumnValues.
+    final filterValues = FilterToVec0.declaredColumnValues(
+      metadata,
+      _filterSchema,
+    );
 
     final columnNames = <String>['id', 'embedding'];
     final placeholders = <String>['?', '?'];
     final binds = <Object?>[id, blob];
     for (final field in _filterSchema.fields) {
-      columnNames.add(field.name);
+      // Quoted here (SQLite parses this statement) but NOT in the vec0 DDL
+      // above — see FilterToVec0.quoteColumn.
+      columnNames.add(FilterToVec0.quoteColumn(field.name));
       placeholders.add('?');
       binds.add(filterValues[field.name]);
     }
@@ -217,37 +262,6 @@ class SqliteVectorStore implements VectorStoreRepository {
       'VALUES (${placeholders.join(', ')})',
       binds,
     );
-  }
-
-  /// Decodes the declared [FilterField] values out of the raw [metadata] JSON
-  /// for promotion into typed columns. Defensive: non-object or unparseable
-  /// metadata yields no values (columns stay NULL), never a throw — a [Filter]
-  /// on a missing field simply matches nothing (documented no-op).
-  Map<String, Object?> _extractFilterValues(String? metadata) {
-    if (_filterSchema.isEmpty || metadata == null) return const {};
-    Object? decoded;
-    try {
-      decoded = jsonDecode(metadata);
-    } on FormatException {
-      return const {};
-    }
-    if (decoded is! Map) return const {};
-    final values = <String, Object?>{};
-    for (final field in _filterSchema.fields) {
-      if (!decoded.containsKey(field.name)) continue;
-      values[field.name] = _coerceForColumn(decoded[field.name], field.type);
-    }
-    return values;
-  }
-
-  /// Coerces a decoded JSON [value] to the bind type its typed vec0 column
-  /// expects — matching [FilterToVec0]'s predicate binds so insert and query
-  /// agree: bool → `0`/`1` (INTEGER), number → `double` (a FLOAT column rejects
-  /// an INTEGER bind), string → unchanged.
-  static Object? _coerceForColumn(Object? value, FilterFieldType type) {
-    if (value is bool) return value ? 1 : 0;
-    if (type == FilterFieldType.number && value is num) return value.toDouble();
-    return value;
   }
 
   @override
@@ -282,32 +296,93 @@ class SqliteVectorStore implements VectorStoreRepository {
     }
 
     final translated = FilterToVec0.translate(filter, _filterSchema);
+    // An unsatisfiable filter has one answer and it costs nothing to give:
+    // an empty result. Without this the over-fetch loop below would grow the
+    // candidate set to the 16x cap looking for rows that cannot exist, and
+    // then log that the result "may be truncated" — a warning about a
+    // shortfall that is the correct and complete answer.
+    if (translated.matchesNothing) return const [];
     final whereExtra = translated.whereSql.isEmpty
         ? ''
         : ' AND ${translated.whereSql}';
 
-    final rows = _db!.select(
-      'SELECT id, content, metadata, distance FROM $_tableName '
-      'WHERE embedding MATCH ? AND k = ?$whereExtra '
-      'ORDER BY distance',
-      [_embeddingToBlob(queryEmbedding), topK, ...translated.binds],
-    );
-
+    // vec0's KNN takes a conjunction of single-column comparisons and nothing
+    // else. A filter it cannot accept — a cross-column OR, a CASE over a FLOAT
+    // set, a NOT BETWEEN — is not rejected: SQLite quietly evaluates it AFTER
+    // vec0 has already chosen its k rows. That is a post-filter over a global
+    // top-k, and it can only ever return FEWER than k, never reach past them.
+    // Measured: two conditions on different columns at k=2, with the two
+    // nearest matching neither, returned zero rows while three documents
+    // satisfied the filter.
+    //
+    // So ask vec0 for more and keep doubling until k survive — bounded,
+    // because unbounded growth degenerates to a full scan. Past the cap we
+    // return what we have and say the result is short.
+    var fetch = topK;
+    int? totalRows;
     final results = <RetrievalResult>[];
-    for (final row in rows) {
-      // vec0 returns cosine DISTANCE; similarity = 1 - distance (1 = identical).
-      final similarity = 1.0 - (row['distance'] as num).toDouble();
-      if (similarity < threshold) continue;
-      results.add(
-        RetrievalResult(
-          id: row['id'] as String,
-          content: row['content'] as String? ?? '',
-          similarity: similarity,
-          metadata: row['metadata'] as String?,
-        ),
+    var rowsReturned = 0;
+
+    while (true) {
+      final rows = _db!.select(
+        'SELECT id, content, metadata, distance FROM $_tableName '
+        'WHERE embedding MATCH ? AND k = ?$whereExtra '
+        'ORDER BY distance',
+        [_embeddingToBlob(queryEmbedding), fetch, ...translated.binds],
+      );
+      rowsReturned = rows.length;
+
+      results.clear();
+      for (final row in rows) {
+        // vec0 returns cosine DISTANCE; similarity = 1 - distance.
+        final similarity = 1.0 - (row['distance'] as num).toDouble();
+        // Rows arrive ordered by distance, so this can only trim the tail —
+        // it is NOT a reason to fetch more (see FilterToVec0.shouldOverFetch).
+        if (similarity < threshold) break;
+        results.add(
+          RetrievalResult(
+            id: row['id'] as String,
+            content: row['content'] as String? ?? '',
+            similarity: similarity,
+            metadata: row['metadata'] as String?,
+          ),
+        );
+      }
+
+      if (translated.whereSql.isEmpty) break;
+      totalRows ??=
+          _db!.select('SELECT COUNT(*) AS c FROM $_tableName').first['c']
+              as int;
+      if (!FilterToVec0.shouldOverFetch(
+        rowsReturned: rowsReturned,
+        topK: topK,
+        fetch: fetch,
+        totalRows: totalRows,
+      )) {
+        break;
+      }
+      fetch *= 2;
+    }
+
+    // Only a filter shortfall is worth reporting: a short result because the
+    // threshold trimmed the tail, or because the table simply holds fewer
+    // matches, is not something the caller can fix by narrowing the filter.
+    final hitTheCap =
+        totalRows != null &&
+        fetch < totalRows &&
+        fetch >= topK * FilterToVec0.maxOverFetchFactor;
+    if (rowsReturned < topK && hitTheCap) {
+      gemmaLog(
+        '[SqliteVectorStore] searchSimilar found $rowsReturned of the '
+        'requested $topK after over-fetching '
+        '${topK * FilterToVec0.maxOverFetchFactor} candidates. This filter '
+        'cannot be pushed into the KNN scan (a cross-column OR, a set over a '
+        'number column, or a negated two-sided range), so matches beyond that '
+        'window are unreachable. Narrow the filter or lower topK.',
       );
     }
-    return results;
+
+    return results.length > topK ? results.sublist(0, topK) : results;
   }
 
   @override

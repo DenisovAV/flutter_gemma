@@ -19,7 +19,7 @@ import 'package:path_provider/path_provider.dart';
 
 // Declares every field these tests filter on, so FilterCodec.encode keeps them
 // (an undeclared key is now skipped as a no-op).
-const _schema = FilterSchema(
+final _schema = FilterSchema(
   fields: [
     FilterField(name: 'lang', type: FilterFieldType.string),
     FilterField(name: 'price', type: FilterFieldType.number),

@@ -2,9 +2,12 @@
 
 ONNX Runtime engines for [flutter_gemma](https://pub.dev/packages/flutter_gemma):
 **text generation** via ORT-GenAI (`OnnxEngine`) and **embeddings** via plain
-ONNX Runtime (`OnnxEmbeddingBackend`). Both are pure `dart:ffi` — no JVM, no
-gRPC — and both drive the native library from a long-lived worker isolate so
-no FFI pointer ever has to cross an isolate boundary.
+ONNX Runtime (`OnnxEmbeddingBackend`). On **native** platforms (macOS, Linux,
+Windows, Android, iOS), both are pure `dart:ffi` — no JVM, no gRPC — and both
+drive the native library from a long-lived worker isolate so no FFI pointer
+ever has to cross an isolate boundary. On **Web** there is no FFI: generation
+runs through Transformers.js and embeddings run through onnxruntime-web,
+behind the same public API.
 
 ## Register
 
@@ -20,7 +23,7 @@ await FlutterGemma.initialize(
 
 Either arm can be registered on its own — they don't depend on each other.
 
-## Platform matrix (v1)
+## Platform matrix
 
 | Platform | Native archives | `OnnxEngine`/`OnnxEmbeddingBackend` enabled |
 |---|---|---|
@@ -30,7 +33,7 @@ Either arm can be registered on its own — they don't depend on each other.
 | Windows x64 | ✅ bundled | ✅ device-verified |
 | Android (arm64) | ✅ bundled (AAR-extracted) | ✅ device-verified |
 | iOS (arm64) | ✅ bundled | ✅ device-verified |
-| Web | ❌ never (no WASM build of ORT-GenAI or ORT) | ❌ never |
+| Web | N/A — Transformers.js + onnxruntime-web, no native archive | ✅ both arms |
 
 `OnnxEngine.canHandle`/`OnnxEmbeddingBackend.createModel` are gated to
 macOS arm64, Linux x64, Windows x64, Android arm64, and iOS arm64
@@ -41,10 +44,12 @@ embeddings) on macOS (~54 tok/s, M4 Pro), Linux (~5.3-5.8 tok/s), Windows
 installs and launches on a real iPhone, and generation runs (the
 `@executable_path`-anchored dlopen resolves the single self-contained genai
 xcframework — the same proven pattern as `flutter_gemma_litertlm`'s iOS
-path). On an unsupported host (macOS Intel, web, or any other ABI)
+path). On an unsupported native host (macOS Intel, or any other native ABI)
 `OnnxEngine` politely declines (logs why, lets another registered engine —
 or core's own "no engine can handle this" error — take over) instead of
-dlopen-ing a library the app may or may not have bundled.
+dlopen-ing a library the app may or may not have bundled. Web has no dlopen
+step at all — `OnnxEngine`/`OnnxEmbeddingBackend` run there via the
+Transformers.js/onnxruntime-web arms below instead.
 `OnnxEmbeddingBackend.canHandle` stays extension-based on every platform for
 a different reason (so a catch-all embedding backend like
 `LiteRtEmbeddingBackend` never silently claims an `.onnx`/`.ort` file); its
@@ -101,6 +106,21 @@ For host tests / local dev, `FLUTTER_GEMMA_ORT_GENAI_LIBS` (a directory
 containing both platform-default-named dylibs) bypasses the CodeAsset bundle
 entirely — see `test/onnx_generation_host_smoke_test.dart`.
 
+### On web (Transformers.js)
+
+On Web, `OnnxEngine` doesn't drive native ORT-GenAI at all — it runs the model
+through [Transformers.js](https://huggingface.co/docs/transformers.js) v4 in
+the browser. The model identity is a **Hugging Face repo id**
+(e.g. `onnx-community/Qwen2.5-0.5B-Instruct`), not a directory, and install is
+**fileless**: `ModelFileType.onnx` just marks the repo id active — core never
+downloads model bytes — and Transformers.js fetches and caches the repo
+itself the first time you run inference. Each call runs a stateless
+`pipeline()` and resends the full chat history (Transformers.js has no
+persistent session), formatted with the model's own `chat_template`.
+`PreferredBackend.cpu` pins WASM; anything else tries WebGPU first and falls
+back to WASM. Same constraints as native — text-only, no vision, no audio, no
+LoRA. See [Web setup](#web-setup) for the required `web/index.html` shim.
+
 ## Embeddings — `OnnxEmbeddingBackend`
 
 A plain ONNX Runtime forward pass (no ORT-GenAI, no text generation) over an
@@ -120,6 +140,11 @@ For host tests / local dev, `FLUTTER_GEMMA_ORT_LIBRARY` overrides the
 resolved ORT library path directly (mirrors the inference arm's
 `FLUTTER_GEMMA_ORT_GENAI_LIBS`).
 
+`OnnxEmbeddingBackend` also runs on **Web**, via
+[onnxruntime-web](https://github.com/microsoft/onnxruntime) (WebGPU/WASM)
+instead of the native FFI client — same output-contract discovery, same
+WordPiece/SentencePiece handling. See [Web setup](#web-setup).
+
 ## What v1 does not do
 
 - No vision, no audio, no multimodal input on the inference arm — text only.
@@ -127,7 +152,37 @@ resolved ORT library path directly (mirrors the inference arm's
 - Greedy decoding only (no sampling parameters exposed yet).
 - One inference session at a time (`createSession` closes any live session
   before opening a new one, same as every other engine in this monorepo).
-- No web build — ORT-GenAI and ORT ship no WASM target.
+
+## Web setup
+
+Web needs a small `web/index.html` shim before `FlutterGemma.initialize()`
+runs — the same readiness-handshake pattern `flutter_gemma_litertlm` uses for
+`@litert-lm/core`. Add the shim for whichever arm(s) you register:
+
+```
+<!-- Transformers.js v4 (OnnxEngine web generation). -->
+<script type="module">
+window.transformersReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+  window.transformers = m;
+  return m;
+})();
+</script>
+
+<!-- onnxruntime-web (OnnxEmbeddingBackend web embeddings). -->
+<script type="module">
+window.ortReady = (async () => {
+  const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
+  m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+  window.ort = m;
+  return m;
+})();
+</script>
+```
+
+Dart awaits `window.transformersReady` / `window.ortReady` before touching
+either module's `dart:js_interop` bindings, so the shim must run before the
+Flutter app boots (i.e. in `<head>`, ahead of `flutter_bootstrap.js`).
 
 ## See also
 

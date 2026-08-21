@@ -38,9 +38,16 @@ WANT_COVERAGE=0
 # override (sqlite_vector_store.dart:77) and this repo ships the loadable for
 # every platform, so point at it.
 #
-# Without this those 20 store tests fail on a dlopen. They used to SKIP instead,
-# gated on $VEC0_DYLIB being set — which it never was — so a suite that had
-# never once executed looked exactly like a suite that passed.
+# The SUITES no longer need this: they call useHostNativeLibraries() (see
+# rag_sqlite/test/vec0_locator.dart), which hands the store its path through the
+# same programmatic override qdrant always had, from the same shared locator in
+# core. A plain `flutter test` in that package now works with no environment at
+# all. The export stays because the opt-in benchmark still reads it, and
+# dropping it would silently turn that off.
+#
+# History worth keeping: those store tests used to SKIP, gated on $VEC0_DYLIB
+# being set — which it never was — so a suite that had never once executed
+# looked exactly like a suite that passed.
 if [[ -z "${VEC0_DYLIB:-}" ]]; then
   _vec0_base="packages/flutter_gemma_rag_sqlite/native/sqlite_vec/prebuilt"
   case "$(uname -s)" in
@@ -63,6 +70,13 @@ if [[ -z "${VEC0_DYLIB:-}" ]]; then
     echo "==> no prebuilt vec0 for $(uname -s); rag_sqlite's store suites will skip"
   fi
 fi
+
+# NOTE: the cross-backend parity suite needs no wiring here. qdrant-edge's
+# library is DOWNLOADED by flutter_gemma_rag_qdrant/hook/build.dart, exactly
+# like the LiteRT natives, and `flutter test` runs that hook — so the library is
+# already on disk by the time the suite reads it (test/qdrant_locator.dart finds
+# it). An earlier draft exported $QDRANT_DYLIB from a cargo target directory and
+# told CI to build Rust; that was solving a problem the hook had already solved.
 
 # NOTE, so nobody re-adds it: an earlier revision of this script excluded
 # flutter_gemma_speech's `qwen3-artifacts` tag whenever the HuggingFace model

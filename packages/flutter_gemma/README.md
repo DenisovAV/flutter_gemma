@@ -47,7 +47,7 @@ There is an example of using:
 - **LoRA Support:** Efficient fine-tuning and integration of LoRA (Low-Rank Adaptation) weights for tailored AI behavior.
 - **📥 Enhanced Downloads:** Smart retry logic with exponential backoff for reliable model downloads
 - **🔧 Download Reliability:** Automatic restart logic for interrupted downloads (resume not supported by HuggingFace CDN)
-- **📱 Android Foreground Service:** Large downloads (>500MB) automatically use foreground service to bypass 9-minute timeout
+- **📱 Android Foreground Service:** opt in with `foreground: true` for large downloads, to bypass the 9-minute timeout
 - **🔧 Model Replace Policy:** Configurable model replacement system (keep/replace) with automatic model switching
 - **📊 Text Embeddings:** Generate 768-dim vector embeddings with EmbeddingGemma or Gecko (all native platforms + Web) via the unified LiteRT C API
 - **🔎 On-device RAG:** Two vector-store backends — `flutter_gemma_rag_qdrant` (qdrant-edge, native) and `flutter_gemma_rag_sqlite` (in-SQLite `sqlite-vec`/`vec0` KNN on all six platforms incl. Web). Payload-aware `Filter` (must / should / mustNot) for semantic search.
@@ -56,10 +56,13 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
-## What's new in 1.5.3
+## What's new in 1.6.3
 
-- 🛠️ **Tool-calling in the Voice Loop** — `VoiceSession.fromChat(…, onToolCall:)` ([`flutter_gemma_speech`](https://pub.dev/packages/flutter_gemma_speech) 0.4.2) now runs function calling inside a spoken turn, driven by the new reusable core loop `InferenceChat.generateChatResponseWithTools` (run tool → feed the result back → final answer, with a `maxToolTurns` cap and barge-in cancellation). The full agent (skills / MCP) plugs in the same way via `AgentSession.ask(…, isCancelled:)` ([`flutter_gemma_agent`](https://pub.dev/packages/flutter_gemma_agent) 0.2.0). See [docs](https://fluttergemma.dev/docs/speech).
-- ⚡ **Inflect-Nano-v2 fast TTS** (`flutter_gemma_speech` 0.4.2) — a tiny VITS voice that synthesizes ~90× faster than real-time on CPU (RTF≈0.01), for snappy spoken replies: `installTts()…ofType(TtsModelType.inflect).install()` → `getActiveTts()` → `synthesize(text)`. English-only; reuses Matcha's phonemizer bundle. See [docs](https://fluttergemma.dev/docs/speech).
+- 📥 **flutter_gemma no longer claims `background_downloader`'s updates stream** — depending on this package used to make `FileDownloader().updates` unusable for your own downloads, because that stream takes a single subscription. Updates are now scoped to flutter_gemma's own task group ([#445](https://github.com/DenisovAV/flutter_gemma/issues/445)). Download priority is also corrected per platform.
+
+## What's new in 1.6.2
+
+- 🌐 **ONNX on Web** — `flutter_gemma_onnx`'s `OnnxEngine` now generates text on Web via Transformers.js, with a fileless `ModelFileType.onnx` install (the model is a Hugging Face repo id, not a directory). `OnnxEmbeddingBackend` gained a web arm too, via onnxruntime-web. See [`flutter_gemma_onnx`](https://pub.dev/packages/flutter_gemma_onnx).
 
 📖 Full docs & guides: **[fluttergemma.dev](https://fluttergemma.dev)**
 
@@ -177,7 +180,7 @@ model formats and features you need.
       flutter_gemma_litertlm: latest_version     # .litertlm models (FFI; mobile + desktop + web)
       flutter_gemma_mediapipe: latest_version    # .task / .bin models (MediaPipe; mobile + web)
       flutter_gemma_builtin_ai: latest_version   # OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS)
-      flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI)
+      flutter_gemma_onnx: latest_version         # ONNX Runtime — ORT-GenAI text gen + ORT embeddings (FFI, native) / Transformers.js + onnxruntime-web (Web)
 
       # Optional — text embeddings (EmbeddingGemma / Gecko via flutter_gemma_litertlm's
       # LiteRtEmbeddingBackend — see the "Inference engines" section above) + on-device RAG:
@@ -197,7 +200,7 @@ model formats and features you need.
     |---|---|
     | Run `.litertlm` models (Gemma 4, Qwen3, FastVLM, + all desktop) | `flutter_gemma_litertlm` |
     | Run `.task` / `.bin` models (Gemma3n, Gemma 3, DeepSeek, Qwen 2.5, Phi-4) | `flutter_gemma_mediapipe` |
-    | Run ONNX models via ORT-GenAI (macOS/Linux/Windows/Android arm64, iOS sim) | `flutter_gemma_onnx` |
+    | Run ONNX models — ORT-GenAI (macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) | `flutter_gemma_onnx` |
     | Generate text embeddings | `flutter_gemma_litertlm` (`LiteRtEmbeddingBackend`) |
     | Generate text embeddings from ONNX/ORT models | `flutter_gemma_onnx` (`OnnxEmbeddingBackend`) |
     | On-device RAG on native (fastest on Android/iOS/desktop) | `flutter_gemma_rag_qdrant` |
@@ -370,6 +373,28 @@ script(s) for the **engine package(s) you use** to your `web/index.html`.
     const m = await import('https://cdn.jsdelivr.net/npm/@litert-lm/core@0.14.0/+esm');
     window.Engine = m.Engine;
     return m.Engine;
+  })();
+  </script>
+```
+
+* **`flutter_gemma_onnx`** (ONNX models on web) — generation runs on
+  Transformers.js, embeddings on onnxruntime-web. Add the shim for whichever
+  arm(s) you register:
+```html
+  <script type="module">
+  window.transformersReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0');
+    window.transformers = m;
+    return m;
+  })();
+  </script>
+
+  <script type="module">
+  window.ortReady = (async () => {
+    const m = await import('https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/ort.bundle.min.mjs');
+    m.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/';
+    window.ort = m;
+    return m;
   })();
   </script>
 ```
@@ -901,9 +926,9 @@ void main() async {
 | `inferenceEngines: [LiteRtLmEngine()]` | `flutter_gemma_litertlm` | `.litertlm` (mobile + desktop + web) |
 | `inferenceEngines: [MediaPipeEngine()]` | `flutter_gemma_mediapipe` | `.task` / `.bin` (mobile + web) |
 | `inferenceEngines: [BuiltInAiEngine()]` | `flutter_gemma_builtin_ai` | OS system models — Gemini Nano (Android) / Apple FM (iOS 26+/macOS) |
-| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models via ORT-GenAI (FFI; macOS/Linux/Windows/Android arm64, iOS sim) |
+| `inferenceEngines: [OnnxEngine()]` | `flutter_gemma_onnx` | ONNX models — ORT-GenAI (FFI; macOS/Linux/Windows/Android/iOS arm64) or Transformers.js (Web) |
 | `embeddingBackends: [LiteRtEmbeddingBackend()]` | `flutter_gemma_litertlm` | text embeddings |
-| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI) |
+| `embeddingBackends: [OnnxEmbeddingBackend()]` | `flutter_gemma_onnx` | text embeddings from ONNX/ORT models (FFI native; onnxruntime-web on Web) |
 | `sttBackends: [LiteRtSttBackend()]` | `flutter_gemma_speech` | speech-to-text (native only) |
 | `ttsBackends: [LiteRtTtsBackend()]` | `flutter_gemma_speech` | text-to-speech (native only) |
 | `vectorStore: QdrantVectorStore()` | `flutter_gemma_rag_qdrant` | native RAG |
@@ -1066,7 +1091,40 @@ Downloads models from HTTP/HTTPS URLs with full progress tracking and authentica
 - ✅ Smart retry logic with exponential backoff
 - ✅ Background downloads on mobile
 - ✅ Cancellable downloads with CancelToken
-- ✅ **Android foreground service** for large downloads (>500MB)
+- ✅ **Android foreground service** for large downloads (opt in with `foreground: true`)
+- ✅ **Coexists with your own `background_downloader` usage** (see below)
+
+**Sharing `background_downloader` with your app.** flutter_gemma downloads
+through `background_downloader`, but it does **not** listen to
+`FileDownloader().updates` — that is a single-subscription stream, and claiming
+it would make every later `FileDownloader().updates.listen(...)` in your app
+throw *"Stream has already been listened to"*. Instead it registers callbacks
+scoped to its own task group, so the stream stays yours:
+
+```dart
+// Yours — unaffected by flutter_gemma, and unaffected by it in reverse.
+FileDownloader().updates.listen((update) { /* your own tasks */ });
+```
+
+**Download priority** used to be `10` — the *lowest* in `background_downloader`,
+whose range is `0..10` with 0 best. On iOS that mapped to a raw URLSession
+priority of `0.0`, below `URLSessionTask.lowPriority`, for a multi-gigabyte
+download the user is watching; it is now `0`.
+
+On Android it is now `5`, the package default, rather than `10` — a change with
+no observable effect there, which is the point. Android uses priority only for
+the holding queue (which this package does not enable) and for
+`expedited = priority < 5`, and expedited is the wrong trade for a
+multi-gigabyte transfer twice over:
+
+- it **shortens** the OS execution guarantee — `JobSchedulerService` gives a
+  regular job 10 minutes and an expedited one 3, and AOSP's own comment says
+  expedited jobs "shouldn't be used for long pieces of work";
+- and it currently hangs the download: `background_downloader` survives
+  WorkManager's 9-minute cap by re-enqueuing with a 1-second delay, and an
+  expedited request cannot carry a delay — `WorkRequest.Builder.build()` throws,
+  the throw is logged and swallowed, and the download stops at nine minutes with
+  no error. That is the package's own open PR #709.
 
 **Example:**
 ```dart
@@ -1094,12 +1152,12 @@ await FlutterGemma.installModel(
 
 **Android Foreground Service (Large Downloads):**
 
-Android has a 9-minute background execution limit. For large models (>500MB), you can use foreground service mode, which shows a notification and exempts the download from battery-optimization kills (note: it does not raise WorkManager's own 9-minute task timeout — see `DOWNLOAD_TESTING.md`):
+Android has a 9-minute background execution limit. For large models you can opt into foreground service mode, which shows a notification and exempts the download from battery-optimization kills (note: it does not raise WorkManager's own 9-minute task timeout — see `DOWNLOAD_TESTING.md`):
 
 ```dart
-// Auto-detect based on file size (>500MB = foreground) - DEFAULT
+// DEFAULT - no foreground service; pass foreground: true to get one
 await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
-  .fromNetwork(url)  // foreground: null (auto-detect)
+  .fromNetwork(url)  // foreground: null
   .install();
 
 // Force foreground mode (always show notification)
@@ -1114,7 +1172,7 @@ await FlutterGemma.installModel(modelType: ModelType.gemmaIt)
 ```
 
 **Foreground Parameter:**
-- `null` (default): Auto-detect based on file size. Files >500MB use foreground service (no notification — pass `foreground: true` explicitly if you want one).
+- `null` (default): **no foreground service.** This branch configures no notification, and `background_downloader` only calls `setForeground()` once a running notification exists — so the size threshold alone never starts one. As of 1.6.3 this branch also no longer writes `runInForegroundIfFileLargerThan`, which is a process-wide, reboot-surviving setting shared with your own downloads.
 - `true`: Always use foreground service (shows notification)
 - `false`: Never use foreground service
 
@@ -1653,6 +1711,14 @@ final results = await FlutterGemmaPlugin.instance.searchSimilar(
   ),
 );
 ```
+
+A field name is checked by the store, in `configure()`. `SqliteVectorStore` is
+the strict one — `^[A-Za-z][A-Za-z0-9_]*$`, and not a name `vec0` already uses
+(`id`, `embedding`, `content`, `metadata`, `distance`, `k`) — because the name
+becomes a real column in a DDL with no quoted-identifier form.
+`QdrantVectorStore` takes free-form UTF-8 keys, minus `.` which it reads as a
+nested path. So the portable set is sqlite's; a duplicate or empty name is
+rejected on any store.
 
 `Filter` supports `must` / `should` / `mustNot` lists of `FieldEquals`, `FieldRange`, `FieldMatchAny` conditions. Both backends honor it: qdrant-edge natively, and the `sqlite-vec`/`vec0` store on all platforms incl. Web (one `Filter` → vec0 declared-column `WHERE`). Filterable fields must be declared as vec0 columns.
 

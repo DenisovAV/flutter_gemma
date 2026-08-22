@@ -262,7 +262,7 @@ For development, prefer an Apple Silicon Mac — the Android emulator runs `arm6
 * [There is an article that described all approaches](https://medium.com/@denisov.shureg/fine-tuning-gemma-with-lora-for-on-device-inference-android-ios-web-with-separate-lora-weights-f05d1db30d86)
 2. **Platform specific setup:**
 
-**iOS** — required by any inference engine package (`flutter_gemma_litertlm` and/or `flutter_gemma_mediapipe`)
+**iOS** — required by any engine package: `flutter_gemma_litertlm`, `flutter_gemma_mediapipe` and/or `flutter_gemma_builtin_ai`
 
 * **Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
   `flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core,

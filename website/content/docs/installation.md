@@ -152,8 +152,8 @@ Complete platform-specific setup before using the plugin.
 
 ### iOS
 
-Required by any inference engine package (`flutter_gemma_litertlm` and/or
-`flutter_gemma_mediapipe`).
+Required by any engine package: `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`
+and/or `flutter_gemma_builtin_ai`.
 
 **Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
 `flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core, `flutter_gemma_litertlm`,
@@ -227,6 +227,12 @@ keeps `Runner.app/Frameworks/` App-Store-clean (fixes ITMS-90432).
 </Info>
 
 ### Android
+
+**Add-to-app hosts must declare the Kotlin Gradle Plugin themselves.** Flutter
+auto-applies KGP to plugin modules only when the host provides it, so a Java-only native
+host fails with `Could not find method kotlin()`. Add KGP to the host's root
+`buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's own
+Gradle plugin carries KGP.
 
 **GPU (any engine):** if you want to run on the GPU, add OpenCL support to the
 manifest. Required by both inference engines. CPU-only? Skip this step. Add the

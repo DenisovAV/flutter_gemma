@@ -34,9 +34,10 @@ Both formats require **manual chat template formatting** in your code.
 
 ### Type 3: System OS models (no file)
 
-- **Gemini Nano** (Android, via AICore / ML Kit GenAI) and **Apple Foundation
-  Models** (iOS 26+/macOS) are **built into the OS** — there is no model file to
-  bundle or download; the OS owns the weights.
+- **Gemini Nano** (Android, via AICore / ML Kit GenAI), **Apple Foundation
+  Models** (iOS 26+/macOS), and **Gemini Nano via the Chrome Prompt API** (Web —
+  desktop Chrome/Edge) are **built into the OS/browser** — there is no model file
+  to bundle or download; the platform owns the weights.
 - Add [`flutter_gemma_builtin_ai`](/docs/packages) and register `BuiltInAiEngine()`.
   Use `ModelFileType.builtIn` (the engine's `BuiltInAiModels.geminiNano` /
   `.appleFoundationModels` specs set it for you). Chat templates are handled by

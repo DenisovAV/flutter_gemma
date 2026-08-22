@@ -56,6 +56,10 @@ There is an example of using:
 - **🔐 Typed Download Errors:** Catch the public `DownloadException` sealed type (401/403/404/429/5xx) for gated HuggingFace models instead of substring-matching error strings
 - **💾 Web Persistent Caching:** Models persist across browser restarts — Cache API for models <2GB, OPFS streaming for large ones (>2GB, e.g. Gemma 4 E4B) — no re-download on reload (Web only)
 
+## What's new in 1.6.4
+
+- 📱 **iOS deployment floor lowered to 15.0** — core, built-in AI and embeddings build from iOS 15.0 (only `flutter_gemma_mediapipe` still needs 16.0). Every OS-26-only Foundation Models call is `#available`-guarded ([#441](https://github.com/DenisovAV/flutter_gemma/issues/441)).
+
 ## What's new in 1.6.3
 
 - 📥 **flutter_gemma no longer claims `background_downloader`'s updates stream** — depending on this package used to make `FileDownloader().updates` unusable for your own downloads, because that stream takes a single subscription. Updates are now scoped to flutter_gemma's own task group ([#445](https://github.com/DenisovAV/flutter_gemma/issues/445)). Download priority is also corrected per platform.

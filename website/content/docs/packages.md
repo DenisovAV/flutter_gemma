@@ -16,7 +16,7 @@ ships only the native weight it actually uses. All packages live in one monorepo
 | **`flutter_gemma`** | Core — registry, contracts, model management, sessions, chat. No engine on its own. **Always required.** | All |
 | **`flutter_gemma_litertlm`** | `.litertlm` inference via `dart:ffi` (LiteRT-LM C API). Owns the shared native library. | Mobile + Desktop + Web |
 | **`flutter_gemma_mediapipe`** | `.task` / `.bin` inference via MediaPipe. | Mobile + Web |
-| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore) + Apple Foundation Models (iOS 26+/macOS). No model file to bundle or download. | Android + iOS + macOS |
+| **`flutter_gemma_builtin_ai`** | System OS models — Gemini Nano (Android / AICore), Apple Foundation Models (iOS 26+/macOS), and Gemini Nano via the Chrome Prompt API (Web). No model file to bundle or download. | Android + iOS + macOS + Web |
 | **`flutter_gemma_onnx`** | Text generation (`OnnxEngine`) + embeddings (`OnnxEmbeddingBackend`) — ORT-GenAI/ORT via `dart:ffi` on native, Transformers.js/onnxruntime-web on Web. | macOS, Linux, Windows, Android, iOS (arm64) + Web |
 | **`flutter_gemma_embeddings`** | Runtime-agnostic text-embedding pipeline (tokenizer, pooling, isolate worker). Needs a backend — `LiteRtEmbeddingBackend` (`flutter_gemma_litertlm`) or `OnnxEmbeddingBackend` (`flutter_gemma_onnx`). | All |
 | **`flutter_gemma_rag_qdrant`** | On-device RAG vector store (qdrant-edge, native Rust FFI). Fastest on native. | Native (no Web) |

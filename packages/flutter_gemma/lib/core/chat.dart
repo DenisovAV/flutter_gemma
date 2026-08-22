@@ -41,6 +41,21 @@ class InferenceChat {
   /// an O(tools) allocation on the hottest generation loop.
   late final List<Tool> tools = UnmodifiableListView(_tools);
 
+  /// Engine-supplied override for [runtimeInjectsToolDeclarations]; `null` means
+  /// "derive from the model's function-call format".
+  final bool? _runtimeInjectsToolDeclarationsOverride;
+
+  /// Whether the runtime/SDK injects the tool declarations itself, so this chat
+  /// must NOT weave its own JSON tools prompt (that would double-wrap them). The
+  /// engine's explicit override wins; absent one it derives from the model's
+  /// [FunctionCallFormat] (true for SDK-passthrough models like Gemma 4). This
+  /// replaces the former hardcoded `modelType == ModelType.gemma4` check, so an
+  /// engine that injects tools natively (e.g. the web Prompt API) can opt in for
+  /// any model type.
+  late final bool runtimeInjectsToolDeclarations =
+      _runtimeInjectsToolDeclarationsOverride ??
+      FunctionCallParser.runtimeInjectsToolDeclarations(modelType);
+
   /// Serializes genai_primitives sendMessage/generateContent calls so
   /// concurrent turns can't interleave staging into the shared session buffer.
   ///
@@ -77,9 +92,11 @@ class InferenceChat {
         ModelFileType.task, // Default to task for backward compatibility
     this.toolChoice =
         ToolChoice.auto, // Default to auto for backward compatibility
+    bool?
+    runtimeInjectsToolDeclarations, // engine override; null → derive from format
     String?
     systemInstruction, // kept for API compatibility, forwarded to session via sessionCreator
-  });
+  }) : _runtimeInjectsToolDeclarationsOverride = runtimeInjectsToolDeclarations;
 
   List<Message> get fullHistory => List.unmodifiable(_fullHistory);
 
@@ -102,9 +119,11 @@ class InferenceChat {
 
     // Only add tools prompt for the first user text message (not a tool response)
     // and only if the model supports function calls.
-    // Gemma 4 is exempt: SDK renders <|tool>declaration:...<tool|> from
-    // tools_json passed at conversation creation, so a Dart-side prompt
-    // injection would double-wrap the tools.
+    // Runtime-injected declarations are exempt: when the runtime/SDK renders the
+    // tools itself (Gemma 4's `tools_json` at conversation creation; the web
+    // Prompt API's native `tools`), a Dart-side prompt injection would
+    // double-wrap them. Gated on [runtimeInjectsToolDeclarations], not a
+    // hardcoded model type.
     if (message.isUser &&
         message.type == MessageType.text &&
         !_toolsInstructionSent &&
@@ -112,7 +131,7 @@ class InferenceChat {
         !noTool &&
         supportsFunctionCalls &&
         toolChoice != ToolChoice.none &&
-        modelType != ModelType.gemma4) {
+        !runtimeInjectsToolDeclarations) {
       _toolsInstructionSent = true;
       final toolsPrompt = createToolsPrompt();
 
@@ -177,10 +196,12 @@ class InferenceChat {
       fileType: fileType,
     );
 
-    // Gemma 4 path: SDK already parsed `<|tool_call>...<tool_call|>` into
-    // structured `tool_calls` JSON. Read it from session.lastRawResponse
-    // before falling back to the legacy regex parser on cleanedResponse.
-    if (modelType == ModelType.gemma4 &&
+    // SDK-passthrough path (today: Gemma 4): the SDK already parsed
+    // `<|tool_call>...<tool_call|>` into structured `tool_calls` JSON. Read it
+    // from session.lastRawResponse before falling back to the legacy regex
+    // parser on cleanedResponse. Keyed off the format (mirrors the streaming
+    // path below), not a hardcoded model type.
+    if (FunctionCallParser.usesSdkPassthrough(modelType) &&
         tools.isNotEmpty &&
         supportsFunctionCalls &&
         toolChoice != ToolChoice.none &&

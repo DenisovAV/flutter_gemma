@@ -78,7 +78,7 @@
 | Platform | Vision/Multimodal | Audio | Embeddings | Notes |
 |----------|-------------------|-------|------------|-------|
 | Android | ✅ | ✅ | ✅ | Full support |
-| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). Setup via Podfile `post_install` (creates `lib*.dylib` symlinks next to bundled frameworks) |
+| iOS Device | ✅ | ✅ | ✅ | GPU via Metal delegate (FFI). No host-side Podfile `post_install` since 0.14.1 — accelerators load by full `@executable_path/Frameworks/<X>.framework/<X>` path; the old `lib*.dylib` symlinks caused ITMS-90432 (#245) |
 | iOS Simulator | ❌ GPU | ❌ GPU | ✅ | CPU only — Metal sim has 256 MB single-allocation cap, LLM weights exceed |
 | Web | ✅ | ❌ | ✅ | MediaPipe only |
 | macOS | ✅ | ✅ LiteRT-LM only | ✅ | Vision + audio verified on Metal (Gemma 4 + Gemma 3n); Gemma 3n audio GPU is ~2× faster than CPU |
@@ -138,18 +138,18 @@ Core has NO pigeon (dropped at the 1.0 cut; its value types are hand-written in 
 
 - **Flutter**: `>=3.44.0` (raised at the 1.0 cut: `large_file_handler` 0.5.0 + dart2wasm need it)
 - **Dart SDK**: `>=3.12.0 <4.0.0`
-- **iOS**: Minimum 16.0
+- **iOS**: Minimum 15.0; **16.0 only with `flutter_gemma_mediapipe`** (MediaPipe GenAI). Core, litertlm, built-in AI and embeddings build from 15 (#441)
 - **MediaPipe Web**: v0.10.27, Android/iOS: v0.10.33
 - **LiteRT-LM**: native libs from `native-v0.16.0` GitHub Release (LiteRT-LM pin `924e79c9`, LiteRT pin `0ff28117`). Android tarball bundles the Qualcomm QNN dispatch stack and Windows tarball bundles Intel NPU dispatch (`LiteRtDispatch.dll` + OpenVino runtime + TBB) for `PreferredBackend.npu` (Qualcomm Snapdragon / Intel LunarLake/PantherLake) — both dispatch libs are **rebuilt from the pin every release**; carrying them forward is what silently broke NPU on both platforms (see the `build-native` skill). v0.16.0: fixes the Android OpenCL per-turn memory leak (LiteRT-LM #2699, #348/#402); v0.15.0 **broke the stream-callback ABI** (4-arg → 2-arg chunk object) with no compat path, handled by a runtime probe in `stream_proxy.c`. Windows discrete GPU works again — the crash was our own dead `litert_link_capi_so` Bazel define, not an upstream regression (#2957 retracted).
 - **large_file_handler**: `^0.5.0` (core dep; 0.5.0 declares all 6 platforms — needed for pana platform support + the dart2wasm-clean web graph)
-- **Current Version**: core `flutter_gemma` `1.6.3`, `flutter_gemma_rag_sqlite` `1.2.0`, `flutter_gemma_rag_qdrant` `1.2.0`; `flutter_gemma_litertlm` `1.5.2`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.1.0`, `flutter_gemma_onnx` `0.3.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
+- **Current Version**: core `flutter_gemma` `1.6.5`, `flutter_gemma_rag_sqlite` `1.2.0`, `flutter_gemma_rag_qdrant` `1.2.0`; `flutter_gemma_litertlm` `1.5.2`, `flutter_gemma_mediapipe` `1.0.5`, `flutter_gemma_embeddings` `2.0.0`, `flutter_gemma_speech` `0.4.3`; `flutter_gemma_agent` `0.2.5`, `flutter_gemma_builtin_ai` `0.2.0`, `flutter_gemma_onnx` `0.3.0`; `genkit_flutter_gemma` `0.5.0`, `genkit_hybrid` `0.1.1`
 - **0.15.2**: embedding unified on LiteRT C API via Dart FFI on all native platforms (Android + iOS + Desktop). Drops `localagents-rag` JVM dep on Android and the separate TFLite C 0.12.7 tarball on Desktop; `TensorFlowLiteC` pod no longer needed on iOS. Single source of truth for `TaskType.prefix` in Dart, fixes cross-platform embedding drift (#264).
 
 ## Platform-Specific Setup
 
 ### iOS
 ```ruby
-platform :ios, '16.0'
+platform :ios, '15.0'   # 16.0 if the app uses flutter_gemma_mediapipe
 use_frameworks! :linkage => :static
 ```
 Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
@@ -166,6 +166,15 @@ Entitlements needed: `extended-virtual-addressing`, `increased-memory-limit`
 <uses-native-library android:name="libOpenCL-pixel.so" android:required="false"/>
 ```
 
+- **The plugins do NOT apply KGP** (#440). `flutter_gemma`, `flutter_gemma_mediapipe` and
+  `flutter_gemma_builtin_ai` declare no `kotlin-android`, no `ext.kotlin_version`, no KGP
+  classpath. Flutter's own Gradle plugin applies `kotlin-android` to any plugin subproject
+  that doesn't (`FlutterPluginUtils.detectApplyingKotlinGradlePlugin`), which is what makes
+  `flutter: '>=3.44.0'` load-bearing rather than cosmetic. Re-adding a version guard is the
+  #323/#360 regression, not a fix. `android.builtInKotlin=true` fails on AGP 9 for any app
+  that still has a plugin applying KGP itself — today nearly every app
+  (`shared_preferences`, `background_downloader`). A bare `flutter create` app with no
+  plugins builds fine. Not ours to fix; `false` is what Flutter's own migrator writes.
 - **`flutter_gemma_builtin_ai` requires `minSdk 26`** (ML Kit GenAI / AICore floor) — apps using that package must raise their `android/app/build.gradle(.kts)` `minSdk` to 26 or the manifest merger fails (`uses-sdk:minSdkVersion` conflict).
 
 ### Web

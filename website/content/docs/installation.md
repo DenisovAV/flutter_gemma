@@ -152,14 +152,27 @@ Complete platform-specific setup before using the plugin.
 
 ### iOS
 
-Required by any inference engine package (`flutter_gemma_litertlm` and/or
-`flutter_gemma_mediapipe`).
+Required by any engine package: `flutter_gemma_litertlm`, `flutter_gemma_mediapipe`
+and/or `flutter_gemma_builtin_ai`.
 
-**Set the minimum iOS version** in `Podfile`:
+**Set the minimum iOS version to 15.0** — or **16.0** if your app depends on
+`flutter_gemma_mediapipe`, which needs MediaPipe GenAI. Core, `flutter_gemma_litertlm`,
+built-in AI and embeddings build from 15.0. (Requires `flutter_gemma` 1.6.4 or newer;
+earlier versions declared 16.0.)
+
+**Where you set it depends on the dependency manager.** Swift Package Manager is the
+default since Flutter 3.44 (opt-in before that), and an SPM-only app has no `Podfile` at all — set **iOS
+Deployment Target** on the Runner target in Xcode, or the build fails with `requires
+minimum platform version 15.0 … but this target supports 13.0`.
+`flutter_gemma_mediapipe` ships no `Package.swift`, so an app using it also gets a
+`Podfile`; set the platform there as well:
 
 ```
-platform :ios, '16.0'  # Required for MediaPipe GenAI
+platform :ios, '16.0'   # 15.0 if the app does not use flutter_gemma_mediapipe
 ```
+
+Declare `platform` only once — CocoaPods rejects a second one with
+`Invalid Podfile file: The target 'Pods' already has a platform set`.
 
 **Change the linking type** of pods to static in `Podfile`:
 
@@ -214,6 +227,12 @@ keeps `Runner.app/Frameworks/` App-Store-clean (fixes ITMS-90432).
 </Info>
 
 ### Android
+
+**Add-to-app hosts must declare the Kotlin Gradle Plugin themselves.** Flutter
+auto-applies KGP to plugin modules only when the host provides it, so a Java-only native
+host fails with `Could not find method kotlin()`. Add KGP to the host's root
+`buildscript`/`plugins {}`. A normal `flutter build` app needs nothing — Flutter's own
+Gradle plugin carries KGP.
 
 **GPU (any engine):** if you want to run on the GPU, add OpenCL support to the
 manifest. Required by both inference engines. CPU-only? Skip this step. Add the

@@ -22,11 +22,22 @@ set -euo pipefail
 QDRANT_EDGE_VERSION="${QDRANT_EDGE_VERSION:-0.7.2}"
 ANDROID_API_LEVEL="${ANDROID_API_LEVEL:-24}"  # minSdk 24 matches flutter_gemma
 
-# iOS deployment target. Must match flutter_gemma's Podfile (platform :ios, '16.0').
+# iOS deployment target. Must match flutter_gemma's declared floor, which is
+# 15.0 since #441 (16.0 applies only to flutter_gemma_mediapipe).
 # Without this, cc-rs builds C deps (zstd_sys etc.) against the current Xcode
 # SDK but Rust links with the old default minos=10.0, producing undefined
-# symbols like __chkstk_darwin which only exist on iOS 12+.
-export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-16.0}"
+# symbols like __chkstk_darwin which only exist on iOS 12+ — so any value >= 12
+# satisfies the technical need; matching the plugin floor is the contract. This
+# is NOT cosmetic: vtool below rewrites the LC_BUILD_VERSION metadata to 13.0,
+# but the value here still decides which symbols rustc/cc-rs bind strongly, and
+# shipping a min-16 compile under a 15.0 podspec floor is the hazardous
+# direction.
+# NOTE: the published `qdrant-edge-v0.7.3` prebuilt was produced at 16.0, and the
+# artifact cannot show it (vtool overwrote LC_BUILD_VERSION). Checked at 0.7.3:
+# every undefined symbol in the shipped dylib predates iOS 13 and none is weak,
+# so that build is safe under the 15.0 floor — this change matters for the NEXT
+# rebuild. Delete this note once a tag after 0.7.3 is built.
+export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-15.0}"
 
 # qdrant-edge 0.7+ uses features stabilized in Rust 1.95.0 (cfg_select,
 # if_let_guard, ptr_as_ref_unchecked). On macOS, Homebrew rustc may lag behind
@@ -76,8 +87,8 @@ build_ios_device() {
     # Normalize iOS minos -> 13.0 to match the MinimumOSVersion Flutter Native
     # Assets hardcodes into the framework wrapper Info.plist. Without this, App
     # Store Connect rejects the archive with ITMS-90208 because the binary minos
-    # (16.0, from IPHONEOS_DEPLOYMENT_TARGET above) differs from the wrapper's
-    # 13.0. The real iOS 16+ floor is enforced by the podspec, not this metadata.
+    # (from IPHONEOS_DEPLOYMENT_TARGET above) differs from the wrapper's 13.0.
+    # The real floor is enforced by the podspec, not this metadata.
     # Same patch as native/litert_lm/build_ios.sh. See #245, #286.
     vtool -set-build-version ios 13.0 18.5 -replace \
         -output "$out/libqdrant_edge_ffi.dylib" "$out/libqdrant_edge_ffi.dylib"

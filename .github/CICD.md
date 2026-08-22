@@ -147,7 +147,7 @@ flutter test --coverage
 - Check Android dependencies in `example/android/build.gradle`
 
 **iOS build fails:**
-- Check minimum iOS version (16.0)
+- Check minimum iOS version (15.0, or 16.0 with `flutter_gemma_mediapipe`)
 - Verify CocoaPods dependencies
 - May need macOS runner adjustments
 

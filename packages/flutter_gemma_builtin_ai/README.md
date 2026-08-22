@@ -15,7 +15,7 @@ turned on (and downloaded, the first time it's used).
 | Platform | Model | Minimum devices | Notes |
 |----------|-------|------------------|-------|
 | Android | Gemini Nano (ML Kit GenAI / AICore) | Pixel 9+, Galaxy S25+ | Best experience on Pixel 10. **Consumer apps require `minSdk 26`** (this package declares it; raise your app's `minSdk` to match). |
-| iOS / macOS | Apple Foundation Models | iPhone 15 Pro+, Apple Silicon (M-series) Macs | Requires Apple Intelligence enabled in **Settings → Apple Intelligence & Siri**. |
+| iOS / macOS | Apple Foundation Models | iPhone 15 Pro+, Apple Silicon (M-series) Macs | Requires Apple Intelligence enabled in **Settings → Apple Intelligence & Siri**. Builds from **iOS 15.0** / macOS 10.15 — every Foundation Models call is availability-gated, so the package links and runs below OS 26 and simply reports unavailable. |
 | Web | Gemini Nano (Chrome **Prompt API**) | Desktop Chrome/Chromium-Edge only | **Not** Chrome-Android/iOS, **not** Firefox/Safari. Floor: ~22 GB free disk + a GPU with >4 GB VRAM (or a 16 GB-RAM CPU-only path). See [Web setup](#web-setup) — the feature is gated behind an origin trial or a local flag as of this writing. |
 
 Vision (image input) requires **OS 27+** on Apple platforms — on OS 26 Apple Foundation Models is
@@ -122,11 +122,14 @@ equivalent) and is not yet exposed by this package — tracked as a follow-up.
 
 "Prompt-based" function calling means tool definitions are woven into the prompt (by core
 `InferenceChat`) rather than using a native structured tool-calling API — the OS models don't
-expose one. On **Web** specifically, Chrome's Prompt API has **no native tool/function-calling**
-in the stable channel (verified Chrome 151, Aug 2026 — `create({tools})` is silently ignored, no
-enabling flag; function calling is still being explored upstream), so it necessarily goes through
-the prompt-based path, which Gemini Nano handles for single-turn calls. Multi-turn agent chaining
-is not supported on Web (see `flutter_gemma_agent`).
+expose a usable one. On **Web**, Chrome's Prompt API native tool use is **experimental and not
+production-usable** (verified Chrome 151, Aug 2026): the `tools` option in `create()` is only
+accepted behind `chrome://flags/#enable-experimental-web-platform-features`, the structured
+`tool-call` output modality still fails `create()`, there is no auto-execute, and even when
+accepted the model does not reliably route to the declared tools (it falls back to a built-in
+`google_search` pattern or answers as plain text). Function calling therefore goes through the
+prompt-based path, which Gemini Nano handles for single-turn calls. Multi-turn agent chaining is
+not supported on Web (see `flutter_gemma_agent`).
 
 ## Troubleshooting
 

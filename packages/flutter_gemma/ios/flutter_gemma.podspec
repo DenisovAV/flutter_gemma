@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'flutter_gemma'
-  s.version          = '1.6.3'
+  s.version          = '1.6.5'
   s.summary          = 'Flutter plugin for running Gemma and other LLMs locally on iOS.'
   s.description      = <<-DESC
 Core runtime for running Gemma 4, Gemma3n, Gemma 3, FastVLM, Qwen3,
@@ -22,7 +22,15 @@ text embeddings, and on-device RAG.
   # the companion Package.swift gives SPM consumers the same sources.
   s.source_files = 'flutter_gemma/Sources/flutter_gemma/**/*.swift'
   s.dependency 'Flutter'
-  s.platform = :ios, '16.0'
+  # iOS 15.0 (#441). The 16.0 this replaces was MediaPipe GenAI's, and MediaPipe
+  # has lived in flutter_gemma_mediapipe since the 1.0 split — that package still
+  # declares 16.0 in its own podspec.
+  # Nothing in this package requires 15: its Swift is plain Foundation. Measured at
+  # #441 — the highest floor in the transitive native graph was background_downloader's
+  # 14.0, and Flutter 3.44's own template floor was 13.0. 15.0 is a deliberate choice:
+  # it matches flutter_gemma_builtin_ai, where 15 IS the lowest free floor (Swift
+  # Concurrency), and the iOS 26 SDK's RecommendedDeploymentTarget. Not a requirement.
+  s.platform = :ios, '15.0'
 
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES'

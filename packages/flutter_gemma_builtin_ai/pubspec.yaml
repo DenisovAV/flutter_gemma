@@ -16,7 +16,11 @@ dependencies:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
-  flutter_gemma: ^1.3.0
+  # ^1.6.4, not ^1.3.0: this package declares an iOS 15.0 floor (#441), and both
+  # dependency managers REJECT an app target below any dependency's floor — so
+  # with core <=1.6.3 (still 16.0) an app could never actually reach 15.0.
+  # This makes core 1.6.4 a publish PREREQUISITE for this version.
+  flutter_gemma: ^1.6.4
   plugin_platform_interface: ^2.0.2
   meta: ^1.15.0
 

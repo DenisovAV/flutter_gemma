@@ -101,10 +101,15 @@ Kotlin exists in exactly three packages; confirm with
   `minSdkVersion 26`; an app on a lower floor fails the manifest merger.
 
 CHECKLIST
-1. GRADLE GUARD DUPLICATION: the AGP-9 Kotlin guard must read
-   `agpMajor < 9 || !builtInKotlinOn` in ALL THREE android/build.gradle files. A
-   version-only `agpMajor < 9` reintroduces #360. Grep all three; a fix in one is
-   a half-fix that ships under its own version number.
+1. NO KGP IN THE PLUGINS: since #440 none of the THREE android/build.gradle
+   files applies `kotlin-android`, declares `ext.kotlin_version`, or carries the
+   KGP classpath. Flutter's own Gradle plugin applies KGP to any plugin
+   subproject that does not (FlutterPluginUtils `detectApplyingKotlinGradlePlugin`),
+   which is why `flutter: '>=3.44.0'` is load-bearing. Re-adding a guard like the
+   old `agpMajor < 9 || !builtInKotlinOn` is a REGRESSION, not a fix. What still
+   matters is the #360 lesson: the `kotlin { compilerOptions { jvmTarget } }` block
+   and its comment must be byte-identical in all three — a fix in one is a half-fix
+   that ships under its own version number.
 2. MANIFEST: the `<uses-native-library>` entries (libOpenCL.so, -car, -pixel,
    libvndksupport.so, libcdsprpc.so) live in the CORE plugin manifest and merge
    into consumer apps. libvndksupport is load-bearing for the OpenCL ICD on
@@ -144,8 +149,10 @@ CHECKLIST
 2. Podspec versions: four first-party podspecs exist and drift independently —
    core ios, core macos, mediapipe ios, builtin_ai darwin. Each must match its
    OWN package version.
-3. iOS floor is 16.0 and it comes from the CORE podspec, so it applies to a
-   litertlm-only app too.
+3. iOS floor since #441: core and builtin_ai declare 15.0; only
+   flutter_gemma_mediapipe declares 16.0. A litertlm-only app is NOT held to 16 —
+   that was the bug. Both the podspec and the Package.swift must carry the same
+   number for a package that has both (mediapipe has no Package.swift).
 4. Entitlements: extended-virtual-addressing and increased-memory-limit for large
    models; on macOS `cs.disable-library-validation` is required for dlopen of the
    ad-hoc-signed companion frameworks — and it must be in BOTH DebugProfile and

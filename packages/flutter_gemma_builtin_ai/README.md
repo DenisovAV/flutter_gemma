@@ -15,7 +15,7 @@ turned on (and downloaded, on Android, the first time it's used).
 | Platform | Model | Minimum devices | Notes |
 |----------|-------|------------------|-------|
 | Android | Gemini Nano (ML Kit GenAI / AICore) | Pixel 9+, Galaxy S25+ | Best experience on Pixel 10. **Consumer apps require `minSdk 26`** (this package declares it; raise your app's `minSdk` to match). |
-| iOS / macOS | Apple Foundation Models | iPhone 15 Pro+, Apple Silicon (M-series) Macs | Requires Apple Intelligence enabled in **Settings → Apple Intelligence & Siri**. |
+| iOS / macOS | Apple Foundation Models | iPhone 15 Pro+, Apple Silicon (M-series) Macs | Requires Apple Intelligence enabled in **Settings → Apple Intelligence & Siri**. Builds from **iOS 15.0** / macOS 10.15 — every Foundation Models call is availability-gated, so the package links and runs below OS 26 and simply reports unavailable. |
 
 Vision (image input) requires **OS 27+** on Apple platforms — on OS 26 Apple Foundation Models is
 **text-only**; sending an image throws a platform error instead of being silently ignored. Android

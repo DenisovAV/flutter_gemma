@@ -7,7 +7,7 @@ import PackageDescription
 let package = Package(
   name: "flutter_gemma",
   platforms: [
-    .iOS("16.0"),
+    .iOS("15.0"),
   ],
   products: [
     // type: .static — Flutter's generated plugin package is static; without it
